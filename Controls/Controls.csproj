@@ -1,0 +1,297 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="3.5" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.30729</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Nexus.Client.Controls</RootNamespace>
+    <AssemblyName>Controls</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Debug\Controls.XML</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\ICSharpCode.TextEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Design" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AutosizeLabel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ColourPicker.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ColourPicker.Designer.cs">
+      <DependentUpon>ColourPicker.cs</DependentUpon>
+    </Compile>
+    <Compile Include="DetailsButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="DoubleBufferedListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="DropDownTabControl.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="DropDownTabControlDesigner.cs" />
+    <Compile Include="DropDownTabPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="DropDownTabPageCollectionEditor.cs" />
+    <Compile Include="ErrorContainer.cs" />
+    <Compile Include="ExtendedMessageBoxButtons.cs" />
+    <Compile Include="FileSelectionDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FileSelectionDialog.Designer.cs">
+      <DependentUpon>FileSelectionDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FileSystemTreeViewBase.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="FileSystemTreeNode.cs" />
+    <Compile Include="FileSystemTreeView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="FilteredFolderBrowserDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FilteredFolderBrowserDialog.Designer.cs">
+      <DependentUpon>FilteredFolderBrowserDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormattedLabel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="HtmlLabel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="IconListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ImagePreviewBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ImageViewer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ImageViewer.Designer.cs">
+      <DependentUpon>ImageViewer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="IStatusProviderAware.cs" />
+    <Compile Include="IViewModel.cs" />
+    <Compile Include="IXmlTreeNodeFormatter.cs" />
+    <Compile Include="MultiSelectTreeView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Comparer.cs" />
+    <Compile Include="PanelToolStrip.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="PanelToolStripItem.cs" />
+    <Compile Include="PromptDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PromptDialog.Designer.cs">
+      <DependentUpon>PromptDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="ExtendedMessageBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ExtendedMessageBox.Designer.cs">
+      <DependentUpon>ExtendedMessageBox.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ReorderableListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="RichTextEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="RichTextEditor.Designer.cs">
+      <DependentUpon>RichTextEditor.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SelectedDropDownTabPageConverter.cs" />
+    <Compile Include="SelectedVerticalTabPageConverter.cs" />
+    <Compile Include="SiteStatusProvider.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="StatusButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="VerticalTabButton.cs" />
+    <Compile Include="VerticalTabControl.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="VerticalTabControlDesigner.cs" />
+    <Compile Include="VerticalTabPage.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="VerticalTabPageCollectionEditor.cs" />
+    <Compile Include="VirtualFileSystemItem.cs" />
+    <Compile Include="VirtualFileSystemTreeView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="WizardControl.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="WizardControlDesigner.cs" />
+    <Compile Include="XmlCompletionData.cs" />
+    <Compile Include="XmlCompletionProvider.cs" />
+    <Compile Include="XmlEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="XmlFoldingStrategy.cs" />
+    <Compile Include="XmlFormattingStrategy.cs" />
+    <Compile Include="XmlParser.cs" />
+    <Compile Include="XmlTreeNode.cs" />
+    <Compile Include="XmlTreeView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="ColourPicker.resx">
+      <DependentUpon>ColourPicker.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FileSelectionDialog.resx">
+      <DependentUpon>FileSelectionDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FilteredFolderBrowserDialog.resx">
+      <DependentUpon>FilteredFolderBrowserDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ImageViewer.resx">
+      <DependentUpon>ImageViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="PromptDialog.resx">
+      <DependentUpon>PromptDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Util\Util.csproj">
+      <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
+      <Name>Util</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\arrow_down_black_small.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\arrow_up_black_small.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Folder_Open.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Hard_Drive.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\boldhs.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\ItalicHS.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\underline.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\strikeout.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\justify_centre.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\justify_left.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\justify_right.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\application-xhtml+xml.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\PropertiesHH.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\VSObject_EnumItem.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\info.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\error.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\help.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Warning.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\close.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\close_hot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\open.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\open_hot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\zoom-original.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\zoom-fit-best-2.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
