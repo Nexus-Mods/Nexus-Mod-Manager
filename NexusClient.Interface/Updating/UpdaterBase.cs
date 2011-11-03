@@ -189,7 +189,6 @@ namespace Nexus.Client.Updating
 		/// <summary>
 		/// Performs the update.
 		/// </summary>
-		/// <param name="p_strError">The error message, if an error occurred.</param>
 		/// <returns><c>true</c> if the update completed successfully;
 		/// <c>false</c> otherwise.</returns>
 		public abstract bool Update();
