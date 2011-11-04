@@ -16,7 +16,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 	/// </remarks>
 	public class ModScriptType : IScriptType
 	{
-		private static List<string> m_lstFileNames = new List<string>() { "script" };
+		private static List<string> m_lstFileNames = new List<string>() { "script", "script.txt" };
 
 		#region IScriptType Members
 

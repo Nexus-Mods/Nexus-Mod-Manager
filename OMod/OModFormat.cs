@@ -107,12 +107,16 @@ namespace Nexus.Client.Mods.Formats.OMod
 				return FormatConfidence.Incompatible;
 			using (Archive arcMod = new Archive(p_strPath))
 			{
+				//full-on OMod
 				if (arcMod.ContainsFile("config") &&
 						(arcMod.ContainsFile("plugins.crc") ||
 						arcMod.ContainsFile("data.crc") ||
 						arcMod.ContainsFile("image") ||
 						arcMod.ContainsFile("readme") ||
 						arcMod.ContainsFile("script")))
+					return FormatConfidence.Match;
+				//OMod-ready archive
+				if (arcMod.ContainsFile("omod conversion data/config"))
 					return FormatConfidence.Match;
 			}
 			return FormatConfidence.Incompatible;

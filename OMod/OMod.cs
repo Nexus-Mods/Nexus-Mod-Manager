@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Xml;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Util;
 using SevenZip;
@@ -18,6 +17,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 	{
 		private const float FILE_BLOCK_EXTRACTION_PROGRESS_BLOCK_SIZE = 0.8f;
 		private const float FILE_WRITE_PROGRESS_BLOCK_SIZE = 0.15f;
+		private const string CONVERSION_FOLDER = "omod conversion data";
 
 		#region Events
 
@@ -28,12 +28,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 		#endregion
 
-		private static readonly List<string> SpecialFiles = new List<string>() { "image", "readme", "script" };
-
 		#region Fields
 
 		private string m_strFilePath = null;
 		private Archive m_arcFile = null;
+		private Archive m_arcCacheFile;
+		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private string m_strReadOnlyTempDirectory = null;
 
 		private bool m_booHasReadme = false;
@@ -182,7 +182,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			get
 			{
 				if ((m_ximScreenshot == null) && m_booHasScreenshot)
-					m_ximScreenshot = new ExtendedImage(GetSpecialFile("image"));
+					m_ximScreenshot = new ExtendedImage(GetSpecialFile(ScreenshotPath));
 				return m_ximScreenshot;
 			}
 			private set
@@ -268,7 +268,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		{
 			get
 			{
-				return m_booHasScreenshot ? "image" : null;
+				return m_booHasScreenshot ? (IsPacked ? "image" : "screenshot") : null;
 			}
 		}
 
@@ -289,6 +289,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// </summary>
 		/// <value>The format of the mod.</value>
 		public IModFormat Format { get; private set; }
+
+		/// <summary>
+		/// Gets whether the mod is a packed OMod, or an OMod-ready archive.
+		/// </summary>
+		/// <value>Whether the mod is a packed OMod, or an OMod-ready archive.</value>
+		public bool IsPacked { get; private set; }
 
 		/// <summary>
 		/// Gets or sets the type of compression used by the mod.
@@ -325,10 +331,96 @@ namespace Nexus.Client.Mods.Formats.OMod
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
 			ModName = Path.GetFileNameWithoutExtension(Filename);
+			bool p_booUseCache = true;
 
 			PluginList = new List<FileInfo>();
 			DataFileList = new List<FileInfo>();
 
+			IsPacked = !m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "config"));
+
+			if (!IsPacked)
+				InitializeUnpackedOmod(p_booUseCache, p_mcmModCacheManager, p_stgScriptTypeRegistry);
+			else
+				InitializePackedOmod(p_stgScriptTypeRegistry);
+		}
+
+		#endregion
+
+		#region Initialization
+
+		/// <summary>
+		/// Initializes an OMod in OMod-ready archive format.
+		/// </summary>
+		/// <param name="p_booUseCache">Whether to use the mod cache.</param>
+		/// <param name="p_mcmModCacheManager">The manager for the current game mode's mod cache.</param>
+		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
+		private void InitializeUnpackedOmod(bool p_booUseCache, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry)
+		{
+			if (p_booUseCache)
+			{
+				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(this);
+				//check to make sure the cache isn't bad
+				if ((m_arcCacheFile != null) && !m_arcCacheFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "config")))
+				{
+					//bad cache - clear it
+					m_arcCacheFile.Dispose();
+					m_arcCacheFile = null;
+				}
+			}
+
+			//check for script
+			m_booHasInstallScript = false;
+			foreach (IScriptType stpScript in p_stgScriptTypeRegistry.Types)
+			{
+				foreach (string strScriptName in stpScript.FileNames)
+				{
+					if (m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, strScriptName)))
+					{
+						m_booHasInstallScript = true;
+						m_stpInstallScriptType = stpScript;
+						break;
+					}
+				}
+				if (m_booHasInstallScript)
+					break;
+			}
+
+			//check for readme
+			m_booHasReadme = m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "readme"));
+
+			//check for screenshot
+			m_booHasScreenshot = m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "screenshot"));
+
+			if (p_booUseCache && (m_arcCacheFile == null) && (m_arcFile.IsSolid || m_arcFile.ReadOnly))
+			{
+				string strTmpInfo = p_mcmModCacheManager.FileUtility.CreateTempDirectory();
+				try
+				{
+					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(Path.Combine(CONVERSION_FOLDER, "config"))), GetSpecialFile("config"));
+
+					if (m_booHasReadme)
+						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(Path.Combine(CONVERSION_FOLDER, "readme"))), GetSpecialFile("readme"));
+
+					if (m_booHasScreenshot)
+						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(Path.Combine(CONVERSION_FOLDER, ScreenshotPath))), GetSpecialFile(ScreenshotPath));
+
+					m_arcCacheFile = p_mcmModCacheManager.CreateCacheFile(this, strTmpInfo);
+				}
+				finally
+				{
+					FileUtil.ForceDelete(strTmpInfo);
+				}
+			}
+
+			LoadInfo(GetSpecialFile("config"));
+		}
+
+		/// <summary>
+		/// Initializes an OMod in packed format.
+		/// </summary>
+		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
+		private void InitializePackedOmod(IScriptTypeRegistry p_stgScriptTypeRegistry)
+		{
 			using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
 			{
 				ExtractConfig(szeOmod);
@@ -364,10 +456,6 @@ namespace Nexus.Client.Mods.Formats.OMod
 				m_booHasScreenshot = szeOmod.ArchiveFileNames.Contains("image");
 			}
 		}
-
-		#endregion
-
-		#region Initialization
 
 		/// <summary>
 		/// Loads the mod metadata from the config file.
@@ -437,6 +525,13 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// </remarks>
 		public void BeginReadOnlyTransaction(FileUtil p_futFileUtil)
 		{
+			if (!IsPacked)
+			{
+				m_arcFile.ReadOnlyInitProgressUpdated += new CancelProgressEventHandler(ArchiveFile_ReadOnlyInitProgressUpdated);
+				m_arcFile.BeginReadOnlyTransaction(p_futFileUtil);
+				return;
+			}
+
 			m_strReadOnlyTempDirectory = p_futFileUtil.CreateTempDirectory();
 
 			string[] strFileStreamNames = { "plugins", "data" };
@@ -521,7 +616,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			Int32 intStepCounter = 1;
 			if (m_booHasScreenshot)
 			{
-				File.WriteAllBytes(Path.Combine(m_strReadOnlyTempDirectory, "screenshot"), GetSpecialFile("image"));
+				File.WriteAllBytes(Path.Combine(m_strReadOnlyTempDirectory, ScreenshotPath), GetSpecialFile(ScreenshotPath));
 				UpdateReadOnlyInitProgress(m_fltReadOnlyInitCurrentBaseProgress, 1f - m_fltReadOnlyInitCurrentBaseProgress, 1f / intRemainingSteps * intStepCounter++);
 			}
 			if (m_booHasInstallScript)
@@ -591,13 +686,72 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// </remarks>
 		public void EndReadOnlyTransaction()
 		{
+			if (!IsPacked)
+			{
+				m_arcFile.EndReadOnlyTransaction();
+				m_arcFile.ReadOnlyInitProgressUpdated -= new CancelProgressEventHandler(ArchiveFile_ReadOnlyInitProgressUpdated);
+			}
 			if (!String.IsNullOrEmpty(m_strReadOnlyTempDirectory))
 				FileUtil.ForceDelete(m_strReadOnlyTempDirectory);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Archive.ReadOnlyInitProgressUpdated"/> event of the mod's archive file.
+		/// </summary>
+		/// <remarks>
+		/// This raises the mod's <see cref="ReadOnlyInitProgressUpdated"/> event.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="CancelProgressEventArgs"/> describing the event arguments.</param>
+		private void ArchiveFile_ReadOnlyInitProgressUpdated(object sender, CancelProgressEventArgs e)
+		{
+			ReadOnlyInitProgressUpdated(this, e);
 		}
 
 		#endregion
 
 		#region Archive Interaction
+
+		/// <summary>
+		/// This finds where in the archive the FOMod file structure begins.
+		/// </summary>
+		/// <remarks>
+		/// This methods finds the path prefix to the folder containing the core files and folders of the FOMod. If
+		/// there are any files that are above the core folder, than they are given new file names inside the
+		/// core folder.
+		/// </remarks>
+		protected void FindPathPrefix()
+		{
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Archive.FilesChanged"/> event of the FOMod's archive.
+		/// </summary>
+		/// <remarks>
+		/// This ensures that the path prefix that points to the folder in the archive that contains the core files
+		/// and folders of the FOMod is updated when the archive changes.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void Archive_FilesChanged(object sender, EventArgs e)
+		{
+			FindPathPrefix();
+		}
+
+		/// <summary>
+		/// This method adjusts the given virtual path to the actual path to the
+		/// file in the mod.
+		/// </summary>
+		/// <remarks>
+		/// This method account for the virtual restructuring of the mod file structure performed by
+		/// <see cref="FindPathPrefix()"/>.
+		/// </remarks>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <returns>The adjusted path.</returns>
+		private string GetRealPath(string p_strPath)
+		{
+			return p_strPath;
+		}
 
 		/// <summary>
 		/// Determines if the OMod contains the given file.
@@ -608,9 +762,18 @@ namespace Nexus.Client.Mods.Formats.OMod
 		{
 			if (String.IsNullOrEmpty(p_strPath))
 				return false;
+
 			string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			strPath = strPath.Trim(Path.DirectorySeparatorChar);
 
+			if (!IsPacked)
+			{
+				if (m_dicMovedArchiveFiles.ContainsKey(strPath))
+					return true;
+				if (m_arcFile.ContainsFile(GetRealPath(strPath)))
+					return true;
+				return ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)));
+			}
 			if (PluginList.Contains(x => x.Name.Equals(strPath, StringComparison.OrdinalIgnoreCase)))
 				return true;
 			return DataFileList.Contains(x => x.Name.Equals(strPath, StringComparison.OrdinalIgnoreCase));
@@ -622,7 +785,14 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_strPath">The path of the file to delete.</param>
 		protected void DeleteSpecialFile(string p_strPath)
 		{
-			m_arcFile.DeleteFile(p_strPath);
+			string strPath = GetRealPath(IsPacked ? p_strPath : Path.Combine(CONVERSION_FOLDER, p_strPath));
+			//if this is a packed OMod, and the file is read-only, we want it to crash
+			// if it's no patcked, then we simply remove it from the cache, so we don't want
+			// a crash.
+			if (!m_arcFile.ReadOnly || IsPacked)
+				m_arcFile.DeleteFile(strPath);
+			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(strPath))
+				m_arcCacheFile.DeleteFile(strPath);
 		}
 
 		/// <summary>
@@ -632,7 +802,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_bteData">The new file data.</param>
 		protected void ReplaceSpecialFile(string p_strPath, byte[] p_bteData)
 		{
-			m_arcFile.ReplaceFile(p_strPath, p_bteData);
+			string strPath = GetRealPath(IsPacked ? p_strPath : Path.Combine(CONVERSION_FOLDER, p_strPath));
+			if (!m_arcFile.ReadOnly || IsPacked)
+				m_arcFile.ReplaceFile(p_strPath, p_bteData);
+			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(p_strPath) || m_arcFile.ReadOnly))
+				m_arcCacheFile.ReplaceFile(p_strPath, p_bteData);
 		}
 
 		/// <summary>
@@ -642,7 +816,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_strData">The new file text.</param>
 		protected void ReplaceSpecialFile(string p_strPath, string p_strData)
 		{
-			m_arcFile.ReplaceFile(p_strPath, p_strData);
+			string strPath = GetRealPath(IsPacked ? p_strPath : Path.Combine(CONVERSION_FOLDER, p_strPath));
+			if (!m_arcFile.ReadOnly || IsPacked)
+				m_arcFile.ReplaceFile(p_strPath, p_strData);
+			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(p_strPath) || m_arcFile.ReadOnly))
+				m_arcCacheFile.ReplaceFile(p_strPath, p_strData);
 		}
 
 		#endregion
@@ -661,25 +839,39 @@ namespace Nexus.Client.Mods.Formats.OMod
 			bool booFound = false;
 			switch (p_strFile)
 			{
+				case "config":
+					booFound = true;
+					break;
 				case "image":
+				case "screenshot":
 					booFound = m_booHasScreenshot;
 					break;
 				case "readme":
 					booFound = m_booHasReadme;
 					break;
 				case "script":
+					if (!IsPacked)
+						p_strFile = "script.txt";
 					booFound = m_booHasInstallScript;
 					break;
 			}
 			if (!booFound)
 				throw new FileNotFoundException("Special File doesn't exist in OMod", p_strFile);
 
+			if (!IsPacked)
+			{
+				string strPath = Path.Combine(CONVERSION_FOLDER, p_strFile);
+				if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)))
+					return m_arcCacheFile.GetFileContents(GetRealPath(strPath));
+				return m_arcFile.GetFileContents(GetRealPath(strPath));
+			}
+
 			byte[] bteFile = null;
 			using (MemoryStream msmFile = new MemoryStream())
 			{
 				using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
 					szeOmod.ExtractFile(p_strFile, msmFile);
-				if (p_strFile.Equals("image"))
+				if (p_strFile.Equals(ScreenshotPath))
 					bteFile = msmFile.GetBuffer();
 				else
 				{
@@ -706,6 +898,13 @@ namespace Nexus.Client.Mods.Formats.OMod
 		{
 			if (!ContainsFile(p_strFile))
 				throw new FileNotFoundException("File doesn't exist in OMod", p_strFile);
+
+			if (!IsPacked)
+			{
+				if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(p_strFile)))
+					return m_arcCacheFile.GetFileContents(GetRealPath(p_strFile));
+				return m_arcFile.GetFileContents(GetRealPath(p_strFile));
+			}
 
 			if (!String.IsNullOrEmpty(m_strReadOnlyTempDirectory))
 				return File.ReadAllBytes(Path.Combine(m_strReadOnlyTempDirectory, p_strFile));
@@ -787,11 +986,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <returns>The list of all files in the specified OMod folder.</returns>
 		public List<string> GetFileList(string p_strFolderPath, bool p_booRecurse)
 		{
+			List<string> lstFiles = new List<string>();
+			if (!IsPacked)
+			{
+				foreach (string strFile in m_arcFile.GetFiles(p_strFolderPath, p_booRecurse))
+					if (!m_dicMovedArchiveFiles.ContainsValue(strFile))
+						if (!strFile.StartsWith(CONVERSION_FOLDER, StringComparison.OrdinalIgnoreCase))
+							lstFiles.Add(strFile);
+				foreach (string strFile in m_dicMovedArchiveFiles.Keys)
+					if (!strFile.StartsWith(CONVERSION_FOLDER, StringComparison.OrdinalIgnoreCase))
+						lstFiles.Add(strFile);
+				return lstFiles;
+			}
+
 			string strFolderPath = (p_strFolderPath ?? "").Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			if (!strFolderPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
 				strFolderPath += Path.DirectorySeparatorChar;
-
-			List<string> lstFiles = new List<string>();
 			foreach (FileInfo fifFile in PluginList.Union(DataFileList))
 			{
 				if ((p_booRecurse && fifFile.Name.StartsWith(strFolderPath, StringComparison.OrdinalIgnoreCase))
@@ -864,14 +1074,14 @@ namespace Nexus.Client.Mods.Formats.OMod
 				{
 					if (m_booHasScreenshot)
 					{
-						DeleteSpecialFile("screenshot");
+						DeleteSpecialFile(ScreenshotPath);
 						Screenshot = p_mifInfo.Screenshot;
 					}
 				}
 				else
 				{
 					Screenshot = p_mifInfo.Screenshot;
-					ReplaceSpecialFile("screenshot", Screenshot.Data);
+					ReplaceSpecialFile(ScreenshotPath, Screenshot.Data);
 				}
 			}
 		}
