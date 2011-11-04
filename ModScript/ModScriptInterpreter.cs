@@ -70,7 +70,10 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		private ITree GenerateAst(string p_strModScriptCode)
 		{
 			ErrorTracker ertErrors = new ErrorTracker();
-			AntlrParserBase cpbParser = CreateParser(p_strModScriptCode, ertErrors);
+			//strip comments
+			Regex rgxComments = new Regex("^\\s*;.*$", RegexOptions.Multiline);
+			string strCode = rgxComments.Replace(p_strModScriptCode, "");
+			AntlrParserBase cpbParser = CreateParser(strCode, ertErrors);
 			ITree astModSCript = cpbParser.Parse();
 			if (ertErrors.HasErrors)
 			{
