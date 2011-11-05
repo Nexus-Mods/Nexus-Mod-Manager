@@ -407,7 +407,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// Gets the version of the mod manager.
 		/// </summary>
 		/// <returns>The version of the mod manager.</returns>
-		public Version GetModManagerVersion()
+		public virtual Version GetModManagerVersion()
 		{
 			return EnvironmentInfo.ApplicationVersion;
 		}
