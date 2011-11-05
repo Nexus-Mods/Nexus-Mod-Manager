@@ -528,7 +528,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				booConditionResult = !booConditionResult;
 			if (booConditionResult)
 				Run(astTrueBlock);
-			else
+			else if (astFalseBlock != null)
 				Run(astFalseBlock);
 		}
 
@@ -549,6 +549,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			Regex rgxVariables = new Regex("%([^%]+)%");
 			string strStringLiteral = p_astLiteral.Text;
+			strStringLiteral = strStringLiteral.Replace(@"\\", @"\");
 			Regex rgxUnescapedQuotes = new Regex(@"^""""$|^""|([^\\])""");
 			strStringLiteral = rgxUnescapedQuotes.Replace(strStringLiteral, "$1");
 			MatchCollection mhcVariables = rgxVariables.Matches(strStringLiteral);
