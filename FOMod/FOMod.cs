@@ -628,7 +628,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public byte[] GetFile(string p_strFile)
 		{
 			if (!ContainsFile(p_strFile))
-				throw new FileNotFoundException("File doesn't exist in fomod", p_strFile);
+				throw new FileNotFoundException("File doesn't exist in FOMod", p_strFile);
 			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(p_strFile)))
 				return m_arcCacheFile.GetFileContents(GetRealPath(p_strFile));
 			return m_arcFile.GetFileContents(GetRealPath(p_strFile));
