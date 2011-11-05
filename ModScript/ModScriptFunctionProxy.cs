@@ -783,6 +783,24 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		#region Version Checking
 
 		/// <summary>
+		/// Gets the version of the mod manager.
+		/// </summary>
+		/// <remarks>
+		/// If the mod manager's verison is less than the last version of OBMM
+		/// (which we assume is 1.12), return 1.12 as the version. This is to ensure
+		/// legacy scripts written for OBMM won't quit, thinking the manager doesn't
+		/// support all of the Mod Script functions.
+		/// </remarks>
+		/// <returns>The version of the mod manager.</returns>
+		public override Version GetModManagerVersion()
+		{
+			Version verFake = new Version(1, 12);
+			if (EnvironmentInfo.ApplicationVersion < verFake)
+				return verFake;
+			return EnvironmentInfo.ApplicationVersion;
+		}
+
+		/// <summary>
 		/// Determines if the current mod manager version is less than the given version.
 		/// </summary>
 		/// <param name="p_strModManagerVersion">The version to which to compare the mod manager's version.</param>
