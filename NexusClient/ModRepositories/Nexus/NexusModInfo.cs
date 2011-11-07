@@ -45,7 +45,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <value>The last updated date of the mod.</value>
 		[DataMember(Name = "lastupdate")]
-		public DateTime LastUpdated { get; set; }
+		public DateTime? LastUpdated { get; set; }
 
 		/// <summary>
 		/// Gets or sets the name of the mod.
