@@ -30,7 +30,7 @@
 			<Value Profile="(Default)">False</Value>
 		</Setting>
 		<Setting Name="ScanSubfoldersForMods" Type="System.Boolean" Scope="User">
-			<Value Profile="(Default)">True</Value>
+			<Value Profile="(Default)">False</Value>
 		</Setting>
 		<Setting Name="RepositoryAuthenticationTokens" Type="Nexus.Client.Settings.KeyedSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
 			<Value Profile="(Default)">
