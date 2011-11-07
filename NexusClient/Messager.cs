@@ -19,7 +19,7 @@ namespace Nexus.Client
 	/// </remarks>
 	public class Messager : MarshalByRefObject, IDisposable
 	{
-		private static IChannel m_cnlMessagerChanel = null;
+		private static IChannel m_cnlMessagerChannel = null;
 
 		#region IPC Channel Setup
 
@@ -32,12 +32,23 @@ namespace Nexus.Client
 		/// <param name="p_frmMainForm">The main application form.</param>
 		public static Messager InitializeListener(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, ModManager p_mmgModManager, Form p_frmMainForm)
 		{
-			if (m_cnlMessagerChanel != null)
-				throw new InvalidOperationException(String.Format("The IPC Channel has already been created as a {0}.", (m_cnlMessagerChanel is IpcServerChannel) ? "SERVER" : "CLIENT"));
-			m_cnlMessagerChanel = new IpcServerChannel(String.Format("{0}-{1}IpcServer", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId));
-			ChannelServices.RegisterChannel(m_cnlMessagerChanel, true);
+			if (m_cnlMessagerChannel != null)
+				throw new InvalidOperationException(String.Format("The IPC Channel has already been created as a {0}.", (m_cnlMessagerChannel is IpcServerChannel) ? "SERVER" : "CLIENT"));
+
+			string strUri = String.Format("{0}-{1}IpcServer", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
+			m_cnlMessagerChannel = new IpcServerChannel(strUri);
+			ChannelServices.RegisterChannel(m_cnlMessagerChannel, true);
 			Messager msgMessager = new Messager(p_mmgModManager, p_frmMainForm);
-			RemotingServices.Marshal(msgMessager, String.Format("{0}Listener", p_gmdGameModeInfo.ModeId), typeof(Messager));
+			string strEndpoint = String.Format("{0}Listener", p_gmdGameModeInfo.ModeId);
+			RemotingServices.Marshal(msgMessager, strEndpoint, typeof(Messager));
+
+			strUri += "/" + strEndpoint;
+			string strTraceInfo = String.Format("Setting up listener on {0} at {1}", strUri, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+			Trace.TraceInformation(strTraceInfo);			
+			string strMessageDebugPath = "MessagerSetup" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt";
+			strMessageDebugPath = Path.Combine(p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath, strMessageDebugPath);
+			File.WriteAllText(strMessageDebugPath, strTraceInfo);
+			
 			return msgMessager;
 		}
 
@@ -49,15 +60,17 @@ namespace Nexus.Client
 		/// <returns>An instance of a <see cref="Messager"/> to use to talk to the running instance of the client.</returns>
 		public static Messager GetMessager(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo)
 		{
-			if (m_cnlMessagerChanel == null)
+			if (m_cnlMessagerChannel == null)
 			{
-				m_cnlMessagerChanel = new IpcClientChannel();
-				ChannelServices.RegisterChannel(m_cnlMessagerChanel, true);
+				m_cnlMessagerChannel = new IpcClientChannel();
+				ChannelServices.RegisterChannel(m_cnlMessagerChannel, true);
 			}
-			else if (m_cnlMessagerChanel is IpcServerChannel)
+			else if (m_cnlMessagerChannel is IpcServerChannel)
 				throw new InvalidOperationException("The IPC Channel has already been created as a SERVER.");
 
-			Messager msgMessager = (Messager)Activator.GetObject(typeof(Messager), String.Format("ipc://{0}-{1}IpcServer/{1}Listener", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId));
+			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
+			Trace.TraceInformation(String.Format("Getting listener on: {0}", strMessagerUri));
+			Messager msgMessager = (Messager)Activator.GetObject(typeof(Messager), strMessagerUri);
 			return msgMessager;
 		}
 
@@ -104,12 +117,12 @@ namespace Nexus.Client
 		/// </remarks>
 		public void Dispose()
 		{
-			if (m_cnlMessagerChanel == null)
+			if (m_cnlMessagerChannel == null)
 				return;
-			if (m_cnlMessagerChanel is IpcServerChannel)
-				((IpcServerChannel)m_cnlMessagerChanel).StopListening(null);
-			ChannelServices.UnregisterChannel(m_cnlMessagerChanel);
-			m_cnlMessagerChanel = null;
+			if (m_cnlMessagerChannel is IpcServerChannel)
+				((IpcServerChannel)m_cnlMessagerChannel).StopListening(null);
+			ChannelServices.UnregisterChannel(m_cnlMessagerChannel);
+			m_cnlMessagerChannel = null;
 			RemotingServices.Disconnect(this);
 		}
 
