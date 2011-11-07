@@ -408,11 +408,16 @@ namespace Nexus.Client.ModManagement
 		public override void Pause()
 		{
 			Status = TaskStatus.Paused;
-			foreach (IBackgroundTask tskTask in m_lstRunningTasks)
+			for (Int32 i = m_lstRunningTasks.Count - 1; i >= 0; i--)
+			{
+				if (i >= m_lstRunningTasks.Count)
+					continue;
+				IBackgroundTask tskTask = m_lstRunningTasks[i];
 				if (tskTask.SupportsPause)
 					tskTask.Pause();
 				else
 					tskTask.Cancel();
+			}
 			OnTaskEnded(Descriptor.SourceUri);
 		}
 
