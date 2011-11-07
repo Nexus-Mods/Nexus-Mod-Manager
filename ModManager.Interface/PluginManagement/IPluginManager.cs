@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util;
 
@@ -64,6 +65,13 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		bool IsPluginRegistered(string p_strPath);
 
+		/// <summary>
+		/// Gets the specified plugin.
+		/// </summary>
+		/// <param name="p_strPath">The path of the plugin to retrieve.</param>
+		/// <returns>The specified plugin, or <c>null</c> if the plugin is not registered.</returns>
+		Plugin GetRegisteredPlugin(string p_strPath);
+
 		#endregion
 
 		#region Plugin Activation/Deactivation
@@ -110,6 +118,13 @@ namespace Nexus.Client.PluginManagement
 		#endregion
 
 		#region Plugin Ordering
+
+		/// <summary>
+		/// Gets the load order of the specifid plugin.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin whose load order is to be returned.</param>
+		/// <returns>The index of the given plugin, or -1 if the plugin is not being managed.</returns>
+		Int32 GetPluginOrderIndex(Plugin p_plgPlugin);
 
 		/// <summary>
 		/// Sets the load order of the specifid plugin.

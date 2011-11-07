@@ -247,6 +247,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				InstallAllDataFiles();
 			if (m_booInstallPlugins)
 				InstallAllPlugins();
+			FunctionProxy.SetRelativeLoadOrder(m_lstPluginOrder.ToArray());
 		}
 
 		/// <summary>
@@ -397,7 +398,10 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			{
 				if (intFirstPos <= intSecondPos)
 					return;
-				m_lstPluginOrder.RemoveAt(intFirstPos);
+				if (intSecondPos > -1)
+					m_lstPluginOrder.Remove(strLoadSecond);
+				m_lstPluginOrder.Insert(intFirstPos + 1, strLoadSecond);
+				return;
 			}
 			if (intSecondPos < 0)
 			{
@@ -425,7 +429,10 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			{
 				if (intFirstPos <= intSecondPos)
 					return;
-				m_lstPluginOrder.RemoveAt(intSecondPos);
+				if (intFirstPos > -1)
+					m_lstPluginOrder.Remove(strLoadFirst);
+				m_lstPluginOrder.Insert(intSecondPos, strLoadFirst);
+				return;
 			}
 			if (intFirstPos < 0)
 			{
@@ -445,6 +452,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			string[] strFiles = FunctionProxy.GetModFileList();
 			if (!strFiles.Contains(x => x.Equals(strLoad, StringComparison.OrdinalIgnoreCase)))
 				return;
+			m_lstPluginOrder.Remove(p_strPlugin);
 			m_lstPluginOrder.Insert(0, strLoad);
 		}
 

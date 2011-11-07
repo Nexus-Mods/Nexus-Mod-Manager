@@ -186,10 +186,30 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool IsPluginRegistered(string p_strPath)
 		{
+			return GetRegisteredPlugin(p_strPath) != null;
+		}
+
+		/// <summary>
+		/// Gets the specified plugin.
+		/// </summary>
+		/// <param name="p_strPath">The path of the plugin to retrieve.</param>
+		/// <returns>The specified plugin, or <c>null</c> if the plugin is not registered.</returns>
+		public Plugin GetRegisteredPlugin(string p_strPath)
+		{
+			//TODO this check doesn't work for Bamegryo based games
+			// GetFormatSpecificInstallPath() (or whatever it is called) should be
+			// used instead of InstallationPath
+			// but we can't use it because asking for the mod format here makes no
+			// sense
+			// as such, mods should pass in the full path, or at least a path relative to
+			// InstallationPath
+			// Really, I think GetFormatSpecificInstallPath() should be scrapped,
+			// and mods sohuld adjust for the current game mode, not the game mode for the
+			// current mod format
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
 				strPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
-			return ManagedPluginRegistry.GetPlugin(p_strPath) != null;
+			return ManagedPluginRegistry.GetPlugin(strPath);
 		}
 
 		#endregion
@@ -268,6 +288,16 @@ namespace Nexus.Client.PluginManagement
 		#endregion
 
 		#region Plugin Ordering
+
+		/// <summary>
+		/// Gets the load order of the specifid plugin.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin whose load order is to be returned.</param>
+		/// <returns>The index of the given plugin, or -1 if the plugin is not being managed.</returns>
+		public Int32 GetPluginOrderIndex(Plugin p_plgPlugin)
+		{
+			return PluginOrderLog.OrderedPlugins.IndexOf(p_plgPlugin);
+		}
 
 		/// <summary>
 		/// Sets the load order of the specifid plugin.

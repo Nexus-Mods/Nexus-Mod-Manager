@@ -589,6 +589,54 @@ namespace Nexus.Client.ModManagement.Scripting
 			DoSetLoadOrder(p_intPlugins, p_intPosition);
 		}
 
+		/// <summary>
+		/// Orders the plugins such that the specified plugins are in the specified
+		/// order.
+		/// </summary>
+		/// <remarks>
+		/// The given plugins may not end up consecutively ordered.
+		/// </remarks>
+		/// <param name="p_strRelativelyOrderedPlugins">The plugins to order relative to one another.</param>
+		public void SetRelativeLoadOrder(string[] p_strRelativelyOrderedPlugins)
+		{
+			if (p_strRelativelyOrderedPlugins.Length == 0)
+				return;
+			List<string> lstRelativelyOrderedPlugins = new List<string>();
+			foreach (string strPlugin in p_strRelativelyOrderedPlugins)
+				lstRelativelyOrderedPlugins.Add(GameMode.GetModFormatAdjustedPath(Mod.Format, strPlugin));
+
+			Plugin plgCurrent = null;
+			Int32 intInitialIndex = 0;
+			while (((plgCurrent = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[intInitialIndex])) == null) && (intInitialIndex < lstRelativelyOrderedPlugins.Count))
+				intInitialIndex++;
+			if (plgCurrent == null)
+				return;
+			for (Int32 i = intInitialIndex + 1; i < lstRelativelyOrderedPlugins.Count; i++)
+			{
+				Plugin plgNext = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[i]);
+				if (plgNext == null)
+					continue;
+				Int32 intNextPosition = Installers.PluginManager.GetPluginOrderIndex(plgNext);
+				//we have to set this value every time, instead of caching the value (by
+				// declaring Int32 intCurrentPosition outside of the for loop) because
+				// calling Installers.PluginManager.SetPluginOrderIndex() does not guarantee
+				// that the load order will change. for example trying to order an ESM
+				// after an ESP file will result in no change, and will mean the intCurrentPosition
+				// we are dead reckoning will be wrong
+				Int32 intCurrentPosition = Installers.PluginManager.GetPluginOrderIndex(plgCurrent);
+				if (intNextPosition > intCurrentPosition)
+				{
+					plgCurrent = plgNext;
+					continue;
+				}
+				Installers.PluginManager.SetPluginOrderIndex(plgNext, intCurrentPosition+1);
+				//if the reorder worked, we have a new current, otherwise the old one is still the
+				// correct current.
+				if (intNextPosition != Installers.PluginManager.GetPluginOrderIndex(plgNext))
+					plgCurrent = plgNext;
+			}
+		}
+
 		#endregion
 
 		#endregion
