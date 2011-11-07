@@ -190,9 +190,12 @@ namespace Nexus.Client.Games.Fallout3
 		private string GetCustomLaunchCommand()
 		{
 			string strCommand = EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId];
-			strCommand = String.IsNullOrEmpty(strCommand) ? strCommand : Environment.ExpandEnvironmentVariables(strCommand);
-			if (!Path.IsPathRooted(strCommand))
-				strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, strCommand);
+			if (!String.IsNullOrEmpty(strCommand))
+			{
+				strCommand = Environment.ExpandEnvironmentVariables(strCommand);
+				if (!Path.IsPathRooted(strCommand))
+					strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, strCommand);
+			}
 			return strCommand;
 		}
 
