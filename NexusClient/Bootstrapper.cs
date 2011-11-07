@@ -98,6 +98,7 @@ namespace Nexus.Client
 
 							HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
 							htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
+							Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
 							throw;
 						}
 
