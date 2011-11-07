@@ -16,7 +16,7 @@
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
 #define MyAppVersion '0.11.7'
-#define SetupScriptVersion '0.6.0.0'
+#define SetupScriptVersion '0.6.1.0'
 [Setup]
 AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de - DEV BUILD
@@ -47,7 +47,7 @@ InternalCompressLevel=Ultra64
 SolidCompression=true
 Compression=lzma2/Max
 ChangesAssociations=true
-LicenseFile=..\NexusClient\bin\Release\data\Licence.rtf
+LicenseFile=..\bin\Release\data\Licence.rtf
 MinVersion=4.1,5.01
 PrivilegesRequired=admin
 ArchitecturesAllowed=x86 x64 ia64
