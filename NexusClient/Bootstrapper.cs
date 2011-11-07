@@ -87,9 +87,15 @@ namespace Nexus.Client
 						try
 						{
 							if (uriModToAdd != null)
+							{
+								Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
 								Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor).AddMod(uriModToAdd.ToString());
+							}
 							else
+							{
+								Trace.TraceInformation(String.Format("Messaging to bring to front."));
 								Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor).BringToFront();
+							}
 						}
 						catch (RemotingException)
 						{
