@@ -357,6 +357,8 @@ namespace Nexus.Client.Settings
 			if (strKey == null)
 				return;
 			RegistryKey rk = Registry.ClassesRoot.OpenSubKey(strKey + "\\Shell", true);
+			if (rk == null)
+				return;
 			string strCommandKey = "Add_to_" + EnvironmentInfo.Settings.ModManagerName.Replace(' ', '_');
 			if (Array.IndexOf<string>(rk.GetSubKeyNames(), strCommandKey) != -1)
 				rk.DeleteSubKeyTree(strCommandKey);
@@ -377,7 +379,7 @@ namespace Nexus.Client.Settings
 			if (strKey == null)
 				AddShellExtensions = false;
 			else
-				AddShellExtensions = (Registry.GetValue("HKEY_CLASSES_ROOT\\" + strKey + "\\Shell\\Convert_to_fomod\\command", null, null) != null);
+				AddShellExtensions = (Registry.GetValue(String.Format("HKEY_CLASSES_ROOT\\{0}\\Shell\\Add_to_{1}", strKey, EnvironmentInfo.Settings.ModManagerName.Replace(' ', '_')), null, null) != null);
 
 			AssociateNxmUrl = IsUrlAssociated("nxm");
 			CheckForNewMods = EnvironmentInfo.Settings.CheckForNewModVersions;
