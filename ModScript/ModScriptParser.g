@@ -33,7 +33,7 @@ options {
  *------------------------------------------------------------------*/
 
 prog			: block EOF!;
-block			: (NEWLINE* stmt (NEWLINE+ stmt)* NEWLINE*) -> ^(BLOCK stmt+);
+block			: (NEWLINE* stmt (NEWLINE+ stmt)* NEWLINE*)? -> ^(BLOCK stmt*);
 stmt			: (flow_ctl | func | cond | switch_stmt | for_loop);
 
 /****
@@ -50,7 +50,7 @@ func			: FUNC_NAME^ arg*;
 /****
  * conditionals
  ****/
-cond			: (IF | IF_NOT)^ func NEWLINE! block (NEWLINE! ELSE! block)? NEWLINE! ENDIF!;
+cond			: (IF | IF_NOT)^ func NEWLINE! block (ELSE! block)? NEWLINE! ENDIF!;
 
 
 /****
