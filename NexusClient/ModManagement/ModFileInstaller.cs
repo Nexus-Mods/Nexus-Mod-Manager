@@ -114,6 +114,8 @@ namespace Nexus.Client.ModManagement
 				return false;
 
 			IMod modOld = InstallLog.GetCurrentFileOwner(p_strPath);
+			if (modOld == Mod)
+				return true;
 			string strMessage = null;
 			if (modOld != null)
 			{
