@@ -23,7 +23,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_uipUIProxy">The UI manager to use to interact with UI elements.</param>
 		public CSharpScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, UIUtil p_uipUIProxy)
-			:base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, p_uipUIProxy)
+			: base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, p_uipUIProxy)
 		{
 		}
 
@@ -91,13 +91,43 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <remarks>
 		/// The items, previews, and descriptions are repectively ordered. In other words,
 		/// the i-th item in <paramref name="p_strItems"/> uses the i-th preview in
-		/// <paramref name="p_strPreviews"/> and the i-th description in <paramref name="p_strDescriptions"/>.
+		/// <paramref name="p_strPreviewPaths"/> and the i-th description in <paramref name="p_strDescriptions"/>.
 		/// 
 		/// Similarly, the idices return as results correspond to the indices of the items in
 		/// <paramref name="p_strItems"/>.
 		/// </remarks>
 		/// <param name="p_strItems">The items from which to select.</param>
-		/// <param name="p_imgPreviews">The preview image file names for the items.</param>
+		/// <param name="p_strPreviewPaths">The preview image file names for the items.</param>
+		/// <param name="p_strDescriptions">The descriptions of the items.</param>
+		/// <param name="p_strTitle">The title of the selection form.</param>
+		/// <param name="p_booSelectMany">Whether more than one item can be selected.</param>
+		/// <returns>The indices of the selected items.</returns>
+		public int[] Select(string[] p_strItems, string[] p_strPreviewPaths, string[] p_strDescriptions, string p_strTitle, bool p_booSelectMany)
+		{
+			Image[] imgPreviews = null;
+			if (p_strPreviewPaths != null)
+			{
+				imgPreviews = new Image[p_strPreviewPaths.Length];
+				for (Int32 i = 0; i < p_strPreviewPaths.Length; i++)
+					if (!String.IsNullOrEmpty(p_strPreviewPaths[i]))
+						imgPreviews[i] = new ExtendedImage(Mod.GetFile(p_strPreviewPaths[i]));
+			}
+			return Select(p_strItems, imgPreviews, p_strDescriptions, p_strTitle, p_booSelectMany);
+		}
+
+		/// <summary>
+		/// Displays a selection form to the user.
+		/// </summary>
+		/// <remarks>
+		/// The items, previews, and descriptions are repectively ordered. In other words,
+		/// the i-th item in <paramref name="p_strItems"/> uses the i-th preview in
+		/// <paramref name="p_imgPreviews"/> and the i-th description in <paramref name="p_strDescriptions"/>.
+		/// 
+		/// Similarly, the idices return as results correspond to the indices of the items in
+		/// <paramref name="p_strItems"/>.
+		/// </remarks>
+		/// <param name="p_strItems">The items from which to select.</param>
+		/// <param name="p_imgPreviews">The preview images for the items.</param>
 		/// <param name="p_strDescriptions">The descriptions of the items.</param>
 		/// <param name="p_strTitle">The title of the selection form.</param>
 		/// <param name="p_booSelectMany">Whether more than one item can be selected.</param>
@@ -106,7 +136,11 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		{
 			List<Nexus.Client.ModManagement.Scripting.SelectOption> lstOptions = new List<Nexus.Client.ModManagement.Scripting.SelectOption>();
 			for (Int32 i = 0; i < p_strItems.Length; i++)
-				lstOptions.Add(new Nexus.Client.ModManagement.Scripting.SelectOption(p_strItems[i], false, p_strDescriptions[i], p_imgPreviews[i]));
+			{
+				string strDescription = p_strDescriptions.IsNullOrEmpty() ? null : p_strDescriptions[i];
+				Image imgPreview = p_imgPreviews.IsNullOrEmpty() ? null : p_imgPreviews[i];
+				lstOptions.Add(new Nexus.Client.ModManagement.Scripting.SelectOption(p_strItems[i], false, strDescription, imgPreview));
+			}
 			string[] strSelections = UIManager.Select(lstOptions, p_strTitle, p_booSelectMany);
 			List<Int32> lstSelectionIndices = new List<Int32>();
 			foreach (string strSelection in strSelections)

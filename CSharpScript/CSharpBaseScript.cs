@@ -318,18 +318,40 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <remarks>
 		/// The items, previews, and descriptions are repectively ordered. In other words,
 		/// the i-th item in <paramref name="p_strItems"/> uses the i-th preview in
-		/// <paramref name="p_strPreviews"/> and the i-th description in <paramref name="p_strDescriptions"/>.
+		/// <paramref name="p_strPreviewPaths"/> and the i-th description in <paramref name="p_strDescriptions"/>.
 		/// 
 		/// Similarly, the idices return as results correspond to the indices of the items in
 		/// <paramref name="p_strItems"/>.
 		/// </remarks>
 		/// <param name="p_strItems">The items from which to select.</param>
-		/// <param name="p_imgPreviews">The preview image file names for the items.</param>
+		/// <param name="p_strPreviewPaths">The preview image file names for the items.</param>
 		/// <param name="p_strDescriptions">The descriptions of the items.</param>
 		/// <param name="p_strTitle">The title of the selection form.</param>
 		/// <param name="p_booSelectMany">Whether more than one item can be selected.</param>
 		/// <returns>The indices of the selected items.</returns>
-		public static int[] Select(string[] p_strItems, Image[] p_imgPreviews, string[] p_strDescriptions, string p_strTitle, bool p_booSelectMany)
+		public static int[] Select(string[] p_strItems, string[] p_strPreviewPaths, string[] p_strDescriptions, string p_strTitle, bool p_booSelectMany)
+		{
+			return (int[])ExecuteMethod(() => Functions.Select(p_strItems, p_strPreviewPaths, p_strDescriptions, p_strTitle, p_booSelectMany));
+		}
+
+		/// <summary>
+		/// Displays a selection form to the user.
+		/// </summary>
+		/// <remarks>
+		/// The items, previews, and descriptions are repectively ordered. In other words,
+		/// the i-th item in <paramref name="p_strItems"/> uses the i-th preview in
+		/// <paramref name="p_imgPreviews"/> and the i-th description in <paramref name="p_strDescriptions"/>.
+		/// 
+		/// Similarly, the idices return as results correspond to the indices of the items in
+		/// <paramref name="p_strItems"/>.
+		/// </remarks>
+		/// <param name="p_strItems">The items from which to select.</param>
+		/// <param name="p_imgPreviews">The preview images for the items.</param>
+		/// <param name="p_strDescriptions">The descriptions of the items.</param>
+		/// <param name="p_strTitle">The title of the selection form.</param>
+		/// <param name="p_booSelectMany">Whether more than one item can be selected.</param>
+		/// <returns>The indices of the selected items.</returns>
+		public static int[] ImageSelect(string[] p_strItems, Image[] p_imgPreviews, string[] p_strDescriptions, string p_strTitle, bool p_booSelectMany)
 		{
 			return (int[])ExecuteMethod(() => Functions.Select(p_strItems, p_imgPreviews, p_strDescriptions, p_strTitle, p_booSelectMany));
 		}
