@@ -54,8 +54,9 @@ namespace Nexus.Client.Controls
 		/// <param name="p_mbiIcon">The icon to display.</param>
 		public static DialogResult Show(Control p_ctlParent, string p_strMessage, string p_strCaption, string p_strDetails, MessageBoxButtons p_mbbButtons, MessageBoxIcon p_mbiIcon)
 		{
-			bool booRemember = false;
-			return Show(p_ctlParent, p_strMessage, p_strCaption, p_strDetails, p_mbbButtons, p_mbiIcon, out booRemember);
+			ExtendedMessageBox mbxBox = new ExtendedMessageBox();
+			mbxBox.Init(p_strMessage, p_strCaption, p_strDetails, p_mbbButtons, p_mbiIcon, false);
+			return Show(mbxBox, p_ctlParent);
 		}
 
 		/// <summary>
@@ -88,8 +89,9 @@ namespace Nexus.Client.Controls
 		/// <param name="p_mbiIcon">The icon to display.</param>
 		public static DialogResult Show(Control p_ctlParent, string p_strMessage, string p_strCaption, string p_strDetails, ExtendedMessageBoxButtons p_ebbButtons, MessageBoxIcon p_mbiIcon)
 		{
-			bool booRemember = false;
-			return Show(p_ctlParent, p_strMessage, p_strCaption, p_strDetails, p_ebbButtons, p_mbiIcon, out booRemember);
+			ExtendedMessageBox mbxBox = new ExtendedMessageBox();
+			mbxBox.Init(p_strMessage, p_strCaption, p_strDetails, p_ebbButtons, p_mbiIcon, false);
+			return Show(mbxBox, p_ctlParent);
 		}
 
 		/// <summary>
