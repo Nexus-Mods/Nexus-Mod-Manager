@@ -858,31 +858,35 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if (!booFound)
 				throw new FileNotFoundException("Special File doesn't exist in OMod", p_strFile);
 
+			byte[] bteFile = null;
 			if (!IsPacked)
 			{
 				string strPath = Path.Combine(CONVERSION_FOLDER, p_strFile);
 				if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)))
 					return m_arcCacheFile.GetFileContents(GetRealPath(strPath));
-				return m_arcFile.GetFileContents(GetRealPath(strPath));
+				bteFile = m_arcFile.GetFileContents(GetRealPath(strPath));
+				if (!p_strFile.Equals(ScreenshotPath))
+					bteFile = System.Text.Encoding.Default.GetBytes(TextUtil.ByteToString(bteFile).Trim('\0'));
 			}
-
-			byte[] bteFile = null;
-			using (MemoryStream msmFile = new MemoryStream())
+			else
 			{
-				using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
-					szeOmod.ExtractFile(p_strFile, msmFile);
-				if (p_strFile.Equals(ScreenshotPath))
-					bteFile = msmFile.GetBuffer();
-				else
+				using (MemoryStream msmFile = new MemoryStream())
 				{
-					using (BinaryReader brdReader = new BinaryReader(msmFile))
+					using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
+						szeOmod.ExtractFile(p_strFile, msmFile);
+					if (p_strFile.Equals(ScreenshotPath))
+						bteFile = msmFile.GetBuffer();
+					else
 					{
-						msmFile.Position = 0;
-						bteFile = System.Text.Encoding.Default.GetBytes(brdReader.ReadString().Trim('\0'));
-						brdReader.Close();
+						using (BinaryReader brdReader = new BinaryReader(msmFile))
+						{
+							msmFile.Position = 0;
+							bteFile = System.Text.Encoding.Default.GetBytes(brdReader.ReadString().Trim('\0'));
+							brdReader.Close();
+						}
 					}
+					msmFile.Close();
 				}
-				msmFile.Close();
 			}
 			return bteFile;
 		}

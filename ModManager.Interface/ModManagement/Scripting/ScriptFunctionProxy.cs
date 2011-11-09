@@ -174,7 +174,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_strFrom">The path of the file in the mod to install.</param>
 		/// <param name="p_strTo">The path on the file system where the file is to be created.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
-		public bool InstallFileFromMod(string p_strFrom, string p_strTo)
+		public virtual bool InstallFileFromMod(string p_strFrom, string p_strTo)
 		{
 			string strFixedTo = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strTo);
 			bool booSuccess = false;

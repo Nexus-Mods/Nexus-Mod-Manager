@@ -31,6 +31,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 	public class ModScriptFunctionProxy : ScriptFunctionProxy
 	{
 		private IPluginDiscoverer m_pdvDiscoverer = null;
+		private Dictionary<string, string> m_dicCopiedFileMappings = new Dictionary<string, string>();
 
 		#region Constructors
 
@@ -50,6 +51,23 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		#endregion
 
 		#region File Management
+
+		/// <summary>
+		/// Installs the specified file from the mod to the specified location on the file system.
+		/// </summary>
+		/// <param name="p_strFrom">The path of the file in the mod to install.</param>
+		/// <param name="p_strTo">The path on the file system where the file is to be created.</param>
+		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
+		public override bool InstallFileFromMod(string p_strFrom, string p_strTo)
+		{
+			if (base.InstallFileFromMod(p_strFrom, p_strTo))
+			{
+				if (!String.Equals(p_strFrom, p_strTo, StringComparison.OrdinalIgnoreCase))
+					m_dicCopiedFileMappings[p_strFrom] = p_strTo;
+				return true;
+			}
+			return false;
+		}
 
 		/// <summary>
 		/// Replaces the file specified by <paramref name="p_strFileToPatch"/> with the
@@ -413,10 +431,9 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			long lngOffset = Int64.Parse(p_strOffset);
 			byte bteValue = Byte.Parse(p_strValue);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			byte[] bteFile = GetExistingDataFile(strFixedPath);
+			byte[] bteFile = GetExistingDataFile(p_strPath);
 			bteFile[lngOffset] = bteValue;
-			Installers.FileInstaller.GenerateDataFile(strFixedPath, bteFile);
+			GenerateDataFile(p_strPath, bteFile);
 		}
 
 		/// <summary>
@@ -432,12 +449,11 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			long lngOffset = Int64.Parse(p_strOffset);
 			Int16 shtValue = Int16.Parse(p_strValue);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			byte[] bteFile = GetExistingDataFile(strFixedPath);
+			byte[] bteFile = GetExistingDataFile(p_strPath);
 			byte[] bteValue = BitConverter.GetBytes(shtValue);
 			for (Int32 i = 0; i < bteValue.Length; i++)
 				bteFile[lngOffset + i] = bteValue[i];
-			Installers.FileInstaller.GenerateDataFile(strFixedPath, bteFile);
+			GenerateDataFile(p_strPath, bteFile);
 		}
 
 		/// <summary>
@@ -453,12 +469,11 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			long lngOffset = Int64.Parse(p_strOffset);
 			Int32 intValue = Int32.Parse(p_strValue);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			byte[] bteFile = GetExistingDataFile(strFixedPath);
+			byte[] bteFile = GetExistingDataFile(p_strPath);
 			byte[] bteValue = BitConverter.GetBytes(intValue);
 			for (Int32 i = 0; i < bteValue.Length; i++)
 				bteFile[lngOffset + i] = bteValue[i];
-			Installers.FileInstaller.GenerateDataFile(strFixedPath, bteFile);
+			GenerateDataFile(p_strPath, bteFile);
 		}
 
 		/// <summary>
@@ -474,12 +489,11 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			long lngOffset = Int64.Parse(p_strOffset);
 			Int64 lngValue = Int64.Parse(p_strValue);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			byte[] bteFile = GetExistingDataFile(strFixedPath);
+			byte[] bteFile = GetExistingDataFile(p_strPath);
 			byte[] bteValue = BitConverter.GetBytes(lngValue);
 			for (Int32 i = 0; i < bteValue.Length; i++)
 				bteFile[lngOffset + i] = bteValue[i];
-			Installers.FileInstaller.GenerateDataFile(strFixedPath, bteFile);
+			GenerateDataFile(p_strPath, bteFile);
 		}
 
 		/// <summary>
@@ -495,12 +509,11 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			long lngOffset = Int64.Parse(p_strOffset);
 			float fltValue = Single.Parse(p_strValue);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			byte[] bteFile = GetExistingDataFile(strFixedPath);
+			byte[] bteFile = GetExistingDataFile(p_strPath);
 			byte[] bteValue = BitConverter.GetBytes(fltValue);
 			for (Int32 i = 0; i < bteValue.Length; i++)
 				bteFile[lngOffset + i] = bteValue[i];
-			Installers.FileInstaller.GenerateDataFile(strFixedPath, bteFile);
+			GenerateDataFile(p_strPath, bteFile);
 		}
 
 		#endregion
@@ -518,9 +531,11 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// <param name="p_strValue">The value to which to set the line.</param>
 		public void SetTextLine(string p_strPath, string p_strLineNumber, string p_strValue)
 		{
+			string strPath = p_strPath;
+			if (!File.Exists(strPath) && m_dicCopiedFileMappings.ContainsKey(p_strPath))
+				strPath = m_dicCopiedFileMappings[p_strPath];
 			Int32 intLine = Int32.Parse(p_strLineNumber);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			byte[] bteFile = GetExistingDataFile(strFixedPath);
+			byte[] bteFile = GetExistingDataFile(strPath);
 			string[] strLines = TextUtil.ByteToStringLines(bteFile);
 			strLines[intLine] = p_strValue;
 			using (MemoryStream mstData = new MemoryStream())
@@ -532,7 +547,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				}
 				bteFile = mstData.GetBuffer();
 			}
-			Installers.FileInstaller.GenerateDataFile(strFixedPath, bteFile);
+			GenerateDataFile(strPath, bteFile);
 		}
 
 		/// <summary>
@@ -562,8 +577,10 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// <param name="p_strNewValue">The value with which to replace the old value.</param>
 		public void ReplaceTextInFile(string p_strPath, string p_strOldValue, string p_strNewValue)
 		{
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			byte[] bteFile = GetExistingDataFile(strFixedPath);
+			string strPath = p_strPath;
+			if (!File.Exists(strPath) && m_dicCopiedFileMappings.ContainsKey(p_strPath))
+				strPath = m_dicCopiedFileMappings[p_strPath];
+			byte[] bteFile = GetExistingDataFile(strPath);
 			string strText = TextUtil.ByteToString(bteFile).Replace(p_strOldValue, p_strNewValue);
 			using (MemoryStream mstData = new MemoryStream())
 			{
@@ -573,7 +590,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				}
 				bteFile = mstData.GetBuffer();
 			}
-			Installers.FileInstaller.GenerateDataFile(strFixedPath, bteFile);
+			GenerateDataFile(strPath, bteFile);
 		}
 
 		/// <summary>
