@@ -1116,7 +1116,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 						bwrConfig.Write("");
 					else
 						bwrConfig.Write(Website.ToString());
-					bwrConfig.Write(Description);
+					bwrConfig.Write(Description ?? "");
 					if (OModVersion >= 2)
 						bwrConfig.Write(CreationTime.ToBinary());
 					switch (CompressionType)
