@@ -360,7 +360,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(this);
 				//check to make sure the cache isn't bad
-				if ((m_arcCacheFile != null) && !m_arcCacheFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "config")))
+				if ((m_arcCacheFile != null) && (!m_arcCacheFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "config")) || !ValidateConfig(GetSpecialFile("config"))))
 				{
 					//bad cache - clear it
 					m_arcCacheFile.Dispose();
@@ -837,14 +837,17 @@ namespace Nexus.Client.Mods.Formats.OMod
 		protected byte[] GetSpecialFile(string p_strFile)
 		{
 			bool booFound = false;
+			bool booIsBinary = false;
 			switch (p_strFile)
 			{
 				case "config":
 					booFound = true;
+					booIsBinary = true;
 					break;
 				case "image":
 				case "screenshot":
 					booFound = m_booHasScreenshot;
+					booIsBinary = true;
 					break;
 				case "readme":
 					booFound = m_booHasReadme;
@@ -865,7 +868,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)))
 					return m_arcCacheFile.GetFileContents(GetRealPath(strPath));
 				bteFile = m_arcFile.GetFileContents(GetRealPath(strPath));
-				if (!p_strFile.Equals(ScreenshotPath))
+				if (!booIsBinary)
 					bteFile = System.Text.Encoding.Default.GetBytes(TextUtil.ByteToString(bteFile).Trim('\0'));
 			}
 			else
@@ -874,7 +877,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				{
 					using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
 						szeOmod.ExtractFile(p_strFile, msmFile);
-					if (p_strFile.Equals(ScreenshotPath))
+					if (booIsBinary)
 						bteFile = msmFile.GetBuffer();
 					else
 					{
@@ -1192,6 +1195,54 @@ namespace Nexus.Client.Mods.Formats.OMod
 					HumanReadableVersion = MachineVersion.ToString();
 				}
 			}
+		}
+
+		/// <summary>
+		/// Validates an OMod config file.
+		/// </summary>
+		/// <param name="p_bteData">The OMod config file.</param>
+		/// <returns><c>true</c> if the given file is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateConfig(byte[] p_bteData)
+		{
+			try
+			{
+				using (Stream stmConfig = new MemoryStream(p_bteData))
+				{
+					using (BinaryReader brdConfig = new BinaryReader(stmConfig))
+					{
+						byte bteOModVersion = brdConfig.ReadByte();
+						brdConfig.ReadString();
+						brdConfig.ReadInt32();
+						brdConfig.ReadInt32();
+						brdConfig.ReadString();
+						brdConfig.ReadString();
+						brdConfig.ReadString();
+						brdConfig.ReadString();
+						if (bteOModVersion >= 2)
+							brdConfig.ReadInt64();
+						byte bteCompressionType = brdConfig.ReadByte();
+						switch (bteCompressionType)
+						{
+							case 0:
+								CompressionType = InArchiveFormat.SevenZip;
+								break;
+							case 1:
+								CompressionType = InArchiveFormat.Zip;
+								break;
+							default:
+								return false;
+						}
+						if (bteOModVersion >= 1)
+							brdConfig.ReadInt32();
+					}
+				}
+			}
+			catch (Exception)
+			{
+				return false;
+			}
+			return true;
 		}
 
 		#endregion
