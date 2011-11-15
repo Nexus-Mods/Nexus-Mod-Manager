@@ -1,18 +1,15 @@
-﻿using System.Xml.Linq;
-using Nexus.Client.Games.Fallout3.Scripting.XmlScript.Parsers;
-using Nexus.Client.Games.Fallout3.Scripting.XmlScript.Unparsers;
-using Nexus.Client.ModManagement.Scripting.XmlScript;
-using Nexus.Client.ModManagement.Scripting.XmlScript.Parsers;
-using Nexus.Client.ModManagement.Scripting.XmlScript.Unparsers;
-using Nexus.Client.ModManagement.Scripting.XmlScript.CPL;
-using Nexus.Client.Games.Fallout3.Scripting.XmlScript.CPL;
-using Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls;
-using System;
-using Nexus.Client.Mods;
-using Nexus.Client.PluginManagement;
+﻿using System;
+using System.Xml.Linq;
+using Nexus.Client.Games.Skyrim.Scripting.XmlScript.CPL;
 using Nexus.Client.Games.Skyrim.Scripting.XmlScript.Parsers;
 using Nexus.Client.Games.Skyrim.Scripting.XmlScript.Unparsers;
-using Nexus.Client.Games.Skyrim.Scripting.XmlScript.CPL;
+using Nexus.Client.ModManagement.Scripting.XmlScript;
+using Nexus.Client.ModManagement.Scripting.XmlScript.CPL;
+using Nexus.Client.ModManagement.Scripting.XmlScript.Parsers;
+using Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls;
+using Nexus.Client.ModManagement.Scripting.XmlScript.Unparsers;
+using Nexus.Client.Mods;
+using Nexus.Client.PluginManagement;
 
 namespace Nexus.Client.Games.Skyrim.Scripting.XmlScript
 {

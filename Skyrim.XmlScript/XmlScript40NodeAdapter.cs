@@ -1,11 +1,9 @@
 ﻿using System.Collections.Generic;
 using Nexus.Client.Controls;
-using Nexus.Client.Games.Fallout3.Scripting.XmlScript.CPL;
+using Nexus.Client.Games.Skyrim.Scripting.XmlScript.CPL;
 using Nexus.Client.ModManagement.Scripting.XmlScript;
 using Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls;
 using Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors;
-using Nexus.Client.Games.Fallout3.Scripting.XmlScript;
-using Nexus.Client.Games.Skyrim.Scripting.XmlScript.CPL;
 
 namespace Nexus.Client.Games.Skyrim.Scripting.XmlScript
 {

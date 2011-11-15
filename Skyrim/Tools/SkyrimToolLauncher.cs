@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
-using Nexus.Client.Games.Skyrim.Tools.AI;
 using Nexus.Client.Games.Gamebryo.Tools.AI.UI;
+using Nexus.Client.Games.Skyrim.Tools.AI;
 using Nexus.Client.Games.Tools;
 
 namespace Nexus.Client.Games.Skyrim.Tools

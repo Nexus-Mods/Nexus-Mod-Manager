@@ -2,10 +2,6 @@
 #pragma warning disable 1591
 //turn off warning about not needing CLSCompliant attribute
 #pragma warning disable 3021
-//turn off warning about missing comments
-#pragma warning disable 1591
-//turn off warning about not needing CLSCompliant attribute
-#pragma warning disable 3021
 using Antlr.Runtime;
 using Nexus.Client.ModManagement.Scripting.XmlScript.CPL;
 
