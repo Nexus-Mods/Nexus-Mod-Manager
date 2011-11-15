@@ -19,7 +19,7 @@
 #define SetupScriptVersion '0.6.1.0'
 [Setup]
 AppName={#MyAppSetupName}
-AppID=6af12c54-643b-4752-87d0-8335503010de - DEV BUILD
+AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
 AppCopyright=Copyright © Black Tree Gaming 2011
