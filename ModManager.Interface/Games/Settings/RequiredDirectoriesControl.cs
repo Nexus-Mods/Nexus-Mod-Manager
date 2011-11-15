@@ -67,7 +67,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		public bool ConfirmFolderCreation(string p_strPath)
 		{
-			return MessageBox.Show(this, String.Format("The selected {0} does not exist.{1}Would you like to create it?", p_strPath, Environment.NewLine), "Missing Directory", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+			return true;
 		}
 
 		/// <summary>
