@@ -66,16 +66,20 @@ namespace Nexus.Client
 					Directory.CreateDirectory(EnvironmentInfo.ApplicationPersonalDataFolderPath);
 				EnableTracing(EnvironmentInfo, booTrace);
 
+#if !DEBUG
 				try
 				{
-					Bootstrapper btsInitializer = new Bootstrapper(EnvironmentInfo);
-					if (!btsInitializer.RunMainForm(p_strArgs))
-						return;
+#endif
+				Bootstrapper btsInitializer = new Bootstrapper(EnvironmentInfo);
+				if (!btsInitializer.RunMainForm(p_strArgs))
+					return;
+#if !DEBUG
 				}
 				catch (Exception e)
 				{
 					HandleException(e, "Something bad seems to have happened.", "Error");
 				}
+#endif
 
 				Trace.TraceInformation(String.Format("Running Threads ({0})", TrackedThreadManager.Threads.Count));
 				Trace.Indent();
