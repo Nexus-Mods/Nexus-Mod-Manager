@@ -131,7 +131,7 @@ namespace Nexus.Client.Updating
 		/// or 0.0.0.0 if now information could be retrieved.</returns>
 		private Version GetNewProgrammeVersion()
 		{
-			FtpWebRequest fwrGetter = (FtpWebRequest)WebRequest.Create("ftp://dev.tesnexus.com");
+			FtpWebRequest fwrGetter = (FtpWebRequest)WebRequest.Create("ftp://dev.tesnexus.com/releases");
 			//the current server doesn't allow anonymous access, so use this for now
 			fwrGetter.Credentials = new NetworkCredential("readonly@dev.tesnexus.com", "n0writing");
 			fwrGetter.Method = WebRequestMethods.Ftp.ListDirectoryDetails;
