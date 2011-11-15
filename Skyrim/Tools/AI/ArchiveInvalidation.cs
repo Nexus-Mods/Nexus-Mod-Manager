@@ -39,9 +39,11 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 			string strIniPath = GameMode.SettingsFiles.IniPath;
 			if (!File.Exists(strIniPath))
 				return false;
-			List<string> bsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "sResourceArchiveList", null, strIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
-			Int32 intInvalidate = IniMethods.GetPrivateProfileInt32("Archive", "bInvalidateOlderFiles", 0, strIniPath);
-			return bsas.Contains(AI_BSA) || (intInvalidate != 0);
+			string strBSAs = IniMethods.GetPrivateProfileString("Archive", "sResourceArchiveList", null, strIniPath);
+			if (String.IsNullOrEmpty(strBSAs))
+				return false;
+			List<string> bsas = new List<string>(strBSAs.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+			return bsas.Contains(AI_BSA);
 		}
 
 		/// <summary>
