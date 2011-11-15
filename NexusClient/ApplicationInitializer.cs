@@ -139,10 +139,10 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
-		/// Gets or sets the application's envrionment info.
+		/// Gets the application's envrionment info.
 		/// </summary>
 		/// <value>The application's envrionment info.</value>
-		protected IEnvironmentInfo EnvironmentInfo { get; set; }
+		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
 		#endregion
 

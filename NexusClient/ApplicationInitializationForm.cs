@@ -51,6 +51,8 @@ namespace Nexus.Client
 
 				m_vmlViewModel.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_TaskStarted);
 				m_vmlViewModel.TaskEnded += new EventHandler<TaskEndedEventArgs>(ApplicationInitializer_TaskEnded);
+
+				lblVersion.Text = m_vmlViewModel.EnvironmentInfo.ApplicationVersion.ToString();
 			}
 		}
 
@@ -64,8 +66,8 @@ namespace Nexus.Client
 		/// <param name="p_iniApplicationInitializer">The application initializer.</param>
 		public ApplicationInitializationForm(ApplicationInitializer p_iniApplicationInitializer)
 		{
-			ViewModel = p_iniApplicationInitializer;
 			InitializeComponent();
+			ViewModel = p_iniApplicationInitializer;			
 		}
 
 		#endregion
