@@ -23,7 +23,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 		#endregion
 
-		private static readonly List<string> StopFolders = new List<string>() { "fomod", "textures",
+		private static readonly List<string> StopFolders = new List<string>() { "textures",
 																	"meshes", "music", "shaders", "video",
 																	"facegen", "menus", "lodsettings", "lsdata",
 																	"sound" };
