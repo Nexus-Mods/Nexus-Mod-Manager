@@ -103,6 +103,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strWebsite = "www.tesnexus.com";
 					m_strEndpoint = "TESNexusREST";
 					break;
+				case "Skyrim":
+					m_strWebsite = "www.skyrimnexus.com";
+					m_strEndpoint = "SKYRIMNexusREST";
+					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
