@@ -18,7 +18,7 @@ namespace Nexus.Client.Games
 		/// Gets the application's envrionment info.
 		/// </summary>
 		/// <value>The application's envrionment info.</value>
-		protected IEnvironmentInfo EnvironmentInfo { get; private set; }
+		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
 		/// <summary>
 		/// Gets the descriptor of the current game mode.

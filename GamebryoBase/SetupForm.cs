@@ -37,12 +37,6 @@ namespace Nexus.Client.Games.Gamebryo
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the application's envrionment info.
-		/// </summary>
-		/// <value>The application's envrionment info.</value>
-		public IEnvironmentInfo EnvironmentInfo { get; set; }
-
 		#endregion
 
 		#region Contructors
@@ -96,7 +90,7 @@ namespace Nexus.Client.Games.Gamebryo
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void wizSetup_Cancelled(object sender, EventArgs e)
 		{
-			if (MessageBox.Show(this, String.Format("If you cancel the setup {0} will close.", EnvironmentInfo.Settings.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
+			if (MessageBox.Show(this, String.Format("If you cancel the setup {0} will close.", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
 				DialogResult = DialogResult.Cancel;
 		}
 
