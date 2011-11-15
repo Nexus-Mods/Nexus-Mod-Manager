@@ -2,6 +2,7 @@
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
+using System.Drawing;
 
 namespace Nexus.Client.Games
 {
@@ -40,15 +41,21 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
+		/// <param name="p_strTitle">The title to use for the form.</param>
+		/// <param name="p_icoIcon">The icon to use for the form.</param>
 		/// <param name="p_strMessage">The message to display in the window.</param>
 		/// <param name="p_strLabel">The label of the working directory textbox.</param>
 		/// <param name="p_strSearchFiles">The files to search for when auto-detecting.</param>
-		public WorkingDirectorySelectionForm(string p_strMessage, string p_strLabel, string[] p_strSearchFiles)
+		public WorkingDirectorySelectionForm(string p_strTitle, Icon p_icoIcon, string p_strMessage, string p_strLabel, string[] p_strSearchFiles)
 		{
 			m_strSearchFiles = p_strSearchFiles;
 			InitializeComponent();
 			autosizeLabel1.Text = p_strMessage;
 			label2.Text = p_strLabel;
+			if (!String.IsNullOrEmpty(p_strTitle))
+				Text = p_strTitle;
+			if (p_icoIcon != null)
+				Icon = p_icoIcon;
 		}
 
 		#endregion
@@ -95,7 +102,7 @@ namespace Nexus.Client.Games
 			padDetector.Detect(m_strSearchFiles);
 			ProgressDialog.ShowDialog(this, padDetector);
 		}
-		
+
 		/// <summary>
 		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of the auto-detect task.
 		/// </summary>
@@ -138,7 +145,7 @@ namespace Nexus.Client.Games
 		protected bool ConfirmInstallationPath(string p_strPath)
 		{
 			if (InvokeRequired)
-				return (bool)Invoke((Func<string,bool>)ConfirmInstallationPath, p_strPath);
+				return (bool)Invoke((Func<string, bool>)ConfirmInstallationPath, p_strPath);
 			return (MessageBox.Show(this, "Found: " + p_strPath + Environment.NewLine + "Is this correct?", "Found Path", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
 		}
 	}

@@ -151,6 +151,9 @@
     <EmbeddedResource Include="Games\Settings\RequiredDirectoriesControl.resx">
       <DependentUpon>RequiredDirectoriesControl.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Games\WorkingDirectorySelectionForm.resx">
+      <DependentUpon>WorkingDirectorySelectionForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

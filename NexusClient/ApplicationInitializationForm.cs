@@ -210,8 +210,9 @@ namespace Nexus.Client
 			stbMessage.AppendFormat("Please enter the path to your {0} game file, or click \"Auto Detect\" to search", p_gmdGameModeInfo.Name);
 			stbMessage.AppendFormat(" for the install directory. Note that Auto Detection can take several minutes.");
 			string strLabel = String.Format("{0} Game Directory:", p_gmdGameModeInfo.Name);
+			string strTitle = String.Format("{0} Location", p_gmdGameModeInfo.Name);
 
-			using (WorkingDirectorySelectionForm wdfForm = new WorkingDirectorySelectionForm(stbMessage.ToString(), strLabel, p_gmdGameModeInfo.GameExecutables))
+			using (WorkingDirectorySelectionForm wdfForm = new WorkingDirectorySelectionForm(strTitle, p_gmdGameModeInfo.ModeTheme.Icon, stbMessage.ToString(), strLabel, p_gmdGameModeInfo.GameExecutables))
 			{
 				wdfForm.WorkingDirectory = p_strDefaultPath;
 				if (wdfForm.ShowDialog(this) == DialogResult.Cancel)

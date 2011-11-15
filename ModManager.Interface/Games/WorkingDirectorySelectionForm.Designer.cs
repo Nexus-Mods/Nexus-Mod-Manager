@@ -35,10 +35,9 @@
 			this.butCancel = new System.Windows.Forms.Button();
 			this.butAutoDetect = new System.Windows.Forms.Button();
 			this.panel1 = new System.Windows.Forms.Panel();
+			this.autosizeLabel1 = new Nexus.Client.Controls.AutosizeLabel();
 			this.panel2 = new System.Windows.Forms.Panel();
 			this.fbdWorkingDirectory = new System.Windows.Forms.FolderBrowserDialog();
-			this.autosizeLabel1 = new Nexus.Client.Controls.AutosizeLabel();
-			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -108,13 +107,24 @@
 			// panel1
 			// 
 			this.panel1.AutoSize = true;
-			this.panel1.Controls.Add(this.autosizeLabel1);
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
 			this.panel1.Location = new System.Drawing.Point(0, 0);
 			this.panel1.Name = "panel1";
 			this.panel1.Padding = new System.Windows.Forms.Padding(12, 9, 12, 3);
 			this.panel1.Size = new System.Drawing.Size(587, 30);
 			this.panel1.TabIndex = 7;
+			// 
+			// autosizeLabel1
+			// 
+			this.autosizeLabel1.BackColor = System.Drawing.SystemColors.Control;
+			this.autosizeLabel1.Cursor = System.Windows.Forms.Cursors.Arrow;
+			this.autosizeLabel1.Dock = System.Windows.Forms.DockStyle.Top;
+			this.autosizeLabel1.Enabled = false;
+			this.autosizeLabel1.Location = new System.Drawing.Point(0, 0);
+			this.autosizeLabel1.Name = "autosizeLabel1";
+			this.autosizeLabel1.Size = new System.Drawing.Size(563, 18);
+			this.autosizeLabel1.TabIndex = 0;
+			this.autosizeLabel1.Text = "autosizeLabel1";
 			// 
 			// panel2
 			// 
@@ -130,21 +140,6 @@
 			this.panel2.Size = new System.Drawing.Size(587, 109);
 			this.panel2.TabIndex = 8;
 			// 
-			// autosizeLabel1
-			// 
-			this.autosizeLabel1.BackColor = System.Drawing.SystemColors.Control;
-			this.autosizeLabel1.BorderStyle = System.Windows.Forms.BorderStyle.None;
-			this.autosizeLabel1.Dock = System.Windows.Forms.DockStyle.Top;
-			this.autosizeLabel1.Enabled = false;
-			this.autosizeLabel1.Location = new System.Drawing.Point(12, 9);
-			this.autosizeLabel1.Name = "autosizeLabel1";
-			this.autosizeLabel1.ReadOnly = true;
-			this.autosizeLabel1.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.None;
-			this.autosizeLabel1.Size = new System.Drawing.Size(563, 18);
-			this.autosizeLabel1.TabIndex = 0;
-			this.autosizeLabel1.TabStop = false;
-			this.autosizeLabel1.Text = "autosizeLabel1";
-			// 
 			// WorkingDirectorySelectionForm
 			// 
 			this.AcceptButton = this.butOK;
@@ -159,7 +154,6 @@
 			this.Name = "WorkingDirectorySelectionForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Select Working Directory";
-			this.panel1.ResumeLayout(false);
 			this.panel2.ResumeLayout(false);
 			this.panel2.PerformLayout();
 			this.ResumeLayout(false);
