@@ -34,6 +34,7 @@ namespace Nexus.Client.Games.Gamebryo
 				lblTitle.Text = String.Format(lblTitle.Text, m_vmlViewModel.GameModeDescriptor.Name);
 				Text = String.Format(Text, m_vmlViewModel.GameModeDescriptor.Name);
 				rdcDirectories.ViewModel = m_vmlViewModel.RequiredDirectoriesControlVM;
+				ApplyTheme(m_vmlViewModel.GameModeDescriptor.ModeTheme);
 			}
 		}
 
@@ -60,6 +61,15 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Applies the given theme to the form.
+		/// </summary>
+		/// <param name="p_thmTheme">The theme to apply.</param>
+		protected void ApplyTheme(Theme p_thmTheme)
+		{
+			Icon = p_thmTheme.Icon;
+		}
 
 		#region Navigation
 
