@@ -39,7 +39,7 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 			string strIniPath = GameMode.SettingsFiles.IniPath;
 			if (!File.Exists(strIniPath))
 				return false;
-			List<string> bsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+			List<string> bsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "sResourceArchiveList", null, strIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
 			Int32 intInvalidate = IniMethods.GetPrivateProfileInt32("Archive", "bInvalidateOlderFiles", 0, strIniPath);
 			return bsas.Contains(AI_BSA) || (intInvalidate != 0);
 		}
@@ -80,7 +80,7 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 		private string GetBSAList(bool p_booInsertAI)
 		{
 			string strFalloutIniPath = GameMode.SettingsFiles.IniPath;
-			List<string> bsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strFalloutIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+			List<string> bsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "sResourceArchiveList", null, strFalloutIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
 			List<string> lstNewBSAs = new List<string>();
 			for (int i = 0; i < bsas.Count; i++)
 			{
@@ -104,10 +104,6 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
 				fi.LastWriteTime = new DateTime(2008, 10, 1);
 
-			WriteIniInt("Archive", "bInvalidateOlderFiles", 1);
-			WriteIniInt("General", "bLoadFaceGenHeadEGTFiles", 1);
-			WriteIniString("Archive", "SInvalidationFile", "");
-			File.Delete(Path.Combine(strPluginsPath, "archiveinvalidation.txt"));
 			File.WriteAllBytes(Path.Combine(strPluginsPath, AI_BSA), new byte[] {
                 0x42, 0x53, 0x41, 0x00, 0x67, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x03, 0x07, 0x00, 0x00,
                 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
@@ -115,7 +111,7 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
                 0x36, 0x00, 0x00, 0x00, 0x01, 0x00, 0x61, 0x00, 0x01, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x61, 0x00
             });
-			WriteIniString("Archive", "SArchiveList", GetBSAList(true));
+			WriteIniString("Archive", "sResourceArchiveList", GetBSAList(true));
 		}
 
 		/// <summary>
@@ -124,11 +120,8 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 		protected override void RemoveAI()
 		{
 			string strPluginsPath = GameMode.PluginDirectory;
-			WriteIniInt("Archive", "bInvalidateOlderFiles", 0);
-			WriteIniInt("General", "bLoadFaceGenHeadEGTFiles", 0);
-			WriteIniString("Archive", "SInvalidationFile", "ArchiveInvalidation.txt");
 			File.Delete(Path.Combine(strPluginsPath, AI_BSA));
-			WriteIniString("Archive", "SArchiveList", GetBSAList(false));
+			WriteIniString("Archive", "sResourceArchiveList", GetBSAList(false));
 		}
 	}
 }
