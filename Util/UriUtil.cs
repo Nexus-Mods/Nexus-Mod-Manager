@@ -19,11 +19,12 @@ namespace Nexus.Client.Util
 		/// <c>null</c> if we couldn't build one.</returns>
 		public static Uri BuildUri(string p_strUri)
 		{
-			if (Uri.IsWellFormedUriString(p_strUri, UriKind.Absolute))
-				return new Uri(p_strUri);
+			Uri uriParsed = null;
+			if (Uri.TryCreate(p_strUri, UriKind.Absolute, out uriParsed))
+				return uriParsed;
 			string strUri = "http://" + p_strUri;
-			if (Uri.IsWellFormedUriString(strUri, UriKind.Absolute))
-				return new Uri(strUri);
+			if (Uri.TryCreate(strUri, UriKind.Absolute, out uriParsed))
+				return uriParsed;
 			return null;
 		}
 
