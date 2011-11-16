@@ -1163,8 +1163,9 @@ namespace Nexus.Client.Mods.Formats.OMod
 					Author = brdConfig.ReadString();
 					Email = brdConfig.ReadString();
 					string strUrl = brdConfig.ReadString();
-					if (!String.IsNullOrEmpty(strUrl))
-						Website = new Uri(strUrl);
+					Uri uriUrl = null;
+					if (UriUtil.TryBuildUri(strUrl, out uriUrl))
+						Website = uriUrl;
 					Description = brdConfig.ReadString();
 					if (OModVersion >= 2)
 						CreationTime = DateTime.FromBinary(brdConfig.ReadInt64());

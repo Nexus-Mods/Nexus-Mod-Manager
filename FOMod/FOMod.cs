@@ -797,7 +797,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 			XmlNode xndWebsite = xndRoot.SelectSingleNode("Website");
 			if ((xndWebsite != null) && (!String.IsNullOrEmpty(xndWebsite.InnerText)) && (!p_booFillOnlyEmptyValues || (Website == null)))
-				Website = new Uri(xndWebsite.InnerText);
+			{
+				Uri uriUrl = null;
+				if (UriUtil.TryBuildUri(xndWebsite.InnerText, out uriUrl))
+					Website = uriUrl;
+			}
 		}
 
 		#endregion
