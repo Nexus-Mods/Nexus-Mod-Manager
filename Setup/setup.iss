@@ -15,7 +15,7 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.12.0'
+#define MyAppVersion '0.12.1'
 #define SetupScriptVersion '0.6.1.0'
 [Setup]
 AppName={#MyAppSetupName}
