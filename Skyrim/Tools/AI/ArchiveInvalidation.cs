@@ -81,16 +81,19 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 		/// <returns>The list of BSA files in the Fallout INI file.</returns>
 		private string GetBSAList(bool p_booInsertAI)
 		{
-			string strFalloutIniPath = GameMode.SettingsFiles.IniPath;
-			List<string> bsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "sResourceArchiveList", null, strFalloutIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+			string strIniPath = GameMode.SettingsFiles.IniPath;
+			string strBSAs = IniMethods.GetPrivateProfileString("Archive", "sResourceArchiveList", null, strIniPath);
+			List<string> lstBSAs = new List<string>();
+			if (strBSAs != null)
+				lstBSAs.AddRange(strBSAs.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
 			List<string> lstNewBSAs = new List<string>();
-			for (int i = 0; i < bsas.Count; i++)
+			for (int i = 0; i < lstBSAs.Count; i++)
 			{
-				bsas[i] = bsas[i].Trim(' ');
-				if (bsas[i].Contains("Misc"))
-					lstNewBSAs.Insert(0, bsas[i]);
-				else if (bsas[i] != AI_BSA)
-					lstNewBSAs.Add(bsas[i]);
+				lstBSAs[i] = lstBSAs[i].Trim(' ');
+				if (lstBSAs[i].Contains("Misc"))
+					lstNewBSAs.Insert(0, lstBSAs[i]);
+				else if (lstBSAs[i] != AI_BSA)
+					lstNewBSAs.Add(lstBSAs[i]);
 			}
 			if (p_booInsertAI)
 				lstNewBSAs.Insert(0, AI_BSA);
