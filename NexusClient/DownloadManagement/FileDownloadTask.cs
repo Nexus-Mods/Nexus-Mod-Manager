@@ -174,6 +174,12 @@ namespace Nexus.Client.DownloadManagement
 			OverallMessage = String.Format("Downloading {0}", Path.GetFileName(m_fdrDownloader.SavePath));
 			ShowItemProgress = false;
 
+			if (!m_fdrDownloader.FileExists)
+			{
+				Status = TaskStatus.Error;
+				OnTaskEnded(String.Format("File does not exist: {0}", p_uriURL.ToString()), null);
+				return;
+			}
 			m_fdrDownloader.StartDownload();
 			m_tmrUpdater.Start();
 		}

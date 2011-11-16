@@ -221,8 +221,8 @@ namespace Nexus.Client.ModManagement
 				FileDownloadTask fdtDownloader = new FileDownloadTask(4, 1024 * 500);
 				fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
 				fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);
-				fdtDownloader.DownloadAsync(uriFile, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
 				m_lstRunningTasks.Add(fdtDownloader);
+				fdtDownloader.DownloadAsync(uriFile, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);				
 			}
 		}
 
@@ -286,6 +286,7 @@ namespace Nexus.Client.ModManagement
 			else if (IsActive)
 			{
 				Status = e.Status;
+				OverallMessage = e.Message;
 				OnTaskEnded(e.Message, e.ReturnValue);
 			}
 		}

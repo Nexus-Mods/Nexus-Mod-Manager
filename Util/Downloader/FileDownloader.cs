@@ -148,6 +148,18 @@ namespace Nexus.Client.Util.Downloader
 			}
 		}
 
+		/// <summary>
+		/// Gets whether or not the file to be downloaded exists.
+		/// </summary>
+		/// <value>Whether or not the file to be downloaded exists.</value>
+		public bool FileExists
+		{
+			get
+			{
+				return m_fmdInfo.Exists && (m_fmdInfo.Length > 0);
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -262,7 +274,7 @@ namespace Nexus.Client.Util.Downloader
 		public void StartDownload()
 		{
 			Trace.TraceInformation(String.Format("[{0}] Downloading.", m_uriURL.ToString()));
-			if (!m_fmdInfo.Exists)
+			if (!FileExists)
 				throw new FileNotFoundException("The file to download does not exist.", m_uriURL.ToString());
 
 			Int32 intConnectionsToUse = m_fmdInfo.SupportsResume ? m_intMaxConnections : 1;
