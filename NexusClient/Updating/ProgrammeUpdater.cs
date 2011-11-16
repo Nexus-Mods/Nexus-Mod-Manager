@@ -80,7 +80,7 @@ namespace Nexus.Client.Updating
 				}
 
 				SetMessage(String.Format("Downloading new {0} version...", EnvironmentInfo.Settings.ModManagerName));
-				string strNewInstaller = DownloadFile(new Uri(String.Format("http://dev.tesnexus.com/client/Nexus Mod Manager-{0}.exe", verNew.ToString())));
+				string strNewInstaller = DownloadFile(new Uri(String.Format("http://dev.tesnexus.com/client/releases/Nexus Mod Manager-{0}.exe", verNew.ToString())));
 				SetProgress(2);
 
 				if (CancelRequested)
