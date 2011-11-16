@@ -453,7 +453,8 @@ namespace Nexus.Client
 				tskUpgrader.TaskEnded -= new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
 				if (tskUpgrader.Status != TaskStatus.Complete)
 				{
-					p_vwmErrorMessage = new ViewMessage("Install Log was not upgraded.", null, "Install Log", MessageBoxIcon.Error);
+					string strDetails = (string)(tskUpgrader.ReturnValue ?? null);
+					p_vwmErrorMessage = new ViewMessage("Install Log was not upgraded.", strDetails, "Install Log", MessageBoxIcon.Error);
 					return null;
 				}
 			}

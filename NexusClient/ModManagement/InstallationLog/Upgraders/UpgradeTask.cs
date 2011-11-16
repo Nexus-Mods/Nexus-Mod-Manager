@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using ChinhDo.Transactions;
 using Nexus.Transactions;
+using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 {
@@ -53,5 +54,33 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 				m_tfmFileManager = null;
 			}
 		}
+
+		/// <summary>
+		/// Performs the actual upgrade.
+		/// </summary>
+		/// <param name="p_objArgs">The task arguments.</param>
+		/// <returns>A status message.</returns>
+		protected override object DoWork(object[] p_objArgs)
+		{
+			try
+			{
+				UpgradeInstallLog((string)p_objArgs[0], (string)p_objArgs[1], (ModRegistry)p_objArgs[2]);
+				return null;
+			}
+			catch (UpgradeException e)
+			{
+				Status = TaskStatus.Error;
+				return e.Message;
+			}
+		}
+
+		/// <summary>
+		/// Upgrades the install log.
+		/// </summary>
+		/// <param name="p_mrgModRegistry">The <see cref="ModRegistry"/> that contains the list
+		/// of managed mods.</param>
+		/// <param name="p_strModInstallDirectory">The path of the directory where all of the mods are installed.</param>
+		/// <param name="p_strLogPath">The path from which to load the install log information.</param>
+		protected abstract void UpgradeInstallLog(string p_strLogPath, string p_strModInstallDirectory, ModRegistry p_mrgModRegistry);
 	}
 }

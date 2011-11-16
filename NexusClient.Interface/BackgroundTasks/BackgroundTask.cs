@@ -86,6 +86,15 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Gets the return value of the task.
+		/// </summary>
+		/// <remarks>
+		/// This value should be used in conjunction with <see cref="Status"/>.
+		/// </remarks>
+		/// <value>The return value of the task.</value>
+		public object ReturnValue { get; private set; }
+
+		/// <summary>
 		/// Gets whether or not the task is actively working.
 		/// </summary>
 		/// <remarks>
@@ -501,6 +510,7 @@ namespace Nexus.Client
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 		protected virtual void OnTaskEnded(TaskEndedEventArgs e)
 		{
+			ReturnValue = e.ReturnValue;
 			TaskEnded(this, e);
 		}
 

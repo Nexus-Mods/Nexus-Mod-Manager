@@ -116,6 +116,15 @@ namespace Nexus.Client.BackgroundTasks
 		TaskStatus Status { get; }
 
 		/// <summary>
+		/// Gets the return value of the task.
+		/// </summary>
+		/// <remarks>
+		/// This value should be used in conjunction with <see cref="Status"/>.
+		/// </remarks>
+		/// <value>The return value of the task.</value>
+		object ReturnValue { get; }
+
+		/// <summary>
 		/// Gets whether or not the task is actively working.
 		/// </summary>
 		/// <remarks>

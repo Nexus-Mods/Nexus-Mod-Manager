@@ -14,24 +14,13 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 		private static readonly Version SUPPORTED_VERSION = new Version("0.2.0.0");
 
 		/// <summary>
-		/// Performs the actual upgrade.
-		/// </summary>
-		/// <param name="p_objArgs">The task arguments.</param>
-		/// <returns>Always <c>null</c>.</returns>
-		protected override object DoWork(object[] p_objArgs)
-		{
-			UpgradeInstallLog((string)p_objArgs[0], (string)p_objArgs[1], (ModRegistry)p_objArgs[2]);
-			return null;
-		}
-
-		/// <summary>
-		/// Loads the data from the Install Log file.
+		/// Upgrades the install log.
 		/// </summary>
 		/// <param name="p_mrgModRegistry">The <see cref="ModRegistry"/> that contains the list
 		/// of managed mods.</param>
 		/// <param name="p_strModInstallDirectory">The path of the directory where all of the mods are installed.</param>
 		/// <param name="p_strLogPath">The path from which to load the install log information.</param>
-		private void UpgradeInstallLog(string p_strLogPath, string p_strModInstallDirectory, ModRegistry p_mrgModRegistry)
+		protected override void UpgradeInstallLog(string p_strLogPath, string p_strModInstallDirectory, ModRegistry p_mrgModRegistry)
 		{
 			if (!File.Exists(p_strLogPath))
 				return;
@@ -40,7 +29,7 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 
 			string strLogVersion = docLog.Element("installLog").Attribute("fileVersion").Value;
 			if (!SUPPORTED_VERSION.ToString().Equals(strLogVersion))
-				throw new Exception(String.Format("Cannot upgrade Install Log version: {0} Expecting {1}", strLogVersion, SUPPORTED_VERSION));
+				throw new UpgradeException(String.Format("Cannot upgrade Install Log version: {0} Expecting {1}", strLogVersion, SUPPORTED_VERSION));
 
 			XElement xelModList = docLog.Descendants("modList").FirstOrDefault();
 			if (xelModList != null)
