@@ -252,12 +252,8 @@ namespace Nexus.Client.Util
 		{
 			get
 			{
-				IntPtr hmodule = LoadLibrary("kernel32");
-
-				//a function that only exists on Vista and above
-				// this is a hack, as the function we use may not exist on some future OS
-				string strFunction = "CreateThreadpoolWait";
-				return ((hmodule.ToInt32() != 0) && (GetProcAddress(hmodule, strFunction).ToInt32() != 0));
+				//Vista was version 6.0 - it is the earliest version with UAC
+				return Environment.OSVersion.Version >= new Version("6.0");
 			}
 		}
 
