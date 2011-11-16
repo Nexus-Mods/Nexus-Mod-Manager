@@ -279,6 +279,7 @@
     <Compile Include="ModRepositories\ModFileCategory.cs" />
     <Compile Include="ModRepositories\Nexus\NexusModInfo.cs" />
     <Compile Include="ModRepositories\Nexus\NexusModRepository.cs" />
+    <Compile Include="ModRepositories\RepositoryUnavailableException.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.TransactionEnlistment.cs" />
     <Compile Include="PluginManagement\OrderLog\PluginOrderLog.cs" />

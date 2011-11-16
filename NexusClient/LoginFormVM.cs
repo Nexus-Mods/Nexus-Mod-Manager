@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using Nexus.Client.Games;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Settings;
-using System.Drawing;
-using Nexus.Client.Games;
 using Nexus.Client.Util;
 
 namespace Nexus.Client
@@ -148,9 +148,17 @@ namespace Nexus.Client
 			ErrorMessage = null;
 			EnvironmentInfo.Settings.RepositoryUsernames[ModRepository.Id] = Username;
 			Dictionary<string, string> dicAuthTokens = null;
-			if (!ModRepository.Login(Username, Password, out dicAuthTokens))
+			try
 			{
-				ErrorMessage = "The given login information is invalid.";
+				if (!ModRepository.Login(Username, Password, out dicAuthTokens))
+				{
+					ErrorMessage = "The given login information is invalid.";
+					return false;
+				}
+			}
+			catch (RepositoryUnavailableException)
+			{
+				ErrorMessage = String.Format("Cannot connect to the {0} server.", ModRepository.Name);
 				return false;
 			}
 			if (StayLoggedIn)

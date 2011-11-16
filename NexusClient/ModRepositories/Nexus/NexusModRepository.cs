@@ -169,7 +169,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public bool Login(string p_strUsername, string p_strPassword, out Dictionary<string, string> p_dicTokens)
 		{
 			string strSite = m_strWebsite;
-			HttpWebRequest hwrLogin = (HttpWebRequest)WebRequest.Create(String.Format("http://{0}/modules/login/do_login.php", strSite));
+			string strLoginUrl = String.Format("http://{0}/modules/login/do_login.php", strSite);
+			HttpWebRequest hwrLogin = (HttpWebRequest)WebRequest.Create(strLoginUrl);
 			CookieContainer ckcCookies = new CookieContainer();
 			hwrLogin.CookieContainer = ckcCookies;
 			hwrLogin.Method = WebRequestMethods.Http.Post;
@@ -181,18 +182,25 @@ namespace Nexus.Client.ModRepositories.Nexus
 			hwrLogin.GetRequestStream().Write(bteFields, 0, bteFields.Length);
 
 			string strLoginResultPage = null;
-			using (WebResponse wrpLoginResultPage = hwrLogin.GetResponse())
+			try
 			{
-				if (((HttpWebResponse)wrpLoginResultPage).StatusCode != HttpStatusCode.OK)
-					throw new Exception("Request to the login page failed with HTTP error: " + ((HttpWebResponse)wrpLoginResultPage).StatusCode);
-
-				Stream stmLoginResultPage = wrpLoginResultPage.GetResponseStream();
-				using (StreamReader srdLoginResultPage = new StreamReader(stmLoginResultPage))
+				using (WebResponse wrpLoginResultPage = hwrLogin.GetResponse())
 				{
-					strLoginResultPage = srdLoginResultPage.ReadToEnd();
-					srdLoginResultPage.Close();
+					if (((HttpWebResponse)wrpLoginResultPage).StatusCode != HttpStatusCode.OK)
+						throw new Exception("Request to the login page failed with HTTP error: " + ((HttpWebResponse)wrpLoginResultPage).StatusCode);
+
+					Stream stmLoginResultPage = wrpLoginResultPage.GetResponseStream();
+					using (StreamReader srdLoginResultPage = new StreamReader(stmLoginResultPage))
+					{
+						strLoginResultPage = srdLoginResultPage.ReadToEnd();
+						srdLoginResultPage.Close();
+					}
+					wrpLoginResultPage.Close();
 				}
-				wrpLoginResultPage.Close();
+			}
+			catch (WebException)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server: {1}", Name, strLoginUrl));
 			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			foreach (Cookie ckeToken in ckcCookies.GetCookies(new Uri("http://" + strSite)))
