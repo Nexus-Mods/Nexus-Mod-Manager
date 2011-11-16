@@ -84,8 +84,6 @@ namespace Nexus.Client.Games
 					if (String.IsNullOrEmpty(strDirectory))
 						return null;
 					strDirectory = Path.Combine(strDirectory, "overwrites");
-					if (!Directory.Exists(strDirectory))
-						Directory.CreateDirectory(strDirectory);
 					return strDirectory;
 				}
 			}
@@ -101,8 +99,6 @@ namespace Nexus.Client.Games
 					if (!EnvironmentInfo.Settings.ModFolder.ContainsKey(GameMode.ModeId))
 						return null;
 					string strDirectory = (string)EnvironmentInfo.Settings.ModFolder[GameMode.ModeId];
-					if (!Directory.Exists(strDirectory))
-						Directory.CreateDirectory(strDirectory);
 					return strDirectory;
 				}
 			}
@@ -119,8 +115,6 @@ namespace Nexus.Client.Games
 					if (String.IsNullOrEmpty(strDirectory))
 						return null;
 					strDirectory = Path.Combine(strDirectory, "cache");
-					if (!Directory.Exists(strDirectory))
-						Directory.CreateDirectory(strDirectory);
 					return strDirectory;
 				}
 			}
@@ -137,8 +131,6 @@ namespace Nexus.Client.Games
 					if (String.IsNullOrEmpty(strDirectory))
 						return null;
 					strDirectory = Path.Combine(strDirectory, "downloads");
-					if (!Directory.Exists(strDirectory))
-						Directory.CreateDirectory(strDirectory);
 					return strDirectory;
 				}
 			}
