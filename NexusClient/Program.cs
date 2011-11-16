@@ -129,8 +129,8 @@ namespace Nexus.Client
 
 			StringBuilder stbStatus = new StringBuilder();
 			stbStatus.AppendFormat("Mod Manager Version: {0}{1}", Assembly.GetExecutingAssembly().GetName().Version, p_eifEnvironmentInfo.IsMonoMode ? "(mono)" : "").AppendLine();
-			stbStatus.AppendFormat("OS version: {0}", Environment.OSVersion.ToString());
-			stbStatus.AppendFormat("Tracing is forced: {0}", p_booForceTrace);
+			stbStatus.AppendFormat("OS version: {0}", Environment.OSVersion.ToString()).AppendLine();
+			stbStatus.AppendFormat("Tracing is forced: {0}", p_booForceTrace).AppendLine();
 			Trace.TraceInformation(stbStatus.ToString());
 		}
 
