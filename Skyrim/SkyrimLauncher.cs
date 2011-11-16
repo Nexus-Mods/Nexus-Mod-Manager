@@ -103,19 +103,19 @@ namespace Nexus.Client.Games.Skyrim
 		protected void SetupCommands()
 		{
 			m_lstLaunchCommands.Clear();
-			Icon icnIcon = Icon.ExtractAssociatedIcon(GetPlainLaunchCommand());
+			string strCommand = GetPlainLaunchCommand();
+			Icon icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
 			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Skyrim", "Launches plain Skyrim.", icnIcon.ToBitmap(), LaunchSkyrimPlain, true));
-			string strCommand = GetSkseLaunchCommand();
+			strCommand = GetSkseLaunchCommand();
 			if (File.Exists(strCommand))
 			{
 				icnIcon = Icon.ExtractAssociatedIcon(strCommand);
 				m_lstLaunchCommands.Add(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim with SKSE.", icnIcon.ToBitmap(), LaunchSkyrimSKSE, true));
 			}
 			strCommand = GetCustomLaunchCommand();
-			icnIcon = String.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(GetCustomLaunchCommand());
+			icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
 			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Skyrim", "Launches Skyrim with custom command.", (icnIcon == null) ? null : icnIcon.ToBitmap(), LaunchSkyrimCustom, true));
-
-
+			
 			m_cmdDefault = new Command("Launch Skyrim", "Launches Skyrim.", LaunchGame);
 		}
 

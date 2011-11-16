@@ -103,16 +103,17 @@ namespace Nexus.Client.Games.Oblivion
 		protected void SetupCommands()
 		{
 			m_lstLaunchCommands.Clear();
-			Icon icnIcon = Icon.ExtractAssociatedIcon(GetPlainLaunchCommand());
+			string strCommand = GetPlainLaunchCommand();
+			Icon icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
 			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Oblivion", "Launches plain Oblivion.", icnIcon.ToBitmap(), LaunchOblivionPlain, true));
-			string strCommand = GetObseLaunchCommand();
+			strCommand = GetObseLaunchCommand();
 			if (File.Exists(strCommand))
 			{
 				icnIcon = Icon.ExtractAssociatedIcon(strCommand);
 				m_lstLaunchCommands.Add(new Command("ObseLaunch", "Launch OBSE", "Launches Oblivion with OBSE.", icnIcon.ToBitmap(), LaunchOblivionOBSE, true));
 			}
 			strCommand = GetCustomLaunchCommand();
-			icnIcon = String.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(GetCustomLaunchCommand());
+			icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
 			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Oblivion", "Launches Oblivion with custom command.", (icnIcon == null) ? null : icnIcon.ToBitmap(), LaunchOblivionCustom, true));
 
 			m_cmdDefault = new Command("Launch Oblivion", "Launches Oblivion.", LaunchGame);

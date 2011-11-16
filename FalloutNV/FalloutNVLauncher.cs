@@ -103,16 +103,17 @@ namespace Nexus.Client.Games.FalloutNV
 		protected void SetupCommands()
 		{
 			m_lstLaunchCommands.Clear();
-			Icon icnIcon = Icon.ExtractAssociatedIcon(GetPlainLaunchCommand());
+			string strCommand = GetPlainLaunchCommand();
+			Icon icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
 			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Fallout: New Vegas", "Launches plain Fallout: New Vegas.", icnIcon.ToBitmap(), LaunchFalloutNVPlain, true));
-			string strCommand = GetNvseLaunchCommand();
+			strCommand = GetNvseLaunchCommand();
 			if (File.Exists(strCommand))
 			{
 				icnIcon = Icon.ExtractAssociatedIcon(strCommand);
 				m_lstLaunchCommands.Add(new Command("NvseLaunch", "Launch NVSE", "Launches Fallout: New Vegas with NVSE.", icnIcon.ToBitmap(), LaunchFalloutNVNVSE, true));
 			}
 			strCommand = GetCustomLaunchCommand();
-			icnIcon = String.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(GetCustomLaunchCommand());
+			icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
 			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Fallout: New Vegas", "Launches Fallout: New Vegas with custom command.", (icnIcon == null) ? null : icnIcon.ToBitmap(), LaunchFalloutNVCustom, true));
 
 			m_cmdDefault = new Command("Launch Fallout: New Vegas", "Launches Fallout: New Vegas.", LaunchGame);
