@@ -128,6 +128,15 @@ namespace Nexus.Client
 
 		#endregion
 
+		/// <summary>
+		/// Creates the liftime object that determines how long the object lives.
+		/// </summary>
+		/// <returns>Always <c>null</c>, so that the object never dies.</returns>
+		public override object InitializeLifetimeService()
+		{
+			return null;
+		}
+
 		#region Mod Addition
 
 		/// <summary>
