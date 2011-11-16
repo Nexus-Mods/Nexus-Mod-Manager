@@ -253,6 +253,11 @@ namespace Nexus.Client.Util.Downloader
 						intLineTracker = 36;
 					}
 				}
+				catch (ArgumentOutOfRangeException)
+				{
+					Trace.TraceError(String.Format("[{0}] Block Downloader: ArgumentOutOfRangeException: LineTracker: {1}: Block Range {2}-{3}", m_fdrFileDownloader.URL, intLineTracker, p_rngBlockToDownload.StartByte, p_rngBlockToDownload.EndByte));
+					throw;
+				}
 				catch (NullReferenceException)
 				{
 					Trace.TraceError(String.Format("[{0}] Block Downloader: NullReferenceException: LineTracker: {1}", m_fdrFileDownloader.URL, intLineTracker));
