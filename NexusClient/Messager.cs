@@ -214,6 +214,5 @@ namespace Nexus.Client
 			else
 				MainForm.Activate();
 		}
-
 	}
 }
