@@ -38,8 +38,6 @@ namespace Nexus.Client.Games.Settings
 				
 				lblModPrompt.Text = String.Format(lblModPrompt.Text, ViewModel.GameModeName);
 				lblInstallInfoPrompt.Text = String.Format(lblInstallInfoPrompt.Text, ViewModel.GameModeName);
-
-				m_vmlViewModel.ConfirmFolderCreation = ConfirmFolderCreation;
 			}
 		}
 
@@ -58,17 +56,6 @@ namespace Nexus.Client.Games.Settings
 		#endregion
 
 		#region Validation
-
-		/// <summary>
-		/// Called when the creation of a new folder needs to be confirmed by the model.
-		/// </summary>
-		/// <param name="p_strPath">The path to be created.</param>
-		/// <returns><c>true</c> if the user allows the path to be created;
-		/// <c>false</c> otherwise.</returns>
-		public bool ConfirmFolderCreation(string p_strPath)
-		{
-			return true;
-		}
 
 		/// <summary>
 		/// Handles the <see cref="ErrorContainer.ErrorChanged"/> event of the validation

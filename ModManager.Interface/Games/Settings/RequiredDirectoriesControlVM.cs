@@ -14,11 +14,6 @@ namespace Nexus.Client.Games.Settings
 		private string m_strInstallInfoDirectory = null;
 		private string m_strModDirectory = null;
 
-		/// <summary>
-		/// Called when the creationg of a folder needs to be confirmed.
-		/// </summary>
-		public Func<string, bool> ConfirmFolderCreation = delegate { return false; };
-
 		#region Properties
 
 		/// <summary>
@@ -117,16 +112,6 @@ namespace Nexus.Client.Games.Settings
 			if (String.IsNullOrEmpty(p_strPath))
 			{
 				Errors.SetError(p_strProperty, String.Format("You must select a {0}.", p_strPathName));
-				return false;
-			}
-			if (!Directory.Exists(p_strPath))
-			{
-				if (ConfirmFolderCreation(p_strPath))
-				{
-					Directory.CreateDirectory(p_strPath);
-					return true;
-				}
-				Errors.SetError(p_strProperty, String.Format("{0} does not exist.", p_strPathName));
 				return false;
 			}
 			return true;
