@@ -235,8 +235,21 @@ namespace Nexus.Client
 				return false;
 			}
 
-			if (!UacCheck(p_gmfGameModeFactory.GameModeDescriptor, out p_vwmErrorMessage))
+			string strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
+			if (!UacCheck(strUacCheckPath))
+			{
+				Trace.TraceError("Unable to get write permissions for: " + strUacCheckPath);
+				string strMessage = "Unable to get write permissions for:" + Environment.NewLine + strUacCheckPath;
+				string strDetails = String.Format("This error happens when you are running Windows Vista or later,  and have installed <b>{0}</b> in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
+									"<li>Disable UAC (<i>not recommended</i>).</li>" +
+									@"<li>Move <b>{0}</b> outside of the <b>Program Files</b> folder (for example, to <b>C:\Games\{0}</b>). This may require a reinstall.<br>With Oblivion you could just copy the game folder to a new location, run the game, and all would be well. This may not work with other games.</li>" +
+									"<li>Run <b>{1}</b> as administrator. You can try this by right-clicking on <b>{1}</b> shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
+									"</ol>" +
+									"The best thing to do in order to avoid other problems, and the generally recommended solution, is to install <b>{0}</b> outside of the <b>Program Files</b> folder.",
+									p_gmfGameModeFactory.GameModeDescriptor.Name, EnvironmentInfo.Settings.ModManagerName);
+				p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
 				return false;
+			}
 
 			if (!EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId])
 			{
@@ -264,6 +277,14 @@ namespace Nexus.Client
 			}
 			if (vwmWarning != null)
 				ShowMessage(vwmWarning);
+			if (!UacCheckEnvironment(gmdGameMode, out p_vwmErrorMessage))
+			{
+				//TODO it would be really nice of us if we, instead of closing,
+				// force the game mode to reinitialize, and select new paths
+				return false;
+			}
+			if (!CreateEnvironmentPaths(gmdGameMode, out p_vwmErrorMessage))
+				return false;
 
 			Trace.TraceInformation(String.Format("Game Mode Built: {0} ({1})", gmdGameMode.Name, gmdGameMode.ModeId));
 			Trace.Indent();
@@ -316,15 +337,76 @@ namespace Nexus.Client
 		#region Support
 
 		/// <summary>
+		/// Ensures that the game mode environment's paths exist.
+		/// </summary>
+		/// <param name="p_gmdGameMode">The game mode whose paths are to be created.</param>
+		/// <param name="p_vwmErrorMessage">The error message if the creation fails.</param>
+		/// <returns><c>true</c> if the creation passed;
+		/// <c>false</c> otherwise.</returns>
+		protected bool CreateEnvironmentPaths(IGameMode p_gmdGameMode, out ViewMessage p_vwmErrorMessage)
+		{
+			string[] strPaths = new string[] { p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
+												p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory,
+												p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory,
+												p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory,
+												p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory};
+			foreach (string strPath in strPaths)
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
+			p_vwmErrorMessage = null;
+			return true;
+		}
+
+		/// <summary>
 		/// Checks to see if UAC is interfering with file installation.
 		/// </summary>
-		/// <param name="p_gmdGameModeInfo">The descriptor for the current game mode.</param>
-		/// <param name="p_vwmErrorMessage">The error message if the UAC check failed.</param>
+		/// <param name="p_gmdGameMode">The game mode whose paths are to be checked.</param>
+		/// <param name="p_vwmErrorMessage">The error message if the initialization failed.</param>
 		/// <returns><c>true</c> if the check passed;
 		/// <c>false</c> otherwise.</returns>
-		protected bool UacCheck(IGameModeDescriptor p_gmdGameModeInfo, out ViewMessage p_vwmErrorMessage)
+		protected bool UacCheckEnvironment(IGameMode p_gmdGameMode, out ViewMessage p_vwmErrorMessage)
 		{
-			string strInstallationPath = EnvironmentInfo.Settings.InstallationPaths[p_gmdGameModeInfo.ModeId];
+			Dictionary<string, string> dicPaths = new Dictionary<string, string>();
+			dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = "Install Info";
+			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory))
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory] = "Mods";
+			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory))
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory] = "Mods";
+			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory))
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory] = "Mods";
+			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory))
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = "Install Info";
+
+			foreach (KeyValuePair<string, string> kvpUacCheckPath in dicPaths)
+			{
+				if (!UacCheck(kvpUacCheckPath.Key))
+				{
+					Trace.TraceError("Unable to get write permissions for: " + kvpUacCheckPath.Key);
+					string strMessage = "Unable to get write permissions for:" + Environment.NewLine + kvpUacCheckPath.Key;
+					string strDetails = String.Format("This error happens when you are running Windows Vista or later, and have put {0}'s <b>{1}</b> folder in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
+										"<li>Disable UAC (<i>not recommended</i>).</li>" +
+										@"<li>Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder (for example, to <b>C:\Games\ModManagerInfo\{1}</b>).</li>" +
+										"<li>Run <b>{0}</b> as administrator. You can try this by right-clicking on <b>{0}</b>'s shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
+										"</ol>" +
+										"The best thing to do in order to avoid other problems, and the generally recommended solution, is to Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder.",
+										EnvironmentInfo.Settings.ModManagerName, kvpUacCheckPath.Value);
+					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
+					return false;
+				}
+			}
+			p_vwmErrorMessage = null;
+			return true;
+		}
+
+		/// <summary>
+		/// Checks to see if UAC is interfering with file installation.
+		/// </summary>
+		/// <param name="p_strPath">The path for which we are to check if UAC is intefeing.</param>
+		/// <returns><c>true</c> if the check passed;
+		/// <c>false</c> otherwise.</returns>
+		protected bool UacCheck(string p_strPath)
+		{
+			string strInstallationPath = p_strPath;
 			string strTestFile = Path.Combine(strInstallationPath, "limited");
 			try
 			{
@@ -336,26 +418,13 @@ namespace Nexus.Client
 				using (FileStream fs = File.Create(strTestFile)) { }
 				if (File.Exists(strVirtualStore))
 				{
-					Trace.TraceError("UAC is messing us up.");
-
-					string strMessage = String.Format("UAC is preventing {0} from obtaining write access to {1}'s Installation Path.\n" +
-														"Either run {0] as administrator, or disable UAC.", EnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.Name);
-					p_vwmErrorMessage = new ViewMessage(strMessage, null, "Error", MessageBoxIcon.Error);
+					Trace.TraceError(String.Format("UAC is messing us up: {0}", p_strPath));
 					return false;
 				}
 			}
 			catch
 			{
-				Trace.TraceError("Unable to get write permissions for: " + strInstallationPath);
-				string strMessage = "Unable to get write permissions for:" + Environment.NewLine + strInstallationPath;
-				string strDetails = String.Format("This error happens when you are running Windows Vista or later,  and have installed <b>{0}</b> in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
-									"<li>Disable UAC (<i>not recommended</i>).</li>" +
-									@"<li>Move <b>{0}</b> outside of the <b>Program Files</b> folder (for example, to <b>C:\Games\{0}</b>). This may require a reinstall.<br>With Oblivion you could just copy the game folder to a new location, run the game, and all would be well. This may not work with oterh games.</li>" +
-									"<li>Run <b>{1}</b> as administrator. You can try this by right-clicking on <b>{1}</b> shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
-									"</ol>" +
-									"The best thing to do in order to avoid other problems, and the generally recommended solution, is to install <b>{0}</b> outside of the <b>Program Files</b> folder.",
-									p_gmdGameModeInfo.Name, EnvironmentInfo.Settings.ModManagerName);
-				p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
+				Trace.TraceError(String.Format("UAC is messing us up: {0}", p_strPath));
 				return false;
 			}
 			finally
@@ -363,7 +432,6 @@ namespace Nexus.Client
 				if (File.Exists(strTestFile))
 					File.Delete(strTestFile);
 			}
-			p_vwmErrorMessage = null;
 			return true;
 		}
 
