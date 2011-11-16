@@ -41,7 +41,11 @@ namespace Nexus.Client.ActivityMonitoring.UI
 			if (p_tskTask.ShowOverallProgressAsMarquee)
 				lsiSubItem.Text = "Working...";
 			else
-				lsiSubItem.Text = (p_tskTask.OverallProgress / (p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum)).ToString("P0");
+			{
+				Int32 intDenominator = p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum;
+				Int32 intPercent = (intDenominator == 0) ? 0 : p_tskTask.OverallProgress / intDenominator;
+				lsiSubItem.Text = intPercent.ToString("P0");
+			}
 
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
 			lsiSubItem.Name = ObjectHelper.GetPropertyName(() => p_tskTask.ItemMessage);
@@ -55,7 +59,11 @@ namespace Nexus.Client.ActivityMonitoring.UI
 				if (p_tskTask.ShowItemProgressAsMarquee)
 					lsiSubItem.Text = "Working...";
 				else
-					lsiSubItem.Text = (p_tskTask.ItemProgress / (p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum)).ToString("P0");
+				{
+					Int32 intDenominator = p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum;
+					Int32 intPercent = (intDenominator == 0) ? 0 : p_tskTask.ItemProgress / intDenominator;
+					lsiSubItem.Text = intPercent.ToString("P0");
+				}
 			}
 
 			p_tskTask.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
