@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Fallout3
 {
@@ -194,6 +195,7 @@ namespace Nexus.Client.Games.Fallout3
 			if (!String.IsNullOrEmpty(strCommand))
 			{
 				strCommand = Environment.ExpandEnvironmentVariables(strCommand);
+				strCommand = FileUtil.StripInvalidPathChars(strCommand);
 				if (!Path.IsPathRooted(strCommand))
 					strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, strCommand);
 			}
