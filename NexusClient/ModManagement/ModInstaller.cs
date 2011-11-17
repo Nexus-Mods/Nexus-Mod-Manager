@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO;
 using System.Security;
+using System.Text;
 using System.Threading;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
@@ -11,10 +13,6 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
 using Nexus.Transactions;
-#if !DEBUG
-using System.Text;
-using System.IO;
-#endif
 
 namespace Nexus.Client.ModManagement
 {
@@ -165,7 +163,10 @@ namespace Nexus.Client.ModManagement
 			{
 				throw;
 			}
-#if !DEBUG
+			//this blobck used to be conditionally excluded from debug builds,
+			// presumably so that the debugger would break on the source of the
+			// exception, however that prevents the full mod install flow from
+			// happening, which lead to missed bugs
 			catch (Exception e)
 			{
 				StringBuilder stbError = new StringBuilder(e.Message);
@@ -186,7 +187,6 @@ namespace Nexus.Client.ModManagement
 				string strExceptionMessageFormat = "A problem occurred during install: " + Environment.NewLine + "{0}" + Environment.NewLine + "The mod was not installed."; ;
 				strMessage = String.Format(strExceptionMessageFormat, stbError.ToString());
 			}
-#endif
 			finally
 			{
 				Mod.EndReadOnlyTransaction();
