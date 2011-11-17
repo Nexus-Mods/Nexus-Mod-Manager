@@ -23,7 +23,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 		#endregion
 
-		private static readonly List<string> StopFolders = new List<string>() { "textures",
+		private static readonly List<string> StopFolders = new List<string>() { "fomod", "textures",
 																	"meshes", "music", "shaders", "video",
 																	"facegen", "menus", "lodsettings", "lsdata",
 																	"sound" };
@@ -507,24 +507,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				{
 					strFiles[i] = strFiles[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 					string strFile = strFiles[i];
-					if (strFile.StartsWith(strPrefixPath, StringComparison.OrdinalIgnoreCase))
-					{
-						string strAdjustedFileName = strFile.Remove(0, intTrimLength);
-						m_dicMovedArchiveFiles[strAdjustedFileName] = strFile;
-					}
-				}
-				foreach (string strFile in strFiles)
-				{
+					string strNewFileName = strFile;
 					if (!strFile.StartsWith(strPrefixPath, StringComparison.OrdinalIgnoreCase) && m_dicMovedArchiveFiles.ContainsKey(strFile))
 					{
-						string strNewFileName = strFile;
-						for (Int32 i = 1; m_dicMovedArchiveFiles.ContainsKey(strNewFileName); i++)
-							strNewFileName = Path.GetFileNameWithoutExtension(strFile) + " " + i + Path.GetExtension(strFile);
-						m_dicMovedArchiveFiles[strNewFileName] = strFile;
+						strNewFileName = Path.Combine(strPrefixPath, strFile);
+						string strDirectory = Path.GetDirectoryName(strNewFileName);
+						string strFileName = Path.GetFileNameWithoutExtension(strFile);
+						string strExtension = Path.GetExtension(strFile);
+						for (Int32 j = 1; m_dicMovedArchiveFiles.ContainsKey(strNewFileName); j++)
+							strNewFileName = Path.Combine(strDirectory, strFileName + " " + j + strExtension);
 					}
+					m_dicMovedArchiveFiles[strNewFileName] = strFile;
 				}
 			}
+			m_strPrefixPath = strPrefixPath;
 		}
+		private string m_strPrefixPath = null;
 
 		/// <summary>
 		/// Handles the <see cref="Archive.FilesChanged"/> event of the FOMod's archive.
@@ -573,7 +571,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			string strAdjustedPath = null;
 			if (m_dicMovedArchiveFiles.TryGetValue(strPath, out strAdjustedPath))
 				return strAdjustedPath;
-			return p_strPath;
+			return Path.Combine(m_strPrefixPath, p_strPath);
 		}
 
 		/// <summary>
