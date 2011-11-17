@@ -103,6 +103,16 @@ namespace Nexus.Client
 			// the switch to improve exception handling. not sure what issue I was encountering.
 			// maybe the issue was actually related to the fact that some operations at the time
 			// were wrapped in unneccessary threads - that issue has since been resolved
+			//
+			//I would like to find, and then document, a specific case where the thread
+			// provides an advantage over BeginInvoke/EndInvoke. in StartWait(),
+			// I seem to be observing the debugger break on the source of the exception, even
+			// with BeginInvoke/EndInvoke, so I would like a conter-example.
+			//example of BeginInvoke/EndInvoke breaking on exception source: if I insert:
+			// if (System.Windows.Forms.MessageBox.Show("Now?", "CRASH", System.Windows.Forms.MessageBoxButtons.YesNo) == System.Windows.Forms.DialogResult.Yes)
+			//		throw new DirectoryNotFoundException("DUMMY");
+			// as the first line of Archive.public byte[] GetFileContents(string p_strPath)
+			// StartWait() breaks on said line.
 
 			/*Func<object, object> dlg = new Func<object, object>(RunThreadedWork);
 			IAsyncResult ar = dlg.BeginInvoke(p_objArgs, EndThreadInvokeHandler, p_objArgs);*/
@@ -153,14 +163,24 @@ namespace Nexus.Client
 		{
 			//see Start() for discussion on BeginInvoke/EndInvoke versus
 			// threads
-			/*Func<object, object> dlg = new Func<object, object>(RunThreadedWork);
+			//
+			//in this method, it appears we should be using BeginInvoke/EndInvoke,
+			// unlike in the Start() method. this is because it makes the most
+			// sense for an exception thrown during the execution of the task to
+			// bubble up the the caller of this method, which EndInvoke allows.
+			// this is important for things like transactions: letting the exception
+			// bubble up allows the transaction to roll back when an unhandled
+			// exception is thrown in the task's code
+			// with threading, this doesn't happen - at least not unless we make it.
+			Func<object, object> dlg = new Func<object, object>(RunThreadedWork);
 			IAsyncResult ar = dlg.BeginInvoke(p_objArgs, null, p_objArgs);
-			object objReturnValue = dlg.EndInvoke(ar);
-			ar.AsyncWaitHandle.Close();*/
+			m_objReturnValue = dlg.EndInvoke(ar);
+			ar.AsyncWaitHandle.Close();
 
+			/*
 			m_areTaskEnded.Reset();
 			Start(p_booRunInBackground, p_objArgs);
-			m_areTaskEnded.WaitOne();
+			m_areTaskEnded.WaitOne();*/
 			return m_objReturnValue;
 		}
 
@@ -185,24 +205,36 @@ namespace Nexus.Client
 		private object RunThreadedWork(object p_objArgs)
 		{
 			object objReturnValue = null;
-			objReturnValue = DoWork((object[])p_objArgs);
-			switch (Status)
+			try
 			{
-				case TaskStatus.Cancelling:
-					Status = TaskStatus.Cancelled;
-					break;
-				case TaskStatus.Paused:
-				case TaskStatus.Running:
-					Status = TaskStatus.Complete;
-					break;
-				case TaskStatus.Complete:
-				case TaskStatus.Error:
-				case TaskStatus.Incomplete:
-				case TaskStatus.Cancelled:
-					//do nothing - it seems status has already been set
-					break;
-				default:
-					throw new Exception(String.Format("Unrecognized value for Status: {0}", Status));
+				objReturnValue = DoWork((object[])p_objArgs);
+				switch (Status)
+				{
+					case TaskStatus.Cancelling:
+						Status = TaskStatus.Cancelled;
+						break;
+					case TaskStatus.Paused:
+					case TaskStatus.Running:
+						Status = TaskStatus.Complete;
+						break;
+					case TaskStatus.Complete:
+					case TaskStatus.Error:
+					case TaskStatus.Incomplete:
+					case TaskStatus.Cancelled:
+						//do nothing - it seems status has already been set
+						break;
+					default:
+						throw new Exception(String.Format("Unrecognized value for Status: {0}", Status));
+				}
+			}
+			catch
+			{
+				//we have to catch and then rethrow all exceptions
+				// so that any observers of this task, such as the
+				// ProgressDialog, know that the task has ended.
+				Status = TaskStatus.Error;
+				OnTaskEnded(objReturnValue);
+				throw;
 			}
 			OnTaskEnded(objReturnValue);
 			return objReturnValue;
