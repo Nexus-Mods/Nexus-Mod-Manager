@@ -16,16 +16,17 @@
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
 #define MyAppVersion '0.12.4'
-#define SetupScriptVersion '0.6.1.0'
+#define SetupScriptVersion '0.7.0.0'
+#define MyPublisher 'Black Tree Gaming'
 [Setup]
 AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
-AppCopyright=Copyright © Black Tree Gaming 2011
+AppCopyright=Copyright © {#MyPublisher} 2011
 VersionInfoVersion={#MyAppVersion}
-VersionInfoCompany=Black Tree Gaming
-AppPublisher=Black Tree Gaming
+VersionInfoCompany={#MyPublisher}
+AppPublisher={#MyPublisher}
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
@@ -154,4 +155,24 @@ begin
 #endif
 	
 	Result := true;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+mRes : integer;
+mPub : String;
+begin
+  case CurUninstallStep of
+    usUninstall:
+      begin
+        //check if we should delete the user.config files
+        mRes := MsgBox('Do you want to remove all of {#MyAppSetupName}''s configuration files? Doing so will reset all of {#MyAppSetupName}''s settings.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2)
+        if mRes = IDYES then
+          begin
+            mPub := '{#MyPublisher}';
+            StringChangeEx(mPub,' ', '_', True);
+            DelTree(ExpandConstant('{localappdata}/') + mPub + '/{#MyExeName}*', False, True, True);
+          End
+      end;
+  end;
 end;
