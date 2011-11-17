@@ -178,9 +178,12 @@ namespace Nexus.Client
 									"The sandbox is preventing {0} from performing" + Environment.NewLine +
 									"important operations. Please run {0} again," + Environment.NewLine +
 									"without the sandbox.";
-				string strDetails = "This error commonly occurs on computers running Comodo Antivirus." + Environment.NewLine +
-									"If you are running Comodo, please add {0} to the exception list.";
-				ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Error);
+				string strDetails = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
+									"If you are running Comodo, please add {0} to the exception list.<br/><br/>" +
+									"If you are not running in a sandbox, press Cancel, and make a bug report " +
+									"with the generated TraceLog.";
+				if (ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OKCancel, MessageBoxIcon.Error) == DialogResult.Cancel)
+					throw;
 				return false;
 			}
 			return true;
