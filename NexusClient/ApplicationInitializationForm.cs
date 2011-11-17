@@ -53,6 +53,7 @@ namespace Nexus.Client
 				m_vmlViewModel.TaskEnded += new EventHandler<TaskEndedEventArgs>(ApplicationInitializer_TaskEnded);
 
 				lblVersion.Text = m_vmlViewModel.EnvironmentInfo.ApplicationVersion.ToString();
+				Text = m_vmlViewModel.EnvironmentInfo.Settings.ModManagerName;
 			}
 		}
 
