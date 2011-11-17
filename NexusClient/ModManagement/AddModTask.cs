@@ -106,6 +106,13 @@ namespace Nexus.Client.ModManagement
 			OverallMessage = String.Format("Adding {0}...", m_uriPath);
 
 			Descriptor = BuildDescriptor(m_uriPath);
+			if (Descriptor == null)
+			{
+				Status = TaskStatus.Error;
+				OverallMessage = String.Format("File does not exist: {0}", m_uriPath.ToString());
+				OnTaskEnded(String.Format("File does not exist: {0}", m_uriPath.ToString()), null);
+				return;
+			}
 
 			ModInfo = GetModInfo(Descriptor);
 
@@ -188,7 +195,7 @@ namespace Nexus.Client.ModManagement
 						if (mfiFile == null)
 						{
 							Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
-							throw new Exception(String.Format("Unable to retrieve file {0}.", p_uriPath.ToString()));
+							return null;
 						}
 						Uri[] uriFilesToDownload = m_mrpModRepository.GetFilePartUrls(nxuModUrl.ModId, mfiFile.Id.ToString());
 						string strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
@@ -222,7 +229,7 @@ namespace Nexus.Client.ModManagement
 				fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
 				fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);
 				m_lstRunningTasks.Add(fdtDownloader);
-				fdtDownloader.DownloadAsync(uriFile, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);				
+				fdtDownloader.DownloadAsync(uriFile, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
 			}
 		}
 
@@ -447,7 +454,7 @@ namespace Nexus.Client.ModManagement
 		protected override void OnPropertyChanged(PropertyChangedEventArgs e)
 		{
 			base.OnPropertyChanged(e);
-			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)))
+			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)) && (Descriptor != null))
 			{
 				Descriptor.Status = Status;
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
@@ -466,7 +473,7 @@ namespace Nexus.Client.ModManagement
 		protected override void OnTaskEnded(TaskEndedEventArgs e)
 		{
 			base.OnTaskEnded(e);
-			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete))
+			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (Descriptor != null))
 			{
 				foreach (string strFile in Descriptor.DownloadedFiles)
 					if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))
