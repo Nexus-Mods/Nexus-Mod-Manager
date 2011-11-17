@@ -57,7 +57,7 @@
 			this.tsbZoomOriginal.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbZoomOriginal.Name = "tsbZoomOriginal";
 			this.tsbZoomOriginal.Size = new System.Drawing.Size(36, 36);
-			this.tsbZoomOriginal.Text = "toolStripButton1";
+			this.tsbZoomOriginal.Text = "Actual Size";
 			this.tsbZoomOriginal.Click += new System.EventHandler(this.Zoom_Click);
 			// 
 			// tsbZoomFit
@@ -69,7 +69,7 @@
 			this.tsbZoomFit.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbZoomFit.Name = "tsbZoomFit";
 			this.tsbZoomFit.Size = new System.Drawing.Size(36, 36);
-			this.tsbZoomFit.Text = "toolStripButton2";
+			this.tsbZoomFit.Text = "Fit to Window";
 			this.tsbZoomFit.Click += new System.EventHandler(this.Zoom_Click);
 			// 
 			// panel1
