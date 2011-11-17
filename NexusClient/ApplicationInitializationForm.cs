@@ -7,10 +7,10 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Controls;
 using Nexus.Client.Games;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.UI;
+using Nexus.Client.Util;
 
 namespace Nexus.Client
 {
@@ -215,7 +215,7 @@ namespace Nexus.Client
 			string strTitle = String.Format("{0} Location", p_gmdGameModeInfo.Name);
 
 			using (WorkingDirectorySelectionForm wdfForm = new WorkingDirectorySelectionForm(strTitle, p_gmdGameModeInfo.ModeTheme.Icon, stbMessage.ToString(), strLabel, p_gmdGameModeInfo.GameExecutables))
-			{
+			{	
 				wdfForm.WorkingDirectory = p_strDefaultPath;
 				if (wdfForm.ShowDialog(this) == DialogResult.Cancel)
 				{

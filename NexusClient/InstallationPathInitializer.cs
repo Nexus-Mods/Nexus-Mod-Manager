@@ -71,8 +71,15 @@ namespace Nexus.Client
 
 			string strGameFolder = p_gmfGameModeFactory.GetInstallationPath();
 			while (!VerifyWorkingDirectory(p_gmfGameModeFactory.GameModeDescriptor, strGameFolder))
+			{
+				Trace.TraceInformation(String.Format("Cannot find in {0}.", strGameFolder));
+				Trace.Indent();
+				foreach (string strFile in Directory.GetFiles(strGameFolder))
+					Trace.TraceInformation(strFile);
+				Trace.Unindent();
 				if (!m_fncFindInstallationPath(p_gmfGameModeFactory.GameModeDescriptor, strGameFolder, out strGameFolder))
 					return false;
+			}
 
 			EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = strGameFolder;
 			EnvironmentInfo.Settings.Save();
