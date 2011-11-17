@@ -187,8 +187,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 			}
 			private set
 			{
-				if (SetPropertyIfChanged(ref m_ximScreenshot, value, () => Screenshot))
+				if (CheckIfChanged(m_ximScreenshot, value))
+				{
+					m_ximScreenshot = value;
 					m_booHasScreenshot = (value != null);
+					OnPropertyChanged(() => Screenshot);
+				}
 			}
 		}
 
