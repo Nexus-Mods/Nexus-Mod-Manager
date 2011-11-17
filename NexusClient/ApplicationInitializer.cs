@@ -407,6 +407,8 @@ namespace Nexus.Client
 		protected bool UacCheck(string p_strPath)
 		{
 			string strInstallationPath = p_strPath;
+			while (!Directory.Exists(strInstallationPath))
+				strInstallationPath = Path.GetDirectoryName(strInstallationPath);
 			string strTestFile = Path.Combine(strInstallationPath, "limited");
 			try
 			{
