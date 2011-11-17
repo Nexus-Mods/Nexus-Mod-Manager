@@ -166,7 +166,7 @@ begin
     usUninstall:
       begin
         //check if we should delete the user.config files
-        mRes := MsgBox('Do you want to remove all of {#MyAppSetupName}''s configuration files? Doing so will reset all of {#MyAppSetupName}''s settings.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2)
+        mRes := MsgBox('Do you want to remove all of {#MyAppSetupName}''s configuration files? Doing so will reset all of {#MyAppSetupName}''s settings. Either option will keep your mods intact.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2)
         if mRes = IDYES then
           begin
             mPub := '{#MyPublisher}';
