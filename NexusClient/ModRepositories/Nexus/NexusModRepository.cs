@@ -131,7 +131,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <returns>The mod id, if one was found; <c>null</c> otherwise.</returns>
 		protected string ParseModIdFromFilename(string p_strFilename, out IModInfo p_mifInfo)
 		{
-			Regex rgxModId = new Regex(@"-((\d+)-?)+");
+			Regex rgxModId = new Regex(@"-((\d+)[-\.])+");
 			Match mchModId = rgxModId.Match(Path.GetFileName(p_strFilename));
 			if (!mchModId.Success)
 			{
