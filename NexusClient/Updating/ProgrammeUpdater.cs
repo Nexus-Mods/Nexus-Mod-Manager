@@ -141,7 +141,7 @@ namespace Nexus.Client.Updating
 			{
 				using (FtpWebResponse wrpFileList = (FtpWebResponse)fwrGetter.GetResponse())
 				{
-					if ((wrpFileList.StatusCode != FtpStatusCode.DataAlreadyOpen) && (wrpFileList.StatusCode != FtpStatusCode.OpeningData))
+					if ((wrpFileList.StatusCode != FtpStatusCode.DataAlreadyOpen) && (wrpFileList.StatusCode != FtpStatusCode.OpeningData) && (wrpFileList.StatusCode != FtpStatusCode.CommandOK))
 						throw new Exception("Request to the update directory failed with FTP error: " + wrpFileList.StatusCode);
 
 					Stream stmFileList = wrpFileList.GetResponseStream();
