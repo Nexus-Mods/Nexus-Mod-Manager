@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using Nexus.Client.Controls;
 using Nexus.Client.Plugins;
 using Nexus.Client.Commands.Generic;
+using System.Diagnostics;
 
 namespace Nexus.Client.PluginManagement.UI
 {
@@ -263,34 +264,69 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_plgAdded">The plugin to add to the view's list.</param>
 		protected void InsertPluginToList(Int32 p_intIndex, Plugin p_plgAdded)
 		{
-			ListViewItem lviPlugin = null;
-			if (rlvPlugins.Items.ContainsKey(p_plgAdded.Filename.ToLowerInvariant()))
+			Int32 intLineTracker = 0;
+			try
 			{
-				lviPlugin = rlvPlugins.Items[p_plgAdded.Filename.ToLowerInvariant()];
-				if (lviPlugin.Index != p_intIndex)
+				ListViewItem lviPlugin = null;
+				intLineTracker = 1;
+				if (rlvPlugins.Items.ContainsKey(p_plgAdded.Filename.ToLowerInvariant()))
 				{
-					rlvPlugins.Items.Remove(lviPlugin);
-					rlvPlugins.Items.Insert(p_intIndex, lviPlugin);
+					intLineTracker = 2;
+					lviPlugin = rlvPlugins.Items[p_plgAdded.Filename.ToLowerInvariant()];
+					intLineTracker = 3;
+					if (lviPlugin.Index != p_intIndex)
+					{
+						intLineTracker = 4;
+						rlvPlugins.Items.Remove(lviPlugin);
+						intLineTracker = 5;
+						rlvPlugins.Items.Insert(p_intIndex, lviPlugin);
+						intLineTracker = 6;
+					}
+					intLineTracker = 7;
 				}
-			}
-			else
-			{
-				lviPlugin = new ListViewItem();
-				for (Int32 i = 1; i < rlvPlugins.Columns.Count; i++)
-				{
-					lviPlugin.SubItems.Add(new ListViewItem.ListViewSubItem());
-					lviPlugin.SubItems[i].Name = rlvPlugins.Columns[i].Name;
-				}
-				lviPlugin.Name = p_plgAdded.Filename.ToLowerInvariant();
-				if (p_intIndex > rlvPlugins.Items.Count - 1)
-					rlvPlugins.Items.Add(lviPlugin);
 				else
-					rlvPlugins.Items.Insert(p_intIndex, lviPlugin);
+				{
+					intLineTracker = 8;
+					lviPlugin = new ListViewItem();
+					intLineTracker = 9;
+					for (Int32 i = 1; i < rlvPlugins.Columns.Count; i++)
+					{
+						intLineTracker = 10;
+						lviPlugin.SubItems.Add(new ListViewItem.ListViewSubItem());
+						intLineTracker = 11;
+						lviPlugin.SubItems[i].Name = rlvPlugins.Columns[i].Name;
+						intLineTracker = 12;
+					}
+					intLineTracker = 13;
+					lviPlugin.Name = p_plgAdded.Filename.ToLowerInvariant();
+					intLineTracker = 14;
+					if (p_intIndex > rlvPlugins.Items.Count - 1)
+					{
+						intLineTracker = 15;
+						rlvPlugins.Items.Add(lviPlugin);
+					}
+					else
+					{
+						intLineTracker = 16;
+						rlvPlugins.Items.Insert(p_intIndex, lviPlugin);
+					}
+					intLineTracker = 17;
+				}
+				intLineTracker = 18;
+				lviPlugin.Tag = p_plgAdded;
+				intLineTracker = 19;
+				lviPlugin.Text = Path.GetFileName(p_plgAdded.Filename);
+				intLineTracker = 20;
+				SetPluginActivationCheck(lviPlugin, ViewModel.ActivePlugins.Contains(p_plgAdded));
+				intLineTracker = 21;
+				RefreshPluginIndices();
+				intLineTracker = 22;
 			}
-			lviPlugin.Tag = p_plgAdded;
-			lviPlugin.Text = Path.GetFileName(p_plgAdded.Filename);
-			SetPluginActivationCheck(lviPlugin, ViewModel.ActivePlugins.Contains(p_plgAdded));
-			RefreshPluginIndices();
+			catch (NullReferenceException)
+			{
+				Trace.TraceError(String.Format("InsertPluginToList: NullReferenceException: LineTracker: {0}, Plugin: {1}", intLineTracker, p_plgAdded));
+				throw;
+			}
 		}
 
 		#endregion
