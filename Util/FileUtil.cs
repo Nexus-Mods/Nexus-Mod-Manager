@@ -252,6 +252,8 @@ namespace Nexus.Client.Util
 		/// <c>false</c> otherwise.</returns>
 		public static bool ContainsInvalidPathChars(string p_strPath)
 		{
+			if (String.IsNullOrEmpty(p_strPath))
+				return false;
 			Set<string> setChars = new Set<string>();
 			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
 				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
@@ -268,6 +270,8 @@ namespace Nexus.Client.Util
 		/// <returns>The given path with all invlid characters removed.</returns>
 		public static string StripInvalidPathChars(string p_strPath)
 		{
+			if (String.IsNullOrEmpty(p_strPath))
+				return p_strPath;
 			Set<string> setChars = new Set<string>();
 			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
 				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
