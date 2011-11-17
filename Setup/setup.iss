@@ -16,7 +16,7 @@
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
 #define MyAppVersion '0.12.4'
-#define SetupScriptVersion '0.7.0.0'
+#define SetupScriptVersion '0.7.1.0'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
 AppName={#MyAppSetupName}
@@ -34,6 +34,7 @@ OutputBaseFilename={#MyAppSetupName}-{#MyAppVersion}
 DefaultGroupName={#MyAppSetupName}
 DefaultDirName={pf}\{#MyAppSetupName}
 UninstallDisplayName={#MyAppSetupName}
+UninstallDisplayIcon={app}\{#MyExeName},0
 Uninstallable=true
 UninstallFilesDir={app}\uninstall
 DirExistsWarning=no
