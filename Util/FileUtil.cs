@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using ChinhDo.Transactions;
+using System.Text.RegularExpressions;
 
 namespace Nexus.Client.Util
 {
@@ -241,6 +242,39 @@ namespace Nexus.Client.Util
 			if (!Directory.Exists(strDirectory))
 				Directory.CreateDirectory(strDirectory);
 			File.WriteAllText(p_strPath, p_strData);
+		}
+
+		/// <summary>
+		/// Determines if the given path contains invalid characters.
+		/// </summary>
+		/// <param name="p_strPath">The path to examine.</param>
+		/// <returns><c>true</c> if the given path contains invalid characters;
+		/// <c>false</c> otherwise.</returns>
+		public static bool ContainsInvalidPathChars(string p_strPath)
+		{
+			Set<string> setChars = new Set<string>();
+			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
+				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
+			foreach (char chrInvalidChar in Path.GetInvalidFileNameChars())
+				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
+			Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+			return rgxInvalidPath.IsMatch(p_strPath);
+		}
+
+		/// <summary>
+		/// Removes all invalid characters from the given path.
+		/// </summary>
+		/// <param name="p_strPath">The path to clean.</param>
+		/// <returns>The given path with all invlid characters removed.</returns>
+		public static string StripInvalidPathChars(string p_strPath)
+		{
+			Set<string> setChars = new Set<string>();
+			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
+				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
+			foreach (char chrInvalidChar in Path.GetInvalidFileNameChars())
+				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
+			Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+			return rgxInvalidPath.Replace(p_strPath, "");
 		}
 	}
 }
