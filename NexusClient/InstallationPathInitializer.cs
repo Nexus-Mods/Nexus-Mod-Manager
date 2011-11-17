@@ -74,8 +74,9 @@ namespace Nexus.Client
 			{
 				Trace.TraceInformation(String.Format("Cannot find in {0}.", strGameFolder));
 				Trace.Indent();
-				foreach (string strFile in Directory.GetFiles(strGameFolder))
-					Trace.TraceInformation(strFile);
+				if (!String.IsNullOrEmpty(strGameFolder))
+					foreach (string strFile in Directory.GetFiles(strGameFolder))
+						Trace.TraceInformation(strFile);
 				Trace.Unindent();
 				if (!m_fncFindInstallationPath(p_gmfGameModeFactory.GameModeDescriptor, strGameFolder, out strGameFolder))
 					return false;
@@ -86,7 +87,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Found: " + strGameFolder);
 			Trace.Unindent();
-			
+
 			return true;
 		}
 
