@@ -36,14 +36,21 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 		/// <c>false</c> otherwise.</returns>
 		public override bool IsActive()
 		{
-			string strIniPath = GameMode.SettingsFiles.IniPath;
+			string strPluginsPath = GameMode.PluginDirectory;
+			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
+			{
+				if (fi.LastWriteTime.CompareTo(new DateTime(2009, 1, 1)) > -1)
+					return false;
+			}
+			return true;
+			/*string strIniPath = GameMode.SettingsFiles.IniPath;
 			if (!File.Exists(strIniPath))
 				return false;
 			string strBSAs = IniMethods.GetPrivateProfileString("Archive", "sResourceArchiveList", null, strIniPath);
 			if (String.IsNullOrEmpty(strBSAs))
 				return false;
 			List<string> bsas = new List<string>(strBSAs.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
-			return bsas.Contains(AI_BSA);
+			return bsas.Contains(AI_BSA);*/
 		}
 
 		/// <summary>
@@ -109,14 +116,14 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
 				fi.LastWriteTime = new DateTime(2008, 10, 1);
 
-			File.WriteAllBytes(Path.Combine(strPluginsPath, AI_BSA), new byte[] {
+			/*File.WriteAllBytes(Path.Combine(strPluginsPath, AI_BSA), new byte[] {
                 0x42, 0x53, 0x41, 0x00, 0x67, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x03, 0x07, 0x00, 0x00,
                 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
                 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
                 0x36, 0x00, 0x00, 0x00, 0x01, 0x00, 0x61, 0x00, 0x01, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x61, 0x00
             });
-			WriteIniString("Archive", "sResourceArchiveList", GetBSAList(true));
+			WriteIniString("Archive", "sResourceArchiveList", GetBSAList(true));*/
 		}
 
 		/// <summary>
@@ -124,9 +131,9 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 		/// </summary>
 		protected override void RemoveAI()
 		{
-			string strPluginsPath = GameMode.PluginDirectory;
+			/*string strPluginsPath = GameMode.PluginDirectory;
 			File.Delete(Path.Combine(strPluginsPath, AI_BSA));
-			WriteIniString("Archive", "sResourceArchiveList", GetBSAList(false));
+			WriteIniString("Archive", "sResourceArchiveList", GetBSAList(false));*/
 		}
 	}
 }
