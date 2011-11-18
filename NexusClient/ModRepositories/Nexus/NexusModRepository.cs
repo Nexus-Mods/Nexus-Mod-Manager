@@ -166,6 +166,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// credentials.</param>
 		/// <returns><c>true</c> if the login was successful;
 		/// <c>fales</c> otherwise.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
 		public bool Login(string p_strUsername, string p_strPassword, out Dictionary<string, string> p_dicTokens)
 		{
 			string strSite = m_strWebsite;
@@ -264,13 +265,21 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod info is be retrieved.</param>
 		/// <returns>The info for the specifed mod.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
 		public IModInfo GetModInfo(string p_strModId)
 		{
 			NexusModInfo nmiInfo = null;
-			using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			try
 			{
-				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-				nmiInfo = nmrApi.GetModInfo(p_strModId);
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					nmiInfo = nmrApi.GetModInfo(p_strModId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 
 			if (nmiInfo == null)
@@ -347,12 +356,20 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strModId">The id of the mod the whose file's metadata is to be retrieved.</param>
 		/// <param name="p_strFileId">The id of the download file whose metadata is to be retrieved.</param>
 		/// <returns>The file info for the specified download file of the specified mod.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
 		public IModFileInfo GetFileInfo(string p_strModId, string p_strFileId)
 		{
-			using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			try
 			{
-				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-				return nmrApi.GetModFile(p_strModId, p_strFileId);
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					return nmrApi.GetModFile(p_strModId, p_strFileId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 		}
 

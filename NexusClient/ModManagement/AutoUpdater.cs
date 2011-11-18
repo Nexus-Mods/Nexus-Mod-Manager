@@ -169,7 +169,7 @@ namespace Nexus.Client.ModManagement
 				{
 					string strSearchTerms = p_modMod.ModName;
 					if (String.IsNullOrEmpty(strSearchTerms))
-						strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_"," ").Replace("-", " ");
+						strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_", " ").Replace("-", " ");
 					//use heuristics to find info
 					if (!String.IsNullOrEmpty(strSearchTerms))
 						mifInfo = ModRepository.FindMods(strSearchTerms, true).FirstOrDefault();
@@ -177,6 +177,11 @@ namespace Nexus.Client.ModManagement
 				if (mifInfo == null)
 					return null;
 				return mifInfo;
+			}
+			catch (RepositoryUnavailableException)
+			{
+				//the repository is not available, so don't bother
+				return null;
 			}
 			catch (Exception e)
 			{
