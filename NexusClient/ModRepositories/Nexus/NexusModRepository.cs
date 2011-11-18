@@ -179,11 +179,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 			string strFields = String.Format("user={0}&pass={1}", p_strUsername, p_strPassword);
 			byte[] bteFields = System.Text.Encoding.UTF8.GetBytes(strFields);
 			hwrLogin.ContentLength = bteFields.Length;
-			hwrLogin.GetRequestStream().Write(bteFields, 0, bteFields.Length);
 
-			string strLoginResultPage = null;
 			try
 			{
+				hwrLogin.GetRequestStream().Write(bteFields, 0, bteFields.Length);
+				string strLoginResultPage = null;
 				using (WebResponse wrpLoginResultPage = hwrLogin.GetResponse())
 				{
 					if (((HttpWebResponse)wrpLoginResultPage).StatusCode != HttpStatusCode.OK)
@@ -301,7 +301,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 				List<IModInfo> mfiMods = new List<IModInfo>();
-				nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));				
+				nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));
 				return mfiMods;
 			}
 		}
