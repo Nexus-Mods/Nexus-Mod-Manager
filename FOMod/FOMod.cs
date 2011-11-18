@@ -507,16 +507,18 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				{
 					strFiles[i] = strFiles[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 					string strFile = strFiles[i];
-					string strNewFileName = strFile;
-					if (!strFile.StartsWith(strPrefixPath, StringComparison.OrdinalIgnoreCase) && m_dicMovedArchiveFiles.ContainsKey(strFile))
+					string strNewFileName = null;
+					if (!strFile.StartsWith(strPrefixPath, StringComparison.OrdinalIgnoreCase))
 					{
-						strNewFileName = Path.Combine(strPrefixPath, strFile);
+						strNewFileName = strFile;
 						string strDirectory = Path.GetDirectoryName(strNewFileName);
 						string strFileName = Path.GetFileNameWithoutExtension(strFile);
 						string strExtension = Path.GetExtension(strFile);
 						for (Int32 j = 1; m_dicMovedArchiveFiles.ContainsKey(strNewFileName); j++)
 							strNewFileName = Path.Combine(strDirectory, strFileName + " " + j + strExtension);
 					}
+					else
+						strNewFileName = strFile.Remove(0, intTrimLength);
 					m_dicMovedArchiveFiles[strNewFileName] = strFile;
 				}
 			}
