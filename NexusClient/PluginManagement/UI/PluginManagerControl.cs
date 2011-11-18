@@ -37,8 +37,14 @@ namespace Nexus.Client.PluginManagement.UI
 			set
 			{
 				m_vmlViewModel = value;
+				Trace.TraceInformation(String.Format("Loading Plugins into Plugin List: {0}", m_vmlViewModel.ManagedPlugins.Count));
+				Trace.Indent();
 				foreach (Plugin plgPlugin in m_vmlViewModel.ManagedPlugins)
+				{
+					Trace.TraceInformation(String.Format("Loading: {0} ({1})", plgPlugin, plgPlugin == null));
 					AddPluginToList(plgPlugin);
+				}
+				Trace.Unindent();
 				m_vmlViewModel.ManagedPlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedPlugins_CollectionChanged);
 				m_vmlViewModel.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
 
