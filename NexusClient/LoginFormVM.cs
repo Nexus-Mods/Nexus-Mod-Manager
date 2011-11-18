@@ -156,9 +156,9 @@ namespace Nexus.Client
 					return false;
 				}
 			}
-			catch (RepositoryUnavailableException)
+			catch (RepositoryUnavailableException e)
 			{
-				ErrorMessage = String.Format("Cannot connect to the {0} server.", ModRepository.Name);
+				ErrorMessage = String.Format("Cannot connect to the {0} server: {1}", ModRepository.Name, e.InnerException.Message);
 				return false;
 			}
 			if (StayLoggedIn)

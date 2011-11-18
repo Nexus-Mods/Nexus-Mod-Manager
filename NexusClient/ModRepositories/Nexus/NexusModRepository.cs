@@ -198,9 +198,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 					wrpLoginResultPage.Close();
 				}
 			}
-			catch (WebException)
+			catch (WebException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server: {1}", Name, strLoginUrl));
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server: {1}", Name, strLoginUrl), e);
 			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			foreach (Cookie ckeToken in ckcCookies.GetCookies(new Uri("http://" + strSite)))
