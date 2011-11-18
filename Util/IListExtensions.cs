@@ -19,7 +19,7 @@ namespace Nexus.Client.Util
 		/// <returns>The first instance in the list that matches the given predicate.</returns>
 		public static T Find<T>(this IList<T> p_lstList, Predicate<T> p_prdMatchPredicate)
 		{
-			foreach (T tItem in p_lstList.ToArray())
+			foreach (T tItem in p_lstList)
 				if (p_prdMatchPredicate.Invoke(tItem))
 					return tItem;
 			return default(T);
