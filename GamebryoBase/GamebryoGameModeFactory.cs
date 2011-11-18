@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -49,16 +50,25 @@ namespace Nexus.Client.Games.Gamebryo
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath()
 		{
+			string strRegistryKey = null;
+			if (EnvironmentInfo.Is64BitProcess)
+				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\Wow6432Node\Bethesda Softworks\{0}";
+			else
+				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\Bethesda Softworks\{0}";
+			Trace.TraceInformation(String.Format(@"Checking: {0}\Installed Path"), String.Format(strRegistryKey, GameModeDescriptor.ModeId));
+			Trace.Indent();
+			string strValue = null;
 			try
 			{
-				if (EnvironmentInfo.Is64BitProcess)
-					return Registry.GetValue(String.Format(@"HKEY_LOCAL_MACHINE\Software\Wow6432Node\Bethesda Softworks\{0}", GameModeDescriptor.ModeId), "Installed Path", null) as string;
-				return Registry.GetValue(String.Format(@"HKEY_LOCAL_MACHINE\Software\Bethesda Softworks\{0}", GameModeDescriptor.ModeId), "Installed Path", null) as string;
+				strValue = Registry.GetValue(String.Format(strRegistryKey, GameModeDescriptor.ModeId), "Installed Path", null) as string;
 			}
 			catch
 			{
-				return null;
+				//if we can't read the registry, just return null
 			}
+			Trace.TraceInformation(String.Format("Found {0}", strValue));
+			Trace.Unindent();
+			return strValue;
 		}
 
 		/// <summary>

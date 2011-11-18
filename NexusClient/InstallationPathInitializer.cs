@@ -69,14 +69,19 @@ namespace Nexus.Client
 				return true;
 			}
 
+			Trace.TraceInformation("Asking Game Mode...");
+			Trace.Indent();
 			string strGameFolder = p_gmfGameModeFactory.GetInstallationPath();
+			Trace.Unindent();
 			while (!VerifyWorkingDirectory(p_gmfGameModeFactory.GameModeDescriptor, strGameFolder))
 			{
 				Trace.TraceInformation(String.Format("Cannot find in {0}.", strGameFolder));
 				Trace.Indent();
-				if (!String.IsNullOrEmpty(strGameFolder))
+				if (Directory.Exists(strGameFolder))
 					foreach (string strFile in Directory.GetFiles(strGameFolder))
 						Trace.TraceInformation(strFile);
+				else
+					Trace.TraceInformation("Does not exist.");
 				Trace.Unindent();
 				if (!m_fncFindInstallationPath(p_gmfGameModeFactory.GameModeDescriptor, strGameFolder, out strGameFolder))
 					return false;
