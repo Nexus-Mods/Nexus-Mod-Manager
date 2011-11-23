@@ -266,6 +266,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strModId">The id of the mod info is be retrieved.</param>
 		/// <returns>The info for the specifed mod.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IModInfo GetModInfo(string p_strModId)
 		{
 			NexusModInfo nmiInfo = null;
@@ -295,6 +296,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
 		/// the given search terms.</param>
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IList<IModInfo> FindMods(string p_strModNameSearchString, bool p_booIncludeAllTerms)
 		{
 			string[] strTerms = p_strModNameSearchString.Split('"');
@@ -327,12 +329,20 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod whose list of files is to be returned.</param>
 		/// <returns>The list of files for the specified mod.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IList<IModFileInfo> GetModFileInfo(string p_strModId)
 		{
-			using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			try
 			{
-				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-				return nmrApi.GetModFiles(p_strModId).ConvertAll(x => (IModFileInfo)x);
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					return nmrApi.GetModFiles(p_strModId).ConvertAll(x => (IModFileInfo)x);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 		}
 
@@ -346,13 +356,21 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
 		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
 		/// <returns>The URLs of the file parts for the default download file.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public Uri[] GetFilePartUrls(string p_strModId, string p_strFileId)
 		{
 			Uri uriDownloadUrl = null;
-			using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			try
 			{
-				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-				uriDownloadUrl = new Uri(nmrApi.GetModFileDownloadUrls(p_strModId, p_strFileId));
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					uriDownloadUrl = new Uri(nmrApi.GetModFileDownloadUrls(p_strModId, p_strFileId));
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 			return new Uri[] { uriDownloadUrl };
 		}
@@ -364,6 +382,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strFileId">The id of the download file whose metadata is to be retrieved.</param>
 		/// <returns>The file info for the specified download file of the specified mod.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IModFileInfo GetFileInfo(string p_strModId, string p_strFileId)
 		{
 			try
@@ -386,20 +405,28 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strFilename">The name of the file whose info is to be returned.</param>
 		/// <param name="p_mifInfo">The mod info for the mod to which the specified file belongs.</param>
 		/// <returns>The file info for the specified download file.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		private NexusModFileInfo GetFileInfoForFile(string p_strFilename, out IModInfo p_mifInfo)
 		{
 			string strModId = ParseModIdFromFilename(p_strFilename, out p_mifInfo);
 			if (strModId == null)
 				return null;
 			string strFilename = Path.GetFileName(p_strFilename);
-			using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			try
 			{
-				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-				List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(strModId);
-				NexusModFileInfo mfiFileInfo = mfiFiles.Find(x => x.Filename.Equals(strFilename, StringComparison.OrdinalIgnoreCase));
-				if (mfiFileInfo == null)
-					mfiFileInfo = mfiFiles.Find(x => x.Filename.Replace(' ', '_').Equals(strFilename, StringComparison.OrdinalIgnoreCase));
-				return mfiFileInfo;
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(strModId);
+					NexusModFileInfo mfiFileInfo = mfiFiles.Find(x => x.Filename.Equals(strFilename, StringComparison.OrdinalIgnoreCase));
+					if (mfiFileInfo == null)
+						mfiFileInfo = mfiFiles.Find(x => x.Filename.Replace(' ', '_').Equals(strFilename, StringComparison.OrdinalIgnoreCase));
+					return mfiFileInfo;
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 		}
 
@@ -419,21 +446,29 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod the whose default file's metadata is to be retrieved.</param>
 		/// <returns>The file info for the default file of the speficied mod.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IModFileInfo GetDefaultFileInfo(string p_strModId)
 		{
-			using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			try
 			{
-				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-				List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(p_strModId);
-				NexusModFileInfo mfiDefault = (from f in mfiFiles
-											   where f.Category == ModFileCategory.MainFiles
-											   orderby f.Date descending
-											   select f).FirstOrDefault();
-				if (mfiDefault == null)
-					mfiDefault = (from f in mfiFiles
-								  orderby f.Date descending
-								  select f).FirstOrDefault();
-				return mfiDefault;
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(p_strModId);
+					NexusModFileInfo mfiDefault = (from f in mfiFiles
+												   where f.Category == ModFileCategory.MainFiles
+												   orderby f.Date descending
+												   select f).FirstOrDefault();
+					if (mfiDefault == null)
+						mfiDefault = (from f in mfiFiles
+									  orderby f.Date descending
+									  select f).FirstOrDefault();
+					return mfiDefault;
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 		}
 
