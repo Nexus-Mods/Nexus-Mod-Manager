@@ -306,12 +306,19 @@ namespace Nexus.Client.ModRepositories.Nexus
 			if (strTerms.Length % 2 == 0)
 				strTerms[strTerms.Length - 1] = strTerms[strTerms.Length - 1].Replace(' ', '~');
 			string strSearchString = String.Join("\"", strTerms);
-			using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			try
 			{
-				INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-				List<IModInfo> mfiMods = new List<IModInfo>();
-				nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));
-				return mfiMods;
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					List<IModInfo> mfiMods = new List<IModInfo>();
+					nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));
+					return mfiMods;
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 		}
 

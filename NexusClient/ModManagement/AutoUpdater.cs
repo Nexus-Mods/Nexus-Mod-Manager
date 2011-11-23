@@ -183,11 +183,6 @@ namespace Nexus.Client.ModManagement
 				//the repository is not available, so don't bother
 				return null;
 			}
-			catch (Exception e)
-			{
-				string g = e.ToString();
-				throw;
-			}
 		}
 
 		/// <summary>
