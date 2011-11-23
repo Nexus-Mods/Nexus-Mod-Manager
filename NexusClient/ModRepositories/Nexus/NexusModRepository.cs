@@ -265,7 +265,6 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod info is be retrieved.</param>
 		/// <returns>The info for the specifed mod.</returns>
-		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IModInfo GetModInfo(string p_strModId)
 		{
@@ -279,6 +278,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 				}
 			}
 			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (EndpointNotFoundException e)
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
@@ -322,6 +325,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
+			catch (EndpointNotFoundException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
 		}
 
 		/// <summary>
@@ -341,6 +348,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 				}
 			}
 			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (EndpointNotFoundException e)
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
@@ -372,6 +383,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
+			catch (EndpointNotFoundException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
 			return new Uri[] { uriDownloadUrl };
 		}
 
@@ -394,6 +409,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 				}
 			}
 			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (EndpointNotFoundException e)
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
@@ -425,6 +444,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 				}
 			}
 			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (EndpointNotFoundException e)
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
@@ -467,6 +490,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 				}
 			}
 			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (EndpointNotFoundException e)
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
