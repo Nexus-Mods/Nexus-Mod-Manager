@@ -54,7 +54,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			}
 		}
 
-		private ObservableCollection<Option> m_lstOptions = new ObservableCollection<Option>();
+		private ThreadSafeObservableList<Option> m_lstOptions = new ThreadSafeObservableList<Option>();
 		private SortOrder m_srtOptionOrder = SortOrder.Explicit;
 		private string m_strName = null;
 		private OptionGroupType m_gtpType = OptionGroupType.SelectAtLeastOne;
@@ -107,10 +107,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					switch (m_srtOptionOrder)
 					{
 						case SortOrder.Explicit:
-							m_lstOptions = new ObservableCollection<Option>(m_lstOptions);
+							m_lstOptions = new ThreadSafeObservableList<Option>(m_lstOptions);
 							break;
 						default:
-							m_lstOptions = new SortedObservableCollection<Option>(m_lstOptions, new OptionComparer(m_srtOptionOrder));
+							m_lstOptions = new SortedThreadSafeObservableCollection<Option>(m_lstOptions, new OptionComparer(m_srtOptionOrder));
 							break;
 					}
 					m_lstOptions.CollectionChanged += new NotifyCollectionChangedEventHandler(Options_CollectionChanged);
@@ -123,7 +123,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// Gets the options that are part of this group.
 		/// </summary>
 		/// <value>The options that are part of this group.</value>
-		public ObservableCollection<Option> Options
+		public ThreadSafeObservableList<Option> Options
 		{
 			get
 			{
@@ -152,7 +152,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		#endregion
 
 		/// <summary>
-		/// Handles the <see cref="ObservableCollection.CollectionChanged"/> event of the <see cref="Options"/>
+		/// Handles the <see cref="ThreadSafeObservableList.CollectionChanged"/> event of the <see cref="Options"/>
 		/// collection.
 		/// </summary>
 		/// <remarks>

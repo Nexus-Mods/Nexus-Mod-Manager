@@ -14,7 +14,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// </summary>
 		private class ActiveModRegistry
 		{
-			private ObservableCollection<IMod> m_oclRegisteredMods = new ObservableCollection<IMod>();
+			private ThreadSafeObservableList<IMod> m_oclRegisteredMods = new ThreadSafeObservableList<IMod>();
 			private Dictionary<IMod, string> m_dicModKeys = new Dictionary<IMod, string>(ModComparer.Filename);
 
 			#region Properties

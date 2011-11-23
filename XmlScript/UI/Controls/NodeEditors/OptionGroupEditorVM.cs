@@ -12,7 +12,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 		public string Name { get; set; }
 		public OptionGroupType Type { get; set; }
 		public SortOrder OptionSortOrder { get; set; }
-		public ObservableCollection<Option> Options { get; private set; }
+		public ThreadSafeObservableList<Option> Options { get; private set; }
 
 		public OptionGroupVM(OptionGroup p_opgGroup)
 		{
@@ -63,7 +63,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 			Name = OptionGroup.Name;
 			Type = OptionGroup.Type;
 			OptionSortOrder = OptionGroup.OptionSortOrder;
-			Options = new ObservableCollection<Option>(OptionGroup.Options);
+			Options = new ThreadSafeObservableList<Option>(OptionGroup.Options);
 		}
 
 		public void Reset(string p_strPropertyName)
@@ -75,7 +75,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.OptionSortOrder)))
 				OptionSortOrder = OptionGroup.OptionSortOrder;
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.Options)))
-				Options = new ObservableCollection<Option>(OptionGroup.Options);
+				Options = new ThreadSafeObservableList<Option>(OptionGroup.Options);
 		}
 	}
 

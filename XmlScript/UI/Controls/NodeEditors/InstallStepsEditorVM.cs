@@ -10,7 +10,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 	{
 		protected XmlScript Script { get; private set; }
 		public SortOrder InstallStepSortOrder { get; set; }
-		public ObservableCollection<InstallStep> InstallSteps { get; private set; }
+		public ThreadSafeObservableList<InstallStep> InstallSteps { get; private set; }
 
 		public InstallStepsVM(XmlScript p_xscScript)
 		{
@@ -38,7 +38,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 		public void Reset()
 		{
 			InstallStepSortOrder = Script.InstallStepSortOrder;
-			InstallSteps = new ObservableCollection<InstallStep>(Script.InstallSteps);
+			InstallSteps = new ThreadSafeObservableList<InstallStep>(Script.InstallSteps);
 		}
 
 		public void Reset(string p_strPropertyName)
@@ -46,7 +46,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 			if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.InstallStepSortOrder)))
 				InstallStepSortOrder = Script.InstallStepSortOrder;
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.InstallSteps)))
-				InstallSteps = new ObservableCollection<InstallStep>(Script.InstallSteps);
+				InstallSteps = new ThreadSafeObservableList<InstallStep>(Script.InstallSteps);
 		}
 	}
 

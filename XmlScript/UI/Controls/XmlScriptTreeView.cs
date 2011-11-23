@@ -96,7 +96,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls
 			AddInstallSteps(tndInstallSteps);
 			if (Script.Version > new Version(1, 0, 0, 0))
 			{
-				XmlScriptTreeNode<ObservableCollection<ConditionallyInstalledFileSet>> tndConditionallyInstalledFileSets = tndRoot.AddNode(Script.ConditionallyInstalledFileSets, NodeAdapter.GetConditionallyInstalledFileSetOrderEditor, FormatConditionallyInstalledFileSets, HandleConditionallyInstalledFileSetsChange);
+				XmlScriptTreeNode<ThreadSafeObservableList<ConditionallyInstalledFileSet>> tndConditionallyInstalledFileSets = tndRoot.AddNode(Script.ConditionallyInstalledFileSets, NodeAdapter.GetConditionallyInstalledFileSetOrderEditor, FormatConditionallyInstalledFileSets, HandleConditionallyInstalledFileSetsChange);
 				AddConditionFileInstalls(tndConditionallyInstalledFileSets);
 			}
 		}
@@ -132,7 +132,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls
 				p_tndGroup.AddNode(optOption, NodeAdapter.GetOptionEditor, FormatOption);
 		}
 
-		private void AddConditionFileInstalls(XmlScriptTreeNode<ObservableCollection<ConditionallyInstalledFileSet>> p_tndConditionallyInstalledFileSets)
+		private void AddConditionFileInstalls(XmlScriptTreeNode<ThreadSafeObservableList<ConditionallyInstalledFileSet>> p_tndConditionallyInstalledFileSets)
 		{
 			p_tndConditionallyInstalledFileSets.Nodes.Clear();
 			foreach (ConditionallyInstalledFileSet cipPattern in Script.ConditionallyInstalledFileSets)
@@ -230,7 +230,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls
 		protected void HandleConditionallyInstalledFileSetsChange(XmlScriptTreeNode p_stnNode, IList<ConditionallyInstalledFileSet> p_xscScript, string p_strPropertyName)
 		{
 			SelectedNode = p_stnNode;
-			AddConditionFileInstalls((XmlScriptTreeNode<ObservableCollection<ConditionallyInstalledFileSet>>)p_stnNode);
+			AddConditionFileInstalls((XmlScriptTreeNode<ThreadSafeObservableList<ConditionallyInstalledFileSet>>)p_stnNode);
 		}
 
 		/// <summary>

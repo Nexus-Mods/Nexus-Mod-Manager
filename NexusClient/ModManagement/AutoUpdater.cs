@@ -57,7 +57,7 @@ namespace Nexus.Client.ModManagement
 			#endregion
 		}
 
-		private ObservableCollection<UpdateInfo> m_oclNewInfo = new ObservableCollection<UpdateInfo>();
+		private ThreadSafeObservableList<UpdateInfo> m_oclNewInfo = new ThreadSafeObservableList<UpdateInfo>();
 
 		#region Properties
 

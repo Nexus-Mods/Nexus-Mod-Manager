@@ -11,7 +11,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// </summary>
 	public class ConditionallyInstalledFileSet : ObservableObject
 	{
-		private ObservableCollection<InstallableFile> m_lstFiles = null;
+		private ThreadSafeObservableList<InstallableFile> m_lstFiles = null;
 		private ICondition m_cndCondition = null;
 
 		#region Properties
@@ -56,7 +56,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		public ConditionallyInstalledFileSet(ICondition p_cndCondition, IList<InstallableFile> p_lstFiles)
 		{
 			m_cndCondition = p_cndCondition;
-			m_lstFiles = (p_lstFiles == null) ? new ObservableCollection<InstallableFile>() : new ObservableCollection<InstallableFile>(p_lstFiles);
+			m_lstFiles = (p_lstFiles == null) ? new ThreadSafeObservableList<InstallableFile>() : new ThreadSafeObservableList<InstallableFile>(p_lstFiles);
 			m_lstFiles.CollectionChanged += new System.Collections.Specialized.NotifyCollectionChangedEventHandler(Files_CollectionChanged);
 		}
 

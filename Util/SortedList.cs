@@ -97,7 +97,7 @@ namespace Nexus.Client.Util
 		/// </summary>
 		/// <param name="p_tItem">The item whose index in the sorted list is to be found.</param>
 		/// <returns>The first index of the specified item, or a negative number that is the bitwise
-		/// copmlement of the next largets item, the item is not in the sorted list.</returns>
+		/// complement of the next largest item if the item is not in the sorted list.</returns>
 		public int IndexOf(T p_tItem)
 		{
 			if (m_cmpComparer == null)

@@ -74,10 +74,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					switch (m_srtStepOrder)
 					{
 						case SortOrder.Explicit:
-							InstallSteps = new ObservableCollection<InstallStep>(InstallSteps);
+							InstallSteps = new ThreadSafeObservableList<InstallStep>(InstallSteps);
 							break;
 						default:
-							InstallSteps = new SortedObservableCollection<InstallStep>(InstallSteps, new InstallStepComparer(m_srtStepOrder));
+							InstallSteps = new SortedThreadSafeObservableCollection<InstallStep>(InstallSteps, new InstallStepComparer(m_srtStepOrder));
 							break;
 					}
 					InstallSteps.CollectionChanged += new NotifyCollectionChangedEventHandler(InstallSteps_CollectionChanged);
@@ -128,7 +128,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// Gets the script's <see cref="InstallStep"/>s.
 		/// </summary>
 		/// <value>The script's <see cref="InstallStep"/>s.</value>
-		public ObservableCollection<InstallStep> InstallSteps { get; private set; }
+		public ThreadSafeObservableList<InstallStep> InstallSteps { get; private set; }
 
 		/// <summary>
 		/// Gets the list of files that the script requires to be installed, regardless
@@ -136,7 +136,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// </summary>
 		/// <value>The list of files that the script requires to be installed, regardless
 		/// of other script options.</value>
-		public ObservableCollection<InstallableFile> RequiredInstallFiles { get; private set; }
+		public ThreadSafeObservableList<InstallableFile> RequiredInstallFiles { get; private set; }
 
 		/// <summary>
 		/// Gets the list of file sets that the script wants installed if certain conditions
@@ -144,7 +144,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// </summary>
 		/// <value>The list of file sets that the script wants installed if certain conditions
 		/// are satified.</value>
-		public ObservableCollection<ConditionallyInstalledFileSet> ConditionallyInstalledFileSets { get; private set; }
+		public ThreadSafeObservableList<ConditionallyInstalledFileSet> ConditionallyInstalledFileSets { get; private set; }
 
 		#endregion
 
@@ -189,17 +189,17 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			Version = p_verVersion;
 			HeaderInfo = p_hdrHeader;
 			ModPrerequisites = p_cndModPrerequisites;
-			RequiredInstallFiles = (p_lstRequiredInstallFiles == null) ? new ObservableCollection<InstallableFile>() : new ObservableCollection<InstallableFile>(p_lstRequiredInstallFiles);
-			InstallSteps = (p_lstInstallSteps == null) ? new ObservableCollection<InstallStep>() : new ObservableCollection<InstallStep>(p_lstInstallSteps);
+			RequiredInstallFiles = (p_lstRequiredInstallFiles == null) ? new ThreadSafeObservableList<InstallableFile>() : new ThreadSafeObservableList<InstallableFile>(p_lstRequiredInstallFiles);
+			InstallSteps = (p_lstInstallSteps == null) ? new ThreadSafeObservableList<InstallStep>() : new ThreadSafeObservableList<InstallStep>(p_lstInstallSteps);
 			InstallSteps.CollectionChanged += new NotifyCollectionChangedEventHandler(InstallSteps_CollectionChanged);
 			InstallStepSortOrder = p_srtStepOrder;
-			ConditionallyInstalledFileSets = (p_lstConditionallyInstalledFileSets == null) ? new ObservableCollection<ConditionallyInstalledFileSet>() : new ObservableCollection<ConditionallyInstalledFileSet>(p_lstConditionallyInstalledFileSets);
+			ConditionallyInstalledFileSets = (p_lstConditionallyInstalledFileSets == null) ? new ThreadSafeObservableList<ConditionallyInstalledFileSet>() : new ThreadSafeObservableList<ConditionallyInstalledFileSet>(p_lstConditionallyInstalledFileSets);
 		}
 
 		#endregion
 
 		/// <summary>
-		/// Handles the <see cref="ObservableCollection.CollectionChanged"/> event of the <see cref="InstallSteps"/>
+		/// Handles the <see cref="ThreadSafeObservableList.CollectionChanged"/> event of the <see cref="InstallSteps"/>
 		/// collection.
 		/// </summary>
 		/// <remarks>

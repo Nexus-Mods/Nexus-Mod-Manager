@@ -64,7 +64,7 @@ namespace Nexus.Client.ModManagement
 			return mdrRegistry;
 		}
 
-		private ObservableCollection<IMod> m_oclRegisteredMods = new ObservableCollection<IMod>();
+		private ThreadSafeObservableList<IMod> m_oclRegisteredMods = new ThreadSafeObservableList<IMod>();
 
 		#region Properties
 

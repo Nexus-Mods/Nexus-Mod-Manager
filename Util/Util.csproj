@@ -85,6 +85,7 @@
     <Compile Include="Downloader\Range.cs" />
     <Compile Include="Downloader\RangeSet.cs" />
     <Compile Include="IniMethods.cs" />
+    <Compile Include="ThreadSafeObservableList.cs" />
     <Compile Include="Threading\TrackedThread.cs" />
     <Compile Include="Threading\TrackedThreadManager.cs" />
     <Compile Include="UriUtil.cs" />

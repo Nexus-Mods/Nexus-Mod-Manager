@@ -57,7 +57,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 
 		#endregion
 
-		private ObservableCollection<Plugin> m_oclOrderedPlugins = null;
+		private ThreadSafeObservableList<Plugin> m_oclOrderedPlugins = null;
 		private ReadOnlyObservableList<Plugin> m_rolOrderedPlugins = null;
 
 		#region Properties
@@ -128,7 +128,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 		/// </summary>
 		private void LoadPluginOrder()
 		{
-			m_oclOrderedPlugins = new ObservableCollection<Plugin>();
+			m_oclOrderedPlugins = new ThreadSafeObservableList<Plugin>();
 			foreach (string strPlugin in LogSerializer.LoadPluginOrder())
 				m_oclOrderedPlugins.Add(ManagedPluginRegistry.GetPlugin(strPlugin));
 		}

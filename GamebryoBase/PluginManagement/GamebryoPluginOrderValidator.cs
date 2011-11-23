@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using Nexus.Client.Games.Gamebryo.Plugins;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement
 {
@@ -43,7 +44,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 		/// <param name="p_lstPlugins">The plugins whose order is to be corrected.</param>
 		public void CorrectOrder(IList<Plugin> p_lstPlugins)
 		{
-			bool booHasMove = p_lstPlugins is ObservableCollection<Plugin>;
+			bool booHasMove = p_lstPlugins is ThreadSafeObservableList<Plugin>;
 			bool booFoundMasters = false;
 			Int32 intFirstNonMasterIndex = p_lstPlugins.Count - 1;
 			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
@@ -57,7 +58,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 					if (!((GamebryoPlugin)p_lstPlugins[i]).IsMaster)
 					{
 						if (booHasMove)
-							((ObservableCollection<Plugin>)p_lstPlugins).Move(i, intFirstNonMasterIndex);
+							((ThreadSafeObservableList<Plugin>)p_lstPlugins).Move(i, intFirstNonMasterIndex);
 						else
 						{
 							Plugin plgPlugin = p_lstPlugins[i];

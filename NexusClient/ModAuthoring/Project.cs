@@ -302,7 +302,7 @@ namespace Nexus.Client.ModAuthoring
 		/// <param name="p_strScriptTypeRegistry">The <see cref="IScriptTypeRegistry"/> contianing the list of available script types.</param>
 		public Project(IScriptTypeRegistry p_strScriptTypeRegistry)
 		{
-			m_setFiles = new ObservableCollection<VirtualFileSystemItem>();
+			m_setFiles = new ThreadSafeObservableList<VirtualFileSystemItem>();
 			ModReadme = new Readme(ReadmeFormat.PlainText, null);
 			ScriptTypeRegistry = p_strScriptTypeRegistry;
 		}

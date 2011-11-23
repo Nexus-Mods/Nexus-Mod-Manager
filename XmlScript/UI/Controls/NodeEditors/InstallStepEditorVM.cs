@@ -11,7 +11,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 		protected InstallStep InstallStep { get; private set; }
 		public string Name { get; set; }
 		public SortOrder GroupSortOrder { get; set; }
-		public ObservableCollection<OptionGroup> OptionGroups { get; private set; }
+		public ThreadSafeObservableList<OptionGroup> OptionGroups { get; private set; }
 
 		public InstallStepVM(InstallStep p_stpStep)
 		{
@@ -42,7 +42,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 		{
 			Name = InstallStep.Name;
 			GroupSortOrder = InstallStep.GroupSortOrder;
-			OptionGroups = new ObservableCollection<OptionGroup>(InstallStep.OptionGroups);
+			OptionGroups = new ThreadSafeObservableList<OptionGroup>(InstallStep.OptionGroups);
 		}
 
 		public void Reset(string p_strPropertyName)
@@ -52,7 +52,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.GroupSortOrder)))
 				GroupSortOrder = InstallStep.GroupSortOrder;
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.OptionGroups)))
-				OptionGroups = new ObservableCollection<OptionGroup>(InstallStep.OptionGroups);
+				OptionGroups = new ThreadSafeObservableList<OptionGroup>(InstallStep.OptionGroups);
 		}
 	}
 

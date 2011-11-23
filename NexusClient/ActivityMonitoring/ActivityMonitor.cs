@@ -10,7 +10,7 @@ namespace Nexus.Client.ActivityMonitoring
 	/// </summary>
 	public class ActivityMonitor
 	{
-		private ObservableCollection<IBackgroundTask> m_oclTasks = new ObservableCollection<IBackgroundTask>();
+		private ThreadSafeObservableList<IBackgroundTask> m_oclTasks = new ThreadSafeObservableList<IBackgroundTask>();
 		private ObservableSet<IBackgroundTask> m_setActiveTasks = new ObservableSet<IBackgroundTask>();
 
 		#region Properties

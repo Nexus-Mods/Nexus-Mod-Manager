@@ -1,12 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 
 namespace Nexus.Client.Util
 {
-	public class SortedObservableCollection<T> : ObservableCollection<T>
+	/// <summary>
+	/// This is a sorted list whose operations are thread safe, and that notifes listeners about changes to the list.
+	/// The main difference between this list and others is that all methods that operate over the entire
+	/// list, such as <see cref="GetEnumerator()"/>, do so over a snapshot of the list, as opposed
+	/// to the list itself.
+	/// </summary>
+	/// <typeparam name="T">The type of the items in the list.</typeparam>
+	public class SortedThreadSafeObservableCollection<T> : ThreadSafeObservableList<T>
 	{
 		private bool m_booSuppressEvents = false;
 		private bool m_booSorting = false;
@@ -22,11 +28,20 @@ namespace Nexus.Client.Util
 		{
 			set
 			{
-				m_booSuppressEvents = true;
-				m_cmpComparer = value;
-				if (value != null)
-					Sort();
-				m_booSuppressEvents = false;
+				try
+				{
+					m_rwlLock.EnterWriteLock();
+					m_booSuppressEvents = true;
+					m_cmpComparer = value;
+					if (value != null)
+						Sort();
+					m_booSuppressEvents = false;
+				}
+				finally
+				{
+					if (m_rwlLock.IsWriteLockHeld)
+						m_rwlLock.ExitWriteLock();
+				}				
 				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
 			}
 		}
@@ -38,7 +53,7 @@ namespace Nexus.Client.Util
 		/// <summary>
 		/// The default constructor.
 		/// </summary>
-		public SortedObservableCollection()
+		public SortedThreadSafeObservableCollection()
 			: this(null, null)
 		{
 		}
@@ -47,7 +62,7 @@ namespace Nexus.Client.Util
 		/// A constructor that initializs the items of the list.
 		/// </summary>
 		/// <param name="p_enmItems">The items with which to initialize the list.</param>
-		public SortedObservableCollection(IEnumerable<T> p_enmItems)
+		public SortedThreadSafeObservableCollection(IEnumerable<T> p_enmItems)
 			: this(p_enmItems, null)
 		{
 		}
@@ -62,7 +77,7 @@ namespace Nexus.Client.Util
 		/// comparer.
 		/// </remarks>
 		/// <param name="p_cmpComparer">The comparer to use when determining if an item is already in the sorted list.</param>
-		public SortedObservableCollection(IComparer<T> p_cmpComparer)
+		public SortedThreadSafeObservableCollection(IComparer<T> p_cmpComparer)
 			: this(null, p_cmpComparer)
 		{
 		}
@@ -78,7 +93,7 @@ namespace Nexus.Client.Util
 		/// </remarks>
 		/// <param name="p_enmItems">The items with which to initialize the list.</param>
 		/// <param name="p_cmpComparer">The comparer to use when determining if an item is already in the sorted list.</param>
-		public SortedObservableCollection(IEnumerable<T> p_enmItems, IComparer<T> p_cmpComparer)
+		public SortedThreadSafeObservableCollection(IEnumerable<T> p_enmItems, IComparer<T> p_cmpComparer)
 			: base(p_enmItems)
 		{
 			if (!typeof(IComparable<T>).IsAssignableFrom(typeof(T)) && (p_cmpComparer == null))
@@ -93,13 +108,21 @@ namespace Nexus.Client.Util
 		/// This performs a shallow copy of the given list.
 		/// </remarks>
 		/// <param name="p_enmItems">The collection to copy.</param>
-		public SortedObservableCollection(SortedObservableCollection<T> p_enmItems)
+		public SortedThreadSafeObservableCollection(SortedThreadSafeObservableCollection<T> p_enmItems)
 			: this(p_enmItems, p_enmItems.m_cmpComparer)
 		{
 		}
 
 		#endregion
 
+		/// <summary>
+		/// Compares the given items.
+		/// </summary>
+		/// <param name="x">An object to compare to another object.</param>
+		/// <param name="y">An object to compare to another object.</param>
+		/// <returns>A value less than 0 if <paramref name="x"/> is less than <paramref name="y"/>.
+		/// 0 if this node is equal to the other.
+		/// A value greater than 0 if <paramref name="x"/> is greater than <paramref name="y"/>.</returns>
 		private Int32 CompareItems(T p_tItem1, T p_tItem2)
 		{
 			if (m_cmpComparer != null)
@@ -109,46 +132,66 @@ namespace Nexus.Client.Util
 
 		#region Sorting
 
-		private void swap(Int32 p_intIndex1, Int32 p_intIndex2)
+		/// <summary>
+		/// Exchanges the to items in the list.
+		/// </summary>
+		/// <param name="p_intIndex1">An item to exchange with another item.</param>
+		/// <param name="p_intIndex2">An item to exchange with another item.</param>
+		private void Swap(Int32 p_intIndex1, Int32 p_intIndex2)
 		{
 			T tItem = this[p_intIndex1];
 			base.SetItem(p_intIndex1, this[p_intIndex2]);
 			base.SetItem(p_intIndex2, tItem);
 		}
 
-		private Int32 partition(Int32 left, Int32 right, Int32 pivotIndex)
+		/// <summary>
+		/// Partitions the list while quicksorting.
+		/// </summary>
+		/// <param name="p_intLeft">The left index of the section of the list to partition.</param>
+		/// <param name="p_intRight">The right index of the section of the list to partition.</param></param>
+		/// <param name="p_intPivotIndex">The index around wich to partition the section of the list.</param>
+		/// <returns>The new pivot index.</returns>
+		private Int32 Partition(Int32 p_intLeft, Int32 p_intRight, Int32 p_intPivotIndex)
 		{
-			T pivotValue = this[pivotIndex];
-			swap(pivotIndex, right);
-			Int32 storeIndex = left;
-			for (Int32 i = left; i < right; i++)
+			T pivotValue = this[p_intPivotIndex];
+			Swap(p_intPivotIndex, p_intRight);
+			Int32 storeIndex = p_intLeft;
+			for (Int32 i = p_intLeft; i < p_intRight; i++)
 			{
 				if (CompareItems(this[i], pivotValue) < 1)
 				{
-					swap(i, storeIndex);
+					Swap(i, storeIndex);
 					storeIndex++;
 				}
 			}
-			swap(storeIndex, right);
+			Swap(storeIndex, p_intRight);
 			return storeIndex;
 		}
 
-		private void quicksort(Int32 left, Int32 right)
+		/// <summary>
+		/// Sorts the specified section of the list using the quicksort algorithm.
+		/// </summary>
+		/// <param name="p_intLeft">The left index of the section of the list to sort.</param>
+		/// <param name="p_intRight">The right index of the section of the list to sort.</param></param>
+		private void Quicksort(Int32 p_intLeft, Int32 p_intRight)
 		{
-			if (right > left)
+			if (p_intRight > p_intLeft)
 			{
-				Int32 pivotIndex = (right + left) / 2;
-				Int32 pivotNewIndex = partition(left, right, pivotIndex);
-				quicksort(left, pivotNewIndex - 1);
-				quicksort(pivotNewIndex + 1, right);
+				Int32 pivotIndex = (p_intRight + p_intLeft) / 2;
+				Int32 pivotNewIndex = Partition(p_intLeft, p_intRight, pivotIndex);
+				Quicksort(p_intLeft, pivotNewIndex - 1);
+				Quicksort(pivotNewIndex + 1, p_intRight);
 			}
 		}
 
+		/// <summary>
+		/// Sorts the list.
+		/// </summary>
 		protected void Sort()
 		{
 			m_booSuppressEvents = true;
 			m_booSorting = true;
-			quicksort(0, Count - 1);
+			Quicksort(0, Count - 1);
 			m_booSorting = false;
 			m_booSuppressEvents = false;
 		}
@@ -157,21 +200,42 @@ namespace Nexus.Client.Util
 
 		#region Searching
 
+		/// <summary>
+		/// Performs a birnary search for the given item in the specified section of the list.
+		/// </summary>
+		/// <param name="p_tItem">The item to find in the list.</param>
+		/// <param name="p_intLeft">The left index of the section of the list to search.</param>
+		/// <param name="p_intRight">The right index of the section of the list to search.</param>
+		/// <returns>The index of the given item, or a negative number that is the bitwise
+		/// complement of the next largest item if the item is not in the sorted list.</returns>
 		public Int32 BinarySearch(T p_tItem, Int32 p_intLeft, Int32 p_intRight)
 		{
-			if (p_intRight < p_intLeft)
+			try
 			{
-				return ~p_intLeft;
+				m_rwlLock.EnterReadLock();
+				if (p_intRight < p_intLeft)
+					return ~p_intLeft;
+				Int32 intMiddleIndex = (p_intRight + p_intLeft) / 2;
+				Int32 intResult = CompareItems(p_tItem, this[intMiddleIndex]);
+				if (intResult == 0)
+					return intMiddleIndex;
+				if (intResult < 0)
+					return BinarySearch(p_tItem, p_intLeft, intMiddleIndex - 1);
+				return BinarySearch(p_tItem, intMiddleIndex + 1, p_intRight);
 			}
-			Int32 intMiddleIndex = (p_intRight + p_intLeft) / 2;
-			Int32 intResult = CompareItems(p_tItem, this[intMiddleIndex]);
-			if (intResult == 0)
-				return intMiddleIndex;
-			if (intResult < 0)
-				return BinarySearch(p_tItem, p_intLeft, intMiddleIndex - 1);
-			return BinarySearch(p_tItem, intMiddleIndex + 1, p_intRight);
+			finally
+			{
+				if (m_rwlLock.IsReadLockHeld)
+					m_rwlLock.ExitReadLock();
+			}
 		}
 
+		/// <summary>
+		/// Performs a birnary search for the given item in the list.
+		/// </summary>
+		/// <param name="p_tItem">The item to find in the list.</param>
+		/// <returns>The index of the given item, or a negative number that is the bitwise
+		/// complement of the next largest item if the item is not in the sorted list.</returns>
 		public Int32 BinarySearch(T p_tItem)
 		{
 			return BinarySearch(p_tItem, 0, Count - 1);
@@ -193,21 +257,22 @@ namespace Nexus.Client.Util
 		protected override void InsertItem(int index, T item)
 		{
 			if (index < Count)
-				throw new InvalidOperationException("The method or operation cannot be performed on an Ordered List.");
+				throw new InvalidOperationException("The method or operation cannot be performed on a Sorted List.");
 			Int32 intIndex = BinarySearch(item);
 			if (intIndex < 0)
 				intIndex = ~intIndex;
 			base.InsertItem(intIndex, item);
 		}
 
-		protected override void MoveItem(int oldIndex, int newIndex)
+		/// <summary>
+		/// Moves the item from the specified From index to the specified
+		/// To index.
+		/// </summary>
+		/// <param name="p_intFromIndex">The index of the item to move.</param>
+		/// <param name="p_intToIndex">The index to which to move the item.</param>
+		public override void Move(Int32 p_intFromIndex, Int32 p_intToIndex)
 		{
-			throw new InvalidOperationException("The method or operation cannot be performed on an Ordered List.");
-		}
-
-		protected override void RemoveItem(int index)
-		{
-			base.RemoveItem(index);
+			throw new InvalidOperationException("The method or operation cannot be performed on a Sorted List.");
 		}
 
 		/// <summary>
@@ -230,16 +295,28 @@ namespace Nexus.Client.Util
 				throw new InvalidOperationException("The method or operation cannot be performed on an Ordered List.");
 		}
 
+		#region Event Raising
+
+		/// <summary>
+		/// Raises the <see cref="CollectionChanged"/> event.
+		/// </summary>
+		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
 		{
 			if (!m_booSuppressEvents)
 				base.OnCollectionChanged(e);
 		}
 
+		/// <summary>
+		/// Raises the <see cref="PropertyChanged"/> event.
+		/// </summary>
+		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
 		protected override void OnPropertyChanged(PropertyChangedEventArgs e)
 		{
 			if (!m_booSuppressEvents)
 				base.OnPropertyChanged(e);
 		}
+
+		#endregion
 	}
 }

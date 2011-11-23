@@ -33,7 +33,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// </remarks>
 	public class CompositeCondition : ObservableObject, ICondition
 	{
-		private ObservableCollection<ICondition> m_lstConditions = new ObservableCollection<ICondition>();
+		private ThreadSafeObservableList<ICondition> m_lstConditions = new ThreadSafeObservableList<ICondition>();
 		private ConditionOperator m_dopOperator = ConditionOperator.And;
 
 		#region Properties

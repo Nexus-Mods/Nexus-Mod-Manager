@@ -18,7 +18,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 		/// </summary>
 		private class TransactionEnlistment : IEnlistmentNotification
 		{
-			private ObservableCollection<Plugin> m_oclOrderedPlugins = null;
+			private ThreadSafeObservableList<Plugin> m_oclOrderedPlugins = null;
 			private ReadOnlyObservableList<Plugin> m_rolOrderedPlugins = null;
 			private bool m_booEnlisted = false;
 
@@ -63,7 +63,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			{
 				CurrentTransaction = p_txTransaction;
 				EnlistedPluginOrderLog = p_polPluginOrderLog;
-				m_oclOrderedPlugins = new ObservableCollection<Plugin>(EnlistedPluginOrderLog.m_oclOrderedPlugins);
+				m_oclOrderedPlugins = new ThreadSafeObservableList<Plugin>(EnlistedPluginOrderLog.m_oclOrderedPlugins);
 				m_rolOrderedPlugins = new ReadOnlyObservableList<Plugin>(m_oclOrderedPlugins);
 
 				EnlistedPluginOrderLog.m_oclOrderedPlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(MasterOrderedPlugins_CollectionChanged);
@@ -80,7 +80,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			{
 				PluginComparer pcpComparer = PluginComparer.Filename;
 				Dictionary<Plugin, Plugin> dicPredecessors = new Dictionary<Plugin, Plugin>();
-				ObservableCollection<Plugin> oclUnorderedList = EnlistedPluginOrderLog.m_oclOrderedPlugins;
+				ThreadSafeObservableList<Plugin> oclUnorderedList = EnlistedPluginOrderLog.m_oclOrderedPlugins;
 
 				lock (EnlistedPluginOrderLog.m_oclOrderedPlugins)
 				{
@@ -240,7 +240,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			{
 				PluginComparer pcpComparer = PluginComparer.Filename;
 				Dictionary<Plugin, Plugin> dicPredecessors = new Dictionary<Plugin, Plugin>();
-				ObservableCollection<Plugin> oclUnorderedList = m_oclOrderedPlugins;
+				ThreadSafeObservableList<Plugin> oclUnorderedList = m_oclOrderedPlugins;
 				IList<Plugin> lstOrderedList = p_lstOrderedPlugins;
 
 				for (Int32 i = 0; i < oclUnorderedList.Count; i++)
