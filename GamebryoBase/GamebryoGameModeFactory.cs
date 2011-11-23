@@ -55,7 +55,7 @@ namespace Nexus.Client.Games.Gamebryo
 				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\Wow6432Node\Bethesda Softworks\{0}";
 			else
 				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\Bethesda Softworks\{0}";
-			Trace.TraceInformation(String.Format(@"Checking: {0}\Installed Path"), String.Format(strRegistryKey, GameModeDescriptor.ModeId));
+			Trace.TraceInformation(@"Checking: {0}\Installed Path", String.Format(strRegistryKey, GameModeDescriptor.ModeId));
 			Trace.Indent();
 			string strValue = null;
 			try
