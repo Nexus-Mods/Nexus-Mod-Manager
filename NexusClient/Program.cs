@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.Util.Threading;
+using Nexus.Client.Util;
 
 namespace Nexus.Client
 {
@@ -177,45 +178,12 @@ namespace Nexus.Client
 							htlListener.FilePath + Environment.NewLine +
 							"Please include the contents of that file if you want to make a bug report", p_strPromptCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
 
-			string strException = TraceException(ex);
-
 			Trace.WriteLine("");
-			Trace.TraceError("Crashdumping an Exception:");
-			Trace.TraceError(strException);
+			Trace.TraceError("Tracing an Unhandled Exception:");
+			TraceUtil.TraceException(ex);
 
 			if (!htlListener.TraceIsForced)
 				htlListener.SaveToFile();
-		}
-
-		/// <summary>
-		/// This builds a string detailing the given exception.
-		/// </summary>
-		/// <param name="ex">The exceptions to describe.</param>
-		/// <returns>A string detailing the given exception.</returns>
-		private static string TraceException(Exception ex)
-		{
-			if (ex == null)
-				return "\tNO EXCEPTION.";
-
-			StringBuilder stbException = new StringBuilder();
-			stbException.AppendLine("Exception: ");
-			stbException.AppendLine("Message: ").Append("\t");
-			stbException.AppendLine(ex.Message);
-			stbException.AppendLine("Full Trace: ").Append("\t");
-			stbException.AppendLine(ex.ToString());
-			if (ex is BadImageFormatException)
-			{
-				BadImageFormatException biex = (BadImageFormatException)ex;
-				stbException.AppendFormat("File Name:\t{0}", biex.FileName).AppendLine();
-				stbException.AppendFormat("Fusion Log:\t{0}", biex.FusionLog).AppendLine();
-			}
-			while (ex.InnerException != null)
-			{
-				ex = ex.InnerException;
-				stbException.AppendLine("Inner Exception:");
-				stbException.AppendLine(ex.ToString());
-			}
-			return stbException.ToString();
 		}
 	}
 }
