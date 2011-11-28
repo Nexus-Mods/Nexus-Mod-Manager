@@ -7,6 +7,7 @@ using System.Security.Policy;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Util;
+using System.Windows.Forms;
 
 namespace Nexus.Client.ModManagement.Scripting.ModScript
 {
@@ -148,8 +149,8 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			adsInfo.DisallowPublisherPolicy = true;
 			PermissionSet pstGrantSet = new PermissionSet(PermissionState.None);
 			pstGrantSet.AddPermission(new SecurityPermission(SecurityPermissionFlag.Execution));
-			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, Path.GetFullPath(".")));
-			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, Path.GetFullPath(".")));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, Path.GetDirectoryName(Application.ExecutablePath)));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, Path.GetDirectoryName(Application.ExecutablePath)));
 			pstGrantSet.AddPermission(new ReflectionPermission(ReflectionPermissionFlag.RestrictedMemberAccess));
 
 #if DEBUG

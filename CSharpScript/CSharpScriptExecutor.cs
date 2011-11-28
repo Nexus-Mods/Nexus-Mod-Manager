@@ -219,8 +219,8 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			adsInfo.DisallowPublisherPolicy = true;
 			PermissionSet pstGrantSet = new PermissionSet(PermissionState.None);
 			pstGrantSet.AddPermission(new SecurityPermission(SecurityPermissionFlag.Execution));
-			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, Path.GetFullPath(".")));
-			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, Path.GetFullPath(".")));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, Path.GetDirectoryName(Application.ExecutablePath)));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, Path.GetDirectoryName(Application.ExecutablePath)));
 			pstGrantSet.AddPermission(new ReflectionPermission(ReflectionPermissionFlag.RestrictedMemberAccess));
 
 #if DEBUG
