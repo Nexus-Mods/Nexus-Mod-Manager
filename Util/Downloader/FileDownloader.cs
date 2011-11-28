@@ -204,7 +204,15 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
 		private void Initialize(string p_strSavePath, bool p_booUseDefaultFileName)
 		{
-			m_fmdInfo = GetMetadata();
+			try
+			{
+				m_fmdInfo = GetMetadata();
+			}
+			catch (WebException)
+			{
+				m_fmdInfo = new FileMetadata();
+				return;
+			}
 
 			string strFilename = p_booUseDefaultFileName ? m_fmdInfo.SuggestedFileName : Path.GetFileName(p_strSavePath);
 			foreach (char chrInvalid in Path.GetInvalidFileNameChars())
