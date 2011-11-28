@@ -204,15 +204,7 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
 		private void Initialize(string p_strSavePath, bool p_booUseDefaultFileName)
 		{
-			try
-			{
-				m_fmdInfo = GetMetadata();
-			}
-			catch (WebException)
-			{
-				m_fmdInfo = new FileMetadata();
-				return;
-			}
+			m_fmdInfo = GetMetadata();
 
 			string strFilename = p_booUseDefaultFileName ? m_fmdInfo.SuggestedFileName : Path.GetFileName(p_strSavePath);
 			foreach (char chrInvalid in Path.GetInvalidFileNameChars())
@@ -428,10 +420,17 @@ namespace Nexus.Client.Util.Downloader
 			hwrFileMetadata.AllowAutoRedirect = true;
 
 			FileMetadata fmiInfo = null;
-			using (HttpWebResponse wrpFileMetadata = (HttpWebResponse)hwrFileMetadata.GetResponse())
+			try
 			{
-				if ((wrpFileMetadata.StatusCode == HttpStatusCode.OK) || (wrpFileMetadata.StatusCode == HttpStatusCode.PartialContent))
-					fmiInfo = new FileMetadata(wrpFileMetadata.Headers);
+				using (HttpWebResponse wrpFileMetadata = (HttpWebResponse)hwrFileMetadata.GetResponse())
+				{
+					if ((wrpFileMetadata.StatusCode == HttpStatusCode.OK) || (wrpFileMetadata.StatusCode == HttpStatusCode.PartialContent))
+						fmiInfo = new FileMetadata(wrpFileMetadata.Headers);
+				}
+			}
+			catch (WebException)
+			{
+				//ignore - the server isn't available
 			}
 			if (fmiInfo == null)
 				fmiInfo = new FileMetadata();
