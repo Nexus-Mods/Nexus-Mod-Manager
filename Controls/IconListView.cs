@@ -137,6 +137,11 @@ namespace Nexus.Client.Controls
 		/// <param name="e">A <see cref="DrawListViewSubItemEventArgs"/> describing the event arguments.</param>
 		protected override void OnDrawSubItem(DrawListViewSubItemEventArgs e)
 		{
+			//if the item is not in a list view, then don't bother trying to draw it,
+			// as it isn't visible anyway
+			if (e.Item.ListView == null)
+				return;
+
 			base.OnDrawSubItem(e);
 			
 			e.DrawBackground();
