@@ -131,54 +131,19 @@ namespace Nexus.Client.Updating
 		/// or 0.0.0.0 if now information could be retrieved.</returns>
 		private Version GetNewProgrammeVersion()
 		{
-			FtpWebRequest fwrGetter = (FtpWebRequest)WebRequest.Create("ftp://dev.tesnexus.com/releases");
-			//the current server doesn't allow anonymous access, so use this for now
-			fwrGetter.Credentials = new NetworkCredential("readonly@dev.tesnexus.com", "n0writing");
-			fwrGetter.Method = WebRequestMethods.Ftp.ListDirectoryDetails;
-			SortedList<DateTime, string> sltFileList = new SortedList<DateTime, string>();
+			WebClient wclNewVersion = new WebClient();
 			Version verNew = new Version("0.0.0.0");
 			try
 			{
-				using (FtpWebResponse wrpFileList = (FtpWebResponse)fwrGetter.GetResponse())
-				{
-					if ((wrpFileList.StatusCode != FtpStatusCode.DataAlreadyOpen) && (wrpFileList.StatusCode != FtpStatusCode.OpeningData) && (wrpFileList.StatusCode != FtpStatusCode.CommandOK))
-						throw new Exception("Request to the update directory failed with FTP error: " + wrpFileList.StatusCode);
-
-					Stream stmFileList = wrpFileList.GetResponseStream();
-					using (StreamReader srdFileList = new StreamReader(stmFileList))
-					{
-						while (!srdFileList.EndOfStream)
-							ParseFileListEntry(sltFileList, srdFileList.ReadLine());
-						srdFileList.Close();
-					}
-					wrpFileList.Close();
-				}
-				if (sltFileList.Count > 0)
-				{
-					Regex rgxVersion = new Regex(@"-(\d+(\.\d+)+)\.exe");
-					Match mchVersion = rgxVersion.Match(sltFileList.Last().Value);
-					if (mchVersion.Success)
-						verNew = new Version(mchVersion.Groups[1].Value);
-				}
+				string strNewVersion = wclNewVersion.DownloadString("http://dev.tesnexus.com/client/releases/latestversion.php");
+				if (!String.IsNullOrEmpty(strNewVersion))
+					verNew = new Version(strNewVersion);
 			}
 			catch (WebException e)
 			{
 				Trace.TraceError(String.Format("Could not connect to update server: {0}", e.Message));
 			}
 			return verNew;
-		}
-
-		private void ParseFileListEntry(SortedList<DateTime, string> p_sltFileList, string p_strEntry)
-		{
-			Regex rgxDate = new Regex(@"\w\w\w\s+\d\d?\s\d\d:\d\d");
-			Match mchDate = rgxDate.Match(p_strEntry);
-			if (!mchDate.Success)
-				throw new Exception("Cannot parse file list.");
-			string strDate = mchDate.Groups[0].Value.Replace("  ", " ");
-			DateTime dteDate = DateTime.ParseExact(strDate, "MMM d HH:mm", CultureInfo.InvariantCulture);
-			string strFilename = p_strEntry.Substring(mchDate.Index + mchDate.Length);
-			if (strFilename.Contains("exe"))
-				p_sltFileList[dteDate] = strFilename;
 		}
 	}
 }
