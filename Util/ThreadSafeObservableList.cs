@@ -204,7 +204,7 @@ namespace Nexus.Client.Util
 			}
 			if (lstOldItems.Count > 0)
 			{
-				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset, lstOldItems, 0));
+				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
 				OnPropertyChanged(new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Count)));
 			}
 		}
