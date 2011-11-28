@@ -16,12 +16,12 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 		/// <summary>
 		/// Notifies listeners that the tool wants a view displayed.
 		/// </summary>
-		public event EventHandler<DisplayToolViewEventArgs> DisplayToolView;
+		public event EventHandler<DisplayToolViewEventArgs> DisplayToolView = delegate { };
 
 		/// <summary>
 		/// Notifies listeners that the tool wants a view closed.
 		/// </summary>
-		public event EventHandler<DisplayToolViewEventArgs> CloseToolView;
+		public event EventHandler<DisplayToolViewEventArgs> CloseToolView = delegate { };
 
 		#endregion
 
