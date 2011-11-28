@@ -5,6 +5,7 @@ namespace Nexus.Client.ModRepositories
 	/// <summary>
 	/// The exception that is thrown if a repository is not available.
 	/// </summary>
+	[Serializable]
 	public class RepositoryUnavailableException : Exception
 	{
 		/// <summary>
