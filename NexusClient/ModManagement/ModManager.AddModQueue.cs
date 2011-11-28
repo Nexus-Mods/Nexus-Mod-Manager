@@ -84,6 +84,14 @@ namespace Nexus.Client.ModManagement
 			/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 			private void ModAdder_TaskEnded(object sender, TaskEndedEventArgs e)
 			{
+				if ((e.Status != TaskStatus.Incomplete) && (e.Status != TaskStatus.Paused))
+				{
+					Uri uriKey = (from k in m_dicActiveTasks
+								  where (k.Value == sender)
+								  select k.Key).FirstOrDefault();
+					if (uriKey != null)
+						m_dicActiveTasks.Remove(uriKey);
+				}
 				if (e.Status == TaskStatus.Complete)
 				{
 					IList<string> lstAddedMods = (IList<string>)e.ReturnValue;
@@ -97,14 +105,6 @@ namespace Nexus.Client.ModManagement
 						if (m_eifEnvironmentInfo.Settings.AddMissingInfoToMods)
 							atgTagger.Tag(modMod, mifTagInfo, false);
 					}
-				}
-				if ((e.Status != TaskStatus.Incomplete) && (e.Status != TaskStatus.Paused))
-				{
-					Uri uriKey = (from k in m_dicActiveTasks
-								  where (k.Value == sender)
-								  select k.Key).FirstOrDefault();
-					if (uriKey != null)
-						m_dicActiveTasks.Remove(uriKey);
 				}
 			}
 

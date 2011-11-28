@@ -461,7 +461,6 @@ namespace Nexus.Client.ModManagement
 		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event's arguments.</param>
 		protected override void OnPropertyChanged(PropertyChangedEventArgs e)
 		{
-			base.OnPropertyChanged(e);
 			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)) && (Descriptor != null))
 			{
 				Descriptor.Status = Status;
@@ -469,6 +468,7 @@ namespace Nexus.Client.ModManagement
 				dicQueuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
 				m_eifEnvironmentInfo.Settings.Save();
 			}
+			base.OnPropertyChanged(e);			
 		}
 
 		/// <summary>
@@ -480,7 +480,6 @@ namespace Nexus.Client.ModManagement
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event's arguments.</param>
 		protected override void OnTaskEnded(TaskEndedEventArgs e)
 		{
-			base.OnTaskEnded(e);
 			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (Descriptor != null))
 			{
 				foreach (string strFile in Descriptor.DownloadedFiles)
@@ -490,6 +489,7 @@ namespace Nexus.Client.ModManagement
 				dicQueuedMods.Remove(Descriptor.SourceUri.ToString());
 				m_eifEnvironmentInfo.Settings.Save();
 			}
+			base.OnTaskEnded(e);			
 		}
 
 		#region IDisposable Members
