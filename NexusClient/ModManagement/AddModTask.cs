@@ -88,7 +88,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The name of the mod to use for display.</returns>
 		private string GetModDisplayName()
 		{
-			if (String.IsNullOrEmpty(ModInfo.ModName))
+			if ((ModInfo == null) || String.IsNullOrEmpty(ModInfo.ModName))
 				return Path.GetFileNameWithoutExtension(Descriptor.DefaultSourcePath);
 			return ModInfo.ModName;
 		}
@@ -153,9 +153,17 @@ namespace Nexus.Client.ModManagement
 					NexusUrl nxuModUrl = new NexusUrl(p_amdDescriptor.SourceUri);
 					if (String.IsNullOrEmpty(nxuModUrl.ModId))
 						throw new ArgumentException("Invalid Nexus URI: " + p_amdDescriptor.SourceUri.ToString());
-					IModInfo mifInfo = m_mrpModRepository.GetModInfo(nxuModUrl.ModId);
-					IModFileInfo mfiFileInfo = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
-					mifInfo = AutoTagger.CombineInfo(mifInfo, mfiFileInfo);
+					IModInfo mifInfo = null;
+					try
+					{
+						mifInfo = m_mrpModRepository.GetModInfo(nxuModUrl.ModId);
+						IModFileInfo mfiFileInfo = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+						mifInfo = AutoTagger.CombineInfo(mifInfo, mfiFileInfo);
+					}
+					catch (RepositoryUnavailableException e)
+					{
+						TraceUtil.TraceException(e);
+					}
 					return mifInfo;
 				default:
 					Trace.TraceInformation(String.Format("[{0}] Can't get mod info.", p_amdDescriptor.SourceUri.ToString()));
@@ -403,7 +411,7 @@ namespace Nexus.Client.ModManagement
 			foreach (IBackgroundTask tskTask in m_lstRunningTasks)
 				if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete))
 					tskTask.Cancel();
-			OverallMessage = String.Format("Cancelled {0}", (ModInfo == null) ? m_uriPath.ToString() : GetModDisplayName());
+			OverallMessage = String.Format("Cancelled {0}", GetModDisplayName());
 			ItemMessage = "Cancelled";
 			Status = TaskStatus.Cancelled;
 			OnTaskEnded(Descriptor.SourceUri);
