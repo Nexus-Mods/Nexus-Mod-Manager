@@ -350,7 +350,8 @@ namespace Nexus.Client.Util.Downloader
 				}
 				m_lstDownloaders.Clear();
 			}
-			m_fwrWriter.Close();
+			if (m_fwrWriter != null)
+				m_fwrWriter.Close();
 			bool booGetEntireFile = (m_fmdInfo.Length - DownloadedByteCount == 0);
 			if (booGetEntireFile)
 			{
