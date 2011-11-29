@@ -227,9 +227,10 @@ namespace Nexus.Client.Util.Downloader
 				string[] strRanges = File.ReadAllLines(m_strFileMetadataPath);
 				foreach (string strRange in strRanges)
 				{
-					if (String.IsNullOrEmpty(strRange))
+					string strCleanRange = strRange.Trim();
+					if (String.IsNullOrEmpty(strCleanRange))
 						continue;
-					rgsRanges.AddRange(Range.Parse(strRange));
+					rgsRanges.AddRange(Range.Parse(strCleanRange));
 				}
 			}
 			m_intInitialDownloadedByteCount = rgsRanges.TotalSize;
