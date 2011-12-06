@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.Serialization;
 
 namespace Nexus.Client.ModRepositories
 {
@@ -31,6 +32,16 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="inner">The ineer exception.</param>
 		public RepositoryUnavailableException(string message, Exception inner)
 			: base(message, inner)
+		{
+		}
+		
+		/// <summary>
+		/// The serializing constructor.
+		/// </summary>
+		/// <param name="info">The info from which to deserialize the object.</param>
+		/// <param name="context">The context from which to deserialize.</param>
+		protected RepositoryUnavailableException(SerializationInfo info, StreamingContext context)
+			: base(info, context)
 		{
 		}
 	}
