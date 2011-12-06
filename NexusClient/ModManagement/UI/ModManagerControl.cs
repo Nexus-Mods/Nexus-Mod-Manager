@@ -194,14 +194,21 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		protected void LoadModFormatFilter()
 		{
+			Set<string> setModExtensions = new Set<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (IModFormat mftFormat in m_vmlViewModel.ModFormats)
+				setModExtensions.Add(mftFormat.Extension);
+			setModExtensions.Add(".7z");
+			setModExtensions.Add(".zip");
+			setModExtensions.Add(".rar");
+
 			StringBuilder stbModTypesDesc = new StringBuilder("Mod Files (");
 			StringBuilder stbModTypesFilter = new StringBuilder();
-			Int32 intFormatCount = m_vmlViewModel.ModFormats.Count;
+			Int32 intFormatCount = setModExtensions.Count;
 			Int32 i = 0;
-			foreach (IModFormat mftFormat in m_vmlViewModel.ModFormats)
+			foreach (string strFormat in setModExtensions)
 			{
-				stbModTypesDesc.Append("*").Append(mftFormat.Extension);
-				stbModTypesFilter.Append("*").Append(mftFormat.Extension);
+				stbModTypesDesc.Append("*").Append(strFormat);
+				stbModTypesFilter.Append("*").Append(strFormat);
 				if (i++ < intFormatCount - 1)
 				{
 					stbModTypesDesc.Append(", ");

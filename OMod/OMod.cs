@@ -1105,6 +1105,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		{
 			using (MemoryStream stmConfig = new MemoryStream())
 			{
+				Int64 intLength = 0;
 				using (BinaryWriter bwrConfig = new BinaryWriter(stmConfig))
 				{
 					bwrConfig.Write(OModVersion);
@@ -1130,6 +1131,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 					bwrConfig.Write(Description ?? "");
 					if (OModVersion >= 2)
 						bwrConfig.Write(CreationTime.ToBinary());
+					else
+						bwrConfig.Write(CreationTime.ToString("dd\\/MM\\/yyyy HH:mm"));
 					switch (CompressionType)
 					{
 						case InArchiveFormat.SevenZip:
@@ -1143,8 +1146,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 					}
 					if (OModVersion >= 1)
 						bwrConfig.Write(intBuildVersion);
+					intLength = stmConfig.Length;
 				}
-				return stmConfig.GetBuffer();
+				byte[] bteConfig = new byte[intLength];
+				Array.Copy(stmConfig.GetBuffer(),bteConfig,intLength);
+				return bteConfig;
 			}
 		}
 
@@ -1177,7 +1183,9 @@ namespace Nexus.Client.Mods.Formats.OMod
 					{
 						DateTime dteCreation = new DateTime(2006, 1, 1);
 						string sCreationTime = brdConfig.ReadString();
-						if (DateTime.TryParseExact(sCreationTime, "dd/MM/yyyy HH:mm", null, DateTimeStyles.None, out dteCreation))
+						if (DateTime.TryParseExact(sCreationTime, "d\\/M\\/yyyy HH:mm", null, DateTimeStyles.None, out dteCreation))
+							CreationTime = dteCreation;
+						else if (DateTime.TryParseExact(sCreationTime, "d\\/M\\/yyyy h:mm tt", null, DateTimeStyles.None, out dteCreation))
 							CreationTime = dteCreation;
 					}
 					byte bteCompressionType = brdConfig.ReadByte();
