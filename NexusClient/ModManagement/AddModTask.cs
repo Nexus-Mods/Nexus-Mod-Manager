@@ -193,19 +193,31 @@ namespace Nexus.Client.ModManagement
 						NexusUrl nxuModUrl = new NexusUrl(p_uriPath);
 
 						if (String.IsNullOrEmpty(nxuModUrl.ModId))
-							throw new ArgumentException("Invalid Nexus URI: " + p_uriPath.ToString());
-
-						IModFileInfo mfiFile = null;
-						if (String.IsNullOrEmpty(nxuModUrl.FileId))
-							mfiFile = m_mrpModRepository.GetDefaultFileInfo(nxuModUrl.ModId);
-						else
-							mfiFile = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
-						if (mfiFile == null)
 						{
-							Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
+							Trace.TraceError("Invalid Nexus URI: " + p_uriPath.ToString());
 							return null;
 						}
-						Uri[] uriFilesToDownload = m_mrpModRepository.GetFilePartUrls(nxuModUrl.ModId, mfiFile.Id.ToString());
+												
+						Uri[] uriFilesToDownload = null;
+						try
+						{
+							IModFileInfo mfiFile = null;
+							if (String.IsNullOrEmpty(nxuModUrl.FileId))
+								mfiFile = m_mrpModRepository.GetDefaultFileInfo(nxuModUrl.ModId);
+							else
+								mfiFile = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+							if (mfiFile == null)
+							{
+								Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
+								return null;
+							}
+							uriFilesToDownload = m_mrpModRepository.GetFilePartUrls(nxuModUrl.ModId, mfiFile.Id.ToString());
+						}
+						catch (RepositoryUnavailableException e)
+						{
+							TraceUtil.TraceException(e);
+							return null;
+						}
 						string strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
 						amdDescriptor = new AddModDescriptor(p_uriPath, strSourcePath, uriFilesToDownload, TaskStatus.Running);
 						break;
@@ -468,7 +480,7 @@ namespace Nexus.Client.ModManagement
 				dicQueuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
 				m_eifEnvironmentInfo.Settings.Save();
 			}
-			base.OnPropertyChanged(e);			
+			base.OnPropertyChanged(e);
 		}
 
 		/// <summary>
@@ -489,7 +501,7 @@ namespace Nexus.Client.ModManagement
 				dicQueuedMods.Remove(Descriptor.SourceUri.ToString());
 				m_eifEnvironmentInfo.Settings.Save();
 			}
-			base.OnTaskEnded(e);			
+			base.OnTaskEnded(e);
 		}
 
 		#region IDisposable Members
