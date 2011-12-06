@@ -148,7 +148,15 @@ namespace Nexus.Client.ModManagement
 			switch (p_amdDescriptor.SourceUri.Scheme.ToLowerInvariant())
 			{
 				case "file":
-					return new ModInfo(m_mrpModRepository.GetModInfoForFile(Path.GetFileName(p_amdDescriptor.DefaultSourcePath)));
+					try
+					{
+						return new ModInfo(m_mrpModRepository.GetModInfoForFile(Path.GetFileName(p_amdDescriptor.DefaultSourcePath)));
+					}
+					catch (RepositoryUnavailableException e)
+					{
+						TraceUtil.TraceException(e);
+						return null;
+					}
 				case "nxm":
 					NexusUrl nxuModUrl = new NexusUrl(p_amdDescriptor.SourceUri);
 					if (String.IsNullOrEmpty(nxuModUrl.ModId))
