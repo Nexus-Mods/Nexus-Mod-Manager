@@ -208,11 +208,18 @@ namespace Nexus.Client
 		public void BringToFront()
 		{
 			if (MainForm.InvokeRequired)
-			{
-				MainForm.Invoke(new MethodInvoker(MainForm.Activate));
-			}
+				MainForm.Invoke(new MethodInvoker(DoBringToFront));
 			else
-				MainForm.Activate();
+				DoBringToFront();
+		}
+
+		/// <summary>
+		/// Brings the currently running client to the front.
+		/// </summary>
+		private void DoBringToFront()
+		{
+			MainForm.WindowState = FormWindowState.Normal;
+			MainForm.Activate();
 		}
 	}
 }
