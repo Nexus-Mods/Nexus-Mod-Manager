@@ -197,11 +197,11 @@ namespace Nexus.Client.ModManagement
 							Trace.TraceError("Invalid Nexus URI: " + p_uriPath.ToString());
 							return null;
 						}
-												
+						
+						IModFileInfo mfiFile = null;
 						Uri[] uriFilesToDownload = null;
 						try
 						{
-							IModFileInfo mfiFile = null;
 							if (String.IsNullOrEmpty(nxuModUrl.FileId))
 								mfiFile = m_mrpModRepository.GetDefaultFileInfo(nxuModUrl.ModId);
 							else
