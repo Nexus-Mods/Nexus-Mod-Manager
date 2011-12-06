@@ -19,6 +19,7 @@ namespace Nexus.Client
 	public partial class MainForm : Form
 	{
 		private MainFormVM m_vmlViewModel = null;
+		private FormWindowState m_fwsLastWindowState = FormWindowState.Normal;
 
 		#region Properties
 
@@ -65,6 +66,7 @@ namespace Nexus.Client
 			amcActivityMonitor.TextChanged += new EventHandler(ActivityMonitor_TextChanged);
 			ViewModel = p_vmlViewModel;
 			p_vmlViewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
+			m_fwsLastWindowState = WindowState;
 		}
 
 		#endregion
@@ -341,6 +343,20 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Raises the <see cref="Form.Resize"/> event.
+		/// </summary>
+		/// <remarks>
+		/// This saves the last window state before the form was minimized.
+		/// </remarks>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		protected override void OnResize(EventArgs e)
+		{
+			base.OnResize(e);
+			if (WindowState != FormWindowState.Minimized)
+				m_fwsLastWindowState = WindowState;
+		}
+
+		/// <summary>
 		/// Raises the <see cref="Form.Shown"/> event.
 		/// </summary>
 		/// <remarks>
@@ -351,6 +367,15 @@ namespace Nexus.Client
 		{
 			base.OnShown(e);
 			ViewModel.ViewIsShown();
+		}
+
+		/// <summary>
+		/// Restores focus to the form.
+		/// </summary>
+		public void RestoreFocus()
+		{
+			WindowState = m_fwsLastWindowState;
+			Activate();
 		}
 	}
 }

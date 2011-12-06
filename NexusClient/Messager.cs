@@ -30,7 +30,7 @@ namespace Nexus.Client
 		/// <param name="p_gmdGameModeInfo">The descriptor of the game mode for which mods are being managed.</param>
 		/// <param name="p_mmgModManager">The mod manager to use to manage mods.</param>
 		/// <param name="p_frmMainForm">The main application form.</param>
-		public static Messager InitializeListener(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, ModManager p_mmgModManager, Form p_frmMainForm)
+		public static Messager InitializeListener(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, ModManager p_mmgModManager, MainForm p_frmMainForm)
 		{
 			if (m_cnlMessagerChannel != null)
 				throw new InvalidOperationException(String.Format("The IPC Channel has already been created as a {0}.", (m_cnlMessagerChannel is IpcServerChannel) ? "SERVER" : "CLIENT"));
@@ -88,7 +88,7 @@ namespace Nexus.Client
 		/// Gets the main application form.
 		/// </summary>
 		/// <value>The main application form.</value>
-		protected Form MainForm { get; private set; }
+		protected MainForm MainForm { get; private set; }
 
 		#endregion
 
@@ -99,7 +99,7 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_mmgModManager">The mod manager to use to manage mods.</param>
 		/// <param name="p_frmMainForm">The main form of the client for which we listening for messages.</param>
-		private Messager(ModManager p_mmgModManager, Form p_frmMainForm)
+		private Messager(ModManager p_mmgModManager, MainForm p_frmMainForm)
 		{
 			ModManager = p_mmgModManager;
 			MainForm = p_frmMainForm;
@@ -218,8 +218,7 @@ namespace Nexus.Client
 		/// </summary>
 		private void DoBringToFront()
 		{
-			MainForm.WindowState = FormWindowState.Normal;
-			MainForm.Activate();
+			MainForm.RestoreFocus();
 		}
 	}
 }
