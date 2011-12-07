@@ -4,6 +4,7 @@ using System.IO;
 using Nexus.Client.Games.Gamebryo.Tools.TESsnip;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Plugins;
+using System.Diagnostics;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog
 {
@@ -43,13 +44,19 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog
 		/// <returns>The ordered list of plugins.</returns>
 		public IEnumerable<string> LoadPluginOrder()
 		{
+			Trace.TraceInformation("Deserializing Plugin Load Order from: {0}", PluginDirectory);
+			Trace.Indent();
 			List<FileInfo> lstPlugins = new List<FileInfo>();
 			DirectoryInfo difPluginsDirectory = new DirectoryInfo(PluginDirectory);
 			lstPlugins.AddRange(difPluginsDirectory.GetFiles("*.esp"));
 			lstPlugins.AddRange(difPluginsDirectory.GetFiles("*.esm"));
 			lstPlugins.Sort(ComparePlugins);
 			foreach (FileInfo fifPlugin in lstPlugins)
+			{
+				Trace.TraceInformation("Deserializing {0}", fifPlugin.FullName);
 				yield return fifPlugin.FullName;
+			}
+			Trace.Unindent();
 		}
 
 		/// <summary>
