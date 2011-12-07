@@ -8,6 +8,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.Util;
 using Nexus.Client.Games;
 using Nexus.Client.ModRepositories;
+using System.Text;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -139,18 +140,6 @@ namespace Nexus.Client.ModManagement.UI
 			get
 			{
 				return ModManager.NewestModInfo;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of supported mod formats.
-		/// </summary>
-		/// <value>The list of supported mod formats.</value>
-		public ICollection<IModFormat> ModFormats
-		{
-			get
-			{
-				return ModManager.ModFormats;
 			}
 		}
 
@@ -300,5 +289,20 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Gets the list of extensions commonly used for mod files.
+		/// </summary>
+		/// <returns>The list of extensions commonly used for mod files.</returns>
+		public IList<string> GetModFormatExtensions()
+		{
+			Set<string> setModExtensions = new Set<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (IModFormat mftFormat in ModManager.ModFormats)
+				setModExtensions.Add(mftFormat.Extension);
+			setModExtensions.Add(".7z");
+			setModExtensions.Add(".zip");
+			setModExtensions.Add(".rar");
+			return setModExtensions;
+		}
 	}
 }
