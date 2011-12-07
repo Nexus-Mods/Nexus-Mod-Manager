@@ -195,13 +195,23 @@ namespace Nexus.Client.ModManagement
 			IModInfo mifNewestInfo = dlgUpdateChecker.EndInvoke(p_arsResult);
 			p_arsResult.AsyncWaitHandle.Close();
 			IMod modMod = (IMod)p_arsResult.AsyncState;
+			AddNewVersionNumberForMod(modMod, mifNewestInfo);
+		}
+
+		/// <summary>
+		/// Adds the newest information for the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod for which to add the newest info.</param>
+		/// <param name="p_mifNewestInfo">The newest info to add for the given mod.</param>
+		private void AddNewVersionNumberForMod(IMod p_modMod, IModInfo p_mifNewestInfo)
+		{
 			lock (m_oclNewInfo)
 			{
-				Int32 intExistingIndex = m_oclNewInfo.IndexOf(x => (x.Mod == modMod));
+				Int32 intExistingIndex = m_oclNewInfo.IndexOf(x => (x.Mod == p_modMod));
 				if (intExistingIndex < 0)
-					m_oclNewInfo.Add(new UpdateInfo(modMod, mifNewestInfo));
+					m_oclNewInfo.Add(new UpdateInfo(p_modMod, p_mifNewestInfo));
 				else
-					m_oclNewInfo[intExistingIndex] = new UpdateInfo(modMod, mifNewestInfo);
+					m_oclNewInfo[intExistingIndex] = new UpdateInfo(p_modMod, p_mifNewestInfo);
 			}
 		}
 	}
