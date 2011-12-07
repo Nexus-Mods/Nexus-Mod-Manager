@@ -510,7 +510,7 @@ namespace Nexus.Client.ModManagement.UI
 				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Regular);
 				if (uifNewModInfo.NewestInfo.Website != null)
 				{
-					if (!String.Equals(modMod.HumanReadableVersion, uifNewModInfo.NewestInfo.HumanReadableVersion, StringComparison.OrdinalIgnoreCase))
+					if (!uifNewModInfo.IsMatchingVersion(modMod.HumanReadableVersion))
 						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
 				}

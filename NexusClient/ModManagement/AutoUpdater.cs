@@ -9,6 +9,7 @@ using Nexus.Client.Util;
 using System.Collections.Generic;
 using Nexus.Client.ModManagement.InstallationLog;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace Nexus.Client.ModManagement
 {
@@ -55,6 +56,20 @@ namespace Nexus.Client.ModManagement
 			}
 
 			#endregion
+
+			/// <summary>
+			/// Determines if the given version is the same as the version in this update info.
+			/// </summary>
+			/// <param name="p_strVersion">The version to match.</param>
+			/// <returns><c>true</c> if the given version is the same as the version in this update info;
+			/// <c>false</c> otherwise.</returns>
+			public bool IsMatchingVersion(string p_strVersion)
+			{
+				Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
+				string strThisVersion = rgxClean.Replace(NewestInfo.HumanReadableVersion, "");
+				string strThatVersion = rgxClean.Replace(p_strVersion, "");
+				return String.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
+			}
 		}
 
 		private ThreadSafeObservableList<UpdateInfo> m_oclNewInfo = new ThreadSafeObservableList<UpdateInfo>();
