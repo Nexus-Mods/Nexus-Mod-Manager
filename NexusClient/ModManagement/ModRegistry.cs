@@ -124,12 +124,26 @@ namespace Nexus.Client.ModManagement
 		/// could not be registered.</returns>
 		public IMod RegisterMod(string p_strModPath)
 		{
+			return RegisterMod(p_strModPath, null);
+		}
+
+		/// <summary>
+		/// Registers the specified mod, tagging it with the given info.
+		/// </summary>
+		/// <param name="p_strModPath">The path to the mod to register.</param>
+		/// <param name="p_mifTagInfo">The info with which to tag the mod.</param>
+		/// <returns>The mod that was registered, or <c>null</c> if the mod at the given path
+		/// could not be registered.</returns>
+		public IMod RegisterMod(string p_strModPath, IModInfo p_mifTagInfo)
+		{
 			Int32 intExistingIndex = -1;
 			IMod modMod = null;
 			for (intExistingIndex = 0; intExistingIndex < m_oclRegisteredMods.Count; intExistingIndex++)
 				if (p_strModPath.Equals(m_oclRegisteredMods[intExistingIndex].Filename, StringComparison.OrdinalIgnoreCase))
 					break;
 			modMod = CreateMod(p_strModPath);
+			if (p_mifTagInfo != null)
+				modMod.UpdateInfo(p_mifTagInfo, false);
 			if (modMod == null)
 				return null;
 			if (intExistingIndex < m_oclRegisteredMods.Count)

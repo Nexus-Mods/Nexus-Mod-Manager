@@ -98,12 +98,12 @@ namespace Nexus.Client.ModManagement
 					if (lstAddedMods == null)
 						return;
 					IModInfo mifTagInfo = ((AddModTask)sender).ModInfo;
-					AutoTagger atgTagger = m_mmgModManager.GetModTagger();
 					foreach (string strMod in lstAddedMods)
 					{
-						IMod modMod = m_mmgModManager.ManagedModRegistry.RegisterMod(strMod);
 						if (m_eifEnvironmentInfo.Settings.AddMissingInfoToMods)
-							atgTagger.Tag(modMod, mifTagInfo, false);
+							m_mmgModManager.ManagedModRegistry.RegisterMod(strMod, mifTagInfo);
+						else
+							m_mmgModManager.ManagedModRegistry.RegisterMod(strMod);
 					}
 				}
 			}
