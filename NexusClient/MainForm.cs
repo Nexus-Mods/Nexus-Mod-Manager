@@ -343,7 +343,7 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
-		/// Raises the <see cref="Form.Resize"/> event.
+		/// Raises the <see cref="Control.Resize"/> event.
 		/// </summary>
 		/// <remarks>
 		/// This saves the last window state before the form was minimized.
