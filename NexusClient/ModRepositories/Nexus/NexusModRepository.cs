@@ -8,6 +8,8 @@ using System.Linq;
 using System.Diagnostics;
 using Nexus.Client.Mods;
 using System.Text.RegularExpressions;
+using System.Collections;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModRepositories.Nexus
 {
@@ -132,25 +134,55 @@ namespace Nexus.Client.ModRepositories.Nexus
 		protected string ParseModIdFromFilename(string p_strFilename, out IModInfo p_mifInfo)
 		{
 			Regex rgxModId = new Regex(@"-((\d+)[-\.])+");
-			Match mchModId = rgxModId.Match(Path.GetFileName(p_strFilename));
+			string strFilename = Path.GetFileName(p_strFilename);
+			Match mchModId = rgxModId.Match(strFilename);
 			if (!mchModId.Success)
 			{
 				p_mifInfo = null;
 				return null;
 			}
 			IModInfo mifInfo = null;
-			string strId = null;
+			string[] strFilenameWords = strFilename.Split(new char[] { ' ', '_', '-' }, StringSplitOptions.RemoveEmptyEntries);
+			List<KeyValuePair<Int32, IModInfo>> lstCandidates = new List<KeyValuePair<Int32, IModInfo>>();
 			foreach (Capture cptMatch in mchModId.Groups[2].Captures)
 			{
-				strId = cptMatch.Value;
+				string strId = cptMatch.Value;
 				//get the mod info to make sure the id is valid, and not
 				// just some random match from elsewhere in the filename
-				mifInfo = GetModInfo(strId);
-				if (mifInfo != null)
-					break;
+				IModInfo mifInfoCandidate = GetModInfo(strId);
+				if (mifInfoCandidate != null)
+				{
+					IList<IModFileInfo> lstFiles = GetModFileInfo(strId);
+					Int32 intBestFoundWordCount = 0;
+					foreach (IModFileInfo mfiFile in lstFiles)
+					{
+						if (mfiFile.Filename.Equals(strFilename, StringComparison.OrdinalIgnoreCase) ||
+							mfiFile.Filename.Replace(' ', '_').Equals(strFilename, StringComparison.OrdinalIgnoreCase))
+						{
+							mifInfo = mifInfoCandidate;
+							break;
+						}
+						Int32 intFoundWordCount = 0;
+						foreach (string strWord in strFilenameWords)
+						{
+							if (mfiFile.Filename.IndexOf(strWord, StringComparison.OrdinalIgnoreCase) > -1)
+								intFoundWordCount++;
+						}
+						if (intFoundWordCount > intBestFoundWordCount)
+							intBestFoundWordCount = intFoundWordCount;
+					}
+					lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
+					if (mifInfo != null)
+						break;
+				}
+			}
+			if ((mifInfo == null) && !lstCandidates.IsNullOrEmpty())
+			{
+				lstCandidates.Sort((x, y) => -x.Key.CompareTo(y.Key));
+				mifInfo = lstCandidates[0].Value;
 			}
 			p_mifInfo = mifInfo;
-			return strId;
+			return mifInfo.Id;
 		}
 
 		#endregion
