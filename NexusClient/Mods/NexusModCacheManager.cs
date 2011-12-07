@@ -89,7 +89,17 @@ namespace Nexus.Client.Mods
 
 			string strCachePath = GetCacheFilePath(p_modMod);
 			if (File.Exists(strCachePath))
-				return new Archive(strCachePath);
+			{
+				try
+				{
+					return new Archive(strCachePath);
+				}
+				catch (SevenZipArchiveException)
+				{
+					//the cachef ile is corrupt - so delete it
+					FileUtil.ForceDelete(strCachePath);
+				}
+			}
 			return null;
 		}
 
