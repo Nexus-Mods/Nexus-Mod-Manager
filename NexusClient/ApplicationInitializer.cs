@@ -128,8 +128,6 @@ namespace Nexus.Client
 		{
 			get
 			{
-				if (m_svmServiceManager == null)
-					throw new InvalidOperationException(String.Format("{0} cannot be accessed until the initializaer has completed it's work.", ObjectHelper.GetPropertyName(() => Services)));
 				return m_svmServiceManager;
 			}
 			private set

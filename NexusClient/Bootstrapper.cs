@@ -116,7 +116,11 @@ namespace Nexus.Client
 					ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
 					frmAppInitilizer.ShowDialog();
 					if (ainInitializer.Status != TaskStatus.Complete)
-						return false;
+					{
+						booChangeGameMode = true;
+						DisposeServices(ainInitializer.Services);
+						continue;
+					}
 
 					IGameMode gmdGameMode = ainInitializer.GameMode;
 					ServiceManager svmServices = ainInitializer.Services;
@@ -209,6 +213,8 @@ namespace Nexus.Client
 		/// <param name="p_smgServices">The services to dispose.</param>
 		protected void DisposeServices(ServiceManager p_smgServices)
 		{
+			if (p_smgServices == null)
+				return;
 			p_smgServices.ModInstallLog.Release();
 			p_smgServices.ActivePluginLog.Release();
 			p_smgServices.PluginOrderLog.Release();
