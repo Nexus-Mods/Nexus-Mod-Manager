@@ -7,6 +7,7 @@ using Nexus.Client.Plugins;
 using Nexus.Client.Util;
 using Nexus.Transactions;
 using System.Collections.Specialized;
+using System.Diagnostics;
 
 namespace Nexus.Client.PluginManagement.OrderLog
 {
@@ -128,9 +129,16 @@ namespace Nexus.Client.PluginManagement.OrderLog
 		/// </summary>
 		private void LoadPluginOrder()
 		{
+			Trace.TraceInformation("Loading Plugin Order...");
+			Trace.Indent();
 			m_oclOrderedPlugins = new ThreadSafeObservableList<Plugin>();
 			foreach (string strPlugin in LogSerializer.LoadPluginOrder())
-				m_oclOrderedPlugins.Add(ManagedPluginRegistry.GetPlugin(strPlugin));
+			{
+				Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(strPlugin);
+				Trace.TraceInformation("Loading {0} (IsNull={1})", strPlugin, (plgPlugin == null));
+				m_oclOrderedPlugins.Add(plgPlugin);
+			}
+			Trace.Unindent();
 		}
 
 		/// <summary>
