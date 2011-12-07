@@ -250,7 +250,13 @@ namespace Nexus.Client.Util.Downloader
 							}
 							intLineTracker = 35;
 						}
-						intLineTracker = 36;
+						catch (IOException e)
+						{
+							intLineTracker = 36;
+							Trace.TraceError(String.Format("[{0}] Block Downloader - Problem getting the block. Message: {1}", m_fdrFileDownloader.URL, e.Message));
+							intLineTracker = 37;
+						}
+						intLineTracker = 38;
 					}
 				}
 				catch (ArgumentOutOfRangeException)
