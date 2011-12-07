@@ -142,7 +142,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 
 		#endregion
 
-		#region Mod Addition/Removal
+		#region Task Addition/Removal
 
 		/// <summary>
 		/// Adds the given <see cref="IBackgroundTask"/> to the view's list. If the <see cref="IBackgroundTask"/>
