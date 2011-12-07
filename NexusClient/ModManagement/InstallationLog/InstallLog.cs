@@ -96,14 +96,6 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			return m_ilgCurrent;
 		}
 
-		/// <summary>
-		/// This disposes of the singleton object, allowing it to be re-initialized.
-		/// </summary>
-		public void Release()
-		{
-			m_ilgCurrent = null;
-		}
-
 		#endregion
 
 		/// <summary>
@@ -868,5 +860,38 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		}
 
 		#endregion
+
+		/// <summary>
+		/// This backsup the install log.
+		/// </summary>
+		public void Backup()
+		{
+			if (File.Exists(LogPath))
+			{
+				string strBackupLogPath = LogPath + ".bak";
+				FileInfo fifInstallLog = new FileInfo(LogPath);
+				FileInfo fifInstallLogBak = File.Exists(strBackupLogPath) ? new FileInfo(strBackupLogPath) : null;
+
+				if ((fifInstallLogBak == null) || (fifInstallLogBak.LastWriteTimeUtc != fifInstallLog.LastWriteTimeUtc))
+				{
+					for (Int32 i = 4; i > 0; i--)
+					{
+						if (File.Exists(strBackupLogPath + i))
+							File.Copy(strBackupLogPath + i, strBackupLogPath + (i + 1), true);
+					}
+					if (File.Exists(strBackupLogPath))
+						File.Copy(strBackupLogPath, strBackupLogPath + "1", true);
+					File.Copy(LogPath, strBackupLogPath, true);
+				}
+			}
+		}
+
+		/// <summary>
+		/// This disposes of the install log, allowing it to be re-initialized.
+		/// </summary>
+		public void Release()
+		{
+			m_ilgCurrent = null;
+		}
 	}
 }

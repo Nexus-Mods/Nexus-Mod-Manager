@@ -325,5 +325,10 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		IList<IMod> GetGameSpecificValueEditInstallers(string p_strKey);
 
 		#endregion
+
+		/// <summary>
+		/// This backsup the install log.
+		/// </summary>
+		void Backup();
 	}
 }

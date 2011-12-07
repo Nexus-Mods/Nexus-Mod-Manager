@@ -140,6 +140,7 @@ namespace Nexus.Client
 						try
 						{
 							Application.Run(frmMain);
+							svmServices.ModInstallLog.Backup();
 							booChangeGameMode = vmlMainForm.GameModeChangeRequested;
 						}
 						finally
