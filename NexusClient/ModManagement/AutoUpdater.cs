@@ -67,7 +67,7 @@ namespace Nexus.Client.ModManagement
 			{
 				Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
 				string strThisVersion = rgxClean.Replace(NewestInfo.HumanReadableVersion, "");
-				string strThatVersion = rgxClean.Replace(p_strVersion, "");
+				string strThatVersion = rgxClean.Replace(p_strVersion ?? "", "");
 				return String.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
 			}
 		}
