@@ -55,6 +55,12 @@ namespace Nexus.Client.ModManagement
 				p_modMod.ReadOnlyInitProgressUpdated += new CancelProgressEventHandler(Mod_ReadOnlyInitProgressUpdated);
 				p_modMod.BeginReadOnlyTransaction(FileUtility);
 			}
+			catch (Exception)
+			{
+				Status = TaskStatus.Error;
+				OnTaskEnded(false);
+				throw;
+			}
 			finally
 			{
 				p_modMod.ReadOnlyInitProgressUpdated -= Mod_ReadOnlyInitProgressUpdated;
