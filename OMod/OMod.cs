@@ -540,20 +540,20 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 			string[] strFileStreamNames = { "plugins", "data" };
 			List<FileInfo> lstFiles = null;
-			byte[] bteFileBlock = null;
+			byte[] bteUncompressedFileData = null;
 			m_intReadOnlyInitFileBlockExtractionCurrentStage = 0;
 			m_fltReadOnlyInitCurrentBaseProgress = 0;
 			foreach (string strFileStreamName in strFileStreamNames)
 			{
 				//extract the compressed file block...
-				using (Stream stmFiles = new MemoryStream())
+				using (Stream stmCompressedFiles = new MemoryStream())
 				{
 					using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
 					{
 						if (!szeOmod.ArchiveFileNames.Contains(strFileStreamName))
 							continue;
 						m_intReadOnlyInitFileBlockExtractionCurrentStage++;
-						szeOmod.ExtractFile(strFileStreamName, stmFiles);
+						szeOmod.ExtractFile(strFileStreamName, stmCompressedFiles);
 						switch (strFileStreamName)
 						{
 							case "plugins":
@@ -567,26 +567,26 @@ namespace Nexus.Client.Mods.Formats.OMod
 						}
 					}
 
-					stmFiles.Position = 0;
+					stmCompressedFiles.Position = 0;
 					Int64 intTotalLength = lstFiles.Sum(x => x.Length);
-					bteFileBlock = new byte[intTotalLength];
+					bteUncompressedFileData = new byte[intTotalLength];
 					switch (CompressionType)
 					{
 						case InArchiveFormat.SevenZip:
 							byte[] bteProperties = new byte[5];
-							stmFiles.Read(bteProperties, 0, 5);
+							stmCompressedFiles.Read(bteProperties, 0, 5);
 							Decoder dcrDecoder = new Decoder();
 							dcrDecoder.SetDecoderProperties(bteProperties);
-							DecoderProgressWatcher dpwWatcher = new DecoderProgressWatcher(stmFiles.Length);
+							DecoderProgressWatcher dpwWatcher = new DecoderProgressWatcher(stmCompressedFiles.Length);
 							dpwWatcher.ProgressUpdated += new EventHandler<EventArgs<int>>(dpwWatcher_ProgressUpdated);
-							using (Stream stmFile = new MemoryStream(bteFileBlock))
-								dcrDecoder.Code(stmFiles, stmFile, stmFiles.Length - stmFiles.Position, intTotalLength, dpwWatcher);
+							using (Stream stmUncompressedFiles = new MemoryStream(bteUncompressedFileData))
+								dcrDecoder.Code(stmCompressedFiles, stmUncompressedFiles, stmCompressedFiles.Length - stmCompressedFiles.Position, intTotalLength, dpwWatcher);
 							break;
 						case InArchiveFormat.Zip:
-							using (SevenZipExtractor szeZip = new SevenZipExtractor(stmFiles))
+							using (SevenZipExtractor szeZip = new SevenZipExtractor(stmCompressedFiles))
 							{
 								szeZip.Extracting += new EventHandler<ProgressEventArgs>(szeZip_Extracting);
-								using (Stream stmFile = new MemoryStream(bteFileBlock))
+								using (Stream stmFile = new MemoryStream(bteUncompressedFileData))
 								{
 									szeZip.ExtractFile(0, stmFile);
 								}
@@ -608,8 +608,15 @@ namespace Nexus.Client.Mods.Formats.OMod
 				{
 					FileInfo ofiFile = lstFiles[i];
 					bteFile = new byte[ofiFile.Length];
-					Array.Copy(bteFileBlock, intFileStart, bteFile, 0, ofiFile.Length);
+					Array.Copy(bteUncompressedFileData, intFileStart, bteFile, 0, ofiFile.Length);
+					intFileStart += ofiFile.Length;
 					FileUtil.WriteAllBytes(Path.Combine(m_strReadOnlyTempDirectory, ofiFile.Name), bteFile);
+					/*ICSharpCode.SharpZipLib.Checksums.Crc32 crc = new ICSharpCode.SharpZipLib.Checksums.Crc32();
+					crc.Update(bteFile);
+					if (crc.Value != ofiFile.CRC)
+					{
+						string g = "failure";
+					}*/
 					UpdateReadOnlyInitProgress(m_fltReadOnlyInitCurrentBaseProgress, fltFileWritingPercentBlockSize, i / lstFiles.Count);
 				}
 				m_fltReadOnlyInitCurrentBaseProgress += fltFileWritingPercentBlockSize;
@@ -1149,7 +1156,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 					intLength = stmConfig.Length;
 				}
 				byte[] bteConfig = new byte[intLength];
-				Array.Copy(stmConfig.GetBuffer(),bteConfig,intLength);
+				Array.Copy(stmConfig.GetBuffer(), bteConfig, intLength);
 				return bteConfig;
 			}
 		}
