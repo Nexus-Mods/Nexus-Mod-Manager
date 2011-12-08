@@ -33,7 +33,7 @@ options {
  *------------------------------------------------------------------*/
 
 prog			: block EOF!;
-block			: (NEWLINE* stmt (NEWLINE+ stmt)* NEWLINE*)? -> ^(BLOCK stmt*);
+block			: (NEWLINE* stmt (NEWLINE+ stmt)* NEWLINE*) -> ^(BLOCK stmt+);
 stmt			: (flow_ctl | func | cond | switch_stmt | for_loop);
 
 /****
@@ -44,13 +44,16 @@ keyword			: GOTO|LABEL|FATALERROR|IF_NOT|IF|ELSE|ENDIF|FOR|CONTINUE|EXIT|ENDFOR|
 					SELECTMANYWITHDESCRIPTIONSANDPREVIEWS|SELECTMANYWITHDESCRIPTIONS|
 					SELECTMANYWITHPREVIEW|SELECTMANY|SELECTVAR|SELECTSTRING|SELECT|CASE|DEFAULT|BREAK|
 					ENDSELECT|RETURN;
-arg				: ARG_SEPARATOR!? (STRING_LITERAL | QUOTED_LITERAL | IDENTIFIER | VARIABLE | FUNC_NAME | keyword);
+arg				: (STRING_LITERAL | QUOTED_LITERAL | IDENTIFIER | VARIABLE | FUNC_NAME | keyword) ARG_SEPARATOR!?;
 func			: FUNC_NAME^ arg*;
 
 /****
  * conditionals
  ****/
-cond			: (IF | IF_NOT)^ func NEWLINE! block (ELSE! block)? NEWLINE! ENDIF!;
+cond			: (a=IF | a=IF_NOT) func
+					((NEWLINE b=block			-> ^($a func $b)) (NEWLINE ELSE c=block?	-> ^($a func $b $c?))?
+					|(NEWLINE ELSE c=block?)?	-> ^($a func BLOCK $c?))
+					NEWLINE ENDIF;
 
 
 /****
