@@ -605,6 +605,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				//...then write each file to the temporary location
 				Int64 intFileStart = 0;
 				byte[] bteFile = null;
+				Crc32 crcChecksum = new Crc32();
 				for (Int32 i = 0; i < lstFiles.Count; i++)
 				{
 					FileInfo ofiFile = lstFiles[i];
@@ -612,12 +613,10 @@ namespace Nexus.Client.Mods.Formats.OMod
 					Array.Copy(bteUncompressedFileData, intFileStart, bteFile, 0, ofiFile.Length);
 					intFileStart += ofiFile.Length;
 					FileUtil.WriteAllBytes(Path.Combine(m_strReadOnlyTempDirectory, ofiFile.Name), bteFile);
-					/*ICSharpCode.SharpZipLib.Checksums.Crc32 crc = new ICSharpCode.SharpZipLib.Checksums.Crc32();
-					crc.Update(bteFile);
-					if (crc.Value != ofiFile.CRC)
-					{
-						string g = "failure";
-					}*/
+					crcChecksum.Initialize();
+					crcChecksum.ComputeHash(bteFile);
+					if (crcChecksum.CrcValue != ofiFile.CRC)
+						throw new Exception(String.Format("Unable to extract {0}: checksums did not match. OMod is corrupt.", ofiFile.Name));
 					UpdateReadOnlyInitProgress(m_fltReadOnlyInitCurrentBaseProgress, fltFileWritingPercentBlockSize, i / lstFiles.Count);
 				}
 				m_fltReadOnlyInitCurrentBaseProgress += fltFileWritingPercentBlockSize;
