@@ -171,9 +171,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 						if (intFoundWordCount > intBestFoundWordCount)
 							intBestFoundWordCount = intFoundWordCount;
 					}
-					lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
 					if (mifInfo != null)
 						break;
+					lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
 				}
 			}
 			if ((mifInfo == null) && !lstCandidates.IsNullOrEmpty())
@@ -182,7 +182,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				mifInfo = lstCandidates[0].Value;
 			}
 			p_mifInfo = mifInfo;
-			return mifInfo.Id;
+			return (mifInfo == null) ? null : mifInfo.Id;
 		}
 
 		#endregion
