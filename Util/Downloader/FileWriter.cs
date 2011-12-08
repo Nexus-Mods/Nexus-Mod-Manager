@@ -2,6 +2,7 @@
 using System.IO;
 using System.Text;
 using System.Threading;
+using Nexus.Client.Util.Collections;
 using Nexus.Client.Util.Threading;
 
 namespace Nexus.Client.Util.Downloader

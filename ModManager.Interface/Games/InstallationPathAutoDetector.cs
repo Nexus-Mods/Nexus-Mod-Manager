@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
-using Nexus.Client.Util;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games
 {

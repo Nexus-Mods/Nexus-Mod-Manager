@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Windows.Forms;
-using System.Text;
-using Nexus.Client.Util;
 using System.IO;
+using System.Text;
+using System.Windows.Forms;
+using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Controls
 {

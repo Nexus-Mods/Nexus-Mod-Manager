@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Collections.ObjectModel;
-using Nexus.Client.Plugins;
-using Nexus.Client.Util;
-using Nexus.Transactions;
-using System.Collections.Specialized;
 using System.Diagnostics;
+using Nexus.Client.Plugins;
+using Nexus.Client.Util.Collections;
+using Nexus.Transactions;
 
 namespace Nexus.Client.PluginManagement.OrderLog
 {

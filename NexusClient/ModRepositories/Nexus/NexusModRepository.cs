@@ -1,15 +1,14 @@
 ﻿using System;
-using Nexus.Client.Games;
-using System.Collections.Generic;
-using System.Net;
-using System.IO;
-using System.ServiceModel;
-using System.Linq;
-using System.Diagnostics;
-using Nexus.Client.Mods;
-using System.Text.RegularExpressions;
 using System.Collections;
-using Nexus.Client.Util;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.ServiceModel;
+using System.Text.RegularExpressions;
+using Nexus.Client.Games;
+using Nexus.Client.Mods;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModRepositories.Nexus
 {

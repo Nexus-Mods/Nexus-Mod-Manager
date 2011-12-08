@@ -1,13 +1,11 @@
 ﻿using System;
-using Nexus.Client.PluginManagement.InstallationLog;
-using Nexus.Client.Plugins;
-using Nexus.Client.Util;
-using Nexus.Client.PluginManagement.OrderLog;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using Nexus.Client.Games;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
+using Nexus.Client.Games;
+using Nexus.Client.PluginManagement.InstallationLog;
+using Nexus.Client.PluginManagement.OrderLog;
+using Nexus.Client.Plugins;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.PluginManagement
 {

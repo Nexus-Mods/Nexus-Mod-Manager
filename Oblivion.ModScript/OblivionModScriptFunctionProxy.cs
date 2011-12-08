@@ -8,6 +8,7 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Scripting.ModScript;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 {

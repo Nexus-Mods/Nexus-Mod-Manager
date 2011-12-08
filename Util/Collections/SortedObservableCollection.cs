@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 
-namespace Nexus.Client.Util
+namespace Nexus.Client.Util.Collections
 {
 	/// <summary>
 	/// This is a sorted list whose operations are thread safe, and that notifes listeners about changes to the list.

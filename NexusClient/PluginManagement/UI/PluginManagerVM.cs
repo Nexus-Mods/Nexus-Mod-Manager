@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Plugins;
 using Nexus.Client.Settings;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.PluginManagement.UI
 {

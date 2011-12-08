@@ -1,11 +1,10 @@
-﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using Nexus.Client.Mods;
-using Nexus.Client.Util;
-using System;
 using System.Linq;
+using Nexus.Client.Mods;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {

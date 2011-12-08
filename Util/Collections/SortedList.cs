@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Collections;
 
-namespace Nexus.Client.Util
+namespace Nexus.Client.Util.Collections
 {
 	/// <summary>
 	/// A list whose items are sorted.

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Xml.Linq;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.Unparsers
 {

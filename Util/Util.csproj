@@ -56,17 +56,17 @@
     <Compile Include="ExtendedImage.cs" />
     <Compile Include="ImageExtensions.cs" />
     <Compile Include="FileUtil.cs" />
-    <Compile Include="IListExtensions.cs" />
+    <Compile Include="Collections\IListExtensions.cs" />
     <Compile Include="ImageFormatException.cs" />
     <Compile Include="ObjectHelper.cs" />
     <Compile Include="ObservableObject.cs" />
-    <Compile Include="ObservableSet.cs" />
+    <Compile Include="Collections\ObservableSet.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ReadOnlyObservableList.cs" />
-    <Compile Include="ReorderableStack.cs" />
-    <Compile Include="Set.cs" />
-    <Compile Include="SortedList.cs" />
-    <Compile Include="SortedObservableCollection.cs" />
+    <Compile Include="Collections\ReadOnlyObservableList.cs" />
+    <Compile Include="Collections\ReorderableStack.cs" />
+    <Compile Include="Collections\Set.cs" />
+    <Compile Include="Collections\SortedList.cs" />
+    <Compile Include="Collections\SortedObservableCollection.cs" />
     <Compile Include="TextUtil.cs" />
     <Compile Include="ThreadSafeSevenZipExtractor.cs" />
   </ItemGroup>
@@ -85,7 +85,7 @@
     <Compile Include="Downloader\Range.cs" />
     <Compile Include="Downloader\RangeSet.cs" />
     <Compile Include="IniMethods.cs" />
-    <Compile Include="ThreadSafeObservableList.cs" />
+    <Compile Include="Collections\ThreadSafeObservableList.cs" />
     <Compile Include="Threading\TrackedThread.cs" />
     <Compile Include="Threading\TrackedThreadManager.cs" />
     <Compile Include="TraceUtil.cs" />

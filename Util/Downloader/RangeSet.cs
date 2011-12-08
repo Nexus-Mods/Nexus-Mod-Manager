@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Util.Downloader
 {

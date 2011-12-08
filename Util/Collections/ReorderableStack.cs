@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System;
 
-namespace Nexus.Client.Util
+namespace Nexus.Client.Util.Collections
 {
 	/// <summary>
 	/// Implements a stack whose items can be reordered.

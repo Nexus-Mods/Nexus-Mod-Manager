@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using Nexus.Client.Mods;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.InstallationLog
 {

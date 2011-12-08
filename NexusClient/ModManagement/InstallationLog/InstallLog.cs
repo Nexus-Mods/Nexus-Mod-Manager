@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Nexus.Client.Mods;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 using Nexus.Transactions;
-using System.Diagnostics;
 
 namespace Nexus.Client.ModManagement.InstallationLog
 {

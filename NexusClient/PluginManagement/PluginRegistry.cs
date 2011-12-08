@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using Nexus.Client.Plugins;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 using Nexus.Transactions;
 
 namespace Nexus.Client.PluginManagement

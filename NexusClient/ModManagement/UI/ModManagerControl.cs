@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
@@ -11,7 +12,7 @@ using Nexus.Client.Commands.Generic;
 using Nexus.Client.Controls;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
-using System.Diagnostics;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.UI
 {

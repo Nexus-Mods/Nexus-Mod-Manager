@@ -8,7 +8,7 @@ using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {

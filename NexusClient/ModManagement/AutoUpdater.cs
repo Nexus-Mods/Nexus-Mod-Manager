@@ -1,15 +1,12 @@
 ﻿using System;
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
 using System.Runtime.Remoting.Messaging;
+using System.Text.RegularExpressions;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
-using Nexus.Client.Util;
-using System.Collections.Generic;
-using Nexus.Client.ModManagement.InstallationLog;
-using System.IO;
-using System.Text.RegularExpressions;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {

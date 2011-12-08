@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using ChinhDo.Transactions;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {

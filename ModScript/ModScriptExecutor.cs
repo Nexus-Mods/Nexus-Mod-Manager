@@ -4,10 +4,11 @@ using System.Reflection;
 using System.Security;
 using System.Security.Permissions;
 using System.Security.Policy;
+using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Util;
-using System.Windows.Forms;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.Scripting.ModScript
 {

@@ -5,7 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Threading;
 
-namespace Nexus.Client.Util
+namespace Nexus.Client.Util.Collections
 {
 	/// <summary>
 	/// This is a list whose operations are thread safe, and that notifes listeners about changes to the list.

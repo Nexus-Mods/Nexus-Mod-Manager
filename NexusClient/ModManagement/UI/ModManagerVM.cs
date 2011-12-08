@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
+using Nexus.Client.Games;
+using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
-using Nexus.Client.Games;
-using Nexus.Client.ModRepositories;
-using System.Text;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.UI
 {

@@ -1,7 +1,8 @@
 ﻿using System;
 using System.IO;
-using ChinhDo.Transactions;
 using System.Text.RegularExpressions;
+using ChinhDo.Transactions;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Util
 {

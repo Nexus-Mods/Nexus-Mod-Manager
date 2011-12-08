@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 
-namespace Nexus.Client.Util
+namespace Nexus.Client.Util.Collections
 {
 	/// <summary>
 	/// A wrapper for a list that implements <see cref="INotifyCollectionChanged"/> and

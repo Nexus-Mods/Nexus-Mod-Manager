@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using Nexus.Client.Games.Gamebryo.Plugins;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement
 {

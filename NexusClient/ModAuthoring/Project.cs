@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Xml;
 using Nexus.Client.Controls;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
-using System.IO;
-using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModAuthoring
 {

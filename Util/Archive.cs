@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using Nexus.Client.Util.Collections;
 using SevenZip;
 
 namespace Nexus.Client.Util

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Nexus.Client.Mods;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 using Nexus.Transactions;
 
 namespace Nexus.Client.ModManagement.InstallationLog

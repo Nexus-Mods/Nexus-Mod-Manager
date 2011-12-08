@@ -1,8 +1,8 @@
 ﻿using System;
-using Nexus.Client.Plugins;
-using Nexus.Client.Util;
-using Nexus.Transactions;
 using Nexus.Client.PluginManagement.InstallationLog;
+using Nexus.Client.Plugins;
+using Nexus.Client.Util.Collections;
+using Nexus.Transactions;
 
 namespace Nexus.Client.PluginManagement
 {

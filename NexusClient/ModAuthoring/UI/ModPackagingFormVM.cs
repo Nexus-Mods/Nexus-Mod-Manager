@@ -8,6 +8,7 @@ using Nexus.Client.ModAuthoring.UI.Controls;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModAuthoring.UI
 {

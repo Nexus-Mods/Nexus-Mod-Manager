@@ -1,7 +1,7 @@
 ﻿using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Settings;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ActivityMonitoring.UI
 {

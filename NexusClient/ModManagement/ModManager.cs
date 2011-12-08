@@ -1,17 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using Nexus.Client.ActivityMonitoring;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
-using Nexus.Client.ModManagement.UI;
-using Nexus.Client.ActivityMonitoring;
-using Nexus.Client.ModRepositories;
-using System.Diagnostics;
-using System.Threading;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {

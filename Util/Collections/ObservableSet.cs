@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Collections.Generic;
 
-namespace Nexus.Client.Util
+namespace Nexus.Client.Util.Collections
 {
 	/// <summary>
 	/// A Set implementation that provides notifications when items are added or removed.

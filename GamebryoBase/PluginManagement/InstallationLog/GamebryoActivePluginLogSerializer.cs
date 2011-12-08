@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.Plugins;
-using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 {

@@ -9,6 +9,7 @@ using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.Scripting
 {

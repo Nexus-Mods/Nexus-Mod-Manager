@@ -2,7 +2,7 @@
 using System.Collections;
 using Nexus.Client.Controls;
 using Nexus.Client.Util;
-using System.Collections.ObjectModel;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 {
