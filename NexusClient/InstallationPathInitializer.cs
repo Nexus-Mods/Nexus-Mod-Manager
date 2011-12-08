@@ -64,6 +64,8 @@ namespace Nexus.Client
 
 			if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId))
 			{
+				EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId].Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				EnvironmentInfo.Settings.Save();
 				Trace.TraceInformation("Found: " + EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId]);
 				Trace.Unindent();
 				return true;
@@ -87,7 +89,7 @@ namespace Nexus.Client
 					return false;
 			}
 
-			EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = strGameFolder;
+			EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = strGameFolder.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			EnvironmentInfo.Settings.Save();
 
 			Trace.TraceInformation("Found: " + strGameFolder);

@@ -1,6 +1,7 @@
 ﻿using Nexus.Client.Settings;
 using Nexus.Client.Games.Settings;
 using Nexus.Client.Util;
+using System.IO;
 
 namespace Nexus.Client.Games.Gamebryo.Settings
 {
@@ -138,7 +139,7 @@ namespace Nexus.Client.Games.Gamebryo.Settings
 			if (!RequiredDirectoriesVM.ValidateSettings())
 				return false;
 			RequiredDirectoriesVM.SaveSettings();
-			EnvironmentInfo.Settings.InstallationPaths[GameMode.ModeId] = InstallationPath;
+			EnvironmentInfo.Settings.InstallationPaths[GameMode.ModeId] = InstallationPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId] = FileUtil.StripInvalidPathChars(CustomLaunchCommand);
 			EnvironmentInfo.Settings.CustomLaunchCommandArguments[GameMode.ModeId] = CustomLaunchCommandArguments;
 			EnvironmentInfo.Settings.Save();
