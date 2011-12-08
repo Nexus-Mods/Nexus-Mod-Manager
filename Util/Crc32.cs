@@ -106,10 +106,13 @@ namespace Nexus.Client.Util
 			if (ibStart < 0 || ibStart + cbSize > array.Length)
 				throw new ArgumentOutOfRangeException("ibStart");
 
-			m_uintCrcValue ^= CrcSeed;
-			while (--cbSize >= 0)
-				m_uintCrcValue = CrcTable[(m_uintCrcValue ^ array[ibStart++]) & 0xFF] ^ (m_uintCrcValue >> 8);
-			m_uintCrcValue ^= CrcSeed;
+			unchecked
+			{
+				m_uintCrcValue ^= CrcSeed;
+				while (--cbSize >= 0)
+					m_uintCrcValue = CrcTable[(m_uintCrcValue ^ array[ibStart++]) & 0xFF] ^ (m_uintCrcValue >> 8);
+				m_uintCrcValue ^= CrcSeed;
+			}
 		}
 
 		/// <summary>
