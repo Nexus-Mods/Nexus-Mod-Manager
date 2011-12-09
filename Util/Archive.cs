@@ -542,7 +542,8 @@ namespace Nexus.Client.Util
 			Set<string> lstFiles = new Set<string>(StringComparer.InvariantCultureIgnoreCase);
 			string[] strFiles = GetFiles(p_strDirectory, p_booRecurse);
 
-			string strPattern = p_strPattern.Replace(".", "\\.").Replace("*", ".*");
+			string strSeparatorChar = Path.DirectorySeparatorChar.Equals('\\') ? @"\\" : Path.DirectorySeparatorChar.ToString();
+			string strPattern = p_strPattern.Replace(".", "\\.").Replace("*", ".*").Replace(Path.AltDirectorySeparatorChar.ToString(), strSeparatorChar);
 			Regex rgxPattern = new Regex(strPattern);
 
 			foreach (string strFile in strFiles)
