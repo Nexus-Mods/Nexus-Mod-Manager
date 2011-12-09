@@ -243,23 +243,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// <returns>The list of folders that contain non-plugin files in the specified folder in the mod that match the given search string.</returns>
 		public string[] DataFolder(string p_strFolder, string p_strRecurse, string p_strSearchString)
 		{
-			bool booRecurse = Boolean.Parse(p_strRecurse);
-			Set<string> setFolders = new Set<string>(StringComparer.OrdinalIgnoreCase);
-			string[] strFiles = GetModFileList(p_strFolder, booRecurse);
-			Regex rgxSearchString = null;
-			if (!String.IsNullOrEmpty(p_strSearchString))
-			{
-				string strPattern = p_strSearchString.Replace(".", "\\.").Replace("*", ".*");
-				rgxSearchString = new Regex(strPattern);
-			}
-			string strFolder = null;
-			foreach (string strFile in strFiles)
-			{
-				strFolder = Path.GetDirectoryName(strFile);
-				if (((rgxSearchString == null) || rgxSearchString.IsMatch(strFolder)) && !IsPlugin(strFile))
-					setFolders.Add(strFolder);
-			}
-			return setFolders.ToArray();
+			return GetFolders(p_strFolder, p_strRecurse, p_strSearchString, true);
 		}
 
 		/// <summary>
@@ -295,9 +279,28 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// <returns>The list of folders that contain plugin files in the specified folder in the mod that match the given search string.</returns>
 		public string[] PluginFolder(string p_strFolder, string p_strRecurse, string p_strSearchString)
 		{
+			return GetFolders(p_strFolder, p_strRecurse, p_strSearchString, false);
+		}
+
+		/// <summary>
+		/// Retrieves the list of folders that contain either non-plugin or plugin files in the specified folder
+		/// in the mod that match the given search string.
+		/// </summary>
+		/// <remarks>
+		/// The given search string recognizes the * and ? wild cards.
+		/// </remarks>
+		/// <param name="p_strFolder">The folder whose folders list is to be retrieved.</param>
+		/// <param name="p_strRecurse">Whether to return folders that are in subdirectories of the given directory.</param>
+		/// <param name="p_strSearchString">The search string against which to match folder names.</param>
+		/// <param name="p_booDataFolders"><c>true</c> if the method should return folders that contain non-plugin files;
+		/// <c>false</c> if the method should return folders that contain plugin files.</param>
+		/// <returns>The list of folders that contain either non-plugin or plugin files in the specified folder
+		/// in the mod that match the given search string.</returns>
+		private string[] GetFolders(string p_strFolder, string p_strRecurse, string p_strSearchString, bool p_booDataFolders)
+		{
 			bool booRecurse = Boolean.Parse(p_strRecurse);
 			Set<string> setFolders = new Set<string>(StringComparer.OrdinalIgnoreCase);
-			string[] strFiles = GetModFileList(p_strFolder, booRecurse);
+			string[] strFiles = GetModFileList(p_strFolder, true);
 			Regex rgxSearchString = null;
 			if (!String.IsNullOrEmpty(p_strSearchString))
 			{
@@ -308,7 +311,18 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			foreach (string strFile in strFiles)
 			{
 				strFolder = Path.GetDirectoryName(strFile);
-				if (((rgxSearchString == null) || rgxSearchString.IsMatch(strFolder)) && IsPlugin(strFile))
+				if (!booRecurse)
+				{
+					string strParent = Path.GetDirectoryName(strFolder);
+					while (!String.IsNullOrEmpty(strParent) && !strParent.Equals(p_strFolder, StringComparison.OrdinalIgnoreCase))
+					{
+						strFolder = strParent;
+						strParent = Path.GetDirectoryName(strFolder);
+					}
+					if (String.IsNullOrEmpty(strParent))
+						continue;
+				}
+				if (((rgxSearchString == null) || rgxSearchString.IsMatch(strFolder)) && (IsPlugin(strFile) ^ p_booDataFolders))
 					setFolders.Add(strFolder);
 			}
 			return setFolders.ToArray();
