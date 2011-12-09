@@ -33,6 +33,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string m_strFilePath = null;
 		private Archive m_arcFile = null;
 		private Archive m_arcCacheFile;
+		private string m_strPrefixPath = null;
 		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
 		private string m_strReadmePath = null;
@@ -524,8 +525,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 			m_strPrefixPath = strPrefixPath;
 		}
-		private string m_strPrefixPath = null;
-
+		
 		/// <summary>
 		/// Handles the <see cref="Archive.FilesChanged"/> event of the FOMod's archive.
 		/// </summary>
