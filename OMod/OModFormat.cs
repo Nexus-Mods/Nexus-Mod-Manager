@@ -116,7 +116,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 						arcMod.ContainsFile("script")))
 					return FormatConfidence.Match;
 				//OMod-ready archive
-				if (arcMod.ContainsFile("omod conversion data/config"))
+				string[] strFiles= arcMod.GetFiles(null, "omod conversion data/config", true);
+				if (strFiles.Length > 0)
 					return FormatConfidence.Match;
 			}
 			return FormatConfidence.Incompatible;

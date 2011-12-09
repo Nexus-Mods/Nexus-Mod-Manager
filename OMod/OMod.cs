@@ -34,6 +34,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private string m_strFilePath = null;
 		private Archive m_arcFile = null;
 		private Archive m_arcCacheFile;
+		private string m_strPrefixPath = null;
 		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private string m_strReadOnlyTempDirectory = null;
 
@@ -341,12 +342,13 @@ namespace Nexus.Client.Mods.Formats.OMod
 			PluginList = new List<FileInfo>();
 			DataFileList = new List<FileInfo>();
 
-			IsPacked = !m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "config"));
-
+			FindPathPrefix();
+			IsPacked = !m_arcFile.ContainsFile(GetRealPath(Path.Combine(CONVERSION_FOLDER, "config")));
 			if (!IsPacked)
 				InitializeUnpackedOmod(p_booUseCache, p_mcmModCacheManager, p_stgScriptTypeRegistry);
 			else
 				InitializePackedOmod(p_stgScriptTypeRegistry);
+			m_arcFile.FilesChanged += new EventHandler(Archive_FilesChanged);
 		}
 
 		#endregion
@@ -365,7 +367,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(this);
 				//check to make sure the cache isn't bad
-				if ((m_arcCacheFile != null) && (!m_arcCacheFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "config")) || !ValidateConfig(GetSpecialFile("config"))))
+				if ((m_arcCacheFile != null) && (!m_arcCacheFile.ContainsFile(GetRealPath(Path.Combine(CONVERSION_FOLDER, "config"))) || !ValidateConfig(GetSpecialFile("config"))))
 				{
 					//bad cache - clear it
 					m_arcCacheFile.Dispose();
@@ -379,7 +381,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				foreach (string strScriptName in stpScript.FileNames)
 				{
-					if (m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, strScriptName)))
+					if (ContainsFile(Path.Combine(CONVERSION_FOLDER, strScriptName)))
 					{
 						m_booHasInstallScript = true;
 						m_stpInstallScriptType = stpScript;
@@ -391,10 +393,10 @@ namespace Nexus.Client.Mods.Formats.OMod
 			}
 
 			//check for readme
-			m_booHasReadme = m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "readme"));
+			m_booHasReadme = ContainsFile(Path.Combine(CONVERSION_FOLDER, "readme"));
 
 			//check for screenshot
-			m_booHasScreenshot = m_arcFile.ContainsFile(Path.Combine(CONVERSION_FOLDER, "screenshot"));
+			m_booHasScreenshot = ContainsFile(Path.Combine(CONVERSION_FOLDER, "screenshot"));
 
 			if (p_booUseCache && (m_arcCacheFile == null) && (m_arcFile.IsSolid || m_arcFile.ReadOnly))
 			{
@@ -733,6 +735,58 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// </remarks>
 		protected void FindPathPrefix()
 		{
+			string strPrefixPath = null;
+			Stack<string> stkPaths = new Stack<string>();
+			stkPaths.Push("/");
+			while (stkPaths.Count > 0)
+			{
+				string strSourcePath = stkPaths.Pop();
+				string[] directories = m_arcFile.GetDirectories(strSourcePath);
+				bool booFoundPrefix = false;
+				foreach (string strDirectory in directories)
+				{
+					stkPaths.Push(strDirectory);
+					if (CONVERSION_FOLDER.Equals(Path.GetFileName(strDirectory), StringComparison.OrdinalIgnoreCase))
+					{
+						booFoundPrefix = true;
+						break;
+					}
+				}
+				if (booFoundPrefix)
+				{
+					strPrefixPath = strSourcePath;
+					break;
+				}
+			}
+			strPrefixPath = (strPrefixPath == null) ? "" : strPrefixPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			if (!String.IsNullOrEmpty(strPrefixPath))
+			{
+				strPrefixPath = strPrefixPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				strPrefixPath = strPrefixPath.Trim(Path.DirectorySeparatorChar);
+				strPrefixPath += Path.DirectorySeparatorChar;
+				m_dicMovedArchiveFiles.Clear();
+				string[] strFiles = m_arcFile.GetFiles("/", true);
+				Int32 intTrimLength = strPrefixPath.Length;
+				for (Int32 i = strFiles.Length - 1; i >= 0; i--)
+				{
+					strFiles[i] = strFiles[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+					string strFile = strFiles[i];
+					string strNewFileName = null;
+					if (!strFile.StartsWith(strPrefixPath, StringComparison.OrdinalIgnoreCase))
+					{
+						strNewFileName = strFile;
+						string strDirectory = Path.GetDirectoryName(strNewFileName);
+						string strFileName = Path.GetFileNameWithoutExtension(strFile);
+						string strExtension = Path.GetExtension(strFile);
+						for (Int32 j = 1; m_dicMovedArchiveFiles.ContainsKey(strNewFileName); j++)
+							strNewFileName = Path.Combine(strDirectory, strFileName + " " + j + strExtension);
+					}
+					else
+						strNewFileName = strFile.Remove(0, intTrimLength);
+					m_dicMovedArchiveFiles[strNewFileName] = strFile;
+				}
+			}
+			m_strPrefixPath = strPrefixPath;
 		}
 
 		/// <summary>
@@ -759,9 +813,14 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// </remarks>
 		/// <param name="p_strPath">The path to adjust.</param>
 		/// <returns>The adjusted path.</returns>
-		private string GetRealPath(string p_strPath)
+		protected string GetRealPath(string p_strPath)
 		{
-			return p_strPath;
+			string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			strPath = strPath.Trim(Path.DirectorySeparatorChar);
+			string strAdjustedPath = null;
+			if (m_dicMovedArchiveFiles.TryGetValue(strPath, out strAdjustedPath))
+				return strAdjustedPath;
+			return Path.Combine(m_strPrefixPath, p_strPath);
 		}
 
 		/// <summary>
