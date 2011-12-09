@@ -201,6 +201,9 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_objArgs">Arguments to pass to the task execution method.</param>
 		/// <see cref="DoWork(object[])"/>
+#if DEBUG
+		[DebuggerStepThrough]
+#endif
 		private object RunThreadedWork(object p_objArgs)
 		{
 			object objReturnValue = null;
