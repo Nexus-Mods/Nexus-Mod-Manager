@@ -4,6 +4,7 @@ using Nexus.Client.Games;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
+using System.Diagnostics;
 
 namespace Nexus.Client
 {
@@ -158,6 +159,8 @@ namespace Nexus.Client
 			}
 			catch (RepositoryUnavailableException e)
 			{
+				Trace.TraceInformation("Cannot login to {0} repository", ModRepository.Name);
+				TraceUtil.TraceException(e);
 				ErrorMessage = String.Format("Cannot connect to the {0} server: {1}", ModRepository.Name, e.InnerException.Message);
 				return false;
 			}
