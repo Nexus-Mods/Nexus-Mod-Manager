@@ -82,7 +82,7 @@ switch_cmd_var	: SELECTVAR^ arg;
 switch_cmd_str	: SELECTSTRING^ arg;
 switch_expr		: switch_cmd_s | switch_cmd_sm | switch_cmd_smp | switch_cmd_smd | switch_cmd_smdp
 					| switch_cmd_sp | switch_cmd_sd | switch_cmd_sdp | switch_cmd_var | switch_cmd_str;
-switch_case		: NEWLINE! (CASE^ arg+ | DEFAULT^) NEWLINE! block;
+switch_case		: NEWLINE! (CASE^ arg+ | DEFAULT^) (NEWLINE! block)?;
 switch_stmt		: switch_expr^ NEWLINE!* switch_case+ NEWLINE! ENDSELECT!;
 
 /****
