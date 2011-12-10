@@ -104,7 +104,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 					}
 					//as the transacted order list has been kept in sync with the master list
 					// the transacted list is canonical (it contains all of the plugins,
-					// and no plugins that hsouldn't be present), so
+					// and no plugins that shouldn't be present), so
 					// if a plugin is not in the transacted list it means the plugin was removed,
 					// and should be removed form the master list
 					for (Int32 i = oclUnorderedList.Count - 1; i >= lstOrderedList.Count; i--)
