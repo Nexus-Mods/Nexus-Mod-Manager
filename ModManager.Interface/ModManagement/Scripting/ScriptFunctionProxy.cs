@@ -154,10 +154,10 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
 		public bool InstallFolderFromMod(string p_strFrom, string p_strTo, bool p_booRecurse)
 		{
-			string strFrom = p_strFrom.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToLowerInvariant();
+			string strFrom = p_strFrom.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToLowerInvariant();
 			if (!strFrom.EndsWith(Path.DirectorySeparatorChar.ToString()))
 				strFrom += Path.DirectorySeparatorChar;
-			string strTo = p_strTo.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string strTo = p_strTo.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			if ((strTo.Length > 0) && (!strTo.EndsWith(Path.DirectorySeparatorChar.ToString())))
 				strTo += Path.DirectorySeparatorChar;
 			foreach (string strMODFile in GetModFileList(strFrom, p_booRecurse))
