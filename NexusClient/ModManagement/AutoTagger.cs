@@ -87,14 +87,25 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mid info representing the information from both given info objects.</returns>
 		public static IModInfo CombineInfo(IModInfo p_mifInfo, IModFileInfo p_mfiFileInfo)
 		{
-			ModInfo mifUpdatedInfo = new ModInfo(p_mifInfo);
-			if (!String.IsNullOrEmpty(p_mfiFileInfo.HumanReadableVersion))
+			ModInfo mifUpdatedInfo = null;
+			if (p_mifInfo == null)
 			{
-				mifUpdatedInfo.HumanReadableVersion = p_mfiFileInfo.HumanReadableVersion;
-				mifUpdatedInfo.MachineVersion = null;
+				if (p_mfiFileInfo == null)
+					return null;
+				mifUpdatedInfo = new ModInfo();
 			}
-			if (!String.IsNullOrEmpty(p_mfiFileInfo.Name))
-				mifUpdatedInfo.ModName = String.Format("{0} - {1}", p_mifInfo.ModName, p_mfiFileInfo.Name);
+			else
+				mifUpdatedInfo = new ModInfo(p_mifInfo);
+			if (p_mfiFileInfo != null)
+			{
+				if (!String.IsNullOrEmpty(p_mfiFileInfo.HumanReadableVersion))
+				{
+					mifUpdatedInfo.HumanReadableVersion = p_mfiFileInfo.HumanReadableVersion;
+					mifUpdatedInfo.MachineVersion = null;
+				}
+				if (!String.IsNullOrEmpty(p_mfiFileInfo.Name))
+					mifUpdatedInfo.ModName = String.Format("{0} - {1}", p_mifInfo.ModName, p_mfiFileInfo.Name);
+			}
 			return mifUpdatedInfo;
 		}
 
