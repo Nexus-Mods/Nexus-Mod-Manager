@@ -117,6 +117,8 @@ namespace Nexus.Client
 					frmAppInitilizer.ShowDialog();
 					if (ainInitializer.Status != TaskStatus.Complete)
 					{
+						if (ainInitializer.Status == TaskStatus.Error)
+							return false;
 						booChangeGameMode = true;
 						DisposeServices(ainInitializer.Services);
 						continue;
