@@ -34,15 +34,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// Gets the collection of registered mods.
 			/// </summary>
 			/// <value>The collection of registered mods.</value>
-			public ReadOnlyObservableList<IMod> RegisteredMods // { get; private set; }
-			{
-				get
-				{
-					return tt;
-				}
-			}
-			ReadOnlyObservableList<IMod> tt;
-
+			public ReadOnlyObservableList<IMod> RegisteredMods { get; private set; }
 			#endregion
 
 			#region Constructors
@@ -52,7 +44,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// </summary>
 			public ActiveModRegistry()
 			{
-				tt = new ReadOnlyObservableList<IMod>(m_oclRegisteredMods);
+				RegisteredMods = new ReadOnlyObservableList<IMod>(m_oclRegisteredMods);
 			}
 
 			#endregion
