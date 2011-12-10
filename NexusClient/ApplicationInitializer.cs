@@ -210,7 +210,7 @@ namespace Nexus.Client
 			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
 			ViewMessage vwmErrorMessage = null;
 			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage))
-				Status = TaskStatus.Error;
+				Status = TaskStatus.Incomplete;
 			return vwmErrorMessage;
 		}
 
