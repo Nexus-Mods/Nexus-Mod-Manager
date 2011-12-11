@@ -71,7 +71,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			ErrorTracker ertErrors = new ErrorTracker();
 			//strip comments
-			Regex rgxComments = new Regex("^\\s*;.*$", RegexOptions.Multiline);
+			Regex rgxComments = new Regex(";.*$", RegexOptions.Multiline);
 			string strCode = rgxComments.Replace(p_strModScriptCode, "");
 			AntlrParserBase cpbParser = CreateParser(strCode, ertErrors);
 			ITree astModSCript = cpbParser.Parse();
