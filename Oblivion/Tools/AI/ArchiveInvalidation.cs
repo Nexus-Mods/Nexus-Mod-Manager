@@ -74,6 +74,12 @@ namespace Nexus.Client.Games.Oblivion.Tools.AI
 		protected override void ApplyAI()
 		{
 			string strPluginsPath = GameMode.PluginDirectory;
+			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Oblivion - *.bsa"))
+				fi.LastWriteTime = new DateTime(2005, 10, 1);
+			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLC*.bsa"))
+				fi.LastWriteTime = new DateTime(2005, 10, 1);
+			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Knights.bsa"))
+				fi.LastWriteTime = new DateTime(2005, 10, 1);
 
 			string strIniPath = GameMode.SettingsFiles.IniPath;
 			IniMethods.WritePrivateProfileString("Archive", "SInvalidationFile", "", strIniPath);
