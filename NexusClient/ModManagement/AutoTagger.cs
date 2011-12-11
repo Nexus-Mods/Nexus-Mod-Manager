@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
+using System.Diagnostics;
 
 namespace Nexus.Client.ModManagement
 {
@@ -87,24 +88,52 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mid info representing the information from both given info objects.</returns>
 		public static IModInfo CombineInfo(IModInfo p_mifInfo, IModFileInfo p_mfiFileInfo)
 		{
+			Int32 intLineTracker = 0;
 			ModInfo mifUpdatedInfo = null;
-			if (p_mifInfo == null)
+			try
 			{
-				if (p_mfiFileInfo == null)
-					return null;
-				mifUpdatedInfo = new ModInfo();
-			}
-			else
-				mifUpdatedInfo = new ModInfo(p_mifInfo);
-			if (p_mfiFileInfo != null)
-			{
-				if (!String.IsNullOrEmpty(p_mfiFileInfo.HumanReadableVersion))
+				if (p_mifInfo == null)
 				{
-					mifUpdatedInfo.HumanReadableVersion = p_mfiFileInfo.HumanReadableVersion;
-					mifUpdatedInfo.MachineVersion = null;
+					intLineTracker = 1;
+					if (p_mfiFileInfo == null)
+						return null;
+					intLineTracker = 2;
+					mifUpdatedInfo = new ModInfo();
+					intLineTracker = 3;
 				}
-				if (!String.IsNullOrEmpty(p_mfiFileInfo.Name))
-					mifUpdatedInfo.ModName = String.Format("{0} - {1}", p_mifInfo.ModName, p_mfiFileInfo.Name);
+				else
+				{
+					intLineTracker = 4;
+					mifUpdatedInfo = new ModInfo(p_mifInfo);
+					intLineTracker = 5;
+				}
+				intLineTracker = 6;
+				if (p_mfiFileInfo != null)
+				{
+					intLineTracker = 7;
+					if (!String.IsNullOrEmpty(p_mfiFileInfo.HumanReadableVersion))
+					{
+						intLineTracker = 8;
+						mifUpdatedInfo.HumanReadableVersion = p_mfiFileInfo.HumanReadableVersion;
+						intLineTracker = 9;
+						mifUpdatedInfo.MachineVersion = null;
+						intLineTracker = 10;
+					}
+					intLineTracker = 11;
+					if (!String.IsNullOrEmpty(p_mfiFileInfo.Name))
+					{
+						intLineTracker = 12;
+						mifUpdatedInfo.ModName = String.Format("{0} - {1}", p_mifInfo.ModName, p_mfiFileInfo.Name);
+						intLineTracker = 13;
+					}
+					intLineTracker = 14;
+				}
+				intLineTracker = 15;
+			}
+			catch (NullReferenceException)
+			{
+				Trace.TraceError("NullReferenceException in CombineInfo: LineTracker: {0}", intLineTracker);
+				throw;
 			}
 			return mifUpdatedInfo;
 		}
