@@ -1070,8 +1070,13 @@ namespace Nexus.Client.Mods.Formats.OMod
 					if (!m_dicMovedArchiveFiles.ContainsValue(strFile))
 						if (!strFile.StartsWith(CONVERSION_FOLDER, StringComparison.OrdinalIgnoreCase))
 							lstFiles.Add(strFile);
+				string strPathPrefix = p_strFolderPath ?? "";
+				strPathPrefix = strPathPrefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				strPathPrefix = strPathPrefix.Trim(Path.DirectorySeparatorChar);
+				if (strPathPrefix.Length > 0)
+					strPathPrefix += Path.DirectorySeparatorChar;
 				foreach (string strFile in m_dicMovedArchiveFiles.Keys)
-					if (!strFile.StartsWith(CONVERSION_FOLDER, StringComparison.OrdinalIgnoreCase))
+					if (strFile.StartsWith(strPathPrefix, StringComparison.OrdinalIgnoreCase))
 						lstFiles.Add(strFile);
 				return lstFiles;
 			}
