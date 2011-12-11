@@ -256,12 +256,20 @@ namespace Nexus.Client.Util
 			if (String.IsNullOrEmpty(p_strPath))
 				return false;
 			Set<string> setChars = new Set<string>();
+
+			string strPath = Path.GetDirectoryName(p_strPath);
 			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
 				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
+			Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+			if (rgxInvalidPath.IsMatch(strPath))
+				return true;
+
+			string strFile = Path.GetFileName(p_strPath);
+			setChars.Clear();
 			foreach (char chrInvalidChar in Path.GetInvalidFileNameChars())
 				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
-			Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
-			return rgxInvalidPath.IsMatch(p_strPath);
+			rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+			return rgxInvalidPath.IsMatch(strFile);
 		}
 
 		/// <summary>
@@ -274,12 +282,21 @@ namespace Nexus.Client.Util
 			if (String.IsNullOrEmpty(p_strPath))
 				return p_strPath;
 			Set<string> setChars = new Set<string>();
+
+			string strPath = Path.GetDirectoryName(p_strPath);
 			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
 				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
+			Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+			strPath = rgxInvalidPath.Replace(strPath, "");
+
+			string strFile = Path.GetFileName(p_strPath);
+			setChars.Clear();
 			foreach (char chrInvalidChar in Path.GetInvalidFileNameChars())
 				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
-			Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
-			return rgxInvalidPath.Replace(p_strPath, "");
+			rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+			strFile = rgxInvalidPath.Replace(strFile, "");
+
+			return Path.Combine(strPath, strFile);
 		}
 	}
 }
