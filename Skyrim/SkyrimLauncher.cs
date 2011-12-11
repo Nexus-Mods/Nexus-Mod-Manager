@@ -110,21 +110,21 @@ namespace Nexus.Client.Games.Skyrim
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Icon icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
-			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Skyrim", "Launches plain Skyrim.", icnIcon.ToBitmap(), LaunchSkyrimPlain, true));
+			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Skyrim", "Launches plain Skyrim.", imgIcon, LaunchSkyrimPlain, true));
 		
 			strCommand = GetSkseLaunchCommand();
 			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				icnIcon = Icon.ExtractAssociatedIcon(strCommand);
-				m_lstLaunchCommands.Add(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim with SKSE.", icnIcon.ToBitmap(), LaunchSkyrimSKSE, true));
+				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				m_lstLaunchCommands.Add(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim with SKSE.", imgIcon, LaunchSkyrimSKSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
-			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Skyrim", "Launches Skyrim with custom command.", (icnIcon == null) ? null : icnIcon.ToBitmap(), LaunchSkyrimCustom, true));
+			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Skyrim", "Launches Skyrim with custom command.", imgIcon, LaunchSkyrimCustom, true));
 
 			m_cmdDefault = new Command("Launch Skyrim", "Launches Skyrim.", LaunchGame);
 

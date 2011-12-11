@@ -110,21 +110,21 @@ namespace Nexus.Client.Games.Oblivion
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Icon icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
-			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Oblivion", "Launches plain Oblivion.", icnIcon.ToBitmap(), LaunchOblivionPlain, true));
+			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Oblivion", "Launches plain Oblivion.", imgIcon, LaunchOblivionPlain, true));
 
 			strCommand = GetObseLaunchCommand();
 			Trace.TraceInformation("OBSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				icnIcon = Icon.ExtractAssociatedIcon(strCommand);
-				m_lstLaunchCommands.Add(new Command("ObseLaunch", "Launch OBSE", "Launches Oblivion with OBSE.", icnIcon.ToBitmap(), LaunchOblivionOBSE, true));
+				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				m_lstLaunchCommands.Add(new Command("ObseLaunch", "Launch OBSE", "Launches Oblivion with OBSE.", imgIcon, LaunchOblivionOBSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
-			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Oblivion", "Launches Oblivion with custom command.", (icnIcon == null) ? null : icnIcon.ToBitmap(), LaunchOblivionCustom, true));
+			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Oblivion", "Launches Oblivion with custom command.", imgIcon, LaunchOblivionCustom, true));
 
 			m_cmdDefault = new Command("Launch Oblivion", "Launches Oblivion.", LaunchGame);
 

@@ -110,21 +110,21 @@ namespace Nexus.Client.Games.FalloutNV
 			
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Icon icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
-			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Fallout: New Vegas", "Launches plain Fallout: New Vegas.", icnIcon.ToBitmap(), LaunchFalloutNVPlain, true));
+			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			m_lstLaunchCommands.Add(new Command("PlainLaunch", "Launch Fallout: New Vegas", "Launches plain Fallout: New Vegas.", imgIcon, LaunchFalloutNVPlain, true));
 
 			strCommand = GetNvseLaunchCommand();
 			Trace.TraceInformation("NVSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				icnIcon = Icon.ExtractAssociatedIcon(strCommand);
-				m_lstLaunchCommands.Add(new Command("NvseLaunch", "Launch NVSE", "Launches Fallout: New Vegas with NVSE.", icnIcon.ToBitmap(), LaunchFalloutNVNVSE, true));
+				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				m_lstLaunchCommands.Add(new Command("NvseLaunch", "Launch NVSE", "Launches Fallout: New Vegas with NVSE.", imgIcon, LaunchFalloutNVNVSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			icnIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand) : null;
-			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Fallout: New Vegas", "Launches Fallout: New Vegas with custom command.", (icnIcon == null) ? null : icnIcon.ToBitmap(), LaunchFalloutNVCustom, true));
+			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			m_lstLaunchCommands.Add(new Command("CustomLaunch", "Launch Custom Fallout: New Vegas", "Launches Fallout: New Vegas with custom command.", imgIcon, LaunchFalloutNVCustom, true));
 
 			m_cmdDefault = new Command("Launch Fallout: New Vegas", "Launches Fallout: New Vegas.", LaunchGame);
 
