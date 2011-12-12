@@ -209,7 +209,7 @@ namespace Nexus.Client
 			IGameModeFactory gmfGameModeFactory = (IGameModeFactory)p_objArgs[0];
 			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
 			ViewMessage vwmErrorMessage = null;
-			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage))
+			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage) && (Status != TaskStatus.Error))
 				Status = TaskStatus.Incomplete;
 			return vwmErrorMessage;
 		}
@@ -304,6 +304,7 @@ namespace Nexus.Client
 			if (!Login(gmdGameMode, mrpModRepository))
 			{
 				p_vwmErrorMessage = null;
+				Status = TaskStatus.Error;
 				return false;
 			}
 
