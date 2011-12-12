@@ -136,6 +136,9 @@ namespace Nexus.Client.Util.Downloader
 		/// </remarks>
 		protected void WaitForData()
 		{
+			string strFolder = Path.GetDirectoryName(m_strFilePath);
+			if (!Directory.Exists(strFolder))
+				Directory.CreateDirectory(strFolder);
 			using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
 			{
 				while (true)
