@@ -70,9 +70,37 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		private ITree GenerateAst(string p_strModScriptCode)
 		{
 			ErrorTracker ertErrors = new ErrorTracker();
+			string strCode = p_strModScriptCode;
+
+			//unescape characters
+			Regex rgxStrings = new Regex("[^\\\\]\".*?[^\\\\]\"", RegexOptions.Multiline);
+			MatchCollection colStrings = rgxStrings.Matches(strCode);
+			Dictionary<string, string> dicProtectedStrings = new Dictionary<string, string>();
+			for (Int32 i = colStrings.Count - 1; i >= 0; i--)
+			{
+				string strShieldText = "<SHIELD" + i + ">";
+				strCode = strCode.Replace(colStrings[i].Value, strShieldText);
+				dicProtectedStrings[strShieldText] = colStrings[i].Value;
+			}
+			strCode = strCode.Replace(@"\""", @"""").Replace(@"\\", @"\");
+			foreach (string strKey in dicProtectedStrings.Keys)
+				strCode = strCode.Replace(strKey, dicProtectedStrings[strKey]);
+
+			//clean code
+			colStrings = rgxStrings.Matches(strCode);
+			dicProtectedStrings.Clear();
+			for (Int32 i = colStrings.Count - 1; i >= 0; i--)
+			{
+				string strShieldText = "<SHIELD" + i + ">";
+				strCode = strCode.Replace(colStrings[i].Value, strShieldText);
+				dicProtectedStrings[strShieldText] = colStrings[i].Value;
+			}
 			//strip comments
 			Regex rgxComments = new Regex(";.*$", RegexOptions.Multiline);
-			string strCode = rgxComments.Replace(p_strModScriptCode, "");
+			strCode = rgxComments.Replace(strCode, "");
+			foreach (string strKey in dicProtectedStrings.Keys)
+				strCode = strCode.Replace(strKey, dicProtectedStrings[strKey]);
+			
 			AntlrParserBase cpbParser = CreateParser(strCode, ertErrors);
 			ITree astModSCript = cpbParser.Parse();
 			if (ertErrors.HasErrors)
