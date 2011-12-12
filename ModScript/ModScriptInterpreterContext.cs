@@ -57,6 +57,8 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		{
 			Variables = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 			FunctionProxy = p_msfFunctions;
+			Variables.Add("NewLine", Environment.NewLine);
+			Variables.Add("Tab", "\t");
 		}
 
 		#endregion
