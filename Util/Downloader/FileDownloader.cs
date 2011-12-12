@@ -227,7 +227,7 @@ namespace Nexus.Client.Util.Downloader
 				string[] strRanges = File.ReadAllLines(m_strFileMetadataPath);
 				foreach (string strRange in strRanges)
 				{
-					string strCleanRange = strRange.Trim();
+					string strCleanRange = strRange.Trim().Trim('\0');
 					if (String.IsNullOrEmpty(strCleanRange))
 						continue;
 					rgsRanges.AddRange(Range.Parse(strCleanRange));
