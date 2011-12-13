@@ -289,7 +289,12 @@ namespace Nexus.Client.Util.Downloader
 			{
 				string[] strRanges = File.ReadAllLines(m_strFileMetadataPath);
 				foreach (string strRange in strRanges)
-					rgsMissingRanges.RemoveRange(Range.Parse(strRange));
+				{
+					string strCleanRange = strRange.Trim().Trim('\0');
+					if (String.IsNullOrEmpty(strCleanRange))
+						continue;
+					rgsMissingRanges.RemoveRange(Range.Parse(strCleanRange));
+				}
 			}
 			else if (File.Exists(m_strSavePath))
 				File.Delete(m_strSavePath);
