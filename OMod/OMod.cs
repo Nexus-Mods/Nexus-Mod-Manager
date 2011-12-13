@@ -1076,7 +1076,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				if (strPathPrefix.Length > 0)
 					strPathPrefix += Path.DirectorySeparatorChar;
 				foreach (string strFile in m_dicMovedArchiveFiles.Keys)
-					if (strFile.StartsWith(strPathPrefix, StringComparison.OrdinalIgnoreCase))
+					if (strFile.StartsWith(strPathPrefix, StringComparison.OrdinalIgnoreCase) && !strFile.StartsWith(CONVERSION_FOLDER, StringComparison.OrdinalIgnoreCase))
 						lstFiles.Add(strFile);
 				return lstFiles;
 			}
