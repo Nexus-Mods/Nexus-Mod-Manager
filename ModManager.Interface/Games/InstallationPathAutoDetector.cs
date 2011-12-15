@@ -72,7 +72,7 @@ namespace Nexus.Client.Games
 					if (Status == TaskStatus.Cancelling)
 						return null;
 					OverallMessage = String.Format("Searching {0} ({1})...", difDrive.Name, (i == 0) ? "Quick Scan" : "Deep Search");
-					if (difDrive.DriveType != DriveType.CDRom)
+					if ((difDrive.DriveType != DriveType.CDRom) && difDrive.IsReady)
 						strFound = SearchToDepth(difDrive.Name, strSearchFiles, (i == 0) ? 3 : -1, 0);
 					StepOverallProgress();
 					if (!String.IsNullOrEmpty(strFound))
