@@ -44,10 +44,7 @@ namespace Nexus.Client
 
 			strUri += "/" + strEndpoint;
 			string strTraceInfo = String.Format("Setting up listener on {0} at {1}", strUri, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-			Trace.TraceInformation(strTraceInfo);			
-			string strMessageDebugPath = "MessagerSetup" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt";
-			strMessageDebugPath = Path.Combine(p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath, strMessageDebugPath);
-			File.WriteAllText(strMessageDebugPath, strTraceInfo);
+			Trace.TraceInformation(strTraceInfo);
 			
 			return msgMessager;
 		}
