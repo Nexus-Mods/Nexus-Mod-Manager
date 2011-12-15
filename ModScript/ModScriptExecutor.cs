@@ -134,7 +134,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			Evidence eviSecurityInfo = null;
 			AppDomainSetup adsInfo = new AppDomainSetup();
 			//should this be different from the current ApplicationBase?
-			adsInfo.ApplicationBase = ".";
+			adsInfo.ApplicationBase = Path.GetDirectoryName(Application.ExecutablePath);
 			Set<string> setPaths = new Set<string>(StringComparer.OrdinalIgnoreCase);
 			Type tpeScript = p_scpScript.Type.GetType();
 			while ((tpeScript != null) && (tpeScript != typeof(object)))
