@@ -208,6 +208,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			hwrLogin.CookieContainer = ckcCookies;
 			hwrLogin.Method = WebRequestMethods.Http.Post;
 			hwrLogin.ContentType = "application/x-www-form-urlencoded";
+			hwrLogin.UserAgent = UserAgent;
 
 			string strFields = String.Format("user={0}&pass={1}", p_strUsername, p_strPassword);
 			byte[] bteFields = System.Text.Encoding.UTF8.GetBytes(strFields);
