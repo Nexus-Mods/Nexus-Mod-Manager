@@ -11,6 +11,8 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 
 namespace Nexus.Client
 {
@@ -25,7 +27,10 @@ namespace Nexus.Client
 	{
 		private ApplicationInitializer m_vmlViewModel = null;
 		private DialogResult m_drtLastDialogResult = DialogResult.None;
-
+		private System.Windows.Forms.Timer m_tmrGlow = new System.Windows.Forms.Timer();
+		Int32 m_intGlowPosition = 0;
+		Int32 m_intProgressWidth = 0;
+		
 		#region Properties
 
 		/// <summary>
@@ -48,14 +53,33 @@ namespace Nexus.Client
 				m_vmlViewModel.ShowView = ShowView;
 				m_vmlViewModel.ShowMessage = ShowMessage;
 				m_vmlViewModel.ConfirmItemOverwrite = ConfirmItemOverwrite;
+				ColourImage = pbxLogo.Image;
+				GreyscaleImage = GenerateGreyscale(ColourImage);
+				pbxLogo.Image = new Bitmap(GreyscaleImage);
 
+				m_tmrGlow.Interval = 2;
+				m_tmrGlow.Tick += new EventHandler(m_tmrGlow_Tick);
+				m_tmrGlow.Start();
 				m_vmlViewModel.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_TaskStarted);
-				m_vmlViewModel.TaskEnded += new EventHandler<TaskEndedEventArgs>(ApplicationInitializer_TaskEnded);
+				m_vmlViewModel.TaskEnded += new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
+				m_vmlViewModel.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
 
 				lblVersion.Text = m_vmlViewModel.EnvironmentInfo.ApplicationVersion.ToString();
 				Text = m_vmlViewModel.EnvironmentInfo.Settings.ModManagerName;
 			}
 		}
+
+		/// <summary>
+		/// Gets the splash image used to display progress.
+		/// </summary>
+		/// <value>The splash image used to display progress.</value>
+		protected Image GreyscaleImage { get; private set; }
+
+		/// <summary>
+		/// Gets the colour image that is incrementally displayed to show progress.
+		/// </summary>
+		/// <value>The colour image that is incrementally displayed to show progress.</value>
+		protected Image ColourImage { get; private set; }
 
 		#endregion
 
@@ -68,7 +92,7 @@ namespace Nexus.Client
 		public ApplicationInitializationForm(ApplicationInitializer p_iniApplicationInitializer)
 		{
 			InitializeComponent();
-			ViewModel = p_iniApplicationInitializer;			
+			ViewModel = p_iniApplicationInitializer;
 		}
 
 		#endregion
@@ -106,15 +130,188 @@ namespace Nexus.Client
 			e.Cancel = ViewModel.IsActive;
 			if (!e.Cancel)
 			{
-				ViewModel.TaskEnded -= ApplicationInitializer_TaskEnded;
+				ViewModel.TaskEnded -= Task_TaskEnded;
 			}
 			base.OnClosing(e);
 		}
 
 		#endregion
 
-		void ApplicationInitializer_TaskEnded(object sender, TaskEndedEventArgs e)
+		#region Progress
+
+		/// <summary>
+		/// Generates a greyscale image from the given image.
+		/// </summary>
+		/// <param name="p_imgImage">The image for which to create a greyscale version.</param>
+		/// <returns>A greyscale image based on the given image.</returns>
+		private Image GenerateGreyscale(Image p_imgImage)
 		{
+			Bitmap imgGrey = new Bitmap(p_imgImage);
+			Color clrOld = Color.Fuchsia;
+			for (Int32 y = 0; y < imgGrey.Height; y++)
+			{
+				for (Int32 x = 0; x < imgGrey.Width; x++)
+				{
+					clrOld = imgGrey.GetPixel(x, y);
+
+					byte r = clrOld.R;
+					byte g = clrOld.G;
+					byte b = clrOld.B;
+
+					//r = g = b = (byte)(0.21 * r + 0.72 * g + 0.07 * b);
+					r = g = b = (byte)(0.299 * r + 0.587 * g + 0.114 * b);
+
+					imgGrey.SetPixel(x, y, Color.FromArgb(clrOld.A, (Int32)r, (Int32)g, (Int32)b));
+				}
+			}
+			return imgGrey;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="System.Windows.Forms.Timer.Tick"/> event of the glow effect timer.
+		/// </summary>
+		/// <remarks>
+		/// This updates the progress image, and renders the moving glow effect.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void m_tmrGlow_Tick(object sender, EventArgs e)
+		{
+			Int32 intDrawPosition = m_intGlowPosition;
+			Int32 intStartDrawPosition = intDrawPosition + 900000;
+			m_intGlowPosition += 3;
+			if (m_intGlowPosition >= m_intProgressWidth)
+				m_intGlowPosition = 0;
+			using (Graphics grpGraphics = Graphics.FromImage(pbxLogo.Image))
+			{
+				Rectangle rctCopyArea = new Rectangle(0, 0, m_intProgressWidth, ColourImage.Height);
+				grpGraphics.CompositingMode = CompositingMode.SourceCopy;
+				grpGraphics.DrawImage(ColourImage, rctCopyArea, rctCopyArea, GraphicsUnit.Pixel);
+			}
+		
+			Int32 intHalfWidth = 20;
+			float fltLuminence = 80;
+			byte bteR = 0;
+			byte bteG = 0;
+			byte bteB = 0;
+			Bitmap bmpGlow = (Bitmap)pbxLogo.Image;
+			for (Int32 i = 1; i <= intHalfWidth; i++)
+			{
+				for (Int32 j = 0; j < bmpGlow.Height; j++)
+				{
+					Color clrPixel = bmpGlow.GetPixel(intDrawPosition, j);
+					bteR = (byte)Math.Min(255, clrPixel.R + (fltLuminence / intHalfWidth) * i);
+					bteG = (byte)Math.Min(255, clrPixel.G + (fltLuminence / intHalfWidth) * i);
+					bteB = (byte)Math.Min(255, clrPixel.B + (fltLuminence / intHalfWidth) * i);
+					bmpGlow.SetPixel(intDrawPosition, j, Color.FromArgb(clrPixel.A, bteR, bteG, bteB));
+				}
+				if (++intDrawPosition >= m_intProgressWidth)
+				{
+					intDrawPosition = 0;
+					intStartDrawPosition -= 900000;
+				}
+				if (intDrawPosition >= intStartDrawPosition)
+					return;
+			}
+			for (Int32 i = intHalfWidth; i >= 1; i--)
+			{
+				for (Int32 j = 0; j < bmpGlow.Height; j++)
+				{
+					Color clrPixel = bmpGlow.GetPixel(intDrawPosition, j);
+					bteR = (byte)Math.Min(255, clrPixel.R + (fltLuminence / intHalfWidth) * i);
+					bteG = (byte)Math.Min(255, clrPixel.G + (fltLuminence / intHalfWidth) * i);
+					bteB = (byte)Math.Min(255, clrPixel.B + (fltLuminence / intHalfWidth) * i);
+					bmpGlow.SetPixel(intDrawPosition, j, Color.FromArgb(clrPixel.A, bteR, bteG, bteB));
+				}
+				if (++intDrawPosition >= m_intProgressWidth)
+				{
+					intDrawPosition = 0;
+					intStartDrawPosition -= 900000;
+				}
+				if (intDrawPosition >= intStartDrawPosition)
+					return;
+			}
+			pbxLogo.Refresh();
+		}
+
+		#endregion
+
+		#region Task Event Handling
+
+		/// <summary>
+		/// Handles the <see cref="INotifyPropertyChanged.PropertyChanged"/> event of the task.
+		/// </summary>
+		/// <remarks>
+		/// This updates the progress bars and messages.
+		/// </remarks>
+		/// <param name="sender">The object that triggered the event.</param>
+		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> that describes the event arguments.</param>
+		private void Task_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		{
+			try
+			{
+				string strPropertyName = e.PropertyName;
+				//if the form hasn't been created, there is no point in updating
+				// the UI
+				//further, if the form handle hasn't been created, there is no way
+				// to safely update the form from another thread
+				if (IsHandleCreated)
+				{
+					if (InvokeRequired)
+					{
+						Invoke((Action<string>)HandleChangedProperty, e.PropertyName);
+						return;
+					}
+					else if ((Owner != null) && Owner.InvokeRequired)
+					{
+						Owner.Invoke((Action<string>)HandleChangedProperty, e.PropertyName);
+						return;
+					}
+					HandleChangedProperty(e.PropertyName);
+				}
+			}
+			catch (ObjectDisposedException)
+			{
+				throw;
+			}
+		}
+
+		/// <summary>
+		/// Updates the form to display the changed property.
+		/// </summary>
+		/// <param name="p_strPropertyName">The name of the propety that has changed.</param>
+		private void HandleChangedProperty(string p_strPropertyName)
+		{
+			try
+			{
+				Int32 intMax = ViewModel.OverallProgressMaximum;
+				Int32 intMin = ViewModel.OverallProgressMinimum;
+				Int32 intProgress = ViewModel.OverallProgress;
+				Int32 intDivisor = intMax - intMin;
+				float fltPercentage = (intDivisor > 0) ? ((float)intProgress) / intDivisor : 0;
+
+				if (fltPercentage <= 1.0)
+					m_intProgressWidth = (Int32)(fltPercentage * ColourImage.Width);
+			}
+			catch (NullReferenceException)
+			{
+				//this can happen if we try to update the form before its handle has been created
+				// we should never get here, but if we do, we don't need to care
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of the task.
+		/// </summary>
+		/// <remarks>
+		/// This sets the <see cref="Form.DialogResult"/>, dependant upon whether or not the
+		/// task was cancelled.
+		/// </remarks>
+		/// <param name="sender">The object that triggered the event.</param>
+		/// <param name="e">A <see cref="TaskEndedEventArgs"/> that describes the event arguments.</param>
+		private void Task_TaskEnded(object sender, TaskEndedEventArgs e)
+		{
+			m_tmrGlow.Stop();
 			if (Disposing || IsDisposed)
 				return;
 			try
@@ -128,12 +325,12 @@ namespace Nexus.Client
 
 					if (InvokeRequired)
 					{
-						Invoke((Action<object, TaskEndedEventArgs>)ApplicationInitializer_TaskEnded, sender, e);
+						Invoke((Action<object, TaskEndedEventArgs>)Task_TaskEnded, sender, e);
 						return;
 					}
 					else if ((Owner != null) && Owner.InvokeRequired)
 					{
-						Owner.Invoke((Action<object, TaskEndedEventArgs>)ApplicationInitializer_TaskEnded, sender, e);
+						Owner.Invoke((Action<object, TaskEndedEventArgs>)Task_TaskEnded, sender, e);
 						return;
 					}
 				}
@@ -151,8 +348,6 @@ namespace Nexus.Client
 			m_drtLastDialogResult = DialogResult;
 			if (!String.IsNullOrEmpty(e.Message))
 				MessageBox.Show(this, e.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
-			if (e.ReturnValue != null)
-				ShowMessage((ViewMessage)e.ReturnValue);
 			//only try to close the form if it has been created
 			// otherwise Close() can get called before the form is shown,
 			// and then once Show() or ShowDialog() is called an
@@ -175,6 +370,10 @@ namespace Nexus.Client
 				}
 			}
 		}
+
+		#endregion
+
+		#region UI Interaction
 
 		/// <summary>
 		/// Logins the user into the current mod repository.
@@ -216,7 +415,7 @@ namespace Nexus.Client
 			string strTitle = String.Format("{0} Location", p_gmdGameModeInfo.Name);
 
 			using (WorkingDirectorySelectionForm wdfForm = new WorkingDirectorySelectionForm(strTitle, p_gmdGameModeInfo.ModeTheme.Icon, stbMessage.ToString(), strLabel, p_gmdGameModeInfo.GameExecutables))
-			{	
+			{
 				wdfForm.WorkingDirectory = p_strDefaultPath;
 				if (wdfForm.ShowDialog(this) == DialogResult.Cancel)
 				{
@@ -320,6 +519,8 @@ namespace Nexus.Client
 			}
 			return ExtendedMessageBox.Show(this, p_vwmMessage.Message, p_vwmMessage.Title, p_vwmMessage.Details, p_vwmMessage.Options, p_vwmMessage.MessageType);
 		}
+
+		#endregion
 
 		/// <summary>
 		/// Handles the <see cref="ApplicationInitializer.TaskStarted"/> event of the view model.

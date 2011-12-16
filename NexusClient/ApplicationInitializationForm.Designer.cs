@@ -28,22 +28,22 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.pictureBox1 = new System.Windows.Forms.PictureBox();
+			this.pbxLogo = new System.Windows.Forms.PictureBox();
 			this.lblVersion = new System.Windows.Forms.Label();
 			this.label1 = new System.Windows.Forms.Label();
-			((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.pbxLogo)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// pictureBox1
 			// 
-			this.pictureBox1.Image = global::Nexus.Client.Properties.Resources.tes_logo_full;
-			this.pictureBox1.Location = new System.Drawing.Point(0, 0);
-			this.pictureBox1.Margin = new System.Windows.Forms.Padding(0);
-			this.pictureBox1.Name = "pictureBox1";
-			this.pictureBox1.Size = new System.Drawing.Size(520, 178);
-			this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
-			this.pictureBox1.TabIndex = 0;
-			this.pictureBox1.TabStop = false;
+			this.pbxLogo.Image = global::Nexus.Client.Properties.Resources.tes_logo_full;
+			this.pbxLogo.Location = new System.Drawing.Point(0, 0);
+			this.pbxLogo.Margin = new System.Windows.Forms.Padding(0);
+			this.pbxLogo.Name = "pictureBox1";
+			this.pbxLogo.Size = new System.Drawing.Size(520, 178);
+			this.pbxLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+			this.pbxLogo.TabIndex = 0;
+			this.pbxLogo.TabStop = false;
 			// 
 			// lblVersion
 			// 
@@ -78,7 +78,7 @@
 			this.ControlBox = false;
 			this.Controls.Add(this.label1);
 			this.Controls.Add(this.lblVersion);
-			this.Controls.Add(this.pictureBox1);
+			this.Controls.Add(this.pbxLogo);
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
@@ -88,7 +88,7 @@
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Nexus Mod Manager";
 			this.TransparencyKey = System.Drawing.SystemColors.Control;
-			((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.pbxLogo)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -96,7 +96,7 @@
 
 		#endregion
 
-		private System.Windows.Forms.PictureBox pictureBox1;
+		private System.Windows.Forms.PictureBox pbxLogo;
 		private System.Windows.Forms.Label lblVersion;
 		private System.Windows.Forms.Label label1;
 	}

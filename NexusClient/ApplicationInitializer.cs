@@ -209,8 +209,12 @@ namespace Nexus.Client
 			IGameModeFactory gmfGameModeFactory = (IGameModeFactory)p_objArgs[0];
 			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
 			ViewMessage vwmErrorMessage = null;
+			OverallProgress = 0;
+			OverallProgressMaximum = 12;
+			OverallProgressStepSize = 1;
 			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage) && (Status != TaskStatus.Error))
 				Status = TaskStatus.Incomplete;
+			StepOverallProgress();
 			return vwmErrorMessage;
 		}
 
@@ -232,6 +236,7 @@ namespace Nexus.Client
 				p_vwmErrorMessage = new ViewMessage(String.Format("Unable to locate {0}'s Installation Path.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
 				return false;
 			}
+			StepOverallProgress();
 
 			string strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
 			if (!UacCheck(strUacCheckPath))
@@ -248,6 +253,7 @@ namespace Nexus.Client
 				p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
 				return false;
 			}
+			StepOverallProgress();
 
 			if (!EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId])
 			{
@@ -259,12 +265,14 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = true;
 				EnvironmentInfo.Settings.Save();
 			}
+			StepOverallProgress();
 
 			if (!p_gmfGameModeFactory.PerformInitialization(ShowView, ShowMessage))
 			{
 				p_vwmErrorMessage = null;
 				return false;
 			}
+			StepOverallProgress();
 
 			ViewMessage vwmWarning = null;
 			IGameMode gmdGameMode = p_gmfGameModeFactory.BuildGameMode(out vwmWarning);
@@ -275,14 +283,19 @@ namespace Nexus.Client
 			}
 			if (vwmWarning != null)
 				ShowMessage(vwmWarning);
+			StepOverallProgress();
+
 			if (!UacCheckEnvironment(gmdGameMode, out p_vwmErrorMessage))
 			{
 				//TODO it would be really nice of us if we, instead of closing,
 				// force the game mode to reinitialize, and select new paths
 				return false;
 			}
+			StepOverallProgress();
+
 			if (!CreateEnvironmentPaths(gmdGameMode, out p_vwmErrorMessage))
 				return false;
+			StepOverallProgress();
 
 			Trace.TraceInformation(String.Format("Game Mode Built: {0} ({1})", gmdGameMode.Name, gmdGameMode.ModeId));
 			Trace.Indent();
@@ -295,11 +308,13 @@ namespace Nexus.Client
 			Trace.Unindent();
 
 			ScanForReadonlyFiles(gmdGameMode);
+			StepOverallProgress();
 
 			Trace.TraceInformation("Initializing Mod Repository...");
 			Trace.Indent();
 			IModRepository mrpModRepository = NexusModRepository.GetRepository(gmdGameMode);
 			Trace.Unindent();
+			StepOverallProgress();
 
 			if (!Login(gmdGameMode, mrpModRepository))
 			{
@@ -307,6 +322,7 @@ namespace Nexus.Client
 				Status = TaskStatus.Error;
 				return false;
 			}
+			StepOverallProgress();
 
 			ServiceManager svmServices = InitializeServices(gmdGameMode, mrpModRepository, p_scxUIContext, out p_vwmErrorMessage);
 			if (svmServices == null)
@@ -314,15 +330,20 @@ namespace Nexus.Client
 				p_vwmErrorMessage = p_vwmErrorMessage ?? new ViewMessage("Unable to initialize services.", null, "Error", MessageBoxIcon.Error);
 				return false;
 			}
+			StepOverallProgress();
 
 			UpgradeMismatchedVersionMods(svmServices.ModInstallLog, svmServices.ModManager);
+			StepOverallProgress();
+
 			if (!UninstallMissingMods(gmdGameMode, EnvironmentInfo, svmServices.ModManager))
 			{
 				p_vwmErrorMessage = null;
 				return false;
 			}
+			StepOverallProgress();
 
 			svmServices.ModManager.LoadQueuedMods();
+			StepOverallProgress();
 
 			GameMode = gmdGameMode;
 			Services = svmServices;
