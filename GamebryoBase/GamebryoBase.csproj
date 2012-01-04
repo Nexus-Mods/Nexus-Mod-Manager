@@ -129,6 +129,9 @@
     <EmbeddedResource Include="Tools\TESsnip\RecordStructure.xml" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Settings\UI\GeneralSettingsPage.resx">
+      <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Tools\TESsnip\ScriptCompiler\ScriptFunctions.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

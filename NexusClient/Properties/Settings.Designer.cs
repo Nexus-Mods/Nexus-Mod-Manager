@@ -180,6 +180,19 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n\t\t\t\t<PerGameModeSettingsOfKeyedSet" +
+            "tingsOfString />\r\n\t\t\t")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>> DelayedSettings {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["DelayedSettings"]));
+            }
+            set {
+                this["DelayedSettings"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<PerGameModeSettingsOfString />\r\n\t\t\t")]
         public global::Nexus.Client.Settings.PerGameModeSettings<string> InstallationPaths {
             get {

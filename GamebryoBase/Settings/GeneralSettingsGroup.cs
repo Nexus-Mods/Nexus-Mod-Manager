@@ -2,6 +2,7 @@
 using Nexus.Client.Games.Settings;
 using Nexus.Client.Util;
 using System.IO;
+using System;
 
 namespace Nexus.Client.Games.Gamebryo.Settings
 {
@@ -13,7 +14,7 @@ namespace Nexus.Client.Games.Gamebryo.Settings
 		private string m_strInstallationPath = null;
 		private string m_strCustomCommand = null;
 		private string m_strCustomCommandArguments = null;
-		
+
 		#region Properties
 
 		/// <summary>
@@ -21,7 +22,7 @@ namespace Nexus.Client.Games.Gamebryo.Settings
 		/// </summary>
 		/// <value>The game mode currently being managed.</value>
 		protected IGameMode GameMode { get; private set; }
-		
+
 		/// <summary>
 		/// Gets the view model that encapsulates the data and the operations presented by UI
 		/// elements that allow the selection of required directories.
@@ -70,7 +71,7 @@ namespace Nexus.Client.Games.Gamebryo.Settings
 			}
 			set
 			{
-				SetPropertyIfChanged(ref m_strCustomCommand, value, ()=>CustomLaunchCommand);
+				SetPropertyIfChanged(ref m_strCustomCommand, value, () => CustomLaunchCommand);
 			}
 		}
 
@@ -115,7 +116,11 @@ namespace Nexus.Client.Games.Gamebryo.Settings
 		public override void Load()
 		{
 			string strValue = null;
-			EnvironmentInfo.Settings.InstallationPaths.TryGetValue(GameMode.ModeId, out strValue);
+			bool booRetrieved = false;
+			if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameMode.ModeId))
+				booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameMode.ModeId].TryGetValue(String.Format("InstallationPaths~{0}", GameMode.ModeId), out strValue);
+			if (!booRetrieved)
+				EnvironmentInfo.Settings.InstallationPaths.TryGetValue(GameMode.ModeId, out strValue);
 			InstallationPath = strValue;
 
 			strValue = null;
@@ -138,8 +143,10 @@ namespace Nexus.Client.Games.Gamebryo.Settings
 		{
 			if (!RequiredDirectoriesVM.ValidateSettings())
 				return false;
-			RequiredDirectoriesVM.SaveSettings();
-			EnvironmentInfo.Settings.InstallationPaths[GameMode.ModeId] = InstallationPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			RequiredDirectoriesVM.SaveSettings(true);
+
+			if (!String.Equals(EnvironmentInfo.Settings.InstallationPaths[GameMode.ModeId], InstallationPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)))
+				EnvironmentInfo.Settings.DelayedSettings[GameMode.ModeId].Add(String.Format("InstallationPaths~{0}", GameMode.ModeId), InstallationPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
 			EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId] = FileUtil.StripInvalidPathChars(CustomLaunchCommand);
 			EnvironmentInfo.Settings.CustomLaunchCommandArguments[GameMode.ModeId] = CustomLaunchCommandArguments;
 			EnvironmentInfo.Settings.Save();

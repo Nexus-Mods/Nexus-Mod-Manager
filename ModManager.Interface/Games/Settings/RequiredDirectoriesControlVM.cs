@@ -156,7 +156,13 @@ namespace Nexus.Client.Games.Settings
 		public void LoadSettings()
 		{
 			string strInstalationPath = EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId];
-			string strDirectory = EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId];
+
+			string strDirectory = null;
+			bool booRetrieved = false;
+			if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
+				booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("ModFolder~{0}", GameModeDescriptor.ModeId), out strDirectory);
+			if (!booRetrieved)
+				EnvironmentInfo.Settings.ModFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 			if (String.IsNullOrEmpty(strDirectory))
 			{
 				string strDefault = Path.Combine(strInstalationPath, "mods");
@@ -166,7 +172,12 @@ namespace Nexus.Client.Games.Settings
 			}
 			ModDirectory = strDirectory;
 
-			strDirectory = EnvironmentInfo.Settings.InstallInfoFolder[GameModeDescriptor.ModeId];
+			strDirectory = null;
+			booRetrieved = false;
+			if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
+				booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("InstallInfoFolder~{0}", GameModeDescriptor.ModeId), out strDirectory);
+			if (!booRetrieved)
+				EnvironmentInfo.Settings.InstallInfoFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 			if (String.IsNullOrEmpty(strDirectory))
 			{
 				string strDefault = Path.Combine(strInstalationPath, "Install Info");
@@ -182,10 +193,23 @@ namespace Nexus.Client.Games.Settings
 		/// <summary>
 		/// Persists the settings on this control.
 		/// </summary>
-		public void SaveSettings()
+		/// <param name="p_booDelaySettings">Whether the settings should be delayed until the next application restart.</param>
+		public void SaveSettings(bool p_booDelaySettings)
 		{
-			EnvironmentInfo.Settings.InstallInfoFolder[GameModeDescriptor.ModeId] = InstallInfoDirectory;
-			EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId] = ModDirectory;
+			if (!String.Equals(EnvironmentInfo.Settings.InstallInfoFolder[GameModeDescriptor.ModeId], InstallInfoDirectory))
+			{
+				if (p_booDelaySettings)
+					EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].Add(String.Format("InstallInfoFolder~{0}", GameModeDescriptor.ModeId), InstallInfoDirectory);
+				else
+					EnvironmentInfo.Settings.InstallInfoFolder[GameModeDescriptor.ModeId] = InstallInfoDirectory;
+			}
+			if (!String.Equals(EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId], ModDirectory))
+			{
+				if (p_booDelaySettings)
+					EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].Add(String.Format("ModFolder~{0}", GameModeDescriptor.ModeId), ModDirectory);
+				else
+					EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId] = ModDirectory;
+			}
 			EnvironmentInfo.Settings.Save();
 		}
 	}

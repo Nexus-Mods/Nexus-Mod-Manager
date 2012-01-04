@@ -23,6 +23,7 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using Nexus.Client.Controls;
 using Nexus.Client.ModManagement.UI;
+using System.Reflection;
 
 namespace Nexus.Client
 {
@@ -210,7 +211,7 @@ namespace Nexus.Client
 			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
 			ViewMessage vwmErrorMessage = null;
 			OverallProgress = 0;
-			OverallProgressMaximum = 12;
+			OverallProgressMaximum = 14;
 			OverallProgressStepSize = 1;
 			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage) && (Status != TaskStatus.Error))
 				Status = TaskStatus.Incomplete;
@@ -230,6 +231,20 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		protected bool DoApplicationInitialize(IGameModeFactory p_gmfGameModeFactory, SynchronizationContext p_scxUIContext, out ViewMessage p_vwmErrorMessage)
 		{
+			if (EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
+				EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
+			if (EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
+				EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
+			StepOverallProgress();
+
+			if (!ApplyDelayedSettings(p_gmfGameModeFactory.GameModeDescriptor.ModeId, out p_vwmErrorMessage))
+			{
+				EnvironmentInfo.Settings.Reload();
+				return false;
+			}
+			EnvironmentInfo.Settings.Save();
+			StepOverallProgress();
+
 			InstallationPathInitializer ipiInstallPathInitializer = new InstallationPathInitializer(EnvironmentInfo, GetInstallationPathCandidate);
 			if (!ipiInstallPathInitializer.InitializeInstallationPath(p_gmfGameModeFactory))
 			{
@@ -355,6 +370,59 @@ namespace Nexus.Client
 		#endregion
 
 		#region Support
+
+		private bool ApplyDelayedSettings(string p_strGameModeId, out ViewMessage p_vwmErrorMessage)
+		{
+			if (EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId] == null)
+			{
+				p_vwmErrorMessage = null;
+				return true;
+			}
+			Type tpeSettings = EnvironmentInfo.Settings.GetType();
+			foreach (KeyValuePair<string, string> kvpSetting in EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId])
+			{
+				string[] strPropertyIndexers = kvpSetting.Key.Split(new char[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
+				if (strPropertyIndexers.Length == 0)
+				{
+					p_vwmErrorMessage = new ViewMessage("Missing Setting name.", "Missing Setting Name");
+					return false;
+				}
+
+				PropertyInfo pifSetting = EnvironmentInfo.GetType().GetProperty("Settings");
+				object objSetting = EnvironmentInfo;
+				for (Int32 i = 0; i < strPropertyIndexers.Length; i++)
+				{
+					if (pifSetting.GetIndexParameters().Length == 1)
+						objSetting = pifSetting.GetValue(objSetting, new object[] { strPropertyIndexers[i] });
+					else if (pifSetting.GetIndexParameters().Length == 0)
+						objSetting = pifSetting.GetValue(objSetting, null);
+					else
+					{
+						p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", kvpSetting.Key), "Invalid Setting");
+						return false;
+					}
+					tpeSettings = objSetting.GetType();
+					pifSetting = tpeSettings.GetProperty(strPropertyIndexers[i]) ?? tpeSettings.GetProperty("Item");
+					if (pifSetting == null)
+					{
+						p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Setting does not exist.", kvpSetting.Key), "Invalid Setting");
+						return false;
+					}
+				}
+				if (pifSetting.GetIndexParameters().Length == 1)
+					pifSetting.SetValue(objSetting, kvpSetting.Value, new object[] { strPropertyIndexers[strPropertyIndexers.Length - 1] });
+				else if (pifSetting.GetIndexParameters().Length == 0)
+					pifSetting.SetValue(objSetting, kvpSetting.Value, null);
+				else
+				{
+					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", kvpSetting.Key), "Invalid Setting");
+					return false;
+				}
+			}
+			EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId].Clear();
+			p_vwmErrorMessage = null;
+			return true;
+		}
 
 		/// <summary>
 		/// Ensures that the game mode environment's paths exist.

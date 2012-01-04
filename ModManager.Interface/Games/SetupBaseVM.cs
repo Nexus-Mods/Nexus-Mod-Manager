@@ -69,7 +69,7 @@ namespace Nexus.Client.Games
 		{
 			if (RequiredDirectoriesControlVM.ValidateSettings())
 			{
-				RequiredDirectoriesControlVM.SaveSettings();
+				RequiredDirectoriesControlVM.SaveSettings(false);
 				EnvironmentInfo.Settings.Save();
 				IsSetupComplete = true;
 				return true;

@@ -183,9 +183,16 @@ namespace Nexus.Client.Settings
 		/// <value>Whether to scan sub directories of the mod directory for mods.</value>
 		bool ScanSubfoldersForMods { get; set; }
 
+		PerGameModeSettings<KeyedSettings<string>> DelayedSettings { get; }
+
 		/// <summary>
 		/// Saves changes to the user settings.
 		/// </summary>
 		void Save();
+
+		/// <summary>
+		/// Reloads the stored values from persistent storage, discarding any unsaved changes.
+		/// </summary>
+		void Reload();
 	}
 }

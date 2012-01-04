@@ -47,6 +47,12 @@
 				&lt;PerGameModeSettingsOfKeyedSettingsOfAddModDescriptor /&gt;
 			</Value>
 		</Setting>
+		<Setting Name="DelayedSettings" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
+			<Value Profile="(Default)">
+				&lt;?xml version="1.0" encoding="utf-16"?&gt;
+				&lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;
+			</Value>
+		</Setting>
 		<Setting Name="InstallationPaths" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
 			<Value Profile="(Default)">
 				&lt;PerGameModeSettingsOfString /&gt;

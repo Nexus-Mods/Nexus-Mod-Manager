@@ -32,11 +32,11 @@
 			this.butSelectInfoDirectory = new System.Windows.Forms.Button();
 			this.lblInstallInfoPrompt = new System.Windows.Forms.Label();
 			this.tbxInstallInfo = new System.Windows.Forms.TextBox();
-			this.label5 = new System.Windows.Forms.Label();
+			this.lblInstallInfoLabel = new System.Windows.Forms.Label();
 			this.butSelectModDirectory = new System.Windows.Forms.Button();
 			this.lblModPrompt = new System.Windows.Forms.Label();
 			this.tbxModDirectory = new System.Windows.Forms.TextBox();
-			this.label2 = new System.Windows.Forms.Label();
+			this.lblModDirectoryLabel = new System.Windows.Forms.Label();
 			this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
 			this.fbdDirectory = new System.Windows.Forms.FolderBrowserDialog();
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).BeginInit();
@@ -73,14 +73,14 @@
 			this.tbxInstallInfo.Size = new System.Drawing.Size(286, 20);
 			this.tbxInstallInfo.TabIndex = 10;
 			// 
-			// label5
+			// lblInstallInfoLabel
 			// 
-			this.label5.AutoSize = true;
-			this.label5.Location = new System.Drawing.Point(38, 62);
-			this.label5.Name = "label5";
-			this.label5.Size = new System.Drawing.Size(58, 13);
-			this.label5.TabIndex = 13;
-			this.label5.Text = "Install Info:";
+			this.lblInstallInfoLabel.AutoSize = true;
+			this.lblInstallInfoLabel.Location = new System.Drawing.Point(38, 62);
+			this.lblInstallInfoLabel.Name = "lblInstallInfoLabel";
+			this.lblInstallInfoLabel.Size = new System.Drawing.Size(58, 13);
+			this.lblInstallInfoLabel.TabIndex = 13;
+			this.lblInstallInfoLabel.Text = "Install Info:";
 			// 
 			// butSelectModDirectory
 			// 
@@ -113,14 +113,14 @@
 			this.tbxModDirectory.Size = new System.Drawing.Size(286, 20);
 			this.tbxModDirectory.TabIndex = 7;
 			// 
-			// label2
+			// lblModDirectoryLabel
 			// 
-			this.label2.AutoSize = true;
-			this.label2.Location = new System.Drawing.Point(20, 19);
-			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(76, 13);
-			this.label2.TabIndex = 8;
-			this.label2.Text = "Mod Directory:";
+			this.lblModDirectoryLabel.AutoSize = true;
+			this.lblModDirectoryLabel.Location = new System.Drawing.Point(20, 19);
+			this.lblModDirectoryLabel.Name = "lblModDirectoryLabel";
+			this.lblModDirectoryLabel.Size = new System.Drawing.Size(76, 13);
+			this.lblModDirectoryLabel.TabIndex = 8;
+			this.lblModDirectoryLabel.Text = "Mod Directory:";
 			// 
 			// erpErrors
 			// 
@@ -133,11 +133,11 @@
 			this.Controls.Add(this.butSelectInfoDirectory);
 			this.Controls.Add(this.lblInstallInfoPrompt);
 			this.Controls.Add(this.tbxInstallInfo);
-			this.Controls.Add(this.label5);
+			this.Controls.Add(this.lblInstallInfoLabel);
 			this.Controls.Add(this.butSelectModDirectory);
 			this.Controls.Add(this.lblModPrompt);
 			this.Controls.Add(this.tbxModDirectory);
-			this.Controls.Add(this.label2);
+			this.Controls.Add(this.lblModDirectoryLabel);
 			this.Name = "RequiredDirectoriesControl";
 			this.Size = new System.Drawing.Size(443, 405);
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).EndInit();
@@ -151,11 +151,11 @@
 		private System.Windows.Forms.Button butSelectInfoDirectory;
 		private System.Windows.Forms.Label lblInstallInfoPrompt;
 		private System.Windows.Forms.TextBox tbxInstallInfo;
-		private System.Windows.Forms.Label label5;
+		private System.Windows.Forms.Label lblInstallInfoLabel;
 		private System.Windows.Forms.Button butSelectModDirectory;
 		private System.Windows.Forms.Label lblModPrompt;
 		private System.Windows.Forms.TextBox tbxModDirectory;
-		private System.Windows.Forms.Label label2;
+		private System.Windows.Forms.Label lblModDirectoryLabel;
 		private System.Windows.Forms.ErrorProvider erpErrors;
 		private System.Windows.Forms.FolderBrowserDialog fbdDirectory;
 	}

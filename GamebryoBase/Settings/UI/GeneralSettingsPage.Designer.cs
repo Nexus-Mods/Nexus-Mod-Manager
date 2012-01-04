@@ -41,6 +41,7 @@
 			this.rdcDirectories = new Nexus.Client.Games.Settings.RequiredDirectoriesControl();
 			this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
 			this.cbxBoldifyESMs = new System.Windows.Forms.CheckBox();
+			this.label1 = new System.Windows.Forms.Label();
 			this.groupBox1.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).BeginInit();
 			this.SuspendLayout();
@@ -50,9 +51,9 @@
 			this.lblWorkingDirectory.AutoSize = true;
 			this.lblWorkingDirectory.Location = new System.Drawing.Point(1, 90);
 			this.lblWorkingDirectory.Name = "lblWorkingDirectory";
-			this.lblWorkingDirectory.Size = new System.Drawing.Size(69, 13);
+			this.lblWorkingDirectory.Size = new System.Drawing.Size(73, 13);
 			this.lblWorkingDirectory.TabIndex = 3;
-			this.lblWorkingDirectory.Text = "{0} Directory:";
+			this.lblWorkingDirectory.Text = "{0} Directory*:";
 			// 
 			// tbxWorkingDirectory
 			// 
@@ -120,7 +121,9 @@
 			// 
 			// rdcDirectories
 			// 
+			this.rdcDirectories.InstallInfoLabel = "Install Info*:";
 			this.rdcDirectories.Location = new System.Drawing.Point(0, 3);
+			this.rdcDirectories.ModDirectoryLabel = "Mod Directory*:";
 			this.rdcDirectories.Name = "rdcDirectories";
 			this.rdcDirectories.Size = new System.Drawing.Size(393, 85);
 			this.rdcDirectories.TabIndex = 0;
@@ -139,11 +142,23 @@
 			this.cbxBoldifyESMs.Text = "Show ESM files in bold.";
 			this.cbxBoldifyESMs.UseVisualStyleBackColor = true;
 			// 
+			// label1
+			// 
+			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.label1.AutoSize = true;
+			this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.label1.Location = new System.Drawing.Point(233, 272);
+			this.label1.Name = "label1";
+			this.label1.Size = new System.Drawing.Size(137, 13);
+			this.label1.TabIndex = 5;
+			this.label1.Text = "* requires application restart";
+			// 
 			// GeneralSettingsPage
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.BackColor = System.Drawing.Color.Transparent;
+			this.Controls.Add(this.label1);
 			this.Controls.Add(this.cbxBoldifyESMs);
 			this.Controls.Add(this.rdcDirectories);
 			this.Controls.Add(this.groupBox1);
@@ -174,6 +189,7 @@
 		private Nexus.Client.Games.Settings.RequiredDirectoriesControl rdcDirectories;
 		private System.Windows.Forms.ErrorProvider erpErrors;
 		private System.Windows.Forms.CheckBox cbxBoldifyESMs;
+		private System.Windows.Forms.Label label1;
 
 	}
 }

@@ -41,6 +41,38 @@ namespace Nexus.Client.Games.Settings
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets the label for the mod directory path.
+		/// </summary>
+		/// <value>The label for the mod directory path.</value>
+		public string ModDirectoryLabel
+		{
+			get
+			{
+				return lblModDirectoryLabel.Text;
+			}
+			set
+			{
+				lblModDirectoryLabel.Text = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the label for the install info path.
+		/// </summary>
+		/// <value>The label for the install info path.</value>
+		public string InstallInfoLabel
+		{
+			get
+			{
+				return lblInstallInfoLabel.Text;
+			}
+			set
+			{
+				lblInstallInfoLabel.Text = value;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
