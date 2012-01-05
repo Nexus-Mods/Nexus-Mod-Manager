@@ -296,7 +296,7 @@ namespace Nexus.Client.Controls
 				intWindowClientWidth = intMinimumWidth;
 
 			Int32 intBorderHeight = Size.Height - ClientSize.Height;
-			MinimumSize = new Size(intWindowClientWidth + intBorderWidth, pnlMessage.Height + (RememberSelection ? pnlRemember.Height : 0) + pnlButtons.Height + intBorderHeight);
+			MinimumSize = new Size(intWindowClientWidth + intBorderWidth, pnlMessage.Height + (p_booShowRemember ? pnlRemember.Height : 0) + pnlButtons.Height + intBorderHeight);
 			MaximumSize = new Size(Int32.MaxValue, MinimumSize.Height);
 		}
 

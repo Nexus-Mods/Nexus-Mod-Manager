@@ -190,6 +190,9 @@
     <EmbeddedResource Include="ColourPicker.resx">
       <DependentUpon>ColourPicker.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="ExtendedMessageBox.resx">
+      <DependentUpon>ExtendedMessageBox.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="FileSelectionDialog.resx">
       <DependentUpon>FileSelectionDialog.cs</DependentUpon>
     </EmbeddedResource>
