@@ -79,6 +79,7 @@
   <ItemGroup>
     <Compile Include="CancelProgressEventArgs.cs" />
     <Compile Include="Crc32.cs" />
+    <Compile Include="Delegates.cs" />
     <Compile Include="Downloader\FileDownloader.BlockDownloader.cs" />
     <Compile Include="Downloader\FileDownloader.cs" />
     <Compile Include="Downloader\FileMetadata.cs" />

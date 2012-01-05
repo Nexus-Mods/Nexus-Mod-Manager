@@ -10,6 +10,8 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Updating;
+using Nexus.Client.Controls;
+using Nexus.Client.UI;
 
 namespace Nexus.Client
 {
@@ -257,6 +259,7 @@ namespace Nexus.Client
 					spbLaunch.Enabled = false;
 				}
 			}
+			ViewModel.ConfirmCloseAfterGameLaunch = ConfirmCloseAfterGameLaunch;
 			ViewModel.GameLauncher.GameLaunched += new EventHandler<GameLaunchEventArgs>(GameLauncher_GameLaunched);
 		}
 
@@ -280,15 +283,29 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Confirms if the manager should close after launching the game.
+		/// </summary>
+		/// <param name="p_booRememberSelection">Whether the selected response should be remembered.</param>
+		/// <returns><c>true</c> if the manager should close after game launch;
+		/// <c>false</c> otherwise.</returns>
+		private bool ConfirmCloseAfterGameLaunch(out bool p_booRememberSelection)
+		{
+			bool booRemember = false;
+			bool booClose = (ExtendedMessageBox.Show(this, String.Format("Would you like {0} to close after launching the game?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Close", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out booRemember) == DialogResult.Yes);
+			p_booRememberSelection = booRemember;
+			return booClose;
+		}
+
+		/// <summary>
 		/// Handles the <see cref="IGameLauncher.GameLaunched"/> event of the game launcher.
 		/// </summary>
 		/// <remarks>This displays any message resulting from the game launch. If the launch was successful, the
 		/// form is closed.</remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="GameLaunchEventArgs"/> describing the event arguments.</param>
-		public void GameLauncher_GameLaunched(object sender, GameLaunchEventArgs e)
+		private void GameLauncher_GameLaunched(object sender, GameLaunchEventArgs e)
 		{
-			if (e.Launched)
+			if (e.Launched && ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
 				Close();
 			else
 				MessageBox.Show(this, e.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);

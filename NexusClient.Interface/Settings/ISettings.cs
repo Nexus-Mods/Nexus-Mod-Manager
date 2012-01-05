@@ -183,7 +183,23 @@ namespace Nexus.Client.Settings
 		/// <value>Whether to scan sub directories of the mod directory for mods.</value>
 		bool ScanSubfoldersForMods { get; set; }
 
+		/// <summary>
+		/// Gets the setting values that should not be applied until the next application restart.
+		/// </summary>
+		/// <value>The setting values that should not be applied until the next application restart.</value>
 		PerGameModeSettings<KeyedSettings<string>> DelayedSettings { get; }
+
+		/// <summary>
+		/// Gets or sets whether the mod manager should be closed after a game is launched.
+		/// </summary>
+		/// <value>Whether the mod manager should be closed after a game is launched.</value>
+		bool CloseModManagerAfterGameLaunch { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether the setting indicating whether the mod manager should be closed after a game is launched is remembered.
+		/// </summary>
+		/// <value>Whether the setting indicating whether the mod manager should be closed after a game is launched is remembered.</value>
+		bool CloseModManagerAfterGameLaunchIsRemembered { get; set; }
 
 		/// <summary>
 		/// Saves changes to the user settings.

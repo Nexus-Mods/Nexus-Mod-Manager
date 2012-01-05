@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
-using Nexus.Client.Games;
-using Nexus.Client.Util;
-using Nexus.Client.BackgroundTasks;
 using System.Text;
-using System;
+using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Games;
+using Nexus.Client.UI;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Updating
 {

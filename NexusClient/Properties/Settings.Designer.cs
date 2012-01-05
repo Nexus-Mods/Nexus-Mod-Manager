@@ -118,6 +118,30 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool CloseModManagerAfterGameLaunch {
+            get {
+                return ((bool)(this["CloseModManagerAfterGameLaunch"]));
+            }
+            set {
+                this["CloseModManagerAfterGameLaunch"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool CloseModManagerAfterGameLaunchIsRemembered {
+            get {
+                return ((bool)(this["CloseModManagerAfterGameLaunchIsRemembered"]));
+            }
+            set {
+                this["CloseModManagerAfterGameLaunchIsRemembered"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool RememberGameMode {
             get {

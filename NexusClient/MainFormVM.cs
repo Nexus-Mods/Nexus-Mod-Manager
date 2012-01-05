@@ -15,6 +15,8 @@ using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using Nexus.Client.UI;
+using System.ComponentModel;
 
 namespace Nexus.Client
 {
@@ -38,6 +40,11 @@ namespace Nexus.Client
 		/// </summary>
 		public ConfirmActionMethod ConfirmUpdaterAction = delegate { return true; };
 
+		/// <summary>
+		/// Called when an updater's action needs to be confirmed.
+		/// </summary>
+		public ConfirmRememberedActionMethod ConfirmCloseAfterGameLaunch = delegate(out bool x) { x = false; return true; };
+
 		#region Properties
 
 		#region Commands
@@ -55,7 +62,7 @@ namespace Nexus.Client
 		/// </summary>
 		/// <value>The update manager to use to perform updates.</value>
 		protected UpdateManager UpdateManager { get; private set; }
-		
+
 		/// <summary>
 		/// Gets the view model that encapsulates the data
 		/// and operations for diaplying the mod manager.
@@ -187,7 +194,10 @@ namespace Nexus.Client
 		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, IGameMode p_gmdGameMode, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			
 			GameMode = p_gmdGameMode;
+			GameMode.GameLauncher.GameLaunching += new CancelEventHandler(GameLauncher_GameLaunching);
+
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
@@ -198,7 +208,7 @@ namespace Nexus.Client
 				gsgGeneralSettings.AddFileAssociation(mftFormat.Extension, mftFormat.Name);
 
 			ModOptionsSettingsGroup mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
-			
+
 			List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>();
 			lstSettingGroups.Add(new GeneralSettingsPage(gsgGeneralSettings));
 			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
@@ -234,6 +244,25 @@ namespace Nexus.Client
 		{
 			if (EnvironmentInfo.Settings.CheckForUpdatesOnStartup)
 				UpdateProgramme();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="IGameLauncher.GameLaunching"/> event of the game launcher.
+		/// </summary>
+		/// <remarks>This displays, as appropriate, a message asking if the user wants the application to close
+		/// after game launch.</remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="CancelEventArgs"/> describing the event arguments.</param>
+		private void GameLauncher_GameLaunching(object sender, CancelEventArgs e)
+		{
+			if (!EnvironmentInfo.Settings.CloseModManagerAfterGameLaunchIsRemembered)
+			{
+				bool booRemember = false;
+				bool booClose = ConfirmCloseAfterGameLaunch(out booRemember);
+				EnvironmentInfo.Settings.CloseModManagerAfterGameLaunchIsRemembered = booRemember;
+				EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = booClose;
+				EnvironmentInfo.Settings.Save();
+			}
 		}
 	}
 }

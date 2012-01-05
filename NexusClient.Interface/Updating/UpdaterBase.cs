@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Downloader;
 

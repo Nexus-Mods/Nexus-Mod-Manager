@@ -45,6 +45,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Games\GameLauncherBase.cs" />
     <Compile Include="Games\ISetupVM.cs" />
     <Compile Include="Games\IGameModeDescriptor.cs" />
     <Compile Include="Games\IGameModeFactory.cs" />

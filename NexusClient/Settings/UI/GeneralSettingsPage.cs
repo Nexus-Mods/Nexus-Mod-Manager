@@ -39,12 +39,14 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(ckbAddMissingInfo, () => ckbAddMissingInfo.Checked, p_gsgSettings, () => p_gsgSettings.AddMissingModInfo);
 			BindingHelper.CreateFullBinding(ckbCheckModVersions, () => ckbCheckModVersions.Checked, p_gsgSettings, () => p_gsgSettings.CheckForNewMods);
 			BindingHelper.CreateFullBinding(ckbScanSubfolders, () => ckbScanSubfolders.Checked, p_gsgSettings, () => p_gsgSettings.ScanSubfoldersForMods);
+			BindingHelper.CreateFullBinding(ckbCloseManagerAfterGameLaunch, () => ckbCloseManagerAfterGameLaunch.Checked, p_gsgSettings, () => p_gsgSettings.CloseModManagerAfterGameLaunch);
 
 			if (!p_gsgSettings.CanAssociateFiles)
 			{
 				gbxAssociations.Enabled = false;
 				ttpTip.SetToolTip(gbxAssociations, String.Format("Run {0} as Administrator to change these settings.", p_gsgSettings.EnvironmentInfo.Settings.ModManagerName));
 			}
+			ckbCloseManagerAfterGameLaunch.Text = String.Format(ckbCloseManagerAfterGameLaunch.Text, p_gsgSettings.EnvironmentInfo.Settings.ModManagerName);
 		}
 
 		#endregion

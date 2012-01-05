@@ -65,6 +65,7 @@ namespace Nexus.Client.Settings
 		private bool m_booAddShellExtensions = true;
 		private bool m_booAssociateNxmUrls = true;
 		private bool m_booCheckForUpdatesOnStartup = true;
+		private bool m_booCloseModManagerAfterGameLaunch = true;
 
 		#region Properties
 
@@ -191,6 +192,22 @@ namespace Nexus.Client.Settings
 			set
 			{
 				SetPropertyIfChanged(ref m_booScanSubfoldersForMods, value, () => ScanSubfoldersForMods);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the mod manager should be closed after a game is launched.
+		/// </summary>
+		/// <value>Whether the mod manager should be closed after a game is launched.</value>
+		public bool CloseModManagerAfterGameLaunch
+		{
+			get
+			{
+				return m_booCloseModManagerAfterGameLaunch;
+			}
+			set
+			{
+				m_booCloseModManagerAfterGameLaunch = value;
 			}
 		}
 
@@ -386,6 +403,7 @@ namespace Nexus.Client.Settings
 			AddMissingModInfo = EnvironmentInfo.Settings.AddMissingInfoToMods;
 			CheckForUpdatesOnStartup = EnvironmentInfo.Settings.CheckForUpdatesOnStartup;
 			ScanSubfoldersForMods = EnvironmentInfo.Settings.ScanSubfoldersForMods;
+			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;
 		}
 
 		/// <summary>
@@ -426,6 +444,7 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.AddMissingInfoToMods = AddMissingModInfo;
 			EnvironmentInfo.Settings.CheckForUpdatesOnStartup = CheckForUpdatesOnStartup;
 			EnvironmentInfo.Settings.ScanSubfoldersForMods = ScanSubfoldersForMods;
+			EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = CloseModManagerAfterGameLaunch;
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}

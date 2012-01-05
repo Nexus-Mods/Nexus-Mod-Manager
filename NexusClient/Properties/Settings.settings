@@ -26,6 +26,12 @@
 		<Setting Name="AddMissingInfoToMods" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">True</Value>
 		</Setting>
+		<Setting Name="CloseModManagerAfterGameLaunch" Type="System.Boolean" Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+		<Setting Name="CloseModManagerAfterGameLaunchIsRemembered" Type="System.Boolean" Scope="User">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
 		<Setting Name="RememberGameMode" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">False</Value>
 		</Setting>

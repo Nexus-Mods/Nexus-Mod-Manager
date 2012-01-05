@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Nexus.Client.Commands;
 
 namespace Nexus.Client.Games
@@ -12,6 +13,11 @@ namespace Nexus.Client.Games
 	/// </remarks>
 	public interface IGameLauncher
 	{
+		/// <summary>
+		/// Raised when an attempt to launch the game is about to be made.
+		/// </summary>
+		event CancelEventHandler GameLaunching;
+
 		/// <summary>
 		/// Raised when an attempt to launch the game has been made.
 		/// </summary>

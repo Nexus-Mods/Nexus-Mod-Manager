@@ -1,17 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
+using Nexus.Client.UI;
 
 namespace Nexus.Client.Updating
 {
-	/// <summary>
-	/// Confirms an action.
-	/// </summary>
-	/// <param name="p_strMessage">The message describing the action to confirm.</param>
-	/// <param name="p_strTitle">The title of the action to confirm.</param>
-	/// <returns><c>true</c> if the action has been confirmed;
-	/// <c>false</c> otherwise.</returns>
-	public delegate bool ConfirmActionMethod(string p_strMessage, string p_strTitle);
-
 	/// <summary>
 	/// Describes the methods and properties of an updater.
 	/// </summary>

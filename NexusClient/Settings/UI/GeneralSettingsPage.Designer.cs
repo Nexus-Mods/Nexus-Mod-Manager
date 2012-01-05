@@ -35,11 +35,12 @@
 			this.ckbShellExtensions = new System.Windows.Forms.CheckBox();
 			this.ckbAssociateURL = new System.Windows.Forms.CheckBox();
 			this.groupBox5 = new System.Windows.Forms.GroupBox();
+			this.ckbScanSubfolders = new System.Windows.Forms.CheckBox();
 			this.ckbAddMissingInfo = new System.Windows.Forms.CheckBox();
 			this.ckbCheckModVersions = new System.Windows.Forms.CheckBox();
 			this.ckbCheckForUpdates = new System.Windows.Forms.CheckBox();
 			this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
-			this.ckbScanSubfolders = new System.Windows.Forms.CheckBox();
+			this.ckbCloseManagerAfterGameLaunch = new System.Windows.Forms.CheckBox();
 			this.flpGeneral.SuspendLayout();
 			this.gbxAssociations.SuspendLayout();
 			this.flpFileAssociations.SuspendLayout();
@@ -110,16 +111,27 @@
 			// 
 			// groupBox5
 			// 
+			this.groupBox5.Controls.Add(this.ckbCloseManagerAfterGameLaunch);
 			this.groupBox5.Controls.Add(this.ckbScanSubfolders);
 			this.groupBox5.Controls.Add(this.ckbAddMissingInfo);
 			this.groupBox5.Controls.Add(this.ckbCheckModVersions);
 			this.groupBox5.Controls.Add(this.ckbCheckForUpdates);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
-			this.groupBox5.Size = new System.Drawing.Size(368, 112);
+			this.groupBox5.Size = new System.Drawing.Size(368, 134);
 			this.groupBox5.TabIndex = 23;
 			this.groupBox5.TabStop = false;
 			this.groupBox5.Text = "Options";
+			// 
+			// ckbScanSubfolders
+			// 
+			this.ckbScanSubfolders.AutoSize = true;
+			this.ckbScanSubfolders.Location = new System.Drawing.Point(16, 88);
+			this.ckbScanSubfolders.Name = "ckbScanSubfolders";
+			this.ckbScanSubfolders.Size = new System.Drawing.Size(217, 17);
+			this.ckbScanSubfolders.TabIndex = 3;
+			this.ckbScanSubfolders.Text = "Scan Mods directory subfolders for mods";
+			this.ckbScanSubfolders.UseVisualStyleBackColor = true;
 			// 
 			// ckbAddMissingInfo
 			// 
@@ -151,15 +163,15 @@
 			this.ckbCheckForUpdates.Text = "Check for updates on startup";
 			this.ckbCheckForUpdates.UseVisualStyleBackColor = true;
 			// 
-			// ckbScanSubfolders
+			// ckbCloseManagerAfterGameLaunch
 			// 
-			this.ckbScanSubfolders.AutoSize = true;
-			this.ckbScanSubfolders.Location = new System.Drawing.Point(16, 88);
-			this.ckbScanSubfolders.Name = "ckbScanSubfolders";
-			this.ckbScanSubfolders.Size = new System.Drawing.Size(217, 17);
-			this.ckbScanSubfolders.TabIndex = 3;
-			this.ckbScanSubfolders.Text = "Scan Mods directory subfolders for mods";
-			this.ckbScanSubfolders.UseVisualStyleBackColor = true;
+			this.ckbCloseManagerAfterGameLaunch.AutoSize = true;
+			this.ckbCloseManagerAfterGameLaunch.Location = new System.Drawing.Point(16, 111);
+			this.ckbCloseManagerAfterGameLaunch.Name = "ckbCloseManagerAfterGameLaunch";
+			this.ckbCloseManagerAfterGameLaunch.Size = new System.Drawing.Size(171, 17);
+			this.ckbCloseManagerAfterGameLaunch.TabIndex = 4;
+			this.ckbCloseManagerAfterGameLaunch.Text = "Close {0} after launching game";
+			this.ckbCloseManagerAfterGameLaunch.UseVisualStyleBackColor = true;
 			// 
 			// GeneralSettingsPage
 			// 
@@ -193,6 +205,7 @@
 		private System.Windows.Forms.CheckBox ckbAssociateURL;
 		private System.Windows.Forms.CheckBox ckbCheckForUpdates;
 		private System.Windows.Forms.CheckBox ckbScanSubfolders;
+		private System.Windows.Forms.CheckBox ckbCloseManagerAfterGameLaunch;
 
 	}
 }
