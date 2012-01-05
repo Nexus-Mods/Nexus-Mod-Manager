@@ -99,6 +99,12 @@ namespace Nexus.Client.Mods
 					//the cachef ile is corrupt - so delete it
 					FileUtil.ForceDelete(strCachePath);
 				}
+				catch (UnauthorizedAccessException)
+				{
+					//we can't access the file - who know why
+					//destroy it so we can try again
+					FileUtil.ForceDelete(strCachePath);
+				}
 			}
 			return null;
 		}
