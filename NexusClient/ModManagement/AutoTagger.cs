@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using System.Diagnostics;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement
 {
@@ -44,38 +45,47 @@ namespace Nexus.Client.ModManagement
 			//get mod info
 			List<IModInfo> lstMods = new List<IModInfo>();
 			IModInfo mifInfo = null;
-			if (!String.IsNullOrEmpty(p_modMod.Id))
-				mifInfo = ModRepository.GetModInfo(p_modMod.Id);
-			if (mifInfo == null)
-				mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
-			if (mifInfo == null)
+			try
 			{
-				//use heuristics to find info
-				lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, true));
-				if (lstMods.Count == 0)
-					lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, false));
-			}
-			else
-				lstMods.Add(mifInfo);
-
-			//if we don't know the mod Id, then we have no way of getting
-			// the file-specific info, so only look if we have one mod info
-			// candidate.
-			if (lstMods.Count == 1)
-			{
-				mifInfo = lstMods[0];
-				lstMods.Clear();
-				//get file specific info
-				IModFileInfo mfiFileInfo = ModRepository.GetFileInfoForFile(p_modMod.Filename);
-				if (mfiFileInfo == null)
+				if (!String.IsNullOrEmpty(p_modMod.Id))
+					mifInfo = ModRepository.GetModInfo(p_modMod.Id);
+				if (mifInfo == null)
+					mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
+				if (mifInfo == null)
 				{
-					foreach (IModFileInfo mfiModFileInfo in ModRepository.GetModFileInfo(mifInfo.Id))
-						lstMods.Add(CombineInfo(mifInfo, mfiModFileInfo));
+					//use heuristics to find info
+					lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, true));
+					if (lstMods.Count == 0)
+						lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, false));
 				}
 				else
-					lstMods.Add(CombineInfo(mifInfo, mfiFileInfo));
-				if (lstMods.Count == 0)
 					lstMods.Add(mifInfo);
+
+				//if we don't know the mod Id, then we have no way of getting
+				// the file-specific info, so only look if we have one mod info
+				// candidate.
+				if (lstMods.Count == 1)
+				{
+					mifInfo = lstMods[0];
+					lstMods.Clear();
+					//get file specific info
+					IModFileInfo mfiFileInfo = ModRepository.GetFileInfoForFile(p_modMod.Filename);
+					if (mfiFileInfo == null)
+					{
+						foreach (IModFileInfo mfiModFileInfo in ModRepository.GetModFileInfo(mifInfo.Id))
+							lstMods.Add(CombineInfo(mifInfo, mfiModFileInfo));
+					}
+					else
+						lstMods.Add(CombineInfo(mifInfo, mfiFileInfo));
+					if (lstMods.Count == 0)
+						lstMods.Add(mifInfo);
+				}
+			}
+			catch (RepositoryUnavailableException e)
+			{
+				TraceUtil.TraceException(e);
+				//the repository is not available, so add a dummy value indicating such
+				lstMods.Add(new ModInfo(null, String.Format("{0} is unavailable", ModRepository.Name), null, null, null, null, null, null));
 			}
 			return lstMods;
 		}
