@@ -180,6 +180,7 @@
 			this.lvwMods.OwnerDraw = true;
 			this.lvwMods.ShowItemToolTips = true;
 			this.lvwMods.Size = new System.Drawing.Size(331, 491);
+			this.lvwMods.Sorting = System.Windows.Forms.SortOrder.Ascending;
 			this.lvwMods.TabIndex = 0;
 			this.lvwMods.UseCompatibleStateImageBehavior = false;
 			this.lvwMods.View = System.Windows.Forms.View.Details;

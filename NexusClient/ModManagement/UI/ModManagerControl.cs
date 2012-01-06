@@ -354,6 +354,7 @@ namespace Nexus.Client.ModManagement.UI
 			p_modAdded.PropertyChanged -= new PropertyChangedEventHandler(Mod_PropertyChanged);
 			p_modAdded.PropertyChanged += new PropertyChangedEventHandler(Mod_PropertyChanged);
 			SetModActivationCheck(lviMod, ViewModel.ActiveMods.Contains(p_modAdded));
+			lvwMods.Sort();
 		}
 
 		/// <summary>
