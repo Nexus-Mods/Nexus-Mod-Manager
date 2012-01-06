@@ -12,6 +12,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using System.Diagnostics;
 
 namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 {
@@ -195,6 +196,9 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <returns>A sandboxed domain.</returns>
 		protected AppDomain CreateSandbox(IScript p_scpScript)
 		{
+			Trace.TraceInformation("Creating C# Script Sandbox...");
+			Trace.Indent();
+
 			Evidence eviSecurityInfo = null;
 			AppDomainSetup adsInfo = new AppDomainSetup();
 			//should this be different from the current ApplicationBase?
@@ -213,6 +217,9 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 				tpeScript = tpeScript.BaseType;
 			}
 			adsInfo.PrivateBinPath = String.Join(";", setPaths.ToArray());
+
+			Trace.TraceInformation("ApplicationBase: {0}", adsInfo.ApplicationBase);
+			Trace.TraceInformation("PrivateBinPath: {0}", adsInfo.PrivateBinPath);
 
 			adsInfo.ApplicationName = "ScriptRunner";
 			adsInfo.DisallowBindingRedirects = true;
@@ -272,6 +279,8 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 					pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, strPath));
 				}
 			}
+
+			Trace.Unindent();
 
 			return AppDomain.CreateDomain("ScriptRunnerDomain", eviSecurityInfo, adsInfo, pstGrantSet);
 		}
