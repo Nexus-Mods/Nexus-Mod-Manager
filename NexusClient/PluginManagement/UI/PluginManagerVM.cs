@@ -36,24 +36,24 @@ namespace Nexus.Client.PluginManagement.UI
 		public Command<Plugin> DeactivatePluginCommand { get; private set; }
 
 		/// <summary>
-		/// Gets the command to move a plugin up in the load order.
+		/// Gets the command to move plugins up in the load order.
 		/// </summary>
 		/// <remarks>
-		/// The commands takes an argument describing the plugin to be moved. Moving up decreases
+		/// The commands takes an argument describing the plugins to be moved. Moving up decreases
 		/// the load order.
 		/// </remarks>
-		/// <value>The command to move a plugin up in the load order.</value>
-		public Command<Plugin> MoveUpCommand { get; private set; }
+		/// <value>The command to move plugins up in the load order.</value>
+		public Command<IEnumerable<Plugin>> MoveUpCommand { get; private set; }
 
 		/// <summary>
-		/// Gets the command to move a plugin down in the load order.
+		/// Gets the command to move plugins down in the load order.
 		/// </summary>
 		/// <remarks>
-		/// The commands takes an argument describing the plugin to be moved. Moving down increases
+		/// The commands takes an argument describing the plugins to be moved. Moving down increases
 		/// the load order.
 		/// </remarks>
-		/// <value>The command to move a plugin down in the load order.</value>
-		public Command<Plugin> MoveDownCommand { get; private set; }
+		/// <value>The command to move plugins down in the load order.</value>
+		public Command<IList<Plugin>> MoveDownCommand { get; private set; }
 
 		#endregion
 
@@ -109,8 +109,8 @@ namespace Nexus.Client.PluginManagement.UI
 
 			ActivatePluginCommand = new Command<Plugin>("Activate Plugin", "Activates the selected plugin.", ActivatePlugin);
 			DeactivatePluginCommand = new Command<Plugin>("Deactivate Plugin", "Deactivates the selected plugin.", DeactivatePlugin);
-			MoveUpCommand = new Command<Plugin>("Move Plugin Up", "Moves the plugin up in the load order.", MovePluginUp);
-			MoveDownCommand = new Command<Plugin>("Move Plugin Down", "Moves the plugin down in the load order.", MovePluginDown);
+			MoveUpCommand = new Command<IEnumerable<Plugin>>("Move Plugin Up", "Moves the plugin up in the load order.", MovePluginsUp);
+			MoveDownCommand = new Command<IList<Plugin>>("Move Plugin Down", "Moves the plugin down in the load order.", MovePluginsDown);
 		}
 
 		#endregion
@@ -161,38 +161,54 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
-		/// Moves the given plugin up in the load order.
+		/// Moves the given plugins up in the load order.
 		/// </summary>
 		/// <remarks>
-		/// Moving a plugin up in the load order decreases the load order, meaning it is loaded sooner.
+		/// Moving plugins up in the load order decreases the load order, meaning it is loaded sooner.
 		/// </remarks>
-		/// <param name="p_plgPlugin">The plugin whose load order is to be changed.</param>
-		protected void MovePluginUp(Plugin p_plgPlugin)
+		/// <param name="p_lstPlugins">The plugins whose load order is to be changed.</param>
+		protected void MovePluginsUp(IEnumerable<Plugin> p_lstPlugins)
 		{
-			Int32 intOldIndex = PluginManager.ManagedPlugins.IndexOf(p_plgPlugin);
-			if (intOldIndex > 0)
-				PluginManager.SetPluginOrderIndex(p_plgPlugin, intOldIndex - 1);
+			Int32 intIndex = -1;
+			foreach (Plugin plgPlugin in p_lstPlugins)
+			{
+				if (intIndex == -1)
+					intIndex = PluginManager.ManagedPlugins.IndexOf(plgPlugin) - 1;
+				if (intIndex < 0)
+					intIndex++;
+				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex++);
+			}
 		}
 
 		/// <summary>
-		/// Moves the given plugin down in the load order.
+		/// Moves the given plugins down in the load order.
 		/// </summary>
 		/// <remarks>
-		/// Moving a plugin down in the load order increases the load order, meaning it is loaded later.
+		/// Moving plugins down in the load order increases the load order, meaning it is loaded later.
 		/// </remarks>
-		/// <param name="p_plgPlugin">The plugin whose load order is to be changed.</param>
-		protected void MovePluginDown(Plugin p_plgPlugin)
+		/// <param name="p_lstPlugins">The plugins whose load order is to be changed.</param>
+		protected void MovePluginsDown(IList<Plugin> p_lstPlugins)
 		{
-			Int32 intOldIndex = PluginManager.ManagedPlugins.IndexOf(p_plgPlugin);
-			if (intOldIndex < PluginManager.ManagedPlugins.Count - 1)
-				PluginManager.SetPluginOrderIndex(p_plgPlugin, intOldIndex + 1);
+			Int32 intIndex = -1;
+			foreach (Plugin plgPlugin in p_lstPlugins)
+			{
+				if (intIndex == -1)
+				{
+					intIndex = PluginManager.ManagedPlugins.IndexOf(plgPlugin) + 1;
+					while ((intIndex < PluginManager.ManagedPlugins.Count) && p_lstPlugins.Contains(PluginManager.ManagedPlugins[intIndex]))
+						intIndex++;
+				}
+				if (intIndex >= PluginManager.ManagedPlugins.Count)
+					intIndex--;
+				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex++);
+			}
 		}
 
 		/// <summary>
 		/// Determines if the given plugin can be moved up in the load order.
 		/// </summary>
 		/// <param name="p_plgPlugin">The plugin for which it is to be determined if the load order can be decreased.</param>
-		/// <returns><c>true</c> if the given plugin's load oder can be decreased;
+		/// <returns><c>true</c> if the given plugin's load order can be decreased;
 		/// <c>false</c> otherwise.</returns>
 		public bool CanMovePluginUp(Plugin p_plgPlugin)
 		{
@@ -205,19 +221,32 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
-		/// Determines if the given plugin can be moved down in the load order.
+		/// Determines if the given plugins can be moved down in the load order.
 		/// </summary>
-		/// <param name="p_plgPlugin">The plugin for which it is to be determined if the load order can be increased.</param>
-		/// <returns><c>true</c> if the given plugin's load oder can be increased;
+		/// <param name="p_lstPlugins">The plugins for which it is to be determined if the load order can be increased.</param>
+		/// <returns><c>true</c> if the given plugins' load orders can be increased;
 		/// <c>false</c> otherwise.</returns>
-		public bool CanMovePluginDown(Plugin p_plgPlugin)
+		public bool CanMovePluginsDown(IList<Plugin> p_lstPlugins)
 		{
-			Int32 intOldIndex = PluginManager.ManagedPlugins.IndexOf(p_plgPlugin);
-			if ((intOldIndex < 0) || (intOldIndex > PluginManager.ManagedPlugins.Count - 2))
-				return false;
-			List<Plugin> lstPlugins = new List<Plugin>(PluginManager.ManagedPlugins);
-			lstPlugins.Swap(intOldIndex, intOldIndex + 1);
-			return PluginManager.ValidateOrder(lstPlugins);
+			Int32 intNewIndex = -1;
+			List<Plugin> lstNewOrder = new List<Plugin>(PluginManager.ManagedPlugins);
+			foreach (Plugin plgPlugin in p_lstPlugins)
+			{
+				if (intNewIndex == -1)
+				{
+					Int32 intOldIndex = PluginManager.ManagedPlugins.IndexOf(plgPlugin);
+					if ((intOldIndex < 0) || (intOldIndex > PluginManager.ManagedPlugins.Count - 2))
+						return false;
+					intNewIndex = intOldIndex + 1;
+					while ((intNewIndex < PluginManager.ManagedPlugins.Count) && p_lstPlugins.Contains(PluginManager.ManagedPlugins[intNewIndex]))
+						intNewIndex++;
+				}
+				if (intNewIndex >= PluginManager.ManagedPlugins.Count)
+					intNewIndex--;
+				lstNewOrder.Remove(plgPlugin);
+				lstNewOrder.Insert(intNewIndex, plgPlugin);
+			}
+			return PluginManager.ValidateOrder(lstNewOrder);
 		}
 
 		#endregion

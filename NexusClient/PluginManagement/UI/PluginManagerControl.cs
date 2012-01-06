@@ -48,8 +48,8 @@ namespace Nexus.Client.PluginManagement.UI
 				m_vmlViewModel.ManagedPlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedPlugins_CollectionChanged);
 				m_vmlViewModel.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
 
-				new ToolStripItemCommandBinding<Plugin>(tsbMoveUp, m_vmlViewModel.MoveUpCommand, GetSelectedPlugin);
-				new ToolStripItemCommandBinding<Plugin>(tsbMoveDown, m_vmlViewModel.MoveDownCommand, GetSelectedPlugin);
+				new ToolStripItemCommandBinding<IEnumerable<Plugin>>(tsbMoveUp, m_vmlViewModel.MoveUpCommand, GetSelectedPlugins);
+				new ToolStripItemCommandBinding<IList<Plugin>>(tsbMoveDown, m_vmlViewModel.MoveDownCommand, GetSelectedPlugins);
 				ViewModel.ActivatePluginCommand.CanExecute = false;
 				ViewModel.DeactivatePluginCommand.CanExecute = false;
 				ViewModel.MoveUpCommand.CanExecute = false;
@@ -150,6 +150,21 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Retruns the plugins that are currently selected in the view.
+		/// </summary>
+		/// <returns>The plugins that are currently selected in the view, or
+		/// <c>null</c> if no plugin is selected.</returns>
+		private IList<Plugin> GetSelectedPlugins()
+		{
+			if (rlvPlugins.SelectedItems.Count == 0)
+				return null;
+			List<Plugin> lstPlugins = new List<Plugin>();
+			foreach (ListViewItem lviPlugin in rlvPlugins.SelectedItems)
+				lstPlugins.Add((Plugin)lviPlugin.Tag);
+			return lstPlugins;
+		}
+
+		/// <summary>
 		/// Sets the executable status of the commands.
 		/// </summary>
 		protected void SetCommandExecutableStatus()
@@ -159,7 +174,7 @@ namespace Nexus.Client.PluginManagement.UI
 				ViewModel.DeactivatePluginCommand.CanExecute = ViewModel.ActivePlugins.Contains(GetSelectedPlugin());
 				ViewModel.ActivatePluginCommand.CanExecute = !ViewModel.DeactivatePluginCommand.CanExecute;
 				ViewModel.MoveUpCommand.CanExecute = ViewModel.CanMovePluginUp(GetSelectedPlugin());
-				ViewModel.MoveDownCommand.CanExecute = ViewModel.CanMovePluginDown(GetSelectedPlugin());
+				ViewModel.MoveDownCommand.CanExecute = ViewModel.CanMovePluginsDown(GetSelectedPlugins());
 			}
 			else
 			{
