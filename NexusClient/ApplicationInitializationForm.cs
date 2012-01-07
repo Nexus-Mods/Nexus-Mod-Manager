@@ -346,7 +346,9 @@ namespace Nexus.Client
 			else
 				DialogResult = DialogResult.Cancel;
 			m_drtLastDialogResult = DialogResult;
-			if (!String.IsNullOrEmpty(e.Message))
+			if (e.ReturnValue != null)
+				ShowMessage((ViewMessage)e.ReturnValue);
+			else if (!String.IsNullOrEmpty(e.Message))
 				MessageBox.Show(this, e.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			//only try to close the form if it has been created
 			// otherwise Close() can get called before the form is shown,
