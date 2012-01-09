@@ -306,10 +306,10 @@ namespace Nexus.Client
 		/// <param name="e">A <see cref="GameLaunchEventArgs"/> describing the event arguments.</param>
 		private void GameLauncher_GameLaunched(object sender, GameLaunchEventArgs e)
 		{
-			if (e.Launched && ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
-				Close();
-			else
+			if (!e.Launched)
 				MessageBox.Show(this, e.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			else if (ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
+				Close();
 		}
 
 		#endregion
