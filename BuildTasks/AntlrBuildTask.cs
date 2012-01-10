@@ -108,7 +108,7 @@ namespace BuildTasks
 			stbCompileCommand.AppendFormat(@"-jar ""{0}"" ", AntlrJarPath);
 			foreach (string strLibPath in lstLibPaths)
 				stbCompileCommand.AppendFormat(@"-lib ""{0}"" ", strLibPath);
-			stbCompileCommand.Append(GrammarFile);
+			stbCompileCommand.AppendFormat("\"{0}\"", GrammarFile);
 
 			ProcessStartInfo psiStartInfo = new ProcessStartInfo(JavaPath, stbCompileCommand.ToString());
 			psiStartInfo.WindowStyle = ProcessWindowStyle.Hidden;
