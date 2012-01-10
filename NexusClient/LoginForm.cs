@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.Util;
+using Nexus.Client.Controls;
 
 namespace Nexus.Client
 {
@@ -78,6 +79,8 @@ namespace Nexus.Client
 		private void lblError_TextChanged(object sender, EventArgs e)
 		{
 			lblError.Visible = !String.IsNullOrEmpty(lblError.Text);
+			//force the form to resize
+			PerformLayout();
 		}
 
 		/// <summary>
