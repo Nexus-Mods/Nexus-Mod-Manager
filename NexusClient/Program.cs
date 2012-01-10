@@ -8,6 +8,8 @@ using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.Util.Threading;
 using Nexus.Client.Util;
+using Microsoft.Win32;
+using System.Globalization;
 
 namespace Nexus.Client
 {
@@ -131,6 +133,16 @@ namespace Nexus.Client
 			StringBuilder stbStatus = new StringBuilder();
 			stbStatus.AppendFormat("Mod Manager Version: {0}{1}", Assembly.GetExecutingAssembly().GetName().Version, p_eifEnvironmentInfo.IsMonoMode ? "(mono)" : "").AppendLine();
 			stbStatus.AppendFormat("OS version: {0}", Environment.OSVersion.ToString()).AppendLine();
+
+			stbStatus.AppendLine("Installed .NET Versions:");
+			RegistryKey rkyIinstalledVersions = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP"); 
+			string[] strVersionNames = rkyIinstalledVersions.GetSubKeyNames();
+			foreach (string strFrameworkVersion in strVersionNames)
+			{
+				string strSP = rkyIinstalledVersions.OpenSubKey(strFrameworkVersion).GetValue("SP", 0).ToString();
+				stbStatus.AppendFormat("\t{0} SP {1}", strFrameworkVersion, strSP).AppendLine();				
+			}
+			
 			stbStatus.AppendFormat("Tracing is forced: {0}", p_booForceTrace).AppendLine();
 			Trace.TraceInformation(stbStatus.ToString());
 		}
