@@ -60,9 +60,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/{p_strModId}/Files/{p_strFileId}/DownloadTest/",
+			UriTemplate = "Mods/{p_strModId}/Files/{p_strFileId}/DownloadMulti/",
 			ResponseFormat = WebMessageFormat.Json)]
-		string GetModFileDownloadUrls(string p_strModId, string p_strFileId);
+		string[] GetModFileDownloadUrls(string p_strModId, string p_strFileId);
 
 		/// <summary>
 		/// Finds the mods containing the given search terms.

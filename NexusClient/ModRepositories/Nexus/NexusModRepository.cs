@@ -415,13 +415,14 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public Uri[] GetFilePartUrls(string p_strModId, string p_strFileId)
 		{
-			Uri uriDownloadUrl = null;
+			List<Uri> lstDownloadUrls = new List<Uri>();
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					uriDownloadUrl = new Uri(nmrApi.GetModFileDownloadUrls(p_strModId, p_strFileId));
+					foreach (string strUrl in nmrApi.GetModFileDownloadUrls(p_strModId, p_strFileId))
+						lstDownloadUrls.Add(new Uri(strUrl));
 				}
 			}
 			catch (TimeoutException e)
@@ -436,7 +437,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
-			return new Uri[] { uriDownloadUrl };
+			return lstDownloadUrls.ToArray();
 		}
 
 		/// <summary>
