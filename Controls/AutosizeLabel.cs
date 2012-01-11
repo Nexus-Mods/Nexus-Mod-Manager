@@ -138,6 +138,17 @@ namespace Nexus.Client.Controls
 			}
 
 			/// <summary>
+			/// Resizes the label as the content size changes.
+			/// </summary>
+			/// <param name="e">A <see cref="ContentsResizedEventArgs"/> describing the event arguments.</param>
+			protected override void OnContentsResized(ContentsResizedEventArgs e)
+			{
+				if (!AllowSelection)
+					Height = e.NewRectangle.Height + 5;
+				base.OnContentsResized(e);
+			}
+
+			/// <summary>
 			/// Forces the text color not to look disabled.
 			/// </summary>
 			protected void SetTextColor()
@@ -466,7 +477,8 @@ namespace Nexus.Client.Controls
 		/// <param name="e">A <see cref="ContentsResizedEventArgs"/> describing the event arguments.</param>
 		private void Label_ContentsResized(object sender, ContentsResizedEventArgs e)
 		{
-			Height = e.NewRectangle.Height + 5;
+			if (AllowSelection)
+				Height = e.NewRectangle.Height + 5;
 		}
 
 		/// <summary>
