@@ -67,6 +67,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_gmdGameMode">The game mode for which mods are being managed.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="p_mrgModRegistry">The <see cref="ModRegistry"/> that contains the list of managed <see cref="IMod"/>s.</param>
 		/// <param name="p_frgFormatRegistry">The <see cref="IModFormatRegistry"/> that contains the list
 		/// of supported <see cref="IModFormat"/>s.</param>
 		/// <param name="p_mrpModRepository">The mod repository from which to get mods and mod metadata.</param>
