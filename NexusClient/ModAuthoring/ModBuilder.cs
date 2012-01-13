@@ -204,7 +204,6 @@ namespace Nexus.Client.ModAuthoring
 			string strTmpPath = null;
 			try
 			{
-				Int32 intFileCount = 0;
 				using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
 				{
 					if ((mftDestFormat != null) && (szeExtractor.VolumeFileNames.Count > 1) ||
@@ -212,8 +211,7 @@ namespace Nexus.Client.ModAuthoring
 					{
 						ItemMessage = "Extracting archive...";
 						ItemProgress = 0;
-						intFileCount = szeExtractor.ArchiveFileNames.Count;
-						ItemProgressMaximum = intFileCount;
+						ItemProgressMaximum = szeExtractor.ArchiveFileNames.Count;
 						strTmpPath = FileUtility.CreateTempDirectory();
 						szeExtractor.FileExtractionStarted += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionStarted);
 						szeExtractor.FileExtractionFinished += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionFinished);
@@ -233,7 +231,7 @@ namespace Nexus.Client.ModAuthoring
 						return lstFoundMods;
 					ItemMessage = "Compressing mod...";
 					ItemProgress = 0;
-					ItemProgressMaximum = intFileCount;
+					ItemProgressMaximum = Directory.GetFiles(strTmpPath, "*", SearchOption.AllDirectories).Length;
 					IModCompressor mcpCompressor = mftDestFormat.GetModCompressor(EnvironmentInfo);
 					mcpCompressor.FileCompressionFinished += new CancelEventHandler(Compressor_FileCompressionFinished);
 					string strDest = Path.Combine(GameModeInfo.ModDirectory, Path.GetFileName(p_strArchivePath));

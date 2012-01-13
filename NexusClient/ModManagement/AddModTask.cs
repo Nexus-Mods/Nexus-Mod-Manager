@@ -22,6 +22,7 @@ namespace Nexus.Client.ModManagement
 	{
 		private IGameMode m_gmdGameMode = null;
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
+		private ModRegistry m_mrgModRegistry = null;
 		private IModRepository m_mrpModRepository = null;
 		private IModFormatRegistry m_mfrModFormatRegistry = null;
 		private ConfirmOverwriteCallback m_cocConfirmOverwrite = null;
@@ -71,10 +72,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_mrpModRepository">The mod repository from which to get mods and mod metadata.</param>
 		/// <param name="p_uriPath">The path to the mod to add.</param>
 		/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
-		public AddModTask(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModFormatRegistry p_frgFormatRegistry, IModRepository p_mrpModRepository, Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
+		public AddModTask(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, ModRegistry p_mrgModRegistry, IModFormatRegistry p_frgFormatRegistry, IModRepository p_mrpModRepository, Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
 			m_gmdGameMode = p_gmdGameMode;
 			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
+			m_mrgModRegistry = p_mrgModRegistry;
 			m_mfrModFormatRegistry = p_frgFormatRegistry;
 			m_mrpModRepository = p_mrpModRepository;
 			m_uriPath = p_uriPath;
@@ -125,13 +127,13 @@ namespace Nexus.Client.ModManagement
 			{
 				if (Descriptor.DownloadFiles.IsNullOrEmpty())
 				{
-					OverallProgressMaximum = 4;
+					OverallProgressMaximum = 5;
 					AddModFile(m_cocConfirmOverwrite);
 				}
 				else
 				{
 					m_intOverallProgressOffset = 1;
-					OverallProgressMaximum = 5;
+					OverallProgressMaximum = 6;
 					ItemProgressMaximum = 0;
 					ItemMessage = String.Format("Downloading {0}...", GetModDisplayName());
 					DownloadFiles(Descriptor.DownloadFiles);
@@ -374,10 +376,7 @@ namespace Nexus.Client.ModManagement
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage)))
 				ItemMessage = ((IBackgroundTask)sender).ItemMessage;
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)))
-			{
-				if (ItemProgress < ((IBackgroundTask)sender).ItemProgress)
-					ItemProgress = ((IBackgroundTask)sender).ItemProgress;
-			}
+				ItemProgress = ((IBackgroundTask)sender).ItemProgress;
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgressMaximum)))
 			{
 				ItemProgressMaximum = ((IBackgroundTask)sender).ItemProgressMaximum;
@@ -401,12 +400,7 @@ namespace Nexus.Client.ModManagement
 			if (Status == TaskStatus.Running)
 			{
 				if (e.Status == TaskStatus.Complete)
-				{
-					OverallMessage = String.Format("{0} has been added", GetModDisplayName());
-					ItemMessage = "Finished copying";
-					Status = TaskStatus.Complete;
-					OnTaskEnded(e.ReturnValue);
-				}
+					RegisterModFiles((IList<string>)e.ReturnValue);
 				else
 				{
 					OverallMessage = String.Format("{0} can't be added.", GetModDisplayName());
@@ -417,6 +411,38 @@ namespace Nexus.Client.ModManagement
 					OnTaskEnded(e.Message, e.ReturnValue);
 				}
 			}
+		}
+
+		#endregion
+
+		#region Mod Registration
+
+		/// <summary>
+		/// Registers the given mods with the registry.
+		/// </summary>
+		/// <param name="p_lstAddedMods">The mads that have been added and need to be registered with the manager.</param>
+		protected void RegisterModFiles(IList<string> p_lstAddedMods)
+		{
+			OverallMessage = "Adding mods to manager...";
+			ItemMessage = "Registering Mods...";	
+			if (p_lstAddedMods != null)
+			{
+				ItemProgress = 0;
+				ItemProgressMaximum = p_lstAddedMods.Count;
+				foreach (string strMod in p_lstAddedMods)
+				{
+					if (m_eifEnvironmentInfo.Settings.AddMissingInfoToMods)
+						m_mrgModRegistry.RegisterMod(strMod, ModInfo);
+					else
+						m_mrgModRegistry.RegisterMod(strMod);
+					StepItemProgress();
+				}
+			}
+			StepOverallProgress();
+			OverallMessage = String.Format("{0} has been added", GetModDisplayName());
+			ItemMessage = "Finished adding mod.";
+			Status = TaskStatus.Complete;
+			OnTaskEnded(null, null);
 		}
 
 		#endregion
