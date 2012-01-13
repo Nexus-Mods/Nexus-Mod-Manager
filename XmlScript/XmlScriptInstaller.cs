@@ -68,8 +68,17 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			OverallProgressStepSize = 1;
 			ItemProgressStepSize = 1;
 			ShowItemProgress = true;
-			bool booSuccess = InstallFiles(p_xscScript, p_csmStateManager, p_colFilesToInstall, p_colPluginsToActivate);
-			Status = Status == TaskStatus.Cancelling ? TaskStatus.Cancelled : TaskStatus.Complete;
+			bool booSuccess = false;
+			try
+			{
+				booSuccess = InstallFiles(p_xscScript, p_csmStateManager, p_colFilesToInstall, p_colPluginsToActivate);
+				Status = Status == TaskStatus.Cancelling ? TaskStatus.Cancelled : TaskStatus.Complete;
+			}
+			catch
+			{
+				booSuccess = false;
+				Status = TaskStatus.Error;
+			}
 			OnTaskEnded(booSuccess);
 			return booSuccess;
 		}
