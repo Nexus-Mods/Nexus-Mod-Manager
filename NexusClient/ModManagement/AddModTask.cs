@@ -87,17 +87,6 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		/// <summary>
-		/// Gets the name of the mod to use for display.
-		/// </summary>
-		/// <returns>The name of the mod to use for display.</returns>
-		private string GetModDisplayName()
-		{
-			if ((ModInfo == null) || String.IsNullOrEmpty(ModInfo.ModName))
-				return Path.GetFileNameWithoutExtension(Descriptor.DefaultSourcePath);
-			return ModInfo.ModName;
-		}
-
-		/// <summary>
 		/// Starts the mod adding task.
 		/// </summary>
 		public void AddMod()
@@ -140,6 +129,17 @@ namespace Nexus.Client.ModManagement
 					DownloadFiles(Descriptor.DownloadFiles);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Gets the name of the mod to use for display.
+		/// </summary>
+		/// <returns>The name of the mod to use for display.</returns>
+		private string GetModDisplayName()
+		{
+			if ((ModInfo == null) || String.IsNullOrEmpty(ModInfo.ModName))
+				return Path.GetFileNameWithoutExtension(Descriptor.DefaultSourcePath);
+			return ModInfo.ModName;
 		}
 
 		/// <summary>
