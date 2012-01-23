@@ -112,12 +112,15 @@
       <Name>XmlScript</Name>
     </ProjectReference>
   </ItemGroup>
-  <PropertyGroup>
-    <UseHostCompilerIfAvailable>False</UseHostCompilerIfAvailable>
-  </PropertyGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="$(SolutionDir)\lib\Antlr.targets" />
   <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />
+  <PropertyGroup>
+    <!-- Folder containing AntlrBuildTask.dll -->
+    <AntlrBuildTaskPath>$(SolutionDir)\lib\Antlr</AntlrBuildTaskPath>
+    <!-- Path to the ANTLR Tool itself. -->
+    <AntlrToolPath>$(SolutionDir)\lib\Antlr\Antlr3.exe</AntlrToolPath>
+  </PropertyGroup>
+  <Import Project="$(SolutionDir)\lib\Antlr\Antlr3.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
