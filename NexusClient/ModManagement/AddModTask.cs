@@ -274,11 +274,12 @@ namespace Nexus.Client.ModManagement
 		{
 			if (m_booFinishedDownloads)
 				return;
+            FileDownloadTask fdtDownloader = (FileDownloadTask)sender;
 			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)))
 			{
 				Int32 intLastProgress = 0;
-				if (m_dicLastProgress.ContainsKey((IBackgroundTask)sender))
-					intLastProgress = m_dicLastProgress[(IBackgroundTask)sender];
+                if (m_dicLastProgress.ContainsKey(fdtDownloader))
+                    intLastProgress = m_dicLastProgress[fdtDownloader];
 				else if (m_dicLastProgress.Count == 0)
 				{
 					//this means this is the first update, or the first update after
@@ -286,14 +287,15 @@ namespace Nexus.Client.ModManagement
 					// to be the last progress
 					intLastProgress = ItemProgress;
 				}
-				if (intLastProgress < ((IBackgroundTask)sender).OverallProgress)
-					ItemProgress += ((IBackgroundTask)sender).OverallProgress - intLastProgress;
-				m_dicLastProgress[(IBackgroundTask)sender] = ((IBackgroundTask)sender).OverallProgress;
+                if (intLastProgress < fdtDownloader.OverallProgress)
+                    ItemProgress += fdtDownloader.OverallProgress - intLastProgress;
+                m_dicLastProgress[fdtDownloader] = fdtDownloader.OverallProgress;
 			}
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgressMaximum)))
 			{
-				ItemProgressMaximum += ((IBackgroundTask)sender).OverallProgressMaximum;
+                ItemProgressMaximum += fdtDownloader.OverallProgressMaximum;
 			}
+            ItemMessage = String.Format("Downloading {0} kb/s - {1:00}:{2:00}...", fdtDownloader.DownloadSpeed / 1024, fdtDownloader.TimeRemaining.TotalMinutes, fdtDownloader.TimeRemaining.Seconds);
 		}
 
 		/// <summary>

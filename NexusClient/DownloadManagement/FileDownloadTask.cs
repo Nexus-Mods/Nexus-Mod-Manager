@@ -99,6 +99,34 @@ namespace Nexus.Client.DownloadManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the download speed, in bytes per second.
+		/// </summary>
+		/// <value>The download speed, in bytes per second.</value>
+		public Int32 DownloadSpeed
+		{
+			get
+			{
+				if (m_fdrDownloader == null)
+					return 0;
+				return m_fdrDownloader.DownloadSpeed;
+			}
+		}
+
+		/// <summary>
+		/// Gets the time remaining to download the file.
+		/// </summary>
+		/// <value>The time remaining to download the file.</value>
+		public TimeSpan TimeRemaining
+		{
+			get
+			{
+				if (m_fdrDownloader == null)
+					return TimeSpan.MinValue;
+				return m_fdrDownloader.TimeRemaining;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
