@@ -20,13 +20,50 @@ namespace Nexus.Client.ModManagement
 	/// </summary>
 	public class AddModTask : BackgroundTask, IDisposable
 	{
+		private class DownloadProgressState
+		{
+			public Int32 OverallProgress { get; set; }
+			public Int32 OverallProgressMinimum { get; set; }
+			public Int32 OverallProgressMaximum { get; set; }
+			public Int32 AdjustedProgress
+			{
+				get
+				{
+					return OverallProgress - OverallProgressMinimum;
+				}
+			}
+			public Int32 AdjustedProgressMaximum
+			{
+				get
+				{
+					return OverallProgressMaximum - OverallProgressMinimum;
+				}
+			}
+			public Int32 DownloadSpeed { get; set; }
+			public TimeSpan TimeRemaining { get; set; }
+
+			public DownloadProgressState(FileDownloadTask p_fdtTask)
+			{
+				Update(p_fdtTask);
+			}
+
+			public void Update(FileDownloadTask p_fdtTask)
+			{
+				OverallProgress = p_fdtTask.OverallProgress;
+				OverallProgressMinimum = p_fdtTask.OverallProgressMinimum;
+				OverallProgressMaximum = p_fdtTask.OverallProgressMaximum;
+				DownloadSpeed = p_fdtTask.DownloadSpeed;
+				TimeRemaining = p_fdtTask.TimeRemaining;
+			}
+		}
+
 		private IGameMode m_gmdGameMode = null;
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
 		private ModRegistry m_mrgModRegistry = null;
 		private IModRepository m_mrpModRepository = null;
 		private IModFormatRegistry m_mfrModFormatRegistry = null;
 		private ConfirmOverwriteCallback m_cocConfirmOverwrite = null;
-		private Dictionary<IBackgroundTask, Int32> m_dicLastProgress = new Dictionary<IBackgroundTask, Int32>();
+		private Dictionary<IBackgroundTask, DownloadProgressState> m_dicDownloaderProgress = new Dictionary<IBackgroundTask, DownloadProgressState>();
 		private List<IBackgroundTask> m_lstRunningTasks = new List<IBackgroundTask>();
 		private bool m_booFinishedDownloads = false;
 		private Int32 m_intOverallProgressOffset = 0;
@@ -209,7 +246,7 @@ namespace Nexus.Client.ModManagement
 							Trace.TraceError("Invalid Nexus URI: " + p_uriPath.ToString());
 							return null;
 						}
-						
+
 						IModFileInfo mfiFile = null;
 						Uri[] uriFilesToDownload = null;
 						try
@@ -274,28 +311,44 @@ namespace Nexus.Client.ModManagement
 		{
 			if (m_booFinishedDownloads)
 				return;
-            FileDownloadTask fdtDownloader = (FileDownloadTask)sender;
-			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)))
+			FileDownloadTask fdtDownloader = (FileDownloadTask)sender;
+			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)) ||
+				e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgressMaximum)))
 			{
 				Int32 intLastProgress = 0;
-                if (m_dicLastProgress.ContainsKey(fdtDownloader))
-                    intLastProgress = m_dicLastProgress[fdtDownloader];
-				else if (m_dicLastProgress.Count == 0)
+				if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
+					intLastProgress = m_dicDownloaderProgress[fdtDownloader].OverallProgress;
+				else if (m_dicDownloaderProgress.Count == 0)
 				{
 					//this means this is the first update, or the first update after
 					// the task was resumed, so the current item progress can be assumed
 					// to be the last progress
 					intLastProgress = ItemProgress;
 				}
-                if (intLastProgress < fdtDownloader.OverallProgress)
-                    ItemProgress += fdtDownloader.OverallProgress - intLastProgress;
-                m_dicLastProgress[fdtDownloader] = fdtDownloader.OverallProgress;
+				if (intLastProgress <= fdtDownloader.OverallProgress)
+					if (!m_dicDownloaderProgress.ContainsKey(fdtDownloader))
+						m_dicDownloaderProgress[fdtDownloader] = new DownloadProgressState(fdtDownloader);
+					else
+						m_dicDownloaderProgress[fdtDownloader].Update(fdtDownloader);
+				Int32 intProgress = 0;
+				Int32 intProgressMaximum = 0;
+				Int32 intSpeed = 0;
+				TimeSpan tspTimeRemaining = TimeSpan.Zero;
+				foreach (DownloadProgressState dpsState in m_dicDownloaderProgress.Values)
+				{
+					intProgress += dpsState.AdjustedProgress;
+					intProgressMaximum += dpsState.AdjustedProgressMaximum;
+					intSpeed += dpsState.DownloadSpeed;
+					tspTimeRemaining += dpsState.TimeRemaining;
+				}
+				ItemProgress = intProgress;
+				ItemProgressMaximum = intProgressMaximum;
+
+				intSpeed /= m_dicDownloaderProgress.Count;
+				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
+				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
+				ItemMessage = String.Format("Downloading: ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds);
 			}
-			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgressMaximum)))
-			{
-                ItemProgressMaximum += fdtDownloader.OverallProgressMaximum;
-			}
-            ItemMessage = String.Format("Downloading {0} kb/s - {1:00}:{2:00}...", fdtDownloader.DownloadSpeed / 1024, fdtDownloader.TimeRemaining.TotalMinutes, fdtDownloader.TimeRemaining.Seconds);
 		}
 
 		/// <summary>
@@ -427,7 +480,7 @@ namespace Nexus.Client.ModManagement
 		protected void RegisterModFiles(IList<string> p_lstAddedMods)
 		{
 			OverallMessage = "Adding mods to manager...";
-			ItemMessage = "Registering Mods...";	
+			ItemMessage = "Registering Mods...";
 			if (p_lstAddedMods != null)
 			{
 				ItemProgress = 0;
@@ -496,7 +549,7 @@ namespace Nexus.Client.ModManagement
 			if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete))
 				throw new InvalidOperationException("Task is not paused.");
 			m_lstRunningTasks.Clear();
-			m_dicLastProgress.Clear();
+			m_dicDownloaderProgress.Clear();
 			AddMod();
 		}
 
