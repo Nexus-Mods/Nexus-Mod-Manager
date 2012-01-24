@@ -339,7 +339,8 @@ namespace Nexus.Client.ModManagement
 					intProgress += dpsState.AdjustedProgress;
 					intProgressMaximum += dpsState.AdjustedProgressMaximum;
 					intSpeed += dpsState.DownloadSpeed;
-					tspTimeRemaining += dpsState.TimeRemaining;
+					if (tspTimeRemaining < dpsState.TimeRemaining)
+						tspTimeRemaining = dpsState.TimeRemaining;
 				}
 				ItemProgress = intProgress;
 				ItemProgressMaximum = intProgressMaximum;
