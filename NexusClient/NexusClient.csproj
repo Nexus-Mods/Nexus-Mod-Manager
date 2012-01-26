@@ -191,11 +191,15 @@
     <Content Include="data\7z-64bit.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\TxFileMAnager Licence.txt" />
-    <Content Include="data\Nexus Mod Manager Licence.rtf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <None Include="data\Licence.rtf" />
+    <None Include="data\TxFileMAnager Licence.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data\Nexus Mod Manager Licence.rtf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data\Licence.rtf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="Resources\down.png" />
     <None Include="Resources\change_game_mode.png" />
     <None Include="Resources\media-playback-pause-7.png" />
