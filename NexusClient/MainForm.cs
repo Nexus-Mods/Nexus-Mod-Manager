@@ -1,23 +1,21 @@
 ﻿using System;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
+using Nexus.Client.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
-using Nexus.Client.Settings.UI;
-using Nexus.Client.Util;
-using Nexus.Client.Updating;
-using Nexus.Client.Controls;
-using Nexus.Client.UI;
-using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.PluginManagement.UI;
+using Nexus.Client.Settings.UI;
+using Nexus.Client.UI;
+using Nexus.Client.Util;
 using WeifenLuo.WinFormsUI.Docking;
-using System.Collections.Specialized;
-using System.IO;
 
 namespace Nexus.Client
 {
