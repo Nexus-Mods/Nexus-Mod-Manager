@@ -110,6 +110,13 @@ namespace Nexus.Client
 
 		#endregion
 
+		/// <summary>
+		/// Initializes the main UI components.
+		/// </summary>
+		/// <remarks>
+		/// If the metrics of the various UI components have been saved, they are loaded. Otherwise,
+		/// the default layout is applied.
+		/// </remarks>
 		protected void InitializeDocuments()
 		{	
 			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm"))
@@ -162,16 +169,21 @@ namespace Nexus.Client
 			}
 		}
 
-		protected IDockContent LoadDockedContent(string f)
+		/// <summary>
+		/// Returns the UI component being requested when the form's metrics are being loaded.
+		/// </summary>
+		/// <param name="p_strContentId">The id of the component to return to be positioned.</param>
+		/// <returns>The component to return to be positioned.</returns>
+		protected IDockContent LoadDockedContent(string p_strContentId)
 		{
-			if (f == typeof(PluginManagerControl).ToString())
+			if (p_strContentId == typeof(PluginManagerControl).ToString())
 				return pmcPluginManager;
-			else if (f == typeof(ModManagerControl).ToString())
+			else if (p_strContentId == typeof(ModManagerControl).ToString())
 				return mmgModManager;
-			else if (f == typeof(ActivityMonitorControl).ToString())
+			else if (p_strContentId == typeof(ActivityMonitorControl).ToString())
 				return amcActivityMonitor;
 			else
-				throw new Exception("Unrecognized Dock Windows: " + f);
+				throw new Exception("Unrecognized Dock Window: " + p_strContentId);
 		}
 
 		#endregion

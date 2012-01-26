@@ -28,7 +28,8 @@ namespace Nexus.Client.ModManagement.UI
 		private bool m_booResizing = false;
 		private Timer m_tmrColumnSizer = new Timer();
 		private ListViewItem.ListViewSubItem m_lsiLastSelectedWebVersion = null;
-
+		private bool m_booControlIsLoaded = false;
+		
 		#region Properties
 
 		/// <summary>
@@ -128,7 +129,9 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		bool m_booControlIsLoaded = false;
+		/// <summary>
+		/// Loads the control's saved metrics.
+		/// </summary>
 		protected void LoadMetrics()
 		{
 			if (m_booControlIsLoaded && (ViewModel != null))

@@ -20,7 +20,8 @@ namespace Nexus.Client.ActivityMonitoring.UI
 		private Timer m_tmrColumnSizer = new Timer();
 		private string m_strTitleAllActive = "Download Manager ({0})";
 		private string m_strTitleSomeActive = "Download Manager ({0}/{1})";
-
+		private bool m_booControlIsLoaded = false;
+		
 		#region Properties
 
 		/// <summary>
@@ -100,7 +101,9 @@ namespace Nexus.Client.ActivityMonitoring.UI
 			}
 		}
 
-		bool m_booControlIsLoaded = false;
+		/// <summary>
+		/// Loads the control's saved metrics.
+		/// </summary>
 		protected void LoadMetrics()
 		{
 			if (m_booControlIsLoaded && (ViewModel != null))

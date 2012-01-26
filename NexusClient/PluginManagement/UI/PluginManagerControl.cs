@@ -21,7 +21,8 @@ namespace Nexus.Client.PluginManagement.UI
 		private bool m_booResizing = false;
 		private bool m_booSettingPluginActiveCheck = false;
 		private Timer m_tmrColumnSizer = new Timer();
-
+		private bool m_booControlIsLoaded = false;
+		
 		#region Properties
 
 		/// <summary>
@@ -99,7 +100,9 @@ namespace Nexus.Client.PluginManagement.UI
 			}
 		}
 
-		bool m_booControlIsLoaded = false;
+		/// <summary>
+		/// Loads the control's saved metrics.
+		/// </summary>
 		protected void LoadMetrics()
 		{
 			if (m_booControlIsLoaded && (ViewModel != null))
