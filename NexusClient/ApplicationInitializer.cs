@@ -550,11 +550,13 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] = new KeyedSettings<string>();
 
 			Dictionary<string, string> dicAuthTokens = new Dictionary<string, string>(EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id]);
-			if ((dicAuthTokens.Count == 0) || !p_mrpModRepository.Login(dicAuthTokens))
+			bool booCredentialsExpired = false;
+			if ((dicAuthTokens.Count == 0) || (booCredentialsExpired = !p_mrpModRepository.Login(dicAuthTokens)))
 			{
 				string strMessage = String.Format("You must log into the {0} website.", p_mrpModRepository.Name);
 				string strCancelWarning = String.Format("If you do not login {0} will close.", EnvironmentInfo.Settings.ModManagerName);
-				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, strMessage, strCancelWarning);
+				string strError = booCredentialsExpired ? "Your login has expired. Please login again." : null;
+				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, strMessage, strError, strCancelWarning);
 				return LoginUser(vmlLoginVM);
 			}
 			return true;
