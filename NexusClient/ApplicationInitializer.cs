@@ -235,6 +235,8 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
 			if (EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
 				EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
+			if (EnvironmentInfo.Settings.DelayedSettings["ALL"] == null)
+				EnvironmentInfo.Settings.DelayedSettings["ALL"] = new KeyedSettings<string>();
 			StepOverallProgress();
 
 			if (!ApplyDelayedSettings(p_gmfGameModeFactory.GameModeDescriptor.ModeId, out p_vwmErrorMessage))
@@ -371,55 +373,65 @@ namespace Nexus.Client
 
 		#region Support
 
-		private bool ApplyDelayedSettings(string p_strGameModeId, out ViewMessage p_vwmErrorMessage)
+		protected bool ApplyDelayedSettings(string p_strGameModeId, out ViewMessage p_vwmErrorMessage)
 		{
-			if (EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId] == null)
+			if ((EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId] == null) || (EnvironmentInfo.Settings.DelayedSettings["ALL"] == null))
 			{
 				p_vwmErrorMessage = null;
 				return true;
 			}
-			Type tpeSettings = EnvironmentInfo.Settings.GetType();
-			foreach (KeyValuePair<string, string> kvpSetting in EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId])
-			{
-				string[] strPropertyIndexers = kvpSetting.Key.Split(new char[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
-				if (strPropertyIndexers.Length == 0)
-				{
-					p_vwmErrorMessage = new ViewMessage("Missing Setting name.", "Missing Setting Name");
+			foreach (KeyValuePair<string, string> kvpSetting in EnvironmentInfo.Settings.DelayedSettings["ALL"])
+				if (!ApplyDelayedSetting(kvpSetting.Key, kvpSetting.Value, out p_vwmErrorMessage))
 					return false;
-				}
+			EnvironmentInfo.Settings.DelayedSettings["ALL"].Clear();
+			foreach (KeyValuePair<string, string> kvpSetting in EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId])
+				if (!ApplyDelayedSetting(kvpSetting.Key, kvpSetting.Value, out p_vwmErrorMessage))
+					return false;
+			EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId].Clear();
+			p_vwmErrorMessage = null;
+			return true;
+		}
 
-				PropertyInfo pifSetting = EnvironmentInfo.GetType().GetProperty("Settings");
-				object objSetting = EnvironmentInfo;
-				for (Int32 i = 0; i < strPropertyIndexers.Length; i++)
-				{
-					if (pifSetting.GetIndexParameters().Length == 1)
-						objSetting = pifSetting.GetValue(objSetting, new object[] { strPropertyIndexers[i] });
-					else if (pifSetting.GetIndexParameters().Length == 0)
-						objSetting = pifSetting.GetValue(objSetting, null);
-					else
-					{
-						p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", kvpSetting.Key), "Invalid Setting");
-						return false;
-					}
-					tpeSettings = objSetting.GetType();
-					pifSetting = tpeSettings.GetProperty(strPropertyIndexers[i]) ?? tpeSettings.GetProperty("Item");
-					if (pifSetting == null)
-					{
-						p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Setting does not exist.", kvpSetting.Key), "Invalid Setting");
-						return false;
-					}
-				}
+		protected bool ApplyDelayedSetting(string p_strKey, string p_strValue, out ViewMessage p_vwmErrorMessage)
+		{
+			string[] strPropertyIndexers = p_strKey.Split(new char[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
+			if (strPropertyIndexers.Length == 0)
+			{
+				p_vwmErrorMessage = new ViewMessage("Missing Setting name.", "Missing Setting Name");
+				return false;
+			}
+
+			PropertyInfo pifSetting = EnvironmentInfo.GetType().GetProperty("Settings");
+			object objSetting = EnvironmentInfo;
+			Type tpeSettings = null;
+			for (Int32 i = 0; i < strPropertyIndexers.Length; i++)
+			{
 				if (pifSetting.GetIndexParameters().Length == 1)
-					pifSetting.SetValue(objSetting, kvpSetting.Value, new object[] { strPropertyIndexers[strPropertyIndexers.Length - 1] });
+					objSetting = pifSetting.GetValue(objSetting, new object[] { strPropertyIndexers[i] });
 				else if (pifSetting.GetIndexParameters().Length == 0)
-					pifSetting.SetValue(objSetting, kvpSetting.Value, null);
+					objSetting = pifSetting.GetValue(objSetting, null);
 				else
 				{
-					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", kvpSetting.Key), "Invalid Setting");
+					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
+					return false;
+				}
+				tpeSettings = objSetting.GetType();
+				pifSetting = tpeSettings.GetProperty(strPropertyIndexers[i]) ?? tpeSettings.GetProperty("Item");
+				if (pifSetting == null)
+				{
+					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Setting does not exist.", p_strKey), "Invalid Setting");
 					return false;
 				}
 			}
-			EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId].Clear();
+			if (pifSetting.GetIndexParameters().Length == 1)
+				pifSetting.SetValue(objSetting, p_strValue, new object[] { strPropertyIndexers[strPropertyIndexers.Length - 1] });
+			else if (pifSetting.GetIndexParameters().Length == 0)
+				pifSetting.SetValue(objSetting, p_strValue, null);
+			else
+			{
+				p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
+				return false;
+			}
 			p_vwmErrorMessage = null;
 			return true;
 		}

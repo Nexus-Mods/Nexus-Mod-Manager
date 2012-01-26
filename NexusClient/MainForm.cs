@@ -29,6 +29,7 @@ namespace Nexus.Client
 		private ModManagerControl mmgModManager = null;
 		private PluginManagerControl pmcPluginManager = null;
 		private ActivityMonitorControl amcActivityMonitor = null;
+		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
 
 		#region Properties
 
@@ -101,7 +102,7 @@ namespace Nexus.Client
 			ViewModel = p_vmlViewModel;
 
 			InitializeDocuments();
-			
+
 			p_vmlViewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			m_fwsLastWindowState = WindowState;
 		}
@@ -116,13 +117,21 @@ namespace Nexus.Client
 		/// the default layout is applied.
 		/// </remarks>
 		protected void InitializeDocuments()
-		{	
-			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm"))
+		{
+			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm") && !String.IsNullOrEmpty(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"]))
+			{
 				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
+				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
+					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.AutoHidePortion;
+			}
 			else
 			{
-				amcActivityMonitor.ShowHint = DockState.DockBottomAutoHide;
-				amcActivityMonitor.AutoHidePortion = amcActivityMonitor.Height;
+				pmcPluginManager.DockState = DockState.Unknown;
+				mmgModManager.DockState = DockState.Unknown;
+				amcActivityMonitor.DockState = DockState.DockBottomAutoHide;
+				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
+					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.Height;
+				amcActivityMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
 
 				pmcPluginManager.Show(dockPanel1);
 				mmgModManager.Show(dockPanel1);
@@ -131,6 +140,14 @@ namespace Nexus.Client
 			pmcPluginManager.Show(dockPanel1);
 		}
 
+		/// <summary>
+		/// Resets the UI layout to the default.
+		/// </summary>
+		protected void ResetUI()
+		{
+			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove("mainForm");
+			InitializeDocuments();
+		}
 
 		#region Binding Helpers
 
@@ -252,6 +269,12 @@ namespace Nexus.Client
 		/// </summary>
 		protected void BindToolCommands()
 		{
+			Command cmdResetUI = new Command("Reset UI", "Resets the UI to the default layout.", ResetUI);
+			ToolStripMenuItem tmiResetTool = new ToolStripMenuItem();
+			tmiResetTool.ImageScaling = ToolStripItemImageScaling.None;
+			new ToolStripItemCommandBinding(tmiResetTool, cmdResetUI);
+			spbTools.DropDownItems.Add(tmiResetTool);
+
 			foreach (ITool tolTool in ViewModel.GameToolLauncher.Tools)
 			{
 				ToolStripMenuItem tmiTool = new ToolStripMenuItem();

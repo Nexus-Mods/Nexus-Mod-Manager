@@ -384,6 +384,8 @@ namespace Nexus.Client.Settings
 
 		#endregion
 
+		#region Serialization/Deserialization
+
 		/// <summary>
 		/// Loads the grouped setting values from the persistent store.
 		/// </summary>
@@ -448,5 +450,7 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}
+
+		#endregion
 	}
 }
