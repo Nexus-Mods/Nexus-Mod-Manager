@@ -242,11 +242,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			foreach (Cookie ckeToken in ckcCookies.GetCookies(new Uri("http://" + strSite)))
 				if (ckeToken.Name.EndsWith("_Member") || ckeToken.Name.EndsWith("_Premium"))
-				{
-					string strKey = ckeToken.Name;
-					strKey = strKey.Replace(strKey.Substring(0, strKey.IndexOf('_')), "Nexus");
-					m_dicAuthenticationTokens[strKey] = ckeToken.Value;
-				}
+					m_dicAuthenticationTokens[ckeToken.Name] = ckeToken.Value;
 			p_dicTokens = m_dicAuthenticationTokens;
 			return m_dicAuthenticationTokens.Count > 0;
 		}
@@ -263,9 +259,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			foreach (KeyValuePair<string, string> kvpToken in p_dicTokens)
 			{
-				string strKey = kvpToken.Key;
-				strKey = strKey.Replace(strKey.Substring(0, strKey.IndexOf('_')), "Nexus");
-				m_dicAuthenticationTokens[strKey] = kvpToken.Value;
+				if (!kvpToken.Key.StartsWith("Nexus"))
+				{
+					m_dicAuthenticationTokens.Clear();
+					return false;
+				}
+				m_dicAuthenticationTokens[kvpToken.Key] = kvpToken.Value;
 			}
 			return true;
 		}
