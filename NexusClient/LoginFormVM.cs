@@ -126,15 +126,18 @@ namespace Nexus.Client
 		/// <param name="p_mrpModRepository">The repository we are logging in to.</param>
 		/// <param name="p_thmTheme">The theme to use for the UI.</param>
 		/// <param name="p_strPrompt">The prompt to display to the user.</param>
+		/// <param name="p_strError">The error to display.</param>
 		/// <param name="p_strCancelWarning">The warning to display if the user tries to cancel the login.</param>
-		public LoginFormVM(IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, Theme p_thmTheme, string p_strPrompt, string p_strCancelWarning)
+		public LoginFormVM(IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, Theme p_thmTheme, string p_strPrompt, string p_strError, string p_strCancelWarning)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			ModRepository = p_mrpModRepository;
 			CurrentTheme = p_thmTheme;
 			Prompt = p_strPrompt;
+			ErrorMessage = p_strError;
 			CancelWarning = p_strCancelWarning;
 			Username = EnvironmentInfo.Settings.RepositoryUsernames[ModRepository.Id];
+			StayLoggedIn = EnvironmentInfo.Settings.RepositoryAuthenticationTokens.ContainsKey(ModRepository.Id);
 		}
 
 		#endregion
