@@ -30,6 +30,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 		private string m_strWebsite = null;
 		private string m_strEndpoint = null;
+		private string m_strAuthenticationCookiePrefix = null;
 		private Dictionary<string, string> m_dicAuthenticationTokens = null;
 
 		#region Properties
@@ -92,22 +93,27 @@ namespace Nexus.Client.ModRepositories.Nexus
 			switch (p_gmdGameMode.ModeId)
 			{
 				case "DragonAgeOrigins":
+					m_strAuthenticationCookiePrefix = "DANEX";
 					break;
 				case "Fallout3":
 					m_strWebsite = "www.fallout3nexus.com";
 					m_strEndpoint = "FO3NexusREST";
+					m_strAuthenticationCookiePrefix = "FO3Nexus";
 					break;
 				case "FalloutNV":
 					m_strWebsite = "www.newvegasnexus.com";
 					m_strEndpoint = "FONVNexusREST";
+					m_strAuthenticationCookiePrefix = "NVNexus";
 					break;
 				case "Oblivion":
 					m_strWebsite = "www.tesnexus.com";
 					m_strEndpoint = "TESNexusREST";
+					m_strAuthenticationCookiePrefix = "TESNEX";
 					break;
 				case "Skyrim":
 					m_strWebsite = "www.skyrimnexus.com";
 					m_strEndpoint = "SKYRIMNexusREST";
+					m_strAuthenticationCookiePrefix = "SkyrimNexus";
 					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
@@ -122,6 +128,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			ChannelFactory<INexusModRepositoryApi> cftProxyFactory = new ChannelFactory<INexusModRepositoryApi>(m_strEndpoint);
 			cftProxyFactory.Endpoint.Behaviors.Add(new HttpUserAgentEndpointBehaviour(UserAgent));
+			cftProxyFactory.Endpoint.Behaviors.Add(new CookieEndpointBehaviour(m_dicAuthenticationTokens));
 			return cftProxyFactory;
 		}
 
@@ -238,7 +245,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			foreach (Cookie ckeToken in ckcCookies.GetCookies(new Uri("http://" + strSite)))
-				if (ckeToken.Name.EndsWith("_Member"))
+				if (ckeToken.Name.EndsWith("_Member") || ckeToken.Name.EndsWith("_Premium"))
 				{
 					m_dicAuthenticationTokens[ckeToken.Name] = ckeToken.Value;
 				}
@@ -255,7 +262,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public bool Login(Dictionary<string, string> p_dicTokens)
 		{
 			//TODO validate tokens
-			m_dicAuthenticationTokens = p_dicTokens;
+			m_dicAuthenticationTokens = new Dictionary<string, string>();
+			foreach (KeyValuePair<string, string> kvpToken in p_dicTokens)
+			{
+				string strKey = kvpToken.Key;
+				strKey = strKey.Replace(strKey.Substring(0, strKey.IndexOf('_')), m_strAuthenticationCookiePrefix);
+				m_dicAuthenticationTokens[strKey] = kvpToken.Value;
+			}
 			return true;
 		}
 

@@ -1,24 +1,25 @@
-﻿using System.ServiceModel.Description;
+﻿using System.Collections.Generic;
+using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
 
 namespace Nexus.Client.ModRepositories.Nexus
 {
 	/// <summary>
-	/// An HTTP Endpoint Behaviour that sets the user-agent for the service call.
+	/// An HTTP Endpoint Behaviour that sets cookies for the service call.
 	/// </summary>
-	public class HttpUserAgentEndpointBehaviour : WebHttpBehavior
+	public class CookieEndpointBehaviour : WebHttpBehavior
 	{
-		private string m_userAgent;
+		private Dictionary<string, string> m_dicAuthenticationCookies = null;
 
 		#region Constructors
 
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
-		/// <param name="userAgent">The user agent to use for the service calls.</param>
-		public HttpUserAgentEndpointBehaviour(string userAgent)
+		/// <param name="p_dicAuthenticationCookies">The cookies to add to the request.</param>
+		public CookieEndpointBehaviour(Dictionary<string, string> p_dicAuthenticationCookies)
 		{
-			this.m_userAgent = userAgent;
+			m_dicAuthenticationCookies = p_dicAuthenticationCookies;
 		}
 
 		#endregion
@@ -31,8 +32,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public override void ApplyClientBehavior(ServiceEndpoint endpoint, ClientRuntime clientRuntime)
 		{
 			base.ApplyClientBehavior(endpoint, clientRuntime);
-			HttpUserAgentMessageInspector amiInspector = new HttpUserAgentMessageInspector(this.m_userAgent);
-			clientRuntime.MessageInspectors.Add(amiInspector);
+			CookieMessageInspector cmiInspector = new CookieMessageInspector(m_dicAuthenticationCookies);
+			clientRuntime.MessageInspectors.Add(cmiInspector);
 
 		}
 	}

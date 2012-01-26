@@ -280,6 +280,8 @@
     <Compile Include="ModManagement\UI\ModTaggerVM.cs" />
     <Compile Include="ModRepositories\IModFileInfo.cs" />
     <Compile Include="ModRepositories\IModRepository.cs" />
+    <Compile Include="ModRepositories\Nexus\CookieEndpointBehaviour.cs" />
+    <Compile Include="ModRepositories\Nexus\CookieMessageInspector.cs" />
     <Compile Include="ModRepositories\Nexus\NexusModFileInfo.cs" />
     <Compile Include="ModRepositories\ModInfo.cs" />
     <Compile Include="ModRepositories\Nexus\HttpUserAgentEndpointBehaviour.cs" />
