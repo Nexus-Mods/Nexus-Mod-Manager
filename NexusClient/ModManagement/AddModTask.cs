@@ -348,7 +348,6 @@ namespace Nexus.Client.ModManagement
 				ItemProgress = intProgress;
 				ItemProgressMaximum = intProgressMaximum;
 
-				intSpeed /= m_dicDownloaderProgress.Count;
 				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
 				ItemMessage = String.Format("Downloading: ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds);
