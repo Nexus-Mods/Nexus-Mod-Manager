@@ -20,11 +20,35 @@ namespace Nexus.Client.ModManagement
 	/// </summary>
 	public class AddModTask : BackgroundTask, IDisposable
 	{
+		/// <summary>
+		/// Stores the state of a file being downloaded.
+		/// </summary>
 		private class DownloadProgressState
 		{
+			#region Properties
+
+			/// <summary>
+			/// Gets or sets the last recorded progress of the download.
+			/// </summary>
+			/// <value>The last recorded progress of the download.</value>
 			public Int32 OverallProgress { get; set; }
+
+			/// <summary>
+			/// Gets or sets the last recorded progress minimum of the download.
+			/// </summary>
+			/// <value>The last recorded progress minimum of the download.</value>
 			public Int32 OverallProgressMinimum { get; set; }
+
+			/// <summary>
+			/// Gets or sets the last recorded progress maximum of the download.
+			/// </summary>
+			/// <value>The last recorded progress maximum of the download.</value>
 			public Int32 OverallProgressMaximum { get; set; }
+
+			/// <summary>
+			/// Gets the last recorded progress of the download, adjusted to account for the progress minimum.
+			/// </summary>
+			/// <value>The last recorded progress of the download, adjusted to account for the progress minimum.</value>
 			public Int32 AdjustedProgress
 			{
 				get
@@ -32,6 +56,11 @@ namespace Nexus.Client.ModManagement
 					return OverallProgress - OverallProgressMinimum;
 				}
 			}
+
+			/// <summary>
+			/// Gets the last recorded progress maximum of the download, adjusted to account for the progress minimum.
+			/// </summary>
+			/// <value>The last recorded progress maximum of the download, adjusted to account for the progress minimum.</value>
 			public Int32 AdjustedProgressMaximum
 			{
 				get
@@ -39,14 +68,38 @@ namespace Nexus.Client.ModManagement
 					return OverallProgressMaximum - OverallProgressMinimum;
 				}
 			}
+
+			/// <summary>
+			/// Gets or sets the last recorded download speed of the download.
+			/// </summary>
+			/// <value>The last recorded download speed of the download.</value>
 			public Int32 DownloadSpeed { get; set; }
+
+			/// <summary>
+			/// Gets or sets the last recorded remaining time of the download.
+			/// </summary>
+			/// <value>The last recorded remaining time of the download.</value>
 			public TimeSpan TimeRemaining { get; set; }
 
+			#endregion
+
+			#region Constructors
+
+			/// <summary>
+			/// A simple constructor that initializes teh object with the given values.
+			/// </summary>
+			/// <param name="p_fdtTask">The download task for which to store the progress state.</param>
 			public DownloadProgressState(FileDownloadTask p_fdtTask)
 			{
 				Update(p_fdtTask);
 			}
 
+			#endregion
+
+			/// <summary>
+			/// Updates the stored state to reflect the current progress of the given download.
+			/// </summary>
+			/// <param name="p_fdtTask">The download task for which to store the progress state.</param>
 			public void Update(FileDownloadTask p_fdtTask)
 			{
 				OverallProgress = p_fdtTask.OverallProgress;
