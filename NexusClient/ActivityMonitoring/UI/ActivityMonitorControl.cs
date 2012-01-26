@@ -5,13 +5,14 @@ using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Util;
+using WeifenLuo.WinFormsUI.Docking;
 
 namespace Nexus.Client.ActivityMonitoring.UI
 {
 	/// <summary>
 	/// The view that exposes activity monitoring functionality.
 	/// </summary>
-	public partial class ActivityMonitorControl : UserControl
+	public partial class ActivityMonitorControl : DockContent
 	{
 		private ActivityMonitorVM m_vmlViewModel = null;
 		private float m_fltColumnRatio = 0.5f;
@@ -50,6 +51,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 				ViewModel.PauseTaskCommand.CanExecute = false;
 				ViewModel.ResumeTaskCommand.CanExecute = false;
 
+				LoadMetrics();
 				UpdateTitle();
 			}
 		}
@@ -72,6 +74,8 @@ namespace Nexus.Client.ActivityMonitoring.UI
 
 			m_tmrColumnSizer.Interval = 100;
 			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
+
+			UpdateTitle();
 		}
 
 		#endregion
@@ -91,6 +95,16 @@ namespace Nexus.Client.ActivityMonitoring.UI
 
 			if (!DesignMode)
 			{
+				m_booControlIsLoaded = true;
+				LoadMetrics();
+			}
+		}
+
+		bool m_booControlIsLoaded = false;
+		protected void LoadMetrics()
+		{
+			if (m_booControlIsLoaded && (ViewModel != null))
+			{
 				ViewModel.Settings.ColumnWidths.LoadColumnWidths("activityMonitor", lvwTasks);
 
 				FindForm().FormClosing += new FormClosingEventHandler(ActivityMonitorControl_FormClosing);
@@ -103,7 +117,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 		/// Handles the <see cref="Form.Closing"/> event of the parent form.
 		/// </summary>
 		/// <remarks>
-		/// This save the control's metrics.
+		/// This saves the control's metrics.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="FormClosingEventArgs"/> describing the event arguments.</param>
@@ -226,8 +240,13 @@ namespace Nexus.Client.ActivityMonitoring.UI
 		/// </summary>
 		protected void UpdateTitle()
 		{
-			Int32 intActiveCount = ViewModel.ActiveTasks.Count;
-			Int32 intTotalCount = ViewModel.Tasks.Count;
+			Int32 intActiveCount =0;
+			Int32 intTotalCount =0;
+			if (ViewModel != null)
+			{
+				intActiveCount = ViewModel.ActiveTasks.Count;
+				intTotalCount = ViewModel.Tasks.Count;
+			}
 			if (intTotalCount == intActiveCount)
 				Text = String.Format(m_strTitleAllActive, intTotalCount);
 			else

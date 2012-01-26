@@ -80,6 +80,12 @@ namespace Nexus.Client.Settings
 		WindowPositions WindowPositions { get; }
 
 		/// <summary>
+		/// Gets the application's saved dock panel layouts.
+		/// </summary>
+		/// <value>The application's saved dock panel layouts.</value>
+		KeyedSettings<string> DockPanelLayouts { get; }
+
+		/// <summary>
 		/// Gets the application's saved column widths.
 		/// </summary>
 		/// <value>The application's saved column widths.</value>

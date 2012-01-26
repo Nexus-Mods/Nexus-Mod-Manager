@@ -12,6 +12,12 @@ using Nexus.Client.Util;
 using Nexus.Client.Updating;
 using Nexus.Client.Controls;
 using Nexus.Client.UI;
+using Nexus.Client.ActivityMonitoring.UI;
+using Nexus.Client.ModManagement.UI;
+using Nexus.Client.PluginManagement.UI;
+using WeifenLuo.WinFormsUI.Docking;
+using System.Collections.Specialized;
+using System.IO;
 
 namespace Nexus.Client
 {
@@ -22,6 +28,9 @@ namespace Nexus.Client
 	{
 		private MainFormVM m_vmlViewModel = null;
 		private FormWindowState m_fwsLastWindowState = FormWindowState.Normal;
+		private ModManagerControl mmgModManager = null;
+		private PluginManagerControl pmcPluginManager = null;
+		private ActivityMonitorControl amcActivityMonitor = null;
 
 		#region Properties
 
@@ -42,6 +51,8 @@ namespace Nexus.Client
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
 				pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
 				amcActivityMonitor.ViewModel = m_vmlViewModel.ActivityMonitorVM;
+				amcActivityMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
+				amcActivityMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
 
 				ApplyTheme(m_vmlViewModel.ModeTheme);
 
@@ -51,6 +62,26 @@ namespace Nexus.Client
 
 				BindCommands();
 			}
+		}
+
+		void Tasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)Tasks_CollectionChanged, sender, e);
+				return;
+			}
+			amcActivityMonitor.Activate();
+		}
+
+		void ActiveTasks_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ActiveTasks_CollectionChanged, sender, e);
+				return;
+			}
+			amcActivityMonitor.Activate();
 		}
 
 		#endregion
@@ -64,14 +95,37 @@ namespace Nexus.Client
 		public MainForm(MainFormVM p_vmlViewModel)
 		{
 			InitializeComponent();
-			tpgActivityMonitor.Text = amcActivityMonitor.Text;
-			amcActivityMonitor.TextChanged += new EventHandler(ActivityMonitor_TextChanged);
+
+			pmcPluginManager = new PluginManagerControl();
+			mmgModManager = new ModManagerControl();
+			amcActivityMonitor = new ActivityMonitorControl();
+
 			ViewModel = p_vmlViewModel;
+
+			InitializeDocuments();
+			
 			p_vmlViewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			m_fwsLastWindowState = WindowState;
 		}
 
 		#endregion
+
+		protected void InitializeDocuments()
+		{	
+			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm"))
+				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
+			else
+			{
+				amcActivityMonitor.ShowHint = DockState.DockBottomAutoHide;
+				amcActivityMonitor.AutoHidePortion = amcActivityMonitor.Height;
+
+				pmcPluginManager.Show(dockPanel1);
+				mmgModManager.Show(dockPanel1);
+				amcActivityMonitor.Show(dockPanel1);
+			}
+			pmcPluginManager.Show(dockPanel1);
+		}
+
 
 		#region Binding Helpers
 
@@ -87,17 +141,37 @@ namespace Nexus.Client
 			BindToolCommands();
 		}
 
+		#endregion
+
+		#region Control Metrics Serialization
+
 		/// <summary>
-		/// Handles the <see cref="Control.TextChanged"/> of the activity monitor control.
+		/// Raises the <see cref="Form.Closed"/> event of the form.
 		/// </summary>
 		/// <remarks>
-		/// This updates the activity monitor's tab with the new title.
+		/// This saves the form's metrics.
 		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void ActivityMonitor_TextChanged(object sender, EventArgs e)
+		protected override void OnClosed(EventArgs e)
 		{
-			tpgActivityMonitor.Text = amcActivityMonitor.Text;
+			base.OnClosed(e);
+			if (!DesignMode)
+			{
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"] = dockPanel1.SaveAsXml();
+				ViewModel.EnvironmentInfo.Settings.Save();
+			}
+		}
+
+		protected IDockContent LoadDockedContent(string f)
+		{
+			if (f == typeof(PluginManagerControl).ToString())
+				return pmcPluginManager;
+			else if (f == typeof(ModManagerControl).ToString())
+				return mmgModManager;
+			else if (f == typeof(ActivityMonitorControl).ToString())
+				return amcActivityMonitor;
+			else
+				throw new Exception("Unrecognized Dock Windows: " + f);
 		}
 
 		#endregion

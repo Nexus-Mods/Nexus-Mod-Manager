@@ -175,7 +175,10 @@ namespace Nexus.Client.ModManagement
 		private string GetModDisplayName()
 		{
 			if ((ModInfo == null) || String.IsNullOrEmpty(ModInfo.ModName))
-				return Path.GetFileNameWithoutExtension(Descriptor.DefaultSourcePath);
+				if (Descriptor == null)
+					return null;
+				else
+					return Path.GetFileNameWithoutExtension(Descriptor.DefaultSourcePath);
 			return ModInfo.ModName;
 		}
 

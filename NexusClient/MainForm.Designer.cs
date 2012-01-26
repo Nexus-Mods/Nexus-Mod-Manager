@@ -29,24 +29,29 @@
 		private void InitializeComponent()
 		{
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
+			WeifenLuo.WinFormsUI.Docking.DockPanelSkin dockPanelSkin1 = new WeifenLuo.WinFormsUI.Docking.DockPanelSkin();
+			WeifenLuo.WinFormsUI.Docking.AutoHideStripSkin autoHideStripSkin1 = new WeifenLuo.WinFormsUI.Docking.AutoHideStripSkin();
+			WeifenLuo.WinFormsUI.Docking.DockPanelGradient dockPanelGradient1 = new WeifenLuo.WinFormsUI.Docking.DockPanelGradient();
+			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient1 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
+			WeifenLuo.WinFormsUI.Docking.DockPaneStripSkin dockPaneStripSkin1 = new WeifenLuo.WinFormsUI.Docking.DockPaneStripSkin();
+			WeifenLuo.WinFormsUI.Docking.DockPaneStripGradient dockPaneStripGradient1 = new WeifenLuo.WinFormsUI.Docking.DockPaneStripGradient();
+			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient2 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
+			WeifenLuo.WinFormsUI.Docking.DockPanelGradient dockPanelGradient2 = new WeifenLuo.WinFormsUI.Docking.DockPanelGradient();
+			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient3 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
+			WeifenLuo.WinFormsUI.Docking.DockPaneStripToolWindowGradient dockPaneStripToolWindowGradient1 = new WeifenLuo.WinFormsUI.Docking.DockPaneStripToolWindowGradient();
+			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient4 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
+			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient5 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
+			WeifenLuo.WinFormsUI.Docking.DockPanelGradient dockPanelGradient3 = new WeifenLuo.WinFormsUI.Docking.DockPanelGradient();
+			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient6 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
+			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient7 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.spbLaunch = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbChangeMode = new System.Windows.Forms.ToolStripButton();
 			this.spbTools = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbSettings = new System.Windows.Forms.ToolStripButton();
 			this.tsbUpdate = new System.Windows.Forms.ToolStripButton();
-			this.tabControl1 = new System.Windows.Forms.TabControl();
-			this.tpgPlugins = new System.Windows.Forms.TabPage();
-			this.pmcPluginManager = new Nexus.Client.PluginManagement.UI.PluginManagerControl();
-			this.tpgMods = new System.Windows.Forms.TabPage();
-			this.mmgModManager = new Nexus.Client.ModManagement.UI.ModManagerControl();
-			this.tpgActivityMonitor = new System.Windows.Forms.TabPage();
-			this.amcActivityMonitor = new Nexus.Client.ActivityMonitoring.UI.ActivityMonitorControl();
+			this.dockPanel1 = new WeifenLuo.WinFormsUI.Docking.DockPanel();
 			this.toolStrip1.SuspendLayout();
-			this.tabControl1.SuspendLayout();
-			this.tpgPlugins.SuspendLayout();
-			this.tpgMods.SuspendLayout();
-			this.tpgActivityMonitor.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// toolStrip1
@@ -114,90 +119,74 @@
 			this.tsbUpdate.Size = new System.Drawing.Size(36, 36);
 			this.tsbUpdate.Text = "toolStripButton1";
 			// 
-			// tabControl1
+			// dockPanel1
 			// 
-			this.tabControl1.Controls.Add(this.tpgPlugins);
-			this.tabControl1.Controls.Add(this.tpgMods);
-			this.tabControl1.Controls.Add(this.tpgActivityMonitor);
-			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.tabControl1.Location = new System.Drawing.Point(0, 39);
-			this.tabControl1.Name = "tabControl1";
-			this.tabControl1.SelectedIndex = 0;
-			this.tabControl1.Size = new System.Drawing.Size(804, 494);
-			this.tabControl1.TabIndex = 2;
-			// 
-			// tpgPlugins
-			// 
-			this.tpgPlugins.Controls.Add(this.pmcPluginManager);
-			this.tpgPlugins.Location = new System.Drawing.Point(4, 22);
-			this.tpgPlugins.Name = "tpgPlugins";
-			this.tpgPlugins.Padding = new System.Windows.Forms.Padding(3);
-			this.tpgPlugins.Size = new System.Drawing.Size(796, 468);
-			this.tpgPlugins.TabIndex = 0;
-			this.tpgPlugins.Text = "Plugins";
-			this.tpgPlugins.UseVisualStyleBackColor = true;
-			// 
-			// pmcPluginManager
-			// 
-			this.pmcPluginManager.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.pmcPluginManager.Location = new System.Drawing.Point(3, 3);
-			this.pmcPluginManager.Name = "pmcPluginManager";
-			this.pmcPluginManager.Size = new System.Drawing.Size(790, 462);
-			this.pmcPluginManager.TabIndex = 0;
-			// 
-			// tpgMods
-			// 
-			this.tpgMods.Controls.Add(this.mmgModManager);
-			this.tpgMods.Location = new System.Drawing.Point(4, 22);
-			this.tpgMods.Name = "tpgMods";
-			this.tpgMods.Padding = new System.Windows.Forms.Padding(3);
-			this.tpgMods.Size = new System.Drawing.Size(796, 468);
-			this.tpgMods.TabIndex = 1;
-			this.tpgMods.Text = "Mods";
-			this.tpgMods.UseVisualStyleBackColor = true;
-			// 
-			// mmgModManager
-			// 
-			this.mmgModManager.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.mmgModManager.Location = new System.Drawing.Point(3, 3);
-			this.mmgModManager.Name = "mmgModManager";
-			this.mmgModManager.Size = new System.Drawing.Size(790, 462);
-			this.mmgModManager.TabIndex = 0;
-			// 
-			// tpgActivityMonitor
-			// 
-			this.tpgActivityMonitor.Controls.Add(this.amcActivityMonitor);
-			this.tpgActivityMonitor.Location = new System.Drawing.Point(4, 22);
-			this.tpgActivityMonitor.Name = "tpgActivityMonitor";
-			this.tpgActivityMonitor.Padding = new System.Windows.Forms.Padding(3);
-			this.tpgActivityMonitor.Size = new System.Drawing.Size(796, 468);
-			this.tpgActivityMonitor.TabIndex = 2;
-			this.tpgActivityMonitor.Text = "Download Manager";
-			this.tpgActivityMonitor.UseVisualStyleBackColor = true;
-			// 
-			// amcActivityMonitor
-			// 
-			this.amcActivityMonitor.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.amcActivityMonitor.Location = new System.Drawing.Point(3, 3);
-			this.amcActivityMonitor.Name = "amcActivityMonitor";
-			this.amcActivityMonitor.Size = new System.Drawing.Size(790, 462);
-			this.amcActivityMonitor.TabIndex = 0;
+			this.dockPanel1.ActiveAutoHideContent = null;
+			this.dockPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.dockPanel1.DockBackColor = System.Drawing.SystemColors.Control;
+			this.dockPanel1.DocumentStyle = WeifenLuo.WinFormsUI.Docking.DocumentStyle.DockingWindow;
+			this.dockPanel1.Location = new System.Drawing.Point(0, 39);
+			this.dockPanel1.Name = "dockPanel1";
+			this.dockPanel1.Size = new System.Drawing.Size(804, 494);
+			dockPanelGradient1.EndColor = System.Drawing.SystemColors.ControlLight;
+			dockPanelGradient1.StartColor = System.Drawing.SystemColors.ControlLight;
+			autoHideStripSkin1.DockStripGradient = dockPanelGradient1;
+			tabGradient1.EndColor = System.Drawing.SystemColors.Control;
+			tabGradient1.StartColor = System.Drawing.SystemColors.Control;
+			tabGradient1.TextColor = System.Drawing.SystemColors.ControlDarkDark;
+			autoHideStripSkin1.TabGradient = tabGradient1;
+			autoHideStripSkin1.TextFont = new System.Drawing.Font("Segoe UI", 9F);
+			dockPanelSkin1.AutoHideStripSkin = autoHideStripSkin1;
+			tabGradient2.EndColor = System.Drawing.SystemColors.ControlLightLight;
+			tabGradient2.StartColor = System.Drawing.SystemColors.ControlLightLight;
+			tabGradient2.TextColor = System.Drawing.SystemColors.ControlText;
+			dockPaneStripGradient1.ActiveTabGradient = tabGradient2;
+			dockPanelGradient2.EndColor = System.Drawing.SystemColors.Control;
+			dockPanelGradient2.StartColor = System.Drawing.SystemColors.Control;
+			dockPaneStripGradient1.DockStripGradient = dockPanelGradient2;
+			tabGradient3.EndColor = System.Drawing.SystemColors.ControlLight;
+			tabGradient3.StartColor = System.Drawing.SystemColors.ControlLight;
+			tabGradient3.TextColor = System.Drawing.SystemColors.ControlText;
+			dockPaneStripGradient1.InactiveTabGradient = tabGradient3;
+			dockPaneStripSkin1.DocumentGradient = dockPaneStripGradient1;
+			dockPaneStripSkin1.TextFont = new System.Drawing.Font("Segoe UI", 9F);
+			tabGradient4.EndColor = System.Drawing.SystemColors.ActiveCaption;
+			tabGradient4.LinearGradientMode = System.Drawing.Drawing2D.LinearGradientMode.Vertical;
+			tabGradient4.StartColor = System.Drawing.SystemColors.GradientActiveCaption;
+			tabGradient4.TextColor = System.Drawing.SystemColors.ActiveCaptionText;
+			dockPaneStripToolWindowGradient1.ActiveCaptionGradient = tabGradient4;
+			tabGradient5.EndColor = System.Drawing.SystemColors.Control;
+			tabGradient5.StartColor = System.Drawing.SystemColors.Control;
+			tabGradient5.TextColor = System.Drawing.SystemColors.ControlText;
+			dockPaneStripToolWindowGradient1.ActiveTabGradient = tabGradient5;
+			dockPanelGradient3.EndColor = System.Drawing.SystemColors.ControlLight;
+			dockPanelGradient3.StartColor = System.Drawing.SystemColors.ControlLight;
+			dockPaneStripToolWindowGradient1.DockStripGradient = dockPanelGradient3;
+			tabGradient6.EndColor = System.Drawing.SystemColors.InactiveCaption;
+			tabGradient6.LinearGradientMode = System.Drawing.Drawing2D.LinearGradientMode.Vertical;
+			tabGradient6.StartColor = System.Drawing.SystemColors.GradientInactiveCaption;
+			tabGradient6.TextColor = System.Drawing.SystemColors.InactiveCaptionText;
+			dockPaneStripToolWindowGradient1.InactiveCaptionGradient = tabGradient6;
+			tabGradient7.EndColor = System.Drawing.Color.Transparent;
+			tabGradient7.StartColor = System.Drawing.Color.Transparent;
+			tabGradient7.TextColor = System.Drawing.SystemColors.ControlDarkDark;
+			dockPaneStripToolWindowGradient1.InactiveTabGradient = tabGradient7;
+			dockPaneStripSkin1.ToolWindowGradient = dockPaneStripToolWindowGradient1;
+			dockPanelSkin1.DockPaneStripSkin = dockPaneStripSkin1;
+			this.dockPanel1.Skin = dockPanelSkin1;
+			this.dockPanel1.TabIndex = 3;
 			// 
 			// MainForm
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(804, 533);
-			this.Controls.Add(this.tabControl1);
+			this.Controls.Add(this.dockPanel1);
 			this.Controls.Add(this.toolStrip1);
 			this.Name = "MainForm";
 			this.Text = "MainForm";
 			this.toolStrip1.ResumeLayout(false);
 			this.toolStrip1.PerformLayout();
-			this.tabControl1.ResumeLayout(false);
-			this.tpgPlugins.ResumeLayout(false);
-			this.tpgMods.ResumeLayout(false);
-			this.tpgActivityMonitor.ResumeLayout(false);
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -206,17 +195,11 @@
 		#endregion
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
-		private System.Windows.Forms.TabControl tabControl1;
-		private System.Windows.Forms.TabPage tpgPlugins;
-		private System.Windows.Forms.TabPage tpgMods;
 		private System.Windows.Forms.ToolStripSplitButton spbLaunch;
-		private Nexus.Client.ModManagement.UI.ModManagerControl mmgModManager;
-		private Nexus.Client.PluginManagement.UI.PluginManagerControl pmcPluginManager;
 		private System.Windows.Forms.ToolStripButton tsbSettings;
-		private System.Windows.Forms.TabPage tpgActivityMonitor;
-		private Nexus.Client.ActivityMonitoring.UI.ActivityMonitorControl amcActivityMonitor;
 		private System.Windows.Forms.ToolStripButton tsbChangeMode;
 		private System.Windows.Forms.ToolStripSplitButton spbTools;
 		private System.Windows.Forms.ToolStripButton tsbUpdate;
+		private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanel1;
 	}
 }

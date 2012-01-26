@@ -2,19 +2,20 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
+using Nexus.Client.Commands.Generic;
 using Nexus.Client.Controls;
 using Nexus.Client.Plugins;
-using Nexus.Client.Commands.Generic;
-using System.Diagnostics;
+using WeifenLuo.WinFormsUI.Docking;
 
 namespace Nexus.Client.PluginManagement.UI
 {
 	/// <summary>
 	/// A view that exposes plugin management functionality.
 	/// </summary>
-	public partial class PluginManagerControl : UserControl
+	public partial class PluginManagerControl : DockContent
 	{
 		private PluginManagerVM m_vmlViewModel = null;
 		private bool m_booResizing = false;
@@ -54,6 +55,7 @@ namespace Nexus.Client.PluginManagement.UI
 				ViewModel.DeactivatePluginCommand.CanExecute = false;
 				ViewModel.MoveUpCommand.CanExecute = false;
 				ViewModel.MoveDownCommand.CanExecute = false;
+				LoadMetrics();
 			}
 		}
 
@@ -91,6 +93,16 @@ namespace Nexus.Client.PluginManagement.UI
 			base.OnLoad(e);
 
 			if (!DesignMode)
+			{
+				m_booControlIsLoaded = true;
+				LoadMetrics();
+			}
+		}
+
+		bool m_booControlIsLoaded = false;
+		protected void LoadMetrics()
+		{
+			if (m_booControlIsLoaded && (ViewModel != null))
 			{
 				ViewModel.Settings.SplitterSizes.LoadSplitterSizes("pluginManager", splitContainer1);
 				ViewModel.Settings.ColumnWidths.LoadColumnWidths("pluginManager", rlvPlugins);

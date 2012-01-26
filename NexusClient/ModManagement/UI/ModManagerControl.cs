@@ -13,13 +13,14 @@ using Nexus.Client.Controls;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using WeifenLuo.WinFormsUI.Docking;
 
 namespace Nexus.Client.ModManagement.UI
 {
 	/// <summary>
 	/// The view that exposes mod management functionality.
 	/// </summary>
-	public partial class ModManagerControl : UserControl
+	public partial class ModManagerControl : DockContent
 	{
 		private ModManagerVM m_vmlViewModel = null;
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();
@@ -74,6 +75,8 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.ActivateModCommand.CanExecute = false;
 				ViewModel.DeactivateModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
+
+				LoadMetrics();
 				HidePanels();
 			}
 		}
@@ -119,6 +122,16 @@ namespace Nexus.Client.ModManagement.UI
 			base.OnLoad(e);
 
 			if (!DesignMode)
+			{
+				m_booControlIsLoaded = true;
+				LoadMetrics();
+			}
+		}
+
+		bool m_booControlIsLoaded = false;
+		protected void LoadMetrics()
+		{
+			if (m_booControlIsLoaded && (ViewModel != null))
 			{
 				ViewModel.Settings.SplitterSizes.LoadSplitterSizes("modManager", sptMods);
 				ViewModel.Settings.ColumnWidths.LoadColumnWidths("modManager", lvwMods);
@@ -177,10 +190,13 @@ namespace Nexus.Client.ModManagement.UI
 		/// </remarks>
 		partial void DoDispose()
 		{
-			m_vmlViewModel.AddingMod -= ViewModel_AddingMod;
-			m_vmlViewModel.ChangingModActivation -= ViewModel_ChangingModActivation;
-			m_vmlViewModel.ManagedMods.CollectionChanged -= ManagedMods_CollectionChanged;
-			m_vmlViewModel.ActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			if (m_vmlViewModel != null)
+			{
+				m_vmlViewModel.AddingMod -= ViewModel_AddingMod;
+				m_vmlViewModel.ChangingModActivation -= ViewModel_ChangingModActivation;
+				m_vmlViewModel.ManagedMods.CollectionChanged -= ManagedMods_CollectionChanged;
+				m_vmlViewModel.ActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			}
 
 			foreach (IBackgroundTaskSet btsSet in lstRunningTaskSets)
 			{

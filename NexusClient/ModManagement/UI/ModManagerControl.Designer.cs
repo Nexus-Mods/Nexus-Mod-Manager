@@ -76,7 +76,7 @@
             this.tsbTagMod});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(49, 491);
+			this.toolStrip1.Size = new System.Drawing.Size(49, 453);
 			this.toolStrip1.TabIndex = 0;
 			this.toolStrip1.Text = "toolStrip1";
 			// 
@@ -158,8 +158,8 @@
 			// sptMods.Panel2
 			// 
 			this.sptMods.Panel2.Controls.Add(this.sptSummaryInfo);
-			this.sptMods.Size = new System.Drawing.Size(624, 491);
-			this.sptMods.SplitterDistance = 331;
+			this.sptMods.Size = new System.Drawing.Size(608, 453);
+			this.sptMods.SplitterDistance = 315;
 			this.sptMods.TabIndex = 1;
 			// 
 			// lvwMods
@@ -179,7 +179,7 @@
 			this.lvwMods.Name = "lvwMods";
 			this.lvwMods.OwnerDraw = true;
 			this.lvwMods.ShowItemToolTips = true;
-			this.lvwMods.Size = new System.Drawing.Size(331, 491);
+			this.lvwMods.Size = new System.Drawing.Size(315, 453);
 			this.lvwMods.Sorting = System.Windows.Forms.SortOrder.Ascending;
 			this.lvwMods.TabIndex = 0;
 			this.lvwMods.UseCompatibleStateImageBehavior = false;
@@ -222,7 +222,7 @@
 			// sptSummaryInfo.Panel2
 			// 
 			this.sptSummaryInfo.Panel2.Controls.Add(this.flbInfo);
-			this.sptSummaryInfo.Size = new System.Drawing.Size(289, 491);
+			this.sptSummaryInfo.Size = new System.Drawing.Size(289, 453);
 			this.sptSummaryInfo.SplitterDistance = 142;
 			this.sptSummaryInfo.TabIndex = 0;
 			// 
@@ -245,7 +245,7 @@
 			this.flbInfo.Location = new System.Drawing.Point(0, 0);
 			this.flbInfo.MinimumSize = new System.Drawing.Size(20, 20);
 			this.flbInfo.Name = "flbInfo";
-			this.flbInfo.Size = new System.Drawing.Size(289, 345);
+			this.flbInfo.Size = new System.Drawing.Size(289, 307);
 			this.flbInfo.TabIndex = 0;
 			this.flbInfo.Text = null;
 			// 
@@ -253,10 +253,14 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.ClientSize = new System.Drawing.Size(657, 453);
+			this.CloseButton = false;
+			this.CloseButtonVisible = false;
 			this.Controls.Add(this.sptMods);
 			this.Controls.Add(this.toolStrip1);
+			this.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Name = "ModManagerControl";
-			this.Size = new System.Drawing.Size(673, 491);
+			this.Text = "Mods";
 			this.toolStrip1.ResumeLayout(false);
 			this.toolStrip1.PerformLayout();
 			this.sptMods.Panel1.ResumeLayout(false);

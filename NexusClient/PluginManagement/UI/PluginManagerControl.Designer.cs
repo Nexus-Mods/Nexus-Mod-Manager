@@ -59,7 +59,7 @@
             this.tsbMoveDown});
 			this.toolStrip2.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip2.Name = "toolStrip2";
-			this.toolStrip2.Size = new System.Drawing.Size(37, 491);
+			this.toolStrip2.Size = new System.Drawing.Size(37, 453);
 			this.toolStrip2.TabIndex = 2;
 			this.toolStrip2.Text = "toolStrip2";
 			// 
@@ -95,7 +95,7 @@
 			// splitContainer1.Panel2
 			// 
 			this.splitContainer1.Panel2.Controls.Add(this.splitContainer2);
-			this.splitContainer1.Size = new System.Drawing.Size(636, 491);
+			this.splitContainer1.Size = new System.Drawing.Size(620, 453);
 			this.splitContainer1.SplitterDistance = 263;
 			this.splitContainer1.TabIndex = 3;
 			// 
@@ -109,8 +109,9 @@
 			this.rlvPlugins.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.rlvPlugins.Location = new System.Drawing.Point(0, 0);
 			this.rlvPlugins.Name = "rlvPlugins";
+			this.rlvPlugins.OwnerDraw = true;
 			this.rlvPlugins.ShowItemToolTips = true;
-			this.rlvPlugins.Size = new System.Drawing.Size(263, 491);
+			this.rlvPlugins.Size = new System.Drawing.Size(263, 453);
 			this.rlvPlugins.TabIndex = 0;
 			this.rlvPlugins.UseCompatibleStateImageBehavior = false;
 			this.rlvPlugins.Resize += new System.EventHandler(this.rlvPlugins_Resize);
@@ -150,7 +151,7 @@
 			// splitContainer2.Panel2
 			// 
 			this.splitContainer2.Panel2.Controls.Add(this.hlbPluginInfo);
-			this.splitContainer2.Size = new System.Drawing.Size(369, 491);
+			this.splitContainer2.Size = new System.Drawing.Size(353, 453);
 			this.splitContainer2.SplitterDistance = 174;
 			this.splitContainer2.TabIndex = 0;
 			// 
@@ -159,7 +160,7 @@
 			this.ipbImage.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.ipbImage.Location = new System.Drawing.Point(0, 0);
 			this.ipbImage.Name = "ipbImage";
-			this.ipbImage.Size = new System.Drawing.Size(369, 174);
+			this.ipbImage.Size = new System.Drawing.Size(353, 174);
 			this.ipbImage.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
 			this.ipbImage.TabIndex = 0;
 			this.ipbImage.TabStop = false;
@@ -174,7 +175,7 @@
 			this.hlbPluginInfo.MinimumSize = new System.Drawing.Size(20, 20);
 			this.hlbPluginInfo.Name = "hlbPluginInfo";
 			this.hlbPluginInfo.ScrollBarsEnabled = false;
-			this.hlbPluginInfo.Size = new System.Drawing.Size(369, 313);
+			this.hlbPluginInfo.Size = new System.Drawing.Size(353, 275);
 			this.hlbPluginInfo.TabIndex = 0;
 			this.hlbPluginInfo.Text = null;
 			// 
@@ -182,10 +183,14 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.ClientSize = new System.Drawing.Size(657, 453);
+			this.CloseButton = false;
+			this.CloseButtonVisible = false;
 			this.Controls.Add(this.splitContainer1);
 			this.Controls.Add(this.toolStrip2);
+			this.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Name = "PluginManagerControl";
-			this.Size = new System.Drawing.Size(673, 491);
+			this.Text = "Plugins";
 			this.toolStrip2.ResumeLayout(false);
 			this.toolStrip2.PerformLayout();
 			this.splitContainer1.Panel1.ResumeLayout(false);

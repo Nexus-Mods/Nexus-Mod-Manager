@@ -89,6 +89,11 @@
 				&lt;WindowPositions /&gt;
 			</Value>
 		</Setting>
+		<Setting Name="DockPanelLayouts" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="User">
+			<Value Profile="(Default)">
+				&lt;KeyedSettingsOfString /&gt;
+			</Value>
+		</Setting>
 		<Setting Name="ColumnWidths" Type="Nexus.Client.Settings.ColumnWidths" Scope="User">
 			<Value Profile="(Default)">
 				&lt;ColumnWidths /&gt;

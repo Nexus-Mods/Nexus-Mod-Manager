@@ -54,7 +54,7 @@
             this.tsbResume});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(37, 331);
+			this.toolStrip1.Size = new System.Drawing.Size(37, 163);
 			this.toolStrip1.TabIndex = 0;
 			this.toolStrip1.Text = "toolStrip1";
 			// 
@@ -109,7 +109,7 @@
 			this.lvwTasks.Location = new System.Drawing.Point(37, 0);
 			this.lvwTasks.Name = "lvwTasks";
 			this.lvwTasks.ShowItemToolTips = true;
-			this.lvwTasks.Size = new System.Drawing.Size(532, 331);
+			this.lvwTasks.Size = new System.Drawing.Size(516, 163);
 			this.lvwTasks.TabIndex = 1;
 			this.lvwTasks.UseCompatibleStateImageBehavior = false;
 			this.lvwTasks.View = System.Windows.Forms.View.Details;
@@ -144,10 +144,13 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.ClientSize = new System.Drawing.Size(553, 163);
+			this.CloseButton = false;
+			this.CloseButtonVisible = false;
 			this.Controls.Add(this.lvwTasks);
 			this.Controls.Add(this.toolStrip1);
+			this.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Name = "ActivityMonitorControl";
-			this.Size = new System.Drawing.Size(569, 331);
 			this.toolStrip1.ResumeLayout(false);
 			this.toolStrip1.PerformLayout();
 			this.ResumeLayout(false);

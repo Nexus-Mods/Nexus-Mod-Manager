@@ -289,6 +289,18 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<KeyedSettingsOfString />\r\n\t\t\t")]
+        public global::Nexus.Client.Settings.KeyedSettings<string> DockPanelLayouts {
+            get {
+                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["DockPanelLayouts"]));
+            }
+            set {
+                this["DockPanelLayouts"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<ColumnWidths />\r\n\t\t\t")]
         public global::Nexus.Client.Settings.ColumnWidths ColumnWidths {
             get {
