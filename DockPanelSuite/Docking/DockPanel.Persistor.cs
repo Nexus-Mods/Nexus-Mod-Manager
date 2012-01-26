@@ -207,6 +207,18 @@ namespace WeifenLuo.WinFormsUI.Docking
                 }
             }
 
+			public static string SaveAsXml(DockPanel dockPanel)
+			{
+				using (StringWriter swrWriter = new StringWriter())
+				{
+					using (XmlTextWriter xtwOut = new XmlTextWriter(swrWriter))
+					{
+						SaveAsXml(dockPanel, xtwOut, true);
+					}
+					return swrWriter.ToString();
+				}
+			}
+
             public static void SaveAsXml(DockPanel dockPanel, string fileName)
             {
                 SaveAsXml(dockPanel, fileName, Encoding.Unicode);
@@ -230,10 +242,14 @@ namespace WeifenLuo.WinFormsUI.Docking
                 SaveAsXml(dockPanel, stream, encoding, false);
             }
 
-            public static void SaveAsXml(DockPanel dockPanel, Stream stream, Encoding encoding, bool upstream)
-            {
-                XmlTextWriter xmlOut = new XmlTextWriter(stream, encoding);
+			public static void SaveAsXml(DockPanel dockPanel, Stream stream, Encoding encoding, bool upstream)
+			{
+				XmlTextWriter xmlOut = new XmlTextWriter(stream, encoding);
+				SaveAsXml(dockPanel, xmlOut, upstream);
+			}
 
+			private static void SaveAsXml(DockPanel dockPanel, XmlTextWriter xmlOut, bool upstream)
+            {
                 // Use indenting for readability
                 xmlOut.Formatting = Formatting.Indented;
 
@@ -509,13 +525,27 @@ namespace WeifenLuo.WinFormsUI.Docking
                 return floatWindows;
             }
 
-            public static void LoadFromXml(DockPanel dockPanel, Stream stream, DeserializeDockContent deserializeContent, bool closeStream)
-            {
+			public static void LoadFromXmlString(DockPanel dockPanel, string strXml, DeserializeDockContent deserializeContent)
+			{
+				using (TextReader trdReader = new StringReader(strXml))
+				{
+					XmlTextReader xmlIn = new XmlTextReader(trdReader);
+					LoadFromXml(dockPanel, xmlIn, deserializeContent, true);
+				}
+			}
 
+			public static void LoadFromXml(DockPanel dockPanel, Stream stream, DeserializeDockContent deserializeContent, bool closeStream)
+			{
+				XmlTextReader xmlIn = new XmlTextReader(stream);
+				LoadFromXml(dockPanel, xmlIn, deserializeContent, closeStream);
+			}
+
+            private static void LoadFromXml(DockPanel dockPanel, XmlTextReader xmlIn, DeserializeDockContent deserializeContent, bool closeStream)
+            {
                 if (dockPanel.Contents.Count != 0)
                     throw new InvalidOperationException(Strings.DockPanel_LoadFromXml_AlreadyInitialized);
 
-                XmlTextReader xmlIn = new XmlTextReader(stream);
+                
                 xmlIn.WhitespaceHandling = WhitespaceHandling.None;
                 xmlIn.MoveToContent();
 
@@ -743,6 +773,11 @@ namespace WeifenLuo.WinFormsUI.Docking
             }
         }
 
+		public string SaveAsXml()
+		{
+			return Persistor.SaveAsXml(this);
+		}
+
         public void SaveAsXml(string fileName)
         {
             Persistor.SaveAsXml(this, fileName);
@@ -762,6 +797,11 @@ namespace WeifenLuo.WinFormsUI.Docking
         {
             Persistor.SaveAsXml(this, stream, encoding, upstream);
         }
+
+		public void LoadFromXmlString(string strXml, DeserializeDockContent deserializeContent)
+		{
+			Persistor.LoadFromXmlString(this, strXml, deserializeContent);
+		}
 
         public void LoadFromXml(string fileName, DeserializeDockContent deserializeContent)
         {
