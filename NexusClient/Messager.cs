@@ -144,6 +144,7 @@ namespace Nexus.Client
 		{
 			Trace.TraceInformation("Adding Mod to running instance of client: " + p_strFilePath);
 			ModManager.AddMod(p_strFilePath, ConfirmFileOverwrite);
+			BringToFront();
 		}
 
 		/// <summary>
