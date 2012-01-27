@@ -128,7 +128,8 @@ namespace Nexus.Client
 			{
 				pmcPluginManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
-				amcActivityMonitor.DockState = DockState.DockBottomAutoHide;
+				amcActivityMonitor.DockState = DockState.Unknown;
+				amcActivityMonitor.ShowHint = DockState.DockBottomAutoHide;
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
 					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.Height;
 				amcActivityMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
