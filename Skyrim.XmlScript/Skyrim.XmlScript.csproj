@@ -35,12 +35,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CPL\Controls\SkyrimCplHighlightingStrategy.cs" />
-    <Compile Include="CPL\SkyrimCplLexer.cs" />
-    <Compile Include="CPL\SkyrimCplLexer_CPLLexer.cs" />
-    <Compile Include="CPL\SkyrimCplParser.cs" />
     <Compile Include="CPL\SkyrimCplParserFactory.cs" />
     <Compile Include="CPL\SkyrimCplConverter.cs" />
-    <Compile Include="CPL\SkyrimCplParser_CPLParser.cs" />
     <Compile Include="SkyrimXmlScriptType.cs" />
     <Compile Include="SkyrimConditionStateManager.cs" />
     <Compile Include="SkseCondition.cs" />
@@ -52,11 +48,19 @@
     <Compile Include="XmlScript40NodeAdapter.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="CPL\SkyrimCplParser.g" />
-    <None Include="CPL\SkyrimCplLexer.g" />
+    <Antlr3 Include="CPL\SkyrimCplParser.g">
+      <Generator>MSBuild:Compile</Generator>
+    </Antlr3>
+    <Antlr3 Include="CPL\SkyrimCplLexer.g">
+      <Generator>MSBuild:Compile</Generator>
+    </Antlr3>
     <EmbeddedResource Include="data\XmlScript5.0.xsd" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\AntlrUtil\AntlrUtil.csproj">
+      <Project>{8B2AD10B-4E22-4559-A784-648179225ADC}</Project>
+      <Name>AntlrUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Controls\Controls.csproj">
       <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
       <Name>Controls</Name>
@@ -99,9 +103,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Antlr3-2.Runtime.DotNet20, Version=3.1.3.39007, Culture=neutral, PublicKeyToken=3a9cab8f8d22bfb7, processorArchitecture=MSIL">
+    <Reference Include="Antlr3.Runtime, Version=3.4.1.9004, Culture=neutral, PublicKeyToken=eb42632606e9261f, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\lib\Antlr3-2.Runtime.DotNet20.dll</HintPath>
+      <HintPath>..\lib\Antlr\Antlr3.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -121,6 +125,7 @@
     <AntlrBuildTaskPath>$(SolutionDir)\lib\Antlr</AntlrBuildTaskPath>
     <!-- Path to the ANTLR Tool itself. -->
     <AntlrToolPath>$(SolutionDir)\lib\Antlr\Antlr3.exe</AntlrToolPath>
+    <AntlrLibPaths>$(SolutionDir)\XmlScript\CPL</AntlrLibPaths>
   </PropertyGroup>
   <Import Project="$(SolutionDir)\lib\Antlr\Antlr3.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

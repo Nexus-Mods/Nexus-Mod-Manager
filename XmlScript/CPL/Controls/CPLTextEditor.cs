@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using ICSharpCode.TextEditor;
 using ICSharpCode.TextEditor.Document;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Antlr;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL.Controls
 {

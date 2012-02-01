@@ -1,4 +1,5 @@
-﻿
+﻿using Nexus.Client.Util.Antlr;
+
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 {
 	/// <summary>
@@ -13,7 +14,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 		/// <param name="p_ertErrorTracker">The error tracker to use to log
 		/// parsing errors.</param>
 		/// <returns>A CPL parser for the given code.</returns>
-		CPLParserBase CreateParser(string p_strCode, ErrorTracker p_ertErrorTracker);
+		AntlrParserBase CreateParser(string p_strCode, ErrorTracker p_ertErrorTracker);
 
 		/// <summary>
 		/// Creates a CPL lexer for the given code, using the given error tracker.
@@ -22,6 +23,6 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 		/// <param name="p_ertErrorTracker">The error tracker to use to log
 		/// lexing errors.</param>
 		/// <returns>A CPL lexer for the given code.</returns>
-		CPLLexerBase CreateLexer(string p_strCode, ErrorTracker p_ertErrorTracker);
+		AntlrLexerBase CreateLexer(string p_strCode, ErrorTracker p_ertErrorTracker);
 	}
 }

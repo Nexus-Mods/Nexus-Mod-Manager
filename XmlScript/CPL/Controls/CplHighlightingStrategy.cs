@@ -4,6 +4,7 @@ using System.Drawing;
 using Antlr.Runtime;
 using ICSharpCode.TextEditor;
 using ICSharpCode.TextEditor.Document;
+using Nexus.Client.Util.Antlr;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL.Controls
 {
@@ -103,7 +104,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL.Controls
 		public void MarkTokens(IDocument document, List<LineSegment> lines)
 		{
 			Dictionary<Int32, List<IToken>> dicTokens = new Dictionary<int, List<IToken>>();
-			CPLLexerBase lex = LexerFactory.CreateLexer(document.TextContent, new ErrorTracker());
+			AntlrLexerBase lex = LexerFactory.CreateLexer(document.TextContent, new ErrorTracker());
 			for (IToken tknToken = lex.NextToken(); tknToken.Type > -1; tknToken = lex.NextToken())
 			{
 				if (!dicTokens.ContainsKey(tknToken.Line - 1))
