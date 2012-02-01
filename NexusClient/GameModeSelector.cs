@@ -50,7 +50,7 @@ namespace Nexus.Client
 		/// <returns>The <see cref="IGameModeFactory"/> that can build the game mode selected by the user.</returns>
 		public IGameModeFactory SelectGameMode(string[] p_strArgs, bool p_booChangeGameMode)
 		{
-			Trace.Write("Determining Game Mode: ");
+			/*Trace.Write("Determining Game Mode: ");
 
 			string strSelectedGame = EnvironmentInfo.Settings.RememberGameMode ? EnvironmentInfo.Settings.RememberedGameMode : null;
 			if (!p_booChangeGameMode)
@@ -93,7 +93,8 @@ namespace Nexus.Client
 				return null;
 			}
 
-			return m_dicGameModeFactories[strSelectedGame];
+			return m_dicGameModeFactories[strSelectedGame];*/
+			return null;
 		}
 	}
 }
