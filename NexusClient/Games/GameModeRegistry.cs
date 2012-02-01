@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Games
 {
@@ -96,7 +97,7 @@ namespace Nexus.Client.Games
 		{
 			if (m_dicGameModeFactories.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId))
 			{
-				string strError = String.Format("{0} has the same Game Mode Id as {1}. {0} will be replaced in the registry.", m_dicGameModeFactories[p_gmfGameModeFactory.GameModeDescriptor.ModeId].GameModeDescriptor.Name, gmfGameModeFactory.GameModeDescriptor.Name);
+				string strError = String.Format("{0} has the same Game Mode Id as {1}. {0} will be replaced in the registry.", m_dicGameModeFactories[p_gmfGameModeFactory.GameModeDescriptor.ModeId].GameModeDescriptor.Name, p_gmfGameModeFactory.GameModeDescriptor.Name);
 				Trace.TraceWarning(strError);
 			}
 			m_dicGameModeFactories[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = p_gmfGameModeFactory;
