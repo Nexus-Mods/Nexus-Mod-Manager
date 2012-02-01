@@ -71,6 +71,7 @@ namespace Nexus.Client
 			bool booChangeGameMode = false;
 			do
 			{
+				GameModeRegistry gmrGameModes = GameModeRegistry.DiscoverGameModes(m_eifEnvironmentInfo);
 				GameModeSelector gmsSelector = new GameModeSelector(m_eifEnvironmentInfo);
 				IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(strArgs, booChangeGameMode);
 

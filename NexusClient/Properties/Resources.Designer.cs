@@ -200,6 +200,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static byte[] LinBiolinum_RB {
+            get {
+                object obj = ResourceManager.GetObject("LinBiolinum_RB", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap media_playback_pause_7 {
             get {
                 object obj = ResourceManager.GetObject("media_playback_pause_7", resourceCulture);

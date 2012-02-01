@@ -119,6 +119,9 @@
     <EmbeddedResource Include="ApplicationInitializationForm.resx">
       <DependentUpon>ApplicationInitializationForm.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="GameModeListViewItem.resx">
+      <DependentUpon>GameModeListViewItem.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="GameModeSelectionForm.resx">
       <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
     </EmbeddedResource>
@@ -202,6 +205,7 @@
     </None>
     <None Include="Resources\down.png" />
     <None Include="Resources\change_game_mode.png" />
+    <None Include="Resources\LinBiolinum_RB.ttf" />
     <None Include="Resources\media-playback-pause-7.png" />
     <None Include="Resources\media-playback-start-7.png" />
     <None Include="Resources\preferences-system-4.png" />
@@ -239,6 +243,17 @@
     <Compile Include="ApplicationInitializer.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
+    <Compile Include="GameModeListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="GameModeListViewItem.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="GameModeListViewItem.Designer.cs">
+      <DependentUpon>GameModeListViewItem.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Games\GameDiscoverer.cs" />
+    <Compile Include="Games\GameModeRegistry.cs" />
     <Compile Include="InstallationPathInitializer.cs" />
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
