@@ -2,14 +2,20 @@ parser grammar CPLParser;
 //CPL = Conditional Pattern Language
 
 options {
-	language=CSharp2;
+	language=CSharp3;
 	output=AST;    
 	ASTLabelType=CommonTree;
-	superClass=CPLParserBase;
+	superClass=AntlrParserBase;
 	tokenVocab=CPLLexer;
 }
 
 @namespace {Nexus.Client.ModManagement.Scripting.XmlScript.CPL}
+
+@parser::header {
+	//turn off warning about not needing CLSCompliant attribute
+	#pragma warning disable 3021
+	using Nexus.Client.Util.Antlr;
+}
 
 @members {
 	/// <summary>

@@ -1,22 +1,23 @@
 parser grammar SkyrimCplParser;
 
 options {
-	language=CSharp2;
+	language=CSharp3;
 	output=AST;    
 	ASTLabelType=CommonTree;
-	superClass=CPLParserBase;
+	superClass=AntlrParserBase;
 	tokenVocab=SkyrimCplLexer;
 }
 
-import CPLParser;
+import CPLImportParser;
 
 @namespace {Nexus.Client.ModManagement.Scripting.XmlScript.CPL}
 
 @parser::header {
-//turn off warning about missing comments
-#pragma warning disable 1591
-//turn off warning about not needing CLSCompliant attribute
-#pragma warning disable 3021
+	//turn off warning about missing comments
+	#pragma warning disable 1591
+	//turn off warning about not needing CLSCompliant attribute
+	#pragma warning disable 3021
+	using Nexus.Client.Util.Antlr;
 }
 
 @parser::members {
@@ -26,12 +27,23 @@ import CPLParser;
 	public SkyrimCplParser(ITokenStream input, string dummy)
 		: base(input, new RecognizerSharedState())
 	{
-		gCPLParser = new SkyrimCplParser_CPLParser(input, state, this);
+		gCPLImportParser = new SkyrimCplParser_CPLImportParser(input, state, this);
 		ITreeAdaptor treeAdaptor = null;
 		CreateTreeAdaptor(ref treeAdaptor);
 		TreeAdaptor = treeAdaptor ?? new CommonTreeAdaptor();
 
 		OnCreated();
+	}
+	
+	/// <summary>
+	/// Sets the error tracker to use to track errors.
+	/// </summary>
+	/// <param name="p_ertErrorTracker">The error tracker to use to log
+	/// parsing errors.</param>
+	public void SetErrorTracker(ErrorTracker p_ertErrorTracker)
+	{
+		ErrorTracker = p_ertErrorTracker;
+		gCPLImportParser.ErrorTracker = p_ertErrorTracker;
 	}
 	
 	/// <summary>

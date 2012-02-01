@@ -69,6 +69,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skyrim.XmlScript", "Skyrim.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DockPanelSuite", "DockPanelSuite\DockPanelSuite.csproj", "{C75532C4-765B-418E-B09B-46D36B2ABDB1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AntlrBuildTask", "AntlrBuildTask\AntlrBuildTask.csproj", "{60F8B554-5C53-4DE2-B868-A0BFEF4EF80E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -193,6 +195,8 @@ Global
 		{C75532C4-765B-418E-B09B-46D36B2ABDB1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C75532C4-765B-418E-B09B-46D36B2ABDB1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C75532C4-765B-418E-B09B-46D36B2ABDB1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{60F8B554-5C53-4DE2-B868-A0BFEF4EF80E}.Debug|Any CPU.ActiveCfg = Release|Any CPU
+		{60F8B554-5C53-4DE2-B868-A0BFEF4EF80E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -216,5 +220,6 @@ Global
 		{34B04F6B-0D64-455F-B20F-1C3E080AE601} = {A2AB109D-6B22-4A49-AA0F-FD881045D16C}
 		{0B0E3C6E-C51D-473D-8605-7D7679338AA1} = {A2AB109D-6B22-4A49-AA0F-FD881045D16C}
 		{0DED892D-18B4-42EE-A6B4-6574BA85B7B6} = {325AAE29-5A23-4CF9-B0B2-F9316DD46606}
+		{60F8B554-5C53-4DE2-B868-A0BFEF4EF80E} = {325AAE29-5A23-4CF9-B0B2-F9316DD46606}
 	EndGlobalSection
 EndGlobal

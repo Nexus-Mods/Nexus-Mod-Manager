@@ -1,4 +1,5 @@
 ﻿using Antlr.Runtime;
+using Nexus.Client.Util.Antlr;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 {
@@ -16,9 +17,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 		/// <param name="p_ertErrorTracker">The error tracker to use to log
 		/// parsing errors.</param>
 		/// <returns>A CPL parser for the given code.</returns>
-		public CPLParserBase CreateParser(string p_strCode, ErrorTracker p_ertErrorTracker)
+		public AntlrParserBase CreateParser(string p_strCode, ErrorTracker p_ertErrorTracker)
 		{
-			CPLLexerBase lexLexer = CreateLexer(p_strCode, p_ertErrorTracker);
+			AntlrLexerBase lexLexer = CreateLexer(p_strCode, p_ertErrorTracker);
 			CommonTokenStream ctsTokens = new CommonTokenStream(lexLexer);
 			CPLParser prsParser = new CPLParser(ctsTokens);
 			prsParser.ErrorTracker = p_ertErrorTracker;
@@ -32,7 +33,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 		/// <param name="p_ertErrorTracker">The error tracker to use to log
 		/// lexing errors.</param>
 		/// <returns>A CPL lexer for the given code.</returns>
-		public CPLLexerBase CreateLexer(string p_strCode, ErrorTracker p_ertErrorTracker)
+		public AntlrLexerBase CreateLexer(string p_strCode, ErrorTracker p_ertErrorTracker)
 		{
 			CPLLexer lexLexer = new CPLLexer(new ANTLRStringStream(p_strCode));
 			lexLexer.ErrorTracker = p_ertErrorTracker;

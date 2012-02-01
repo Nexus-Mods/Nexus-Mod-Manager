@@ -1,7 +1,7 @@
 ﻿using System;
-using Nexus.Client.ModManagement.Scripting.XmlScript;
-using Antlr.Runtime.Tree;
 using System.Text;
+using Antlr.Runtime.Tree;
+using Nexus.Client.Util.Antlr;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 {
@@ -27,7 +27,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.CPL
 		private ITree GenerateAst(string p_strCplCode)
 		{
 			ErrorTracker ertErrors = new ErrorTracker();
-			CPLParserBase cpbParser = ParserFactory.CreateParser(p_strCplCode, ertErrors);
+			AntlrParserBase cpbParser = ParserFactory.CreateParser(p_strCplCode, ertErrors);
 			ITree astCPL = cpbParser.Parse();
 			if (ertErrors.HasErrors)
 				throw new ArgumentException("Invalid CPL:" + Environment.NewLine + ertErrors.ToString(), "p_strCplCode");

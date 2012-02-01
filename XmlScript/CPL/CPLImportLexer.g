@@ -1,4 +1,30 @@
-lexer grammar CPLLexer;
+/**
+ * This grammar is a RENAMED COPY of CPLLexer. It is required as
+ * antlr doesn't allow base grammars to have different @header
+ * sections than derived composite grammars, which prevents
+ * me from putting:
+ * @header {
+ *	using Nexus.Client.Util.Antlr;
+ * }
+ * in both grammars (CPLLexer, and the derived grammar).
+ * This means one of them won't compile, as the using statement is
+ * required. Why antlr prevents this is not entirely clear to me,
+ * though it seems that the antlr folk believe that base grammars
+ * are never complete unto themselves (meaning the antlr folk don't
+ * think a base grammar should ever be used without a derived grammar).
+ * 
+ * The work around is to creat this exact copy of the grammar, with
+ * the exception that the @header block has been removed. This way,
+ * derived grammars can imnport this grammar without issue.
+ * I don't believe this will have any unintended side-effects, but
+ * testing and use will tell.
+ *
+ * The last note is that this copy is not compiled or processed
+ * by the compiler in this project (more precisely: the properties
+ * of this file are set so that the antlr build task and MSBuild
+ * ignore this file).
+ */
+lexer grammar CPLImportLexer;
 //CPL = Conditional Pattern Language
 
 options {
@@ -7,12 +33,6 @@ options {
 }
 
 @namespace {Nexus.Client.ModManagement.Scripting.XmlScript.CPL}
-
-@lexer::header {
-	//turn off warning about not needing CLSCompliant attribute
-	#pragma warning disable 3021
-	using Nexus.Client.Util.Antlr;
-}
 
 @lexer::members {
 	public const System.Int32 HIDDEN = TokenChannels.Hidden;
