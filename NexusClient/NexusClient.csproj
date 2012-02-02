@@ -206,6 +206,7 @@
     <None Include="Resources\down.png" />
     <None Include="Resources\change_game_mode.png" />
     <None Include="Resources\LinBiolinum_RB.ttf" />
+    <None Include="Resources\LinBiolinum_RI.ttf" />
     <None Include="Resources\media-playback-pause-7.png" />
     <None Include="Resources\media-playback-start-7.png" />
     <None Include="Resources\preferences-system-4.png" />
@@ -219,6 +220,11 @@
     <None Include="data\AntlrBuildTask Licence.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="Resources\dialog-ok-4.png" />
+    <None Include="Resources\dialog-cancel-4.png" />
+    <None Include="Resources\dialog-ok-41.png" />
+    <None Include="Resources\dialog-cancel-41.png" />
+    <None Include="Resources\dialog-ok-42.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\tes_logo_full.png" />
     <None Include="Resources\up.png" />

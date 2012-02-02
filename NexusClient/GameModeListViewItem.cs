@@ -18,19 +18,31 @@ namespace Nexus.Client
 			InitializeComponent();
 			
 			PrivateFontCollection pfcFonts = new PrivateFontCollection();
-			byte[] rgbyt = Properties.Resources.LinBiolinum_RB;
 			IntPtr pbyt = IntPtr.Zero;
 			try
 			{
-				pbyt = Marshal.AllocCoTaskMem(rgbyt.Length);
-				pfcFonts.AddMemoryFont(pbyt, rgbyt.Length);
+				byte[][] rgbyt = new byte[2][];
+				rgbyt[0] = Properties.Resources.LinBiolinum_RI;
+				rgbyt[1] = Properties.Resources.LinBiolinum_RB;
+				for (Int32 i = 0; i <= rgbyt.GetUpperBound(0); i++)
+				{
+					pbyt = Marshal.AllocCoTaskMem(rgbyt[i].Length);
+					Marshal.Copy(rgbyt[i], 0, pbyt, rgbyt[i].Length);
+					pfcFonts.AddMemoryFont(pbyt, rgbyt[i].Length);
+				}
 			}
 			finally
 			{
 				Marshal.FreeCoTaskMem(pbyt);
 			}
-			lblNotFoundTitle.Font = new Font(pfcFonts.Families[0], 48, GraphicsUnit.Point);
-			lblNotFoundTitle.Font = new Font(FontFamily.GenericMonospace, 12, GraphicsUnit.Point);
+			lblNotFoundTitle.Font = new Font(pfcFonts.Families[0], lblNotFoundTitle.Font.Size, lblNotFoundTitle.Font.Style, lblNotFoundTitle.Font.Unit);
+		}
+
+		private void butSelectPath_Click(object sender, EventArgs e)
+		{
+			fbdSelectPath.SelectedPath = tbxInstallPath.Text;
+			if (fbdSelectPath.ShowDialog(this) == DialogResult.OK)
+				tbxInstallPath.Text = fbdSelectPath.SelectedPath;
 		}
 	}
 }
