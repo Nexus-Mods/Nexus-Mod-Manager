@@ -30,6 +30,7 @@ namespace Nexus.Client
 				Marshal.FreeCoTaskMem(pbyt);
 			}
 			lblNotFoundTitle.Font = new Font(pfcFonts.Families[0], 48, GraphicsUnit.Point);
+			lblNotFoundTitle.Font = new Font(FontFamily.GenericMonospace, 12, GraphicsUnit.Point);
 		}
 	}
 }
