@@ -52,7 +52,7 @@
 			this.groupBox1.Controls.Add(this.cbxGameMode);
 			this.groupBox1.Location = new System.Drawing.Point(12, 12);
 			this.groupBox1.Name = "groupBox1";
-			this.groupBox1.Size = new System.Drawing.Size(226, 47);
+			this.groupBox1.Size = new System.Drawing.Size(466, 47);
 			this.groupBox1.TabIndex = 0;
 			this.groupBox1.TabStop = false;
 			this.groupBox1.Text = "Select the game you would like to manage:";
@@ -70,7 +70,7 @@
 			// butOK
 			// 
 			this.butOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.butOK.Location = new System.Drawing.Point(163, 90);
+			this.butOK.Location = new System.Drawing.Point(403, 330);
 			this.butOK.Name = "butOK";
 			this.butOK.Size = new System.Drawing.Size(75, 23);
 			this.butOK.TabIndex = 2;
@@ -83,7 +83,7 @@
 			this.AcceptButton = this.butOK;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(250, 125);
+			this.ClientSize = new System.Drawing.Size(490, 365);
 			this.Controls.Add(this.butOK);
 			this.Controls.Add(this.groupBox1);
 			this.Controls.Add(this.cbxRemember);
