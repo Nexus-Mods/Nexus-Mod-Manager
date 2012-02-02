@@ -130,6 +130,41 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap dialog_cancel_4 {
+            get {
+                object obj = ResourceManager.GetObject("dialog_cancel_4", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap dialog_cancel_4_24 {
+            get {
+                object obj = ResourceManager.GetObject("dialog_cancel_4_24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap dialog_ok_4 {
+            get {
+                object obj = ResourceManager.GetObject("dialog_ok_4", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap dialog_ok_4_22 {
+            get {
+                object obj = ResourceManager.GetObject("dialog_ok_4_22", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap dialog_ok_4_24 {
+            get {
+                object obj = ResourceManager.GetObject("dialog_ok_4_24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap dialog_warning_4 {
             get {
                 object obj = ResourceManager.GetObject("dialog_warning_4", resourceCulture);
@@ -203,6 +238,13 @@ namespace Nexus.Client.Properties {
         internal static byte[] LinBiolinum_RB {
             get {
                 object obj = ResourceManager.GetObject("LinBiolinum_RB", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        internal static byte[] LinBiolinum_RI {
+            get {
+                object obj = ResourceManager.GetObject("LinBiolinum_RI", resourceCulture);
                 return ((byte[])(obj));
             }
         }
