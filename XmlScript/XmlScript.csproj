@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{B0F526DB-967B-4A57-9EC9-2E4950E54F26}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -305,64 +305,84 @@
   <ItemGroup>
     <EmbeddedResource Include="UI\Controls\NodeEditors\ConditionallyInstalledFileSetEditor.resx">
       <DependentUpon>ConditionallyInstalledFileSetEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\ConditionallyInstalledFileSetOrderEditor.resx">
       <DependentUpon>ConditionallyInstalledFileSetOrderEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\ConditionalTypeEditor.resx">
       <DependentUpon>ConditionalTypeEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\ConditionalTypePatternEditor.resx">
       <DependentUpon>ConditionalTypePatternEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\ConditionEditor.resx">
       <DependentUpon>ConditionEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\FileListEditor.resx">
       <DependentUpon>FileListEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\HeaderEditor.resx">
       <DependentUpon>HeaderEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\InstallableFileEditor.resx">
       <DependentUpon>InstallableFileEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\InstallStepEditor.resx">
       <DependentUpon>InstallStepEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\InstallStepsEditor.resx">
       <DependentUpon>InstallStepsEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\OptionEditor.resx">
       <DependentUpon>OptionEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\OptionGroupEditor.resx">
       <DependentUpon>OptionGroupEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\OptionInfoEditor.resx">
       <DependentUpon>OptionInfoEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\NodeEditors\OptionTypeResolverEditor.resx">
       <DependentUpon>OptionTypeResolverEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\XmlScriptTreeEditor.resx">
       <DependentUpon>XmlScriptTreeEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="CPL\Controls\CPLEditor.resx">
       <DependentUpon>CPLEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="CPL\Controls\CplFlagConditionEditor.resx">
       <DependentUpon>CplFlagConditionEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="CPL\Controls\CplPluginConditionEditor.resx">
       <DependentUpon>CplPluginConditionEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="CPL\Controls\CplVersionConditionEditor.resx">
       <DependentUpon>CplVersionConditionEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

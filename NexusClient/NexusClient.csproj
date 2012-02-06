@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -115,18 +115,23 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="ActivityMonitoring\UI\ActivityMonitorControl.resx">
       <DependentUpon>ActivityMonitorControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ApplicationInitializationForm.resx">
       <DependentUpon>ApplicationInitializationForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="GameModeSelectionForm.resx">
       <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="LoginForm.resx">
       <DependentUpon>LoginForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="MainForm.resx">
       <DependentUpon>MainForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModAuthoring\UI\Controls\ModFilesTreeView.resx">
       <DependentUpon>ModFilesTreeView.cs</DependentUpon>
@@ -138,24 +143,31 @@
     </EmbeddedResource>
     <EmbeddedResource Include="ModAuthoring\UI\Controls\ReadmeEditor.resx">
       <DependentUpon>ReadmeEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModAuthoring\UI\Controls\ScriptEditor.resx">
       <DependentUpon>ScriptEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModAuthoring\UI\ModPackagingForm.resx">
       <DependentUpon>ModPackagingForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModManagement\UI\ModManagerControl.resx">
       <DependentUpon>ModManagerControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModManagement\UI\ModTaggerForm.resx">
       <DependentUpon>ModTaggerForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModManagement\UI\OverwriteForm.resx">
       <DependentUpon>OverwriteForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="PluginManagement\UI\PluginManagerControl.resx">
       <DependentUpon>PluginManagerControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -164,12 +176,15 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Settings\UI\ModOptionsPage.resx">
       <DependentUpon>ModOptionsPage.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Settings\UI\SettingsForm.resx">
       <DependentUpon>SettingsForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Settings\UI\GeneralSettingsPage.resx">
       <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
