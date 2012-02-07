@@ -23,6 +23,18 @@ namespace Nexus.Client.Settings
 		string ModManagerUrl { get; }
 
 		/// <summary>
+		/// Gets the list of installed games.
+		/// </summary>
+		/// <value>The list of installed games.</value>
+		SettingsList InstalledGames { get; }
+
+		/// <summary>
+		/// Gets whether the detection of installed games has taken place.
+		/// </summary>
+		/// <value>Whether the detection of installed games has taken place.</value>
+		bool InstalledGamesDetected { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the selected game mode should be rememberd the next time the client is started.
 		/// </summary>
 		/// <value>Whether the selected game mode should be rememberd the next time the client is started.</value>

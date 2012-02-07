@@ -17,7 +17,7 @@ namespace Nexus.Client.Games
 		/// any factories that are found into a registry.
 		/// </summary>
 		/// <returns>A registry containing all of the discovered game mode factories.</returns>
-		public static GameModeRegistry DiscoverGameModes(EnvironmentInfo p_eifEnvironmentInfo)
+		public static GameModeRegistry DiscoverSupportedGameModes(EnvironmentInfo p_eifEnvironmentInfo)
 		{
 			Trace.TraceInformation("Discovering Game Mode Factories...");
 			Trace.Indent();
@@ -74,7 +74,47 @@ namespace Nexus.Client.Games
 			return gmrRegistry;
 		}
 
+		/// <summary>
+		/// Loads the factories for games that have been previously detected as installed.
+		/// </summary>
+		/// <param name="p_gmrSupportedGameModes">A registry containing the factories for all supported game modes.</param>
+		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <returns>A registry containing all of the game mode factories for games that were previously detected as installed.</returns>
+		public static GameModeRegistry LoadInstalledGameModes(GameModeRegistry p_gmrSupportedGameModes, EnvironmentInfo p_eifEnvironmentInfo)
+		{
+			Trace.TraceInformation("Loading Game Mode Factories for Installed Games...");
+			Trace.Indent();
+			
+			GameModeRegistry gmrInstalled = new GameModeRegistry();
+			foreach (string strGameId in p_eifEnvironmentInfo.Settings.InstalledGames)
+			{
+				Trace.Write(String.Format("Loading {0}: ", strGameId));
+				if (p_gmrSupportedGameModes.IsRegistered(strGameId))
+				{
+					Trace.WriteLine("Supported");
+					gmrInstalled.RegisterGameMode(p_gmrSupportedGameModes.GetGameMode(strGameId));
+				}
+				else
+					Trace.WriteLine("Not Supported");
+			}
+			
+			Trace.Unindent();
+			return gmrInstalled;
+		}
+
 		private Dictionary<string, IGameModeFactory> m_dicGameModeFactories = new Dictionary<string, IGameModeFactory>(StringComparer.OrdinalIgnoreCase);
+
+		#region Properties
+
+		public IEnumerable<IGameModeFactory> RegisteredGameModeFactories
+		{
+			get
+			{
+				return m_dicGameModeFactories.Values;
+			}
+		}
+
+		#endregion
 
 		#region Constructors
 
@@ -112,6 +152,19 @@ namespace Nexus.Client.Games
 		public bool IsRegistered(string p_strGameModeId)
 		{
 			return m_dicGameModeFactories.ContainsKey(p_strGameModeId);
+		}
+
+		/// <summary>
+		/// Gets the game mode factory registered for the given game mode id.
+		/// </summary>
+		/// <param name="p_strGameModeId">The id of the game mode for which to retrieve a factory.</param>
+		/// <returns>The game mode factory registered for the given game mode id,
+		/// or <c>null</c> if no factory is registered for the given id.</returns>
+		public IGameModeFactory GetGameMode(string p_strGameModeId)
+		{
+			IGameModeFactory gmfFactory = null;
+			m_dicGameModeFactories.TryGetValue(p_strGameModeId, out gmfFactory);
+			return gmfFactory;
 		}
 	}
 }
