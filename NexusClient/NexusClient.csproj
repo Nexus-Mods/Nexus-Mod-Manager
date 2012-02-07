@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -12,7 +12,8 @@
     <AssemblyName>NexusClient</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <ApplicationIcon>Resources\tes_logo.ico</ApplicationIcon>
+    <ApplicationIcon>
+    </ApplicationIcon>
     <TargetZone>Internet</TargetZone>
     <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
@@ -121,6 +122,9 @@
       <DependentUpon>ApplicationInitializationForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="GameDetectionForm.resx">
+      <DependentUpon>GameDetectionForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="GameModeListViewItem.resx">
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
     </EmbeddedResource>
@@ -209,6 +213,10 @@
     <Content Include="data\7z-64bit.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="Resources\dialog-cancel-42.png" />
+    <None Include="Resources\dialog-cancel-43.png" />
+    <None Include="Resources\dialog-ok-43.png" />
+    <Content Include="Resources\tes_logo.ico" />
     <None Include="data\TxFileMAnager Licence.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -240,7 +248,6 @@
     <None Include="Resources\dialog-ok-41.png" />
     <None Include="Resources\dialog-cancel-41.png" />
     <None Include="Resources\dialog-ok-42.png" />
-    <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\tes_logo_full.png" />
     <None Include="Resources\up.png" />
     <None Include="Resources\system-settings.png" />
@@ -264,6 +271,13 @@
     <Compile Include="ApplicationInitializer.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
+    <Compile Include="GameDetectionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GameDetectionForm.Designer.cs">
+      <DependentUpon>GameDetectionForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GameDetectionVM.cs" />
     <Compile Include="GameModeListView.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -274,7 +288,9 @@
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
     </Compile>
     <Compile Include="Games\GameDiscoverer.cs" />
+    <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
+    <Compile Include="Games\FileSearcher.cs" />
     <Compile Include="InstallationPathInitializer.cs" />
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>

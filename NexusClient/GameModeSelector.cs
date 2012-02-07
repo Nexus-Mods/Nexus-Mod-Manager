@@ -27,6 +27,12 @@ namespace Nexus.Client
 		/// <value>The application's envrionment info.</value>
 		protected IEnvironmentInfo EnvironmentInfo { get; set; }
 
+		/// <summary>
+		/// Gets or sets the game modes factories for installed games.
+		/// </summary>
+		/// <value>The game modes factories for installed games.</value>
+		protected GameModeRegistry InstalledGameModes { get; set; }
+
 		#endregion
 
 		#region Constructors
@@ -34,9 +40,11 @@ namespace Nexus.Client
 		/// <summary>
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
+		/// <param name="p_gmrInstalledGameModes">The game modes factories for installed games.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public GameModeSelector(IEnvironmentInfo p_eifEnvironmentInfo)
+		public GameModeSelector(GameModeRegistry p_gmrInstalledGameModes, IEnvironmentInfo p_eifEnvironmentInfo)
 		{
+			InstalledGameModes = p_gmrInstalledGameModes;
 			EnvironmentInfo = p_eifEnvironmentInfo;
 		}
 
@@ -50,7 +58,7 @@ namespace Nexus.Client
 		/// <returns>The <see cref="IGameModeFactory"/> that can build the game mode selected by the user.</returns>
 		public IGameModeFactory SelectGameMode(string[] p_strArgs, bool p_booChangeGameMode)
 		{
-			/*Trace.Write("Determining Game Mode: ");
+			Trace.Write("Determining Game Mode: ");
 
 			string strSelectedGame = EnvironmentInfo.Settings.RememberGameMode ? EnvironmentInfo.Settings.RememberedGameMode : null;
 			if (!p_booChangeGameMode)
@@ -64,7 +72,7 @@ namespace Nexus.Client
 						{
 							case "-game":
 								Trace.Write("(From Command line: " + p_strArgs[i + 1] + ") ");
-								if (!m_dicGameModeFactories.ContainsKey(p_strArgs[i + 1]))
+								if (!InstalledGameModes.IsRegistered(p_strArgs[i + 1]))
 									MessageBox.Show(String.Format("Unrecognized -game Parameter: {0}", p_strArgs[i + 1]), "Unrecognized Game Mode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 								else
 									strSelectedGame = p_strArgs[i + 1];
@@ -78,14 +86,14 @@ namespace Nexus.Client
 			{
 				Trace.Write("(From Selection Form) ");
 				List<IGameModeDescriptor> lstGameModeInfos = new List<IGameModeDescriptor>();
-				foreach (IGameModeFactory gmfFactory in m_dicGameModeFactories.Values)
+				foreach (IGameModeFactory gmfFactory in InstalledGameModes.RegisteredGameModeFactories)
 					lstGameModeInfos.Add(gmfFactory.GameModeDescriptor);
 				GameModeSelectionForm msfSelector = new GameModeSelectionForm(lstGameModeInfos, EnvironmentInfo.Settings);
 				msfSelector.ShowDialog();
 				strSelectedGame = msfSelector.SelectedGameModeId;
 			}
 			Trace.WriteLine(strSelectedGame);
-			if (!m_dicGameModeFactories.ContainsKey(strSelectedGame))
+			if (!InstalledGameModes.IsRegistered(strSelectedGame))
 			{
 				string strError = String.Format("Unrecognized Game Mode: {0}", p_strArgs[1]);
 				Trace.TraceError(strError);
@@ -93,8 +101,7 @@ namespace Nexus.Client
 				return null;
 			}
 
-			return m_dicGameModeFactories[strSelectedGame];*/
-			return null;
+			return InstalledGameModes.GetGameMode(strSelectedGame);
 		}
 	}
 }

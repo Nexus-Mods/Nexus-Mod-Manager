@@ -31,10 +31,10 @@
 			this.components = new System.ComponentModel.Container();
 			this.lblGameModeName = new System.Windows.Forms.Label();
 			this.pnlCandidate = new System.Windows.Forms.Panel();
+			this.label1 = new System.Windows.Forms.Label();
 			this.lblFoundTitle = new System.Windows.Forms.Label();
 			this.butReject = new System.Windows.Forms.Button();
 			this.butAccept = new System.Windows.Forms.Button();
-			this.lblCorrect = new System.Windows.Forms.Label();
 			this.lblPath = new System.Windows.Forms.Label();
 			this.pnlNotFound = new System.Windows.Forms.Panel();
 			this.butSelectPath = new System.Windows.Forms.Button();
@@ -54,25 +54,37 @@
 			// 
 			// lblGameModeName
 			// 
-			this.lblGameModeName.AutoSize = true;
-			this.lblGameModeName.Location = new System.Drawing.Point(3, 4);
+			this.lblGameModeName.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.lblGameModeName.Font = new System.Drawing.Font("Microsoft Sans Serif", 20F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.lblGameModeName.Location = new System.Drawing.Point(0, 0);
 			this.lblGameModeName.Name = "lblGameModeName";
-			this.lblGameModeName.Size = new System.Drawing.Size(35, 13);
+			this.lblGameModeName.Size = new System.Drawing.Size(388, 34);
 			this.lblGameModeName.TabIndex = 1;
-			this.lblGameModeName.Text = "label1";
+			this.lblGameModeName.Text = "GAME TITLE";
+			this.lblGameModeName.TextAlign = System.Drawing.ContentAlignment.TopRight;
 			// 
 			// pnlCandidate
 			// 
+			this.pnlCandidate.Controls.Add(this.label1);
 			this.pnlCandidate.Controls.Add(this.lblFoundTitle);
 			this.pnlCandidate.Controls.Add(this.butReject);
 			this.pnlCandidate.Controls.Add(this.butAccept);
-			this.pnlCandidate.Controls.Add(this.lblCorrect);
 			this.pnlCandidate.Controls.Add(this.lblPath);
 			this.pnlCandidate.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.pnlCandidate.Location = new System.Drawing.Point(132, 100);
+			this.pnlCandidate.Location = new System.Drawing.Point(128, 100);
 			this.pnlCandidate.Name = "pnlCandidate";
-			this.pnlCandidate.Size = new System.Drawing.Size(384, 72);
+			this.pnlCandidate.Size = new System.Drawing.Size(388, 66);
 			this.pnlCandidate.TabIndex = 2;
+			// 
+			// label1
+			// 
+			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.label1.AutoSize = true;
+			this.label1.Location = new System.Drawing.Point(7, 23);
+			this.label1.Name = "label1";
+			this.label1.Size = new System.Drawing.Size(195, 13);
+			this.label1.TabIndex = 5;
+			this.label1.Text = "Please verify that the location is correct.";
 			// 
 			// lblFoundTitle
 			// 
@@ -81,7 +93,7 @@
 			this.lblFoundTitle.AutoSize = true;
 			this.lblFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.lblFoundTitle.ForeColor = System.Drawing.Color.Green;
-			this.lblFoundTitle.Location = new System.Drawing.Point(163, 3);
+			this.lblFoundTitle.Location = new System.Drawing.Point(6, 3);
 			this.lblFoundTitle.Name = "lblFoundTitle";
 			this.lblFoundTitle.Size = new System.Drawing.Size(59, 20);
 			this.lblFoundTitle.TabIndex = 4;
@@ -94,10 +106,10 @@
 			this.butReject.AutoSize = true;
 			this.butReject.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.butReject.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
-			this.butReject.Image = global::Nexus.Client.Properties.Resources.dialog_cancel_4_24;
-			this.butReject.Location = new System.Drawing.Point(233, 39);
+			this.butReject.Image = global::Nexus.Client.Properties.Resources.dialog_cancel_4_16;
+			this.butReject.Location = new System.Drawing.Point(38, 39);
 			this.butReject.Name = "butReject";
-			this.butReject.Size = new System.Drawing.Size(30, 30);
+			this.butReject.Size = new System.Drawing.Size(22, 22);
 			this.butReject.TabIndex = 3;
 			this.butReject.UseVisualStyleBackColor = true;
 			// 
@@ -108,34 +120,22 @@
 			this.butAccept.AutoSize = true;
 			this.butAccept.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.butAccept.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
-			this.butAccept.Image = global::Nexus.Client.Properties.Resources.dialog_ok_4_22;
-			this.butAccept.Location = new System.Drawing.Point(197, 41);
+			this.butAccept.Image = global::Nexus.Client.Properties.Resources.dialog_ok_4_16;
+			this.butAccept.Location = new System.Drawing.Point(10, 39);
 			this.butAccept.Name = "butAccept";
-			this.butAccept.Size = new System.Drawing.Size(28, 28);
+			this.butAccept.Size = new System.Drawing.Size(22, 22);
 			this.butAccept.TabIndex = 2;
 			this.butAccept.UseVisualStyleBackColor = true;
-			// 
-			// lblCorrect
-			// 
-			this.lblCorrect.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
-						| System.Windows.Forms.AnchorStyles.Right)));
-			this.lblCorrect.AutoSize = true;
-			this.lblCorrect.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.lblCorrect.Location = new System.Drawing.Point(121, 43);
-			this.lblCorrect.Name = "lblCorrect";
-			this.lblCorrect.Size = new System.Drawing.Size(70, 20);
-			this.lblCorrect.TabIndex = 1;
-			this.lblCorrect.Text = "Correct?";
 			// 
 			// lblPath
 			// 
 			this.lblPath.AutoSize = true;
 			this.lblPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.lblPath.Location = new System.Drawing.Point(6, 40);
+			this.lblPath.Location = new System.Drawing.Point(66, 42);
 			this.lblPath.Name = "lblPath";
-			this.lblPath.Size = new System.Drawing.Size(46, 17);
+			this.lblPath.Size = new System.Drawing.Size(294, 17);
 			this.lblPath.TabIndex = 0;
-			this.lblPath.Text = "label1";
+			this.lblPath.Text = "c:\\really\\long\\game\\path\\to\\the\\installed\\game";
 			// 
 			// pnlNotFound
 			// 
@@ -144,9 +144,9 @@
 			this.pnlNotFound.Controls.Add(this.lblNotFoundMessage);
 			this.pnlNotFound.Controls.Add(this.lblNotFoundTitle);
 			this.pnlNotFound.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.pnlNotFound.Location = new System.Drawing.Point(132, 34);
+			this.pnlNotFound.Location = new System.Drawing.Point(128, 34);
 			this.pnlNotFound.Name = "pnlNotFound";
-			this.pnlNotFound.Size = new System.Drawing.Size(384, 66);
+			this.pnlNotFound.Size = new System.Drawing.Size(388, 66);
 			this.pnlNotFound.TabIndex = 3;
 			// 
 			// butSelectPath
@@ -154,7 +154,7 @@
 			this.butSelectPath.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.butSelectPath.AutoSize = true;
 			this.butSelectPath.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butSelectPath.Location = new System.Drawing.Point(335, 37);
+			this.butSelectPath.Location = new System.Drawing.Point(339, 37);
 			this.butSelectPath.Name = "butSelectPath";
 			this.butSelectPath.Size = new System.Drawing.Size(26, 23);
 			this.butSelectPath.TabIndex = 3;
@@ -166,16 +166,16 @@
 			// 
 			this.tbxInstallPath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
-			this.tbxInstallPath.Location = new System.Drawing.Point(23, 39);
+			this.tbxInstallPath.Location = new System.Drawing.Point(10, 39);
 			this.tbxInstallPath.Name = "tbxInstallPath";
-			this.tbxInstallPath.Size = new System.Drawing.Size(306, 20);
+			this.tbxInstallPath.Size = new System.Drawing.Size(323, 20);
 			this.tbxInstallPath.TabIndex = 2;
 			// 
 			// lblNotFoundMessage
 			// 
 			this.lblNotFoundMessage.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.lblNotFoundMessage.AutoSize = true;
-			this.lblNotFoundMessage.Location = new System.Drawing.Point(20, 23);
+			this.lblNotFoundMessage.Location = new System.Drawing.Point(7, 23);
 			this.lblNotFoundMessage.Name = "lblNotFoundMessage";
 			this.lblNotFoundMessage.Size = new System.Drawing.Size(200, 13);
 			this.lblNotFoundMessage.TabIndex = 1;
@@ -188,7 +188,7 @@
 			this.lblNotFoundTitle.AutoSize = true;
 			this.lblNotFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.lblNotFoundTitle.ForeColor = System.Drawing.Color.DarkRed;
-			this.lblNotFoundTitle.Location = new System.Drawing.Point(143, 3);
+			this.lblNotFoundTitle.Location = new System.Drawing.Point(6, 3);
 			this.lblNotFoundTitle.Name = "lblNotFoundTitle";
 			this.lblNotFoundTitle.Size = new System.Drawing.Size(88, 20);
 			this.lblNotFoundTitle.TabIndex = 0;
@@ -203,7 +203,8 @@
 			this.pbxGameLogo.Dock = System.Windows.Forms.DockStyle.Left;
 			this.pbxGameLogo.Location = new System.Drawing.Point(0, 0);
 			this.pbxGameLogo.Name = "pbxGameLogo";
-			this.pbxGameLogo.Size = new System.Drawing.Size(132, 172);
+			this.pbxGameLogo.Size = new System.Drawing.Size(128, 166);
+			this.pbxGameLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
 			this.pbxGameLogo.TabIndex = 0;
 			this.pbxGameLogo.TabStop = false;
 			// 
@@ -215,9 +216,9 @@
 			// 
 			this.panel1.Controls.Add(this.lblGameModeName);
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.panel1.Location = new System.Drawing.Point(132, 0);
+			this.panel1.Location = new System.Drawing.Point(128, 0);
 			this.panel1.Name = "panel1";
-			this.panel1.Size = new System.Drawing.Size(384, 34);
+			this.panel1.Size = new System.Drawing.Size(388, 34);
 			this.panel1.TabIndex = 4;
 			// 
 			// GameModeListViewItem
@@ -229,7 +230,7 @@
 			this.Controls.Add(this.pnlCandidate);
 			this.Controls.Add(this.pbxGameLogo);
 			this.Name = "GameModeListViewItem";
-			this.Size = new System.Drawing.Size(516, 172);
+			this.Size = new System.Drawing.Size(516, 166);
 			this.pnlCandidate.ResumeLayout(false);
 			this.pnlCandidate.PerformLayout();
 			this.pnlNotFound.ResumeLayout(false);
@@ -237,7 +238,6 @@
 			((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).EndInit();
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).EndInit();
 			this.panel1.ResumeLayout(false);
-			this.panel1.PerformLayout();
 			this.ResumeLayout(false);
 
 		}
@@ -251,7 +251,6 @@
 		private System.Windows.Forms.Panel pnlNotFound;
 		private System.Windows.Forms.Button butReject;
 		private System.Windows.Forms.Button butAccept;
-		private System.Windows.Forms.Label lblCorrect;
 		private System.Windows.Forms.Label lblNotFoundTitle;
 		private System.Windows.Forms.Label lblNotFoundMessage;
 		private System.Windows.Forms.TextBox tbxInstallPath;
@@ -260,5 +259,6 @@
 		private System.Windows.Forms.ErrorProvider erpErrors;
 		private System.Windows.Forms.Label lblFoundTitle;
 		private System.Windows.Forms.Panel panel1;
+		private System.Windows.Forms.Label label1;
 	}
 }
