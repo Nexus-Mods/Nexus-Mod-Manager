@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using Nexus.Client.Games;
+using System.IO;
 
 namespace Nexus.Client
 {
@@ -16,12 +17,13 @@ namespace Nexus.Client
 	{
 		[DllImport("gdi32.dll")]
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
+		
+		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
 
 		public GameModeListViewItem(IGameModeDescriptor p_gmdGameMode)
 		{
 			InitializeComponent();
 			
-			PrivateFontCollection pfcFonts = new PrivateFontCollection();
 			IntPtr pbyt = IntPtr.Zero;
 			try
 			{
@@ -33,20 +35,21 @@ namespace Nexus.Client
 					pbyt = Marshal.AllocCoTaskMem(rgbyt[i].Length);
 					Marshal.Copy(rgbyt[i], 0, pbyt, rgbyt[i].Length);
 					pfcFonts.AddMemoryFont(pbyt, rgbyt[i].Length);
-					//pfcFonts.AddFontFile(@"C:\Users\Q\Desktop\Projects\Nexus\NexusClient\NexusClient\Resources\LinBiolinum_RI.ttf");
-					//pfcFonts.AddFontFile(@"C:\Users\Q\Desktop\Projects\Nexus\NexusClient\NexusClient\Resources\LinBiolinum_RB.ttf");
-
 					uint dummy = 0;
-					//AddFontMemResourceEx(pbyt, (uint)rgbyt[i].Length, IntPtr.Zero, ref dummy);
-
+					AddFontMemResourceEx(pbyt, (uint)rgbyt[i].Length, IntPtr.Zero, ref dummy);
 				}
 			}
 			finally
 			{
 				Marshal.FreeCoTaskMem(pbyt);
 			}
+			//these lines are an alternate method to load the font, but require
+			// the fonts to be files, instead of embedded resources
+			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RI.ttf"));
+			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RB.ttf"));
+
+			
 			lblNotFoundTitle.Font = new Font(pfcFonts.Families[0], lblNotFoundTitle.Font.Size, lblNotFoundTitle.Font.Style, lblNotFoundTitle.Font.Unit);
-			//lblNotFoundTitle.Font = new Font(pfcFonts.Families[0], lblNotFoundTitle.Font.Size, FontStyle.Bold, lblNotFoundTitle.Font.Unit);
 			//lblFoundTitle.Font = new Font(pfcFonts.Families[0], lblFoundTitle.Font.Size, lblFoundTitle.Font.Style, lblFoundTitle.Font.Unit);
 
 			lblGameModeName.Text = p_gmdGameMode.Name;
