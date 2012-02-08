@@ -31,22 +31,33 @@ namespace Nexus.Client
 			{
 				m_vmlViewModel = value;
 				List<IGameModeFactory> lstFactories = new List<IGameModeFactory>(m_vmlViewModel.SupportedGameModes.RegisteredGameModeFactories);
-				Int32 intWrapIndex = (Int32)Math.Sqrt(lstFactories.Count);
+				lstFactories.AddRange(m_vmlViewModel.SupportedGameModes.RegisteredGameModeFactories);
+				lstFactories.AddRange(m_vmlViewModel.SupportedGameModes.RegisteredGameModeFactories);
 				for (Int32 i = 0; i < lstFactories.Count; i++)
 				{
 					GameModeListViewItem gliGameModeItem = new GameModeListViewItem(lstFactories[i].GameModeDescriptor);
 					gameModeListView1.Controls.Add(gliGameModeItem);
 				}
-				if (gameModeListView1.HorizontalScroll.Visible)
-					for (Int32 i = 0; i < lstFactories.Count; i++)
-						gameModeListView1.SetFlowBreak(gameModeListView1.Controls[i], (i + 1) % intWrapIndex == 0);
-				if (gameModeListView1.HorizontalScroll.Visible)
+
+				Size szeMax =Screen.GetWorkingArea(this).Size;
+				Size = new Size((Int32)(szeMax.Width * .9), (Int32)(szeMax.Height * .9));
+				Int32 intWidthOffset = Size.Width - gameModeListView1.ClientSize.Width;
+				Int32 intHeightOffset = Size.Height - gameModeListView1.ClientSize.Height;
+				szeMax = gameModeListView1.ClientSize;
+				Int32 intIdealWidthCount = (Int32)Math.Ceiling(Math.Sqrt(lstFactories.Count));
+				Int32 intWidth = 0;
+				Int32 intHeigth = 0;
+				do
 				{
-					for (Int32 i = 0; i < lstFactories.Count; i++)
-						gameModeListView1.SetFlowBreak(gameModeListView1.Controls[i], false);
-					gameModeListView1.WrapContents = false;
-					gameModeListView1.Padding = new Padding(gameModeListView1.Padding.Left, gameModeListView1.Padding.Top, gameModeListView1.Padding.Right + 17, gameModeListView1.Padding.Bottom);
+					intWidth = gameModeListView1.PreferredSize.Width / lstFactories.Count * intIdealWidthCount;
+					intHeigth = gameModeListView1.PreferredSize.Height * lstFactories.Count / intIdealWidthCount;
+				} while ((szeMax.Width < intWidth) && (--intIdealWidthCount > 0));
+				if (intHeigth > szeMax.Height)
+				{
+					intWidthOffset += 17;
+					intHeigth = szeMax.Height;
 				}
+				Size = new Size(intWidth + intWidthOffset, intHeigth + intHeightOffset);
 			}
 		}
 
@@ -73,8 +84,6 @@ namespace Nexus.Client
 		public GameDetectionForm(GameDetectionVM p_vmlGameDetection)
 		{
 			InitializeComponent();
-			Size szeMax = Screen.GetWorkingArea(this).Size;
-			this.MaximumSize = new Size((Int32)(szeMax.Width * 0.9), (Int32)(szeMax.Height * 0.9));
 			ViewModel = p_vmlGameDetection;
 		}
 
