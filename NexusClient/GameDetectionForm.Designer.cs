@@ -43,10 +43,7 @@
 			// gameModeListView1
 			// 
 			this.gameModeListView1.AutoScroll = true;
-			this.gameModeListView1.AutoSize = true;
-			this.gameModeListView1.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.gameModeListView1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.gameModeListView1.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
 			this.gameModeListView1.Location = new System.Drawing.Point(0, 0);
 			this.gameModeListView1.Name = "gameModeListView1";
 			this.gameModeListView1.Size = new System.Drawing.Size(284, 212);
@@ -56,8 +53,6 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.AutoSize = true;
-			this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.ClientSize = new System.Drawing.Size(284, 264);
 			this.Controls.Add(this.gameModeListView1);
 			this.Controls.Add(this.panel1);
@@ -65,7 +60,6 @@
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "GameDetectionForm";
 			this.ResumeLayout(false);
-			this.PerformLayout();
 
 		}
 
