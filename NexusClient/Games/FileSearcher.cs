@@ -24,6 +24,20 @@ namespace Nexus.Client.Games
 
 		#endregion
 
+		private DateTime m_dteLastUpdate = DateTime.MinValue;
+		
+		#region Properties
+
+		protected bool EndTaskRequested
+		{
+			get
+			{
+				return (Status == TaskStatus.Complete) || (Status == TaskStatus.Cancelling);
+			}
+		}
+
+		#endregion
+
 		#region Constructors
 
 		/// <summary>
@@ -89,17 +103,24 @@ namespace Nexus.Client.Games
 					queSearchPaths.Enqueue(difDrive.Name);
 			while (queSearchPaths.Count > 0)
 			{
-				if (Status == TaskStatus.Cancelling)
+				if (EndTaskRequested)
 					return null;
 				string strSearchPath = queSearchPaths.Dequeue();
 				Search(strSearchPath, rgxPatterns);
-				if (Status == TaskStatus.Cancelling)
+				if (EndTaskRequested)
 					return null;
-				foreach (string strSubdirectory in Directory.GetDirectories(strSearchPath))
+				try
 				{
-					if (Path.GetFileName(strSubdirectory).StartsWith("$"))
-						continue;
-					queSearchPaths.Enqueue(strSubdirectory);
+					foreach (string strSubdirectory in Directory.GetDirectories(strSearchPath))
+					{
+						if (Path.GetFileName(strSubdirectory).StartsWith("$"))
+							continue;
+						queSearchPaths.Enqueue(strSubdirectory);
+					}
+				}
+				catch (UnauthorizedAccessException)
+				{
+					//we don't have access to the path we are trying to search, so do nothing
 				}
 			}
 			return null;
@@ -112,7 +133,11 @@ namespace Nexus.Client.Games
 		/// <param name="p_rgxPatterns">The file patterns to search for.</param>
 		protected void Search(string p_strPath, Regex[] p_rgxPatterns)
 		{
-			OverallMessage = p_strPath;
+			if ((DateTime.Now - m_dteLastUpdate).TotalMilliseconds > 100)
+			{
+				OverallMessage = p_strPath;
+				m_dteLastUpdate = DateTime.Now;
+			}
 			string[] strHaystackFiles = null;
 			try
 			{
@@ -125,7 +150,7 @@ namespace Nexus.Client.Games
 			}
 			for (Int32 i = 0; i < strHaystackFiles.Length; i++)
 			{
-				if (Status == TaskStatus.Cancelling)
+				if (EndTaskRequested)
 					return;
 				for (Int32 j = 0; j < p_rgxPatterns.Length; j++)
 				{

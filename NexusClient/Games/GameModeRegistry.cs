@@ -106,11 +106,12 @@ namespace Nexus.Client.Games
 
 		#region Properties
 
-		public IEnumerable<IGameModeFactory> RegisteredGameModeFactories
+		public IEnumerable<IGameModeDescriptor> RegisteredGameModes
 		{
 			get
 			{
-				return m_dicGameModeFactories.Values;
+				foreach (IGameModeFactory gmfFactory in m_dicGameModeFactories.Values)
+					yield return gmfFactory.GameModeDescriptor;
 			}
 		}
 

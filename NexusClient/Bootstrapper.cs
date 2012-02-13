@@ -77,6 +77,7 @@ namespace Nexus.Client
 					GameDiscoverer gdrGameDetector = new GameDiscoverer();
 					GameDetectionVM vmlGameDetection = new GameDetectionVM(gdrGameDetector, gmrSupportedGameModes);
 					GameDetectionForm frmGameDetector = new GameDetectionForm(vmlGameDetection);
+					gdrGameDetector.Find(gmrSupportedGameModes.RegisteredGameModes);
 					frmGameDetector.ShowDialog();
 				}
 				GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(gmrSupportedGameModes, m_eifEnvironmentInfo);
