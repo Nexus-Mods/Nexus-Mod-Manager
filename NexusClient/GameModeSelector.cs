@@ -86,8 +86,8 @@ namespace Nexus.Client
 			{
 				Trace.Write("(From Selection Form) ");
 				List<IGameModeDescriptor> lstGameModeInfos = new List<IGameModeDescriptor>();
-				foreach (IGameModeFactory gmfFactory in InstalledGameModes.RegisteredGameModeFactories)
-					lstGameModeInfos.Add(gmfFactory.GameModeDescriptor);
+				foreach (IGameModeDescriptor gmdGameMode in InstalledGameModes.RegisteredGameModes)
+					lstGameModeInfos.Add(gmdGameMode);
 				GameModeSelectionForm msfSelector = new GameModeSelectionForm(lstGameModeInfos, EnvironmentInfo.Settings);
 				msfSelector.ShowDialog();
 				strSelectedGame = msfSelector.SelectedGameModeId;

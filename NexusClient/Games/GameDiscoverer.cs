@@ -5,10 +5,11 @@ using System.Text;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Util;
 using System.IO;
+using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client.Games
 {
-	public class GameDiscoverer
+	public class GameDiscoverer : FileSearcher
 	{
 		#region Events
 
@@ -19,13 +20,11 @@ namespace Nexus.Client.Games
 		private Dictionary<string, Queue<string>> m_dicFoundPathsByGame = new Dictionary<string, Queue<string>>();
 		private Dictionary<string, IGameModeDescriptor> m_dicGameModesById = new Dictionary<string, IGameModeDescriptor>();
 		private Dictionary<string, IGameModeDescriptor> m_dicGameModesByFile = new Dictionary<string, IGameModeDescriptor>(StringComparer.OrdinalIgnoreCase);
-		private FileSearcher m_fsrSearcher = new FileSearcher();
-
+		
 		#region Constructor
 
 		public GameDiscoverer()
 		{
-			m_fsrSearcher.FileFound += new EventHandler<EventArgs<string>>(Searcher_FileFound);
 		}
 
 		#endregion
@@ -53,7 +52,7 @@ namespace Nexus.Client.Games
 
 		#endregion
 
-		public void Find(IList<IGameModeDescriptor> p_lstGameModesToFind)
+		public void Find(IEnumerable<IGameModeDescriptor> p_lstGameModesToFind)
 		{
 			Set<string> lstFilesToFind = new Set<string>();
 			foreach (IGameModeDescriptor gmdGameMode in p_lstGameModesToFind)
@@ -66,11 +65,12 @@ namespace Nexus.Client.Games
 					lstFilesToFind.Add(strExecutable);
 				}
 			}
-			m_fsrSearcher.Find(lstFilesToFind.ToArray());
+			Find(lstFilesToFind.ToArray());
 		}
 
-		void Searcher_FileFound(object sender, EventArgs<string> e)
+		protected override void OnFileFound(EventArgs<string> e)
 		{
+			base.OnFileFound(e);
 			string strFileName = Path.GetFileName(e.Argument);
 			IGameModeDescriptor gmdGameMode = m_dicGameModesByFile[strFileName];
 			if (!m_dicFoundPathsByGame.ContainsKey(gmdGameMode.ModeId))
@@ -78,11 +78,12 @@ namespace Nexus.Client.Games
 			string strPath = Path.GetDirectoryName(e.Argument);
 			m_dicFoundPathsByGame[gmdGameMode.ModeId].Enqueue(strPath);
 			if (m_dicFoundPathsByGame[gmdGameMode.ModeId].Count == 1)
-				OnPathFound(gmdGameMode, strPath);
+				OnPathFound(gmdGameMode, strPath);			
 		}
 
 		public void Accept(string p_strGameModeId)
 		{
+			Status = TaskStatus.Complete;
 			Stop(p_strGameModeId);
 		}
 
@@ -100,7 +101,7 @@ namespace Nexus.Client.Games
 			if (m_dicFoundPathsByGame.ContainsKey(p_strGameModeId))
 				m_dicFoundPathsByGame.Remove(p_strGameModeId);
 			if (m_dicFoundPathsByGame.Count == 0)
-				m_fsrSearcher.Cancel();
+				Cancel();
 		}
 	}
 }

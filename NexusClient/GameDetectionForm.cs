@@ -30,12 +30,10 @@ namespace Nexus.Client
 			set
 			{
 				m_vmlViewModel = value;
-				List<IGameModeFactory> lstFactories = new List<IGameModeFactory>(m_vmlViewModel.SupportedGameModes.RegisteredGameModeFactories);
-				lstFactories.AddRange(m_vmlViewModel.SupportedGameModes.RegisteredGameModeFactories);
-				lstFactories.AddRange(m_vmlViewModel.SupportedGameModes.RegisteredGameModeFactories);
-				for (Int32 i = 0; i < lstFactories.Count; i++)
+				List<IGameModeDescriptor> lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
+				for (Int32 i = 0; i < lstGameModes.Count; i++)
 				{
-					GameModeListViewItem gliGameModeItem = new GameModeListViewItem(lstFactories[i].GameModeDescriptor);
+					GameModeListViewItem gliGameModeItem = new GameModeListViewItem(lstGameModes[i], m_vmlViewModel.GameDetector);
 					gameModeListView1.Controls.Add(gliGameModeItem);
 				}
 
@@ -44,13 +42,13 @@ namespace Nexus.Client
 				Int32 intWidthOffset = Size.Width - gameModeListView1.ClientSize.Width;
 				Int32 intHeightOffset = Size.Height - gameModeListView1.ClientSize.Height;
 				szeMax = gameModeListView1.ClientSize;
-				Int32 intIdealWidthCount = (Int32)Math.Ceiling(Math.Sqrt(lstFactories.Count));
+				Int32 intIdealWidthCount = (Int32)Math.Ceiling(Math.Sqrt(lstGameModes.Count));
 				Int32 intWidth = 0;
 				Int32 intHeigth = 0;
 				do
 				{
-					intWidth = gameModeListView1.PreferredSize.Width / lstFactories.Count * intIdealWidthCount;
-					intHeigth = gameModeListView1.PreferredSize.Height * lstFactories.Count / intIdealWidthCount;
+					intWidth = gameModeListView1.PreferredSize.Width / lstGameModes.Count * intIdealWidthCount;
+					intHeigth = gameModeListView1.PreferredSize.Height * lstGameModes.Count / intIdealWidthCount;
 				} while ((szeMax.Width < intWidth) && (--intIdealWidthCount > 0));
 				if (intHeigth > szeMax.Height)
 				{
@@ -60,18 +58,6 @@ namespace Nexus.Client
 				Size = new Size(intWidth + intWidthOffset, intHeigth + intHeightOffset);
 			}
 		}
-
-		/// <summary>
-		/// Gets the splash image used to display progress.
-		/// </summary>
-		/// <value>The splash image used to display progress.</value>
-		protected Image GreyscaleImage { get; private set; }
-
-		/// <summary>
-		/// Gets the colour image that is incrementally displayed to show progress.
-		/// </summary>
-		/// <value>The colour image that is incrementally displayed to show progress.</value>
-		protected Image ColourImage { get; private set; }
 
 		#endregion
 
