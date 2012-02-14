@@ -20,7 +20,7 @@ namespace Nexus.Client
 	{
 		[DllImport("gdi32.dll")]
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
-		
+
 		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
 		private IGameModeDescriptor m_gmdGameMode = null;
 		private GameDiscoverer m_gdtDetector = null;
@@ -30,10 +30,13 @@ namespace Nexus.Client
 			m_gmdGameMode = p_gmdGameMode;
 			m_gdtDetector = p_gdtDetector;
 			InitializeComponent();
+			AutoSize = true;
+			AutoSizeMode = AutoSizeMode.GrowAndShrink;
 			SetVisiblePanel(pnlSearching);
 			p_gdtDetector.PropertyChanged += new PropertyChangedEventHandler(Detector_PropertyChanged);
 			p_gdtDetector.PathFound += new EventHandler<GameModeDiscoveredEventArgs>(Detector_PathFound);
-			
+			p_gdtDetector.TaskEnded += new EventHandler<TaskEndedEventArgs>(Detector_TaskEnded);
+
 			IntPtr pbyt = IntPtr.Zero;
 			try
 			{
@@ -58,7 +61,7 @@ namespace Nexus.Client
 			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RI.ttf"));
 			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RB.ttf"));
 
-			
+
 			lblNotFoundTitle.Font = new Font(pfcFonts.Families[0], lblNotFoundTitle.Font.Size, lblNotFoundTitle.Font.Style, lblNotFoundTitle.Font.Unit);
 			lblFoundTitle.Font = new Font(pfcFonts.Families[0], lblFoundTitle.Font.Size, lblFoundTitle.Font.Style, lblFoundTitle.Font.Unit);
 
@@ -68,9 +71,25 @@ namespace Nexus.Client
 			pbxGameLogo.Image = new Icon(p_gmdGameMode.ModeTheme.Icon, 96, 96).ToBitmap();
 		}
 
+		void Detector_TaskEnded(object sender, TaskEndedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, TaskEndedEventArgs>)Detector_TaskEnded, sender, e);
+				return;
+			}
+			if (!m_gdtDetector.IsFound(m_gmdGameMode.ModeId))
+				SetVisiblePanel(pnlNotFound);
+		}
+
 		void Detector_PathFound(object sender, GameModeDiscoveredEventArgs e)
 		{
-			if (!e.GameMode.ModeId.Equals(m_gmdGameMode.ModeId))
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, GameModeDiscoveredEventArgs>)Detector_PathFound, sender, e);
+				return;
+			}
+			if (e.GameMode.ModeId.Equals(m_gmdGameMode.ModeId))
 			{
 				lblPath.Text = e.InstallationPath;
 				SetVisiblePanel(pnlCandidate);
@@ -106,6 +125,10 @@ namespace Nexus.Client
 
 		private void butReject_Click(object sender, EventArgs e)
 		{
+			if (m_gdtDetector.Status == TaskStatus.Complete)
+				SetVisiblePanel(pnlNotFound);
+			else
+				SetVisiblePanel(pnlSearching);
 			m_gdtDetector.Reject(m_gmdGameMode.ModeId);
 		}
 	}
