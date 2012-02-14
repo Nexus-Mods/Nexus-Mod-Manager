@@ -94,18 +94,20 @@ namespace Nexus.Client.Games
 			Regex[] rgxPatterns = new Regex[strSearchFiles.Length];
 			string strSeparatorChar = Path.DirectorySeparatorChar.Equals('\\') ? @"\\" : Path.DirectorySeparatorChar.ToString();
 			for (Int32 i = 0; i < strSearchFiles.Length; i++)
-				rgxPatterns[i] = new Regex(strSearchFiles[i].Replace(".", "\\.").Replace("*", ".*").Replace(Path.AltDirectorySeparatorChar.ToString(), strSeparatorChar));
+				rgxPatterns[i] = new Regex(strSearchFiles[i].Replace(".", "\\.").Replace("*", ".*").Replace(Path.AltDirectorySeparatorChar.ToString(), strSeparatorChar), RegexOptions.IgnoreCase);
 			DriveInfo[] difDrives = DriveInfo.GetDrives();
 
 			Queue<string> queSearchPaths = new Queue<string>();
 			foreach (DriveInfo difDrive in difDrives)
 				if ((difDrive.DriveType != DriveType.CDRom) && difDrive.IsReady)
 					queSearchPaths.Enqueue(difDrive.Name);
+			Int32 intFOlderCnt = 0;
 			while (queSearchPaths.Count > 0)
 			{
 				if (EndTaskRequested)
 					return null;
 				string strSearchPath = queSearchPaths.Dequeue();
+				intFOlderCnt++;
 				Search(strSearchPath, rgxPatterns);
 				if (EndTaskRequested)
 					return null;

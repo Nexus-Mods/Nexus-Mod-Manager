@@ -48,7 +48,7 @@
 			this.pnlSearching = new System.Windows.Forms.Panel();
 			this.pbrProgress = new System.Windows.Forms.ProgressBar();
 			this.lblSearchingTitle = new System.Windows.Forms.Label();
-			this.lblProgressMessage = new System.Windows.Forms.Label();
+			this.lblProgressMessage = new Nexus.Client.Controls.PathLabel();
 			this.pnlCandidate.SuspendLayout();
 			this.pnlNotFound.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).BeginInit();
@@ -59,14 +59,14 @@
 			// 
 			// lblGameModeName
 			// 
-			this.lblGameModeName.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.lblGameModeName.Dock = System.Windows.Forms.DockStyle.Top;
 			this.lblGameModeName.Font = new System.Drawing.Font("Microsoft Sans Serif", 20F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.lblGameModeName.Location = new System.Drawing.Point(0, 0);
 			this.lblGameModeName.Name = "lblGameModeName";
-			this.lblGameModeName.Size = new System.Drawing.Size(388, 34);
+			this.lblGameModeName.Size = new System.Drawing.Size(388, 31);
 			this.lblGameModeName.TabIndex = 1;
 			this.lblGameModeName.Text = "GAME TITLE";
-			this.lblGameModeName.TextAlign = System.Drawing.ContentAlignment.TopRight;
+			this.lblGameModeName.TextAlign = System.Drawing.ContentAlignment.BottomRight;
 			// 
 			// pnlCandidate
 			// 
@@ -85,7 +85,7 @@
 			// 
 			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.label1.AutoSize = true;
-			this.label1.Location = new System.Drawing.Point(7, 23);
+			this.label1.Location = new System.Drawing.Point(7, 20);
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(195, 13);
 			this.label1.TabIndex = 5;
@@ -98,7 +98,7 @@
 			this.lblFoundTitle.AutoSize = true;
 			this.lblFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.lblFoundTitle.ForeColor = System.Drawing.Color.Green;
-			this.lblFoundTitle.Location = new System.Drawing.Point(6, 3);
+			this.lblFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblFoundTitle.Name = "lblFoundTitle";
 			this.lblFoundTitle.Size = new System.Drawing.Size(59, 20);
 			this.lblFoundTitle.TabIndex = 4;
@@ -110,9 +110,10 @@
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.butReject.AutoSize = true;
 			this.butReject.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butReject.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+			this.butReject.FlatAppearance.BorderSize = 0;
+			this.butReject.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
 			this.butReject.Image = global::Nexus.Client.Properties.Resources.dialog_cancel_4_16;
-			this.butReject.Location = new System.Drawing.Point(38, 39);
+			this.butReject.Location = new System.Drawing.Point(38, 36);
 			this.butReject.Name = "butReject";
 			this.butReject.Size = new System.Drawing.Size(22, 22);
 			this.butReject.TabIndex = 3;
@@ -125,9 +126,10 @@
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.butAccept.AutoSize = true;
 			this.butAccept.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butAccept.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+			this.butAccept.FlatAppearance.BorderSize = 0;
+			this.butAccept.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
 			this.butAccept.Image = global::Nexus.Client.Properties.Resources.dialog_ok_4_16;
-			this.butAccept.Location = new System.Drawing.Point(10, 39);
+			this.butAccept.Location = new System.Drawing.Point(10, 36);
 			this.butAccept.Name = "butAccept";
 			this.butAccept.Size = new System.Drawing.Size(22, 22);
 			this.butAccept.TabIndex = 2;
@@ -138,7 +140,7 @@
 			// 
 			this.lblPath.AutoSize = true;
 			this.lblPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.lblPath.Location = new System.Drawing.Point(66, 42);
+			this.lblPath.Location = new System.Drawing.Point(66, 39);
 			this.lblPath.Name = "lblPath";
 			this.lblPath.Size = new System.Drawing.Size(294, 17);
 			this.lblPath.TabIndex = 0;
@@ -161,7 +163,7 @@
 			this.butSelectPath.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.butSelectPath.AutoSize = true;
 			this.butSelectPath.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butSelectPath.Location = new System.Drawing.Point(339, 37);
+			this.butSelectPath.Location = new System.Drawing.Point(339, 34);
 			this.butSelectPath.Name = "butSelectPath";
 			this.butSelectPath.Size = new System.Drawing.Size(26, 23);
 			this.butSelectPath.TabIndex = 3;
@@ -173,7 +175,7 @@
 			// 
 			this.tbxInstallPath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
-			this.tbxInstallPath.Location = new System.Drawing.Point(10, 39);
+			this.tbxInstallPath.Location = new System.Drawing.Point(10, 36);
 			this.tbxInstallPath.Name = "tbxInstallPath";
 			this.tbxInstallPath.Size = new System.Drawing.Size(323, 20);
 			this.tbxInstallPath.TabIndex = 2;
@@ -182,7 +184,7 @@
 			// 
 			this.lblNotFoundMessage.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.lblNotFoundMessage.AutoSize = true;
-			this.lblNotFoundMessage.Location = new System.Drawing.Point(7, 23);
+			this.lblNotFoundMessage.Location = new System.Drawing.Point(7, 20);
 			this.lblNotFoundMessage.Name = "lblNotFoundMessage";
 			this.lblNotFoundMessage.Size = new System.Drawing.Size(200, 13);
 			this.lblNotFoundMessage.TabIndex = 1;
@@ -195,7 +197,7 @@
 			this.lblNotFoundTitle.AutoSize = true;
 			this.lblNotFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.lblNotFoundTitle.ForeColor = System.Drawing.Color.DarkRed;
-			this.lblNotFoundTitle.Location = new System.Drawing.Point(6, 3);
+			this.lblNotFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblNotFoundTitle.Name = "lblNotFoundTitle";
 			this.lblNotFoundTitle.Size = new System.Drawing.Size(88, 20);
 			this.lblNotFoundTitle.TabIndex = 0;
@@ -242,9 +244,9 @@
 			// 
 			// pbrProgress
 			// 
-			this.pbrProgress.Location = new System.Drawing.Point(10, 37);
+			this.pbrProgress.Location = new System.Drawing.Point(6, 36);
 			this.pbrProgress.Name = "pbrProgress";
-			this.pbrProgress.Size = new System.Drawing.Size(355, 23);
+			this.pbrProgress.Size = new System.Drawing.Size(379, 23);
 			this.pbrProgress.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
 			this.pbrProgress.TabIndex = 5;
 			// 
@@ -255,7 +257,7 @@
 			this.lblSearchingTitle.AutoSize = true;
 			this.lblSearchingTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.lblSearchingTitle.ForeColor = System.Drawing.Color.Blue;
-			this.lblSearchingTitle.Location = new System.Drawing.Point(6, 3);
+			this.lblSearchingTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblSearchingTitle.Name = "lblSearchingTitle";
 			this.lblSearchingTitle.Size = new System.Drawing.Size(89, 20);
 			this.lblSearchingTitle.TabIndex = 4;
@@ -264,7 +266,7 @@
 			// lblProgressMessage
 			// 
 			this.lblProgressMessage.AutoEllipsis = true;
-			this.lblProgressMessage.Location = new System.Drawing.Point(7, 23);
+			this.lblProgressMessage.Location = new System.Drawing.Point(7, 20);
 			this.lblProgressMessage.Name = "lblProgressMessage";
 			this.lblProgressMessage.Size = new System.Drawing.Size(378, 13);
 			this.lblProgressMessage.TabIndex = 1;
@@ -278,6 +280,7 @@
 			this.Controls.Add(this.pnlNotFound);
 			this.Controls.Add(this.pnlCandidate);
 			this.Controls.Add(this.pbxGameLogo);
+			this.MinimumSize = new System.Drawing.Size(516, 97);
 			this.Name = "GameModeListViewItem";
 			this.Size = new System.Drawing.Size(516, 232);
 			this.pnlCandidate.ResumeLayout(false);
@@ -314,6 +317,6 @@
 		private System.Windows.Forms.Panel pnlSearching;
 		private System.Windows.Forms.ProgressBar pbrProgress;
 		private System.Windows.Forms.Label lblSearchingTitle;
-		private System.Windows.Forms.Label lblProgressMessage;
+		private Nexus.Client.Controls.PathLabel lblProgressMessage;
 	}
 }

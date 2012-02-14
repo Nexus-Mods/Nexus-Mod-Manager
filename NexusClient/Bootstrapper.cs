@@ -79,6 +79,13 @@ namespace Nexus.Client
 					GameDetectionForm frmGameDetector = new GameDetectionForm(vmlGameDetection);
 					gdrGameDetector.Find(gmrSupportedGameModes.RegisteredGameModes);
 					frmGameDetector.ShowDialog();
+					if (gdrGameDetector.Status != TaskStatus.Complete)
+					{
+						if (gdrGameDetector.Status == TaskStatus.Error)
+							return false;
+						booChangeGameMode = true;
+						continue;
+					}
 				}
 				GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(gmrSupportedGameModes, m_eifEnvironmentInfo);
 				GameModeSelector gmsSelector = new GameModeSelector(gmrInstalledGameModes, m_eifEnvironmentInfo);
