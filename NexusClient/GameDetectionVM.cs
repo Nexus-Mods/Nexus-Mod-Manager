@@ -17,5 +17,10 @@ namespace Nexus.Client
 			GameDetector = p_gdvGameDetector;
 			SupportedGameModes = p_gmrSupportedGameModes;
 		}
+
+		public void Cancel()
+		{
+			GameDetector.Cancel();
+		}
 	}
 }

@@ -80,12 +80,11 @@ namespace Nexus.Client
 					gdrGameDetector.Find(gmrSupportedGameModes.RegisteredGameModes);
 					frmGameDetector.ShowDialog();
 					if (gdrGameDetector.Status != TaskStatus.Complete)
-					{
-						if (gdrGameDetector.Status == TaskStatus.Error)
-							return false;
-						booChangeGameMode = true;
-						continue;
-					}
+						return false;
+					foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
+						m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
+					m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
+					m_eifEnvironmentInfo.Settings.Save();
 				}
 				GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(gmrSupportedGameModes, m_eifEnvironmentInfo);
 				GameModeSelector gmsSelector = new GameModeSelector(gmrInstalledGameModes, m_eifEnvironmentInfo);

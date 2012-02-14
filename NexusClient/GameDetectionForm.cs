@@ -30,6 +30,8 @@ namespace Nexus.Client
 			set
 			{
 				m_vmlViewModel = value;
+				butOK.Enabled = false;
+				m_vmlViewModel.GameDetector.TaskEnded += new EventHandler<Nexus.Client.BackgroundTasks.TaskEndedEventArgs>(Detector_TaskEnded);
 				List<IGameModeDescriptor> lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
 				for (Int32 i = 0; i < lstGameModes.Count; i++)
 				{
@@ -59,6 +61,11 @@ namespace Nexus.Client
 			}
 		}
 
+		void Detector_TaskEnded(object sender, Nexus.Client.BackgroundTasks.TaskEndedEventArgs e)
+		{
+			butOK.Enabled = true;
+		}
+
 		#endregion
 
 		#region Constructors
@@ -74,5 +81,15 @@ namespace Nexus.Client
 		}
 
 		#endregion
+
+		private void butCancel_Click(object sender, EventArgs e)
+		{
+			m_vmlViewModel.Cancel();
+		}
+
+		private void butOK_Click(object sender, EventArgs e)
+		{
+			DialogResult = DialogResult.OK;
+		}
 	}
 }
