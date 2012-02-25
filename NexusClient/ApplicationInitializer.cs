@@ -670,7 +670,7 @@ namespace Nexus.Client
 			Trace.Unindent();
 
 			p_vwmErrorMessage = null;
-			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, mmgModManager, pmgPluginManager, amtMonitor, umgUpdateManager);
+			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, amtMonitor, umgUpdateManager);
 		}
 
 		/// <summary>

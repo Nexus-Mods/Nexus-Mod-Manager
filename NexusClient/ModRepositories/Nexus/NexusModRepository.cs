@@ -269,6 +269,14 @@ namespace Nexus.Client.ModRepositories.Nexus
 			return true;
 		}
 
+		/// <summary>
+		/// Logs the user out of the mod repository.
+		/// </summary>
+		public void Logout()
+		{
+			m_dicAuthenticationTokens.Clear();
+		}
+
 		#endregion
 
 		#region Mod Info

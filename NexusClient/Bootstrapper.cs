@@ -127,7 +127,7 @@ namespace Nexus.Client
 					IGameMode gmdGameMode = ainInitializer.GameMode;
 					ServiceManager svmServices = ainInitializer.Services;
 
-					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmdGameMode, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
+					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
 
 					using (Messager msgMessager = Messager.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
