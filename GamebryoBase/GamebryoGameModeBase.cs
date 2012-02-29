@@ -21,6 +21,7 @@ using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -156,6 +157,12 @@ namespace Nexus.Client.Games.Gamebryo
 		/// <value>The tool launcher for the game mode.</value>
 		public override abstract IToolLauncher GameToolLauncher { get; }
 
+		/// <summary>
+		/// Gets the BOSS plugin sorter.
+		/// </summary>
+		/// <value>The BOSS plugin sorter.</value>
+		protected BossSorter BossSorter { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -172,6 +179,8 @@ namespace Nexus.Client.Games.Gamebryo
 			SettingsGroupViews = new List<ISettingsGroupView>();
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
 			((List<ISettingsGroupView>)SettingsGroupViews).Add(new GeneralSettingsPage(gsgGeneralSettings));
+
+			BossSorter = new BossSorter(p_eifEnvironmentInfo, this);
 		}
 
 		#endregion
@@ -241,7 +250,7 @@ namespace Nexus.Client.Games.Gamebryo
 		public override IPluginOrderLogSerializer GetPluginOrderLogSerializer()
 		{
 			if (m_posPluginOrderSerializer == null)
-				m_posPluginOrderSerializer = new GamebryoPluginOrderLogSerializer(PluginDirectory);
+				m_posPluginOrderSerializer = new GamebryoPluginOrderLogSerializer(BossSorter);
 			return m_posPluginOrderSerializer;
 		}
 
