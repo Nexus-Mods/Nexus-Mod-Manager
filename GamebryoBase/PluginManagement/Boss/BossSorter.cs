@@ -5,6 +5,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Reflection;
 using System.IO;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 {
@@ -38,7 +39,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="details">The details of the last error.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 GetLastErrorDetailsDelegate(ref string details);
+		private delegate UInt32 GetLastErrorDetailsDelegate([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] out string details);
 
 		#endregion
 
@@ -58,7 +59,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// underlying filesystem is case-sensitive</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 CreateBossDbDelegate(ref IntPtr db, UInt32 clientGame, string dataPath);
+		private delegate UInt32 CreateBossDbDelegate(ref IntPtr db, UInt32 clientGame, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string dataPath);
 
 		/// <summary>
 		/// the delegate for methods that Destroy the given BOSS DB.
@@ -85,7 +86,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="userlistPath">The path to the userlist to load.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 LoadDelegate(IntPtr db, string masterlistPath, string userlistPath);
+		private delegate UInt32 LoadDelegate(IntPtr db, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string masterlistPath, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string userlistPath);
 
 		/// <summary>
 		/// Evaluates the loaded masterlist.
@@ -120,7 +121,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="masterlistPath">The path to the masterlist to update.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 UpdateMasterlistDelegate(IntPtr db, string masterlistPath);
+		private delegate UInt32 UpdateMasterlistDelegate(IntPtr db, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string masterlistPath);
 
 		#endregion
 
@@ -145,7 +146,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="lastRecPos">The position in the list of sorted plugins of the last plugin recognised by BOSS</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 SortModsDelegate(IntPtr db, [MarshalAsAttribute(UnmanagedType.I1)] bool trialOnly, out string[] sortedPlugins, out UInt32 listLength, out UInt32 lastRecPos);
+		private delegate UInt32 SortModsDelegate(IntPtr db, [MarshalAsAttribute(UnmanagedType.I1)] bool trialOnly, out IntPtr sortedPlugins, out UInt32 listLength, out UInt32 lastRecPos);
 
 		/// <summary>
 		/// Gets the list of plugin, sorted by load order.
@@ -158,7 +159,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="numPlugins">The length of the returned list.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 GetLoadOrderDelegate(IntPtr db, out string[] plugins, out UInt32 numPlugins);
+		private delegate UInt32 GetLoadOrderDelegate(IntPtr db, out IntPtr plugins, out UInt32 numPlugins);
 
 		/// <summary>
 		/// Sets the load order of the plugins.
@@ -173,7 +174,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="numPlugins">The number of plugins in the given array.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 SetLoadOrderDelegate(IntPtr db, ref string[] plugins, [MarshalAsAttribute(UnmanagedType.SysUInt)] UInt32 numPlugins);
+		private delegate UInt32 SetLoadOrderDelegate(IntPtr db, IntPtr plugins, UInt32 numPlugins);
 
 		/// <summary>
 		/// Gets the list of active plugins.
@@ -186,7 +187,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="numPlugins">the number of active plugins.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 GetActivePluginsDelegate(IntPtr db, out string[] plugins, out UInt32 numPlugins);
+		private delegate UInt32 GetActivePluginsDelegate(IntPtr db, out IntPtr plugins, out UInt32 numPlugins);
 
 		/// <summary>
 		/// Sets the list of active plugins.
@@ -199,7 +200,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="numPlugins">The number of plugins to set as active.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 SetActivePluginsDelegate(IntPtr db, string[] plugins, [MarshalAsAttribute(UnmanagedType.SysUInt)] UInt32 numPlugins);
+		private delegate UInt32 SetActivePluginsDelegate(IntPtr db, IntPtr plugins, UInt32 numPlugins);
 
 		/// <summary>
 		/// Gets the load index of the specified plugin.
@@ -213,7 +214,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="index">The returned load index of the specified plugin.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 GetPluginLoadOrderDelegate(IntPtr db, string plugin, out UInt32 index);
+		private delegate UInt32 GetPluginLoadOrderDelegate(IntPtr db, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string plugin, out UInt32 index);
 
 		/// <summary>
 		/// Sets the load order of the specified plugin.
@@ -229,7 +230,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="index">The load index at which to place the specified plugin.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 SetPluginLoadOrderDelegate(IntPtr db, string plugin, [MarshalAsAttribute(UnmanagedType.SysUInt)] UInt32 index);
+		private delegate UInt32 SetPluginLoadOrderDelegate(IntPtr db, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string plugin, UInt32 index);
 
 		/// <summary>
 		/// Gets the plugin at the specified load index.
@@ -243,7 +244,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="plugin">The returned plugin at the specified load index.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 GetIndexedPluginDelegate(IntPtr db, [MarshalAsAttribute(UnmanagedType.SysUInt)] UInt32 index, out string plugin);
+		private delegate UInt32 GetIndexedPluginDelegate(IntPtr db, UInt32 index, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] out string plugin);
 
 		/// <summary>
 		/// Sets the active status of the specified plugin.
@@ -257,7 +258,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="active">Whether the specified plugin should be made active or inactive.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 SetPluginActiveDelegate(IntPtr db, string plugin, [MarshalAsAttribute(UnmanagedType.I1)] bool active);
+		private delegate UInt32 SetPluginActiveDelegate(IntPtr db, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string plugin, [MarshalAsAttribute(UnmanagedType.I1)] bool active);
 
 		/// <summary>
 		/// Determines if the specified plugin is active.
@@ -270,7 +271,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="isActive">Returns whether the specified plugin is active.</param>
 		/// <returns>Status code.</returns>
 		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-		private delegate UInt32 IsPluginActiveDelegate(IntPtr db, string plugin, out bool isActive);
+		private delegate UInt32 IsPluginActiveDelegate(IntPtr db, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string plugin, out bool isActive);
 
 		#endregion
 
@@ -340,13 +341,26 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
 
-			string strBAPIPath = Path.Combine(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),"data"), p_eifEnvironmentInfo.Is64BitProcess ? "boss64.dll" : "boss32.dll");
+			string strBAPIPath = Path.Combine(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "data"), p_eifEnvironmentInfo.Is64BitProcess ? "boss64.dll" : "boss32.dll");
 
 			m_ptrBossApi = LoadLibrary(strBAPIPath);
 			if (m_ptrBossApi == IntPtr.Zero)
 				throw new BossException(String.Format("Could not load BAPI library: {0}", strBAPIPath));
 
+			LoadMethods();
+
 			m_ptrBossDb = CreateBossDb();
+
+			string strPath = p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath;
+			strPath = Path.Combine(Path.Combine(strPath, "boss"), "masterlist.txt");
+			MasterlistPath = strPath;
+			UserlistPath = null;
+
+			///TODO don't update here - make separate updater
+			if (!Directory.Exists(Path.GetDirectoryName(MasterlistPath)))
+				Directory.CreateDirectory(Path.GetDirectoryName(MasterlistPath));
+			UpdateMasterlist();
+
 			///TODO add masterlist path
 			Load(MasterlistPath, UserlistPath);
 		}
@@ -394,7 +408,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 
 		#endregion
 
-		private void Dispose(bool p_booDisposing)
+		protected void Dispose(bool p_booDisposing)
 		{
 			if (m_ptrBossDb != IntPtr.Zero)
 				DestroyBossDb();
@@ -402,30 +416,21 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				FreeLibrary(m_ptrBossApi);
 		}
 
-		private void HandleStatusCode(UInt32 p_uintStatusCode)
+		protected void HandleStatusCode(UInt32 p_uintStatusCode)
 		{
-			const UInt32 BOSS_ERROR_MAX = 30;
-			const UInt32 BOSS_API_OK_NO_UPDATE_NECESSARY = BOSS_ERROR_MAX + 1;
-			const UInt32 BOSS_API_WARN_LO_MISMATCH = BOSS_ERROR_MAX + 3;
-			const UInt32 BOSS_API_ERROR_NO_MEM = BOSS_ERROR_MAX + 4;
-			const UInt32 BOSS_API_ERROR_INVALID_ARGS = BOSS_ERROR_MAX + 5;
-			const UInt32 BOSS_API_ERROR_NETWORK_FAIL = BOSS_ERROR_MAX + 6;
-			const UInt32 BOSS_API_ERROR_NO_INTERNET_CONNECTION = BOSS_ERROR_MAX + 7;
-			const UInt32 BOSS_API_ERROR_NO_TAG_MAP = BOSS_ERROR_MAX + 8;
-
 			if (p_uintStatusCode == 0)
 				return;
 
 			string strDetails = GetLastErrorDetails();
 			switch (p_uintStatusCode)
 			{
-				case BOSS_API_OK_NO_UPDATE_NECESSARY:
+				case 31:
 					//BOSS_API_OK_NO_UPDATE_NECESSARY;
 					break;
 				case 10:
 					//BOSS_API_WARN_BAD_FILENAME;
 					break;
-				case BOSS_API_WARN_LO_MISMATCH:
+				case 32:
 					//BOSS_API_WARN_LO_MISMATCH;
 					break;
 				case 3:
@@ -453,26 +458,59 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				case 7:
 					//BOSS_API_ERROR_CONDITION_EVAL_FAIL;
 					throw new BossException("BOSS_API_ERROR_CONDITION_EVAL_FAIL: " + strDetails);
-				case BOSS_API_ERROR_NO_MEM:
+				case 33:
 					//BOSS_API_ERROR_NO_MEM;
 					throw new BossException("BOSS_API_ERROR_NO_MEM: " + strDetails);
-				case BOSS_API_ERROR_INVALID_ARGS:
+				case 34:
 					//BOSS_API_ERROR_INVALID_ARGS;
 					throw new BossException("BOSS_API_ERROR_INVALID_ARGS: " + strDetails);
-				case BOSS_API_ERROR_NETWORK_FAIL:
+				case 35:
 					//BOSS_API_ERROR_NETWORK_FAIL;
 					throw new BossException("BOSS_API_ERROR_NETWORK_FAIL: " + strDetails);
-				case BOSS_API_ERROR_NO_INTERNET_CONNECTION:
+				case 36:
 					//BOSS_API_ERROR_NO_INTERNET_CONNECTION;
 					throw new BossException("BOSS_API_ERROR_NO_INTERNET_CONNECTION: " + strDetails);
-				case BOSS_API_ERROR_NO_TAG_MAP:
+				case 37:
 					//BOSS_API_ERROR_NO_TAG_MAP;
 					throw new BossException("BOSS_API_ERROR_NO_TAG_MAP: " + strDetails);
 				case 8:
 					//BOSS_API_ERROR_REGEX_EVAL_FAIL;
-					//BOSS_API_RETURN_MAX;
 					throw new BossException("BOSS_API_ERROR_REGEX_EVAL_FAIL: " + strDetails);
+				case 38:
+					//BOSS_API_ERROR_PLUGINS_FULL;
+					throw new BossException("BOSS_API_ERROR_PLUGINS_FULL: " + strDetails);
+				case 9:
+					//BOSS_API_ERROR_GAME_NOT_FOUND;
+					throw new BossException("BOSS_API_ERROR_GAME_NOT_FOUND: " + strDetails);
 			}
+		}
+
+		protected string[] MarshalPluginArray(IntPtr p_ptrPluginArray, UInt32 p_uintLength)
+		{
+			string[] strPlugins = null;
+			using (StringArrayManualMarshaler ammMarshaler = new StringArrayManualMarshaler("UTF8"))
+				strPlugins = ammMarshaler.MarshalNativeToManaged(p_ptrPluginArray, Convert.ToInt32(p_uintLength));
+			for (Int32 i = strPlugins.Length - 1; i >= 0; i--)
+				strPlugins[i] = Path.Combine(GameMode.PluginDirectory, strPlugins[i]);
+			return strPlugins;
+		}
+
+		protected string[] StripPluginDirectory(string[] p_strPlugins)
+		{
+			string[] strPlugins = new string[p_strPlugins.Length];
+			for (Int32 i = strPlugins.Length - 1; i >= 0; i--)
+				strPlugins[i] = StripPluginDirectory(p_strPlugins[i]);
+			return strPlugins;
+		}
+
+		protected string StripPluginDirectory(string p_strPlugin)
+		{
+			return FileUtil.RelativizePath(GameMode.PluginDirectory, p_strPlugin);
+		}
+
+		protected string AddPluginDirectory(string p_strPlugin)
+		{
+			return Path.Combine(GameMode.PluginDirectory, p_strPlugin);
 		}
 
 		#region Error Handling Functions
@@ -483,8 +521,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <returns>The details of the last error.</returns>
 		private string GetLastErrorDetails()
 		{
+			IntPtr ptrDetails = IntPtr.Zero;
 			string strDetails = null;
-			UInt32 uintStatus = m_dlgGetLastErrorDetails(ref strDetails);
+			UInt32 uintStatus = m_dlgGetLastErrorDetails(out strDetails);
+			//string strDetails = PtrToStringUtf8(ptrDetails);
 			HandleStatusCode(uintStatus);
 			return strDetails;
 		}
@@ -513,16 +553,16 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 					uintClientGameId = 1;
 					break;
 				case "Fallout3":
-					uintClientGameId = 2;
-					break;
-				case "FalloutNV":
-					uintClientGameId = 3;
-					break;
-				case "Nehrim":
 					uintClientGameId = 4;
 					break;
-				case "Skyrim":
+				case "FalloutNV":
 					uintClientGameId = 5;
+					break;
+				case "Nehrim":
+					uintClientGameId = 2;
+					break;
+				case "Skyrim":
+					uintClientGameId = 3;
 					break;
 			}
 			UInt32 uintStatus = m_dlgCreateBossDb(ref ptrBossDb, uintClientGameId, GameMode.PluginDirectory);
@@ -601,14 +641,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <returns>The list of plugins, sorted by load order.</returns>
 		public string[] SortMods(bool p_booTrialOnly)
 		{
-			string[] strSortedPlugins = null;
 			UInt32 uintListLength = 0;
 			UInt32 uintLastRecognizedPosition = 0;
-			UInt32 uintStatus = m_dlgSortMods(m_ptrBossDb, p_booTrialOnly, out strSortedPlugins, out uintListLength, out uintLastRecognizedPosition);
+			IntPtr ptrPlugins = IntPtr.Zero;
+			UInt32 uintStatus = m_dlgSortMods(m_ptrBossDb, p_booTrialOnly, out ptrPlugins, out uintListLength, out uintLastRecognizedPosition);
 			HandleStatusCode(uintStatus);
-			return strSortedPlugins;
+			return MarshalPluginArray(ptrPlugins, uintListLength);
 		}
-
 
 		/// <summary>
 		/// Gets the list of plugin, sorted by load order.
@@ -616,13 +655,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <returns>The list of plugins, sorted by load order.</returns>
 		public string[] GetLoadOrder()
 		{
-			string[] strSortedPlugins = null;
+			IntPtr ptrPlugins = IntPtr.Zero;
 			UInt32 uintListLength = 0;
-			UInt32 uintStatus = m_dlgGetLoadOrder(m_ptrBossDb, out strSortedPlugins, out uintListLength);
+			UInt32 uintStatus = m_dlgGetLoadOrder(m_ptrBossDb, out ptrPlugins, out uintListLength);
 			HandleStatusCode(uintStatus);
-			return strSortedPlugins;
+			return MarshalPluginArray(ptrPlugins, uintListLength);
 		}
-
 
 		/// <summary>
 		/// Sets the load order of the plugins.
@@ -633,14 +671,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// The extra plugins will be apeended to the end of the given order.
 		/// </remarks>
 		/// <param name="p_strPlugins">The list of plugins in the desired order.</param>
-		/// <returns>The list of plugins that were sorted, in order. Plugins that were not specfied
-		/// in <paramref name="p_strPlugins"/> will be included at the end of the list.</returns>
-		public string[] SetLoadOrder(string[] p_strPlugins)
+		public void SetLoadOrder(string[] p_strPlugins)
 		{
 			string[] strSortedPlugins = p_strPlugins;
-			UInt32 uintStatus = m_dlgSetLoadOrder(m_ptrBossDb, ref strSortedPlugins, Convert.ToUInt32(strSortedPlugins.Length));
+			UInt32 uintStatus = 0;
+			using (StringArrayManualMarshaler ammMarshaler = new StringArrayManualMarshaler("UTF8"))
+				uintStatus = m_dlgSetLoadOrder(m_ptrBossDb, ammMarshaler.MarshalManagedToNative(StripPluginDirectory(strSortedPlugins)), Convert.ToUInt32(strSortedPlugins.Length));
 			HandleStatusCode(uintStatus);
-			return strSortedPlugins;
 		}
 
 		/// <summary>
@@ -649,24 +686,25 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <returns>The list of active plugins.</returns>
 		public string[] GetActivePlugins()
 		{
-			string[] strPlugins = null;
+			IntPtr ptrStrings = IntPtr.Zero;
 			UInt32 uintListLength = 0;
-			UInt32 uintStatus = m_dlgGetActivePlugins(m_ptrBossDb, out strPlugins, out uintListLength);
+			UInt32 uintStatus = m_dlgGetActivePlugins(m_ptrBossDb, out ptrStrings, out uintListLength);
 			HandleStatusCode(uintStatus);
-			return strPlugins;
+			return MarshalPluginArray(ptrStrings, uintListLength);
 		}
-		
+
 		/// <summary>
 		/// Sets the list of active plugins.
 		/// </summary>
 		/// <param name="p_strActivePlugins">The list of plugins to set as active.</param>
 		public void SetActivePlugins(string[] p_strActivePlugins)
 		{
-			UInt32 uintStatus = m_dlgSetActivePlugins(m_ptrBossDb, p_strActivePlugins, Convert.ToUInt32(p_strActivePlugins.Length));
+			UInt32 uintStatus = 0;
+			using (StringArrayManualMarshaler ammMarshaler = new StringArrayManualMarshaler("UTF8"))
+				uintStatus = m_dlgSetActivePlugins(m_ptrBossDb, ammMarshaler.MarshalManagedToNative(StripPluginDirectory(p_strActivePlugins)), Convert.ToUInt32(p_strActivePlugins.Length));
 			HandleStatusCode(uintStatus);
 		}
 
-		
 		/// <summary>
 		/// Gets the load index of the specified plugin.
 		/// </summary>
@@ -675,7 +713,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		public Int32 GetPluginLoadOrder(string p_strPlugin)
 		{
 			UInt32 uintIndex = 0;
-			UInt32 uintStatus = m_dlgGetPluginLoadOrder(m_ptrBossDb, p_strPlugin, out uintIndex);
+			UInt32 uintStatus = m_dlgGetPluginLoadOrder(m_ptrBossDb, StripPluginDirectory(p_strPlugin), out uintIndex);
 			HandleStatusCode(uintStatus);
 			return Convert.ToInt32(uintIndex);
 		}
@@ -693,7 +731,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="p_intIndex">The load index at which to place the specified plugin.</param>
 		public void SetPluginLoadOrder(string p_strPlugin, Int32 p_intIndex)
 		{
-			UInt32 uintStatus = m_dlgSetPluginLoadOrder(m_ptrBossDb, p_strPlugin, Convert.ToUInt32(p_intIndex));
+			UInt32 uintStatus = m_dlgSetPluginLoadOrder(m_ptrBossDb, StripPluginDirectory(p_strPlugin), Convert.ToUInt32(p_intIndex));
 			HandleStatusCode(uintStatus);
 		}
 
@@ -707,7 +745,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			string strPlugin = null;
 			UInt32 uintStatus = m_dlgGetIndexedPlugin(m_ptrBossDb, Convert.ToUInt32(p_intIndex), out strPlugin);
 			HandleStatusCode(uintStatus);
-			return strPlugin;
+			return AddPluginDirectory(strPlugin);
 		}
 
 		/// <summary>
@@ -717,10 +755,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="p_booActive">Whether the specified plugin should be made active or inactive.</param>
 		public void SetPluginActive(string p_strPlugin, bool p_booActive)
 		{
-			UInt32 uintStatus = m_dlgSetPluginActive(m_ptrBossDb, p_strPlugin, p_booActive);
+			UInt32 uintStatus = m_dlgSetPluginActive(m_ptrBossDb, StripPluginDirectory(p_strPlugin), p_booActive);
 			HandleStatusCode(uintStatus);
 		}
-		
+
 		/// <summary>
 		/// Determines if the specified plugin is active.
 		/// </summary>
@@ -730,11 +768,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		public bool IsPluginActive(string p_strPlugin)
 		{
 			bool booIsActive = false;
-			UInt32 uintStatus = m_dlgIsPluginActive(m_ptrBossDb, p_strPlugin, out booIsActive);
+			UInt32 uintStatus = m_dlgIsPluginActive(m_ptrBossDb, StripPluginDirectory(p_strPlugin), out booIsActive);
 			HandleStatusCode(uintStatus);
 			return booIsActive;
 		}
-		
+
 		#endregion
 	}
 }
