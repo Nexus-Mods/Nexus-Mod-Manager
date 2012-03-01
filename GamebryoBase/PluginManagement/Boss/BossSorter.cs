@@ -1,14 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Runtime.InteropServices;
-using System.Reflection;
 using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 {
+	/// <summary>
+	/// The interface for BOSS functionality.
+	/// </summary>
+	/// <remarks>
+	/// This use BAPI to expose BOSS's pluing sorting and activation abilities.
+	/// </remarks>
 	public class BossSorter : IDisposable
 	{
 		#region Native Methods
@@ -378,6 +381,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 
 		#endregion
 
+		/// <summary>
+		/// Loads the native BAPI methods.
+		/// </summary>
 		private void LoadMethods()
 		{
 			m_dlgGetLastErrorDetails = (GetLastErrorDetailsDelegate)Marshal.GetDelegateForFunctionPointer(GetProcAddress(m_ptrBossApi, "GetLastErrorDetails"), typeof(GetLastErrorDetailsDelegate));
@@ -400,6 +406,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 
 		#region IDisposable Members
 
+		/// <summary>
+		/// Disposes of any resources that the sorter allocated.
+		/// </summary>
 		public void Dispose()
 		{
 			Dispose(true);
@@ -408,7 +417,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 
 		#endregion
 
-		protected void Dispose(bool p_booDisposing)
+		/// <summary>
+		/// Disposes of the unamanged resources need for BAPI.
+		/// </summary>
+		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="Dispose()"/> method.</param>
+		protected virtual void Dispose(bool p_booDisposing)
 		{
 			if (m_ptrBossDb != IntPtr.Zero)
 				DestroyBossDb();
@@ -416,7 +429,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				FreeLibrary(m_ptrBossApi);
 		}
 
-		protected void HandleStatusCode(UInt32 p_uintStatusCode)
+		/// <summary>
+		/// Handles the status code returned by the BAPI methods.
+		/// </summary>
+		/// <param name="p_uintStatusCode">The status code to handle.</param>
+		private void HandleStatusCode(UInt32 p_uintStatusCode)
 		{
 			if (p_uintStatusCode == 0)
 				return;
@@ -485,6 +502,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			}
 		}
 
+		#region Plugin Helpers
+
+		/// <summary>
+		/// Marshal the given pointer to an array of plugins.
+		/// </summary>
+		/// <remarks>
+		/// This adjusts the plugin paths to be in the format expected by the  mod manager.
+		/// </remarks>
+		/// <param name="p_ptrPluginArray">The pointer to the array of plugin names to marshal.</param>
+		/// <param name="p_uintLength">the length of the array to marshal.</param>
+		/// <returns>The array of plugins names pointed to by the given pointer.</returns>
 		protected string[] MarshalPluginArray(IntPtr p_ptrPluginArray, UInt32 p_uintLength)
 		{
 			string[] strPlugins = null;
@@ -495,6 +523,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			return strPlugins;
 		}
 
+		/// <summary>
+		/// Removes the plugin directory from the given plugin paths.
+		/// </summary>
+		/// <remarks>
+		/// BAPI expects plugin paths to be relative to the plugins directory. This
+		/// adjusts the plugin paths for that purpose.
+		/// </remarks>
+		/// <param name="p_strPlugins">The array of plugin paths to adjust.</param>
+		/// <returns>An array containing the given plugin path, in order, but relative to the plugins directory.</returns>
 		protected string[] StripPluginDirectory(string[] p_strPlugins)
 		{
 			string[] strPlugins = new string[p_strPlugins.Length];
@@ -503,15 +540,31 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			return strPlugins;
 		}
 
+		/// <summary>
+		/// Removes the plugin directory from the given plugin path.
+		/// </summary>
+		/// <remarks>
+		/// BAPI expects plugin paths to be relative to the plugins directory. This
+		/// adjusts the plugin path for that purpose.
+		/// </remarks>
+		/// <param name="p_strPlugin">The plugin path to adjust.</param>
+		/// <returns>The given plugin path, but relative to the plugins directory.</returns>
 		protected string StripPluginDirectory(string p_strPlugin)
 		{
 			return FileUtil.RelativizePath(GameMode.PluginDirectory, p_strPlugin);
 		}
 
+		/// <summary>
+		/// Makes the given plugin path absolute.
+		/// </summary>
+		/// <param name="p_strPlugin">The plugin path to adjust.</param>
+		/// <returns>The absolute path to the specified plugin.</returns>
 		protected string AddPluginDirectory(string p_strPlugin)
 		{
 			return Path.Combine(GameMode.PluginDirectory, p_strPlugin);
 		}
+
+		#endregion
 
 		#region Error Handling Functions
 
