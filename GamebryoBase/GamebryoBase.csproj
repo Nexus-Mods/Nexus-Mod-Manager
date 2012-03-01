@@ -54,6 +54,8 @@
     <Compile Include="ModManagement\Scripting\BsaManager.cs" />
     <Compile Include="PluginManagement\Boss\BossSorter.cs" />
     <Compile Include="PluginManagement\Boss\BossException.cs" />
+    <Compile Include="PluginManagement\Boss\StringArrayManualMarshaler.cs" />
+    <Compile Include="PluginManagement\Boss\StringMarshaler.cs" />
     <Compile Include="PluginManagement\GamebryoPluginOrderValidator.cs" />
     <Compile Include="PluginManagement\GamebryoPluginDiscoverer.cs" />
     <Compile Include="PluginManagement\GamebryoPluginFactory.cs" />
@@ -154,4 +156,12 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <Target Name="AfterBuild">
+    <ItemGroup>
+      <FilesToCopy Include="$(TargetDir)$(TargetName)*.dll" />
+      <DataFilesToCopy Include="$(TargetDir)data\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(SolutionDir)$(OutDir)GameModes\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(DataFilesToCopy)" DestinationFolder="$(SolutionDir)$(OutDir)GameModes\data\" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
