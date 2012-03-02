@@ -143,6 +143,7 @@ namespace Nexus.Client
 						finally
 						{
 							DisposeServices(svmServices);
+							gmdGameMode.Dispose();
 						}
 					}
 				}

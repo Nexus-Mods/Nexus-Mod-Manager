@@ -21,7 +21,7 @@ namespace Nexus.Client.Games
 	/// A game mode exposes the info and functionality that describes a game-specific environemnt in which
 	/// mods are managed.
 	/// </remarks>
-	public interface IGameMode : IGameModeDescriptor
+	public interface IGameMode : IGameModeDescriptor, IDisposable
 	{
 		#region Properties
 

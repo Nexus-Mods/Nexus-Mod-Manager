@@ -179,7 +179,9 @@ namespace Nexus.Client.Games.Gamebryo
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
 			((List<ISettingsGroupView>)SettingsGroupViews).Add(new GeneralSettingsPage(gsgGeneralSettings));
 
-			BossSorter = new BossSorter(p_eifEnvironmentInfo, this, p_futFileUtility);
+			string strPath = p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath;
+			strPath = Path.Combine(Path.Combine(strPath, "boss"), "masterlist.txt");
+			BossSorter = new BossSorter(p_eifEnvironmentInfo, this, p_futFileUtility, strPath);
 		}
 
 		#endregion
@@ -328,6 +330,16 @@ namespace Nexus.Client.Games.Gamebryo
 			if (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod"))
 				return Path.Combine("Data", p_strPath ?? "");
 			return p_strPath;
+		}
+
+		/// <summary>
+		/// Disposes of the unamanged resources.
+		/// </summary>
+		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="Dispose()"/> method.</param>
+		protected override void Dispose(bool p_booDisposing)
+		{
+			if (BossSorter != null)
+				BossSorter.Dispose();
 		}
 	}
 }

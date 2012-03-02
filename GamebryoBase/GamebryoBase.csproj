@@ -53,7 +53,9 @@
     <Compile Include="ModManagement\GamebryoGameSpecificValueInstaller.cs" />
     <Compile Include="ModManagement\Scripting\BsaManager.cs" />
     <Compile Include="PluginManagement\Boss\BossSorter.cs" />
+    <Compile Include="PluginManagement\Boss\BossSorterCore.cs" />
     <Compile Include="PluginManagement\Boss\BossException.cs" />
+    <Compile Include="PluginManagement\Boss\IBossSorter.cs" />
     <Compile Include="PluginManagement\Boss\StringArrayManualMarshaler.cs" />
     <Compile Include="PluginManagement\Boss\StringMarshaler.cs" />
     <Compile Include="PluginManagement\GamebryoPluginOrderValidator.cs" />
