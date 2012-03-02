@@ -102,6 +102,7 @@
     <Compile Include="Tools\TESsnip\ScriptCompiler\Tokenizer.cs" />
     <Compile Include="Tools\TESsnip\TESsnipParser.cs" />
     <Compile Include="Tools\TESsnip\TypeConverter.cs" />
+    <Compile Include="Updating\BossUpdater.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">

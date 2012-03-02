@@ -1,4 +1,5 @@
 ﻿using Nexus.Client.UI;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games
 {
@@ -30,10 +31,11 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// Builds the game mode.
 		/// </summary>
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
 		/// <param name="p_imsWarning">The resultant warning resultant from the creation of the game mode.
 		/// <c>null</c> if there are no warnings.</param>
 		/// <returns>The game mode.</returns>
-		IGameMode BuildGameMode(out ViewMessage p_imsWarning);
+		IGameMode BuildGameMode(FileUtil p_futFileUtility, out ViewMessage p_imsWarning);
 
 		/// <summary>
 		/// Performs the initial setup for the game mode.

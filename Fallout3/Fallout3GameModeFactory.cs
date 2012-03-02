@@ -1,6 +1,7 @@
 ﻿using Nexus.Client.Games.Gamebryo;
-using Nexus.Client.UI;
 using Nexus.Client.Settings;
+using Nexus.Client.UI;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Fallout3
 {
@@ -44,10 +45,11 @@ namespace Nexus.Client.Games.Fallout3
 		/// <summary>
 		/// Instantiates the game mode.
 		/// </summary>
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
 		/// <returns>The game mode for which this is a factory.</returns>
-		protected override GamebryoGameModeBase InstantiateGameMode()
+		protected override GamebryoGameModeBase InstantiateGameMode(FileUtil p_futFileUtility)
 		{
-			return new Fallout3GameMode(EnvironmentInfo);
+			return new Fallout3GameMode(EnvironmentInfo, p_futFileUtility);
 		}
 
 		/// <summary>

@@ -10,6 +10,7 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
+using Nexus.Client.Updating;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Games
@@ -312,6 +313,12 @@ namespace Nexus.Client.Games
 		public abstract IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate);
 
 		#endregion
+
+		/// <summary>
+		/// Gets the updaters used by the game mode.
+		/// </summary>
+		/// <returns>The updaters used by the game mode.</returns>
+		public abstract IEnumerable<UpdaterBase> GetUpdaters();
 
 		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.

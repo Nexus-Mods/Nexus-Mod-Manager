@@ -301,6 +301,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 
 		#endregion
 
+		private const Int32 BOSS_API_OK_NO_UPDATE_NECESSARY = 31;
 		private IntPtr m_ptrBossApi = IntPtr.Zero;
 		private IntPtr m_ptrBossDb = IntPtr.Zero;
 
@@ -330,6 +331,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <value>The path to the userlist.</value>
 		protected string UserlistPath { get; private set; }
 
+		/// <summary>
+		/// Gets the file utility class.
+		/// </summary>
+		/// <value>The file utility class.</value>
+		protected FileUtil FileUtility { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -339,10 +346,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_gmdGameMode">The game mode for which plugins are being managed.</param>
-		public BossSorter(IEnvironmentInfo p_eifEnvironmentInfo, GamebryoGameModeBase p_gmdGameMode)
+		/// <param name="p_futFileUtility">The file utility class.</param>
+		public BossSorter(IEnvironmentInfo p_eifEnvironmentInfo, GamebryoGameModeBase p_gmdGameMode, FileUtil p_futFileUtility)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
+			FileUtility = p_futFileUtility;
 
 			string strBAPIPath = Path.Combine(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "data"), p_eifEnvironmentInfo.Is64BitProcess ? "boss64.dll" : "boss32.dll");
 
@@ -443,7 +452,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			string strDetails = GetLastErrorDetails();
 			switch (p_uintStatusCode)
 			{
-				case 31:
+				case BOSS_API_OK_NO_UPDATE_NECESSARY:
 					//BOSS_API_OK_NO_UPDATE_NECESSARY;
 					break;
 				case 10:
@@ -683,6 +692,18 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			UInt32 uintStatus = m_dlgUpdateMasterlist(m_ptrBossDb, MasterlistPath);
 			HandleStatusCode(uintStatus);
 			Load(MasterlistPath, UserlistPath);
+		}
+
+		/// <summary>
+		/// Updates the masterlist at the given path.
+		/// </summary>
+		public bool MasterlistHasUpdate()
+		{
+			string strTmpPath = Path.Combine(FileUtility.CreateTempDirectory(), Path.GetRandomFileName());
+			UInt32 uintStatus = m_dlgUpdateMasterlist(m_ptrBossDb, strTmpPath);
+			FileUtil.ForceDelete(strTmpPath);
+			HandleStatusCode(uintStatus);
+			return (BOSS_API_OK_NO_UPDATE_NECESSARY != uintStatus);
 		}
 
 		#endregion

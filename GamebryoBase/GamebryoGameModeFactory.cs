@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Windows.Forms;
 using Microsoft.Win32;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
-using System.Windows.Forms;
-using System.Diagnostics;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -74,10 +75,11 @@ namespace Nexus.Client.Games.Gamebryo
 		/// <summary>
 		/// Builds the game mode.
 		/// </summary>
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
 		/// <param name="p_imsWarning">The resultant warning resultant from the creation of the game mode.
 		/// <c>null</c> if there are no warnings.</param>
 		/// <returns>The game mode.</returns>
-		public IGameMode BuildGameMode(out ViewMessage p_imsWarning)
+		public IGameMode BuildGameMode(FileUtil p_futFileUtility, out ViewMessage p_imsWarning)
 		{
 			if (EnvironmentInfo.Settings.CustomGameModeSettings[GameModeDescriptor.ModeId] == null)
 				EnvironmentInfo.Settings.CustomGameModeSettings[GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
@@ -93,7 +95,7 @@ namespace Nexus.Client.Games.Gamebryo
 			m_lstTools.Add(new CheckedCommand<MainForm>("Archive Invalidation", "Toggles Archive Invalidation.", Fallout3.Tools.ArchiveInvalidation.IsActive(), ToggleArchiveInvalidation));
 			*/
 
-			GamebryoGameModeBase gmdGameMode = InstantiateGameMode();
+			GamebryoGameModeBase gmdGameMode = InstantiateGameMode(p_futFileUtility);
 
 			if (!File.Exists(((GamebryoGameModeBase)gmdGameMode).SettingsFiles.IniPath))
 				p_imsWarning = new ViewMessage(String.Format("You have no {0} INI file. Please run {0} to initialize the file before installing any mods or turning on Archive Invalidation.", gmdGameMode.Name), null, "Missing INI", MessageBoxIcon.Warning);
@@ -106,8 +108,9 @@ namespace Nexus.Client.Games.Gamebryo
 		/// <summary>
 		/// Instantiates the game mode.
 		/// </summary>
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
 		/// <returns>The game mode for which this is a factory.</returns>
-		protected abstract GamebryoGameModeBase InstantiateGameMode();
+		protected abstract GamebryoGameModeBase InstantiateGameMode(FileUtil p_futFileUtility);
 
 		/// <summary>
 		/// Performs the initial setup for the game mode being created.

@@ -1,17 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Text;
-using System.Windows.Forms;
 using ChinhDo.Transactions;
-using Microsoft.Win32;
 using Nexus.Client.Games.Gamebryo.ModManagement;
 using Nexus.Client.Games.Gamebryo.PluginManagement;
+using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 using Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog;
 using Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog;
 using Nexus.Client.Games.Gamebryo.Settings;
 using Nexus.Client.Games.Gamebryo.Settings.UI;
+using Nexus.Client.Games.Gamebryo.Updating;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -20,8 +18,8 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
+using Nexus.Client.Updating;
 using Nexus.Client.Util;
-using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -171,7 +169,8 @@ namespace Nexus.Client.Games.Gamebryo
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
-		public GamebryoGameModeBase(IEnvironmentInfo p_eifEnvironmentInfo)
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
+		public GamebryoGameModeBase(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
 			SettingsFiles = CreateSettingsFileContainer();
@@ -180,7 +179,7 @@ namespace Nexus.Client.Games.Gamebryo
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
 			((List<ISettingsGroupView>)SettingsGroupViews).Add(new GeneralSettingsPage(gsgGeneralSettings));
 
-			BossSorter = new BossSorter(p_eifEnvironmentInfo, this);
+			BossSorter = new BossSorter(p_eifEnvironmentInfo, this, p_futFileUtility);
 		}
 
 		#endregion
@@ -300,6 +299,16 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Gets the updaters used by the game mode.
+		/// </summary>
+		/// <returns>The updaters used by the game mode.</returns>
+		public override IEnumerable<UpdaterBase> GetUpdaters()
+		{
+			BossUpdater bupUpdater = new BossUpdater(EnvironmentInfo, BossSorter);
+			yield return bupUpdater;
+		}
 
 		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.
