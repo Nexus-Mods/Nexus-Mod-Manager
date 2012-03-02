@@ -360,12 +360,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			UserlistPath = null;
 
 			///TODO don't update here - make separate updater
-			if (!Directory.Exists(Path.GetDirectoryName(MasterlistPath)))
-				Directory.CreateDirectory(Path.GetDirectoryName(MasterlistPath));
-			UpdateMasterlist();
+			//if (!Directory.Exists(Path.GetDirectoryName(MasterlistPath)))
+			//	Directory.CreateDirectory(Path.GetDirectoryName(MasterlistPath));
+			//UpdateMasterlist();
 
 			///TODO add masterlist path
-			Load(MasterlistPath, UserlistPath);
+			if (!String.IsNullOrEmpty(MasterlistPath) && File.Exists(MasterlistPath) ||
+				!String.IsNullOrEmpty(UserlistPath) && File.Exists(UserlistPath))
+				Load(MasterlistPath, UserlistPath);
 		}
 
 		/// <summary>
