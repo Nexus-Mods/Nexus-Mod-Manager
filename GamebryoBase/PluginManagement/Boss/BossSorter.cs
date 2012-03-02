@@ -697,6 +697,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		public bool MasterlistHasUpdate()
 		{
 			string strTmpPath = Path.Combine(FileUtility.CreateTempDirectory(), Path.GetRandomFileName());
+			if (File.Exists(MasterlistPath))
+				File.Copy(MasterlistPath, strTmpPath, true);
 			UInt32 uintStatus = m_dlgUpdateMasterlist(m_ptrBossDb, strTmpPath);
 			FileUtil.ForceDelete(strTmpPath);
 			HandleStatusCode(uintStatus);
