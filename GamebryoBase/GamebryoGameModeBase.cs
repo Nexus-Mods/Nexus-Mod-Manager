@@ -335,7 +335,7 @@ namespace Nexus.Client.Games.Gamebryo
 		/// <summary>
 		/// Disposes of the unamanged resources.
 		/// </summary>
-		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="Dispose()"/> method.</param>
+		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="IDisposable.Dispose()"/> method.</param>
 		protected override void Dispose(bool p_booDisposing)
 		{
 			if (BossSorter != null)

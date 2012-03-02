@@ -347,6 +347,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_gmdGameMode">The game mode for which plugins are being managed.</param>
 		/// <param name="p_futFileUtility">The file utility class.</param>
+		/// <param name="p_strMasterlistPath">The path to the masterlist file to use.</param>
 		public BossSorter(IEnvironmentInfo p_eifEnvironmentInfo, GamebryoGameModeBase p_gmdGameMode, FileUtil p_futFileUtility, string p_strMasterlistPath)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
@@ -502,6 +503,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				case 9:
 					//BOSS_API_ERROR_GAME_NOT_FOUND;
 					throw new BossException("BOSS_API_ERROR_GAME_NOT_FOUND: " + strDetails);
+				default:
+					throw new BossException(String.Format("Unreconized error value {1}: {0}", strDetails, p_uintStatusCode));
 			}
 		}
 
