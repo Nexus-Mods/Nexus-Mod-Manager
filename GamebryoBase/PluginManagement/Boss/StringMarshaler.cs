@@ -38,6 +38,22 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			return lstString;
 		}
 
+		/// <summary>
+		/// Returns a pointer to a unamanged, null terminated, copy the given string.
+		/// </summary>
+		/// <param name="p_strString">The string for which to create a pointer.</param>
+		/// <param name="p_encEncoding">The encoding of the string.</param>
+		/// <returns>A pointer to a unamanged, null terminated, copy the given string.</returns>
+		public static IntPtr GetNullTerminatedStringPointer(string p_strString, Encoding p_encEncoding)
+		{
+			byte[] bteString = p_encEncoding.GetBytes(p_strString);
+			byte[] bteNullTerminatedString = new byte[bteString.Length + 1];
+			Array.Copy(bteString, bteNullTerminatedString, bteString.Length);
+			IntPtr ptrString = Marshal.AllocHGlobal(bteNullTerminatedString.Length);
+			Marshal.Copy(bteNullTerminatedString, 0, ptrString, bteNullTerminatedString.Length);
+			return ptrString;
+		}
+
 		private IntPtr m_ptrString = IntPtr.Zero;
 		private Encoding m_encEncoding = null;
 
@@ -121,9 +137,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				m_ptrString = IntPtr.Zero;
 			else
 			{
-				byte[] bteString = m_encEncoding.GetBytes(strString);
-				m_ptrString = Marshal.AllocHGlobal(bteString.Length);
-				Marshal.Copy(bteString, 0, m_ptrString, bteString.Length);
+				m_ptrString = GetNullTerminatedStringPointer(strString, m_encEncoding);
 			}
 			return m_ptrString;
 		}

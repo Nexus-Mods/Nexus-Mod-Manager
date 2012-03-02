@@ -67,11 +67,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				m_intArraySize = strStrings.Length;
 				IntPtr[] ptrStrings = new IntPtr[m_intArraySize];
 				for (Int32 i = 0; i < m_intArraySize; i++)
-				{
-					byte[] bteString = m_encEncoding.GetBytes(strStrings[i]);
-					ptrStrings[i] = Marshal.AllocHGlobal(bteString.Length);
-					Marshal.Copy(bteString, 0, ptrStrings[i], bteString.Length);
-				}
+					ptrStrings[i] = StringMarshaler.GetNullTerminatedStringPointer(strStrings[i], m_encEncoding);
 				m_ptrStringArray = Marshal.AllocHGlobal(m_intArraySize * IntPtr.Size);
 				Marshal.Copy(ptrStrings, 0, m_ptrStringArray, m_intArraySize);
 			}
