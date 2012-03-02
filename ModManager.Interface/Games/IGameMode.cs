@@ -133,7 +133,7 @@ namespace Nexus.Client.Games
 		/// Gets the updaters used by the game mode.
 		/// </summary>
 		/// <returns>The updaters used by the game mode.</returns>
-		IEnumerable<UpdaterBase> GetUpdaters();
+		IEnumerable<IUpdater> GetUpdaters();
 
 		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.

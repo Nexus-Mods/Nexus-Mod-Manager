@@ -109,8 +109,7 @@ namespace Nexus.Client.Updating
 			ShowItemProgress = true;
 
 			m_lstUpdaters.Clear();
-			//maybe GameMode.Updaters hsould be GameMode.GetUpdaters(...)
-			//m_lstUpdaters.AddRange(GameMode.Updaters);
+			m_lstUpdaters.AddRange(GameMode.GetUpdaters());
 
 			m_lstUpdaters.Add(new ProgrammeUpdater(EnvironmentInfo));
 			foreach (IUpdater updUpdater in m_lstUpdaters)

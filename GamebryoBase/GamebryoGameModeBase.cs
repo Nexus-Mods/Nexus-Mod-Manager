@@ -304,7 +304,7 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets the updaters used by the game mode.
 		/// </summary>
 		/// <returns>The updaters used by the game mode.</returns>
-		public override IEnumerable<UpdaterBase> GetUpdaters()
+		public override IEnumerable<IUpdater> GetUpdaters()
 		{
 			BossUpdater bupUpdater = new BossUpdater(EnvironmentInfo, BossSorter);
 			yield return bupUpdater;
