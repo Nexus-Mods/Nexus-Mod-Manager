@@ -65,7 +65,7 @@ namespace Nexus.Client.Games.Gamebryo.Updating
 			SetProgressMaximum(2);
 
 			SetMessage("Checking for new masterlist...");
-			bool booHasUpdate = true;// BossSorter.MasterlistHasUpdate();
+			bool booHasUpdate = BossSorter.MasterlistHasUpdate();
 			SetProgress(1);
 
 			if (CancelRequested)
