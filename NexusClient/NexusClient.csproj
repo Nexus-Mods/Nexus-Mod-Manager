@@ -121,6 +121,12 @@
       <DependentUpon>ApplicationInitializationForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="GameDetectionForm.resx">
+      <DependentUpon>GameDetectionForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GameModeListViewItem.resx">
+      <DependentUpon>GameModeListViewItem.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="GameModeSelectionForm.resx">
       <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
       <SubType>Designer</SubType>
@@ -255,6 +261,26 @@
     <Compile Include="ApplicationInitializer.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
+    <Compile Include="GameDetectionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GameDetectionForm.Designer.cs">
+      <DependentUpon>GameDetectionForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GameDetectionVM.cs" />
+    <Compile Include="GameModeListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="GameModeListViewItem.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="GameModeListViewItem.Designer.cs">
+      <DependentUpon>GameModeListViewItem.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Games\FileSearcher.cs" />
+    <Compile Include="Games\GameDiscoverer.cs" />
+    <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
+    <Compile Include="Games\GameModeRegistry.cs" />
     <Compile Include="InstallationPathInitializer.cs" />
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
