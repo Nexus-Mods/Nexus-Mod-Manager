@@ -521,6 +521,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <returns>The array of plugins names pointed to by the given pointer.</returns>
 		protected string[] MarshalPluginArray(IntPtr p_ptrPluginArray, UInt32 p_uintLength)
 		{
+			if (p_ptrPluginArray == IntPtr.Zero)
+				return null;
 			string[] strPlugins = null;
 			using (StringArrayManualMarshaler ammMarshaler = new StringArrayManualMarshaler("UTF8"))
 				strPlugins = ammMarshaler.MarshalNativeToManaged(p_ptrPluginArray, Convert.ToInt32(p_uintLength));
@@ -768,7 +770,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			UInt32 uintListLength = 0;
 			UInt32 uintStatus = m_dlgGetActivePlugins(m_ptrBossDb, out ptrStrings, out uintListLength);
 			HandleStatusCode(uintStatus);
-			return MarshalPluginArray(ptrStrings, uintListLength);
+			return MarshalPluginArray(ptrStrings, uintListLength) ?? new string[0];
 		}
 
 		/// <summary>
