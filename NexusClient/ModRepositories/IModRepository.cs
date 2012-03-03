@@ -49,6 +49,11 @@ namespace Nexus.Client.ModRepositories
 		/// <c>fales</c> otherwise.</returns>
 		bool Login(Dictionary<string,string> p_dicTokens);
 
+		/// <summary>
+		/// Logs the user out of the mod repository.
+		/// </summary>
+		void Logout();
+
 		#endregion
 
 		/// <summary>

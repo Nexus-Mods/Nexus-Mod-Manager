@@ -102,6 +102,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap application_exit_2 {
+            get {
+                object obj = ResourceManager.GetObject("application_exit_2", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap change_game_mode {
             get {
                 object obj = ResourceManager.GetObject("change_game_mode", resourceCulture);

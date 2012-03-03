@@ -160,9 +160,64 @@ namespace Nexus.Client
 			ViewModel.Updating += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_Updating);
 			new ToolStripItemCommandBinding(tsbUpdate, ViewModel.UpdateCommand);
 
+			ViewModel.LogoutCommand.BeforeExecute += new EventHandler<CancelEventArgs>(LogoutCommand_BeforeExecute);
+			ViewModel.LogoutCommand.Executed += new EventHandler(LogoutCommand_Executed);
+			new ToolStripItemCommandBinding(tsbLogout, ViewModel.LogoutCommand);
+
+			ViewModel.ChangeGameModeCommand.Executed += new EventHandler(ChangeGameModeCommand_Executed);
+			new ToolStripItemCommandBinding(tsbChangeMode, ViewModel.ChangeGameModeCommand);
+
 			BindLaunchCommands();
 			BindToolCommands();
 		}
+
+		#region Logout
+
+		/// <summary>
+		/// Handles the <see cref="Command.Executed"/> event of the logout command.
+		/// </summary>
+		/// <remarks>
+		/// This closes the application.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void LogoutCommand_Executed(object sender, EventArgs e)
+		{
+			Close();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Command.BeforeExecute"/> event of the logout command.
+		/// </summary>
+		/// <remarks>
+		/// This confirms whether the user wants to logout.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="CancelEventArgs"/> describing the event arguments.</param>
+		private void LogoutCommand_BeforeExecute(object sender, CancelEventArgs e)
+		{
+			if (MessageBox.Show(this, "Are you sure you want to logout?", "Logout", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+				e.Cancel = true;
+		}
+
+		#endregion
+
+		#region Change Game Mode
+
+		/// <summary>
+		/// Handles the <see cref="Command.Executed"/> event of the change game mode command.
+		/// </summary>
+		/// <remarks>
+		/// This closes the application.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void ChangeGameModeCommand_Executed(object sender, EventArgs e)
+		{
+			Close();
+		}
+
+		#endregion
 
 		#endregion
 
@@ -234,17 +289,6 @@ namespace Nexus.Client
 		{
 			SettingsForm frmSettings = new SettingsForm(ViewModel.SettingsFormVM);
 			frmSettings.ShowDialog(this);
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ToolStripItem.Click"/> event of the change game mode button.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void tsbChangeMode_Click(object sender, EventArgs e)
-		{
-			ViewModel.ChangeGameMode();
-			Close();
 		}
 
 		/// <summary>

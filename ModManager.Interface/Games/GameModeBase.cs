@@ -10,6 +10,7 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
+using Nexus.Client.Updating;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Games
@@ -20,7 +21,7 @@ namespace Nexus.Client.Games
 	/// <remarks>
 	/// A Game Mode is a state in which the programme manages plugins for a specific game.
 	/// </remarks>
-	public abstract class GameModeBase : IGameMode
+	public abstract class GameModeBase : IGameMode, IDisposable
 	{
 		/// <summary>
 		/// The class that encasulates game mode specific environment info.
@@ -314,6 +315,12 @@ namespace Nexus.Client.Games
 		#endregion
 
 		/// <summary>
+		/// Gets the updaters used by the game mode.
+		/// </summary>
+		/// <returns>The updaters used by the game mode.</returns>
+		public abstract IEnumerable<IUpdater> GetUpdaters();
+
+		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.
 		/// </summary>
 		/// <remarks>
@@ -329,6 +336,27 @@ namespace Nexus.Client.Games
 		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath)
 		{
 			return p_strPath;
+		}
+
+		#region IDisposable Members
+
+		/// <summary>
+		/// Ensures all used resources are released.
+		/// </summary>
+		public void Dispose()
+		{
+			Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+
+		#endregion
+
+		/// <summary>
+		/// Disposes of the unamanged resources.
+		/// </summary>
+		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="Dispose()"/> method.</param>
+		protected virtual void Dispose(bool p_booDisposing)
+		{
 		}
 	}
 }

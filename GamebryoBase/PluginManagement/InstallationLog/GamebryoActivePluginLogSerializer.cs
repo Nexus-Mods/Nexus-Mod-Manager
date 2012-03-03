@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
+using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.Plugins;
-using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 {
@@ -12,15 +11,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 	/// </summary>
 	public class GamebryoActivePluginLogSerializer : IActivePluginLogSerializer
 	{
-		private string m_strPluginsFilePath = null;
-
 		#region Properties
 
 		/// <summary>
-		/// Gets the directory where the game's plugins are installed.
+		/// Gets the BOSS plugin sorter.
 		/// </summary>
-		/// <value>The directory where the game's plugins are installed.</value>
-		protected string PluginDirectory { get; private set; }
+		/// <value>The BOSS plugin sorter.</value>
+		protected BossSorter BossSorter { get; private set; }
 
 		#endregion
 
@@ -29,12 +26,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		/// <summary>
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
-		/// <param name="p_strPluginsDirectory">The directory where Fallout 3's plugins are installed.</param>
-		/// <param name="p_strPluginLogFilePath">The path to the log file that stores the list of active plugins.</param>
-		public GamebryoActivePluginLogSerializer(string p_strPluginsDirectory, string p_strPluginLogFilePath)
+		/// <param name="p_bstBoss">The BOSS instance to use to set plugin order.</param>
+		public GamebryoActivePluginLogSerializer(BossSorter p_bstBoss)
 		{
-			PluginDirectory = p_strPluginsDirectory;
-			m_strPluginsFilePath = p_strPluginLogFilePath;
+			BossSorter = p_bstBoss;
 		}
 
 		#endregion
@@ -45,23 +40,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		/// <returns>The list of active plugins.</returns>
 		public IEnumerable<string> LoadPluginLog()
 		{
-			Set<string> setActivePlugins = new Set<string>(StringComparer.OrdinalIgnoreCase);
-			if (File.Exists(m_strPluginsFilePath))
-			{
-				string[] strPlugins = File.ReadAllLines(m_strPluginsFilePath);
-				char[] strInvalidChars = Path.GetInvalidFileNameChars();
-				for (int i = 0; i < strPlugins.Length; i++)
-				{
-					strPlugins[i] = strPlugins[i].Trim();
-					if (strPlugins[i].Length == 0 || strPlugins[i][0] == '#' || strPlugins[i].IndexOfAny(strInvalidChars) != -1)
-						continue;
-					string strPluginPath = Path.Combine(PluginDirectory, strPlugins[i]);
-					if (!File.Exists(strPluginPath))
-						continue;
-					setActivePlugins.Add(strPluginPath);
-				}
-			}
-			return setActivePlugins;
+			return BossSorter.GetActivePlugins();
 		}
 
 		/// <summary>
@@ -70,12 +49,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		/// <returns>The ordered list of active plugins.</returns>
 		public void SavePluginLog(IList<Plugin> p_lstActivePlugins)
 		{
-			Set<string> setPluginFilenames = new Set<string>(StringComparer.OrdinalIgnoreCase);
-			foreach (Plugin plgPlugin in p_lstActivePlugins)
-				setPluginFilenames.Add(Path.GetFileName(plgPlugin.Filename));
-			if (!Directory.Exists(Path.GetDirectoryName(m_strPluginsFilePath)))
-				Directory.CreateDirectory(Path.GetDirectoryName(m_strPluginsFilePath));
-			File.WriteAllLines(m_strPluginsFilePath, setPluginFilenames.ToArray(), System.Text.Encoding.Default);
+			string[] strPlugins = new string[p_lstActivePlugins.Count];
+			for (Int32 i = 0; i < p_lstActivePlugins.Count; i++)
+				strPlugins[i] = p_lstActivePlugins[i].Filename;
+			BossSorter.SetActivePlugins(strPlugins);
 		}
 	}
 }

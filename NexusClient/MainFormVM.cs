@@ -17,6 +17,7 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using Nexus.Client.UI;
 using System.ComponentModel;
+using Nexus.Client.ModRepositories;
 
 namespace Nexus.Client
 {
@@ -55,6 +56,18 @@ namespace Nexus.Client
 		/// <value>The command to update the programme.</value>
 		public Command UpdateCommand { get; private set; }
 
+		/// <summary>
+		/// Gets the command to logout of the current mod repository.
+		/// </summary>
+		/// <value>The command to logout of the current mod repository.</value>
+		public Command LogoutCommand { get; private set; }
+
+		/// <summary>
+		/// Gets the command to change the managed game mode.
+		/// </summary>
+		/// <value>The command to change the managed game mode.</value>
+		public Command ChangeGameModeCommand { get; private set; }
+
 		#endregion
 
 		/// <summary>
@@ -62,6 +75,12 @@ namespace Nexus.Client
 		/// </summary>
 		/// <value>The update manager to use to perform updates.</value>
 		protected UpdateManager UpdateManager { get; private set; }
+
+		/// <summary>
+		/// Gets the repository we are logging in to.
+		/// </summary>
+		/// <value>The repository we are logging in to.</value>
+		protected IModRepository ModRepository { get; private set; }
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
@@ -187,17 +206,19 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_gmdGameMode">The game mode currently being managed.</param>
+		/// <param name="p_mrpModRepository">The repository we are logging in to.</param>
 		/// <param name="p_amtMonitor">The activity monitor to use to track task progress.</param>
 		/// <param name="p_umgUpdateManager">The update manager to use to perform updates.</param>
 		/// <param name="p_mmgModManager">The <see cref="ModManager"/> to use to manage mods.</param>
 		/// <param name="p_pmgPluginManager">The <see cref="PluginManager"/> to use to manage plugins.</param>
-		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, IGameMode p_gmdGameMode, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
+		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			
 			GameMode = p_gmdGameMode;
 			GameMode.GameLauncher.GameLaunching += new CancelEventHandler(GameLauncher_GameLaunching);
 
+			ModRepository = p_mrpModRepository;
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
@@ -217,6 +238,8 @@ namespace Nexus.Client
 			SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 
 			UpdateCommand = new Command("Update", String.Format("Update {0}", EnvironmentInfo.Settings.ModManagerName), UpdateProgramme);
+			LogoutCommand = new Command("Logout", "Logout", Logout);
+			ChangeGameModeCommand = new Command("Change Game", "Change Game", ChangeGameMode);
 		}
 
 		#endregion
@@ -224,7 +247,7 @@ namespace Nexus.Client
 		/// <summary>
 		/// Requests a game mode change.
 		/// </summary>
-		public void ChangeGameMode()
+		private void ChangeGameMode()
 		{
 			GameModeChangeRequested = true;
 		}
@@ -232,7 +255,7 @@ namespace Nexus.Client
 		/// <summary>
 		/// Updates the programme.
 		/// </summary>
-		protected void UpdateProgramme()
+		private void UpdateProgramme()
 		{
 			Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction)));
 		}
@@ -263,6 +286,16 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = booClose;
 				EnvironmentInfo.Settings.Save();
 			}
+		}
+
+		/// <summary>
+		/// Logs out of all mod repositories.
+		/// </summary>
+		private void Logout()
+		{
+			ModRepository.Logout();
+			EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
+			EnvironmentInfo.Settings.Save();
 		}
 	}
 }

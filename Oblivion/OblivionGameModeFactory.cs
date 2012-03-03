@@ -1,5 +1,6 @@
 ﻿using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.UI;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Oblivion
 {
@@ -43,10 +44,11 @@ namespace Nexus.Client.Games.Oblivion
 		/// <summary>
 		/// Instantiates the game mode.
 		/// </summary>
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
 		/// <returns>The game mode for which this is a factory.</returns>
-		protected override GamebryoGameModeBase InstantiateGameMode()
+		protected override GamebryoGameModeBase InstantiateGameMode(FileUtil p_futFileUtility)
 		{
-			return new OblivionGameMode(EnvironmentInfo);
+			return new OblivionGameMode(EnvironmentInfo, p_futFileUtility);
 		}
 
 		/// <summary>

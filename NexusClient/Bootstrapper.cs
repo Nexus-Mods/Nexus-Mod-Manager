@@ -6,13 +6,8 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Controls;
 using Nexus.Client.Games;
-using Nexus.Client.ModManagement;
-using Nexus.Client.ModManagement.InstallationLog;
-using Nexus.Client.ModManagement.UI;
-using Nexus.Client.Mods;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
 using SevenZip;
@@ -143,7 +138,7 @@ namespace Nexus.Client
 					IGameMode gmdGameMode = ainInitializer.GameMode;
 					ServiceManager svmServices = ainInitializer.Services;
 
-					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmdGameMode, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
+					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
 
 					using (Messager msgMessager = Messager.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
@@ -164,6 +159,7 @@ namespace Nexus.Client
 						finally
 						{
 							DisposeServices(svmServices);
+							gmdGameMode.Dispose();
 						}
 					}
 				}

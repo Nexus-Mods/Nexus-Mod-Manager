@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using ChinhDo.Transactions;
 using Nexus.Client.Util.Collections;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Util
 {
@@ -297,6 +298,49 @@ namespace Nexus.Client.Util
 			strFile = rgxInvalidPath.Replace(strFile, "");
 
 			return Path.Combine(strPath, strFile);
+		}
+
+		/// <summary>
+		/// Generates a path that is relative to another path.
+		/// </summary>
+		/// <param name="p_strRoot">The root directory with respect to which the path will be made relative.</param>
+		/// <param name="p_strPath">The path to make relative.</param>
+		/// <returns>The relative form of the given path, relative with respect to the given root.</returns>
+		/// <exception cref="ArgumentNullException">Thrown if either parameter is <c>null</c>.</exception>
+		public static string RelativizePath(string p_strRoot, string p_strPath)
+		{
+			if (p_strRoot == null)
+				throw new ArgumentNullException("p_strFrom");
+			if (p_strPath == null)
+				throw new ArgumentNullException("p_strRoot");
+
+			p_strRoot = p_strRoot.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			p_strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+
+			if (Path.IsPathRooted(p_strRoot) && Path.IsPathRooted(p_strPath) && !Path.GetPathRoot(p_strRoot).Equals(Path.GetPathRoot(p_strPath), StringComparison.OrdinalIgnoreCase))
+				return p_strPath;
+
+			string[] strRootPaths = p_strRoot.Split(new char[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+			string[] strPathsToRelativize = p_strPath.Split(new char[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+
+			Int32 intMinPathLength = Math.Min(strRootPaths.Length, strPathsToRelativize.Length);
+			Int32 intLastCommonPathIndex = -1;
+			for (Int32 i = 0; i < intMinPathLength; i++)
+			{
+				if (!strRootPaths[i].Equals(strPathsToRelativize[i], StringComparison.OrdinalIgnoreCase))
+					break;
+				intLastCommonPathIndex = i;
+			}
+			if (intLastCommonPathIndex == -1)
+				return p_strPath;
+
+			List<string> lstRelativePaths = new List<string>();
+			for (Int32 i = intLastCommonPathIndex + 1; i < strRootPaths.Length; i++)
+				lstRelativePaths.Add("..");
+			for (Int32 i = intLastCommonPathIndex + 1; i < strPathsToRelativize.Length; i++)
+				lstRelativePaths.Add(strPathsToRelativize[i]);
+
+			return String.Join(Path.DirectorySeparatorChar.ToString(), lstRelativePaths.ToArray());
 		}
 	}
 }

@@ -104,15 +104,14 @@ namespace Nexus.Client.Updating
 			//TODO add game mode updaters
 			OverallMessage = "Updating...";
 			OverallProgress = 0;
-			OverallProgressMaximum = 1;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;
 
 			m_lstUpdaters.Clear();
-			//maybe GameMode.Updaters hsould be GameMode.GetUpdaters(...)
-			//m_lstUpdaters.AddRange(GameMode.Updaters);
-
 			m_lstUpdaters.Add(new ProgrammeUpdater(EnvironmentInfo));
+			m_lstUpdaters.AddRange(GameMode.GetUpdaters());
+			OverallProgressMaximum = m_lstUpdaters.Count;
+
 			foreach (IUpdater updUpdater in m_lstUpdaters)
 			{
 				ItemMessage = updUpdater.Message;
