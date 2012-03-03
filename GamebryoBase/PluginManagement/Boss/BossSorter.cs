@@ -353,7 +353,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
 			FileUtility = p_futFileUtility;
-
+			
 			string strBAPIPath = Path.Combine(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "data"), p_eifEnvironmentInfo.Is64BitProcess ? "boss64.dll" : "boss32.dll");
 
 			m_ptrBossApi = LoadLibrary(strBAPIPath);
