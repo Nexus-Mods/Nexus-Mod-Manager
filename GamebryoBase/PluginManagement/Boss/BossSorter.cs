@@ -718,11 +718,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		#region Plugin Sorting Functions
 
 		/// <summary>
-		/// Removes ghosted plugins from the given list.
+		/// Removes non-existent and ghosted plugins from the given list.
 		/// </summary>
-		/// <param name="p_strPlugins">The list of plugins from which to remove ghosted plugins.</param>
-		/// <returns>The given list of plugins, with all ghosted plugins removed.</returns>
-		private string[] RemoveGhostedPlugins(string[] p_strPlugins)
+		/// <param name="p_strPlugins">The list of plugins from which to remove non-existent and ghosted plugins.</param>
+		/// <returns>The given list of plugins, with all non-existent and ghosted plugins removed.</returns>
+		private string[] RemoveNonExistentPlugins(string[] p_strPlugins)
 		{
 			List<string> lstRealPlugins = new List<string>();
 			foreach (string strPlugin in p_strPlugins)
@@ -743,7 +743,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			IntPtr ptrPlugins = IntPtr.Zero;
 			UInt32 uintStatus = m_dlgSortMods(m_ptrBossDb, p_booTrialOnly, out ptrPlugins, out uintListLength, out uintLastRecognizedPosition);
 			HandleStatusCode(uintStatus);
-			return RemoveGhostedPlugins(MarshalPluginArray(ptrPlugins, uintListLength));
+			return RemoveNonExistentPlugins(MarshalPluginArray(ptrPlugins, uintListLength));
 		}
 
 		/// <summary>
@@ -758,7 +758,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			HandleStatusCode(uintStatus);
 			string[] strPlugins = MarshalPluginArray(ptrPlugins, uintListLength);
 			List<string> lstNonGhostedPlugins = new List<string>();
-			return RemoveGhostedPlugins(MarshalPluginArray(ptrPlugins, uintListLength));
+			return RemoveNonExistentPlugins(MarshalPluginArray(ptrPlugins, uintListLength));
 		}
 
 		/// <summary>
@@ -789,7 +789,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			UInt32 uintListLength = 0;
 			UInt32 uintStatus = m_dlgGetActivePlugins(m_ptrBossDb, out ptrStrings, out uintListLength);
 			HandleStatusCode(uintStatus);
-			return MarshalPluginArray(ptrStrings, uintListLength) ?? new string[0];
+			return RemoveNonExistentPlugins(MarshalPluginArray(ptrStrings, uintListLength) ?? new string[0]);
 		}
 
 		/// <summary>
