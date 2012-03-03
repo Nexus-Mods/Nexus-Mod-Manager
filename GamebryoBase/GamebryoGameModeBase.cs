@@ -269,7 +269,7 @@ namespace Nexus.Client.Games.Gamebryo
 		public override IPluginOrderValidator GetPluginOrderValidator()
 		{
 			if (m_povPluginOrderValidator == null)
-				m_povPluginOrderValidator = new GamebryoPluginOrderValidator();
+				m_povPluginOrderValidator = new GamebryoPluginOrderValidator(OrderedCriticalPluginNames);
 			return m_povPluginOrderValidator;
 		}
 

@@ -62,6 +62,12 @@ namespace Nexus.Client.Games
 		/// <value>The tool launcher for the game mode.</value>
 		IToolLauncher GameToolLauncher { get; }
 
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		string[] OrderedCriticalPluginNames { get; }
+
 		#endregion
 
 		#region Plugin Management

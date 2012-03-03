@@ -123,7 +123,7 @@ namespace Nexus.Client.Games.Oblivion
 		/// Gets the list of critical plugin names, ordered by load order.
 		/// </summary>
 		/// <value>The list of critical plugin names, ordered by load order.</value>
-		protected override string[] OrderedCriticalPluginNames
+		public override string[] OrderedCriticalPluginNames
 		{
 			get
 			{

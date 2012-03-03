@@ -238,7 +238,7 @@ namespace Nexus.Client.Games
 		/// Gets the list of critical plugin names, ordered by load order.
 		/// </summary>
 		/// <value>The list of critical plugin names, ordered by load order.</value>
-		protected abstract string[] OrderedCriticalPluginNames { get; }
+		public abstract string[] OrderedCriticalPluginNames { get; }
 
 		#endregion
 
