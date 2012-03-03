@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections;
 
 namespace Nexus.Client.Util.Collections
 {
@@ -51,6 +52,23 @@ namespace Nexus.Client.Util.Collections
 		public static bool Contains<T>(this IList<T> p_lstList, Predicate<T> p_prdMatchPredicate)
 		{
 			return (Find(p_lstList, p_prdMatchPredicate) != null);
+		}
+
+		/// <summary>
+		/// Determines if the list contains an item that matches the value, using the given comparer.
+		/// </summary>
+		/// <typeparam name="T">The type of object in the list.</typeparam>
+		/// <param name="p_lstList">The list to search.</param>
+		/// <param name="p_tValue">The value to search for.</param>
+		/// <param name="p_cmpComparer">The comparer to use to match values.</param>
+		/// <returns><c>true</c> if the list contains an item that matches the given value;
+		/// <c>false</c> otherwise.</returns>
+		public static bool Contains<T>(this IList<T> p_lstList, T p_tValue, IEqualityComparer p_cmpComparer)
+		{			
+			foreach (T tItem in p_lstList)
+				if (p_cmpComparer.Equals(tItem, p_tValue))
+					return true;
+			return false;
 		}
 
 		/// <summary>
