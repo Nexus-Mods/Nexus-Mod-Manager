@@ -137,6 +137,13 @@ namespace Nexus.Client.PluginManagement
 			ActivePluginLog = p_aplPluginLog;
 			PluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
+
+			List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
+			if (!OrderValidator.ValidateOrder(lstPlugins))
+			{
+				OrderValidator.CorrectOrder(lstPlugins);
+				PluginOrderLog.SetPluginOrder(lstPlugins);
+			}
 		}
 
 		#endregion
