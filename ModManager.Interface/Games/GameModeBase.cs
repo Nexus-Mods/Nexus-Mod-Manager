@@ -9,9 +9,11 @@ using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
+using Nexus.Client.Plugins;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games
 {
@@ -232,6 +234,12 @@ namespace Nexus.Client.Games
 		/// <value>The tool launcher for the game mode.</value>
 		public abstract IToolLauncher GameToolLauncher { get; }
 
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		protected abstract string[] OrderedCriticalPluginNames { get; }
+
 		#endregion
 
 		#region Constructors
@@ -283,6 +291,20 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>The object that validates plugin order for this game mode.</returns>
 		public abstract IPluginOrderValidator GetPluginOrderValidator();
+
+		/// <summary>
+		/// Determines if the given plugin is critical to the current game.
+		/// </summary>
+		/// <remarks>
+		/// Critical plugins cannot be reordered, cannot be deleted, cannot be deactivated, and cannot have plugins ordered above them.
+		/// </remarks>
+		/// <param name="p_plgPlugin">The plugin for which it is to be determined whether or not it is critical.</param>
+		/// <returns><c>true</c> if the specified pluing is critical;
+		/// <c>false</c> otherwise.</returns>
+		public bool IsCriticalPlugin(Plugin p_plgPlugin)
+		{
+			return OrderedCriticalPluginNames.Contains(Path.GetFileName(p_plgPlugin.Filename), StringComparer.OrdinalIgnoreCase);
+		}
 
 		#endregion
 

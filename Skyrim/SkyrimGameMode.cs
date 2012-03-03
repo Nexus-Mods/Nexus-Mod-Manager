@@ -12,7 +12,8 @@ namespace Nexus.Client.Games.Skyrim
 	/// </summary>
 	public class SkyrimGameMode : Fallout3GameMode
 	{
-		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { };
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private static string[] CRITICAL_PLUGINS = { "skyrim.esm", "update.esm" };
 		private SkyrimGameModeDescriptor m_gmdGameModeInfo = new SkyrimGameModeDescriptor();
 		private SkyrimLauncher m_glnGameLauncher = null;
 		private SkyrimToolLauncher m_gtlToolLauncher = null;
@@ -116,6 +117,18 @@ namespace Nexus.Client.Games.Skyrim
 				if (m_gtlToolLauncher == null)
 					m_gtlToolLauncher = new SkyrimToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		protected override string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				return CRITICAL_PLUGINS;
 			}
 		}
 

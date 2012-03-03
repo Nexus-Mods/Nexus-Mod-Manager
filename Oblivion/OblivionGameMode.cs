@@ -12,6 +12,7 @@ namespace Nexus.Client.Games.Oblivion
 	public class OblivionGameMode : GamebryoGameModeBase
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "obse_loader.exe" };
+		private static string[] CRITICAL_PLUGINS = { "oblivion.esm" };
 		private OblivionGameModeDescriptor m_gmdGameModeInfo = new OblivionGameModeDescriptor();
 		private OblivionLauncher m_glnGameLauncher = null;
 		private OblivionToolLauncher m_gtlToolLauncher = null;
@@ -115,6 +116,18 @@ namespace Nexus.Client.Games.Oblivion
 				if (m_gtlToolLauncher == null)
 					m_gtlToolLauncher = new OblivionToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		protected override string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				return CRITICAL_PLUGINS;
 			}
 		}
 

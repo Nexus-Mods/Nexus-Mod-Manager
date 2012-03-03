@@ -13,6 +13,7 @@ namespace Nexus.Client.Games.FalloutNV
 	public class FalloutNVGameMode : Fallout3GameMode
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "nvse_loader.exe" };
+		private static string[] CRITICAL_PLUGINS = { "falloutnv.esm" };
 		private FalloutNVGameModeDescriptor m_gmdGameModeInfo = new FalloutNVGameModeDescriptor();
 		private FalloutNVLauncher m_glnGameLauncher = null;
 		private FalloutNVToolLauncher m_gtlToolLauncher = null;
@@ -116,6 +117,18 @@ namespace Nexus.Client.Games.FalloutNV
 				if (m_gtlToolLauncher == null)
 					m_gtlToolLauncher = new FalloutNVToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		protected override string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				return CRITICAL_PLUGINS;
 			}
 		}
 

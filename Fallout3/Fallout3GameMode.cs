@@ -3,6 +3,7 @@ using Nexus.Client.Games.Fallout3.Tools;
 using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.Util;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Games.Fallout3
 {
@@ -12,6 +13,7 @@ namespace Nexus.Client.Games.Fallout3
 	public class Fallout3GameMode : GamebryoGameModeBase
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "fose_loader.exe" };
+		private static string[] CRITICAL_PLUGINS = { "fallout3.esm" };
 		private Fallout3GameModeDescriptor m_gmdGameModeInfo = new Fallout3GameModeDescriptor();
 		private Fallout3Launcher m_glnGameLauncher = null;
 		private Fallout3ToolLauncher m_gtlToolLauncher = null;
@@ -115,6 +117,18 @@ namespace Nexus.Client.Games.Fallout3
 				if (m_gtlToolLauncher == null)
 					m_gtlToolLauncher = new Fallout3ToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		protected override string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				return CRITICAL_PLUGINS;
 			}
 		}
 
