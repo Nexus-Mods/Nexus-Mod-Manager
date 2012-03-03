@@ -625,6 +625,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				case "Skyrim":
 					uintClientGameId = 3;
 					break;
+				default:
+					throw new BossException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
 			UInt32 uintStatus = m_dlgCreateBossDb(ref ptrBossDb, uintClientGameId, GameMode.PluginDirectory);
 			HandleStatusCode(uintStatus);
