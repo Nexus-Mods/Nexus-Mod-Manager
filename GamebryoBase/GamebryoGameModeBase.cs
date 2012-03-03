@@ -201,6 +201,8 @@ namespace Nexus.Client.Games.Gamebryo
 		{
 			SettingsFiles.RendererFilePath = Path.Combine(UserGameDataPath, "RendererInfo.txt");
 			SettingsFiles.PluginsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), String.Format("{0}/plugins.txt", ModeId));
+			if (!File.Exists(SettingsFiles.PluginsFilePath))
+				File.Create(SettingsFiles.PluginsFilePath).Close();
 		}
 
 		#endregion
