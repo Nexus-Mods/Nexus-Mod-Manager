@@ -8,6 +8,15 @@
 		<Setting Name="SettingsUpgraded" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">False</Value>
 		</Setting>
+		<Setting Name="InstalledGames" Type="Nexus.Client.Settings.SettingsList" Scope="User">
+			<Value Profile="(Default)">
+				<ArrayOfString xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                        xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+			</Value>
+		</Setting>
+		<Setting Name="InstalledGamesDetected" Type="System.Boolean" Scope="User">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
 		<Setting Name="RememberedGameMode" Type="System.String" Scope="User">
 			<Value Profile="(Default)" />
 		</Setting>

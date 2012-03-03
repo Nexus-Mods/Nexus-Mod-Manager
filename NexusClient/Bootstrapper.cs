@@ -66,7 +66,23 @@ namespace Nexus.Client
 			bool booChangeGameMode = false;
 			do
 			{
-				GameModeSelector gmsSelector = new GameModeSelector(m_eifEnvironmentInfo);
+				GameModeRegistry gmrSupportedGameModes = GameModeRegistry.DiscoverSupportedGameModes(m_eifEnvironmentInfo);
+				if (!m_eifEnvironmentInfo.Settings.InstalledGamesDetected)
+				{
+					GameDiscoverer gdrGameDetector = new GameDiscoverer();
+					GameDetectionVM vmlGameDetection = new GameDetectionVM(gdrGameDetector, gmrSupportedGameModes);
+					GameDetectionForm frmGameDetector = new GameDetectionForm(vmlGameDetection);
+					gdrGameDetector.Find(gmrSupportedGameModes.RegisteredGameModes);
+					frmGameDetector.ShowDialog();
+					if (gdrGameDetector.Status != TaskStatus.Complete)
+						return false;
+					foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
+						m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
+					m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
+					m_eifEnvironmentInfo.Settings.Save();
+				}
+				GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(gmrSupportedGameModes, m_eifEnvironmentInfo);
+				GameModeSelector gmsSelector = new GameModeSelector(gmrInstalledGameModes, m_eifEnvironmentInfo);
 				IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(strArgs, booChangeGameMode);
 
 				Trace.TraceInformation(String.Format("Game Mode Factory Selected: {0} ({1})", gmfGameModeFactory.GameModeDescriptor.Name, gmfGameModeFactory.GameModeDescriptor.ModeId));
