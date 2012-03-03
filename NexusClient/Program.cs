@@ -1,15 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using Nexus.Client.Util.Threading;
-using Nexus.Client.Util;
 using Microsoft.Win32;
-using System.Globalization;
+using Nexus.Client.Util;
+using Nexus.Client.Util.Threading;
 
 namespace Nexus.Client
 {

@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.ActivityMonitoring;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -21,9 +23,6 @@ using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
-using Nexus.Client.Controls;
-using Nexus.Client.ModManagement.UI;
-using System.Reflection;
 
 namespace Nexus.Client
 {
@@ -291,8 +290,10 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
+			NexusFileUtil nfuFileUtility = new NexusFileUtil(EnvironmentInfo);
+			
 			ViewMessage vwmWarning = null;
-			IGameMode gmdGameMode = p_gmfGameModeFactory.BuildGameMode(out vwmWarning);
+			IGameMode gmdGameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out vwmWarning);
 			if (gmdGameMode == null)
 			{
 				p_vwmErrorMessage = new ViewMessage(String.Format("Could not initialize {0} Game Mode.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
@@ -341,7 +342,7 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
-			ServiceManager svmServices = InitializeServices(gmdGameMode, mrpModRepository, p_scxUIContext, out p_vwmErrorMessage);
+			ServiceManager svmServices = InitializeServices(gmdGameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
 			if (svmServices == null)
 			{
 				p_vwmErrorMessage = p_vwmErrorMessage ?? new ViewMessage("Unable to initialize services.", null, "Error", MessageBoxIcon.Error);
@@ -373,6 +374,13 @@ namespace Nexus.Client
 
 		#region Support
 
+		/// <summary>
+		/// Applies any settings that were deferred to the next application startup.
+		/// </summary>
+		/// <param name="p_strGameModeId">The id of the current game mode.</param>
+		/// <param name="p_vwmErrorMessage">The error message if the application of settings fails.</param>
+		/// <returns><c>true</c> if the settings were applied successfully;
+		/// <c>false</c> otherwise.</returns>
 		protected bool ApplyDelayedSettings(string p_strGameModeId, out ViewMessage p_vwmErrorMessage)
 		{
 			if ((EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId] == null) || (EnvironmentInfo.Settings.DelayedSettings["ALL"] == null))
@@ -392,6 +400,14 @@ namespace Nexus.Client
 			return true;
 		}
 
+		/// <summary>
+		/// Applies the specified setting that was deferred to the next application startup. 
+		/// </summary>
+		/// <param name="p_strKey">The key of the setting to apply.</param>
+		/// <param name="p_strValue">The value of the setting to apply.</param>
+		/// <param name="p_vwmErrorMessage">The error message if the application of the setting fails.</param>
+		/// <returns><c>true</c> if the setting was applied successfully;
+		/// <c>false</c> otherwise.</returns>
 		protected bool ApplyDelayedSetting(string p_strKey, string p_strValue, out ViewMessage p_vwmErrorMessage)
 		{
 			string[] strPropertyIndexers = p_strKey.Split(new char[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
@@ -567,14 +583,14 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_gmdGameMode">The game mode for which mods are being managed.</param>
 		/// <param name="p_mrpModRepository">The mod repository to use to retrieve mods and mod metadata.</param>
+		/// <param name="p_nfuFileUtility">The file utility class.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <param name="p_vwmErrorMessage">The error message if the UAC check failed.</param>
 		/// <returns>A <see cref="ServiceManager"/> containing the initialized services, or <c>null</c> if the
 		/// services didn't initialize properly.</returns>
-		protected ServiceManager InitializeServices(IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, SynchronizationContext p_scxUIContext, out ViewMessage p_vwmErrorMessage)
+		protected ServiceManager InitializeServices(IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, NexusFileUtil p_nfuFileUtility, SynchronizationContext p_scxUIContext, out ViewMessage p_vwmErrorMessage)
 		{
-			NexusFileUtil nfuFileUtility = new NexusFileUtil(EnvironmentInfo);
-			IModCacheManager mcmModCacheManager = new NexusModCacheManager(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, nfuFileUtility);
+			IModCacheManager mcmModCacheManager = new NexusModCacheManager(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, p_nfuFileUtility);
 
 			Trace.TraceInformation("Registering supported Script Types...");
 			Trace.Indent();
@@ -661,7 +677,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Initializing Mod Manager...");
 			Trace.Indent();
-			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, amtMonitor, mfrModFormatRegistry, mrgModRegistry, nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
+			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, amtMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Update Manager...");

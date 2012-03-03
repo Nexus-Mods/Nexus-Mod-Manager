@@ -1,8 +1,8 @@
-﻿using System.Drawing;
-using System.IO;
+﻿using System.IO;
 using Nexus.Client.Games.Fallout3.Tools;
 using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Tools;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Fallout3
 {
@@ -126,8 +126,9 @@ namespace Nexus.Client.Games.Fallout3
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
-		public Fallout3GameMode(IEnvironmentInfo p_eifEnvironmentInfo)
-			: base(p_eifEnvironmentInfo)
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
+		public Fallout3GameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
+			: base(p_eifEnvironmentInfo, p_futFileUtility)
 		{
 		}
 

@@ -9,6 +9,7 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
+using Nexus.Client.Updating;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Games
@@ -20,7 +21,7 @@ namespace Nexus.Client.Games
 	/// A game mode exposes the info and functionality that describes a game-specific environemnt in which
 	/// mods are managed.
 	/// </remarks>
-	public interface IGameMode : IGameModeDescriptor
+	public interface IGameMode : IGameModeDescriptor, IDisposable
 	{
 		#region Properties
 
@@ -127,6 +128,12 @@ namespace Nexus.Client.Games
 		IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate);
 
 		#endregion
+
+		/// <summary>
+		/// Gets the updaters used by the game mode.
+		/// </summary>
+		/// <returns>The updaters used by the game mode.</returns>
+		IEnumerable<IUpdater> GetUpdaters();
 
 		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.

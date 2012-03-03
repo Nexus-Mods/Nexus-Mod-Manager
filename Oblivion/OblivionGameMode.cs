@@ -2,6 +2,7 @@
 using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Oblivion.Tools;
 using Nexus.Client.Games.Tools;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Oblivion
 {
@@ -124,9 +125,10 @@ namespace Nexus.Client.Games.Oblivion
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
-		public OblivionGameMode(IEnvironmentInfo p_eifEnvironmentInfo)
-			: base(p_eifEnvironmentInfo)
+		public OblivionGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
+			: base(p_eifEnvironmentInfo, p_futFileUtility)
 		{
 		}
 
