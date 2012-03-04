@@ -121,10 +121,10 @@ namespace Nexus.Client.Games.FalloutNV
 		}
 
 		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
+		/// Gets the list of critical plugin filenames, ordered by load order.
 		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
+		/// <value>The list of critical plugin filenames, ordered by load order.</value>
+		protected override string[] OrderedCriticalPluginFilenames
 		{
 			get
 			{

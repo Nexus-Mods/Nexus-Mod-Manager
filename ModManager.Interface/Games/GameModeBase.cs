@@ -303,7 +303,7 @@ namespace Nexus.Client.Games
 		/// <c>false</c> otherwise.</returns>
 		public bool IsCriticalPlugin(Plugin p_plgPlugin)
 		{
-			return OrderedCriticalPluginNames.Contains(Path.GetFileName(p_plgPlugin.Filename), StringComparer.OrdinalIgnoreCase);
+			return OrderedCriticalPluginNames.Contains(p_plgPlugin.Filename.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar), StringComparer.OrdinalIgnoreCase);
 		}
 
 		#endregion

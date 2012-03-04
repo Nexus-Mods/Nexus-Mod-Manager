@@ -20,6 +20,7 @@ using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -28,6 +29,7 @@ namespace Nexus.Client.Games.Gamebryo
 	/// </summary>
 	public abstract class GamebryoGameModeBase : GameModeBase
 	{
+		private string[] m_strCriticalPlugins = null;
 		private GamebryoPluginFactory m_pgfPluginFactory = null;
 		private GamebryoActivePluginLogSerializer m_apsActivePluginLogSerializer = null;
 		private GamebryoPluginDiscoverer m_pdvPluginDiscoverer = null;
@@ -160,6 +162,30 @@ namespace Nexus.Client.Games.Gamebryo
 		/// </summary>
 		/// <value>The BOSS plugin sorter.</value>
 		protected BossSorter BossSorter { get; private set; }
+
+		/// <summary>
+		/// Gets the list of critical plugin filenames, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin filenames, ordered by load order.</value>
+		protected abstract string[] OrderedCriticalPluginFilenames { get; }
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		public override string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				if (m_strCriticalPlugins == null)
+				{
+					m_strCriticalPlugins = new string[OrderedCriticalPluginFilenames.Length];
+					for (Int32 i = OrderedCriticalPluginFilenames.Length - 1; i >= 0; i--)
+						m_strCriticalPlugins[i] = Path.Combine(PluginDirectory, OrderedCriticalPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				}
+				return m_strCriticalPlugins;
+			}
+		}
 
 		#endregion
 

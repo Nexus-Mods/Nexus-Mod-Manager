@@ -97,7 +97,7 @@ namespace Nexus.Client.Games.Gamebryo
 
 			GamebryoGameModeBase gmdGameMode = InstantiateGameMode(p_futFileUtility);
 			foreach (string strPlugin in gmdGameMode.OrderedCriticalPluginNames)
-				if (!File.Exists(Path.Combine(gmdGameMode.PluginDirectory, strPlugin)))
+				if (!File.Exists(strPlugin))
 				{
 					p_imsWarning = new ViewMessage(String.Format("You are missing {0}. This file is present in all legitimate installs of Skyrim, so either you have deleted the file, or you have pirated Skyrim.{1}Please reinstall Skyrim, or buy Skyrim then reinstall it.", strPlugin, Environment.NewLine), null, "Missing File", MessageBoxIcon.Warning);
 					return null;

@@ -50,7 +50,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			if (p_lstPlugins.Count < OrderedCriticalPluginNames.Length)
 				return false;
 			for (Int32 i = 0; i < OrderedCriticalPluginNames.Length; i++)
-				if (!Path.GetFileName(p_lstPlugins[i].Filename).Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
+				if (!p_lstPlugins[i].Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
 					return false;
 			bool booIsPreviousMaster = true;
 			foreach (GamebryoPlugin plgPlugin in p_lstPlugins)
@@ -76,10 +76,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 
 			//make sure critical plugins are in order, at the top
 			for (Int32 i = 0; i < OrderedCriticalPluginNames.Length && i < p_lstPlugins.Count; i++)
-				if (!Path.GetFileName(p_lstPlugins[i].Filename).Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
+				if (!p_lstPlugins[i].Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
 				{
 					//a critical plugin is not in the correct position
-					Int32 intCriticalIndex = p_lstPlugins.IndexOf(p => Path.GetFileName(p.Filename).Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase));
+					Int32 intCriticalIndex = p_lstPlugins.IndexOf(p => p.Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase));
 					if (intCriticalIndex > -1)
 					{
 						if (booHasMove)
