@@ -296,7 +296,7 @@ namespace Nexus.Client
 			IGameMode gmdGameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out vwmWarning);
 			if (gmdGameMode == null)
 			{
-				p_vwmErrorMessage = new ViewMessage(String.Format("Could not initialize {0} Game Mode.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
+				p_vwmErrorMessage = vwmWarning ?? new ViewMessage(String.Format("Could not initialize {0} Game Mode.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
 				return false;
 			}
 			if (vwmWarning != null)
