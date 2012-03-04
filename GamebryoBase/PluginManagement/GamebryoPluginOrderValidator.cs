@@ -75,7 +75,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			bool booHasMove = p_lstPlugins is ThreadSafeObservableList<Plugin>;
 
 			//make sure critical plugins are in order, at the top
-			for (Int32 i = 0; i < OrderedCriticalPluginNames.Length; i++)
+			for (Int32 i = 0; i < OrderedCriticalPluginNames.Length && i < p_lstPlugins.Count; i++)
 				if (!Path.GetFileName(p_lstPlugins[i].Filename).Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
 				{
 					//a critical plugin is not in the correct position
