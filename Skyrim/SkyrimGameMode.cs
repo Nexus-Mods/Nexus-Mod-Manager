@@ -13,7 +13,7 @@ namespace Nexus.Client.Games.Skyrim
 	public class SkyrimGameMode : Fallout3GameMode
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
-		private static string[] CRITICAL_PLUGINS = { "skyrim.esm", "update.esm" };
+		private static string[] CRITICAL_PLUGINS = { "skyrim.esm" };
 		private SkyrimGameModeDescriptor m_gmdGameModeInfo = new SkyrimGameModeDescriptor();
 		private SkyrimLauncher m_glnGameLauncher = null;
 		private SkyrimToolLauncher m_gtlToolLauncher = null;

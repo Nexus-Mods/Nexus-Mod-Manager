@@ -362,7 +362,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				throw new BossException(String.Format("Could not load BAPI library: {0}", strBAPIPath));
 
 			LoadMethods();
-
+			
 			m_ptrBossDb = CreateBossDb();
 
 			MasterlistPath = p_strMasterlistPath;
