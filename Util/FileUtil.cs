@@ -122,6 +122,20 @@ namespace Nexus.Client.Util
 		}
 
 		/// <summary>
+		/// Moves the specified file to the specified path, optionally overwritting
+		/// any existing file.
+		/// </summary>
+		/// <param name="p_strFrom">The path to the file to move.</param>
+		/// <param name="p_strTo">the path to which to move the file.</param>
+		/// <param name="p_booOverwrite">Whether to overwrite any file found at the destination.</param>
+		public static void Move(string p_strFrom, string p_strTo, bool p_booOverwrite)
+		{
+			if (p_booOverwrite)
+				ForceDelete(p_strTo);
+			File.Move(p_strFrom, p_strTo);
+		}
+
+		/// <summary>
 		/// Forces deletion of the given path.
 		/// </summary>
 		/// <remarks>
