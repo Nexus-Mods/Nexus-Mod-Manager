@@ -919,6 +919,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// </summary>
 		public static bool Restore(string p_strLogPath)
 		{
+			string strSuffix = "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bad";
+			if (File.Exists(p_strLogPath))
+				FileUtil.Move(p_strLogPath, p_strLogPath + strSuffix, true);
 			string strBackupLogPath = p_strLogPath + ".bak";
 			if (IsLogValid(strBackupLogPath))
 			{
@@ -926,7 +929,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				return true;
 			}
 			if (File.Exists(strBackupLogPath))
-				FileUtil.Move(strBackupLogPath, strBackupLogPath + ".bad", true);
+				FileUtil.Move(strBackupLogPath, strBackupLogPath + strSuffix, true);
 			for (Int32 i = 1; i < 6; i++)
 			{
 				if (IsLogValid(strBackupLogPath + i))
@@ -935,7 +938,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					return true;
 				}
 				if (File.Exists(strBackupLogPath + i))
-					FileUtil.Move(strBackupLogPath + i, strBackupLogPath + i + ".bad", true);
+					FileUtil.Move(strBackupLogPath + i, strBackupLogPath + i + strSuffix, true);
 			}
 			return false;
 		}
