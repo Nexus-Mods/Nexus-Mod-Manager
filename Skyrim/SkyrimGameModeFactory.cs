@@ -36,7 +36,7 @@ namespace Nexus.Client.Games.Skyrim
 		public SkyrimGameModeFactory(IEnvironmentInfo p_eifEnvironmentInfo)
 			: base(p_eifEnvironmentInfo)
 		{
-			m_gmdGameModeDescriptor = new SkyrimGameModeDescriptor();
+			m_gmdGameModeDescriptor = new SkyrimGameModeDescriptor(p_eifEnvironmentInfo);
 		}
 
 		#endregion

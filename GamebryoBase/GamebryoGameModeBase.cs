@@ -29,7 +29,6 @@ namespace Nexus.Client.Games.Gamebryo
 	/// </summary>
 	public abstract class GamebryoGameModeBase : GameModeBase
 	{
-		private string[] m_strCriticalPlugins = null;
 		private GamebryoPluginFactory m_pgfPluginFactory = null;
 		private GamebryoActivePluginLogSerializer m_apsActivePluginLogSerializer = null;
 		private GamebryoPluginDiscoverer m_pdvPluginDiscoverer = null;
@@ -43,24 +42,6 @@ namespace Nexus.Client.Games.Gamebryo
 		/// </summary>
 		/// <value>The list of possible script extender executable files for the game.</value>
 		protected abstract string[] ScriptExtenderExecutables { get; }
-
-		/// <summary>
-		/// Gets the display name of the game mode.
-		/// </summary>
-		/// <value>The display name of the game mode.</value>
-		public override abstract string Name { get; }
-
-		/// <summary>
-		/// Gets the unique id of the game mode.
-		/// </summary>
-		/// <value>The unique id of the game mode.</value>
-		public override abstract string ModeId { get; }
-
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override abstract Theme ModeTheme { get; }
 
 		/// <summary>
 		/// Gets the version of the installed game.
@@ -119,9 +100,9 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		/// <summary>
-		/// Gets the path to the per user Fallout 3 data.
+		/// Gets the path to the per user game data.
 		/// </summary>
-		/// <value>The path to the per user Fallout 3 data.</value>
+		/// <value>The path to the per user game data.</value>
 		public abstract string UserGameDataPath { get; }
 
 		/// <summary>
@@ -140,52 +121,16 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		/// <summary>
-		/// Gets the paths of the INI files that can be edited while managing Fallout 3.
+		/// Gets the paths of the INI files that can be edited while managing the game.
 		/// </summary>
-		/// <value>The paths of the INI files that can be edited while managing Fallout 3.</value>
+		/// <value>The paths of the INI files that can be edited while managing the game.</value>
 		public GamebryoSettingsFiles SettingsFiles { get; private set; }
-
-		/// <summary>
-		/// Gets the game launcher for the game mode.
-		/// </summary>
-		/// <value>The game launcher for the game mode.</value>
-		public override abstract IGameLauncher GameLauncher { get; }
-
-		/// <summary>
-		/// Gets the tool launcher for the game mode.
-		/// </summary>
-		/// <value>The tool launcher for the game mode.</value>
-		public override abstract IToolLauncher GameToolLauncher { get; }
 
 		/// <summary>
 		/// Gets the BOSS plugin sorter.
 		/// </summary>
 		/// <value>The BOSS plugin sorter.</value>
 		protected BossSorter BossSorter { get; private set; }
-
-		/// <summary>
-		/// Gets the list of critical plugin filenames, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin filenames, ordered by load order.</value>
-		protected abstract string[] OrderedCriticalPluginFilenames { get; }
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				if (m_strCriticalPlugins == null)
-				{
-					m_strCriticalPlugins = new string[OrderedCriticalPluginFilenames.Length];
-					for (Int32 i = OrderedCriticalPluginFilenames.Length - 1; i >= 0; i--)
-						m_strCriticalPlugins[i] = Path.Combine(PluginDirectory, OrderedCriticalPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-				}
-				return m_strCriticalPlugins;
-			}
-		}
 
 		#endregion
 

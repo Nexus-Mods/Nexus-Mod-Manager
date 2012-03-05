@@ -36,7 +36,7 @@ namespace Nexus.Client.Games.Oblivion
 		public OblivionGameModeFactory(IEnvironmentInfo p_eifEnvironmentInfo)
 			: base(p_eifEnvironmentInfo)
 		{
-			m_gmdGameModeDescriptor = new OblivionGameModeDescriptor();
+			m_gmdGameModeDescriptor = new OblivionGameModeDescriptor(p_eifEnvironmentInfo);
 		}
 
 		#endregion

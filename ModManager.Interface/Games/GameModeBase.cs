@@ -52,9 +52,7 @@ namespace Nexus.Client.Games
 			{
 				get
 				{
-					if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(GameMode.ModeId))
-						return (string)EnvironmentInfo.Settings.InstallationPaths[GameMode.ModeId];
-					return null;
+					return GameMode.InstallationPath;
 				}
 			}
 
@@ -153,6 +151,7 @@ namespace Nexus.Client.Games
 		}
 
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
+		private IGameModeDescriptor m_gmdGameModeInfo = null;
 
 		#region Properties
 
@@ -178,25 +177,73 @@ namespace Nexus.Client.Games
 		/// Gets the display name of the game mode.
 		/// </summary>
 		/// <value>The display name of the game mode.</value>
-		public abstract string Name { get; }
+		public string Name
+		{
+			get
+			{
+				return m_gmdGameModeInfo.Name;
+			}
+		}
 
 		/// <summary>
 		/// Gets the unique id of the game mode.
 		/// </summary>
 		/// <value>The unique id of the game mode.</value>
-		public abstract string ModeId { get; }
+		public string ModeId
+		{
+			get
+			{
+				return m_gmdGameModeInfo.ModeId;
+			}
+		}
+
+		/// <summary>
+		/// Gets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		public string InstallationPath
+		{
+			get
+			{
+				return m_gmdGameModeInfo.InstallationPath;
+			}
+		}
 
 		/// <summary>
 		/// Gets the list of possible executable files for the game.
 		/// </summary>
 		/// <value>The list of possible executable files for the game.</value>
-		public abstract string[] GameExecutables { get; }
+		public string[] GameExecutables
+		{
+			get
+			{
+				return m_gmdGameModeInfo.GameExecutables;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		public string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				return m_gmdGameModeInfo.OrderedCriticalPluginNames;
+			}
+		}
 
 		/// <summary>
 		/// Gets the theme to use for this game mode.
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>
-		public abstract Theme ModeTheme { get; }
+		public Theme ModeTheme
+		{
+			get
+			{
+				return m_gmdGameModeInfo.ModeTheme;
+			}
+		}
 
 		/// <summary>
 		/// Gets the information about the game mode's environement.
@@ -234,12 +281,6 @@ namespace Nexus.Client.Games
 		/// <value>The tool launcher for the game mode.</value>
 		public abstract IToolLauncher GameToolLauncher { get; }
 
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public abstract string[] OrderedCriticalPluginNames { get; }
-
 		#endregion
 
 		#region Constructors
@@ -251,6 +292,7 @@ namespace Nexus.Client.Games
 		public GameModeBase(IEnvironmentInfo p_eifEnvironmentInfo)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			m_gmdGameModeInfo = CreateGameModeDescriptor();
 			GameModeEnvironmentInfo = new GameModeInfo(this, p_eifEnvironmentInfo);
 		}
 
@@ -359,6 +401,12 @@ namespace Nexus.Client.Games
 		{
 			return p_strPath;
 		}
+
+		/// <summary>
+		/// Creates a game mode descriptor for the current game mode.
+		/// </summary>
+		/// <returns>A game mode descriptor for the current game mode.</returns>
+		protected abstract IGameModeDescriptor CreateGameModeDescriptor();
 
 		#region IDisposable Members
 

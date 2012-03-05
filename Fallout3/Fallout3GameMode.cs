@@ -13,24 +13,11 @@ namespace Nexus.Client.Games.Fallout3
 	public class Fallout3GameMode : GamebryoGameModeBase
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "fose_loader.exe" };
-		private static string[] CRITICAL_PLUGINS = { "fallout3.esm" };
-		private Fallout3GameModeDescriptor m_gmdGameModeInfo = new Fallout3GameModeDescriptor();
+		private Fallout3GameModeDescriptor m_gmdGameModeInfo = null;
 		private Fallout3Launcher m_glnGameLauncher = null;
 		private Fallout3ToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
-
-		/// <summary>
-		/// Gets the list of possible executable files for the game.
-		/// </summary>
-		/// <value>The list of possible executable files for the game.</value>
-		public override string[] GameExecutables
-		{
-			get
-			{
-				return m_gmdGameModeInfo.GameExecutables;
-			}
-		}
 
 		/// <summary>
 		/// Gets the list of possible script extender executable files for the game.
@@ -41,42 +28,6 @@ namespace Nexus.Client.Games.Fallout3
 			get
 			{
 				return SCRIPT_EXTENDER_EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the display name of the game mode.
-		/// </summary>
-		/// <value>The display name of the game mode.</value>
-		public override string Name
-		{
-			get
-			{
-				return m_gmdGameModeInfo.Name;
-			}
-		}
-
-		/// <summary>
-		/// Gets the unique id of the game mode.
-		/// </summary>
-		/// <value>The unique id of the game mode.</value>
-		public override string ModeId
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeId;
-			}
-		}
-
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override Theme ModeTheme
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeTheme;
 			}
 		}
 
@@ -120,18 +71,6 @@ namespace Nexus.Client.Games.Fallout3
 			}
 		}
 
-		/// <summary>
-		/// Gets the list of critical plugin filenames, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin filenames, ordered by load order.</value>
-		protected override string[] OrderedCriticalPluginFilenames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
-			}
-		}
-
 		#endregion
 
 		#region Constructors
@@ -163,7 +102,7 @@ namespace Nexus.Client.Games.Fallout3
 		/// Adds the settings files to the game mode's list.
 		/// </summary>
 		protected override void SetupSettingsFiles()
-		{	
+		{
 			base.SetupSettingsFiles();
 			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "fallout.ini");
 			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "FalloutPrefs.ini");
@@ -172,5 +111,16 @@ namespace Nexus.Client.Games.Fallout3
 		}
 
 		#endregion
+		
+		/// <summary>
+		/// Creates a game mode descriptor for the current game mode.
+		/// </summary>
+		/// <returns>A game mode descriptor for the current game mode.</returns>
+		protected override IGameModeDescriptor CreateGameModeDescriptor()
+		{
+			if (m_gmdGameModeInfo == null)
+				m_gmdGameModeInfo = new Fallout3GameModeDescriptor(EnvironmentInfo);
+			return m_gmdGameModeInfo;
+		}
 	}
 }

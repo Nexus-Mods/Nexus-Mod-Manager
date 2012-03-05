@@ -31,6 +31,18 @@ namespace Nexus.Client.Games
 		string[] GameExecutables { get; }
 
 		/// <summary>
+		/// Gets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		string InstallationPath { get; }
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		string[] OrderedCriticalPluginNames { get; }
+
+		/// <summary>
 		/// Gets the theme to use for this game mode.
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>

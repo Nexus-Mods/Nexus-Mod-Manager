@@ -13,24 +13,11 @@ namespace Nexus.Client.Games.FalloutNV
 	public class FalloutNVGameMode : Fallout3GameMode
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "nvse_loader.exe" };
-		private static string[] CRITICAL_PLUGINS = { "falloutnv.esm" };
-		private FalloutNVGameModeDescriptor m_gmdGameModeInfo = new FalloutNVGameModeDescriptor();
+		private FalloutNVGameModeDescriptor m_gmdGameModeInfo = null;
 		private FalloutNVLauncher m_glnGameLauncher = null;
 		private FalloutNVToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
-
-		/// <summary>
-		/// Gets the list of possible executable files for the game.
-		/// </summary>
-		/// <value>The list of possible executable files for the game.</value>
-		public override string[] GameExecutables
-		{
-			get
-			{
-				return m_gmdGameModeInfo.GameExecutables;
-			}
-		}
 
 		/// <summary>
 		/// Gets the list of possible script extender executable files for the game.
@@ -41,42 +28,6 @@ namespace Nexus.Client.Games.FalloutNV
 			get
 			{
 				return SCRIPT_EXTENDER_EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the display name of the game mode.
-		/// </summary>
-		/// <value>The display name of the game mode.</value>
-		public override string Name
-		{
-			get
-			{
-				return m_gmdGameModeInfo.Name;
-			}
-		}
-
-		/// <summary>
-		/// Gets the unique id of the game mode.
-		/// </summary>
-		/// <value>The unique id of the game mode.</value>
-		public override string ModeId
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeId;
-			}
-		}
-
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override Theme ModeTheme
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeTheme;
 			}
 		}
 
@@ -120,18 +71,6 @@ namespace Nexus.Client.Games.FalloutNV
 			}
 		}
 
-		/// <summary>
-		/// Gets the list of critical plugin filenames, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin filenames, ordered by load order.</value>
-		protected override string[] OrderedCriticalPluginFilenames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
-			}
-		}
-
 		#endregion
 
 		#region Constructors
@@ -170,5 +109,16 @@ namespace Nexus.Client.Games.FalloutNV
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Creates a game mode descriptor for the current game mode.
+		/// </summary>
+		/// <returns>A game mode descriptor for the current game mode.</returns>
+		protected override IGameModeDescriptor CreateGameModeDescriptor()
+		{
+			if (m_gmdGameModeInfo == null)
+				m_gmdGameModeInfo = new FalloutNVGameModeDescriptor(EnvironmentInfo);
+			return m_gmdGameModeInfo;
+		}
 	}
 }

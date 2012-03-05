@@ -96,13 +96,7 @@ namespace Nexus.Client.Games.Gamebryo
 			*/
 
 			GamebryoGameModeBase gmdGameMode = InstantiateGameMode(p_futFileUtility);
-			foreach (string strPlugin in gmdGameMode.OrderedCriticalPluginNames)
-				if (!File.Exists(strPlugin))
-				{
-					p_imsWarning = new ViewMessage(String.Format("You are missing {0}. This file is present in all legitimate installs of Skyrim, so either you have deleted the file, or you have pirated Skyrim.{1}Please reinstall Skyrim, or buy Skyrim then reinstall it.", strPlugin, Environment.NewLine), null, "Missing File", MessageBoxIcon.Warning);
-					return null;
-				}
-
+			
 			if (!File.Exists(((GamebryoGameModeBase)gmdGameMode).SettingsFiles.IniPath))
 				p_imsWarning = new ViewMessage(String.Format("You have no {0} INI file. Please run {0} to initialize the file before installing any mods or turning on Archive Invalidation.", gmdGameMode.Name), null, "Missing INI", MessageBoxIcon.Warning);
 			else

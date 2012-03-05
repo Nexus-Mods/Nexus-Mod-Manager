@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -46,6 +46,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Games\GameLauncherBase.cs" />
+    <Compile Include="Games\GameModeDescriptorBase.cs" />
     <Compile Include="Games\ISetupVM.cs" />
     <Compile Include="Games\IGameModeDescriptor.cs" />
     <Compile Include="Games\IGameModeFactory.cs" />

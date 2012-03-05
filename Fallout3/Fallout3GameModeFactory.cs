@@ -37,7 +37,7 @@ namespace Nexus.Client.Games.Fallout3
 		public Fallout3GameModeFactory(IEnvironmentInfo p_eifEnvironmentInfo)
 			: base(p_eifEnvironmentInfo)
 		{
-			m_gmdGameModeDescriptor = new Fallout3GameModeDescriptor();
+			m_gmdGameModeDescriptor = new Fallout3GameModeDescriptor(p_eifEnvironmentInfo);
 		}
 
 		#endregion

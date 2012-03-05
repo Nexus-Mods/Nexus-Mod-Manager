@@ -210,7 +210,7 @@ namespace Nexus.Client
 			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
 			ViewMessage vwmErrorMessage = null;
 			OverallProgress = 0;
-			OverallProgressMaximum = 14;
+			OverallProgressMaximum = 15;
 			OverallProgressStepSize = 1;
 			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage) && (Status != TaskStatus.Error))
 				Status = TaskStatus.Incomplete;
@@ -283,6 +283,14 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
+			foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
+				if (!File.Exists(strPlugin))
+				{
+					p_vwmErrorMessage = new ViewMessage(String.Format("You are missing {0}. This file is present in all legitimate installs of Skyrim, so either you have deleted the file, or you have pirated Skyrim.{1}Please reinstall Skyrim, or buy Skyrim then reinstall it.", strPlugin, Environment.NewLine), null, "Missing File", MessageBoxIcon.Warning);
+					return false;
+				}
+			StepOverallProgress();
+
 			if (!p_gmfGameModeFactory.PerformInitialization(ShowView, ShowMessage))
 			{
 				p_vwmErrorMessage = null;
@@ -291,7 +299,7 @@ namespace Nexus.Client
 			StepOverallProgress();
 
 			NexusFileUtil nfuFileUtility = new NexusFileUtil(EnvironmentInfo);
-			
+
 			ViewMessage vwmWarning = null;
 			IGameMode gmdGameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out vwmWarning);
 			if (gmdGameMode == null)

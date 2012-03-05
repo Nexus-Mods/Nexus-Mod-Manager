@@ -12,24 +12,11 @@ namespace Nexus.Client.Games.Oblivion
 	public class OblivionGameMode : GamebryoGameModeBase
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "obse_loader.exe" };
-		private static string[] CRITICAL_PLUGINS = { "oblivion.esm" };
-		private OblivionGameModeDescriptor m_gmdGameModeInfo = new OblivionGameModeDescriptor();
+		private OblivionGameModeDescriptor m_gmdGameModeInfo = null;
 		private OblivionLauncher m_glnGameLauncher = null;
 		private OblivionToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
-
-		/// <summary>
-		/// Gets the list of possible executable files for the game.
-		/// </summary>
-		/// <value>The list of possible executable files for the game.</value>
-		public override string[] GameExecutables
-		{
-			get
-			{
-				return m_gmdGameModeInfo.GameExecutables;
-			}
-		}
 
 		/// <summary>
 		/// Gets the list of possible script extender executable files for the game.
@@ -40,42 +27,6 @@ namespace Nexus.Client.Games.Oblivion
 			get
 			{
 				return SCRIPT_EXTENDER_EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the display name of the game mode.
-		/// </summary>
-		/// <value>The display name of the game mode.</value>
-		public override string Name
-		{
-			get
-			{
-				return m_gmdGameModeInfo.Name;
-			}
-		}
-
-		/// <summary>
-		/// Gets the unique id of the game mode.
-		/// </summary>
-		/// <value>The unique id of the game mode.</value>
-		public override string ModeId
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeId;
-			}
-		}
-
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override Theme ModeTheme
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeTheme;
 			}
 		}
 
@@ -119,18 +70,6 @@ namespace Nexus.Client.Games.Oblivion
 			}
 		}
 
-		/// <summary>
-		/// Gets the list of critical plugin filenames, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin filenames, ordered by load order.</value>
-		protected override string[] OrderedCriticalPluginFilenames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
-			}
-		}
-
 		#endregion
 
 		#region Constructors
@@ -168,5 +107,16 @@ namespace Nexus.Client.Games.Oblivion
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Creates a game mode descriptor for the current game mode.
+		/// </summary>
+		/// <returns>A game mode descriptor for the current game mode.</returns>
+		protected override IGameModeDescriptor CreateGameModeDescriptor()
+		{
+			if (m_gmdGameModeInfo == null)
+				m_gmdGameModeInfo = new OblivionGameModeDescriptor(EnvironmentInfo);
+			return m_gmdGameModeInfo;
+		}
 	}
 }
