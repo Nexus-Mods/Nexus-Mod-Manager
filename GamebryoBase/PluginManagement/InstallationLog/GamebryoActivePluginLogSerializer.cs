@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.Plugins;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 {
@@ -57,8 +58,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		/// <returns>The ordered list of active plugins.</returns>
 		public void SavePluginLog(IList<Plugin> p_lstActivePlugins)
 		{
-			string[] strPlugins = new string[p_lstActivePlugins.Count];
 			BossSorter.SetActivePlugins(GameMode.OrderedCriticalPluginNames);
+			if (p_lstActivePlugins.IsNullOrEmpty())
+				return;
+			string[] strPlugins = new string[p_lstActivePlugins.Count];
 			for (Int32 i = 0; i < p_lstActivePlugins.Count; i++)
 			{
 				strPlugins[i] = p_lstActivePlugins[i].Filename;
