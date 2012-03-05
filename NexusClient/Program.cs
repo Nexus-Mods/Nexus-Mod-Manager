@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
+using Nexus.Client.Controls;
 
 namespace Nexus.Client
 {
@@ -60,7 +61,7 @@ namespace Nexus.Client
 
 				Application.EnableVisualStyles();
 				Application.SetCompatibleTextRenderingDefault(false);
-
+				
 				UpgradeSettings(Properties.Settings.Default);
 				EnvironmentInfo = new EnvironmentInfo(Properties.Settings.Default);
 				if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
@@ -72,20 +73,22 @@ namespace Nexus.Client
 				{
 #endif
 				Bootstrapper btsInitializer = new Bootstrapper(EnvironmentInfo);
-				if (!btsInitializer.RunMainForm(p_strArgs))
-					return;
+				btsInitializer.RunMainForm(p_strArgs);
 #if !DEBUG
 				}
 				catch (Exception e)
 				{
-					HandleException(e, "Something bad seems to have happened.", "Error");
+					HandleException(e);
 				}
 #endif
 
 				Trace.TraceInformation(String.Format("Running Threads ({0})", TrackedThreadManager.Threads.Count));
 				Trace.Indent();
 				foreach (TrackedThread thdThread in TrackedThreadManager.Threads)
+				{
 					Trace.TraceInformation(String.Format("{0} ({1}) ", thdThread.Thread.ManagedThreadId, thdThread.Thread.Name));
+					thdThread.Thread.Abort();
+				}
 				Trace.Unindent();
 			}
 			finally
@@ -155,7 +158,7 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="UnhandledExceptionEventArgs"/> describing the event arguments.</param>
 		private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
 		{
-			HandleException(e.ExceptionObject as Exception, "Something bad seems to have happened.", "Error");
+			HandleException(e.ExceptionObject as Exception);
 			Application.Exit();
 		}
 
@@ -169,7 +172,7 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="ThreadExceptionEventArgs "/> describing the event arguments.</param>
 		private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
 		{
-			HandleException(e.Exception, "Something bad seems to have happened.", "Error");
+			HandleException(e.Exception);
 			Application.Exit();
 		}
 
@@ -177,17 +180,39 @@ namespace Nexus.Client
 		/// This lets the user know a problem has occurred, and logs the exception.
 		/// </summary>
 		/// <param name="ex">The exception that is being handled.</param>
-		/// <param name="p_strPromptMessage">The message to display to the user.</param>
-		/// <param name="p_strPromptCaption">The caption of the form that will be displayed to the user.</param>
-		private static void HandleException(Exception ex, string p_strPromptMessage, string p_strPromptCaption)
+		private static void HandleException(Exception ex)
 		{
 			HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
 
-			MessageBox.Show(p_strPromptMessage + Environment.NewLine +
-							"As long as it wasn't too bad, a crash dump will have been saved in" + Environment.NewLine +
-							htlListener.FilePath + Environment.NewLine +
-							"Please include the contents of that file if you want to make a bug report", p_strPromptCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
-
+			StringBuilder stbPromptMessage = new StringBuilder();
+			stbPromptMessage.AppendFormat("{0} has encountered an error and needs to close.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
+			stbPromptMessage.AppendLine("A Trace Log was created at:");
+			stbPromptMessage.AppendLine(htlListener.FilePath);
+			stbPromptMessage.AppendLine("Please include the contents of that file if you want to make a bug report:");
+			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+			try
+			{
+				//the extended message box contains an activex control wich must be run in an STA thread,
+				// we can't control what thread this gets called on, so create one if we need to
+				string strException = "The following information is in the Trace Log:" + Environment.NewLine + TraceUtil.CreateTraceExceptionString(ex);
+				ThreadStart actShowMessage = () => ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Error", strException, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				ApartmentState astState = ApartmentState.Unknown;
+				Thread.CurrentThread.TrySetApartmentState(astState);
+				if (astState == ApartmentState.STA)
+					actShowMessage();
+				else
+				{
+					Thread thdMessage = new Thread(actShowMessage);
+					thdMessage.SetApartmentState(ApartmentState.STA);
+					thdMessage.Start();
+					thdMessage.Join();
+				}
+			}
+			catch
+			{
+				//backup, in case on extended message box starts to act up
+				MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
 			Trace.WriteLine("");
 			Trace.TraceError("Tracing an Unhandled Exception:");
 			TraceUtil.TraceException(ex);
