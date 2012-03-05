@@ -260,7 +260,7 @@ namespace Nexus.Client.Games.Gamebryo
 		public override IActivePluginLogSerializer GetActivePluginLogSerializer()
 		{
 			if (m_apsActivePluginLogSerializer == null)
-				m_apsActivePluginLogSerializer = new GamebryoActivePluginLogSerializer(BossSorter);
+				m_apsActivePluginLogSerializer = new GamebryoActivePluginLogSerializer(this, BossSorter);
 			return m_apsActivePluginLogSerializer;
 		}
 

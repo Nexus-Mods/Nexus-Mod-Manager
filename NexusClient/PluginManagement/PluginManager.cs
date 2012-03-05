@@ -29,7 +29,7 @@ namespace Nexus.Client.PluginManagement
 		/// <summary>
 		/// Initializes the singleton intances of the mod manager.
 		/// </summary>
-		/// <param name="p_gmiGameModeInfo">The environment info of the current game mode.</param>
+		/// <param name="p_gmdGameMode">The current game mode.</param>
 		/// <param name="p_mprManagedPluginRegistry">The <see cref="PluginRegistry"/> that contains the list
 		/// of managed <see cref="Plugin"/>s.</param>
 		/// <param name="p_aplPluginLog">The <see cref="ActivePluginLog"/> tracking plugin activations for the
@@ -39,11 +39,11 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_povOrderValidator">The object that validates plugin order.</param>
 		/// <exception cref="InvalidOperationException">Thrown if the plugin manager has already
 		/// been initialized.</exception>
-		public static IPluginManager Initialize(IGameModeEnvironmentInfo p_gmiGameModeInfo, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, PluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
+		public static IPluginManager Initialize(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, PluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
 		{
 			if (m_pmgCurrent != null)
 				throw new InvalidOperationException("The Plugin Manager has already been initialized.");
-			m_pmgCurrent = new PluginManager(p_gmiGameModeInfo, p_mprManagedPluginRegistry, p_aplPluginLog, p_polOrderLog, p_povOrderValidator);
+			m_pmgCurrent = new PluginManager(p_gmdGameMode, p_mprManagedPluginRegistry, p_aplPluginLog, p_polOrderLog, p_povOrderValidator);
 			return m_pmgCurrent;
 		}
 
@@ -60,10 +60,10 @@ namespace Nexus.Client.PluginManagement
 		#region Properties
 
 		/// <summary>
-		/// Gets the environment info of the current game mode.
+		/// Gets the current game mode.
 		/// </summary>
-		/// <value>The environment info of the current game mode.</value>
-		protected IGameModeEnvironmentInfo GameModeInfo { get; private set; }
+		/// <value>The current game mode.</value>
+		protected IGameMode GameMode { get; private set; }
 
 		/// <summary>
 		/// Gets the <see cref="PluginRegistry"/> that contains the list
@@ -122,7 +122,7 @@ namespace Nexus.Client.PluginManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		/// <param name="p_gmiGameModeInfo">The environment info of the current game mode.</param>
+		/// <param name="p_gmdGameMode">The current game mode.</param>
 		/// <param name="p_mprManagedPluginRegistry">The <see cref="PluginRegistry"/> that contains the list
 		/// of managed <see cref="Plugin"/>s.</param>
 		/// <param name="p_aplPluginLog">The <see cref="ActivePluginLog"/> tracking plugin activations for the
@@ -130,20 +130,22 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_polOrderLog">The <see cref="PluginOrderLog"/> tracking plugin order for the
 		/// current game mode.</param>
 		/// <param name="p_povOrderValidator">The object that validates plugin order.</param>
-		private PluginManager(IGameModeEnvironmentInfo p_gmiGameModeInfo, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, PluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
+		private PluginManager(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, PluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
 		{
-			GameModeInfo = p_gmiGameModeInfo;
+			GameMode = p_gmdGameMode;
 			ManagedPluginRegistry = p_mprManagedPluginRegistry;
 			ActivePluginLog = p_aplPluginLog;
 			PluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
 
+			foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
+				ActivePluginLog.ActivatePlugin(strPlugin);
 			List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
 			if (!OrderValidator.ValidateOrder(lstPlugins))
 			{
 				OrderValidator.CorrectOrder(lstPlugins);
 				PluginOrderLog.SetPluginOrder(lstPlugins);
-			}
+			}			
 		}
 
 		#endregion
@@ -170,6 +172,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_plgPlugin">The plugin to remove.</param>
 		public void RemovePlugin(Plugin p_plgPlugin)
 		{
+			ActivePluginLog.DeactivatePlugin(p_plgPlugin);
 			PluginOrderLog.RemovePlugin(p_plgPlugin);
 			ManagedPluginRegistry.UnregisterPlugin(p_plgPlugin);
 		}
@@ -213,7 +216,7 @@ namespace Nexus.Client.PluginManagement
 			// current mod format
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
 			return ManagedPluginRegistry.GetPlugin(strPath);
 		}
 
@@ -251,7 +254,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
 			ActivePluginLog.ActivatePlugin(strPath);
 		}
 
@@ -272,7 +275,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
 			ActivePluginLog.DeactivatePlugin(strPath);
 		}
 
@@ -286,7 +289,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
 			return ActivePlugins.Contains(ManagedPluginRegistry.GetPlugin(strPath));
 		}
 
@@ -350,7 +353,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
 			return ManagedPluginRegistry.IsActivatiblePluginFile(strPath);
 		}
 	}

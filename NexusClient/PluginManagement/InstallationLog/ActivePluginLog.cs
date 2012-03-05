@@ -174,7 +174,8 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 		/// <param name="p_plgPlugin">The plugin to activate.</param>
 		public void ActivatePlugin(Plugin p_plgPlugin)
 		{
-			GetEnlistment().ActivatePlugin(p_plgPlugin);
+			if (!IsPluginActive(p_plgPlugin))
+				GetEnlistment().ActivatePlugin(p_plgPlugin);
 		}
 
 		/// <summary>

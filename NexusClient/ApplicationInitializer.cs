@@ -669,7 +669,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Initializing Plugin Manager...");
 			Trace.Indent();
-			IPluginManager pmgPluginManager = PluginManager.Initialize(p_gmdGameMode.GameModeEnvironmentInfo, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator());
+			IPluginManager pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator());
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Activity Monitor...");
