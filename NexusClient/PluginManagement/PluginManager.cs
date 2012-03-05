@@ -293,6 +293,17 @@ namespace Nexus.Client.PluginManagement
 			return ActivePlugins.Contains(ManagedPluginRegistry.GetPlugin(strPath));
 		}
 
+		/// <summary>
+		/// Determines if the active state of the given plugin can be changed.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin for which it is to be determined if the active state can be changed.</param>
+		/// <returns><c>true</c> if the given plugin's active state can be changed;
+		/// <c>false</c> otherwise.</returns>
+		public bool CanChangeActiveState(Plugin p_plgPlugin)
+		{
+			return !GameMode.IsCriticalPlugin(p_plgPlugin);
+		}
+
 		#endregion
 
 		#region Plugin Ordering

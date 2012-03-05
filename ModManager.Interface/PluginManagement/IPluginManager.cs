@@ -115,6 +115,14 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		bool IsPluginActive(string p_strPath);
 
+		/// <summary>
+		/// Determines if the active state of the given plugin can be changed.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin for which it is to be determined if the active state can be changed.</param>
+		/// <returns><c>true</c> if the given plugin's active state can be changed;
+		/// <c>false</c> otherwise.</returns>
+		bool CanChangeActiveState(Plugin p_plgPlugin);
+
 		#endregion
 
 		#region Plugin Ordering
