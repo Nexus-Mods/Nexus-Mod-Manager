@@ -23,7 +23,7 @@ namespace Nexus.Client.Util
 		/// </summary>
 		/// <param name="ex">The exceptions to describe.</param>
 		/// <returns>A string detailing the given exception.</returns>
-		private static string CreateTraceExceptionString(Exception ex)
+		public static string CreateTraceExceptionString(Exception ex)
 		{
 			if (ex == null)
 				return "\tNO EXCEPTION.";
