@@ -139,8 +139,10 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			}
 			catch (Exception e)
 			{
-				Trace.TraceError("Invalid Install Log:");
+				Trace.TraceError("Invalid Install Log ({0}):", p_strLogPath);
+				Trace.Indent();
 				TraceUtil.TraceException(e);
+				Trace.Unindent();
 				return false;
 			}
 			return true;
