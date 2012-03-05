@@ -625,6 +625,14 @@ namespace Nexus.Client
 			Trace.TraceInformation("Checking if upgrade is required...");
 			InstallLogUpgrader iluUgrader = new InstallLogUpgrader();
 			string strLogPath = Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
+			if (!InstallLog.IsLogValid(strLogPath))
+			{
+				if (!InstallLog.Restore(strLogPath))
+				{
+					p_vwmErrorMessage = new ViewMessage("Install Log and all backups were corrupted.", null, "Install Log", MessageBoxIcon.Error);
+					return null;
+				}
+			}
 			if (iluUgrader.NeedsUpgrade(strLogPath))
 			{
 				if (!iluUgrader.CanUpgrade(strLogPath))

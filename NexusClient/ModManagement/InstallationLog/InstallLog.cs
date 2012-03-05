@@ -8,6 +8,7 @@ using System.Xml.Linq;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
 using Nexus.Transactions;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement.InstallationLog
 {
@@ -120,6 +121,29 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				return new Version("0.0.0.0");
 
 			return new Version(xatVersion.Value);
+		}
+
+		/// <summary>
+		/// Determines if the log at the given path is valid.
+		/// </summary>
+		/// <param name="p_strLogPath">The path of the log to validate.</param>
+		/// <returns><c>true</c> if the given log is valid;
+		/// <c>false</c> otherwise.</returns>
+		public static bool IsLogValid(string p_strLogPath)
+		{
+			if (!File.Exists(p_strLogPath))
+				return false;
+			try
+			{
+				XDocument docLog = XDocument.Load(p_strLogPath);
+			}
+			catch (Exception e)
+			{
+				Trace.TraceError("Invalid Install Log:");
+				TraceUtil.TraceException(e);
+				return false;
+			}
+			return true;
 		}
 
 		private ActiveModRegistry m_amrModKeys = new ActiveModRegistry();
@@ -861,8 +885,10 @@ namespace Nexus.Client.ModManagement.InstallationLog
 
 		#endregion
 
+		#region Backup Management
+
 		/// <summary>
-		/// This backsup the install log.
+		/// This backs up the install log.
 		/// </summary>
 		public void Backup()
 		{
@@ -885,6 +911,34 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				}
 			}
 		}
+
+		/// <summary>
+		/// This restores the first valid backup of the install log.
+		/// </summary>
+		public static bool Restore(string p_strLogPath)
+		{
+			string strBackupLogPath = p_strLogPath + ".bak";
+			if (IsLogValid(strBackupLogPath))
+			{
+				File.Copy(strBackupLogPath, p_strLogPath, true);
+				return true;
+			}
+			if (File.Exists(strBackupLogPath))
+				File.Copy(strBackupLogPath, strBackupLogPath + ".bad", true);
+			for (Int32 i = 1; i < 6; i++)
+			{
+				if (IsLogValid(strBackupLogPath + i))
+				{
+					File.Copy(strBackupLogPath + i, p_strLogPath, true);
+					return true;
+				}
+				if (File.Exists(strBackupLogPath))
+					File.Copy(strBackupLogPath + i, strBackupLogPath + i + ".bad", true);
+			}
+			return false;
+		}
+
+		#endregion
 
 		/// <summary>
 		/// This disposes of the install log, allowing it to be re-initialized.
