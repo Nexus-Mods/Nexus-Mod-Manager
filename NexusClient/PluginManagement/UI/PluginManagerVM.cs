@@ -135,6 +135,17 @@ namespace Nexus.Client.PluginManagement.UI
 			PluginManager.DeactivatePlugin(p_plgPlugin);
 		}
 
+		/// <summary>
+		/// Determines if the active state of the given plugin can be changed.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin for which it is to be determined if the active state can be changed.</param>
+		/// <returns><c>true</c> if the given plugin's active state can be changed;
+		/// <c>false</c> otherwise.</returns>
+		public bool CanChangeActiveState(Plugin p_plgPlugin)
+		{
+			return PluginManager.CanChangeActiveState(p_plgPlugin);
+		}
+
 		#endregion
 
 		#region Plugin Ordering
