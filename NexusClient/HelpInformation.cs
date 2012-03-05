@@ -2,6 +2,9 @@
 
 namespace Nexus.Client
 {
+	/// <summary>
+	/// Provides help resources.
+	/// </summary>
 	public class HelpInformation
 	{
 		/// <summary>
