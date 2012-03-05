@@ -295,8 +295,10 @@ namespace Nexus.Client.Controls
 			if (intWindowClientWidth < intMinimumWidth)
 				intWindowClientWidth = intMinimumWidth;
 
+			Int32 intWindowClientHeight = (Int32)Math.Max((booShowIcon ? pbxIcon.MinimumSize.Height + pnlLabel.Padding.Top + pnlLabel.Padding.Bottom : 0), Math.Ceiling(szeTextSize.Height)) + (p_booShowRemember ? pnlRemember.Height : 0) + pnlButtons.Height;
+
 			Int32 intBorderHeight = Size.Height - ClientSize.Height;
-			MinimumSize = new Size(intWindowClientWidth + intBorderWidth, pnlMessage.Height + (p_booShowRemember ? pnlRemember.Height : 0) + pnlButtons.Height + intBorderHeight);
+			MinimumSize = new Size(intWindowClientWidth + intBorderWidth, intWindowClientHeight + intBorderHeight);
 			MaximumSize = new Size(Int32.MaxValue, MinimumSize.Height);
 		}
 
@@ -304,7 +306,7 @@ namespace Nexus.Client.Controls
 		{
 			Int32 intLastButtonLeft = pnlButtons.Right - 6;
 			Int32 intMinimumWidth = 6;
-			
+
 			//details button
 			if (p_booShowDetails)
 			{
@@ -470,9 +472,9 @@ namespace Nexus.Client.Controls
 				MaximumSize = new Size(Int32.MaxValue, Int32.MaxValue);
 				Size = new Size(Size.Width, Size.Height + LastDetailsHeight);
 				MinimumSize = new Size(MinimumSize.Width, MinimumSize.Height + m_intMinimumDetailsHeight);
-
 			}
 			pnlDetails.Visible = !pnlDetails.Visible;
+			this.PerformLayout();
 		}
 
 		/// <summary>
