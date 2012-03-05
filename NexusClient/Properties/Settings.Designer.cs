@@ -32,6 +32,30 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute(@"
+				<KeyedSettingsOfString>
+					<item key=""Beta Wiki"">
+						<string>http://wiki.tesnexus.com/index.php/Category:NMM</string>
+					</item>
+					<item key=""Beta Forums"">
+						<string>http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/</string>
+					</item>
+					<item key=""Bug Report How To"">
+						<string>http://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/</string>
+					</item>
+					<item key=""Bug Tracker"">
+						<string>http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/</string>
+					</item>
+				</KeyedSettingsOfString>
+			")]
+        public global::Nexus.Client.Settings.KeyedSettings<string> HelpLinks {
+            get {
+                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["HelpLinks"]));
+            }
+        }
+        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]

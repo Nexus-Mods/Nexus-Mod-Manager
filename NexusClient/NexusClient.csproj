@@ -231,6 +231,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Resources\application-exit-2.png" />
+    <None Include="Resources\help-3.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\tes_logo_full.png" />
     <None Include="Resources\up.png" />
@@ -255,6 +256,7 @@
     <Compile Include="ApplicationInitializer.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
+    <Compile Include="HelpInformation.cs" />
     <Compile Include="InstallationPathInitializer.cs" />
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>

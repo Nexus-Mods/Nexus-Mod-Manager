@@ -200,6 +200,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap help_3 {
+            get {
+                object obj = ResourceManager.GetObject("help_3", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap info_add {
             get {
                 object obj = ResourceManager.GetObject("info_add", resourceCulture);

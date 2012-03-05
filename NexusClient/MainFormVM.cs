@@ -127,6 +127,12 @@ namespace Nexus.Client
 		protected IGameMode GameMode { get; private set; }
 
 		/// <summary>
+		/// Gets the help information.
+		/// </summary>
+		/// <value>The help information.</value>
+		public HelpInformation HelpInfo { get; private set;}
+
+		/// <summary>
 		/// Gets the title of the form.
 		/// </summary>
 		/// <value>The title of the form.</value>
@@ -223,6 +229,7 @@ namespace Nexus.Client
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
 			ActivityMonitorVM = new ActivityMonitorVM(p_amtMonitor, p_eifEnvironmentInfo.Settings);
+			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
 			foreach (IModFormat mftFormat in p_mmgModManager.ModFormats)
