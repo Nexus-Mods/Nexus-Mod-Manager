@@ -924,16 +924,16 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				return true;
 			}
 			if (File.Exists(strBackupLogPath))
-				File.Copy(strBackupLogPath, strBackupLogPath + ".bad", true);
+				FileUtil.Move(strBackupLogPath, strBackupLogPath + ".bad", true);
 			for (Int32 i = 1; i < 6; i++)
 			{
 				if (IsLogValid(strBackupLogPath + i))
 				{
-					File.Copy(strBackupLogPath + i, p_strLogPath, true);
+					FileUtil.Move(strBackupLogPath + i, p_strLogPath, true);
 					return true;
 				}
-				if (File.Exists(strBackupLogPath))
-					File.Copy(strBackupLogPath + i, strBackupLogPath + i + ".bad", true);
+				if (File.Exists(strBackupLogPath + i))
+					FileUtil.Move(strBackupLogPath + i, strBackupLogPath + i + ".bad", true);
 			}
 			return false;
 		}
