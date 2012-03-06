@@ -425,7 +425,25 @@ namespace Nexus.Client
 				return false;
 			}
 
-			PropertyInfo pifSetting = EnvironmentInfo.GetType().GetProperty("Settings");
+			PropertyInfo pifSetting = null;
+			try
+			{
+				pifSetting = EnvironmentInfo.GetType().GetProperty("Settings");
+			}
+			catch (AmbiguousMatchException)
+			{
+				Trace.TraceInformation("Ambiguous Match while getting {0}.", "Settings");
+				Trace.Indent();
+				Trace.TraceInformation("Delayed Setting: {0}", p_strKey);
+				Trace.TraceInformation("Type: {0}", EnvironmentInfo.GetType().FullName);
+				Trace.TraceInformation("All Properties:");
+				Trace.Indent();
+				foreach (PropertyInfo pifProperty in EnvironmentInfo.GetType().GetProperties())
+					Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
+				Trace.Unindent();
+				Trace.Unindent();
+				throw;
+			}
 			object objSetting = EnvironmentInfo;
 			Type tpeSettings = null;
 			for (Int32 i = 0; i < strPropertyIndexers.Length; i++)
@@ -440,7 +458,43 @@ namespace Nexus.Client
 					return false;
 				}
 				tpeSettings = objSetting.GetType();
-				pifSetting = tpeSettings.GetProperty(strPropertyIndexers[i]) ?? tpeSettings.GetProperty("Item");
+				try
+				{
+					pifSetting = tpeSettings.GetProperty(strPropertyIndexers[i]);
+				}
+				catch (AmbiguousMatchException)
+				{
+					Trace.TraceInformation("Ambiguous Match while getting {0}.", strPropertyIndexers[i]);
+					Trace.Indent();
+					Trace.TraceInformation("Delayed Setting: {0}", p_strKey);
+					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
+					Trace.TraceInformation("All Properties:");
+					Trace.Indent();
+					foreach (PropertyInfo pifProperty in EnvironmentInfo.GetType().GetProperties())
+						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
+					Trace.Unindent();
+					Trace.Unindent();
+					throw;
+				}
+				try
+				{
+					if (pifSetting == null)
+						pifSetting = tpeSettings.GetProperty("Item");
+				}
+				catch (AmbiguousMatchException)
+				{
+					Trace.TraceInformation("Ambiguous Match while getting {0}.", "Item");
+					Trace.Indent();
+					Trace.TraceInformation("Delayed Setting: {0}", p_strKey);
+					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
+					Trace.TraceInformation("All Properties:");
+					Trace.Indent();
+					foreach (PropertyInfo pifProperty in EnvironmentInfo.GetType().GetProperties())
+						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
+					Trace.Unindent();
+					Trace.Unindent();
+					throw;
+				}
 				if (pifSetting == null)
 				{
 					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Setting does not exist.", p_strKey), "Invalid Setting");
