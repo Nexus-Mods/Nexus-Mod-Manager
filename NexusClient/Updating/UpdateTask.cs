@@ -59,6 +59,7 @@ namespace Nexus.Client.Updating
 			if (m_lstFailedUpdaters.Count > 0)
 			{
 				StringBuilder stbMessage = new StringBuilder();
+				stbMessage.AppendLine("The following updates failed:");
 				for (Int32 i = 0; i < m_lstFailedUpdaters.Count; i++)
 				{
 					IUpdater updUpdater = m_lstFailedUpdaters[i];
