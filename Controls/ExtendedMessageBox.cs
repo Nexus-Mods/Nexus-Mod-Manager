@@ -295,7 +295,7 @@ namespace Nexus.Client.Controls
 			if (intWindowClientWidth < intMinimumWidth)
 				intWindowClientWidth = intMinimumWidth;
 
-			Int32 intWindowClientHeight = (Int32)Math.Max((booShowIcon ? pbxIcon.MinimumSize.Height + pnlLabel.Padding.Top + pnlLabel.Padding.Bottom : 0), Math.Ceiling(szeTextSize.Height)) + (p_booShowRemember ? pnlRemember.Height : 0) + pnlButtons.Height;
+			Int32 intWindowClientHeight = (Int32)Math.Max((booShowIcon ? pbxIcon.MinimumSize.Height : 0), Math.Ceiling(szeTextSize.Height + pnlLabel.Padding.Top + pnlLabel.Padding.Bottom)) + (p_booShowRemember ? pnlRemember.Height : 0) + pnlButtons.Height;
 
 			Int32 intBorderHeight = Size.Height - ClientSize.Height;
 			MinimumSize = new Size(intWindowClientWidth + intBorderWidth, intWindowClientHeight + intBorderHeight);
