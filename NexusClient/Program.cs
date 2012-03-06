@@ -184,6 +184,13 @@ namespace Nexus.Client
 		{
 			HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
 
+			Trace.WriteLine("");
+			Trace.TraceError("Tracing an Unhandled Exception:");
+			TraceUtil.TraceException(ex);
+
+			if (!htlListener.TraceIsForced)
+				htlListener.SaveToFile();
+
 			StringBuilder stbPromptMessage = new StringBuilder();
 			stbPromptMessage.AppendFormat("{0} has encountered an error and needs to close.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
 			stbPromptMessage.AppendLine("A Trace Log was created at:");
@@ -213,12 +220,6 @@ namespace Nexus.Client
 				//backup, in case on extended message box starts to act up
 				MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
-			Trace.WriteLine("");
-			Trace.TraceError("Tracing an Unhandled Exception:");
-			TraceUtil.TraceException(ex);
-
-			if (!htlListener.TraceIsForced)
-				htlListener.SaveToFile();
 		}
 	}
 }
