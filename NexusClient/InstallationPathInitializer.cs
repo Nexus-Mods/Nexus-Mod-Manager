@@ -62,18 +62,23 @@ namespace Nexus.Client
 			Trace.TraceInformation(String.Format("Looking for {0}.", p_gmfGameModeFactory.GameModeDescriptor.Name));
 			Trace.Indent();
 
+			string strGameFolder = null;
 			if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId))
 			{
-				EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId].Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				strGameFolder = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId].Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = strGameFolder;
 				EnvironmentInfo.Settings.Save();
-				Trace.TraceInformation("Found: " + EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId]);
-				Trace.Unindent();
-				return true;
+				if (VerifyWorkingDirectory(p_gmfGameModeFactory.GameModeDescriptor, strGameFolder))
+				{
+					Trace.TraceInformation("Found: " + strGameFolder);
+					Trace.Unindent();
+					return true;
+				}
 			}
 
 			Trace.TraceInformation("Asking Game Mode...");
 			Trace.Indent();
-			string strGameFolder = p_gmfGameModeFactory.GetInstallationPath();
+			strGameFolder = p_gmfGameModeFactory.GetInstallationPath();
 			Trace.Unindent();
 			while (!VerifyWorkingDirectory(p_gmfGameModeFactory.GameModeDescriptor, strGameFolder))
 			{
