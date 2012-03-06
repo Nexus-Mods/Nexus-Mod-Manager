@@ -83,7 +83,7 @@ namespace Nexus.Client.PluginManagement
 		/// Gets the <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.
 		/// </summary>
 		/// <value>The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</value>
-		protected IPluginOrderLog IPluginOrderLog { get; private set; }
+		protected IPluginOrderLog PluginOrderLog { get; private set; }
 
 		/// <summary>
 		/// Gets the object that validates plugin order.
@@ -99,7 +99,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			get
 			{
-				return IPluginOrderLog.OrderedPlugins;
+				return PluginOrderLog.OrderedPlugins;
 			}
 		}
 
@@ -135,16 +135,16 @@ namespace Nexus.Client.PluginManagement
 			GameMode = p_gmdGameMode;
 			ManagedPluginRegistry = p_mprManagedPluginRegistry;
 			ActivePluginLog = p_aplPluginLog;
-			IPluginOrderLog = p_polOrderLog;
+			PluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
 
 			foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
 				ActivePluginLog.ActivatePlugin(strPlugin);
-			List<Plugin> lstPlugins = new List<Plugin>(IPluginOrderLog.OrderedPlugins);
+			List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
 			if (!OrderValidator.ValidateOrder(lstPlugins))
 			{
 				OrderValidator.CorrectOrder(lstPlugins);
-				IPluginOrderLog.SetPluginOrder(lstPlugins);
+				PluginOrderLog.SetPluginOrder(lstPlugins);
 			}			
 		}
 
@@ -162,7 +162,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			bool booSuccess = ManagedPluginRegistry.RegisterPlugin(p_strPluginPath);
 			if (booSuccess)
-				IPluginOrderLog.SetPluginOrderIndex(ManagedPluginRegistry.GetPlugin(p_strPluginPath), IPluginOrderLog.OrderedPlugins.Count);
+				PluginOrderLog.SetPluginOrderIndex(ManagedPluginRegistry.GetPlugin(p_strPluginPath), PluginOrderLog.OrderedPlugins.Count);
 			return booSuccess;
 		}
 
@@ -173,7 +173,7 @@ namespace Nexus.Client.PluginManagement
 		public void RemovePlugin(Plugin p_plgPlugin)
 		{
 			ActivePluginLog.DeactivatePlugin(p_plgPlugin);
-			IPluginOrderLog.RemovePlugin(p_plgPlugin);
+			PluginOrderLog.RemovePlugin(p_plgPlugin);
 			ManagedPluginRegistry.UnregisterPlugin(p_plgPlugin);
 		}
 
@@ -315,7 +315,7 @@ namespace Nexus.Client.PluginManagement
 		/// <returns>The index of the given plugin, or -1 if the plugin is not being managed.</returns>
 		public Int32 GetPluginOrderIndex(Plugin p_plgPlugin)
 		{
-			return IPluginOrderLog.OrderedPlugins.IndexOf(p_plgPlugin);
+			return PluginOrderLog.OrderedPlugins.IndexOf(p_plgPlugin);
 		}
 
 		/// <summary>
@@ -325,7 +325,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>
 		public void SetPluginOrderIndex(Plugin p_plgPlugin, int p_intNewIndex)
 		{
-			IPluginOrderLog.SetPluginOrderIndex(p_plgPlugin, p_intNewIndex);
+			PluginOrderLog.SetPluginOrderIndex(p_plgPlugin, p_intNewIndex);
 		}
 
 		/// <summary>
@@ -338,7 +338,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_lstOrderedPlugins">The list indicating the desired order of the plugins.</param>
 		public void SetPluginOrder(IList<Plugin> p_lstOrderedPlugins)
 		{
-			IPluginOrderLog.SetPluginOrder(p_lstOrderedPlugins);
+			PluginOrderLog.SetPluginOrder(p_lstOrderedPlugins);
 		}
 
 		/// <summary>

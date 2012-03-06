@@ -726,7 +726,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Initializing Active Plugin Log...");
 			Trace.Indent();
-			ActivePluginLog aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer());
+			ActivePluginLog aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer(polPluginOrderLog));
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Plugin Manager...");

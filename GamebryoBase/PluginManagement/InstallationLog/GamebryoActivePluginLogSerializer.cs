@@ -5,6 +5,7 @@ using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util.Collections;
 using System.IO;
+using Nexus.Client.PluginManagement.OrderLog;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 {
@@ -22,6 +23,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		protected IGameMode GameMode { get; private set; }
 
 		/// <summary>
+		/// Gets the <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.
+		/// </summary>
+		/// <value>The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</value>
+		protected IPluginOrderLog PluginOrderLog { get; private set; }
+
+		/// <summary>
 		/// Gets the BOSS plugin sorter.
 		/// </summary>
 		/// <value>The BOSS plugin sorter.</value>
@@ -35,10 +42,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_gmdGameMode">The current game mode.</param>
+		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
 		/// <param name="p_bstBoss">The BOSS instance to use to set plugin order.</param>
-		public GamebryoActivePluginLogSerializer(IGameMode p_gmdGameMode, BossSorter p_bstBoss)
+		public GamebryoActivePluginLogSerializer(IGameMode p_gmdGameMode, IPluginOrderLog p_polPluginOrderLog, BossSorter p_bstBoss)
 		{
 			GameMode = p_gmdGameMode;
+			PluginOrderLog = p_polPluginOrderLog;
 			BossSorter = p_bstBoss;
 		}
 
@@ -64,40 +73,22 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 				BossSorter.SetActivePlugins(GameMode.OrderedCriticalPluginNames);
 				return;
 			}
-			/*
+			
 			List<string> lstPlugins = new List<string>();
 			foreach (Plugin plgPlugin in p_lstActivePlugins)
 				lstPlugins.Add(plgPlugin.Filename);
 			lstPlugins.Sort();
 
-			string[] strPluginOrder = BossSorter.GetLoadOrder();
 			List<string> lstActivePlugins = new List<string>();
 			foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
 			{
 				lstPlugins.Remove(strPlugin);
 				lstActivePlugins.Add(strPlugin);
 			}
-			foreach (string strPlugin in strPluginOrder)
-				if (lstPlugins.Contains(strPlugin))
-					lstActivePlugins.Add(strPlugin);
-			BossSorter.SetActivePlugins(lstActivePlugins.ToArray());*/
-
-			//string[] strPluginOrder = BossSorter.GetLoadOrder();
-			List<string> lstPlugins = new List<string>();
-			foreach (Plugin plgPlugin in p_lstActivePlugins)
-				lstPlugins.Add(plgPlugin.Filename);
-			BossSorter.SetActivePlugins(lstPlugins.ToArray());
-
-
-			/*BossSorter.SetActivePlugins(GameMode.OrderedCriticalPluginNames);
-			if (p_lstActivePlugins.IsNullOrEmpty())
-				return;
-			string[] strPlugins = new string[p_lstActivePlugins.Count];
-			for (Int32 i = 0; i < p_lstActivePlugins.Count; i++)
-			{
-				strPlugins[i] = p_lstActivePlugins[i].Filename;
-				BossSorter.SetPluginActive(strPlugins[i], true);
-			}*/
+			foreach (Plugin plgPlugin in PluginOrderLog.OrderedPlugins)
+				if (lstPlugins.Contains(plgPlugin.Filename))
+					lstActivePlugins.Add(plgPlugin.Filename);
+			BossSorter.SetActivePlugins(lstActivePlugins.ToArray());
 		}
 	}
 }

@@ -200,12 +200,13 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets the serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.
 		/// </summary>
+		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
 		/// <returns>The serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.</returns>
-		public override IActivePluginLogSerializer GetActivePluginLogSerializer()
+		public override IActivePluginLogSerializer GetActivePluginLogSerializer(IPluginOrderLog p_polPluginOrderLog)
 		{
 			if (m_apsActivePluginLogSerializer == null)
-				m_apsActivePluginLogSerializer = new GamebryoActivePluginLogSerializer(this, BossSorter);
+				m_apsActivePluginLogSerializer = new GamebryoActivePluginLogSerializer(this, p_polPluginOrderLog, BossSorter);
 			return m_apsActivePluginLogSerializer;
 		}
 

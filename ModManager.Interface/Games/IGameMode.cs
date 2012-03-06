@@ -76,9 +76,10 @@ namespace Nexus.Client.Games
 		/// Gets the serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.
 		/// </summary>
+		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
 		/// <returns>The serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.</returns>
-		IActivePluginLogSerializer GetActivePluginLogSerializer();
+		IActivePluginLogSerializer GetActivePluginLogSerializer(IPluginOrderLog p_polPluginOrderLog);
 
 		/// <summary>
 		/// Gets the discoverer to use to find the plugins managed by this game mode.
