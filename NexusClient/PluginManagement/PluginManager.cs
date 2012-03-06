@@ -34,12 +34,12 @@ namespace Nexus.Client.PluginManagement
 		/// of managed <see cref="Plugin"/>s.</param>
 		/// <param name="p_aplPluginLog">The <see cref="ActivePluginLog"/> tracking plugin activations for the
 		/// current game mode.</param>
-		/// <param name="p_polOrderLog">The <see cref="PluginOrderLog"/> tracking plugin order for the
+		/// <param name="p_polOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the
 		/// current game mode.</param>
 		/// <param name="p_povOrderValidator">The object that validates plugin order.</param>
 		/// <exception cref="InvalidOperationException">Thrown if the plugin manager has already
 		/// been initialized.</exception>
-		public static IPluginManager Initialize(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, PluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
+		public static IPluginManager Initialize(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, IPluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
 		{
 			if (m_pmgCurrent != null)
 				throw new InvalidOperationException("The Plugin Manager has already been initialized.");
@@ -80,10 +80,10 @@ namespace Nexus.Client.PluginManagement
 		protected ActivePluginLog ActivePluginLog { get; private set; }
 
 		/// <summary>
-		/// Gets the <see cref="PluginOrderLog"/> tracking plugin order for the current game mode.
+		/// Gets the <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.
 		/// </summary>
-		/// <value>The <see cref="PluginOrderLog"/> tracking plugin order for the current game mode.</value>
-		protected PluginOrderLog PluginOrderLog { get; private set; }
+		/// <value>The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</value>
+		protected IPluginOrderLog IPluginOrderLog { get; private set; }
 
 		/// <summary>
 		/// Gets the object that validates plugin order.
@@ -99,7 +99,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			get
 			{
-				return PluginOrderLog.OrderedPlugins;
+				return IPluginOrderLog.OrderedPlugins;
 			}
 		}
 
@@ -127,24 +127,24 @@ namespace Nexus.Client.PluginManagement
 		/// of managed <see cref="Plugin"/>s.</param>
 		/// <param name="p_aplPluginLog">The <see cref="ActivePluginLog"/> tracking plugin activations for the
 		/// current game mode.</param>
-		/// <param name="p_polOrderLog">The <see cref="PluginOrderLog"/> tracking plugin order for the
+		/// <param name="p_polOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the
 		/// current game mode.</param>
 		/// <param name="p_povOrderValidator">The object that validates plugin order.</param>
-		private PluginManager(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, PluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
+		private PluginManager(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, IPluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
 		{
 			GameMode = p_gmdGameMode;
 			ManagedPluginRegistry = p_mprManagedPluginRegistry;
 			ActivePluginLog = p_aplPluginLog;
-			PluginOrderLog = p_polOrderLog;
+			IPluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
 
 			foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
 				ActivePluginLog.ActivatePlugin(strPlugin);
-			List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
+			List<Plugin> lstPlugins = new List<Plugin>(IPluginOrderLog.OrderedPlugins);
 			if (!OrderValidator.ValidateOrder(lstPlugins))
 			{
 				OrderValidator.CorrectOrder(lstPlugins);
-				PluginOrderLog.SetPluginOrder(lstPlugins);
+				IPluginOrderLog.SetPluginOrder(lstPlugins);
 			}			
 		}
 
@@ -162,7 +162,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			bool booSuccess = ManagedPluginRegistry.RegisterPlugin(p_strPluginPath);
 			if (booSuccess)
-				PluginOrderLog.SetPluginOrderIndex(ManagedPluginRegistry.GetPlugin(p_strPluginPath), PluginOrderLog.OrderedPlugins.Count);
+				IPluginOrderLog.SetPluginOrderIndex(ManagedPluginRegistry.GetPlugin(p_strPluginPath), IPluginOrderLog.OrderedPlugins.Count);
 			return booSuccess;
 		}
 
@@ -173,7 +173,7 @@ namespace Nexus.Client.PluginManagement
 		public void RemovePlugin(Plugin p_plgPlugin)
 		{
 			ActivePluginLog.DeactivatePlugin(p_plgPlugin);
-			PluginOrderLog.RemovePlugin(p_plgPlugin);
+			IPluginOrderLog.RemovePlugin(p_plgPlugin);
 			ManagedPluginRegistry.UnregisterPlugin(p_plgPlugin);
 		}
 
@@ -315,7 +315,7 @@ namespace Nexus.Client.PluginManagement
 		/// <returns>The index of the given plugin, or -1 if the plugin is not being managed.</returns>
 		public Int32 GetPluginOrderIndex(Plugin p_plgPlugin)
 		{
-			return PluginOrderLog.OrderedPlugins.IndexOf(p_plgPlugin);
+			return IPluginOrderLog.OrderedPlugins.IndexOf(p_plgPlugin);
 		}
 
 		/// <summary>
@@ -325,7 +325,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>
 		public void SetPluginOrderIndex(Plugin p_plgPlugin, int p_intNewIndex)
 		{
-			PluginOrderLog.SetPluginOrderIndex(p_plgPlugin, p_intNewIndex);
+			IPluginOrderLog.SetPluginOrderIndex(p_plgPlugin, p_intNewIndex);
 		}
 
 		/// <summary>
@@ -338,7 +338,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_lstOrderedPlugins">The list indicating the desired order of the plugins.</param>
 		public void SetPluginOrder(IList<Plugin> p_lstOrderedPlugins)
 		{
-			PluginOrderLog.SetPluginOrder(p_lstOrderedPlugins);
+			IPluginOrderLog.SetPluginOrder(p_lstOrderedPlugins);
 		}
 
 		/// <summary>

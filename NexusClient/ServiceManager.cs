@@ -30,10 +30,10 @@ namespace Nexus.Client
 		public ActivePluginLog ActivePluginLog { get; private set; }
 
 		/// <summary>
-		/// Gets the <see cref="PluginOrderLog"/> tracking plugin order for the current game mode.
+		/// Gets the <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.
 		/// </summary>
-		/// <value>The <see cref="PluginOrderLog"/> tracking plugin order for the current game mode.</value>
-		public PluginOrderLog PluginOrderLog { get; private set; }
+		/// <value>The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</value>
+		public IPluginOrderLog PluginOrderLog { get; private set; }
 
 		/// <summary>
 		/// Gets the repository we are logging in to.
@@ -74,13 +74,13 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_ilgModInstallLog">The install log that tracks mod install info for the current game mode.</param>
 		/// <param name="p_aplActivePluginLog">The <see cref="ActivePluginLog"/> tracking plugin activations for the current game mode.</param>
-		/// <param name="p_polPluginOrderLog">The <see cref="PluginOrderLog"/> tracking plugin order for the current game mode.</param>
+		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
 		/// <param name="p_mrpModRepository">The repository we are logging in to.</param>
 		/// <param name="p_mmgModManager">The mod manager to use to manage mods.</param>
 		/// <param name="p_pmgPluginManager">The manager to use to manage plugins.</param>
 		/// <param name="p_amtMonitor">The activity manager to use to manage the monitored activities.</param>
 		/// <param name="p_umgUpdateManager">The update manager to use to perform updates.</param>
-		public ServiceManager(IInstallLog p_ilgModInstallLog, ActivePluginLog p_aplActivePluginLog, PluginOrderLog p_polPluginOrderLog, IModRepository p_mrpModRepository, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager)
+		public ServiceManager(IInstallLog p_ilgModInstallLog, ActivePluginLog p_aplActivePluginLog, IPluginOrderLog p_polPluginOrderLog, IModRepository p_mrpModRepository, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager)
 		{
 			ModInstallLog = p_ilgModInstallLog;
 			ActivePluginLog = p_aplActivePluginLog;

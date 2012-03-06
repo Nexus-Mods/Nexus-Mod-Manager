@@ -719,14 +719,14 @@ namespace Nexus.Client
 			Trace.TraceInformation("Found {0} managed plugins.", prgPluginRegistry.RegisteredPlugins.Count);
 			Trace.Unindent();
 
+			Trace.TraceInformation("Initializing Plugin Order Log...");
+			Trace.Indent();
+			IPluginOrderLog polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
+			Trace.Unindent();
+
 			Trace.TraceInformation("Initializing Active Plugin Log...");
 			Trace.Indent();
 			ActivePluginLog aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer());
-			Trace.Unindent();
-
-			Trace.TraceInformation("Initializing Plugin Order Log...");
-			Trace.Indent();
-			PluginOrderLog polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Plugin Manager...");

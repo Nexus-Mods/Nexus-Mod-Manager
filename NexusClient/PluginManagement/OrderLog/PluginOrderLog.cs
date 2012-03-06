@@ -17,7 +17,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 	/// As such, there is no static accessor to retrieve the singleton instance. Instead, the
 	/// <see cref="Initialize"/> method returns the only instance that should be used.
 	/// </remarks>
-	public partial class PluginOrderLog
+	public partial class PluginOrderLog : IPluginOrderLog
 	{
 		private static readonly object m_objEnlistmentLock = new object();
 		private static Dictionary<string, TransactionEnlistment> m_dicEnlistments = null;
