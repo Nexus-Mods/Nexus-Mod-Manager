@@ -113,7 +113,12 @@ namespace Nexus.Client.Util.Downloader
 			{
 				string[] strRanges = File.ReadAllLines(p_strFileMetadataPath);
 				foreach (string strRange in strRanges)
-					m_rgsWrittenRanges.AddRange(Range.Parse(strRange));
+				{
+					string strCleanRange = strRange.Trim().Trim('\0');
+					if (String.IsNullOrEmpty(strCleanRange))
+						continue;
+					m_rgsWrittenRanges.RemoveRange(Range.Parse(strCleanRange));
+				}
 			}
 
 			m_thdWrite = new TrackedThread(WaitForData);
