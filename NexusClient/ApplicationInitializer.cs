@@ -470,7 +470,7 @@ namespace Nexus.Client
 					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
 					Trace.TraceInformation("All Properties:");
 					Trace.Indent();
-					foreach (PropertyInfo pifProperty in EnvironmentInfo.GetType().GetProperties())
+					foreach (PropertyInfo pifProperty in tpeSettings.GetProperties())
 						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
 					Trace.Unindent();
 					Trace.Unindent();
@@ -489,7 +489,7 @@ namespace Nexus.Client
 					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
 					Trace.TraceInformation("All Properties:");
 					Trace.Indent();
-					foreach (PropertyInfo pifProperty in EnvironmentInfo.GetType().GetProperties())
+					foreach (PropertyInfo pifProperty in tpeSettings.GetProperties())
 						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
 					Trace.Unindent();
 					Trace.Unindent();
