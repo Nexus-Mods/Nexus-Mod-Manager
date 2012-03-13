@@ -23,7 +23,8 @@ namespace Nexus.Client
 		{
 			get
 			{
-				return (string)cbxGameMode.SelectedValue;
+
+				throw new NotImplementedException();
 			}
 		}
 
@@ -47,13 +48,17 @@ namespace Nexus.Client
 			Settings = p_setSettings;
 			InitializeComponent();
 			Icon = Properties.Resources.DefaultIcon;
-			cbxGameMode.DataSource = p_lstGameModes;
-			cbxGameMode.DisplayMember = ObjectHelper.GetPropertyName<IGameModeDescriptor>(x => x.Name);
-			cbxGameMode.ValueMember = ObjectHelper.GetPropertyName<IGameModeDescriptor>(x => x.ModeId);
-
+			List<IGameModeDescriptor> lstSortedModes = new List<IGameModeDescriptor>(p_lstGameModes);
+			lstSortedModes.Sort((x, y) => x.Name.CompareTo(y.Name));
+			foreach (IGameModeDescriptor gmdInfo in lstSortedModes)
+			{
+				GameModeListViewItem gliGameModeItem = new GameModeListViewItem(gmdInfo);
+				gameModeListView1.Controls.Add(gliGameModeItem);
+			}
+			
 			IGameModeDescriptor gmdDefault = p_lstGameModes.Find(x => x.ModeId.Equals(p_setSettings.RememberedGameMode));
-			if (gmdDefault != null)
-				cbxGameMode.SelectedValue = gmdDefault.ModeId;
+			/*if (gmdDefault != null)
+				cbxGameMode.SelectedValue = gmdDefault.ModeId;*/
 			cbxRemember.Checked = Settings.RememberGameMode;
 		}
 
@@ -86,7 +91,8 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void cbxGameMode_SelectedIndexChanged(object sender, EventArgs e)
 		{
-			Icon = ((IGameModeDescriptor)cbxGameMode.SelectedItem).ModeTheme.Icon;
+			throw new NotImplementedException();
+			//Icon = ((IGameModeDescriptor)cbxGameMode.SelectedItem).ModeTheme.Icon;
 		}
 	}
 }

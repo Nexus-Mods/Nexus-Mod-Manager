@@ -29,7 +29,6 @@
 		private void InitializeComponent()
 		{
 			this.components = new System.ComponentModel.Container();
-			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(GameModeSearchListViewItem));
 			this.lblGameModeName = new System.Windows.Forms.Label();
 			this.pnlCandidate = new System.Windows.Forms.Panel();
 			this.label1 = new System.Windows.Forms.Label();
@@ -38,6 +37,7 @@
 			this.butAccept = new System.Windows.Forms.Button();
 			this.lblPath = new System.Windows.Forms.Label();
 			this.pnlNotFound = new System.Windows.Forms.Panel();
+			this.butOverride = new System.Windows.Forms.Button();
 			this.butSelectPath = new System.Windows.Forms.Button();
 			this.tbxInstallPath = new System.Windows.Forms.TextBox();
 			this.lblNotFoundMessage = new System.Windows.Forms.Label();
@@ -50,7 +50,6 @@
 			this.pbrProgress = new System.Windows.Forms.ProgressBar();
 			this.lblSearchingTitle = new System.Windows.Forms.Label();
 			this.lblProgressMessage = new Nexus.Client.Controls.PathLabel();
-			this.butOverride = new System.Windows.Forms.Button();
 			this.pnlSet = new System.Windows.Forms.Panel();
 			this.lblFinalPath = new System.Windows.Forms.Label();
 			this.pnlCandidate.SuspendLayout();
@@ -81,7 +80,7 @@
 			this.pnlCandidate.Controls.Add(this.butAccept);
 			this.pnlCandidate.Controls.Add(this.lblPath);
 			this.pnlCandidate.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.pnlCandidate.Location = new System.Drawing.Point(128, 316);
+			this.pnlCandidate.Location = new System.Drawing.Point(128, 453);
 			this.pnlCandidate.Name = "pnlCandidate";
 			this.pnlCandidate.Size = new System.Drawing.Size(388, 66);
 			this.pnlCandidate.TabIndex = 2;
@@ -159,10 +158,26 @@
 			this.pnlNotFound.Controls.Add(this.lblNotFoundMessage);
 			this.pnlNotFound.Controls.Add(this.lblNotFoundTitle);
 			this.pnlNotFound.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.pnlNotFound.Location = new System.Drawing.Point(128, 184);
+			this.pnlNotFound.Location = new System.Drawing.Point(128, 321);
 			this.pnlNotFound.Name = "pnlNotFound";
 			this.pnlNotFound.Size = new System.Drawing.Size(388, 66);
 			this.pnlNotFound.TabIndex = 3;
+			// 
+			// butOverride
+			// 
+			this.butOverride.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+						| System.Windows.Forms.AnchorStyles.Right)));
+			this.butOverride.AutoSize = true;
+			this.butOverride.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butOverride.FlatAppearance.BorderSize = 0;
+			this.butOverride.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.butOverride.Image = global::Nexus.Client.Properties.Resources.dialog_ok_4_16;
+			this.butOverride.Location = new System.Drawing.Point(363, 6);
+			this.butOverride.Name = "butOverride";
+			this.butOverride.Size = new System.Drawing.Size(22, 22);
+			this.butOverride.TabIndex = 4;
+			this.butOverride.UseVisualStyleBackColor = true;
+			this.butOverride.Click += new System.EventHandler(this.butOverride_Click);
 			// 
 			// butSelectPath
 			// 
@@ -219,7 +234,7 @@
 			this.pbxGameLogo.Dock = System.Windows.Forms.DockStyle.Left;
 			this.pbxGameLogo.Location = new System.Drawing.Point(0, 0);
 			this.pbxGameLogo.Name = "pbxGameLogo";
-			this.pbxGameLogo.Size = new System.Drawing.Size(128, 382);
+			this.pbxGameLogo.Size = new System.Drawing.Size(128, 519);
 			this.pbxGameLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
 			this.pbxGameLogo.TabIndex = 0;
 			this.pbxGameLogo.TabStop = false;
@@ -234,7 +249,7 @@
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.panel1.Location = new System.Drawing.Point(128, 0);
 			this.panel1.Name = "panel1";
-			this.panel1.Size = new System.Drawing.Size(388, 118);
+			this.panel1.Size = new System.Drawing.Size(388, 255);
 			this.panel1.TabIndex = 4;
 			// 
 			// pnlSearching
@@ -243,7 +258,7 @@
 			this.pnlSearching.Controls.Add(this.lblSearchingTitle);
 			this.pnlSearching.Controls.Add(this.lblProgressMessage);
 			this.pnlSearching.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.pnlSearching.Location = new System.Drawing.Point(128, 250);
+			this.pnlSearching.Location = new System.Drawing.Point(128, 387);
 			this.pnlSearching.Name = "pnlSearching";
 			this.pnlSearching.Size = new System.Drawing.Size(388, 66);
 			this.pnlSearching.TabIndex = 2;
@@ -278,27 +293,11 @@
 			this.lblProgressMessage.TabIndex = 1;
 			this.lblProgressMessage.Text = "label3";
 			// 
-			// butOverride
-			// 
-			this.butOverride.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
-						| System.Windows.Forms.AnchorStyles.Right)));
-			this.butOverride.AutoSize = true;
-			this.butOverride.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butOverride.FlatAppearance.BorderSize = 0;
-			this.butOverride.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-			this.butOverride.Image = global::Nexus.Client.Properties.Resources.dialog_ok_4_16;
-			this.butOverride.Location = new System.Drawing.Point(363, 6);
-			this.butOverride.Name = "butOverride";
-			this.butOverride.Size = new System.Drawing.Size(22, 22);
-			this.butOverride.TabIndex = 4;
-			this.butOverride.UseVisualStyleBackColor = true;
-			this.butOverride.Click += new System.EventHandler(this.butOverride_Click);
-			// 
 			// pnlSet
 			// 
 			this.pnlSet.Controls.Add(this.lblFinalPath);
 			this.pnlSet.Dock = System.Windows.Forms.DockStyle.Bottom;
-			this.pnlSet.Location = new System.Drawing.Point(128, 118);
+			this.pnlSet.Location = new System.Drawing.Point(128, 255);
 			this.pnlSet.Name = "pnlSet";
 			this.pnlSet.Size = new System.Drawing.Size(388, 66);
 			this.pnlSet.TabIndex = 6;
@@ -313,7 +312,7 @@
 			this.lblFinalPath.TabIndex = 0;
 			this.lblFinalPath.Text = "c:\\really\\long\\game\\path\\to\\the\\installed\\game";
 			// 
-			// GameModeListViewItem
+			// GameModeSearchListViewItem
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -324,8 +323,8 @@
 			this.Controls.Add(this.pnlCandidate);
 			this.Controls.Add(this.pbxGameLogo);
 			this.MinimumSize = new System.Drawing.Size(516, 97);
-			this.Name = "GameModeListViewItem";
-			this.Size = new System.Drawing.Size(516, 382);
+			this.Name = "GameModeSearchListViewItem";
+			this.Size = new System.Drawing.Size(516, 519);
 			this.pnlCandidate.ResumeLayout(false);
 			this.pnlCandidate.PerformLayout();
 			this.pnlNotFound.ResumeLayout(false);
