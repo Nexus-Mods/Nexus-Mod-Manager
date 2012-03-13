@@ -261,6 +261,7 @@
     <Compile Include="ApplicationInitializer.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
+    <Compile Include="HelpInformation.cs" />
     <Compile Include="GameDetectionForm.cs">
       <SubType>Form</SubType>
     </Compile>

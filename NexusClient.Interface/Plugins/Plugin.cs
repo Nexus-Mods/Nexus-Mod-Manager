@@ -41,7 +41,7 @@ namespace Nexus.Client.Plugins
 		/// <param name="p_imgPicture">The picture of the plugin.</param>
 		public Plugin(string p_strPath, string p_strDescription, Image p_imgPicture)
 		{
-			Filename = p_strPath;
+			Filename = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			Description = p_strDescription;
 			Picture = p_imgPicture;
 		}

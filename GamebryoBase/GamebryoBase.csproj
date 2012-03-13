@@ -45,6 +45,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="GamebryoGameModeDescriptorBase.cs" />
     <Compile Include="GamebryoGameModeFactory.cs" />
     <Compile Include="GamebryoSettingsFiles.cs" />
     <Compile Include="GamebryoGameModeBase.cs" />

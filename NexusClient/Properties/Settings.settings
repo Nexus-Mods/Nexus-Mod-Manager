@@ -5,6 +5,24 @@
 		<Setting Name="ModManagerUrl" Type="System.String" Scope="Application">
 			<Value Profile="(Default)">http://where/to/get/the/nexus/client</Value>
 		</Setting>
+		<Setting Name="HelpLinks" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="Application">
+			<Value Profile="(Default)">
+				&lt;KeyedSettingsOfString&gt;
+					&lt;item key="Beta Wiki"&gt;
+						&lt;string&gt;http://wiki.tesnexus.com/index.php/Category:NMM&lt;/string&gt;
+					&lt;/item&gt;
+					&lt;item key="Beta Forums"&gt;
+						&lt;string&gt;http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/&lt;/string&gt;
+					&lt;/item&gt;
+					&lt;item key="Bug Report How To"&gt;
+						&lt;string&gt;http://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/&lt;/string&gt;
+					&lt;/item&gt;
+					&lt;item key="Report a Bug"&gt;
+						&lt;string&gt;http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/&lt;/string&gt;
+					&lt;/item&gt;
+				&lt;/KeyedSettingsOfString&gt;
+			</Value>
+		</Setting>
 		<Setting Name="SettingsUpgraded" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">False</Value>
 		</Setting>

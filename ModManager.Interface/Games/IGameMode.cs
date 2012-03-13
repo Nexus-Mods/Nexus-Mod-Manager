@@ -8,6 +8,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
+using Nexus.Client.Plugins;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
@@ -75,9 +76,10 @@ namespace Nexus.Client.Games
 		/// Gets the serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.
 		/// </summary>
+		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
 		/// <returns>The serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.</returns>
-		IActivePluginLogSerializer GetActivePluginLogSerializer();
+		IActivePluginLogSerializer GetActivePluginLogSerializer(IPluginOrderLog p_polPluginOrderLog);
 
 		/// <summary>
 		/// Gets the discoverer to use to find the plugins managed by this game mode.
@@ -98,6 +100,17 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>The object that validates plugin order for this game mode.</returns>
 		IPluginOrderValidator GetPluginOrderValidator();
+
+		/// <summary>
+		/// Determines if the given plugin is critical to the current game.
+		/// </summary>
+		/// <remarks>
+		/// Critical plugins cannot be reordered, cannot be deleted, cannot be deactivated, and cannot have plugins ordered above them.
+		/// </remarks>
+		/// <param name="p_plgPlugin">The plugin for which it is to be determined whether or not it is critical.</param>
+		/// <returns><c>true</c> if the specified pluing is critical;
+		/// <c>false</c> otherwise.</returns>
+		bool IsCriticalPlugin(Plugin p_plgPlugin);
 
 		#endregion
 

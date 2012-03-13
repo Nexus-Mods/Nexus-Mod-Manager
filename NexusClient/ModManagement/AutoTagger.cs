@@ -133,7 +133,7 @@ namespace Nexus.Client.ModManagement
 					if (!String.IsNullOrEmpty(p_mfiFileInfo.Name))
 					{
 						intLineTracker = 12;
-						mifUpdatedInfo.ModName = String.Format("{0} - {1}", p_mifInfo.ModName, p_mfiFileInfo.Name);
+						mifUpdatedInfo.ModName = String.Format("{0} - {1}", mifUpdatedInfo.ModName, p_mfiFileInfo.Name);
 						intLineTracker = 13;
 					}
 					intLineTracker = 14;

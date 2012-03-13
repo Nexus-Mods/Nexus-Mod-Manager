@@ -44,7 +44,7 @@ namespace Nexus.Client.Games.FalloutNV.Tools.AI
 			string strFalloutIniPath = GameMode.SettingsFiles.IniPath;
 			if (!File.Exists(strFalloutIniPath))
 				return false;
-			List<string> bsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strFalloutIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+			List<string> bsas = new List<string>((IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strFalloutIniPath) ?? "").Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
 			Int32 intInvalidate = IniMethods.GetPrivateProfileInt32("Archive", "bInvalidateOlderFiles", 0, strFalloutIniPath);
 			return bsas.Contains(AI_BSA) || (intInvalidate != 0);
 		}

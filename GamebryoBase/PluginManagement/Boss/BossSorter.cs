@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Nexus.Client.Util;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 {
@@ -353,7 +354,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
 			FileUtility = p_futFileUtility;
-
+			
 			string strBAPIPath = Path.Combine(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "data"), p_eifEnvironmentInfo.Is64BitProcess ? "boss64.dll" : "boss32.dll");
 
 			m_ptrBossApi = LoadLibrary(strBAPIPath);
@@ -361,7 +362,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				throw new BossException(String.Format("Could not load BAPI library: {0}", strBAPIPath));
 
 			LoadMethods();
-
+			
 			m_ptrBossDb = CreateBossDb();
 
 			MasterlistPath = p_strMasterlistPath;
@@ -521,6 +522,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <returns>The array of plugins names pointed to by the given pointer.</returns>
 		protected string[] MarshalPluginArray(IntPtr p_ptrPluginArray, UInt32 p_uintLength)
 		{
+			if (p_ptrPluginArray == IntPtr.Zero)
+				return null;
 			string[] strPlugins = null;
 			using (StringArrayManualMarshaler ammMarshaler = new StringArrayManualMarshaler("UTF8"))
 				strPlugins = ammMarshaler.MarshalNativeToManaged(p_ptrPluginArray, Convert.ToInt32(p_uintLength));
@@ -623,6 +626,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				case "Skyrim":
 					uintClientGameId = 3;
 					break;
+				default:
+					throw new BossException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
 			UInt32 uintStatus = m_dlgCreateBossDb(ref ptrBossDb, uintClientGameId, GameMode.PluginDirectory);
 			HandleStatusCode(uintStatus);
@@ -713,6 +718,20 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		#region Plugin Sorting Functions
 
 		/// <summary>
+		/// Removes non-existent and ghosted plugins from the given list.
+		/// </summary>
+		/// <param name="p_strPlugins">The list of plugins from which to remove non-existent and ghosted plugins.</param>
+		/// <returns>The given list of plugins, with all non-existent and ghosted plugins removed.</returns>
+		private string[] RemoveNonExistentPlugins(string[] p_strPlugins)
+		{
+			List<string> lstRealPlugins = new List<string>();
+			foreach (string strPlugin in p_strPlugins)
+				if (File.Exists(strPlugin))
+					lstRealPlugins.Add(strPlugin);
+			return lstRealPlugins.ToArray();
+		}
+
+		/// <summary>
 		/// Sorts the user's mods
 		/// </summary>
 		/// <param name="p_booTrialOnly">Whether the sort should actually be performed, or just previewed.</param>
@@ -724,7 +743,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			IntPtr ptrPlugins = IntPtr.Zero;
 			UInt32 uintStatus = m_dlgSortMods(m_ptrBossDb, p_booTrialOnly, out ptrPlugins, out uintListLength, out uintLastRecognizedPosition);
 			HandleStatusCode(uintStatus);
-			return MarshalPluginArray(ptrPlugins, uintListLength);
+			return RemoveNonExistentPlugins(MarshalPluginArray(ptrPlugins, uintListLength));
 		}
 
 		/// <summary>
@@ -737,7 +756,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			UInt32 uintListLength = 0;
 			UInt32 uintStatus = m_dlgGetLoadOrder(m_ptrBossDb, out ptrPlugins, out uintListLength);
 			HandleStatusCode(uintStatus);
-			return MarshalPluginArray(ptrPlugins, uintListLength);
+			string[] strPlugins = MarshalPluginArray(ptrPlugins, uintListLength);
+			List<string> lstNonGhostedPlugins = new List<string>();
+			return RemoveNonExistentPlugins(MarshalPluginArray(ptrPlugins, uintListLength));
 		}
 
 		/// <summary>
@@ -768,7 +789,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			UInt32 uintListLength = 0;
 			UInt32 uintStatus = m_dlgGetActivePlugins(m_ptrBossDb, out ptrStrings, out uintListLength);
 			HandleStatusCode(uintStatus);
-			return MarshalPluginArray(ptrStrings, uintListLength);
+			return RemoveNonExistentPlugins(MarshalPluginArray(ptrStrings, uintListLength) ?? new string[0]);
 		}
 
 		/// <summary>
@@ -820,6 +841,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <returns>The name of the plugin at the specified index.</returns>
 		public string GetIndexedPlugin(Int32 p_intIndex)
 		{
+			///TODO: this method doesn't work with NMM, as NMM is passing an index that doesn't account for ghosted plugins
 			string strPlugin = null;
 			UInt32 uintStatus = m_dlgGetIndexedPlugin(m_ptrBossDb, Convert.ToUInt32(p_intIndex), out strPlugin);
 			HandleStatusCode(uintStatus);

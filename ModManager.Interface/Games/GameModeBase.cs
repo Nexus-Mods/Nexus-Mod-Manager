@@ -9,9 +9,11 @@ using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
+using Nexus.Client.Plugins;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games
 {
@@ -50,9 +52,7 @@ namespace Nexus.Client.Games
 			{
 				get
 				{
-					if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(GameMode.ModeId))
-						return (string)EnvironmentInfo.Settings.InstallationPaths[GameMode.ModeId];
-					return null;
+					return GameMode.InstallationPath;
 				}
 			}
 
@@ -151,6 +151,7 @@ namespace Nexus.Client.Games
 		}
 
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
+		private IGameModeDescriptor m_gmdGameModeInfo = null;
 
 		#region Properties
 
@@ -176,25 +177,73 @@ namespace Nexus.Client.Games
 		/// Gets the display name of the game mode.
 		/// </summary>
 		/// <value>The display name of the game mode.</value>
-		public abstract string Name { get; }
+		public string Name
+		{
+			get
+			{
+				return m_gmdGameModeInfo.Name;
+			}
+		}
 
 		/// <summary>
 		/// Gets the unique id of the game mode.
 		/// </summary>
 		/// <value>The unique id of the game mode.</value>
-		public abstract string ModeId { get; }
+		public string ModeId
+		{
+			get
+			{
+				return m_gmdGameModeInfo.ModeId;
+			}
+		}
+
+		/// <summary>
+		/// Gets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		public string InstallationPath
+		{
+			get
+			{
+				return m_gmdGameModeInfo.InstallationPath;
+			}
+		}
 
 		/// <summary>
 		/// Gets the list of possible executable files for the game.
 		/// </summary>
 		/// <value>The list of possible executable files for the game.</value>
-		public abstract string[] GameExecutables { get; }
+		public string[] GameExecutables
+		{
+			get
+			{
+				return m_gmdGameModeInfo.GameExecutables;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of critical plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin names, ordered by load order.</value>
+		public string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				return m_gmdGameModeInfo.OrderedCriticalPluginNames;
+			}
+		}
 
 		/// <summary>
 		/// Gets the theme to use for this game mode.
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>
-		public abstract Theme ModeTheme { get; }
+		public Theme ModeTheme
+		{
+			get
+			{
+				return m_gmdGameModeInfo.ModeTheme;
+			}
+		}
 
 		/// <summary>
 		/// Gets the information about the game mode's environement.
@@ -243,6 +292,7 @@ namespace Nexus.Client.Games
 		public GameModeBase(IEnvironmentInfo p_eifEnvironmentInfo)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			m_gmdGameModeInfo = CreateGameModeDescriptor();
 			GameModeEnvironmentInfo = new GameModeInfo(this, p_eifEnvironmentInfo);
 		}
 
@@ -260,9 +310,10 @@ namespace Nexus.Client.Games
 		/// Gets the serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.
 		/// </summary>
+		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
 		/// <returns>The serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.</returns>
-		public abstract IActivePluginLogSerializer GetActivePluginLogSerializer();
+		public abstract IActivePluginLogSerializer GetActivePluginLogSerializer(IPluginOrderLog p_polPluginOrderLog);
 
 		/// <summary>
 		/// Gets the discoverer to use to find the plugins managed by this game mode.
@@ -283,6 +334,20 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>The object that validates plugin order for this game mode.</returns>
 		public abstract IPluginOrderValidator GetPluginOrderValidator();
+
+		/// <summary>
+		/// Determines if the given plugin is critical to the current game.
+		/// </summary>
+		/// <remarks>
+		/// Critical plugins cannot be reordered, cannot be deleted, cannot be deactivated, and cannot have plugins ordered above them.
+		/// </remarks>
+		/// <param name="p_plgPlugin">The plugin for which it is to be determined whether or not it is critical.</param>
+		/// <returns><c>true</c> if the specified pluing is critical;
+		/// <c>false</c> otherwise.</returns>
+		public bool IsCriticalPlugin(Plugin p_plgPlugin)
+		{
+			return OrderedCriticalPluginNames.Contains(p_plgPlugin.Filename.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar), StringComparer.OrdinalIgnoreCase);
+		}
 
 		#endregion
 
@@ -337,6 +402,12 @@ namespace Nexus.Client.Games
 		{
 			return p_strPath;
 		}
+
+		/// <summary>
+		/// Creates a game mode descriptor for the current game mode.
+		/// </summary>
+		/// <returns>A game mode descriptor for the current game mode.</returns>
+		protected abstract IGameModeDescriptor CreateGameModeDescriptor();
 
 		#region IDisposable Members
 

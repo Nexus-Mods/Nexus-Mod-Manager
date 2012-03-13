@@ -12,26 +12,14 @@ namespace Nexus.Client.Games.Skyrim
 	/// </summary>
 	public class SkyrimGameMode : Fallout3GameMode
 	{
-		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { };
-		private SkyrimGameModeDescriptor m_gmdGameModeInfo = new SkyrimGameModeDescriptor();
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private SkyrimGameModeDescriptor m_gmdGameModeInfo = null;
 		private SkyrimLauncher m_glnGameLauncher = null;
 		private SkyrimToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
 
 		/// <summary>
-		/// Gets the list of possible executable files for the game.
-		/// </summary>
-		/// <value>The list of possible executable files for the game.</value>
-		public override string[] GameExecutables
-		{
-			get
-			{
-				return m_gmdGameModeInfo.GameExecutables;
-			}
-		}
-
-       	/// <summary>
 		/// Gets the list of possible script extender executable files for the game.
 		/// </summary>
 		/// <value>The list of possible script extender executable files for the game.</value>
@@ -40,42 +28,6 @@ namespace Nexus.Client.Games.Skyrim
 			get
 			{
 				return SCRIPT_EXTENDER_EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the display name of the game mode.
-		/// </summary>
-		/// <value>The display name of the game mode.</value>
-		public override string Name
-		{
-			get
-			{
-				return m_gmdGameModeInfo.Name;
-			}
-		}
-
-		/// <summary>
-		/// Gets the unique id of the game mode.
-		/// </summary>
-		/// <value>The unique id of the game mode.</value>
-		public override string ModeId
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeId;
-			}
-		}
-
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override Theme ModeTheme
-		{
-			get
-			{
-				return m_gmdGameModeInfo.ModeTheme;
 			}
 		}
 
@@ -157,5 +109,16 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Creates a game mode descriptor for the current game mode.
+		/// </summary>
+		/// <returns>A game mode descriptor for the current game mode.</returns>
+		protected override IGameModeDescriptor CreateGameModeDescriptor()
+		{
+			if (m_gmdGameModeInfo == null)
+				m_gmdGameModeInfo = new SkyrimGameModeDescriptor(EnvironmentInfo);
+			return m_gmdGameModeInfo;
+		}
 	}
 }

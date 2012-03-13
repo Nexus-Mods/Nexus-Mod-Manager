@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -62,6 +62,7 @@
     <Compile Include="BackgroundTasks\UI\ProgressDialog.Designer.cs">
       <DependentUpon>ProgressDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="PluginManagement\OrderLog\IPluginOrderLog.cs" />
     <Compile Include="UI\Delegates.cs" />
     <Compile Include="UI\IView.cs" />
     <Compile Include="UI\ViewMessage.cs" />

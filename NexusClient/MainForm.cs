@@ -16,6 +16,7 @@ using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using WeifenLuo.WinFormsUI.Docking;
+using System.Diagnostics;
 
 namespace Nexus.Client
 {
@@ -59,28 +60,19 @@ namespace Nexus.Client
 
 				m_vmlViewModel.ConfirmUpdaterAction = ConfirmUpdaterAction;
 
+				foreach (HelpInformation.HelpLink hlpLink in m_vmlViewModel.HelpInfo.HelpLinks)
+				{
+					ToolStripMenuItem tmiHelp = new ToolStripMenuItem();
+					tmiHelp.Tag = hlpLink;
+					tmiHelp.Text = hlpLink.Name;
+					tmiHelp.ToolTipText = hlpLink.Url;
+					tmiHelp.ImageScaling = ToolStripItemImageScaling.None;
+					tmiHelp.Click += new EventHandler(tmiHelp_Click);
+					spbHelp.DropDownItems.Add(tmiHelp);
+				}
+
 				BindCommands();
 			}
-		}
-
-		void Tasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-		{
-			if (InvokeRequired)
-			{
-				Invoke((Action<object, NotifyCollectionChangedEventArgs>)Tasks_CollectionChanged, sender, e);
-				return;
-			}
-			amcActivityMonitor.Activate();
-		}
-
-		void ActiveTasks_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-		{
-			if (InvokeRequired)
-			{
-				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ActiveTasks_CollectionChanged, sender, e);
-				return;
-			}
-			amcActivityMonitor.Activate();
 		}
 
 		#endregion
@@ -215,6 +207,46 @@ namespace Nexus.Client
 		private void ChangeGameModeCommand_Executed(object sender, EventArgs e)
 		{
 			Close();
+		}
+
+		#endregion
+
+		#region Tasks
+
+		/// <summary>
+		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the tasks list.
+		/// </summary>
+		/// <remarks>
+		/// Displays the activity monitor.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
+		private void Tasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)Tasks_CollectionChanged, sender, e);
+				return;
+			}
+			amcActivityMonitor.Activate();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the active tasks list.
+		/// </summary>
+		/// <remarks>
+		/// Displays the activity monitor.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
+		private void ActiveTasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ActiveTasks_CollectionChanged, sender, e);
+				return;
+			}
+			amcActivityMonitor.Activate();
 		}
 
 		#endregion
@@ -376,6 +408,47 @@ namespace Nexus.Client
 
 		#endregion
 
+		#region Help Links Binding Helpers
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the help button.
+		/// </summary>
+		/// <remarks>
+		/// This displays the list of help items when the button is clicked.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void spbHelp_ButtonClick(object sender, EventArgs e)
+		{
+			spbHelp.DropDown.Show();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the help links.
+		/// </summary>
+		/// <remarks>
+		/// This launches the link in the user's browser.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void tmiHelp_Click(object sender, EventArgs e)
+		{
+			HelpInformation.HelpLink hlpLink = (HelpInformation.HelpLink)((ToolStripMenuItem)sender).Tag;
+			if (hlpLink == null)
+				return;
+			try
+			{
+				System.Diagnostics.Process.Start(hlpLink.Url);
+			}
+			catch (Win32Exception)
+			{
+				MessageBox.Show(this, "Cannot find programme to open: " + hlpLink.Url, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				Trace.WriteLine("Cannot find programme to open: " + hlpLink.Url);
+			}
+		}
+
+		#endregion
+
 		#region Game Launch Binding Helpers
 
 		/// <summary>
@@ -499,6 +572,8 @@ namespace Nexus.Client
 			tsbChangeMode.Image = imgChangeMod;
 		}
 
+		#region Form Events
+
 		/// <summary>
 		/// Raises the <see cref="Form.Closing"/> event.
 		/// </summary>
@@ -538,6 +613,8 @@ namespace Nexus.Client
 			base.OnShown(e);
 			ViewModel.ViewIsShown();
 		}
+
+		#endregion
 
 		/// <summary>
 		/// Restores focus to the form.
