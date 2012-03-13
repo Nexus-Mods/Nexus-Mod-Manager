@@ -248,7 +248,10 @@ namespace Nexus.Client
 					return null;
 				}
 				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
+				{
 					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
+					m_eifEnvironmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
+				}
 				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
 				m_eifEnvironmentInfo.Settings.Save();
 			}
