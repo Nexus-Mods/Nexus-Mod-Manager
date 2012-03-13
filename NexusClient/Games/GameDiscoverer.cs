@@ -57,6 +57,15 @@ namespace Nexus.Client.Games
 		/// </summary>
 		public event EventHandler<GameModeDiscoveredEventArgs> PathFound = delegate { };
 
+		/// <summary>
+		/// Raised when a game has been resolved.
+		/// </summary>
+		/// <remarks>
+		/// A game is resolved when a path as been accepted, overridden, or the search
+		/// has completed and the game has not been found.
+		/// </remarks>
+		public event EventHandler<GameModeDiscoveredEventArgs> GameResolved = delegate { };
+
 		#endregion
 
 		private Dictionary<string, Queue<string>> m_dicCandidatePathsByGame = new Dictionary<string, Queue<string>>();
@@ -74,11 +83,29 @@ namespace Nexus.Client.Games
 		/// This list may be incomplete until the task completes.
 		/// </remarks>
 		/// <value>The list of discovered games.</value>
-		public IEnumerable<GameInstallData> DiscoveredGameModes
+		public IList<GameInstallData> DiscoveredGameModes
 		{
 			get
 			{
 				return m_lstFoundGameModes;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of game modes for which the search has finished.
+		/// </summary>
+		/// <remarks>
+		/// The search is finished for a game if an installation path has
+		/// been accepted, overridden, or not found.
+		/// </remarks>
+		/// <value>The list of game modes for which the search has finished.</value>
+		public IEnumerable<IGameModeDescriptor> ResolvedGameModes
+		{
+			get
+			{
+				foreach (IGameModeDescriptor gmdInfo in m_dicGameModesById.Values)
+					if (!m_dicCandidatePathsByGame.ContainsKey(gmdInfo.ModeId))
+						yield return gmdInfo;
 			}
 		}
 
@@ -117,6 +144,26 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Raises the <see cref="GameResolved"/> event.
+		/// </summary>
+		/// <param name="e">An <see cref="GameModeDiscoveredEventArgs"/> describing the task that was started.</param>
+		protected virtual void OnGameResolved(GameModeDiscoveredEventArgs e)
+		{
+			GameResolved(this, e);
+		}
+
+		/// <summary>
+		/// Raises the <see cref="PathFound"/> event.
+		/// </summary>
+		/// <param name="p_gmdGameMode">The game mode which has been resolved.</param>
+		/// <param name="p_strFoundPath">The installaiton path that was found.</param>
+		protected void OnGameResolved(IGameModeDescriptor p_gmdGameMode, string p_strFoundPath)
+		{
+			m_dicCandidatePathsByGame.Remove(p_gmdGameMode.ModeId);
+			OnGameResolved(new GameModeDiscoveredEventArgs(p_gmdGameMode, p_strFoundPath));
+		}
+
+		/// <summary>
 		/// Raises the <see cref="FileSearcher.FileFound"/> event.
 		/// </summary>
 		/// <remarks>
@@ -128,9 +175,29 @@ namespace Nexus.Client.Games
 		{
 			base.OnFileFound(e);
 			string strFileName = Path.GetFileName(e.Argument);
-			IGameModeDescriptor gmdGameMode = m_dicGameModesByFile[strFileName];
-			string strPath = Path.GetDirectoryName(e.Argument);
-			FoundCandidate(gmdGameMode, strPath);
+			if (m_dicGameModesByFile.ContainsKey(strFileName))
+			{
+				IGameModeDescriptor gmdGameMode = m_dicGameModesByFile[strFileName];
+				string strPath = Path.GetDirectoryName(e.Argument);
+				FoundCandidate(gmdGameMode, strPath);
+			}
+		}
+
+		/// <summary>
+		/// Raises the <see cref="IBackgroundTask.TaskEnded"/> event.
+		/// </summary>
+		/// <remarks>
+		/// This raises the <see cref="GameResolved"/> event for any games that were not found.
+		/// </remarks>
+		/// <param name="e">The <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
+		protected override void OnTaskEnded(TaskEndedEventArgs e)
+		{
+			base.OnTaskEnded(e);
+			string[] strModeIds = new string[m_dicCandidatePathsByGame.Count];
+			m_dicCandidatePathsByGame.Keys.CopyTo(strModeIds, 0);
+			foreach (string strModeId in strModeIds)
+				if (m_dicCandidatePathsByGame[strModeId].Count == 0)
+					OnGameResolved(m_dicGameModesById[strModeId], null);
 		}
 
 		#endregion
@@ -194,8 +261,10 @@ namespace Nexus.Client.Games
 		{
 			if (!m_dicCandidatePathsByGame.ContainsKey(p_strGameModeId))
 				return;
-			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], m_dicCandidatePathsByGame[p_strGameModeId].Peek()));
+			string strInstallPath = m_dicCandidatePathsByGame[p_strGameModeId].Peek();
+			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], strInstallPath));
 			Stop(p_strGameModeId);
+			OnGameResolved(m_dicGameModesById[p_strGameModeId], strInstallPath);
 			if (m_dicCandidatePathsByGame.Count == 0)
 				Status = TaskStatus.Complete;
 		}
@@ -209,6 +278,7 @@ namespace Nexus.Client.Games
 		{
 			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], p_strInstallPath));
 			Stop(p_strGameModeId);
+			OnGameResolved(m_dicGameModesById[p_strGameModeId], p_strInstallPath);
 			if (m_dicCandidatePathsByGame.Count == 0)
 				Status = TaskStatus.Complete;
 		}
@@ -225,6 +295,8 @@ namespace Nexus.Client.Games
 			m_dicCandidatePathsByGame[p_strGameModeId].Dequeue();
 			if (m_dicCandidatePathsByGame[p_strGameModeId].Count > 0)
 				OnPathFound(m_dicGameModesById[p_strGameModeId], m_dicCandidatePathsByGame[p_strGameModeId].Peek());
+			else if (Status == TaskStatus.Complete)
+				OnGameResolved(m_dicGameModesById[p_strGameModeId], null);
 		}
 
 		/// <summary>

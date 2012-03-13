@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
+using System.Linq;
 
 namespace Nexus.Client
 {
@@ -32,7 +33,7 @@ namespace Nexus.Client
 			{
 				m_vmlViewModel = value;
 				butOK.Enabled = false;
-				m_vmlViewModel.GameDetector.TaskEnded += new EventHandler<Nexus.Client.BackgroundTasks.TaskEndedEventArgs>(Detector_TaskEnded);
+				m_vmlViewModel.GameDetector.GameResolved += new EventHandler<GameModeDiscoveredEventArgs>(GameDetector_GameResolved);
 				List<IGameModeDescriptor> lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
 				for (Int32 i = 0; i < lstGameModes.Count; i++)
 				{
@@ -79,21 +80,22 @@ namespace Nexus.Client
 		#endregion
 
 		/// <summary>
-		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of the game discoverer.
+		/// Handles the <see cref="GameDiscoverer.GameResolved"/> event of the game discoverer.
 		/// </summary>
 		/// <remarks>
 		/// Enables the OK button.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
-		private void Detector_TaskEnded(object sender, TaskEndedEventArgs e)
+		private void GameDetector_GameResolved(object sender, GameModeDiscoveredEventArgs e)
 		{
 			if (butOK.InvokeRequired)
 			{
-				butOK.Invoke((Action<object, TaskEndedEventArgs>)Detector_TaskEnded, sender, e);
+				butOK.Invoke((Action<object, GameModeDiscoveredEventArgs>)GameDetector_GameResolved, sender, e);
 				return;
 			}
-			butOK.Enabled = true;
+			if (ViewModel.GameDetector.ResolvedGameModes.Count() == ViewModel.SupportedGameModes.RegisteredGameModes.Count())
+				butOK.Enabled = true;
 		}
 
 		/// <summary>
@@ -107,7 +109,7 @@ namespace Nexus.Client
 		private void butCancel_Click(object sender, EventArgs e)
 		{
 			DialogResult = DialogResult.None;
-			if (MessageBox.Show(this, String.Format("Cancelling will exit {0}. Are you sure?", ViewModel.EnvironmentInfo.Settings.ModManagerName)  , "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
+			if (MessageBox.Show(this, String.Format("Cancelling will exit {0}. Are you sure?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
 			{
 				DialogResult = DialogResult.Cancel;
 				ViewModel.Cancel();
