@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.Settings;
-using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client

@@ -1,5 +1,4 @@
 ﻿using System.Windows.Forms;
-using System;
 
 namespace Nexus.Client
 {
@@ -10,14 +9,32 @@ namespace Nexus.Client
 	{
 		private bool m_booSettingSelected = false;
 
-		public void Select(IGameModeListViewItem p_lviSelectedItem)
+		#region Properties
+
+		/// <summary>
+		/// Gets or sets the selected item in the list.
+		/// </summary>
+		/// <value>The selected item in the list.</value>
+		public IGameModeListViewItem SelectedItem
 		{
-			if (m_booSettingSelected)
-				return;
-			m_booSettingSelected = true;
-			foreach (IGameModeListViewItem lviItem in Controls)
-				lviItem.SetSelected(p_lviSelectedItem == lviItem);
-			m_booSettingSelected = false;
+			get
+			{
+				foreach (IGameModeListViewItem lviItem in Controls)
+					if (lviItem.Selected)
+						return lviItem;
+				return null;
+			}
+			set
+			{
+				if (m_booSettingSelected)
+					return;
+				m_booSettingSelected = true;
+				foreach (IGameModeListViewItem lviItem in Controls)
+					lviItem.Selected = (value == lviItem);
+				m_booSettingSelected = false;
+			}
 		}
+
+		#endregion
 	}
 }

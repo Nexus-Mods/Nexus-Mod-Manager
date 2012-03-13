@@ -1,25 +1,44 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Windows.Forms;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using Nexus.Client.Games;
 
 namespace Nexus.Client
 {
+	/// <summary>
+	/// A list view item that displays info about a game mode.
+	/// </summary>
 	public partial class GameModeListViewItem : UserControl, IGameModeListViewItem
 	{
 		[DllImport("gdi32.dll")]
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
 
 		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
+		private bool m_booIsSelected = false;
 
 		#region Properties
+
+		/// <summary>
+		/// Gets or sets whether the item is selected in the list view.
+		/// </summary>
+		/// <value>Whether the item is selected in the list view.</value>
+		public bool Selected
+		{
+			get
+			{
+				return m_booIsSelected;
+			}
+			set
+			{
+				m_booIsSelected = value;
+				if (Parent is GameModeListView)
+					((GameModeListView)Parent).SelectedItem = this;
+				//BackColor = value ? SystemColors.ControlDark : SystemColors.Control;
+				BorderStyle = value ? BorderStyle.FixedSingle : BorderStyle.None;
+			}
+		}
 
 		/// <summary>
 		/// Gets the descriptor for the game modewhose install path is to be found.
@@ -39,7 +58,7 @@ namespace Nexus.Client
 		{
 			GameMode = p_gmdGameModeInfo;
 			InitializeComponent();
-			
+
 			IntPtr pbyt = IntPtr.Zero;
 			try
 			{
@@ -89,21 +108,28 @@ namespace Nexus.Client
 			base.OnParentChanged(e);
 		}
 
+		/// <summary>
+		/// Raises the <see cref="Control.Click"/> event.
+		/// </summary>
+		/// <remarks>
+		/// This tells the containing list veiw to select this item.
+		/// </remarks>
+		/// <param name="e">The <see cref="EventArgs"/> describing the event arguments.</param>
 		protected override void OnClick(EventArgs e)
 		{
 			if (Parent is GameModeListView)
-				((GameModeListView)Parent).Select(this);
+				((GameModeListView)Parent).SelectedItem = this;
 			base.OnClick(e);
 		}
 
-		public void SetSelected(bool p_booIsSelected)
-		{
-			if (Parent is GameModeListView)
-				((GameModeListView)Parent).Select(this);
-			//BackColor = p_booIsSelected ? SystemColors.ControlDark : SystemColors.Control;
-			BorderStyle = p_booIsSelected ? BorderStyle.FixedSingle : BorderStyle.None;
-		}
-
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of all contained controls.
+		/// </summary>
+		/// <remarks>
+		/// This passes the click event to the control.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void Control_Click(object sender, EventArgs e)
 		{
 			OnClick(e);

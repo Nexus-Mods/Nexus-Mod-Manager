@@ -23,6 +23,21 @@ namespace Nexus.Client
 		#region Properties
 
 		/// <summary>
+		/// Gets or sets whether the item is selected in the list view.
+		/// </summary>
+		/// <value>Whether the item is selected in the list view.</value>
+		public bool Selected
+		{
+			get
+			{
+				return false;
+			}
+			set
+			{
+			}
+		}
+
+		/// <summary>
 		/// Gets the descriptor for the game modewhose install path is to be found.
 		/// </summary>
 		/// <value>The descriptor for the game modewhose install path is to be found.</value>
@@ -257,11 +272,6 @@ namespace Nexus.Client
 				erpErrors.SetError(butSelectPath, "Path does not contain game EXE.");
 			else
 				erpErrors.SetError(butSelectPath, null);
-		}
-
-		public void SetSelected(bool p_booIsSelected)
-		{
-			
 		}
 	}
 }
