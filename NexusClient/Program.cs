@@ -82,12 +82,21 @@ namespace Nexus.Client
 				}
 #endif
 
-				Trace.TraceInformation(String.Format("Running Threads ({0})", TrackedThreadManager.Threads.Count));
+				Trace.TraceInformation(String.Format("Running Threads ({0})", TrackedThreadManager.Threads.Length));
 				Trace.Indent();
-				foreach (TrackedThread thdThread in TrackedThreadManager.Threads)
+				TrackedThread[] thdThreads = TrackedThreadManager.Threads;
+				foreach (TrackedThread thdThread in thdThreads)
 				{
 					Trace.TraceInformation(String.Format("{0} ({1}) ", thdThread.Thread.ManagedThreadId, thdThread.Thread.Name));
-					thdThread.Thread.Abort();
+					Trace.Indent();
+					if (thdThread.Thread.IsAlive)
+					{
+						Trace.TraceInformation("Aborted");
+						thdThread.Thread.Abort();
+					}
+					else
+						Trace.TraceInformation("Ended Cleanly");
+					Trace.Unindent();
 				}
 				Trace.Unindent();
 			}

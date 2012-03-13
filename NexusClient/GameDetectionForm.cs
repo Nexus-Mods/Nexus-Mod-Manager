@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using Nexus.Client.Games;
+using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client
 {
@@ -39,7 +40,7 @@ namespace Nexus.Client
 					gameModeListView1.Controls.Add(gliGameModeItem);
 				}
 
-				Size szeMax =Screen.GetWorkingArea(this).Size;
+				Size szeMax = Screen.GetWorkingArea(this).Size;
 				Size = new Size((Int32)(szeMax.Width * .9), (Int32)(szeMax.Height * .9));
 				Int32 intWidthOffset = Size.Width - gameModeListView1.ClientSize.Width;
 				Int32 intHeightOffset = Size.Height - gameModeListView1.ClientSize.Height;
@@ -61,8 +62,13 @@ namespace Nexus.Client
 			}
 		}
 
-		void Detector_TaskEnded(object sender, Nexus.Client.BackgroundTasks.TaskEndedEventArgs e)
+		void Detector_TaskEnded(object sender, TaskEndedEventArgs e)
 		{
+			if (butOK.InvokeRequired)
+			{
+				butOK.Invoke((Action<object, TaskEndedEventArgs>)Detector_TaskEnded, sender, e);
+				return;
+			}
 			butOK.Enabled = true;
 		}
 
@@ -84,7 +90,12 @@ namespace Nexus.Client
 
 		private void butCancel_Click(object sender, EventArgs e)
 		{
-			m_vmlViewModel.Cancel();
+			DialogResult = DialogResult.None;
+			if (MessageBox.Show(this, String.Format("Cancelling will exit {0}. Are you sure?", ViewModel.EnvironmentInfo.Settings.ModManagerName)  , "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
+			{
+				DialogResult = DialogResult.Cancel;
+				ViewModel.Cancel();
+			}
 		}
 
 		private void butOK_Click(object sender, EventArgs e)

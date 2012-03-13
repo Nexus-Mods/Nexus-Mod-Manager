@@ -16,11 +16,11 @@ namespace Nexus.Client.Util.Threading
 		/// Gets the collection of threads being tracked.
 		/// </summary>
 		/// <value>The collection of threads being tracked.</value>
-		public static ICollection<TrackedThread> Threads
+		public static TrackedThread[] Threads
 		{
 			get
 			{
-				return m_lstTrackedThreads;
+				return m_lstTrackedThreads.ToArray();
 			}
 		}
 
