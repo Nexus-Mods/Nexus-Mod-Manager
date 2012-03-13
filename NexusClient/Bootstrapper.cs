@@ -242,6 +242,11 @@ namespace Nexus.Client
 				frmGameDetector.ShowDialog();
 				if (gdrGameDetector.Status != TaskStatus.Complete)
 					return null;
+				if (gdrGameDetector.DiscoveredGameModes.Count == 0)
+				{
+					MessageBox.Show(String.Format("No games were detected! {0} will now close.", m_eifEnvironmentInfo.Settings.ModManagerName), "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return null;
+				}
 				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
 					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
 				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
