@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 
-namespace Nexus.Client
+namespace Nexus.Client.UI.Controls
 {
 	/// <summary>
 	/// A list view item that displays info about a game mode.
@@ -37,6 +37,18 @@ namespace Nexus.Client
 					((GameModeListView)Parent).SelectedItem = this;
 				//BackColor = value ? SystemColors.ControlDark : SystemColors.Control;
 				BorderStyle = value ? BorderStyle.FixedSingle : BorderStyle.None;
+			}
+		}
+
+		/// <summary>
+		/// Gets the value being represented by the list view item.
+		/// </summary>
+		/// <value>The value being represented by the list view item.</value>
+		public object Value
+		{
+			get
+			{
+				return GameMode.ModeId;
 			}
 		}
 

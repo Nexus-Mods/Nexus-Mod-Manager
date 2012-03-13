@@ -124,10 +124,10 @@
     <EmbeddedResource Include="GameDetectionForm.resx">
       <DependentUpon>GameDetectionForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="GameModeListViewItem.resx">
+    <EmbeddedResource Include="UI\Controls\GameModeListViewItem.resx">
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="GameModeSearchListViewItem.resx">
+    <EmbeddedResource Include="UI\Controls\GameModeSearchListViewItem.resx">
       <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="GameModeSelectionForm.resx">
@@ -264,10 +264,10 @@
     <Compile Include="ApplicationInitializer.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
-    <Compile Include="GameModeListViewItem.cs">
+    <Compile Include="UI\Controls\GameModeListViewItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="GameModeListViewItem.Designer.cs">
+    <Compile Include="UI\Controls\GameModeListViewItem.Designer.cs">
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
     </Compile>
     <Compile Include="HelpInformation.cs" />
@@ -278,20 +278,20 @@
       <DependentUpon>GameDetectionForm.cs</DependentUpon>
     </Compile>
     <Compile Include="GameDetectionVM.cs" />
-    <Compile Include="GameModeListView.cs">
+    <Compile Include="UI\Controls\GameModeListView.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="GameModeSearchListViewItem.cs">
+    <Compile Include="UI\Controls\GameModeSearchListViewItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="GameModeSearchListViewItem.Designer.cs">
+    <Compile Include="UI\Controls\GameModeSearchListViewItem.Designer.cs">
       <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
     </Compile>
     <Compile Include="Games\FileSearcher.cs" />
     <Compile Include="Games\GameDiscoverer.cs" />
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
-    <Compile Include="IGameModeListViewItem.cs" />
+    <Compile Include="UI\Controls\IGameModeListViewItem.cs" />
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -383,6 +383,7 @@
     <Compile Include="Settings\UI\GeneralSettingsPage.Designer.cs">
       <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\Controls\SelectedItemEventArgs.cs" />
     <Compile Include="Updating\ProgrammeUpdater.cs" />
     <Compile Include="Updating\UpdateManager.cs" />
     <Compile Include="Updating\UpdateTask.cs" />

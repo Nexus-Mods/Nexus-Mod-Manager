@@ -33,7 +33,7 @@
 			this.label1 = new System.Windows.Forms.Label();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.panel2 = new System.Windows.Forms.Panel();
-			this.gameModeListView1 = new Nexus.Client.GameModeListView();
+			this.glvGameMode = new Nexus.Client.UI.Controls.GameModeListView();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
 			this.SuspendLayout();
@@ -91,15 +91,15 @@
 			// 
 			// gameModeListView1
 			// 
-			this.gameModeListView1.AutoSize = true;
-			this.gameModeListView1.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.gameModeListView1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.gameModeListView1.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
-			this.gameModeListView1.Location = new System.Drawing.Point(0, 22);
-			this.gameModeListView1.Name = "gameModeListView1";
-			this.gameModeListView1.Padding = new System.Windows.Forms.Padding(13, 6, 13, 6);
-			this.gameModeListView1.Size = new System.Drawing.Size(490, 283);
-			this.gameModeListView1.TabIndex = 4;
+			this.glvGameMode.AutoSize = true;
+			this.glvGameMode.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.glvGameMode.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.glvGameMode.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
+			this.glvGameMode.Location = new System.Drawing.Point(0, 22);
+			this.glvGameMode.Name = "gameModeListView1";
+			this.glvGameMode.Padding = new System.Windows.Forms.Padding(13, 6, 13, 6);
+			this.glvGameMode.Size = new System.Drawing.Size(490, 283);
+			this.glvGameMode.TabIndex = 4;
 			// 
 			// GameModeSelectionForm
 			// 
@@ -109,7 +109,7 @@
 			this.AutoSize = true;
 			this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.ClientSize = new System.Drawing.Size(490, 365);
-			this.Controls.Add(this.gameModeListView1);
+			this.Controls.Add(this.glvGameMode);
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.panel1);
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
@@ -132,7 +132,7 @@
 		private System.Windows.Forms.CheckBox cbxRemember;
 		private System.Windows.Forms.Button butOK;
 		private System.Windows.Forms.Label label1;
-		private GameModeListView gameModeListView1;
+		private Nexus.Client.UI.Controls.GameModeListView glvGameMode;
 		private System.Windows.Forms.Panel panel1;
 		private System.Windows.Forms.Panel panel2;
 	}

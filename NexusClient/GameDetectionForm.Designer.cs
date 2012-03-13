@@ -29,7 +29,7 @@
 		private void InitializeComponent()
 		{
 			this.panel1 = new System.Windows.Forms.Panel();
-			this.gameModeListView1 = new Nexus.Client.GameModeListView();
+			this.gameModeListView1 = new Nexus.Client.UI.Controls.GameModeListView();
 			this.butOK = new System.Windows.Forms.Button();
 			this.butCancel = new System.Windows.Forms.Button();
 			this.panel1.SuspendLayout();
@@ -101,7 +101,7 @@
 		#endregion
 
 		private System.Windows.Forms.Panel panel1;
-		private GameModeListView gameModeListView1;
+		private Nexus.Client.UI.Controls.GameModeListView gameModeListView1;
 		private System.Windows.Forms.Button butCancel;
 		private System.Windows.Forms.Button butOK;
 	}
