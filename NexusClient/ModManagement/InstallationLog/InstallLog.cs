@@ -27,7 +27,6 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		private static readonly IMod m_modOriginalValueMod = new DummyMod("ORIGINAL_VALUE", String.Format("Dummy Mod: {0}", "ORIGINAL_VALUE"));
 		private static readonly IMod m_modModManagerValueMod = new DummyMod("MOD_MANAGER_VALUE", String.Format("Dummy Mod: {0}", "MOD_MANAGER_VALUE"));
 		private static readonly Version CURRENT_VERSION = new Version("0.4.0.0");
-		private static readonly Regex m_rgxCleanPath = new Regex("[" + Path.DirectorySeparatorChar + Path.AltDirectorySeparatorChar + "]{2,}");
 		private static readonly object m_objEnlistmentLock = new object();
 		private static Dictionary<string, TransactionEnlistment> m_dicEnlistments = null;
 
@@ -414,22 +413,6 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		}
 
 		#endregion
-
-		/// <summary>
-		/// Normalizes the given path.
-		/// </summary>
-		/// <remarks>
-		/// This removes multiple consecutive path separators and makes sure all path
-		/// separators are <see cref="Path.DirectorySeparatorChar"/>.
-		/// </remarks>
-		/// <param name="p_strPath">The path to normalize.</param>
-		/// <returns>The normalized path.</returns>
-		protected string NormalizePath(string p_strPath)
-		{
-			string strNormalizedPath = m_rgxCleanPath.Replace(p_strPath, Path.DirectorySeparatorChar.ToString());
-			strNormalizedPath = strNormalizedPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			return strNormalizedPath;
-		}
 
 		#region Transaction Handling
 
