@@ -106,6 +106,10 @@ namespace Nexus.Client.Games
 
 		#region Properties
 
+		/// <summary>
+		/// Gets the list of registered game modes.
+		/// </summary>
+		/// <value>The list of registered game modes.</value>
 		public IEnumerable<IGameModeDescriptor> RegisteredGameModes
 		{
 			get
@@ -120,10 +124,8 @@ namespace Nexus.Client.Games
 		#region Constructors
 
 		/// <summary>
-		/// A simple constructor that initializes the object with its dependencies.
+		/// The default constructor.
 		/// </summary>
-		/// <param name="p_frgFormatRegistry">The <see cref="IModFormatRegistry"/> that contains the list
-		/// of supported <see cref="IModFormat"/>s.</param>
 		public GameModeRegistry()
 		{
 		}

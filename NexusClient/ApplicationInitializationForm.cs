@@ -1,5 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -11,8 +13,6 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 
 namespace Nexus.Client
 {

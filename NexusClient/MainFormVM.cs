@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Nexus.Client.ActivityMonitoring;
 using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.BackgroundTasks;
@@ -8,16 +9,15 @@ using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
+using Nexus.Client.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
-using Nexus.Client.UI;
-using System.ComponentModel;
-using Nexus.Client.ModRepositories;
 
 namespace Nexus.Client
 {
