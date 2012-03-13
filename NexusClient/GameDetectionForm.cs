@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
-using Nexus.Client.Games;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Games;
 
 namespace Nexus.Client
 {
+	/// <summary>
+	/// The view displaying the progress of the search for installed games.
+	/// </summary>
 	public partial class GameDetectionForm : Form
 	{
 		private GameDetectionVM m_vmlViewModel = null;
@@ -36,7 +36,7 @@ namespace Nexus.Client
 				List<IGameModeDescriptor> lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
 				for (Int32 i = 0; i < lstGameModes.Count; i++)
 				{
-					GameModeListViewItem gliGameModeItem = new GameModeListViewItem(lstGameModes[i], m_vmlViewModel.GameDetector);
+					GameModeSearchListViewItem gliGameModeItem = new GameModeSearchListViewItem(lstGameModes[i], m_vmlViewModel.GameDetector);
 					gameModeListView1.Controls.Add(gliGameModeItem);
 				}
 
@@ -62,7 +62,31 @@ namespace Nexus.Client
 			}
 		}
 
-		void Detector_TaskEnded(object sender, TaskEndedEventArgs e)
+		#endregion
+
+		#region Constructors
+
+		/// <summary>
+		/// A simple constructor that initializes the object with the given values.
+		/// </summary>
+		/// <param name="p_vmlGameDetection">The game detector view model.</param>
+		public GameDetectionForm(GameDetectionVM p_vmlGameDetection)
+		{
+			InitializeComponent();
+			ViewModel = p_vmlGameDetection;
+		}
+
+		#endregion
+
+		/// <summary>
+		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of the game discoverer.
+		/// </summary>
+		/// <remarks>
+		/// Enables the OK button.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
+		private void Detector_TaskEnded(object sender, TaskEndedEventArgs e)
 		{
 			if (butOK.InvokeRequired)
 			{
@@ -72,22 +96,14 @@ namespace Nexus.Client
 			butOK.Enabled = true;
 		}
 
-		#endregion
-
-		#region Constructors
-
 		/// <summary>
-		/// A simple constructor that initializes the object with the given values.
+		/// Handles the <see cref="Control.Click"/> event of the cancel button.
 		/// </summary>
-		/// <param name="p_iniApplicationInitializer">The application initializer.</param>
-		public GameDetectionForm(GameDetectionVM p_vmlGameDetection)
-		{
-			InitializeComponent();
-			ViewModel = p_vmlGameDetection;
-		}
-
-		#endregion
-
+		/// <remarks>
+		/// Confirms that the users wants to cancel the detection.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butCancel_Click(object sender, EventArgs e)
 		{
 			DialogResult = DialogResult.None;
@@ -98,6 +114,14 @@ namespace Nexus.Client
 			}
 		}
 
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the ok button.
+		/// </summary>
+		/// <remarks>
+		/// Closes the dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butOK_Click(object sender, EventArgs e)
 		{
 			DialogResult = DialogResult.OK;

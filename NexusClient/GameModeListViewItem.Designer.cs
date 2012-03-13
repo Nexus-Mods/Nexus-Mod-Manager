@@ -1,6 +1,6 @@
 ﻿namespace Nexus.Client
 {
-	partial class GameModeListViewItem
+	partial class GameModeSearchListViewItem
 	{
 		/// <summary> 
 		/// Required designer variable.
@@ -29,7 +29,7 @@
 		private void InitializeComponent()
 		{
 			this.components = new System.ComponentModel.Container();
-			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(GameModeListViewItem));
+			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(GameModeSearchListViewItem));
 			this.lblGameModeName = new System.Windows.Forms.Label();
 			this.pnlCandidate = new System.Windows.Forms.Panel();
 			this.label1 = new System.Windows.Forms.Label();

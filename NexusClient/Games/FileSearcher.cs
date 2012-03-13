@@ -1,11 +1,10 @@
 ﻿using System;
-using System.IO;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Util.Collections;
 using System.Collections;
 using System.Collections.Generic;
-using Nexus.Client.Util;
+using System.IO;
 using System.Text.RegularExpressions;
+using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games
 {
@@ -20,6 +19,9 @@ namespace Nexus.Client.Games
 	{
 		#region Events
 
+		/// <summary>
+		/// Raise when a file has been found.
+		/// </summary>
 		public event EventHandler<EventArgs<string>> FileFound = delegate { };
 
 		#endregion
@@ -28,6 +30,10 @@ namespace Nexus.Client.Games
 		
 		#region Properties
 
+		/// <summary>
+		/// Gets whether or not the task has been asked to terminate.
+		/// </summary>
+		/// <value>Whether or not the task has been asked to terminate.</value>
 		protected bool EndTaskRequested
 		{
 			get
@@ -54,7 +60,7 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// Raises the <see cref="FileFound"/> event.
 		/// </summary>
-		/// <param name="e">An <see cref="EventArgs{string}"/> describing the task that was started.</param>
+		/// <param name="e">An <see cref="EventArgs{String}"/> describing the task that was started.</param>
 		protected virtual void OnFileFound(EventArgs<string> e)
 		{
 			FileFound(this, e);
