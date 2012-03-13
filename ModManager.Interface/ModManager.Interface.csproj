@@ -70,12 +70,6 @@
     <Compile Include="Games\Tools\ITool.cs" />
     <Compile Include="Games\Tools\IToolLauncher.cs" />
     <Compile Include="Games\Tools\IToolView.cs" />
-    <Compile Include="Games\WorkingDirectorySelectionForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Games\WorkingDirectorySelectionForm.Designer.cs">
-      <DependentUpon>WorkingDirectorySelectionForm.cs</DependentUpon>
-    </Compile>
     <Compile Include="ModManagement\BasicInstallTask.cs" />
     <Compile Include="ModManagement\ConfirmUpgradeResult.cs" />
     <Compile Include="ModManagement\IGameSpecificValueInstaller.cs" />
@@ -152,10 +146,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Games\Settings\RequiredDirectoriesControl.resx">
       <DependentUpon>RequiredDirectoriesControl.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Games\WorkingDirectorySelectionForm.resx">
-      <DependentUpon>WorkingDirectorySelectionForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">

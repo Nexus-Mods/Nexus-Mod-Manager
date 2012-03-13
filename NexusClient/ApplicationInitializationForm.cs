@@ -48,7 +48,6 @@ namespace Nexus.Client
 			{
 				m_vmlViewModel = value;
 				m_vmlViewModel.LoginUser = Login;
-				m_vmlViewModel.GetInstallationPathCandidate = GetInstallationPathCandidate;
 				m_vmlViewModel.ConfirmMakeWritable = ConfirmMakeWritable;
 				m_vmlViewModel.ShowView = ShowView;
 				m_vmlViewModel.ShowMessage = ShowMessage;
@@ -389,44 +388,6 @@ namespace Nexus.Client
 				return (bool)Invoke((Func<LoginFormVM, bool>)Login, p_vmlViewModel);
 			LoginForm frmLogin = new LoginForm(p_vmlViewModel);
 			return frmLogin.ShowDialog(this) == DialogResult.OK;
-		}
-
-		/// <summary>
-		/// Gets a possible candidate for the installation path for the game mode represented by the given game mode descriptor.
-		/// </summary>
-		/// <param name="p_gmdGameModeInfo">The descriptor for the game mode for which the installation path is to be found.</param>
-		/// <param name="p_strDefaultPath">The default installation path.</param>
-		/// <param name="p_strPath">The installation path for the game mode represented by the given game mode descriptor.</param>
-		/// <returns><c>true</c> if we got a candidate; <c>fasle</c> otherwise.</returns>
-		private bool GetInstallationPathCandidate(IGameModeDescriptor p_gmdGameModeInfo, string p_strDefaultPath, out string p_strPath)
-		{
-			if (InvokeRequired)
-			{
-				string strPath = null;
-				bool booResult = false;
-				Invoke((MethodInvoker)(() => booResult = GetInstallationPathCandidate(p_gmdGameModeInfo, p_strDefaultPath, out strPath)));
-				p_strPath = strPath;
-				return booResult;
-			}
-			StringBuilder stbMessage = new StringBuilder();
-			stbMessage.AppendFormat("Could not find {0} directory.", p_gmdGameModeInfo.Name).AppendLine();
-			stbMessage.AppendFormat("{0}'s registry entry appears to be missing or incorrect.", p_gmdGameModeInfo.Name).AppendLine();
-			stbMessage.AppendFormat("Please enter the path to your {0} game file, or click \"Auto Detect\" to search", p_gmdGameModeInfo.Name);
-			stbMessage.AppendFormat(" for the install directory. Note that Auto Detection can take several minutes.");
-			string strLabel = String.Format("{0} Game Directory:", p_gmdGameModeInfo.Name);
-			string strTitle = String.Format("{0} Location", p_gmdGameModeInfo.Name);
-
-			using (WorkingDirectorySelectionForm wdfForm = new WorkingDirectorySelectionForm(strTitle, p_gmdGameModeInfo.ModeTheme.Icon, stbMessage.ToString(), strLabel, p_gmdGameModeInfo.GameExecutables))
-			{
-				wdfForm.WorkingDirectory = p_strDefaultPath;
-				if (wdfForm.ShowDialog(this) == DialogResult.Cancel)
-				{
-					p_strPath = null;
-					return false;
-				}
-				p_strPath = wdfForm.WorkingDirectory;
-			}
-			return true;
 		}
 
 		/// <summary>
