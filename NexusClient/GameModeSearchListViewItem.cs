@@ -13,7 +13,7 @@ namespace Nexus.Client
 	/// <summary>
 	/// A list view item that displays a game mode whose install path is being searched for.
 	/// </summary>
-	public partial class GameModeSearchListViewItem : UserControl
+	public partial class GameModeSearchListViewItem : UserControl, IGameModeListViewItem
 	{
 		[DllImport("gdi32.dll")]
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
@@ -259,6 +259,9 @@ namespace Nexus.Client
 				erpErrors.SetError(butSelectPath, null);
 		}
 
-
+		public void SetSelected(bool p_booIsSelected)
+		{
+			
+		}
 	}
 }
