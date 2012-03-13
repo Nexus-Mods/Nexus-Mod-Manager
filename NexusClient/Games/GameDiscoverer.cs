@@ -4,6 +4,7 @@ using System.IO;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using System.Diagnostics;
 
 namespace Nexus.Client.Games
 {
@@ -58,7 +59,8 @@ namespace Nexus.Client.Games
 
 		#endregion
 
-		private Dictionary<string, Queue<string>> m_dicFoundPathsByGame = new Dictionary<string, Queue<string>>();
+		private Dictionary<string, Queue<string>> m_dicCandidatePathsByGame = new Dictionary<string, Queue<string>>();
+		private Dictionary<string, List<string>> m_dicFoundPathsByGame = new Dictionary<string, List<string>>();
 		private Dictionary<string, IGameModeDescriptor> m_dicGameModesById = new Dictionary<string, IGameModeDescriptor>();
 		private Dictionary<string, IGameModeDescriptor> m_dicGameModesByFile = new Dictionary<string, IGameModeDescriptor>(StringComparer.OrdinalIgnoreCase);
 		private List<GameInstallData> m_lstFoundGameModes = new List<GameInstallData>();
@@ -127,12 +129,8 @@ namespace Nexus.Client.Games
 			base.OnFileFound(e);
 			string strFileName = Path.GetFileName(e.Argument);
 			IGameModeDescriptor gmdGameMode = m_dicGameModesByFile[strFileName];
-			if (!m_dicFoundPathsByGame.ContainsKey(gmdGameMode.ModeId))
-				return;
 			string strPath = Path.GetDirectoryName(e.Argument);
-			m_dicFoundPathsByGame[gmdGameMode.ModeId].Enqueue(strPath);
-			if (m_dicFoundPathsByGame[gmdGameMode.ModeId].Count == 1)
-				OnPathFound(gmdGameMode, strPath);
+			FoundCandidate(gmdGameMode, strPath);
 		}
 
 		#endregion
@@ -140,21 +138,51 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// Searchs for the games described by the given game mode descriptors.
 		/// </summary>
-		/// <param name="p_lstGameModesToFind">The game mode info describing the games to search for.</param>
-		public void Find(IEnumerable<IGameModeDescriptor> p_lstGameModesToFind)
+		/// <param name="p_lstGameModesToFind">The game mode factorie of the games to search for.</param>
+		public void Find(IEnumerable<IGameModeFactory> p_lstGameModesToFind)
 		{
 			Set<string> lstFilesToFind = new Set<string>();
-			foreach (IGameModeDescriptor gmdGameMode in p_lstGameModesToFind)
+			Trace.TraceInformation("Searching for the installation paths of:");
+			Trace.Indent();
+			foreach (IGameModeFactory gmfFactory in p_lstGameModesToFind)
 			{
-				m_dicFoundPathsByGame[gmdGameMode.ModeId] = new Queue<string>();
-				m_dicGameModesById[gmdGameMode.ModeId] = gmdGameMode;
-				foreach (string strExecutable in gmdGameMode.GameExecutables)
+				Trace.TraceInformation("{0} ({1})", gmfFactory.GameModeDescriptor.Name, gmfFactory.GameModeDescriptor.ModeId);
+				m_dicCandidatePathsByGame[gmfFactory.GameModeDescriptor.ModeId] = new Queue<string>();
+				m_dicFoundPathsByGame[gmfFactory.GameModeDescriptor.ModeId] = new List<string>();
+				m_dicGameModesById[gmfFactory.GameModeDescriptor.ModeId] = gmfFactory.GameModeDescriptor;
+				foreach (string strExecutable in gmfFactory.GameModeDescriptor.GameExecutables)
 				{
-					m_dicGameModesByFile[strExecutable] = gmdGameMode;
+					m_dicGameModesByFile[strExecutable] = gmfFactory.GameModeDescriptor;
 					lstFilesToFind.Add(strExecutable);
 				}
+				Trace.Indent();
+				Trace.TraceInformation("Asking Game Mode...");
+				string strPath = gmfFactory.GetInstallationPath();
+				if (Verify(gmfFactory.GameModeDescriptor.ModeId, strPath))
+					FoundCandidate(gmfFactory.GameModeDescriptor, strPath);
+				Trace.Unindent();
 			}
+			Trace.TraceInformation("Starting search.");
+			Trace.Unindent();
 			Find(lstFilesToFind.ToArray());
+		}
+
+		/// <summary>
+		/// Adds the given path as an installation path candidate for the specified game.
+		/// </summary>
+		/// <param name="gmdGameMode">The game mode for which to set an installation path candidate.</param>
+		/// <param name="p_strInstallationPath">The installation path candidate.</param>
+		protected void FoundCandidate(IGameModeDescriptor gmdGameMode, string p_strInstallationPath)
+		{
+			if (!m_dicCandidatePathsByGame.ContainsKey(gmdGameMode.ModeId))
+				return;
+			string strCleanPath = FileUtil.NormalizePath(p_strInstallationPath);
+			if (m_dicFoundPathsByGame[gmdGameMode.ModeId].Contains(strCleanPath, StringComparer.OrdinalIgnoreCase))
+				return;
+			m_dicCandidatePathsByGame[gmdGameMode.ModeId].Enqueue(strCleanPath);
+			m_dicFoundPathsByGame[gmdGameMode.ModeId].Add(strCleanPath);
+			if (m_dicCandidatePathsByGame[gmdGameMode.ModeId].Count == 1)
+				OnPathFound(gmdGameMode, p_strInstallationPath);
 		}
 
 		/// <summary>
@@ -164,11 +192,11 @@ namespace Nexus.Client.Games
 		/// <param name="p_strGameModeId">The id of the game mode whose current installation path is to be accepted.</param>
 		public void Accept(string p_strGameModeId)
 		{
-			if (!m_dicFoundPathsByGame.ContainsKey(p_strGameModeId))
+			if (!m_dicCandidatePathsByGame.ContainsKey(p_strGameModeId))
 				return;
-			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], m_dicFoundPathsByGame[p_strGameModeId].Peek()));
+			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], m_dicCandidatePathsByGame[p_strGameModeId].Peek()));
 			Stop(p_strGameModeId);
-			if (m_dicFoundPathsByGame.Count == 0)
+			if (m_dicCandidatePathsByGame.Count == 0)
 				Status = TaskStatus.Complete;
 		}
 
@@ -181,7 +209,7 @@ namespace Nexus.Client.Games
 		{
 			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], p_strInstallPath));
 			Stop(p_strGameModeId);
-			if (m_dicFoundPathsByGame.Count == 0)
+			if (m_dicCandidatePathsByGame.Count == 0)
 				Status = TaskStatus.Complete;
 		}
 
@@ -192,11 +220,11 @@ namespace Nexus.Client.Games
 		/// <param name="p_strGameModeId">The id of the game mode whose current installation path is to be rejected.</param>
 		public void Reject(string p_strGameModeId)
 		{
-			if (!m_dicFoundPathsByGame.ContainsKey(p_strGameModeId) || (m_dicFoundPathsByGame[p_strGameModeId].Count == 0))
+			if (!m_dicCandidatePathsByGame.ContainsKey(p_strGameModeId) || (m_dicCandidatePathsByGame[p_strGameModeId].Count == 0))
 				return;
-			m_dicFoundPathsByGame[p_strGameModeId].Dequeue();
-			if (m_dicFoundPathsByGame[p_strGameModeId].Count > 0)
-				OnPathFound(m_dicGameModesById[p_strGameModeId], m_dicFoundPathsByGame[p_strGameModeId].Peek());
+			m_dicCandidatePathsByGame[p_strGameModeId].Dequeue();
+			if (m_dicCandidatePathsByGame[p_strGameModeId].Count > 0)
+				OnPathFound(m_dicGameModesById[p_strGameModeId], m_dicCandidatePathsByGame[p_strGameModeId].Peek());
 		}
 
 		/// <summary>
@@ -205,8 +233,8 @@ namespace Nexus.Client.Games
 		/// <param name="p_strGameModeId">The id of the game mode to stop searching for.</param>
 		private void Stop(string p_strGameModeId)
 		{
-			if (m_dicFoundPathsByGame.ContainsKey(p_strGameModeId))
-				m_dicFoundPathsByGame.Remove(p_strGameModeId);
+			if (m_dicCandidatePathsByGame.ContainsKey(p_strGameModeId))
+				m_dicCandidatePathsByGame.Remove(p_strGameModeId);
 		}
 
 		/// <summary>
@@ -234,7 +262,7 @@ namespace Nexus.Client.Games
 		/// <c>false</c> otherwise.</returns>
 		public bool HasCandidates(string p_strGameModeId)
 		{
-			return m_dicFoundPathsByGame.ContainsKey(p_strGameModeId) && (m_dicFoundPathsByGame[p_strGameModeId].Count > 0);
+			return m_dicCandidatePathsByGame.ContainsKey(p_strGameModeId) && (m_dicCandidatePathsByGame[p_strGameModeId].Count > 0);
 		}
 
 		/// <summary>

@@ -119,6 +119,18 @@ namespace Nexus.Client.Games
 			}
 		}
 
+		/// <summary>
+		/// Gets the list of factories of the registered game modes.
+		/// </summary>
+		/// <value>The list of factories of the registered game modes.</value>
+		public IEnumerable<IGameModeFactory> RegisteredGameModeFactories
+		{
+			get
+			{
+				return m_dicGameModeFactories.Values;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
