@@ -12,6 +12,8 @@ namespace Nexus.Client.Util
 	/// </summary>
 	public class FileUtil
 	{
+		private static readonly Regex m_rgxCleanPath = new Regex("[" + Path.DirectorySeparatorChar + Path.AltDirectorySeparatorChar + "]{2,}");
+		
 		/// <summary>
 		/// Creates a temporary directory.
 		/// </summary>
@@ -355,6 +357,23 @@ namespace Nexus.Client.Util
 				lstRelativePaths.Add(strPathsToRelativize[i]);
 
 			return String.Join(Path.DirectorySeparatorChar.ToString(), lstRelativePaths.ToArray());
+		}
+
+		/// <summary>
+		/// Normalizes the given path.
+		/// </summary>
+		/// <remarks>
+		/// This removes multiple consecutive path separators and makes sure all path
+		/// separators are <see cref="Path.DirectorySeparatorChar"/>.
+		/// </remarks>
+		/// <param name="p_strPath">The path to normalize.</param>
+		/// <returns>The normalized path.</returns>
+		public static string NormalizePath(string p_strPath)
+		{
+			string strNormalizedPath = m_rgxCleanPath.Replace(p_strPath, Path.DirectorySeparatorChar.ToString());
+			strNormalizedPath = strNormalizedPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			strNormalizedPath = strNormalizedPath.Trim(Path.DirectorySeparatorChar);
+			return strNormalizedPath;
 		}
 	}
 }
