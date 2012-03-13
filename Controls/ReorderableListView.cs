@@ -138,6 +138,7 @@ namespace Nexus.Client.Controls
 
 		private Int32 m_intInsertIndex = -1;
 		private bool m_booIsDropping = false;
+		private Queue<Exception> m_queDragDropExceptions = new Queue<Exception>();
 
 		#region Properties
 
@@ -233,6 +234,8 @@ namespace Nexus.Client.Controls
 			if (SelectedItems.Count == 0)
 				return;
 			DoDragDrop(new List<ListViewItem>(SelectedItems.Cast<ListViewItem>()), DragDropEffects.Move);
+			while (m_queDragDropExceptions.Count > 0)
+				throw new Exception("Exception thrown during drag-drop operation. See inner exception for the exception that was thrown.", m_queDragDropExceptions.Dequeue());
 		}
 
 		/// <summary>
@@ -298,7 +301,21 @@ namespace Nexus.Client.Controls
 					Items.Insert(m_intInsertIndex, data[i]).EnsureVisible();
 				m_intInsertIndex = -1;
 				m_booIsDropping = false;
-				OnItemsReordered(riaEventArgs);
+				try
+				{
+					OnItemsReordered(riaEventArgs);
+				}
+				catch (Exception e)
+				{
+					//this is required as drag/drop operations, even when performed within the same
+					// application, are handled by OLE, which doesn't differentiate between an external
+					// an internal drag/drop source. furhter, OLE doesn't understand exceptions, and so
+					// doesn't pass them on. even if it could, in general, the source of a drag/drop
+					// operation wouldn't care if the target was having an issue. we only care
+					// because the source and target are the same application, and the source
+					// needs to rethrow the exception, or else it will be lost in the ether
+					m_queDragDropExceptions.Enqueue(e);
+				}
 			}
 		}
 

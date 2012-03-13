@@ -210,7 +210,7 @@ namespace Nexus.Client
 			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
 			ViewMessage vwmErrorMessage = null;
 			OverallProgress = 0;
-			OverallProgressMaximum = 14;
+			OverallProgressMaximum = 15;
 			OverallProgressStepSize = 1;
 			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage) && (Status != TaskStatus.Error))
 				Status = TaskStatus.Incomplete;
@@ -283,6 +283,14 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
+			foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
+				if (!File.Exists(strPlugin))
+				{
+					p_vwmErrorMessage = new ViewMessage(String.Format("You are missing {0}. This file is present in all legitimate installs of Skyrim, so either you have deleted the file, or you have pirated Skyrim.{1}Please reinstall Skyrim, or buy Skyrim then reinstall it.", strPlugin, Environment.NewLine), null, "Missing File", MessageBoxIcon.Warning);
+					return false;
+				}
+			StepOverallProgress();
+
 			if (!p_gmfGameModeFactory.PerformInitialization(ShowView, ShowMessage))
 			{
 				p_vwmErrorMessage = null;
@@ -291,12 +299,12 @@ namespace Nexus.Client
 			StepOverallProgress();
 
 			NexusFileUtil nfuFileUtility = new NexusFileUtil(EnvironmentInfo);
-			
+
 			ViewMessage vwmWarning = null;
 			IGameMode gmdGameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out vwmWarning);
 			if (gmdGameMode == null)
 			{
-				p_vwmErrorMessage = new ViewMessage(String.Format("Could not initialize {0} Game Mode.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
+				p_vwmErrorMessage = vwmWarning ?? new ViewMessage(String.Format("Could not initialize {0} Game Mode.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
 				return false;
 			}
 			if (vwmWarning != null)
@@ -417,7 +425,25 @@ namespace Nexus.Client
 				return false;
 			}
 
-			PropertyInfo pifSetting = EnvironmentInfo.GetType().GetProperty("Settings");
+			PropertyInfo pifSetting = null;
+			try
+			{
+				pifSetting = EnvironmentInfo.GetType().GetProperty("Settings");
+			}
+			catch (AmbiguousMatchException)
+			{
+				Trace.TraceInformation("Ambiguous Match while getting {0}.", "Settings");
+				Trace.Indent();
+				Trace.TraceInformation("Delayed Setting: {0}", p_strKey);
+				Trace.TraceInformation("Type: {0}", EnvironmentInfo.GetType().FullName);
+				Trace.TraceInformation("All Properties:");
+				Trace.Indent();
+				foreach (PropertyInfo pifProperty in EnvironmentInfo.GetType().GetProperties())
+					Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
+				Trace.Unindent();
+				Trace.Unindent();
+				throw;
+			}
 			object objSetting = EnvironmentInfo;
 			Type tpeSettings = null;
 			for (Int32 i = 0; i < strPropertyIndexers.Length; i++)
@@ -432,7 +458,43 @@ namespace Nexus.Client
 					return false;
 				}
 				tpeSettings = objSetting.GetType();
-				pifSetting = tpeSettings.GetProperty(strPropertyIndexers[i]) ?? tpeSettings.GetProperty("Item");
+				try
+				{
+					pifSetting = tpeSettings.GetProperty(strPropertyIndexers[i]);
+				}
+				catch (AmbiguousMatchException)
+				{
+					Trace.TraceInformation("Ambiguous Match while getting {0}.", strPropertyIndexers[i]);
+					Trace.Indent();
+					Trace.TraceInformation("Delayed Setting: {0}", p_strKey);
+					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
+					Trace.TraceInformation("All Properties:");
+					Trace.Indent();
+					foreach (PropertyInfo pifProperty in tpeSettings.GetProperties())
+						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
+					Trace.Unindent();
+					Trace.Unindent();
+					throw;
+				}
+				try
+				{
+					if (pifSetting == null)
+						pifSetting = tpeSettings.GetProperty("Item");
+				}
+				catch (AmbiguousMatchException)
+				{
+					Trace.TraceInformation("Ambiguous Match while getting {0}.", "Item");
+					Trace.Indent();
+					Trace.TraceInformation("Delayed Setting: {0}", p_strKey);
+					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
+					Trace.TraceInformation("All Properties:");
+					Trace.Indent();
+					foreach (PropertyInfo pifProperty in tpeSettings.GetProperties())
+						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
+					Trace.Unindent();
+					Trace.Unindent();
+					throw;
+				}
 				if (pifSetting == null)
 				{
 					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Setting does not exist.", p_strKey), "Invalid Setting");
@@ -625,6 +687,8 @@ namespace Nexus.Client
 			Trace.TraceInformation("Checking if upgrade is required...");
 			InstallLogUpgrader iluUgrader = new InstallLogUpgrader();
 			string strLogPath = Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
+			if (!InstallLog.IsLogValid(strLogPath))
+				InstallLog.Restore(strLogPath);
 			if (iluUgrader.NeedsUpgrade(strLogPath))
 			{
 				if (!iluUgrader.CanUpgrade(strLogPath))
@@ -655,19 +719,19 @@ namespace Nexus.Client
 			Trace.TraceInformation("Found {0} managed plugins.", prgPluginRegistry.RegisteredPlugins.Count);
 			Trace.Unindent();
 
-			Trace.TraceInformation("Initializing Active Plugin Log...");
-			Trace.Indent();
-			ActivePluginLog aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer());
-			Trace.Unindent();
-
 			Trace.TraceInformation("Initializing Plugin Order Log...");
 			Trace.Indent();
-			PluginOrderLog polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
+			IPluginOrderLog polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
+			Trace.Unindent();
+
+			Trace.TraceInformation("Initializing Active Plugin Log...");
+			Trace.Indent();
+			ActivePluginLog aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer(polPluginOrderLog));
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Plugin Manager...");
 			Trace.Indent();
-			IPluginManager pmgPluginManager = PluginManager.Initialize(p_gmdGameMode.GameModeEnvironmentInfo, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator());
+			IPluginManager pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator());
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Activity Monitor...");

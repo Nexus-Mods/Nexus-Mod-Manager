@@ -1,13 +1,15 @@
 ﻿using System.Drawing;
+using Nexus.Client.Games.Gamebryo;
 
 namespace Nexus.Client.Games.Oblivion
 {
 	/// <summary>
 	/// Provides the basic information about the Oblivion game mode.
 	/// </summary>
-	public class OblivionGameModeDescriptor : IGameModeDescriptor
+	public class OblivionGameModeDescriptor : GamebryoGameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "oblivion.exe" };
+		private static string[] CRITICAL_PLUGINS = { "oblivion.esm" };
 		private const string MODE_ID = "Oblivion";
 		
 		#region Properties
@@ -16,7 +18,7 @@ namespace Nexus.Client.Games.Oblivion
 		/// Gets the display name of the game mode.
 		/// </summary>
 		/// <value>The display name of the game mode.</value>
-		public string Name
+		public override string Name
 		{
 			get
 			{
@@ -28,7 +30,7 @@ namespace Nexus.Client.Games.Oblivion
 		/// Gets the unique id of the game mode.
 		/// </summary>
 		/// <value>The unique id of the game mode.</value>
-		public string ModeId
+		public override string ModeId
 		{
 			get
 			{
@@ -40,7 +42,7 @@ namespace Nexus.Client.Games.Oblivion
 		/// Gets the list of possible executable files for the game.
 		/// </summary>
 		/// <value>The list of possible executable files for the game.</value>
-		public string[] GameExecutables
+		public override string[] GameExecutables
 		{
 			get
 			{
@@ -49,15 +51,40 @@ namespace Nexus.Client.Games.Oblivion
 		}
 
 		/// <summary>
+		/// Gets the list of critical plugin filenames, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin filenames, ordered by load order.</value>
+		protected override string[] OrderedCriticalPluginFilenames
+		{
+			get
+			{
+				return CRITICAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
 		/// Gets the theme to use for this game mode.
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>
-		public Theme ModeTheme
+		public override Theme ModeTheme
 		{
 			get
 			{
 				return new Theme(Properties.Resources.tes_logo, Color.FromArgb(250, 167, 64));
 			}
+		}
+
+		#endregion
+
+		#region Constructors
+
+		/// <summary>
+		/// A simple constructor that initializes the object with the given dependencies.
+		/// </summary>
+		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		public OblivionGameModeDescriptor(IEnvironmentInfo p_eifEnvironmentInfo)
+			: base(p_eifEnvironmentInfo)
+		{
 		}
 
 		#endregion

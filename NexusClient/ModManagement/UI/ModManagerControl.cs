@@ -29,7 +29,7 @@ namespace Nexus.Client.ModManagement.UI
 		private Timer m_tmrColumnSizer = new Timer();
 		private ListViewItem.ListViewSubItem m_lsiLastSelectedWebVersion = null;
 		private bool m_booControlIsLoaded = false;
-		
+
 		#region Properties
 
 		/// <summary>
@@ -351,19 +351,22 @@ namespace Nexus.Client.ModManagement.UI
 		protected void AddModToList(IMod p_modAdded)
 		{
 			ListViewItem lviMod = null;
-			if (lvwMods.Items.ContainsKey(p_modAdded.Filename.ToLowerInvariant()))
-				lviMod = lvwMods.Items[p_modAdded.Filename.ToLowerInvariant()];
-			else
+			lock (lvwMods)
 			{
-				lviMod = new ListViewItem();
-				for (Int32 i = 1; i < lvwMods.Columns.Count; i++)
+				if (lvwMods.Items.ContainsKey(p_modAdded.Filename.ToLowerInvariant()))
+					lviMod = lvwMods.Items[p_modAdded.Filename.ToLowerInvariant()];
+				else
 				{
-					lviMod.SubItems.Add(new ListViewItem.ListViewSubItem());
-					lviMod.SubItems[i].Name = lvwMods.Columns[i].Name;
+					lviMod = new ListViewItem();
+					for (Int32 i = 1; i < lvwMods.Columns.Count; i++)
+					{
+						lviMod.SubItems.Add(new ListViewItem.ListViewSubItem());
+						lviMod.SubItems[i].Name = lvwMods.Columns[i].Name;
+					}
+					lviMod.Name = p_modAdded.Filename.ToLowerInvariant();
+					lviMod.UseItemStyleForSubItems = false;
+					lvwMods.Items.Add(lviMod);
 				}
-				lviMod.Name = p_modAdded.Filename.ToLowerInvariant();
-				lviMod.UseItemStyleForSubItems = false;
-				lvwMods.Items.Add(lviMod);
 			}
 			lviMod.Tag = p_modAdded;
 			lviMod.Text = p_modAdded.ModName;
@@ -475,7 +478,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modRemoved">The mod to remove from the view's list.</param>
 		protected void RemoveModFromList(IMod p_modRemoved)
 		{
-			lvwMods.Items.RemoveByKey(p_modRemoved.Filename.ToLowerInvariant());
+			lock (lvwMods)
+				lvwMods.Items.RemoveByKey(p_modRemoved.Filename.ToLowerInvariant());
 		}
 
 		/// <summary>
@@ -564,28 +568,31 @@ namespace Nexus.Client.ModManagement.UI
 				lvwMods.Invoke((Action<object, NotifyCollectionChangedEventArgs>)NewestModInfo_CollectionChanged, sender, e);
 				return;
 			}
-			switch (e.Action)
+			lock (lvwMods)
 			{
-				case NotifyCollectionChangedAction.Add:
-				case NotifyCollectionChangedAction.Replace:
-					foreach (AutoUpdater.UpdateInfo ui in e.NewItems)
-						foreach (ListViewItem lviSearch in lvwMods.Items)
-							if (lviSearch.Tag == ui.Mod)
-							{
-								UpdateNewestVersion(lviSearch);
-								break;
-							}
-					break;
-				case NotifyCollectionChangedAction.Remove:
-				case NotifyCollectionChangedAction.Reset:
-					foreach (AutoUpdater.UpdateInfo ui in e.OldItems)
-						foreach (ListViewItem lviSearch in lvwMods.Items)
-							if (lviSearch.Tag == ui.Mod)
-							{
-								UpdateNewestVersion(lviSearch);
-								break;
-							}
-					break;
+				switch (e.Action)
+				{
+					case NotifyCollectionChangedAction.Add:
+					case NotifyCollectionChangedAction.Replace:
+						foreach (AutoUpdater.UpdateInfo ui in e.NewItems)
+							foreach (ListViewItem lviSearch in lvwMods.Items)
+								if (lviSearch.Tag == ui.Mod)
+								{
+									UpdateNewestVersion(lviSearch);
+									break;
+								}
+						break;
+					case NotifyCollectionChangedAction.Remove:
+					case NotifyCollectionChangedAction.Reset:
+						foreach (AutoUpdater.UpdateInfo ui in e.OldItems)
+							foreach (ListViewItem lviSearch in lvwMods.Items)
+								if (lviSearch.Tag == ui.Mod)
+								{
+									UpdateNewestVersion(lviSearch);
+									break;
+								}
+						break;
+				}
 			}
 		}
 
@@ -742,9 +749,13 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booIsActive">Whether the given mod is active.</param>
 		protected void SetModActive(IMod p_modActivated, bool p_booIsActive)
 		{
-			if (!lvwMods.Items.ContainsKey(p_modActivated.Filename.ToLowerInvariant()))
-				return;
-			ListViewItem lviMod = lvwMods.Items[p_modActivated.Filename.ToLowerInvariant()];
+			ListViewItem lviMod = null;
+			lock (lvwMods)
+			{
+				if (!lvwMods.Items.ContainsKey(p_modActivated.Filename.ToLowerInvariant()))
+					return;
+				lviMod = lvwMods.Items[p_modActivated.Filename.ToLowerInvariant()];
+			}
 			SetModActivationCheck(lviMod, p_booIsActive);
 		}
 
@@ -833,7 +844,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="ItemCheckEventArgs"/> describing the event arguments.</param>
 		private void lvwMods_ItemCheck(object sender, ItemCheckEventArgs e)
 		{
-			e.NewValue = ViewModel.ActiveMods.Contains((IMod)lvwMods.Items[e.Index].Tag) ? CheckState.Checked : CheckState.Unchecked;
+			lock (lvwMods)
+				e.NewValue = ViewModel.ActiveMods.Contains((IMod)lvwMods.Items[e.Index].Tag) ? CheckState.Checked : CheckState.Unchecked;
 		}
 
 		/// <summary>
@@ -891,7 +903,8 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (String.IsNullOrEmpty(e.Label))
 				return;
-			ViewModel.UpdateModName((IMod)lvwMods.Items[e.Item].Tag, e.Label);
+			lock (lvwMods)
+				ViewModel.UpdateModName((IMod)lvwMods.Items[e.Item].Tag, e.Label);
 		}
 
 		#endregion

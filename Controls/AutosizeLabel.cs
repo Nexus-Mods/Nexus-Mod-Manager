@@ -145,6 +145,7 @@ namespace Nexus.Client.Controls
 			{
 				if (!AllowSelection)
 					Height = e.NewRectangle.Height + 5;
+				//we need to call this AFTER we set our height, as the label may wish to override us
 				base.OnContentsResized(e);
 			}
 
@@ -477,8 +478,9 @@ namespace Nexus.Client.Controls
 		/// <param name="e">A <see cref="ContentsResizedEventArgs"/> describing the event arguments.</param>
 		private void Label_ContentsResized(object sender, ContentsResizedEventArgs e)
 		{
-			if (AllowSelection)
+			if (AllowSelection || (m_sbrScrollBars == RichTextBoxScrollBars.None))
 				Height = e.NewRectangle.Height + 5;
+			
 		}
 
 		/// <summary>

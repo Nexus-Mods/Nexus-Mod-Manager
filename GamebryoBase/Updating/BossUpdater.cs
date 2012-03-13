@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 using Nexus.Client.Updating;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo.Updating
 {
@@ -65,28 +66,37 @@ namespace Nexus.Client.Games.Gamebryo.Updating
 			SetProgressMaximum(2);
 
 			SetMessage("Checking for new masterlist...");
-			bool booHasUpdate = BossSorter.MasterlistHasUpdate();
-			SetProgress(1);
-
-			if (CancelRequested)
+			try
 			{
-				Trace.Unindent();
-				return CancelUpdate();
-			}
+				bool booHasUpdate = BossSorter.MasterlistHasUpdate();
+				SetProgress(1);
 
-			if (booHasUpdate)
-			{
-				if (!Confirm(String.Format("A new version of the BOSS masterlist is available.{0}Would you like to download and install it?", Environment.NewLine), "New Version"))
+				if (CancelRequested)
 				{
 					Trace.Unindent();
 					return CancelUpdate();
 				}
 
-				SetMessage("Downloading new masterlist...");
-				BossSorter.UpdateMasterlist();
+				if (booHasUpdate)
+				{
+					if (!Confirm(String.Format("A new version of the BOSS masterlist is available.{0}Would you like to download and install it?", Environment.NewLine), "New Version"))
+					{
+						Trace.Unindent();
+						return CancelUpdate();
+					}
+
+					SetMessage("Downloading new masterlist...");
+					BossSorter.UpdateMasterlist();
+				}
+				else
+					SetMessage("BOSS is already up to date.");
 			}
-			else
-				SetMessage("BOSS is already up to date.");
+			catch (BossException e)
+			{
+				Trace.TraceError("Unable to update masterlist.");
+				TraceUtil.TraceException(e);
+				return false;
+			}
 
 			SetProgress(2);
 			Trace.Unindent();

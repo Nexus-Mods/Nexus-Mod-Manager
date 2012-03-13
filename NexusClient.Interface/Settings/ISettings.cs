@@ -190,6 +190,12 @@ namespace Nexus.Client.Settings
 		KeyedSettings<string> RepositoryUsernames { get; }
 
 		/// <summary>
+		/// Gets the links to help resources.
+		/// </summary>
+		/// <value>The links to help resources.</value>
+		KeyedSettings<string> HelpLinks { get; }
+
+		/// <summary>
 		/// Gets or sets whether to check for updates on startup.
 		/// </summary>
 		/// <value>Whether to check for updates on startup.</value>

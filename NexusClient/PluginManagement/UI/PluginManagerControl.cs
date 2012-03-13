@@ -9,6 +9,7 @@ using Nexus.Client.Commands.Generic;
 using Nexus.Client.Controls;
 using Nexus.Client.Plugins;
 using WeifenLuo.WinFormsUI.Docking;
+using System.Drawing;
 
 namespace Nexus.Client.PluginManagement.UI
 {
@@ -354,6 +355,8 @@ namespace Nexus.Client.PluginManagement.UI
 				lviPlugin.Text = Path.GetFileName(p_plgAdded.Filename);
 				intLineTracker = 20;
 				SetPluginActivationCheck(lviPlugin, ViewModel.ActivePlugins.Contains(p_plgAdded));
+				if (!ViewModel.CanChangeActiveState(p_plgAdded))
+					lviPlugin.ForeColor = SystemColors.GrayText;
 				intLineTracker = 21;
 				RefreshPluginIndices();
 				intLineTracker = 22;
@@ -446,10 +449,13 @@ namespace Nexus.Client.PluginManagement.UI
 		{
 			if (m_booSettingPluginActiveCheck)
 				return;
-			if (e.NewValue == CheckState.Checked)
-				ViewModel.ActivatePlugin((Plugin)rlvPlugins.Items[e.Index].Tag);
-			else if (e.NewValue == CheckState.Unchecked)
-				ViewModel.DeactivatePlugin((Plugin)rlvPlugins.Items[e.Index].Tag);
+			if (ViewModel.CanChangeActiveState((Plugin)rlvPlugins.Items[e.Index].Tag))
+			{
+				if (e.NewValue == CheckState.Checked)
+					ViewModel.ActivatePlugin((Plugin)rlvPlugins.Items[e.Index].Tag);
+				else if (e.NewValue == CheckState.Unchecked)
+					ViewModel.DeactivatePlugin((Plugin)rlvPlugins.Items[e.Index].Tag);
+			}
 			e.NewValue = ViewModel.ActivePlugins.Contains((Plugin)rlvPlugins.Items[e.Index].Tag) ? CheckState.Checked : CheckState.Unchecked;
 		}
 

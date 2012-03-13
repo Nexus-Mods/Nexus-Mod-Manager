@@ -20,6 +20,7 @@ using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -41,24 +42,6 @@ namespace Nexus.Client.Games.Gamebryo
 		/// </summary>
 		/// <value>The list of possible script extender executable files for the game.</value>
 		protected abstract string[] ScriptExtenderExecutables { get; }
-
-		/// <summary>
-		/// Gets the display name of the game mode.
-		/// </summary>
-		/// <value>The display name of the game mode.</value>
-		public override abstract string Name { get; }
-
-		/// <summary>
-		/// Gets the unique id of the game mode.
-		/// </summary>
-		/// <value>The unique id of the game mode.</value>
-		public override abstract string ModeId { get; }
-
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override abstract Theme ModeTheme { get; }
 
 		/// <summary>
 		/// Gets the version of the installed game.
@@ -117,9 +100,9 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		/// <summary>
-		/// Gets the path to the per user Fallout 3 data.
+		/// Gets the path to the per user game data.
 		/// </summary>
-		/// <value>The path to the per user Fallout 3 data.</value>
+		/// <value>The path to the per user game data.</value>
 		public abstract string UserGameDataPath { get; }
 
 		/// <summary>
@@ -138,22 +121,10 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		/// <summary>
-		/// Gets the paths of the INI files that can be edited while managing Fallout 3.
+		/// Gets the paths of the INI files that can be edited while managing the game.
 		/// </summary>
-		/// <value>The paths of the INI files that can be edited while managing Fallout 3.</value>
+		/// <value>The paths of the INI files that can be edited while managing the game.</value>
 		public GamebryoSettingsFiles SettingsFiles { get; private set; }
-
-		/// <summary>
-		/// Gets the game launcher for the game mode.
-		/// </summary>
-		/// <value>The game launcher for the game mode.</value>
-		public override abstract IGameLauncher GameLauncher { get; }
-
-		/// <summary>
-		/// Gets the tool launcher for the game mode.
-		/// </summary>
-		/// <value>The tool launcher for the game mode.</value>
-		public override abstract IToolLauncher GameToolLauncher { get; }
 
 		/// <summary>
 		/// Gets the BOSS plugin sorter.
@@ -201,6 +172,13 @@ namespace Nexus.Client.Games.Gamebryo
 		{
 			SettingsFiles.RendererFilePath = Path.Combine(UserGameDataPath, "RendererInfo.txt");
 			SettingsFiles.PluginsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), String.Format("{0}/plugins.txt", ModeId));
+			if (!File.Exists(SettingsFiles.PluginsFilePath))
+			{
+				string strDirectory = Path.GetDirectoryName(SettingsFiles.PluginsFilePath);
+				if (!Directory.Exists(strDirectory))
+					Directory.CreateDirectory(strDirectory);
+				File.Create(SettingsFiles.PluginsFilePath).Close();
+			}
 		}
 
 		#endregion
@@ -222,12 +200,13 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets the serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.
 		/// </summary>
+		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
 		/// <returns>The serailizer that serializes and deserializes the list of active plugins
 		/// for this game mode.</returns>
-		public override IActivePluginLogSerializer GetActivePluginLogSerializer()
+		public override IActivePluginLogSerializer GetActivePluginLogSerializer(IPluginOrderLog p_polPluginOrderLog)
 		{
 			if (m_apsActivePluginLogSerializer == null)
-				m_apsActivePluginLogSerializer = new GamebryoActivePluginLogSerializer(BossSorter);
+				m_apsActivePluginLogSerializer = new GamebryoActivePluginLogSerializer(this, p_polPluginOrderLog, BossSorter);
 			return m_apsActivePluginLogSerializer;
 		}
 
@@ -262,7 +241,7 @@ namespace Nexus.Client.Games.Gamebryo
 		public override IPluginOrderValidator GetPluginOrderValidator()
 		{
 			if (m_povPluginOrderValidator == null)
-				m_povPluginOrderValidator = new GamebryoPluginOrderValidator();
+				m_povPluginOrderValidator = new GamebryoPluginOrderValidator(OrderedCriticalPluginNames);
 			return m_povPluginOrderValidator;
 		}
 
