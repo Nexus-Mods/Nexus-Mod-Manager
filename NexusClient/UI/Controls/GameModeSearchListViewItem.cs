@@ -8,7 +8,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Util;
 
-namespace Nexus.Client
+namespace Nexus.Client.UI.Controls
 {
 	/// <summary>
 	/// A list view item that displays a game mode whose install path is being searched for.
@@ -34,6 +34,18 @@ namespace Nexus.Client
 			}
 			set
 			{
+			}
+		}
+
+		/// <summary>
+		/// Gets the value being represented by the list view item.
+		/// </summary>
+		/// <value>The value being represented by the list view item.</value>
+		public object Value
+		{
+			get
+			{
+				return GameMode.ModeId;
 			}
 		}
 

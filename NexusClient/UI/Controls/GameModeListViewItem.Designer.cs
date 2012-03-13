@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client
+﻿namespace Nexus.Client.UI.Controls
 {
 	partial class GameModeListViewItem
 	{
