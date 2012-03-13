@@ -5,6 +5,7 @@ using System.Linq;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
 using Nexus.Transactions;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement.InstallationLog
 {
@@ -457,7 +458,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <returns>The ordered list of mods that have installed the specified file.</returns>
 			protected InstallerStack<object> GetCurrentFileInstallers(string p_strPath)
 			{
-				string strNormalizedPath = EnlistedInstallLog.NormalizePath(p_strPath);
+				string strNormalizedPath = FileUtil.NormalizePath(p_strPath);
 				InstallerStack<object> stkInstallers = new InstallerStack<object>();
 				if (EnlistedInstallLog.m_dicInstalledFiles.ContainsItem(strNormalizedPath))
 					stkInstallers.PushRange(EnlistedInstallLog.m_dicInstalledFiles[strNormalizedPath]);
@@ -482,7 +483,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public void AddDataFile(IMod p_modInstallingMod, string p_strDataFilePath)
 			{
 				string strInstallingModKey = AddActiveMod(p_modInstallingMod, false);
-				string strNormalizedPath = EnlistedInstallLog.NormalizePath(p_strDataFilePath);
+				string strNormalizedPath = FileUtil.NormalizePath(p_strDataFilePath);
 				m_dicInstalledFiles[strNormalizedPath].Push(strInstallingModKey, null);
 				if (m_dicUninstalledFiles.ContainsItem(strNormalizedPath))
 					m_dicUninstalledFiles[strNormalizedPath].Remove(strInstallingModKey);
@@ -502,7 +503,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				string strUninstallingModKey = GetModKey(p_modUninstallingMod);
 				if (String.IsNullOrEmpty(strUninstallingModKey))
 					return;
-				string strNormalizedPath = EnlistedInstallLog.NormalizePath(p_strDataFilePath);
+				string strNormalizedPath = FileUtil.NormalizePath(p_strDataFilePath);
 				m_dicUninstalledFiles[strNormalizedPath].Push(strUninstallingModKey, null);
 				if (m_dicInstalledFiles.ContainsItem(strNormalizedPath))
 					m_dicInstalledFiles[strNormalizedPath].Remove(strUninstallingModKey);
