@@ -69,14 +69,6 @@ namespace Nexus.Client
 		public Func<LoginFormVM, bool> LoginUser { get; set; }
 
 		/// <summary>
-		/// Gets or sets the delegate that is used to get a candidate path for the current
-		/// game mode's installation path.
-		/// </summary>
-		/// <value>The delegate that is used to get a candidate path for the current
-		/// game mode's installation path.</value>
-		public GetInstallationPathCandidateDelegate GetInstallationPathCandidate { get; set; }
-
-		/// <summary>
 		/// Gets or sets the delegate that displays a view.
 		/// </summary>
 		/// <value>The delegate that displays a view.</value>
@@ -154,7 +146,6 @@ namespace Nexus.Client
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			LoginUser = delegate { return false; };
-			GetInstallationPathCandidate = delegate(IGameModeDescriptor gmd, string pathDefault, out string path) { path = null; return false; };
 			ShowMessage = delegate { return DialogResult.Cancel; };
 			ConfirmMakeWritable = delegate(IEnvironmentInfo eif, string file, out bool remember) { remember = false; return false; };
 			ShowView = delegate { return DialogResult.Cancel; };
@@ -210,7 +201,7 @@ namespace Nexus.Client
 			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
 			ViewMessage vwmErrorMessage = null;
 			OverallProgress = 0;
-			OverallProgressMaximum = 15;
+			OverallProgressMaximum = 17;
 			OverallProgressStepSize = 1;
 			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage) && (Status != TaskStatus.Error))
 				Status = TaskStatus.Incomplete;
@@ -244,14 +235,6 @@ namespace Nexus.Client
 				return false;
 			}
 			EnvironmentInfo.Settings.Save();
-			StepOverallProgress();
-
-			InstallationPathInitializer ipiInstallPathInitializer = new InstallationPathInitializer(EnvironmentInfo, GetInstallationPathCandidate);
-			if (!ipiInstallPathInitializer.InitializeInstallationPath(p_gmfGameModeFactory))
-			{
-				p_vwmErrorMessage = new ViewMessage(String.Format("Unable to locate {0}'s Installation Path.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
-				return false;
-			}
 			StepOverallProgress();
 
 			string strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
