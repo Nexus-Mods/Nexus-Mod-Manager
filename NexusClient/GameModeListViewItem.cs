@@ -78,7 +78,7 @@ namespace Nexus.Client
 				Invoke((Action<object, TaskEndedEventArgs>)Detector_TaskEnded, sender, e);
 				return;
 			}
-			if (!m_gdtDetector.IsFound(m_gmdGameMode.ModeId))
+			if (!m_gdtDetector.IsFound(m_gmdGameMode.ModeId) && !m_gdtDetector.HasCandidates(m_gmdGameMode.ModeId))
 				SetVisiblePanel(pnlNotFound);
 		}
 
@@ -101,6 +101,7 @@ namespace Nexus.Client
 			pnlCandidate.Visible = (p_pnlPanel == pnlCandidate);
 			pnlNotFound.Visible = (p_pnlPanel == pnlNotFound);
 			pnlSearching.Visible = (p_pnlPanel == pnlSearching);
+			pnlSet.Visible = (p_pnlPanel == pnlSet);
 		}
 
 		private void Detector_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -121,6 +122,13 @@ namespace Nexus.Client
 		private void butAccept_Click(object sender, EventArgs e)
 		{
 			m_gdtDetector.Accept(m_gmdGameMode.ModeId);
+			Finalize();
+		}
+
+		protected void Finalize()
+		{
+			SetVisiblePanel(pnlSet);
+			lblFinalPath.Text = m_gdtDetector.GetFinalPath(m_gmdGameMode.ModeId);
 		}
 
 		private void butReject_Click(object sender, EventArgs e)
@@ -130,6 +138,24 @@ namespace Nexus.Client
 			else
 				SetVisiblePanel(pnlSearching);
 			m_gdtDetector.Reject(m_gmdGameMode.ModeId);
+		}
+
+		private void tbxInstallPath_TextChanged(object sender, EventArgs e)
+		{
+			if (!m_gdtDetector.Verify(m_gmdGameMode.ModeId, tbxInstallPath.Text))
+				erpErrors.SetError(butSelectPath, "Path does not contain game EXE.");
+			else
+				erpErrors.SetError(butSelectPath, null);
+		}
+
+		private void butOverride_Click(object sender, EventArgs e)
+		{
+			if (m_gdtDetector.Verify(m_gmdGameMode.ModeId, tbxInstallPath.Text) ||
+				MessageBox.Show(this, "The selected path does not contain the game's EXE file. Are you sure you want to use the selected path?", "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+			{
+				m_gdtDetector.Override(m_gmdGameMode.ModeId, tbxInstallPath.Text);
+				Finalize();
+			}
 		}
 	}
 }

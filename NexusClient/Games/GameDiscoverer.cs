@@ -116,6 +116,14 @@ namespace Nexus.Client.Games
 				Status = TaskStatus.Complete;
 		}
 
+		public void Override(string p_strGameModeId, string p_strInstallPath)
+		{
+			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], p_strInstallPath));
+			Stop(p_strGameModeId);
+			if (m_dicFoundPathsByGame.Count == 0)
+				Status = TaskStatus.Complete;
+		}
+
 		public void Reject(string p_strGameModeId)
 		{
 			if (!m_dicFoundPathsByGame.ContainsKey(p_strGameModeId) || (m_dicFoundPathsByGame[p_strGameModeId].Count == 0))
@@ -133,7 +141,36 @@ namespace Nexus.Client.Games
 
 		public bool IsFound(string p_strGameModeId)
 		{
+			GameInstallData gidData = m_lstFoundGameModes.Find(d => d.GameMode.ModeId.Equals(p_strGameModeId));
+			return (gidData != null);
+		}
+
+		public bool HasCandidates(string p_strGameModeId)
+		{
 			return m_dicFoundPathsByGame.ContainsKey(p_strGameModeId) && (m_dicFoundPathsByGame[p_strGameModeId].Count > 0);
+		}
+
+		public string GetFinalPath(string p_strGameModeId)
+		{
+			GameInstallData gidData = m_lstFoundGameModes.Find(d => d.GameMode.ModeId.Equals(p_strGameModeId));
+			if (gidData != null)
+				return gidData.InstallationPath;
+			return null;
+		}
+
+		public bool Verify(string p_strGameModeId, string p_strInstallPath)
+		{
+			if (String.IsNullOrEmpty(p_strInstallPath))
+				return false;
+
+			bool booFound = false;
+			foreach (string strExe in m_dicGameModesById[p_strGameModeId].GameExecutables)
+				if (File.Exists(Path.Combine(p_strInstallPath, strExe)))
+				{
+					booFound = true;
+					break;
+				}
+			return booFound;
 		}
 	}
 }
