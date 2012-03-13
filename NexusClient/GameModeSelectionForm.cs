@@ -80,15 +80,15 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
-		/// /// Hanldes the <see cref="ComboBox.SelectedIndexChanged"/> event of the game mode
+		/// Handles the <see cref="GameModeListView.SelectedItemChanged"/> event of the game mode
 		/// selection box.
 		/// </summary>
 		/// <remarks>
 		/// This changes the icon to refect the currently selected game mode.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void cbxGameMode_SelectedIndexChanged(object sender, EventArgs e)
+		/// <param name="e">An <see cref="SelectedItemEventArgs"/> describing the event arguments.</param>
+		private void glvGameMode_SelectedItemChanged(object sender, SelectedItemEventArgs e)
 		{
 			Icon = ((IGameModeDescriptor)glvGameMode.SelectedItem).ModeTheme.Icon;
 		}

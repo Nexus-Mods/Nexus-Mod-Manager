@@ -89,17 +89,20 @@
 			this.panel2.Size = new System.Drawing.Size(490, 60);
 			this.panel2.TabIndex = 6;
 			// 
-			// gameModeListView1
+			// glvGameMode
 			// 
 			this.glvGameMode.AutoSize = true;
 			this.glvGameMode.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.glvGameMode.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.glvGameMode.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
 			this.glvGameMode.Location = new System.Drawing.Point(0, 22);
-			this.glvGameMode.Name = "gameModeListView1";
+			this.glvGameMode.Name = "glvGameMode";
 			this.glvGameMode.Padding = new System.Windows.Forms.Padding(13, 6, 13, 6);
+			this.glvGameMode.SelectedItem = null;
+			this.glvGameMode.SelectedValue = null;
 			this.glvGameMode.Size = new System.Drawing.Size(490, 283);
 			this.glvGameMode.TabIndex = 4;
+			this.glvGameMode.SelectedItemChanged += new System.EventHandler<Nexus.Client.UI.Controls.SelectedItemEventArgs>(this.glvGameMode_SelectedItemChanged);
 			// 
 			// GameModeSelectionForm
 			// 
