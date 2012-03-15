@@ -53,36 +53,21 @@ namespace Nexus.Client
 		/// <summary>
 		/// Selectes the current game mode.
 		/// </summary>
-		/// <param name="p_strArgs">The command line arguments.</param>
-		/// <param name="p_booChangeGameMode">Whether the user has requested a game mode change.</param>
+		/// <param name="p_strRequestedGameMode">The id of the game mode we want to select.</param>
+		/// <param name="p_booChangeDefaultGameMode">Whether the users ahs requested a change to the default game mode.</param>
 		/// <returns>The <see cref="IGameModeFactory"/> that can build the game mode selected by the user.</returns>
-		public IGameModeFactory SelectGameMode(string[] p_strArgs, bool p_booChangeGameMode)
+		public IGameModeFactory SelectGameMode(string p_strRequestedGameMode, bool p_booChangeDefaultGameMode)
 		{
 			Trace.Write("Determining Game Mode: ");
 
 			string strSelectedGame = EnvironmentInfo.Settings.RememberGameMode ? EnvironmentInfo.Settings.RememberedGameMode : null;
-			if (!p_booChangeGameMode)
+			if (!String.IsNullOrEmpty(p_strRequestedGameMode))
 			{
-				for (Int32 i = 0; i < p_strArgs.Length; i++)
-				{
-					string strArg = p_strArgs[i];
-					if (strArg.StartsWith("-"))
-					{
-						switch (strArg)
-						{
-							case "-game":
-								Trace.Write("(From Command line: " + p_strArgs[i + 1] + ") ");
-								if (!InstalledGameModes.IsRegistered(p_strArgs[i + 1]))
-									MessageBox.Show(String.Format("Unrecognized -game Parameter: {0}", p_strArgs[i + 1]), "Unrecognized Game Mode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-								else
-									strSelectedGame = p_strArgs[i + 1];
-								break;
-						}
-					}
-				}
+				Trace.Write("(Requested Mode: " + p_strRequestedGameMode + ") ");
+				strSelectedGame = p_strRequestedGameMode;
 			}
 
-			if (p_booChangeGameMode || String.IsNullOrEmpty(strSelectedGame))
+			if (p_booChangeDefaultGameMode || String.IsNullOrEmpty(strSelectedGame))
 			{
 				Trace.Write("(From Selection Form) ");
 				List<IGameModeDescriptor> lstGameModeInfos = new List<IGameModeDescriptor>();
@@ -95,7 +80,7 @@ namespace Nexus.Client
 			Trace.WriteLine(strSelectedGame);
 			if (!InstalledGameModes.IsRegistered(strSelectedGame))
 			{
-				string strError = String.Format("Unrecognized Game Mode: {0}", p_strArgs[1]);
+				string strError = String.Format("Unrecognized Game Mode: {0}", strSelectedGame);
 				Trace.TraceError(strError);
 				MessageBox.Show(strError, "Unrecognized Game Mode", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return null;

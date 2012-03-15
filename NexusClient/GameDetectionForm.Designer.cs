@@ -29,9 +29,9 @@
 		private void InitializeComponent()
 		{
 			this.panel1 = new System.Windows.Forms.Panel();
-			this.gameModeListView1 = new Nexus.Client.UI.Controls.GameModeListView();
-			this.butOK = new System.Windows.Forms.Button();
 			this.butCancel = new System.Windows.Forms.Button();
+			this.butOK = new System.Windows.Forms.Button();
+			this.gameModeListView1 = new Nexus.Client.UI.Controls.GameModeListView();
 			this.panel1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -45,14 +45,17 @@
 			this.panel1.Size = new System.Drawing.Size(284, 41);
 			this.panel1.TabIndex = 0;
 			// 
-			// gameModeListView1
+			// butCancel
 			// 
-			this.gameModeListView1.AutoScroll = true;
-			this.gameModeListView1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.gameModeListView1.Location = new System.Drawing.Point(0, 0);
-			this.gameModeListView1.Name = "gameModeListView1";
-			this.gameModeListView1.Size = new System.Drawing.Size(284, 223);
-			this.gameModeListView1.TabIndex = 1;
+			this.butCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.butCancel.Location = new System.Drawing.Point(197, 6);
+			this.butCancel.Name = "butCancel";
+			this.butCancel.Size = new System.Drawing.Size(75, 23);
+			this.butCancel.TabIndex = 1;
+			this.butCancel.Text = "Cancel";
+			this.butCancel.UseVisualStyleBackColor = true;
+			this.butCancel.Click += new System.EventHandler(this.butCancel_Click);
 			// 
 			// butOK
 			// 
@@ -66,17 +69,18 @@
 			this.butOK.UseVisualStyleBackColor = true;
 			this.butOK.Click += new System.EventHandler(this.butOK_Click);
 			// 
-			// butCancel
+			// gameModeListView1
 			// 
-			this.butCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.butCancel.Location = new System.Drawing.Point(197, 6);
-			this.butCancel.Name = "butCancel";
-			this.butCancel.Size = new System.Drawing.Size(75, 23);
-			this.butCancel.TabIndex = 1;
-			this.butCancel.Text = "Cancel";
-			this.butCancel.UseVisualStyleBackColor = true;
-			this.butCancel.Click += new System.EventHandler(this.butCancel_Click);
+			this.gameModeListView1.AutoScroll = true;
+			this.gameModeListView1.BackColor = System.Drawing.SystemColors.Window;
+			this.gameModeListView1.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.gameModeListView1.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
+			this.gameModeListView1.Location = new System.Drawing.Point(0, 0);
+			this.gameModeListView1.Name = "gameModeListView1";
+			this.gameModeListView1.SelectedGameMode = null;
+			this.gameModeListView1.SelectedItem = null;
+			this.gameModeListView1.Size = new System.Drawing.Size(284, 223);
+			this.gameModeListView1.TabIndex = 1;
 			// 
 			// GameDetectionForm
 			// 
@@ -92,7 +96,7 @@
 			this.MinimizeBox = false;
 			this.Name = "GameDetectionForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-			this.Text = "GameDetectionForm";
+			this.Text = "Game Detection";
 			this.panel1.ResumeLayout(false);
 			this.ResumeLayout(false);
 

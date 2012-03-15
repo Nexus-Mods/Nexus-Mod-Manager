@@ -51,22 +51,41 @@ namespace Nexus.Client
 				return false;
 			SetCompressorPath(m_eifEnvironmentInfo);
 
+			string strRequestedGameMode = null;
 			string[] strArgs = p_strArgs;
 			Uri uriModToAdd = null;
 			if ((p_strArgs.Length > 0) && !p_strArgs[0].StartsWith("-"))
 			{
 				if (Uri.TryCreate(p_strArgs[0], UriKind.Absolute, out uriModToAdd) && uriModToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
-				{
-					strArgs = new string[p_strArgs.Length + 2];
-					Array.Copy(p_strArgs, strArgs, p_strArgs.Length);
-					strArgs[strArgs.Length - 2] = "-game";
-					strArgs[strArgs.Length - 1] = uriModToAdd.Host;
-				}
+					strRequestedGameMode = uriModToAdd.Host;
 			}
-			bool booChangeGameMode = false;
+			else
+				for (Int32 i = 0; i < p_strArgs.Length; i++)
+				{
+					string strArg = p_strArgs[i];
+					if (strArg.StartsWith("-"))
+					{
+						switch (strArg)
+						{
+							case "-game":
+								strRequestedGameMode = p_strArgs[i + 1];
+								Trace.Write("Game Specified On Command line: " + strRequestedGameMode + ") ");
+								break;
+						}
+					}
+				}
+
+			bool booChangeDefaultGameMode = false;
 			do
 			{
-				IGameModeFactory gmfGameModeFactory = SelectGameMode(strArgs, booChangeGameMode);
+				GameModeRegistry gmrInstalledGames = GetInstalledGameModes();
+				if (gmrInstalledGames == null)
+				{
+					Trace.TraceInformation("No installed games.");
+					MessageBox.Show(String.Format("No games were detected! {0} will now close.", m_eifEnvironmentInfo.Settings.ModManagerName), "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return false;
+				}
+				IGameModeFactory gmfGameModeFactory = SelectGameMode(gmrInstalledGames, strRequestedGameMode, booChangeDefaultGameMode);
 				if (gmfGameModeFactory == null)
 					return false;
 
@@ -115,7 +134,7 @@ namespace Nexus.Client
 					{
 						if (ainInitializer.Status == TaskStatus.Error)
 							return false;
-						booChangeGameMode = true;
+						booChangeDefaultGameMode = true;
 						DisposeServices(ainInitializer.Services);
 						continue;
 					}
@@ -123,7 +142,7 @@ namespace Nexus.Client
 					IGameMode gmdGameMode = ainInitializer.GameMode;
 					ServiceManager svmServices = ainInitializer.Services;
 
-					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
+					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
 
 					using (Messager msgMessager = Messager.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
@@ -139,7 +158,8 @@ namespace Nexus.Client
 						{
 							Application.Run(frmMain);
 							svmServices.ModInstallLog.Backup();
-							booChangeGameMode = vmlMainForm.GameModeChangeRequested;
+							strRequestedGameMode = vmlMainForm.RequestedGameMode;
+							booChangeDefaultGameMode = vmlMainForm.DefaultGameModeChangeRequested;
 						}
 						finally
 						{
@@ -158,7 +178,7 @@ namespace Nexus.Client
 					}
 					FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);
 				}
-			} while (booChangeGameMode);
+			} while (!String.IsNullOrEmpty(strRequestedGameMode) || booChangeDefaultGameMode);
 			return true;
 		}
 
@@ -224,13 +244,13 @@ namespace Nexus.Client
 
 		#endregion
 
+		#region Game Detection/Selection
+
 		/// <summary>
-		/// Selects the game mode to use.
+		/// Gets a registry of installed game modes.
 		/// </summary>
-		/// <param name="p_strArgs">The command line arguments passed to the application.</param>
-		/// <param name="p_booChangeGameMode">Whether we are changing game modes.</param>
-		/// <returns>The factory for the select game mode, or <c>null</c> if no factory selection failed.</returns>
-		protected IGameModeFactory SelectGameMode(string[] p_strArgs, bool p_booChangeGameMode)
+		/// <returns>A registry of installed game modes.</returns>
+		protected GameModeRegistry GetInstalledGameModes()
 		{
 			GameModeRegistry gmrSupportedGameModes = GameModeRegistry.DiscoverSupportedGameModes(m_eifEnvironmentInfo);
 			if (!m_eifEnvironmentInfo.Settings.InstalledGamesDetected)
@@ -243,10 +263,7 @@ namespace Nexus.Client
 				if (gdrGameDetector.Status != TaskStatus.Complete)
 					return null;
 				if (gdrGameDetector.DiscoveredGameModes.Count == 0)
-				{
-					MessageBox.Show(String.Format("No games were detected! {0} will now close.", m_eifEnvironmentInfo.Settings.ModManagerName), "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return null;
-				}
 				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
 				{
 					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
@@ -256,9 +273,23 @@ namespace Nexus.Client
 				m_eifEnvironmentInfo.Settings.Save();
 			}
 			GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(gmrSupportedGameModes, m_eifEnvironmentInfo);
-			GameModeSelector gmsSelector = new GameModeSelector(gmrInstalledGameModes, m_eifEnvironmentInfo);
-			IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(p_strArgs, p_booChangeGameMode);
+			return gmrInstalledGameModes;
+		}
+
+		/// <summary>
+		/// Selects the game mode to use.
+		/// </summary>
+		/// <param name="p_gmrInstalledGameModes">The registry of installed game modes.</param>
+		/// <param name="p_strRequestedGameMode">The id of the game mode we want to select.</param>
+		/// <param name="p_booChangeDefaultGameMode">Whether the users ahs requested a change to the default game mode.</param>
+		/// <returns>The factory for the select game mode, or <c>null</c> if no factory selection failed.</returns>
+		protected IGameModeFactory SelectGameMode(GameModeRegistry p_gmrInstalledGameModes, string p_strRequestedGameMode, bool p_booChangeDefaultGameMode)
+		{
+			GameModeSelector gmsSelector = new GameModeSelector(p_gmrInstalledGameModes, m_eifEnvironmentInfo);
+			IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(p_strRequestedGameMode, p_booChangeDefaultGameMode);
 			return gmfGameModeFactory;
 		}
+
+		#endregion
 	}
 }
