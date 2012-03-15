@@ -1,13 +1,12 @@
-﻿using Nexus.Client.Games;
-using System;
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
+using Nexus.Client.Games;
 
 namespace Nexus.Client.UI.Controls
 {
 	/// <summary>
-	/// the base class for items displayed in a <see cref="GameModeListView"/>.
+	/// The base class for items displayed in a <see cref="GameModeListView"/>.
 	/// </summary>
-	public abstract class GameModeListViewItemBase : UserControl
+	public class GameModeListViewItemBase : UserControl
 	{
 		#region Properties
 
