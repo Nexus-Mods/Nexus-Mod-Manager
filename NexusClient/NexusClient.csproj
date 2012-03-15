@@ -279,7 +279,7 @@
     </Compile>
     <Compile Include="GameDetectionVM.cs" />
     <Compile Include="UI\Controls\GameModeListView.cs">
-      <SubType>Component</SubType>
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\Controls\GameModeSearchListViewItem.cs">
       <SubType>UserControl</SubType>
@@ -291,7 +291,9 @@
     <Compile Include="Games\GameDiscoverer.cs" />
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
-    <Compile Include="UI\Controls\IGameModeListViewItem.cs" />
+    <Compile Include="UI\Controls\GameModeListViewItemBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
     </Compile>
