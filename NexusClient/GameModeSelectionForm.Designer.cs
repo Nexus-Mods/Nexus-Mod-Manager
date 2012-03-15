@@ -33,9 +33,11 @@
 			this.label1 = new System.Windows.Forms.Label();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.panel2 = new System.Windows.Forms.Panel();
+			this.panel3 = new System.Windows.Forms.Panel();
 			this.glvGameMode = new Nexus.Client.UI.Controls.GameModeListView();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
+			this.panel3.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// cbxRemember
@@ -89,18 +91,31 @@
 			this.panel2.Size = new System.Drawing.Size(490, 60);
 			this.panel2.TabIndex = 6;
 			// 
+			// panel3
+			// 
+			this.panel3.AutoSize = true;
+			this.panel3.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.panel3.Controls.Add(this.glvGameMode);
+			this.panel3.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.panel3.Location = new System.Drawing.Point(0, 22);
+			this.panel3.Name = "panel3";
+			this.panel3.Padding = new System.Windows.Forms.Padding(13, 6, 13, 6);
+			this.panel3.Size = new System.Drawing.Size(490, 283);
+			this.panel3.TabIndex = 7;
+			// 
 			// glvGameMode
 			// 
 			this.glvGameMode.AutoSize = true;
 			this.glvGameMode.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.glvGameMode.BackColor = System.Drawing.SystemColors.Window;
+			this.glvGameMode.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
 			this.glvGameMode.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.glvGameMode.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
-			this.glvGameMode.Location = new System.Drawing.Point(0, 22);
+			this.glvGameMode.Location = new System.Drawing.Point(13, 6);
 			this.glvGameMode.Name = "glvGameMode";
-			this.glvGameMode.Padding = new System.Windows.Forms.Padding(13, 6, 13, 6);
 			this.glvGameMode.SelectedItem = null;
-			this.glvGameMode.SelectedValue = null;
-			this.glvGameMode.Size = new System.Drawing.Size(490, 283);
+			this.glvGameMode.SelectedGameMode = null;
+			this.glvGameMode.Size = new System.Drawing.Size(464, 271);
 			this.glvGameMode.TabIndex = 4;
 			this.glvGameMode.SelectedItemChanged += new System.EventHandler<Nexus.Client.UI.Controls.SelectedItemEventArgs>(this.glvGameMode_SelectedItemChanged);
 			// 
@@ -112,7 +127,7 @@
 			this.AutoSize = true;
 			this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.ClientSize = new System.Drawing.Size(490, 365);
-			this.Controls.Add(this.glvGameMode);
+			this.Controls.Add(this.panel3);
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.panel1);
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
@@ -125,6 +140,8 @@
 			this.panel1.PerformLayout();
 			this.panel2.ResumeLayout(false);
 			this.panel2.PerformLayout();
+			this.panel3.ResumeLayout(false);
+			this.panel3.PerformLayout();
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -138,5 +155,6 @@
 		private Nexus.Client.UI.Controls.GameModeListView glvGameMode;
 		private System.Windows.Forms.Panel panel1;
 		private System.Windows.Forms.Panel panel2;
+		private System.Windows.Forms.Panel panel3;
 	}
 }
