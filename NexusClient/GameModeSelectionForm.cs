@@ -23,7 +23,7 @@ namespace Nexus.Client
 		{
 			get
 			{
-				return (string)glvGameMode.SelectedValue;
+				return glvGameMode.SelectedGameMode.ModeId;
 			}
 		}
 
@@ -57,7 +57,7 @@ namespace Nexus.Client
 			
 			IGameModeDescriptor gmdDefault = p_lstGameModes.Find(x => x.ModeId.Equals(p_setSettings.RememberedGameMode));
 			if (gmdDefault != null)
-				glvGameMode.SelectedValue = gmdDefault.ModeId;
+				glvGameMode.SelectedGameMode = gmdDefault;
 			cbxRemember.Checked = Settings.RememberGameMode;
 		}
 
@@ -90,7 +90,7 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="SelectedItemEventArgs"/> describing the event arguments.</param>
 		private void glvGameMode_SelectedItemChanged(object sender, SelectedItemEventArgs e)
 		{
-			Icon = ((IGameModeDescriptor)glvGameMode.SelectedItem).ModeTheme.Icon;
+			Icon = glvGameMode.SelectedGameMode.ModeTheme.Icon;
 		}
 	}
 }
