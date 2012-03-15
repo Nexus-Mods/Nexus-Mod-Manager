@@ -58,6 +58,17 @@ namespace Nexus.Client.UI.Controls
 		#region Constructors
 
 		/// <summary>
+		/// The default constructor.
+		/// </summary>
+		/// <remarks>
+		/// This constructor is not meant to be used, but it is required so the IDE designer
+		/// can create controls that are derived from this class, and thus allow visual editing.
+		/// </remarks>
+		private GameModeListViewItemBase()
+		{
+		}
+
+		/// <summary>
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_gmdGameModeInfo">The descriptor for the game mode to display in the item.</param>
