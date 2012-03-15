@@ -156,11 +156,9 @@ namespace Nexus.Client
 			ViewModel.LogoutCommand.Executed += new EventHandler(LogoutCommand_Executed);
 			new ToolStripItemCommandBinding(tsbLogout, ViewModel.LogoutCommand);
 
-			ViewModel.ChangeGameModeCommand.Executed += new EventHandler(ChangeGameModeCommand_Executed);
-			new ToolStripItemCommandBinding(tsbChangeMode, ViewModel.ChangeGameModeCommand);
-
 			BindLaunchCommands();
 			BindToolCommands();
+			BindChangeModeCommands();
 		}
 
 		#region Logout
@@ -335,6 +333,37 @@ namespace Nexus.Client
 			if (InvokeRequired)
 				return (bool)Invoke((ConfirmActionMethod)ConfirmUpdaterAction, p_strMessage, p_strTitle);
 			return MessageBox.Show(this, p_strMessage, p_strTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
+		}
+
+		#endregion
+
+		#region Change Game Mode Binding Helpers
+
+		/// <summary>
+		/// Binds the change game mode commands to the UI.
+		/// </summary>
+		protected void BindChangeModeCommands()
+		{
+			foreach (Command cmdChangeCommand in ViewModel.ChangeGameModeCommands)
+			{
+				cmdChangeCommand.Executed += new EventHandler(ChangeGameModeCommand_Executed);
+				ToolStripMenuItem tmiChange = new ToolStripMenuItem();
+				new ToolStripItemCommandBinding(tmiChange, cmdChangeCommand);
+				spbChangeMode.DropDownItems.Add(tmiChange);
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the change game mode button.
+		/// </summary>
+		/// <remarks>
+		/// This displays the list of game modes when the button is clicked.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void spbChangeMode_ButtonClick(object sender, EventArgs e)
+		{
+			spbChangeMode.DropDown.Show();
 		}
 
 		#endregion
@@ -547,7 +576,7 @@ namespace Nexus.Client
 		{
 			Icon = p_thmTheme.Icon;
 
-			Bitmap imgChangeMod = new Bitmap(tsbChangeMode.Image);
+			Bitmap imgChangeMod = new Bitmap(spbChangeMode.Image);
 			Color clrOld = Color.Fuchsia;
 			for (Int32 y = 0; y < imgChangeMod.Height; y++)
 			{
@@ -569,7 +598,7 @@ namespace Nexus.Client
 					imgChangeMod.SetPixel(x, y, Color.FromArgb(clrOld.A, (Int32)r, (Int32)g, (Int32)b));
 				}
 			}
-			tsbChangeMode.Image = imgChangeMod;
+			spbChangeMode.Image = imgChangeMod;
 		}
 
 		#region Form Events

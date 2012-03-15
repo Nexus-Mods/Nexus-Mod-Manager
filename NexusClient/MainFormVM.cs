@@ -18,6 +18,8 @@ using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using Nexus.Client.Commands.Generic;
+using System.Drawing;
 
 namespace Nexus.Client
 {
@@ -27,6 +29,9 @@ namespace Nexus.Client
 	/// </summary>
 	public class MainFormVM
 	{
+		private const string CHANGE_DEFAULT_GAME_MODE = "__changedefaultgamemode";
+		private const string RESCAN_INSTALLED_GAMES = "__rescaninstalledgames";
+
 		#region Events
 
 		/// <summary>
@@ -35,6 +40,8 @@ namespace Nexus.Client
 		public event EventHandler<EventArgs<IBackgroundTask>> Updating = delegate { };
 
 		#endregion
+
+		#region Delegates
 
 		/// <summary>
 		/// Called when an updater's action needs to be confirmed.
@@ -45,6 +52,8 @@ namespace Nexus.Client
 		/// Called when an updater's action needs to be confirmed.
 		/// </summary>
 		public ConfirmRememberedActionMethod ConfirmCloseAfterGameLaunch = delegate(out bool x) { x = false; return true; };
+
+		#endregion
 
 		#region Properties
 
@@ -63,10 +72,10 @@ namespace Nexus.Client
 		public Command LogoutCommand { get; private set; }
 
 		/// <summary>
-		/// Gets the command to change the managed game mode.
+		/// Gets the commands to change the managed game mode.
 		/// </summary>
-		/// <value>The command to change the managed game mode.</value>
-		public Command ChangeGameModeCommand { get; private set; }
+		/// <value>The commands to change the managed game mode.</value>
+		public IEnumerable<Command> ChangeGameModeCommands { get; private set; }
 
 		#endregion
 
@@ -115,10 +124,21 @@ namespace Nexus.Client
 		public SettingsFormVM SettingsFormVM { get; private set; }
 
 		/// <summary>
-		/// Gets whether a game mode change hsa been requested.
+		/// Gets the id of the game mode to which to change, if a game mode change
+		/// has been requested.
 		/// </summary>
-		/// <value>Whether a game mode change hsa been requested.</value>
-		public bool GameModeChangeRequested { get; private set; }
+		/// <remarks>
+		/// This value is <c>null</c> if no game mode change has been requested.
+		/// </remarks>
+		/// <value>The id of the game mode to which to change, if a game mode change
+		/// has been requested.</value>
+		public string RequestedGameMode { get; private set; }
+
+		/// <summary>
+		/// Gets whether a default game mode change has been requested.
+		/// </summary>
+		/// <value>Whether a default game mode change has been requested.</value>
+		public bool DefaultGameModeChangeRequested { get; private set; }
 
 		/// <summary>
 		/// Gets the game mode currently being managed.
@@ -211,13 +231,14 @@ namespace Nexus.Client
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="p_gmrInstalledGames">The registry of insalled games.</param>
 		/// <param name="p_gmdGameMode">The game mode currently being managed.</param>
 		/// <param name="p_mrpModRepository">The repository we are logging in to.</param>
 		/// <param name="p_amtMonitor">The activity monitor to use to track task progress.</param>
 		/// <param name="p_umgUpdateManager">The update manager to use to perform updates.</param>
 		/// <param name="p_mmgModManager">The <see cref="ModManager"/> to use to manage mods.</param>
 		/// <param name="p_pmgPluginManager">The <see cref="PluginManager"/> to use to manage plugins.</param>
-		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
+		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			
@@ -246,7 +267,21 @@ namespace Nexus.Client
 
 			UpdateCommand = new Command("Update", String.Format("Update {0}", EnvironmentInfo.Settings.ModManagerName), UpdateProgramme);
 			LogoutCommand = new Command("Logout", "Logout", Logout);
-			ChangeGameModeCommand = new Command("Change Game", "Change Game", ChangeGameMode);
+
+			List<Command> lstChangeGameModeCommands = new List<Command>();
+			List<IGameModeDescriptor> lstSortedModes = new List<IGameModeDescriptor>(p_gmrInstalledGames.RegisteredGameModes);
+			lstSortedModes.Sort((x, y) => x.Name.CompareTo(y.Name));
+			foreach (IGameModeDescriptor gmdInstalledGame in lstSortedModes)
+			{
+				string strId = gmdInstalledGame.ModeId;
+				string strName = gmdInstalledGame.Name;
+				string strDescription = String.Format("Change game to {0}", gmdInstalledGame.Name);
+				Image imgCommandIcon = new Icon(gmdInstalledGame.ModeTheme.Icon, 32, 32).ToBitmap();
+				lstChangeGameModeCommands.Add(new Command(strId, strName, strDescription, imgCommandIcon, () => ChangeGameMode(strId), true));
+			}
+			lstChangeGameModeCommands.Add(new Command("Change Default Game", "Change Default Game", () => ChangeGameMode(CHANGE_DEFAULT_GAME_MODE)));
+			lstChangeGameModeCommands.Add(new Command("Rescan Installed Games", "Rescan Installed Games", () => ChangeGameMode(RESCAN_INSTALLED_GAMES)));
+			ChangeGameModeCommands = lstChangeGameModeCommands;
 		}
 
 		#endregion
@@ -254,9 +289,22 @@ namespace Nexus.Client
 		/// <summary>
 		/// Requests a game mode change.
 		/// </summary>
-		private void ChangeGameMode()
+		private void ChangeGameMode(string p_strGameModeId)
 		{
-			GameModeChangeRequested = true;
+			switch (p_strGameModeId)
+			{
+				case CHANGE_DEFAULT_GAME_MODE:
+					DefaultGameModeChangeRequested = true;
+					break;
+				case RESCAN_INSTALLED_GAMES:
+					EnvironmentInfo.Settings.InstalledGamesDetected = false;
+					EnvironmentInfo.Settings.Save();
+					DefaultGameModeChangeRequested = true;
+					break;
+				default:
+					RequestedGameMode = p_strGameModeId;
+					break;
+			}
 		}
 
 		/// <summary>
