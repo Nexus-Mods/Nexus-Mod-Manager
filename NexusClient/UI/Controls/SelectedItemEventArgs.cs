@@ -13,7 +13,7 @@ namespace Nexus.Client.UI.Controls
 		/// Gets the selected item.
 		/// </summary>
 		/// <value>The selected item.</value>
-		public IGameModeListViewItem SelectedItem { get; private set; }
+		public GameModeListViewItemBase SelectedItem { get; private set; }
 
 		#endregion
 
@@ -23,7 +23,7 @@ namespace Nexus.Client.UI.Controls
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_lviSelectedItem">The selected item.</param>
-		public SelectedItemEventArgs(IGameModeListViewItem p_lviSelectedItem)
+		public SelectedItemEventArgs(GameModeListViewItemBase p_lviSelectedItem)
 		{
 			SelectedItem = p_lviSelectedItem;
 		}

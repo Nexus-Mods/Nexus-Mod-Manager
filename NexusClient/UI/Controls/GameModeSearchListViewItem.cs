@@ -13,7 +13,7 @@ namespace Nexus.Client.UI.Controls
 	/// <summary>
 	/// A list view item that displays a game mode whose install path is being searched for.
 	/// </summary>
-	public partial class GameModeSearchListViewItem : UserControl, IGameModeListViewItem
+	public partial class GameModeSearchListViewItem : GameModeListViewItemBase
 	{
 		[DllImport("gdi32.dll")]
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
@@ -21,39 +21,6 @@ namespace Nexus.Client.UI.Controls
 		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
 
 		#region Properties
-
-		/// <summary>
-		/// Gets or sets whether the item is selected in the list view.
-		/// </summary>
-		/// <value>Whether the item is selected in the list view.</value>
-		public bool Selected
-		{
-			get
-			{
-				return false;
-			}
-			set
-			{
-			}
-		}
-
-		/// <summary>
-		/// Gets the value being represented by the list view item.
-		/// </summary>
-		/// <value>The value being represented by the list view item.</value>
-		public object Value
-		{
-			get
-			{
-				return GameMode.ModeId;
-			}
-		}
-
-		/// <summary>
-		/// Gets the descriptor for the game modewhose install path is to be found.
-		/// </summary>
-		/// <value>The descriptor for the game modewhose install path is to be found.</value>
-		protected IGameModeDescriptor GameMode { get; private set; }
 
 		/// <summary>
 		/// Gets the discoverer to use to find the game installation path.
@@ -71,8 +38,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_gmdGameModeInfo">The descriptor for the game modewhose install path is to be found.</param>
 		/// <param name="p_gdtDetector">The discoverer to use to find the game installation path.</param>
 		public GameModeSearchListViewItem(IGameModeDescriptor p_gmdGameModeInfo, GameDiscoverer p_gdtDetector)
+			: base(p_gmdGameModeInfo)
 		{
-			GameMode = p_gmdGameModeInfo;
 			Discoverer = p_gdtDetector;
 			InitializeComponent();
 			AutoSize = true;

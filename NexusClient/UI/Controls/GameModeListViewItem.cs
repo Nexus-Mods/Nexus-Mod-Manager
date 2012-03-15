@@ -10,66 +10,24 @@ namespace Nexus.Client.UI.Controls
 	/// <summary>
 	/// A list view item that displays info about a game mode.
 	/// </summary>
-	public partial class GameModeListViewItem : UserControl, IGameModeListViewItem
+	public partial class GameModeListViewItem : GameModeListViewItemBase
 	{
 		[DllImport("gdi32.dll")]
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
 
 		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
-		private bool m_booIsSelected = false;
-
-		#region Properties
-
-		/// <summary>
-		/// Gets or sets whether the item is selected in the list view.
-		/// </summary>
-		/// <value>Whether the item is selected in the list view.</value>
-		public bool Selected
-		{
-			get
-			{
-				return m_booIsSelected;
-			}
-			set
-			{
-				m_booIsSelected = value;
-				if (Parent is GameModeListView)
-					((GameModeListView)Parent).SelectedItem = this;
-				//BackColor = value ? SystemColors.ControlDark : SystemColors.Control;
-				BorderStyle = value ? BorderStyle.FixedSingle : BorderStyle.None;
-			}
-		}
-
-		/// <summary>
-		/// Gets the value being represented by the list view item.
-		/// </summary>
-		/// <value>The value being represented by the list view item.</value>
-		public object Value
-		{
-			get
-			{
-				return GameMode.ModeId;
-			}
-		}
-
-		/// <summary>
-		/// Gets the descriptor for the game modewhose install path is to be found.
-		/// </summary>
-		/// <value>The descriptor for the game modewhose install path is to be found.</value>
-		protected IGameModeDescriptor GameMode { get; private set; }
-
-		#endregion
-
+		
 		#region Constructors
 
 		/// <summary>
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
-		/// <param name="p_gmdGameModeInfo">The descriptor for the game modewhose install path is to be found.</param>
+		/// <param name="p_gmdGameModeInfo">The descriptor for the game mode whose install path is to be found.</param>
 		public GameModeListViewItem(IGameModeDescriptor p_gmdGameModeInfo)
+			: base(p_gmdGameModeInfo)
 		{
-			GameMode = p_gmdGameModeInfo;
 			InitializeComponent();
+			TabStop = false;
 
 			IntPtr pbyt = IntPtr.Zero;
 			try
@@ -101,38 +59,6 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		#endregion
-
-		/// <summary>
-		/// Raises the <see cref="Control.ParentChanged"/> event.
-		/// </summary>
-		/// <remarks>
-		/// This sizes the control to the list view it has been added to.
-		/// </remarks>
-		/// <param name="e">The <see cref="EventArgs"/> describing the event arguments.</param>
-		protected override void OnParentChanged(EventArgs e)
-		{
-			if (Parent is GameModeListView)
-			{
-				AutoSize = false;
-				Dock = DockStyle.Fill;
-				MinimumSize = PreferredSize;
-			}
-			base.OnParentChanged(e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="Control.Click"/> event.
-		/// </summary>
-		/// <remarks>
-		/// This tells the containing list veiw to select this item.
-		/// </remarks>
-		/// <param name="e">The <see cref="EventArgs"/> describing the event arguments.</param>
-		protected override void OnClick(EventArgs e)
-		{
-			if (Parent is GameModeListView)
-				((GameModeListView)Parent).SelectedItem = this;
-			base.OnClick(e);
-		}
 
 		/// <summary>
 		/// Handles the <see cref="Control.Click"/> event of all contained controls.
