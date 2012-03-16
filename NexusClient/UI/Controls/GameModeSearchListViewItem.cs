@@ -15,6 +15,9 @@ namespace Nexus.Client.UI.Controls
 	/// </summary>
 	public partial class GameModeSearchListViewItem : GameModeListViewItemBase
 	{
+		private const string TESTPATH = @"C:\Program Files\Interim Path\Steam\steamapps\common\Skyrim\withalotmorepath\tomakeitling\Program Files\Interim Path\Steam\steamapps\common\Skyrim\withalotmorepath\tomakeitling";
+		private const string TESTPATHSHORT = @"C:\Program Files\Interim Path";
+
 		[DllImport("gdi32.dll")]
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
 
@@ -123,7 +126,7 @@ namespace Nexus.Client.UI.Controls
 			}
 			if (e.GameMode.ModeId.Equals(GameMode.ModeId))
 			{
-				lblPath.Text = e.InstallationPath;
+				lblPath.Text = TESTPATH;// e.InstallationPath;
 				SetVisiblePanel(pnlCandidate);
 			}
 		}
@@ -219,7 +222,7 @@ namespace Nexus.Client.UI.Controls
 		protected void DisplayFinalUI()
 		{
 			SetVisiblePanel(pnlSet);
-			lblFinalPath.Text = Discoverer.GetFinalPath(GameMode.ModeId);
+			lblFinalPath.Text = TESTPATH; //Discoverer.GetFinalPath(GameMode.ModeId);
 		}
 
 		#endregion

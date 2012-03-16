@@ -35,7 +35,7 @@
 			this.lblFoundTitle = new System.Windows.Forms.Label();
 			this.butReject = new System.Windows.Forms.Button();
 			this.butAccept = new System.Windows.Forms.Button();
-			this.lblPath = new System.Windows.Forms.Label();
+			this.lblPath = new Nexus.Client.Controls.PathLabel();
 			this.pnlNotFound = new System.Windows.Forms.Panel();
 			this.butOverride = new System.Windows.Forms.Button();
 			this.butSelectPath = new System.Windows.Forms.Button();
@@ -51,7 +51,7 @@
 			this.lblSearchingTitle = new System.Windows.Forms.Label();
 			this.lblProgressMessage = new Nexus.Client.Controls.PathLabel();
 			this.pnlSet = new System.Windows.Forms.Panel();
-			this.lblFinalPath = new System.Windows.Forms.Label();
+			this.lblFinalPath = new Nexus.Client.Controls.PathLabel();
 			this.pnlCandidate.SuspendLayout();
 			this.pnlNotFound.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).BeginInit();
@@ -142,13 +142,14 @@
 			// 
 			// lblPath
 			// 
-			this.lblPath.AutoSize = true;
+			this.lblPath.AutoEllipsis = true;
 			this.lblPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.lblPath.Location = new System.Drawing.Point(7, 39);
+			this.lblPath.Location = new System.Drawing.Point(7, 33);
 			this.lblPath.Name = "lblPath";
-			this.lblPath.Size = new System.Drawing.Size(294, 17);
+			this.lblPath.Size = new System.Drawing.Size(378, 33);
 			this.lblPath.TabIndex = 0;
-			this.lblPath.Text = "c:\\really\\long\\game\\path\\to\\the\\installed\\game";
+			this.lblPath.Text = "C:\\Program Files\\Interim Path\\Steam\\steamapps\\common\\Skyrim";
+			this.lblPath.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 			// 
 			// pnlNotFound
 			// 
@@ -304,13 +305,14 @@
 			// 
 			// lblFinalPath
 			// 
-			this.lblFinalPath.AutoSize = true;
+			this.lblFinalPath.AutoEllipsis = true;
 			this.lblFinalPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.lblFinalPath.Location = new System.Drawing.Point(7, 25);
+			this.lblFinalPath.Location = new System.Drawing.Point(7, 3);
 			this.lblFinalPath.Name = "lblFinalPath";
-			this.lblFinalPath.Size = new System.Drawing.Size(294, 17);
+			this.lblFinalPath.Size = new System.Drawing.Size(378, 60);
 			this.lblFinalPath.TabIndex = 0;
-			this.lblFinalPath.Text = "c:\\really\\long\\game\\path\\to\\the\\installed\\game";
+			this.lblFinalPath.Text = "C:\\Program Files\\Interim Path\\Steam\\steamapps\\common\\Skyrim";
+			this.lblFinalPath.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 			// 
 			// GameModeSearchListViewItem
 			// 
@@ -335,7 +337,6 @@
 			this.pnlSearching.ResumeLayout(false);
 			this.pnlSearching.PerformLayout();
 			this.pnlSet.ResumeLayout(false);
-			this.pnlSet.PerformLayout();
 			this.ResumeLayout(false);
 
 		}
@@ -345,7 +346,7 @@
 		private System.Windows.Forms.PictureBox pbxGameLogo;
 		private System.Windows.Forms.Label lblGameModeName;
 		private System.Windows.Forms.Panel pnlCandidate;
-		private System.Windows.Forms.Label lblPath;
+		private Nexus.Client.Controls.PathLabel lblPath;
 		private System.Windows.Forms.Panel pnlNotFound;
 		private System.Windows.Forms.Button butReject;
 		private System.Windows.Forms.Button butAccept;
@@ -364,6 +365,6 @@
 		private Nexus.Client.Controls.PathLabel lblProgressMessage;
 		private System.Windows.Forms.Button butOverride;
 		private System.Windows.Forms.Panel pnlSet;
-		private System.Windows.Forms.Label lblFinalPath;
+		private Nexus.Client.Controls.PathLabel lblFinalPath;
 	}
 }

@@ -18,6 +18,8 @@ namespace Nexus.Client.UI.Controls
 		{
 			get
 			{
+				if (ListView == null)
+					return false;
 				return ListView.SelectedItem == this;
 			}
 			set
