@@ -48,34 +48,36 @@ namespace Nexus.Client.Controls
 			}
 			bool booShrinkToFit = true;
 
-			Int32 intMaxLines = 0;
-			Int32 intCharsFitted = 0;
-			Int32 intLinesFilled = 0;
-			SizeF szeArea = new Size(ClientSize.Width-3, ClientSize.Height-3);
 			Font fntFont = Font;
-			StringFormat sftNoWrap = new StringFormat();
-			sftNoWrap.FormatFlags = StringFormatFlags.LineLimit;
-			fntFont = new Font(Font.FontFamily, 9.4f, Font.Style, Font.Unit, Font.GdiCharSet, Font.GdiVerticalFont);
-			do
+			bool booAllFit = false;
+			string strText = null;
+			Int32 intLastHighGuess = Convert.ToInt32(Math.Floor(Font.SizeInPoints * 10f)) + 1;
+			Int32 intLastLowGuess = 70;
+			Int32 intGuess = (intLastHighGuess + intLastLowGuess) / 2;
+			while (intGuess > 0)
 			{
-				e.Graphics.MeasureString(Text, fntFont, szeArea, sftNoWrap, out intCharsFitted, out intMaxLines);
-				if ((intCharsFitted < Text.Length) && booShrinkToFit && (fntFont.SizeInPoints > 7))
-					fntFont = new Font(Font.FontFamily, fntFont.SizeInPoints - 0.1f, Font.Style, Font.Unit, Font.GdiCharSet, Font.GdiVerticalFont);
-				else
+				fntFont = new Font(Font.FontFamily, (float)intGuess / 10f, Font.Style, Font.Unit, Font.GdiCharSet, Font.GdiVerticalFont);
+				Int32 intMaxLines = ClientSize.Height / TextRenderer.MeasureText(e.Graphics, " ", fntFont).Height;
+				strText = SplitText(e.Graphics, Text, intMaxLines, fntFont, ClientSize, out booAllFit);
+				if (!booShrinkToFit)
 					break;
-			} while (true);
-			
-			intCharsFitted = 0;
-			intLinesFilled = 0;
-			string strText = Text;
-			sftNoWrap.FormatFlags |= StringFormatFlags.NoWrap;
-			while ((intCharsFitted < strText.Length) && (intLinesFilled < intMaxLines))
-			{
-				e.Graphics.MeasureString(strText, fntFont, szeArea, sftNoWrap, out intCharsFitted, out intLinesFilled);
-				if ((intCharsFitted < strText.Length) && (intLinesFilled < intMaxLines))
-					strText = strText.Insert(intCharsFitted, Environment.NewLine);
+				Int32 intNewGuess = 0;
+				if (booAllFit)
+				{
+					intNewGuess = (intLastHighGuess + intGuess) / 2;
+					intLastLowGuess = intGuess;
+				}
+				else
+				{
+					intNewGuess = (intGuess + intLastLowGuess) / 2;
+					intLastHighGuess = intGuess;
+				}
+				if (intNewGuess == intGuess)
+					break;
+				intGuess = intNewGuess;
 			}
-			if (AutoEllipsis && (intCharsFitted < strText.Length))
+
+			if (AutoEllipsis && !booAllFit)
 			{
 				string[] strTextLines = strText.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
 				string strLastLine = String.Copy(strTextLines[strTextLines.Length - 1]);
@@ -83,10 +85,33 @@ namespace Nexus.Client.Controls
 				Int32 intNullPos = strLastLine.IndexOf('\0');
 				strTextLines[strTextLines.Length - 1] = (intNullPos > -1) ? strLastLine.Substring(0, intNullPos) : strLastLine;
 				strText = String.Join(Environment.NewLine, strTextLines);
-
 			}
-			e.Graphics.DrawString(strText, fntFont, new SolidBrush(ForeColor), ClientRectangle);
-			//TextRenderer.DrawText(e.Graphics, strText, fntFont, ClientRectangle, ForeColor, BackColor, tffFormatting);
+			TextRenderer.DrawText(e.Graphics, strText, fntFont, ClientRectangle, ForeColor, BackColor, tffFormatting);
+		}
+
+		private string SplitText(Graphics p_grpGraphics, string p_strText, Int32 p_intMaxLines, Font p_fntFont, Size p_szeArea, out bool p_booAllTextFit)
+		{
+			string strText = p_strText;
+			Int32 intLineStart = 0;
+			Int32 intLinesFilled = 1;
+			Int32 intBreakPosition = 0;
+			while (intBreakPosition > -1)
+			{
+				string strLine = String.Copy(strText.Substring(intLineStart));
+				TextRenderer.MeasureText(p_grpGraphics, strLine, p_fntFont, p_szeArea, TextFormatFlags.ModifyString | TextFormatFlags.EndEllipsis);
+				intBreakPosition = strLine.IndexOf("...\0");
+				if (intLinesFilled == p_intMaxLines)
+					break;
+				if (intBreakPosition > -1)
+				{
+					intLineStart = intLineStart + intBreakPosition;
+					strText = strText.Insert(intLineStart, Environment.NewLine);
+					intLineStart = intLineStart + Environment.NewLine.Length;
+					intLinesFilled++;
+				}
+			}
+			p_booAllTextFit = (intLinesFilled <= p_intMaxLines) && (intBreakPosition < 0);
+			return strText;
 		}
 
 	}
