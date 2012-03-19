@@ -1,7 +1,7 @@
-﻿using System.Windows.Forms;
-using System.Drawing;
-using System;
+﻿using System;
 using System.ComponentModel;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Controls
 {
@@ -126,6 +126,20 @@ namespace Nexus.Client.Controls
 			TextRenderer.DrawText(e.Graphics, strText, fntFont, ClientRectangle, ForeColor, BackColor, tffFormatting);
 		}
 
+		/// <summary>
+		/// Splits the given text into multiples lines, factoring in the given information.
+		/// </summary>
+		/// <remarks>
+		/// If the given text will not fit in the given area, the last line of the split text
+		/// will contain the extra characters.
+		/// </remarks>
+		/// <param name="p_grpGraphics">The graphics object that will be used to render the text.</param>
+		/// <param name="p_strText">The text to split.</param>
+		/// <param name="p_intMaxLines">The maximum number of lines into which to split the text.</param>
+		/// <param name="p_fntFont">The font in which the text will be rendered.</param>
+		/// <param name="p_szeArea">The area in which the text will be rendered.</param>
+		/// <param name="p_booAllTextFit">An out parameter indicating whether all of the given text fit in the given area.</param>
+		/// <returns>The given text into multiples lines, factoring in the given information.</returns>
 		private string SplitText(Graphics p_grpGraphics, string p_strText, Int32 p_intMaxLines, Font p_fntFont, Size p_szeArea, out bool p_booAllTextFit)
 		{
 			string strText = p_strText;
