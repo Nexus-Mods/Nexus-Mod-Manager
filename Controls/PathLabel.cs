@@ -1,6 +1,7 @@
 ﻿using System.Windows.Forms;
 using System.Drawing;
 using System;
+using System.ComponentModel;
 
 namespace Nexus.Client.Controls
 {
@@ -9,6 +10,43 @@ namespace Nexus.Client.Controls
 	/// </summary>
 	public class PathLabel : Label
 	{
+		#region Properties
+
+		/// <summary>
+		/// Gets or sets whether the label's font size will shrnik to fit the entire
+		/// text into the label's area.
+		/// </summary>
+		/// <value>Whether the label's font size will shrnik to fit the entire
+		/// text into the label's area.</value>
+		[Category("Behavior")]
+		[Browsable(true)]
+		[DefaultValue(true)]
+		public bool ShrinkFontToFit { get; set; }
+
+		/// <summary>
+		/// Gets or sets the minimum allowed font size when shrinking the font to fit the label's text.
+		/// </summary>
+		/// <value>The minimum allowed font size when shrinking the font to fit the label's text.</value>
+		[Category("Behavior")]
+		[Browsable(true)]
+		[DefaultValue(8.0f)]
+		public float MinimumFontSize { get; set; }
+
+		#endregion
+
+		#region Constructors
+
+		/// <summary>
+		/// The default constructor.
+		/// </summary>
+		public PathLabel()
+		{
+			ShrinkFontToFit = true;
+			MinimumFontSize = 8.0f;
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Paints the label's string.
 		/// </summary>
@@ -46,20 +84,19 @@ namespace Nexus.Client.Controls
 					tffFormatting |= TextFormatFlags.Top | TextFormatFlags.Right;
 					break;
 			}
-			bool booShrinkToFit = true;
-
+			
 			Font fntFont = Font;
 			bool booAllFit = false;
 			string strText = null;
 			Int32 intLastHighGuess = Convert.ToInt32(Math.Floor(Font.SizeInPoints * 10f)) + 1;
-			Int32 intLastLowGuess = 70;
+			Int32 intLastLowGuess = Convert.ToInt32(Math.Floor(MinimumFontSize * 10f));
 			Int32 intGuess = (intLastHighGuess + intLastLowGuess) / 2;
 			while (intGuess > 0)
 			{
 				fntFont = new Font(Font.FontFamily, (float)intGuess / 10f, Font.Style, Font.Unit, Font.GdiCharSet, Font.GdiVerticalFont);
 				Int32 intMaxLines = ClientSize.Height / TextRenderer.MeasureText(e.Graphics, " ", fntFont).Height;
 				strText = SplitText(e.Graphics, Text, intMaxLines, fntFont, ClientSize, out booAllFit);
-				if (!booShrinkToFit)
+				if (!ShrinkFontToFit)
 					break;
 				Int32 intNewGuess = 0;
 				if (booAllFit)
