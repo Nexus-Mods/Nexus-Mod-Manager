@@ -144,6 +144,12 @@ namespace Nexus.Client.Games
 					// though I have no idea why we were searching it to begin with
 					// possibly the user was manipulating the file system while the search is being executed?
 				}
+				catch (ArgumentException e)
+				{
+					Trace.TraceInformation("Argument exception when getting subdirectories: {0}", strSearchPath);
+					TraceUtil.TraceException(e);
+					Trace.TraceInformation("Ignoring.");
+				}
 				catch (IOException)
 				{
 					//not sure what goings on here
