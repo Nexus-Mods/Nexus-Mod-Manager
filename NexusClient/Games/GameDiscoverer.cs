@@ -223,14 +223,23 @@ namespace Nexus.Client.Games
 					lstFilesToFind.Add(strExecutable);
 				}
 				Trace.Indent();
+
 				Trace.TraceInformation("Checking Last Installation Path...");
+				Trace.Indent();
 				string strPath = gmfFactory.GameModeDescriptor.InstallationPath;
+				Trace.TraceInformation("Returned: {0} (IsNull={1})", strPath, String.IsNullOrEmpty(strPath));
+				Trace.Unindent();
 				if (Verify(gmfFactory.GameModeDescriptor.ModeId, strPath))
 					FoundCandidate(gmfFactory.GameModeDescriptor, strPath);
+
 				Trace.TraceInformation("Asking Game Mode...");
+				Trace.Indent();
 				strPath = gmfFactory.GetInstallationPath();
+				Trace.TraceInformation("Returned: {0} (IsNull={1})", strPath, String.IsNullOrEmpty(strPath));
+				Trace.Unindent();
 				if (Verify(gmfFactory.GameModeDescriptor.ModeId, strPath))
 					FoundCandidate(gmfFactory.GameModeDescriptor, strPath);
+
 				Trace.Unindent();
 			}
 			Trace.TraceInformation("Starting search.");
