@@ -264,6 +264,7 @@ namespace Nexus.Client
 					return null;
 				if (gdrGameDetector.DiscoveredGameModes.Count == 0)
 					return null;
+				m_eifEnvironmentInfo.Settings.InstalledGames.Clear();
 				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
 				{
 					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
