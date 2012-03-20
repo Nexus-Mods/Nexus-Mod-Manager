@@ -5,6 +5,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Util;
+using System.Diagnostics;
 
 namespace Nexus.Client.Games
 {
@@ -155,6 +156,27 @@ namespace Nexus.Client.Games
 			{
 				//we don't have access to the path we are trying to search, so let's bail
 				return;
+			}
+			catch (PathTooLongException)
+			{
+				//how the user has paths that are too long is a bit of a mystery,
+				// but given that .NET, and Windows in general, can't handle them,
+				// we're going to ignore them
+				Trace.TraceInformation("Path too long: {0}", p_strPath);
+				return;
+			}
+			catch (DirectoryNotFoundException)
+			{
+				//doesn't exist so we don't care
+				// though I have no idea why we were searching it to begin with
+				// possibly the user was manipulating the file system while the search is being executed?
+				return;
+			}
+			catch (IOException)
+			{
+				//not sure what goings on here
+				Trace.TraceInformation("IOException while getting files from: {0}", p_strPath);
+				throw;
 			}
 			for (Int32 i = 0; i < strHaystackFiles.Length; i++)
 			{
