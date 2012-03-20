@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using Nexus.Client.Games;
+using System.Collections.Generic;
 
 namespace Nexus.Client.UI.Controls
 {
@@ -27,6 +28,22 @@ namespace Nexus.Client.UI.Controls
 		private GameModeListViewItemBase m_lviFocussedItem = null;
 
 		#region Properties
+
+		/// <summary>
+		/// Gets the list of items in the view.
+		/// </summary>
+		/// <value>The list of items in the view.</value>
+		public IList<GameModeListViewItemBase> Items
+		{
+			get
+			{
+				List<GameModeListViewItemBase> lstItems = new List<GameModeListViewItemBase>();
+				for (Int32 i = 0; i < m_flpPanel.Controls.Count; i++)
+					if (m_flpPanel.Controls[i] is GameModeListViewItemBase)
+						lstItems.Add((GameModeListViewItemBase)m_flpPanel.Controls[i]);
+				return lstItems;
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the selected item in the list.
