@@ -30,7 +30,7 @@
 		{
 			this.cbxRemember = new System.Windows.Forms.CheckBox();
 			this.butOK = new System.Windows.Forms.Button();
-			this.label1 = new System.Windows.Forms.Label();
+			this.lblPrompt = new System.Windows.Forms.Label();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.panel2 = new System.Windows.Forms.Panel();
 			this.panel3 = new System.Windows.Forms.Panel();
@@ -62,19 +62,19 @@
 			this.butOK.UseVisualStyleBackColor = true;
 			this.butOK.Click += new System.EventHandler(this.butOK_Click);
 			// 
-			// label1
+			// lblPrompt
 			// 
-			this.label1.AutoSize = true;
-			this.label1.Location = new System.Drawing.Point(12, 9);
-			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(210, 13);
-			this.label1.TabIndex = 3;
-			this.label1.Text = "Select the game you would like to manage:";
+			this.lblPrompt.AutoSize = true;
+			this.lblPrompt.Location = new System.Drawing.Point(12, 9);
+			this.lblPrompt.Name = "lblPrompt";
+			this.lblPrompt.Size = new System.Drawing.Size(210, 13);
+			this.lblPrompt.TabIndex = 3;
+			this.lblPrompt.Text = "Select the game you would like to manage:";
 			// 
 			// panel1
 			// 
 			this.panel1.AutoSize = true;
-			this.panel1.Controls.Add(this.label1);
+			this.panel1.Controls.Add(this.lblPrompt);
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
 			this.panel1.Location = new System.Drawing.Point(0, 0);
 			this.panel1.Name = "panel1";
@@ -108,13 +108,12 @@
 			this.glvGameMode.AutoSize = true;
 			this.glvGameMode.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.glvGameMode.BackColor = System.Drawing.SystemColors.Window;
-			this.glvGameMode.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
 			this.glvGameMode.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.glvGameMode.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
 			this.glvGameMode.Location = new System.Drawing.Point(13, 6);
 			this.glvGameMode.Name = "glvGameMode";
-			this.glvGameMode.SelectedItem = null;
 			this.glvGameMode.SelectedGameMode = null;
+			this.glvGameMode.SelectedItem = null;
 			this.glvGameMode.Size = new System.Drawing.Size(464, 271);
 			this.glvGameMode.TabIndex = 4;
 			this.glvGameMode.SelectedItemChanged += new System.EventHandler<Nexus.Client.UI.Controls.SelectedItemEventArgs>(this.glvGameMode_SelectedItemChanged);
@@ -151,7 +150,7 @@
 
 		private System.Windows.Forms.CheckBox cbxRemember;
 		private System.Windows.Forms.Button butOK;
-		private System.Windows.Forms.Label label1;
+		private System.Windows.Forms.Label lblPrompt;
 		private Nexus.Client.UI.Controls.GameModeListView glvGameMode;
 		private System.Windows.Forms.Panel panel1;
 		private System.Windows.Forms.Panel panel2;

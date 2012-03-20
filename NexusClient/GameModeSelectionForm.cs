@@ -46,6 +46,7 @@ namespace Nexus.Client
 		{
 			Settings = p_setSettings;
 			InitializeComponent();
+			glvGameMode.MinimumSize = lblPrompt.Size;
 			Icon = Properties.Resources.DefaultIcon;
 			List<IGameModeDescriptor> lstSortedModes = new List<IGameModeDescriptor>(p_lstGameModes);
 			lstSortedModes.Sort((x, y) => x.Name.CompareTo(y.Name));
