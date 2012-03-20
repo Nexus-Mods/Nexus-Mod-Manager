@@ -171,6 +171,7 @@
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.butOverride.AutoSize = true;
 			this.butOverride.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butOverride.Enabled = false;
 			this.butOverride.FlatAppearance.BorderSize = 0;
 			this.butOverride.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
 			this.butOverride.Image = global::Nexus.Client.Properties.Resources.dialog_ok_4_16;
