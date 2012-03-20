@@ -180,6 +180,20 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the reject button.
+		/// </summary>
+		/// <remarks>
+		/// This indicate thes found path is incorrect, and another path should be found.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butCancel_Click(object sender, EventArgs e)
+		{
+			SetVisiblePanel(pnlNotFound);
+			Discoverer.Cancel(GameMode.ModeId);
+		}
+
+		/// <summary>
 		/// Handles the <see cref="Control.Click"/> event of the override button.
 		/// </summary>
 		/// <remarks>

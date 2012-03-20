@@ -297,6 +297,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Cancels the search for the specified game mode.
+		/// </summary>
+		/// <param name="p_strGameModeId">The id of the game mode for which to stop searching.</param>
+		public void Cancel(string p_strGameModeId)
+		{
+			Stop(p_strGameModeId);
+			OnGameResolved(m_dicGameModesById[p_strGameModeId], null);
+			if (m_dicCandidatePathsByGame.Count == 0)
+				Status = TaskStatus.Complete;
+		}
+
+		/// <summary>
 		/// Rejects the current installation path of the specified game mode, and indicates
 		/// the detector should continue searching.
 		/// </summary>

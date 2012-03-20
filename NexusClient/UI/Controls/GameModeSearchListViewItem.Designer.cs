@@ -47,6 +47,7 @@
 			this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.pnlSearching = new System.Windows.Forms.Panel();
+			this.butCancel = new System.Windows.Forms.Button();
 			this.pbrProgress = new System.Windows.Forms.ProgressBar();
 			this.lblSearchingTitle = new System.Windows.Forms.Label();
 			this.lblProgressMessage = new Nexus.Client.Controls.PathLabel();
@@ -255,6 +256,7 @@
 			// 
 			// pnlSearching
 			// 
+			this.pnlSearching.Controls.Add(this.butCancel);
 			this.pnlSearching.Controls.Add(this.pbrProgress);
 			this.pnlSearching.Controls.Add(this.lblSearchingTitle);
 			this.pnlSearching.Controls.Add(this.lblProgressMessage);
@@ -263,6 +265,22 @@
 			this.pnlSearching.Name = "pnlSearching";
 			this.pnlSearching.Size = new System.Drawing.Size(388, 66);
 			this.pnlSearching.TabIndex = 2;
+			// 
+			// butCancel
+			// 
+			this.butCancel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+						| System.Windows.Forms.AnchorStyles.Right)));
+			this.butCancel.AutoSize = true;
+			this.butCancel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butCancel.FlatAppearance.BorderSize = 0;
+			this.butCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+			this.butCancel.Image = global::Nexus.Client.Properties.Resources.dialog_cancel_4_16;
+			this.butCancel.Location = new System.Drawing.Point(363, 6);
+			this.butCancel.Name = "butCancel";
+			this.butCancel.Size = new System.Drawing.Size(22, 22);
+			this.butCancel.TabIndex = 6;
+			this.butCancel.UseVisualStyleBackColor = true;
+			this.butCancel.Click += new System.EventHandler(this.butCancel_Click);
 			// 
 			// pbrProgress
 			// 
@@ -290,7 +308,7 @@
 			this.lblProgressMessage.AutoEllipsis = true;
 			this.lblProgressMessage.Location = new System.Drawing.Point(7, 20);
 			this.lblProgressMessage.Name = "lblProgressMessage";
-			this.lblProgressMessage.Size = new System.Drawing.Size(378, 13);
+			this.lblProgressMessage.Size = new System.Drawing.Size(358, 13);
 			this.lblProgressMessage.TabIndex = 1;
 			this.lblProgressMessage.Text = "label3";
 			// 
@@ -366,5 +384,6 @@
 		private System.Windows.Forms.Button butOverride;
 		private System.Windows.Forms.Panel pnlSet;
 		private Nexus.Client.Controls.PathLabel lblFinalPath;
+		private System.Windows.Forms.Button butCancel;
 	}
 }
