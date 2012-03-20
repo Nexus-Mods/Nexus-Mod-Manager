@@ -131,6 +131,25 @@ namespace Nexus.Client.Games
 				{
 					//we don't have access to the path we are trying to search, so do nothing
 				}
+				catch (PathTooLongException)
+				{
+					//how the user has paths that are too long is a bit of a mystery,
+					// but given that .NET, and Windows in general, can't handle them,
+					// we're going to ignore them
+					Trace.TraceInformation("Path too long when getting directories: {0}", strSearchPath);
+				}
+				catch (DirectoryNotFoundException)
+				{
+					//doesn't exist so we don't care
+					// though I have no idea why we were searching it to begin with
+					// possibly the user was manipulating the file system while the search is being executed?
+				}
+				catch (IOException)
+				{
+					//not sure what goings on here
+					Trace.TraceInformation("IOException while getting subdirectories for: {0}", strSearchPath);
+					throw;
+				}
 			}
 			return null;
 		}
