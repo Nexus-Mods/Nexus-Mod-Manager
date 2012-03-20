@@ -279,8 +279,8 @@ namespace Nexus.Client
 				Image imgCommandIcon = new Icon(gmdInstalledGame.ModeTheme.Icon, 32, 32).ToBitmap();
 				lstChangeGameModeCommands.Add(new Command(strId, strName, strDescription, imgCommandIcon, () => ChangeGameMode(strId), true));
 			}
-			lstChangeGameModeCommands.Add(new Command("Change Default Game", "Change Default Game", () => ChangeGameMode(CHANGE_DEFAULT_GAME_MODE)));
-			lstChangeGameModeCommands.Add(new Command("Rescan Installed Games", "Rescan Installed Games", () => ChangeGameMode(RESCAN_INSTALLED_GAMES)));
+			lstChangeGameModeCommands.Add(new Command("Change Default Game...", "Change Default Game", () => ChangeGameMode(CHANGE_DEFAULT_GAME_MODE)));
+			lstChangeGameModeCommands.Add(new Command("Rescan Installed Games...", "Rescan Installed Games", () => ChangeGameMode(RESCAN_INSTALLED_GAMES)));
 			ChangeGameModeCommands = lstChangeGameModeCommands;
 		}
 
