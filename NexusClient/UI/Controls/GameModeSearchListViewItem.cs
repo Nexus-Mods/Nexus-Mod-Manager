@@ -261,6 +261,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void tbxInstallPath_TextChanged(object sender, EventArgs e)
 		{
+			butOverride.Enabled = tbxInstallPath.Text.Length > 0;
 			if (!Discoverer.Verify(GameMode.ModeId, tbxInstallPath.Text))
 				erpErrors.SetError(butSelectPath, "Path does not contain game EXE.");
 			else

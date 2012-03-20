@@ -289,7 +289,8 @@ namespace Nexus.Client.Games
 		/// <param name="p_strInstallPath">The path to use as the specified game mode's installation path.</param>
 		public void Override(string p_strGameModeId, string p_strInstallPath)
 		{
-			m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], p_strInstallPath));
+			if (!String.IsNullOrEmpty(p_strInstallPath))
+				m_lstFoundGameModes.Add(new GameInstallData(m_dicGameModesById[p_strGameModeId], p_strInstallPath));
 			Stop(p_strGameModeId);
 			OnGameResolved(m_dicGameModesById[p_strGameModeId], p_strInstallPath);
 			if (m_dicCandidatePathsByGame.Count == 0)
