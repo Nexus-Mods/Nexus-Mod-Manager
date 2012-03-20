@@ -28,7 +28,7 @@ namespace Nexus.Client.Games
 		#endregion
 
 		private DateTime m_dteLastUpdate = DateTime.MinValue;
-		
+
 		#region Properties
 
 		/// <summary>
@@ -150,7 +150,11 @@ namespace Nexus.Client.Games
 			string[] strHaystackFiles = null;
 			try
 			{
-				strHaystackFiles = Directory.GetFiles(p_strPath);
+				//we need this check, as a drive may have become un-ready whilst we were searching
+				if (new DriveInfo(Path.GetPathRoot(p_strPath)).IsReady)
+					strHaystackFiles = Directory.GetFiles(p_strPath);
+				else
+					return;
 			}
 			catch (UnauthorizedAccessException)
 			{
