@@ -59,6 +59,8 @@ namespace Nexus.Client
 			IGameModeDescriptor gmdDefault = p_lstGameModes.Find(x => x.ModeId.Equals(p_setSettings.RememberedGameMode));
 			if (gmdDefault != null)
 				glvGameMode.SelectedGameMode = gmdDefault;
+			else
+				glvGameMode.SelectedItem = glvGameMode.Items[0];
 			cbxRemember.Checked = Settings.RememberGameMode;
 		}
 
