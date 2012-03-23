@@ -153,8 +153,9 @@ namespace Nexus.Client.Games
 				catch (IOException)
 				{
 					//not sure what goings on here
+					// it seems this can happen when a drive has an unrecognized format
+					// there are likely some other unusual cases
 					Trace.TraceInformation("IOException while getting subdirectories for: {0}", strSearchPath);
-					throw;
 				}
 			}
 			return null;
@@ -204,8 +205,9 @@ namespace Nexus.Client.Games
 			catch (IOException)
 			{
 				//not sure what goings on here
+				// it seems this can happen when a drive has an unrecognized format
+				// there are likely some other unusual cases
 				Trace.TraceInformation("IOException while getting files from: {0}", p_strPath);
-				throw;
 			}
 			for (Int32 i = 0; i < strHaystackFiles.Length; i++)
 			{
