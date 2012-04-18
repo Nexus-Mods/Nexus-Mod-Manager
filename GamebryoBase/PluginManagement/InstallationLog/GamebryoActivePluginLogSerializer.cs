@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 using Nexus.Client.PluginManagement.InstallationLog;
+using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util.Collections;
-using System.IO;
-using Nexus.Client.PluginManagement.OrderLog;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 {
