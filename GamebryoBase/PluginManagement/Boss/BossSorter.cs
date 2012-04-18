@@ -1,9 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Nexus.Client.Util;
-using System.Collections.Generic;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 {
@@ -279,6 +279,20 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 
 		#endregion
 
+		#region Utility Methods
+
+		/// <summary>
+		/// Gets whether the plugin is a master file.
+		/// </summary>
+		/// <param name="db">The db for which we are performing the action.</param>
+		/// <param name="plugin">The plugins whose master state is to be determined.</param>
+		/// <param name="isMaster">Returns whether the specified plugin is a master.</param>
+		/// <returns>Status code.</returns>
+		[UnmanagedFunctionPointer(CallingConvention.StdCall)]
+		private delegate UInt32 IsMasterDelegate(IntPtr db, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(StringMarshaler), MarshalCookie = "UTF8")] string plugin, out bool isMaster);
+
+		#endregion
+
 		#endregion
 
 		private GetLastErrorDetailsDelegate m_dlgGetLastErrorDetails = null;
@@ -297,6 +311,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		private GetIndexedPluginDelegate m_dlgGetIndexedPlugin = null;
 		private SetPluginActiveDelegate m_dlgSetPluginActive = null;
 		private IsPluginActiveDelegate m_dlgIsPluginActive = null;
+		private IsMasterDelegate m_dlgIsMaster = null;
 
 		#endregion
 
@@ -407,6 +422,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			m_dlgGetIndexedPlugin = (GetIndexedPluginDelegate)Marshal.GetDelegateForFunctionPointer(GetProcAddress(m_ptrBossApi, "GetIndexedPlugin"), typeof(GetIndexedPluginDelegate));
 			m_dlgSetPluginActive = (SetPluginActiveDelegate)Marshal.GetDelegateForFunctionPointer(GetProcAddress(m_ptrBossApi, "SetPluginActive"), typeof(SetPluginActiveDelegate));
 			m_dlgIsPluginActive = (IsPluginActiveDelegate)Marshal.GetDelegateForFunctionPointer(GetProcAddress(m_ptrBossApi, "IsPluginActive"), typeof(IsPluginActiveDelegate));
+			m_dlgIsMaster = (IsMasterDelegate)Marshal.GetDelegateForFunctionPointer(GetProcAddress(m_ptrBossApi, "IsPluginMaster"), typeof(IsMasterDelegate));
 		}
 
 		#region IDisposable Members
@@ -871,6 +887,24 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			UInt32 uintStatus = m_dlgIsPluginActive(m_ptrBossDb, StripPluginDirectory(p_strPlugin), out booIsActive);
 			HandleStatusCode(uintStatus);
 			return booIsActive;
+		}
+
+		#endregion
+
+		#region Utility Methods
+
+		/// <summary>
+		/// Gets whether the plugin is a master file.
+		/// </summary>
+		/// <param name="p_strPlugin">The plugin for which it is to be determined if the file is a plugin.</param>
+		/// <returns><c>true</c> if the given plugin is a master file;
+		/// <c>false</c> otherwise.</returns>
+		public bool IsMaster(string p_strPlugin)
+		{
+			bool booIsMaster = false;
+			UInt32 uintStatus = m_dlgIsMaster(m_ptrBossDb, StripPluginDirectory(p_strPlugin), out booIsMaster);
+			HandleStatusCode(uintStatus);
+			return booIsMaster;
 		}
 
 		#endregion
