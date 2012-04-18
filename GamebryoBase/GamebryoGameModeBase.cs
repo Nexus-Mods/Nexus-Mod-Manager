@@ -10,7 +10,6 @@ using Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog;
 using Nexus.Client.Games.Gamebryo.Settings;
 using Nexus.Client.Games.Gamebryo.Settings.UI;
 using Nexus.Client.Games.Gamebryo.Updating;
-using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
@@ -20,7 +19,6 @@ using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -192,7 +190,7 @@ namespace Nexus.Client.Games.Gamebryo
 		public override IPluginFactory GetPluginFactory()
 		{
 			if (m_pgfPluginFactory == null)
-				m_pgfPluginFactory = new GamebryoPluginFactory(PluginDirectory);
+				m_pgfPluginFactory = new GamebryoPluginFactory(PluginDirectory, BossSorter);
 			return m_pgfPluginFactory;
 		}
 
