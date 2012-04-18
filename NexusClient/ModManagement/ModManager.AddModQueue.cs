@@ -46,6 +46,12 @@ namespace Nexus.Client.ModManagement
 				Trace.TraceInformation("Loading mods that are queued to be added.");
 				if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
 					return;
+				if (m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] == null)
+				{
+					m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
+					m_eifEnvironmentInfo.Settings.Save();
+					return;
+				}
 				foreach (KeyValuePair<string, AddModDescriptor> kvpMod in new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]))
 				{
 					Trace.TraceInformation(String.Format("[{0}] Adding from serialized queue", kvpMod.Key.ToString()));
