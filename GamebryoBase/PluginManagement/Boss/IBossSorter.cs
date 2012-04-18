@@ -124,5 +124,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		bool IsPluginActive(string p_strPlugin);
 
 		#endregion
+
+		#region Utility Methods
+
+		/// <summary>
+		/// Gets whether the plugin is a master file.
+		/// </summary>
+		/// <param name="p_strPlugin">The plugin for which it is to be determined if the file is a plugin.</param>
+		/// <returns><c>true</c> if the given plugin is a master file;
+		/// <c>false</c> otherwise.</returns>
+		bool IsMaster(string p_strPlugin);
+
+		#endregion
 	}
 }
