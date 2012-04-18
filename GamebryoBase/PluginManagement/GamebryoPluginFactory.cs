@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Text;
+using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
 using Nexus.Client.Games.Gamebryo.Plugins;
 using Nexus.Client.Games.Gamebryo.Tools.TESsnip;
 using Nexus.Client.PluginManagement;
@@ -17,15 +18,27 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 	{
 		private string m_strPluginDirectory = null;
 
+		#region Properties
+
+		/// <summary>
+		/// Gets the BOSS plugin sorter.
+		/// </summary>
+		/// <value>The BOSS plugin sorter.</value>
+		protected IBossSorter BossSorter { get; private set; }
+
+		#endregion
+
 		#region Contructors
 
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_strPluginDirectory">The directory where the plugins are installed.</param>
-		public GamebryoPluginFactory(string p_strPluginDirectory)
+		/// <param name="p_bstBoss">The BOSS instance to use to set plugin order.</param>
+		public GamebryoPluginFactory(string p_strPluginDirectory, IBossSorter p_bstBoss)
 		{
 			m_strPluginDirectory = p_strPluginDirectory;
+			BossSorter = p_bstBoss;
 		}
 
 		#endregion
@@ -108,7 +121,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			Image imgPicutre = null;
 			if (pic != null)
 				imgPicutre = Bitmap.FromStream(new MemoryStream(pic));
-			Plugin pifInfo = new GamebryoPlugin(p_strPluginPath, stbDescription.ToString(), imgPicutre, TesPlugin.GetIsEsm(p_strPluginPath));
+			Plugin pifInfo = new GamebryoPlugin(p_strPluginPath, stbDescription.ToString(), imgPicutre, BossSorter.IsMaster(p_strPluginPath));
 			
 			return pifInfo;
 		}
