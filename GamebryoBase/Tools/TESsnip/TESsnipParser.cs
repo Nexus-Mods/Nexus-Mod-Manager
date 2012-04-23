@@ -254,14 +254,21 @@ namespace Nexus.Client.Games.Gamebryo.Tools.TESsnip
 		private void LoadPlugin(BinaryReader br, bool headerOnly)
 		{
 			string s;
+            string TES;
 			uint recsize;
 			bool IsOblivion = false;
 
 			InitDecompressor();
 
-			s = ReadRecName(br);
-			if (s != "TES4") throw new Exception("File is not a valid TES4 plugin (Missing TES4 record)");
-			br.BaseStream.Position = 20;
+            // Temporary fix for TES3 plugins
+			TES = ReadRecName(br);
+            if (TES == "TES4")
+                br.BaseStream.Position = 20;
+            else if (TES == "TES3")
+                br.BaseStream.Position = 16;
+            else
+                throw new Exception("File is not a valid TES plugin (Missing TES record)");
+			
 			s = ReadRecName(br);
 			if (s == "HEDR")
 			{
@@ -270,11 +277,21 @@ namespace Nexus.Client.Games.Gamebryo.Tools.TESsnip
 			else
 			{
 				s = ReadRecName(br);
-				if (s != "HEDR") throw new Exception("File is not a valid TES4 plugin (Missing HEDR subrecord in the TES4 record)");
+                if (s != "HEDR") throw new Exception(string.Format("File is not a valid {0} plugin (Missing HEDR subrecord in the {0} record)", TES));
 			}
 			br.BaseStream.Position = 4;
-			recsize = br.ReadUInt32();
-			Records.Add(new Record("TES4", recsize, br, IsOblivion));
+
+
+            if (TES == "TES3")
+            {
+                Records.Add(new Record(TES, br));
+            }
+            else
+            {
+                recsize = br.ReadUInt32();
+                Records.Add(new Record(TES, recsize, br, IsOblivion));
+            }
+
 			if (!headerOnly)
 			{
 				while (br.PeekChar() != -1)
@@ -935,6 +952,40 @@ namespace Nexus.Client.Games.Gamebryo.Tools.TESsnip
 			//br.BaseStream.Position+=Size;
 			if (SubRecords.Count > 0 && SubRecords[0].Name == "EDID") descriptiveName = " (" + SubRecords[0].GetStrData() + ")";
 		}
+
+        /// <summary>
+        /// A simple constructor that initializes the object with the given values.
+        /// </summary>
+        /// <param name="name">The name of the record.</param>
+        /// <param name="br">The reader containing the record data.</param>
+        internal Record(string name, BinaryReader br)
+        {
+            Name = name;
+            br.BaseStream.Position += 12;
+            uint AmountRead = 0;
+
+            string s = ReadRecName(br);
+            if (s == "HEDR")
+            {
+                br.BaseStream.Position += 10;
+                SubRecord r = new SubRecord("CNAM", br, 32);
+                AmountRead += (uint)(r.Size2);
+                SubRecords.Add(r);
+                br.BaseStream.Position -= 2;
+                r = new SubRecord("SNAM", br, 256);
+                AmountRead += (uint)(r.Size2);
+                SubRecords.Add(r);
+                br.BaseStream.Position += 4;
+                s = ReadRecName(br);
+                while (s == "MAST")
+                {
+                    r = new SubRecord(s, br, br.ReadUInt16());
+                    SubRecords.Add(r);
+                    br.BaseStream.Position += 16;
+                    s = ReadRecName(br);
+                }
+            }
+        }
 
 		/// <summary>
 		/// The copy constructor.
