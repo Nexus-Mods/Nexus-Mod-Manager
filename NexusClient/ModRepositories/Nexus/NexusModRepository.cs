@@ -122,7 +122,17 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <returns>A factory that is used to create proxies to the repository.</returns>
 		protected ChannelFactory<INexusModRepositoryApi> GetProxyFactory()
 		{
-			ChannelFactory<INexusModRepositoryApi> cftProxyFactory = new ChannelFactory<INexusModRepositoryApi>(m_strEndpoint);
+			return GetProxyFactory(false);
+		}
+
+		/// <summary>
+		/// Returns a factory that is used to create proxies to the repository.
+		/// </summary>
+		/// <param name="p_booIsGatekeeper">Whether or not we are communicating with the gatekeeper.</param>
+		/// <returns>A factory that is used to create proxies to the repository.</returns>
+		protected ChannelFactory<INexusModRepositoryApi> GetProxyFactory(bool p_booIsGatekeeper)
+		{
+			ChannelFactory<INexusModRepositoryApi> cftProxyFactory = new ChannelFactory<INexusModRepositoryApi>(p_booIsGatekeeper ? "GatekeeperNexusREST" : m_strEndpoint);
 			cftProxyFactory.Endpoint.Behaviors.Add(new HttpUserAgentEndpointBehaviour(UserAgent));
 			cftProxyFactory.Endpoint.Behaviors.Add(new CookieEndpointBehaviour(m_dicAuthenticationTokens));
 			return cftProxyFactory;
@@ -204,6 +214,28 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
 		public bool Login(string p_strUsername, string p_strPassword, out Dictionary<string, string> p_dicTokens)
 		{
+			string cookie = null;
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(true).CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					cookie = nmrApi.Login(p_strUsername, p_strPassword);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+			}
+
 			string strSite = m_strWebsite;
 			string strLoginUrl = String.Format("http://{0}/modules/login/do_login.php", strSite);
 			HttpWebRequest hwrLogin = (HttpWebRequest)WebRequest.Create(strLoginUrl);

@@ -22,6 +22,18 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "Sessions/?Login&username={p_strUsername}&password={p_strPassword}",
+			ResponseFormat = WebMessageFormat.Json)]
+		string Login(string p_strUsername, string p_strPassword);
+
+		/// <summary>
+		/// Gets the info about the specified mod from the repository.
+		/// </summary>
+		/// <param name="p_strModId">The id of the mod for which to retrieved the metadata.</param>
+		/// <returns>The info about the specified mod from the repository.</returns>
+		[OperationContract]
+		[WebGet(
+			BodyStyle = WebMessageBodyStyle.Bare,
 			UriTemplate = "Mods/{p_strModId}/",
 			ResponseFormat = WebMessageFormat.Json)]
 		NexusModInfo GetModInfo(string p_strModId);
