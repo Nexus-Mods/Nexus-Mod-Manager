@@ -45,6 +45,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Games\FontSet.cs" />
     <Compile Include="Games\GameLauncherBase.cs" />
     <Compile Include="Games\GameModeDescriptorBase.cs" />
     <Compile Include="Games\ISetupVM.cs" />

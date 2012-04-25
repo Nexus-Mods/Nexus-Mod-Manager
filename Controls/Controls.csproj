@@ -92,6 +92,12 @@
     <Compile Include="FilteredFolderBrowserDialog.Designer.cs">
       <DependentUpon>FilteredFolderBrowserDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="FontProvider.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="FontProvider.designer.cs">
+      <DependentUpon>FontProvider.cs</DependentUpon>
+    </Compile>
     <Compile Include="FormattedLabel.cs">
       <SubType>Component</SubType>
     </Compile>
