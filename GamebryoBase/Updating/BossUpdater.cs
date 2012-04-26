@@ -66,7 +66,10 @@ namespace Nexus.Client.Games.Gamebryo.Updating
 			SetProgressMaximum(2);
 
 			SetMessage("Checking for new masterlist...");
-			try
+
+			//this doesn't work for most game modes
+			// we don't need the list right now anyway, so let's not bother
+			/*try
 			{
 				bool booHasUpdate = BossSorter.MasterlistHasUpdate();
 				SetProgress(1);
@@ -96,7 +99,7 @@ namespace Nexus.Client.Games.Gamebryo.Updating
 				Trace.TraceError("Unable to update masterlist.");
 				TraceUtil.TraceException(e);
 				return false;
-			}
+			}*/
 
 			SetProgress(2);
 			Trace.Unindent();
