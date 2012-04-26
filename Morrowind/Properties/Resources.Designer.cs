@@ -60,9 +60,9 @@ namespace Nexus.Client.Games.Morrowind.Properties {
             }
         }
         
-        internal static System.Drawing.Icon tes_logo {
+        internal static System.Drawing.Icon morrowind_logo {
             get {
-                object obj = ResourceManager.GetObject("tes_logo", resourceCulture);
+                object obj = ResourceManager.GetObject("morrowind_logo", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
             }
         }
