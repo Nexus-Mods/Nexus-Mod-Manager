@@ -103,7 +103,7 @@ namespace Nexus.Client.Games.Morrowind
         {
             get
             {
-                return new Theme(Properties.Resources.tes_logo, Color.FromArgb(250, 167, 64));
+                return new Theme(Properties.Resources.morrowind_logo, Color.FromArgb(80, 45, 23));
             }
         }
 
