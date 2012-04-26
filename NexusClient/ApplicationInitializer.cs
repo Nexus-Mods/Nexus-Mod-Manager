@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.ActivityMonitoring;
@@ -269,7 +270,10 @@ namespace Nexus.Client
 			foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
 				if (!File.Exists(strPlugin))
 				{
-					p_vwmErrorMessage = new ViewMessage(String.Format("You are missing {0}. This file is present in all legitimate installs of Skyrim, so either you have deleted the file, or you have pirated Skyrim.{1}Please reinstall Skyrim, or buy Skyrim then reinstall it.", strPlugin, Environment.NewLine), null, "Missing File", MessageBoxIcon.Warning);
+					StringBuilder stbMessage = new StringBuilder();
+					stbMessage.AppendFormat("You are missing {0}.", strPlugin);
+					stbMessage.AppendFormat("Please verify your game install and ensure {1} is present.", strPlugin);
+					p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
 					return false;
 				}
 			StepOverallProgress();
