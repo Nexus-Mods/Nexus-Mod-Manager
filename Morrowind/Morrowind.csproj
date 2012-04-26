@@ -32,22 +32,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Commanding, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\Commanding\bin\Debug\Commanding.dll</HintPath>
-    </Reference>
-    <Reference Include="GamebryoBase, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\GamebryoBase\bin\Debug\GamebryoBase.dll</HintPath>
-    </Reference>
-    <Reference Include="ModManager.Interface, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\ModManager.Interface\bin\Debug\ModManager.Interface.dll</HintPath>
-    </Reference>
-    <Reference Include="NexusClient.Interface, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\NexusClient.Interface\bin\Debug\NexusClient.Interface.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -55,10 +39,6 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-    <Reference Include="Util, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\Util\bin\Debug\Util.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MorrowindGameMode.cs" />
@@ -83,6 +63,32 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\tes_logo.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Commanding\Commanding.csproj">
+      <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
+      <Name>Commanding</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Controls\Controls.csproj">
+      <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
+      <Name>Controls</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
+      <Name>GamebryoBase</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ModManager.Interface\ModManager.Interface.csproj">
+      <Project>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</Project>
+      <Name>ModManager.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NexusClient.Interface\NexusClient.Interface.csproj">
+      <Project>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</Project>
+      <Name>NexusClient.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Util\Util.csproj">
+      <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
+      <Name>Util</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />
