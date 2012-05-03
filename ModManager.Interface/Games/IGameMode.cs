@@ -62,6 +62,12 @@ namespace Nexus.Client.Games
 		/// <value>The tool launcher for the game mode.</value>
 		IToolLauncher GameToolLauncher { get; }
 
+        /// <summary>
+        /// Sets if the game mode uses plugins or normal mods.
+        /// </summary>
+        /// <value>True for games using Gamebryo-like plugins</value>
+        bool UsesPlugins { get; }
+
 		#endregion
 
 		#region Plugin Management
