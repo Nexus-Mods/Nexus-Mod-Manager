@@ -78,24 +78,6 @@ namespace Nexus.Client.Games.Morrowind
         }
 
         /// <summary>
-        /// Gets the list of critical plugin names, ordered by load order.
-        /// </summary>
-        /// <value>The list of critical plugin names, ordered by load order.</value>
-        //public override string[] OrderedCriticalPluginNames
-        //{
-        //    get
-        //    {
-        //        if (m_strCriticalPlugins == null)
-        //        {
-        //            m_strCriticalPlugins = new string[OrderedCriticalPluginFilenames.Length];
-        //            for (Int32 i = OrderedCriticalPluginFilenames.Length - 1; i >= 0; i--)
-        //                m_strCriticalPlugins[i] = Path.Combine(PluginDirectory, OrderedCriticalPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-        //        }
-        //        return m_strCriticalPlugins;
-        //    }
-        //}
-
-        /// <summary>
         /// Gets the theme to use for this game mode.
         /// </summary>
         /// <value>The theme to use for this game mode.</value>
