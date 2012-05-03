@@ -27,16 +27,18 @@ namespace Nexus.Client.PluginManagement
 			Trace.Indent();
 
 			PluginRegistry pgrRegistry = new PluginRegistry(p_pftFactory);
-			foreach (string strPlugin in p_pdvDiscoverer.FindPlugins())
-			{
-				Trace.TraceInformation("Found: {0}", strPlugin);
-				if (pgrRegistry.RegisterPlugin(strPlugin))
-				{
-					Trace.Indent();
-					Trace.TraceInformation("Registered.");
-					Trace.Unindent();
-				}
-			}
+
+            if (p_pdvDiscoverer != null)
+			    foreach (string strPlugin in p_pdvDiscoverer.FindPlugins())
+			    {
+				    Trace.TraceInformation("Found: {0}", strPlugin);
+				    if (pgrRegistry.RegisterPlugin(strPlugin))
+				    {
+					    Trace.Indent();
+					    Trace.TraceInformation("Registered.");
+					    Trace.Unindent();
+				    }
+			    }
 			Trace.Unindent();
 			return pgrRegistry;
 		}
@@ -157,6 +159,8 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool IsActivatiblePluginFile(string p_strPath)
 		{
+            if (PluginFactory == null)
+                return true;
 			return PluginFactory.IsActivatiblePluginFile(p_strPath);
 		}
 	}
