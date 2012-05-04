@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Windows.Forms;
 using System.Collections.Generic;
 using Nexus.Client.Games;
 using Nexus.Client.ModRepositories;
@@ -19,7 +18,6 @@ namespace Nexus.Client
 		private string m_strPassword = null;
 		private string m_strErrorMessage = null;
 		private bool m_booStayLoggedIn = false;
-        private bool ExpectationFailed = false;
 
 		#region Properties
 
@@ -151,9 +149,7 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		public bool Login()
 		{
-            bool Result = false;
 			ErrorMessage = null;
-            string ErrorMessageBox = null;
 			EnvironmentInfo.Settings.RepositoryUsernames[ModRepository.Id] = Username;
 			Dictionary<string, string> dicAuthTokens = null;
 			try
@@ -161,42 +157,22 @@ namespace Nexus.Client
 				if (!ModRepository.Login(Username, Password, out dicAuthTokens))
 				{
 					ErrorMessage = "The given login information is invalid.";
-                    return Result;
+					return false;
 				}
 			}
 			catch (RepositoryUnavailableException e)
 			{
-                if ((!ExpectationFailed) && (e.InnerException.Message.IndexOf("(417)") >= 0))
-                    ExpectationFailed = true;
-                else
-                {
-                    ExpectationFailed = false;
-				    Trace.TraceInformation("Cannot login to {0} repository", ModRepository.Name);
-				    TraceUtil.TraceException(e);
-				    ErrorMessage = String.Format("Cannot connect to the {0} server: {1}", ModRepository.Name, e.InnerException.Message);
-                    ErrorMessageBox = string.Format("Error: {0}Exception: {1}{2}StackTrace: {3}", ErrorMessage + Environment.NewLine + Environment.NewLine, e.Message, Environment.NewLine + Environment.NewLine, e.StackTrace);
-                    MessageBox.Show(ErrorMessageBox, "Hit CTRL+C on your keyboard and paste this error on our beta forum!", MessageBoxButtons.OK, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1, 0, "");
-                    return Result;
-                }
+				Trace.TraceInformation("Cannot login to {0} repository", ModRepository.Name);
+				TraceUtil.TraceException(e);
+				ErrorMessage = String.Format("Cannot connect to the {0} server: {1}", ModRepository.Name, e.InnerException.Message);
+				return false;
 			}
-
-            if (ExpectationFailed)
-            {
-                System.Net.ServicePointManager.Expect100Continue = false;
-                Result = Login();
-            }
-            else
-                Result = true;
-
-            if (Result)
-            {
-                if (StayLoggedIn)
-                    EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id] = new KeyedSettings<string>(dicAuthTokens);
-                else
-                    EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
-                EnvironmentInfo.Settings.Save();
-            }
-            return Result;
+			if (StayLoggedIn)
+				EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id] = new KeyedSettings<string>(dicAuthTokens);
+			else
+				EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
+			EnvironmentInfo.Settings.Save();
+			return true;
 		}
 	}
 }
