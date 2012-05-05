@@ -272,7 +272,7 @@ namespace Nexus.Client
 				{
 					StringBuilder stbMessage = new StringBuilder();
 					stbMessage.AppendFormat("You are missing {0}.", strPlugin);
-					stbMessage.AppendFormat("Please verify your game install and ensure {1} is present.", strPlugin);
+					stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
 					p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
 					return false;
 				}
