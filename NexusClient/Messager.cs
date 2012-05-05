@@ -55,8 +55,9 @@ namespace Nexus.Client
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_gmdGameModeInfo">The descriptor of the game mode for which mods are being managed.</param>
 		/// <returns>An instance of a <see cref="Messager"/> to use to talk to the running instance of the client.</returns>
-		public static Messager GetMessager(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo)
+		public static Messager GetMessager(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, out RemotingException exception)
 		{
+            exception = null;
 			if (m_cnlMessagerChannel == null)
 			{
 				m_cnlMessagerChannel = new IpcClientChannel();
@@ -68,7 +69,22 @@ namespace Nexus.Client
 			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
 			Trace.TraceInformation(String.Format("Getting listener on: {0}", strMessagerUri));
 			Messager msgMessager = (Messager)Activator.GetObject(typeof(Messager), strMessagerUri);
-			return msgMessager;
+
+            //Just because a messager has been returned, dosn't mean it exists.
+            //All you've really done at this point is create an object wrapper of type "Messager" which has the same methods, properties etc...
+            //You wont know if you've got a real object, until you invoke something, hence the post (Power on self test) method.
+            try
+            {
+                //Try to call the power on self test method.
+                msgMessager.Post();
+                return msgMessager;
+            }
+            catch(RemotingException ex)
+            {
+                //Ignore any remoting exception, obviously it's not there.
+                exception = ex;
+                return null;
+            }
 		}
 
 		#endregion
@@ -218,5 +234,11 @@ namespace Nexus.Client
 		{
 			MainForm.RestoreFocus();
 		}
+
+        /// <summary>Used as a simple Power On Self Test method.</summary>
+        /// <remarks>This is called when the Messager is created across the remoting boundary.</remarks>
+        public void Post()
+        {            
+        }
 	}
 }
