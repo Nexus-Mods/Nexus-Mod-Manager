@@ -115,6 +115,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strWebsite = "skyrim.nexusmods.com";
 					m_strEndpoint = "SKYRIMNexusREST";
 					break;
+                case "WorldOfTanks":
+                    m_strWebsite = "worldoftanks.nexusmods.com";
+                    m_strEndpoint = "WOTNexusREST";
+                    break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
