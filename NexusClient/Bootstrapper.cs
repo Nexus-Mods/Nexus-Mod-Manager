@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Remoting;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
@@ -96,87 +96,55 @@ namespace Nexus.Client
 				bool booOwnsMutex = false;
 				try
 				{
-                    int attempCount = 0;
+					for (Int32 intAttemptCount = 0; intAttemptCount < 5; intAttemptCount++)
+					{
+						Trace.TraceInformation("Creating Game Mode mutex (Attempt: {0})", intAttemptCount);
+						mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
 
-                    while(true)
-                    {
-                        Trace.TraceInformation("Creating Game Mode mutex.");
-                        mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
+						//If the mutex is owned, you are the first instance of the mod manager for game mode, so break out of loop.
+						if (booOwnsMutex)
+							break;
 
-                        //If the mutex is owned, you are the first instance of NMM for game mode, so break out of loop.
-                        if (booOwnsMutex)
-                            break;
+						//If the mutex isn't owned, attemp to talk across the messager.
+						using (Messager msgMessager = Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
+						{
+							if (msgMessager != null)
+							{
+								//Messenger was created OK, send download request, or bring to front.
+								if (uriModToAdd != null)
+								{
+									Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
+									msgMessager.AddMod(uriModToAdd.ToString());
+								}
+								else
+								{
+									Trace.TraceInformation(String.Format("Messaging to bring to front."));
+									msgMessager.BringToFront();
+								}
+								return true;
+							}
+						}
+						//Messenger couldn't be created, so sleep for a few seconds to give time for opening
+						// the running copy of the mod manager to start up/shut down
+						Thread.Sleep(TimeSpan.FromSeconds(1.0d));
+					}
+					if (!booOwnsMutex)
+					{
+						HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
+						htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
+						Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
+						if (!htlListener.TraceIsForced)
+							htlListener.SaveToFile();
 
-                        //If the mutex isn't owned, attemp to talk across the messager.
-
-                        try
-                        {
-                            //Get the messenger.
-                            Messager msgMessager = null;
-                            RemotingException exception = null;
-                            if ((msgMessager = Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor, out exception)) == null)
-                            {
-                                if (attempCount == 3)
-                                {
-                                    //This has happened three time's, so throw the exception.
-                                    throw exception;
-                                }
-
-                                //Increment the attemp count.
-                                attempCount++;
-
-                                //Messenger couldn't be created, so sleep for a few seconds to give time for opening
-                                //version of NMM to finish opening, or closing version of NMM to finish closing.
-                                Thread.Sleep(TimeSpan.FromSeconds(5.0d));
-                                continue;
-                            }
-                            else
-                            {
-                                //Messenger was created OK, send download request, or bring to front.
-                                if (uriModToAdd != null)
-                                {
-                                    Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
-                                    msgMessager.AddMod(uriModToAdd.ToString());
-                                }
-                                else
-                                {
-                                    Trace.TraceInformation(String.Format("Messaging to bring to front."));
-                                    msgMessager.BringToFront();
-                                }
-
-                                return false;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            //Only allow retry if a exception is from remoting.
-                            bool retryAllowed = ex is RemotingException;
-
-                            //Check to see if out attemp count has been reached, if so raise exception.
-                            if (attempCount == 3 || !retryAllowed)
-                            {
-                                HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
-                                htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
-                                Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
-                                throw ex;
-                            }
-                            else
-                            {
-                                //Increment the attemp count.
-                                attempCount++;
-
-                                //Messenger couldn't be created, so sleep for a few seconds to give time for opening
-                                //version of NMM to finish opening, or closing version of NMM to finish closing.
-                                Thread.Sleep(TimeSpan.FromSeconds(5.0d));
-                            }
-                        }
-                        finally
-                        {
-                            //No matter what happen close the mutex.
-                            mtxGameModeMutex.Close();
-                            mtxGameModeMutex = null;
-                        }
-                    }
+						StringBuilder stbPromptMessage = new StringBuilder();
+						stbPromptMessage.AppendFormat("{0} was unable to start. It appears another instance of {0} is already running.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
+						stbPromptMessage.AppendLine("A Trace Log was created at:");
+						stbPromptMessage.AppendLine(htlListener.FilePath);
+						stbPromptMessage.AppendLine("Please include the contents of that file if you want to make a bug report:");
+						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+						return false;
+					}
 
 					ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo);
 					ApplicationInitializationForm frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
@@ -222,10 +190,10 @@ namespace Nexus.Client
 				}
 				finally
 				{
-                    //Only need to now close and release the mutex if it's owned, any unowned mutex is closed above.
-                    if (mtxGameModeMutex != null && booOwnsMutex)
+					if (mtxGameModeMutex != null)
 					{
-						mtxGameModeMutex.ReleaseMutex();
+						if (booOwnsMutex)
+							mtxGameModeMutex.ReleaseMutex();
 						mtxGameModeMutex.Close();
 					}
 					FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);

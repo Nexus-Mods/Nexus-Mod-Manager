@@ -7,6 +7,7 @@ using System.Runtime.Remoting.Channels.Ipc;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
+using Nexus.Client.Util;
 
 namespace Nexus.Client
 {
@@ -45,7 +46,7 @@ namespace Nexus.Client
 			strUri += "/" + strEndpoint;
 			string strTraceInfo = String.Format("Setting up listener on {0} at {1}", strUri, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 			Trace.TraceInformation(strTraceInfo);
-			
+
 			return msgMessager;
 		}
 
@@ -54,10 +55,10 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_gmdGameModeInfo">The descriptor of the game mode for which mods are being managed.</param>
-		/// <returns>An instance of a <see cref="Messager"/> to use to talk to the running instance of the client.</returns>
-		public static Messager GetMessager(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, out RemotingException exception)
+		/// <returns>An instance of a <see cref="Messager"/> to use to talk to the running instance of the client,
+		/// or <c>null</c> if no valid <see cref="Messager"/> could be created.</returns>
+		public static Messager GetMessager(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo)
 		{
-            exception = null;
 			if (m_cnlMessagerChannel == null)
 			{
 				m_cnlMessagerChannel = new IpcClientChannel();
@@ -67,24 +68,24 @@ namespace Nexus.Client
 				throw new InvalidOperationException("The IPC Channel has already been created as a SERVER.");
 
 			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
-			Trace.TraceInformation(String.Format("Getting listener on: {0}", strMessagerUri));
-			Messager msgMessager = (Messager)Activator.GetObject(typeof(Messager), strMessagerUri);
+			Messager msgMessager = null;
+			try
+			{
+				Trace.TraceInformation(String.Format("Getting listener on: {0}", strMessagerUri));
+				msgMessager = (Messager)Activator.GetObject(typeof(Messager), strMessagerUri);
 
-            //Just because a messager has been returned, dosn't mean it exists.
-            //All you've really done at this point is create an object wrapper of type "Messager" which has the same methods, properties etc...
-            //You wont know if you've got a real object, until you invoke something, hence the post (Power on self test) method.
-            try
-            {
-                //Try to call the power on self test method.
-                msgMessager.Post();
-                return msgMessager;
-            }
-            catch(RemotingException ex)
-            {
-                //Ignore any remoting exception, obviously it's not there.
-                exception = ex;
-                return null;
-            }
+				//Just because a messager has been returned, dosn't mean it exists.
+				//All you've really done at this point is create an object wrapper of type "Messager" which has the same methods, properties etc...
+				//You wont know if you've got a real object, until you invoke something, hence the post (Power on self test) method.
+				msgMessager.Post();
+			}
+			catch (RemotingException e)
+			{
+				Trace.TraceError("Could not get Messager: {0}", strMessagerUri);
+				TraceUtil.TraceException(e);
+				return null;
+			}
+			return msgMessager;
 		}
 
 		#endregion
@@ -235,10 +236,12 @@ namespace Nexus.Client
 			MainForm.RestoreFocus();
 		}
 
-        /// <summary>Used as a simple Power On Self Test method.</summary>
-        /// <remarks>This is called when the Messager is created across the remoting boundary.</remarks>
-        public void Post()
-        {            
-        }
+		/// <summary>Used as a simple Power On Self Test method.</summary>
+		/// <remarks>
+		/// This method can be called to ensure a Messager is alive.
+		/// </remarks>
+		public void Post()
+		{
+		}
 	}
 }
