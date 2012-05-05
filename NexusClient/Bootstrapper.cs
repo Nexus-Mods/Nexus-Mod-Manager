@@ -96,11 +96,11 @@ namespace Nexus.Client
 				bool booOwnsMutex = false;
 				try
 				{
-					for (Int32 intAttemptCount = 0; intAttemptCount < 5; intAttemptCount++)
+					for (Int32 intAttemptCount = 0; intAttemptCount < 3; intAttemptCount++)
 					{
 						Trace.TraceInformation("Creating Game Mode mutex (Attempt: {0})", intAttemptCount);
 						mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
-
+						
 						//If the mutex is owned, you are the first instance of the mod manager for game mode, so break out of loop.
 						if (booOwnsMutex)
 							break;
@@ -124,9 +124,12 @@ namespace Nexus.Client
 								return true;
 							}
 						}
+						mtxGameModeMutex.Close();
+						mtxGameModeMutex = null;
+
 						//Messenger couldn't be created, so sleep for a few seconds to give time for opening
 						// the running copy of the mod manager to start up/shut down
-						Thread.Sleep(TimeSpan.FromSeconds(1.0d));
+						Thread.Sleep(TimeSpan.FromSeconds(5.0d));
 					}
 					if (!booOwnsMutex)
 					{
