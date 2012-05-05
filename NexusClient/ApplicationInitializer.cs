@@ -267,15 +267,17 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
-			foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
-				if (!File.Exists(strPlugin))
-				{
-					StringBuilder stbMessage = new StringBuilder();
-					stbMessage.AppendFormat("You are missing {0}.", strPlugin);
-					stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
-					p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
-					return false;
-				}
+            if (p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames != null)
+			    foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
+				    if (!File.Exists(strPlugin))
+				    {
+					    StringBuilder stbMessage = new StringBuilder();
+					    stbMessage.AppendFormat("You are missing {0}.", strPlugin);
+					    stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
+					    p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
+					    return false;
+				    }
+
 			StepOverallProgress();
 
 			if (!p_gmfGameModeFactory.PerformInitialization(ShowView, ShowMessage))

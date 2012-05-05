@@ -49,7 +49,8 @@ namespace Nexus.Client
 			{
 				m_vmlViewModel = value;
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
-				pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
+                if (ViewModel.EnablePluginTab)
+				    pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
 				amcActivityMonitor.ViewModel = m_vmlViewModel.ActivityMonitorVM;
 				amcActivityMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				amcActivityMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
@@ -87,7 +88,8 @@ namespace Nexus.Client
 		{
 			InitializeComponent();
 
-			pmcPluginManager = new PluginManagerControl();
+            if (p_vmlViewModel.EnablePluginTab)
+			    pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			amcActivityMonitor = new ActivityMonitorControl();
 
@@ -118,7 +120,8 @@ namespace Nexus.Client
 			}
 			else
 			{
-				pmcPluginManager.DockState = DockState.Unknown;
+                if (ViewModel.EnablePluginTab)
+				    pmcPluginManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
 				amcActivityMonitor.DockState = DockState.Unknown;
 				amcActivityMonitor.ShowHint = DockState.DockBottomAutoHide;
@@ -126,11 +129,13 @@ namespace Nexus.Client
 					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.Height;
 				amcActivityMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
 
-				pmcPluginManager.Show(dockPanel1);
+                if (ViewModel.EnablePluginTab)
+				    pmcPluginManager.Show(dockPanel1);
 				mmgModManager.Show(dockPanel1);
 				amcActivityMonitor.Show(dockPanel1);
 			}
-			pmcPluginManager.Show(dockPanel1);
+            if (ViewModel.EnablePluginTab)
+			    pmcPluginManager.Show(dockPanel1);
 		}
 
 		/// <summary>
