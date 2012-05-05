@@ -223,6 +223,12 @@ namespace Nexus.Client
 		/// <value>The application's envrionment info.</value>
 		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
+        /// <summary>
+        /// Checks whether the form should use the plugin tab.
+        /// </summary>
+        /// <value>true or false.</value>
+        public bool EnablePluginTab { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -244,11 +250,13 @@ namespace Nexus.Client
 			
 			GameMode = p_gmdGameMode;
 			GameMode.GameLauncher.GameLaunching += new CancelEventHandler(GameLauncher_GameLaunching);
+            EnablePluginTab = GameMode.UsesPlugins;
 
 			ModRepository = p_mrpModRepository;
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
-			PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
+            if (GameMode.UsesPlugins)
+			    PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
 			ActivityMonitorVM = new ActivityMonitorVM(p_amtMonitor, p_eifEnvironmentInfo.Settings);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
@@ -261,7 +269,8 @@ namespace Nexus.Client
 			List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>();
 			lstSettingGroups.Add(new GeneralSettingsPage(gsgGeneralSettings));
 			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
-			lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
+            if (p_gmdGameMode.SettingsGroupViews != null)
+			    lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
 
 			SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 

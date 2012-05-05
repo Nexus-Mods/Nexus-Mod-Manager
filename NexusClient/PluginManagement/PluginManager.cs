@@ -138,14 +138,17 @@ namespace Nexus.Client.PluginManagement
 			PluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
 
-			foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
-				ActivePluginLog.ActivatePlugin(strPlugin);
-			List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
-			if (!OrderValidator.ValidateOrder(lstPlugins))
-			{
-				OrderValidator.CorrectOrder(lstPlugins);
-				PluginOrderLog.SetPluginOrder(lstPlugins);
-			}			
+            if (GameMode.OrderedCriticalPluginNames != null)
+            {
+                foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
+                    ActivePluginLog.ActivatePlugin(strPlugin);
+                List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
+                if (!OrderValidator.ValidateOrder(lstPlugins))
+                {
+                    OrderValidator.CorrectOrder(lstPlugins);
+                    PluginOrderLog.SetPluginOrder(lstPlugins);
+                }
+            }		
 		}
 
 		#endregion
