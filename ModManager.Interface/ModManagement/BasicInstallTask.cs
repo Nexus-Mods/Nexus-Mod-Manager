@@ -93,10 +93,10 @@ namespace Nexus.Client.ModManagement
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile);
-				FileInstaller.InstallFileFromMod(strFile, strFixedPath);
-				if (PluginManager.IsActivatiblePluginFile(strFixedPath))
-					PluginManager.ActivatePlugin(strFixedPath);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile);			
+                if(FileInstaller.InstallFileFromMod(strFile, strFixedPath))
+				    if (PluginManager.IsActivatiblePluginFile(strFixedPath))
+					    PluginManager.ActivatePlugin(strFixedPath);
 				StepOverallProgress();
 			}
 			return true;

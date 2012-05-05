@@ -281,6 +281,18 @@ namespace Nexus.Client.Games
 		/// <value>The tool launcher for the game mode.</value>
 		public abstract IToolLauncher GameToolLauncher { get; }
 
+        /// <summary>
+        /// Sets if the game mode uses plugins or normal mods.
+        /// </summary>
+        /// <value>True for game using Gamebryo-like plugins</value>
+        public virtual bool UsesPlugins
+        {
+            get 
+            {
+                return true;
+            }
+        }
+
 		#endregion
 
 		#region Constructors
