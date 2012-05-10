@@ -84,7 +84,10 @@ namespace Nexus.Client
 					lstGameModeInfos.Add(gmdGameMode);
 				GameModeSelectionForm msfSelector = new GameModeSelectionForm(lstGameModeInfos, EnvironmentInfo.Settings);
 				msfSelector.ShowDialog();
-				strSelectedGame = msfSelector.SelectedGameModeId;
+                if (msfSelector.DialogResult == DialogResult.OK)
+                    strSelectedGame = msfSelector.SelectedGameModeId;
+                else
+                    return null;
 			}
 			Trace.WriteLine(strSelectedGame);
 			if (!InstalledGameModes.IsRegistered(strSelectedGame))
