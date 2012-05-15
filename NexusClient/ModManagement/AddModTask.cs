@@ -256,7 +256,7 @@ namespace Nexus.Client.ModManagement
 					}
 				case "nxm":
 					NexusUrl nxuModUrl = new NexusUrl(p_amdDescriptor.SourceUri);
-					if (String.IsNullOrEmpty(nxuModUrl.ModId))
+                    if ((String.IsNullOrEmpty(nxuModUrl.ModId)) || (string.IsNullOrEmpty(nxuModUrl.FileId)))
 						throw new ArgumentException("Invalid Nexus URI: " + p_amdDescriptor.SourceUri.ToString());
 					IModInfo mifInfo = null;
 					try
