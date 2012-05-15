@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Xml;
 using ChinhDo.Transactions;
 using Nexus.Client.Games.WorldOfTanks.Tools;
 using Nexus.Client.ModManagement;
@@ -36,20 +37,21 @@ namespace Nexus.Client.Games.WorldOfTanks
 		{
 			get
 			{
-				string strFullPath = null;
-				foreach (string strExecutable in GameExecutables)
-				{
-					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, strExecutable);
-					if (File.Exists(strFullPath))
-					{
-						FileVersionInfo fviVersion = FileVersionInfo.GetVersionInfo(strFullPath);
-						string strVersion = (fviVersion.FileVersion ?? "0.0.0.0").Replace(", ", ".");
-						if ((strVersion.Split('.').Length - 1) > 2)
-							strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
-						return new Version(strVersion);
-					}
-				}
-				return null;
+                string strVersion = string.Empty;
+                string strFullPath = Path.Combine(InstallationPath, "version.xml");
+                if (File.Exists(strFullPath))
+                {
+                    XmlDocument xmlVersion = new XmlDocument();
+                    xmlVersion.Load(strFullPath);
+                    XmlNodeList xmlGameVersion = xmlVersion.GetElementsByTagName("version");
+                    strVersion = xmlGameVersion[0].InnerText;
+                    strVersion = strVersion.Substring(strVersion.IndexOf("v.") + 2, strVersion.IndexOf(" ", 1) - 3);
+                    if ((strVersion.Split('.').Length - 1) > 2)
+                        strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
+                    return new Version(strVersion);
+                }
+
+                return null;
 			}
 		}
 
