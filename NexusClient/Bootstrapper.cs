@@ -237,9 +237,12 @@ namespace Nexus.Client
 			if (p_smgServices == null)
 				return;
 			p_smgServices.ModInstallLog.Release();
-			p_smgServices.ActivePluginLog.Release();
-			p_smgServices.PluginOrderLog.Release();
-			p_smgServices.PluginManager.Release();
+			if (p_smgServices.ActivePluginLog != null)
+				p_smgServices.ActivePluginLog.Release();
+			if (p_smgServices.PluginOrderLog != null)
+				p_smgServices.PluginOrderLog.Release();
+			if (p_smgServices.PluginManager != null)
+				p_smgServices.PluginManager.Release();
 			p_smgServices.ModManager.Release();
 		}
 

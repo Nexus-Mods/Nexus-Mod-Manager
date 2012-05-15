@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
-using Nexus.Client.Games;
-using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client.ModManagement
 {
@@ -93,10 +93,10 @@ namespace Nexus.Client.ModManagement
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile);			
-                if(FileInstaller.InstallFileFromMod(strFile, strFixedPath))
-				    if (PluginManager.IsActivatiblePluginFile(strFixedPath))
-					    PluginManager.ActivatePlugin(strFixedPath);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile);
+				if (FileInstaller.InstallFileFromMod(strFile, strFixedPath))
+					if (PluginManager.IsActivatiblePluginFile(strFixedPath))
+						PluginManager.ActivatePlugin(strFixedPath);
 				StepOverallProgress();
 			}
 			return true;

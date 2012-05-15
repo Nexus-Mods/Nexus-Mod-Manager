@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using ChinhDo.Transactions;
-using Nexus.Client.Games.WorldOfTanks.PluginManagement;
 using Nexus.Client.Games.WorldOfTanks.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -14,18 +13,18 @@ using Nexus.Client.Settings.UI;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using System.Diagnostics;
 
 namespace Nexus.Client.Games.WorldOfTanks
 {
-    /// <summary>
+	/// <summary>
 	/// Provides information required for the program to manage World of Tanks game's plugins and mods.
 	/// </summary>
-    public class WoTGameMode : GameModeBase
-    {
-        private WoTPluginFactory m_pgfPluginFactory = null;
-        private WoTGameModeDescriptor m_gmdGameModeInfo = null;
-        private WoTLauncher m_glnGameLauncher = null;
-        private WoTToolLauncher m_gtlToolLauncher = null;
+	public class WoTGameMode : GameModeBase
+	{
+		private WoTGameModeDescriptor m_gmdGameModeInfo = null;
+		private WoTLauncher m_glnGameLauncher = null;
+		private WoTToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
 
@@ -41,13 +40,14 @@ namespace Nexus.Client.Games.WorldOfTanks
 				foreach (string strExecutable in GameExecutables)
 				{
 					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, strExecutable);
-                    if (File.Exists(strFullPath))
-                    {
-                        string version = System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", ".");
-                        if ((version.Split('.').Length - 1) > 2)
-                            version = version.Substring(0, version.LastIndexOf("."));
-                        return new Version(version);
-                    }
+					if (File.Exists(strFullPath))
+					{
+						FileVersionInfo fviVersion = FileVersionInfo.GetVersionInfo(strFullPath);
+						string strVersion = (fviVersion.FileVersion ?? "0.0.0.0").Replace(", ", ".");
+						if ((strVersion.Split('.').Length - 1) > 2)
+							strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
+						return new Version(strVersion);
+					}
 				}
 				return null;
 			}
@@ -81,17 +81,17 @@ namespace Nexus.Client.Games.WorldOfTanks
 			}
 		}
 
-        /// <summary>
-        /// Gets the path to the per user Morrowind data.
-        /// </summary>
-        /// <value>The path to the per user Morrowind data.</value>
-        public string UserGameDataPath
-        {
-            get
-            {
-                return GameModeEnvironmentInfo.InstallationPath;
-            }
-        }
+		/// <summary>
+		/// Gets the path to the per user Morrowind data.
+		/// </summary>
+		/// <value>The path to the per user Morrowind data.</value>
+		public string UserGameDataPath
+		{
+			get
+			{
+				return GameModeEnvironmentInfo.InstallationPath;
+			}
+		}
 
 		/// <summary>
 		/// Gets the directory where World of Tanks plugins are installed.
@@ -102,52 +102,66 @@ namespace Nexus.Client.Games.WorldOfTanks
 			get
 			{
 				string strPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "res_mods");
-                strPath = Path.Combine(strPath, GameVersion.ToString());
+				strPath = Path.Combine(strPath, GameVersion.ToString());
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
 			}
 		}
 
-        /// <summary>
-        /// Gets the game launcher for the game mode.
-        /// </summary>
-        /// <value>The game launcher for the game mode.</value>
-        public override IGameLauncher GameLauncher
-        {
-            get
-            {
-                if (m_glnGameLauncher == null)
-                    m_glnGameLauncher = new WoTLauncher(this, EnvironmentInfo);
-                return m_glnGameLauncher;
-            }
-        }
+		/// <summary>
+		/// Gets the game launcher for the game mode.
+		/// </summary>
+		/// <value>The game launcher for the game mode.</value>
+		public override IGameLauncher GameLauncher
+		{
+			get
+			{
+				if (m_glnGameLauncher == null)
+					m_glnGameLauncher = new WoTLauncher(this, EnvironmentInfo);
+				return m_glnGameLauncher;
+			}
+		}
 
-        /// <summary>
-        /// Gets the tool launcher for the game mode.
-        /// </summary>
-        /// <value>The tool launcher for the game mode.</value>
-        public override IToolLauncher GameToolLauncher
-        {
-            get
-            {
-                if (m_gtlToolLauncher == null)
-                    m_gtlToolLauncher = new WoTToolLauncher(this, EnvironmentInfo);
-                return m_gtlToolLauncher;
-            }
-        }
+		/// <summary>
+		/// Gets the tool launcher for the game mode.
+		/// </summary>
+		/// <value>The tool launcher for the game mode.</value>
+		public override IToolLauncher GameToolLauncher
+		{
+			get
+			{
+				if (m_gtlToolLauncher == null)
+					m_gtlToolLauncher = new WoTToolLauncher(this, EnvironmentInfo);
+				return m_gtlToolLauncher;
+			}
+		}
 
-        /// <summary>
-        /// Sets if the game mode uses plugins or normal mods.
-        /// </summary>
-        /// <value>False</value>
-        public override bool UsesPlugins
-        {
-            get
-            {
-                return false;
-            }
-        }
+		/// <summary>
+		/// Gets whether the game mode uses plugins.
+		/// </summary>
+		/// <remarks>
+		/// This indicates whether the game mode used plugins that are
+		/// installed by mods, or simply used mods, without
+		/// plugins.
+		/// 
+		/// In games that use mods only, the installation of a mods package
+		/// is sufficient to add the functionality to the game. The game
+		/// will often have no concept of managable game modifications.
+		/// 
+		/// In games that use plugins, mods can install files that directly
+		/// affect the game (similar to the mod-free use case), but can also
+		/// install plugins that can be managed (for example activated/reordered)
+		/// after the mod is installed.
+		/// </remarks>
+		/// <value>Whether the game mode uses plugins.</value>
+		public override bool UsesPlugins
+		{
+			get
+			{
+				return false;
+			}
+		}
 
 		#endregion
 
@@ -158,7 +172,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
 		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
-        public WoTGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
+		public WoTGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
 		}
@@ -171,16 +185,14 @@ namespace Nexus.Client.Games.WorldOfTanks
 
 		#region Plugin Management
 
-        /// <summary>
-        /// Gets the factory that builds plugins for this game mode.
-        /// </summary>
-        /// <returns>The factory that builds plugins for this game mode.</returns>
-        public override IPluginFactory GetPluginFactory()
-        {
-            if (m_pgfPluginFactory == null)
-                m_pgfPluginFactory = new WoTPluginFactory(PluginDirectory);
-            return m_pgfPluginFactory;
-        }
+		/// <summary>
+		/// Gets the factory that builds plugins for this game mode.
+		/// </summary>
+		/// <returns>The factory that builds plugins for this game mode.</returns>
+		public override IPluginFactory GetPluginFactory()
+		{
+			return null;
+		}
 
 		/// <summary>
 		/// Gets the serailizer that serializes and deserializes the list of active plugins
@@ -191,7 +203,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// for this game mode.</returns>
 		public override IActivePluginLogSerializer GetActivePluginLogSerializer(IPluginOrderLog p_polPluginOrderLog)
 		{
-            return null;
+			return null;
 		}
 
 		/// <summary>
@@ -200,7 +212,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// <returns>The discoverer to use to find the plugins managed by this game mode.</returns>
 		public override IPluginDiscoverer GetPluginDiscoverer()
 		{
-            return null;
+			return null;
 		}
 
 		/// <summary>
@@ -211,7 +223,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// for this game mode.</returns>
 		public override IPluginOrderLogSerializer GetPluginOrderLogSerializer()
 		{
-            return null;
+			return null;
 		}
 
 		/// <summary>
@@ -220,7 +232,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// <returns>The object that validates plugin order for this game mode.</returns>
 		public override IPluginOrderValidator GetPluginOrderValidator()
 		{
-            return null;
+			return null;
 		}
 
 		#endregion
@@ -239,7 +251,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-            return null;
+			return null;
 		}
 
 		/// <summary>
@@ -254,7 +266,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-            return null;
+			return null;
 		}
 
 		#endregion
@@ -265,42 +277,42 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// <returns>The updaters used by the game mode.</returns>
 		public override IEnumerable<IUpdater> GetUpdaters()
 		{
-            return null;
+			return null;
 		}
 
-        /// <summary>
-        /// Creates a game mode descriptor for the current game mode.
-        /// </summary>
-        /// <returns>A game mode descriptor for the current game mode.</returns>
-        protected override IGameModeDescriptor CreateGameModeDescriptor()
-        {
-            if (m_gmdGameModeInfo == null)
-                m_gmdGameModeInfo = new WoTGameModeDescriptor(EnvironmentInfo);
-            return m_gmdGameModeInfo;
-        }
+		/// <summary>
+		/// Creates a game mode descriptor for the current game mode.
+		/// </summary>
+		/// <returns>A game mode descriptor for the current game mode.</returns>
+		protected override IGameModeDescriptor CreateGameModeDescriptor()
+		{
+			if (m_gmdGameModeInfo == null)
+				m_gmdGameModeInfo = new WoTGameModeDescriptor(EnvironmentInfo);
+			return m_gmdGameModeInfo;
+		}
 
-        /// <summary>
-        /// Adjusts the given path to be relative to the installation path of the game mode.
-        /// </summary>
-        /// <remarks>
-        /// This is basically a hack to allow older FOMod/OMods to work. Older FOMods assumed
-        /// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
-        /// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
-        /// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
-        /// to be relative to the new instaalation path to make things work.
-        /// </remarks>
-        /// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
-        /// <param name="p_strPath">The path to adjust</param>
-        /// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-        public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath)
-        {
-            if (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod"))
-            {
-                string modpath = Path.Combine("res_mods", GameVersion.ToString());
-                return Path.Combine(modpath, p_strPath ?? "");
-            }
-            return p_strPath;
-        }
+		/// <summary>
+		/// Adjusts the given path to be relative to the installation path of the game mode.
+		/// </summary>
+		/// <remarks>
+		/// This is basically a hack to allow older FOMod/OMods to work. Older FOMods assumed
+		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
+		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
+		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
+		/// to be relative to the new instaalation path to make things work.
+		/// </remarks>
+		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
+		/// <param name="p_strPath">The path to adjust</param>
+		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
+		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath)
+		{
+			if (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod"))
+			{
+				string modpath = Path.Combine("res_mods", GameVersion.ToString());
+				return Path.Combine(modpath, p_strPath ?? "");
+			}
+			return p_strPath;
+		}
 
 		/// <summary>
 		/// Disposes of the unamanged resources.
@@ -309,5 +321,5 @@ namespace Nexus.Client.Games.WorldOfTanks
 		protected override void Dispose(bool p_booDisposing)
 		{
 		}
-    }
+	}
 }

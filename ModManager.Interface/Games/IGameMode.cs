@@ -62,11 +62,25 @@ namespace Nexus.Client.Games
 		/// <value>The tool launcher for the game mode.</value>
 		IToolLauncher GameToolLauncher { get; }
 
-        /// <summary>
-        /// Sets if the game mode uses plugins or normal mods.
-        /// </summary>
-        /// <value>True for games using Gamebryo-like plugins</value>
-        bool UsesPlugins { get; }
+		/// <summary>
+		/// Gets whether the game mode uses plugins.
+		/// </summary>
+		/// <remarks>
+		/// This indicates whether the game mode used plugins that are
+		/// installed by mods, or simply used mods, without
+		/// plugins.
+		/// 
+		/// In games that use mods only, the installation of a mods package
+		/// is sufficient to add the functionality to the game. The game
+		/// will often have no concept of managable game modifications.
+		/// 
+		/// In games that use plugins, mods can install files that directly
+		/// affect the game (similar to the mod-free use case), but can also
+		/// install plugins that can be managed (for example activated/reordered)
+		/// after the mod is installed.
+		/// </remarks>
+		/// <value>Whether the game mode uses plugins.</value>
+		bool UsesPlugins { get; }
 
 		#endregion
 

@@ -48,7 +48,7 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets the path where mod files should be installed.
 		/// </summary>
 		/// <returns>The path where mod files should be installed, or
-		/// <c>null</c> if the path could be be determined.</returns>
+		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
 			string strRegistryKey = null;
