@@ -403,7 +403,12 @@ namespace Nexus.Client.ModManagement
 
 				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
-				ItemMessage = String.Format("Downloading: ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds);
+                if ((ItemProgress == 0) && (intSpeed == 0))
+                    ItemMessage = "Starting the download...";
+                else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
+                    ItemMessage = "Resuming the download...";
+                else
+				    ItemMessage = String.Format("Downloading: ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds);
 			}
 		}
 
