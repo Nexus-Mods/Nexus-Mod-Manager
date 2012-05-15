@@ -57,13 +57,10 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// Gets the path where mod files should be installed.
 		/// </summary>
 		/// <returns>The path where mod files should be installed, or
-		/// <c>null</c> if the path could be be determined.</returns>
+		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
-			string strValue = null;
-			Trace.TraceInformation(String.Format("Found {0}", strValue));
-			Trace.Unindent();
-			return strValue;
+			return null;
 		}
 
 		/// <summary>
