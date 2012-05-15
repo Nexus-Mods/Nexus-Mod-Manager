@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Remoting;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
@@ -96,34 +96,56 @@ namespace Nexus.Client
 				bool booOwnsMutex = false;
 				try
 				{
-					Trace.TraceInformation("Creating Game Mode mutex.");
-					mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
+					for (Int32 intAttemptCount = 0; intAttemptCount < 3; intAttemptCount++)
+					{
+						Trace.TraceInformation("Creating Game Mode mutex (Attempt: {0})", intAttemptCount);
+						mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
+						
+						//If the mutex is owned, you are the first instance of the mod manager for game mode, so break out of loop.
+						if (booOwnsMutex)
+							break;
+
+						//If the mutex isn't owned, attemp to talk across the messager.
+						using (Messager msgMessager = Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
+						{
+							if (msgMessager != null)
+							{
+								//Messenger was created OK, send download request, or bring to front.
+								if (uriModToAdd != null)
+								{
+									Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
+									msgMessager.AddMod(uriModToAdd.ToString());
+								}
+								else
+								{
+									Trace.TraceInformation(String.Format("Messaging to bring to front."));
+									msgMessager.BringToFront();
+								}
+								return true;
+							}
+						}
+						mtxGameModeMutex.Close();
+						mtxGameModeMutex = null;
+
+						//Messenger couldn't be created, so sleep for a few seconds to give time for opening
+						// the running copy of the mod manager to start up/shut down
+						Thread.Sleep(TimeSpan.FromSeconds(5.0d));
+					}
 					if (!booOwnsMutex)
 					{
-						try
-						{
-							if (uriModToAdd != null)
-							{
-								Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
-								Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor).AddMod(uriModToAdd.ToString());
-							}
-							else
-							{
-								Trace.TraceInformation(String.Format("Messaging to bring to front."));
-								Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor).BringToFront();
-							}
-						}
-						catch (RemotingException)
-						{
-							//the running client crashed; nothing we can or want to do.
-							// is that true? let's log for a while to see if it is.
+						HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
+						htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
+						Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
+						if (!htlListener.TraceIsForced)
+							htlListener.SaveToFile();
 
-							HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
-							htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
-							Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
-							throw;
-						}
-
+						StringBuilder stbPromptMessage = new StringBuilder();
+						stbPromptMessage.AppendFormat("{0} was unable to start. It appears another instance of {0} is already running.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
+						stbPromptMessage.AppendLine("A Trace Log was created at:");
+						stbPromptMessage.AppendLine(htlListener.FilePath);
+						stbPromptMessage.AppendLine("Please include the contents of that file if you want to make a bug report:");
+						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 						return false;
 					}
 

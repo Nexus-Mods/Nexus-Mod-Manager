@@ -125,9 +125,19 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <c>false</c> otherwise.</returns>
 		public bool PerformBasicInstall()
 		{
-			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager);
-			OnTaskStarted(bitTask);
-			return bitTask.Execute();
+			bool booSuccess = false;
+			try
+			{
+				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager);
+				OnTaskStarted(bitTask); 
+				booSuccess = bitTask.Execute();
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
+			return booSuccess;
 		}
 
 		#endregion
