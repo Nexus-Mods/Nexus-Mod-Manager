@@ -73,6 +73,20 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		/// <summary>
+		/// Gets the path where mod files should be installed.
+		/// </summary>
+		/// <remarks>
+		/// This method uses the given path to the installed game
+		/// to determine the installaiton path for mods.
+		/// </remarks>
+		/// <returns>The path where mod files should be installed, or
+		/// <c>null</c> if the path could be be determined.</returns>
+		public string GetInstallationPath(string p_strGameInstallPath)
+		{
+			return p_strGameInstallPath;
+		}
+
+		/// <summary>
 		/// Builds the game mode.
 		/// </summary>
 		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
