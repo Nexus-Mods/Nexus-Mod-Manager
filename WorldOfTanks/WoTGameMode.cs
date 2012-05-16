@@ -23,6 +23,30 @@ namespace Nexus.Client.Games.WorldOfTanks
 	/// </summary>
 	public class WoTGameMode : GameModeBase
 	{
+		/// <summary>
+		/// Gets the version of the installed game from the version file
+		/// found in the given directory.
+		/// </summary>
+		/// <param name="p_strGameInstallPath">The path in which the game is installed.</param>
+		/// <returns>The version of the installed game.</value>
+		public static Version ReadVersion(string p_strGameInstallPath)
+		{
+			string strVersion = null;
+			string strVersionFilePath = Path.Combine(p_strGameInstallPath, "version.xml");
+			if (File.Exists(strVersionFilePath))
+			{
+				XmlDocument xmlVersion = new XmlDocument();
+				xmlVersion.Load(strVersionFilePath);
+				XmlNodeList xmlGameVersion = xmlVersion.GetElementsByTagName("version");
+				strVersion = xmlGameVersion[0].InnerText;
+				strVersion = strVersion.Substring(strVersion.IndexOf("v.") + 2, strVersion.IndexOf(" ", 1) - 3);
+				if ((strVersion.Split('.').Length - 1) > 2)
+					strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
+				return new Version(strVersion);
+			}
+			return null;
+		}
+
 		private WoTGameModeDescriptor m_gmdGameModeInfo = null;
 		private WoTLauncher m_glnGameLauncher = null;
 		private WoTToolLauncher m_gtlToolLauncher = null;
@@ -37,21 +61,14 @@ namespace Nexus.Client.Games.WorldOfTanks
 		{
 			get
 			{
-                string strVersion = string.Empty;
-                string strFullPath = Path.Combine(InstallationPath, "version.xml");
-                if (File.Exists(strFullPath))
-                {
-                    XmlDocument xmlVersion = new XmlDocument();
-                    xmlVersion.Load(strFullPath);
-                    XmlNodeList xmlGameVersion = xmlVersion.GetElementsByTagName("version");
-                    strVersion = xmlGameVersion[0].InnerText;
-                    strVersion = strVersion.Substring(strVersion.IndexOf("v.") + 2, strVersion.IndexOf(" ", 1) - 3);
-                    if ((strVersion.Split('.').Length - 1) > 2)
-                        strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
-                    return new Version(strVersion);
-                }
-
-                return null;
+				//climb up the path until we find the res_mods folder
+				string[] strPath = InstallationPath.Split(new char[] { Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+				Int32 intModFolderIndex = strPath.Length - 1;
+				for (; intModFolderIndex >= 0; intModFolderIndex--)
+					if (strPath[intModFolderIndex].Equals("res_mods", StringComparison.OrdinalIgnoreCase))
+						break;
+				string strFullPath = String.Join(Path.DirectorySeparatorChar.ToString(), strPath, 0, intModFolderIndex);
+				return ReadVersion(strFullPath);
 			}
 		}
 
@@ -63,8 +80,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		{
 			get
 			{
-				foreach (string strPlugin in Directory.GetFiles(PluginDirectory, "*.*", SearchOption.TopDirectoryOnly))
-					yield return strPlugin;
+				return null;
 			}
 		}
 
@@ -92,22 +108,6 @@ namespace Nexus.Client.Games.WorldOfTanks
 			get
 			{
 				return GameModeEnvironmentInfo.InstallationPath;
-			}
-		}
-
-		/// <summary>
-		/// Gets the directory where World of Tanks plugins are installed.
-		/// </summary>
-		/// <value>The directory where World of Tanks plugins are installed.</value>
-		public virtual string PluginDirectory
-		{
-			get
-			{
-				string strPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "res_mods");
-				strPath = Path.Combine(strPath, GameVersion.ToString());
-				if (!Directory.Exists(strPath))
-					Directory.CreateDirectory(strPath);
-				return strPath;
 			}
 		}
 
@@ -308,11 +308,6 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath)
 		{
-			if (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod"))
-			{
-				string modpath = Path.Combine("res_mods", GameVersion.ToString());
-				return Path.Combine(modpath, p_strPath ?? "");
-			}
 			return p_strPath;
 		}
 

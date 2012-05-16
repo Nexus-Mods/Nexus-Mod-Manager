@@ -762,9 +762,11 @@ namespace Nexus.Client
 			Trace.TraceInformation("Scanning for read-only files...");
 			Trace.Indent();
 			List<string> lstFiles = new List<string>();
-			foreach (string strPath in p_gmdGameMode.WritablePaths)
-				if (File.Exists(strPath))
-					lstFiles.Add(strPath);
+			IEnumerable<string> enmWritablePaths = p_gmdGameMode.WritablePaths;
+			if (enmWritablePaths != null)
+				foreach (string strPath in enmWritablePaths)
+					if (File.Exists(strPath))
+						lstFiles.Add(strPath);
 			foreach (string strFile in lstFiles)
 			{
 				FileInfo fifPlugin = new FileInfo(strFile);
