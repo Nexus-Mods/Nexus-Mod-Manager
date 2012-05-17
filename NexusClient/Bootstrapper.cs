@@ -302,7 +302,8 @@ namespace Nexus.Client
 				m_eifEnvironmentInfo.Settings.InstalledGames.Clear();
 				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
 				{
-					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
+					IGameModeFactory gmfGameModeFactory = p_gmrSupportedGameModes.GetGameMode(gidGameMode.GameMode.ModeId);
+					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetInstallationPath(gidGameMode.GameInstallPath);
 					m_eifEnvironmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
 				}
 				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;

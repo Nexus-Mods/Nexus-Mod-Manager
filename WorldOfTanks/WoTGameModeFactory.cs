@@ -6,6 +6,7 @@ using Microsoft.Win32;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using System.Xml;
 
 namespace Nexus.Client.Games.WorldOfTanks
 {
@@ -61,6 +62,23 @@ namespace Nexus.Client.Games.WorldOfTanks
 		public string GetInstallationPath()
 		{
 			return null;
+		}
+
+		/// <summary>
+		/// Gets the path where mod files should be installed.
+		/// </summary>
+		/// <remarks>
+		/// This method uses the given path to the installed game
+		/// to determine the installaiton path for mods.
+		/// </remarks>
+		/// <returns>The path where mod files should be installed, or
+		/// <c>null</c> if the path could be be determined.</returns>
+		public string GetInstallationPath(string p_strGameInstallPath)
+		{
+			Version verVersion =WoTGameMode.ReadVersion(p_strGameInstallPath);
+			string strVersion = (verVersion == null) ? "0.0.0.0" : verVersion.ToString();
+			string strPath = Path.Combine(Path.Combine(p_strGameInstallPath, "res_mods"), strVersion.ToString());
+			return strPath;
 		}
 
 		/// <summary>
