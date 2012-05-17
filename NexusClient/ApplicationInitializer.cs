@@ -468,7 +468,8 @@ namespace Nexus.Client
 				try
 				{
 					if (pifSetting == null)
-						pifSetting = tpeSettings.GetProperty("Item");
+						for (Type tpeBase = tpeSettings; (pifSetting == null) && (tpeBase != null); tpeBase = tpeBase.BaseType)
+							pifSetting = tpeBase.GetProperty("Item", BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance);
 				}
 				catch (AmbiguousMatchException)
 				{
