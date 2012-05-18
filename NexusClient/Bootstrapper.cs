@@ -86,7 +86,16 @@ namespace Nexus.Client
 					MessageBox.Show(String.Format("No games were detected! {0} will now close.", m_eifEnvironmentInfo.Settings.ModManagerName), "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return false;
 				}
-				IGameModeFactory gmfGameModeFactory = SelectGameMode(gmrSupportedGames, gmrInstalledGames, strRequestedGameMode, booChangeDefaultGameMode);
+
+				GameModeSelector gmsSelector = new GameModeSelector(gmrSupportedGames, gmrInstalledGames, m_eifEnvironmentInfo);
+				IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(strRequestedGameMode, booChangeDefaultGameMode);
+				if (gmsSelector.RescanRequested)
+				{
+					m_eifEnvironmentInfo.Settings.InstalledGamesDetected = false;
+					m_eifEnvironmentInfo.Settings.Save();
+					booChangeDefaultGameMode = true;
+					continue;
+				}
 				if (gmfGameModeFactory == null)
 					return false;
 
@@ -100,7 +109,7 @@ namespace Nexus.Client
 					{
 						Trace.TraceInformation("Creating Game Mode mutex (Attempt: {0})", intAttemptCount);
 						mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
-						
+
 						//If the mutex is owned, you are the first instance of the mod manager for game mode, so break out of loop.
 						if (booOwnsMutex)
 							break;
@@ -311,21 +320,6 @@ namespace Nexus.Client
 			}
 			GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(p_gmrSupportedGameModes, m_eifEnvironmentInfo);
 			return gmrInstalledGameModes;
-		}
-
-		/// <summary>
-		/// Selects the game mode to use.
-		/// </summary>
-		/// <param name="p_gmrSupportedGameModes">The games modes supported by the mod manager.</param>
-		/// <param name="p_gmrInstalledGameModes">The registry of installed game modes.</param>
-		/// <param name="p_strRequestedGameMode">The id of the game mode we want to select.</param>
-		/// <param name="p_booChangeDefaultGameMode">Whether the users ahs requested a change to the default game mode.</param>
-		/// <returns>The factory for the select game mode, or <c>null</c> if no factory selection failed.</returns>
-		protected IGameModeFactory SelectGameMode(GameModeRegistry p_gmrSupportedGameModes, GameModeRegistry p_gmrInstalledGameModes, string p_strRequestedGameMode, bool p_booChangeDefaultGameMode)
-		{
-			GameModeSelector gmsSelector = new GameModeSelector(p_gmrSupportedGameModes, p_gmrInstalledGameModes, m_eifEnvironmentInfo);
-			IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(p_strRequestedGameMode, p_booChangeDefaultGameMode);
-			return gmfGameModeFactory;
 		}
 
 		#endregion
