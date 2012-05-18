@@ -40,6 +40,12 @@ namespace Nexus.Client
 		/// <value>The game modes factories for installed games.</value>
 		protected GameModeRegistry InstalledGameModes { get; set; }
 
+		/// <summary>
+		/// Gets whether a rescan of install games was requested.
+		/// </summary>
+		/// <value>Whether a rescan of install games was requested.</value>
+		public bool RescanRequested { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -84,10 +90,10 @@ namespace Nexus.Client
 					lstGameModeInfos.Add(gmdGameMode);
 				GameModeSelectionForm msfSelector = new GameModeSelectionForm(lstGameModeInfos, EnvironmentInfo.Settings);
 				msfSelector.ShowDialog();
-                if (msfSelector.DialogResult == DialogResult.OK)
-                    strSelectedGame = msfSelector.SelectedGameModeId;
-                else
-                    return null;
+				if ((msfSelector.DialogResult == DialogResult.OK) && !(RescanRequested = msfSelector.RescanRequested))
+					strSelectedGame = msfSelector.SelectedGameModeId;
+				else
+					return null;
 			}
 			Trace.WriteLine(strSelectedGame);
 			if (!InstalledGameModes.IsRegistered(strSelectedGame))
