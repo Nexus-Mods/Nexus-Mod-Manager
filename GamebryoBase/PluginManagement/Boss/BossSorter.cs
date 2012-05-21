@@ -642,6 +642,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				case "Skyrim":
 					uintClientGameId = 3;
 					break;
+                case "Morrowind":
+                    uintClientGameId = 6;
+                    break;
 				default:
 					throw new BossException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}

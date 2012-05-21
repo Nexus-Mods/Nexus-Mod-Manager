@@ -70,7 +70,7 @@ namespace Nexus.Client.Games.Oblivion
 		{
 			get
 			{
-                return new Theme(
+				return new Theme(Properties.Resources.tes_logo, Color.FromArgb(250, 167, 64));
                     Properties.Resources.tes_logo, 
                     Color.FromArgb(250, 167, 64),
                     Theme.DefaultFontSet,

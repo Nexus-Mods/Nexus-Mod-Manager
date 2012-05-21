@@ -16,7 +16,7 @@ namespace Nexus.Client.UI.Controls
 		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
 
 		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
-		
+
 		#region Constructors
 
 		/// <summary>
@@ -55,7 +55,8 @@ namespace Nexus.Client.UI.Controls
 
 			lblGameModeName.Text = GameMode.Name;
 			lblGameModeName.ForeColor = GameMode.ModeTheme.PrimaryColour;
-			pbxGameLogo.Image = new Icon(GameMode.ModeTheme.Icon, 48, 48).ToBitmap();
+			if (GameMode.ModeTheme.Icon != null)
+				pbxGameLogo.Image = new Icon(GameMode.ModeTheme.Icon, 48, 48).ToBitmap();
 		}
 
 		#endregion

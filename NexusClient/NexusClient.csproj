@@ -123,12 +123,15 @@
     </EmbeddedResource>
     <EmbeddedResource Include="GameDetectionForm.resx">
       <DependentUpon>GameDetectionForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\GameModeListViewItem.resx">
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\GameModeSearchListViewItem.resx">
       <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="GameModeSelectionForm.resx">
       <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
@@ -264,6 +267,8 @@
     <Compile Include="ApplicationInitializer.cs" />
     <Compile Include="Bootstrapper.cs" />
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
+    <Compile Include="IMessager.cs" />
+    <Compile Include="MessagerClient.cs" />
     <Compile Include="UI\Controls\GameModeListViewItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -301,7 +306,7 @@
       <DependentUpon>LoginForm.cs</DependentUpon>
     </Compile>
     <Compile Include="LoginFormVM.cs" />
-    <Compile Include="Messager.cs" />
+    <Compile Include="MessagerServer.cs" />
     <Compile Include="ModManagement\AddModTask.cs" />
     <Compile Include="ModManagement\AutoTagger.cs" />
     <Compile Include="ModManagement\AutoUpdater.cs" />

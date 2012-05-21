@@ -136,7 +136,7 @@ namespace Nexus.Client.ModManagement
 		{
 			IDataFileUtil dfuDataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
 
-			IModFileInstaller mfiFileInstaller = new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, dfuDataFileUtility, p_tfmFileManager, null);
+			IModFileInstaller mfiFileInstaller = new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, dfuDataFileUtility, p_tfmFileManager, null, GameMode.UsesPlugins);
 			IIniInstaller iniIniInstaller = new IniInstaller(Mod, ModInstallLog, p_tfmFileManager, null);
 			IGameSpecificValueInstaller gviGameSpecificValueInstaller = GameMode.GetGameSpecificValueInstaller(Mod, ModInstallLog, p_tfmFileManager, new NexusFileUtil(EnvironmentInfo), null);
 			
@@ -147,7 +147,8 @@ namespace Nexus.Client.ModManagement
 
 			mfiFileInstaller.FinalizeInstall();
 			iniIniInstaller.FinalizeInstall();
-			gviGameSpecificValueInstaller.FinalizeInstall();
+            if (gviGameSpecificValueInstaller != null)
+			    gviGameSpecificValueInstaller.FinalizeInstall();
 
 			return booResult;
 		}

@@ -103,14 +103,22 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strWebsite = "newvegas.nexusmods.com";
 					m_strEndpoint = "FONVNexusREST";
 					break;
+                case "Morrowind":
+                    m_strWebsite = "morrowind.nexusmods.com";
+                    m_strEndpoint = "MWNexusREST";
+                    break;
 				case "Oblivion":
-					m_strWebsite = "tes.nexusmods.com";
-					m_strEndpoint = "TESNexusREST";
+					m_strWebsite = "oblivion.nexusmods.com";
+                    m_strEndpoint = "OBNexusREST";
 					break;
 				case "Skyrim":
 					m_strWebsite = "skyrim.nexusmods.com";
 					m_strEndpoint = "SKYRIMNexusREST";
 					break;
+                case "WorldOfTanks":
+                    m_strWebsite = "worldoftanks.nexusmods.com";
+                    m_strEndpoint = "WOTNexusREST";
+                    break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
@@ -212,6 +220,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			hwrLogin.Method = WebRequestMethods.Http.Post;
 			hwrLogin.ContentType = "application/x-www-form-urlencoded";
 			hwrLogin.UserAgent = UserAgent;
+			hwrLogin.ServicePoint.Expect100Continue = false;
 
 			string strFields = String.Format("user={0}&pass={1}", p_strUsername, p_strPassword);
 			byte[] bteFields = System.Text.Encoding.UTF8.GetBytes(strFields);
