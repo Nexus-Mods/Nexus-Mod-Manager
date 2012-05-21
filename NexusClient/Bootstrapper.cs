@@ -114,8 +114,8 @@ namespace Nexus.Client
 						if (booOwnsMutex)
 							break;
 
-						//If the mutex isn't owned, attemp to talk across the messager.
-						using (Messager msgMessager = Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
+						//If the mutex isn't owned, attempt to talk across the messager.
+						using (IMessager msgMessager = MessagerClient.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
 						{
 							if (msgMessager != null)
 							{
@@ -177,7 +177,7 @@ namespace Nexus.Client
 					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
 
-					using (Messager msgMessager = Messager.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
+					using (IMessager msgMessager = MessagerServer.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
 					{
 						if (uriModToAdd != null)
 						{
