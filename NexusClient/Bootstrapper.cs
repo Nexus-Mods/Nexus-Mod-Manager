@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Remoting;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
@@ -79,6 +79,7 @@ namespace Nexus.Client
 				}
 
 			bool booChangeDefaultGameMode = false;
+			GameModeRegistry gmrSupportedGames = GetSupportedGameModes();
 			do
 			{
                 //Add the private fonts.
@@ -99,7 +100,16 @@ namespace Nexus.Client
 					MessageBox.Show(String.Format("No games were detected! {0} will now close.", m_eifEnvironmentInfo.Settings.ModManagerName), "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return false;
 				}
-				IGameModeFactory gmfGameModeFactory = SelectGameMode(gmrInstalledGames, strRequestedGameMode, booChangeDefaultGameMode);
+
+				GameModeSelector gmsSelector = new GameModeSelector(gmrSupportedGames, gmrInstalledGames, m_eifEnvironmentInfo);
+				IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(strRequestedGameMode, booChangeDefaultGameMode);
+				if (gmsSelector.RescanRequested)
+				{
+					m_eifEnvironmentInfo.Settings.InstalledGamesDetected = false;
+					m_eifEnvironmentInfo.Settings.Save();
+					booChangeDefaultGameMode = true;
+					continue;
+				}
 				if (gmfGameModeFactory == null)
 					return false;
 
@@ -109,34 +119,56 @@ namespace Nexus.Client
 				bool booOwnsMutex = false;
 				try
 				{
-					Trace.TraceInformation("Creating Game Mode mutex.");
-					mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
+					for (Int32 intAttemptCount = 0; intAttemptCount < 3; intAttemptCount++)
+					{
+						Trace.TraceInformation("Creating Game Mode mutex (Attempt: {0})", intAttemptCount);
+						mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
+
+						//If the mutex is owned, you are the first instance of the mod manager for game mode, so break out of loop.
+						if (booOwnsMutex)
+							break;
+
+						//If the mutex isn't owned, attempt to talk across the messager.
+						using (IMessager msgMessager = MessagerClient.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
+						{
+							if (msgMessager != null)
+							{
+								//Messenger was created OK, send download request, or bring to front.
+								if (uriModToAdd != null)
+								{
+									Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
+									msgMessager.AddMod(uriModToAdd.ToString());
+								}
+								else
+								{
+									Trace.TraceInformation(String.Format("Messaging to bring to front."));
+									msgMessager.BringToFront();
+								}
+								return true;
+							}
+						}
+						mtxGameModeMutex.Close();
+						mtxGameModeMutex = null;
+
+						//Messenger couldn't be created, so sleep for a few seconds to give time for opening
+						// the running copy of the mod manager to start up/shut down
+						Thread.Sleep(TimeSpan.FromSeconds(5.0d));
+					}
 					if (!booOwnsMutex)
 					{
-						try
-						{
-							if (uriModToAdd != null)
-							{
-								Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
-								Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor).AddMod(uriModToAdd.ToString());
-							}
-							else
-							{
-								Trace.TraceInformation(String.Format("Messaging to bring to front."));
-								Messager.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor).BringToFront();
-							}
-						}
-						catch (RemotingException)
-						{
-							//the running client crashed; nothing we can or want to do.
-							// is that true? let's log for a while to see if it is.
+						HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
+						htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
+						Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
+						if (!htlListener.TraceIsForced)
+							htlListener.SaveToFile();
 
-							HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
-							htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
-							Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
-							throw;
-						}
-
+						StringBuilder stbPromptMessage = new StringBuilder();
+						stbPromptMessage.AppendFormat("{0} was unable to start. It appears another instance of {0} is already running.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
+						stbPromptMessage.AppendLine("A Trace Log was created at:");
+						stbPromptMessage.AppendLine(htlListener.FilePath);
+						stbPromptMessage.AppendLine("Please include the contents of that file if you want to make a bug report:");
+						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 						return false;
 					}
 
@@ -166,7 +198,7 @@ namespace Nexus.Client
 					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
 
-					using (Messager msgMessager = Messager.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
+					using (IMessager msgMessager = MessagerServer.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
 					{
 						if (uriModToAdd != null)
 						{
@@ -263,9 +295,12 @@ namespace Nexus.Client
 			if (p_smgServices == null)
 				return;
 			p_smgServices.ModInstallLog.Release();
-			p_smgServices.ActivePluginLog.Release();
-			p_smgServices.PluginOrderLog.Release();
-			p_smgServices.PluginManager.Release();
+			if (p_smgServices.ActivePluginLog != null)
+				p_smgServices.ActivePluginLog.Release();
+			if (p_smgServices.PluginOrderLog != null)
+				p_smgServices.PluginOrderLog.Release();
+			if (p_smgServices.PluginManager != null)
+				p_smgServices.PluginManager.Release();
 			p_smgServices.ModManager.Release();
 		}
 
@@ -274,18 +309,27 @@ namespace Nexus.Client
 		#region Game Detection/Selection
 
 		/// <summary>
+		/// Gets a registry of supported game modes.
+		/// </summary>
+		/// <returns>A registry of supported game modes.</returns>
+		protected GameModeRegistry GetSupportedGameModes()
+		{
+			return GameModeRegistry.DiscoverSupportedGameModes(m_eifEnvironmentInfo);
+		}
+
+		/// <summary>
 		/// Gets a registry of installed game modes.
 		/// </summary>
+		/// <param name="p_gmrSupportedGameModes">The games modes supported by the mod manager.</param>
 		/// <returns>A registry of installed game modes.</returns>
-		protected GameModeRegistry GetInstalledGameModes()
+		protected GameModeRegistry GetInstalledGameModes(GameModeRegistry p_gmrSupportedGameModes)
 		{
-			GameModeRegistry gmrSupportedGameModes = GameModeRegistry.DiscoverSupportedGameModes(m_eifEnvironmentInfo);
 			if (!m_eifEnvironmentInfo.Settings.InstalledGamesDetected)
 			{
 				GameDiscoverer gdrGameDetector = new GameDiscoverer();
-				GameDetectionVM vmlGameDetection = new GameDetectionVM(m_eifEnvironmentInfo, gdrGameDetector, gmrSupportedGameModes);
+				GameDetectionVM vmlGameDetection = new GameDetectionVM(m_eifEnvironmentInfo, gdrGameDetector, p_gmrSupportedGameModes);
 				GameDetectionForm frmGameDetector = new GameDetectionForm(vmlGameDetection);
-				gdrGameDetector.Find(gmrSupportedGameModes.RegisteredGameModeFactories);
+				gdrGameDetector.Find(p_gmrSupportedGameModes.RegisteredGameModeFactories);
 				frmGameDetector.ShowDialog();
 				if (gdrGameDetector.Status != TaskStatus.Complete)
 					return null;
@@ -294,28 +338,15 @@ namespace Nexus.Client
 				m_eifEnvironmentInfo.Settings.InstalledGames.Clear();
 				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
 				{
-					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gidGameMode.InstallationPath;
+					IGameModeFactory gmfGameModeFactory = p_gmrSupportedGameModes.GetGameMode(gidGameMode.GameMode.ModeId);
+					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetInstallationPath(gidGameMode.GameInstallPath);
 					m_eifEnvironmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
 				}
 				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
 				m_eifEnvironmentInfo.Settings.Save();
 			}
-			GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(gmrSupportedGameModes, m_eifEnvironmentInfo);
+			GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(p_gmrSupportedGameModes, m_eifEnvironmentInfo);
 			return gmrInstalledGameModes;
-		}
-
-		/// <summary>
-		/// Selects the game mode to use.
-		/// </summary>
-		/// <param name="p_gmrInstalledGameModes">The registry of installed game modes.</param>
-		/// <param name="p_strRequestedGameMode">The id of the game mode we want to select.</param>
-		/// <param name="p_booChangeDefaultGameMode">Whether the users ahs requested a change to the default game mode.</param>
-		/// <returns>The factory for the select game mode, or <c>null</c> if no factory selection failed.</returns>
-		protected IGameModeFactory SelectGameMode(GameModeRegistry p_gmrInstalledGameModes, string p_strRequestedGameMode, bool p_booChangeDefaultGameMode)
-		{
-			GameModeSelector gmsSelector = new GameModeSelector(p_gmrInstalledGameModes, m_eifEnvironmentInfo);
-			IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(p_strRequestedGameMode, p_booChangeDefaultGameMode);
-			return gmfGameModeFactory;
 		}
 
 		#endregion

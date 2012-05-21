@@ -48,7 +48,7 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets the path where mod files should be installed.
 		/// </summary>
 		/// <returns>The path where mod files should be installed, or
-		/// <c>null</c> if the path could be be determined.</returns>
+		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
 			string strRegistryKey = null;
@@ -70,6 +70,20 @@ namespace Nexus.Client.Games.Gamebryo
 			Trace.TraceInformation(String.Format("Found {0}", strValue));
 			Trace.Unindent();
 			return strValue;
+		}
+
+		/// <summary>
+		/// Gets the path where mod files should be installed.
+		/// </summary>
+		/// <remarks>
+		/// This method uses the given path to the installed game
+		/// to determine the installaiton path for mods.
+		/// </remarks>
+		/// <returns>The path where mod files should be installed, or
+		/// <c>null</c> if the path could be be determined.</returns>
+		public string GetInstallationPath(string p_strGameInstallPath)
+		{
+			return p_strGameInstallPath;
 		}
 
 		/// <summary>

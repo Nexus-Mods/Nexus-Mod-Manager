@@ -53,7 +53,7 @@ namespace Nexus.Client
 				do
 				{
 					intWidth = gameModeListView1.PreferredSize.Width / lstGameModes.Count * intIdealWidthCount;
-					intHeigth = gameModeListView1.PreferredSize.Height * lstGameModes.Count / intIdealWidthCount;
+					intHeigth = gameModeListView1.PreferredSize.Height * (Int32)Math.Ceiling((double)lstGameModes.Count / intIdealWidthCount);
 				} while ((szeMax.Width < intWidth) && (--intIdealWidthCount > 0));
 				if (intHeigth > szeMax.Height)
 				{

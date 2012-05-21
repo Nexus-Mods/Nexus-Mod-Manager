@@ -116,8 +116,9 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 		private void LoadPluginLog()
 		{
 			m_ostActivePlugins.Clear();
-			foreach (string strPlugin in LogSerializer.LoadPluginLog())
-				m_ostActivePlugins.Add(ManagedPluginRegistry.GetPlugin(strPlugin));
+            if (LogSerializer != null)
+			    foreach (string strPlugin in LogSerializer.LoadPluginLog())
+				    m_ostActivePlugins.Add(ManagedPluginRegistry.GetPlugin(strPlugin));
 		}
 
 		/// <summary>

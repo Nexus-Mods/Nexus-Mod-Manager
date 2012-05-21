@@ -27,10 +27,10 @@ namespace Nexus.Client.Games
 			public IGameModeDescriptor GameMode { get; private set; }
 
 			/// <summary>
-			/// Gets the installation path of the game mode.
+			/// Gets the install path of the game.
 			/// </summary>
-			/// <value>The installation path of the game mode.</value>
-			public string InstallationPath { get; private set; }
+			/// <value>The install path of the game.</value>
+			public string GameInstallPath { get; private set; }
 
 			#endregion
 
@@ -40,11 +40,11 @@ namespace Nexus.Client.Games
 			/// A simple constructor that initializes the object with the given values.
 			/// </summary>
 			/// <param name="p_gmdGameMode">The game mode whose install info in described by the object.</param>
-			/// <param name="p_strInstallationPath">The installation path of the game mode.</param>
-			public GameInstallData(IGameModeDescriptor p_gmdGameMode, string p_strInstallationPath)
+			/// <param name="p_strGameInstallPath">The install path of the game.</param>
+			public GameInstallData(IGameModeDescriptor p_gmdGameMode, string p_strGameInstallPath)
 			{
 				GameMode = p_gmdGameMode;
-				InstallationPath = p_strInstallationPath;
+				GameInstallPath = p_strGameInstallPath;
 			}
 
 			#endregion
@@ -376,7 +376,7 @@ namespace Nexus.Client.Games
 		{
 			GameInstallData gidData = m_lstFoundGameModes.Find(d => d.GameMode.ModeId.Equals(p_strGameModeId));
 			if (gidData != null)
-				return gidData.InstallationPath;
+				return gidData.GameInstallPath;
 			return null;
 		}
 

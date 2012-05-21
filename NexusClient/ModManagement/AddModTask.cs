@@ -256,7 +256,7 @@ namespace Nexus.Client.ModManagement
 					}
 				case "nxm":
 					NexusUrl nxuModUrl = new NexusUrl(p_amdDescriptor.SourceUri);
-					if (String.IsNullOrEmpty(nxuModUrl.ModId))
+                    if ((String.IsNullOrEmpty(nxuModUrl.ModId)) || (string.IsNullOrEmpty(nxuModUrl.FileId)))
 						throw new ArgumentException("Invalid Nexus URI: " + p_amdDescriptor.SourceUri.ToString());
 					IModInfo mifInfo = null;
 					try
@@ -403,7 +403,12 @@ namespace Nexus.Client.ModManagement
 
 				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
-				ItemMessage = String.Format("Downloading: ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds);
+                if ((ItemProgress == 0) && (intSpeed == 0))
+                    ItemMessage = "Starting the download...";
+                else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
+                    ItemMessage = "Resuming the download...";
+                else
+				    ItemMessage = String.Format("Downloading: ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds);
 			}
 		}
 

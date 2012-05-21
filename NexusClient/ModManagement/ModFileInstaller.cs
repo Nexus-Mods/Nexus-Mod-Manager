@@ -60,6 +60,12 @@ namespace Nexus.Client.ModManagement
 		/// <value>The manager to use to manage plugins.</value>
 		protected IPluginManager PluginManager { get; private set; }
 
+        /// <summary>
+        /// Gets whether the file is a mod or a plugin.
+        /// </summary>
+        /// <value>true or false.</value>
+        protected bool IsPlugin { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -74,7 +80,8 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_dfuDataFileUtility">The utility class to use to work with data files.</param>
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-		public ModFileInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+        /// <param name="p_UsesPlugins">Whether the file is a mod or a plugin.</param>
+		public ModFileInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins)
 		{
 			GameModeInfo = p_gmiGameModeInfo;
 			Mod = p_modMod;
@@ -83,6 +90,7 @@ namespace Nexus.Client.ModManagement
 			DataFileUtility = p_dfuDataFileUtility;
 			TransactionalFileManager = p_tfmFileManager;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b) => OverwriteResult.No);
+            IsPlugin = p_UsesPlugins;
 		}
 
 		#endregion
@@ -244,10 +252,12 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 			TransactionalFileManager.WriteAllBytes(strInstallFilePath, p_bteData);
-			if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
-				PluginManager.AddPlugin(strInstallFilePath);
+            // Checks whether the file is a gamebryo plugin
+            if (IsPlugin)
+			    if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
+				    PluginManager.AddPlugin(strInstallFilePath);
 			InstallLog.AddDataFile(Mod, p_strPath);
-			return true;
+			return IsPlugin;
 		}
 
 		/// <summary>
@@ -276,8 +286,9 @@ namespace Nexus.Client.ModManagement
 					// when we installed the file
 					// if we didn't overwrite a file, then just delete the current file
 					TransactionalFileManager.Delete(strInstallFilePath);
-					if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
-						PluginManager.RemovePlugin(strInstallFilePath);
+                    if (IsPlugin)
+					    if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
+						    PluginManager.RemovePlugin(strInstallFilePath);
 					string strPreviousOwnerKey = InstallLog.GetPreviousFileOwnerKey(p_strPath);
 					if (strPreviousOwnerKey != null)
 					{

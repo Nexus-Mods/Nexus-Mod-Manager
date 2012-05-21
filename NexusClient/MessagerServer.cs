@@ -11,15 +11,15 @@ using Nexus.Client.ModManagement;
 namespace Nexus.Client
 {
 	/// <summary>
-	/// This class enables communication between different instance of the client.
+	/// This class enables communication between different instance of the mod manager.
 	/// </summary>
 	/// <remarks>
-	/// Only one instance of the client can be running per game mode. This class allows other instances of the client
-	/// for the same game mode to send messages to the running instance to process.
+	/// Only one instance of the client can be running per game mode. This class listens for messages sent from
+	/// other instances of the mod manager to be processed.
 	/// </remarks>
-	public class Messager : MarshalByRefObject, IDisposable
+	public class MessagerServer : MarshalByRefObject, IMessager
 	{
-		private static IChannel m_cnlMessagerChannel = null;
+		private static IpcServerChannel m_schMessagerChannel = null;
 
 		#region IPC Channel Setup
 
@@ -30,44 +30,22 @@ namespace Nexus.Client
 		/// <param name="p_gmdGameModeInfo">The descriptor of the game mode for which mods are being managed.</param>
 		/// <param name="p_mmgModManager">The mod manager to use to manage mods.</param>
 		/// <param name="p_frmMainForm">The main application form.</param>
-		public static Messager InitializeListener(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, ModManager p_mmgModManager, MainForm p_frmMainForm)
+		public static IMessager InitializeListener(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, ModManager p_mmgModManager, MainForm p_frmMainForm)
 		{
-			if (m_cnlMessagerChannel != null)
-				throw new InvalidOperationException(String.Format("The IPC Channel has already been created as a {0}.", (m_cnlMessagerChannel is IpcServerChannel) ? "SERVER" : "CLIENT"));
+			if (m_schMessagerChannel != null)
+				throw new InvalidOperationException("The IPC Channel has already been created as a SERVER.");
 
 			string strUri = String.Format("{0}-{1}IpcServer", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
-			m_cnlMessagerChannel = new IpcServerChannel(strUri);
-			ChannelServices.RegisterChannel(m_cnlMessagerChannel, true);
-			Messager msgMessager = new Messager(p_mmgModManager, p_frmMainForm);
+			m_schMessagerChannel = new IpcServerChannel(strUri);
+			ChannelServices.RegisterChannel(m_schMessagerChannel, true);
+			MessagerServer msgMessager = new MessagerServer(p_mmgModManager, p_frmMainForm);
 			string strEndpoint = String.Format("{0}Listener", p_gmdGameModeInfo.ModeId);
-			RemotingServices.Marshal(msgMessager, strEndpoint, typeof(Messager));
+			RemotingServices.Marshal(msgMessager, strEndpoint, typeof(IMessager));
 
 			strUri += "/" + strEndpoint;
 			string strTraceInfo = String.Format("Setting up listener on {0} at {1}", strUri, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 			Trace.TraceInformation(strTraceInfo);
-			
-			return msgMessager;
-		}
 
-		/// <summary>
-		/// Gets an instance of a <see cref="Messager"/> to use to talk to the running instance of the client.
-		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		/// <param name="p_gmdGameModeInfo">The descriptor of the game mode for which mods are being managed.</param>
-		/// <returns>An instance of a <see cref="Messager"/> to use to talk to the running instance of the client.</returns>
-		public static Messager GetMessager(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo)
-		{
-			if (m_cnlMessagerChannel == null)
-			{
-				m_cnlMessagerChannel = new IpcClientChannel();
-				ChannelServices.RegisterChannel(m_cnlMessagerChannel, true);
-			}
-			else if (m_cnlMessagerChannel is IpcServerChannel)
-				throw new InvalidOperationException("The IPC Channel has already been created as a SERVER.");
-
-			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
-			Trace.TraceInformation(String.Format("Getting listener on: {0}", strMessagerUri));
-			Messager msgMessager = (Messager)Activator.GetObject(typeof(Messager), strMessagerUri);
 			return msgMessager;
 		}
 
@@ -96,7 +74,7 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_mmgModManager">The mod manager to use to manage mods.</param>
 		/// <param name="p_frmMainForm">The main form of the client for which we listening for messages.</param>
-		private Messager(ModManager p_mmgModManager, MainForm p_frmMainForm)
+		private MessagerServer(ModManager p_mmgModManager, MainForm p_frmMainForm)
 		{
 			ModManager = p_mmgModManager;
 			MainForm = p_frmMainForm;
@@ -114,12 +92,11 @@ namespace Nexus.Client
 		/// </remarks>
 		public void Dispose()
 		{
-			if (m_cnlMessagerChannel == null)
+			if (m_schMessagerChannel == null)
 				return;
-			if (m_cnlMessagerChannel is IpcServerChannel)
-				((IpcServerChannel)m_cnlMessagerChannel).StopListening(null);
-			ChannelServices.UnregisterChannel(m_cnlMessagerChannel);
-			m_cnlMessagerChannel = null;
+			m_schMessagerChannel.StopListening(null);
+			ChannelServices.UnregisterChannel(m_schMessagerChannel);
+			m_schMessagerChannel = null;
 			RemotingServices.Disconnect(this);
 		}
 
@@ -217,6 +194,14 @@ namespace Nexus.Client
 		private void DoBringToFront()
 		{
 			MainForm.RestoreFocus();
+		}
+
+		/// <summary>Used as a simple Power On Self Test method.</summary>
+		/// <remarks>
+		/// This method can be called to ensure a Messager is alive.
+		/// </remarks>
+		public void Post()
+		{
 		}
 	}
 }

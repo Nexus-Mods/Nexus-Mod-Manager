@@ -165,9 +165,7 @@ namespace Nexus.Client.Games.Settings
 				EnvironmentInfo.Settings.ModFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 			if (String.IsNullOrEmpty(strDirectory))
 			{
-				string strDefault = Path.Combine(strInstalationPath, "mods");
-				if (strDefault.StartsWith(Path.Combine(Path.GetPathRoot(strDefault), "Program Files"), StringComparison.InvariantCultureIgnoreCase))
-					strDefault = Path.Combine(Path.GetPathRoot(strInstalationPath), "Games\\" + GameModeDescriptor.ModeId + "\\mods"); ;
+				string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstalationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Mods");
 				strDirectory = strDefault;
 			}
 			ModDirectory = strDirectory;
@@ -180,9 +178,7 @@ namespace Nexus.Client.Games.Settings
 				EnvironmentInfo.Settings.InstallInfoFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 			if (String.IsNullOrEmpty(strDirectory))
 			{
-				string strDefault = Path.Combine(strInstalationPath, "Install Info");
-				if (strDefault.StartsWith(Path.Combine(Path.GetPathRoot(strDefault), "Program Files"), StringComparison.InvariantCultureIgnoreCase))
-					strDefault = Path.Combine(Path.GetPathRoot(strInstalationPath), "Games\\" + GameModeDescriptor.ModeId + "\\Install Info"); ;
+				string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstalationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Install Info");
 				strDirectory = strDefault;
 			}
 			InstallInfoDirectory = strDirectory;
