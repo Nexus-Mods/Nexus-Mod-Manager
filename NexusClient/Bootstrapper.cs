@@ -93,7 +93,7 @@ namespace Nexus.Client
                     return Theme.Default.CreateFont(name, style, size);
                 };
 
-				GameModeRegistry gmrInstalledGames = GetInstalledGameModes();
+				GameModeRegistry gmrInstalledGames = GetInstalledGameModes(gmrSupportedGames);
 				if (gmrInstalledGames == null)
 				{
 					Trace.TraceInformation("No installed games.");

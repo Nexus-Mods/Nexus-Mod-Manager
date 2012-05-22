@@ -85,7 +85,10 @@ namespace Nexus.Client.Games.Morrowind
         {
             get
             {
-                return new Theme(Properties.Resources.morrowind_logo, Color.FromArgb(80, 45, 23));
+                return new Theme(Properties.Resources.morrowind_logo, Color.FromArgb(80, 45, 23),
+					Theme.DefaultFontSet,
+					Theme.ToolbarFontSet
+					);
             }
         }
 
