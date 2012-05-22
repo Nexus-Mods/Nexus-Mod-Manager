@@ -115,6 +115,8 @@ namespace Nexus.Client.Games
 					return null;
 				string strSearchPath = queSearchPaths.Dequeue();
 				intFOlderCnt++;
+                if (FileUtil.ContainsInvalidPathChars(strSearchPath))
+                    continue;
 				Search(strSearchPath, rgxPatterns);
 				if (EndTaskRequested)
 					return null;
