@@ -21,7 +21,6 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 	/// </summary>
 	public class CSharpScriptExecutor : ScriptExecutorBase
 	{
-		private static Regex m_regClassName = new Regex(@"(class\s+Script\s*:.*?)\S*BaseScript");
 		private static Regex m_regFommUsing = new Regex(@"\s*using\s*fomm.Scripting\s*;");
 		private CSharpScriptFunctionProxy m_csfFunctions = null;
 		private IGameMode m_gmdGameMode = null;
@@ -35,6 +34,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <value>The type of the base script for all C# scripts.</value>
 		protected Type BaseScriptType { get; private set; }
 
+        private static Regex m_regClassMatch(string match)
+        {
+            return new Regex(String.Format(@"(class\s+\S+\s*:.*?)\S*{0}", match));
+        }
 		#endregion
 
 		#region Constructors
@@ -149,8 +152,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			CSharpScriptCompiler sccCompiler = new CSharpScriptCompiler();
 			CompilerErrorCollection cecErrors = null;
 
-			string strCode = m_regClassName.Replace(p_strCode, "using " + BaseScriptType.Namespace + ";\r\n$1" + BaseScriptType.Name);
-			strCode = m_regFommUsing.Replace(strCode, "");
+            string strMatch = m_regClassMatch("BaseScript").Match(p_strCode).ToString();
+            strMatch = strMatch.Substring(strMatch.IndexOf(":") + 1).Trim();
+            string strCode = m_regClassMatch(strMatch).Replace(p_strCode, "$1" + BaseScriptType.Name);
+            strCode = m_regFommUsing.Replace(strCode, "\r\nusing " + BaseScriptType.Namespace + ";\r\n");
 			byte[] bteAssembly = sccCompiler.Compile(strCode, BaseScriptType, out cecErrors);
 
 			if (cecErrors != null)
