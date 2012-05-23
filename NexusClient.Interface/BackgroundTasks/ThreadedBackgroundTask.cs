@@ -207,37 +207,44 @@ namespace Nexus.Client
 		private object RunThreadedWork(object p_objArgs)
 		{
 			object objReturnValue = null;
-			try
-			{
-				objReturnValue = DoWork((object[])p_objArgs);
-				switch (Status)
-				{
-					case TaskStatus.Cancelling:
-						Status = TaskStatus.Cancelled;
-						break;
-					case TaskStatus.Paused:
-					case TaskStatus.Running:
-						Status = TaskStatus.Complete;
-						break;
-					case TaskStatus.Complete:
-					case TaskStatus.Error:
-					case TaskStatus.Incomplete:
-					case TaskStatus.Cancelled:
-						//do nothing - it seems status has already been set
-						break;
-					default:
-						throw new Exception(String.Format("Unrecognized value for Status: {0}", Status));
-				}
-			}
-			catch
-			{
-				//we have to catch and then rethrow all exceptions
-				// so that any observers of this task, such as the
-				// ProgressDialog, know that the task has ended.
-				Status = TaskStatus.Error;
-				OnTaskEnded(objReturnValue);
-				throw;
-			}
+            try
+            {
+                objReturnValue = DoWork((object[])p_objArgs);
+                switch (Status)
+                {
+                    case TaskStatus.Cancelling:
+                        Status = TaskStatus.Cancelled;
+                        break;
+                    case TaskStatus.Paused:
+                    case TaskStatus.Running:
+                        Status = TaskStatus.Complete;
+                        break;
+                    case TaskStatus.Complete:
+                    case TaskStatus.Error:
+                    case TaskStatus.Incomplete:
+                    case TaskStatus.Cancelled:
+                        //do nothing - it seems status has already been set
+                        break;
+                    default:
+                        throw new Exception(String.Format("Unrecognized value for Status: {0}", Status));
+                }
+            }
+            catch (NotImplementedException ex)
+            {
+                System.Windows.Forms.MessageBox.Show(ex.Message, "Multipart Archive Error:", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning, System.Windows.Forms.MessageBoxDefaultButton.Button1);
+                Status = TaskStatus.Error;
+                OnTaskEnded(objReturnValue);
+                return null;
+            }
+            catch
+            {
+                //we have to catch and then rethrow all exceptions
+                // so that any observers of this task, such as the
+                // ProgressDialog, know that the task has ended.
+                Status = TaskStatus.Error;
+                OnTaskEnded(objReturnValue);
+                throw;
+            }
 			OnTaskEnded(objReturnValue);
 			return objReturnValue;
 		}

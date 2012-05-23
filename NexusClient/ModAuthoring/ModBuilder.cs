@@ -102,7 +102,15 @@ namespace Nexus.Client.ModAuthoring
 			switch ((Sources)p_objArgs[0])
 			{
 				case Sources.Archive:
-					return DoFromArchive((IModFormatRegistry)p_objArgs[1], (string)p_objArgs[2], (ConfirmOverwriteCallback)p_objArgs[3]);
+                    try
+                    {
+                        return DoFromArchive((IModFormatRegistry)p_objArgs[1], (string)p_objArgs[2], (ConfirmOverwriteCallback)p_objArgs[3]);
+                    }
+                    catch (NotImplementedException ex)
+                    {
+                        throw ex;
+                    }
+
 			}
 			throw new ArgumentException("Unrecognized activity source.");
 		}
@@ -135,7 +143,8 @@ namespace Nexus.Client.ModAuthoring
 				OnTaskEnded(String.Format("Cannot add {0}. File format is not recognized.", Path.GetFileName(p_strFilePath)), null);
 				return;
 			}
-			Start(srcModSource, p_mfrFormats, p_strFilePath, p_dlgConfirmOverwrite);
+
+            Start(srcModSource, p_mfrFormats, p_strFilePath, p_dlgConfirmOverwrite);
 		}
 
 		#region From Archive
@@ -202,69 +211,80 @@ namespace Nexus.Client.ModAuthoring
 			StepOverallProgress();
 
 			string strTmpPath = null;
-			try
-			{
-				using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
-				{
-					if ((mftDestFormat != null) && (szeExtractor.VolumeFileNames.Count > 1) ||
-						(lstModsInArchive.Count > 0))
-					{
-						ItemMessage = "Extracting archive...";
-						ItemProgress = 0;
-						ItemProgressMaximum = szeExtractor.ArchiveFileNames.Count;
-						strTmpPath = FileUtility.CreateTempDirectory();
-						szeExtractor.FileExtractionStarted += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionStarted);
-						szeExtractor.FileExtractionFinished += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionFinished);
-						szeExtractor.ExtractArchive(strTmpPath);
-						for (Int32 i = 0; i < lstModsInArchive.Count; i++)
-							lstModsInArchive[i] = Path.Combine(strTmpPath, lstModsInArchive[i]);
-					}
-					else
-						lstModsInArchive.Add(p_strArchivePath);
-				}
-				StepOverallProgress();
+            try
+            {
+                using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
+                {
+                    if ((mftDestFormat != null) && (szeExtractor.VolumeFileNames.Count > 1) ||
+                        (lstModsInArchive.Count > 0))
+                    {
+                        ItemMessage = "Extracting archive...";
+                        ItemProgress = 0;
+                        ItemProgressMaximum = szeExtractor.ArchiveFileNames.Count;
+                        strTmpPath = FileUtility.CreateTempDirectory();
+                        szeExtractor.FileExtractionStarted += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionStarted);
+                        szeExtractor.FileExtractionFinished += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionFinished);
+                        try
+                        {
+                            szeExtractor.ExtractArchive(strTmpPath);
+                        }
+                        catch (FileNotFoundException ex)
+                        {
+                            throw new NotImplementedException(ex.Message);
+                        }
+                        for (Int32 i = 0; i < lstModsInArchive.Count; i++)
+                            lstModsInArchive[i] = Path.Combine(strTmpPath, lstModsInArchive[i]);
+                    }
+                    else
+                        lstModsInArchive.Add(p_strArchivePath);
+                }
+                StepOverallProgress();
 
-				if (!String.IsNullOrEmpty(strTmpPath) && (mftDestFormat != null))
-				{
-					//if we have extracted the file to do format shifting
-					if (!mftDestFormat.SupportsModCompression)
-						return lstFoundMods;
-					ItemMessage = "Compressing mod...";
-					ItemProgress = 0;
-					ItemProgressMaximum = Directory.GetFiles(strTmpPath, "*", SearchOption.AllDirectories).Length;
-					IModCompressor mcpCompressor = mftDestFormat.GetModCompressor(EnvironmentInfo);
-					mcpCompressor.FileCompressionFinished += new CancelEventHandler(Compressor_FileCompressionFinished);
-					string strDest = Path.Combine(GameModeInfo.ModDirectory, Path.GetFileName(p_strArchivePath));
-					strDest = Path.ChangeExtension(strDest, mftDestFormat.Extension);
-					strDest = ConfirmOverwrite(p_dlgConfirmOverwrite, strDest);
-					if (!String.IsNullOrEmpty(strDest))
-					{
-						mcpCompressor.Compress(strTmpPath, strDest);
-						lstFoundMods.Add(strDest);
-					}
-				}
-				else
-				{
-					ItemMessage = "Copying mods...";
-					ItemProgress = 0;
-					ItemProgressMaximum = lstModsInArchive.Count;
-					foreach (string strMod in lstModsInArchive)
-					{
-						if (Status == TaskStatus.Cancelling)
-							return lstFoundMods;
-						ItemMessage = String.Format("Copying mod {0}...", Path.GetFileName(strMod));
-						string strDest = Path.Combine(GameModeInfo.ModDirectory, Path.GetFileName(strMod));
-						strDest = ConfirmOverwrite(p_dlgConfirmOverwrite, strDest);
-						if (!String.IsNullOrEmpty(strDest))
-						{
-							File.Copy(strMod, strDest, true);
-							lstFoundMods.Add(strDest);
-						}
-						StepItemProgress();
-					}
-				}
-				StepOverallProgress();
-			}
+                if (!String.IsNullOrEmpty(strTmpPath) && (mftDestFormat != null))
+                {
+                    //if we have extracted the file to do format shifting
+                    if (!mftDestFormat.SupportsModCompression)
+                        return lstFoundMods;
+                    ItemMessage = "Compressing mod...";
+                    ItemProgress = 0;
+                    ItemProgressMaximum = Directory.GetFiles(strTmpPath, "*", SearchOption.AllDirectories).Length;
+                    IModCompressor mcpCompressor = mftDestFormat.GetModCompressor(EnvironmentInfo);
+                    mcpCompressor.FileCompressionFinished += new CancelEventHandler(Compressor_FileCompressionFinished);
+                    string strDest = Path.Combine(GameModeInfo.ModDirectory, Path.GetFileName(p_strArchivePath));
+                    strDest = Path.ChangeExtension(strDest, mftDestFormat.Extension);
+                    strDest = ConfirmOverwrite(p_dlgConfirmOverwrite, strDest);
+                    if (!String.IsNullOrEmpty(strDest))
+                    {
+                        mcpCompressor.Compress(strTmpPath, strDest);
+                        lstFoundMods.Add(strDest);
+                    }
+                }
+                else
+                {
+                    ItemMessage = "Copying mods...";
+                    ItemProgress = 0;
+                    ItemProgressMaximum = lstModsInArchive.Count;
+                    foreach (string strMod in lstModsInArchive)
+                    {
+                        if (Status == TaskStatus.Cancelling)
+                            return lstFoundMods;
+                        ItemMessage = String.Format("Copying mod {0}...", Path.GetFileName(strMod));
+                        string strDest = Path.Combine(GameModeInfo.ModDirectory, Path.GetFileName(strMod));
+                        strDest = ConfirmOverwrite(p_dlgConfirmOverwrite, strDest);
+                        if (!String.IsNullOrEmpty(strDest))
+                        {
+                            File.Copy(strMod, strDest, true);
+                            lstFoundMods.Add(strDest);
+                        }
+                        StepItemProgress();
+                    }
+                }
+                StepOverallProgress();
+            }
+            catch (NotImplementedException ex)
+            {
+                throw ex;
+            }
 			finally
 			{
 				if (!String.IsNullOrEmpty(strTmpPath))
