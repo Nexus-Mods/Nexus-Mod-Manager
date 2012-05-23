@@ -44,14 +44,14 @@
 			this.tsbDeleteMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
-			this.lvwMods = new Nexus.Client.Controls.IconListView();
+			this.lvwMods = new Nexus.UI.Controls.IconListView();
 			this.clmModName = new System.Windows.Forms.ColumnHeader();
 			this.clmVersion = new System.Windows.Forms.ColumnHeader();
 			this.clmWebVersion = new System.Windows.Forms.ColumnHeader();
 			this.clmAuthor = new System.Windows.Forms.ColumnHeader();
 			this.sptSummaryInfo = new System.Windows.Forms.SplitContainer();
-			this.ipbScreenShot = new Nexus.Client.Controls.ImagePreviewBox();
-			this.flbInfo = new Nexus.Client.Controls.FormattedLabel();
+			this.ipbScreenShot = new Nexus.UI.Controls.ImagePreviewBox();
+			this.flbInfo = new Nexus.UI.Controls.FormattedLabel();
 			this.ofdChooseMod = new System.Windows.Forms.OpenFileDialog();
 			this.toolStrip1.SuspendLayout();
 			this.sptMods.Panel1.SuspendLayout();
@@ -279,10 +279,10 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.SplitContainer sptMods;
-		private Nexus.Client.Controls.IconListView lvwMods;
+		private Nexus.UI.Controls.IconListView lvwMods;
 		private System.Windows.Forms.SplitContainer sptSummaryInfo;
-		private Nexus.Client.Controls.ImagePreviewBox ipbScreenShot;
-		private Nexus.Client.Controls.FormattedLabel flbInfo;
+		private Nexus.UI.Controls.ImagePreviewBox ipbScreenShot;
+		private Nexus.UI.Controls.FormattedLabel flbInfo;
 		private System.Windows.Forms.ToolStripSplitButton tsbAddMod;
 		private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;

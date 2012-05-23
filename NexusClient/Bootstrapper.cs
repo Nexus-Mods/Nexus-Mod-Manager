@@ -6,7 +6,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;

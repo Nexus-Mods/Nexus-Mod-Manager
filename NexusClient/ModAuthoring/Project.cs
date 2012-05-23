@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Xml;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;

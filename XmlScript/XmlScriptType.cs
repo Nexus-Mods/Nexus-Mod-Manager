@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls;
 using Nexus.Client.ModManagement.Scripting.XmlScript.CPL;
 using Nexus.Client.ModManagement.Scripting.XmlScript.Parsers;

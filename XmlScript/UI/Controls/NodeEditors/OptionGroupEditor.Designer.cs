@@ -36,7 +36,7 @@
 			this.cbxType = new System.Windows.Forms.ComboBox();
 			this.pnlName = new System.Windows.Forms.Panel();
 			this.pnlSortOrder = new System.Windows.Forms.Panel();
-			this.rlvOptions = new Nexus.Client.Controls.ReorderableListView();
+			this.rlvOptions = new Nexus.UI.Controls.ReorderableListView();
 			this.clmOptionName = new System.Windows.Forms.ColumnHeader();
 			this.cbxSortOrder = new System.Windows.Forms.ComboBox();
 			this.label3 = new System.Windows.Forms.Label();
@@ -128,7 +128,7 @@
 			this.rlvOptions.TabIndex = 2;
 			this.rlvOptions.UseCompatibleStateImageBehavior = false;
 			this.rlvOptions.Resize += new System.EventHandler(this.rlvOptions_Resize);
-			this.rlvOptions.ItemsReordered += new System.EventHandler<Nexus.Client.Controls.ReorderedItemsEventArgs>(this.rlvOptions_ItemsReordered);
+			this.rlvOptions.ItemsReordered += new System.EventHandler<Nexus.UI.Controls.ReorderedItemsEventArgs>(this.rlvOptions_ItemsReordered);
 			// 
 			// clmOptionName
 			// 
@@ -186,7 +186,7 @@
 		private System.Windows.Forms.ComboBox cbxSortOrder;
 		private System.Windows.Forms.Label label3;
 		private System.Windows.Forms.Panel pnlName;
-		private Nexus.Client.Controls.ReorderableListView rlvOptions;
+		private Nexus.UI.Controls.ReorderableListView rlvOptions;
 		private System.Windows.Forms.ColumnHeader clmOptionName;
 	}
 }

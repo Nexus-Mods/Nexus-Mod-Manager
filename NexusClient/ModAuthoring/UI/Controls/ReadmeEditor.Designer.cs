@@ -28,14 +28,14 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.ddtReadme = new Nexus.Client.Controls.DropDownTabControl();
-			this.ddpHTML = new Nexus.Client.Controls.DropDownTabPage();
-			this.xedReadme = new Nexus.Client.Controls.XmlEditor();
+			this.ddtReadme = new Nexus.UI.Controls.DropDownTabControl();
+			this.ddpHTML = new Nexus.UI.Controls.DropDownTabPage();
+			this.xedReadme = new Nexus.UI.Controls.XmlEditor();
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.tsbPreview = new System.Windows.Forms.ToolStripButton();
-			this.ddpRichText = new Nexus.Client.Controls.DropDownTabPage();
-			this.rteReadme = new Nexus.Client.Controls.RichTextEditor();
-			this.ddpPlainText = new Nexus.Client.Controls.DropDownTabPage();
+			this.ddpRichText = new Nexus.UI.Controls.DropDownTabPage();
+			this.rteReadme = new Nexus.UI.Controls.RichTextEditor();
+			this.ddpPlainText = new Nexus.UI.Controls.DropDownTabPage();
 			this.tbxReadme = new System.Windows.Forms.TextBox();
 			this.ddtReadme.SuspendLayout();
 			this.ddpHTML.SuspendLayout();
@@ -173,13 +173,13 @@
 
 		#endregion
 
-		private Nexus.Client.Controls.DropDownTabControl ddtReadme;
-		private Nexus.Client.Controls.DropDownTabPage ddpPlainText;
+		private Nexus.UI.Controls.DropDownTabControl ddtReadme;
+		private Nexus.UI.Controls.DropDownTabPage ddpPlainText;
 		private System.Windows.Forms.TextBox tbxReadme;
-		private Nexus.Client.Controls.DropDownTabPage ddpHTML;
-		private Nexus.Client.Controls.XmlEditor xedReadme;
-		private Nexus.Client.Controls.DropDownTabPage ddpRichText;
-		private Nexus.Client.Controls.RichTextEditor rteReadme;
+		private Nexus.UI.Controls.DropDownTabPage ddpHTML;
+		private Nexus.UI.Controls.XmlEditor xedReadme;
+		private Nexus.UI.Controls.DropDownTabPage ddpRichText;
+		private Nexus.UI.Controls.RichTextEditor rteReadme;
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripButton tsbPreview;
 	}

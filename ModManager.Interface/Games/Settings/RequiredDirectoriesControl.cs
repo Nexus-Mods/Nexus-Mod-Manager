@@ -3,7 +3,7 @@ using System.IO;
 using System.Windows.Forms;
 using System.ComponentModel;
 using Nexus.Client.Util;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.Games.Settings
 {

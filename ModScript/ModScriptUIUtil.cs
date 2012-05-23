@@ -2,7 +2,7 @@
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Scripting.ModScript.UI;
 using System.Drawing;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using System;
 
 namespace Nexus.Client.ModManagement.Scripting.ModScript

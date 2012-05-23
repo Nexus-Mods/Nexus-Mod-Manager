@@ -93,9 +93,9 @@
     <Compile Include="Updating\UpdaterBase.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Controls\Controls.csproj">
+    <ProjectReference Include="..\UI\UI.csproj">
       <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
-      <Name>Controls</Name>
+      <Name>UI</Name>
     </ProjectReference>
     <ProjectReference Include="..\Util\Util.csproj">
       <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
