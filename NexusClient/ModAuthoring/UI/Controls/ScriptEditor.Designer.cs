@@ -30,7 +30,7 @@
 		{
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.ckbUseScript = new System.Windows.Forms.CheckBox();
-			this.dtcScriptEditors = new Nexus.Client.Controls.DropDownTabControl();
+			this.dtcScriptEditors = new Nexus.UI.Controls.DropDownTabControl();
 			this.panel1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -85,6 +85,6 @@
 
 		private System.Windows.Forms.Panel panel1;
 		private System.Windows.Forms.CheckBox ckbUseScript;
-		private Nexus.Client.Controls.DropDownTabControl dtcScriptEditors;
+		private Nexus.UI.Controls.DropDownTabControl dtcScriptEditors;
 	}
 }
