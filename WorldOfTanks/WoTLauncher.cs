@@ -114,8 +114,8 @@ namespace Nexus.Client.Games.WorldOfTanks
         /// <returns>The plain launch command.</returns>
         private string GetPlainLaunchCommand()
         {
-            string path = GameMode.GameModeEnvironmentInfo.InstallationPath;
-            string strCommand = Path.Combine(path.Substring(0, path.IndexOf("res_mods")), "WOTLauncher.exe");
+            string strPath = GameMode.GameModeEnvironmentInfo.InstallationPath;
+			string strCommand = Path.Combine(strPath.Substring(0, strPath.IndexOf("res_mods")), "WOTLauncher.exe");
             return strCommand;
         }
 
