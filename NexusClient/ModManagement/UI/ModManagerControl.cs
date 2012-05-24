@@ -905,6 +905,7 @@ namespace Nexus.Client.ModManagement.UI
 				return;
 			lock (lvwMods)
 				ViewModel.UpdateModName((IMod)lvwMods.Items[e.Item].Tag, e.Label);
+			e.CancelEdit = true;
 		}
 
 		#endregion
