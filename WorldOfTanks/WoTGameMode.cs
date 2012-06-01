@@ -32,6 +32,8 @@ namespace Nexus.Client.Games.WorldOfTanks
 		public static Version ReadVersion(string p_strGameInstallPath)
 		{
 			string strVersion = null;
+			if (String.IsNullOrEmpty(p_strGameInstallPath))
+				return null;
 			string strVersionFilePath = Path.Combine(p_strGameInstallPath, "version.xml");
 			if (File.Exists(strVersionFilePath))
 			{
@@ -39,6 +41,8 @@ namespace Nexus.Client.Games.WorldOfTanks
 				xmlVersion.Load(strVersionFilePath);
 				XmlNodeList xmlGameVersion = xmlVersion.GetElementsByTagName("version");
 				strVersion = xmlGameVersion[0].InnerText;
+				if (String.IsNullOrEmpty(strVersion))
+					return null;
 				strVersion = strVersion.Substring(strVersion.IndexOf("v.") + 2, strVersion.IndexOf(" ", 1) - 3);
 				if ((strVersion.Split('.').Length - 1) > 2)
 					strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
