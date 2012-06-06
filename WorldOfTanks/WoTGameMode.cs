@@ -42,6 +42,8 @@ namespace Nexus.Client.Games.WorldOfTanks
 				xmlVersion.Load(strVersionFilePath);
 				XmlNodeList xmlGameVersion = xmlVersion.GetElementsByTagName("version");
 				strVersion = xmlGameVersion[0].InnerText;
+				if (String.IsNullOrEmpty(strVersion))
+					return null;
 				string versionPattern = @"\d+\.\d+\.\w+";
 				strVersion = Regex.Match(strVersion, versionPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Value;
 				return new Version(strVersion);
