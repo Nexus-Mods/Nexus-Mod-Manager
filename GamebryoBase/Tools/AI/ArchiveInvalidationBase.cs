@@ -7,7 +7,7 @@ using System.Windows.Forms;
 namespace Nexus.Client.Games.Gamebryo.Tools.AI
 {
 	/// <summary>
-	/// Controls ArchiveInvalidation.
+	/// UI.Controls ArchiveInvalidation.
 	/// </summary>
 	public abstract class ArchiveInvalidationBase : ITool
 	{

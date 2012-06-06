@@ -1,4 +1,4 @@
-﻿using Nexus.Client.Controls;
+﻿using Nexus.UI.Controls;
 using System.Windows.Forms;
 
 namespace Nexus.Client.UI

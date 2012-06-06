@@ -5,7 +5,7 @@ using System.Windows.Forms;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Util;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls
 {

@@ -6,7 +6,7 @@ using System.Text;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using System.Windows.Forms;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.Games.Fallout3
 {

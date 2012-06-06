@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections;
 using Nexus.Client.Commands.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.ModManagement.Scripting.XmlScript.CPL;
 using ConditionalTypePattern = Nexus.Client.ModManagement.Scripting.XmlScript.ConditionalOptionTypeResolver.ConditionalTypePattern;
 using Nexus.Client.Util;

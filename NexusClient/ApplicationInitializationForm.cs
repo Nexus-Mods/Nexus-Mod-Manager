@@ -6,7 +6,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.UI;

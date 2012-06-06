@@ -7,7 +7,7 @@ using Nexus.Client.Util;
 namespace Nexus.Client.Games.Morrowind.Tools.AI
 {
     /// <summary>
-    /// Controls ArchiveInvalidation.
+    /// UI.Controls ArchiveInvalidation.
     /// </summary>
     public class ArchiveInvalidation : ArchiveInvalidationBase
     {

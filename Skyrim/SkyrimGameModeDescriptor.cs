@@ -70,7 +70,12 @@ namespace Nexus.Client.Games.Skyrim
 		{
 			get
 			{
-				return new Theme(Properties.Resources.skyrim_logo, Color.FromArgb(50, 104, 158));
+                return new Theme(
+                    Properties.Resources.skyrim_logo, 
+                    Color.FromArgb(50, 104, 158),
+                    Theme.DefaultFontSet,
+                    Theme.ToolbarFontSet
+                    );
 			}
 		}
 

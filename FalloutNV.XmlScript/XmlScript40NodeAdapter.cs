@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games.Fallout3.Scripting.XmlScript.CPL;
 using Nexus.Client.ModManagement.Scripting.XmlScript;
 using Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls;

@@ -40,7 +40,7 @@
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.panel2 = new System.Windows.Forms.Panel();
 			this.panel3 = new System.Windows.Forms.Panel();
-			this.lblError = new Nexus.Client.Controls.AutosizeLabel();
+			this.lblError = new Nexus.UI.Controls.AutosizeLabel();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
 			this.panel3.SuspendLayout();
@@ -218,7 +218,7 @@
 		private System.Windows.Forms.Label label4;
 		private System.Windows.Forms.Panel panel1;
 		private System.Windows.Forms.Panel panel2;
-		private Nexus.Client.Controls.AutosizeLabel lblError;
+		private Nexus.UI.Controls.AutosizeLabel lblError;
 		private System.Windows.Forms.Panel panel3;
 	}
 }
