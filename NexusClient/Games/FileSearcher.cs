@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Util;
-using System.Diagnostics;
 
 namespace Nexus.Client.Games
 {

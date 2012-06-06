@@ -1,9 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using Nexus.Client.Games;
-using System.Collections.Generic;
 
 namespace Nexus.Client.UI.Controls
 {

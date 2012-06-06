@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
-using System.Diagnostics;
 
 namespace Nexus.Client.Games
 {
