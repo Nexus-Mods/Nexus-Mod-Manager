@@ -272,7 +272,7 @@ namespace Nexus.Client.ModManagement
 					return mifInfo;
 				default:
 					Trace.TraceInformation(String.Format("[{0}] Can't get mod info.", p_amdDescriptor.SourceUri.ToString()));
-					throw new Exception("Unable to retrieve nod info: " + p_amdDescriptor.SourceUri.ToString());
+					throw new Exception("Unable to retrieve mod info: " + p_amdDescriptor.SourceUri.ToString());
 			}
 		}
 
