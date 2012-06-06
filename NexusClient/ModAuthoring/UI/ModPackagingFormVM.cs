@@ -3,7 +3,7 @@ using System.ComponentModel;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.ModAuthoring.UI.Controls;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;

@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
 using Nexus.Client.Commands.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Plugins;
 using WeifenLuo.WinFormsUI.Docking;
 using System.Drawing;

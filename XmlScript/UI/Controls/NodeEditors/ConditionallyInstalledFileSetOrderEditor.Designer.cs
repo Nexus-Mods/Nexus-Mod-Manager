@@ -30,8 +30,8 @@
 		{
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ConditionallyInstalledFileSetOrderEditor));
 			this.label1 = new System.Windows.Forms.Label();
-			this.autosizeLabel1 = new Nexus.Client.Controls.AutosizeLabel();
-			this.rlvConditionalInstalls = new Nexus.Client.Controls.ReorderableListView();
+			this.autosizeLabel1 = new Nexus.UI.Controls.AutosizeLabel();
+			this.rlvConditionalInstalls = new Nexus.UI.Controls.ReorderableListView();
 			this.clmCondition = new System.Windows.Forms.ColumnHeader();
 			this.clmFiles = new System.Windows.Forms.ColumnHeader();
 			this.SuspendLayout();
@@ -75,7 +75,7 @@
 			this.rlvConditionalInstalls.TabIndex = 3;
 			this.rlvConditionalInstalls.UseCompatibleStateImageBehavior = false;
 			this.rlvConditionalInstalls.Resize += new System.EventHandler(this.rlvConditionalInstalls_Resize);
-			this.rlvConditionalInstalls.ItemsReordered += new System.EventHandler<Nexus.Client.Controls.ReorderedItemsEventArgs>(this.rlvConditionalInstalls_ItemsReordered);
+			this.rlvConditionalInstalls.ItemsReordered += new System.EventHandler<Nexus.UI.Controls.ReorderedItemsEventArgs>(this.rlvConditionalInstalls_ItemsReordered);
 			// 
 			// clmCondition
 			// 
@@ -102,8 +102,8 @@
 		#endregion
 
 		private System.Windows.Forms.Label label1;
-		private Nexus.Client.Controls.AutosizeLabel autosizeLabel1;
-		private Nexus.Client.Controls.ReorderableListView rlvConditionalInstalls;
+		private Nexus.UI.Controls.AutosizeLabel autosizeLabel1;
+		private Nexus.UI.Controls.ReorderableListView rlvConditionalInstalls;
 		private System.Windows.Forms.ColumnHeader clmCondition;
 		private System.Windows.Forms.ColumnHeader clmFiles;
 	}

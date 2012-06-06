@@ -4,7 +4,7 @@ using System.IO;
 using System.Xml;
 using System.Xml.Linq;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;

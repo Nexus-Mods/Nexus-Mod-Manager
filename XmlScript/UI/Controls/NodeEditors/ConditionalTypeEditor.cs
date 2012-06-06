@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.Commands.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Util;
 using ConditionalTypePattern = Nexus.Client.ModManagement.Scripting.XmlScript.ConditionalOptionTypeResolver.ConditionalTypePattern;
 

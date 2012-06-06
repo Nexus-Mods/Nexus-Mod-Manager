@@ -8,7 +8,7 @@ using System.Windows.Forms;
 namespace Nexus.Client.Games.Fallout3.Tools.AI
 {
 	/// <summary>
-	/// Controls ArchiveInvalidation.
+	/// UI.Controls ArchiveInvalidation.
 	/// </summary>
 	public class ArchiveInvalidation : ArchiveInvalidationBase
 	{

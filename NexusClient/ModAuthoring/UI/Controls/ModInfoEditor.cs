@@ -5,7 +5,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.Util;
 using System.Drawing;
 using System.IO;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 
 namespace Nexus.Client.ModAuthoring.UI.Controls

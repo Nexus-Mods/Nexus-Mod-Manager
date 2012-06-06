@@ -8,7 +8,7 @@ using System.Text;
 using System.Windows.Forms;
 using Nexus.Client.Util;
 using Nexus.Client.ModManagement.Scripting;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.ModAuthoring.UI.Controls
 {

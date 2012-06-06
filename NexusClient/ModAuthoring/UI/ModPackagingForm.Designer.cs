@@ -29,11 +29,11 @@
 		private void InitializeComponent()
 		{
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ModPackagingForm));
-			this.verticalTabControl1 = new Nexus.Client.Controls.VerticalTabControl();
-			this.vtpModFiles = new Nexus.Client.Controls.VerticalTabPage();
-			this.vtpModInfo = new Nexus.Client.Controls.VerticalTabPage();
-			this.vtpScript = new Nexus.Client.Controls.VerticalTabPage();
-			this.vtpReadme = new Nexus.Client.Controls.VerticalTabPage();
+			this.verticalTabControl1 = new Nexus.UI.Controls.VerticalTabControl();
+			this.vtpModFiles = new Nexus.UI.Controls.VerticalTabPage();
+			this.vtpModInfo = new Nexus.UI.Controls.VerticalTabPage();
+			this.vtpScript = new Nexus.UI.Controls.VerticalTabPage();
+			this.vtpReadme = new Nexus.UI.Controls.VerticalTabPage();
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.tsbNew = new System.Windows.Forms.ToolStripButton();
 			this.tsbSave = new System.Windows.Forms.ToolStripButton();
@@ -42,8 +42,8 @@
 			this.sfdProject = new System.Windows.Forms.SaveFileDialog();
 			this.ofdProject = new System.Windows.Forms.OpenFileDialog();
 			this.sfdNewMod = new System.Windows.Forms.SaveFileDialog();
-			this.sspWarnings = new Nexus.Client.Controls.SiteStatusProvider();
-			this.sspErrors = new Nexus.Client.Controls.SiteStatusProvider();
+			this.sspWarnings = new Nexus.UI.Controls.SiteStatusProvider();
+			this.sspErrors = new Nexus.UI.Controls.SiteStatusProvider();
 			this.ftvModFilesEditor = new Nexus.Client.ModAuthoring.UI.Controls.ModFilesTreeView();
 			this.mieModInfo = new Nexus.Client.ModAuthoring.UI.Controls.ModInfoEditor();
 			this.sedScriptEditor = new Nexus.Client.ModAuthoring.UI.Controls.ScriptEditor();
@@ -73,7 +73,7 @@
 			this.verticalTabControl1.Size = new System.Drawing.Size(648, 559);
 			this.verticalTabControl1.TabIndex = 0;
 			this.verticalTabControl1.Text = "verticalTabControl1";
-			this.verticalTabControl1.SelectedTabPageChanged += new System.EventHandler<Nexus.Client.Controls.VerticalTabControl.TabPageEventArgs>(this.verticalTabControl1_SelectedTabPageChanged);
+			this.verticalTabControl1.SelectedTabPageChanged += new System.EventHandler<Nexus.UI.Controls.VerticalTabControl.TabPageEventArgs>(this.verticalTabControl1_SelectedTabPageChanged);
 			// 
 			// vtpModFiles
 			// 
@@ -261,13 +261,13 @@
 
 		#endregion
 
-		private Nexus.Client.Controls.VerticalTabControl verticalTabControl1;
-		private Nexus.Client.Controls.VerticalTabPage vtpModFiles;
-		private Nexus.Client.Controls.VerticalTabPage vtpScript;
+		private Nexus.UI.Controls.VerticalTabControl verticalTabControl1;
+		private Nexus.UI.Controls.VerticalTabPage vtpModFiles;
+		private Nexus.UI.Controls.VerticalTabPage vtpScript;
 		private Nexus.Client.ModAuthoring.UI.Controls.ModFilesTreeView ftvModFilesEditor;
-		private Nexus.Client.Controls.VerticalTabPage vtpModInfo;
+		private Nexus.UI.Controls.VerticalTabPage vtpModInfo;
 		private Nexus.Client.ModAuthoring.UI.Controls.ModInfoEditor mieModInfo;
-		private Nexus.Client.Controls.VerticalTabPage vtpReadme;
+		private Nexus.UI.Controls.VerticalTabPage vtpReadme;
 		private Nexus.Client.ModAuthoring.UI.Controls.ReadmeEditor redReadme;
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripButton tsbSave;
@@ -278,7 +278,7 @@
 		private System.Windows.Forms.ToolStripButton tsbMakeMod;
 		private System.Windows.Forms.SaveFileDialog sfdNewMod;
 		private Nexus.Client.ModAuthoring.UI.Controls.ScriptEditor sedScriptEditor;
-		private Nexus.Client.Controls.SiteStatusProvider sspWarnings;
-		private Nexus.Client.Controls.SiteStatusProvider sspErrors;
+		private Nexus.UI.Controls.SiteStatusProvider sspWarnings;
+		private Nexus.UI.Controls.SiteStatusProvider sspErrors;
 	}
 }

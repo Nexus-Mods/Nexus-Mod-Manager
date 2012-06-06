@@ -33,7 +33,7 @@
 			this.tsbRemove = new System.Windows.Forms.ToolStripButton();
 			this.tsbPause = new System.Windows.Forms.ToolStripButton();
 			this.tsbResume = new System.Windows.Forms.ToolStripButton();
-			this.lvwTasks = new Nexus.Client.Controls.DoubleBufferedListView();
+			this.lvwTasks = new Nexus.UI.Controls.DoubleBufferedListView();
 			this.clmOverallMessage = new System.Windows.Forms.ColumnHeader();
 			this.clmOverallProgress = new System.Windows.Forms.ColumnHeader();
 			this.clmItemMessage = new System.Windows.Forms.ColumnHeader();
@@ -162,7 +162,7 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripButton tsbCancel;
-		private Nexus.Client.Controls.DoubleBufferedListView lvwTasks;
+		private Nexus.UI.Controls.DoubleBufferedListView lvwTasks;
 		private System.Windows.Forms.ColumnHeader clmOverallMessage;
 		private System.Windows.Forms.ColumnHeader clmOverallProgress;
 		private System.Windows.Forms.ColumnHeader clmItemMessage;

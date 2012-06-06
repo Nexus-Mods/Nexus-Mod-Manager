@@ -58,9 +58,9 @@
     <Compile Include="SelectOption.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Controls\Controls.csproj">
+    <ProjectReference Include="..\UI\UI.csproj">
       <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
-      <Name>Controls</Name>
+      <Name>UI</Name>
     </ProjectReference>
     <ProjectReference Include="..\ModManager.Interface\ModManager.Interface.csproj">
       <Project>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</Project>

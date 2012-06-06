@@ -41,7 +41,7 @@
 			this.label6 = new System.Windows.Forms.Label();
 			this.nudHeight = new System.Windows.Forms.NumericUpDown();
 			this.cbxAlignment = new System.Windows.Forms.ComboBox();
-			this.cpkColour = new Nexus.Client.Controls.ColourPicker();
+			this.cpkColour = new Nexus.UI.Controls.ColourPicker();
 			this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
 			this.pnlTitle = new System.Windows.Forms.Panel();
 			this.pnlColour = new System.Windows.Forms.Panel();
@@ -310,7 +310,7 @@
 		private System.Windows.Forms.Label label6;
 		private System.Windows.Forms.NumericUpDown nudHeight;
 		private System.Windows.Forms.ComboBox cbxAlignment;
-		private Nexus.Client.Controls.ColourPicker cpkColour;
+		private Nexus.UI.Controls.ColourPicker cpkColour;
 		private System.Windows.Forms.ToolTip toolTip1;
 		private System.Windows.Forms.Panel pnlTitle;
 		private System.Windows.Forms.Panel pnlColour;
