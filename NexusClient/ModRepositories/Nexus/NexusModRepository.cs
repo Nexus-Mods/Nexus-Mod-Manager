@@ -399,6 +399,48 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 		}
 
+        /// <summary>
+        /// Finds the mods by Author name.
+        /// </summary>
+        /// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+        /// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
+        /// <returns>The mod info for the mods matching the given search criteria.</returns>
+        /// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+        public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString)
+        {
+            string[] strTerms = p_strModNameSearchString.Split('"');
+            for (Int32 i = 0; i < strTerms.Length; i += 2)
+                strTerms[i] = strTerms[i].Replace(' ', '~');
+            //if the are an even number of terms we have unclosed quotes,
+            // which means the last item is not actually quoted:
+            // so replace its spaces, too.
+            if (strTerms.Length % 2 == 0)
+                strTerms[strTerms.Length - 1] = strTerms[strTerms.Length - 1].Replace(' ', '~');
+            string strSearchString = String.Join("\"", strTerms);
+            try
+            {
+                using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+                {
+                    INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+                    List<IModInfo> mfiMods = new List<IModInfo>();
+                    nmrApi.FindModsAuthor(strSearchString, "ANY", p_strAuthorSearchString).ForEach(x => mfiMods.Add(Convert(x)));
+                    return mfiMods;
+                }
+            }
+            catch (TimeoutException e)
+            {
+                throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+            }
+            catch (CommunicationException e)
+            {
+                throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+            }
+            catch (SerializationException e)
+            {
+                throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+            }
+        }
+
 		/// <summary>
 		/// Gets the list of files for the specified mod.
 		/// </summary>

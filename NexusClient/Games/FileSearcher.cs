@@ -115,6 +115,8 @@ namespace Nexus.Client.Games
 					return null;
 				string strSearchPath = queSearchPaths.Dequeue();
 				intFOlderCnt++;
+                if (FileUtil.ContainsInvalidPathChars(strSearchPath))
+                    continue;
 				Search(strSearchPath, rgxPatterns);
 				if (EndTaskRequested)
 					return null;
@@ -209,6 +211,8 @@ namespace Nexus.Client.Games
 				// there are likely some other unusual cases
 				Trace.TraceInformation("IOException while getting files from: {0}", p_strPath);
 			}
+			if (strHaystackFiles == null)
+				return;
 			for (Int32 i = 0; i < strHaystackFiles.Length; i++)
 			{
 				if (EndTaskRequested)
