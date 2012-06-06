@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.Collections.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using System.ComponentModel;
 using Nexus.Client.Util;
 

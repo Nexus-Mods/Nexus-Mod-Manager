@@ -32,8 +32,8 @@
 			this.lblTitle = new System.Windows.Forms.Label();
 			this.pnlShadow = new System.Windows.Forms.Panel();
 			this.pnlLight = new System.Windows.Forms.Panel();
-			this.wizSetup = new Nexus.Client.Controls.WizardControl();
-			this.vtpDirectories = new Nexus.Client.Controls.VerticalTabPage();
+			this.wizSetup = new Nexus.UI.Controls.WizardControl();
+			this.vtpDirectories = new Nexus.UI.Controls.VerticalTabPage();
 			this.rdcDirectories = new Nexus.Client.Games.Settings.RequiredDirectoriesControl();
 			this.panel1.SuspendLayout();
 			this.wizSetup.SuspendLayout();
@@ -94,7 +94,7 @@
 			this.wizSetup.Text = "wizardControl1";
 			this.wizSetup.Cancelled += new System.EventHandler(this.wizSetup_Cancelled);
 			this.wizSetup.Finished += new System.EventHandler(this.wizSetup_Finished);
-			this.wizSetup.SelectedTabPageChanged += new System.EventHandler<Nexus.Client.Controls.VerticalTabControl.TabPageEventArgs>(this.wizSetup_SelectedTabPageChanged);
+			this.wizSetup.SelectedTabPageChanged += new System.EventHandler<Nexus.UI.Controls.VerticalTabControl.TabPageEventArgs>(this.wizSetup_SelectedTabPageChanged);
 			// 
 			// vtpDirectories
 			// 
@@ -140,8 +140,8 @@
 		private System.Windows.Forms.Panel pnlLight;
 		private System.Windows.Forms.Panel pnlShadow;
 		private System.Windows.Forms.Label lblTitle;
-		private Nexus.Client.Controls.WizardControl wizSetup;
-		private Nexus.Client.Controls.VerticalTabPage vtpDirectories;
+		private Nexus.UI.Controls.WizardControl wizSetup;
+		private Nexus.UI.Controls.VerticalTabPage vtpDirectories;
 		private Nexus.Client.Games.Settings.RequiredDirectoriesControl rdcDirectories;
 	}
 }

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors

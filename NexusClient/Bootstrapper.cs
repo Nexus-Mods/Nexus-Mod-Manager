@@ -6,11 +6,14 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
 using SevenZip;
+using System.Drawing;
+using Nexus.Client.UI;
+using Nexus.Client.Properties;
 
 namespace Nexus.Client
 {
@@ -79,6 +82,17 @@ namespace Nexus.Client
 			GameModeRegistry gmrSupportedGames = GetSupportedGameModes();
 			do
 			{
+                //Add the private fonts.
+                FontManager.Add("LinBiolinum", Resources.LinBiolinum_RB);
+                FontManager.Add("LinBiolinum", Resources.LinBiolinum_RI);
+
+                //Link into the request font method.
+                FontProvider.RequestFont = delegate(string name, FontStyle style, float size)
+                {
+                    //Ask the default theme to create the font.
+                    return Theme.Default.CreateFont(name, style, size);
+                };
+
 				GameModeRegistry gmrInstalledGames = GetInstalledGameModes(gmrSupportedGames);
 				if (gmrInstalledGames == null)
 				{
@@ -174,6 +188,13 @@ namespace Nexus.Client
 					IGameMode gmdGameMode = ainInitializer.GameMode;
 					ServiceManager svmServices = ainInitializer.Services;
 
+                    //Now we have a game mode use it's theme.
+                    FontProvider.RequestFont = delegate(string name, FontStyle style, float size)
+                    {
+                        //Ask the theme to create the font.
+                        return gmdGameMode.ModeTheme.CreateFont(name, style, size);
+                    };
+
 					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
 
@@ -208,7 +229,13 @@ namespace Nexus.Client
 							mtxGameModeMutex.ReleaseMutex();
 						mtxGameModeMutex.Close();
 					}
-					FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);
+                    FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);
+
+                    //Clean up created font's.
+                    FontManager.Dispose();
+
+                    //Reset the request font delegate.
+                    FontProvider.RequestFont = null;
 				}
 			} while (!String.IsNullOrEmpty(strRequestedGameMode) || booChangeDefaultGameMode);
 			return true;

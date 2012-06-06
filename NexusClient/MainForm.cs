@@ -7,7 +7,7 @@ using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement.UI;

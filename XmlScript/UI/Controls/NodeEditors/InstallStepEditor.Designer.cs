@@ -32,7 +32,7 @@
 			this.tclInstallStep = new System.Windows.Forms.TabControl();
 			this.tpgGeneral = new System.Windows.Forms.TabPage();
 			this.pnlSortOrder = new System.Windows.Forms.Panel();
-			this.rlvGroups = new Nexus.Client.Controls.ReorderableListView();
+			this.rlvGroups = new Nexus.UI.Controls.ReorderableListView();
 			this.clmGroupName = new System.Windows.Forms.ColumnHeader();
 			this.cbxSortOrder = new System.Windows.Forms.ComboBox();
 			this.label2 = new System.Windows.Forms.Label();
@@ -98,7 +98,7 @@
 			this.rlvGroups.TabIndex = 1;
 			this.rlvGroups.UseCompatibleStateImageBehavior = false;
 			this.rlvGroups.Resize += new System.EventHandler(this.rlvGroups_Resize);
-			this.rlvGroups.ItemsReordered += new System.EventHandler<Nexus.Client.Controls.ReorderedItemsEventArgs>(this.rlvGroups_ItemsReordered);
+			this.rlvGroups.ItemsReordered += new System.EventHandler<Nexus.UI.Controls.ReorderedItemsEventArgs>(this.rlvGroups_ItemsReordered);
 			// 
 			// clmGroupName
 			// 
@@ -214,7 +214,7 @@
 		private System.Windows.Forms.Panel pnlSortOrder;
 		private System.Windows.Forms.Label label2;
 		private System.Windows.Forms.ComboBox cbxSortOrder;
-		private Nexus.Client.Controls.ReorderableListView rlvGroups;
+		private Nexus.UI.Controls.ReorderableListView rlvGroups;
 		private System.Windows.Forms.ColumnHeader clmGroupName;
 		private System.Windows.Forms.ErrorProvider erpErrors;
 		private ConditionEditor cedVisibilityCondition;
