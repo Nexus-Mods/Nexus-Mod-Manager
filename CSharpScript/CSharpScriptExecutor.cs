@@ -21,7 +21,8 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 	/// </summary>
 	public class CSharpScriptExecutor : ScriptExecutorBase
 	{
-		private static Regex m_regClassName = new Regex(@"(class\s+Script\s*:.*?)\S*BaseScript");
+
+		private static Regex m_regScriptClass = new Regex(@"(class\s+Script\s*:.*?)(\S*BaseScript)");
 		private static Regex m_regFommUsing = new Regex(@"\s*using\s*fomm.Scripting\s*;");
 		private CSharpScriptFunctionProxy m_csfFunctions = null;
 		private IGameMode m_gmdGameMode = null;
@@ -149,7 +150,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			CSharpScriptCompiler sccCompiler = new CSharpScriptCompiler();
 			CompilerErrorCollection cecErrors = null;
 
-			string strCode = m_regClassName.Replace(p_strCode, "using " + BaseScriptType.Namespace + ";\r\n$1" + BaseScriptType.Name);
+			string strBaseScriptClassName = m_regScriptClass.Match(p_strCode).Groups[2].ToString();
+			string strCode = m_regScriptClass.Replace(p_strCode, "using " + BaseScriptType.Namespace + ";\r\n$1" + BaseScriptType.Name);
+			Regex regOtherScriptClasses = new Regex(String.Format(@"(class\s+\S+\s*:.*?){0}", strBaseScriptClassName));
+			strCode = regOtherScriptClasses.Replace(strCode, "$1" + BaseScriptType.Name);
 			strCode = m_regFommUsing.Replace(strCode, "");
 			byte[] bteAssembly = sccCompiler.Compile(strCode, BaseScriptType, out cecErrors);
 
