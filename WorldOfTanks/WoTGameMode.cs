@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Xml;
 using ChinhDo.Transactions;
 using Nexus.Client.Games.WorldOfTanks.Tools;
@@ -41,11 +42,8 @@ namespace Nexus.Client.Games.WorldOfTanks
 				xmlVersion.Load(strVersionFilePath);
 				XmlNodeList xmlGameVersion = xmlVersion.GetElementsByTagName("version");
 				strVersion = xmlGameVersion[0].InnerText;
-				if (String.IsNullOrEmpty(strVersion))
-					return null;
-				strVersion = strVersion.Substring(strVersion.IndexOf("v.") + 2, strVersion.IndexOf(" ", 1) - 3);
-				if ((strVersion.Split('.').Length - 1) > 2)
-					strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
+				string versionPattern = @"\d+\.\d+\.\w+";
+				strVersion = Regex.Match(strVersion, versionPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Value;
 				return new Version(strVersion);
 			}
 			return null;
