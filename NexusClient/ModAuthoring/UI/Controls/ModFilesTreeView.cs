@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.ModAuthoring.UI.Controls

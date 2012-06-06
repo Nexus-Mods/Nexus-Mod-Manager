@@ -94,7 +94,10 @@ namespace Nexus.Client.Games.WorldOfTanks
         {
             get
             {
-                return new Theme(Properties.Resources.wot_logo, Color.FromArgb(80, 45, 23));
+                return new Theme(Properties.Resources.wot_logo, Color.FromArgb(80, 45, 23),
+					Theme.DefaultFontSet,
+					Theme.ToolbarFontSet
+					);
             }
         }
 

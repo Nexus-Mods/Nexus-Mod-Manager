@@ -8,7 +8,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client
 {

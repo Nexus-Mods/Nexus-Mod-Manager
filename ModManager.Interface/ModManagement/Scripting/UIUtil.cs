@@ -3,7 +3,7 @@ using System.Security;
 using System.Security.Permissions;
 using System.Threading;
 using System.Windows.Forms;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Scripting.UI;
 

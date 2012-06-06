@@ -8,7 +8,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.ActivityMonitoring;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;

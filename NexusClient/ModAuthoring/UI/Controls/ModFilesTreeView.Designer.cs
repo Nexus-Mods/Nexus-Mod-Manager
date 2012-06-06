@@ -34,7 +34,7 @@
 			this.ofdFileChooser = new System.Windows.Forms.OpenFileDialog();
 			this.fbdFolderChooser = new System.Windows.Forms.FolderBrowserDialog();
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-			this.ftvSource = new Nexus.Client.Controls.VirtualFileSystemTreeView();
+			this.ftvSource = new Nexus.UI.Controls.VirtualFileSystemTreeView();
 			this.tspAddFiles = new System.Windows.Forms.ToolStripButton();
 			this.tspAddFilteredFiles = new System.Windows.Forms.ToolStripButton();
 			this.tsbAddFolder = new System.Windows.Forms.ToolStripButton();
@@ -165,7 +165,7 @@
 		private System.Windows.Forms.Panel panel3;
 		private System.Windows.Forms.OpenFileDialog ofdFileChooser;
 		private System.Windows.Forms.FolderBrowserDialog fbdFolderChooser;
-		private Nexus.Client.Controls.VirtualFileSystemTreeView ftvSource;
+		private Nexus.UI.Controls.VirtualFileSystemTreeView ftvSource;
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripButton tspAddFiles;
 		private System.Windows.Forms.ToolStripButton tspAddFilteredFiles;

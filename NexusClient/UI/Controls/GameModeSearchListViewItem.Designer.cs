@@ -35,7 +35,7 @@
 			this.lblFoundTitle = new System.Windows.Forms.Label();
 			this.butReject = new System.Windows.Forms.Button();
 			this.butAccept = new System.Windows.Forms.Button();
-			this.lblPath = new Nexus.Client.Controls.PathLabel();
+			this.lblPath = new Nexus.UI.Controls.PathLabel();
 			this.pnlNotFound = new System.Windows.Forms.Panel();
 			this.butOverride = new System.Windows.Forms.Button();
 			this.butSelectPath = new System.Windows.Forms.Button();
@@ -50,9 +50,9 @@
 			this.butCancel = new System.Windows.Forms.Button();
 			this.pbrProgress = new System.Windows.Forms.ProgressBar();
 			this.lblSearchingTitle = new System.Windows.Forms.Label();
-			this.lblProgressMessage = new Nexus.Client.Controls.PathLabel();
+			this.lblProgressMessage = new Nexus.UI.Controls.PathLabel();
 			this.pnlSet = new System.Windows.Forms.Panel();
-			this.lblFinalPath = new Nexus.Client.Controls.PathLabel();
+			this.lblFinalPath = new Nexus.UI.Controls.PathLabel();
 			this.pnlCandidate.SuspendLayout();
 			this.pnlNotFound.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).BeginInit();
@@ -365,7 +365,7 @@
 		private System.Windows.Forms.PictureBox pbxGameLogo;
 		private System.Windows.Forms.Label lblGameModeName;
 		private System.Windows.Forms.Panel pnlCandidate;
-		private Nexus.Client.Controls.PathLabel lblPath;
+		private Nexus.UI.Controls.PathLabel lblPath;
 		private System.Windows.Forms.Panel pnlNotFound;
 		private System.Windows.Forms.Button butReject;
 		private System.Windows.Forms.Button butAccept;
@@ -381,10 +381,10 @@
 		private System.Windows.Forms.Panel pnlSearching;
 		private System.Windows.Forms.ProgressBar pbrProgress;
 		private System.Windows.Forms.Label lblSearchingTitle;
-		private Nexus.Client.Controls.PathLabel lblProgressMessage;
+		private Nexus.UI.Controls.PathLabel lblProgressMessage;
 		private System.Windows.Forms.Button butOverride;
 		private System.Windows.Forms.Panel pnlSet;
-		private Nexus.Client.Controls.PathLabel lblFinalPath;
+		private Nexus.UI.Controls.PathLabel lblFinalPath;
 		private System.Windows.Forms.Button butCancel;
 	}
 }
