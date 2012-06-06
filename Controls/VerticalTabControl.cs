@@ -1,10 +1,10 @@
 ﻿using System;
-using System.ComponentModel;
-using System.Windows.Forms;
-using System.Collections.Generic;
 using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Design;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Controls
 {

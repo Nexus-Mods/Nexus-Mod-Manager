@@ -1,11 +1,8 @@
 ﻿using System;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq.Expressions;
 using System.Runtime.Remoting.Messaging;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Util;
 using System.Threading;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Util.Threading;
 
 namespace Nexus.Client

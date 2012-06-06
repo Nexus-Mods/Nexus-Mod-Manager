@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Nexus.Client.Mods;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Util;
 using System.Threading;
-using Nexus.Client.Util.Threading;
+using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Mods;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement.InstallationLog
 {
