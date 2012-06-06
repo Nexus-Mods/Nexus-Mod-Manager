@@ -63,8 +63,23 @@ namespace Nexus.Client
 		/// The method that is called to start the backgound task.
 		/// </summary>
 		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="p_strMessage">The message describing the state of the task.</param>
 		/// <returns>A return value.</returns>
-		protected abstract object DoWork(object[] p_objArgs);
+		protected virtual object DoWork(object[] p_objArgs, out string p_strMessage)
+		{
+			p_strMessage = null;
+			return DoWork(p_objArgs);
+		}
+
+		/// <summary>
+		/// The method that is called to start the backgound task.
+		/// </summary>
+		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <returns>A return value.</returns>
+		protected virtual object DoWork(object[] p_objArgs)
+		{
+			return null;
+		}
 
 		#region Task Start
 
@@ -207,45 +222,39 @@ namespace Nexus.Client
 		private object RunThreadedWork(object p_objArgs)
 		{
 			object objReturnValue = null;
-            try
-            {
-                objReturnValue = DoWork((object[])p_objArgs);
-                switch (Status)
-                {
-                    case TaskStatus.Cancelling:
-                        Status = TaskStatus.Cancelled;
-                        break;
-                    case TaskStatus.Paused:
-                    case TaskStatus.Running:
-                        Status = TaskStatus.Complete;
-                        break;
-                    case TaskStatus.Complete:
-                    case TaskStatus.Error:
-                    case TaskStatus.Incomplete:
-                    case TaskStatus.Cancelled:
-                        //do nothing - it seems status has already been set
-                        break;
-                    default:
-                        throw new Exception(String.Format("Unrecognized value for Status: {0}", Status));
-                }
-            }
-            catch (NotImplementedException ex)
-            {
-                System.Windows.Forms.MessageBox.Show(ex.Message, "Multipart Archive Error:", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning, System.Windows.Forms.MessageBoxDefaultButton.Button1);
-                Status = TaskStatus.Error;
-                OnTaskEnded(objReturnValue);
-                return null;
-            }
-            catch
-            {
-                //we have to catch and then rethrow all exceptions
-                // so that any observers of this task, such as the
-                // ProgressDialog, know that the task has ended.
-                Status = TaskStatus.Error;
-                OnTaskEnded(objReturnValue);
-                throw;
-            }
-			OnTaskEnded(objReturnValue);
+			string strMessage = null;
+			try
+			{
+				objReturnValue = DoWork((object[])p_objArgs, out strMessage);
+				switch (Status)
+				{
+					case TaskStatus.Cancelling:
+						Status = TaskStatus.Cancelled;
+						break;
+					case TaskStatus.Paused:
+					case TaskStatus.Running:
+						Status = TaskStatus.Complete;
+						break;
+					case TaskStatus.Complete:
+					case TaskStatus.Error:
+					case TaskStatus.Incomplete:
+					case TaskStatus.Cancelled:
+						//do nothing - it seems status has already been set
+						break;
+					default:
+						throw new Exception(String.Format("Unrecognized value for Status: {0}", Status));
+				}
+			}
+			catch
+			{
+				//we have to catch and then rethrow all exceptions
+				// so that any observers of this task, such as the
+				// ProgressDialog, know that the task has ended.
+				Status = TaskStatus.Error;
+				OnTaskEnded(strMessage, objReturnValue);
+				throw;
+			}
+			OnTaskEnded(strMessage, objReturnValue);
 			return objReturnValue;
 		}
 
