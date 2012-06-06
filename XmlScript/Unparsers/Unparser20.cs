@@ -107,7 +107,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.Unparsers
 		}
 
 		/// <summary>
-		/// Unparses the given <see cref="ICondition"/>, giving the generated nod the specified name.
+		/// Unparses the given <see cref="ICondition"/>, giving the generated mod the specified name.
 		/// </summary>
 		/// <remarks>
 		/// This method can be overidden to provide game-specific or newer-version unparsing.

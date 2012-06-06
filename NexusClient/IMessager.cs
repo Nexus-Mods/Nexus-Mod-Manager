@@ -7,18 +7,6 @@ namespace Nexus.Client
 	/// </summary>
 	public interface IMessager : IDisposable
 	{
-		#region IDisposable Members
-
-		/// <summary>
-		/// Disposes of the object.
-		/// </summary>
-		/// <remarks>
-		/// This shuts down any open IPC channels.
-		/// </remarks>
-		void Dispose();
-
-		#endregion
-
 		#region Mod Addition
 
 		/// <summary>

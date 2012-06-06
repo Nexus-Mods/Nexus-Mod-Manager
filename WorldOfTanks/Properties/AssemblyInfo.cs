@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Black Tree Gaming")]
 [assembly: AssemblyProduct("WorldOfTanks")]
-[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2012")]
+[assembly: AssemblyCopyright("Copyright Â© Black Tree Gaming 2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -33,5 +33,5 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 [assembly: AssemblyVersion("1.1")]
 // AssemblyFileVersionFormat("1.1.*")
-[assembly: AssemblyFileVersion("1.1.4499.36420")]
+[assembly: AssemblyFileVersion("1.1.4526.28928")]
 [assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString)]
