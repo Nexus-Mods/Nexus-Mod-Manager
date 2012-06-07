@@ -7,6 +7,18 @@ namespace Nexus.UI
 	/// </summary>
 	public class FontSetInformation
 	{
+		/// <summary>
+		/// Gets the empty <see cref="FontSetInformation"/>.
+		/// </summary>
+		/// <value>The empty <see cref="FontSetInformation"/>.</value>
+		public static FontSetInformation Empty { get; private set; }
+
+		/// <summary>Creates the static instance of the <see cref="FontProviderInformation"/> class.</summary>
+		static FontSetInformation()
+		{
+			FontSetInformation.Empty = new FontSetInformation();
+		}
+
 		#region Properties
 
 		/// <summary>Gets or sets the font set.</summary>
