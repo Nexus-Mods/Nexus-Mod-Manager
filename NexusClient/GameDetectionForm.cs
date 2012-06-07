@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
+using Nexus.Client.UI;
 using Nexus.Client.UI.Controls;
 
 namespace Nexus.Client
@@ -13,7 +14,7 @@ namespace Nexus.Client
 	/// <summary>
 	/// The view displaying the progress of the search for installed games.
 	/// </summary>
-	public partial class GameDetectionForm : Form
+	public partial class GameDetectionForm : ManagedFontForm
 	{
 		private GameDetectionVM m_vmlViewModel = null;
 

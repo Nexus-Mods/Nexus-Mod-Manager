@@ -49,6 +49,7 @@
 			// 
 			this.butCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.m_fpdFontProvider.SetFontSet(this.butCancel, "StandardText");
 			this.butCancel.Location = new System.Drawing.Point(197, 6);
 			this.butCancel.Name = "butCancel";
 			this.butCancel.Size = new System.Drawing.Size(75, 23);
@@ -61,6 +62,7 @@
 			// 
 			this.butOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.butOK.Enabled = false;
+			this.m_fpdFontProvider.SetFontSet(this.butOK, "StandardText");
 			this.butOK.Location = new System.Drawing.Point(116, 6);
 			this.butOK.Name = "butOK";
 			this.butOK.Size = new System.Drawing.Size(75, 23);
