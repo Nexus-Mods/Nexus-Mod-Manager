@@ -122,6 +122,7 @@ namespace Nexus.UI.Controls
 		/// <param name="component">The component to get the font set for.</param>
 		[DefaultValue(FontStyle.Regular)]
 		[Category("Appearance")]
+		[Editor(typeof(FlagEnumUITypeEditor), typeof(UITypeEditor))]
 		public FontStyle GetFontStyle(object component)
 		{
 			return GetFontInformation(component).Style;
