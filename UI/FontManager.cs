@@ -16,6 +16,11 @@ namespace Nexus.UI
 	/// </remarks>
     public static class FontManager
     {
+		//not clear if this is needed - there are reports that AddMemoryFont()
+		// may not make the font available for all types of controls.
+		//[DllImport("gdi32.dll")]
+		//private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
+
         #region Properties
 
         /// <summary>Gets or sets the families.</summary>
@@ -60,6 +65,10 @@ namespace Nexus.UI
                     FontManager.Families.Add(name, new PrivateFontCollection());
 
                 FontManager.Families[name].AddMemoryFont(ptData, data.Length);
+				//not clear if this is needed - there are reports that AddMemoryFont()
+				// may not make the font available for all types of controls.
+				//uint dummy = 0;
+				//AddFontMemResourceEx(ptData, (uint)data.Length, IntPtr.Zero, ref dummy);
             }
             finally
             {
