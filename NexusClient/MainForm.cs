@@ -23,7 +23,7 @@ namespace Nexus.Client
 	/// <summary>
 	/// The main form of the mod manager.
 	/// </summary>
-	public partial class MainForm : Form
+	public partial class MainForm : ManagedFontForm
 	{
 		private MainFormVM m_vmlViewModel = null;
 		private FormWindowState m_fwsLastWindowState = FormWindowState.Normal;
