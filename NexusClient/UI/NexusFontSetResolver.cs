@@ -30,9 +30,8 @@ namespace Nexus.Client.UI
 			for (Int32 i = m_lstFontSetGroups.Count - 1; i >= 0; i--)
 			{
 				FontSetGroup fsgGroup = m_lstFontSetGroups[i];
-				if (!fsgGroup.HasFontSet(p_fsiFontInfo.Set))
-					continue;
-				fntFont = fsgGroup.GetFontSet(p_fsiFontInfo.Set).CreateFont(p_fsiFontInfo.Style, p_fsiFontInfo.Size);
+				if (fsgGroup.HasFontSet(p_fsiFontInfo.Set))
+					fntFont = fsgGroup.GetFontSet(p_fsiFontInfo.Set).CreateFont(p_fsiFontInfo.Style, p_fsiFontInfo.Size);
 				if ((fntFont == null) && (fsgGroup.DefaultFontSet != null))
 					fntFont = fsgGroup.DefaultFontSet.CreateFont(p_fsiFontInfo.Style, p_fsiFontInfo.Size);
 				if (fntFont != null)
