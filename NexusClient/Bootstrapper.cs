@@ -281,6 +281,7 @@ namespace Nexus.Client
 			FontSetGroup fsgDefault = new FontSetGroup(fstDefault);
 			fsgDefault.AddFontSet("StandardText", fstDefault);
 			fsgDefault.AddFontSet("HeadingText", fstDefault);
+			fsgDefault.AddFontSet("SmallText", new FontSet(new string[] { "Segoe UI", "Arial" }));
 			fsgDefault.AddFontSet("ToolbarText", new FontSet(new string[] { "Segoe UI", "Arial" }));
 			fsgDefault.AddFontSet("GameSearchText", new FontSet(new string[] { "LinBiolinum" }));
 
