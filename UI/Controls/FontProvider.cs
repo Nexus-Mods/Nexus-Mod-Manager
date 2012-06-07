@@ -85,6 +85,7 @@ namespace Nexus.UI.Controls
 		/// <summary>Gets the font set for the component passed.</summary>
 		/// <param name="component">The component to get the font set for.</param>
 		[DefaultValue(null)]
+		[Category("Appearance")]
 		public string GetFontSet(object component)
 		{
 			return GetFontInformation(component).Set;
@@ -102,6 +103,7 @@ namespace Nexus.UI.Controls
 		/// <summary>Gets the font size for the component passed.</summary>
 		/// <param name="component">The component to get the font set for.</param>
 		[DefaultValue(8.25f)]
+		[Category("Appearance")]
 		public float GetFontSize(object component)
 		{
 			return GetFontInformation(component).Size;
@@ -119,6 +121,7 @@ namespace Nexus.UI.Controls
 		/// <summary>Gets the font style for the component passed.</summary>
 		/// <param name="component">The component to get the font set for.</param>
 		[DefaultValue(FontStyle.Regular)]
+		[Category("Appearance")]
 		public FontStyle GetFontStyle(object component)
 		{
 			return GetFontInformation(component).Style;
@@ -153,7 +156,7 @@ namespace Nexus.UI.Controls
 		/// <param name="information">The name of the font set used.</param>
 		protected void SetFontInformation(object component, FontSetInformation information)
 		{
-			if (information.Set == null)
+			if (FontSetInformation.Empty.Equals(information))
 			{
 				if (ComponentToFontInformation.ContainsKey(component))
 				{
