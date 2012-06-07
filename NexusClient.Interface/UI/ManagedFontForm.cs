@@ -11,6 +11,9 @@ namespace Nexus.Client.UI
 	/// </remarks>
 	public class ManagedFontForm : Form
 	{
+		/// <summary>
+		/// The <see cref="FontProvider"/> for the form.
+		/// </summary>
 		protected FontProvider m_fpdFontProvider = null;
 
 		#region Contructors

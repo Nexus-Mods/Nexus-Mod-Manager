@@ -13,7 +13,7 @@ namespace Nexus.UI
 		/// <value>The empty <see cref="FontSetInformation"/>.</value>
 		public static FontSetInformation Empty { get; private set; }
 
-		/// <summary>Creates the static instance of the <see cref="FontProviderInformation"/> class.</summary>
+		/// <summary>Creates the static instance of the <see cref="FontSetInformation"/> class.</summary>
 		static FontSetInformation()
 		{
 			FontSetInformation.Empty = new FontSetInformation();
@@ -34,7 +34,7 @@ namespace Nexus.UI
 
 		#region Constructors
 
-		/// <summary>Creates a new instances of the <see cref="FontProviderInformation"/> class.</summary>
+		/// <summary>Creates a new instances of the <see cref="FontSetInformation"/> class.</summary>
 		public FontSetInformation()
 		{
 			Size = 8.25f;

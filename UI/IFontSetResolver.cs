@@ -6,10 +6,10 @@ namespace Nexus.UI
 	/// Describes the methods and properties of a font set resolver.
 	/// </summary>
 	/// <remarks>
-	/// A font set resolver determines which font to use for the <see cref="FontProvider"/>.
+	/// A font set resolver determines which font to use for the <see cref="Nexus.UI.Controls.FontProvider"/>.
 	/// </remarks>
 	public interface IFontSetResolver
-	{
+	{		
 		/// <summary>
 		/// Returns a font that best matches the described font set.
 		/// </summary>
