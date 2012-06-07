@@ -101,11 +101,13 @@
 			this.lblFoundTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.lblFoundTitle.AutoSize = true;
-			this.lblFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblFoundTitle, "GameSearchText");
+			this.m_fpdFontProvider.SetFontSize(this.lblFoundTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblFoundTitle, System.Drawing.FontStyle.Italic);
 			this.lblFoundTitle.ForeColor = System.Drawing.Color.Green;
 			this.lblFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblFoundTitle.Name = "lblFoundTitle";
-			this.lblFoundTitle.Size = new System.Drawing.Size(59, 20);
+			this.lblFoundTitle.Size = new System.Drawing.Size(40, 13);
 			this.lblFoundTitle.TabIndex = 4;
 			this.lblFoundTitle.Text = "Found!";
 			// 
@@ -220,11 +222,13 @@
 			this.lblNotFoundTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.lblNotFoundTitle.AutoSize = true;
-			this.lblNotFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblNotFoundTitle, "GameSearchText");
+			this.m_fpdFontProvider.SetFontSize(this.lblNotFoundTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblNotFoundTitle, System.Drawing.FontStyle.Italic);
 			this.lblNotFoundTitle.ForeColor = System.Drawing.Color.DarkRed;
 			this.lblNotFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblNotFoundTitle.Name = "lblNotFoundTitle";
-			this.lblNotFoundTitle.Size = new System.Drawing.Size(88, 20);
+			this.lblNotFoundTitle.Size = new System.Drawing.Size(60, 13);
 			this.lblNotFoundTitle.TabIndex = 0;
 			this.lblNotFoundTitle.Text = "Not Found!";
 			// 
@@ -296,11 +300,13 @@
 			this.lblSearchingTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.lblSearchingTitle.AutoSize = true;
-			this.lblSearchingTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblSearchingTitle, "GameSearchText");
+			this.m_fpdFontProvider.SetFontSize(this.lblSearchingTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblSearchingTitle, System.Drawing.FontStyle.Italic);
 			this.lblSearchingTitle.ForeColor = System.Drawing.Color.Blue;
 			this.lblSearchingTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblSearchingTitle.Name = "lblSearchingTitle";
-			this.lblSearchingTitle.Size = new System.Drawing.Size(89, 20);
+			this.lblSearchingTitle.Size = new System.Drawing.Size(61, 13);
 			this.lblSearchingTitle.TabIndex = 4;
 			this.lblSearchingTitle.Text = "Searching..";
 			// 

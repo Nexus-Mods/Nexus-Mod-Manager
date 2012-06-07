@@ -1,13 +1,14 @@
 ﻿using System.Windows.Forms;
 using Nexus.Client.Games;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.UI.Controls
 {
 	/// <summary>
 	/// The base class for items displayed in a <see cref="GameModeListView"/>.
 	/// </summary>
-	public class GameModeListViewItemBase : UserControl
-	{
+	public class GameModeListViewItemBase : ManagedFontUserControl
+	{	
 		#region Properties
 
 		/// <summary>
@@ -75,6 +76,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_gmdGameModeInfo">The descriptor for the game mode to display in the item.</param>
 		public GameModeListViewItemBase(IGameModeDescriptor p_gmdGameModeInfo)
+			: this()
 		{
 			GameMode = p_gmdGameModeInfo;
 		}

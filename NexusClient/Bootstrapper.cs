@@ -277,10 +277,11 @@ namespace Nexus.Client
 			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RB);
 			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RI);
 
-			FontSet fstDefault = new FontSet(new string[2] { "Microsoft Sans Serif", "Arial" });
+			FontSet fstDefault = new FontSet(new string[] { "Microsoft Sans Serif", "Arial" });
 			FontSetGroup fsgDefault = new FontSetGroup(fstDefault);
 			fsgDefault.AddFontSet("WindowText", fstDefault);
-			fsgDefault.AddFontSet("ToolbarText", new FontSet(new string[2] { "Segoe UI", "Arial" }));
+			fsgDefault.AddFontSet("ToolbarText", new FontSet(new string[] { "Segoe UI", "Arial" }));
+			fsgDefault.AddFontSet("GameSearchText", new FontSet(new string[] { "LinBiolinum" }));
 
 			NexusFontSetResolver fsrResolver = new NexusFontSetResolver();
 			fsrResolver.AddFontSets(fsgDefault);
