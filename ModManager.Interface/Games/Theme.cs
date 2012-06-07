@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-
-using Nexus.Client.Util;
+using Nexus.UI;
 
 namespace Nexus.Client.Games
 {

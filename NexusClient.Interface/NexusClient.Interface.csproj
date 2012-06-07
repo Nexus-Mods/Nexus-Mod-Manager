@@ -64,7 +64,6 @@
     </Compile>
     <Compile Include="PluginManagement\OrderLog\IPluginOrderLog.cs" />
     <Compile Include="UI\Delegates.cs" />
-    <Compile Include="UI\FontManager.cs" />
     <Compile Include="UI\IView.cs" />
     <Compile Include="UI\ViewMessage.cs" />
     <Compile Include="ModManagement\AddModDescriptor.cs" />

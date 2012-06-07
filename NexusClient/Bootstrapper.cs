@@ -1,19 +1,19 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 using Nexus.Client.BackgroundTasks;
-using Nexus.UI.Controls;
 using Nexus.Client.Games;
+using Nexus.Client.Properties;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
+using Nexus.UI;
+using Nexus.UI.Controls;
 using SevenZip;
-using System.Drawing;
-using Nexus.Client.UI;
-using Nexus.Client.Properties;
 
 namespace Nexus.Client
 {

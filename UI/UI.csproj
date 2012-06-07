@@ -136,6 +136,8 @@
     <Compile Include="Controls\PromptDialog.Designer.cs">
       <DependentUpon>PromptDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="FontManager.cs" />
+    <Compile Include="FontSet.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>

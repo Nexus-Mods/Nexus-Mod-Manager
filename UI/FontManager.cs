@@ -4,9 +4,16 @@ using System.Drawing;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
 
-namespace Nexus.Client.UI
+namespace Nexus.UI
 {
-    /// <summary>Used to manager fonts that are private, e.g. not installed within the file system.</summary>
+    /// <summary>
+	/// Used to manager fonts that are private.
+	/// </summary>
+	/// <remarks>
+	/// This manager handles fonts that aren't installed with the operating system, and exposed
+	/// through the runtime framework. For example, fonts that are distributed as part of an
+	/// application can be managed with this class.
+	/// </remarks>
     public static class FontManager
     {
         #region Properties
