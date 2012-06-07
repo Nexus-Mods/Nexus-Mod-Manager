@@ -6,11 +6,11 @@ using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
-using Nexus.UI.Controls;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client
 {
@@ -21,7 +21,7 @@ namespace Nexus.Client
 	/// This view may actually be invisible, and simple act as the UI form that
 	/// displays the views the application initialization requests shown.
 	/// </remarks>
-	public partial class ApplicationInitializationForm : Form
+	public partial class ApplicationInitializationForm : ManagedFontForm
 	{
 		private ApplicationInitializer m_vmlViewModel = null;
 		private DialogResult m_drtLastDialogResult = DialogResult.None;

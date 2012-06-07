@@ -65,7 +65,9 @@
 			// lblGameModeName
 			// 
 			this.lblGameModeName.Dock = System.Windows.Forms.DockStyle.Top;
-			this.lblGameModeName.Font = new System.Drawing.Font("Microsoft Sans Serif", 20F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblGameModeName, "HeadingText");
+			this.m_fpdFontProvider.SetFontSize(this.lblGameModeName, 20F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblGameModeName, System.Drawing.FontStyle.Bold);
 			this.lblGameModeName.Location = new System.Drawing.Point(0, 0);
 			this.lblGameModeName.Name = "lblGameModeName";
 			this.lblGameModeName.Size = new System.Drawing.Size(388, 31);
@@ -90,6 +92,7 @@
 			// 
 			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.label1.AutoSize = true;
+			this.m_fpdFontProvider.SetFontSet(this.label1, "StandardText");
 			this.label1.Location = new System.Drawing.Point(7, 20);
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(195, 13);
@@ -107,7 +110,7 @@
 			this.lblFoundTitle.ForeColor = System.Drawing.Color.Green;
 			this.lblFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblFoundTitle.Name = "lblFoundTitle";
-			this.lblFoundTitle.Size = new System.Drawing.Size(40, 13);
+			this.lblFoundTitle.Size = new System.Drawing.Size(59, 20);
 			this.lblFoundTitle.TabIndex = 4;
 			this.lblFoundTitle.Text = "Found!";
 			// 
@@ -146,7 +149,8 @@
 			// lblPath
 			// 
 			this.lblPath.AutoEllipsis = true;
-			this.lblPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblPath, "StandardText");
+			this.m_fpdFontProvider.SetFontSize(this.lblPath, 10F);
 			this.lblPath.Location = new System.Drawing.Point(7, 33);
 			this.lblPath.Name = "lblPath";
 			this.lblPath.Size = new System.Drawing.Size(378, 33);
@@ -211,6 +215,7 @@
 			// 
 			this.lblNotFoundMessage.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.lblNotFoundMessage.AutoSize = true;
+			this.m_fpdFontProvider.SetFontSet(this.lblNotFoundMessage, "StandardText");
 			this.lblNotFoundMessage.Location = new System.Drawing.Point(7, 20);
 			this.lblNotFoundMessage.Name = "lblNotFoundMessage";
 			this.lblNotFoundMessage.Size = new System.Drawing.Size(200, 13);
@@ -228,7 +233,7 @@
 			this.lblNotFoundTitle.ForeColor = System.Drawing.Color.DarkRed;
 			this.lblNotFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblNotFoundTitle.Name = "lblNotFoundTitle";
-			this.lblNotFoundTitle.Size = new System.Drawing.Size(60, 13);
+			this.lblNotFoundTitle.Size = new System.Drawing.Size(88, 20);
 			this.lblNotFoundTitle.TabIndex = 0;
 			this.lblNotFoundTitle.Text = "Not Found!";
 			// 
@@ -306,13 +311,14 @@
 			this.lblSearchingTitle.ForeColor = System.Drawing.Color.Blue;
 			this.lblSearchingTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblSearchingTitle.Name = "lblSearchingTitle";
-			this.lblSearchingTitle.Size = new System.Drawing.Size(61, 13);
+			this.lblSearchingTitle.Size = new System.Drawing.Size(89, 20);
 			this.lblSearchingTitle.TabIndex = 4;
 			this.lblSearchingTitle.Text = "Searching..";
 			// 
 			// lblProgressMessage
 			// 
 			this.lblProgressMessage.AutoEllipsis = true;
+			this.m_fpdFontProvider.SetFontSet(this.lblProgressMessage, "StandardText");
 			this.lblProgressMessage.Location = new System.Drawing.Point(7, 20);
 			this.lblProgressMessage.Name = "lblProgressMessage";
 			this.lblProgressMessage.Size = new System.Drawing.Size(358, 13);
@@ -331,7 +337,8 @@
 			// lblFinalPath
 			// 
 			this.lblFinalPath.AutoEllipsis = true;
-			this.lblFinalPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblFinalPath, "StandardText");
+			this.m_fpdFontProvider.SetFontSize(this.lblFinalPath, 10F);
 			this.lblFinalPath.Location = new System.Drawing.Point(7, 3);
 			this.lblFinalPath.Name = "lblFinalPath";
 			this.lblFinalPath.Size = new System.Drawing.Size(378, 60);
