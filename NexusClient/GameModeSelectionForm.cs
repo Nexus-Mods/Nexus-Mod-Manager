@@ -92,7 +92,7 @@ namespace Nexus.Client
 			{
 				get
 				{
-					return new Theme(null, Color.Black, null,null);
+					return new Theme(null, Color.Black, null);
 				}
 			}
 
