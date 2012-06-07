@@ -182,6 +182,7 @@ namespace Nexus.UI.Controls
 			{
 				ComponentToFontInformation[component] = information;
 
+				Font fntFont = null;
 				if (DesignMode)
 				{
 					if (!ComponentToTypeDescriptorProvider.ContainsKey(component))
@@ -189,19 +190,18 @@ namespace Nexus.UI.Controls
 						ComponentToTypeDescriptorProvider[component] = new FontProviderTypeDescriptorProvider(component, TypeDescriptor.GetProvider(component));
 						TypeDescriptor.AddProvider(ComponentToTypeDescriptorProvider[component], component);
 					}
+					fntFont = new Font("Microsoft Sans Serif", information.Size, information.Style);
 				}
 				else
 				{
 					if (Resolver == null)
 						throw new Exception("The \"RequestFont\" delegate hasn't been assigned.");
-
-					//Update the font.
-					Font font = Resolver.RequestFont(information);
-					foreach (PropertyInfo property in component.GetType().GetProperties())
-					{
-						if (property.CanRead && property.CanWrite && property.PropertyType == typeof(Font))
-							property.SetValue(component, font, null);
-					}
+					fntFont = Resolver.RequestFont(information);
+				}
+				foreach (PropertyInfo property in component.GetType().GetProperties())
+				{
+					if (property.CanRead && property.CanWrite && property.PropertyType == typeof(Font))
+						property.SetValue(component, fntFont, null);
 				}
 			}
 		}
