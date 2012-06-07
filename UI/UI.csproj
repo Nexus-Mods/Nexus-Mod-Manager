@@ -136,6 +136,7 @@
     <Compile Include="Controls\PromptDialog.Designer.cs">
       <DependentUpon>PromptDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="FlagEnumUITypeEditor.cs" />
     <Compile Include="FontManager.cs" />
     <Compile Include="FontSet.cs" />
     <Compile Include="FontSetGroup.cs" />
