@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Drawing;
-using Nexus.Client.UI;
 
-namespace Nexus.Client.Games
+namespace Nexus.UI
 {
     /// <summary>Used to represent a list of fonts.</summary>
     public class FontSet
