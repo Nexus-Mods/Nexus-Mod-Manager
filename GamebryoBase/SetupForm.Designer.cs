@@ -55,10 +55,12 @@
 			// lblTitle
 			// 
 			this.lblTitle.AutoSize = true;
-			this.lblTitle.Font = new System.Drawing.Font("Verdana", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblTitle, "HeadingText");
+			this.m_fpdFontProvider.SetFontSize(this.lblTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblTitle, System.Drawing.FontStyle.Bold);
 			this.lblTitle.Location = new System.Drawing.Point(12, 9);
 			this.lblTitle.Name = "lblTitle";
-			this.lblTitle.Size = new System.Drawing.Size(88, 17);
+			this.lblTitle.Size = new System.Drawing.Size(84, 20);
 			this.lblTitle.TabIndex = 2;
 			this.lblTitle.Text = "{0} Setup";
 			// 
@@ -111,7 +113,9 @@
 			// rdcDirectories
 			// 
 			this.rdcDirectories.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.rdcDirectories.InstallInfoLabel = "Install Info:";
 			this.rdcDirectories.Location = new System.Drawing.Point(0, 0);
+			this.rdcDirectories.ModDirectoryLabel = "Mod Directory:";
 			this.rdcDirectories.Name = "rdcDirectories";
 			this.rdcDirectories.Size = new System.Drawing.Size(455, 307);
 			this.rdcDirectories.TabIndex = 0;
