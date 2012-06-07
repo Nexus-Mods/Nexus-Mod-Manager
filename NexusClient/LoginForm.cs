@@ -2,15 +2,15 @@
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.Games;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
-using Nexus.UI.Controls;
 
 namespace Nexus.Client
 {
 	/// <summary>
 	/// A form that gathers login credentials.
 	/// </summary>
-	public partial class LoginForm : Form
+	public partial class LoginForm : ManagedFontForm
 	{
 		private LoginFormVM m_vmlViewModel = null;
 
