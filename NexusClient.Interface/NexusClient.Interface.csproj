@@ -65,6 +65,12 @@
     <Compile Include="PluginManagement\OrderLog\IPluginOrderLog.cs" />
     <Compile Include="UI\Delegates.cs" />
     <Compile Include="UI\IView.cs" />
+    <Compile Include="UI\ManagedFontForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\ManagedFontUserControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\ViewMessage.cs" />
     <Compile Include="ModManagement\AddModDescriptor.cs" />
     <Compile Include="ProgrammeMetadata.cs" />
