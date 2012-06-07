@@ -39,8 +39,8 @@
 			this.label4 = new System.Windows.Forms.Label();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.panel2 = new System.Windows.Forms.Panel();
-			this.panel3 = new System.Windows.Forms.Panel();
 			this.lblError = new Nexus.UI.Controls.AutosizeLabel();
+			this.panel3 = new System.Windows.Forms.Panel();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
 			this.panel3.SuspendLayout();
@@ -49,6 +49,7 @@
 			// lblPrompt
 			// 
 			this.lblPrompt.AutoSize = true;
+			this.m_fpdFontProvider.SetFontSet(this.lblPrompt, "StandardText");
 			this.lblPrompt.Location = new System.Drawing.Point(12, 9);
 			this.lblPrompt.Name = "lblPrompt";
 			this.lblPrompt.Size = new System.Drawing.Size(181, 13);
@@ -58,6 +59,7 @@
 			// label2
 			// 
 			this.label2.AutoSize = true;
+			this.m_fpdFontProvider.SetFontSet(this.label2, "StandardText");
 			this.label2.Location = new System.Drawing.Point(12, 9);
 			this.label2.Name = "label2";
 			this.label2.Size = new System.Drawing.Size(58, 13);
@@ -67,6 +69,7 @@
 			// label3
 			// 
 			this.label3.AutoSize = true;
+			this.m_fpdFontProvider.SetFontSet(this.label3, "StandardText");
 			this.label3.Location = new System.Drawing.Point(14, 35);
 			this.label3.Name = "label3";
 			this.label3.Size = new System.Drawing.Size(56, 13);
@@ -75,6 +78,7 @@
 			// 
 			// butLogin
 			// 
+			this.m_fpdFontProvider.SetFontSet(this.butLogin, "StandardText");
 			this.butLogin.Location = new System.Drawing.Point(88, 113);
 			this.butLogin.Name = "butLogin";
 			this.butLogin.Size = new System.Drawing.Size(75, 23);
@@ -86,6 +90,7 @@
 			// butCancel
 			// 
 			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.m_fpdFontProvider.SetFontSet(this.butCancel, "StandardText");
 			this.butCancel.Location = new System.Drawing.Point(169, 113);
 			this.butCancel.Name = "butCancel";
 			this.butCancel.Size = new System.Drawing.Size(75, 23);
@@ -96,6 +101,7 @@
 			// 
 			// tbxUsername
 			// 
+			this.m_fpdFontProvider.SetFontSet(this.tbxUsername, "StandardText");
 			this.tbxUsername.Location = new System.Drawing.Point(76, 6);
 			this.tbxUsername.Name = "tbxUsername";
 			this.tbxUsername.Size = new System.Drawing.Size(168, 20);
@@ -103,6 +109,7 @@
 			// 
 			// tbxPassword
 			// 
+			this.m_fpdFontProvider.SetFontSet(this.tbxPassword, "StandardText");
 			this.tbxPassword.Location = new System.Drawing.Point(76, 32);
 			this.tbxPassword.Name = "tbxPassword";
 			this.tbxPassword.Size = new System.Drawing.Size(168, 20);
@@ -112,6 +119,7 @@
 			// ckbStayLoggedIn
 			// 
 			this.ckbStayLoggedIn.AutoSize = true;
+			this.m_fpdFontProvider.SetFontSet(this.ckbStayLoggedIn, "StandardText");
 			this.ckbStayLoggedIn.Location = new System.Drawing.Point(76, 58);
 			this.ckbStayLoggedIn.Name = "ckbStayLoggedIn";
 			this.ckbStayLoggedIn.Size = new System.Drawing.Size(98, 17);
@@ -121,6 +129,7 @@
 			// 
 			// label4
 			// 
+			this.m_fpdFontProvider.SetFontSet(this.label4, "StandardText");
 			this.label4.Location = new System.Drawing.Point(73, 78);
 			this.label4.Name = "label4";
 			this.label4.Size = new System.Drawing.Size(171, 26);
@@ -144,8 +153,22 @@
 			this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
 			this.panel2.Location = new System.Drawing.Point(0, 23);
 			this.panel2.Name = "panel2";
-			this.panel2.Size = new System.Drawing.Size(256, 21);
+			this.panel2.Size = new System.Drawing.Size(256, 24);
 			this.panel2.TabIndex = 16;
+			// 
+			// lblError
+			// 
+			this.lblError.AllowSelection = true;
+			this.lblError.AutoScroll = true;
+			this.lblError.BackColor = System.Drawing.SystemColors.Control;
+			this.lblError.Cursor = System.Windows.Forms.Cursors.IBeam;
+			this.m_fpdFontProvider.SetFontSet(this.lblError, "StandardText");
+			this.lblError.ForeColor = System.Drawing.Color.Red;
+			this.lblError.Location = new System.Drawing.Point(14, 3);
+			this.lblError.Name = "lblError";
+			this.lblError.Size = new System.Drawing.Size(230, 18);
+			this.lblError.TabIndex = 0;
+			this.lblError.Text = "The given login information is invalid.";
 			// 
 			// panel3
 			// 
@@ -158,23 +181,10 @@
 			this.panel3.Controls.Add(this.tbxUsername);
 			this.panel3.Controls.Add(this.tbxPassword);
 			this.panel3.Dock = System.Windows.Forms.DockStyle.Top;
-			this.panel3.Location = new System.Drawing.Point(0, 44);
+			this.panel3.Location = new System.Drawing.Point(0, 47);
 			this.panel3.Name = "panel3";
 			this.panel3.Size = new System.Drawing.Size(256, 144);
 			this.panel3.TabIndex = 17;
-			// 
-			// lblError
-			// 
-			this.lblError.AllowSelection = true;
-			this.lblError.AutoScroll = true;
-			this.lblError.BackColor = System.Drawing.SystemColors.Control;
-			this.lblError.Cursor = System.Windows.Forms.Cursors.IBeam;
-			this.lblError.ForeColor = System.Drawing.Color.Red;
-			this.lblError.Location = new System.Drawing.Point(14, 3);
-			this.lblError.Name = "lblError";
-			this.lblError.Size = new System.Drawing.Size(230, 15);
-			this.lblError.TabIndex = 0;
-			this.lblError.Text = "The given login information is invalid.";
 			// 
 			// LoginForm
 			// 
@@ -188,11 +198,11 @@
 			this.Controls.Add(this.panel3);
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.panel1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
 			this.MinimumSize = new System.Drawing.Size(262, 28);
-			this.Name = "LoginForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Login";
 			this.panel1.ResumeLayout(false);
