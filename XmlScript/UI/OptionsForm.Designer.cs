@@ -32,8 +32,8 @@
 			this.butBack = new System.Windows.Forms.Button();
 			this.butNext = new System.Windows.Forms.Button();
 			this.butCancel = new System.Windows.Forms.Button();
-			this.hplTitle = new Nexus.Client.ModManagement.Scripting.XmlScript.UI.HeaderPanel();
 			this.pnlWizardSteps = new System.Windows.Forms.Panel();
+			this.hplTitle = new Nexus.Client.ModManagement.Scripting.XmlScript.UI.HeaderPanel();
 			this.pnlBottom.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -82,10 +82,20 @@
 			this.butCancel.UseVisualStyleBackColor = true;
 			this.butCancel.Click += new System.EventHandler(this.butCancel_Click);
 			// 
+			// pnlWizardSteps
+			// 
+			this.pnlWizardSteps.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.pnlWizardSteps.Location = new System.Drawing.Point(0, 47);
+			this.pnlWizardSteps.Name = "pnlWizardSteps";
+			this.pnlWizardSteps.Size = new System.Drawing.Size(587, 396);
+			this.pnlWizardSteps.TabIndex = 22;
+			// 
 			// hplTitle
 			// 
 			this.hplTitle.Dock = System.Windows.Forms.DockStyle.Top;
-			this.hplTitle.Font = new System.Drawing.Font("Arial", 14F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.hplTitle, "HeadingText");
+			this.m_fpdFontProvider.SetFontSize(this.hplTitle, 14F);
+			this.m_fpdFontProvider.SetFontStyle(this.hplTitle, System.Drawing.FontStyle.Bold);
 			this.hplTitle.ImageLocation = null;
 			this.hplTitle.Location = new System.Drawing.Point(0, 0);
 			this.hplTitle.Name = "hplTitle";
@@ -94,14 +104,6 @@
 			this.hplTitle.TabIndex = 21;
 			this.hplTitle.Text = "Generic Options Form";
 			this.hplTitle.TextPosition = Nexus.Client.ModManagement.Scripting.XmlScript.TextPosition.Left;
-			// 
-			// pnlWizardSteps
-			// 
-			this.pnlWizardSteps.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.pnlWizardSteps.Location = new System.Drawing.Point(0, 47);
-			this.pnlWizardSteps.Name = "pnlWizardSteps";
-			this.pnlWizardSteps.Size = new System.Drawing.Size(587, 396);
-			this.pnlWizardSteps.TabIndex = 22;
 			// 
 			// OptionsForm
 			// 
