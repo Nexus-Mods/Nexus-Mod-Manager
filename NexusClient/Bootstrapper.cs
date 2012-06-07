@@ -14,6 +14,7 @@ using Nexus.Client.Util;
 using Nexus.UI;
 using Nexus.UI.Controls;
 using SevenZip;
+using Nexus.Client.UI;
 
 namespace Nexus.Client
 {
@@ -82,16 +83,7 @@ namespace Nexus.Client
 			GameModeRegistry gmrSupportedGames = GetSupportedGameModes();
 			do
 			{
-                //Add the private fonts.
-                FontManager.Add("LinBiolinum", Resources.LinBiolinum_RB);
-                FontManager.Add("LinBiolinum", Resources.LinBiolinum_RI);
-
-                //Link into the request font method.
-                FontProvider.RequestFont = delegate(string name, FontStyle style, float size)
-                {
-                    //Ask the default theme to create the font.
-                    return Theme.Default.CreateFont(name, style, size);
-                };
+				NexusFontSetResolver nfrResolver = SetUpFonts();
 
 				GameModeRegistry gmrInstalledGames = GetInstalledGameModes(gmrSupportedGames);
 				if (gmrInstalledGames == null)
@@ -172,7 +164,7 @@ namespace Nexus.Client
 						return false;
 					}
 
-					ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo);
+					ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo, nfrResolver);
 					ApplicationInitializationForm frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
 					ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
 					frmAppInitilizer.ShowDialog();
@@ -187,13 +179,6 @@ namespace Nexus.Client
 
 					IGameMode gmdGameMode = ainInitializer.GameMode;
 					ServiceManager svmServices = ainInitializer.Services;
-
-                    //Now we have a game mode use it's theme.
-                    FontProvider.RequestFont = delegate(string name, FontStyle style, float size)
-                    {
-                        //Ask the theme to create the font.
-                        return gmdGameMode.ModeTheme.CreateFont(name, style, size);
-                    };
 
 					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.ActivityMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
@@ -233,9 +218,6 @@ namespace Nexus.Client
 
                     //Clean up created font's.
                     FontManager.Dispose();
-
-                    //Reset the request font delegate.
-                    FontProvider.RequestFont = null;
 				}
 			} while (!String.IsNullOrEmpty(strRequestedGameMode) || booChangeDefaultGameMode);
 			return true;
@@ -280,6 +262,31 @@ namespace Nexus.Client
 		{
 			string str7zPath = Path.Combine(p_eifEnvironmentInfo.ProgrammeInfoDirectory, p_eifEnvironmentInfo.Is64BitProcess ? "7z-64bit.dll" : "7z-32bit.dll");
 			SevenZipCompressor.SetLibraryPath(str7zPath);
+		}
+
+		#endregion
+
+		#region Font Management
+
+		/// <summary>
+		/// Sets up the fonts.
+		/// </summary>
+		/// <returns>The <see cref="NexusFontSetResolver"/> to be used.</returns>
+		private NexusFontSetResolver SetUpFonts()
+		{
+			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RB);
+			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RI);
+
+			FontSet fstDefault = new FontSet(new string[2] { "Microsoft Sans Serif", "Arial" });
+			FontSetGroup fsgDefault = new FontSetGroup(fstDefault);
+			fsgDefault.AddFontSet("WindowText", fstDefault);
+			fsgDefault.AddFontSet("ToolbarText", new FontSet(new string[2] { "Segoe UI", "Arial" }));
+
+			NexusFontSetResolver fsrResolver = new NexusFontSetResolver();
+			fsrResolver.AddFontSets(fsgDefault);
+
+			FontProvider.SetFontSetResolver(fsrResolver);
+			return fsrResolver;
 		}
 
 		#endregion

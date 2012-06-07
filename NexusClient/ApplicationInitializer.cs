@@ -135,6 +135,12 @@ namespace Nexus.Client
 		/// <value>The application's envrionment info.</value>
 		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
+		/// <summary>
+		/// Gets the <see cref="NexusFontSetResolver"/> to use.
+		/// </summary>
+		/// <value>The <see cref="NexusFontSetResolver"/> to use.</value>
+		public NexusFontSetResolver FontSetResolver { get; private set;}
+
 		#endregion
 
 		#region Constructors
@@ -143,9 +149,11 @@ namespace Nexus.Client
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public ApplicationInitializer(EnvironmentInfo p_eifEnvironmentInfo)
+		/// <param name="p_nfrFontSetResolver">The <see cref="NexusFontSetResolver"/> to use.</param>
+		public ApplicationInitializer(EnvironmentInfo p_eifEnvironmentInfo, NexusFontSetResolver p_nfrFontSetResolver)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			FontSetResolver = p_nfrFontSetResolver;
 			LoginUser = delegate { return false; };
 			ShowMessage = delegate { return DialogResult.Cancel; };
 			ConfirmMakeWritable = delegate(IEnvironmentInfo eif, string file, out bool remember) { remember = false; return false; };
@@ -298,6 +306,8 @@ namespace Nexus.Client
 			}
 			if (vwmWarning != null)
 				ShowMessage(vwmWarning);
+			//Now we have a game mode use it's theme.
+			FontSetResolver.AddFontSets(gmdGameMode.ModeTheme.FontSets);
 			StepOverallProgress();
 
 			if (!UacCheckEnvironment(gmdGameMode, out p_vwmErrorMessage))

@@ -9,7 +9,7 @@ namespace Nexus.Client.Games.FalloutNV
 	public class FalloutNVGameModeDescriptor : GamebryoGameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "falloutNV.exe", "falloutNVng.exe" };
-		private static string[] CRITICAL_PLUGINS = { "falloutnv.esm" }; 
+		private static string[] CRITICAL_PLUGINS = { "falloutnv.esm" };
 		private const string MODE_ID = "FalloutNV";
 
 		#region Properties
@@ -70,12 +70,7 @@ namespace Nexus.Client.Games.FalloutNV
 		{
 			get
 			{
-				return new Theme(
-                    Properties.Resources.fonv_logo, 
-                    Color.FromArgb(250, 167, 64),
-                    Theme.DefaultFontSet,
-                    Theme.ToolbarFontSet
-                    );
+				return new Theme(Properties.Resources.fonv_logo, Color.FromArgb(250, 167, 64), null);
 			}
 		}
 
