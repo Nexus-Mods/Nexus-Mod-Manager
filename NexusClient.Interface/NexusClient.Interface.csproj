@@ -65,6 +65,9 @@
     <Compile Include="PluginManagement\OrderLog\IPluginOrderLog.cs" />
     <Compile Include="UI\Delegates.cs" />
     <Compile Include="UI\IView.cs" />
+    <Compile Include="UI\ManagedFontDockContent.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\ManagedFontForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -98,6 +101,10 @@
     <Compile Include="Updating\UpdaterBase.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\DockPanelSuite\DockPanelSuite.csproj">
+      <Project>{C75532C4-765B-418E-B09B-46D36B2ABDB1}</Project>
+      <Name>DockPanelSuite</Name>
+    </ProjectReference>
     <ProjectReference Include="..\UI\UI.csproj">
       <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
       <Name>UI</Name>
