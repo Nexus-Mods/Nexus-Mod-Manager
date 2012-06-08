@@ -92,7 +92,6 @@
 			// 
 			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.label1.AutoSize = true;
-			this.m_fpdFontProvider.SetFontSet(this.label1, "StandardText");
 			this.label1.Location = new System.Drawing.Point(7, 20);
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(195, 13);
@@ -215,7 +214,6 @@
 			// 
 			this.lblNotFoundMessage.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.lblNotFoundMessage.AutoSize = true;
-			this.m_fpdFontProvider.SetFontSet(this.lblNotFoundMessage, "StandardText");
 			this.lblNotFoundMessage.Location = new System.Drawing.Point(7, 20);
 			this.lblNotFoundMessage.Name = "lblNotFoundMessage";
 			this.lblNotFoundMessage.Size = new System.Drawing.Size(200, 13);
@@ -318,7 +316,6 @@
 			// lblProgressMessage
 			// 
 			this.lblProgressMessage.AutoEllipsis = true;
-			this.m_fpdFontProvider.SetFontSet(this.lblProgressMessage, "StandardText");
 			this.lblProgressMessage.Location = new System.Drawing.Point(7, 20);
 			this.lblProgressMessage.Name = "lblProgressMessage";
 			this.lblProgressMessage.Size = new System.Drawing.Size(358, 13);
@@ -356,8 +353,8 @@
 			this.Controls.Add(this.pnlSearching);
 			this.Controls.Add(this.pnlCandidate);
 			this.Controls.Add(this.pbxGameLogo);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.MinimumSize = new System.Drawing.Size(516, 97);
-			this.Name = "GameModeSearchListViewItem";
 			this.Size = new System.Drawing.Size(516, 519);
 			this.pnlCandidate.ResumeLayout(false);
 			this.pnlCandidate.PerformLayout();

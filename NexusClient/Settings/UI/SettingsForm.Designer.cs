@@ -137,10 +137,10 @@
 			this.ClientSize = new System.Drawing.Size(406, 367);
 			this.Controls.Add(this.tbcTabs);
 			this.Controls.Add(this.panel1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
-			this.Name = "SettingsForm";
 			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Settings";

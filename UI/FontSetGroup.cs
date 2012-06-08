@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Nexus.UI
 {
@@ -69,6 +70,8 @@ namespace Nexus.UI
 		/// <c>false</c> otherwise.</returns>
 		public bool HasFontSet(string p_strName)
 		{
+			if (String.IsNullOrEmpty(p_strName))
+				return false;
 			return m_dicFontSets.ContainsKey(p_strName);
 		}
 

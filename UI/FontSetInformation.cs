@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 
 namespace Nexus.UI
 {
@@ -41,6 +42,17 @@ namespace Nexus.UI
 			Style = FontStyle.Regular;
 		}
 
+		/// <summary>
+		/// The copy constructor.
+		/// </summary>
+		/// <param name="p_fsiCopy">The object to be copied.</param>
+		public FontSetInformation(FontSetInformation p_fsiCopy)
+		{
+			Set = p_fsiCopy.Set;
+			Size = p_fsiCopy.Size;
+			Style = p_fsiCopy.Style;
+		}
+
 		#endregion
 
 		#region Public Methods
@@ -50,7 +62,7 @@ namespace Nexus.UI
 		/// <returns>True if logically equal, otherwise false.</returns>
 		public bool Equals(FontSetInformation information)
 		{
-			return Set == information.Set && Size == information.Size && Style == information.Style;
+			return ((Set == information.Set) || (String.IsNullOrEmpty(Set) && String.IsNullOrEmpty(information.Set))) && Size == information.Size && Style == information.Style;
 		}
 
 		/// <summary>Indicates whether this instance and a specified font provider information are equal.</summary>

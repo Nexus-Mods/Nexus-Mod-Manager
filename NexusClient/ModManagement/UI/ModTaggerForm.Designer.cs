@@ -151,7 +151,7 @@
 			this.ClientSize = new System.Drawing.Size(717, 410);
 			this.Controls.Add(this.splitContainer1);
 			this.Controls.Add(this.panel4);
-			this.Name = "ModTaggerForm";
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Edit Mod Information";

@@ -415,6 +415,9 @@
     <None Include="CPL\CPLImportLexer.g" />
     <None Include="Resources\add-file-set.png" />
     <EmbeddedResource Include="Schemas\XmlScript5.0.xsd" />
+    <EmbeddedResource Include="UI\OptionsForm.resx">
+      <DependentUpon>OptionsForm.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />

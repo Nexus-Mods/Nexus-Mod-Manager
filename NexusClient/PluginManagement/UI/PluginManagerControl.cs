@@ -3,20 +3,20 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 using Nexus.Client.Commands.Generic;
-using Nexus.UI.Controls;
 using Nexus.Client.Plugins;
-using WeifenLuo.WinFormsUI.Docking;
-using System.Drawing;
+using Nexus.Client.UI;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.PluginManagement.UI
 {
 	/// <summary>
 	/// A view that exposes plugin management functionality.
 	/// </summary>
-	public partial class PluginManagerControl : DockContent
+	public partial class PluginManagerControl : ManagedFontDockContent
 	{
 		private PluginManagerVM m_vmlViewModel = null;
 		private bool m_booResizing = false;

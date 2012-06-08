@@ -184,7 +184,7 @@ namespace Nexus.UI.Controls
 				ComponentToFontInformation[component] = information;
 
 				Font fntFont = null;
-				if (DesignMode)
+				if (DesignMode || (Resolver == null))
 				{
 					if (!ComponentToTypeDescriptorProvider.ContainsKey(component))
 					{
@@ -196,7 +196,7 @@ namespace Nexus.UI.Controls
 				else
 				{
 					if (Resolver == null)
-						throw new Exception("The \"RequestFont\" delegate hasn't been assigned.");
+						throw new Exception("The font set Resolver hasn't been assigned.");
 					fntFont = Resolver.RequestFont(information);
 				}
 				foreach (PropertyInfo property in component.GetType().GetProperties())

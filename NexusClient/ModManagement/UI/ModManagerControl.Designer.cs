@@ -66,6 +66,8 @@
 			// toolStrip1
 			// 
 			this.toolStrip1.Dock = System.Windows.Forms.DockStyle.Left;
+			this.m_fpdFontProvider.SetFontSet(this.toolStrip1, "MenuText");
+			this.m_fpdFontProvider.SetFontSize(this.toolStrip1, 9F);
 			this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -96,7 +98,7 @@
 			// 
 			this.addModToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod;
 			this.addModToolStripMenuItem.Name = "addModToolStripMenuItem";
-			this.addModToolStripMenuItem.Size = new System.Drawing.Size(177, 22);
+			this.addModToolStripMenuItem.Size = new System.Drawing.Size(195, 38);
 			this.addModToolStripMenuItem.Text = "Add Mod from File";
 			this.addModToolStripMenuItem.Click += new System.EventHandler(this.addModToolStripMenuItem_Click);
 			// 
@@ -104,7 +106,7 @@
 			// 
 			this.addModFromURLToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod_url;
 			this.addModFromURLToolStripMenuItem.Name = "addModFromURLToolStripMenuItem";
-			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(177, 22);
+			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(195, 38);
 			this.addModFromURLToolStripMenuItem.Text = "Add Mod from URL";
 			this.addModFromURLToolStripMenuItem.Click += new System.EventHandler(this.addModFromURLToolStripMenuItem_Click);
 			// 

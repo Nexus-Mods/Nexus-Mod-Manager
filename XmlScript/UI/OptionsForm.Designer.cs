@@ -93,7 +93,7 @@
 			// hplTitle
 			// 
 			this.hplTitle.Dock = System.Windows.Forms.DockStyle.Top;
-			this.m_fpdFontProvider.SetFontSet(this.hplTitle, "HeadingText");
+			this.m_fpdFontProvider.SetFontSet(this.hplTitle, "StandardText");
 			this.m_fpdFontProvider.SetFontSize(this.hplTitle, 14F);
 			this.m_fpdFontProvider.SetFontStyle(this.hplTitle, System.Drawing.FontStyle.Bold);
 			this.hplTitle.ImageLocation = null;
@@ -115,7 +115,7 @@
 			this.Controls.Add(this.pnlWizardSteps);
 			this.Controls.Add(this.hplTitle);
 			this.Controls.Add(this.pnlBottom);
-			this.Name = "OptionsForm";
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Options Form";
 			this.pnlBottom.ResumeLayout(false);
