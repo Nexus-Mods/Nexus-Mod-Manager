@@ -87,6 +87,7 @@
 			this.wizSetup.BackColor = System.Drawing.SystemColors.Control;
 			this.wizSetup.Controls.Add(this.vtpDirectories);
 			this.wizSetup.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.m_fpdFontProvider.SetFontSet(this.wizSetup, "StandardText");
 			this.wizSetup.Location = new System.Drawing.Point(0, 38);
 			this.wizSetup.Name = "wizSetup";
 			this.wizSetup.SelectedIndex = 0;
@@ -127,7 +128,7 @@
 			this.ClientSize = new System.Drawing.Size(455, 345);
 			this.Controls.Add(this.wizSetup);
 			this.Controls.Add(this.panel1);
-			this.Name = "SetupForm";
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "{0} Setup";
 			this.panel1.ResumeLayout(false);

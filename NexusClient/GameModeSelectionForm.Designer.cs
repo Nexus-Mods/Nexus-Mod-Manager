@@ -44,7 +44,6 @@
 			// 
 			this.cbxRemember.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.cbxRemember.AutoSize = true;
-			this.m_fpdFontProvider.SetFontSet(this.cbxRemember, "StandardText");
 			this.cbxRemember.Location = new System.Drawing.Point(342, 2);
 			this.cbxRemember.Name = "cbxRemember";
 			this.cbxRemember.Size = new System.Drawing.Size(136, 17);
@@ -55,7 +54,6 @@
 			// butOK
 			// 
 			this.butOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.m_fpdFontProvider.SetFontSet(this.butOK, "StandardText");
 			this.butOK.Location = new System.Drawing.Point(403, 25);
 			this.butOK.Name = "butOK";
 			this.butOK.Size = new System.Drawing.Size(75, 23);
@@ -67,7 +65,6 @@
 			// lblPrompt
 			// 
 			this.lblPrompt.AutoSize = true;
-			this.m_fpdFontProvider.SetFontSet(this.lblPrompt, "StandardText");
 			this.lblPrompt.Location = new System.Drawing.Point(12, 9);
 			this.lblPrompt.Name = "lblPrompt";
 			this.lblPrompt.Size = new System.Drawing.Size(210, 13);
@@ -132,10 +129,10 @@
 			this.Controls.Add(this.panel3);
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.panel1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
-			this.Name = "GameModeSelectionForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Game Selection";
 			this.panel1.ResumeLayout(false);

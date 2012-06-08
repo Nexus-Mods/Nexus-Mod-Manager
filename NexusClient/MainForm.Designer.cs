@@ -58,6 +58,8 @@
 			// 
 			// toolStrip1
 			// 
+			this.m_fpdFontProvider.SetFontSet(this.toolStrip1, "MenuText");
+			this.m_fpdFontProvider.SetFontSize(this.toolStrip1, 9F);
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.spbLaunch,
@@ -78,7 +80,7 @@
 			this.spbLaunch.Image = ((System.Drawing.Image)(resources.GetObject("spbLaunch.Image")));
 			this.spbLaunch.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbLaunch.Name = "spbLaunch";
-			this.spbLaunch.Size = new System.Drawing.Size(165, 36);
+			this.spbLaunch.Size = new System.Drawing.Size(166, 36);
 			this.spbLaunch.Text = "toolStripSplitButton1";
 			this.spbLaunch.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbLaunch_DropDownItemClicked);
 			// 
@@ -208,7 +210,7 @@
 			this.ClientSize = new System.Drawing.Size(804, 533);
 			this.Controls.Add(this.dockPanel1);
 			this.Controls.Add(this.toolStrip1);
-			this.Name = "MainForm";
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.Text = "MainForm";
 			this.toolStrip1.ResumeLayout(false);
 			this.toolStrip1.PerformLayout();

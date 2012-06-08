@@ -4,15 +4,15 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
-using WeifenLuo.WinFormsUI.Docking;
 
 namespace Nexus.Client.ActivityMonitoring.UI
 {
 	/// <summary>
 	/// The view that exposes activity monitoring functionality.
 	/// </summary>
-	public partial class ActivityMonitorControl : DockContent
+	public partial class ActivityMonitorControl : ManagedFontDockContent
 	{
 		private ActivityMonitorVM m_vmlViewModel = null;
 		private float m_fltColumnRatio = 0.5f;

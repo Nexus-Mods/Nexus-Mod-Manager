@@ -282,7 +282,9 @@ namespace Nexus.Client
 			fsgDefault.AddFontSet("StandardText", fstDefault);
 			fsgDefault.AddFontSet("HeadingText", fstDefault);
 			fsgDefault.AddFontSet("SmallText", new FontSet(new string[] { "Segoe UI", "Arial" }));
+			fsgDefault.AddFontSet("MenuText", new FontSet(new string[] { "Segoe UI", "Arial" }));
 			fsgDefault.AddFontSet("GameSearchText", new FontSet(new string[] { "LinBiolinum" }));
+			fsgDefault.AddFontSet("TestText", new FontSet(new string[] { "Wingdings" }));
 
 			NexusFontSetResolver fsrResolver = new NexusFontSetResolver();
 			fsrResolver.AddFontSets(fsgDefault);
