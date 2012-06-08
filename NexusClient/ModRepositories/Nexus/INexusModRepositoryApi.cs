@@ -85,7 +85,6 @@ namespace Nexus.Client.ModRepositories.Nexus
         /// <param name="p_strType">Whether the returned mods' names should include all of
         /// the given search terms, or any of the terms.</param>
         /// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
-        /// <param name="p_strType">Defaults to ALL.</param>
         /// <returns>The mod info for the mods matching the given search criteria.</returns>
         [OperationContract]
         [WebGet(

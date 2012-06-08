@@ -1,13 +1,14 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Windows.Forms;
+using Nexus.Client.UI;
 
 namespace Nexus.Client.Settings.UI
 {
 	/// <summary>
 	/// The settings form.
 	/// </summary>
-	public partial class SettingsForm : Form
+	public partial class SettingsForm : ManagedFontForm
 	{
 		private SettingsFormVM m_vmlViewModel = null;
 

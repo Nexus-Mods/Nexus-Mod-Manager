@@ -11,7 +11,7 @@ namespace Nexus.Client.Games.Oblivion
 		private static string[] EXECUTABLES = { "oblivion.exe" };
 		private static string[] CRITICAL_PLUGINS = { "oblivion.esm" };
 		private const string MODE_ID = "Oblivion";
-		
+
 		#region Properties
 
 		/// <summary>
@@ -70,7 +70,7 @@ namespace Nexus.Client.Games.Oblivion
 		{
 			get
 			{
-				return new Theme(Properties.Resources.oblivion_logo, Color.FromArgb(250, 167, 64));
+				return new Theme(Properties.Resources.oblivion_logo, Color.FromArgb(250, 167, 64), null);
 			}
 		}
 

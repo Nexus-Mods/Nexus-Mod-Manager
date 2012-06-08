@@ -2,13 +2,14 @@
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.Mods;
+using Nexus.Client.UI;
 
 namespace Nexus.Client.ModManagement.UI
 {
 	/// <summary>
 	/// A view that allows editing of mod tags.
 	/// </summary>
-	public partial class ModTaggerForm : Form
+	public partial class ModTaggerForm : ManagedFontForm
 	{
 		private ModTaggerVM m_vmlViewModel = null;
 		private bool m_booResizing = false;

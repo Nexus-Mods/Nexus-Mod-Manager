@@ -1,16 +1,20 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Controls;
 using Nexus.Client.Games;
+using Nexus.Client.Properties;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
+using Nexus.UI;
+using Nexus.UI.Controls;
 using SevenZip;
+using Nexus.Client.UI;
 
 namespace Nexus.Client
 {
@@ -79,6 +83,8 @@ namespace Nexus.Client
 			GameModeRegistry gmrSupportedGames = GetSupportedGameModes();
 			do
 			{
+				NexusFontSetResolver nfrResolver = SetUpFonts();
+
 				GameModeRegistry gmrInstalledGames = GetInstalledGameModes(gmrSupportedGames);
 				if (gmrInstalledGames == null)
 				{
@@ -158,7 +164,7 @@ namespace Nexus.Client
 						return false;
 					}
 
-					ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo);
+					ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo, nfrResolver);
 					ApplicationInitializationForm frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
 					ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
 					frmAppInitilizer.ShowDialog();
@@ -208,7 +214,10 @@ namespace Nexus.Client
 							mtxGameModeMutex.ReleaseMutex();
 						mtxGameModeMutex.Close();
 					}
-					FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);
+                    FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);
+
+                    //Clean up created font's.
+                    FontManager.Dispose();
 				}
 			} while (!String.IsNullOrEmpty(strRequestedGameMode) || booChangeDefaultGameMode);
 			return true;
@@ -253,6 +262,35 @@ namespace Nexus.Client
 		{
 			string str7zPath = Path.Combine(p_eifEnvironmentInfo.ProgrammeInfoDirectory, p_eifEnvironmentInfo.Is64BitProcess ? "7z-64bit.dll" : "7z-32bit.dll");
 			SevenZipCompressor.SetLibraryPath(str7zPath);
+		}
+
+		#endregion
+
+		#region Font Management
+
+		/// <summary>
+		/// Sets up the fonts.
+		/// </summary>
+		/// <returns>The <see cref="NexusFontSetResolver"/> to be used.</returns>
+		private NexusFontSetResolver SetUpFonts()
+		{
+			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RB);
+			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RI);
+
+			FontSet fstDefault = new FontSet(new string[] { "Microsoft Sans Serif", "Arial" });
+			FontSetGroup fsgDefault = new FontSetGroup(fstDefault);
+			fsgDefault.AddFontSet("StandardText", fstDefault);
+			fsgDefault.AddFontSet("HeadingText", fstDefault);
+			fsgDefault.AddFontSet("SmallText", new FontSet(new string[] { "Segoe UI", "Arial" }));
+			fsgDefault.AddFontSet("MenuText", new FontSet(new string[] { "Segoe UI", "Arial" }));
+			fsgDefault.AddFontSet("GameSearchText", new FontSet(new string[] { "LinBiolinum" }));
+			fsgDefault.AddFontSet("TestText", new FontSet(new string[] { "Wingdings" }));
+
+			NexusFontSetResolver fsrResolver = new NexusFontSetResolver();
+			fsrResolver.AddFontSets(fsgDefault);
+
+			FontProvider.SetFontSetResolver(fsrResolver);
+			return fsrResolver;
 		}
 
 		#endregion

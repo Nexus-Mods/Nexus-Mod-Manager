@@ -7,7 +7,7 @@ using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement.UI;
@@ -23,7 +23,7 @@ namespace Nexus.Client
 	/// <summary>
 	/// The main form of the mod manager.
 	/// </summary>
-	public partial class MainForm : Form
+	public partial class MainForm : ManagedFontForm
 	{
 		private MainFormVM m_vmlViewModel = null;
 		private FormWindowState m_fwsLastWindowState = FormWindowState.Normal;

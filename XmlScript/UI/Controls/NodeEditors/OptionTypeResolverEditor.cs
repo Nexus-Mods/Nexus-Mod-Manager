@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using Nexus.Client.Util;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using System.ComponentModel;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors

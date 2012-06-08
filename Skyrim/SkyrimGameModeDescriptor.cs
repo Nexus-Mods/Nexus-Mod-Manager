@@ -8,10 +8,10 @@ namespace Nexus.Client.Games.Skyrim
 	/// </summary>
 	public class SkyrimGameModeDescriptor : GamebryoGameModeDescriptorBase
 	{
-        private static string[] EXECUTABLES = { "SkyrimLauncher.exe" };
+		private static string[] EXECUTABLES = { "SkyrimLauncher.exe" };
 		private static string[] CRITICAL_PLUGINS = { "skyrim.esm" };
 		private const string MODE_ID = "Skyrim";
-		
+
 		#region Properties
 
 		/// <summary>
@@ -70,7 +70,7 @@ namespace Nexus.Client.Games.Skyrim
 		{
 			get
 			{
-				return new Theme(Properties.Resources.skyrim_logo, Color.FromArgb(50, 104, 158));
+				return new Theme(Properties.Resources.skyrim_logo,Color.FromArgb(50, 104, 158),null);
 			}
 		}
 

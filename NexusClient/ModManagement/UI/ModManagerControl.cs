@@ -9,18 +9,18 @@ using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands.Generic;
-using Nexus.Client.Controls;
 using Nexus.Client.Mods;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
-using WeifenLuo.WinFormsUI.Docking;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.ModManagement.UI
 {
 	/// <summary>
 	/// The view that exposes mod management functionality.
 	/// </summary>
-	public partial class ModManagerControl : DockContent
+	public partial class ModManagerControl : ManagedFontDockContent
 	{
 		private ModManagerVM m_vmlViewModel = null;
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();
@@ -93,6 +93,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			this.Load += new EventHandler(ModManagerControl_Load);
 			InitializeComponent();
+
+			lvwMods.FontChanged += new EventHandler(lvwMods_FontChanged);
+
 			clmModName.Name = "ModName";
 			clmVersion.Name = "HumanReadableVersion";
 			clmWebVersion.Name = "WebVersion";
@@ -925,6 +928,26 @@ namespace Nexus.Client.ModManagement.UI
 			else
 				UpdateSummary(null);
 			SetCommandExecutableStatus();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.FontChanged"/> event of the mod list.
+		/// </summary>
+		/// <remarks>
+		/// This updates the subitems to the new font.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void lvwMods_FontChanged(object sender, EventArgs e)
+		{
+			foreach (ListViewItem lviItem in lvwMods.Items)
+			{
+				if (lviItem.Font != lvwMods.Font)
+					lviItem.Font = new Font(lvwMods.Font.FontFamily, lviItem.Font.Size, lviItem.Font.Style);
+				foreach (ListViewItem.ListViewSubItem lsiSubItem in lviItem.SubItems)
+					if (lsiSubItem.Font != lvwMods.Font)
+						lsiSubItem.Font = new Font(lvwMods.Font.FontFamily, lsiSubItem.Font.Size, lsiSubItem.Font.Style);
+			}
 		}
 
 		/// <summary>

@@ -32,8 +32,8 @@ namespace Nexus.Client.Games.WorldOfTanks
 			this.lblTitle = new System.Windows.Forms.Label();
 			this.pnlShadow = new System.Windows.Forms.Panel();
 			this.pnlLight = new System.Windows.Forms.Panel();
-			this.wizSetup = new Nexus.Client.Controls.WizardControl();
-			this.vtpDirectories = new Nexus.Client.Controls.VerticalTabPage();
+			this.wizSetup = new Nexus.UI.Controls.WizardControl();
+			this.vtpDirectories = new Nexus.UI.Controls.VerticalTabPage();
 			this.rdcDirectories = new Nexus.Client.Games.Settings.RequiredDirectoriesControl();
 			this.panel1.SuspendLayout();
 			this.wizSetup.SuspendLayout();
@@ -55,10 +55,12 @@ namespace Nexus.Client.Games.WorldOfTanks
 			// lblTitle
 			// 
 			this.lblTitle.AutoSize = true;
-			this.lblTitle.Font = new System.Drawing.Font("Verdana", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblTitle, "HeadingText");
+			this.m_fpdFontProvider.SetFontSize(this.lblTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblTitle, System.Drawing.FontStyle.Bold);
 			this.lblTitle.Location = new System.Drawing.Point(12, 9);
 			this.lblTitle.Name = "lblTitle";
-			this.lblTitle.Size = new System.Drawing.Size(88, 17);
+			this.lblTitle.Size = new System.Drawing.Size(84, 20);
 			this.lblTitle.TabIndex = 2;
 			this.lblTitle.Text = "{0} Setup";
 			// 
@@ -94,7 +96,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 			this.wizSetup.Text = "wizardControl1";
 			this.wizSetup.Cancelled += new System.EventHandler(this.wizSetup_Cancelled);
 			this.wizSetup.Finished += new System.EventHandler(this.wizSetup_Finished);
-			this.wizSetup.SelectedTabPageChanged += new System.EventHandler<Nexus.Client.Controls.VerticalTabControl.TabPageEventArgs>(this.wizSetup_SelectedTabPageChanged);
+			this.wizSetup.SelectedTabPageChanged += new System.EventHandler<Nexus.UI.Controls.VerticalTabControl.TabPageEventArgs>(this.wizSetup_SelectedTabPageChanged);
 			// 
 			// vtpDirectories
 			// 
@@ -111,7 +113,9 @@ namespace Nexus.Client.Games.WorldOfTanks
 			// rdcDirectories
 			// 
 			this.rdcDirectories.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.rdcDirectories.InstallInfoLabel = "Install Info:";
 			this.rdcDirectories.Location = new System.Drawing.Point(0, 0);
+			this.rdcDirectories.ModDirectoryLabel = "Mod Directory:";
 			this.rdcDirectories.Name = "rdcDirectories";
 			this.rdcDirectories.Size = new System.Drawing.Size(455, 307);
 			this.rdcDirectories.TabIndex = 0;
@@ -140,8 +144,8 @@ namespace Nexus.Client.Games.WorldOfTanks
 		private System.Windows.Forms.Panel pnlLight;
 		private System.Windows.Forms.Panel pnlShadow;
 		private System.Windows.Forms.Label lblTitle;
-		private Nexus.Client.Controls.WizardControl wizSetup;
-		private Nexus.Client.Controls.VerticalTabPage vtpDirectories;
+		private Nexus.UI.Controls.WizardControl wizSetup;
+		private Nexus.UI.Controls.VerticalTabPage vtpDirectories;
 		private Nexus.Client.Games.Settings.RequiredDirectoriesControl rdcDirectories;
 	}
 }

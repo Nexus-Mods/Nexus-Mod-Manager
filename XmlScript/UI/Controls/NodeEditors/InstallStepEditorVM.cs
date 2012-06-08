@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 

@@ -12,11 +12,6 @@ namespace Nexus.Client.UI.Controls
 	/// </summary>
 	public partial class GameModeListViewItem : GameModeListViewItemBase
 	{
-		[DllImport("gdi32.dll")]
-		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
-
-		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
-
 		#region Constructors
 
 		/// <summary>
@@ -28,30 +23,6 @@ namespace Nexus.Client.UI.Controls
 		{
 			InitializeComponent();
 			TabStop = false;
-
-			IntPtr pbyt = IntPtr.Zero;
-			try
-			{
-				byte[][] rgbyt = new byte[2][];
-				rgbyt[0] = Properties.Resources.LinBiolinum_RI;
-				rgbyt[1] = Properties.Resources.LinBiolinum_RB;
-				for (Int32 i = 0; i <= rgbyt.GetUpperBound(0); i++)
-				{
-					pbyt = Marshal.AllocCoTaskMem(rgbyt[i].Length);
-					Marshal.Copy(rgbyt[i], 0, pbyt, rgbyt[i].Length);
-					pfcFonts.AddMemoryFont(pbyt, rgbyt[i].Length);
-					uint dummy = 0;
-					AddFontMemResourceEx(pbyt, (uint)rgbyt[i].Length, IntPtr.Zero, ref dummy);
-				}
-			}
-			finally
-			{
-				Marshal.FreeCoTaskMem(pbyt);
-			}
-			//these lines are an alternate method to load the font, but require
-			// the fonts to be files, instead of embedded resources
-			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RI.ttf"));
-			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RB.ttf"));
 
 			lblGameModeName.Text = GameMode.Name;
 			lblGameModeName.ForeColor = GameMode.ModeTheme.PrimaryColour;

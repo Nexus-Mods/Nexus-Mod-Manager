@@ -33,7 +33,7 @@
 			this.tsbRemove = new System.Windows.Forms.ToolStripButton();
 			this.tsbPause = new System.Windows.Forms.ToolStripButton();
 			this.tsbResume = new System.Windows.Forms.ToolStripButton();
-			this.lvwTasks = new Nexus.Client.Controls.DoubleBufferedListView();
+			this.lvwTasks = new Nexus.UI.Controls.DoubleBufferedListView();
 			this.clmOverallMessage = new System.Windows.Forms.ColumnHeader();
 			this.clmOverallProgress = new System.Windows.Forms.ColumnHeader();
 			this.clmItemMessage = new System.Windows.Forms.ColumnHeader();
@@ -45,6 +45,8 @@
 			// toolStrip1
 			// 
 			this.toolStrip1.Dock = System.Windows.Forms.DockStyle.Left;
+			this.m_fpdFontProvider.SetFontSet(this.toolStrip1, "MenuText");
+			this.m_fpdFontProvider.SetFontSize(this.toolStrip1, 9F);
 			this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -149,7 +151,6 @@
 			this.CloseButtonVisible = false;
 			this.Controls.Add(this.lvwTasks);
 			this.Controls.Add(this.toolStrip1);
-			this.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Name = "ActivityMonitorControl";
 			this.toolStrip1.ResumeLayout(false);
 			this.toolStrip1.PerformLayout();
@@ -162,7 +163,7 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripButton tsbCancel;
-		private Nexus.Client.Controls.DoubleBufferedListView lvwTasks;
+		private Nexus.UI.Controls.DoubleBufferedListView lvwTasks;
 		private System.Windows.Forms.ColumnHeader clmOverallMessage;
 		private System.Windows.Forms.ColumnHeader clmOverallProgress;
 		private System.Windows.Forms.ColumnHeader clmItemMessage;

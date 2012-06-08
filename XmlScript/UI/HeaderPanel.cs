@@ -16,7 +16,6 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 		/// </summary>
 		private class TransparentLabel : UserControl
 		{
-			private Label m_lblLabel = new Label();
 			private bool m_booPaintOnce = false;
 
 			#region Properties
@@ -25,15 +24,18 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 			/// Gets or sets the text of the label.
 			/// </summary>
 			/// <value>The text of the label.</value>
+			[DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+			[Browsable(true)]
+			[Category("Appearance")]
 			public override string Text
 			{
 				get
 				{
-					return m_lblLabel.Text;
+					return base.Text;
 				}
 				set
 				{
-					m_lblLabel.Text = value;
+					base.Text = value;
 					updateLayout();
 				}
 			}
@@ -42,15 +44,16 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 			/// Gets or sets the font of the label.
 			/// </summary>
 			/// <value>The font of the label.</value>
+			[DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
 			public override Font Font
 			{
 				get
 				{
-					return m_lblLabel.Font;
+					return base.Font;
 				}
 				set
 				{
-					m_lblLabel.Font = value;
+					base.Font = value;
 					updateLayout();
 				}
 			}
@@ -84,9 +87,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 			private void updateLayout()
 			{
 				using (Graphics g = this.CreateGraphics())
-				{
-					this.Size = g.MeasureString(m_lblLabel.Text, m_lblLabel.Font).ToSize();
-				}
+					ClientSize = TextRenderer.MeasureText(g, Text, Font, ClientSize, TextFormatFlags.NoClipping);
 			}
 
 			/// <summary>
@@ -111,10 +112,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 				{
 					m_booPaintOnce = false;
 					using (Graphics g = e.Graphics)
-					{
-						SolidBrush brush = new SolidBrush(this.ForeColor);
-						g.DrawString(this.Text, this.Font, brush, 1, 1);
-					}
+						TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ForeColor, BackColor);
 				}
 			}
 		}

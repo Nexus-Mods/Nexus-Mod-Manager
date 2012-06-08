@@ -39,8 +39,8 @@
 			this.label4 = new System.Windows.Forms.Label();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.panel2 = new System.Windows.Forms.Panel();
+			this.lblError = new Nexus.UI.Controls.AutosizeLabel();
 			this.panel3 = new System.Windows.Forms.Panel();
-			this.lblError = new Nexus.Client.Controls.AutosizeLabel();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
 			this.panel3.SuspendLayout();
@@ -144,8 +144,21 @@
 			this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
 			this.panel2.Location = new System.Drawing.Point(0, 23);
 			this.panel2.Name = "panel2";
-			this.panel2.Size = new System.Drawing.Size(256, 21);
+			this.panel2.Size = new System.Drawing.Size(256, 24);
 			this.panel2.TabIndex = 16;
+			// 
+			// lblError
+			// 
+			this.lblError.AllowSelection = true;
+			this.lblError.AutoScroll = true;
+			this.lblError.BackColor = System.Drawing.SystemColors.Control;
+			this.lblError.Cursor = System.Windows.Forms.Cursors.IBeam;
+			this.lblError.ForeColor = System.Drawing.Color.Red;
+			this.lblError.Location = new System.Drawing.Point(14, 3);
+			this.lblError.Name = "lblError";
+			this.lblError.Size = new System.Drawing.Size(230, 18);
+			this.lblError.TabIndex = 0;
+			this.lblError.Text = "The given login information is invalid.";
 			// 
 			// panel3
 			// 
@@ -158,23 +171,10 @@
 			this.panel3.Controls.Add(this.tbxUsername);
 			this.panel3.Controls.Add(this.tbxPassword);
 			this.panel3.Dock = System.Windows.Forms.DockStyle.Top;
-			this.panel3.Location = new System.Drawing.Point(0, 44);
+			this.panel3.Location = new System.Drawing.Point(0, 47);
 			this.panel3.Name = "panel3";
 			this.panel3.Size = new System.Drawing.Size(256, 144);
 			this.panel3.TabIndex = 17;
-			// 
-			// lblError
-			// 
-			this.lblError.AllowSelection = true;
-			this.lblError.AutoScroll = true;
-			this.lblError.BackColor = System.Drawing.SystemColors.Control;
-			this.lblError.Cursor = System.Windows.Forms.Cursors.IBeam;
-			this.lblError.ForeColor = System.Drawing.Color.Red;
-			this.lblError.Location = new System.Drawing.Point(14, 3);
-			this.lblError.Name = "lblError";
-			this.lblError.Size = new System.Drawing.Size(230, 15);
-			this.lblError.TabIndex = 0;
-			this.lblError.Text = "The given login information is invalid.";
 			// 
 			// LoginForm
 			// 
@@ -188,11 +188,11 @@
 			this.Controls.Add(this.panel3);
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.panel1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
 			this.MinimumSize = new System.Drawing.Size(262, 28);
-			this.Name = "LoginForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Login";
 			this.panel1.ResumeLayout(false);
@@ -218,7 +218,7 @@
 		private System.Windows.Forms.Label label4;
 		private System.Windows.Forms.Panel panel1;
 		private System.Windows.Forms.Panel panel2;
-		private Nexus.Client.Controls.AutosizeLabel lblError;
+		private Nexus.UI.Controls.AutosizeLabel lblError;
 		private System.Windows.Forms.Panel panel3;
 	}
 }
