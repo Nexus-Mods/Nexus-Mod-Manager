@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Windows.Forms;
+using Nexus.Client.UI;
 
 namespace Nexus.Client.ModManagement.UI
 {
 	/// <summary>
 	/// A form that prompt the users to overwrite an item.
 	/// </summary>
-	public partial class OverwriteForm : Form
+	public partial class OverwriteForm : ManagedFontForm
 	{
 		#region Properties
 

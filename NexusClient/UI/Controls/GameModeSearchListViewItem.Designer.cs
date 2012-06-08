@@ -35,7 +35,7 @@
 			this.lblFoundTitle = new System.Windows.Forms.Label();
 			this.butReject = new System.Windows.Forms.Button();
 			this.butAccept = new System.Windows.Forms.Button();
-			this.lblPath = new Nexus.Client.Controls.PathLabel();
+			this.lblPath = new Nexus.UI.Controls.PathLabel();
 			this.pnlNotFound = new System.Windows.Forms.Panel();
 			this.butOverride = new System.Windows.Forms.Button();
 			this.butSelectPath = new System.Windows.Forms.Button();
@@ -50,9 +50,9 @@
 			this.butCancel = new System.Windows.Forms.Button();
 			this.pbrProgress = new System.Windows.Forms.ProgressBar();
 			this.lblSearchingTitle = new System.Windows.Forms.Label();
-			this.lblProgressMessage = new Nexus.Client.Controls.PathLabel();
+			this.lblProgressMessage = new Nexus.UI.Controls.PathLabel();
 			this.pnlSet = new System.Windows.Forms.Panel();
-			this.lblFinalPath = new Nexus.Client.Controls.PathLabel();
+			this.lblFinalPath = new Nexus.UI.Controls.PathLabel();
 			this.pnlCandidate.SuspendLayout();
 			this.pnlNotFound.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).BeginInit();
@@ -65,7 +65,9 @@
 			// lblGameModeName
 			// 
 			this.lblGameModeName.Dock = System.Windows.Forms.DockStyle.Top;
-			this.lblGameModeName.Font = new System.Drawing.Font("Microsoft Sans Serif", 20F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblGameModeName, "HeadingText");
+			this.m_fpdFontProvider.SetFontSize(this.lblGameModeName, 20F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblGameModeName, System.Drawing.FontStyle.Bold);
 			this.lblGameModeName.Location = new System.Drawing.Point(0, 0);
 			this.lblGameModeName.Name = "lblGameModeName";
 			this.lblGameModeName.Size = new System.Drawing.Size(388, 31);
@@ -101,7 +103,9 @@
 			this.lblFoundTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.lblFoundTitle.AutoSize = true;
-			this.lblFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblFoundTitle, "GameSearchText");
+			this.m_fpdFontProvider.SetFontSize(this.lblFoundTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblFoundTitle, System.Drawing.FontStyle.Italic);
 			this.lblFoundTitle.ForeColor = System.Drawing.Color.Green;
 			this.lblFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblFoundTitle.Name = "lblFoundTitle";
@@ -144,7 +148,8 @@
 			// lblPath
 			// 
 			this.lblPath.AutoEllipsis = true;
-			this.lblPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblPath, "StandardText");
+			this.m_fpdFontProvider.SetFontSize(this.lblPath, 10F);
 			this.lblPath.Location = new System.Drawing.Point(7, 33);
 			this.lblPath.Name = "lblPath";
 			this.lblPath.Size = new System.Drawing.Size(378, 33);
@@ -220,7 +225,9 @@
 			this.lblNotFoundTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.lblNotFoundTitle.AutoSize = true;
-			this.lblNotFoundTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblNotFoundTitle, "GameSearchText");
+			this.m_fpdFontProvider.SetFontSize(this.lblNotFoundTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblNotFoundTitle, System.Drawing.FontStyle.Italic);
 			this.lblNotFoundTitle.ForeColor = System.Drawing.Color.DarkRed;
 			this.lblNotFoundTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblNotFoundTitle.Name = "lblNotFoundTitle";
@@ -296,7 +303,9 @@
 			this.lblSearchingTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.lblSearchingTitle.AutoSize = true;
-			this.lblSearchingTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblSearchingTitle, "GameSearchText");
+			this.m_fpdFontProvider.SetFontSize(this.lblSearchingTitle, 12F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblSearchingTitle, System.Drawing.FontStyle.Italic);
 			this.lblSearchingTitle.ForeColor = System.Drawing.Color.Blue;
 			this.lblSearchingTitle.Location = new System.Drawing.Point(6, 0);
 			this.lblSearchingTitle.Name = "lblSearchingTitle";
@@ -325,7 +334,8 @@
 			// lblFinalPath
 			// 
 			this.lblFinalPath.AutoEllipsis = true;
-			this.lblFinalPath.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblFinalPath, "StandardText");
+			this.m_fpdFontProvider.SetFontSize(this.lblFinalPath, 10F);
 			this.lblFinalPath.Location = new System.Drawing.Point(7, 3);
 			this.lblFinalPath.Name = "lblFinalPath";
 			this.lblFinalPath.Size = new System.Drawing.Size(378, 60);
@@ -343,8 +353,8 @@
 			this.Controls.Add(this.pnlSearching);
 			this.Controls.Add(this.pnlCandidate);
 			this.Controls.Add(this.pbxGameLogo);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.MinimumSize = new System.Drawing.Size(516, 97);
-			this.Name = "GameModeSearchListViewItem";
 			this.Size = new System.Drawing.Size(516, 519);
 			this.pnlCandidate.ResumeLayout(false);
 			this.pnlCandidate.PerformLayout();
@@ -365,7 +375,7 @@
 		private System.Windows.Forms.PictureBox pbxGameLogo;
 		private System.Windows.Forms.Label lblGameModeName;
 		private System.Windows.Forms.Panel pnlCandidate;
-		private Nexus.Client.Controls.PathLabel lblPath;
+		private Nexus.UI.Controls.PathLabel lblPath;
 		private System.Windows.Forms.Panel pnlNotFound;
 		private System.Windows.Forms.Button butReject;
 		private System.Windows.Forms.Button butAccept;
@@ -381,10 +391,10 @@
 		private System.Windows.Forms.Panel pnlSearching;
 		private System.Windows.Forms.ProgressBar pbrProgress;
 		private System.Windows.Forms.Label lblSearchingTitle;
-		private Nexus.Client.Controls.PathLabel lblProgressMessage;
+		private Nexus.UI.Controls.PathLabel lblProgressMessage;
 		private System.Windows.Forms.Button butOverride;
 		private System.Windows.Forms.Panel pnlSet;
-		private Nexus.Client.Controls.PathLabel lblFinalPath;
+		private Nexus.UI.Controls.PathLabel lblFinalPath;
 		private System.Windows.Forms.Button butCancel;
 	}
 }

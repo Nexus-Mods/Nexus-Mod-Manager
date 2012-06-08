@@ -44,14 +44,14 @@
 			this.tsbDeleteMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
-			this.lvwMods = new Nexus.Client.Controls.IconListView();
+			this.lvwMods = new Nexus.UI.Controls.IconListView();
 			this.clmModName = new System.Windows.Forms.ColumnHeader();
 			this.clmVersion = new System.Windows.Forms.ColumnHeader();
 			this.clmWebVersion = new System.Windows.Forms.ColumnHeader();
 			this.clmAuthor = new System.Windows.Forms.ColumnHeader();
 			this.sptSummaryInfo = new System.Windows.Forms.SplitContainer();
-			this.ipbScreenShot = new Nexus.Client.Controls.ImagePreviewBox();
-			this.flbInfo = new Nexus.Client.Controls.FormattedLabel();
+			this.ipbScreenShot = new Nexus.UI.Controls.ImagePreviewBox();
+			this.flbInfo = new Nexus.UI.Controls.FormattedLabel();
 			this.ofdChooseMod = new System.Windows.Forms.OpenFileDialog();
 			this.toolStrip1.SuspendLayout();
 			this.sptMods.Panel1.SuspendLayout();
@@ -66,6 +66,8 @@
 			// toolStrip1
 			// 
 			this.toolStrip1.Dock = System.Windows.Forms.DockStyle.Left;
+			this.m_fpdFontProvider.SetFontSet(this.toolStrip1, "MenuText");
+			this.m_fpdFontProvider.SetFontSize(this.toolStrip1, 9F);
 			this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -96,7 +98,7 @@
 			// 
 			this.addModToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod;
 			this.addModToolStripMenuItem.Name = "addModToolStripMenuItem";
-			this.addModToolStripMenuItem.Size = new System.Drawing.Size(177, 22);
+			this.addModToolStripMenuItem.Size = new System.Drawing.Size(195, 38);
 			this.addModToolStripMenuItem.Text = "Add Mod from File";
 			this.addModToolStripMenuItem.Click += new System.EventHandler(this.addModToolStripMenuItem_Click);
 			// 
@@ -104,7 +106,7 @@
 			// 
 			this.addModFromURLToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod_url;
 			this.addModFromURLToolStripMenuItem.Name = "addModFromURLToolStripMenuItem";
-			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(177, 22);
+			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(195, 38);
 			this.addModFromURLToolStripMenuItem.Text = "Add Mod from URL";
 			this.addModFromURLToolStripMenuItem.Click += new System.EventHandler(this.addModFromURLToolStripMenuItem_Click);
 			// 
@@ -279,10 +281,10 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.SplitContainer sptMods;
-		private Nexus.Client.Controls.IconListView lvwMods;
+		private Nexus.UI.Controls.IconListView lvwMods;
 		private System.Windows.Forms.SplitContainer sptSummaryInfo;
-		private Nexus.Client.Controls.ImagePreviewBox ipbScreenShot;
-		private Nexus.Client.Controls.FormattedLabel flbInfo;
+		private Nexus.UI.Controls.ImagePreviewBox ipbScreenShot;
+		private Nexus.UI.Controls.FormattedLabel flbInfo;
 		private System.Windows.Forms.ToolStripSplitButton tsbAddMod;
 		private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections;
 using Nexus.Client.Util;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 {

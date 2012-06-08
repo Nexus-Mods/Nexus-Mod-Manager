@@ -1,5 +1,5 @@
 ﻿using System;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Util;
 using System.Drawing;
 using System.Collections;

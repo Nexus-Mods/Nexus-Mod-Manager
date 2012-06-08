@@ -3,14 +3,15 @@ using System.IO;
 using System.Windows.Forms;
 using System.ComponentModel;
 using Nexus.Client.Util;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
+using Nexus.Client.UI;
 
 namespace Nexus.Client.Games.Settings
 {
 	/// <summary>
 	/// A control that encapsulates the management of the critical directory settings.
 	/// </summary>
-	public partial class RequiredDirectoriesControl : UserControl
+	public partial class RequiredDirectoriesControl : ManagedFontUserControl
 	{
 		private RequiredDirectoriesControlVM m_vmlViewModel = null;
 

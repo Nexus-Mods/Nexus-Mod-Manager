@@ -28,7 +28,7 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.rlvSteps = new Nexus.Client.Controls.ReorderableListView();
+			this.rlvSteps = new Nexus.UI.Controls.ReorderableListView();
 			this.clmStepName = new System.Windows.Forms.ColumnHeader();
 			this.label1 = new System.Windows.Forms.Label();
 			this.cbxSortOrder = new System.Windows.Forms.ComboBox();
@@ -47,7 +47,7 @@
 			this.rlvSteps.TabIndex = 1;
 			this.rlvSteps.UseCompatibleStateImageBehavior = false;
 			this.rlvSteps.Resize += new System.EventHandler(this.rlvSteps_Resize);
-			this.rlvSteps.ItemsReordered += new System.EventHandler<Nexus.Client.Controls.ReorderedItemsEventArgs>(this.rlvSteps_ItemsReordered);
+			this.rlvSteps.ItemsReordered += new System.EventHandler<Nexus.UI.Controls.ReorderedItemsEventArgs>(this.rlvSteps_ItemsReordered);
 			// 
 			// clmStepName
 			// 
@@ -90,7 +90,7 @@
 
 		#endregion
 
-		private Nexus.Client.Controls.ReorderableListView rlvSteps;
+		private Nexus.UI.Controls.ReorderableListView rlvSteps;
 		private System.Windows.Forms.ColumnHeader clmStepName;
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.ComboBox cbxSortOrder;

@@ -1,18 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.Settings;
+using Nexus.Client.UI;
 using Nexus.Client.UI.Controls;
 using Nexus.Client.Util.Collections;
-using System.Drawing;
 
 namespace Nexus.Client
 {
 	/// <summary>
 	/// Selects the game for which mods will be managed.
 	/// </summary>
-	public partial class GameModeSelectionForm : Form
+	public partial class GameModeSelectionForm : ManagedFontForm
 	{
 		private const string RESCAN_INSTALLED_GAMES = "__rescaninstalledgames";
 
@@ -92,7 +93,7 @@ namespace Nexus.Client
 			{
 				get
 				{
-					return new Theme(null, Color.Black);
+					return new Theme(null, Color.Black, null);
 				}
 			}
 

@@ -2,6 +2,7 @@
 using System.Windows.Forms;
 using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo.Settings.UI
@@ -9,7 +10,7 @@ namespace Nexus.Client.Games.Gamebryo.Settings.UI
 	/// <summary>
 	/// The page of general settings for the Gamebryo based game mode.
 	/// </summary>
-	public partial class GeneralSettingsPage : UserControl, ISettingsGroupView
+	public partial class GeneralSettingsPage : ManagedFontUserControl, ISettingsGroupView
 	{
 		#region ISettingsGroupView Members
 

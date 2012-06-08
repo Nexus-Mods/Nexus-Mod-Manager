@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{BD5A9056-F832-4DE4-97B2-38AB62342382}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -76,6 +76,10 @@
     <ProjectReference Include="..\NexusClient.Interface\NexusClient.Interface.csproj">
       <Project>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</Project>
       <Name>NexusClient.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\UI\UI.csproj">
+      <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
+      <Name>UI</Name>
     </ProjectReference>
     <ProjectReference Include="..\Util\Util.csproj">
       <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>

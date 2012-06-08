@@ -70,7 +70,7 @@ namespace Nexus.Client.Games.Fallout3
 		{
 			get
 			{
-				return new Theme(Properties.Resources.fo3_logo, Color.FromArgb(161, 180, 75));
+				return new Theme(Properties.Resources.fo3_logo, Color.FromArgb(161, 180, 75), null);
 			}
 		}
 

@@ -92,9 +92,9 @@
 			this.ControlBox = false;
 			this.Controls.Add(this.gameModeListView1);
 			this.Controls.Add(this.panel1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
-			this.Name = "GameDetectionForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Game Detection";
 			this.panel1.ResumeLayout(false);

@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Util;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.BackgroundTasks;

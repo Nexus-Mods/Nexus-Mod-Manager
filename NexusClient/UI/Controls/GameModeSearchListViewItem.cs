@@ -15,11 +15,6 @@ namespace Nexus.Client.UI.Controls
 	/// </summary>
 	public partial class GameModeSearchListViewItem : GameModeListViewItemBase
 	{
-		[DllImport("gdi32.dll")]
-		private static extern IntPtr AddFontMemResourceEx(IntPtr pbFont, uint cbFont, IntPtr pdv, [In] ref uint pcFonts);
-
-		private PrivateFontCollection pfcFonts = new PrivateFontCollection();
-
 		#region Properties
 
 		/// <summary>
@@ -48,34 +43,6 @@ namespace Nexus.Client.UI.Controls
 			p_gdtDetector.PropertyChanged += new PropertyChangedEventHandler(Detector_PropertyChanged);
 			p_gdtDetector.PathFound += new EventHandler<GameModeDiscoveredEventArgs>(Detector_PathFound);
 			p_gdtDetector.TaskEnded += new EventHandler<TaskEndedEventArgs>(Detector_TaskEnded);
-
-			IntPtr pbyt = IntPtr.Zero;
-			try
-			{
-				byte[][] rgbyt = new byte[2][];
-				rgbyt[0] = Properties.Resources.LinBiolinum_RI;
-				rgbyt[1] = Properties.Resources.LinBiolinum_RB;
-				for (Int32 i = 0; i <= rgbyt.GetUpperBound(0); i++)
-				{
-					pbyt = Marshal.AllocCoTaskMem(rgbyt[i].Length);
-					Marshal.Copy(rgbyt[i], 0, pbyt, rgbyt[i].Length);
-					pfcFonts.AddMemoryFont(pbyt, rgbyt[i].Length);
-					uint dummy = 0;
-					AddFontMemResourceEx(pbyt, (uint)rgbyt[i].Length, IntPtr.Zero, ref dummy);
-				}
-			}
-			finally
-			{
-				Marshal.FreeCoTaskMem(pbyt);
-			}
-			//these lines are an alternate method to load the font, but require
-			// the fonts to be files, instead of embedded resources
-			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RI.ttf"));
-			//pfcFonts.AddFontFile(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), @"data\fonts\LinBiolinum_RB.ttf"));
-
-
-			lblNotFoundTitle.Font = new Font(pfcFonts.Families[0], lblNotFoundTitle.Font.Size, lblNotFoundTitle.Font.Style, lblNotFoundTitle.Font.Unit);
-			lblFoundTitle.Font = new Font(pfcFonts.Families[0], lblFoundTitle.Font.Size, lblFoundTitle.Font.Style, lblFoundTitle.Font.Unit);
 
 			lblGameModeName.Text = GameMode.Name;
 			lblGameModeName.ForeColor = GameMode.ModeTheme.PrimaryColour;

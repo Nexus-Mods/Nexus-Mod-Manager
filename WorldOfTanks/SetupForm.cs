@@ -1,15 +1,15 @@
 using System;
 using System.ComponentModel;
 using System.Windows.Forms;
-using Nexus.Client.Controls;
 using Nexus.Client.UI;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.Games.WorldOfTanks
 {
 	/// <summary>
     /// This is the setup form for the WorldOfTanks game mode.
 	/// </summary>
-	public partial class SetupForm : Form, IView
+	public partial class SetupForm : ManagedFontForm, IView
 	{
 		private WoTSetupVM m_vmlViewModel = null;
 

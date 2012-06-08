@@ -138,7 +138,7 @@
 			this.Controls.Add(this.lblModPrompt);
 			this.Controls.Add(this.tbxModDirectory);
 			this.Controls.Add(this.lblModDirectoryLabel);
-			this.Name = "RequiredDirectoriesControl";
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.Size = new System.Drawing.Size(443, 405);
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).EndInit();
 			this.ResumeLayout(false);
