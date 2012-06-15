@@ -152,7 +152,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 
 			string strBaseScriptClassName = m_regScriptClass.Match(p_strCode).Groups[2].ToString();
 			string strCode = m_regScriptClass.Replace(p_strCode, "using " + BaseScriptType.Namespace + ";\r\n$1" + BaseScriptType.Name);
-			Regex regOtherScriptClasses = new Regex(String.Format(@"(class\s+\S+\s*:.*?){0}", strBaseScriptClassName));
+			Regex regOtherScriptClasses = new Regex(String.Format(@"(class\s+\S+\s*:.*?)(?<!\w){0}", strBaseScriptClassName));
 			strCode = regOtherScriptClasses.Replace(strCode, "$1" + BaseScriptType.Name);
 			strCode = m_regFommUsing.Replace(strCode, "");
 			byte[] bteAssembly = sccCompiler.Compile(strCode, BaseScriptType, out cecErrors);
