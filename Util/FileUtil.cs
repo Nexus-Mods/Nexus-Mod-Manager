@@ -263,6 +263,22 @@ namespace Nexus.Client.Util
 		}
 
 		/// <summary>
+		/// Determines if the given path is valid.
+		/// </summary>
+		/// <param name="p_strPath">The path to examine.</param>
+		/// <returns><c>true</c> if the given path is valid;
+		/// <c>false</c> if it contains invalid chars or it's too long.</returns>
+		public static bool IsValidPath(string p_strPath)
+		{
+			if (String.IsNullOrEmpty(p_strPath))
+				return false;
+			else if (p_strPath.Length > 260)
+				return false;
+			else
+				return !ContainsInvalidPathChars(p_strPath);
+		}
+
+		/// <summary>
 		/// Determines if the given path contains invalid characters.
 		/// </summary>
 		/// <param name="p_strPath">The path to examine.</param>
