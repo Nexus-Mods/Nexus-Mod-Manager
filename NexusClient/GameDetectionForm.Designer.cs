@@ -76,11 +76,11 @@
 			this.lblInfo.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.lblInfo.Location = new System.Drawing.Point(6, 6);
 			this.lblInfo.Name = "lblInfo";
-			this.lblInfo.Size = new System.Drawing.Size(94, 23);
-			this.lblInfo.Text = "*In order to continue, for each game:\nClick the red X: to stop searching or to edit the selected install path;\nClick the green checkmark: to confirm the install path.";
+			this.lblInfo.Size = new System.Drawing.Size(188, 23);
+			this.lblInfo.Text = string.Format("NMM needs to know what games you have installed on your system in order to continue.\nPlease use the red \"X\" or the green tick symbols next to each game to stop searching or to confirm your install paths.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
 			this.lblInfo.Visible = true;
 			this.lblInfo.TabIndex = 2;
-			this.lblInfo.MinimumSize = new System.Drawing.Size(336, 42);
+			this.lblInfo.MinimumSize = new System.Drawing.Size(768, 42);
 			// 
 			// gameModeListView1
 			// 
