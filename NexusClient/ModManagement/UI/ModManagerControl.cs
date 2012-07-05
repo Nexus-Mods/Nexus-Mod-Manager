@@ -417,7 +417,7 @@ namespace Nexus.Client.ModManagement.UI
 				if (!String.IsNullOrEmpty(strClipboard) && strClipboard.StartsWith("nxm://", StringComparison.OrdinalIgnoreCase))
 					strDefault = strClipboard;
 			}
-			string strURL = PromptDialog.ShowDialog(this, "Nexus Mod URL:", "Choose URL", strDefault, "nxm://.*", "Must be a Nexus Mod URL.");
+			string strURL = PromptDialog.ShowDialog(this, "NMM URL: (eg. nxm://Skyrim/mods/193/files/8998)", "Choose URL", strDefault, @"nxm://\w+/mods/\d+/files/\d+", "Must be a Nexus Mod URL.");
 			if (!String.IsNullOrEmpty(strURL))
 				ViewModel.AddModCommand.Execute(strURL);
 		}
