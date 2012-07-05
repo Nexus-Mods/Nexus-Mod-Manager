@@ -272,7 +272,7 @@ namespace Nexus.Client.Util
 		{
 			if (String.IsNullOrEmpty(p_strPath))
 				return false;
-			else if (p_strPath.Length > 260)
+			else if ((p_strPath.Length >= 260) || (p_strPath.LastIndexOf(@"\") >= 247))
 				return false;
 			else
 				return !ContainsInvalidPathChars(p_strPath);
