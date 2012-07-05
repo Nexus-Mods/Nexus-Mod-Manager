@@ -184,7 +184,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 					}
 					if (mifInfo != null)
 						break;
-					lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
+
+					if (intBestFoundWordCount > 0)
+						lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
 				}
 			}
 			if ((mifInfo == null) && !lstCandidates.IsNullOrEmpty())
