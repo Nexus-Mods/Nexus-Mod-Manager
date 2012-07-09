@@ -401,6 +401,47 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 		}
 
+		/// <summary>
+		/// Finds the mods containing the given search terms.
+		/// </summary>
+		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="p_strModAuthor">The Mod author.</param>
+		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
+		/// the given search terms.</param>
+		/// <returns>The mod info for the mods matching the given search criteria.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms)
+		{
+			string[] strTerms = p_strModNameSearchString.Split(' ', '-', '_');
+			string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					List<IModInfo> mfiMods = new List<IModInfo>();
+					if (String.IsNullOrEmpty(p_strModAuthor))
+						nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));
+					else
+						nmrApi.FindModsAuthor(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", p_strModAuthor).ForEach(x => mfiMods.Add(Convert(x)));
+					return mfiMods;
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+		}
+
         /// <summary>
         /// Finds the mods by Author name.
         /// </summary>

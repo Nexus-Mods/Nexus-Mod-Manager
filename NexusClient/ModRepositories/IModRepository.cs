@@ -123,5 +123,16 @@ namespace Nexus.Client.ModRepositories
         /// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
         /// <returns>The mod info for the mods matching the given search criteria.</returns>
         IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString);
+
+				/// <summary>
+		/// Finds the mods containing the given search terms.
+		/// </summary>
+		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="p_strModAuthor">The Mod author.</param>
+		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
+		/// the given search terms.</param>
+		/// <returns>The mod info for the mods matching the given search criteria.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms);
 	}
 }
