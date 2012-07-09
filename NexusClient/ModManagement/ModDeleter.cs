@@ -1,0 +1,67 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Util;
+using Nexus.Client.Mods;
+using Nexus.Client.Games;
+using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.PluginManagement;
+
+namespace Nexus.Client.ModManagement
+{
+	/// <summary>
+	/// This deletes mods.
+	/// </summary>
+	public class ModDeleter : ModUninstaller
+	{
+		#region Constructors
+
+		/// <summary>
+		/// A simple constructor that initializes the object with the given values.
+		/// </summary>
+		/// <param name="p_modMod">The mod being installed.</param>
+		/// <param name="p_gmdGameMode">The current game mode.</param>
+		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="p_ilgModInstallLog">The install log that tracks mod install info
+		/// for the current game mode</param>
+		/// <param name="p_pmgPluginManager">The plugin manager.</param>
+		public ModDeleter(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager)
+			:base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ilgModInstallLog, p_pmgPluginManager)
+		{
+		}
+
+		#endregion
+
+		/// <summary>
+		/// Raises the <see cref="IBackgroundTaskSet.TaskSetCompleted"/> event.
+		/// </summary>
+		/// <remarks>
+		/// This changes the message to reflect that fact that we are deleting the mod.
+		/// </remarks>
+		/// <param name="e">A <see cref="TaskSetCompletedEventArgs"/> describing the event arguments.</param>
+		protected override void OnTaskSetCompleted(TaskSetCompletedEventArgs e)
+		{
+			string strMessage = null;
+			if (e.Success)
+				DeleteModFile((IMod)e.ReturnValue);
+			else
+				strMessage = "Could not delete mod.";
+			base.OnTaskSetCompleted(new TaskSetCompletedEventArgs(e.Success, strMessage, e.ReturnValue));
+
+		}
+
+		/// <summary>
+		/// Deletes the given mod file.
+		/// </summary>
+		/// <remarks>
+		/// This deletes the physical mod file.
+		/// </remarks>
+		/// <param name="p_modMod">The mod to delete.</param>
+		protected void DeleteModFile(IMod p_modMod)
+		{
+			FileUtil.ForceDelete(p_modMod.Filename);
+		}
+	}
+}
