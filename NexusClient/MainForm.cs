@@ -150,6 +150,30 @@ namespace Nexus.Client
 			InitializeDocuments();
 		}
 
+		/// <summary>
+		/// Opens the selected game folder.
+		/// </summary>
+		protected void OpenGameFolder()
+		{
+			System.Diagnostics.Process.Start(ViewModel.GamePath);
+		}
+
+		/// <summary>
+		/// Opens NMM's mods folder for the current game.
+		/// </summary>
+		protected void OpenModsFolder()
+		{
+			System.Diagnostics.Process.Start(ViewModel.ModsPath);
+		}
+
+		/// <summary>
+		/// Opens NMM's install info folder for the current game.
+		/// </summary>
+		protected void OpenInstallFolder()
+		{
+			System.Diagnostics.Process.Start(ViewModel.InstallInfoPath);
+		}
+
 		#region Binding Helpers
 
 		/// <summary>
@@ -166,6 +190,7 @@ namespace Nexus.Client
 
 			BindLaunchCommands();
 			BindToolCommands();
+			BindFolderCommands();
 			BindChangeModeCommands();
 		}
 
@@ -441,6 +466,47 @@ namespace Nexus.Client
 		private void spbTools_ButtonClick(object sender, EventArgs e)
 		{
 			spbTools.DropDown.Show();
+		}
+
+		#endregion
+
+		#region Open Folders Helpers
+
+		/// <summary>
+		/// Binds the tool launch commands to the UI.
+		/// </summary>
+		protected void BindFolderCommands()
+		{
+			Command cmdGameFolder = new Command("Open Game Folder", "Open the game's root folder in the explorer window.", OpenGameFolder);
+			ToolStripMenuItem tmiGameFolder = new ToolStripMenuItem();
+			tmiGameFolder.ImageScaling = ToolStripItemImageScaling.None;
+			new ToolStripItemCommandBinding(tmiGameFolder, cmdGameFolder);
+			spbFolders.DropDownItems.Add(tmiGameFolder);
+
+			Command cmdModsFolder = new Command("Open NMM's Mods Folder", "Open NMM's mods folder in the explorer window.", OpenModsFolder);
+			ToolStripMenuItem tmiModsFolder = new ToolStripMenuItem();
+			tmiModsFolder.ImageScaling = ToolStripItemImageScaling.None;
+			new ToolStripItemCommandBinding(tmiModsFolder, cmdModsFolder);
+			spbFolders.DropDownItems.Add(tmiModsFolder);
+
+			Command cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
+			ToolStripMenuItem tmiInstallFolder = new ToolStripMenuItem();
+			tmiInstallFolder.ImageScaling = ToolStripItemImageScaling.None;
+			new ToolStripItemCommandBinding(tmiInstallFolder, cmdInstallFolder);
+			spbFolders.DropDownItems.Add(tmiInstallFolder);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the tools button.
+		/// </summary>
+		/// <remarks>
+		/// This displays the list of tools when the button is clicked.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void spbFolders_ButtonClick(object sender, EventArgs e)
+		{
+			spbFolders.DropDown.Show();
 		}
 
 		#endregion
