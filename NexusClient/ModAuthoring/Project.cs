@@ -22,6 +22,7 @@ namespace Nexus.Client.ModAuthoring
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
+		private string m_strInstallDate = null;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private IScript m_sctInstallScript = null;
@@ -126,6 +127,22 @@ namespace Nexus.Client.ModAuthoring
 			set
 			{
 				SetPropertyIfChanged(ref m_strDescription, value, () => Description);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the install date of the mod.
+		/// </summary>
+		/// <value>The install date of the mod.</value>
+		public string InstallDate
+		{
+			get
+			{
+				return m_strInstallDate;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strInstallDate, value, () => InstallDate);
 			}
 		}
 
@@ -442,6 +459,8 @@ namespace Nexus.Client.ModAuthoring
 				Author = p_mifInfo.Author;
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
 				Description = p_mifInfo.Description;
+			if (p_booOverwriteAllValues || String.IsNullOrEmpty(InstallDate))
+				InstallDate = p_mifInfo.InstallDate;
 			if (p_booOverwriteAllValues || (Website == null))
 				Website = p_mifInfo.Website;
 			if (p_booOverwriteAllValues || (Screenshot == null))

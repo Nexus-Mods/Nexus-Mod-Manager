@@ -46,6 +46,7 @@
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.lvwMods = new Nexus.UI.Controls.IconListView();
 			this.clmModName = new System.Windows.Forms.ColumnHeader();
+			this.clmInstallDate = new System.Windows.Forms.ColumnHeader();
 			this.clmVersion = new System.Windows.Forms.ColumnHeader();
 			this.clmWebVersion = new System.Windows.Forms.ColumnHeader();
 			this.clmAuthor = new System.Windows.Forms.ColumnHeader();
@@ -169,6 +170,7 @@
 			this.lvwMods.CheckBoxes = true;
 			this.lvwMods.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.clmModName,
+			this.clmInstallDate,
             this.clmVersion,
             this.clmWebVersion,
             this.clmAuthor});
@@ -196,6 +198,11 @@
 			// clmModName
 			// 
 			this.clmModName.Text = "Name";
+			// 
+			// clmInstallDate
+			// 
+			this.clmInstallDate.Text = "Install Date";
+			this.clmInstallDate.Width = 125;
 			// 
 			// clmVersion
 			// 
@@ -289,6 +296,7 @@
 		private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;
 		private System.Windows.Forms.ColumnHeader clmModName;
+		private System.Windows.Forms.ColumnHeader clmInstallDate;
 		private System.Windows.Forms.ColumnHeader clmVersion;
 		private System.Windows.Forms.ColumnHeader clmWebVersion;
 		private System.Windows.Forms.ColumnHeader clmAuthor;
