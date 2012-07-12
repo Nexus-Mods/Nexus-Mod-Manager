@@ -155,7 +155,8 @@ namespace Nexus.Client
 		/// </summary>
 		protected void OpenGameFolder()
 		{
-			System.Diagnostics.Process.Start(ViewModel.GamePath);
+			if (FileUtil.IsValidPath(ViewModel.GamePath))
+				System.Diagnostics.Process.Start(ViewModel.GamePath);
 		}
 
 		/// <summary>
@@ -163,7 +164,8 @@ namespace Nexus.Client
 		/// </summary>
 		protected void OpenModsFolder()
 		{
-			System.Diagnostics.Process.Start(ViewModel.ModsPath);
+			if (FileUtil.IsValidPath(ViewModel.ModsPath))
+				System.Diagnostics.Process.Start(ViewModel.ModsPath);
 		}
 
 		/// <summary>
@@ -171,7 +173,8 @@ namespace Nexus.Client
 		/// </summary>
 		protected void OpenInstallFolder()
 		{
-			System.Diagnostics.Process.Start(ViewModel.InstallInfoPath);
+			if (FileUtil.IsValidPath(ViewModel.InstallInfoPath))
+				System.Diagnostics.Process.Start(ViewModel.InstallInfoPath);
 		}
 
 		#region Binding Helpers
