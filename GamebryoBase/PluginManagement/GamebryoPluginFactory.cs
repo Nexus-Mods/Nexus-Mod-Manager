@@ -97,9 +97,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
             if (tpgPlugin.Records[0].Name == "TES4" && ((Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0) != ((((Record)tpgPlugin.Records[0]).Flags1 & 1) == 0)))
             {
                 if ((((Record)tpgPlugin.Records[0]).Flags1 & 1) == 0)
-                    stbDescription.Append(@"<span style='color:#ffd700;'><b>WARNING: This plugin has the file extension .esm, but its file header marks it as an esp!</b></span><br/><br/>");
+                    stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header marks it as an esp!</b></span><br/><br/>");
                 else
-                    stbDescription.Append(@"<span style='color:#ffd700;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+                    stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
             }
             stbDescription.AppendFormat(@"<b><u>{0}</u></b><br/>", strPluginName);
             if ((name != null) && (name != string.Empty))
