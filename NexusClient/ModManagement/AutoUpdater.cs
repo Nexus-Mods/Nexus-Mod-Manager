@@ -191,9 +191,14 @@ namespace Nexus.Client.ModManagement
 					if (String.IsNullOrEmpty(strSearchTerms))
 						strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_", " ").Replace("-", " ");
 					//use heuristics to find info
-					string strAuthor = p_modMod.Author;
 					if (!String.IsNullOrEmpty(strSearchTerms))
-						mifInfo = ModRepository.FindMods(strSearchTerms, strAuthor, true).FirstOrDefault();
+					{
+						string[] strTerms = strSearchTerms.Split(' ', '-', '_');
+						string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
+						string strAuthor = p_modMod.Author;
+						if (!String.IsNullOrEmpty(strSearchString))
+							mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
+					}
 				}
 				if (mifInfo == null)
 					return null;

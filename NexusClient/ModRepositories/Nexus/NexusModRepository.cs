@@ -412,8 +412,15 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms)
 		{
-			string[] strTerms = p_strModNameSearchString.Split(' ', '-', '_');
-			string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
+			string[] strTerms = p_strModNameSearchString.Split('"');
+			for (Int32 i = 0; i < strTerms.Length; i += 2)
+				strTerms[i] = strTerms[i].Replace(' ', '~');
+			//if the are an even number of terms we have unclosed quotes,
+			// which means the last item is not actually quoted:
+			// so replace its spaces, too.
+			if (strTerms.Length % 2 == 0)
+				strTerms[strTerms.Length - 1] = strTerms[strTerms.Length - 1].Replace(' ', '~');
+			string strSearchString = String.Join("\"", strTerms);
 
 			try
 			{
