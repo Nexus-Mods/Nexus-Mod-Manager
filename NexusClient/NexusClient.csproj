@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -269,6 +269,7 @@
     <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
     <Compile Include="IMessager.cs" />
     <Compile Include="MessagerClient.cs" />
+    <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
     <Compile Include="UI\Controls\GameModeListViewItem.cs">
       <SubType>UserControl</SubType>
     </Compile>

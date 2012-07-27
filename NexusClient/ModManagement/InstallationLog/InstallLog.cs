@@ -26,7 +26,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 	{
 		private static readonly IMod m_modOriginalValueMod = new DummyMod("ORIGINAL_VALUE", String.Format("Dummy Mod: {0}", "ORIGINAL_VALUE"));
 		private static readonly IMod m_modModManagerValueMod = new DummyMod("MOD_MANAGER_VALUE", String.Format("Dummy Mod: {0}", "MOD_MANAGER_VALUE"));
-		private static readonly Version CURRENT_VERSION = new Version("0.4.0.0");
+		private static readonly Version CURRENT_VERSION = new Version("0.5.0.0");
 		private static readonly object m_objEnlistmentLock = new object();
 		private static Dictionary<string, TransactionEnlistment> m_dicEnlistments = null;
 
@@ -257,7 +257,10 @@ namespace Nexus.Client.ModManagement.InstallationLog
 						Version verVersion = String.IsNullOrEmpty(strVersion) ? null : new Version(strVersion);
 						strVersion = xelVersion.Value;
 						string strModName = xelMod.Element("name").Value;
-						IMod modMod = new DummyMod(strModName, strModPath, verVersion, strVersion);
+						string strInstallDate = "<No Data>";
+						if (!(xelMod.Element("installDate") == null))
+							strInstallDate = xelMod.Element("installDate").Value;
+						IMod modMod = new DummyMod(strModName, strModPath, verVersion, strVersion, strInstallDate);
 						dicLoggedModInfo[xelMod.Attribute("key").Value] = modMod;
 					}
 				}
@@ -300,12 +303,16 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					else
 					{
 						string strModName = xelMod.Element("name").Value;
+						string strInstallDate = "<No Data>";
+						if (!(xelMod.Element("installDate") == null))
+							strInstallDate = xelMod.Element("installDate").Value;
 						strModPath = Path.Combine(ModInstallDirectory, strModPath);
 						XElement xelVersion = xelMod.Element("version");
 						string strVersion = xelVersion.Attribute("machineVersion").Value;
 						Version verVersion = String.IsNullOrEmpty(strVersion) ? null : new Version(strVersion);
 						strVersion = xelVersion.Value;
-						IMod modMod = ManagedModRegistry.GetMod(strModPath) ?? new DummyMod(strModName, strModPath, verVersion, strVersion);
+						IMod modMod = ManagedModRegistry.GetMod(strModPath) ?? new DummyMod(strModName, strModPath, verVersion, strVersion, strInstallDate);
+						modMod.InstallDate = strInstallDate;
 						m_amrModKeys.RegisterMod(modMod, xelMod.Attribute("key").Value);
 						if (modMod is DummyMod)
 							Trace.WriteLine("Missing");
@@ -371,7 +378,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 										new XAttribute("machineVersion", kvp.Key.MachineVersion ?? new Version()),
 										new XText(kvp.Key.HumanReadableVersion ?? "")),
 									new XElement("name",
-										new XText(kvp.Key.ModName))));
+										new XText(kvp.Key.ModName)),
+									new XElement("installDate",
+										new XText(kvp.Key.InstallDate ?? DateTime.Now.ToString()))));
 
 			XElement xelFiles = new XElement("dataFiles");
 			xelRoot.Add(xelFiles);
