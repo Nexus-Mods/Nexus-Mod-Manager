@@ -47,6 +47,12 @@ namespace Nexus.Client.Mods
 		/// <value>The description of the mod.</value>
 		string Description { get; }
 
+		 /// <summary>
+		/// Gets or sets the install date of the mod.
+		/// </summary>
+		/// <value>The install date of the mod.</value>
+		string InstallDate { get; }
+
 		/// <summary>
 		/// Gets or sets the website of the mod.
 		/// </summary>

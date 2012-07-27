@@ -158,7 +158,9 @@ namespace Nexus.Client
 						stbPromptMessage.AppendFormat("{0} was unable to start. It appears another instance of {0} is already running.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
 						stbPromptMessage.AppendLine("A Trace Log was created at:");
 						stbPromptMessage.AppendLine(htlListener.FilePath);
-						stbPromptMessage.AppendLine("Please include the contents of that file if you want to make a bug report:");
+						stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
+						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/");
+						stbPromptMessage.AppendLine("If you can't find a solution, please include the contents of that file if you want to make a bug report:");
 						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
 						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 						return false;

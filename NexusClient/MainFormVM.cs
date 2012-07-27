@@ -235,6 +235,42 @@ namespace Nexus.Client
 			}
 		}
 
+		/// <summary>
+		/// Gets the Game root folder.
+		/// </summary>
+		/// <value>The path to the game folder.</value>
+		public string GamePath
+		{
+			get
+			{
+				return GameMode.GameModeEnvironmentInfo.InstallationPath;
+			}
+		}
+
+		/// <summary>
+		/// Gets NMM's mods folder.
+		/// </summary>
+		/// <value>The path to NMM's mods folder.</value>
+		public string ModsPath
+		{
+			get
+			{
+				return GameMode.GameModeEnvironmentInfo.ModDirectory;
+			}
+		}
+
+		/// <summary>
+		/// Gets NMM's Install Info folder.
+		/// </summary>
+		/// <value>The path to NMM's Install Info folder.</value>
+		public string InstallInfoPath
+		{
+			get
+			{
+				return GameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
