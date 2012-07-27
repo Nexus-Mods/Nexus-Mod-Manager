@@ -25,6 +25,12 @@ namespace Nexus.Client.Mods
 		IModFormat Format { get; }
 
 		/// <summary>
+		/// Gets the install date of the mod.
+		/// </summary>
+		/// <value>The install date of the mod.</value>
+		string InstallDate { get; set; }
+
+		/// <summary>
 		/// Gets the internal path to the screenshot.
 		/// </summary>
 		/// <remarks>
