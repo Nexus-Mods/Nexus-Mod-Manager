@@ -31,6 +31,7 @@
 			this.toolStrip2 = new System.Windows.Forms.ToolStrip();
 			this.tsbMoveUp = new System.Windows.Forms.ToolStripButton();
 			this.tsbMoveDown = new System.Windows.Forms.ToolStripButton();
+			this.tsbDisableAll = new System.Windows.Forms.ToolStripButton();
 			this.splitContainer1 = new System.Windows.Forms.SplitContainer();
 			this.rlvPlugins = new Nexus.UI.Controls.ReorderableListView();
 			this.clmName = new System.Windows.Forms.ColumnHeader();
@@ -58,7 +59,8 @@
 			this.toolStrip2.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsbMoveUp,
-            this.tsbMoveDown});
+            this.tsbMoveDown,
+			this.tsbDisableAll});
 			this.toolStrip2.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip2.Name = "toolStrip2";
 			this.toolStrip2.Size = new System.Drawing.Size(37, 453);
@@ -82,6 +84,15 @@
 			this.tsbMoveDown.Name = "tsbMoveDown";
 			this.tsbMoveDown.Size = new System.Drawing.Size(34, 36);
 			this.tsbMoveDown.Text = "Move Down";
+			// 
+			// tsbDisableAll
+			// 
+			this.tsbDisableAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbDisableAll.Image = global::Nexus.Client.Properties.Resources.dialog_cancel_4;
+			this.tsbDisableAll.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbDisableAll.Name = "tsbDisableAll";
+			this.tsbDisableAll.Size = new System.Drawing.Size(34, 36);
+			this.tsbDisableAll.Text = "Disable All Plugins";
 			// 
 			// splitContainer1
 			// 
@@ -220,5 +231,6 @@
 		private System.Windows.Forms.ColumnHeader clmIndex;
 		private System.Windows.Forms.ToolStripButton tsbMoveUp;
 		private System.Windows.Forms.ToolStripButton tsbMoveDown;
+		private System.Windows.Forms.ToolStripButton tsbDisableAll;
 	}
 }

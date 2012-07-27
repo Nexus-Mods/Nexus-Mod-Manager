@@ -36,12 +36,14 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <param name="p_strFileName">The filename of the dummy mod.</param>
 			/// <param name="p_strHumanReadableVersion">The human readable form of the mod's version.</param>
 			/// <param name="p_verMachineVersion">The version of the mod.</param>
-			public DummyMod(string p_strName, string p_strFileName, Version p_verMachineVersion, string p_strHumanReadableVersion)
+			/// <param name="p_strInstallDate">The install date of the mod.</param>
+			public DummyMod(string p_strName, string p_strFileName, Version p_verMachineVersion, string p_strHumanReadableVersion, string p_strInstallDate)
 			{
 				ModName = p_strName;
 				Filename = p_strFileName;
 				MachineVersion = p_verMachineVersion;
 				HumanReadableVersion = p_strHumanReadableVersion;
+				InstallDate = p_strInstallDate;
 			}
 
 			#endregion
@@ -207,6 +209,12 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public string Description { get; set; }
 
 			/// <summary>
+			/// Gets or sets the install date of the mod.
+			/// </summary>
+			/// <value>The install date of the mod.</value>
+			public string InstallDate { get; set; }
+
+			/// <summary>
 			/// Gets or sets the website of the mod.
 			/// </summary>
 			/// <value>The website of the mod.</value>
@@ -242,6 +250,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					Author = p_mifInfo.Author;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
 					Description = p_mifInfo.Description;
+				if (p_booOverwriteAllValues || String.IsNullOrEmpty(InstallDate))
+					InstallDate = p_mifInfo.InstallDate;
 				if (p_booOverwriteAllValues || (Website == null))
 					Website = p_mifInfo.Website;
 				if (p_booOverwriteAllValues || (Screenshot == null))
