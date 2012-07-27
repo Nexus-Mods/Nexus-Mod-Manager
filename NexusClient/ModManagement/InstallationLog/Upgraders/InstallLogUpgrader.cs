@@ -22,6 +22,7 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 			m_dicUpgraders = new Dictionary<Version, UpgradeTask>();
 			m_dicUpgraders[new Version("0.2.0.0")] = new Upgrade0200Task();
 			m_dicUpgraders[new Version("0.3.0.0")] = new Upgrade0300Task();
+			m_dicUpgraders[new Version("0.4.0.0")] = new Upgrade0400Task();
 		}
 
 		#endregion
