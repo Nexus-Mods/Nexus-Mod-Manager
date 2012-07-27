@@ -49,6 +49,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
+		private string m_strInstallDate = null;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private IScript m_scpInstallScript = null;
@@ -156,6 +157,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strDescription, value, () => Description);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the install date of the mod.
+		/// </summary>
+		/// <value>The install date of the mod.</value>
+		public string InstallDate
+		{
+			get
+			{
+				return m_strInstallDate;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strInstallDate, value, () => InstallDate);
 			}
 		}
 
@@ -1098,7 +1115,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		#region Mod Info Management
 
 		/// <summary>
-		/// Updates the object's proerties to the values of the
+		/// Updates the object's properties to the values of the
 		/// given <see cref="IModInfo"/>.
 		/// </summary>
 		/// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
@@ -1136,6 +1153,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
 			{
 				Description = p_mifInfo.Description;
+				booChangedValue = true;
+			}
+			if (p_booOverwriteAllValues || String.IsNullOrEmpty(InstallDate))
+			{
+				InstallDate = p_mifInfo.InstallDate;
 				booChangedValue = true;
 			}
 			if (p_booOverwriteAllValues || (Website == null))
