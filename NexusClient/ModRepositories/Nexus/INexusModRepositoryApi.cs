@@ -15,16 +15,28 @@ namespace Nexus.Client.ModRepositories.Nexus
 	public interface INexusModRepositoryApi
 	{
 		/// <summary>
-		/// Gets the info about the specified mod from the repository.
+		/// Logs a user into the repository.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod for which to retrieved the metadata.</param>
-		/// <returns>The info about the specified mod from the repository.</returns>
+		/// <param name="p_strUsername">The username to authenticate.</param>
+		/// <param name="p_strPassword">The password to authenticate.</param>
+		/// <returns>An authentication token if the credentials are valid; <c>null</c> otherwise.</returns>
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
 			UriTemplate = "Sessions/?Login&username={p_strUsername}&password={p_strPassword}",
 			ResponseFormat = WebMessageFormat.Json)]
 		string Login(string p_strUsername, string p_strPassword);
+
+		/// <summary>
+		/// Validates the current security tokens.
+		/// </summary>
+		/// <returns>An authentication token if the tokens are valid; <c>null</c> otherwise.</returns>
+		[OperationContract]
+		[WebInvoke(
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "Sessions/?Validate",
+			ResponseFormat = WebMessageFormat.Json)]
+		string ValidateTokens();
 
 		/// <summary>
 		/// Gets the info about the specified mod from the repository.
