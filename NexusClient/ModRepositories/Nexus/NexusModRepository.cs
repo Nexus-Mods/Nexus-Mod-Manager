@@ -224,13 +224,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
 		public bool Login(string p_strUsername, string p_strPassword, out Dictionary<string, string> p_dicTokens)
 		{
-			string cookie = null;
+			string strCookie = null;
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(true).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					cookie = nmrApi.Login(p_strUsername, p_strPassword);
+					strCookie = nmrApi.Login(p_strUsername, p_strPassword);
 				}
 			}
 			catch (TimeoutException e)
@@ -246,8 +246,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
-			if (!String.IsNullOrEmpty(cookie))
-				m_dicAuthenticationTokens["sid"] = cookie;
+			if (!String.IsNullOrEmpty(strCookie))
+				m_dicAuthenticationTokens["sid"] = strCookie;
 			p_dicTokens = m_dicAuthenticationTokens;
 			return m_dicAuthenticationTokens.Count > 0;
 		}
@@ -260,18 +260,31 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <c>fales</c> otherwise.</returns>
 		public bool Login(Dictionary<string, string> p_dicTokens)
 		{
-			//TODO validate tokens
-			m_dicAuthenticationTokens = new Dictionary<string, string>();
-			foreach (KeyValuePair<string, string> kvpToken in p_dicTokens)
+			m_dicAuthenticationTokens = p_dicTokens;
+			string strCookie = null;
+			try
 			{
-				if (!kvpToken.Key.StartsWith("Nexus"))
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(true).CreateChannel())
 				{
-					m_dicAuthenticationTokens.Clear();
-					return false;
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					strCookie = nmrApi.ValidateTokens();
 				}
-				m_dicAuthenticationTokens[kvpToken.Key] = kvpToken.Value;
 			}
-			return true;
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+			}
+			if (String.IsNullOrEmpty(strCookie))
+				m_dicAuthenticationTokens = null;
+			return !String.IsNullOrEmpty(strCookie);
 		}
 
 		/// <summary>
