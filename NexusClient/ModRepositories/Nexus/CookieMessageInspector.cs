@@ -62,12 +62,17 @@ namespace Nexus.Client.ModRepositories.Nexus
 				request.Properties.Add(HttpRequestMessageProperty.Name, httpRequestMessage);
 			}
 			string strCookie = httpRequestMessage.Headers[COOKIE_HTTP_HEADER];
-			if (!String.IsNullOrEmpty(strCookie) && !strCookie.EndsWith(";") && (m_dicAuthenticationCookies != null))
+			if ((m_dicAuthenticationCookies != null) && (m_dicAuthenticationCookies.Count > 0))
 			{
-				strCookie += ";";
+				if (!String.IsNullOrEmpty(strCookie) && !strCookie.EndsWith(";"))
+					strCookie += ";";
 				foreach (KeyValuePair<string, string> kvpCookie in m_dicAuthenticationCookies)
-					strCookie += String.Format("{0}={1};", kvpCookie.Key, kvpCookie.Value);
+					strCookie += String.Format("{0}={1}; expires=Tue, 19-Jan-2038 03:14:07 GMT; path=/; domain=.nexusmods.com", kvpCookie.Key, kvpCookie.Value);
+
+
+					//strCookie += String.Format("{0}={1};", kvpCookie.Key, kvpCookie.Value);
 				httpRequestMessage.Headers[COOKIE_HTTP_HEADER] = strCookie;
+
 			}
 			return null;
 		}
