@@ -245,47 +245,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
-
-			string strSite = m_strWebsite;
-			string strLoginUrl = String.Format("http://{0}/modules/login/do_login.php", strSite);
-			HttpWebRequest hwrLogin = (HttpWebRequest)WebRequest.Create(strLoginUrl);
-			CookieContainer ckcCookies = new CookieContainer();
-			hwrLogin.CookieContainer = ckcCookies;
-			hwrLogin.Method = WebRequestMethods.Http.Post;
-			hwrLogin.ContentType = "application/x-www-form-urlencoded";
-			hwrLogin.UserAgent = UserAgent;
-			hwrLogin.ServicePoint.Expect100Continue = false;
-
-			string strFields = String.Format("user={0}&pass={1}", p_strUsername, p_strPassword);
-			byte[] bteFields = System.Text.Encoding.UTF8.GetBytes(strFields);
-			hwrLogin.ContentLength = bteFields.Length;
-
-			try
-			{
-				hwrLogin.GetRequestStream().Write(bteFields, 0, bteFields.Length);
-				string strLoginResultPage = null;
-				using (WebResponse wrpLoginResultPage = hwrLogin.GetResponse())
-				{
-					if (((HttpWebResponse)wrpLoginResultPage).StatusCode != HttpStatusCode.OK)
-						throw new Exception("Request to the login page failed with HTTP error: " + ((HttpWebResponse)wrpLoginResultPage).StatusCode);
-
-					Stream stmLoginResultPage = wrpLoginResultPage.GetResponseStream();
-					using (StreamReader srdLoginResultPage = new StreamReader(stmLoginResultPage))
-					{
-						strLoginResultPage = srdLoginResultPage.ReadToEnd();
-						srdLoginResultPage.Close();
-					}
-					wrpLoginResultPage.Close();
-				}
-			}
-			catch (WebException e)
-			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server: {1}", Name, strLoginUrl), e);
-			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
-			foreach (Cookie ckeToken in ckcCookies.GetCookies(new Uri("http://" + strSite)))
-				if (ckeToken.Name.EndsWith("_Member") || ckeToken.Name.EndsWith("_Premium"))
-					m_dicAuthenticationTokens[ckeToken.Name] = ckeToken.Value;
+			if (!String.IsNullOrEmpty(cookie))
+				m_dicAuthenticationTokens["sid"] = cookie;
 			p_dicTokens = m_dicAuthenticationTokens;
 			return m_dicAuthenticationTokens.Count > 0;
 		}
