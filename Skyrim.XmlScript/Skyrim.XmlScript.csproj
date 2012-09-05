@@ -61,9 +61,9 @@
       <Project>{8B2AD10B-4E22-4559-A784-648179225ADC}</Project>
       <Name>AntlrUtil</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Controls\Controls.csproj">
+    <ProjectReference Include="..\UI\UI.csproj">
       <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
-      <Name>Controls</Name>
+      <Name>UI</Name>
     </ProjectReference>
     <ProjectReference Include="..\Fallout3.XmlScript\Fallout3.XmlScript.csproj">
       <Project>{56382977-AB31-4CE1-A21B-101338A99FD0}</Project>

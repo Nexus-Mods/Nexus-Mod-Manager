@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Remoting.Messaging;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
@@ -173,10 +174,17 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 				//get mod info
-				if (!String.IsNullOrEmpty(p_modMod.Id))
-					mifInfo = ModRepository.GetModInfo(p_modMod.Id);
-				if (mifInfo == null)
-					mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
+				for (int i = 0; i <= 2; i++)
+				{
+					if (!String.IsNullOrEmpty(p_modMod.Id))
+						mifInfo = ModRepository.GetModInfo(p_modMod.Id);
+					if (mifInfo == null)
+						mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
+					if (mifInfo != null)
+						break;
+
+					Thread.Sleep(1000);
+				}
 				if (mifInfo == null)
 				{
 					string strSearchTerms = p_modMod.ModName;
@@ -184,7 +192,13 @@ namespace Nexus.Client.ModManagement
 						strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_", " ").Replace("-", " ");
 					//use heuristics to find info
 					if (!String.IsNullOrEmpty(strSearchTerms))
-						mifInfo = ModRepository.FindMods(strSearchTerms, true).FirstOrDefault();
+					{
+						string[] strTerms = strSearchTerms.Split(' ', '-', '_');
+						string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
+						string strAuthor = p_modMod.Author;
+						if (!String.IsNullOrEmpty(strSearchString))
+							mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
+					}
 				}
 				if (mifInfo == null)
 					return null;

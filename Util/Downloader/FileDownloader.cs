@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
-using System.Diagnostics;
 
 namespace Nexus.Client.Util.Downloader
 {

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
+using Nexus.Client.UI;
 using Nexus.Client.UI.Controls;
 
 namespace Nexus.Client
@@ -13,7 +14,7 @@ namespace Nexus.Client
 	/// <summary>
 	/// The view displaying the progress of the search for installed games.
 	/// </summary>
-	public partial class GameDetectionForm : Form
+	public partial class GameDetectionForm : ManagedFontForm
 	{
 		private GameDetectionVM m_vmlViewModel = null;
 
@@ -53,7 +54,7 @@ namespace Nexus.Client
 				do
 				{
 					intWidth = gameModeListView1.PreferredSize.Width / lstGameModes.Count * intIdealWidthCount;
-					intHeigth = gameModeListView1.PreferredSize.Height * lstGameModes.Count / intIdealWidthCount;
+					intHeigth = gameModeListView1.PreferredSize.Height * (Int32)Math.Ceiling((double)lstGameModes.Count / intIdealWidthCount);
 				} while ((szeMax.Width < intWidth) && (--intIdealWidthCount > 0));
 				if (intHeigth > szeMax.Height)
 				{

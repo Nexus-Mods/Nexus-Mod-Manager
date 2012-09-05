@@ -7,7 +7,7 @@ using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement.UI;
@@ -23,7 +23,7 @@ namespace Nexus.Client
 	/// <summary>
 	/// The main form of the mod manager.
 	/// </summary>
-	public partial class MainForm : Form
+	public partial class MainForm : ManagedFontForm
 	{
 		private MainFormVM m_vmlViewModel = null;
 		private FormWindowState m_fwsLastWindowState = FormWindowState.Normal;
@@ -49,7 +49,8 @@ namespace Nexus.Client
 			{
 				m_vmlViewModel = value;
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
-				pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
+				if (ViewModel.UsesPlugins)
+					pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
 				amcActivityMonitor.ViewModel = m_vmlViewModel.ActivityMonitorVM;
 				amcActivityMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				amcActivityMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
@@ -115,10 +116,13 @@ namespace Nexus.Client
 				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
 					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.AutoHidePortion;
+				if (!ViewModel.UsesPlugins)
+					pmcPluginManager.Hide();
 			}
 			else
 			{
-				pmcPluginManager.DockState = DockState.Unknown;
+				if (ViewModel.UsesPlugins)
+					pmcPluginManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
 				amcActivityMonitor.DockState = DockState.Unknown;
 				amcActivityMonitor.ShowHint = DockState.DockBottomAutoHide;
@@ -126,11 +130,15 @@ namespace Nexus.Client
 					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.Height;
 				amcActivityMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
 
-				pmcPluginManager.Show(dockPanel1);
+				if (ViewModel.UsesPlugins)
+					pmcPluginManager.Show(dockPanel1);
 				mmgModManager.Show(dockPanel1);
 				amcActivityMonitor.Show(dockPanel1);
 			}
-			pmcPluginManager.Show(dockPanel1);
+			if (ViewModel.UsesPlugins)
+				pmcPluginManager.Show(dockPanel1);
+			else
+				mmgModManager.Show(dockPanel1);
 		}
 
 		/// <summary>
@@ -140,6 +148,33 @@ namespace Nexus.Client
 		{
 			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove("mainForm");
 			InitializeDocuments();
+		}
+
+		/// <summary>
+		/// Opens the selected game folder.
+		/// </summary>
+		protected void OpenGameFolder()
+		{
+			if (FileUtil.IsValidPath(ViewModel.GamePath))
+				System.Diagnostics.Process.Start(ViewModel.GamePath);
+		}
+
+		/// <summary>
+		/// Opens NMM's mods folder for the current game.
+		/// </summary>
+		protected void OpenModsFolder()
+		{
+			if (FileUtil.IsValidPath(ViewModel.ModsPath))
+				System.Diagnostics.Process.Start(ViewModel.ModsPath);
+		}
+
+		/// <summary>
+		/// Opens NMM's install info folder for the current game.
+		/// </summary>
+		protected void OpenInstallFolder()
+		{
+			if (FileUtil.IsValidPath(ViewModel.InstallInfoPath))
+				System.Diagnostics.Process.Start(ViewModel.InstallInfoPath);
 		}
 
 		#region Binding Helpers
@@ -158,6 +193,7 @@ namespace Nexus.Client
 
 			BindLaunchCommands();
 			BindToolCommands();
+			BindFolderCommands();
 			BindChangeModeCommands();
 		}
 
@@ -433,6 +469,47 @@ namespace Nexus.Client
 		private void spbTools_ButtonClick(object sender, EventArgs e)
 		{
 			spbTools.DropDown.Show();
+		}
+
+		#endregion
+
+		#region Open Folders Helpers
+
+		/// <summary>
+		/// Binds the tool launch commands to the UI.
+		/// </summary>
+		protected void BindFolderCommands()
+		{
+			Command cmdGameFolder = new Command("Open Game Folder", "Open the game's root folder in the explorer window.", OpenGameFolder);
+			ToolStripMenuItem tmiGameFolder = new ToolStripMenuItem();
+			tmiGameFolder.ImageScaling = ToolStripItemImageScaling.None;
+			new ToolStripItemCommandBinding(tmiGameFolder, cmdGameFolder);
+			spbFolders.DropDownItems.Add(tmiGameFolder);
+
+			Command cmdModsFolder = new Command("Open NMM's Mods Folder", "Open NMM's mods folder in the explorer window.", OpenModsFolder);
+			ToolStripMenuItem tmiModsFolder = new ToolStripMenuItem();
+			tmiModsFolder.ImageScaling = ToolStripItemImageScaling.None;
+			new ToolStripItemCommandBinding(tmiModsFolder, cmdModsFolder);
+			spbFolders.DropDownItems.Add(tmiModsFolder);
+
+			Command cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
+			ToolStripMenuItem tmiInstallFolder = new ToolStripMenuItem();
+			tmiInstallFolder.ImageScaling = ToolStripItemImageScaling.None;
+			new ToolStripItemCommandBinding(tmiInstallFolder, cmdInstallFolder);
+			spbFolders.DropDownItems.Add(tmiInstallFolder);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the tools button.
+		/// </summary>
+		/// <remarks>
+		/// This displays the list of tools when the button is clicked.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void spbFolders_ButtonClick(object sender, EventArgs e)
+		{
+			spbFolders.DropDown.Show();
 		}
 
 		#endregion

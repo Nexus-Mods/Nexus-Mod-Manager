@@ -50,6 +50,7 @@
 			this.tsbLogout = new System.Windows.Forms.ToolStripButton();
 			this.spbChangeMode = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbTools = new System.Windows.Forms.ToolStripSplitButton();
+			this.spbFolders = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbSettings = new System.Windows.Forms.ToolStripButton();
 			this.tsbUpdate = new System.Windows.Forms.ToolStripButton();
 			this.dockPanel1 = new WeifenLuo.WinFormsUI.Docking.DockPanel();
@@ -58,6 +59,8 @@
 			// 
 			// toolStrip1
 			// 
+			this.m_fpdFontProvider.SetFontSet(this.toolStrip1, "MenuText");
+			this.m_fpdFontProvider.SetFontSize(this.toolStrip1, 9F);
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.spbLaunch,
@@ -65,6 +68,7 @@
             this.tsbLogout,
             this.spbChangeMode,
             this.spbTools,
+			this.spbFolders,
             this.tsbSettings,
             this.tsbUpdate});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
@@ -78,7 +82,7 @@
 			this.spbLaunch.Image = ((System.Drawing.Image)(resources.GetObject("spbLaunch.Image")));
 			this.spbLaunch.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbLaunch.Name = "spbLaunch";
-			this.spbLaunch.Size = new System.Drawing.Size(165, 36);
+			this.spbLaunch.Size = new System.Drawing.Size(166, 36);
 			this.spbLaunch.Text = "toolStripSplitButton1";
 			this.spbLaunch.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbLaunch_DropDownItemClicked);
 			// 
@@ -123,6 +127,16 @@
 			this.spbTools.Size = new System.Drawing.Size(48, 36);
 			this.spbTools.Text = "Tools";
 			this.spbTools.ButtonClick += new System.EventHandler(this.spbTools_ButtonClick);
+			// 
+			// spbFolders
+			// 
+			this.spbFolders.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.spbFolders.Image = global::Nexus.Client.Properties.Resources.folders_open;
+			this.spbFolders.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.spbFolders.Name = "spbFolders";
+			this.spbFolders.Size = new System.Drawing.Size(48, 36);
+			this.spbFolders.Text = "Open folders";
+			this.spbFolders.ButtonClick += new System.EventHandler(this.spbFolders_ButtonClick);
 			// 
 			// tsbSettings
 			// 
@@ -208,7 +222,7 @@
 			this.ClientSize = new System.Drawing.Size(804, 533);
 			this.Controls.Add(this.dockPanel1);
 			this.Controls.Add(this.toolStrip1);
-			this.Name = "MainForm";
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.Text = "MainForm";
 			this.toolStrip1.ResumeLayout(false);
 			this.toolStrip1.PerformLayout();
@@ -224,6 +238,7 @@
 		private System.Windows.Forms.ToolStripButton tsbSettings;
 		private System.Windows.Forms.ToolStripSplitButton spbChangeMode;
 		private System.Windows.Forms.ToolStripSplitButton spbTools;
+		private System.Windows.Forms.ToolStripSplitButton spbFolders;
 		private System.Windows.Forms.ToolStripButton tsbUpdate;
 		private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanel1;
 		private System.Windows.Forms.ToolStripButton tsbLogout;

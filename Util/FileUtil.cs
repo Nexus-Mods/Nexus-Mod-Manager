@@ -13,7 +13,7 @@ namespace Nexus.Client.Util
 	public class FileUtil
 	{
 		private static readonly Regex m_rgxCleanPath = new Regex("[" + Path.DirectorySeparatorChar + Path.AltDirectorySeparatorChar + "]{2,}");
-		
+
 		/// <summary>
 		/// Creates a temporary directory.
 		/// </summary>
@@ -263,6 +263,22 @@ namespace Nexus.Client.Util
 		}
 
 		/// <summary>
+		/// Determines if the given path is valid.
+		/// </summary>
+		/// <param name="p_strPath">The path to examine.</param>
+		/// <returns><c>true</c> if the given path is valid;
+		/// <c>false</c> if it contains invalid chars or it's too long.</returns>
+		public static bool IsValidPath(string p_strPath)
+		{
+			if (String.IsNullOrEmpty(p_strPath))
+				return false;
+			else if ((p_strPath.Length >= 260) || (p_strPath.LastIndexOf(@"\") >= 247))
+				return false;
+			else
+				return !ContainsInvalidPathChars(p_strPath);
+		}
+
+		/// <summary>
 		/// Determines if the given path contains invalid characters.
 		/// </summary>
 		/// <param name="p_strPath">The path to examine.</param>
@@ -275,18 +291,23 @@ namespace Nexus.Client.Util
 			Set<string> setChars = new Set<string>();
 
 			string strPath = Path.GetDirectoryName(p_strPath);
-			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
-				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
-			Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
-			if (rgxInvalidPath.IsMatch(strPath))
-				return true;
+			if (!String.IsNullOrEmpty(strPath))
+			{
+				foreach (char chrInvalidChar in Path.GetInvalidPathChars())
+					setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
+				Regex rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+				if (rgxInvalidPath.IsMatch(strPath))
+					return true;
+			}
 
 			string strFile = Path.GetFileName(p_strPath);
+			if (String.IsNullOrEmpty(strPath))
+				return false;
 			setChars.Clear();
 			foreach (char chrInvalidChar in Path.GetInvalidFileNameChars())
 				setChars.Add("\\x" + ((Int32)chrInvalidChar).ToString("x2"));
-			rgxInvalidPath = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
-			return rgxInvalidPath.IsMatch(strFile);
+			Regex rgxInvalidFile = new Regex("[" + String.Join("", setChars.ToArray()) + "]");
+			return rgxInvalidFile.IsMatch(strFile);
 		}
 
 		/// <summary>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using System.Diagnostics;
@@ -55,6 +56,10 @@ namespace Nexus.Client.ModManagement
 				{
 					//use heuristics to find info
 					lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, true));
+                    if (lstMods.Count == 0)
+                        lstMods.AddRange(ModRepository.FindMods(Regex.Replace(p_modMod.ModName, "[^a-zA-Z0-9_. ]+", "", RegexOptions.Compiled), true));
+                    if (lstMods.Count == 0)
+                        lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, p_modMod.Author));
 					if (lstMods.Count == 0)
 						lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, false));
 				}
@@ -85,7 +90,7 @@ namespace Nexus.Client.ModManagement
 			{
 				TraceUtil.TraceException(e);
 				//the repository is not available, so add a dummy value indicating such
-				lstMods.Add(new ModInfo(null, String.Format("{0} is unavailable", ModRepository.Name), null, null, null, null, null, null));
+				lstMods.Add(new ModInfo(null, String.Format("{0} is unavailable", ModRepository.Name), null, null, null, null, null, null, null));
 			}
 			return lstMods;
 		}

@@ -153,10 +153,10 @@
 			this.ControlBox = false;
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.panel1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
 			this.KeyPreview = true;
 			this.MinimumSize = new System.Drawing.Size(512, 28);
-			this.Name = "OverwriteForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Confirm Overwrite";
 			this.panel1.ResumeLayout(false);

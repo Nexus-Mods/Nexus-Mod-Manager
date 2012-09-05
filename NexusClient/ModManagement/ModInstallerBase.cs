@@ -1,10 +1,9 @@
 ﻿using System;
-using System.ComponentModel;
+using System.Runtime.Remoting.Messaging;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
-using System.Runtime.Remoting.Messaging;
 
 namespace Nexus.Client.ModManagement
 {

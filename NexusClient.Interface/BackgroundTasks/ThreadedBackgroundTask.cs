@@ -1,11 +1,8 @@
 ﻿using System;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq.Expressions;
 using System.Runtime.Remoting.Messaging;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Util;
 using System.Threading;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Util.Threading;
 
 namespace Nexus.Client
@@ -63,8 +60,23 @@ namespace Nexus.Client
 		/// The method that is called to start the backgound task.
 		/// </summary>
 		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="p_strMessage">The message describing the state of the task.</param>
 		/// <returns>A return value.</returns>
-		protected abstract object DoWork(object[] p_objArgs);
+		protected virtual object DoWork(object[] p_objArgs, out string p_strMessage)
+		{
+			p_strMessage = null;
+			return DoWork(p_objArgs);
+		}
+
+		/// <summary>
+		/// The method that is called to start the backgound task.
+		/// </summary>
+		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <returns>A return value.</returns>
+		protected virtual object DoWork(object[] p_objArgs)
+		{
+			return null;
+		}
 
 		#region Task Start
 
@@ -207,9 +219,10 @@ namespace Nexus.Client
 		private object RunThreadedWork(object p_objArgs)
 		{
 			object objReturnValue = null;
+			string strMessage = null;
 			try
 			{
-				objReturnValue = DoWork((object[])p_objArgs);
+				objReturnValue = DoWork((object[])p_objArgs, out strMessage);
 				switch (Status)
 				{
 					case TaskStatus.Cancelling:
@@ -235,10 +248,10 @@ namespace Nexus.Client
 				// so that any observers of this task, such as the
 				// ProgressDialog, know that the task has ended.
 				Status = TaskStatus.Error;
-				OnTaskEnded(objReturnValue);
+				OnTaskEnded(strMessage, objReturnValue);
 				throw;
 			}
-			OnTaskEnded(objReturnValue);
+			OnTaskEnded(strMessage, objReturnValue);
 			return objReturnValue;
 		}
 

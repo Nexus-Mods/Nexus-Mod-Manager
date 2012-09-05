@@ -150,7 +150,7 @@ namespace Nexus.Client
 		/// Gets the help information.
 		/// </summary>
 		/// <value>The help information.</value>
-		public HelpInformation HelpInfo { get; private set;}
+		public HelpInformation HelpInfo { get; private set; }
 
 		/// <summary>
 		/// Gets the title of the form.
@@ -223,6 +223,54 @@ namespace Nexus.Client
 		/// <value>The application's envrionment info.</value>
 		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
+		/// <summary>
+		/// Gets whether the game mode uses plugins.
+		/// </summary>
+		/// <value>Whether the game mode uses plugins.</value>
+		public bool UsesPlugins
+		{
+			get
+			{
+				return GameMode.UsesPlugins;
+			}
+		}
+
+		/// <summary>
+		/// Gets the Game root folder.
+		/// </summary>
+		/// <value>The path to the game folder.</value>
+		public string GamePath
+		{
+			get
+			{
+				return GameMode.GameModeEnvironmentInfo.InstallationPath;
+			}
+		}
+
+		/// <summary>
+		/// Gets NMM's mods folder.
+		/// </summary>
+		/// <value>The path to NMM's mods folder.</value>
+		public string ModsPath
+		{
+			get
+			{
+				return GameMode.GameModeEnvironmentInfo.ModDirectory;
+			}
+		}
+
+		/// <summary>
+		/// Gets NMM's Install Info folder.
+		/// </summary>
+		/// <value>The path to NMM's Install Info folder.</value>
+		public string InstallInfoPath
+		{
+			get
+			{
+				return GameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -241,14 +289,15 @@ namespace Nexus.Client
 		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
-			
+
 			GameMode = p_gmdGameMode;
 			GameMode.GameLauncher.GameLaunching += new CancelEventHandler(GameLauncher_GameLaunching);
 
 			ModRepository = p_mrpModRepository;
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
-			PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
+			if (GameMode.UsesPlugins)
+				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
 			ActivityMonitorVM = new ActivityMonitorVM(p_amtMonitor, p_eifEnvironmentInfo.Settings);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
@@ -261,7 +310,8 @@ namespace Nexus.Client
 			List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>();
 			lstSettingGroups.Add(new GeneralSettingsPage(gsgGeneralSettings));
 			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
-			lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
+			if (p_gmdGameMode.SettingsGroupViews != null)
+				lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
 
 			SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 

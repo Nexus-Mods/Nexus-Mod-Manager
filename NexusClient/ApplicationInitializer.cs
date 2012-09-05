@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client.ActivityMonitoring;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -134,6 +135,12 @@ namespace Nexus.Client
 		/// <value>The application's envrionment info.</value>
 		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
+		/// <summary>
+		/// Gets the <see cref="NexusFontSetResolver"/> to use.
+		/// </summary>
+		/// <value>The <see cref="NexusFontSetResolver"/> to use.</value>
+		public NexusFontSetResolver FontSetResolver { get; private set;}
+
 		#endregion
 
 		#region Constructors
@@ -142,9 +149,11 @@ namespace Nexus.Client
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public ApplicationInitializer(EnvironmentInfo p_eifEnvironmentInfo)
+		/// <param name="p_nfrFontSetResolver">The <see cref="NexusFontSetResolver"/> to use.</param>
+		public ApplicationInitializer(EnvironmentInfo p_eifEnvironmentInfo, NexusFontSetResolver p_nfrFontSetResolver)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			FontSetResolver = p_nfrFontSetResolver;
 			LoginUser = delegate { return false; };
 			ShowMessage = delegate { return DialogResult.Cancel; };
 			ConfirmMakeWritable = delegate(IEnvironmentInfo eif, string file, out bool remember) { remember = false; return false; };
@@ -266,12 +275,17 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
-			foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
-				if (!File.Exists(strPlugin))
-				{
-					p_vwmErrorMessage = new ViewMessage(String.Format("You are missing {0}. This file is present in all legitimate installs of Skyrim, so either you have deleted the file, or you have pirated Skyrim.{1}Please reinstall Skyrim, or buy Skyrim then reinstall it.", strPlugin, Environment.NewLine), null, "Missing File", MessageBoxIcon.Warning);
-					return false;
-				}
+			if (p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames != null)
+				foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
+					if (!File.Exists(strPlugin))
+					{
+						StringBuilder stbMessage = new StringBuilder();
+						stbMessage.AppendFormat("You are missing {0}.", strPlugin);
+						stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
+						p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
+						return false;
+					}
+
 			StepOverallProgress();
 
 			if (!p_gmfGameModeFactory.PerformInitialization(ShowView, ShowMessage))
@@ -292,6 +306,8 @@ namespace Nexus.Client
 			}
 			if (vwmWarning != null)
 				ShowMessage(vwmWarning);
+			//Now we have a game mode use it's theme.
+			FontSetResolver.AddFontSets(gmdGameMode.ModeTheme.FontSets);
 			StepOverallProgress();
 
 			if (!UacCheckEnvironment(gmdGameMode, out p_vwmErrorMessage))
@@ -462,7 +478,8 @@ namespace Nexus.Client
 				try
 				{
 					if (pifSetting == null)
-						pifSetting = tpeSettings.GetProperty("Item");
+						for (Type tpeBase = tpeSettings; (pifSetting == null) && (tpeBase != null); tpeBase = tpeBase.BaseType)
+							pifSetting = tpeBase.GetProperty("Item", BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance);
 				}
 				catch (AmbiguousMatchException)
 				{
@@ -696,25 +713,37 @@ namespace Nexus.Client
 			IInstallLog ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
 			Trace.Unindent();
 
-			Trace.TraceInformation("Initializing Plugin Registry...");
+			Trace.TraceInformation("Initializing Plugin Management Services...");
 			Trace.Indent();
-			PluginRegistry prgPluginRegistry = PluginRegistry.DiscoverManagedPlugins(p_gmdGameMode.GetPluginFactory(), p_gmdGameMode.GetPluginDiscoverer());
-			Trace.TraceInformation("Found {0} managed plugins.", prgPluginRegistry.RegisteredPlugins.Count);
-			Trace.Unindent();
+			PluginRegistry prgPluginRegistry = null;
+			IPluginOrderLog polPluginOrderLog = null;
+			ActivePluginLog aplPluginLog = null;
+			IPluginManager pmgPluginManager = null;
+			if (!p_gmdGameMode.UsesPlugins)
+				Trace.TraceInformation("Not required.");
+			else
+			{
+				Trace.TraceInformation("Initializing Plugin Registry...");
+				Trace.Indent();
+				prgPluginRegistry = PluginRegistry.DiscoverManagedPlugins(p_gmdGameMode.GetPluginFactory(), p_gmdGameMode.GetPluginDiscoverer());
+				Trace.TraceInformation("Found {0} managed plugins.", prgPluginRegistry.RegisteredPlugins.Count);
+				Trace.Unindent();
 
-			Trace.TraceInformation("Initializing Plugin Order Log...");
-			Trace.Indent();
-			IPluginOrderLog polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
-			Trace.Unindent();
+				Trace.TraceInformation("Initializing Plugin Order Log...");
+				Trace.Indent();
+				polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
+				Trace.Unindent();
 
-			Trace.TraceInformation("Initializing Active Plugin Log...");
-			Trace.Indent();
-			ActivePluginLog aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer(polPluginOrderLog));
-			Trace.Unindent();
+				Trace.TraceInformation("Initializing Active Plugin Log...");
+				Trace.Indent();
+				aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer(polPluginOrderLog));
+				Trace.Unindent();
 
-			Trace.TraceInformation("Initializing Plugin Manager...");
-			Trace.Indent();
-			IPluginManager pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator());
+				Trace.TraceInformation("Initializing Plugin Manager...");
+				Trace.Indent();
+				pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator());
+				Trace.Unindent();
+			}
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Activity Monitor...");
@@ -744,9 +773,11 @@ namespace Nexus.Client
 			Trace.TraceInformation("Scanning for read-only files...");
 			Trace.Indent();
 			List<string> lstFiles = new List<string>();
-			foreach (string strPath in p_gmdGameMode.WritablePaths)
-				if (File.Exists(strPath))
-					lstFiles.Add(strPath);
+			IEnumerable<string> enmWritablePaths = p_gmdGameMode.WritablePaths;
+			if (enmWritablePaths != null)
+				foreach (string strPath in enmWritablePaths)
+					if (File.Exists(strPath))
+						lstFiles.Add(strPath);
 			foreach (string strFile in lstFiles)
 			{
 				FileInfo fifPlugin = new FileInfo(strFile);

@@ -31,6 +31,7 @@
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.butCancel = new System.Windows.Forms.Button();
 			this.butOK = new System.Windows.Forms.Button();
+			this.lblInfo = new System.Windows.Forms.Label();
 			this.gameModeListView1 = new Nexus.Client.UI.Controls.GameModeListView();
 			this.panel1.SuspendLayout();
 			this.SuspendLayout();
@@ -39,17 +40,18 @@
 			// 
 			this.panel1.Controls.Add(this.butCancel);
 			this.panel1.Controls.Add(this.butOK);
+			this.panel1.Controls.Add(this.lblInfo);
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Bottom;
 			this.panel1.Location = new System.Drawing.Point(0, 223);
 			this.panel1.Name = "panel1";
-			this.panel1.Size = new System.Drawing.Size(284, 41);
+			this.panel1.Size = new System.Drawing.Size(284, 48);
 			this.panel1.TabIndex = 0;
 			// 
 			// butCancel
 			// 
 			this.butCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.butCancel.Location = new System.Drawing.Point(197, 6);
+			this.butCancel.Location = new System.Drawing.Point(197, 12);
 			this.butCancel.Name = "butCancel";
 			this.butCancel.Size = new System.Drawing.Size(75, 23);
 			this.butCancel.TabIndex = 1;
@@ -61,13 +63,24 @@
 			// 
 			this.butOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.butOK.Enabled = false;
-			this.butOK.Location = new System.Drawing.Point(116, 6);
+			this.butOK.Location = new System.Drawing.Point(116, 12);
 			this.butOK.Name = "butOK";
 			this.butOK.Size = new System.Drawing.Size(75, 23);
 			this.butOK.TabIndex = 0;
 			this.butOK.Text = "OK";
 			this.butOK.UseVisualStyleBackColor = true;
 			this.butOK.Click += new System.EventHandler(this.butOK_Click);
+			// 
+			// lblInfo
+			// 
+			this.lblInfo.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.lblInfo.Location = new System.Drawing.Point(6, 6);
+			this.lblInfo.Name = "lblInfo";
+			this.lblInfo.Size = new System.Drawing.Size(188, 23);
+			this.lblInfo.Text = string.Format("NMM needs to know what games you have installed on your system in order to continue.\nPlease use the red \"X\" or the green tick symbols next to each game to stop searching or to confirm your install paths.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
+			this.lblInfo.Visible = true;
+			this.lblInfo.TabIndex = 2;
+			this.lblInfo.MinimumSize = new System.Drawing.Size(768, 42);
 			// 
 			// gameModeListView1
 			// 
@@ -92,9 +105,9 @@
 			this.ControlBox = false;
 			this.Controls.Add(this.gameModeListView1);
 			this.Controls.Add(this.panel1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
-			this.Name = "GameDetectionForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Game Detection";
 			this.panel1.ResumeLayout(false);
@@ -108,5 +121,6 @@
 		private Nexus.Client.UI.Controls.GameModeListView gameModeListView1;
 		private System.Windows.Forms.Button butCancel;
 		private System.Windows.Forms.Button butOK;
+		private System.Windows.Forms.Label lblInfo;
 	}
 }

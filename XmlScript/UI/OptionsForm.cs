@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using Nexus.Client.UI;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 {
 	/// <summary>
 	/// The form that displays the options that were specified in the XML configuration file.
 	/// </summary>
-	public partial class OptionsForm : Form
+	public partial class OptionsForm : ManagedFontForm
 	{
 		private XmlScript m_xcsScript = null;
 		private ConditionStateManager m_csmStateManager = null;

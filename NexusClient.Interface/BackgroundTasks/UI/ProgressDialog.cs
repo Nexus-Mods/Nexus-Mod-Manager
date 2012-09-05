@@ -1,8 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Windows.Forms;
-using Nexus.Client.Util;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace Nexus.Client.BackgroundTasks.UI
 {

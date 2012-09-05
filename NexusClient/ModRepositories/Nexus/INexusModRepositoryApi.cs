@@ -89,5 +89,20 @@ namespace Nexus.Client.ModRepositories.Nexus
 			UriTemplate = "Mods/?Find&name={p_strModNameSearchString}&type={p_strType}",
 			ResponseFormat = WebMessageFormat.Json)]
 		List<NexusModInfo> FindMods(string p_strModNameSearchString, string p_strType);
+
+        /// <summary>
+        /// Finds the mods for the given Author.
+        /// </summary>
+        /// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+        /// <param name="p_strType">Whether the returned mods' names should include all of
+        /// the given search terms, or any of the terms.</param>
+        /// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
+        /// <returns>The mod info for the mods matching the given search criteria.</returns>
+        [OperationContract]
+        [WebGet(
+            BodyStyle = WebMessageBodyStyle.Bare,
+            UriTemplate = "Mods/?Find&name={p_strModNameSearchString}&author={p_strAuthorSearchString}&type={p_strType}",
+            ResponseFormat = WebMessageFormat.Json)]
+        List<NexusModInfo> FindModsAuthor(string p_strModNameSearchString, string p_strType, string p_strAuthorSearchString);
 	}
 }

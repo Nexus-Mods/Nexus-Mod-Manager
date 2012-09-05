@@ -37,7 +37,9 @@
 			// 
 			this.lblGameModeName.AutoSize = true;
 			this.lblGameModeName.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.lblGameModeName.Font = new System.Drawing.Font("Microsoft Sans Serif", 20F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.lblGameModeName, "HeadingText");
+			this.m_fpdFontProvider.SetFontSize(this.lblGameModeName, 20F);
+			this.m_fpdFontProvider.SetFontStyle(this.lblGameModeName, System.Drawing.FontStyle.Bold);
 			this.lblGameModeName.Location = new System.Drawing.Point(60, 0);
 			this.lblGameModeName.MinimumSize = new System.Drawing.Size(100, 60);
 			this.lblGameModeName.Name = "lblGameModeName";

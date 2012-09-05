@@ -31,14 +31,15 @@
 			this.toolStrip2 = new System.Windows.Forms.ToolStrip();
 			this.tsbMoveUp = new System.Windows.Forms.ToolStripButton();
 			this.tsbMoveDown = new System.Windows.Forms.ToolStripButton();
+			this.tsbDisableAll = new System.Windows.Forms.ToolStripButton();
 			this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-			this.rlvPlugins = new Nexus.Client.Controls.ReorderableListView();
+			this.rlvPlugins = new Nexus.UI.Controls.ReorderableListView();
 			this.clmName = new System.Windows.Forms.ColumnHeader();
 			this.clmIndexHex = new System.Windows.Forms.ColumnHeader();
 			this.clmIndex = new System.Windows.Forms.ColumnHeader();
 			this.splitContainer2 = new System.Windows.Forms.SplitContainer();
-			this.ipbImage = new Nexus.Client.Controls.ImagePreviewBox();
-			this.hlbPluginInfo = new Nexus.Client.Controls.HtmlLabel();
+			this.ipbImage = new Nexus.UI.Controls.ImagePreviewBox();
+			this.hlbPluginInfo = new Nexus.UI.Controls.HtmlLabel();
 			this.toolStrip2.SuspendLayout();
 			this.splitContainer1.Panel1.SuspendLayout();
 			this.splitContainer1.Panel2.SuspendLayout();
@@ -52,11 +53,14 @@
 			// toolStrip2
 			// 
 			this.toolStrip2.Dock = System.Windows.Forms.DockStyle.Left;
+			this.m_fpdFontProvider.SetFontSet(this.toolStrip2, "MenuText");
+			this.m_fpdFontProvider.SetFontSize(this.toolStrip2, 9F);
 			this.toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			this.toolStrip2.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsbMoveUp,
-            this.tsbMoveDown});
+            this.tsbMoveDown,
+			this.tsbDisableAll});
 			this.toolStrip2.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip2.Name = "toolStrip2";
 			this.toolStrip2.Size = new System.Drawing.Size(37, 453);
@@ -80,6 +84,15 @@
 			this.tsbMoveDown.Name = "tsbMoveDown";
 			this.tsbMoveDown.Size = new System.Drawing.Size(34, 36);
 			this.tsbMoveDown.Text = "Move Down";
+			// 
+			// tsbDisableAll
+			// 
+			this.tsbDisableAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbDisableAll.Image = global::Nexus.Client.Properties.Resources.dialog_cancel_4;
+			this.tsbDisableAll.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbDisableAll.Name = "tsbDisableAll";
+			this.tsbDisableAll.Size = new System.Drawing.Size(34, 36);
+			this.tsbDisableAll.Text = "Disable All Plugins";
 			// 
 			// splitContainer1
 			// 
@@ -116,9 +129,9 @@
 			this.rlvPlugins.UseCompatibleStateImageBehavior = false;
 			this.rlvPlugins.Resize += new System.EventHandler(this.rlvPlugins_Resize);
 			this.rlvPlugins.SelectedIndexChanged += new System.EventHandler(this.rlvPlugins_SelectedIndexChanged);
-			this.rlvPlugins.ItemsReordering += new System.EventHandler<Nexus.Client.Controls.ReorderingItemsEventArgs>(this.rlvPlugins_ItemsReordering);
+			this.rlvPlugins.ItemsReordering += new System.EventHandler<Nexus.UI.Controls.ReorderingItemsEventArgs>(this.rlvPlugins_ItemsReordering);
 			this.rlvPlugins.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.rlvPlugins_ColumnWidthChanging);
-			this.rlvPlugins.ItemsReordered += new System.EventHandler<Nexus.Client.Controls.ReorderedItemsEventArgs>(this.rlvPlugins_ItemsReordered);
+			this.rlvPlugins.ItemsReordered += new System.EventHandler<Nexus.UI.Controls.ReorderedItemsEventArgs>(this.rlvPlugins_ItemsReordered);
 			// 
 			// clmName
 			// 
@@ -209,14 +222,15 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip2;
 		private System.Windows.Forms.SplitContainer splitContainer1;
-		private Nexus.Client.Controls.ReorderableListView rlvPlugins;
+		private Nexus.UI.Controls.ReorderableListView rlvPlugins;
 		private System.Windows.Forms.ColumnHeader clmName;
 		private System.Windows.Forms.ColumnHeader clmIndexHex;
 		private System.Windows.Forms.SplitContainer splitContainer2;
-		private Nexus.Client.Controls.ImagePreviewBox ipbImage;
-		private Nexus.Client.Controls.HtmlLabel hlbPluginInfo;
+		private Nexus.UI.Controls.ImagePreviewBox ipbImage;
+		private Nexus.UI.Controls.HtmlLabel hlbPluginInfo;
 		private System.Windows.Forms.ColumnHeader clmIndex;
 		private System.Windows.Forms.ToolStripButton tsbMoveUp;
 		private System.Windows.Forms.ToolStripButton tsbMoveDown;
+		private System.Windows.Forms.ToolStripButton tsbDisableAll;
 	}
 }

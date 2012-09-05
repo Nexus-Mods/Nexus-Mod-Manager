@@ -121,6 +121,7 @@
 			// 
 			// rdcDirectories
 			// 
+			this.m_fpdFontProvider.SetFontSet(this.rdcDirectories, "StandardText");
 			this.rdcDirectories.InstallInfoLabel = "Install Info*:";
 			this.rdcDirectories.Location = new System.Drawing.Point(0, 3);
 			this.rdcDirectories.ModDirectoryLabel = "Mod Directory*:";
@@ -146,7 +147,8 @@
 			// 
 			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.label1.AutoSize = true;
-			this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.m_fpdFontProvider.SetFontSet(this.label1, "StandardText");
+			this.m_fpdFontProvider.SetFontStyle(this.label1, System.Drawing.FontStyle.Italic);
 			this.label1.Location = new System.Drawing.Point(233, 272);
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(137, 13);

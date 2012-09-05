@@ -96,13 +96,14 @@ namespace Nexus.Client.ModAuthoring
 		/// which indicates the type of source from which the mod is being built.
 		/// </remarks>
 		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="p_strMessage">The message describing the state of the task.</param>
 		/// <returns>A return value.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] p_objArgs, out string p_strMessage)
 		{
 			switch ((Sources)p_objArgs[0])
 			{
 				case Sources.Archive:
-					return DoFromArchive((IModFormatRegistry)p_objArgs[1], (string)p_objArgs[2], (ConfirmOverwriteCallback)p_objArgs[3]);
+					return DoFromArchive((IModFormatRegistry)p_objArgs[1], (string)p_objArgs[2], (ConfirmOverwriteCallback)p_objArgs[3], out p_strMessage);
 			}
 			throw new ArgumentException("Unrecognized activity source.");
 		}
@@ -128,13 +129,14 @@ namespace Nexus.Client.ModAuthoring
 			OverallMessage = "Building Mod...";
 			Sources srcModSource = Sources.Archive;
 			if (String.IsNullOrEmpty(p_strFilePath) || !File.Exists(p_strFilePath))
-				throw new ArgumentException("The given file path does not exist: " +  p_strFilePath);
+				throw new ArgumentException("The given file path does not exist: " + p_strFilePath);
 			if (!Archive.IsArchive(p_strFilePath))
 			{
 				Status = TaskStatus.Error;
 				OnTaskEnded(String.Format("Cannot add {0}. File format is not recognized.", Path.GetFileName(p_strFilePath)), null);
 				return;
 			}
+
 			Start(srcModSource, p_mfrFormats, p_strFilePath, p_dlgConfirmOverwrite);
 		}
 
@@ -151,10 +153,12 @@ namespace Nexus.Client.ModAuthoring
 		/// <param name="p_mfrFormats">The registry of supported mod formats.</param>
 		/// <param name="p_strArchivePath">The archive to build into a mod.</param>
 		/// <param name="p_dlgConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
+		/// <param name="p_strMessage">The message describing the state of the task.</param>
 		/// <returns>The paths to the new mods.</returns>
 		/// <exception cref="ArgumentException">Thrown if the specified path is not an archive.</exception>
-		private IList<string> DoFromArchive(IModFormatRegistry p_mfrFormats, string p_strArchivePath, ConfirmOverwriteCallback p_dlgConfirmOverwrite)
+		private IList<string> DoFromArchive(IModFormatRegistry p_mfrFormats, string p_strArchivePath, ConfirmOverwriteCallback p_dlgConfirmOverwrite, out string p_strMessage)
 		{
+			p_strMessage = null;
 			Trace.TraceInformation(String.Format("[{0}] Adding mod from archive.", p_strArchivePath));
 			if (String.IsNullOrEmpty(p_strArchivePath) || !File.Exists(p_strArchivePath) || !Archive.IsArchive(p_strArchivePath))
 				throw new ArgumentException("The specified path is not an archive file.", "p_strArchivePath");
@@ -215,7 +219,16 @@ namespace Nexus.Client.ModAuthoring
 						strTmpPath = FileUtility.CreateTempDirectory();
 						szeExtractor.FileExtractionStarted += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionStarted);
 						szeExtractor.FileExtractionFinished += new EventHandler<FileInfoEventArgs>(Extractor_FileExtractionFinished);
-						szeExtractor.ExtractArchive(strTmpPath);
+						try
+						{
+							szeExtractor.ExtractArchive(strTmpPath);
+						}
+						catch (FileNotFoundException ex)
+						{
+							Status = TaskStatus.Error;
+							p_strMessage = ex.Message;
+							return lstFoundMods;
+						}
 						for (Int32 i = 0; i < lstModsInArchive.Count; i++)
 							lstModsInArchive[i] = Path.Combine(strTmpPath, lstModsInArchive[i]);
 					}
@@ -291,7 +304,7 @@ namespace Nexus.Client.ModAuthoring
 			if (p_dlgConfirmOverwrite(strDest, out strDest))
 				return strDest;
 			return null;
-		}	
+		}
 
 		#endregion
 

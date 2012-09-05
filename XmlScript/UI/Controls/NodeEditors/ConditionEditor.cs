@@ -1,6 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
-using Nexus.Client.Controls;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI.Controls.NodeEditors
 {

@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
 using Nexus.Client.Games;
+using System.Text;
 
 namespace Nexus.Client
 {
@@ -28,10 +29,22 @@ namespace Nexus.Client
 		protected IEnvironmentInfo EnvironmentInfo { get; set; }
 
 		/// <summary>
+		/// Gets or sets the game modes factories for supported games.
+		/// </summary>
+		/// <value>The game modes factories for supported games.</value>
+		protected GameModeRegistry SupportedGameModes { get; set; }
+
+		/// <summary>
 		/// Gets or sets the game modes factories for installed games.
 		/// </summary>
 		/// <value>The game modes factories for installed games.</value>
 		protected GameModeRegistry InstalledGameModes { get; set; }
+
+		/// <summary>
+		/// Gets whether a rescan of install games was requested.
+		/// </summary>
+		/// <value>Whether a rescan of install games was requested.</value>
+		public bool RescanRequested { get; private set; }
 
 		#endregion
 
@@ -40,10 +53,12 @@ namespace Nexus.Client
 		/// <summary>
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
+		/// <param name="p_gmrSupportedGameModes">The games modes supported by the mod manager.</param>
 		/// <param name="p_gmrInstalledGameModes">The game modes factories for installed games.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public GameModeSelector(GameModeRegistry p_gmrInstalledGameModes, IEnvironmentInfo p_eifEnvironmentInfo)
+		public GameModeSelector(GameModeRegistry p_gmrSupportedGameModes, GameModeRegistry p_gmrInstalledGameModes, IEnvironmentInfo p_eifEnvironmentInfo)
 		{
+			SupportedGameModes = p_gmrSupportedGameModes;
 			InstalledGameModes = p_gmrInstalledGameModes;
 			EnvironmentInfo = p_eifEnvironmentInfo;
 		}
@@ -75,14 +90,24 @@ namespace Nexus.Client
 					lstGameModeInfos.Add(gmdGameMode);
 				GameModeSelectionForm msfSelector = new GameModeSelectionForm(lstGameModeInfos, EnvironmentInfo.Settings);
 				msfSelector.ShowDialog();
-				strSelectedGame = msfSelector.SelectedGameModeId;
+				if ((msfSelector.DialogResult == DialogResult.OK) && !(RescanRequested = msfSelector.RescanRequested))
+					strSelectedGame = msfSelector.SelectedGameModeId;
+				else
+					return null;
 			}
 			Trace.WriteLine(strSelectedGame);
 			if (!InstalledGameModes.IsRegistered(strSelectedGame))
 			{
-				string strError = String.Format("Unrecognized Game Mode: {0}", strSelectedGame);
-				Trace.TraceError(strError);
-				MessageBox.Show(strError, "Unrecognized Game Mode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				StringBuilder stbError = new StringBuilder();
+				if (!SupportedGameModes.IsRegistered(strSelectedGame))
+					stbError.AppendFormat("Unrecognized Game Mode: {0}", strSelectedGame);
+				else
+				{
+					stbError.AppendFormat("{0} is not set up to work with {1}", EnvironmentInfo.Settings.ModManagerName, SupportedGameModes.GetGameMode(strSelectedGame).GameModeDescriptor.Name).AppendLine();
+					stbError.AppendFormat("If {0} is installed, rescan for installed games from the Change Game toolbar item.", SupportedGameModes.GetGameMode(strSelectedGame).GameModeDescriptor.Name).AppendLine();
+				}
+				Trace.TraceError(stbError.ToString());
+				MessageBox.Show(stbError.ToString(), "Unrecognized Game Mode", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return null;
 			}
 

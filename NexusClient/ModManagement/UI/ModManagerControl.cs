@@ -9,18 +9,18 @@ using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands.Generic;
-using Nexus.Client.Controls;
 using Nexus.Client.Mods;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
-using WeifenLuo.WinFormsUI.Docking;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.ModManagement.UI
 {
 	/// <summary>
 	/// The view that exposes mod management functionality.
 	/// </summary>
-	public partial class ModManagerControl : DockContent
+	public partial class ModManagerControl : ManagedFontDockContent
 	{
 		private ModManagerVM m_vmlViewModel = null;
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();
@@ -93,7 +93,11 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			this.Load += new EventHandler(ModManagerControl_Load);
 			InitializeComponent();
+
+			lvwMods.FontChanged += new EventHandler(lvwMods_FontChanged);
+
 			clmModName.Name = "ModName";
+			clmInstallDate.Name = "InstallDate";
 			clmVersion.Name = "HumanReadableVersion";
 			clmWebVersion.Name = "WebVersion";
 			clmAuthor.Name = "Author";
@@ -373,6 +377,7 @@ namespace Nexus.Client.ModManagement.UI
 			lviMod.SubItems[clmVersion.Name].Text = p_modAdded.HumanReadableVersion;
 			UpdateNewestVersion(lviMod);
 			lviMod.SubItems[clmAuthor.Name].Text = p_modAdded.Author;
+			lviMod.SubItems[clmInstallDate.Name].Text = p_modAdded.InstallDate;
 			p_modAdded.PropertyChanged -= new PropertyChangedEventHandler(Mod_PropertyChanged);
 			p_modAdded.PropertyChanged += new PropertyChangedEventHandler(Mod_PropertyChanged);
 			SetModActivationCheck(lviMod, ViewModel.ActiveMods.Contains(p_modAdded));
@@ -414,7 +419,7 @@ namespace Nexus.Client.ModManagement.UI
 				if (!String.IsNullOrEmpty(strClipboard) && strClipboard.StartsWith("nxm://", StringComparison.OrdinalIgnoreCase))
 					strDefault = strClipboard;
 			}
-			string strURL = PromptDialog.ShowDialog(this, "Nexus Mod URL:", "Choose URL", strDefault, "nxm://.*", "Must be a Nexus Mod URL.");
+			string strURL = PromptDialog.ShowDialog(this, "NMM URL: (eg. nxm://Skyrim/mods/193/files/8998)", "Choose URL", strDefault, @"nxm://\w+/mods/\d+/files/\d+", "Must be a Nexus Mod URL.");
 			if (!String.IsNullOrEmpty(strURL))
 				ViewModel.AddModCommand.Execute(strURL);
 		}
@@ -845,7 +850,17 @@ namespace Nexus.Client.ModManagement.UI
 		private void lvwMods_ItemCheck(object sender, ItemCheckEventArgs e)
 		{
 			lock (lvwMods)
+			{
 				e.NewValue = ViewModel.ActiveMods.Contains((IMod)lvwMods.Items[e.Index].Tag) ? CheckState.Checked : CheckState.Unchecked;
+				if (e.NewValue == CheckState.Checked)
+				{
+					if (String.IsNullOrEmpty(lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text))
+						lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text = DateTime.Now.ToString();
+				}
+				else if (e.NewValue == CheckState.Unchecked)
+					if (!String.IsNullOrEmpty(lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text))
+						lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text = String.Empty;
+			}
 		}
 
 		/// <summary>
@@ -871,7 +886,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (!lviMod.Checked)
 				ViewModel.ActivateModCommand.Execute((IMod)lviMod.Tag);
 			else
-				ViewModel.DeactivateModCommand.Execute((IMod)lviMod.Tag);
+				ViewModel.DeactivateModCommand.Execute((IMod)lviMod.Tag);	
 		}
 
 		#endregion
@@ -905,6 +920,7 @@ namespace Nexus.Client.ModManagement.UI
 				return;
 			lock (lvwMods)
 				ViewModel.UpdateModName((IMod)lvwMods.Items[e.Item].Tag, e.Label);
+			e.CancelEdit = true;
 		}
 
 		#endregion
@@ -924,6 +940,26 @@ namespace Nexus.Client.ModManagement.UI
 			else
 				UpdateSummary(null);
 			SetCommandExecutableStatus();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.FontChanged"/> event of the mod list.
+		/// </summary>
+		/// <remarks>
+		/// This updates the subitems to the new font.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void lvwMods_FontChanged(object sender, EventArgs e)
+		{
+			foreach (ListViewItem lviItem in lvwMods.Items)
+			{
+				if (lviItem.Font != lvwMods.Font)
+					lviItem.Font = new Font(lvwMods.Font.FontFamily, lviItem.Font.Size, lviItem.Font.Style);
+				foreach (ListViewItem.ListViewSubItem lsiSubItem in lviItem.SubItems)
+					if (lsiSubItem.Font != lvwMods.Font)
+						lsiSubItem.Font = new Font(lvwMods.Font.FontFamily, lsiSubItem.Font.Size, lsiSubItem.Font.Style);
+			}
 		}
 
 		/// <summary>

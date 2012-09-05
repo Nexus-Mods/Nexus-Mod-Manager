@@ -103,14 +103,22 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strWebsite = "newvegas.nexusmods.com";
 					m_strEndpoint = "FONVNexusREST";
 					break;
+                case "Morrowind":
+                    m_strWebsite = "morrowind.nexusmods.com";
+                    m_strEndpoint = "MWNexusREST";
+                    break;
 				case "Oblivion":
-					m_strWebsite = "tes.nexusmods.com";
-					m_strEndpoint = "TESNexusREST";
+					m_strWebsite = "oblivion.nexusmods.com";
+                    m_strEndpoint = "OBNexusREST";
 					break;
 				case "Skyrim":
 					m_strWebsite = "skyrim.nexusmods.com";
 					m_strEndpoint = "SKYRIMNexusREST";
 					break;
+                case "WorldOfTanks":
+                    m_strWebsite = "worldoftanks.nexusmods.com";
+                    m_strEndpoint = "WOTNexusREST";
+                    break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
@@ -186,7 +194,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 					}
 					if (mifInfo != null)
 						break;
-					lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
+
+					if (intBestFoundWordCount > 0)
+						lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
 				}
 			}
 			if ((mifInfo == null) && !lstCandidates.IsNullOrEmpty())
@@ -244,6 +254,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			hwrLogin.Method = WebRequestMethods.Http.Post;
 			hwrLogin.ContentType = "application/x-www-form-urlencoded";
 			hwrLogin.UserAgent = UserAgent;
+			hwrLogin.ServicePoint.Expect100Continue = false;
 
 			string strFields = String.Format("user={0}&pass={1}", p_strUsername, p_strPassword);
 			byte[] bteFields = System.Text.Encoding.UTF8.GetBytes(strFields);
@@ -327,7 +338,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			// i could possiblly derive it based on the url of the service, but the service could be on a different server
 			string strURL = String.Format("http://{0}/downloads/file.php?id={1}", m_strWebsite, p_nmiNexusModInfo.Id);
 			Uri uriWebsite = new Uri(strURL);
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, uriWebsite, null);
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
 
@@ -421,6 +432,96 @@ namespace Nexus.Client.ModRepositories.Nexus
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 		}
+
+		/// <summary>
+		/// Finds the mods containing the given search terms.
+		/// </summary>
+		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="p_strModAuthor">The Mod author.</param>
+		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
+		/// the given search terms.</param>
+		/// <returns>The mod info for the mods matching the given search criteria.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms)
+		{
+			string[] strTerms = p_strModNameSearchString.Split('"');
+			for (Int32 i = 0; i < strTerms.Length; i += 2)
+				strTerms[i] = strTerms[i].Replace(' ', '~');
+			//if the are an even number of terms we have unclosed quotes,
+			// which means the last item is not actually quoted:
+			// so replace its spaces, too.
+			if (strTerms.Length % 2 == 0)
+				strTerms[strTerms.Length - 1] = strTerms[strTerms.Length - 1].Replace(' ', '~');
+			string strSearchString = String.Join("\"", strTerms);
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					List<IModInfo> mfiMods = new List<IModInfo>();
+					if (String.IsNullOrEmpty(p_strModAuthor))
+						nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));
+					else
+						nmrApi.FindModsAuthor(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", p_strModAuthor).ForEach(x => mfiMods.Add(Convert(x)));
+					return mfiMods;
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+		}
+
+        /// <summary>
+        /// Finds the mods by Author name.
+        /// </summary>
+        /// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+        /// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
+        /// <returns>The mod info for the mods matching the given search criteria.</returns>
+        /// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+        public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString)
+        {
+            string[] strTerms = p_strModNameSearchString.Split('"');
+            for (Int32 i = 0; i < strTerms.Length; i += 2)
+                strTerms[i] = strTerms[i].Replace(' ', '~');
+            //if the are an even number of terms we have unclosed quotes,
+            // which means the last item is not actually quoted:
+            // so replace its spaces, too.
+            if (strTerms.Length % 2 == 0)
+                strTerms[strTerms.Length - 1] = strTerms[strTerms.Length - 1].Replace(' ', '~');
+            string strSearchString = String.Join("\"", strTerms);
+            try
+            {
+                using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+                {
+                    INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+                    List<IModInfo> mfiMods = new List<IModInfo>();
+                    nmrApi.FindModsAuthor(strSearchString, "ANY", p_strAuthorSearchString).ForEach(x => mfiMods.Add(Convert(x)));
+                    return mfiMods;
+                }
+            }
+            catch (TimeoutException e)
+            {
+                throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+            }
+            catch (CommunicationException e)
+            {
+                throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+            }
+            catch (SerializationException e)
+            {
+                throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+            }
+        }
 
 		/// <summary>
 		/// Gets the list of files for the specified mod.
