@@ -98,7 +98,7 @@ namespace Nexus.Client.Games.DarkSouls
 			get
 			{
 				
-				return ("DSfix by Durante is required for Dark Souls modding, make sure it's properly installed and up to date." + Environment.NewLine + "Link: http://darksouls.nexusmods.com/mods/19/");
+				return ("DSfix by Durante is required for Dark Souls modding, make sure it's properly installed and up to date." + Environment.NewLine + "Link: http://darksouls.nexusmods.com/mods/19/" + Environment.NewLine + "Install it, then restart NMM.");
 			}
 		}
 
@@ -113,8 +113,9 @@ namespace Nexus.Client.Games.DarkSouls
 		public DarkSoulsGameModeDescriptor(IEnvironmentInfo p_eifEnvironmentInfo)
 			: base(p_eifEnvironmentInfo)
 		{
-			for (int i = 0; i < CRITICAL_PLUGINS.Length; i++)
-				CRITICAL_PLUGINS[i] = Path.Combine(ExecutablePath, CRITICAL_PLUGINS[i]);
+			if (!String.IsNullOrEmpty(ExecutablePath))
+				for (int i = 0; i < CRITICAL_PLUGINS.Length; i++)
+					CRITICAL_PLUGINS[i] = Path.Combine(ExecutablePath, CRITICAL_PLUGINS[i]);
 		}
 
 		#endregion
