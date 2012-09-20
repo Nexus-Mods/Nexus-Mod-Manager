@@ -4,6 +4,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Xml;
 using ChinhDo.Transactions;
+using Nexus.Client.Games.WorldOfTanks.Settings;
+using Nexus.Client.Games.WorldOfTanks.Settings.UI;
 using Nexus.Client.Games.WorldOfTanks.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -181,6 +183,9 @@ namespace Nexus.Client.Games.WorldOfTanks
 		public WoTGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
+			SettingsGroupViews = new List<ISettingsGroupView>();
+			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
+			((List<ISettingsGroupView>)SettingsGroupViews).Add(new GeneralSettingsPage(gsgGeneralSettings));
 		}
 
 		#endregion
