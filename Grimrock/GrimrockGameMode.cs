@@ -4,6 +4,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Xml;
 using ChinhDo.Transactions;
+using Nexus.Client.Games.Grimrock.Settings;
+using Nexus.Client.Games.Grimrock.Settings.UI;
 using Nexus.Client.Games.Grimrock.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -154,6 +156,9 @@ namespace Nexus.Client.Games.Grimrock
 		public GrimrockGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
+			SettingsGroupViews = new List<ISettingsGroupView>();
+			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
+			((List<ISettingsGroupView>)SettingsGroupViews).Add(new GeneralSettingsPage(gsgGeneralSettings));
 		}
 
 		#endregion
