@@ -19,6 +19,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		private string m_strMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
+		private string m_strInstallDate = null;
 		private string m_strWebsite = null;
 		private ExtendedImage m_eimScreenshot = null;
 
@@ -111,6 +112,22 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		}
 
 		/// <summary>
+		/// Gets or sets the Install Date of the mod.
+		/// </summary>
+		/// <value>The Install Date of the mod.</value>
+		public string InstallDate
+		{
+			get
+			{
+				return m_strInstallDate;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strInstallDate, value, () => InstallDate);
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets the website of the mod.
 		/// </summary>
 		/// <value>The website of the mod.</value>
@@ -185,6 +202,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				midInfo.HumanReadableVersion = HumanReadableVersion;
 				midInfo.MachineVersion = String.IsNullOrEmpty(MachineVersion) ? null : new Version(MachineVersion);
 				midInfo.ModName = ModName;
+				midInfo.InstallDate = InstallDate;
 				midInfo.Website = String.IsNullOrEmpty(Website) ? null : new Uri(Website);
 				midInfo.Screenshot = Screenshot;
 				ModInfo.UpdateInfo(midInfo, true);
@@ -219,6 +237,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				HumanReadableVersion = p_mifModInfo.HumanReadableVersion;
 				MachineVersion = (p_mifModInfo.MachineVersion == null) ? null : p_mifModInfo.MachineVersion.ToString();
 				ModName = p_mifModInfo.ModName;
+				InstallDate = p_mifModInfo.InstallDate;
 				Website = (p_mifModInfo.Website == null) ? null : p_mifModInfo.Website.ToString();
 				Screenshot = p_mifModInfo.Screenshot;
 			}
