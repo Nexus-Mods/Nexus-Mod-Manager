@@ -547,7 +547,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					foreach (string strUrl in nmrApi.GetModFileDownloadUrls(p_strModId, p_strFileId))
+					foreach (string strUrl in nmrApi.GetModFileDownloadUrls(p_strFileId))
 						lstDownloadUrls.Add(new Uri(strUrl));
 				}
 			}
@@ -581,7 +581,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					return nmrApi.GetModFile(p_strModId, p_strFileId);
+					return nmrApi.GetModFile(p_strFileId);
 				}
 			}
 			catch (TimeoutException e)
