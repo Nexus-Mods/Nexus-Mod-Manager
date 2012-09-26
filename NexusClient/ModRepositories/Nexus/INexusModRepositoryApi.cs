@@ -58,7 +58,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/{p_strModId}/Files/",
+			UriTemplate = "Files/indexfrommod/{p_strModId}",
 			ResponseFormat = WebMessageFormat.Json)]
 		List<NexusModFileInfo> GetModFiles(string p_strModId);
 
@@ -71,9 +71,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/{p_strModId}/Files/{p_strFileId}/",
+			UriTemplate = "Files/{p_strFileId}/",
 			ResponseFormat = WebMessageFormat.Json)]
-		NexusModFileInfo GetModFile(string p_strModId, string p_strFileId);
+		NexusModFileInfo GetModFile(string p_strFileId);
 
 		/// <summary>
 		/// Gets the download URLs of all the parts associated with the specified file.
@@ -84,9 +84,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/{p_strModId}/Files/{p_strFileId}/DownloadMulti/",
+			UriTemplate = "Files/download/{p_strFileId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		string[] GetModFileDownloadUrls(string p_strModId, string p_strFileId);
+		string[] GetModFileDownloadUrls(string p_strFileId);
 
 		/// <summary>
 		/// Finds the mods containing the given search terms.
