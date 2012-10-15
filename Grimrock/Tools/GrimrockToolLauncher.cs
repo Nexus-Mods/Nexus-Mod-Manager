@@ -1,12 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Nexus.Client.Games.Tools;
 
-namespace Nexus.Client.Games.Morrowind.Tools
+namespace Nexus.Client.Games.Grimrock.Tools
 {
     /// <summary>
-    /// Exposes the tools for Morrowind.
+	/// Exposes the tools for Grimrock.
     /// </summary>
-    public class MorrowindToolLauncher : IToolLauncher
+    public class GrimrockToolLauncher : IToolLauncher
     {
         private List<ITool> m_lstTools = new List<ITool>();
 
@@ -49,7 +49,7 @@ namespace Nexus.Client.Games.Morrowind.Tools
         /// </summary>
         /// <param name="p_gmdGameMode">>The game mode currently being managed.</param>
         /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-        public MorrowindToolLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
+		public GrimrockToolLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
         {
             GameMode = p_gmdGameMode;
             EnvironmentInfo = p_eifEnvironmentInfo;

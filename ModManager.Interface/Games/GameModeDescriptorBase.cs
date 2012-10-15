@@ -50,6 +50,20 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <value>The path to the game executable.</value>
+		public string ExecutablePath
+		{
+			get
+			{
+				if (EnvironmentInfo.Settings.ExecutablePaths.ContainsKey(ModeId))
+					return (string)EnvironmentInfo.Settings.ExecutablePaths[ModeId];
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Gets the list of critical plugin names, ordered by load order.
 		/// </summary>
 		/// <value>The list of critical plugin names, ordered by load order.</value>

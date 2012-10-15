@@ -91,6 +91,11 @@
 				&lt;PerGameModeSettingsOfString /&gt;
 			</Value>
 		</Setting>
+    <Setting Name="ExecutablePaths" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+        &lt;PerGameModeSettingsOfString /&gt;
+      </Value>
+    </Setting>
 		<Setting Name="CompletedSetup" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
 			<Value Profile="(Default)">
 				&lt;PerGameModeSettingsOfBoolean /&gt;
