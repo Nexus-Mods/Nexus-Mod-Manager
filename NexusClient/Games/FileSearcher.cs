@@ -211,6 +211,11 @@ namespace Nexus.Client.Games
 				// there are likely some other unusual cases
 				Trace.TraceInformation("IOException while getting files from: {0}", p_strPath);
 			}
+			catch (ArgumentException)
+			{
+				//There's something wrong with the path, looks like a drive or UNC name , so let's bail
+				return;
+			}
 			if (strHaystackFiles == null)
 				return;
 			for (Int32 i = 0; i < strHaystackFiles.Length; i++)
