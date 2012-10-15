@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using Nexus.Client.Games.Morrowind.Tools.AI;
-using Nexus.Client.Games.Gamebryo.Tools.AI.UI;
 using Nexus.Client.Games.Tools;
 
 namespace Nexus.Client.Games.Morrowind.Tools
@@ -66,11 +64,6 @@ namespace Nexus.Client.Games.Morrowind.Tools
         protected void SetupTools()
         {
             m_lstTools.Clear();
-
-            ArchiveInvalidation aitAI = new ArchiveInvalidation((MorrowindGameMode)GameMode);
-            aitAI.SetToolView(new ArchiveInvalidationView(aitAI));
-
-            m_lstTools.Add(aitAI);
         }
     }
 }
