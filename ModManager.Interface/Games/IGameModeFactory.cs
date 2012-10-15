@@ -40,6 +40,17 @@ namespace Nexus.Client.Games
 		string GetInstallationPath(string p_strGameInstallPath);
 
 		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <remarks>
+		/// This method uses the given path to the installed game
+		/// to determine the path to the game executable.
+		/// </remarks>
+		/// <returns>The path to the game executable, or
+		/// <c>null</c> if the path could be be determined.</returns>
+		string GetExecutablePath(string p_strGameInstallPath);
+
+		/// <summary>
 		/// Builds the game mode.
 		/// </summary>
 		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>

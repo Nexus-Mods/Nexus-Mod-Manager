@@ -4,9 +4,9 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Xml;
 using ChinhDo.Transactions;
-using Nexus.Client.Games.WorldOfTanks.Settings;
-using Nexus.Client.Games.WorldOfTanks.Settings.UI;
-using Nexus.Client.Games.WorldOfTanks.Tools;
+using Nexus.Client.Games.Grimrock.Settings;
+using Nexus.Client.Games.Grimrock.Settings.UI;
+using Nexus.Client.Games.Grimrock.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
@@ -19,43 +19,16 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
 
-namespace Nexus.Client.Games.WorldOfTanks
+namespace Nexus.Client.Games.Grimrock
 {
 	/// <summary>
-	/// Provides information required for the program to manage World of Tanks game's plugins and mods.
+	/// Provides information required for the program to manage Legend of Grimrock game's plugins and mods.
 	/// </summary>
-	public class WoTGameMode : GameModeBase
+	public class GrimrockGameMode : GameModeBase
 	{
-		/// <summary>
-		/// Gets the version of the installed game from the version file
-		/// found in the given directory.
-		/// </summary>
-		/// <param name="p_strGameInstallPath">The path in which the game is installed.</param>
-		/// <returns>The version of the installed game.</value>
-		public static Version ReadVersion(string p_strGameInstallPath)
-		{
-			string strVersion = null;
-			if (String.IsNullOrEmpty(p_strGameInstallPath))
-				return null;
-			string strVersionFilePath = Path.Combine(p_strGameInstallPath, "version.xml");
-			if (File.Exists(strVersionFilePath))
-			{
-				XmlDocument xmlVersion = new XmlDocument();
-				xmlVersion.Load(strVersionFilePath);
-				XmlNodeList xmlGameVersion = xmlVersion.GetElementsByTagName("version");
-				strVersion = xmlGameVersion[0].InnerText;
-				if (String.IsNullOrEmpty(strVersion))
-					return null;
-				string versionPattern = @"\d+\.\d+\.\w+";
-				strVersion = Regex.Match(strVersion, versionPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Value;
-				return new Version(strVersion);
-			}
-			return null;
-		}
-
-		private WoTGameModeDescriptor m_gmdGameModeInfo = null;
-		private WoTLauncher m_glnGameLauncher = null;
-		private WoTToolLauncher m_gtlToolLauncher = null;
+		private GrimrockGameModeDescriptor m_gmdGameModeInfo = null;
+		private GrimrockLauncher m_glnGameLauncher = null;
+		private GrimrockToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
 
@@ -67,14 +40,14 @@ namespace Nexus.Client.Games.WorldOfTanks
 		{
 			get
 			{
-				//climb up the path until we find the res_mods folder
-				string[] strPath = InstallationPath.Split(new char[] { Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
-				Int32 intModFolderIndex = strPath.Length - 1;
-				for (; intModFolderIndex >= 0; intModFolderIndex--)
-					if (strPath[intModFolderIndex].Equals("res_mods", StringComparison.OrdinalIgnoreCase))
-						break;
-				string strFullPath = String.Join(Path.DirectorySeparatorChar.ToString(), strPath, 0, intModFolderIndex);
-				return ReadVersion(strFullPath);
+				string strFullPath = null;
+				foreach (string strExecutable in GameExecutables)
+				{
+					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, strExecutable);
+					if (File.Exists(strFullPath))
+						return new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+				}
+				return null;
 			}
 		}
 
@@ -106,9 +79,9 @@ namespace Nexus.Client.Games.WorldOfTanks
 		}
 
 		/// <summary>
-		/// Gets the path to the per user Morrowind data.
+		/// Gets the path to the per user Grimrock data.
 		/// </summary>
-		/// <value>The path to the per user Morrowind data.</value>
+		/// <value>The path to the per user Grimrock data.</value>
 		public string UserGameDataPath
 		{
 			get
@@ -126,7 +99,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 			get
 			{
 				if (m_glnGameLauncher == null)
-					m_glnGameLauncher = new WoTLauncher(this, EnvironmentInfo);
+					m_glnGameLauncher = new GrimrockLauncher(this, EnvironmentInfo);
 				return m_glnGameLauncher;
 			}
 		}
@@ -140,7 +113,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 			get
 			{
 				if (m_gtlToolLauncher == null)
-					m_gtlToolLauncher = new WoTToolLauncher(this, EnvironmentInfo);
+					m_gtlToolLauncher = new GrimrockToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
 			}
 		}
@@ -180,7 +153,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
 		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
-		public WoTGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
+		public GrimrockGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
 			SettingsGroupViews = new List<ISettingsGroupView>();
@@ -298,7 +271,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		protected override IGameModeDescriptor CreateGameModeDescriptor()
 		{
 			if (m_gmdGameModeInfo == null)
-				m_gmdGameModeInfo = new WoTGameModeDescriptor(EnvironmentInfo);
+				m_gmdGameModeInfo = new GrimrockGameModeDescriptor(EnvironmentInfo);
 			return m_gmdGameModeInfo;
 		}
 
