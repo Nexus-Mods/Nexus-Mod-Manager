@@ -54,6 +54,12 @@ namespace Nexus.Client.Games
 		/// <value>The theme to use for this game mode.</value>
 		Theme ModeTheme { get; }
 
+		/// <summary>
+		/// Gets the custom message for missing critical files.
+		/// </summary>
+		/// <value>The custom message for missing critical files.</value>
+		string CriticalFilesErrorMessage { get; }
+
 		#endregion
 	}
 }
