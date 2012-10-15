@@ -110,6 +110,18 @@ namespace Nexus.Client
 				}
 			}
 
+			/// <summary>
+			/// Gets the custom message for missing critical files.
+			/// </summary>
+			/// <value>The custom message for missing critical files.</value>
+			public virtual string CriticalFilesErrorMessage
+			{
+				get
+				{
+					return null;
+				}
+			}
+
 			#endregion
 		}
 

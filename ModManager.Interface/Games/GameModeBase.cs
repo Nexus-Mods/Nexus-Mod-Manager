@@ -270,6 +270,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the custom message for missing critical files.
+		/// </summary>
+		/// <value>The custom message for missing critical files.</value>
+		public virtual string CriticalFilesErrorMessage
+		{
+			get
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Gets the information about the game mode's environement.
 		/// </summary>
 		/// <value>The information about the game mode's environement.</value>
