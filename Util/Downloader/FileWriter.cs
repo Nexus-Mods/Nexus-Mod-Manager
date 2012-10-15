@@ -117,7 +117,7 @@ namespace Nexus.Client.Util.Downloader
 					string strCleanRange = strRange.Trim().Trim('\0');
 					if (String.IsNullOrEmpty(strCleanRange))
 						continue;
-					m_rgsWrittenRanges.RemoveRange(Range.Parse(strCleanRange));
+					m_rgsWrittenRanges.AddRange(Range.Parse(strCleanRange));
 				}
 			}
 

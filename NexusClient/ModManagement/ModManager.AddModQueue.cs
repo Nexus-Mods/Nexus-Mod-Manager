@@ -75,7 +75,7 @@ namespace Nexus.Client.ModManagement
 				AddModTask amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
 				amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 				m_dicActiveTasks[p_uriPath] = amtModAdder;
-				m_mmgModManager.ActivityMonitor.AddActivity(amtModAdder);
+				m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
 				amtModAdder.AddMod();
 				return amtModAdder;
 			}

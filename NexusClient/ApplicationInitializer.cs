@@ -6,8 +6,8 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using Nexus.Client.ActivityMonitoring;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.DownloadMonitoring;
 using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
@@ -751,12 +751,12 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Initializing Activity Monitor...");
 			Trace.Indent();
-			ActivityMonitor amtMonitor = new ActivityMonitor();
+			DownloadMonitor dmtMonitor = new DownloadMonitor();
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Mod Manager...");
 			Trace.Indent();
-			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, amtMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
+			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Update Manager...");
@@ -765,7 +765,7 @@ namespace Nexus.Client
 			Trace.Unindent();
 
 			p_vwmErrorMessage = null;
-			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, amtMonitor, umgUpdateManager);
+			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, umgUpdateManager);
 		}
 
 		/// <summary>

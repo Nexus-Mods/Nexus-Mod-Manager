@@ -22,6 +22,7 @@ namespace Nexus.Client.Util.Downloader
 			private Int32 m_intBufferSize = 1 * 1024;
 			private bool m_booKeepRunning = true;
 			private Int32 m_intDownloadedByteCount = 0;
+			private string m_strUserAgent = "";
 
 			#region Properties
 
@@ -59,12 +60,14 @@ namespace Nexus.Client.Util.Downloader
 			/// <param name="p_fmdInfo">The metadata of the to be downloaded.</param>
 			/// <param name="p_fwrWriter">The writer to use to write the file to the disk.</param>
 			/// <param name="p_intBufferSize">The size of the buffer to send to the file writer.</param>
-			public BlockDownloader(FileDownloader p_fdrFileDownloader, FileMetadata p_fmdInfo, FileWriter p_fwrWriter, Int32 p_intBufferSize)
+			/// <param name="p_strUserAgent">The current User Agent.</param>
+			public BlockDownloader(FileDownloader p_fdrFileDownloader, FileMetadata p_fmdInfo, FileWriter p_fwrWriter, Int32 p_intBufferSize, string p_strUserAgent)
 			{
 				m_fdrFileDownloader = p_fdrFileDownloader;
 				m_fmdInfo = p_fmdInfo;
 				m_fwrWriter = p_fwrWriter;
 				m_intBufferSize = p_intBufferSize;
+				m_strUserAgent = p_strUserAgent;
 			}
 
 			#endregion
@@ -137,6 +140,7 @@ namespace Nexus.Client.Util.Downloader
 						intLineTracker = 2;
 						hwrDownload.CookieContainer = ckcCookies;
 						hwrDownload.Method = "GET";
+						hwrDownload.UserAgent = m_strUserAgent;
 						hwrDownload.AllowAutoRedirect = true;
 						intLineTracker = 3;
 						hwrDownload.AddRange(p_rngBlockToDownload.StartByte, p_rngBlockToDownload.EndByte);
@@ -239,10 +243,15 @@ namespace Nexus.Client.Util.Downloader
 									switch (wrpDownload.StatusCode)
 									{
 										case HttpStatusCode.ServiceUnavailable:
-											intLineTracker = 33;
-											booRetry = false;
-											//this likely means the server has reached it's max
-											// connection limit, so just do nothing
+											if (wrpDownload.Headers.AllKeys[1] == "Retry-After")
+												booRetry = true;
+											else
+											{
+												intLineTracker = 33;
+												booRetry = false;
+												//this likely means the server has reached it's max
+												// connection limit, so just do nothing
+											}
 											break;
 									}
 									intLineTracker = 34;

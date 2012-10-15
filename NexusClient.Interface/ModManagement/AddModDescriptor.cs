@@ -224,5 +224,19 @@ namespace Nexus.Client.ModManagement
 		{
 			return String.Format("{0} => {1} ({2})", SourceUri.ToString(), SourcePath, DownloadFiles.Count);
 		}
+
+		/// <summary>
+		/// Gets the host where the file is currently being downloaded.
+		/// </summary>
+		/// <value>The file host.</value>
+		/// <see cref="SourcePath"/>
+		public string GetHost(Int32 index)
+		{
+			if (DownloadFiles != null)
+				if (DownloadFiles[index] != null)
+					return DownloadFiles[index].Host;
+			
+			return string.Empty;
+		}
 	}
 }

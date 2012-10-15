@@ -26,6 +26,18 @@ namespace Nexus.Client.ModRepositories
 		/// <value>The name of the mod repository.</value>
 		string Name { get; }
 
+		/// <summary>
+		/// Gets the user membership status.
+		/// </summary>
+		/// <value>The user membership status.</value>
+		string[] UserStatus { get; }
+
+		/// <summary>
+		/// Gets the User Agent used for the mod repository.
+		/// </summary>
+		/// <value>The User Agent.</value>
+		string UserAgent { get; }
+
 		#endregion
 
 		#region Account Management
