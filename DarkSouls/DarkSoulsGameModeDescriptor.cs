@@ -73,6 +73,9 @@ namespace Nexus.Client.Games.DarkSouls
 		{
 			get
 			{
+				if (!String.IsNullOrEmpty(ExecutablePath))
+					for (int i = 0; i < CRITICAL_PLUGINS.Length; i++)
+						CRITICAL_PLUGINS[i] = Path.Combine(ExecutablePath, CRITICAL_PLUGINS[i]);
 				return CRITICAL_PLUGINS;
 			}
 		}
@@ -113,9 +116,6 @@ namespace Nexus.Client.Games.DarkSouls
 		public DarkSoulsGameModeDescriptor(IEnvironmentInfo p_eifEnvironmentInfo)
 			: base(p_eifEnvironmentInfo)
 		{
-			if (!String.IsNullOrEmpty(ExecutablePath))
-				for (int i = 0; i < CRITICAL_PLUGINS.Length; i++)
-					CRITICAL_PLUGINS[i] = Path.Combine(ExecutablePath, CRITICAL_PLUGINS[i]);
 		}
 
 		#endregion
