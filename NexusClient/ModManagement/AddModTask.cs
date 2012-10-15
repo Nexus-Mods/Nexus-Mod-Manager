@@ -120,6 +120,7 @@ namespace Nexus.Client.ModManagement
 		private List<IBackgroundTask> m_lstRunningTasks = new List<IBackgroundTask>();
 		private bool m_booFinishedDownloads = false;
 		private Int32 m_intOverallProgressOffset = 0;
+		private Int32 m_ActiveThreads = 0;
 		private Uri m_uriPath = null;
 
 		#region Properties
@@ -145,6 +146,22 @@ namespace Nexus.Client.ModManagement
 			get
 			{
 				return true;
+			}
+		}
+
+		/// <summary>
+		/// Gets the number of currently active threads.
+		/// </summary>
+		/// <value>The number of currently active threads.</value>
+		public override Int32 ActiveThreads
+		{
+			get
+			{
+				return m_ActiveThreads;
+			}
+			set
+			{
+				m_ActiveThreads = value;
 			}
 		}
 
@@ -186,7 +203,7 @@ namespace Nexus.Client.ModManagement
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;
-			OverallMessage = String.Format("Adding {0}...", m_uriPath);
+			OverallMessage = String.Format("{0}...", m_uriPath);
 
 			Descriptor = BuildDescriptor(m_uriPath);
 			if (Descriptor == null)
@@ -199,7 +216,7 @@ namespace Nexus.Client.ModManagement
 
 			ModInfo = GetModInfo(Descriptor);
 
-			OverallMessage = String.Format("Adding {0}...", GetModDisplayName());
+			OverallMessage = String.Format("{0}...", GetModDisplayName());
 
 			if (Descriptor.Status == TaskStatus.Paused)
 				Pause();
@@ -350,7 +367,12 @@ namespace Nexus.Client.ModManagement
 				Trace.TraceInformation(String.Format("[{0}] Launching downloading of {1}.", Descriptor.SourceUri.ToString(), uriFile.ToString()));
 				Dictionary<string, string> dicAuthenticationTokens = m_eifEnvironmentInfo.Settings.RepositoryAuthenticationTokens[m_mrpModRepository.Id];
 				//TODO get the max connection and block size from settings
-				FileDownloadTask fdtDownloader = new FileDownloadTask(4, 1024 * 500);
+				Int32 intConnections = 4;
+				if ((m_mrpModRepository.UserStatus[1] == "3") || (m_mrpModRepository.UserStatus[1] == "30"))
+					intConnections = 1;
+				else
+					intConnections = 4;
+				FileDownloadTask fdtDownloader = new FileDownloadTask(intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
 				fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
 				fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);
 				m_lstRunningTasks.Add(fdtDownloader);
@@ -400,6 +422,7 @@ namespace Nexus.Client.ModManagement
 				}
 				ItemProgress = intProgress;
 				ItemProgressMaximum = intProgressMaximum;
+				TaskSpeed = intSpeed / 1024;
 
 				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
@@ -408,7 +431,21 @@ namespace Nexus.Client.ModManagement
                 else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
                     ItemMessage = "Resuming the download...";
                 else
-				    ItemMessage = String.Format("Downloading: ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds);
+					ItemMessage = String.Format("Downloading: ({3}kb / {4}kb) ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds, (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024), (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024));
+				m_ActiveThreads = fdtDownloader.ActiveThreads;
+			}
+			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)) ||
+				e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)))
+			{
+				if (fdtDownloader.Status == TaskStatus.Retrying)
+				{
+					OverallMessage = fdtDownloader.OverallMessage;
+				}
+				else if (fdtDownloader.Status == TaskStatus.Running)
+				{
+					OverallMessage = String.Format("{0}", GetModDisplayName());				
+				}
+				InnerTaskStatus = fdtDownloader.Status;
 			}
 		}
 
@@ -573,7 +610,7 @@ namespace Nexus.Client.ModManagement
 		{
 			base.Cancel();
 			foreach (IBackgroundTask tskTask in m_lstRunningTasks)
-				if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete))
+				if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete) || (tskTask.Status == TaskStatus.Retrying))
 					tskTask.Cancel();
 			OverallMessage = String.Format("Cancelled {0}", GetModDisplayName());
 			ItemMessage = "Cancelled";

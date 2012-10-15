@@ -3,10 +3,10 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
-using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
+using Nexus.Client.DownloadMonitoring.UI;
 using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
@@ -29,7 +29,7 @@ namespace Nexus.Client
 		private FormWindowState m_fwsLastWindowState = FormWindowState.Normal;
 		private ModManagerControl mmgModManager = null;
 		private PluginManagerControl pmcPluginManager = null;
-		private ActivityMonitorControl amcActivityMonitor = null;
+		private DownloadMonitorControl dmcDownloadMonitor = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
 
 		#region Properties
@@ -51,9 +51,10 @@ namespace Nexus.Client
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
-				amcActivityMonitor.ViewModel = m_vmlViewModel.ActivityMonitorVM;
-				amcActivityMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
-				amcActivityMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
+				dmcDownloadMonitor.ViewModel = m_vmlViewModel.DownloadMonitorVM;
+				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
+				dmcDownloadMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
+				dmcDownloadMonitor.ViewModel.PropertyChanged += new System.ComponentModel.PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
 				ApplyTheme(m_vmlViewModel.ModeTheme);
 
@@ -90,7 +91,7 @@ namespace Nexus.Client
 
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
-			amcActivityMonitor = new ActivityMonitorControl();
+			dmcDownloadMonitor = new DownloadMonitorControl();
 
 			ViewModel = p_vmlViewModel;
 
@@ -115,7 +116,7 @@ namespace Nexus.Client
 			{
 				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
-					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.AutoHidePortion;
+					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.AutoHidePortion;
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
 			}
@@ -124,21 +125,52 @@ namespace Nexus.Client
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
-				amcActivityMonitor.DockState = DockState.Unknown;
-				amcActivityMonitor.ShowHint = DockState.DockBottomAutoHide;
+				dmcDownloadMonitor.DockState = DockState.Unknown;
+				dmcDownloadMonitor.ShowHint = DockState.DockBottomAutoHide;
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
-					m_dblDefaultActivityManagerAutoHidePortion = amcActivityMonitor.Height;
-				amcActivityMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
+					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.Height;
+				dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
 
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.Show(dockPanel1);
 				mmgModManager.Show(dockPanel1);
-				amcActivityMonitor.Show(dockPanel1);
 			}
+			if (!dmcDownloadMonitor.Visible)
+				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
+
 			if (ViewModel.UsesPlugins)
 				pmcPluginManager.Show(dockPanel1);
 			else
 				mmgModManager.Show(dockPanel1);
+
+			Int32 UserStatus = String.IsNullOrEmpty(ViewModel.UserStatus[1]) ? 0 : Convert.ToInt32(ViewModel.UserStatus[1]);
+
+			if ((UserStatus == 3) || (UserStatus == 30))
+			{
+				tlbGoPremium.Visible = true;
+				tsbGoPremium.Visible = true;
+				tsbGoPremium.Enabled = true;
+				tlbGoPremium.Text = "Go Faster, Go Premium!";
+				tlbGoPremium.Font = new Font(base.Font, FontStyle.Bold);
+				tpbDownloadSpeed.Maximum = 1024;
+				tpbDownloadSpeed.Value = 0;
+				tpbDownloadSpeed.ColorFillMode = Nexus.Client.UI.Controls.ProgressLabel.FillType.Descending;
+				tpbDownloadSpeed.ShowOptionalProgress = false;
+				tlbDownloads.Tag = "Download Speed:";
+			}
+			else
+			{
+				tlbGoPremium.Visible = false;
+				tsbGoPremium.Visible = false;
+				tsbGoPremium.Enabled = false;
+				tpbDownloadSpeed.Maximum = 100;
+				tpbDownloadSpeed.Value = 0;
+				tpbDownloadSpeed.ColorFillMode = Nexus.Client.UI.Controls.ProgressLabel.FillType.Ascending;
+				tpbDownloadSpeed.ShowOptionalProgress = true;
+				tlbDownloads.Tag = "Download Progress:";
+			}
+			tpbDownloadSpeed.Visible = false;
+			tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
 		}
 
 		/// <summary>
@@ -262,7 +294,11 @@ namespace Nexus.Client
 				Invoke((Action<object, NotifyCollectionChangedEventArgs>)Tasks_CollectionChanged, sender, e);
 				return;
 			}
-			amcActivityMonitor.Activate();
+			dmcDownloadMonitor.Activate();
+
+			tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
+			if (dmcDownloadMonitor.ViewModel.ActiveTasks.Count <= 0)
+				UpdateProgressBarSpeed("TotalSpeed", true);	
 		}
 
 		/// <summary>
@@ -280,8 +316,72 @@ namespace Nexus.Client
 				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ActiveTasks_CollectionChanged, sender, e);
 				return;
 			}
-			amcActivityMonitor.Activate();
+			dmcDownloadMonitor.Activate();
+			
+			tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
+			if (dmcDownloadMonitor.ViewModel.ActiveTasks.Count <= 0)
+				UpdateProgressBarSpeed("TotalSpeed", true);
 		}
+
+		/// <summary>
+		/// Handles the <see cref="System.ComponentModel.ProgressChangedEventHandler"/> event of the active tasks list.
+		/// </summary>
+		/// <remarks>
+		/// Checks the current downloading speed.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="System.ComponentModel.PropertyChangedEventArgs"/> describing the event arguments.</param>
+		private void ActiveTasks_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, System.ComponentModel.PropertyChangedEventArgs>)ActiveTasks_PropertyChanged, sender, e);
+				return;
+			}
+			UpdateProgressBarSpeed(e.PropertyName, false);
+		}
+
+		/// <summary>
+		/// Checks if the downloading speed progress bar needs to be updated.
+		/// </summary>
+		/// <param name="PropertyName">The property name.</param>
+		/// <param name="OverrideSpeed">If true the speed value is overridden with a 0.</param>
+		private void UpdateProgressBarSpeed(string PropertyName, bool OverrideSpeed)
+		{
+			if ((PropertyName == "TotalSpeed") || (PropertyName == "TotalProgress"))
+			{
+				if (OverrideSpeed)
+				{
+					tpbDownloadSpeed.Value = 0;
+					if ((tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed))
+						tpbDownloadSpeed.Maximum = 1;
+					tpbDownloadSpeed.Visible = false;	
+				}
+				else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed)
+				{
+					tpbDownloadSpeed.Visible = true;
+					tpbDownloadSpeed.Maximum = dmcDownloadMonitor.ViewModel.TotalSpeed > 0 ? dmcDownloadMonitor.ViewModel.TotalSpeed : 1;
+					tpbDownloadSpeed.Value = tpbDownloadSpeed.Maximum;
+				}
+				else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Ascending)
+				{
+					tpbDownloadSpeed.Visible = true;
+					if (dmcDownloadMonitor.ViewModel.TotalMaxProgress > 0)
+					{
+						tpbDownloadSpeed.Value = Convert.ToInt32((Convert.ToSingle(dmcDownloadMonitor.ViewModel.TotalProgress) / Convert.ToSingle(dmcDownloadMonitor.ViewModel.TotalMaxProgress)) * 100);
+						tpbDownloadSpeed.OptionalValue = dmcDownloadMonitor.ViewModel.TotalSpeed;
+					}
+				}
+				else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Descending)
+				{
+					tpbDownloadSpeed.Visible = true;
+					if (dmcDownloadMonitor.ViewModel.TotalSpeed <= 1024)
+						tpbDownloadSpeed.Value = dmcDownloadMonitor.ViewModel.TotalSpeed;
+					else
+						tpbDownloadSpeed.Value = 1024;
+				}
+			}
+ 		}
 
 		#endregion
 
@@ -317,10 +417,10 @@ namespace Nexus.Client
 				return pmcPluginManager;
 			else if (p_strContentId == typeof(ModManagerControl).ToString())
 				return mmgModManager;
-			else if (p_strContentId == typeof(ActivityMonitorControl).ToString())
-				return amcActivityMonitor;
+			else if (p_strContentId == typeof(DownloadMonitorControl).ToString())
+				return dmcDownloadMonitor;
 			else
-				throw new Exception("Unrecognized Dock Window: " + p_strContentId);
+				return null;
 		}
 
 		#endregion
@@ -469,6 +569,19 @@ namespace Nexus.Client
 		private void spbTools_ButtonClick(object sender, EventArgs e)
 		{
 			spbTools.DropDown.Show();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the Go Premium button.
+		/// </summary>
+		/// <remarks>
+		/// Opens a default browser window on the Premium webpage.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void tsbGoPremium_Click(object sender, EventArgs e)
+		{
+			System.Diagnostics.Process.Start("http://skyrim.nexusmods.com/users/premium/");
 		}
 
 		#endregion

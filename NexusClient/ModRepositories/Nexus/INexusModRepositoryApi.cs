@@ -65,7 +65,6 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <summary>
 		/// Gets the file info for the specified download file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod the whose file's metadata is to be retrieved.</param>
 		/// <param name="p_strFileId">The id of the download file whose metadata is to be retrieved.</param>
 		/// <returns>The file info for the specified download file of the specified mod.</returns>
 		[OperationContract]
@@ -78,7 +77,6 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <summary>
 		/// Gets the download URLs of all the parts associated with the specified file.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod with which the file for which to retrieve the URLs is associated.</param>
 		/// <param name="p_strFileId">The id of the file for which to retrieve the URLs.</param>
 		/// <returns>The download URLs of all the parts associated with the specified file.</returns>
 		[OperationContract]
@@ -87,6 +85,17 @@ namespace Nexus.Client.ModRepositories.Nexus
 			UriTemplate = "Files/download/{p_strFileId}",
 			ResponseFormat = WebMessageFormat.Json)]
 		string[] GetModFileDownloadUrls(string p_strFileId);
+
+		/// <summary>
+		/// Gets the download URLs of all the parts associated with the specified file.
+		/// </summary>
+		/// <returns>The download URLs of all the parts associated with the specified file.</returns>
+		[OperationContract]
+		[WebGet(
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "Core/Libs/Flamework/Entities/User?GetCredentials",
+			ResponseFormat = WebMessageFormat.Json)]
+		string[] GetCredentials();
 
 		/// <summary>
 		/// Finds the mods containing the given search terms.

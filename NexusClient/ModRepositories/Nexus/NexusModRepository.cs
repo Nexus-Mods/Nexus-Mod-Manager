@@ -30,6 +30,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 		private string m_strWebsite = null;
 		private string m_strEndpoint = null;
+		private string[] m_strUserStatus = null;
 		private Dictionary<string, string> m_dicAuthenticationTokens = null;
 
 		#region Properties
@@ -58,6 +59,28 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 		}
 
+		/// <summary>
+		/// Gets the user membership status.
+		/// </summary>
+		/// <value>The user membership status.</value>
+		public string[] UserStatus
+		{
+			get
+			{
+				return m_strUserStatus;
+			}
+			private set
+			{
+				m_strUserStatus = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets the User Agent used for the mod repository.
+		/// </summary>
+		/// <value>The User Agent.</value>
+		public string UserAgent { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -71,12 +94,6 @@ namespace Nexus.Client.ModRepositories.Nexus
 			SetWebsite(p_gmdGameMode);
 			UserAgent = String.Format("Nexus Client v{0}", ProgrammeMetadata.VersionString);
 		}
-
-		/// <summary>
-		/// Gets the user agent to use when making requests of the repository.
-		/// </summary>
-		/// <value>The user agent to use when making requests of the repository.</value>
-		protected string UserAgent { get; private set; }
 
 		#endregion
 
@@ -119,13 +136,13 @@ namespace Nexus.Client.ModRepositories.Nexus
                     m_strWebsite = "worldoftanks.nexusmods.com";
                     m_strEndpoint = "WOTNexusREST";
                     break;
-				case "Grimrock":
-					m_strWebsite = "grimrock.nexusmods.com";
-					m_strEndpoint = "LOGNexusREST";
-					break;
 				case "DarkSouls":
 					m_strWebsite = "darksouls.nexusmods.com";
 					m_strEndpoint = "DSNexusREST";
+					break;
+				case "Grimrock":
+					m_strWebsite = "grimrock.nexusmods.com";
+					m_strEndpoint = "LOGNexusREST";
 					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
@@ -257,6 +274,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			if (!String.IsNullOrEmpty(strCookie))
 				m_dicAuthenticationTokens["sid"] = strCookie;
 			p_dicTokens = m_dicAuthenticationTokens;
+			GetUserCredentials();
 			return m_dicAuthenticationTokens.Count > 0;
 		}
 
@@ -292,6 +310,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			if (String.IsNullOrEmpty(strCookie))
 				m_dicAuthenticationTokens = null;
+			GetUserCredentials();
 			return !String.IsNullOrEmpty(strCookie);
 		}
 
@@ -572,6 +591,34 @@ namespace Nexus.Client.ModRepositories.Nexus
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 			return lstDownloadUrls.ToArray();
+		}
+
+		/// <summary>
+		/// Gets the user's membership status.
+		/// </summary>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		private void GetUserCredentials()
+		{
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					m_strUserStatus = nmrApi.GetCredentials();
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
 		}
 
 		/// <summary>

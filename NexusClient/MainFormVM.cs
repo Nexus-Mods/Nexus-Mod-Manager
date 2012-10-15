@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using Nexus.Client.ActivityMonitoring;
-using Nexus.Client.ActivityMonitoring.UI;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.DownloadMonitoring;
+using Nexus.Client.DownloadMonitoring.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
@@ -109,11 +109,11 @@ namespace Nexus.Client
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
-		/// and operations for diaplying the activity monitor.
+		/// and operations for diaplying the download monitor.
 		/// </summary>
 		/// <value>The view model that encapsulates the data
-		/// and operations for diaplying the activity monitor.</value>
-		public ActivityMonitorVM ActivityMonitorVM { get; private set; }
+		/// and operations for diaplying the download monitor.</value>
+		public DownloadMonitorVM DownloadMonitorVM { get; private set; }
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
@@ -271,6 +271,18 @@ namespace Nexus.Client
 			}
 		}
 
+		/// <summary>
+		/// Gets the user membership status.
+		/// </summary>
+		/// <value>Gets the user membership status.</value>
+		public string[] UserStatus
+		{
+			get
+			{
+				return ModRepository.UserStatus;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -282,11 +294,11 @@ namespace Nexus.Client
 		/// <param name="p_gmrInstalledGames">The registry of insalled games.</param>
 		/// <param name="p_gmdGameMode">The game mode currently being managed.</param>
 		/// <param name="p_mrpModRepository">The repository we are logging in to.</param>
-		/// <param name="p_amtMonitor">The activity monitor to use to track task progress.</param>
+		/// <param name="p_dmtMonitor">The download monitor to use to track task progress.</param>
 		/// <param name="p_umgUpdateManager">The update manager to use to perform updates.</param>
 		/// <param name="p_mmgModManager">The <see cref="ModManager"/> to use to manage mods.</param>
 		/// <param name="p_pmgPluginManager">The <see cref="PluginManager"/> to use to manage plugins.</param>
-		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, ActivityMonitor p_amtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
+		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 
@@ -298,7 +310,7 @@ namespace Nexus.Client
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			if (GameMode.UsesPlugins)
 				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
-			ActivityMonitorVM = new ActivityMonitorVM(p_amtMonitor, p_eifEnvironmentInfo.Settings);
+			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);

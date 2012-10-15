@@ -19,10 +19,12 @@ namespace Nexus.Client.Util.Downloader
 
 		private Int32 m_intMaxConnections = 5;
 		private Int32 m_intMinBlockSize = 500 * 1024;
+		private Int32 m_intMaxBlockSize = 5000 * 1024;
 		private Int32 m_intWriteBufferSize = 1024;
 		private Uri m_uriURL = null;
 		private string m_strSavePath = null;
 		private string m_strFileMetadataPath = null;
+		private string m_strUserAgent = "";
 		private FileMetadata m_fmdInfo = null;
 		private Int32 m_intInitialDownloadedByteCount = 0;
 		private Queue<Range> m_queRequiredBlocks = new Queue<Range>();
@@ -59,6 +61,18 @@ namespace Nexus.Client.Util.Downloader
 			get
 			{
 				return (m_fwrWriter == null) ? m_intInitialDownloadedByteCount : m_fwrWriter.WrittenByteCount;
+			}
+		}
+
+ 		/// <summary>
+		/// Gets the number of currently active downloaders.
+		/// </summary>
+		/// <value>The number of currently active downloaders.</value>
+		public Int32 NumberOfActiveDownloaders
+		{
+			get
+			{
+				return m_lstDownloaders.Count;
 			}
 		}
 
@@ -141,7 +155,8 @@ namespace Nexus.Client.Util.Downloader
 					return 0;
 				Int32 intDownloadedThisSession = 0;
 				foreach (BlockDownloader bdlDownloader in m_lstDownloaders)
-					intDownloadedThisSession += bdlDownloader.DownloadedByteCount;
+					if (bdlDownloader.DownloadedByteCount > 0)
+						intDownloadedThisSession += bdlDownloader.DownloadedByteCount;
 				double dblSeconds = ElapsedTime.TotalSeconds;
 				double dblBytesPerSecond = intDownloadedThisSession / dblSeconds;
 				return (Int32)dblBytesPerSecond;
@@ -157,6 +172,18 @@ namespace Nexus.Client.Util.Downloader
 			get
 			{
 				return m_fmdInfo.Exists && (m_fmdInfo.Length > 0);
+			}
+		}
+
+		/// <summary>
+		/// Gets whether or not the file exists on the server.
+		/// </summary>
+		/// <value>Whether or not the file exists on the server.</value>
+		public bool FileNotFound
+		{
+			get
+			{
+				return m_fmdInfo.NotFound;
 			}
 		}
 
@@ -182,13 +209,15 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="p_intMaxConnections">The maximum number of connections to use to download the file.</param>
 		/// <param name="p_intMinBlockSize">The minimum block size that should be downloaded at once. This should
 		/// ideally be some mulitple of the available bandwidth.</param>
-		public FileDownloader(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName, Int32 p_intMaxConnections, Int32 p_intMinBlockSize)
+		/// <param name="p_strUserAgent">The current User Agent.</param>
+		public FileDownloader(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName, Int32 p_intMaxConnections, Int32 p_intMinBlockSize, string p_strUserAgent)
 		{
 			m_uriURL = p_uriURL;
 			Cookies = p_dicCookies ?? new Dictionary<string, string>();
 			m_intMaxConnections = p_intMaxConnections;
 			m_intMinBlockSize = p_intMinBlockSize;
 			m_intWriteBufferSize = m_intMinBlockSize * 1;
+			m_strUserAgent = p_strUserAgent;
 			Initialize(p_strSavePath, p_booUseDefaultFileName);
 		}
 
@@ -300,6 +329,8 @@ namespace Nexus.Client.Util.Downloader
 				File.Delete(m_strSavePath);
 
 			Int32 intBaseBlockSize = Math.Max(rgsMissingRanges.TotalSize / intConnectionsToUse, m_intMinBlockSize);
+			if (intConnectionsToUse > 1)
+				intBaseBlockSize = Math.Min(intBaseBlockSize, m_intMaxBlockSize);
 
 			//break the ranges into blocks to be downloaded
 			foreach (Range rngNeeded in rgsMissingRanges)
@@ -322,11 +353,12 @@ namespace Nexus.Client.Util.Downloader
 
 			m_dteStartTime = DateTime.Now;
 			//spawn the downloading threads
+			Int32 intRequiredBlocks = m_queRequiredBlocks.Count;
 			lock (m_lstDownloaders)
 			{
-				for (Int32 i = 0; i < intConnectionsToUse; i++)
+				for (Int32 i = 0; i < (intRequiredBlocks < intConnectionsToUse ? intRequiredBlocks : intConnectionsToUse); i++)
 				{
-					BlockDownloader bdrDownloader = new BlockDownloader(this, m_fmdInfo, m_fwrWriter, m_intWriteBufferSize);
+					BlockDownloader bdrDownloader = new BlockDownloader(this, m_fmdInfo, m_fwrWriter, m_intWriteBufferSize, m_strUserAgent);
 					bdrDownloader.FinishedDownloading += new EventHandler(Downloader_FinishedDownloading);
 					bdrDownloader.Start();
 					m_lstDownloaders.Add(bdrDownloader);
@@ -350,7 +382,7 @@ namespace Nexus.Client.Util.Downloader
 			}
 			if (m_fwrWriter != null)
 				m_fwrWriter.Close();
-			bool booGetEntireFile = (m_fmdInfo.Length - DownloadedByteCount == 0);
+			bool booGetEntireFile = m_fmdInfo.Length > 0 ? (m_fmdInfo.Length - DownloadedByteCount == 0) : false;
 			if (booGetEntireFile)
 			{
 				if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))
@@ -424,6 +456,7 @@ namespace Nexus.Client.Util.Downloader
 			hwrFileMetadata.Method = "HEAD";
 			hwrFileMetadata.AddRange(0, 1);
 			hwrFileMetadata.AllowAutoRedirect = true;
+			hwrFileMetadata.UserAgent = m_strUserAgent;
 
 			FileMetadata fmiInfo = null;
 			try
@@ -434,9 +467,18 @@ namespace Nexus.Client.Util.Downloader
 						fmiInfo = new FileMetadata(wrpFileMetadata.Headers);
 				}
 			}
-			catch (WebException)
+			catch (WebException e)
 			{
-				//ignore - the server isn't available
+				using (HttpWebResponse wrpDownload = (HttpWebResponse)e.Response)
+				{
+					switch (wrpDownload.StatusCode)
+					{
+						case HttpStatusCode.NotFound:
+							fmiInfo = new FileMetadata();
+							fmiInfo.NotFound = true;
+							break;
+					}
+				}
 			}
 			if (fmiInfo == null)
 				fmiInfo = new FileMetadata();
