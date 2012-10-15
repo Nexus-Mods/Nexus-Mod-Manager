@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{B0F526DB-967B-4A57-9EC9-2E4950E54F26}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -417,6 +417,7 @@
     <EmbeddedResource Include="Schemas\XmlScript5.0.xsd" />
     <EmbeddedResource Include="UI\OptionsForm.resx">
       <DependentUpon>OptionsForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
