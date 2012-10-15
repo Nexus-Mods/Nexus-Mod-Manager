@@ -260,15 +260,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (TimeoutException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			catch (CommunicationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			catch (SerializationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			if (!String.IsNullOrEmpty(strCookie))
@@ -298,15 +295,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (TimeoutException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			catch (CommunicationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			catch (SerializationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			if (String.IsNullOrEmpty(strCookie))
 				m_dicAuthenticationTokens = null;

@@ -127,6 +127,7 @@ namespace Nexus.Client
 				mmgModManager.DockState = DockState.Unknown;
 				dmcDownloadMonitor.DockState = DockState.Unknown;
 				dmcDownloadMonitor.ShowHint = DockState.DockBottomAutoHide;
+				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
 					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.Height;
 				dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
@@ -135,8 +136,6 @@ namespace Nexus.Client
 					pmcPluginManager.Show(dockPanel1);
 				mmgModManager.Show(dockPanel1);
 			}
-			if (!dmcDownloadMonitor.Visible)
-				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
 
 			if (ViewModel.UsesPlugins)
 				pmcPluginManager.Show(dockPanel1);
