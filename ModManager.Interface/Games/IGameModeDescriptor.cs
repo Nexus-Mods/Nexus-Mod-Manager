@@ -37,6 +37,12 @@ namespace Nexus.Client.Games
 		string InstallationPath { get; }
 
 		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <value>The path to the game executable.</value>
+		string ExecutablePath { get; }
+
+		/// <summary>
 		/// Gets the list of critical plugin names, ordered by load order.
 		/// </summary>
 		/// <value>The list of critical plugin names, ordered by load order.</value>
@@ -47,6 +53,12 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>
 		Theme ModeTheme { get; }
+
+		/// <summary>
+		/// Gets the custom message for missing critical files.
+		/// </summary>
+		/// <value>The custom message for missing critical files.</value>
+		string CriticalFilesErrorMessage { get; }
 
 		#endregion
 	}

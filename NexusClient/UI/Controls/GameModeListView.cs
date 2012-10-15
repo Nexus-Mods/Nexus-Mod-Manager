@@ -174,6 +174,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public GameModeListView()
 		{
+			m_flpPanel.AutoScroll = true;
 			m_flpPanel.ControlAdded += new ControlEventHandler(Panel_ControlAdded);
 			m_flpPanel.AutoSize = true;
 			m_flpPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;

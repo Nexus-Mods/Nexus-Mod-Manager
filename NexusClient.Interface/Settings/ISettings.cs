@@ -56,6 +56,15 @@ namespace Nexus.Client.Settings
 		PerGameModeSettings<string> InstallationPaths { get; }
 
 		/// <summary>
+		/// Gets the executable path dictionary.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding executable paths.
+		/// </remarks>
+		/// <value>The installation path dictionary.</value>
+		PerGameModeSettings<string> ExecutablePaths { get; }
+
+		/// <summary>
 		/// Gets the path of the folder where a game mode's mods are stored.
 		/// </summary>
 		/// <remarks>

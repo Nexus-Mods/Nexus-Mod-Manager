@@ -87,6 +87,16 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <returns>The path to the game executable, or
+		/// <c>null</c> if the path could not be determined.</returns>
+		public string GetExecutablePath(string p_strPath)
+		{
+			return p_strPath;
+		}
+
+		/// <summary>
 		/// Builds the game mode.
 		/// </summary>
 		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
