@@ -37,6 +37,12 @@ namespace Nexus.Client.Games
 		string InstallationPath { get; }
 
 		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <value>The path to the game executable.</value>
+		string ExecutablePath { get; }
+
+		/// <summary>
 		/// Gets the list of critical plugin names, ordered by load order.
 		/// </summary>
 		/// <value>The list of critical plugin names, ordered by load order.</value>
