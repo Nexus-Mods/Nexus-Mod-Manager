@@ -246,6 +246,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Resources\application-exit-2.png" />
+    <None Include="Resources\go_premium.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\tes_logo_full.png" />
     <None Include="Resources\up.png" />

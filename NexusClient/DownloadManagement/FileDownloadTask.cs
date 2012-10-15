@@ -78,8 +78,11 @@ namespace Nexus.Client.DownloadManagement
 		}
 
 		private const string m_strMessageFormat = "Downloading {0} ({1:f0}:{2:d2} left - {3} kb/s)";
-		private Int32 m_intMaxConnections = 5;
+		private string m_strUserAgent = "";
+		private Int32 m_intMaxConnections = 4;
 		private Int32 m_intMinBlockSize = 500 * 1024;
+		private Int32 m_intRetries = 10;
+		private Int32 m_intRetryInterval = 6000;
 		private System.Timers.Timer m_tmrUpdater = new System.Timers.Timer(1000);
 		private FileDownloader m_fdrDownloader = null;
 		private AutoResetEvent m_areWaitForDownload = null;
@@ -99,6 +102,18 @@ namespace Nexus.Client.DownloadManagement
 			}
 		}
 
+ 		/// <summary>
+		/// Gets whether the task supports retrying.
+		/// </summary>
+		/// <value>Thether the task supports retrying.</value>
+		public override bool SupportsRetry
+		{
+			get
+			{
+				return true;
+			}
+		}
+
 		/// <summary>
 		/// Gets the download speed, in bytes per second.
 		/// </summary>
@@ -110,6 +125,20 @@ namespace Nexus.Client.DownloadManagement
 				if (m_fdrDownloader == null)
 					return 0;
 				return m_fdrDownloader.DownloadSpeed;
+			}
+		}
+
+ 		/// <summary>
+		/// Gets the number of currently active download threads.
+		/// </summary>
+		/// <value>The number of currently active download threads.</value>
+		public override Int32 ActiveThreads
+		{
+			get
+			{
+				if (m_fdrDownloader == null)
+					return 0;
+				return m_fdrDownloader.NumberOfActiveDownloaders;
 			}
 		}
 
@@ -137,10 +166,12 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="p_intMaxConnections">The maximum number of connections to use to download the file.</param>
 		/// <param name="p_intMinBlockSize">The minimum block size that should be downloaded at once. This should
 		/// ideally be some mulitple of the available bandwidth.</param>
-		public FileDownloadTask(Int32 p_intMaxConnections, Int32 p_intMinBlockSize)
+		/// <param name="p_strUserAgent">The current User Agent.</param>
+		public FileDownloadTask(Int32 p_intMaxConnections, Int32 p_intMinBlockSize, string p_strUserAgent)
 		{
 			m_intMaxConnections = p_intMaxConnections;
 			m_intMinBlockSize = p_intMinBlockSize;
+			m_strUserAgent = p_strUserAgent;
 			m_tmrUpdater.Elapsed += new ElapsedEventHandler(Updater_Elapsed);
 		}
 
@@ -191,23 +222,59 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
 		public void DownloadAsync(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
-			m_steState = new State(true, p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
-			m_fdrDownloader = new FileDownloader(p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize);
-			m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
+			System.Diagnostics.Stopwatch swRetry = new System.Diagnostics.Stopwatch();
+			int retries = 0;
 
-			OverallProgressMaximum = m_fdrDownloader.FileSize;
-			OverallProgressMinimum = 0;
-			OverallProgressStepSize = 1;
-			OverallProgress = m_fdrDownloader.DownloadedByteCount;
-			OverallMessage = String.Format("Downloading {0}", Path.GetFileName(m_fdrDownloader.SavePath));
-			ShowItemProgress = false;
-
-			if (!m_fdrDownloader.FileExists)
+			while (retries <= m_intRetries)
 			{
-				Status = TaskStatus.Error;
-				OnTaskEnded(String.Format("File does not exist: {0}", p_uriURL.ToString()), null);
-				return;
+				Status = TaskStatus.Running;
+				m_fdrDownloader = new FileDownloader(p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
+				m_steState = new State(true, p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+				m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
+				ShowItemProgress = false;
+				OverallProgressMaximum = m_fdrDownloader.FileSize;
+				OverallProgressMinimum = 0;
+				OverallProgressStepSize = 1;
+				OverallProgress = m_fdrDownloader.DownloadedByteCount;
+
+				if (Status == TaskStatus.Cancelling)
+					retries = m_intRetries;
+
+				if (!m_fdrDownloader.FileExists)
+				{
+					if (m_fdrDownloader.FileNotFound)
+					{
+						Status = TaskStatus.Error;
+						OnTaskEnded(String.Format("File does not exist: {0}", p_uriURL.ToString()), null);
+						return;
+					}
+					else if (retries < m_intRetries)
+					{
+						swRetry.Start();
+						OverallMessage = String.Format("Server busy or unavailable, retrying.. ({0}/{1})", ++retries, m_intRetries);
+						Status = TaskStatus.Retrying;
+
+						while (swRetry.ElapsedMilliseconds < m_intRetryInterval)
+						{
+							if (Status == TaskStatus.Cancelling)
+								break;
+						}
+						swRetry.Stop();
+						swRetry.Reset();
+					}
+					else
+					{
+						Status = TaskStatus.Error;
+						OnTaskEnded(String.Format("Error trying to get the file: {0}", p_uriURL.ToString()), null);
+						return;
+					}
+				}
+				else
+				{
+					break;
+				}
 			}
+
 			m_fdrDownloader.StartDownload();
 			m_tmrUpdater.Start();
 		}
@@ -226,7 +293,7 @@ namespace Nexus.Client.DownloadManagement
 			if (m_areWaitForDownload != null)
 				m_areWaitForDownload.Set();
 			if (Status == TaskStatus.Paused)
-				OnTaskEnded("Download paused.", ((FileDownloader)sender).URL);
+				OnTaskEnded(String.Format("Paused: {0}", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
 			else if (!e.GotEntireFile)
 			{
 				if (Status == TaskStatus.Cancelling)
@@ -236,7 +303,7 @@ namespace Nexus.Client.DownloadManagement
 				}
 				else
 					Status = TaskStatus.Incomplete;
-				OnTaskEnded("Unable to download file.", ((FileDownloader)sender).URL);
+				OnTaskEnded(String.Format("Error: {0} , unable to finish the download.", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
 			}
 			else
 			{
@@ -252,7 +319,12 @@ namespace Nexus.Client.DownloadManagement
 		/// </summary>
 		public override void Cancel()
 		{
-			if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete))
+			if (Status == TaskStatus.Retrying)
+			{
+				Status = TaskStatus.Cancelling;
+				base.Cancel();
+			}
+			else if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete))
 				base.Cancel();
 			else
 			{

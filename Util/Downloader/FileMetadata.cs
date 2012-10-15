@@ -22,6 +22,11 @@ namespace Nexus.Client.Util.Downloader
 		/// <value>Whether the file exists.</value>
 		public bool Exists { get; private set; }
 
+		/// Gets whether the file exists on the server.
+		/// </summary>
+		/// <value>Whether the file exists on the server.</value>
+		public bool NotFound { get; set; }
+
 		/// <summary>
 		/// Gets whether the file is HTML.
 		/// </summary>
@@ -71,6 +76,7 @@ namespace Nexus.Client.Util.Downloader
 		public FileMetadata()
 		{
 			Exists = false;
+			NotFound = false;
 			IsHtml = false;
 			Length = 0;
 			SupportsResume = false;
@@ -84,6 +90,7 @@ namespace Nexus.Client.Util.Downloader
 		public FileMetadata(WebHeaderCollection p_whcFileHeader)
 		{
 			Exists = true;
+			NotFound = false;
 			SupportsResume = false;
 			Other = new Dictionary<string, string[]>();
 			Initialize(p_whcFileHeader);
@@ -105,7 +112,7 @@ namespace Nexus.Client.Util.Downloader
 						Regex rgxFilename = new Regex("filename=([^;]+)");
 						Match mchFilename = rgxFilename.Match(p_whcFileHeader.GetValues(strKey)[0]);
 						if (mchFilename.Success)
-							SuggestedFileName = mchFilename.Groups[1].Value;
+							SuggestedFileName = mchFilename.Groups[1].Value.Trim("\"".ToCharArray());
 						break;
 					case "Content-Length":
 						if (Length == 0)
