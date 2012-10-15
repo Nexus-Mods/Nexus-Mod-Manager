@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{C0A5B4F7-9F74-43B3-A2E2-5E7D8D9B8284}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -44,6 +44,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Settings\GeneralSettingsGroup.cs" />
+    <Compile Include="Settings\UI\GeneralSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\GeneralSettingsPage.Designer.cs">
+      <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Tools\WoTToolLauncher.cs" />
     <Compile Include="WoTLauncher.cs" />
     <Compile Include="SetupForm.cs">
@@ -93,6 +100,10 @@
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\GeneralSettingsPage.resx">
+      <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>

@@ -119,6 +119,10 @@ namespace Nexus.Client.ModRepositories.Nexus
                     m_strWebsite = "worldoftanks.nexusmods.com";
                     m_strEndpoint = "WOTNexusREST";
                     break;
+				case "Grimrock":
+					m_strWebsite = "grimrock.nexusmods.com";
+					m_strEndpoint = "LOGNexusREST";
+					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
