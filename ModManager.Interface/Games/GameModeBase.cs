@@ -57,6 +57,18 @@ namespace Nexus.Client.Games
 			}
 
 			/// <summary>
+			/// Gets the path to the game executable.
+			/// </summary>
+			/// <value>The path to the game executable.</value>
+			public string ExecutablePath
+			{
+				get
+				{
+					return GameMode.ExecutablePath;
+				}
+			}
+
+			/// <summary>
 			/// Gets the directory where installation information is stored for this game mode.
 			/// </summary>
 			/// <remarks>
@@ -206,6 +218,18 @@ namespace Nexus.Client.Games
 			get
 			{
 				return m_gmdGameModeInfo.InstallationPath;
+			}
+		}
+
+		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <value>The path to the game executable.</value>
+		public string ExecutablePath
+		{
+			get
+			{
+				return m_gmdGameModeInfo.ExecutablePath;
 			}
 		}
 
