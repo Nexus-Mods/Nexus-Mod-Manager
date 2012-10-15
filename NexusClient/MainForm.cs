@@ -142,6 +142,14 @@ namespace Nexus.Client
 			else
 				mmgModManager.Show(dockPanel1);
 
+			if ((dmcDownloadMonitor == null) || ((dmcDownloadMonitor.VisibleState == DockState.Unknown) || (dmcDownloadMonitor.VisibleState == DockState.Hidden)))
+			{
+				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
+				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
+					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.Height;
+				dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
+			}
+
 			Int32 UserStatus = String.IsNullOrEmpty(ViewModel.UserStatus[1]) ? 0 : Convert.ToInt32(ViewModel.UserStatus[1]);
 
 			if ((UserStatus == 3) || (UserStatus == 30))
