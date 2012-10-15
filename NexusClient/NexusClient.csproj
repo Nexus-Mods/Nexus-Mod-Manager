@@ -270,6 +270,12 @@
     <Compile Include="IMessager.cs" />
     <Compile Include="MessagerClient.cs" />
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
+    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.designer.cs">
+      <DependentUpon>CustomizableToolStripProgressBar.cs</DependentUpon>
+    </Compile>
     <Compile Include="UI\Controls\GameModeListViewItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
