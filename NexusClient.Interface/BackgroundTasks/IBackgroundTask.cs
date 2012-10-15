@@ -23,6 +23,10 @@ namespace Nexus.Client.BackgroundTasks
 
 		#region Properties
 
+		Int32 TaskSpeed { get; set; }
+
+		Int32 ActiveThreads { get; set; }
+
 		#region Overall Progress
 
 		/// <summary>
@@ -114,6 +118,12 @@ namespace Nexus.Client.BackgroundTasks
 		/// </summary>
 		/// <value>The status of the task.</value>
 		TaskStatus Status { get; }
+
+ 		/// <summary>
+		/// Gets the status of the eventual nested task.
+		/// </summary>
+		/// <value>The status of the eventual nested task.</value>
+		TaskStatus InnerTaskStatus { get; }
 
 		/// <summary>
 		/// Gets the return value of the task.

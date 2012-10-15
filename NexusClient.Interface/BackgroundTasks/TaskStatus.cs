@@ -39,6 +39,11 @@ namespace Nexus.Client.BackgroundTasks
 		/// <summary>
 		/// Indicates the task is finished, but in an error state.
 		/// </summary>
-		Error
+		Error,
+
+		/// <summary>
+		/// Indicates the task is retrying.
+		/// </summary>
+		Retrying
 	}
 }

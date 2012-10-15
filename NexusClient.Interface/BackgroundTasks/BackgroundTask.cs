@@ -42,6 +42,7 @@ namespace Nexus.Client
 		private readonly object LOCK_OBJECT = new object();
 
 		private TaskStatus m_tstStatus = TaskStatus.Running;
+		private TaskStatus m_tstInnerStatus = TaskStatus.Running;
 
 		private volatile string m_strOverallMessage = null;
 		private volatile bool m_booShowOverallProgressAsMarquee = false;
@@ -56,6 +57,8 @@ namespace Nexus.Client
 		private volatile Int32 m_intItemProgressMinimum = 0;
 		private volatile Int32 m_intItemProgressMaximum = 100;
 		private volatile Int32 m_intItemProgressStepSize = 1;
+		private volatile Int32 m_intItemSpeed = 0;
+		private volatile Int32 m_intActiveThreads = 0;
 
 		#region Properties
 
@@ -79,6 +82,26 @@ namespace Nexus.Client
 					OnPropertyChanged(new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Status)));
 					if (booIsActive != IsActive)
 						OnPropertyChanged(new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => IsActive)));
+				}
+			}
+		}
+
+ 		/// <summary>
+		/// Gets the status of the eventual nested task.
+		/// </summary>
+		/// <value>The status of the eventual nested task.</value>
+		public TaskStatus InnerTaskStatus
+		{
+			get
+			{
+				return m_tstInnerStatus;
+			}
+			protected set
+			{
+				if (m_tstInnerStatus != value)
+				{
+					m_tstInnerStatus = value;
+					OnPropertyChanged(new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => InnerTaskStatus)));
 				}
 			}
 		}
@@ -117,6 +140,70 @@ namespace Nexus.Client
 			get
 			{
 				return false;
+			}
+		}
+
+		/// <summary>
+		/// Gets whether the task supports retrying.
+		/// </summary>
+		/// <value>Thether the task supports retrying.</value>
+		public virtual bool SupportsRetry
+		{
+			get
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Gets the current task speed.
+		/// </summary>
+		/// <value>The current task speed.</value>
+		public Int32 TaskSpeed
+		{
+			get
+			{
+				return m_intItemSpeed;
+			}
+			set
+			{
+				bool booChanged = false;
+				lock (LOCK_OBJECT)
+				{
+					if (m_intItemSpeed != value)
+					{
+						booChanged = true;
+						m_intItemSpeed = value;
+					}
+				}
+				if (booChanged)
+					OnPropertyChanged(() => TaskSpeed);
+			}
+		}
+
+		/// <summary>
+		/// Gets the number of currently active threads.
+		/// </summary>
+		/// <value>The number of currently active threads.</value>
+		public virtual Int32 ActiveThreads
+		{
+			get
+			{
+				return m_intActiveThreads;
+			}
+			set
+			{
+				bool booChanged = false;
+				lock (LOCK_OBJECT)
+				{
+					if (m_intActiveThreads != value)
+					{
+						booChanged = true;
+						m_intActiveThreads = value;
+					}
+				}
+				if (booChanged)
+					OnPropertyChanged(() => ActiveThreads);
 			}
 		}
 
