@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Dark Souls Module")]
-[assembly: AssemblyDescription("The Dark Souls Module for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Grimrock Game Mode Mod Script Variant")]
+[assembly: AssemblyDescription("The Legend of Grimrock implementation of the Mod Script language for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Black Tree Gaming")]
-[assembly: AssemblyProduct("DarkSouls")]
+[assembly: AssemblyProduct("Grimrock.ModScript")]
 [assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("cdd48cb5-833b-41b1-921e-448871be7cff")]
+[assembly: Guid("d8ca0c48-976e-44c1-8900-31931f4de0a9")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -33,5 +33,5 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 [assembly: AssemblyVersion("1.1")]
 // AssemblyFileVersionFormat("1.1.*")
-[assembly: AssemblyFileVersion("1.1.4671.22744")]
+[assembly: AssemblyFileVersion("1.1.4671.22745")]
 [assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString)]

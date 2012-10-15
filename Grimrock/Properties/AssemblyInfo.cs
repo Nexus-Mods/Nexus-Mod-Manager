@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Dark Souls Module")]
-[assembly: AssemblyDescription("The Dark Souls Module for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Grimrock Module")]
+[assembly: AssemblyDescription("The Legend of Grimrock Module for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Black Tree Gaming")]
-[assembly: AssemblyProduct("DarkSouls")]
+[assembly: AssemblyProduct("Grimrock")]
 [assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
