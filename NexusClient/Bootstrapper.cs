@@ -353,6 +353,7 @@ namespace Nexus.Client
 				{
 					IGameModeFactory gmfGameModeFactory = p_gmrSupportedGameModes.GetGameMode(gidGameMode.GameMode.ModeId);
 					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetInstallationPath(gidGameMode.GameInstallPath);
+					m_eifEnvironmentInfo.Settings.ExecutablePaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetExecutablePath(gidGameMode.GameInstallPath);
 					m_eifEnvironmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
 				}
 				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;

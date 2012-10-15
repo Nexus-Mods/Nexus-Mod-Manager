@@ -74,6 +74,19 @@ namespace Nexus.Client
 			}
 
 			/// <summary>
+			/// Gets the path to the game executable.
+			/// </summary>
+			/// <returns>The path to the game executable, or
+			/// <c>null</c> if the path could not be determined.</returns>
+			public string ExecutablePath
+			{
+				get
+				{
+					throw new NotImplementedException();
+				}
+			}
+
+			/// <summary>
 			/// Gets the list of critical plugin names, ordered by load order.
 			/// </summary>
 			/// <value>The list of critical plugin names, ordered by load order.</value>

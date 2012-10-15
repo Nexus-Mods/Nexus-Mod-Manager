@@ -15,6 +15,12 @@ namespace Nexus.Client.Games
 		string InstallationPath { get; }
 
 		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <value>The path to the game executable.</value>
+		string ExecutablePath { get; }
+
+		/// <summary>
 		/// Gets the directory where installation information is stored for this game mode.
 		/// </summary>
 		/// <remarks>
