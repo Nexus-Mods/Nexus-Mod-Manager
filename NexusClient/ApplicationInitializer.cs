@@ -281,7 +281,10 @@ namespace Nexus.Client
 					{
 						StringBuilder stbMessage = new StringBuilder();
 						stbMessage.AppendFormat("You are missing {0}.", strPlugin);
-						stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
+						if (String.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage))
+							stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
+						else
+							stbMessage.AppendLine(Environment.NewLine + p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage);
 						p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
 						return false;
 					}

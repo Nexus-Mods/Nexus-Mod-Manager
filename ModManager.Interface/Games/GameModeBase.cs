@@ -57,6 +57,18 @@ namespace Nexus.Client.Games
 			}
 
 			/// <summary>
+			/// Gets the path to the game executable.
+			/// </summary>
+			/// <value>The path to the game executable.</value>
+			public string ExecutablePath
+			{
+				get
+				{
+					return GameMode.ExecutablePath;
+				}
+			}
+
+			/// <summary>
 			/// Gets the directory where installation information is stored for this game mode.
 			/// </summary>
 			/// <remarks>
@@ -210,6 +222,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the path to the game executable.
+		/// </summary>
+		/// <value>The path to the game executable.</value>
+		public string ExecutablePath
+		{
+			get
+			{
+				return m_gmdGameModeInfo.ExecutablePath;
+			}
+		}
+
+		/// <summary>
 		/// Gets the list of possible executable files for the game.
 		/// </summary>
 		/// <value>The list of possible executable files for the game.</value>
@@ -242,6 +266,18 @@ namespace Nexus.Client.Games
 			get
 			{
 				return m_gmdGameModeInfo.ModeTheme;
+			}
+		}
+
+		/// <summary>
+		/// Gets the custom message for missing critical files.
+		/// </summary>
+		/// <value>The custom message for missing critical files.</value>
+		public virtual string CriticalFilesErrorMessage
+		{
+			get
+			{
+				return null;
 			}
 		}
 
