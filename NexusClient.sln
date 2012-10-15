@@ -82,6 +82,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DarkSouls", "DarkSouls\DarkSouls.csproj", "{BC0CE12E-0DB2-4BFF-8752-CEAF6EF9B30F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DarkSouls.ModScript", "DarkSouls.ModScript\DarkSouls.ModScript.csproj", "{6929FE32-25FE-4893-8398-274A2BA6B8E2}"
+	ProjectSection(ProjectDependencies) = postProject
+		{BC0CE12E-0DB2-4BFF-8752-CEAF6EF9B30F} = {BC0CE12E-0DB2-4BFF-8752-CEAF6EF9B30F}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grimrock", "Grimrock\Grimrock.csproj", "{39D12E77-0684-4720-8AB5-AC40145C1A3D}"
 EndProject
