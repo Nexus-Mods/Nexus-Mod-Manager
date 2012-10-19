@@ -123,7 +123,7 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		/// <summary>
-		/// Check for updates to the maanged mods.
+		/// Check for updates to the managed mods.
 		/// </summary>
 		/// <remarks>
 		/// This method performs its work asynchronously.
@@ -171,33 +171,37 @@ namespace Nexus.Client.ModManagement
 		private IModInfo CheckForUpdate(IMod p_modMod)
 		{
 			IModInfo mifInfo = null;
+
 			try
 			{
-				//get mod info
-				for (int i = 0; i <= 2; i++)
+				if (!ModRepository.IsOffline)
 				{
-					if (!String.IsNullOrEmpty(p_modMod.Id))
-						mifInfo = ModRepository.GetModInfo(p_modMod.Id);
-					if (mifInfo == null)
-						mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
-					if (mifInfo != null)
-						break;
-
-					Thread.Sleep(1000);
-				}
-				if (mifInfo == null)
-				{
-					string strSearchTerms = p_modMod.ModName;
-					if (String.IsNullOrEmpty(strSearchTerms))
-						strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_", " ").Replace("-", " ");
-					//use heuristics to find info
-					if (!String.IsNullOrEmpty(strSearchTerms))
+					//get mod info
+					for (int i = 0; i <= 2; i++)
 					{
-						string[] strTerms = strSearchTerms.Split(' ', '-', '_');
-						string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
-						string strAuthor = p_modMod.Author;
-						if (!String.IsNullOrEmpty(strSearchString))
-							mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
+						if (!String.IsNullOrEmpty(p_modMod.Id))
+							mifInfo = ModRepository.GetModInfo(p_modMod.Id);
+						if (mifInfo == null)
+							mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
+						if (mifInfo != null)
+							break;
+
+						Thread.Sleep(1000);
+					}
+					if (mifInfo == null)
+					{
+						string strSearchTerms = p_modMod.ModName;
+						if (String.IsNullOrEmpty(strSearchTerms))
+							strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_", " ").Replace("-", " ");
+						//use heuristics to find info
+						if (!String.IsNullOrEmpty(strSearchTerms))
+						{
+							string[] strTerms = strSearchTerms.Split(' ', '-', '_');
+							string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
+							string strAuthor = p_modMod.Author;
+							if (!String.IsNullOrEmpty(strSearchString))
+								mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
+						}
 					}
 				}
 				if (mifInfo == null)

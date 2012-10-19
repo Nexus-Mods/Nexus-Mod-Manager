@@ -41,6 +41,18 @@ namespace Nexus.Client.Settings
 		bool RememberGameMode { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the manager supports the offline mode.
+		/// </summary>
+		/// <value>Whether the manager supports the offline mode.</value>
+		bool SupportOfflineMode { get; set; }
+	
+		/// <summary>
+		/// Gets or sets whether the manager should work in offline mode.
+		/// </summary>
+		/// <value>Whether the manager should work in offline mode.</value>
+		bool OfflineMode { get; set; }
+
+		/// <summary>
 		/// Gets or sets the id of the remembered game mode.
 		/// </summary>
 		/// <value>The id of the remembered game mode.</value>

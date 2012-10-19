@@ -22,6 +22,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// Gets an instance of the Nexus mod repository.
 		/// </summary>
 		/// <param name="p_gmdGameMode">The current game mode.</param>
+		/// <param name="p_booOfflineMode">Whether the repository should be in a forced offline mode.</param>
 		/// <returns>An instance of the Nexus mod repository.</returns>
 		public static IModRepository GetRepository(IGameMode p_gmdGameMode)
 		{
@@ -80,6 +81,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <value>The User Agent.</value>
 		public string UserAgent { get; private set; }
+
+		/// <summary>
+		/// Gets whether the repository is in a forced offline mode.
+		/// </summary>
+		/// <value>Whether the repository is in a forced offline mode.</value>
+		public bool IsOffline { get; private set; }
 
 		#endregion
 
@@ -271,7 +278,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 			if (!String.IsNullOrEmpty(strCookie))
 				m_dicAuthenticationTokens["sid"] = strCookie;
 			p_dicTokens = m_dicAuthenticationTokens;
-			GetUserCredentials();
+
+			if (m_dicAuthenticationTokens.Count > 0)
+				GetUserCredentials();
+
 			return m_dicAuthenticationTokens.Count > 0;
 		}
 
@@ -304,7 +314,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			if (String.IsNullOrEmpty(strCookie))
 				m_dicAuthenticationTokens = null;
-			GetUserCredentials();
+
+			if (!String.IsNullOrEmpty(strCookie))
+				GetUserCredentials();
+
 			return !String.IsNullOrEmpty(strCookie);
 		}
 
@@ -314,6 +327,15 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public void Logout()
 		{
 			m_dicAuthenticationTokens.Clear();
+		}
+
+		/// <summary>
+		/// Sets whether the repository should be used in offline mode.
+		/// </summary>
+		/// <param name="p_booOfflineMode">Whether the repository should be in a forced offline mode</param>
+		public void SetOfflineMode(bool p_booOfflineMode)
+		{
+			IsOffline = p_booOfflineMode;
 		}
 
 		#endregion
@@ -359,6 +381,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public IModInfo GetModInfo(string p_strModId)
 		{
 			NexusModInfo nmiInfo = null;
+
+			if (IsOffline)
+				return null;
+
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
@@ -396,6 +422,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IList<IModInfo> FindMods(string p_strModNameSearchString, bool p_booIncludeAllTerms)
 		{
+			if (IsOffline)
+				return null;
+
 			string[] strTerms = p_strModNameSearchString.Split('"');
 			for (Int32 i = 0; i < strTerms.Length; i += 2)
 				strTerms[i] = strTerms[i].Replace(' ', '~');
@@ -440,6 +469,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms)
 		{
+			if (IsOffline)
+				return null;
+
 			string[] strTerms = p_strModNameSearchString.Split('"');
 			for (Int32 i = 0; i < strTerms.Length; i += 2)
 				strTerms[i] = strTerms[i].Replace(' ', '~');
@@ -486,6 +518,9 @@ namespace Nexus.Client.ModRepositories.Nexus
         /// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
         public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString)
         {
+			if (IsOffline)
+				return null;
+
             string[] strTerms = p_strModNameSearchString.Split('"');
             for (Int32 i = 0; i < strTerms.Length; i += 2)
                 strTerms[i] = strTerms[i].Replace(' ', '~');
@@ -527,6 +562,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IList<IModFileInfo> GetModFileInfo(string p_strModId)
 		{
+			if (IsOffline)
+				return null;
+
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
@@ -562,6 +600,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public Uri[] GetFilePartUrls(string p_strModId, string p_strFileId)
 		{
+			if (IsOffline)
+				return null;
+
 			List<Uri> lstDownloadUrls = new List<Uri>();
 			try
 			{
@@ -625,6 +666,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IModFileInfo GetFileInfo(string p_strModId, string p_strFileId)
 		{
+			if (IsOffline)
+				return null;
+
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
@@ -656,6 +700,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		private NexusModFileInfo GetFileInfoForFile(string p_strFilename, out IModInfo p_mifInfo)
 		{
+			if (IsOffline)
+			{
+				p_mifInfo = null;
+				return null;
+			}
+
 			string strModId = ParseModIdFromFilename(p_strFilename, out p_mifInfo);
 			if (strModId == null)
 				return null;
@@ -705,6 +755,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		public IModFileInfo GetDefaultFileInfo(string p_strModId)
 		{
+			if (IsOffline)
+				return null;
+
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
