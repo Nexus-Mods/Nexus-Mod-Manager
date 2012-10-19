@@ -355,14 +355,14 @@ namespace Nexus.Client
 		/// <param name="OverrideSpeed">If true the speed value is overridden with a 0.</param>
 		private void UpdateProgressBarSpeed(string PropertyName, bool OverrideSpeed)
 		{
-			if ((PropertyName == "TotalSpeed") || (PropertyName == "TotalProgress"))
+			if ((tpbDownloadSpeed.IsValid) && ((PropertyName == "TotalSpeed") || (PropertyName == "TotalProgress")))
 			{
 				if (OverrideSpeed)
 				{
 					tpbDownloadSpeed.Value = 0;
 					if ((tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed))
 						tpbDownloadSpeed.Maximum = 1;
-					tpbDownloadSpeed.Visible = false;	
+					tpbDownloadSpeed.Visible = false;
 				}
 				else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed)
 				{
