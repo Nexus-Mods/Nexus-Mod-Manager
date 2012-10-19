@@ -12,6 +12,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	/// </summary>
 	public class DownloadMonitorVM : INotifyPropertyChanged
 	{
+		bool m_booOfflineMode = false;
+
 		#region Properties
 
 		/// <summary>
@@ -131,6 +133,22 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <value>The application and user settings.</value>
 		public ISettings Settings { get; private set; }
 
+		/// <summary>
+		/// Gets or sets whether the manager is in offline mode.
+		/// </summary>
+		/// <value>Whether the manager is in offline mode.</value>
+		public bool OfflineMode
+		{
+			get
+			{
+				return m_booOfflineMode;
+			}
+			private set
+			{
+				m_booOfflineMode = value;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -140,10 +158,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <param name="p_amnDownloadMonitor">The Download manager to use to manage the monitored activities.</param>
 		/// <param name="p_setSettings">The application and user settings.</param>
-		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings)
+		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, bool p_booOfflineMode)
 		{
 			DownloadMonitor = p_amnDownloadMonitor;
 			Settings = p_setSettings;
+			m_booOfflineMode = p_booOfflineMode;
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
 			CancelTaskCommand = new Command<IBackgroundTask>("Cancel", "Cancels the selected Download.", CancelTask);

@@ -151,10 +151,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		protected void SetCommandExecutableStatus()
 		{
-			ViewModel.CancelTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanCancelTask(GetSelectedTask());
+			ViewModel.CancelTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanCancelTask(GetSelectedTask()) && !ViewModel.OfflineMode;
 			ViewModel.RemoveTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanRemoveDownload(GetSelectedTask());
-			ViewModel.PauseTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanPauseDownload(GetSelectedTask());
-			ViewModel.ResumeTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanResumeDownload(GetSelectedTask());
+			ViewModel.PauseTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanPauseDownload(GetSelectedTask()) && !ViewModel.OfflineMode;
+			ViewModel.ResumeTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanResumeDownload(GetSelectedTask()) && !ViewModel.OfflineMode;
 		}
 
 		#endregion

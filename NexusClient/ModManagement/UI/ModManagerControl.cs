@@ -77,6 +77,8 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeactivateModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
 
+				addModFromURLToolStripMenuItem.Enabled = !m_vmlViewModel.OfflineMode;
+
 				LoadMetrics();
 				HidePanels();
 			}

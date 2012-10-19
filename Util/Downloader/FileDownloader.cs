@@ -484,13 +484,14 @@ namespace Nexus.Client.Util.Downloader
 			{
 				using (HttpWebResponse wrpDownload = (HttpWebResponse)e.Response)
 				{
-					switch (wrpDownload.StatusCode)
-					{
-						case HttpStatusCode.NotFound:
-							fmiInfo = new FileMetadata();
-							fmiInfo.NotFound = true;
-							break;
-					}
+					if (wrpDownload != null)
+						switch (wrpDownload.StatusCode)
+						{
+							case HttpStatusCode.NotFound:
+								fmiInfo = new FileMetadata();
+								fmiInfo.NotFound = true;
+								break;
+						}
 				}
 			}
 			if (fmiInfo == null)

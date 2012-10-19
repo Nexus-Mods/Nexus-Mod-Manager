@@ -326,7 +326,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		public void Logout()
 		{
-			m_dicAuthenticationTokens.Clear();
+			if (m_dicAuthenticationTokens != null)
+				m_dicAuthenticationTokens.Clear();
 		}
 
 		/// <summary>

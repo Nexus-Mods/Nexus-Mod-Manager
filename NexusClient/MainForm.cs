@@ -315,9 +315,12 @@ namespace Nexus.Client
 			}
 			dmcDownloadMonitor.Activate();
 
-			tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
-			if (dmcDownloadMonitor.ViewModel.ActiveTasks.Count <= 0)
-				UpdateProgressBarSpeed("TotalSpeed", true);	
+			if (!ViewModel.OfflineMode)
+			{
+				tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
+				if (dmcDownloadMonitor.ViewModel.ActiveTasks.Count <= 0)
+					UpdateProgressBarSpeed("TotalSpeed", true);
+			}
 		}
 
 		/// <summary>
@@ -336,10 +339,13 @@ namespace Nexus.Client
 				return;
 			}
 			dmcDownloadMonitor.Activate();
-			
-			tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
-			if (dmcDownloadMonitor.ViewModel.ActiveTasks.Count <= 0)
-				UpdateProgressBarSpeed("TotalSpeed", true);
+
+			if (!ViewModel.OfflineMode)
+			{
+				tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
+				if (dmcDownloadMonitor.ViewModel.ActiveTasks.Count <= 0)
+					UpdateProgressBarSpeed("TotalSpeed", true);
+			}
 		}
 
 		/// <summary>
