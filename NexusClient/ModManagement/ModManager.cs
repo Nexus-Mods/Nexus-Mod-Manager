@@ -201,6 +201,18 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets whether the repository is in offline mode.
+		/// </summary>
+		/// <value>Whether the repository is in offline mode.</value>
+		public bool RepositoryOfflineMode
+		{
+			get
+			{
+				return ModRepository.IsOffline;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

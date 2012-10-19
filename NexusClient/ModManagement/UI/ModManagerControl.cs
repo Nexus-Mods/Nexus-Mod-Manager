@@ -260,7 +260,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)lvwMods.SelectedItems[0].Tag);
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
 				ViewModel.DeleteModCommand.CanExecute = true;
-				ViewModel.TagModCommand.CanExecute = true;
+				ViewModel.TagModCommand.CanExecute = !ViewModel.OfflineMode;
 			}
 			else
 			{

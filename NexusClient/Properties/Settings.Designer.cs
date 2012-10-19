@@ -198,6 +198,36 @@ namespace Nexus.Client.Properties {
                 this["RememberGameMode"] = value;
             }
         }
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("True")]
+		public bool SupportOfflineMode
+		{
+			get
+			{
+				return ((bool)(this["SupportOfflineMode"]));
+			}
+			set
+			{
+				this["SupportOfflineMode"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("False")]
+		public bool OfflineMode
+		{
+			get
+			{
+				return ((bool)(this["OfflineMode"]));
+			}
+			set
+			{
+				this["OfflineMode"] = value;
+			}
+		}
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
