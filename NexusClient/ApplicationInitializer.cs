@@ -370,7 +370,7 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
-			//svmServices.ModManager.LoadQueuedMods();
+			svmServices.ModManager.LoadQueuedMods();
 			StepOverallProgress();
 
 			GameMode = gmdGameMode;

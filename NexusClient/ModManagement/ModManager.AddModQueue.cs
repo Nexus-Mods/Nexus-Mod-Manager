@@ -55,6 +55,7 @@ namespace Nexus.Client.ModManagement
 				foreach (KeyValuePair<string, AddModDescriptor> kvpMod in new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]))
 				{
 					Trace.TraceInformation(String.Format("[{0}] Adding from serialized queue", kvpMod.Key.ToString()));
+					kvpMod.Value.Status = TaskStatus.Paused;
 					AddMod(new Uri(kvpMod.Key), ConfirmFileOverwrite);
 				}
 			}

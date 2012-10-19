@@ -50,7 +50,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			if (p_tskTask.Status == TaskStatus.Running)
 				lsiSubItem.Text = "Downloading";
 			else
-				lsiSubItem.Text = "";
+				lsiSubItem.Text = p_tskTask.Status.ToString();
 
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
 			lsiSubItem.Name = ObjectHelper.GetPropertyName(() => p_tskTask.ItemMessage);

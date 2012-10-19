@@ -208,10 +208,20 @@ namespace Nexus.Client.ModManagement
 			Descriptor = BuildDescriptor(m_uriPath);
 			if (Descriptor == null)
 			{
-				Status = TaskStatus.Error;
-				OverallMessage = String.Format("File does not exist: {0}", m_uriPath.ToString());
-				OnTaskEnded(String.Format("File does not exist: {0}", m_uriPath.ToString()), null);
-				return;
+				if (m_mrpModRepository.IsOffline)
+				{
+					Status = TaskStatus.Error;
+					OverallMessage = "Unable to download in Offline Mode!";
+					OnTaskEnded("Unable to download in Offline Mode!", null);
+					return;
+				}
+				else
+				{
+					Status = TaskStatus.Error;
+					OverallMessage = String.Format("File does not exist: {0}", m_uriPath.ToString());
+					OnTaskEnded(String.Format("File does not exist: {0}", m_uriPath.ToString()), null);
+					return;
+				}
 			}
 
 			ModInfo = GetModInfo(Descriptor);

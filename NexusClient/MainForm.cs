@@ -151,7 +151,14 @@ namespace Nexus.Client
 			}
 
 			if (ViewModel.OfflineMode)
-				tssDownload.Visible = false;
+			{
+				tpbDownloadSpeed.Visible = false;
+				tlbGoPremium.Visible = false;
+				tsbGoPremium.Visible = false;
+				tlbDownloads.Font = new Font(tlbGoPremium.Font, FontStyle.Bold);
+				tlbDownloads.ForeColor = Color.Red;
+				tlbDownloads.Text = "OFFLINE MODE";
+			}
 			else
 			{
 				Int32 UserStatus = String.IsNullOrEmpty(ViewModel.UserStatus[1]) ? 0 : Convert.ToInt32(ViewModel.UserStatus[1]);
