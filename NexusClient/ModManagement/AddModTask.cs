@@ -481,6 +481,11 @@ namespace Nexus.Client.ModManagement
 				OverallMessage = e.Message;
 				OnTaskEnded(e.Message, e.ReturnValue);
 			}
+			else if (e.Status == TaskStatus.Paused)
+			{
+				string[] TempFiles = (string[])e.ReturnValue;
+				Descriptor.PausedFiles.AddRange(TempFiles);
+			}
 		}
 
 		#endregion
@@ -686,6 +691,15 @@ namespace Nexus.Client.ModManagement
 				foreach (string strFile in Descriptor.DownloadedFiles)
 					if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))
 						FileUtil.ForceDelete(strFile);
+				if (e.Status == TaskStatus.Cancelled)
+				{
+					foreach (string strFile in Descriptor.PausedFiles)
+						if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))
+						{
+							FileUtil.ForceDelete(strFile);
+						}
+					Descriptor.PausedFiles.Clear();
+				}
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods.Remove(Descriptor.SourceUri.ToString());
 				m_eifEnvironmentInfo.Settings.Save();

@@ -105,5 +105,11 @@ namespace Nexus.Client
 			if (String.IsNullOrEmpty(ViewModel.CancelWarning) || MessageBox.Show(this, ViewModel.CancelWarning, "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
 				DialogResult = DialogResult.Cancel;
 		}
+
+		private void butOffline_Click(object sender, EventArgs e)
+		{
+			if (ViewModel.OfflineMode())
+				DialogResult = DialogResult.OK;
+		}
 	}
 }

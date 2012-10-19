@@ -236,6 +236,18 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Gets whether the manager is in offline mode.
+		/// </summary>
+		/// <value>Whether the manager is in offline mode.</value>
+		public bool OfflineMode
+		{
+			get
+			{
+				return ModRepository.IsOffline;
+			}
+		}
+
+		/// <summary>
 		/// Gets the Game root folder.
 		/// </summary>
 		/// <value>The path to the game folder.</value>
@@ -374,7 +386,8 @@ namespace Nexus.Client
 		/// </summary>
 		private void UpdateProgramme()
 		{
-			Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction)));
+			if (!OfflineMode)
+				Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction)));
 		}
 
 		/// <summary>

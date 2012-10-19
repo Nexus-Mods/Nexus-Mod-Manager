@@ -57,6 +57,12 @@ namespace Nexus.Client.ModManagement
 		public List<string> DownloadedFiles { get; private set; }
 
 		/// <summary>
+		/// Gets the list of files that have been paused.
+		/// </summary>
+		/// <value>The list of files that have been paused.</value>
+		public List<string> PausedFiles { get; private set; }
+
+		/// <summary>
 		/// Gets or set the status of the task that is adding the mod.
 		/// </summary>
 		/// <value>The status of the task that is adding the mod.</value>
@@ -73,6 +79,7 @@ namespace Nexus.Client.ModManagement
 		{
 			DownloadFiles = new List<Uri>();
 			DownloadedFiles = new List<string>();
+			PausedFiles = new List<string>();
 		}
 
 		/// <summary>

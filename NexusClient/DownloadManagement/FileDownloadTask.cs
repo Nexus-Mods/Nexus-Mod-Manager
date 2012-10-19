@@ -293,7 +293,7 @@ namespace Nexus.Client.DownloadManagement
 			if (m_areWaitForDownload != null)
 				m_areWaitForDownload.Set();
 			if (Status == TaskStatus.Paused)
-				OnTaskEnded(String.Format("Paused: {0}", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
+				OnTaskEnded(String.Format("Paused: {0}", ((FileDownloader)sender).URL), ((FileDownloader)sender).TempFiles);
 			else if (!e.GotEntireFile)
 			{
 				if (Status == TaskStatus.Cancelling)
