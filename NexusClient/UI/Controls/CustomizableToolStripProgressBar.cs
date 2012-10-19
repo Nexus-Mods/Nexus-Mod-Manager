@@ -117,6 +117,18 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
+		/// Gets whether the control is properly set.
+		/// </summary>
+		/// <value>True or False.</value>
+		public bool IsValid
+		{
+			get
+			{
+				return (ProgressBarControl != null);
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets the progress bar additional info to show.
 		/// </summary>
 		/// <value>The optional value.</value>
