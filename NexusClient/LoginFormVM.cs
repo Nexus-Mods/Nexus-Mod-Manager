@@ -174,5 +174,12 @@ namespace Nexus.Client
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}
+
+		public bool OfflineMode()
+		{
+			ModRepository.SetOfflineMode(EnvironmentInfo.Settings.SupportOfflineMode);
+
+			return EnvironmentInfo.Settings.SupportOfflineMode;
+		}
 	}
 }

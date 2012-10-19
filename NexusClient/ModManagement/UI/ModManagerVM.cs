@@ -167,6 +167,18 @@ namespace Nexus.Client.ModManagement.UI
 		/// <value>The theme to use for the UI.</value>
 		public Theme CurrentTheme { get; private set; }
 
+		/// <summary>
+		/// Gets whether the manager is in offline mode.
+		/// </summary>
+		/// <value>Whether the manager is in offline mode.</value>
+		public bool OfflineMode
+		{
+			get
+			{
+				return ModManager.RepositoryOfflineMode;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
