@@ -32,6 +32,7 @@
 			this.label2 = new System.Windows.Forms.Label();
 			this.label3 = new System.Windows.Forms.Label();
 			this.butLogin = new System.Windows.Forms.Button();
+			this.butOffline = new System.Windows.Forms.Button();
 			this.butCancel = new System.Windows.Forms.Button();
 			this.tbxUsername = new System.Windows.Forms.TextBox();
 			this.tbxPassword = new System.Windows.Forms.TextBox();
@@ -75,7 +76,7 @@
 			// 
 			// butLogin
 			// 
-			this.butLogin.Location = new System.Drawing.Point(88, 113);
+			this.butLogin.Location = new System.Drawing.Point(7, 113);
 			this.butLogin.Name = "butLogin";
 			this.butLogin.Size = new System.Drawing.Size(75, 23);
 			this.butLogin.TabIndex = 3;
@@ -83,13 +84,23 @@
 			this.butLogin.UseVisualStyleBackColor = true;
 			this.butLogin.Click += new System.EventHandler(this.butLogin_Click);
 			// 
+			// butOffline
+			// 
+			this.butOffline.Location = new System.Drawing.Point(88, 113);
+			this.butOffline.Name = "butOffline";
+			this.butOffline.Size = new System.Drawing.Size(75, 23);
+			this.butOffline.TabIndex = 4;
+			this.butOffline.Text = "Offline";
+			this.butOffline.UseVisualStyleBackColor = true;
+			this.butOffline.Click += new System.EventHandler(this.butOffline_Click);
+			// 
 			// butCancel
 			// 
 			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
 			this.butCancel.Location = new System.Drawing.Point(169, 113);
 			this.butCancel.Name = "butCancel";
 			this.butCancel.Size = new System.Drawing.Size(75, 23);
-			this.butCancel.TabIndex = 4;
+			this.butCancel.TabIndex = 5;
 			this.butCancel.Text = "Cancel";
 			this.butCancel.UseVisualStyleBackColor = true;
 			this.butCancel.Click += new System.EventHandler(this.butCancel_Click);
@@ -166,6 +177,7 @@
 			this.panel3.Controls.Add(this.label3);
 			this.panel3.Controls.Add(this.butLogin);
 			this.panel3.Controls.Add(this.label4);
+			this.panel3.Controls.Add(this.butOffline);
 			this.panel3.Controls.Add(this.butCancel);
 			this.panel3.Controls.Add(this.ckbStayLoggedIn);
 			this.panel3.Controls.Add(this.tbxUsername);
@@ -211,6 +223,7 @@
 		private System.Windows.Forms.Label label2;
 		private System.Windows.Forms.Label label3;
 		private System.Windows.Forms.Button butLogin;
+		private System.Windows.Forms.Button butOffline;
 		private System.Windows.Forms.Button butCancel;
 		private System.Windows.Forms.TextBox tbxUsername;
 		private System.Windows.Forms.TextBox tbxPassword;
