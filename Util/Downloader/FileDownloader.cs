@@ -101,6 +101,18 @@ namespace Nexus.Client.Util.Downloader
 		}
 
 		/// <summary>
+		/// Gets the path to which to the file will be saved.
+		/// </summary>
+		/// <value>The path to which to the file will be saved.</value>
+		public string[] TempFiles
+		{
+			get
+			{
+				return new string[]{m_strFileMetadataPath, m_strSavePath};
+			}
+		}
+
+		/// <summary>
 		/// Gets the time that has elapsed downloading the file.
 		/// </summary>
 		/// <value>The time that has elapsed downloading the file.</value>
@@ -402,7 +414,8 @@ namespace Nexus.Client.Util.Downloader
 		{
 			if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))
 				FileUtil.ForceDelete(m_strFileMetadataPath);
-			FileUtil.ForceDelete(m_strSavePath);
+			if (!String.IsNullOrEmpty(m_strSavePath) && File.Exists(m_strSavePath))
+				FileUtil.ForceDelete(m_strSavePath);
 		}
 
 		/// <summary>
