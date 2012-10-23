@@ -120,12 +120,18 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				string Message = p_tskTask.ItemMessage;
 				if (Message.IndexOf("ETA:") > 0)
 				{
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = Message.Substring(Message.IndexOf("(") + 1, Message.IndexOf(")") - Message.IndexOf("(") - 1);
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage)].Text = Message.Substring(Message.LastIndexOf("(") + 1, Message.LastIndexOf(")") - Message.LastIndexOf("(") - 1);
-					SubItems["ETA"].Text = Message.Substring(Message.IndexOf("ETA:") + 5, Message.LastIndexOf("(") - Message.IndexOf("ETA:") - 6);
-					if ((p_tskTask.Status.ToString() == "Running") && (p_tskTask.Status.ToString() == SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text))
-						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text = "Downloading";
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = p_tskTask.ActiveThreads.ToString();
+					try
+					{
+						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = Message.Substring(Message.IndexOf("(") + 1, Message.IndexOf(")") - Message.IndexOf("(") - 1);
+						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage)].Text = Message.Substring(Message.LastIndexOf("(") + 1, Message.LastIndexOf(")") - Message.LastIndexOf("(") - 1);
+						SubItems["ETA"].Text = Message.Substring(Message.IndexOf("ETA:") + 5, Message.LastIndexOf("(") - Message.IndexOf("ETA:") - 6);
+						if ((p_tskTask.Status.ToString() == "Running") && (p_tskTask.Status.ToString() == SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text))
+							SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text = "Downloading";
+						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = p_tskTask.ActiveThreads.ToString();
+					}
+					catch
+					{ 
+					}
 				}
 			}
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress))
