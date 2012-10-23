@@ -191,6 +191,7 @@
 			// LoginForm
 			// 
 			this.AcceptButton = this.butLogin;
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.AutoSize = true;
@@ -200,7 +201,6 @@
 			this.Controls.Add(this.panel3);
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.panel1);
-			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
