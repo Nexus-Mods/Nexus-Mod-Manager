@@ -25,14 +25,18 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				butYesToGroup.Enabled = false;
 				butNoToGroup.Enabled = false;
+				butYesToMod.Enabled = false;
+				butNoToMod.Enabled = false;
 			}
 
 			butNo.Tag = OverwriteResult.No;
 			butNoToAll.Tag = OverwriteResult.NoToAll;
 			butNoToGroup.Tag = OverwriteResult.NoToGroup;
+			butNoToMod.Tag = OverwriteResult.NoToMod;
 			butYes.Tag = OverwriteResult.Yes;
 			butYesToAll.Tag = OverwriteResult.YesToAll;
 			butYesToGroup.Tag = OverwriteResult.YesToGroup;
+			butYesToMod.Tag = OverwriteResult.YesToMod;
 
 		}
 

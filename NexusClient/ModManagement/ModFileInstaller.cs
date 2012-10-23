@@ -18,6 +18,8 @@ namespace Nexus.Client.ModManagement
 	{
 		private List<string> m_lstOverwriteFolders = new List<string>();
 		private List<string> m_lstDontOverwriteFolders = new List<string>();
+		private List<string> m_lstOverwriteMods = new List<string>();
+		private List<string> m_lstDontOverwriteMods = new List<string>();
 		private bool m_booDontOverwriteAll = false;
 		private bool m_booOverwriteAll = false;
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
@@ -124,9 +126,16 @@ namespace Nexus.Client.ModManagement
 			IMod modOld = InstallLog.GetCurrentFileOwner(p_strPath);
 			if (modOld == Mod)
 				return true;
+
+			string strModFile = String.Empty;
 			string strMessage = null;
 			if (modOld != null)
 			{
+				strModFile = modOld.Filename;
+				if (m_lstOverwriteMods.Contains(strModFile))
+					return true;
+				if (m_lstDontOverwriteMods.Contains(strModFile))
+					return false;
 				strMessage = String.Format("Data file '{{0}}' has already been installed by '{0}'" + Environment.NewLine +
 								"Overwrite with this mod's file?", modOld.ModName);
 			}
@@ -177,6 +186,20 @@ namespace Nexus.Client.ModManagement
 								folders.Enqueue(s.ToLowerInvariant());
 							}
 						}
+					}
+					return true;
+				case OverwriteResult.NoToMod:
+					strModFile = modOld.Filename;
+					if (!m_lstOverwriteMods.Contains(strModFile))
+					{
+						m_lstDontOverwriteMods.Add(strModFile);
+					}
+					return false;
+				case OverwriteResult.YesToMod:
+					strModFile = modOld.Filename;
+					if (!m_lstDontOverwriteMods.Contains(strModFile))
+					{
+						m_lstOverwriteMods.Add(strModFile);
 					}
 					return true;
 				default:

@@ -34,6 +34,16 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Overwrite the item, and all subsequent items in the same group.
 		/// </summary>
-		YesToGroup
+		YesToGroup,
+
+		/// <summary>
+		/// Do not overwrite the item, or any subsequent items in the same mod.
+		/// </summary>
+		NoToMod,
+
+		/// <summary>
+		/// Overwrite the item, and all subsequent items in the same mod.
+		/// </summary>
+		YesToMod
 	}
 }
