@@ -156,6 +156,20 @@ namespace Nexus.Client.DownloadManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the number of bytes that have been previously downloaded.
+		/// </summary>
+		/// <value>The number of bytes that have been previously downloaded.</value>
+		public Int32 ResumedByteCount
+		{
+			get
+			{
+				if (m_fdrDownloader == null)
+					return 0;
+				return m_fdrDownloader.ResumedByteCount;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
