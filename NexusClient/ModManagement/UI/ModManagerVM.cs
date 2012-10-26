@@ -259,6 +259,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		protected void ActivateMod(IMod p_modMod)
 		{
+			p_modMod.InstallDate = DateTime.Now.ToString();
 			IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite);
 			if (btsInstall != null)
 				ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
@@ -270,6 +271,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		protected void DeactivateMod(IMod p_modMod)
 		{
+			p_modMod.InstallDate = null;
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod);
 			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
 		}
