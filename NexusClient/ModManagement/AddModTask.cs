@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadManagement;
 using Nexus.Client.Games;
@@ -122,6 +123,10 @@ namespace Nexus.Client.ModManagement
 		private Int32 m_intOverallProgressOffset = 0;
 		private Int32 m_ActiveThreads = 0;
 		private Uri m_uriPath = null;
+		private DateTime m_dteStartTime = DateTime.Now;
+		private Int32 m_intPreviousProgress = 0;
+		private Stack<Int32> m_lstPreviousSpeed = new Stack<Int32> { };
+		private Stopwatch swtSpeed = new Stopwatch();
 
 		#region Properties
 
@@ -162,6 +167,18 @@ namespace Nexus.Client.ModManagement
 			set
 			{
 				m_ActiveThreads = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets the time that has elapsed downloading the file.
+		/// </summary>
+		/// <value>The time that has elapsed downloading the file.</value>
+		protected TimeSpan ElapsedTime
+		{
+			get
+			{
+				return DateTime.Now.Subtract(m_dteStartTime);
 			}
 		}
 
@@ -432,7 +449,32 @@ namespace Nexus.Client.ModManagement
 				}
 				ItemProgress = intProgress;
 				ItemProgressMaximum = intProgressMaximum;
-				TaskSpeed = intSpeed / 1024;
+
+				if (swtSpeed.IsRunning)
+				{
+					if (swtSpeed.ElapsedMilliseconds >= 1000)
+					{
+						if (m_intPreviousProgress == 0)
+							m_intPreviousProgress = fdtDownloader.ResumedByteCount > 0 ? fdtDownloader.ResumedByteCount : 0;
+						TaskSpeed = (int)(((double)(m_dicDownloaderProgress[fdtDownloader].AdjustedProgress - m_intPreviousProgress) / (swtSpeed.ElapsedMilliseconds / 1000)) / 1024);
+						if (TaskSpeed >= 0)
+						{
+							if (m_lstPreviousSpeed.Count == 10)
+								m_lstPreviousSpeed.Pop();
+							m_lstPreviousSpeed.Push(TaskSpeed);
+						}
+						TaskSpeed = (int)m_lstPreviousSpeed.Average();
+						m_intPreviousProgress = m_dicDownloaderProgress[fdtDownloader].AdjustedProgress;
+						swtSpeed.Reset();
+						swtSpeed.Start();
+					}
+					else
+						TaskSpeed = (m_lstPreviousSpeed.Count > 0) && (m_lstPreviousSpeed.Average() > 0) ? (int)m_lstPreviousSpeed.Average() : (intSpeed / 1024);
+				}
+				else
+				{					
+					swtSpeed.Start();
+				}
 
 				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
@@ -441,7 +483,7 @@ namespace Nexus.Client.ModManagement
                 else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
                     ItemMessage = "Resuming the download...";
                 else
-					ItemMessage = String.Format("Downloading: ({3}kb / {4}kb) ETA: {1:00}:{2:00} ({0:} kb/s)...", intSpeed / 1024, dblMinutes, intSeconds, (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024), (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024));
+					ItemMessage = String.Format("Downloading: ({3}kb / {4}kb) ETA: {1:00}:{2:00} ({0:} kb/s)...", TaskSpeed, dblMinutes, intSeconds, (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024), (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024));
 				m_ActiveThreads = fdtDownloader.ActiveThreads;
 			}
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)) ||
@@ -496,6 +538,9 @@ namespace Nexus.Client.ModManagement
 				string[] TempFiles = (string[])e.ReturnValue;
 				Descriptor.PausedFiles.AddRange(TempFiles);
 			}
+
+			if (swtSpeed.IsRunning)
+				swtSpeed.Stop();
 		}
 
 		#endregion

@@ -56,6 +56,8 @@ namespace Nexus.Client.PluginManagement.UI
 				new ToolStripItemCommandBinding<IList<Plugin>>(tsbMoveDown, m_vmlViewModel.MoveDownCommand, GetSelectedPlugins);
 				Command cmdDisableAll = new Command("Disable All Plugins", "Disable all the active plugins.", DisableAllPlugins);
 				new ToolStripItemCommandBinding(tsbDisableAll, cmdDisableAll);
+				Command cmdEnableAll = new Command("Enable All Plugins", "Enable all the active plugins.", EnableAllPlugins);
+				new ToolStripItemCommandBinding(tsbEnableAll, cmdEnableAll);
 				ViewModel.ActivatePluginCommand.CanExecute = false;
 				ViewModel.DeactivatePluginCommand.CanExecute = false;
 				ViewModel.MoveUpCommand.CanExecute = false;
@@ -146,6 +148,19 @@ namespace Nexus.Client.PluginManagement.UI
 				{
 					if ((items.Checked) && (items.Index > 0))
 						ViewModel.DeactivatePlugin((Plugin)items.Tag);
+				}
+		}
+
+		/// <summary>
+		/// Enable all plugins.
+		/// </summary>
+		protected void EnableAllPlugins()
+		{
+			if (MessageBox.Show("Do you really want to enable all unactive plugins?", "Confirm?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.DefaultDesktopOnly) == DialogResult.Yes)
+				foreach (ListViewItem items in rlvPlugins.Items)
+				{
+					if ((items.Checked == false) && (items.Index > 0))
+						ViewModel.ActivatePlugin((Plugin)items.Tag);
 				}
 		}
 

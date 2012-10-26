@@ -64,6 +64,18 @@ namespace Nexus.Client.Util.Downloader
 			}
 		}
 
+		/// <summary>
+		/// Gets the number of bytes that have been previously downloaded.
+		/// </summary>
+		/// <value>The number of bytes that have been previously downloaded.</value>
+		public Int32 ResumedByteCount
+		{
+			get
+			{
+				return m_intInitialDownloadedByteCount;
+			}
+		}
+
  		/// <summary>
 		/// Gets the number of currently active downloaders.
 		/// </summary>
