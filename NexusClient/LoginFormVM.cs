@@ -162,9 +162,7 @@ namespace Nexus.Client
 			}
 			catch (RepositoryUnavailableException e)
 			{
-				Trace.TraceInformation("Cannot login to {0} repository", ModRepository.Name);
-				TraceUtil.TraceException(e);
-				ErrorMessage = String.Format("Cannot connect to the {0} server: {1}", ModRepository.Name, e.InnerException.Message);
+				ErrorMessage = e.Message;
 				return false;
 			}
 			if (StayLoggedIn)
