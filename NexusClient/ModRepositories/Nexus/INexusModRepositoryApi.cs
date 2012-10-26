@@ -87,9 +87,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		string[] GetModFileDownloadUrls(string p_strFileId);
 
 		/// <summary>
-		/// Gets the download URLs of all the parts associated with the specified file.
+		/// Gets the user credentials.
 		/// </summary>
-		/// <returns>The download URLs of all the parts associated with the specified file.</returns>
+		/// <returns>The user credentials (User ID, Name and Status).</returns>
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
