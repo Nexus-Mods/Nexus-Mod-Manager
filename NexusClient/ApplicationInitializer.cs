@@ -632,11 +632,22 @@ namespace Nexus.Client
 
 			Dictionary<string, string> dicAuthTokens = new Dictionary<string, string>(EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id]);
 			bool booCredentialsExpired = false;
-			if ((dicAuthTokens.Count == 0) || (booCredentialsExpired = !p_mrpModRepository.Login(dicAuthTokens)))
+			string strError = String.Empty;
+
+			try
+			{
+				booCredentialsExpired = !p_mrpModRepository.Login(dicAuthTokens);
+			}
+			catch (RepositoryUnavailableException e)
+			{
+				strError = e.Message;
+			}
+
+			if ((dicAuthTokens.Count == 0) || booCredentialsExpired)
 			{
 				string strMessage = String.Format("You must log into the {0} website.", p_mrpModRepository.Name);
 				string strCancelWarning = String.Format("If you do not login {0} will close.", EnvironmentInfo.Settings.ModManagerName);
-				string strError = booCredentialsExpired ? "Your login has expired. Please login again." : null;
+				strError = booCredentialsExpired ? "Your login has expired. Please login again." : strError;
 				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, strMessage, strError, strCancelWarning);
 				return LoginUser(vmlLoginVM);
 			}
