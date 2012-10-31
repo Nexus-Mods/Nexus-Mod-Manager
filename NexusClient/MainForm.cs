@@ -161,7 +161,7 @@ namespace Nexus.Client
 			}
 			else
 			{
-				Int32 UserStatus = String.IsNullOrEmpty(ViewModel.UserStatus[1]) ? 0 : Convert.ToInt32(ViewModel.UserStatus[1]);
+				Int32 UserStatus = (ViewModel.UserStatus == null) || String.IsNullOrEmpty(ViewModel.UserStatus[1]) ? 3 : Convert.ToInt32(ViewModel.UserStatus[1]);
 
 				if ((UserStatus == 3) || (UserStatus == 30))
 				{

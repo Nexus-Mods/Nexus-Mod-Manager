@@ -514,6 +514,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
+			catch (NullReferenceException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
 		}
 
         /// <summary>
@@ -559,6 +563,10 @@ namespace Nexus.Client.ModRepositories.Nexus
             {
                 throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
             }
+			catch (NullReferenceException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
         }
 
 		/// <summary>
