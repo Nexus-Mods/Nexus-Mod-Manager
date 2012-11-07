@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Drawing;
 using System.Windows.Forms;
 using Nexus.Client.Util;
@@ -12,6 +13,17 @@ namespace Nexus.Client.Settings.UI
 	{
 		private bool booToolTipShown = false;
 
+		private enum DaysInterval
+		{
+			One = 1,
+			Two,
+			Three,
+			Four,
+			Five,
+			Six,
+			Seven
+		}
+
 		#region Constructors
 
 		/// <summary>
@@ -22,6 +34,20 @@ namespace Nexus.Client.Settings.UI
 		{
 			SettingsGroup = p_gsgSettings;
 			InitializeComponent();
+			
+			cbxProgramUpdateCheckInterval.DataSource = Enum.GetValues(typeof(DaysInterval))
+				.Cast<DaysInterval>()
+				.Select(p => new { Value = (int)p, Key = p.ToString() })
+				.ToList();
+			cbxProgramUpdateCheckInterval.DisplayMember = "Key";
+			cbxProgramUpdateCheckInterval.ValueMember = "Value";
+
+			cbxModVersionsCheckInterval.DataSource = Enum.GetValues(typeof(DaysInterval))
+				.Cast<DaysInterval>()
+				.Select(p => new { Value = (int)p, Key = p.ToString() })
+				.ToList();
+			cbxModVersionsCheckInterval.DisplayMember = "Key";
+			cbxModVersionsCheckInterval.ValueMember = "Value";
 
 			foreach (GeneralSettingsGroup.FileAssociationSetting fasFileAssociation in p_gsgSettings.FileAssociations)
 			{
@@ -40,6 +66,9 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(ckbCheckModVersions, () => ckbCheckModVersions.Checked, p_gsgSettings, () => p_gsgSettings.CheckForNewMods);
 			BindingHelper.CreateFullBinding(ckbScanSubfolders, () => ckbScanSubfolders.Checked, p_gsgSettings, () => p_gsgSettings.ScanSubfoldersForMods);
 			BindingHelper.CreateFullBinding(ckbCloseManagerAfterGameLaunch, () => ckbCloseManagerAfterGameLaunch.Checked, p_gsgSettings, () => p_gsgSettings.CloseModManagerAfterGameLaunch);
+
+			BindingHelper.CreateFullBinding(cbxProgramUpdateCheckInterval, () => cbxProgramUpdateCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.UpdateCheckInterval);
+			BindingHelper.CreateFullBinding(cbxModVersionsCheckInterval, () => cbxModVersionsCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.ModVersionsCheckInterval);
 
 			if (!p_gsgSettings.CanAssociateFiles)
 			{

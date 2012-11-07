@@ -460,7 +460,8 @@ namespace Nexus.Client.ModManagement
 								m_lstPreviousSpeed.Pop();
 							m_lstPreviousSpeed.Push(TaskSpeed);
 						}
-						TaskSpeed = (int)m_lstPreviousSpeed.Average();
+						if (m_lstPreviousSpeed.Count > 1)
+							TaskSpeed = (int)m_lstPreviousSpeed.Average();
 						m_intPreviousProgress = m_dicDownloaderProgress[fdtDownloader].AdjustedProgress;
 						swtSpeed.Reset();
 						swtSpeed.Start();

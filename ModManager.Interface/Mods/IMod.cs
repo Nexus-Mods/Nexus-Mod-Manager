@@ -31,6 +31,12 @@ namespace Nexus.Client.Mods
 		string InstallDate { get; set; }
 
 		/// <summary>
+		/// Gets or sets the last known mod version.
+		/// </summary>
+		/// <value>The the last known mod version.</value>
+		string LastKnownVersion { get; }
+
+		/// <summary>
 		/// Gets the internal path to the screenshot.
 		/// </summary>
 		/// <remarks>

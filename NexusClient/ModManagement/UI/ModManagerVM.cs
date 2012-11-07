@@ -302,6 +302,27 @@ namespace Nexus.Client.ModManagement.UI
 			p_modMod.UpdateInfo(mifNewInfo, true);
 		}
 
+		/// <summary>
+		/// Updates the mod's last known version.
+		/// </summary>
+		/// <param name="p_modMod">The mod whose last known version is to be updated.</param>
+		/// <param name="p_strModLastVersion">The last known version.</param>
+		public void UpdateModLastVersion(IMod p_modMod, string p_strModLastVersion)
+		{
+			ModInfo mifNewInfo = new ModInfo(p_modMod);
+			mifNewInfo.LastKnownVersion = p_strModLastVersion;
+			p_modMod.UpdateInfo(mifNewInfo, true);
+		}
+
+		#endregion
+
+		#region Mod Updating
+
+		public string CheckForUpdates()
+		{
+			return ModManager.CheckForUpdates();
+		}
+
 		#endregion
 
 		/// <summary>

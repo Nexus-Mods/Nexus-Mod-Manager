@@ -30,6 +30,12 @@ namespace Nexus.Client.Mods
 		string HumanReadableVersion { get; }
 
 		/// <summary>
+		/// Gets or sets the last known mod version.
+		/// </summary>
+		/// <value>The the last known mod version.</value>
+		string LastKnownVersion { get; }
+
+		/// <summary>
 		/// Gets or sets the version of the mod.
 		/// </summary>
 		/// <value>The version of the mod.</value>
