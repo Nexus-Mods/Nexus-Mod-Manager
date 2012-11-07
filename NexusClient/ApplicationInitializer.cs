@@ -641,6 +641,7 @@ namespace Nexus.Client
 			catch (RepositoryUnavailableException e)
 			{
 				strError = e.Message;
+				dicAuthTokens.Clear();
 			}
 
 			if ((dicAuthTokens.Count == 0) || booCredentialsExpired)
