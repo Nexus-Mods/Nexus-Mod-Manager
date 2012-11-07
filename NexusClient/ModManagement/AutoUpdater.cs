@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
@@ -125,13 +126,13 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Check for updates to the managed mods.
 		/// </summary>
-		/// <remarks>
-		/// This method performs its work asynchronously.
-		/// </remarks>
 		public void CheckForUpdates()
 		{
+			List<string> ModList = new List<string>();
 			foreach (IMod modMod in ManagedModRegistry.RegisteredMods)
-				((Func<IMod, IModInfo>)CheckForUpdate).BeginInvoke(modMod, GotNewVersionNumber, modMod);
+				ModList.Add(String.Format("{0}|{1}", String.IsNullOrEmpty(modMod.Id) ? ModRepository.GetModInfoForFile(modMod.Filename).Id : modMod.Id, modMod.HumanReadableVersion));
+			if (ModList.Count > 0)
+				CheckForModListUpdate(ModList);
 		}
 
 		/// <summary>
@@ -159,6 +160,40 @@ namespace Nexus.Client.ModManagement
 					foreach (IMod modMod in e.OldItems)
 						m_oclNewInfo.RemoveAll(x => x.Mod == modMod);
 					break;
+			}
+		}
+
+		/// <summary>
+		/// Checks for the updated information for the given mods.
+		/// </summary>
+		/// <param name="p_lstModList">The mods for which to check for updates.</param>
+		private void CheckForModListUpdate(List<string> p_lstModList)
+		{
+			List<IModInfo> mifInfo = new List<IModInfo>();
+
+			try
+			{
+				if (!ModRepository.IsOffline)
+				{
+					//get mod info
+					for (int i = 0; i <= 2; i++)
+					{
+						mifInfo = ModRepository.GetModListInfo(p_lstModList);
+
+						if (mifInfo != null)
+							break;
+
+						Thread.Sleep(1000);
+					}
+
+					foreach (IMod modMod in ManagedModRegistry.RegisteredMods)
+						foreach (var modUpdate in mifInfo.Where(x => (String.IsNullOrEmpty(modMod.Id) ? ModRepository.GetModInfoForFile(modMod.Filename).Id : modMod.Id) == x.Id))
+							AddNewVersionNumberForMod(modMod, modUpdate);
+				}
+			}
+			catch (RepositoryUnavailableException)
+			{
+				//the repository is not available, so don't bother
 			}
 		}
 

@@ -46,6 +46,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private string m_strModId = null;
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
+		private string m_strLastKnownVersion = null;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -93,6 +94,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strModName, value, () => ModName);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the last known mod version.
+		/// </summary>
+		/// <value>The the last known mod version.</value>
+		public string LastKnownVersion
+		{
+			get
+			{
+				return m_strLastKnownVersion;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
 			}
 		}
 
@@ -1138,6 +1155,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(HumanReadableVersion))
 			{
 				HumanReadableVersion = p_mifInfo.HumanReadableVersion;
+				booChangedValue = true;
+			}
+			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
+			{
+				LastKnownVersion = p_mifInfo.LastKnownVersion;
 				booChangedValue = true;
 			}
 			if (p_booOverwriteAllValues || (MachineVersion == null))

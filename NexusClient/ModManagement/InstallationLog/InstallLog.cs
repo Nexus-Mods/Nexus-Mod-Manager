@@ -260,7 +260,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 						string strInstallDate = "<No Data>";
 						if (!(xelMod.Element("installDate") == null))
 							strInstallDate = xelMod.Element("installDate").Value;
-						IMod modMod = new DummyMod(strModName, strModPath, verVersion, strVersion, strInstallDate);
+						IMod modMod = new DummyMod(strModName, strModPath, verVersion, strVersion, "", strInstallDate);
 						dicLoggedModInfo[xelMod.Attribute("key").Value] = modMod;
 					}
 				}
@@ -311,7 +311,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 						string strVersion = xelVersion.Attribute("machineVersion").Value;
 						Version verVersion = String.IsNullOrEmpty(strVersion) ? null : new Version(strVersion);
 						strVersion = xelVersion.Value;
-						IMod modMod = ManagedModRegistry.GetMod(strModPath) ?? new DummyMod(strModName, strModPath, verVersion, strVersion, strInstallDate);
+						IMod modMod = ManagedModRegistry.GetMod(strModPath) ?? new DummyMod(strModName, strModPath, verVersion, strVersion, "", strInstallDate);
 						modMod.InstallDate = strInstallDate;
 						m_amrModKeys.RegisterMod(modMod, xelMod.Attribute("key").Value);
 						if (modMod is DummyMod)

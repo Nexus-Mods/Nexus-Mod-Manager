@@ -44,6 +44,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string m_strModId = null;
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
+		private string m_strLastKnownVersion = null;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -103,6 +104,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strHumanReadableVersion, value, () => HumanReadableVersion);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the last known mod version.
+		/// </summary>
+		/// <value>The the last known mod version.</value>
+		public string LastKnownVersion
+		{
+			get
+			{
+				return m_strLastKnownVersion;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
 			}
 		}
 
@@ -714,6 +731,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				HumanReadableVersion = p_mifInfo.HumanReadableVersion;
 				booChangedValue = true;
 			}
+			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
+			{
+				LastKnownVersion = p_mifInfo.LastKnownVersion;
+				booChangedValue = true;
+			}
 			if (p_booOverwriteAllValues || (MachineVersion == null))
 			{
 				MachineVersion = p_mifInfo.MachineVersion;
@@ -784,6 +806,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndVersion.InnerText = HumanReadableVersion;
 			if (MachineVersion != null)
 				xndVersion.Attributes.Append(p_xmlDocument.CreateAttribute("MachineVersion")).Value = MachineVersion.ToString();
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("LastKnownVersion")).InnerText = LastKnownVersion;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Author")).InnerText = Author;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			if (Website != null)
@@ -813,6 +836,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				if ((xatMachineVersion != null) && (!p_booFillOnlyEmptyValues || (MachineVersion == null)))
 					MachineVersion = new Version(xatMachineVersion.Value);
 			}
+
+			XmlNode xndLastKnownVersion = xndRoot.SelectSingleNode("LastKnownVersion");
+			if ((xndLastKnownVersion != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(LastKnownVersion)))
+				LastKnownVersion = xndLastKnownVersion.InnerText;
 
 			XmlNode xndAuthor = xndRoot.SelectSingleNode("Author");
 			if ((xndAuthor != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Author)))
