@@ -32,7 +32,8 @@ namespace Nexus.Client.UI.Controls
 			}
 			set 
 			{
-				ProgressBarControl.Value = value > ProgressBarControl.Maximum ? ProgressBarControl.Maximum : value; 
+				int NewValue = value >= 0 ? value : 0;
+				ProgressBarControl.Value = NewValue > ProgressBarControl.Maximum ? ProgressBarControl.Maximum : NewValue; 
 			}
 		}
 
