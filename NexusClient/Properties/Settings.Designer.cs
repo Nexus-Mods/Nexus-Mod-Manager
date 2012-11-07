@@ -150,7 +150,37 @@ namespace Nexus.Client.Properties {
                 this["CheckForNewModVersions"] = value;
             }
         }
-        
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("")]
+		public string LastModVersionsCheckDate
+		{
+			get
+			{
+				return ((string)(this["LastModVersionsCheckDate"]));
+			}
+			set
+			{
+				this["LastModVersionsCheckDate"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("3")]
+		public int ModVersionsCheckInterval
+		{
+			get
+			{
+				return ((int)(this["ModVersionsCheckInterval"]));
+			}
+			set
+			{
+				this["ModVersionsCheckInterval"] = value;
+			}
+		}
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
@@ -310,6 +340,36 @@ namespace Nexus.Client.Properties {
                 this["CheckForUpdatesOnStartup"] = value;
             }
         }
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("")]
+		public string LastUpdateCheckDate
+		{
+			get
+			{
+				return ((string)(this["LastUpdateCheckDate"]));
+			}
+			set
+			{
+				this["LastUpdateCheckDate"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("3")]
+		public int UpdateCheckInterval
+		{
+			get
+			{
+				return ((int)(this["UpdateCheckInterval"]));
+			}
+			set
+			{
+				this["UpdateCheckInterval"] = value;
+			}
+		}
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

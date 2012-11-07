@@ -66,6 +66,8 @@ namespace Nexus.Client.Settings
 		private bool m_booAssociateNxmUrls = true;
 		private bool m_booCheckForUpdatesOnStartup = true;
 		private bool m_booCloseModManagerAfterGameLaunch = true;
+		private Int32 m_intUpdateCheckInterval = 0;
+		private Int32 m_intModVersionsCheckInterval = 0;
 
 		#region Properties
 
@@ -112,6 +114,22 @@ namespace Nexus.Client.Settings
 			set
 			{
 				SetPropertyIfChanged(ref m_booCheckForNewMods, value, () => CheckForNewMods);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the interval (in days) to wait before checking for mod updates.
+		/// </summary>
+		/// <value>The interval (in days) to wait before checking for mod updates.</value>
+		public Int32 ModVersionsCheckInterval
+		{
+			get
+			{
+				return m_intModVersionsCheckInterval;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_intModVersionsCheckInterval, value, () => ModVersionsCheckInterval);
 			}
 		}
 
@@ -176,6 +194,22 @@ namespace Nexus.Client.Settings
 			set
 			{
 				SetPropertyIfChanged(ref m_booCheckForUpdatesOnStartup, value, () => CheckForUpdatesOnStartup);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the interval (in days) to wait before checking for a program update.
+		/// </summary>
+		/// <value>The interval (in days) to wait before checking for a program update.</value>
+		public Int32 UpdateCheckInterval
+		{
+			get
+			{
+				return m_intUpdateCheckInterval;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_intUpdateCheckInterval, value, () => UpdateCheckInterval);
 			}
 		}
 
@@ -402,8 +436,10 @@ namespace Nexus.Client.Settings
 
 			AssociateNxmUrl = IsUrlAssociated("nxm");
 			CheckForNewMods = EnvironmentInfo.Settings.CheckForNewModVersions;
+			ModVersionsCheckInterval = EnvironmentInfo.Settings.ModVersionsCheckInterval;
 			AddMissingModInfo = EnvironmentInfo.Settings.AddMissingInfoToMods;
 			CheckForUpdatesOnStartup = EnvironmentInfo.Settings.CheckForUpdatesOnStartup;
+			UpdateCheckInterval = EnvironmentInfo.Settings.UpdateCheckInterval;
 			ScanSubfoldersForMods = EnvironmentInfo.Settings.ScanSubfoldersForMods;
 			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;
 		}
@@ -443,8 +479,10 @@ namespace Nexus.Client.Settings
 			}
 
 			EnvironmentInfo.Settings.CheckForNewModVersions = CheckForNewMods;
+			EnvironmentInfo.Settings.ModVersionsCheckInterval = ModVersionsCheckInterval;
 			EnvironmentInfo.Settings.AddMissingInfoToMods = AddMissingModInfo;
 			EnvironmentInfo.Settings.CheckForUpdatesOnStartup = CheckForUpdatesOnStartup;
+			EnvironmentInfo.Settings.UpdateCheckInterval = UpdateCheckInterval;
 			EnvironmentInfo.Settings.ScanSubfoldersForMods = ScanSubfoldersForMods;
 			EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = CloseModManagerAfterGameLaunch;
 			EnvironmentInfo.Settings.Save();

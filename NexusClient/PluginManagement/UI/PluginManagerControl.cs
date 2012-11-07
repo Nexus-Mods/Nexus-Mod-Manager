@@ -56,7 +56,7 @@ namespace Nexus.Client.PluginManagement.UI
 				new ToolStripItemCommandBinding<IList<Plugin>>(tsbMoveDown, m_vmlViewModel.MoveDownCommand, GetSelectedPlugins);
 				Command cmdDisableAll = new Command("Disable All Plugins", "Disable all the active plugins.", DisableAllPlugins);
 				new ToolStripItemCommandBinding(tsbDisableAll, cmdDisableAll);
-				Command cmdEnableAll = new Command("Enable All Plugins", "Enable all the active plugins.", EnableAllPlugins);
+				Command cmdEnableAll = new Command("Enable All Plugins", "Enable all the unactive plugins.", EnableAllPlugins);
 				new ToolStripItemCommandBinding(tsbEnableAll, cmdEnableAll);
 				ViewModel.ActivatePluginCommand.CanExecute = false;
 				ViewModel.DeactivatePluginCommand.CanExecute = false;

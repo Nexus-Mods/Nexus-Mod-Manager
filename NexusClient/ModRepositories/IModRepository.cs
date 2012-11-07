@@ -101,6 +101,14 @@ namespace Nexus.Client.ModRepositories
 		IModInfo GetModInfo(string p_strModId);
 
 		/// <summary>
+		/// Gets the info for the specifed mod list.
+		/// </summary>
+		/// <param name="p_lstModList">The mod list to.</param>
+		/// <returns>The update mods' list.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		List<IModInfo> GetModListInfo(List<string> p_lstModList);
+
+		/// <summary>
 		/// Gets the list of files for the specified mod.
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod whose list of files is to be returned.</param>
@@ -165,7 +173,7 @@ namespace Nexus.Client.ModRepositories
         /// <returns>The mod info for the mods matching the given search criteria.</returns>
         IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString);
 
-				/// <summary>
+		/// <summary>
 		/// Finds the mods containing the given search terms.
 		/// </summary>
 		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>

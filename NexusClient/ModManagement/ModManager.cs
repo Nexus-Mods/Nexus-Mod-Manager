@@ -244,8 +244,7 @@ namespace Nexus.Client.ModManagement
 			DownloadMonitor = p_dmrMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
-			if (EnvironmentInfo.Settings.CheckForNewModVersions)
-				AutoUpdater.CheckForUpdates();
+			CheckForUpdates();
 		}
 
 		#endregion
@@ -382,6 +381,40 @@ namespace Nexus.Client.ModManagement
 		public AutoTagger GetModTagger()
 		{
 			return new AutoTagger(ModRepository);
+		}
+
+		#endregion
+
+		#region Mod Updating
+
+		public string CheckForUpdates()
+		{
+			if (EnvironmentInfo.Settings.CheckForNewModVersions)
+			{
+				if (String.IsNullOrEmpty(EnvironmentInfo.Settings.LastModVersionsCheckDate))
+				{
+					AutoUpdater.CheckForUpdates();
+					EnvironmentInfo.Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
+					EnvironmentInfo.Settings.Save();
+				}
+
+				try
+				{
+					if ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastModVersionsCheckDate)).TotalDays >= EnvironmentInfo.Settings.ModVersionsCheckInterval)
+					{
+						AutoUpdater.CheckForUpdates();
+						EnvironmentInfo.Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
+						EnvironmentInfo.Settings.Save();
+					}
+				}
+				catch
+				{
+					EnvironmentInfo.Settings.LastModVersionsCheckDate = "";
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+
+			return "Success";
 		}
 
 		#endregion
