@@ -16,6 +16,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 	{
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
+		private string m_strLastKnownVersion = null;
 		private string m_strMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -60,6 +61,22 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 			set
 			{
 				SetPropertyIfChanged(ref m_strHumanReadableVersion, value, () => HumanReadableVersion);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the last known mod version.
+		/// </summary>
+		/// <value>The the last known mod version.</value>
+		public string LastKnownVersion
+		{
+			get
+			{
+				return m_strLastKnownVersion;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
 			}
 		}
 
@@ -200,6 +217,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				midInfo.Author = Author;
 				midInfo.Description = Description;
 				midInfo.HumanReadableVersion = HumanReadableVersion;
+				midInfo.LastKnownVersion = LastKnownVersion;
 				midInfo.MachineVersion = String.IsNullOrEmpty(MachineVersion) ? null : new Version(MachineVersion);
 				midInfo.ModName = ModName;
 				midInfo.InstallDate = InstallDate;
@@ -235,6 +253,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				Author = p_mifModInfo.Author;
 				Description = p_mifModInfo.Description;
 				HumanReadableVersion = p_mifModInfo.HumanReadableVersion;
+				LastKnownVersion = p_mifModInfo.LastKnownVersion;
 				MachineVersion = (p_mifModInfo.MachineVersion == null) ? null : p_mifModInfo.MachineVersion.ToString();
 				ModName = p_mifModInfo.ModName;
 				InstallDate = p_mifModInfo.InstallDate;

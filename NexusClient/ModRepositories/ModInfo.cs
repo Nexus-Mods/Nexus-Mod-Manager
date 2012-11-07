@@ -32,6 +32,12 @@ namespace Nexus.Client.ModRepositories
 		public string HumanReadableVersion { get; set; }
 
 		/// <summary>
+		/// Gets or sets the last known mod version.
+		/// </summary>
+		/// <value>The the last known mod version.</value>
+		public string LastKnownVersion { get; set; }
+
+		/// <summary>
 		/// Gets or sets the version of the mod.
 		/// </summary>
 		/// <value>The version of the mod.</value>
@@ -87,7 +93,7 @@ namespace Nexus.Client.ModRepositories
 		public ModInfo(IModInfo p_mifCopy)
 		{
 			if (p_mifCopy != null)
-				SetAllInfo(true, p_mifCopy.Id, p_mifCopy.ModName, p_mifCopy.HumanReadableVersion, p_mifCopy.MachineVersion, p_mifCopy.Author, p_mifCopy.Description, p_mifCopy.InstallDate, p_mifCopy.Website, p_mifCopy.Screenshot);
+				SetAllInfo(true, p_mifCopy.Id, p_mifCopy.ModName, p_mifCopy.HumanReadableVersion, p_mifCopy.LastKnownVersion, p_mifCopy.MachineVersion, p_mifCopy.Author, p_mifCopy.Description, p_mifCopy.InstallDate, p_mifCopy.Website, p_mifCopy.Screenshot);
 		}
 
 		/// <summary>
@@ -96,15 +102,16 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strId">The id of the mod.</param>
 		/// <param name="p_strModName">The name of the mod.</param>
 		/// <param name="p_strHumanReadableVersion">The human readable form of the mod's version.</param>
+		/// <param name="p_strLastKnownVersion">The the last known mod version.</param>
 		/// <param name="p_verMachineVersion">The version of the mod.</param>
 		/// <param name="p_strAuthor">The author of the mod.</param>
 		/// <param name="p_strDescription">The description of the mod.</param>
 		/// <param name="p_strInstallDate">The install date of the mod.</param>
 		/// <param name="p_uriWebsite">The website of the mod.</param>
 		/// <param name="p_eimScreenshot">The mod's screenshot.</param>
-		public ModInfo(string p_strId, string p_strModName, string p_strHumanReadableVersion, Version p_verMachineVersion, string p_strAuthor, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
+		public ModInfo(string p_strId, string p_strModName, string p_strHumanReadableVersion, string p_strLastKnownVersion, Version p_verMachineVersion, string p_strAuthor, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
 		{
-			SetAllInfo(true, p_strId, p_strModName, p_strHumanReadableVersion, p_verMachineVersion, p_strAuthor, p_strDescription, p_strInstallDate, p_uriWebsite, p_eimScreenshot);
+			SetAllInfo(true, p_strId, p_strModName, p_strHumanReadableVersion, p_strLastKnownVersion, p_verMachineVersion, p_strAuthor, p_strDescription, p_strInstallDate, p_uriWebsite, p_eimScreenshot);
 		}
 
 		#endregion
@@ -117,13 +124,14 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strId">The id of the mod.</param>
 		/// <param name="p_strModName">The name of the mod.</param>
 		/// <param name="p_strHumanReadableVersion">The human readable form of the mod's version.</param>
+		/// <param name="p_strLastKnownVersion">The the last known mod version.</param>
 		/// <param name="p_verMachineVersion">The version of the mod.</param>
 		/// <param name="p_strAuthor">The author of the mod.</param>
 		/// <param name="p_strDescription">The description of the mod.</param>
 		/// <param name="p_strInstallDate">The install date of the mod.</param>
 		/// <param name="p_uriWebsite">The website of the mod.</param>
 		/// <param name="p_eimScreenshot">The mod's screenshot.</param>
-		protected void SetAllInfo(bool p_booOverwriteAllValues, string p_strId, string p_strModName, string p_strHumanReadableVersion, Version p_verMachineVersion, string p_strAuthor, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
+		protected void SetAllInfo(bool p_booOverwriteAllValues, string p_strId, string p_strModName, string p_strHumanReadableVersion, string p_strLastKnownVersion, Version p_verMachineVersion, string p_strAuthor, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
 		{
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Id))
 				Id = p_strId;
@@ -131,6 +139,8 @@ namespace Nexus.Client.ModRepositories
 				ModName = p_strModName;
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(HumanReadableVersion))
 				HumanReadableVersion = p_strHumanReadableVersion;
+			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
+				LastKnownVersion = p_strLastKnownVersion;
 			if (p_booOverwriteAllValues || (MachineVersion == null))
 				MachineVersion = p_verMachineVersion;
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
@@ -155,7 +165,7 @@ namespace Nexus.Client.ModRepositories
 		/// or just the empty ones.</param>
 		public void UpdateInfo(IModInfo p_mifInfo, bool p_booOverwriteAllValues)
 		{
-			SetAllInfo(p_booOverwriteAllValues, p_mifInfo.Id, p_mifInfo.ModName, p_mifInfo.HumanReadableVersion, p_mifInfo.MachineVersion, p_mifInfo.Author, p_mifInfo.Description, p_mifInfo.InstallDate, p_mifInfo.Website, p_mifInfo.Screenshot);
+			SetAllInfo(p_booOverwriteAllValues, p_mifInfo.Id, p_mifInfo.ModName, p_mifInfo.HumanReadableVersion, p_mifInfo.LastKnownVersion, p_mifInfo.MachineVersion, p_mifInfo.Author, p_mifInfo.Description, p_mifInfo.InstallDate, p_mifInfo.Website, p_mifInfo.Screenshot);
 		}
 	}
 }

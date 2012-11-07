@@ -8,6 +8,7 @@ using System.Text;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
+using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
@@ -72,6 +73,8 @@ namespace Nexus.Client.ModManagement.UI
 				new ToolStripItemCommandBinding<IMod>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DeactivateModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
+				Command cmdCheckModVersions = new Command("Check Mod Versions", "Checks for new mod versions.", CheckModVersions);
+				new ToolStripItemCommandBinding(tsbCheckModVersions, cmdCheckModVersions);
 				ViewModel.DeleteModCommand.CanExecute = false;
 				ViewModel.ActivateModCommand.CanExecute = false;
 				ViewModel.DeactivateModCommand.CanExecute = false;
@@ -81,6 +84,7 @@ namespace Nexus.Client.ModManagement.UI
 
 				LoadMetrics();
 				HidePanels();
+
 			}
 		}
 
@@ -166,6 +170,11 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		#endregion
+
+		private void CheckModVersions()
+		{
+			ViewModel.CheckForUpdates();
+		}
 
 		#region Binding
 
@@ -377,6 +386,7 @@ namespace Nexus.Client.ModManagement.UI
 			lviMod.Tag = p_modAdded;
 			lviMod.Text = p_modAdded.ModName;
 			lviMod.SubItems[clmVersion.Name].Text = p_modAdded.HumanReadableVersion;
+			lviMod.SubItems[clmWebVersion.Name].Text = p_modAdded.HumanReadableVersion;
 			UpdateNewestVersion(lviMod);
 			lviMod.SubItems[clmAuthor.Name].Text = p_modAdded.Author;
 			lviMod.SubItems[clmInstallDate.Name].Text = p_modAdded.InstallDate;
@@ -545,6 +555,7 @@ namespace Nexus.Client.ModManagement.UI
 					if (!uifNewModInfo.IsMatchingVersion(modMod.HumanReadableVersion))
 						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
+					ViewModel.UpdateModLastVersion(modMod, uifNewModInfo.NewestInfo.HumanReadableVersion);
 				}
 				else
 					lsiWebVersion.ForeColor = lvwMods.ForeColor;
@@ -552,8 +563,8 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 			{
-				lsiWebVersion.Text = "<No Data>";
-				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Italic);
+				lsiWebVersion.Text = String.IsNullOrEmpty(modMod.LastKnownVersion) ? modMod.HumanReadableVersion : modMod.LastKnownVersion;
+				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Regular);
 				lsiWebVersion.ForeColor = lvwMods.ForeColor;
 				lsiWebVersion.Tag = null;
 			}

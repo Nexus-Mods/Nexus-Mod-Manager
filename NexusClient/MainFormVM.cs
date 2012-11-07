@@ -396,7 +396,29 @@ namespace Nexus.Client
 		public void ViewIsShown()
 		{
 			if (EnvironmentInfo.Settings.CheckForUpdatesOnStartup)
-				UpdateProgramme();
+			{
+				if (String.IsNullOrEmpty(EnvironmentInfo.Settings.LastUpdateCheckDate))
+				{
+					UpdateProgramme();
+					EnvironmentInfo.Settings.LastUpdateCheckDate = DateTime.Today.ToShortDateString();
+					EnvironmentInfo.Settings.Save();
+				}
+
+				try
+				{
+					if ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastUpdateCheckDate)).TotalDays >= EnvironmentInfo.Settings.UpdateCheckInterval)
+					{
+						UpdateProgramme();
+						EnvironmentInfo.Settings.LastUpdateCheckDate = DateTime.Today.ToShortDateString();
+						EnvironmentInfo.Settings.Save();
+					}
+				}
+				catch
+				{
+					EnvironmentInfo.Settings.LastUpdateCheckDate = "";
+					EnvironmentInfo.Settings.Save();
+				}
+			}
 		}
 
 		/// <summary>
