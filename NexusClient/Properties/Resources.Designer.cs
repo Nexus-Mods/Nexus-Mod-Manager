@@ -249,6 +249,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap en {
+            get {
+                object obj = ResourceManager.GetObject("en", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap folders_open {
             get {
                 object obj = ResourceManager.GetObject("folders_open", resourceCulture);
@@ -305,6 +312,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap nl {
+            get {
+                object obj = ResourceManager.GetObject("nl", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap preferences_system_4 {
             get {
                 object obj = ResourceManager.GetObject("preferences_system_4", resourceCulture);
@@ -336,6 +350,13 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap up {
             get {
                 object obj = ResourceManager.GetObject("up", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap us {
+            get {
+                object obj = ResourceManager.GetObject("us", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

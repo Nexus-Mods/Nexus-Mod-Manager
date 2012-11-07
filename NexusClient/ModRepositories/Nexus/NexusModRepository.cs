@@ -88,6 +88,18 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <value>Whether the repository is in a forced offline mode.</value>
 		public bool IsOffline { get; private set; }
 
+		/// <summary>
+		/// Gets the repository's file server zones.
+		/// </summary>
+		/// <value>the repository's file server zones.</value>
+		public List<FileServerZone> FileServerZones { get; private set; }
+
+		/// <summary>
+		/// Gets the number allowed connections.
+		/// </summary>
+		/// <value>The number allowed connections.</value>
+		public Int32[] AllowedConnections { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -100,11 +112,24 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			SetWebsite(p_gmdGameMode);
 			UserAgent = String.Format("Nexus Client v{0}", ProgrammeMetadata.VersionString);
+			SetFileServerZones();
+			AllowedConnections = new Int32[] { 1 };
 		}
 
 		#endregion
 
 		#region Helpers
+
+		protected void SetFileServerZones()
+		{
+			FileServerZones = new List<FileServerZone>();
+			FileServerZones.Add(new FileServerZone());
+			FileServerZones.Add(new FileServerZone("en", "England", 1, global::Nexus.Client.Properties.Resources.en));
+			FileServerZones.Add(new FileServerZone("us.w", "US West Coast", 2, global::Nexus.Client.Properties.Resources.us));
+			FileServerZones.Add(new FileServerZone("us.e", "US East Coast", 2, global::Nexus.Client.Properties.Resources.us));
+			FileServerZones.Add(new FileServerZone("us.c", "US Central", 2, global::Nexus.Client.Properties.Resources.us));
+			FileServerZones.Add(new FileServerZone("nl", "Netherlands", 1, global::Nexus.Client.Properties.Resources.nl));
+		}
 
 		/// <summary>
 		/// Sets the service endpoint to use for the given game mode.
@@ -611,13 +636,54 @@ namespace Nexus.Client.ModRepositories.Nexus
 				return null;
 
 			List<Uri> lstDownloadUrls = new List<Uri>();
+			#region Deprecated
+			//try
+			//{
+			//    using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+			//    {
+			//        INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+			//        foreach (string strUrl in nmrApi.GetModFileDownloadUrls(p_strFileId))
+			//            lstDownloadUrls.Add(new Uri(strUrl));
+			//    }
+			//}
+			//catch (TimeoutException e)
+			//{
+			//    throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			//}
+			//catch (CommunicationException e)
+			//{
+			//    throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			//}
+			//catch (SerializationException e)
+			//{
+			//    throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			//}
+			#endregion
+			return lstDownloadUrls.ToArray();
+		}
+
+		/// <summary>
+		/// Gets the URLs of the file parts for the default download file of the specified mod.
+		/// </summary>
+		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
+		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
+		/// <param name="p_booPremiumOnly">Whether the user wants to use Premium servers only.</param>
+		/// <param name="p_strUserLocation">The preferred user location.</param>
+		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		public Uri[] GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation)
+		{
+			if (IsOffline)
+				return null;
+
+			List<FileserverInfo> fsiServerInfo = new List<FileserverInfo>();
+			List<Uri> lstDownloadUrls = new List<Uri>();
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					foreach (string strUrl in nmrApi.GetModFileDownloadUrls(p_strFileId))
-						lstDownloadUrls.Add(new Uri(strUrl));
+					fsiServerInfo = nmrApi.GetModFileDownloadUrls(p_strFileId);
 				}
 			}
 			catch (TimeoutException e)
@@ -661,6 +727,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
+
+			if (m_strUserStatus != null)
+				if (m_strUserStatus[1] != null)
+					if ((m_strUserStatus[1] != "3") && (m_strUserStatus[1] != "30"))
+						AllowedConnections = new Int32[] { 1, 2, 3, 4 };
 		}
 
 		/// <summary>

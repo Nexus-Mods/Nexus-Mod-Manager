@@ -129,6 +129,10 @@
       <DependentUpon>GameDetectionForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\DownloadSettingsPage.resx">
+      <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\GameModeListViewItem.resx">
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
       <SubType>Designer</SubType>
@@ -248,7 +252,10 @@
     </None>
     <None Include="Resources\application-exit-2.png" />
     <None Include="Resources\go_premium.png" />
+    <None Include="Resources\en.gif" />
+    <None Include="Resources\nl.gif" />
     <Content Include="Resources\tes_logo.ico" />
+    <None Include="Resources\us.gif" />
     <None Include="Resources\tes_logo_full.png" />
     <None Include="Resources\up.png" />
     <None Include="Resources\system-settings.png" />
@@ -284,6 +291,15 @@
     <Compile Include="IMessager.cs" />
     <Compile Include="MessagerClient.cs" />
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
+    <Compile Include="ModRepositories\FileServerZone.cs" />
+    <Compile Include="ModRepositories\Nexus\FileserverInfo.cs" />
+    <Compile Include="Settings\DownloadSettingsGroup.cs" />
+    <Compile Include="Settings\UI\DownloadSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\DownloadSettingsPage.Designer.cs">
+      <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="UI\Controls\CustomizableToolStripProgressBar.cs">
       <SubType>Component</SubType>
     </Compile>

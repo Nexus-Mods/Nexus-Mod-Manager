@@ -360,7 +360,7 @@ namespace Nexus.Client.ModManagement
 								Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
 								return null;
 							}
-							uriFilesToDownload = m_mrpModRepository.GetFilePartUrls(nxuModUrl.ModId, mfiFile.Id.ToString());
+							uriFilesToDownload = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.PremiumOnly, m_eifEnvironmentInfo.Settings.UserLocation);
 						}
 						catch (RepositoryUnavailableException e)
 						{
@@ -394,11 +394,8 @@ namespace Nexus.Client.ModManagement
 				Trace.TraceInformation(String.Format("[{0}] Launching downloading of {1}.", Descriptor.SourceUri.ToString(), uriFile.ToString()));
 				Dictionary<string, string> dicAuthenticationTokens = m_eifEnvironmentInfo.Settings.RepositoryAuthenticationTokens[m_mrpModRepository.Id];
 				//TODO get the max connection and block size from settings
-				Int32 intConnections = 4;
-				if ((m_mrpModRepository.UserStatus[1] == "3") || (m_mrpModRepository.UserStatus[1] == "30"))
-					intConnections = 1;
-				else
-					intConnections = 4;
+				Int32 intConnections = m_mrpModRepository.AllowedConnections.Max();
+
 				FileDownloadTask fdtDownloader = new FileDownloadTask(intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
 				fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
 				fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);

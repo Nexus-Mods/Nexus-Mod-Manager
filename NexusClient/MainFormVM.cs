@@ -331,9 +331,12 @@ namespace Nexus.Client
 
 			ModOptionsSettingsGroup mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
 
+			DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository.FileServerZones, ModRepository.AllowedConnections);
+
 			List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>();
 			lstSettingGroups.Add(new GeneralSettingsPage(gsgGeneralSettings));
 			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
+			lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
 			if (p_gmdGameMode.SettingsGroupViews != null)
 				lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
 

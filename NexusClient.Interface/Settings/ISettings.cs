@@ -247,6 +247,24 @@ namespace Nexus.Client.Settings
 		bool CloseModManagerAfterGameLaunchIsRemembered { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the user wants to use only Premium Server.
+		/// </summary>
+		/// <value>Whether the user wants to use only Premium Server.</value>
+		bool PremiumOnly { get; set; }
+
+		/// <summary>
+		/// Gets or sets the user favourite download location.
+		/// </summary>
+		/// <value>The user favourite download location.</value>
+		string UserLocation { get; set; }
+
+		/// <summary>
+		/// Gets or sets the number of connections per file.
+		/// </summary>
+		/// <value>The number of connections per file.</value>
+		Int32 NumberOfConnections { get; set; }
+
+		/// <summary>
 		/// Saves changes to the user settings.
 		/// </summary>
 		void Save();

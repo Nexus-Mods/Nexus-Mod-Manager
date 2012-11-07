@@ -240,6 +240,51 @@ namespace Nexus.Client.Properties {
                 this["ScanSubfoldersForMods"] = value;
             }
         }
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("False")]
+		public bool PremiumOnly
+		{
+			get
+			{
+				return ((bool)(this["PremiumOnly"]));
+			}
+			set
+			{
+				this["PremiumOnly"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("default")]
+		public string UserLocation
+		{
+			get
+			{
+				return ((string)(this["UserLocation"]));
+			}
+			set
+			{
+				this["UserLocation"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("1")]
+		public int NumberOfConnections
+		{
+			get
+			{
+				return ((int)(this["NumberOfConnections"]));
+			}
+			set
+			{
+				this["NumberOfConnections"] = value;
+			}
+		}
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

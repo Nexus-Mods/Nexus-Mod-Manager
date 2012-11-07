@@ -84,7 +84,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			BodyStyle = WebMessageBodyStyle.Bare,
 			UriTemplate = "Files/download/{p_strFileId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		string[] GetModFileDownloadUrls(string p_strFileId);
+		List<FileserverInfo> GetModFileDownloadUrls(string p_strFileId);
 
 		/// <summary>
 		/// Gets the user credentials.
