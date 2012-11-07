@@ -39,6 +39,8 @@
 			this.ckbAddMissingInfo = new System.Windows.Forms.CheckBox();
 			this.ckbCheckModVersions = new System.Windows.Forms.CheckBox();
 			this.ckbCheckForUpdates = new System.Windows.Forms.CheckBox();
+			this.cbxProgramUpdateCheckInterval = new System.Windows.Forms.ComboBox();
+			this.cbxModVersionsCheckInterval = new System.Windows.Forms.ComboBox();
 			this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
 			this.ckbCloseManagerAfterGameLaunch = new System.Windows.Forms.CheckBox();
 			this.flpGeneral.SuspendLayout();
@@ -105,7 +107,7 @@
 			this.ckbAssociateURL.Location = new System.Drawing.Point(13, 29);
 			this.ckbAssociateURL.Name = "ckbAssociateURL";
 			this.ckbAssociateURL.Size = new System.Drawing.Size(151, 17);
-			this.ckbAssociateURL.TabIndex = 4;
+			this.ckbAssociateURL.TabIndex = 6;
 			this.ckbAssociateURL.Text = "Associate with NXM URLs";
 			this.ckbAssociateURL.UseVisualStyleBackColor = true;
 			// 
@@ -115,7 +117,9 @@
 			this.groupBox5.Controls.Add(this.ckbScanSubfolders);
 			this.groupBox5.Controls.Add(this.ckbAddMissingInfo);
 			this.groupBox5.Controls.Add(this.ckbCheckModVersions);
+			this.groupBox5.Controls.Add(this.cbxModVersionsCheckInterval);
 			this.groupBox5.Controls.Add(this.ckbCheckForUpdates);
+			this.groupBox5.Controls.Add(this.cbxProgramUpdateCheckInterval);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
 			this.groupBox5.Size = new System.Drawing.Size(368, 134);
@@ -129,7 +133,7 @@
 			this.ckbScanSubfolders.Location = new System.Drawing.Point(16, 88);
 			this.ckbScanSubfolders.Name = "ckbScanSubfolders";
 			this.ckbScanSubfolders.Size = new System.Drawing.Size(217, 17);
-			this.ckbScanSubfolders.TabIndex = 3;
+			this.ckbScanSubfolders.TabIndex = 5;
 			this.ckbScanSubfolders.Text = "Scan Mods directory subfolders for mods";
 			this.ckbScanSubfolders.UseVisualStyleBackColor = true;
 			// 
@@ -139,7 +143,7 @@
 			this.ckbAddMissingInfo.Location = new System.Drawing.Point(16, 65);
 			this.ckbAddMissingInfo.Name = "ckbAddMissingInfo";
 			this.ckbAddMissingInfo.Size = new System.Drawing.Size(143, 17);
-			this.ckbAddMissingInfo.TabIndex = 2;
+			this.ckbAddMissingInfo.TabIndex = 4;
 			this.ckbAddMissingInfo.Text = "Add missing info to Mods";
 			this.ckbAddMissingInfo.UseVisualStyleBackColor = true;
 			// 
@@ -149,9 +153,18 @@
 			this.ckbCheckModVersions.Location = new System.Drawing.Point(16, 42);
 			this.ckbCheckModVersions.Name = "ckbCheckModVersions";
 			this.ckbCheckModVersions.Size = new System.Drawing.Size(161, 17);
-			this.ckbCheckModVersions.TabIndex = 1;
-			this.ckbCheckModVersions.Text = "Check for new Mod versions";
+			this.ckbCheckModVersions.TabIndex = 2;
+			this.ckbCheckModVersions.Text = "Check for new Mod versions - interval (in days):";
 			this.ckbCheckModVersions.UseVisualStyleBackColor = true;
+			// 
+			// cbxModVersionsCheckInterval
+			// 
+			this.cbxModVersionsCheckInterval.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.cbxModVersionsCheckInterval.FormattingEnabled = true;
+			this.cbxModVersionsCheckInterval.Location = new System.Drawing.Point(267, 40);
+			this.cbxModVersionsCheckInterval.Name = "cbxModVersionsCheckInterval";
+			this.cbxModVersionsCheckInterval.Size = new System.Drawing.Size(64, 21);
+			this.cbxModVersionsCheckInterval.TabIndex = 3;
 			// 
 			// ckbCheckForUpdates
 			// 
@@ -160,8 +173,17 @@
 			this.ckbCheckForUpdates.Name = "ckbCheckForUpdates";
 			this.ckbCheckForUpdates.Size = new System.Drawing.Size(163, 17);
 			this.ckbCheckForUpdates.TabIndex = 0;
-			this.ckbCheckForUpdates.Text = "Check for updates on startup";
+			this.ckbCheckForUpdates.Text = "Check for updates on startup - interval (in days):";
 			this.ckbCheckForUpdates.UseVisualStyleBackColor = true;
+			// 
+			// cbxProgramUpdateCheckInterval
+			// 
+			this.cbxProgramUpdateCheckInterval.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+			this.cbxProgramUpdateCheckInterval.FormattingEnabled = true;
+			this.cbxProgramUpdateCheckInterval.Location = new System.Drawing.Point(267, 17);
+			this.cbxProgramUpdateCheckInterval.Name = "cbxProgramUpdateCheckInterval";
+			this.cbxProgramUpdateCheckInterval.Size = new System.Drawing.Size(64, 21);
+			this.cbxProgramUpdateCheckInterval.TabIndex = 1;
 			// 
 			// ckbCloseManagerAfterGameLaunch
 			// 
@@ -169,7 +191,7 @@
 			this.ckbCloseManagerAfterGameLaunch.Location = new System.Drawing.Point(16, 111);
 			this.ckbCloseManagerAfterGameLaunch.Name = "ckbCloseManagerAfterGameLaunch";
 			this.ckbCloseManagerAfterGameLaunch.Size = new System.Drawing.Size(171, 17);
-			this.ckbCloseManagerAfterGameLaunch.TabIndex = 4;
+			this.ckbCloseManagerAfterGameLaunch.TabIndex = 7;
 			this.ckbCloseManagerAfterGameLaunch.Text = "Close {0} after launching game";
 			this.ckbCloseManagerAfterGameLaunch.UseVisualStyleBackColor = true;
 			// 
@@ -206,6 +228,7 @@
 		private System.Windows.Forms.CheckBox ckbCheckForUpdates;
 		private System.Windows.Forms.CheckBox ckbScanSubfolders;
 		private System.Windows.Forms.CheckBox ckbCloseManagerAfterGameLaunch;
-
+		private System.Windows.Forms.ComboBox cbxProgramUpdateCheckInterval;
+		private System.Windows.Forms.ComboBox cbxModVersionsCheckInterval;
 	}
 }

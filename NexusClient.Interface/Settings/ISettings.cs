@@ -175,6 +175,18 @@ namespace Nexus.Client.Settings
 		bool CheckForNewModVersions { get; set; }
 
 		/// <summary>
+		/// Gets or sets the last time the program checked for mod updates.
+		/// </summary>
+		/// <value>The last time the program checked for mod updates.</value>
+		string LastModVersionsCheckDate { get; set; }
+
+		/// <summary>
+		/// Gets or sets the interval (in days) to wait before checking for mod updates.
+		/// </summary>
+		/// <value>The interval (in days) to wait before checking for a mod updates.</value>
+		Int32 ModVersionsCheckInterval { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the client should add missing info to managed mods.
 		/// </summary>
 		/// <value>Whether the client should add missing info to managed mods.</value>
@@ -221,6 +233,18 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <value>Whether to check for updates on startup.</value>
 		bool CheckForUpdatesOnStartup { get; set; }
+
+		/// <summary>
+		/// Gets or sets the last time the program checked for an update.
+		/// </summary>
+		/// <value>The last time the program checked for an update.</value>
+		string LastUpdateCheckDate { get; set; }
+
+		/// <summary>
+		/// Gets or sets the interval (in days) to wait before checking for a program update.
+		/// </summary>
+		/// <value>The interval (in days) to wait before checking for a program update.</value>
+		Int32 UpdateCheckInterval { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether to scan sub directories of the mod directory for mods.

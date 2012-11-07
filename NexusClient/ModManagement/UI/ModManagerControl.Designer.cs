@@ -43,6 +43,7 @@
 			this.tsbDeactivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeleteMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
+			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.lvwMods = new Nexus.UI.Controls.IconListView();
 			this.clmModName = new System.Windows.Forms.ColumnHeader();
@@ -76,7 +77,8 @@
             this.tsbActivate,
             this.tsbDeactivate,
             this.tsbDeleteMod,
-            this.tsbTagMod});
+            this.tsbTagMod,
+			this.tsbCheckModVersions});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(49, 453);
@@ -146,6 +148,15 @@
 			this.tsbTagMod.Name = "tsbTagMod";
 			this.tsbTagMod.Size = new System.Drawing.Size(46, 36);
 			this.tsbTagMod.Text = "toolStripButton1";
+			// 
+			// tsbCheckModVersions
+			// 
+			this.tsbCheckModVersions.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbCheckModVersions.Image = global::Nexus.Client.Properties.Resources.change_game_mode;
+			this.tsbCheckModVersions.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbCheckModVersions.Name = "tsbCheckModVersions";
+			this.tsbCheckModVersions.Size = new System.Drawing.Size(46, 36);
+			this.tsbCheckModVersions.Text = "toolStripButton1";
 			// 
 			// sptMods
 			// 
@@ -305,5 +316,6 @@
 		private System.Windows.Forms.ToolStripMenuItem addModFromURLToolStripMenuItem;
 		private System.Windows.Forms.ToolStripButton tsbDeleteMod;
 		private System.Windows.Forms.ToolStripButton tsbTagMod;
+		private System.Windows.Forms.ToolStripButton tsbCheckModVersions;
 	}
 }

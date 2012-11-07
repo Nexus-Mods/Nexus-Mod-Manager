@@ -363,7 +363,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			// i could possiblly derive it based on the url of the service, but the service could be on a different server
 			string strURL = String.Format("http://{0}/downloads/file.php?id={1}", m_strWebsite, p_nmiNexusModInfo.Id);
 			Uri uriWebsite = new Uri(strURL);
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, null, uriWebsite, null);
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, null, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
 
@@ -417,6 +417,54 @@ namespace Nexus.Client.ModRepositories.Nexus
 				return null;
 
 			return Convert(nmiInfo);
+		}
+
+		/// <summary>
+		/// Gets the info for the specifed mod list.
+		/// </summary>
+		/// <param name="p_lstModList">The mod list to.</param>
+		/// <returns>The update mods' list.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		public List<IModInfo> GetModListInfo(List<string> p_lstModList)
+		{
+			NexusModInfo[] nmiInfo = null;
+			List<IModInfo> imiUpdatedMods = new List<IModInfo>();
+			string ModList = "";
+			p_lstModList.ForEach(x => ModList += String.Format("{0},", "\"" +  x + "\""));
+			ModList = ModList.Trim(",".ToCharArray());
+			ModList = "[" + ModList + "]";
+
+			if (IsOffline)
+				return null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					nmiInfo = nmrApi.GetModListInfo(ModList);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			if (nmiInfo == null)
+				return null;
+
+			foreach (NexusModInfo iMod in nmiInfo)
+				imiUpdatedMods.Add(Convert(iMod));
+
+			return imiUpdatedMods;
 		}
 
 		/// <summary>

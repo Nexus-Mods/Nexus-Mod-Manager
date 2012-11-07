@@ -35,14 +35,16 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <param name="p_strName">The name of the dummy mod.</param>
 			/// <param name="p_strFileName">The filename of the dummy mod.</param>
 			/// <param name="p_strHumanReadableVersion">The human readable form of the mod's version.</param>
+			/// <param name="p_strLastKnownVersion">The the last known mod version.</param>
 			/// <param name="p_verMachineVersion">The version of the mod.</param>
 			/// <param name="p_strInstallDate">The install date of the mod.</param>
-			public DummyMod(string p_strName, string p_strFileName, Version p_verMachineVersion, string p_strHumanReadableVersion, string p_strInstallDate)
+			public DummyMod(string p_strName, string p_strFileName, Version p_verMachineVersion, string p_strHumanReadableVersion, string p_strLastKnownVersion, string p_strInstallDate)
 			{
 				ModName = p_strName;
 				Filename = p_strFileName;
 				MachineVersion = p_verMachineVersion;
 				HumanReadableVersion = p_strHumanReadableVersion;
+				LastKnownVersion = p_strLastKnownVersion;
 				InstallDate = p_strInstallDate;
 			}
 
@@ -191,6 +193,12 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public string HumanReadableVersion { get; set; }
 
 			/// <summary>
+			/// Gets or sets the last known mod version.
+			/// </summary>
+			/// <value>The the last known mod version.</value>
+			public string LastKnownVersion { get; set; }
+
+			/// <summary>
 			/// Gets or sets the version of the mod.
 			/// </summary>
 			/// <value>The version of the mod.</value>
@@ -244,6 +252,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					ModName = p_mifInfo.ModName;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(HumanReadableVersion))
 					HumanReadableVersion = p_mifInfo.HumanReadableVersion;
+				if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
+					LastKnownVersion = p_mifInfo.LastKnownVersion;
 				if (p_booOverwriteAllValues || (MachineVersion == null))
 					MachineVersion = p_mifInfo.MachineVersion;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
