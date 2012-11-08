@@ -346,6 +346,7 @@ namespace Nexus.Client.Util.Collections
 			{
 				m_rwlLock.EnterReadLock();
 				T[] tItems = (T[])Array.CreateInstance(typeof(T), Count);
+				m_lstItems.CopyTo(tItems, 0);
 				return tItems.GetEnumerator();
 			}
 			finally

@@ -244,7 +244,7 @@ namespace Nexus.Client.ModManagement
 			DownloadMonitor = p_dmrMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
-			CheckForUpdates();
+			CheckForUpdates(false);
 		}
 
 		#endregion
@@ -387,34 +387,31 @@ namespace Nexus.Client.ModManagement
 
 		#region Mod Updating
 
-		public string CheckForUpdates()
+		public string CheckForUpdates(bool p_booOverride)
 		{
-			if (EnvironmentInfo.Settings.CheckForNewModVersions)
-			{
-				if (String.IsNullOrEmpty(EnvironmentInfo.Settings.LastModVersionsCheckDate))
-				{
-					AutoUpdater.CheckForUpdates();
-					EnvironmentInfo.Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
-					EnvironmentInfo.Settings.Save();
-				}
+			string strMessage = String.Empty;
 
+			if ((EnvironmentInfo.Settings.CheckForNewModVersions) || (p_booOverride))
+			{
 				try
 				{
-					if ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastModVersionsCheckDate)).TotalDays >= EnvironmentInfo.Settings.ModVersionsCheckInterval)
+					if ((String.IsNullOrEmpty(EnvironmentInfo.Settings.LastModVersionsCheckDate)) || (p_booOverride) || ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastModVersionsCheckDate)).TotalDays >= EnvironmentInfo.Settings.ModVersionsCheckInterval))
 					{
 						AutoUpdater.CheckForUpdates();
 						EnvironmentInfo.Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
 						EnvironmentInfo.Settings.Save();
+						strMessage = "Update check successfully performed.";
 					}
 				}
 				catch
 				{
 					EnvironmentInfo.Settings.LastModVersionsCheckDate = "";
 					EnvironmentInfo.Settings.Save();
+					strMessage = "Couldn't perform the update check, retry later.";
 				}
 			}
 
-			return "Success";
+			return strMessage;
 		}
 
 		#endregion

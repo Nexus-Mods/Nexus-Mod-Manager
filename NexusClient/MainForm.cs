@@ -163,7 +163,7 @@ namespace Nexus.Client
 			{
 				Int32 UserStatus = (ViewModel.UserStatus == null) || String.IsNullOrEmpty(ViewModel.UserStatus[1]) ? 3 : Convert.ToInt32(ViewModel.UserStatus[1]);
 
-				if ((UserStatus == 3) || (UserStatus == 30))
+				if ((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32))
 				{
 					tlbGoPremium.Visible = true;
 					tsbGoPremium.Visible = true;

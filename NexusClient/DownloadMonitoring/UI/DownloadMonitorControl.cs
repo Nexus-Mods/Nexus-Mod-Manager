@@ -317,7 +317,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			if (lvwTasks.Columns.Count == 0)
 				return;
 			m_booResizing = true;
-			Int32 intFixedWidth = clmItemProgress.Width + clmOverallProgress.Width + clmStatus.Width + clmItemMessage.Width + clmETA.Width;
+			Int32 intFixedWidth = clmItemProgress.Width + clmOverallProgress.Width + clmStatus.Width + clmItemMessage.Width + clmETA.Width + clmFileserver.Width;
 			Int32 intRemainderWidth = lvwTasks.ClientSize.Width - intFixedWidth;
 			clmOverallMessage.Width = (Int32)(intRemainderWidth * m_fltColumnRatio);
 			m_booResizing = false;

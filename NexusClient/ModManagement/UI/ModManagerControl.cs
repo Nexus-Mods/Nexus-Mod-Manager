@@ -173,7 +173,8 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void CheckModVersions()
 		{
-			ViewModel.CheckForUpdates();
+			string strMessage = ViewModel.CheckForUpdates();
+			MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		#region Binding

@@ -129,8 +129,22 @@ namespace Nexus.Client.ModManagement
 		public void CheckForUpdates()
 		{
 			List<string> ModList = new List<string>();
+
 			foreach (IMod modMod in ManagedModRegistry.RegisteredMods)
-				ModList.Add(String.Format("{0}|{1}", String.IsNullOrEmpty(modMod.Id) ? ModRepository.GetModInfoForFile(modMod.Filename).Id : modMod.Id, modMod.HumanReadableVersion));
+			{
+				string modID = String.Empty;
+				if (!String.IsNullOrEmpty(modMod.Id))
+					modID = modMod.Id;
+				else
+				{
+					IModInfo mifInfo = ModRepository.GetModInfoForFile(modMod.Filename);
+					if (mifInfo != null)
+						modID = mifInfo.Id;
+				}
+
+				if (!String.IsNullOrEmpty(modID))
+					ModList.Add(String.Format("{0}|{1}", modID, modMod.HumanReadableVersion));
+			}
 			if (ModList.Count > 0)
 				CheckForModListUpdate(ModList);
 		}

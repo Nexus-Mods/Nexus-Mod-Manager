@@ -727,19 +727,20 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strUserLocation">The preferred user location.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public Uri[] GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation)
+		public FileserverInfo GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation)
 		{
 			if (IsOffline)
 				return null;
 
 			List<FileserverInfo> fsiServerInfo = new List<FileserverInfo>();
-			List<Uri> lstDownloadUrls = new List<Uri>();
+			FileserverInfo fsiBestMatch;
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					fsiServerInfo = nmrApi.GetModFileDownloadUrls(p_strFileId);
+					fsiBestMatch = GetBestFileserver(fsiServerInfo, p_booPremiumOnly, p_strUserLocation);
 				}
 			}
 			catch (TimeoutException e)
@@ -754,7 +755,55 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
-			return lstDownloadUrls.ToArray();
+			return fsiBestMatch;
+		}
+
+
+		private FileserverInfo GetBestFileserver(List<FileserverInfo> fsiList, bool p_booPremiumOnly, string p_strUserLocation)
+		{
+			FileserverInfo fsiBestMatch = new FileserverInfo();
+
+			try
+			{
+				if (p_booPremiumOnly && p_strUserLocation != "default")
+				{
+					fsiBestMatch = (from Url
+									in fsiList
+									where Url.IsPremium == p_booPremiumOnly && Url.Country == p_strUserLocation
+									orderby Url.ConnectedUsers ascending
+									select Url).FirstOrDefault();
+				}
+				
+				if ((((fsiBestMatch == null) || String.IsNullOrEmpty(fsiBestMatch.DownloadLink)) && p_booPremiumOnly) || (p_booPremiumOnly && p_strUserLocation == "default"))
+				{
+					fsiBestMatch = (from Url
+									in fsiList
+									where Url.IsPremium == p_booPremiumOnly
+									orderby Url.ConnectedUsers ascending
+									select Url).FirstOrDefault();
+				}
+				else if (p_strUserLocation != "default")
+				{
+					fsiBestMatch = (from Url
+									in fsiList
+									where Url.Country == p_strUserLocation
+									orderby Url.ConnectedUsers ascending
+									select Url).FirstOrDefault();
+				}
+
+				if ((fsiBestMatch == null) || String.IsNullOrEmpty(fsiBestMatch.DownloadLink))
+				{
+					fsiBestMatch = (from Url
+									in fsiList
+									orderby Url.ConnectedUsers ascending
+									select Url).FirstOrDefault();
+				}
+			}
+			catch
+			{
+			}
+
+			return fsiBestMatch;
 		}
 
 		/// <summary>
@@ -786,7 +835,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 			if (m_strUserStatus != null)
 				if (m_strUserStatus[1] != null)
-					if ((m_strUserStatus[1] != "3") && (m_strUserStatus[1] != "30"))
+					if ((m_strUserStatus[1] == "4") || (m_strUserStatus[1] == "6") || (m_strUserStatus[1] == "13") || (m_strUserStatus[1] == "27") || (m_strUserStatus[1] == "31") || (m_strUserStatus[1] == "32"))
 						AllowedConnections = new Int32[] { 1, 2, 3, 4 };
 		}
 

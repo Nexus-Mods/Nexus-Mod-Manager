@@ -127,6 +127,7 @@ namespace Nexus.Client.ModManagement
 		private Int32 m_intPreviousProgress = 0;
 		private Stack<Int32> m_lstPreviousSpeed = new Stack<Int32> { };
 		private Stopwatch swtSpeed = new Stopwatch();
+		private string strFileserverCaption = string.Empty;
 
 		#region Properties
 
@@ -348,6 +349,7 @@ namespace Nexus.Client.ModManagement
 						}
 
 						IModFileInfo mfiFile = null;
+						FileserverInfo fsiServerInfo = new FileserverInfo();
 						Uri[] uriFilesToDownload = null;
 						try
 						{
@@ -360,13 +362,20 @@ namespace Nexus.Client.ModManagement
 								Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
 								return null;
 							}
-							uriFilesToDownload = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.PremiumOnly, m_eifEnvironmentInfo.Settings.UserLocation);
+							fsiServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.PremiumOnly, m_eifEnvironmentInfo.Settings.UserLocation);
+							if (!String.IsNullOrEmpty(fsiServerInfo.DownloadLink))
+							{
+								uriFilesToDownload = new Uri[] { new Uri(fsiServerInfo.DownloadLink) };
+								strFileserverCaption = fsiServerInfo.Name;
+							}
 						}
 						catch (RepositoryUnavailableException e)
 						{
 							TraceUtil.TraceException(e);
 							return null;
 						}
+						if ((uriFilesToDownload == null) || (uriFilesToDownload.Length <= 0))
+							return null;
 						string strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
 						amdDescriptor = new AddModDescriptor(p_uriPath, strSourcePath, uriFilesToDownload, TaskStatus.Running);
 						break;
@@ -394,7 +403,7 @@ namespace Nexus.Client.ModManagement
 				Trace.TraceInformation(String.Format("[{0}] Launching downloading of {1}.", Descriptor.SourceUri.ToString(), uriFile.ToString()));
 				Dictionary<string, string> dicAuthenticationTokens = m_eifEnvironmentInfo.Settings.RepositoryAuthenticationTokens[m_mrpModRepository.Id];
 				//TODO get the max connection and block size from settings
-				Int32 intConnections = m_mrpModRepository.AllowedConnections.Max();
+				Int32 intConnections = m_eifEnvironmentInfo.Settings.NumberOfConnections <= m_mrpModRepository.AllowedConnections.Max() ? m_eifEnvironmentInfo.Settings.NumberOfConnections : m_mrpModRepository.AllowedConnections.Max();
 
 				FileDownloadTask fdtDownloader = new FileDownloadTask(intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
 				fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
@@ -493,7 +502,8 @@ namespace Nexus.Client.ModManagement
 				}
 				else if (fdtDownloader.Status == TaskStatus.Running)
 				{
-					OverallMessage = String.Format("{0}", GetModDisplayName());				
+					OverallMessage = String.Format("{0}", GetModDisplayName());
+					ItemMessage = "Fileserver:" + strFileserverCaption;
 				}
 				InnerTaskStatus = fdtDownloader.Status;
 			}

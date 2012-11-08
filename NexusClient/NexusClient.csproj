@@ -292,7 +292,7 @@
     <Compile Include="MessagerClient.cs" />
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
     <Compile Include="ModRepositories\FileServerZone.cs" />
-    <Compile Include="ModRepositories\Nexus\FileserverInfo.cs" />
+    <Compile Include="ModRepositories\FileserverInfo.cs" />
     <Compile Include="Settings\DownloadSettingsGroup.cs" />
     <Compile Include="Settings\UI\DownloadSettingsPage.cs">
       <SubType>UserControl</SubType>

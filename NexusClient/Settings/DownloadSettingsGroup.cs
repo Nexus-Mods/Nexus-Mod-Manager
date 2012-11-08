@@ -14,6 +14,7 @@ namespace Nexus.Client.Settings
 	{
 
 		private bool m_booPremiumOnly = false;
+		private bool m_booPremiumEnabled = false;
 		private string m_strUserLocation = "";
 		private Int32 m_intConnections = 1;
 
@@ -47,6 +48,21 @@ namespace Nexus.Client.Settings
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the user wants to use only Premium Server.
+		/// </summary>
+		/// <value>Whether the user wants to use only Premium Server.</value>
+		public bool PremiumEnabled
+		{
+			get
+			{
+				return m_booPremiumOnly;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_booPremiumOnly, value, () => PremiumEnabled);
+			}
+		}
 		/// <summary>
 		/// Gets or sets the user favourite download location.
 		/// </summary>
@@ -99,11 +115,34 @@ namespace Nexus.Client.Settings
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public DownloadSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IList<FileServerZone> p_fszFileServerZones, Int32[] p_intAllowedConnections)
+		public DownloadSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IList<FileServerZone> p_fszFileServerZones, Int32[] p_intAllowedConnections, Int32 p_intUserStatus)
 			: base(p_eifEnvironmentInfo)
 		{
+			bool MemberCheck = false;
+
 			FileServerZones = p_fszFileServerZones;
 			AllowedConnections = p_intAllowedConnections;
+			if (EnvironmentInfo.Settings.NumberOfConnections > AllowedConnections.Length)
+			{
+				EnvironmentInfo.Settings.NumberOfConnections = AllowedConnections.Length;
+				MemberCheck = true;
+			}
+			if ((p_intUserStatus != 4) && (p_intUserStatus != 6) && (p_intUserStatus != 13) && (p_intUserStatus != 27) && (p_intUserStatus != 31) && (p_intUserStatus != 32))
+			{
+				if (EnvironmentInfo.Settings.PremiumOnly)
+				{
+					EnvironmentInfo.Settings.PremiumOnly = false;
+					MemberCheck = true;
+				}
+				PremiumEnabled = false;
+			}
+			else
+				PremiumEnabled = true;
+			if (MemberCheck)
+			{
+				Load();
+				Save();
+			}
 		}
 
 		#endregion

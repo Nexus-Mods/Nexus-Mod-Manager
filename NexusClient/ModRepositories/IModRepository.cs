@@ -124,7 +124,7 @@ namespace Nexus.Client.ModRepositories
 		Uri[] GetFilePartUrls(string p_strModId, string p_strFileId);
 
 		/// <summary>
-		/// Gets the URLs of the file parts for the default download file of the specified mod.
+		/// Gets the FileserverInfo for the default download file of the specified mod.
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
 		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
@@ -132,7 +132,7 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strUserLocation">The preferred user location.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		Uri[] GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation);
+		FileserverInfo GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation);
 
 		/// <summary>
 		/// Gets the file info for the specified download file of the specified mod.

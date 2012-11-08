@@ -320,7 +320,7 @@ namespace Nexus.Client.ModManagement.UI
 
 		public string CheckForUpdates()
 		{
-			return ModManager.CheckForUpdates();
+			return ModManager.CheckForUpdates(true);
 		}
 
 		#endregion

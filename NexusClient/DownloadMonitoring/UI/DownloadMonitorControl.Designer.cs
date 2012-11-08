@@ -40,6 +40,7 @@
 			this.clmItemProgress = new System.Windows.Forms.ColumnHeader();
 			this.clmStatus = new System.Windows.Forms.ColumnHeader();
 			this.clmETA = new System.Windows.Forms.ColumnHeader();
+			this.clmFileserver = new System.Windows.Forms.ColumnHeader();
 			this.toolStrip1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -105,6 +106,7 @@
             this.clmOverallProgress,
 			this.clmStatus,
             this.clmItemMessage,
+			this.clmFileserver,
             this.clmETA,
             this.clmItemProgress});
 			this.lvwTasks.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -139,6 +141,11 @@
 			// 
 			this.clmItemProgress.Text = "Threads";
 			this.clmItemProgress.Width = 60;
+			// 
+			// clmFileserver
+			// 
+			this.clmFileserver.Text = "Fileserver";
+			this.clmFileserver.Width = 150;
 			// 
 			// clmStatus
 			// 
@@ -177,6 +184,7 @@
 		private System.Windows.Forms.ColumnHeader clmItemProgress;
 		private System.Windows.Forms.ColumnHeader clmStatus;
 		private System.Windows.Forms.ColumnHeader clmETA;
+		private System.Windows.Forms.ColumnHeader clmFileserver;
 		private System.Windows.Forms.ToolStripButton tsbRemove;
 		private System.Windows.Forms.ToolStripButton tsbPause;
 		private System.Windows.Forms.ToolStripButton tsbResume;

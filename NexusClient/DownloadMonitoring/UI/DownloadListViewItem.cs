@@ -60,6 +60,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				lsiSubItem.Text = "";
 
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
+			lsiSubItem.Name = "Fileserver";
+			lsiSubItem.Text = "";
+
+			lsiSubItem = SubItems.Add(new ListViewSubItem());
 			lsiSubItem.Name = "ETA";
 			lsiSubItem.Text = "";
 
@@ -130,9 +134,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = p_tskTask.ActiveThreads.ToString();
 					}
 					catch
-					{ 
+					{
 					}
 				}
+				else if (Message.IndexOf("Fileserver:") >= 0)
+					SubItems["Fileserver"].Text = Message.Substring(Message.IndexOf(":") + 1);
 			}
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress))
 					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgressMaximum))

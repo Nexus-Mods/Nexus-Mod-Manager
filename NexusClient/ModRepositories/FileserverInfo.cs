@@ -2,7 +2,7 @@
 using System.Runtime.Serialization;
 using Nexus.Client.Mods;
 
-namespace Nexus.Client.ModRepositories.Nexus
+namespace Nexus.Client.ModRepositories
 {
 	/// <summary>
 	/// Describes the metadata of a fileserver.
