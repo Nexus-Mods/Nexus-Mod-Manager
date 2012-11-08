@@ -403,11 +403,12 @@ namespace Nexus.Client.ModManagement
 						strMessage = "Update check successfully performed.";
 					}
 				}
-				catch
+				catch (Exception e)
 				{
 					EnvironmentInfo.Settings.LastModVersionsCheckDate = "";
 					EnvironmentInfo.Settings.Save();
 					strMessage = "Couldn't perform the update check, retry later.";
+					strMessage = e.Message;
 				}
 			}
 

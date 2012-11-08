@@ -10,6 +10,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
+using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
@@ -549,6 +550,7 @@ namespace Nexus.Client.ModManagement.UI
 			lvwMods.ClearMessage(lsiWebVersion);
 			if ((uifNewModInfo != null) && (uifNewModInfo.NewestInfo != null))
 			{
+				ModInfo mifUpdatedMod = new ModInfo(modMod);
 				lsiWebVersion.Text = uifNewModInfo.NewestInfo.HumanReadableVersion;
 				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Regular);
 				if (uifNewModInfo.NewestInfo.Website != null)
@@ -556,18 +558,32 @@ namespace Nexus.Client.ModManagement.UI
 					if (!uifNewModInfo.IsMatchingVersion(modMod.HumanReadableVersion))
 						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
-					ViewModel.UpdateModLastVersion(modMod, uifNewModInfo.NewestInfo.HumanReadableVersion);
+					mifUpdatedMod.Website = uifNewModInfo.NewestInfo.Website;
+					mifUpdatedMod.LastKnownVersion = uifNewModInfo.NewestInfo.HumanReadableVersion;
 				}
 				else
 					lsiWebVersion.ForeColor = lvwMods.ForeColor;
+				
+				mifUpdatedMod.Id = uifNewModInfo.NewestInfo.Id;
+				ViewModel.UpdateModLastVersion(modMod, mifUpdatedMod);
 				lsiWebVersion.Tag = uifNewModInfo.NewestInfo;
 			}
 			else
 			{
 				lsiWebVersion.Text = String.IsNullOrEmpty(modMod.LastKnownVersion) ? modMod.HumanReadableVersion : modMod.LastKnownVersion;
 				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Regular);
-				lsiWebVersion.ForeColor = lvwMods.ForeColor;
-				lsiWebVersion.Tag = null;
+
+				if (modMod.Website != null)
+				{
+					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
+					lsiWebVersion.Tag = modMod;
+				}
+				else
+				{
+					lsiWebVersion.ForeColor = lvwMods.ForeColor;
+					lsiWebVersion.Tag = null;
+				}
+
 			}
 		}
 

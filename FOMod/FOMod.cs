@@ -69,7 +69,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			{
 				return m_strModId;
 			}
-			private set
+			set
 			{
 				SetPropertyIfChanged(ref m_strModId, value, () => Id);
 			}
@@ -807,6 +807,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (MachineVersion != null)
 				xndVersion.Attributes.Append(p_xmlDocument.CreateAttribute("MachineVersion")).Value = MachineVersion.ToString();
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("LastKnownVersion")).InnerText = LastKnownVersion;
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("Id")).InnerText = Id;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Author")).InnerText = Author;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			if (Website != null)
@@ -840,6 +841,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			XmlNode xndLastKnownVersion = xndRoot.SelectSingleNode("LastKnownVersion");
 			if ((xndLastKnownVersion != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(LastKnownVersion)))
 				LastKnownVersion = xndLastKnownVersion.InnerText;
+
+			XmlNode xndId = xndRoot.SelectSingleNode("Id");
+			if ((xndId != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Id)))
+				Id = xndId.InnerText;
 
 			XmlNode xndAuthor = xndRoot.SelectSingleNode("Author");
 			if ((xndAuthor != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Author)))

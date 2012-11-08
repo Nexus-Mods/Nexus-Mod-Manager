@@ -75,7 +75,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				return m_strModId;
 			}
-			private set
+			set
 			{
 				SetPropertyIfChanged(ref m_strModId, value, () => Id);
 			}

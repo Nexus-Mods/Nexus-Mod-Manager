@@ -15,7 +15,7 @@ namespace Nexus.Client.Mods
 		/// Gets or sets the Id of the mod.
 		/// </summary>
 		/// <remarks>The id of the mod</remarks>
-		string Id { get; }
+		string Id { get; set; }
 
 		/// <summary>
 		/// Gets or sets the name of the mod.

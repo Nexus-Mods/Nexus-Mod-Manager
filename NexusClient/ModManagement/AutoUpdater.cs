@@ -72,6 +72,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		private ThreadSafeObservableList<UpdateInfo> m_oclNewInfo = new ThreadSafeObservableList<UpdateInfo>();
+		private List<IMod> m_lstModList = new List<IMod>();
 
 		#region Properties
 
@@ -129,24 +130,32 @@ namespace Nexus.Client.ModManagement
 		public void CheckForUpdates()
 		{
 			List<string> ModList = new List<string>();
+			m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
 
-			foreach (IMod modMod in ManagedModRegistry.RegisteredMods)
+			for (int i = 0; i < m_lstModList.Count; i++)
 			{
 				string modID = String.Empty;
-				if (!String.IsNullOrEmpty(modMod.Id))
-					modID = modMod.Id;
+				if (!String.IsNullOrEmpty(m_lstModList[i].Id))
+					modID = m_lstModList[i].Id;
 				else
 				{
-					IModInfo mifInfo = ModRepository.GetModInfoForFile(modMod.Filename);
+					IModInfo mifInfo = ModRepository.GetModInfoForFile(m_lstModList[i].Filename);
 					if (mifInfo != null)
+					{
 						modID = mifInfo.Id;
+						m_lstModList[i].Id = modID;
+						AddNewVersionNumberForMod(m_lstModList[i], mifInfo);
+					}
 				}
 
 				if (!String.IsNullOrEmpty(modID))
-					ModList.Add(String.Format("{0}|{1}", modID, modMod.HumanReadableVersion));
+					ModList.Add(String.Format("{0}|{1}", modID, m_lstModList[i].HumanReadableVersion));
 			}
+
 			if (ModList.Count > 0)
 				CheckForModListUpdate(ModList);
+
+			m_lstModList.Clear();
 		}
 
 		/// <summary>
@@ -200,8 +209,8 @@ namespace Nexus.Client.ModManagement
 						Thread.Sleep(1000);
 					}
 
-					foreach (IMod modMod in ManagedModRegistry.RegisteredMods)
-						foreach (var modUpdate in mifInfo.Where(x => (String.IsNullOrEmpty(modMod.Id) ? ModRepository.GetModInfoForFile(modMod.Filename).Id : modMod.Id) == x.Id))
+					foreach (IMod modMod in m_lstModList)
+						foreach (IModInfo modUpdate in mifInfo.Where(x => (String.IsNullOrEmpty(modMod.Id) ? "0" : modMod.Id) == x.Id))
 							AddNewVersionNumberForMod(modMod, modUpdate);
 				}
 			}
