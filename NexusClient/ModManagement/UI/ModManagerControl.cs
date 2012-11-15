@@ -575,6 +575,8 @@ namespace Nexus.Client.ModManagement.UI
 
 				if (modMod.Website != null)
 				{
+					if (!modMod.IsMatchingVersion())
+						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
 					lsiWebVersion.Tag = modMod;
 				}
