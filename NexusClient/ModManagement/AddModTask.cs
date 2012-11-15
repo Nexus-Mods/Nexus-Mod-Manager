@@ -127,7 +127,7 @@ namespace Nexus.Client.ModManagement
 		private Int32 m_intPreviousProgress = 0;
 		private Stack<Int32> m_lstPreviousSpeed = new Stack<Int32> { };
 		private Stopwatch swtSpeed = new Stopwatch();
-		private string strFileserverCaption = string.Empty;
+		private string m_strFileserverCaption = string.Empty;
 
 		#region Properties
 
@@ -337,7 +337,7 @@ namespace Nexus.Client.ModManagement
 				switch (p_uriPath.Scheme.ToLowerInvariant())
 				{
 					case "file":
-						amdDescriptor = new AddModDescriptor(p_uriPath, p_uriPath.LocalPath, null, TaskStatus.Running);
+						amdDescriptor = new AddModDescriptor(p_uriPath, p_uriPath.LocalPath, null, TaskStatus.Running, String.Empty);
 						break;
 					case "nxm":
 						NexusUrl nxuModUrl = new NexusUrl(p_uriPath);
@@ -366,7 +366,7 @@ namespace Nexus.Client.ModManagement
 							if (!String.IsNullOrEmpty(fsiServerInfo.DownloadLink))
 							{
 								uriFilesToDownload = new Uri[] { new Uri(fsiServerInfo.DownloadLink) };
-								strFileserverCaption = fsiServerInfo.Name;
+								m_strFileserverCaption = fsiServerInfo.Name;
 							}
 						}
 						catch (RepositoryUnavailableException e)
@@ -377,7 +377,7 @@ namespace Nexus.Client.ModManagement
 						if ((uriFilesToDownload == null) || (uriFilesToDownload.Length <= 0))
 							return null;
 						string strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
-						amdDescriptor = new AddModDescriptor(p_uriPath, strSourcePath, uriFilesToDownload, TaskStatus.Running);
+						amdDescriptor = new AddModDescriptor(p_uriPath, strSourcePath, uriFilesToDownload, TaskStatus.Running, m_strFileserverCaption);
 						break;
 					default:
 						Trace.TraceInformation(String.Format("[{0}] Can't get the file.", p_uriPath.ToString()));
@@ -386,6 +386,8 @@ namespace Nexus.Client.ModManagement
 				dicQueuedMods[p_uriPath.ToString()] = amdDescriptor;
 				m_eifEnvironmentInfo.Settings.Save();
 			}
+			else
+				m_strFileserverCaption = amdDescriptor.SourceName;
 			return amdDescriptor;
 		}
 
@@ -488,7 +490,7 @@ namespace Nexus.Client.ModManagement
                 if ((ItemProgress == 0) && (intSpeed == 0))
                     ItemMessage = "Starting the download...";
                 else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
-                    ItemMessage = "Resuming the download...";
+					ItemMessage = "Resuming the download...";
                 else
 					ItemMessage = String.Format("Downloading: ({3}kb / {4}kb) ETA: {1:00}:{2:00} ({0:} kb/s)...", TaskSpeed, dblMinutes, intSeconds, (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024), (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024));
 				m_ActiveThreads = fdtDownloader.ActiveThreads;
@@ -503,7 +505,7 @@ namespace Nexus.Client.ModManagement
 				else if (fdtDownloader.Status == TaskStatus.Running)
 				{
 					OverallMessage = String.Format("{0}", GetModDisplayName());
-					ItemMessage = "Fileserver:" + strFileserverCaption;
+					ItemMessage = "Fileserver:" + m_strFileserverCaption;
 				}
 				InnerTaskStatus = fdtDownloader.Status;
 			}
