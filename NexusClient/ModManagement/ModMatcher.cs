@@ -54,22 +54,25 @@ namespace Nexus.Client.ModManagement
 												&& (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
 										   select m;
 			string strNewModName = p_modMod.ModName;
-			if (lstMatches.Count() == 0)
+			if (String.IsNullOrEmpty(p_modMod.Id))
 			{
-				lstMatches = from m in Candidates
-							 where m.ModName.Equals(strNewModName, StringComparison.InvariantCultureIgnoreCase)
-								 && !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
-								 && (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
-							 select m;
-			}
-			if (lstMatches.Count() == 0)
-			{
-				string strNewModNamePrefix = strNewModName.Split('-')[0].Trim();
-				lstMatches = from m in Candidates
-							 where m.ModName.Split('-')[0].Trim().Equals(strNewModNamePrefix, StringComparison.InvariantCultureIgnoreCase)
-								 && !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
-								 && (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
-							 select m;
+				if (lstMatches.Count() == 0)
+				{
+					lstMatches = from m in Candidates
+								 where m.ModName.Equals(strNewModName, StringComparison.InvariantCultureIgnoreCase)
+									 && !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
+									 && (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
+								 select m;
+				}
+				if (lstMatches.Count() == 0)
+				{
+					string strNewModNamePrefix = strNewModName.Split('-')[0].Trim();
+					lstMatches = from m in Candidates
+								 where m.ModName.Split('-')[0].Trim().Equals(strNewModNamePrefix, StringComparison.InvariantCultureIgnoreCase)
+									 && !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
+									 && (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
+								 select m;
+				}
 			}
 			IMod modMatch = null;
 			Int64 intFilesize = 0;

@@ -128,14 +128,26 @@ namespace Nexus.Client.ModManagement
 				return true;
 
 			string strModFile = String.Empty;
+			string strModFileID = String.Empty;
 			string strMessage = null;
 			if (modOld != null)
 			{
 				strModFile = modOld.Filename;
-				if (m_lstOverwriteMods.Contains(strModFile))
-					return true;
-				if (m_lstDontOverwriteMods.Contains(strModFile))
-					return false;
+				strModFileID = modOld.Id;
+				if (!String.IsNullOrEmpty(strModFileID))
+				{
+					if (m_lstOverwriteMods.Contains(strModFileID))
+						return true;
+					if (m_lstDontOverwriteMods.Contains(strModFileID))
+						return false;
+				}
+				else
+				{
+					if (m_lstOverwriteMods.Contains(strModFile))
+						return true;
+					if (m_lstDontOverwriteMods.Contains(strModFile))
+						return false;
+				}
 				strMessage = String.Format("Data file '{{0}}' has already been installed by '{0}'" + Environment.NewLine +
 								"Overwrite with this mod's file?", modOld.ModName);
 			}
@@ -190,16 +202,30 @@ namespace Nexus.Client.ModManagement
 					return true;
 				case OverwriteResult.NoToMod:
 					strModFile = modOld.Filename;
-					if (!m_lstOverwriteMods.Contains(strModFile))
+					strModFileID = modOld.Id;
+					if (!String.IsNullOrEmpty(strModFileID))
 					{
-						m_lstDontOverwriteMods.Add(strModFile);
+						if (!m_lstOverwriteMods.Contains(strModFileID))
+							m_lstDontOverwriteMods.Add(strModFileID);
+					}
+					else
+					{
+						if (!m_lstOverwriteMods.Contains(strModFile))
+							m_lstDontOverwriteMods.Add(strModFile);
 					}
 					return false;
 				case OverwriteResult.YesToMod:
 					strModFile = modOld.Filename;
-					if (!m_lstDontOverwriteMods.Contains(strModFile))
+					strModFileID = modOld.Id;
+					if (!String.IsNullOrEmpty(strModFileID))
 					{
-						m_lstOverwriteMods.Add(strModFile);
+						if (!m_lstDontOverwriteMods.Contains(strModFileID))
+							m_lstOverwriteMods.Add(strModFileID);
+					}
+					else
+					{
+						if (!m_lstDontOverwriteMods.Contains(strModFile))
+							m_lstOverwriteMods.Add(strModFile);
 					}
 					return true;
 				default:
