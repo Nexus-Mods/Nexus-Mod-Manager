@@ -109,6 +109,15 @@ namespace Nexus.Client.ModRepositories
 		List<IModInfo> GetModListInfo(List<string> p_lstModList);
 
 		/// <summary>
+		/// Toggles the mod Endorsement state.
+		/// </summary>
+		/// <param name="p_strModId">The mod ID.</param>
+		/// <param name="p_intLocalState">The local Endorsement state.</param>
+		/// <returns>The updated online Endorsement state.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		bool ToggleEndorsement(string p_strModId, int p_intLocalState);
+
+		/// <summary>
 		/// Gets the list of files for the specified mod.
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod whose list of files is to be returned.</param>

@@ -388,7 +388,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			// i could possiblly derive it based on the url of the service, but the service could be on a different server
 			string strURL = String.Format("http://{0}/downloads/file.php?id={1}", m_strWebsite, p_nmiNexusModInfo.Id);
 			Uri uriWebsite = new Uri(strURL);
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, null, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, null, uriWebsite, null);
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, null, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
 
@@ -490,6 +490,41 @@ namespace Nexus.Client.ModRepositories.Nexus
 				imiUpdatedMods.Add(Convert(iMod));
 
 			return imiUpdatedMods;
+		}
+
+		/// <summary>
+		/// Toggles the mod Endorsement state.
+		/// </summary>
+		/// <param name="p_strModId">The mod ID.</param>
+		/// <param name="p_intLocalState">The local Endorsement state.</param>
+		/// <returns>The updated online Endorsement state.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		public bool ToggleEndorsement(string p_strModId, int p_intLocalState)
+		{
+			bool booOnlineState;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					booOnlineState = nmrApi.ToggleEndorsement(p_strModId, p_intLocalState);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return booOnlineState;
 		}
 
 		/// <summary>

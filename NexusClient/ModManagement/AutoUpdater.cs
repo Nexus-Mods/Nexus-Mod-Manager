@@ -135,8 +135,12 @@ namespace Nexus.Client.ModManagement
 			for (int i = 0; i < m_lstModList.Count; i++)
 			{
 				string modID = String.Empty;
+				Int32 isEndorsed = 0;
 				if (!String.IsNullOrEmpty(m_lstModList[i].Id))
+				{
 					modID = m_lstModList[i].Id;
+					isEndorsed = m_lstModList[i].IsEndorsed ? 1 : 0;
+				}
 				else
 				{
 					IModInfo mifInfo = ModRepository.GetModInfoForFile(m_lstModList[i].Filename);
@@ -149,7 +153,14 @@ namespace Nexus.Client.ModManagement
 				}
 
 				if (!String.IsNullOrEmpty(modID))
-					ModList.Add(String.Format("{0}|{1}", modID, m_lstModList[i].HumanReadableVersion));
+					ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
+
+				// Prevents the repository request string from becoming too long.
+				if (ModList.Count == 250)
+				{
+					CheckForModListUpdate(ModList);
+					ModList.Clear();
+				}
 			}
 
 			if (ModList.Count > 0)
