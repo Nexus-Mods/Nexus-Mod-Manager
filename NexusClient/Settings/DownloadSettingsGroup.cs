@@ -56,11 +56,11 @@ namespace Nexus.Client.Settings
 		{
 			get
 			{
-				return m_booPremiumOnly;
+				return m_booPremiumEnabled;
 			}
 			private set
 			{
-				SetPropertyIfChanged(ref m_booPremiumOnly, value, () => PremiumEnabled);
+				SetPropertyIfChanged(ref m_booPremiumEnabled, value, () => PremiumEnabled);
 			}
 		}
 		/// <summary>
