@@ -415,6 +415,17 @@ namespace Nexus.Client.ModManagement
 			return strMessage;
 		}
 
+		/// <summary>
+		/// Toggles the endorsement for the given mod.
+		/// </summary>
+		/// <param name="p_strModId">The mod ID.</param>
+		/// <param name="p_intLocalEndorse">The mod local endorsement state.</param>
+		/// <returns>The updated online Endorsement state.</returns>
+		public bool ToggleModEndorsement(string p_strModId, int p_intLocalEndorse)
+		{
+			return ModRepository.ToggleEndorsement(p_strModId, p_intLocalEndorse);
+		}
+
 		#endregion
 	}
 }

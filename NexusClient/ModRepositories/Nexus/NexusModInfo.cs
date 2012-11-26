@@ -82,6 +82,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[DataMember(Name = "version")]
 		public string HumanReadableVersion { get; set; }
 
+		/// <summary>
+		/// Gets or sets the endorsement state.
+		/// </summary>
+		/// <value>The endorsement state.</value>
+		[DataMember(Name = "voted_by_user")]
+		public bool IsEndorsed { get; set; }
+
 		#endregion
 	}
 }

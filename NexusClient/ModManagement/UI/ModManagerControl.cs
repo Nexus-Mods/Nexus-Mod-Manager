@@ -74,6 +74,8 @@ namespace Nexus.Client.ModManagement.UI
 				new ToolStripItemCommandBinding<IMod>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DeactivateModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
+				Command cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
+				new ToolStripItemCommandBinding(tsbToggleEndorse, cmdToggleEndorsement);
 				Command cmdCheckModVersions = new Command("Check Mod Versions", "Checks for new mod versions.", CheckModVersions);
 				new ToolStripItemCommandBinding(tsbCheckModVersions, cmdCheckModVersions);
 				ViewModel.DeleteModCommand.CanExecute = false;
@@ -108,6 +110,7 @@ namespace Nexus.Client.ModManagement.UI
 			clmVersion.Name = "HumanReadableVersion";
 			clmWebVersion.Name = "WebVersion";
 			clmAuthor.Name = "Author";
+			clmEndorsement.Name = "Endorsement";
 
 			tsbAddMod.DefaultItem = tsbAddMod.DropDownItems[0];
 			tsbAddMod.Text = tsbAddMod.DefaultItem.Text;
@@ -176,6 +179,15 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			string strMessage = ViewModel.CheckForUpdates();
 			MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
+
+		private void ToggleEndorsement()
+		{
+			string strMessage = ViewModel.ToggleModEndorsement(GetSelectedMod());
+			if (!String.IsNullOrEmpty(strMessage))
+				MessageBox.Show(this, strMessage, "Endorsement", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			else
+				SetCommandExecutableStatus();
 		}
 
 		#region Binding
@@ -274,6 +286,8 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = !ViewModel.OfflineMode;
+				tsbToggleEndorse.Enabled = !ViewModel.OfflineMode;
+				tsbToggleEndorse.Image = GetSelectedMod().IsEndorsed ? Properties.Resources.endorsed : Properties.Resources.unendorsed;
 			}
 			else
 			{
@@ -281,6 +295,8 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeactivateModCommand.CanExecute = false;
 				ViewModel.DeleteModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
+				tsbToggleEndorse.Enabled = false;
+				tsbToggleEndorse.Image = global::Nexus.Client.Properties.Resources.unendorsed;
 			}
 		}
 
@@ -563,10 +579,12 @@ namespace Nexus.Client.ModManagement.UI
 				}
 				else
 					lsiWebVersion.ForeColor = lvwMods.ForeColor;
-				
+
 				mifUpdatedMod.Id = uifNewModInfo.NewestInfo.Id;
+				mifUpdatedMod.IsEndorsed = uifNewModInfo.NewestInfo.IsEndorsed;
 				ViewModel.UpdateModLastVersion(modMod, mifUpdatedMod);
 				lsiWebVersion.Tag = uifNewModInfo.NewestInfo;
+				lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], mifUpdatedMod.IsEndorsed ? "Endorsed" : "Unendorsed", mifUpdatedMod.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
 			}
 			else
 			{
@@ -575,6 +593,7 @@ namespace Nexus.Client.ModManagement.UI
 
 				if (modMod.Website != null)
 				{
+					lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], modMod.IsEndorsed ? "Endorsed" : "Unendorsed", modMod.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
 					lsiWebVersion.Tag = modMod;
 				}
@@ -583,7 +602,6 @@ namespace Nexus.Client.ModManagement.UI
 					lsiWebVersion.ForeColor = lvwMods.ForeColor;
 					lsiWebVersion.Tag = null;
 				}
-
 			}
 		}
 

@@ -39,6 +39,19 @@ namespace Nexus.Client.ModRepositories.Nexus
 		string ValidateTokens();
 
 		/// <summary>
+		/// Toggles the mod Endorsement state.
+		/// </summary>
+		/// <param name="p_strModId">The mod ID.</param>
+		/// <param name="p_intLocalState">The local Endorsement state.</param>
+		/// <returns>The updated online Endorsement state.</returns>
+		[OperationContract]
+		[WebGet(
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "Mods/toggleendorsement/{p_strModId}?lvote={p_intLocalState}",
+			ResponseFormat = WebMessageFormat.Json)]
+		bool ToggleEndorsement(string p_strModId, int p_intLocalState);
+
+		/// <summary>
 		/// Gets the info about the specified mod from the repository.
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod for which to retrieved the metadata.</param>

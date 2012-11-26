@@ -45,6 +45,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
+		private bool m_booIsEndorsed = false;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -110,7 +111,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <summary>
 		/// Gets or sets the last known mod version.
 		/// </summary>
-		/// <value>The the last known mod version.</value>
+		/// <value>The last known mod version.</value>
 		public string LastKnownVersion
 		{
 			get
@@ -120,6 +121,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the Endorsement state of the mod.
+		/// </summary>
+		/// <value>The Endorsement state of the mod.</value>
+		public bool IsEndorsed
+		{
+			get
+			{
+				return m_booIsEndorsed;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booIsEndorsed, value, () => IsEndorsed);
 			}
 		}
 
@@ -736,6 +753,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				LastKnownVersion = p_mifInfo.LastKnownVersion;
 				booChangedValue = true;
 			}
+			if ((p_booOverwriteAllValues) || (IsEndorsed != p_mifInfo.IsEndorsed))
+			{
+				IsEndorsed = p_mifInfo.IsEndorsed;
+				booChangedValue = true;
+			}
 			if (p_booOverwriteAllValues || (MachineVersion == null))
 			{
 				MachineVersion = p_mifInfo.MachineVersion;
@@ -810,6 +832,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Id")).InnerText = Id;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Author")).InnerText = Author;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("IsEndorsed")).InnerText = IsEndorsed.ToString();
 			if (Website != null)
 				xndInfo.AppendChild(p_xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
 			return xndInfo;
@@ -853,6 +876,19 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			XmlNode xndDescription = xndRoot.SelectSingleNode("Description");
 			if ((xndDescription != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Description)))
 				Description = xndDescription.InnerText;
+
+			XmlNode xndEndorsed = xndRoot.SelectSingleNode("IsEndorsed");
+			if (xndEndorsed != null)
+			{
+				try
+				{
+					IsEndorsed = Convert.ToBoolean(xndEndorsed.InnerText);
+				}
+				catch
+				{
+					IsEndorsed = false;
+				}
+			}
 
 			XmlNode xndWebsite = xndRoot.SelectSingleNode("Website");
 			if ((xndWebsite != null) && (!String.IsNullOrEmpty(xndWebsite.InnerText)) && (!p_booFillOnlyEmptyValues || (Website == null)))
