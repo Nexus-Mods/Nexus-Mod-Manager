@@ -316,9 +316,37 @@ namespace Nexus.Client.ModManagement.UI
 
 		#region Mod Updating
 
+		/// <summary>
+		/// Checks for mod updates.
+		/// </summary>
+		/// <returns>Message</returns>
 		public string CheckForUpdates()
 		{
 			return ModManager.CheckForUpdates(true);
+		}
+
+		/// <summary>
+		/// Toggles the endorsement for the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
+		/// <returns>Error message or String.Empty</returns>
+		public string ToggleModEndorsement(IMod p_modMod)
+		{
+			string strResult = string.Empty;
+
+			try
+			{
+				bool EndorsementState = ModManager.ToggleModEndorsement(p_modMod.Id, p_modMod.IsEndorsed ? 1 : 0);
+				ModInfo modUpdatedVersion = new ModInfo(p_modMod);
+				modUpdatedVersion.IsEndorsed = EndorsementState;
+				UpdateModLastVersion(p_modMod, modUpdatedVersion);
+			}
+			catch (RepositoryUnavailableException e)
+			{
+				strResult = "The repository is currently unavailable.";
+			}
+			
+			return strResult;
 		}
 
 		#endregion

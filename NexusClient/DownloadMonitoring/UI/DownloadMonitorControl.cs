@@ -317,9 +317,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			if (lvwTasks.Columns.Count == 0)
 				return;
 			m_booResizing = true;
-			Int32 intFixedWidth = clmItemProgress.Width + clmOverallProgress.Width + clmStatus.Width + clmItemMessage.Width + clmETA.Width + clmFileserver.Width;
-			Int32 intRemainderWidth = lvwTasks.ClientSize.Width - intFixedWidth;
-			clmOverallMessage.Width = (Int32)(intRemainderWidth * m_fltColumnRatio);
+			Int32 intFixedWidth = 0;
+			for (Int32 i = 0; i < lvwTasks.Columns.Count; i++)
+				if (lvwTasks.Columns[i] != clmOverallMessage)
+					intFixedWidth += lvwTasks.Columns[i].Width;
+			clmOverallMessage.Width = lvwTasks.ClientSize.Width - intFixedWidth;
 			m_booResizing = false;
 		}
 
@@ -350,6 +352,17 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="e">A <see cref="ColumnWidthChangingEventArgs"/> describing the event arguments.</param>
 		private void lvwTasks_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
 		{
+			if (m_booResizing)
+				return;
+			ColumnHeader clmThis = lvwTasks.Columns[e.ColumnIndex];
+			ColumnHeader clmOther = null;
+			if (e.ColumnIndex == lvwTasks.Columns.Count - 1)
+				clmOther = lvwTasks.Columns[e.ColumnIndex - 1];
+			else
+				clmOther = lvwTasks.Columns[e.ColumnIndex + 1];
+			m_booResizing = true;
+			clmOther.Width += (clmThis.Width - e.NewWidth);
+			m_booResizing = false;
 		}
 
 		#endregion

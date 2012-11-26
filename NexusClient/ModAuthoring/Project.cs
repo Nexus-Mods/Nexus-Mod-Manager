@@ -20,6 +20,7 @@ namespace Nexus.Client.ModAuthoring
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
+		private bool m_booIsEndorsed = false;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -86,7 +87,7 @@ namespace Nexus.Client.ModAuthoring
 		/// <summary>
 		/// Gets or sets the last known mod version.
 		/// </summary>
-		/// <value>The the last known mod version.</value>
+		/// <value>The last known mod version.</value>
 		public string LastKnownVersion
 		{
 			get
@@ -96,6 +97,22 @@ namespace Nexus.Client.ModAuthoring
 			private set
 			{
 				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the Endorsement state of the mod.
+		/// </summary>
+		/// <value>The Endorsement state of the mod.</value>
+		public bool IsEndorsed
+		{
+			get
+			{
+				return m_booIsEndorsed;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booIsEndorsed, value, () => IsEndorsed);
 			}
 		}
 
@@ -472,6 +489,8 @@ namespace Nexus.Client.ModAuthoring
 				HumanReadableVersion = p_mifInfo.HumanReadableVersion;
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
 				LastKnownVersion = p_mifInfo.LastKnownVersion;
+			if (p_booOverwriteAllValues || (IsEndorsed != p_mifInfo.IsEndorsed))
+				IsEndorsed = p_mifInfo.IsEndorsed;
 			if (p_booOverwriteAllValues || (MachineVersion == null))
 				MachineVersion = p_mifInfo.MachineVersion;
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))

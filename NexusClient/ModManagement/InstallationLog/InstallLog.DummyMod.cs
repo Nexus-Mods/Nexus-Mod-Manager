@@ -195,8 +195,14 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <summary>
 			/// Gets or sets the last known mod version.
 			/// </summary>
-			/// <value>The the last known mod version.</value>
+			/// <value>The last known mod version.</value>
 			public string LastKnownVersion { get; set; }
+
+			/// <summary>
+			/// Gets or sets the Endorsement state of the mod.
+			/// </summary>
+			/// <value>The Endorsement state of the mod.</value>
+			public bool IsEndorsed { get; set; }
 
 			/// <summary>
 			/// Gets or sets the version of the mod.

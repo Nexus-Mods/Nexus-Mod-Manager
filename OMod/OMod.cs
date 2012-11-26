@@ -47,6 +47,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
+		private bool m_booIsEndorsed = false;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -100,7 +101,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <summary>
 		/// Gets or sets the last known mod version.
 		/// </summary>
-		/// <value>The the last known mod version.</value>
+		/// <value>The last known mod version.</value>
 		public string LastKnownVersion
 		{
 			get
@@ -110,6 +111,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the Endorsement state of the mod.
+		/// </summary>
+		/// <value>The Endorsement state of the mod.</value>
+		public bool IsEndorsed 
+		{
+			get
+			{
+				return m_booIsEndorsed;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booIsEndorsed, value, () => IsEndorsed);
 			}
 		}
 
@@ -1160,6 +1177,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
 			{
 				LastKnownVersion = p_mifInfo.LastKnownVersion;
+				booChangedValue = true;
+			}
+			if ((p_booOverwriteAllValues) || (IsEndorsed != p_mifInfo.IsEndorsed))
+			{
+				IsEndorsed = p_mifInfo.IsEndorsed;
 				booChangedValue = true;
 			}
 			if (p_booOverwriteAllValues || (MachineVersion == null))
