@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Xml;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
@@ -153,6 +154,16 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public List<string> GetFileList()
 			{
 				return new List<string>();
+			}
+
+			/// <summary>
+			/// Determines if last known version is the same as the current version.
+			/// </summary>
+			/// <returns><c>true</c> if the versions are the same;
+			/// <c>false</c> otherwise.</returns>
+			public bool IsMatchingVersion()
+			{
+				return true;
 			}
 
 			/// <summary>

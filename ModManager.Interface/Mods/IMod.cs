@@ -108,6 +108,13 @@ namespace Nexus.Client.Mods
 		/// <returns>The list of all files in the specified Mod folder.</returns>
 		List<string> GetFileList(string p_strFolderPath, bool p_booRecurse);
 
+		/// <summary>
+		/// Determines if last known version is the same as the current version.
+		/// </summary>
+		/// <returns><c>true</c> if the versions are the same;
+		/// <c>false</c> otherwise.</returns>
+		bool IsMatchingVersion();
+
 		#endregion
 	}
 }

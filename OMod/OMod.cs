@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
@@ -1104,6 +1105,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 		public List<string> GetFileList()
 		{
 			return GetFileList(null, true);
+		}
+
+		/// <summary>
+		/// Determines if last known version is the same as the current version.
+		/// </summary>
+		/// <returns><c>true</c> if the versions are the same;
+		/// <c>false</c> otherwise.</returns>
+		public bool IsMatchingVersion()
+		{
+			Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
+			string strThisVersion = rgxClean.Replace(m_strHumanReadableVersion, "");
+			string strThatVersion = rgxClean.Replace(m_strLastKnownVersion ?? "", "");
+			if (String.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
+				return true;
+			else
+				return String.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
 		}
 
 		/// <summary>

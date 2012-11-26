@@ -594,6 +594,8 @@ namespace Nexus.Client.ModManagement.UI
 				if (modMod.Website != null)
 				{
 					lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], modMod.IsEndorsed ? "Endorsed" : "Unendorsed", modMod.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
+					if (!modMod.IsMatchingVersion())
+						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
 					lsiWebVersion.Tag = modMod;
 				}
