@@ -42,7 +42,7 @@ namespace Nexus.Client.Util
 		public static bool TryBuildUri(string p_strUri, out Uri p_uriUri)
 		{
 			p_uriUri = BuildUri(p_strUri);
-			return (p_strUri != null);
+			return (p_uriUri != null);
 		}
 	}
 }
