@@ -183,11 +183,21 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void ToggleEndorsement()
 		{
-			string strMessage = ViewModel.ToggleModEndorsement(GetSelectedMod());
-			if (!String.IsNullOrEmpty(strMessage))
-				MessageBox.Show(this, strMessage, "Endorsement", MessageBoxButtons.OK, MessageBoxIcon.Error);
-			else
-				SetCommandExecutableStatus();
+			tsbToggleEndorse.Enabled = false;
+			bool booCurrentState = false;
+
+			try
+			{
+				IMod modMod = GetSelectedMod();
+				booCurrentState = modMod.IsEndorsed;
+				ViewModel.ToggleModEndorsement(modMod);
+			}
+			catch (Exception e)
+			{
+				MessageBox.Show(this, String.Format("Unable to {0} this file:", booCurrentState ? "endorse" : "unendorse") + Environment.NewLine + e.Message, "Endorsement Error:", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+
+			SetCommandExecutableStatus();
 		}
 
 		#region Binding
@@ -287,7 +297,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = !ViewModel.OfflineMode;
 				tsbToggleEndorse.Enabled = !ViewModel.OfflineMode;
-				tsbToggleEndorse.Image = GetSelectedMod().IsEndorsed ? Properties.Resources.endorsed : Properties.Resources.unendorsed;
+				tsbToggleEndorse.Image = GetSelectedMod().IsEndorsed ? Properties.Resources.unendorsed : Properties.Resources.endorsed;
 			}
 			else
 			{
@@ -296,7 +306,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeleteModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
 				tsbToggleEndorse.Enabled = false;
-				tsbToggleEndorse.Image = global::Nexus.Client.Properties.Resources.unendorsed;
+				tsbToggleEndorse.Image = Properties.Resources.unendorsed;
 			}
 		}
 
@@ -362,7 +372,6 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
 		private void tsbAddMod_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
 		{
-
 			tsbAddMod.DefaultItem = e.ClickedItem;
 			tsbAddMod.Text = e.ClickedItem.Text;
 			toolStrip1.SuspendLayout();
@@ -566,25 +575,19 @@ namespace Nexus.Client.ModManagement.UI
 			lvwMods.ClearMessage(lsiWebVersion);
 			if ((uifNewModInfo != null) && (uifNewModInfo.NewestInfo != null))
 			{
-				ModInfo mifUpdatedMod = new ModInfo(modMod);
 				lsiWebVersion.Text = uifNewModInfo.NewestInfo.HumanReadableVersion;
 				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Regular);
 				if (uifNewModInfo.NewestInfo.Website != null)
 				{
-					if (!uifNewModInfo.IsMatchingVersion(modMod.HumanReadableVersion))
+					if ((!String.IsNullOrEmpty(uifNewModInfo.NewestInfo.LastKnownVersion) && !uifNewModInfo.IsMatchingVersion(uifNewModInfo.NewestInfo.LastKnownVersion)) || !uifNewModInfo.IsMatchingVersion(modMod.HumanReadableVersion))
 						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
-					mifUpdatedMod.Website = uifNewModInfo.NewestInfo.Website;
-					mifUpdatedMod.LastKnownVersion = uifNewModInfo.NewestInfo.HumanReadableVersion;
 				}
 				else
 					lsiWebVersion.ForeColor = lvwMods.ForeColor;
 
-				mifUpdatedMod.Id = uifNewModInfo.NewestInfo.Id;
-				mifUpdatedMod.IsEndorsed = uifNewModInfo.NewestInfo.IsEndorsed;
-				ViewModel.UpdateModLastVersion(modMod, mifUpdatedMod);
+				lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], uifNewModInfo.NewestInfo.IsEndorsed ? "Endorsed" : "Unendorsed", uifNewModInfo.NewestInfo.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
 				lsiWebVersion.Tag = uifNewModInfo.NewestInfo;
-				lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], mifUpdatedMod.IsEndorsed ? "Endorsed" : "Unendorsed", mifUpdatedMod.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
 			}
 			else
 			{
@@ -593,10 +596,10 @@ namespace Nexus.Client.ModManagement.UI
 
 				if (modMod.Website != null)
 				{
-					lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], modMod.IsEndorsed ? "Endorsed" : "Unendorsed", modMod.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
 					if (!modMod.IsMatchingVersion())
 						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
 					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
+					lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], modMod.IsEndorsed ? "Endorsed" : "Unendorsed", modMod.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
 					lsiWebVersion.Tag = modMod;
 				}
 				else

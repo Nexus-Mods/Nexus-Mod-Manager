@@ -173,6 +173,20 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Toggles the endorsement for the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
+		public void ToggleModEndorsement(IMod p_modMod)
+		{
+			bool booEndorsementState = ModRepository.ToggleEndorsement(p_modMod.Id, p_modMod.IsEndorsed ? 1 : 0);
+			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
+			mifUpdatedMod.IsEndorsed = booEndorsementState;
+			mifUpdatedMod.HumanReadableVersion = String.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;
+			AddNewVersionNumberForMod(p_modMod, (IModInfo)mifUpdatedMod);
+			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+		}
+
+		/// <summary>
 		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the list of
 		/// managed mods.
 		/// </summary>
@@ -223,9 +237,12 @@ namespace Nexus.Client.ModManagement
 						Thread.Sleep(1000);
 					}
 
-					foreach (IMod modMod in m_lstModList)
-						foreach (IModInfo modUpdate in mifInfo.Where(x => (String.IsNullOrEmpty(modMod.Id) ? "0" : modMod.Id) == x.Id))
+					foreach (IModInfo modUpdate in mifInfo)
+						foreach (IMod modMod in m_lstModList.Where(x => (String.IsNullOrEmpty(modUpdate.Id) ? "0" : modUpdate.Id) == x.Id))
+						{
 							AddNewVersionNumberForMod(modMod, modUpdate);
+							modMod.UpdateInfo(modUpdate, false);
+						}
 				}
 			}
 			catch (RepositoryUnavailableException)

@@ -388,7 +388,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			// i could possiblly derive it based on the url of the service, but the service could be on a different server
 			string strURL = String.Format("http://{0}/downloads/file.php?id={1}", m_strWebsite, p_nmiNexusModInfo.Id);
 			Uri uriWebsite = new Uri(strURL);
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, null, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, null, uriWebsite, null);
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
 
@@ -513,15 +513,16 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (TimeoutException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+				throw new RepositoryUnavailableException(e.InnerException.Message, e);
 			}
 			catch (CommunicationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+				throw new RepositoryUnavailableException(e.InnerException.Message, e);
 			}
 			catch (SerializationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+				string strMessage = "you might not have downloaded this mod from the Nexus or you have tried to endorse it within 3 hours of downloading the file.";
+				throw new RepositoryUnavailableException(strMessage, e);
 			}
 
 			return booOnlineState;

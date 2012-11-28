@@ -120,10 +120,14 @@ namespace Nexus.UI.Controls
 		/// Gets the bounds of our custom message icon.
 		/// </summary>
 		/// <returns>The bounds of our custom message icon.</returns>
-		protected Rectangle GetMessageIconBounds(Rectangle p_rctCellBounds, Image p_imgIcon)
+		protected Rectangle GetMessageIconBounds(Rectangle p_rctCellBounds, Image p_imgIcon, bool p_booCentered)
 		{
 			Int32 intYOffset = (p_rctCellBounds.Height - p_imgIcon.Height) / 2;
-			Int32 intXOffset = p_rctCellBounds.Right - p_imgIcon.Width - intYOffset;
+			Int32 intXOffset = 0;
+			if (p_booCentered)
+				intXOffset = p_rctCellBounds.Left + (p_rctCellBounds.Width / 2) - (p_imgIcon.Width / 2);
+			else
+				intXOffset = p_rctCellBounds.Right - p_imgIcon.Width - intYOffset;
 			Rectangle rctIconBounds = new Rectangle(new Point(intXOffset, intYOffset), p_imgIcon.Size);
 			return rctIconBounds;
 		}
@@ -184,7 +188,7 @@ namespace Nexus.UI.Controls
 			if (Messages.ContainsKey(e.SubItem))
 			{
 				Image imgIcon = Messages[e.SubItem].Value;
-				Rectangle rctIconBounds = GetMessageIconBounds(e.Bounds, imgIcon);
+				Rectangle rctIconBounds = GetMessageIconBounds(e.Bounds, imgIcon, String.IsNullOrEmpty(e.SubItem.Text) ? true : false);
 				Rectangle rctPaint = new Rectangle(new Point(rctIconBounds.X, intBoundsY + rctIconBounds.Y), rctIconBounds.Size);
 				e.Graphics.DrawImage(imgIcon, rctPaint);
 				intFontWidth -= rctIconBounds.Width;

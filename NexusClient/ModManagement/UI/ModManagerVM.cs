@@ -302,16 +302,6 @@ namespace Nexus.Client.ModManagement.UI
 			p_modMod.UpdateInfo(mifNewInfo, true);
 		}
 
-		/// <summary>
-		/// Updates the mod's last known version.
-		/// </summary>
-		/// <param name="p_modMod">The mod whose last known version is to be updated.</param>
-		/// <param name="p_strModLastVersion">The last known version.</param>
-		public void UpdateModLastVersion(IMod p_modMod, ModInfo p_mifModLastVersion)
-		{
-			p_modMod.UpdateInfo(p_mifModLastVersion, true);
-		}
-
 		#endregion
 
 		#region Mod Updating
@@ -329,24 +319,14 @@ namespace Nexus.Client.ModManagement.UI
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-		/// <returns>Error message or String.Empty</returns>
-		public string ToggleModEndorsement(IMod p_modMod)
+		public void ToggleModEndorsement(IMod p_modMod)
 		{
 			string strResult = string.Empty;
 
-			try
-			{
-				bool EndorsementState = ModManager.ToggleModEndorsement(p_modMod.Id, p_modMod.IsEndorsed ? 1 : 0);
-				ModInfo modUpdatedVersion = new ModInfo(p_modMod);
-				modUpdatedVersion.IsEndorsed = EndorsementState;
-				UpdateModLastVersion(p_modMod, modUpdatedVersion);
-			}
-			catch (RepositoryUnavailableException e)
-			{
-				strResult = "The repository is currently unavailable.";
-			}
-			
-			return strResult;
+			if (String.IsNullOrEmpty(p_modMod.Id))
+				throw new Exception("we couldn't find a proper Nexus ID or the file no longer exists on the Nexus sites.");
+
+			ModManager.ToggleModEndorsement(p_modMod);
 		}
 
 		#endregion

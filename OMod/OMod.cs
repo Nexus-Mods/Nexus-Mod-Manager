@@ -303,6 +303,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 		public byte OModVersion { get; private set; }
 
 		/// <summary>
+		/// Gets the OMod format version of the mod.
+		/// </summary>
+		/// <value>The OMod format version of the mod.</value>
+		public byte OModBaseVersion { get; private set; }
+
+		/// <summary>
 		/// Gets the contact email of the mod.
 		/// </summary>
 		/// <value>The contact email of the mod.</value>
@@ -1262,7 +1268,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				Int64 intLength = 0;
 				using (BinaryWriter bwrConfig = new BinaryWriter(stmConfig))
 				{
-					bwrConfig.Write(OModVersion);
+					bwrConfig.Write(OModBaseVersion);
 					bwrConfig.Write(ModName);
 					Int32 intBuildVersion = 0;
 					if (MachineVersion != null)
@@ -1283,7 +1289,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 					else
 						bwrConfig.Write(Website.ToString());
 					bwrConfig.Write(Description ?? "");
-					if (OModVersion >= 2)
+					if (OModBaseVersion >= 2)
 						bwrConfig.Write(CreationTime.ToBinary());
 					else
 						bwrConfig.Write(CreationTime.ToString("dd\\/MM\\/yyyy HH:mm"));
@@ -1298,8 +1304,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 						default:
 							throw new Exception("Unsupported compression type for OMod: " + CompressionType);
 					}
-					if (OModVersion >= 1)
+					if (OModBaseVersion >= 1)
 						bwrConfig.Write(intBuildVersion);
+					bwrConfig.Write(OModVersion >= 5 ? OModVersion : Convert.ToByte(5));
+					bwrConfig.Write(String.IsNullOrEmpty(Id) ? "" : Id);
+					bwrConfig.Write(String.IsNullOrEmpty(LastKnownVersion) ? "" : LastKnownVersion);
+					bwrConfig.Write(IsEndorsed.ToString());
 					intLength = stmConfig.Length;
 				}
 				byte[] bteConfig = new byte[intLength];
@@ -1318,7 +1328,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				using (BinaryReader brdConfig = new BinaryReader(stmConfig))
 				{
-					OModVersion = brdConfig.ReadByte();
+					OModBaseVersion = brdConfig.ReadByte();
 					ModName = brdConfig.ReadString();
 					Int32 intMajorVersion = brdConfig.ReadInt32();
 					Int32 intMinorVersion = brdConfig.ReadInt32();
@@ -1331,7 +1341,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 					if (UriUtil.TryBuildUri(strUrl, out uriUrl))
 						Website = uriUrl;
 					Description = brdConfig.ReadString();
-					if (OModVersion >= 2)
+					if (OModBaseVersion >= 2)
 						CreationTime = DateTime.FromBinary(brdConfig.ReadInt64());
 					else
 					{
@@ -1354,12 +1364,29 @@ namespace Nexus.Client.Mods.Formats.OMod
 						default:
 							throw new Exception("Unrecognizes OMod compression type: " + bteCompressionType);
 					}
-					Int32 intBuildVersion = (OModVersion >= 1) ? brdConfig.ReadInt32() : -1;
+					Int32 intBuildVersion = (OModBaseVersion >= 1) ? brdConfig.ReadInt32() : -1;
 					if (intBuildVersion < 0)
 						MachineVersion = new Version(intMajorVersion, intMinorVersion);
 					else
 						MachineVersion = new Version(intMajorVersion, intMinorVersion, intBuildVersion, 0);
 					HumanReadableVersion = MachineVersion.ToString();
+					if (brdConfig.BaseStream.Position < brdConfig.BaseStream.Length)
+						OModVersion = brdConfig.ReadByte();
+					if (OModVersion >= 5)
+					{
+						Id = brdConfig.ReadString();
+						LastKnownVersion = brdConfig.ReadString();
+						try
+						{
+							IsEndorsed = Convert.ToBoolean(brdConfig.ReadString());
+						}
+						catch
+						{
+							IsEndorsed = false;
+						}
+					}
+					else
+						OModVersion = OModBaseVersion;
 				}
 			}
 		}
@@ -1378,7 +1405,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				{
 					using (BinaryReader brdConfig = new BinaryReader(stmConfig))
 					{
-						byte bteOModVersion = brdConfig.ReadByte();
+						byte bteOModBaseVersion = brdConfig.ReadByte();
 						brdConfig.ReadString();
 						brdConfig.ReadInt32();
 						brdConfig.ReadInt32();
@@ -1386,7 +1413,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 						brdConfig.ReadString();
 						brdConfig.ReadString();
 						brdConfig.ReadString();
-						if (bteOModVersion >= 2)
+						if (bteOModBaseVersion >= 2)
 							brdConfig.ReadInt64();
 						byte bteCompressionType = brdConfig.ReadByte();
 						switch (bteCompressionType)
@@ -1400,8 +1427,15 @@ namespace Nexus.Client.Mods.Formats.OMod
 							default:
 								return false;
 						}
-						if (bteOModVersion >= 1)
+						if (bteOModBaseVersion >= 1)
 							brdConfig.ReadInt32();
+						byte bteOModVersion = brdConfig.ReadByte();
+						if (bteOModVersion >= 5)
+						{
+							brdConfig.ReadString();
+							brdConfig.ReadString();
+							brdConfig.ReadString();
+						}
 					}
 				}
 			}

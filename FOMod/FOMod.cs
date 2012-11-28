@@ -848,8 +848,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("LastKnownVersion")).InnerText = LastKnownVersion;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Id")).InnerText = Id;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Author")).InnerText = Author;
-			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("IsEndorsed")).InnerText = IsEndorsed.ToString();
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			if (Website != null)
 				xndInfo.AppendChild(p_xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
 			return xndInfo;
@@ -890,10 +890,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if ((xndAuthor != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Author)))
 				Author = xndAuthor.InnerText;
 
-			XmlNode xndDescription = xndRoot.SelectSingleNode("Description");
-			if ((xndDescription != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Description)))
-				Description = xndDescription.InnerText;
-
 			XmlNode xndEndorsed = xndRoot.SelectSingleNode("IsEndorsed");
 			if (xndEndorsed != null)
 			{
@@ -906,6 +902,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					IsEndorsed = false;
 				}
 			}
+
+			XmlNode xndDescription = xndRoot.SelectSingleNode("Description");
+			if ((xndDescription != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Description)))
+				Description = xndDescription.InnerText;
 
 			XmlNode xndWebsite = xndRoot.SelectSingleNode("Website");
 			if ((xndWebsite != null) && (!String.IsNullOrEmpty(xndWebsite.InnerText)) && (!p_booFillOnlyEmptyValues || (Website == null)))

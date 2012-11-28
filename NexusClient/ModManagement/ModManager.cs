@@ -5,6 +5,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadMonitoring;
 using Nexus.Client.Games;
 using Nexus.Client.ModAuthoring;
+using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -418,12 +419,10 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
-		/// <param name="p_strModId">The mod ID.</param>
-		/// <param name="p_intLocalEndorse">The mod local endorsement state.</param>
-		/// <returns>The updated online Endorsement state.</returns>
-		public bool ToggleModEndorsement(string p_strModId, int p_intLocalEndorse)
+		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
+		public void ToggleModEndorsement(IMod p_modMod)
 		{
-			return ModRepository.ToggleEndorsement(p_strModId, p_intLocalEndorse);
+			AutoUpdater.ToggleModEndorsement(p_modMod);
 		}
 
 		#endregion
