@@ -56,10 +56,10 @@ namespace Nexus.Client.ModManagement
 				{
 					//use heuristics to find info
 					lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, true));
-                    if (lstMods.Count == 0)
-                        lstMods.AddRange(ModRepository.FindMods(Regex.Replace(p_modMod.ModName, "[^a-zA-Z0-9_. ]+", "", RegexOptions.Compiled), true));
-                    if (lstMods.Count == 0)
-                        lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, p_modMod.Author));
+					if (lstMods.Count == 0)
+						lstMods.AddRange(ModRepository.FindMods(Regex.Replace(p_modMod.ModName, "[^a-zA-Z0-9_. ]+", "", RegexOptions.Compiled), true));
+					if (lstMods.Count == 0)
+						lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, p_modMod.Author));
 					if (lstMods.Count == 0)
 						lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, false));
 				}
@@ -91,6 +91,12 @@ namespace Nexus.Client.ModManagement
 				TraceUtil.TraceException(e);
 				//the repository is not available, so add a dummy value indicating such
 				lstMods.Add(new ModInfo(null, String.Format("{0} is unavailable", ModRepository.Name), null, null, false, null, null, null, null, null, null));
+			}
+			catch (NullReferenceException e)
+			{
+				TraceUtil.TraceException(e);
+				//couldn't find any match, so add a dummy value indicating such
+				lstMods.Add(new ModInfo(null, String.Format("{0}", e.Message), null, null, false, null, null, null, null, null, null));
 			}
 			return lstMods;
 		}
