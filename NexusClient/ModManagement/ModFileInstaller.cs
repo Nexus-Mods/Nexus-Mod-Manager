@@ -91,7 +91,7 @@ namespace Nexus.Client.ModManagement
 			PluginManager = p_pmgPluginManager;
 			DataFileUtility = p_dfuDataFileUtility;
 			TransactionalFileManager = p_tfmFileManager;
-			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b) => OverwriteResult.No);
+			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b, m) => OverwriteResult.No);
             IsPlugin = p_UsesPlugins;
 		}
 
@@ -156,7 +156,7 @@ namespace Nexus.Client.ModManagement
 				strMessage = "Data file '{0}' already exists." + Environment.NewLine +
 								"Overwrite with this mod's file?";
 			}
-			switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strPath), true))
+			switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strPath), true, (modOld != null)))
 			{
 				case OverwriteResult.Yes:
 					return true;

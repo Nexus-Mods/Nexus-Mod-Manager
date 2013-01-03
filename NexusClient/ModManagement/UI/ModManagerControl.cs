@@ -852,15 +852,16 @@ namespace Nexus.Client.ModManagement.UI
 		/// This asks the user to confirm the overwriting of the specified item.
 		/// </summary>
 		/// <param name="p_strItemMessage">The message describing the item being overwritten..</param>
-		/// <param name="p_booAllowPerGroupChoice">Whether to allow the user to make the decision to amke the selection for all items in the current item's group.</param>
+		/// <param name="p_booAllowPerGroupChoice">Whether to allow the user to make the decision to make the selection for all items in the current item's group.</param>
+		/// <param name="p_booAllowPerModChoice">Whether to allow the user to make the decision to make the selection for all items in the current Mod.</param>
 		/// <returns>The user's choice.</returns>
-		private OverwriteResult ConfirmItemOverwrite(string p_strItemMessage, bool p_booAllowPerGroupChoice)
+		private OverwriteResult ConfirmItemOverwrite(string p_strItemMessage, bool p_booAllowPerGroupChoice, bool p_booAllowPerModChoice)
 		{
 			OverwriteResult orsResult = OverwriteResult.No;
 			if (InvokeRequired)
-				Invoke((MethodInvoker)(() => orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice)));
+				Invoke((MethodInvoker)(() => orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice, p_booAllowPerModChoice)));
 			else
-				orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice);
+				orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice, p_booAllowPerModChoice);
 			return orsResult;
 		}
 

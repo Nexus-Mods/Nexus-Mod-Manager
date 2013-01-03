@@ -57,7 +57,7 @@ namespace Nexus.Client.ModManagement
 			Mod = p_modMod;
 			InstallLog = p_ilgInstallLog;
 			TransactionalFileManager = p_tfmFileManager;
-			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b) => OverwriteResult.No);
+			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b, m) => OverwriteResult.No);
 		}
 
 		#endregion
@@ -131,7 +131,7 @@ namespace Nexus.Client.ModManagement
 									"Allow the change?\n" +
 									"Current value '{3}', new value '{4}'";
 				}
-				switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strKey, p_strSection, p_strSettingsFileName, strOldValue, p_strValue), false))
+				switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strKey, p_strSection, p_strSettingsFileName, strOldValue, p_strValue), false, false))
 				{
 					case OverwriteResult.YesToAll:
 						m_booOverwriteAllIni = true;

@@ -17,7 +17,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_booAllowGroup">Whether to display the
 		/// "Yes to all in Group" and "No to all in Group" buttons.</param>
-		private OverwriteForm(string p_strMessage, bool p_booAllowGroup)
+		/// <param name="p_booAllowMod">Whether to display the
+		/// "Yes to all in Mod" and "No to all in Mod" buttons.</param>
+		private OverwriteForm(string p_strMessage, bool p_booAllowGroup, bool p_booAllowMod)
 		{
 			InitializeComponent();
 			lblMessage.Text = p_strMessage;
@@ -25,6 +27,9 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				butYesToGroup.Enabled = false;
 				butNoToGroup.Enabled = false;
+			}
+			if (!p_booAllowMod)
+			{
 				butYesToMod.Enabled = false;
 				butNoToMod.Enabled = false;
 			}
@@ -51,10 +56,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_booAllowGroup">Whether to display the
 		/// "Yes to all in Group" and "No to all in Group" buttons.</param>
+		/// <param name="p_booAllowMod">Whether to display the
+		/// "Yes to all in Mod" and "No to all in Mod" buttons.</param>
 		/// <returns>The selected result.</returns>
-		public static OverwriteResult ShowDialog(IWin32Window p_winOwner, string p_strMessage, bool p_booAllowGroup)
+		public static OverwriteResult ShowDialog(IWin32Window p_winOwner, string p_strMessage, bool p_booAllowGroup, bool p_booAllowMod)
 		{
-			OverwriteForm of = new OverwriteForm(p_strMessage, p_booAllowGroup);
+			OverwriteForm of = new OverwriteForm(p_strMessage, p_booAllowGroup, p_booAllowMod);
 			of.ShowDialog(p_winOwner);
 			return of.m_owrResult;
 		}
@@ -65,10 +72,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_booAllowGroup">Whether to display the
 		/// "Yes to all in Group" and "No to all in Group" buttons.</param>
+		/// <param name="p_booAllowMod">Whether to display the
+		/// "Yes to all in Mod" and "No to all in Mod" buttons.</param>
 		/// <returns>The selected result.</returns>
-		public static OverwriteResult ShowDialog(string p_strMessage, bool p_booAllowGroup)
+		public static OverwriteResult ShowDialog(string p_strMessage, bool p_booAllowGroup, bool p_booAllowMod)
 		{
-			OverwriteForm of = new OverwriteForm(p_strMessage, p_booAllowGroup);
+			OverwriteForm of = new OverwriteForm(p_strMessage, p_booAllowGroup, p_booAllowMod);
 			of.ShowDialog();
 			return of.m_owrResult;
 		}

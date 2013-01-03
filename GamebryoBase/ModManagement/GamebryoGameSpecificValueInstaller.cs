@@ -165,7 +165,7 @@ namespace Nexus.Client.Games.Gamebryo.ModManagement
 			{
 				string strMessage = String.Format("Shader '{0}' in package '{1}' has already been overwritten by '{2}'\n" +
 										"Overwrite the changes?", sedShader.ShaderName, sedShader.Package, modOldMod.ModName);
-				switch (m_dlgOverwriteConfirmationDelegate(strMessage, false))
+				switch (m_dlgOverwriteConfirmationDelegate(strMessage, false, false))
 				{
 					case OverwriteResult.YesToAll:
 						m_booOverwriteAll = true;
