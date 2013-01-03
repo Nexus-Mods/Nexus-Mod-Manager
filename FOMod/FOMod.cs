@@ -406,7 +406,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (strScreenshots.Length > 0)
 				m_strScreenshotPath = strScreenshots[0];
 
-			if (p_booUseCache && (m_arcCacheFile == null) && (m_arcFile.IsSolid || m_arcFile.ReadOnly))
+			if (p_booUseCache && (m_arcCacheFile == null))
 			{
 				string strTmpInfo = p_mcmModCacheManager.FileUtility.CreateTempDirectory();
 				try

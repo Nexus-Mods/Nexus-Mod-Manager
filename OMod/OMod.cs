@@ -456,7 +456,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			//check for screenshot
 			m_booHasScreenshot = ContainsFile(Path.Combine(CONVERSION_FOLDER, "screenshot"));
 
-			if (p_booUseCache && (m_arcCacheFile == null) && (m_arcFile.IsSolid || m_arcFile.ReadOnly))
+			if (p_booUseCache && (m_arcCacheFile == null))
 			{
 				string strTmpInfo = p_mcmModCacheManager.FileUtility.CreateTempDirectory();
 				try
