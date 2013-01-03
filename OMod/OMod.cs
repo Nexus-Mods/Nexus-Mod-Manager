@@ -1197,7 +1197,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				HumanReadableVersion = p_mifInfo.HumanReadableVersion;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
+			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion) || (LastKnownVersion != p_mifInfo.LastKnownVersion))
 			{
 				LastKnownVersion = p_mifInfo.LastKnownVersion;
 				booChangedValue = true;
