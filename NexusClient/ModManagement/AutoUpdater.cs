@@ -288,7 +288,7 @@ namespace Nexus.Client.ModManagement
 							string[] strTerms = strSearchTerms.Split(' ', '-', '_');
 							string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
 							string strAuthor = p_modMod.Author;
-							if (!String.IsNullOrEmpty(strSearchString))
+							if (!String.IsNullOrEmpty(strSearchString) && !String.IsNullOrEmpty(strAuthor) && (strAuthor.Length >= 3))
 								mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
 						}
 					}

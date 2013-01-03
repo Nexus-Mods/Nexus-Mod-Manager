@@ -58,7 +58,7 @@ namespace Nexus.Client.ModManagement
 					lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, true));
                     if (lstMods.Count == 0)
                         lstMods.AddRange(ModRepository.FindMods(Regex.Replace(p_modMod.ModName, "[^a-zA-Z0-9_. ]+", "", RegexOptions.Compiled), true));
-                    if (lstMods.Count == 0)
+                    if ((lstMods.Count == 0) && (!String.IsNullOrEmpty(p_modMod.Author)))
                         lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, p_modMod.Author));
 					if (lstMods.Count == 0)
 						lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, false));
