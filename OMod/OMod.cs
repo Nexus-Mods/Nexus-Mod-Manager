@@ -1121,7 +1121,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		public bool IsMatchingVersion()
 		{
 			Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
-			string strThisVersion = rgxClean.Replace(m_strHumanReadableVersion, "");
+			string strThisVersion = rgxClean.Replace(m_strHumanReadableVersion ?? "", "");
 			string strThatVersion = rgxClean.Replace(m_strLastKnownVersion ?? "", "");
 			if (String.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
 				return true;
