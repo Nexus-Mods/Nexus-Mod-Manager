@@ -65,7 +65,7 @@ namespace Nexus.Client.ModManagement
 			public bool IsMatchingVersion(string p_strVersion)
 			{
 				Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
-				string strThisVersion = rgxClean.Replace(NewestInfo.HumanReadableVersion, "");
+				string strThisVersion = rgxClean.Replace(NewestInfo.HumanReadableVersion ?? "", "");
 				string strThatVersion = rgxClean.Replace(p_strVersion ?? "", "");
 				if (String.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
 					return true;
