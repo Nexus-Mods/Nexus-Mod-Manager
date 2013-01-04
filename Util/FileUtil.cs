@@ -314,12 +314,14 @@ namespace Nexus.Client.Util
 		/// Removes all invalid characters from the given path.
 		/// </summary>
 		/// <param name="p_strPath">The path to clean.</param>
-		/// <returns>The given path with all invlid characters removed.</returns>
+		/// <returns>The given path with all invalid characters removed.</returns>
 		public static string StripInvalidPathChars(string p_strPath)
 		{
 			if (String.IsNullOrEmpty(p_strPath))
 				return p_strPath;
 			Set<string> setChars = new Set<string>();
+
+			p_strPath = p_strPath.Replace("\"", "");
 
 			string strPath = Path.GetDirectoryName(p_strPath);
 			foreach (char chrInvalidChar in Path.GetInvalidPathChars())
