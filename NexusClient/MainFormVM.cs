@@ -321,7 +321,7 @@ namespace Nexus.Client
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			if (GameMode.UsesPlugins)
-				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings);
+				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode);
 			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, OfflineMode);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 

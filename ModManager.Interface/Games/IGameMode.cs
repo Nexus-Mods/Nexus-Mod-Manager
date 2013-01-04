@@ -82,6 +82,15 @@ namespace Nexus.Client.Games
 		/// <value>Whether the game mode uses plugins.</value>
 		bool UsesPlugins { get; }
 
+		/// <summary>
+		/// Gets the directory where plugins are installed.
+		/// </summary>
+		/// <remarks>
+		/// If the game mode does not use plugins, this should return null.
+		/// </remarks>
+		/// <value>The directory where plugins are installed.</value>
+		string PluginDirectory { get; }
+
 		#endregion
 
 		#region Plugin Management

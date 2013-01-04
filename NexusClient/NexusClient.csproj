@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -271,7 +271,11 @@
     <None Include="Resources\nl.gif" />
     <None Include="Resources\endorsed.png" />
     <None Include="Resources\endorsed_small.png" />
+    <None Include="Resources\document-export-4.png" />
+    <None Include="Resources\document-import-2.png" />
+    <None Include="Resources\edit-copy-6.png" />
     <Content Include="Resources\tes_logo.ico" />
+    <None Include="Resources\text-x-generic.png" />
     <None Include="Resources\unendorsed_small.png" />
     <None Include="Resources\unendorsed.png" />
     <None Include="Resources\us.gif" />
@@ -312,6 +316,11 @@
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
     <Compile Include="ModRepositories\FileServerZone.cs" />
     <Compile Include="ModRepositories\FileserverInfo.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ImportFailedEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ImportSucceededEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\Exceptions\InvalidImportSourceException.cs" />
     <Compile Include="Settings\DownloadSettingsGroup.cs" />
     <Compile Include="Settings\UI\DownloadSettingsPage.cs">
       <SubType>UserControl</SubType>

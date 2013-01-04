@@ -171,6 +171,21 @@ namespace Nexus.Client.Games.WorldOfTanks
 			}
 		}
 
+		/// <summary>
+		/// Gets the directory where plugins are installed.
+		/// </summary>
+		/// <remarks>
+		/// If the game mode does not use plugins, this should return null.
+		/// </remarks>
+		/// <value>The directory where plugins are installed.</value>
+		public override string PluginDirectory
+		{
+			get
+			{
+				return null;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
