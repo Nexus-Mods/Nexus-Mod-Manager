@@ -875,7 +875,16 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 				XmlAttribute xatMachineVersion = xndVersion.Attributes["MachineVersion"];
 				if ((xatMachineVersion != null) && (!p_booFillOnlyEmptyValues || (MachineVersion == null)))
-					MachineVersion = new Version(xatMachineVersion.Value);
+				{
+					try
+					{
+						MachineVersion = new Version(xatMachineVersion.Value);
+					}
+					catch (System.FormatException)
+					{
+						MachineVersion = new Version(Regex.Replace(xatMachineVersion.Value, "[^.0-9]", ""));
+					}
+				}
 			}
 
 			XmlNode xndLastKnownVersion = xndRoot.SelectSingleNode("LastKnownVersion");
