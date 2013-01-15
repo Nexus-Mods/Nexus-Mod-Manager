@@ -48,6 +48,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
+		private Int32 m_strCategoryId = 0;
+		private Int32 m_strCustomCategoryId = 0;
 		private bool m_booIsEndorsed = false;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
@@ -112,6 +114,38 @@ namespace Nexus.Client.Mods.Formats.OMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the category Id.
+		/// </summary>
+		/// <value>The category Id.</value>
+		public Int32 CategoryId
+		{
+			get
+			{
+				return m_strCategoryId;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strCategoryId, value, () => CategoryId);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the custom category Id.
+		/// </summary>
+		/// <value>The custom category Id.</value>
+		public Int32 CustomCategoryId
+		{
+			get
+			{
+				return m_strCustomCategoryId;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strCustomCategoryId, value, () => CustomCategoryId);
 			}
 		}
 
@@ -456,7 +490,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			//check for screenshot
 			m_booHasScreenshot = ContainsFile(Path.Combine(CONVERSION_FOLDER, "screenshot"));
 
-			if (p_booUseCache && (m_arcCacheFile == null) && (m_arcFile.IsSolid || m_arcFile.ReadOnly))
+			if (p_booUseCache && (m_arcCacheFile == null))
 			{
 				string strTmpInfo = p_mcmModCacheManager.FileUtility.CreateTempDirectory();
 				try
@@ -1121,7 +1155,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		public bool IsMatchingVersion()
 		{
 			Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
-			string strThisVersion = rgxClean.Replace(m_strHumanReadableVersion, "");
+			string strThisVersion = rgxClean.Replace(m_strHumanReadableVersion ?? "", "");
 			string strThatVersion = rgxClean.Replace(m_strLastKnownVersion ?? "", "");
 			if (String.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
 				return true;
@@ -1215,6 +1249,16 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
 			{
 				Author = p_mifInfo.Author;
+				booChangedValue = true;
+			}
+			if (p_booOverwriteAllValues || (CategoryId != p_mifInfo.CategoryId))
+			{
+				CategoryId = p_mifInfo.CategoryId;
+				booChangedValue = true;
+			}
+			if (p_booOverwriteAllValues || (CustomCategoryId != p_mifInfo.CustomCategoryId))
+			{
+				CustomCategoryId = p_mifInfo.CustomCategoryId;
 				booChangedValue = true;
 			}
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))

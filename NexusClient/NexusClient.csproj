@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -271,7 +271,14 @@
     <None Include="Resources\nl.gif" />
     <None Include="Resources\endorsed.png" />
     <None Include="Resources\endorsed_small.png" />
+    <None Include="Resources\reset_categories.png" />
+    <None Include="Resources\reset_default.png" />
+    <None Include="Resources\reset_unassigned.png" />
+    <None Include="Resources\document-export-4.png" />
+    <None Include="Resources\document-import-2.png" />
+    <None Include="Resources\edit-copy-6.png" />
     <Content Include="Resources\tes_logo.ico" />
+    <None Include="Resources\text-x-generic.png" />
     <None Include="Resources\unendorsed_small.png" />
     <None Include="Resources\unendorsed.png" />
     <None Include="Resources\us.gif" />
@@ -309,15 +316,28 @@
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorVM.cs" />
     <Compile Include="IMessager.cs" />
     <Compile Include="MessagerClient.cs" />
+    <Compile Include="ModManagement\CategoryManager\CategoryManager.cs" />
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
     <Compile Include="ModRepositories\FileServerZone.cs" />
     <Compile Include="ModRepositories\FileserverInfo.cs" />
+    <Compile Include="ModRepositories\ModCategory.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ImportFailedEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ImportSucceededEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\Exceptions\InvalidImportSourceException.cs" />
     <Compile Include="Settings\DownloadSettingsGroup.cs" />
     <Compile Include="Settings\UI\DownloadSettingsPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Settings\UI\DownloadSettingsPage.Designer.cs">
       <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\CategoryListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\CategoryListView.designer.cs">
+      <DependentUpon>CategoryListView.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\Controls\CustomizableToolStripProgressBar.cs">
       <SubType>Component</SubType>
@@ -474,6 +494,10 @@
     <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\ICSharpCode.TextEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="ObjectListView, Version=2.5.1.25760, Culture=neutral, PublicKeyToken=b1c5bf581481bcd4, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\ObjectListView.dll</HintPath>
     </Reference>
     <Reference Include="SevenZipSharp, Version=0.64.3890.29348, Culture=neutral, PublicKeyToken=20de82c62b055c88, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
