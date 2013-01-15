@@ -526,7 +526,8 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		protected bool CreateEnvironmentPaths(IGameMode p_gmdGameMode, out ViewMessage p_vwmErrorMessage)
 		{
-			string[] strPaths = new string[] { p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
+			string[] strPaths = new string[] { p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory,
+												p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory,
@@ -557,6 +558,8 @@ namespace Nexus.Client
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory] = "Mods";
 			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = "Install Info";
+			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory))
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Categories";
 
 			foreach (KeyValuePair<string, string> kvpUacCheckPath in dicPaths)
 			{

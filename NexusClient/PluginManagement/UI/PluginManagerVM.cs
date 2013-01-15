@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
+using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
+using Nexus.Client.Games;
 using Nexus.Client.Plugins;
 using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
@@ -13,6 +17,35 @@ namespace Nexus.Client.PluginManagement.UI
 	/// </summary>
 	public class PluginManagerVM
 	{
+		#region Events
+
+		/// <summary>
+		/// Raised when exporting the current load order fails.
+		/// </summary>
+		public event EventHandler<ExportFailedEventArgs> ExportFailed = delegate { };
+
+		/// <summary>
+		/// Raised when exporting the current load order succeeds.
+		/// </summary>
+		public event EventHandler<ExportSucceededEventArgs> ExportSucceeded = delegate { };
+
+		/// <summary>
+		/// Raised when importing a load order fails.
+		/// </summary>
+		public event EventHandler<ImportFailedEventArgs> ImportFailed = delegate { };
+
+		/// <summary>
+		/// Raised when importing a load order partially succeeds.
+		/// </summary>
+		public event EventHandler<ImportSucceededEventArgs> ImportPartiallySucceeded = delegate { };
+
+		/// <summary>
+		/// Raised when importing a load order succeeds.
+		/// </summary>
+		public event EventHandler<ImportSucceededEventArgs> ImportSucceeded = delegate { };
+
+		#endregion
+
 		#region Properties
 
 		#region Commands
@@ -55,6 +88,42 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <value>The command to move plugins down in the load order.</value>
 		public Command<IList<Plugin>> MoveDownCommand { get; private set; }
 
+		/// <summary>
+		/// Gets the command to export the current load order to a text file.
+		/// </summary>
+		/// <remarks>
+		/// The command takes an argument specifying the current game mode and the filename to save the load order to.
+		/// </remarks>
+		/// <value>The command to export the current load order to a text file.</value>
+		public Command<string> ExportLoadOrderToFileCommand { get; private set; }
+
+		/// <summary>
+		/// Gets the command to export the current load order to the clipboard.
+		/// </summary>
+		/// <remarks>
+		/// The command takes an argument specifying the current game mode.
+		/// </remarks>
+		/// <value>The command to export the current load order to the clipboard.</value>
+		public Command ExportLoadOrderToClipboardCommand { get; private set; }
+
+		/// <summary>
+		/// Gets the command to import a load order from a text file.
+		/// </summary>
+		/// <remarks>
+		/// The command takes an argument specifying the current game mode and the filename to import the load order from.
+		/// </remarks>
+		/// <value>The command to import a load order from a text file.</value>
+		public Command<string> ImportLoadOrderFromFileCommand { get; private set; }
+
+		/// <summary>
+		/// Gets the command to import a load order from the clipboard.
+		/// </summary>
+		/// <remarks>
+		/// The command takes an argument specifying the current game mode.
+		/// </remarks>
+		/// <value>The command to import a load order from the clipboard.</value>
+		public Command ImportLoadOrderFromClipboardCommand { get; private set; }
+
 		#endregion
 
 		/// <summary>
@@ -93,6 +162,12 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <value>The application and user settings.</value>
 		public ISettings Settings { get; private set; }
 
+		/// <summary>
+		/// Gets the game mode currently being managed.
+		/// </summary>
+		/// <value>The game mode currently being managed.</value>
+		protected IGameMode CurrentGameMode { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -102,15 +177,22 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		/// <param name="p_pmgPluginManager">The plugin manager to use to manage plugins.</param>
 		/// <param name="p_setSettings">The application and user settings.</param>
-		public PluginManagerVM(IPluginManager p_pmgPluginManager, ISettings p_setSettings)
+		/// <param name="p_gmdGameMode">The game mode that is currently being managed.</param>
+		public PluginManagerVM(IPluginManager p_pmgPluginManager, ISettings p_setSettings, IGameMode p_gmdGameMode)
 		{
 			PluginManager = p_pmgPluginManager;
 			Settings = p_setSettings;
+			CurrentGameMode = p_gmdGameMode;
 
 			ActivatePluginCommand = new Command<Plugin>("Activate Plugin", "Activates the selected plugin.", ActivatePlugin);
 			DeactivatePluginCommand = new Command<Plugin>("Deactivate Plugin", "Deactivates the selected plugin.", DeactivatePlugin);
 			MoveUpCommand = new Command<IEnumerable<Plugin>>("Move Plugin Up", "Moves the plugin up in the load order.", MovePluginsUp);
 			MoveDownCommand = new Command<IList<Plugin>>("Move Plugin Down", "Moves the plugin down in the load order.", MovePluginsDown);
+
+			ExportLoadOrderToFileCommand = new Command<string>("Export to a text file", "Exports the current load order to a text file.", ExportLoadOrderToFile);
+			ExportLoadOrderToClipboardCommand = new Command("Export to the clipboard", "Exports the current load order to the clipboard.", ExportLoadOrderToClipboard);
+			ImportLoadOrderFromFileCommand = new Command<string>("Import from a text file", "Imports a load order from a text file", ImportLoadOrderFromFile);
+			ImportLoadOrderFromClipboardCommand = new Command("Import from the clipboard", "Imports a load order from the clipboard", ImportLoadOrderFromClipboard);
 		}
 
 		#endregion
@@ -259,6 +341,504 @@ namespace Nexus.Client.PluginManagement.UI
 			}
 			return PluginManager.ValidateOrder(lstNewOrder);
 		}
+
+		#endregion
+
+		#region Load Order IO
+
+		#region Export
+
+		/// <summary>
+		/// Determines whether or not the load order can currently be exported for the current game mode.
+		/// </summary>
+		/// <returns><c>true</c> if the load order can be exported; <c>false</c> otherwise.</returns>
+		public bool CanExecuteExportCommands()
+		{
+			return CurrentGameMode.UsesPlugins && (ActivePlugins.Count > 0);
+		}
+
+		/// <summary>
+		/// Writes the current load order and the id of the specified game mode to the specified 
+		/// <see cref="TextWriter"/> and returns the number of plugins written.
+		/// </summary>
+		/// <param name="p_twWriter">The TextWriter to export the current load order to.</param>
+		/// <returns>The number of plugins exported.</returns>
+		private int ExportLoadOrder(TextWriter p_twWriter)
+		{
+			if (p_twWriter == null)
+				throw new ArgumentNullException("p_twWriter");
+
+			p_twWriter.WriteLine("GameMode={0}", CurrentGameMode.ModeId);
+			p_twWriter.WriteLine();
+
+			int intNumPluginsExported = 0;
+			foreach (Plugin p in ActivePlugins)
+			{
+				p_twWriter.WriteLine(Path.GetFileName(p.Filename));
+				intNumPluginsExported++;
+			}
+
+			return intNumPluginsExported;
+		}
+
+		/// <summary>
+		/// Exports the current load order and game mode to a text file.
+		/// </summary>
+		/// <param name="p_strFilename">The filename to export the load order to.</param>
+		protected void ExportLoadOrderToFile(string p_strFilename)
+		{
+			if (string.IsNullOrEmpty(p_strFilename) || !CurrentGameMode.UsesPlugins)
+				return;
+
+			StreamWriter swWriter = null;
+			try
+			{
+				swWriter = new StreamWriter(p_strFilename, false);
+
+				int intExportedPluginCount = ExportLoadOrder(swWriter);
+
+				OnExportSucceeded(p_strFilename, intExportedPluginCount);
+			}
+			catch (Exception ex)
+			{
+				OnExportFailed(p_strFilename, ex);
+			}
+			finally
+			{
+				if (swWriter != null)
+					swWriter.Dispose();
+			}
+		}
+
+		/// <summary>
+		/// Exports the current load order to the clipboard.
+		/// </summary>
+		protected void ExportLoadOrderToClipboard()
+		{
+			if (!CurrentGameMode.UsesPlugins)
+				return;
+
+			using (StringWriter writer = new StringWriter())
+			{
+				try
+				{
+					int intExportedPluginCount = ExportLoadOrder(writer);
+
+					System.Windows.Forms.Clipboard.SetText(writer.ToString());
+
+					OnExportSucceeded(intExportedPluginCount);
+				}
+				catch (Exception ex)
+				{
+					OnExportFailed(ex);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Returns a default filename for the current game mode when exporting the current load order.
+		/// </summary>
+		/// <returns>A default filename for the current game mode when exporting the current load order.</returns>
+		public string GetDefaultExportFilename()
+		{
+			// Get a sortable date/time string
+			string strDateTimeStamp =
+				DateTime.Now
+				.ToString(System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.SortableDateTimePattern);
+
+			// The SortableDateTimePattern property uses the ':' character, which can't be used in file names, so use '-' instead.
+			strDateTimeStamp = strDateTimeStamp.Replace(':', '-');
+			
+			return string.Format("LoadOrder_{0}_{1}.txt", CurrentGameMode.ModeId, strDateTimeStamp);
+		}
+
+		/// <summary>
+		/// Returns the filter string used when exporting the current load order.
+		/// </summary>
+		/// <returns>The filter string used when exporting the current load order.</returns>
+		public string GetExportFilterString()
+		{
+			return "Text files (*.txt)|*.txt";
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ExportFailed"/> event.
+		/// </summary>
+		/// <param name="p_exError">The error that occurred.</param>
+		protected void OnExportFailed(Exception p_exError)
+		{
+			if (ExportFailed != null)
+				ExportFailed(this, new ExportFailedEventArgs(p_exError));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ExportFailed"/> event.
+		/// </summary>
+		/// <param name="p_strFilename">The filename that the load order failed to export to.</param>
+		/// <param name="p_exError">The error that occurred.</param>
+		protected void OnExportFailed(string p_strFilename, Exception p_exError)
+		{
+			if (ExportFailed != null)
+				ExportFailed(this, new ExportFailedEventArgs(p_strFilename, p_exError));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ExportSucceeded"/> event.
+		/// </summary>
+		/// <param name="p_intExportedPluginCount">The number of plaugins that were exported.</param>
+		protected void OnExportSucceeded(int p_intExportedPluginCount)
+		{
+			if (ExportSucceeded != null)
+				ExportSucceeded(this, new ExportSucceededEventArgs(p_intExportedPluginCount));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ExportSucceeded"/> event.
+		/// </summary>
+		/// <param name="p_strFilename">The filename that the load order was exported to.</param>
+		/// <param name="p_intExportedPluginCount">The number of plaugins that were exported.</param>
+		protected void OnExportSucceeded(string p_strFilename, int p_intExportedPluginCount)
+		{
+			if (ExportSucceeded != null)
+				ExportSucceeded(this, new ExportSucceededEventArgs(p_strFilename, p_intExportedPluginCount));
+		}
+
+		#endregion
+
+		#region Import
+
+		/// <summary>
+		/// Applies the load order specified by the given list of registered plugins
+		/// </summary>
+		/// <param name="p_lstRegisteredPlugins">The list of registered plugins.</param>
+		private void ApplyLoadOrder(List<Plugin> p_lstRegisteredPlugins)
+		{
+			Transactions.TransactionScope tsTransaction = null;
+			try
+			{
+				tsTransaction = new Transactions.TransactionScope();
+
+				foreach (Plugin plgPlugin in PluginManager.ManagedPlugins)
+				{
+					if (PluginManager.CanChangeActiveState(plgPlugin))
+						PluginManager.DeactivatePlugin(plgPlugin);
+				}
+
+				foreach (Plugin plgPlugin in p_lstRegisteredPlugins)
+				{
+					if (PluginManager.CanChangeActiveState(plgPlugin))
+						PluginManager.ActivatePlugin(plgPlugin);
+				}
+
+				PluginManager.SetPluginOrder(p_lstRegisteredPlugins);
+
+				tsTransaction.Complete();
+			}
+			catch
+			{
+				throw;
+			}
+			finally
+			{
+				if (tsTransaction != null)
+					tsTransaction.Dispose();
+			}
+		}
+
+		/// <summary>
+		/// Determines whether or not a load order can currently be imported for the current game mode.
+		/// </summary>
+		/// <returns><c>true</c> if a load order can be imported; <c>false</c> otherwise.</returns>
+		public bool CanExecuteImportCommands()
+		{
+			return CurrentGameMode.UsesPlugins 
+				&& !string.IsNullOrEmpty(CurrentGameMode.PluginDirectory)
+				&& (ManagedPlugins.Count > 0);
+		}
+
+		/// <summary>
+		/// Returns the filter string used when importing a load order.
+		/// </summary>
+		/// <returns>The filter string used when importing a load order.</returns>
+		public string GetImportFilterString()
+		{
+			return "Text files (*.txt)|*.txt";
+		}
+
+		/// <summary>
+		/// Gets a list of registered plugins and unregistered plugin filenames for the specified game mode and list of plugin filenames.
+		/// </summary>
+		/// <param name="p_lstPluginFilenames">The list of plugin filenames.</param>
+		/// <param name="p_lstRegisteredPlugins">The return list of registered plugins.</param>
+		/// <param name="p_lstUnregisteredPlugins">The return list of unregistered plugin filenames.</param>
+		/// <exception cref="InvalidImportSourceException">The value of PluginDirectory for the current game mode is empty.</exception>
+		private void GetRegisteredPlugins(List<string> p_lstPluginFilenames, out List<Plugin> p_lstRegisteredPlugins, out List<string> p_lstUnregisteredPlugins)
+		{
+			string strPluginDirectory = CurrentGameMode.PluginDirectory;
+
+			if (string.IsNullOrEmpty(strPluginDirectory))
+				throw new InvalidImportSourceException(string.Format("The PluginDirectory path of the specified import source game mode, {0}, is empty.", CurrentGameMode));
+
+			p_lstRegisteredPlugins = new List<Plugin>();
+			p_lstUnregisteredPlugins = new List<string>();
+
+			foreach (string strPluginFilename in p_lstPluginFilenames)
+			{
+				string strPluginPath = Path.Combine(strPluginDirectory, strPluginFilename);
+				Plugin plgPlugin = PluginManager.GetRegisteredPlugin(strPluginPath);
+				if (plgPlugin != null)
+					p_lstRegisteredPlugins.Add(plgPlugin);
+				else
+					p_lstUnregisteredPlugins.Add(strPluginFilename);
+			}
+		}
+
+		/// <summary>
+		/// Read the load order from the specified <see cref="TextReader"/> and returns the number of
+		/// plugins imported as well as the number of plugins not found.
+		/// </summary>
+		/// <param name="p_trReader">The TextReader to read the load order from.</param>
+		/// <param name="p_intTotalPluginCount">The total number of plugins that were found in the specified import source.</param>
+		/// <param name="p_intImportedCount">The number of plugins imported.</param>
+		/// <param name="p_lstUnregisteredPlugins">The list of plugins that are not registered with the current <see cref="T:PluginManager"/>.</param>
+		private void ImportLoadOrder(TextReader p_trReader, out int p_intTotalPluginCount, out int p_intImportedCount, out List<string> p_lstUnregisteredPlugins)
+		{
+			if (p_trReader == null)
+				throw new ArgumentNullException("p_trReader");
+
+			List<string> lstPluginFilenames = ReadImportSource(p_trReader);
+			p_intTotalPluginCount = lstPluginFilenames.Count;
+
+			if (p_intTotalPluginCount == 0)
+			{
+				p_intImportedCount = 0;
+				p_lstUnregisteredPlugins = null;
+				return;
+			}
+
+			List<Plugin> lstRegisteredPlugins;
+			GetRegisteredPlugins(lstPluginFilenames, out lstRegisteredPlugins, out p_lstUnregisteredPlugins);
+
+			if (lstRegisteredPlugins.Count == 0)
+			{
+				p_intImportedCount = 0;
+				return;
+			}
+
+			ApplyLoadOrder(lstRegisteredPlugins);
+
+			p_intImportedCount = lstRegisteredPlugins.Count;
+		}
+
+		/// <summary>
+		/// Imports a load order from the specified file.
+		/// </summary>
+		/// <param name="p_strFilename">The filename to import a load order from.</param>
+		protected void ImportLoadOrderFromFile(string p_strFilename)
+		{
+			if (string.IsNullOrEmpty(p_strFilename) || !CurrentGameMode.UsesPlugins)
+				return;
+
+			using (StreamReader strReader = new StreamReader(p_strFilename))
+			{
+				try
+				{
+					int intTotalPluginCount;
+					int intImportedPluginCount;
+					List<string> lstPluginsNotImported;
+
+					ImportLoadOrder(strReader, out intTotalPluginCount, out intImportedPluginCount, out lstPluginsNotImported);
+
+					if (intTotalPluginCount == 0)
+						OnImportFailed(p_strFilename, "No plugins were found in the specified source file.");
+					else if (intImportedPluginCount == intTotalPluginCount)
+						OnImportSucceeded(p_strFilename, intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
+					else if (lstPluginsNotImported.Count == intTotalPluginCount)
+						OnImportFailed(p_strFilename, "None of the plugins found in the specified source file were recognized as managed plugins.");
+					else
+						OnImportPartiallySucceeded(p_strFilename, intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
+				}
+				catch (Exception ex)
+				{
+					OnImportFailed(p_strFilename, ex);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Imports a load order from the clipboard.
+		/// </summary>
+		protected void ImportLoadOrderFromClipboard()
+		{
+			if (!CurrentGameMode.UsesPlugins)
+				return;
+
+			if (!System.Windows.Forms.Clipboard.ContainsText())
+			{
+				OnImportFailed(null, "The clipboard does not contain any text.");
+				return;
+			}
+
+			string strClipboardText = System.Windows.Forms.Clipboard.GetText();
+			using (StringReader strReader = new StringReader(strClipboardText))
+			{
+				try
+				{
+					int intTotalPluginCount;
+					int intImportedPluginCount;
+					List<string> lstPluginsNotImported;
+
+					ImportLoadOrder(strReader, out intTotalPluginCount, out intImportedPluginCount, out lstPluginsNotImported);
+
+					if (intTotalPluginCount == 0)
+						OnImportFailed("No plugins were found on the clipboard.");
+					else if (intImportedPluginCount == intTotalPluginCount)
+						OnImportSucceeded(intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
+					else if (lstPluginsNotImported.Count == intTotalPluginCount)
+						OnImportFailed("None of the plugins found on the clipboard were recognized as managed plugins.");
+					else
+						OnImportPartiallySucceeded(intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
+				}
+				catch (Exception ex)
+				{
+					OnImportFailed(ex);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportFailed"/> event.
+		/// </summary>
+		/// <param name="p_exError">The error that occurred.</param>
+		protected void OnImportFailed(Exception p_exError)
+		{
+			if (ImportFailed != null)
+				ImportFailed(this, new ImportFailedEventArgs(p_exError));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportFailed"/> event.
+		/// </summary>
+		/// <param name="p_strMessage">A message describing why the import failed.</param>
+		protected void OnImportFailed(string p_strMessage)
+		{
+			if (ImportFailed != null)
+				ImportFailed(this, new ImportFailedEventArgs(p_strMessage));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportFailed"/> event.
+		/// </summary>
+		/// <param name="p_strFilename">The filename that the load order failed to import from.</param>
+		/// <param name="p_exError">The error that occurred.</param>
+		protected void OnImportFailed(string p_strFilename, Exception p_exError)
+		{
+			if (ImportFailed != null)
+				ImportFailed(this, new ImportFailedEventArgs(p_strFilename, p_exError));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportFailed"/> event.
+		/// </summary>
+		/// <param name="p_strFilename">The filename that the load order failed to import from.</param>
+		/// <param name="p_strMessage">A message describing why the import failed.</param>
+		protected void OnImportFailed(string p_strFilename, string p_strMessage)
+		{
+			if (ImportFailed != null)
+				ImportFailed(this, new ImportFailedEventArgs(p_strFilename, p_strMessage));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportPartiallySucceeded"/> event.
+		/// </summary>
+		/// <param name="p_intTotalPluginCount">The total number of plugins that were found in the specified import source.</param>
+		/// <param name="p_intImportedPluginCount">The number of plugins that were imported.</param>
+		/// <param name="p_lstPluginsNotImported">The list of plugins that were not found in the <see cref="ManagedPlugins"/> collection.</param>
+		protected void OnImportPartiallySucceeded(int p_intTotalPluginCount, int p_intImportedPluginCount, List<string> p_lstPluginsNotImported)
+		{
+			if (ImportPartiallySucceeded != null)
+				ImportPartiallySucceeded(this, new ImportSucceededEventArgs(true, p_intTotalPluginCount, p_intImportedPluginCount, p_lstPluginsNotImported));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportPartiallySucceeded"/> event.
+		/// </summary>
+		/// <param name="p_strFilename">The filename that the load order was imported from.</param>
+		/// <param name="p_intTotalPluginCount">The total number of plugins that were found in the specified import source.</param>
+		/// <param name="p_intImportedPluginCount">The number of plugins that were imported.</param>
+		/// <param name="p_lstPluginsNotImported">The list of plugins that were not found in the <see cref="ManagedPlugins"/> collection.</param>
+		protected void OnImportPartiallySucceeded(string p_strFilename, int p_intTotalPluginCount, int p_intImportedPluginCount, List<string> p_lstPluginsNotImported)
+		{
+			if (ImportPartiallySucceeded != null)
+				ImportPartiallySucceeded(this, new ImportSucceededEventArgs(p_strFilename, true, p_intTotalPluginCount, p_intImportedPluginCount, p_lstPluginsNotImported));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportSucceeded"/> event.
+		/// </summary>
+		/// <param name="p_intTotalPluginCount">The total number of plugins that were found in the specified import source.</param>
+		/// <param name="p_intImportedPluginCount">The number of plugins that were imported.</param>
+		/// <param name="p_lstPluginsNotImported">The list of plugins that were not found in the <see cref="ManagedPlugins"/> collection.</param>
+		protected void OnImportSucceeded(int p_intTotalPluginCount, int p_intImportedPluginCount, List<string> p_lstPluginsNotImported)
+		{
+			if (ImportSucceeded != null)
+				ImportSucceeded(this, new ImportSucceededEventArgs(p_intTotalPluginCount, p_intImportedPluginCount, p_lstPluginsNotImported));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="ImportSucceeded"/> event.
+		/// </summary>
+		/// <param name="p_strFilename">The filename that the load order was imported from.</param>
+		/// <param name="p_intTotalPluginCount">The total number of plugins that were found in the specified import source.</param>
+		/// <param name="p_intImportedPluginCount">The number of plugins that were imported.</param>
+		/// <param name="p_lstPluginsNotImported">The list of plugins that were not found in the <see cref="ManagedPlugins"/> collection.</param>
+		protected void OnImportSucceeded(string p_strFilename, int p_intTotalPluginCount, int p_intImportedPluginCount, List<string> p_lstPluginsNotImported)
+		{
+			if (ImportSucceeded != null)
+				ImportSucceeded(this, new ImportSucceededEventArgs(p_strFilename, p_intTotalPluginCount, p_intImportedPluginCount, p_lstPluginsNotImported));
+		}
+
+		/// <summary>
+		/// Reads the list of plugin filenames from the specified import source, making sure it is for the current game mode.
+		/// </summary>
+		/// <param name="p_trReader">The import source.</param>
+		/// <exception cref="InvalidImportSourceException">A game mode is not defined in the specified import source.</exception>
+		/// <exception cref="InvalidImportSourceException">More than one game mode is defined in the specified import source.</exception>
+		/// <exception cref="InvalidImportSourceException">The game mode if defined in the specified import source does not match the id for the current game mode.</exception>
+		private List<string> ReadImportSource(TextReader p_trReader)
+		{
+			List<string> lstPluginFilenames = new List<string>();
+
+			string strLine;
+			string strGameModeId = null;
+			while ((strLine = p_trReader.ReadLine()) != null)
+			{
+				Match mchGameModeID = Regex.Match(strLine, @"^GameMode=(?<GameModeId>\w+)$");
+				if (mchGameModeID.Success)
+				{
+					if (strGameModeId == null)
+					{
+						strGameModeId = mchGameModeID.Groups["GameModeId"].Value;
+						continue;
+					}
+					else
+						throw new InvalidImportSourceException("The specified import source has more than one game mode defined.");
+				}
+
+				Match mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m))$");
+				if (mchPlugin.Success)
+					lstPluginFilenames.Add(strLine);
+			}
+
+			if (string.IsNullOrEmpty(strGameModeId))
+				throw new InvalidImportSourceException("The specified import source does not include a game mode.");
+			else if (strGameModeId != CurrentGameMode.ModeId)
+				throw new InvalidImportSourceException(string.Format("The game mode of the specified import source, {0}, does not match the current game mode, {1}.", strGameModeId, CurrentGameMode.ModeId));
+
+			return lstPluginFilenames;
+		}
+
+		#endregion
 
 		#endregion
 	}
