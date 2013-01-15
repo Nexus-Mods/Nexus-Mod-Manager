@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
+using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.Settings;
@@ -120,6 +123,12 @@ namespace Nexus.Client.ModManagement.UI
 		protected ModManager ModManager { get; private set; }
 
 		/// <summary>
+		/// Gets the mod manager to use to manage mods.
+		/// </summary>
+		/// <value>The mod manager to use to manage mods.</value>
+		public CategoryManager CategoryManager { get; private set; }
+
+		/// <summary>
 		/// Gets the list of mods being managed by the mod manager.
 		/// </summary>
 		/// <value>The list of mods being managed by the mod manager.</value>
@@ -194,6 +203,26 @@ namespace Nexus.Client.ModManagement.UI
 			ModManager = p_mmdModManager;
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
+			CategoryManager = new CategoryManager(ModManager.CurrentGameModeModDirectory, "categories");
+			if (!this.CategoryManager.IsValidPath)
+			{
+				//messagebox load game default or just unassigned
+				string strMessage = "You currently don't have any file categories setup.";
+				strMessage += Environment.NewLine + "Would you like NMM to organise your mods based on the categories the Nexus sites use, or would you like to organise your categories yourself?";
+				strMessage += Environment.NewLine + Environment.NewLine + "Note: If you choose to use Nexus categories you can still create your own categories and move your files around them. This initial Nexus setup is just a template for you to use.";
+				
+				DialogResult Result = MessageBox.Show(strMessage, "Category setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+				if (Result == DialogResult.Yes)
+				{
+					this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
+					if (!OfflineMode)
+						CheckForUpdates(true);
+				}
+				else
+					this.CategoryManager.LoadCategories(String.Empty);	
+			}
+			else
+				this.CategoryManager.LoadCategories(String.Empty);	
 
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
@@ -310,9 +339,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// Checks for mod updates.
 		/// </summary>
 		/// <returns>Message</returns>
-		public string CheckForUpdates()
+		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+		public string CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
-			return ModManager.CheckForUpdates(true);
+			return ModManager.CheckForUpdates(true, p_booOverrideCategorySetup);
 		}
 
 		/// <summary>
@@ -327,6 +357,84 @@ namespace Nexus.Client.ModManagement.UI
 				throw new Exception("we couldn't find a proper Nexus ID or the file no longer exists on the Nexus sites.");
 
 			ModManager.ToggleModEndorsement(p_modMod);
+		}
+
+		#endregion
+
+		#region Category Updating
+
+		/// <summary>
+		/// Switches the mod category.
+		/// </summary>
+		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_intCategoryId">The new category id.</param>
+		public void SwitchModCategory(IMod p_modMod, Int32 p_intCategoryId)
+		{
+			ModManager.SwitchModCategory(p_modMod, p_intCategoryId);
+		}
+
+		/// <summary>
+		/// Resets to the repository default categories.
+		/// </summary>
+		public bool ResetDefaultCategories()
+		{
+			string strMessage = "Are you sure you want to reset to the Nexus site default categories?.";
+			strMessage += Environment.NewLine + Environment.NewLine + "Note: The category list will revert to the Nexus default and your downloaded mods will be automatically reassigned to the Nexus categories.";
+			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (Result == DialogResult.Yes)
+			{
+				this.CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
+				if (!OfflineMode)
+					CheckForUpdates(true);
+				SwitchModsToUnassigned(-1);
+				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Resets to the repository default categories.
+		/// </summary>
+		public bool ResetToUnassigned()
+		{
+			string strMessage = "Are you sure you want to reset all mods to the Unassigned category?.";
+			strMessage += Environment.NewLine + Environment.NewLine + "Note: If you're using custom categories you won't be able to revert this operation.";
+			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (Result == DialogResult.Yes)
+			{
+				SwitchModsToUnassigned(0);
+				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Sets all managed mods to the Unassigned category.
+		/// </summary>
+		private void SwitchModsToUnassigned(Int32 p_intUnassignedId)
+		{
+			foreach (IMod modMod in ManagedMods)
+			{
+				SwitchModCategory(modMod, p_intUnassignedId);
+			}
+		}
+
+		/// <summary>
+		/// Sets all mods assigned to a removed category to Unassigned.
+		/// </summary>
+		/// <param name="p_imcCategory">The removed category.</param>
+		public void SwitchModsToUnassigned(IModCategory p_imcCategory)
+		{
+			var CategoryMods = from Mod in ManagedMods
+							   where ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_imcCategory.Id)
+							   select Mod;
+
+			foreach (IMod modMod in CategoryMods)
+			{
+				SwitchModCategory(modMod, 0);
+			}
 		}
 
 		#endregion

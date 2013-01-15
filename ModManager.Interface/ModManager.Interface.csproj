@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -71,6 +71,7 @@
     <Compile Include="Games\Tools\IToolLauncher.cs" />
     <Compile Include="Games\Tools\IToolView.cs" />
     <Compile Include="ModManagement\BasicInstallTask.cs" />
+    <Compile Include="ModManagement\CategoryManager\ICategoryManager.cs" />
     <Compile Include="ModManagement\ConfirmUpgradeResult.cs" />
     <Compile Include="ModManagement\IGameSpecificValueInstaller.cs" />
     <Compile Include="ModManagement\IIniInstaller.cs" />
@@ -99,6 +100,7 @@
       <DependentUpon>SelectForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Mods\FilenameModComparer.cs" />
+    <Compile Include="Mods\IModCategory.cs" />
     <Compile Include="Mods\ModCompressorBase.cs" />
     <Compile Include="Mods\IMod.cs" />
     <Compile Include="Mods\IModCacheManager.cs" />
