@@ -228,6 +228,18 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public string Author { get; set; }
 
 			/// <summary>
+			/// Gets the CategoryId of the mod.
+			/// </summary>
+			/// <value>The CategoryId of the mod.</value>
+			public Int32 CategoryId { get; set; }
+
+			/// <summary>
+			/// Gets the user custom CategoryId of the mod.
+			/// </summary>
+			/// <value>The user custom CategoryId of the mod.</value>
+			public Int32 CustomCategoryId { get; set; }
+
+			/// <summary>
 			/// Gets or sets the description of the mod.
 			/// </summary>
 			/// <value>The description of the mod.</value>
@@ -275,6 +287,10 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					MachineVersion = p_mifInfo.MachineVersion;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
 					Author = p_mifInfo.Author;
+				if (p_booOverwriteAllValues || (CategoryId != p_mifInfo.CategoryId))
+					CategoryId = p_mifInfo.CategoryId;
+				if (p_booOverwriteAllValues || (CustomCategoryId != p_mifInfo.CustomCategoryId))
+					CustomCategoryId = p_mifInfo.CustomCategoryId;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
 					Description = p_mifInfo.Description;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(InstallDate))
