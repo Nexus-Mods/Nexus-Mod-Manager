@@ -39,6 +39,9 @@
 			this.tsbAddMod = new System.Windows.Forms.ToolStripSplitButton();
 			this.addModToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.addModFromURLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsbResetCategories = new System.Windows.Forms.ToolStripSplitButton();
+			this.resetDefaultCategories = new System.Windows.Forms.ToolStripMenuItem();
+			this.resetModsCategory = new System.Windows.Forms.ToolStripMenuItem();
 			this.tsbActivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeactivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeleteMod = new System.Windows.Forms.ToolStripButton();
@@ -56,11 +59,14 @@
 			this.sptSummaryInfo = new System.Windows.Forms.SplitContainer();
 			this.ipbScreenShot = new Nexus.UI.Controls.ImagePreviewBox();
 			this.flbInfo = new Nexus.UI.Controls.FormattedLabel();
+			this.clwCategoryView = new Nexus.Client.UI.Controls.CategoryListView();
+			
 			this.ofdChooseMod = new System.Windows.Forms.OpenFileDialog();
 			this.toolStrip1.SuspendLayout();
 			this.sptMods.Panel1.SuspendLayout();
 			this.sptMods.Panel2.SuspendLayout();
 			this.sptMods.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.clwCategoryView)).BeginInit();
 			this.sptSummaryInfo.Panel1.SuspendLayout();
 			this.sptSummaryInfo.Panel2.SuspendLayout();
 			this.sptSummaryInfo.SuspendLayout();
@@ -76,6 +82,7 @@
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsbAddMod,
+			this.tsbResetCategories,
             this.tsbActivate,
             this.tsbDeactivate,
             this.tsbDeleteMod,
@@ -115,6 +122,34 @@
 			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(195, 38);
 			this.addModFromURLToolStripMenuItem.Text = "Add Mod from URL";
 			this.addModFromURLToolStripMenuItem.Click += new System.EventHandler(this.addModFromURLToolStripMenuItem_Click);
+			// 
+			// tsbResetCategories
+			// 
+			this.tsbResetCategories.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbResetCategories.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.resetDefaultCategories,
+            this.resetModsCategory});
+			this.tsbResetCategories.Image = global::Nexus.Client.Properties.Resources.reset_categories;
+			this.tsbResetCategories.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbResetCategories.Name = "tsbResetCategories";
+			this.tsbResetCategories.Size = new System.Drawing.Size(46, 36);
+			this.tsbResetCategories.Text = "Categories";
+			// 
+			// resetDefaultCategories
+			// 
+			this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
+			this.resetDefaultCategories.Name = "resetDefaultCategories";
+			this.resetDefaultCategories.Size = new System.Drawing.Size(195, 38);
+			this.resetDefaultCategories.Text = "Categories: reset to Nexus site defaults";
+			this.resetDefaultCategories.Click += new System.EventHandler(this.resetDefaultCategories_Click);
+			// 
+			// resetModsCategory
+			// 
+			this.resetModsCategory.Image = global::Nexus.Client.Properties.Resources.reset_unassigned;
+			this.resetModsCategory.Name = "resetModsCategory";
+			this.resetModsCategory.Size = new System.Drawing.Size(195, 38);
+			this.resetModsCategory.Text = "Categories: reset all mods to unassigned";
+			this.resetModsCategory.Click += new System.EventHandler(this.resetModsCategory_Click);
 			// 
 			// tsbActivate
 			// 
@@ -169,6 +204,7 @@
 			this.tsbToggleEndorse.Name = "tsbToggleEndorse";
 			this.tsbToggleEndorse.Size = new System.Drawing.Size(46, 36);
 			this.tsbToggleEndorse.Text = "toolStripButton1";
+			this.tsbToggleEndorse.Enabled = false;
 			// 
 			// sptMods
 			// 
@@ -180,6 +216,7 @@
 			// sptMods.Panel1
 			// 
 			this.sptMods.Panel1.Controls.Add(this.lvwMods);
+			this.sptMods.Panel1.Controls.Add(this.clwCategoryView);
 			// 
 			// sptMods.Panel2
 			// 
@@ -218,6 +255,7 @@
 			this.lvwMods.MouseMove += new System.Windows.Forms.MouseEventHandler(this.lvwMods_MouseMove);
 			this.lvwMods.MouseDown += new System.Windows.Forms.MouseEventHandler(this.lvwMods_MouseDown);
 			this.lvwMods.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.lvwMods_ColumnWidthChanging);
+			this.lvwMods.Visible = false;
 			// 
 			// clmModName
 			// 
@@ -243,6 +281,29 @@
 			// clmEndorsement
 			// 
 			this.clmEndorsement.Text = "Endorsement";
+			// 
+			// clwCategoryView
+			// 
+			this.clwCategoryView.CheckBoxes = true;
+			this.clwCategoryView.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.clwCategoryView.FullRowSelect = true;
+			this.clwCategoryView.HideSelection = false;
+			this.clwCategoryView.LabelEdit = true;
+			this.clwCategoryView.Location = new System.Drawing.Point(0, 0);
+			this.clwCategoryView.MultiSelect = false;
+			this.clwCategoryView.Name = "clwCategoryView";
+			this.clwCategoryView.OwnerDraw = true;
+			this.clwCategoryView.ShowGroups = false;
+			this.clwCategoryView.ShowImagesOnSubItems = true;
+			this.clwCategoryView.ShowItemToolTips = true;
+			this.clwCategoryView.Size = new System.Drawing.Size(315, 453);
+			this.clwCategoryView.Sorting = System.Windows.Forms.SortOrder.Ascending;
+			this.clwCategoryView.TabIndex = 0;
+			this.clwCategoryView.UseCompatibleStateImageBehavior = false;
+			this.clwCategoryView.UseHyperlinks = true;
+			this.clwCategoryView.View = System.Windows.Forms.View.Details;
+			this.clwCategoryView.VirtualMode = true;
+			this.clwCategoryView.Resize += new System.EventHandler(this.lvwMods_Resize);
 			// 
 			// sptSummaryInfo
 			// 
@@ -303,6 +364,7 @@
 			this.sptMods.Panel1.ResumeLayout(false);
 			this.sptMods.Panel2.ResumeLayout(false);
 			this.sptMods.ResumeLayout(false);
+			((System.ComponentModel.ISupportInitialize)(this.clwCategoryView)).EndInit();
 			this.sptSummaryInfo.Panel1.ResumeLayout(false);
 			this.sptSummaryInfo.Panel2.ResumeLayout(false);
 			this.sptSummaryInfo.ResumeLayout(false);
@@ -320,8 +382,13 @@
 		private System.Windows.Forms.SplitContainer sptSummaryInfo;
 		private Nexus.UI.Controls.ImagePreviewBox ipbScreenShot;
 		private Nexus.UI.Controls.FormattedLabel flbInfo;
+		private Nexus.Client.UI.Controls.CategoryListView clwCategoryView;
 		private System.Windows.Forms.ToolStripSplitButton tsbAddMod;
 		private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem addModFromURLToolStripMenuItem;
+		private System.Windows.Forms.ToolStripSplitButton tsbResetCategories;
+		private System.Windows.Forms.ToolStripMenuItem resetDefaultCategories;
+		private System.Windows.Forms.ToolStripMenuItem resetModsCategory;
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;
 		private System.Windows.Forms.ColumnHeader clmModName;
 		private System.Windows.Forms.ColumnHeader clmInstallDate;
@@ -331,7 +398,6 @@
 		private System.Windows.Forms.ColumnHeader clmEndorsement;
 		private System.Windows.Forms.ToolStripButton tsbActivate;
 		private System.Windows.Forms.ToolStripButton tsbDeactivate;
-		private System.Windows.Forms.ToolStripMenuItem addModFromURLToolStripMenuItem;
 		private System.Windows.Forms.ToolStripButton tsbDeleteMod;
 		private System.Windows.Forms.ToolStripButton tsbTagMod;
 		private System.Windows.Forms.ToolStripButton tsbCheckModVersions;

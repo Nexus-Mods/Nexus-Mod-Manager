@@ -453,6 +453,7 @@ namespace Nexus.Client
 			ModRepository.Logout();
 			EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
 			EnvironmentInfo.Settings.Save();
+			RequestedGameMode = GameMode.ModeId;
 		}
 	}
 }
