@@ -54,6 +54,18 @@ namespace Nexus.Client.Mods
 		string Author { get; }
 
 		/// <summary>
+		/// Gets the CategoryId of the mod.
+		/// </summary>
+		/// <value>The CategoryId of the mod.</value>
+		Int32 CategoryId { get; }
+
+		/// <summary>
+		/// Gets the user custom CategoryId of the mod.
+		/// </summary>
+		/// <value>The user custom CategoryId of the mod.</value>
+		Int32 CustomCategoryId { get; }
+
+		/// <summary>
 		/// Gets or sets the description of the mod.
 		/// </summary>
 		/// <value>The description of the mod.</value>
