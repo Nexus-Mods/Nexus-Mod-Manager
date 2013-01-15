@@ -130,10 +130,21 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Check for updates to the managed mods.
 		/// </summary>
-		public void CheckForUpdates()
+		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+		public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
 			List<string> ModList = new List<string>();
-			m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
+
+			if (p_booOverrideCategorySetup)
+			{
+				var UnassignedMods = from Mod in ManagedModRegistry.RegisteredMods
+								   where (Mod.CategoryId == 0)
+								   select Mod;
+
+				m_lstModList.AddRange(UnassignedMods);
+			}
+			else
+				m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
 
 			for (int i = 0; i < m_lstModList.Count; i++)
 			{
@@ -156,7 +167,12 @@ namespace Nexus.Client.ModManagement
 				}
 
 				if (!String.IsNullOrEmpty(modID))
-					ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
+				{
+					if (p_booOverrideCategorySetup)
+						ModList.Add(String.Format("{0}", modID));
+					else
+						ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
+				}
 
 				// Prevents the repository request string from becoming too long.
 				if (ModList.Count == 250)
@@ -183,6 +199,18 @@ namespace Nexus.Client.ModManagement
 			mifUpdatedMod.IsEndorsed = booEndorsementState;
 			mifUpdatedMod.HumanReadableVersion = String.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;
 			AddNewVersionNumberForMod(p_modMod, (IModInfo)mifUpdatedMod);
+			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+		}
+
+		/// <summary>
+		/// Switches the mod category.
+		/// </summary>
+		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_intCategoryId">The new category id.</param>
+		public void SwitchModCategory(IMod p_modMod, Int32 p_intCategoryId)
+		{
+			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
+			mifUpdatedMod.CustomCategoryId = p_intCategoryId;
 			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
 		}
 

@@ -200,6 +200,20 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap document_export_4 {
+            get {
+                object obj = ResourceManager.GetObject("document_export_4", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap document_import_2 {
+            get {
+                object obj = ResourceManager.GetObject("document_import_2", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap document_new_4 {
             get {
                 object obj = ResourceManager.GetObject("document_new_4", resourceCulture);
@@ -231,6 +245,13 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap edit_clear_3 {
             get {
                 object obj = ResourceManager.GetObject("edit_clear_3", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap edit_copy_6 {
+            get {
+                object obj = ResourceManager.GetObject("edit_copy_6", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -340,6 +361,27 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap reset_categories {
+            get {
+                object obj = ResourceManager.GetObject("reset_categories", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap reset_default {
+            get {
+                object obj = ResourceManager.GetObject("reset_default", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap reset_unassigned {
+            get {
+                object obj = ResourceManager.GetObject("reset_unassigned", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap system_settings {
             get {
                 object obj = ResourceManager.GetObject("system_settings", resourceCulture);
@@ -357,6 +399,13 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap tes_logo_full {
             get {
                 object obj = ResourceManager.GetObject("tes_logo_full", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap text_x_generic {
+            get {
+                object obj = ResourceManager.GetObject("text_x_generic", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
