@@ -41,6 +41,14 @@
 			this.splitContainer2 = new System.Windows.Forms.SplitContainer();
 			this.ipbImage = new Nexus.UI.Controls.ImagePreviewBox();
 			this.hlbPluginInfo = new Nexus.UI.Controls.HtmlLabel();
+			this.sfdChooseExport = new System.Windows.Forms.SaveFileDialog();
+			this.tsbExport = new System.Windows.Forms.ToolStripDropDownButton();
+			this.tsmiExportToTextFile = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsmiExportToClipboard = new System.Windows.Forms.ToolStripMenuItem();
+			this.ofdChooseImport = new System.Windows.Forms.OpenFileDialog();
+			this.tsbImport = new System.Windows.Forms.ToolStripDropDownButton();
+			this.tsmiImportFromTextFile = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsmiImportFromClipboard = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStrip2.SuspendLayout();
 			this.splitContainer1.Panel1.SuspendLayout();
 			this.splitContainer1.Panel2.SuspendLayout();
@@ -62,7 +70,9 @@
             this.tsbMoveUp,
             this.tsbMoveDown,
 			this.tsbDisableAll,
-			this.tsbEnableAll});
+			this.tsbEnableAll,
+      this.tsbExport,
+      this.tsbImport});
 			this.toolStrip2.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip2.Name = "toolStrip2";
 			this.toolStrip2.Size = new System.Drawing.Size(37, 453);
@@ -202,6 +212,71 @@
 			this.hlbPluginInfo.Size = new System.Drawing.Size(353, 275);
 			this.hlbPluginInfo.TabIndex = 0;
 			this.hlbPluginInfo.Text = null;
+			// sfdChooseExport
+			// 
+			this.sfdChooseExport.Filter = "Text files (*.txt)|*.txt";
+			this.sfdChooseExport.Title = "Save current load order to:";
+			// 
+			// tsbExport
+			// 
+			this.tsbExport.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbExport.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiExportToTextFile,
+            this.tsmiExportToClipboard});
+			this.tsbExport.Image = global::Nexus.Client.Properties.Resources.document_export_4;
+			this.tsbExport.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbExport.Name = "tsbExport";
+			this.tsbExport.ShowDropDownArrow = false;
+			this.tsbExport.Size = new System.Drawing.Size(34, 36);
+			this.tsbExport.Text = "Export the current load order";
+			// 
+			// tsmiExportToTextFile
+			// 
+			this.tsmiExportToTextFile.Image = global::Nexus.Client.Properties.Resources.text_x_generic;
+			this.tsmiExportToTextFile.Name = "tsmiExportToTextFile";
+			this.tsmiExportToTextFile.Size = new System.Drawing.Size(168, 38);
+			this.tsmiExportToTextFile.Text = "Text file";
+			// 
+			// tsmiExportToClipboard
+			// 
+			this.tsmiExportToClipboard.Image = global::Nexus.Client.Properties.Resources.edit_copy_6;
+			this.tsmiExportToClipboard.Name = "tsmiExportToClipboard";
+			this.tsmiExportToClipboard.Size = new System.Drawing.Size(184, 38);
+			this.tsmiExportToClipboard.Text = "Copy to clipboard";
+			// 
+			// ofdChooseImport
+			// 
+			this.ofdChooseImport.Filter = "Text files (*.txt)|(.txt)";
+			this.ofdChooseImport.Multiselect = true;
+			this.ofdChooseImport.Title = "Import the load order from:";
+			// 
+			// tsbImport
+			// 
+			this.tsbImport.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbImport.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiImportFromTextFile,
+			this.tsmiImportFromClipboard});
+			this.tsbImport.Image = global::Nexus.Client.Properties.Resources.document_import_2;
+			this.tsbImport.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbImport.Name = "tsbImport";
+			this.tsbImport.ShowDropDownArrow = false;
+			this.tsbImport.Size = new System.Drawing.Size(34, 36);
+			this.tsbImport.Text = "Imports a load order";
+			// 
+			// tsmiImportFromTextFile
+			// 
+			this.tsmiImportFromTextFile.Image = global::Nexus.Client.Properties.Resources.text_x_generic;
+			this.tsmiImportFromTextFile.Name = "tsmiImportFromTextFile";
+			this.tsmiImportFromTextFile.Size = new System.Drawing.Size(168, 38);
+			this.tsmiImportFromTextFile.Text = "Text file";
+			// 
+			// tsmiImportFromClipboard
+			// 
+			this.tsmiImportFromClipboard.Image = global::Nexus.Client.Properties.Resources.edit_copy_6;
+			this.tsmiImportFromClipboard.Name = "tsmiImportFromClipboard";
+			this.tsmiImportFromClipboard.Size = new System.Drawing.Size(168, 38);
+			this.tsmiImportFromClipboard.Text = "Clipboard";
+			// 
 			// 
 			// PluginManagerControl
 			// 
@@ -244,5 +319,13 @@
 		private System.Windows.Forms.ToolStripButton tsbMoveDown;
 		private System.Windows.Forms.ToolStripButton tsbDisableAll;
 		private System.Windows.Forms.ToolStripButton tsbEnableAll;
+		private System.Windows.Forms.ToolStripDropDownButton tsbExport;
+		private System.Windows.Forms.ToolStripMenuItem tsmiExportToTextFile;
+		private System.Windows.Forms.SaveFileDialog sfdChooseExport;
+		private System.Windows.Forms.ToolStripMenuItem tsmiExportToClipboard;
+		private System.Windows.Forms.ToolStripDropDownButton tsbImport;
+		private System.Windows.Forms.ToolStripMenuItem tsmiImportFromTextFile;
+		private System.Windows.Forms.OpenFileDialog ofdChooseImport;
+		private System.Windows.Forms.ToolStripMenuItem tsmiImportFromClipboard;
 	}
 }

@@ -50,7 +50,7 @@ namespace Nexus.Client
 						return;
 					}
 				}
-
+				
 #if DEBUG
 				Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException, true);
 #else
