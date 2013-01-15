@@ -572,6 +572,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
+			catch (NullReferenceException e)
+			{
+				throw new NullReferenceException(String.Format("No matches on the {0} server.", Name), e);
+			}
 		}
 
 		/// <summary>
