@@ -151,6 +151,22 @@ namespace Nexus.Client.Games
 			#endregion
 
 			/// <summary>
+			/// Gets the path of the directory where this Game Mode's categories are stored.
+			/// </summary>
+			/// <value>The path of the directory where this Game Mode's categories are stored.</value>
+			public string CategoryDirectory 
+			{
+				get
+				{
+					string strDirectory = ModDirectory;
+					if (String.IsNullOrEmpty(strDirectory))
+						return null;
+					strDirectory = Path.Combine(strDirectory, "categories");
+					return strDirectory;
+				}
+			}
+
+			/// <summary>
 			/// A simple constructor that initializes the object with the required dependencies.
 			/// </summary>
 			/// <param name="p_gmdGameMode">The game mode to which this info belongs.</param>
@@ -336,6 +352,18 @@ namespace Nexus.Client.Games
 		/// </remarks>
 		/// <value>Whether the game mode uses plugins.</value>
 		public abstract bool UsesPlugins { get; }
+
+		/// <summary>
+		/// Gets the default game categories.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public virtual string GameDefaultCategories
+		{
+			get
+			{
+				return String.Empty;
+			}
+		}
 
 		/// <summary>
 		/// Gets the directory where plugins are installed.

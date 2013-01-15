@@ -83,11 +83,17 @@ namespace Nexus.Client.Games
 		bool UsesPlugins { get; }
 
 		/// <summary>
+		/// Gets the default game categories.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		string GameDefaultCategories { get; }
+
+		/// <summary>
 		/// Gets the directory where plugins are installed.
 		/// </summary>
 		/// <remarks>
 		/// If the game mode does not use plugins, this should return null.
-		/// </remarks>
+		/// </remarks>		
 		/// <value>The directory where plugins are installed.</value>
 		string PluginDirectory { get; }
 

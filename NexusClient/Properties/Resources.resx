@@ -259,6 +259,15 @@
   <data name="unendorsed_small" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\unendorsed_small.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="reset_categories" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\reset_categories.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="reset_default" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\reset_default.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="reset_unassigned" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\reset_unassigned.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="document_export_4" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\document-export-4.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
