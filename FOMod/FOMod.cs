@@ -46,6 +46,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string m_strModName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
+		private Int32 m_strCategoryId = 0;
+		private Int32 m_strCustomCategoryId = 0;
 		private bool m_booIsEndorsed = false;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
@@ -122,6 +124,38 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strLastKnownVersion, value, () => LastKnownVersion);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the category Id.
+		/// </summary>
+		/// <value>The category Id.</value>
+		public Int32 CategoryId
+		{
+			get
+			{
+				return m_strCategoryId;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strCategoryId, value, () => CategoryId);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the custom category Id.
+		/// </summary>
+		/// <value>The custom category Id.</value>
+		public Int32 CustomCategoryId
+		{
+			get
+			{
+				return m_strCustomCategoryId;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strCustomCategoryId, value, () => CustomCategoryId);
 			}
 		}
 
@@ -785,6 +819,16 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				Author = p_mifInfo.Author;
 				booChangedValue = true;
 			}
+			if (p_booOverwriteAllValues || (CategoryId != p_mifInfo.CategoryId))
+			{
+				CategoryId = p_mifInfo.CategoryId;
+				booChangedValue = true;
+			}
+			if (p_booOverwriteAllValues || (CustomCategoryId != p_mifInfo.CustomCategoryId))
+			{
+				CustomCategoryId = p_mifInfo.CustomCategoryId;
+				booChangedValue = true;
+			}
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
 			{
 				Description = p_mifInfo.Description;
@@ -848,6 +892,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("LastKnownVersion")).InnerText = LastKnownVersion;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Id")).InnerText = Id;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Author")).InnerText = Author;
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("CategoryId")).InnerText = CategoryId.ToString();
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("CustomCategoryId")).InnerText = CustomCategoryId.ToString();
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("IsEndorsed")).InnerText = IsEndorsed.ToString();
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			if (Website != null)
@@ -889,6 +935,18 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			XmlNode xndAuthor = xndRoot.SelectSingleNode("Author");
 			if ((xndAuthor != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(Author)))
 				Author = xndAuthor.InnerText;
+
+			XmlNode xndCategory = xndRoot.SelectSingleNode("CategoryId");
+			if ((xndCategory != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(xndCategory.InnerText)))
+				CategoryId = Convert.ToInt32(xndCategory.InnerText);
+			else
+				CategoryId = 0;
+
+			XmlNode xndCustomCategory = xndRoot.SelectSingleNode("CustomCategoryId");
+			if ((xndCustomCategory != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(xndCustomCategory.InnerText)))
+				CustomCategoryId = Convert.ToInt32(xndCustomCategory.InnerText);
+			else
+				CustomCategoryId = -1;
 
 			XmlNode xndEndorsed = xndRoot.SelectSingleNode("IsEndorsed");
 			if (xndEndorsed != null)
