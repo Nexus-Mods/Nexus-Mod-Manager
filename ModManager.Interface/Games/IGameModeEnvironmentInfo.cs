@@ -53,6 +53,12 @@ namespace Nexus.Client.Games
 		/// <value>The path of the directory where this Game Mode's mods' partial download files are stored.</value>
 		string ModDownloadCacheDirectory { get; }
 
+		/// <summary>
+		/// Gets the path of the directory where this Game Mode's categories are stored.
+		/// </summary>
+		/// <value>The path of the directory where this Game Mode's categories are stored.</value>
+		string CategoryDirectory { get; }
+
 		#endregion
 	}
 }

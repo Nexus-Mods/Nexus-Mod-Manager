@@ -8,8 +8,10 @@ using System.IO;
 using System.Windows.Forms;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
+using Nexus.Client.Games;
 using Nexus.Client.Plugins;
 using Nexus.Client.UI;
+using Nexus.Client.Util;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.PluginManagement.UI
@@ -24,7 +26,7 @@ namespace Nexus.Client.PluginManagement.UI
 		private bool m_booSettingPluginActiveCheck = false;
 		private Timer m_tmrColumnSizer = new Timer();
 		private bool m_booControlIsLoaded = false;
-		
+
 		#region Properties
 
 		/// <summary>
@@ -51,6 +53,11 @@ namespace Nexus.Client.PluginManagement.UI
 				Trace.Unindent();
 				m_vmlViewModel.ManagedPlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedPlugins_CollectionChanged);
 				m_vmlViewModel.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
+				m_vmlViewModel.ExportFailed += new EventHandler<ExportFailedEventArgs>(ViewModel_ExportFailed);
+				m_vmlViewModel.ExportSucceeded += new EventHandler<ExportSucceededEventArgs>(ViewModel_ExportSucceeded);
+				m_vmlViewModel.ImportFailed += new EventHandler<ImportFailedEventArgs>(ViewModel_ImportFailed);
+				m_vmlViewModel.ImportPartiallySucceeded += new EventHandler<ImportSucceededEventArgs>(ViewModel_ImportPartiallySucceeded);
+				m_vmlViewModel.ImportSucceeded += new EventHandler<ImportSucceededEventArgs>(ViewModel_ImportSucceeded);
 
 				new ToolStripItemCommandBinding<IEnumerable<Plugin>>(tsbMoveUp, m_vmlViewModel.MoveUpCommand, GetSelectedPlugins);
 				new ToolStripItemCommandBinding<IList<Plugin>>(tsbMoveDown, m_vmlViewModel.MoveDownCommand, GetSelectedPlugins);
@@ -58,10 +65,19 @@ namespace Nexus.Client.PluginManagement.UI
 				new ToolStripItemCommandBinding(tsbDisableAll, cmdDisableAll);
 				Command cmdEnableAll = new Command("Enable All Plugins", "Enable all the unactive plugins.", EnableAllPlugins);
 				new ToolStripItemCommandBinding(tsbEnableAll, cmdEnableAll);
+				new ToolStripItemCommandBinding<string>(tsmiExportToTextFile, m_vmlViewModel.ExportLoadOrderToFileCommand, GetExportToFileArgs);
+				new ToolStripItemCommandBinding(tsmiExportToClipboard, m_vmlViewModel.ExportLoadOrderToClipboardCommand);
+				new ToolStripItemCommandBinding<string>(tsmiImportFromTextFile, m_vmlViewModel.ImportLoadOrderFromFileCommand, GetImportFromFileArgs);
+				new ToolStripItemCommandBinding(tsmiImportFromClipboard, m_vmlViewModel.ImportLoadOrderFromClipboardCommand);
+
 				ViewModel.ActivatePluginCommand.CanExecute = false;
 				ViewModel.DeactivatePluginCommand.CanExecute = false;
 				ViewModel.MoveUpCommand.CanExecute = false;
 				ViewModel.MoveDownCommand.CanExecute = false;
+				ViewModel.ExportLoadOrderToFileCommand.CanExecute = m_vmlViewModel.CanExecuteExportCommands();
+				ViewModel.ExportLoadOrderToClipboardCommand.CanExecute = m_vmlViewModel.CanExecuteExportCommands();
+				ViewModel.ImportLoadOrderFromFileCommand.CanExecute = m_vmlViewModel.CanExecuteImportCommands();
+				ViewModel.ImportLoadOrderFromClipboardCommand.CanExecute = m_vmlViewModel.CanExecuteImportCommands();
 				LoadMetrics();
 			}
 		}
@@ -230,6 +246,11 @@ namespace Nexus.Client.PluginManagement.UI
 				ViewModel.MoveUpCommand.CanExecute = false;
 				ViewModel.MoveDownCommand.CanExecute = false;
 			}
+
+			ViewModel.ExportLoadOrderToFileCommand.CanExecute = ViewModel.CanExecuteExportCommands();
+			ViewModel.ExportLoadOrderToClipboardCommand.CanExecute = ViewModel.CanExecuteExportCommands();
+			ViewModel.ImportLoadOrderFromFileCommand.CanExecute = ViewModel.CanExecuteImportCommands();
+			ViewModel.ImportLoadOrderFromClipboardCommand.CanExecute = ViewModel.CanExecuteImportCommands();
 		}
 
 		#endregion
@@ -633,6 +654,246 @@ namespace Nexus.Client.PluginManagement.UI
 			m_booResizing = false;
 		}
 
+		#endregion
+
+		#region Load Order IO
+
+		#region Export
+		
+		/// <summary>
+		/// Returns the full path of the text file to export to.
+		/// </summary>
+		/// <returns>The full path of the text file to export to.</returns>
+		private string GetExportToFileArgs()
+		{
+			sfdChooseExport.FileName = ViewModel.GetDefaultExportFilename();
+			sfdChooseExport.Filter = ViewModel.GetExportFilterString();
+
+			if (sfdChooseExport.ShowDialog() == DialogResult.OK)
+				return sfdChooseExport.FileName;
+
+			return null;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="PluginManagerVM.ExportFailed"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays a simple error message.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="ExportFailedEventArgs"/> describing the event arguments.</param>
+		private void ViewModel_ExportFailed(object sender, ExportFailedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, ExportFailedEventArgs>)ViewModel_ExportFailed, sender, e);
+				return;
+			}
+
+			BeginInvoke(new MethodInvoker(() =>
+			{
+				if (string.IsNullOrEmpty(e.Filename))
+					Trace.TraceError("Failed to export the current load order to the clipboard");
+				else
+					Trace.TraceError("Failed to export the current load order to: {0}", e.Filename);
+				Trace.Indent();
+				Trace.TraceError("Reason: {0}", e.Message);
+				if (e.Error != null)
+					TraceUtil.TraceException(e.Error);
+				Trace.Unindent();
+			}));
+
+			string message
+				= "An error was encountered trying to export the current load order." + Environment.NewLine
+				+ Environment.NewLine
+				+ "Full details are available in the trace log.";
+			string details = "<b>Error:</b> " + e.Message;
+			ExtendedMessageBox.Show(this, message, Application.ProductName, details, MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="PluginManagerVM.ExportSucceeded"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays a simple success message.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{String}"/> describing the event arguments.</param>
+		private void ViewModel_ExportSucceeded(object sender, ExportSucceededEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, ExportSucceededEventArgs>)ViewModel_ExportSucceeded, sender, e);
+				return;
+			}
+
+			string message = "The current load order was successfully exported to";
+			if (string.IsNullOrEmpty(e.Filename))
+				message += " the clipboard.";
+			else
+				message += ":" + Environment.NewLine + Environment.NewLine + e.Filename;
+
+			string details = string.Format("{0} {1} successfully exported.", e.ExportedPluginCount, (e.ExportedPluginCount == 1) ? "plugin was" : "plugins were");
+			ExtendedMessageBox.Show(this, message, ViewModel.Settings.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
+		} 
+
+		#endregion
+
+		#region Import
+
+		/// <summary>
+		/// Formats the text to display when importing a load order succeeds.
+		/// </summary>
+		/// <param name="p_iseEventArgs">An <see cref="ImportSucceededEventArgs"/> describing the event arguments.</param>
+		/// <param name="p_sbMessage">The formatted success message.</param>
+		/// <param name="p_strDetails">The names of the plugins that were not imported.</param>
+		private void FormatPluginCountsReport(ImportSucceededEventArgs p_iseEventArgs, ref System.Text.StringBuilder p_sbMessage, out string p_strDetails)
+		{
+			if (string.IsNullOrEmpty(p_iseEventArgs.Filename))
+				p_sbMessage.AppendLine(" the clipboard.");
+			else
+			{
+				p_sbMessage.AppendLine(":");
+				p_sbMessage.AppendLine();
+				p_sbMessage.AppendLine();
+				p_sbMessage.AppendLine(p_iseEventArgs.Filename);
+			}
+			p_sbMessage.AppendLine();
+
+			if (p_iseEventArgs.TotalPluginCount == 1)
+				p_sbMessage.AppendLine("- 1 plugin found in the import source");
+			else
+				p_sbMessage.AppendFormat("- {0} plugins found in the import source", p_iseEventArgs.TotalPluginCount).AppendLine();
+
+			if (p_iseEventArgs.ImportedPluginCount == 1)
+				p_sbMessage.AppendLine("- 1 plugin successfully imported");
+			else
+				p_sbMessage.AppendFormat("- {0} plugin(s) successfully imported", p_iseEventArgs.ImportedPluginCount).AppendLine();
+
+			if (p_iseEventArgs.PluginsNotImported.Count == 1)
+				p_sbMessage.AppendLine("- 1 plugin not imported (not managed)");
+			else
+				p_sbMessage.AppendFormat("- {0} plugins not imported (not managed)", p_iseEventArgs.PluginsNotImported.Count).AppendLine();
+
+			System.Text.StringBuilder sbDetails = new System.Text.StringBuilder();
+			foreach (string strPluginFilename in p_iseEventArgs.PluginsNotImported)
+				sbDetails.AppendFormat("- {0}", strPluginFilename).AppendLine();
+
+			if (sbDetails.Length > 0)
+				sbDetails.Insert(0, "The following plugin(s) were not imported: " + Environment.NewLine);
+			
+			if (sbDetails.Length > 0)
+				p_strDetails = sbDetails.ToString();
+			else
+				p_strDetails = null;
+		}
+
+		/// <summary>
+		/// Returns the full filename specifying the text file to import from.
+		/// </summary>
+		/// <returns>The full filename specifying the text file to import from.</returns>
+		private string GetImportFromFileArgs()
+		{
+			ofdChooseImport.FileName = null;
+			ofdChooseImport.Filter = ViewModel.GetImportFilterString();
+
+			if (ofdChooseImport.ShowDialog() == DialogResult.OK)
+				return ofdChooseImport.FileName;
+
+			return null;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="PluginManagerVM.ImportFailed"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays a simple error message.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="ImportFailedEventArgs"/> describing the event arguments.</param>
+		private void ViewModel_ImportFailed(object sender, ImportFailedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, ImportFailedEventArgs>)ViewModel_ImportFailed, sender, e);
+				return;
+			}
+
+			BeginInvoke(new MethodInvoker(() =>
+			{
+				if (string.IsNullOrEmpty(e.Filename))
+					Trace.TraceError("Failed to import the load order from the clipboard.");
+				else
+					Trace.TraceError("Failed to import the load order from: {0}", e.Filename);
+				Trace.Indent();
+				Trace.TraceError("Reason: {0}", e.Message);
+				if (e.Error != null)
+					TraceUtil.TraceException(e.Error);
+				Trace.Unindent();
+			}));
+
+			string message
+				= "An error was encountered while trying to import the load order." + Environment.NewLine
+				+ Environment.NewLine
+				+ e.Message + Environment.NewLine;
+			ExtendedMessageBox.Show(this, message, Application.ProductName, null, MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="PluginManagerVM.ImportPartiallySucceeded"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays a message indicating partial success and detailing the total, imported and not imported plugin counts.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{String}"/> describing the event arguments.</param>
+		private void ViewModel_ImportPartiallySucceeded(object sender, ImportSucceededEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, ImportSucceededEventArgs>)ViewModel_ImportPartiallySucceeded, sender, e);
+				return;
+			}
+
+			System.Text.StringBuilder sbMessage = new System.Text.StringBuilder();
+			string strDetails;
+
+			sbMessage.Append("The load order was partially imported from");
+
+			FormatPluginCountsReport(e, ref sbMessage, out strDetails);
+
+			ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.Settings.ModManagerName, strDetails, ExtendedMessageBoxButtons.OK, MessageBoxIcon.Warning);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="PluginManagerVM.ImportSucceeded"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays a simple success message.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{String}"/> describing the event arguments.</param>
+		private void ViewModel_ImportSucceeded(object sender, ImportSucceededEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, ImportSucceededEventArgs>)ViewModel_ImportSucceeded, sender, e);
+				return;
+			}
+
+			System.Text.StringBuilder sbMessage = new System.Text.StringBuilder();
+			string strDetails;
+
+			sbMessage.Append("The load order was successfully imported from");
+
+			FormatPluginCountsReport(e, ref sbMessage, out strDetails);
+
+			ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.Settings.ModManagerName, strDetails, ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
+		
+		#endregion
+		
 		#endregion
 	}
 }
