@@ -96,7 +96,7 @@ namespace Nexus.Client.ModManagement
 			{
 				TraceUtil.TraceException(e);
 				//couldn't find any match, so add a dummy value indicating such
-				lstMods.Add(new ModInfo(null, String.Format("{0}", e.Message), null, null, false, null, null, null, null, null, null));
+				lstMods.Add(new ModInfo(null, String.Format("{0}", e.Message), null, null, false, null, null, 0, -1, null, null, null, null));
 			}
 			return lstMods;
 		}

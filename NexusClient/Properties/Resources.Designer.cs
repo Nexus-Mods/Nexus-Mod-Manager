@@ -116,6 +116,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap collapse_all {
+            get {
+                object obj = ResourceManager.GetObject("collapse_all", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap compilebasic {
             get {
                 object obj = ResourceManager.GetObject("compilebasic", resourceCulture);
@@ -291,6 +298,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap expand_all {
+            get {
+                object obj = ResourceManager.GetObject("expand_all", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap folders_open {
             get {
                 object obj = ResourceManager.GetObject("folders_open", resourceCulture);
@@ -361,6 +375,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap remove_all_categories {
+            get {
+                object obj = ResourceManager.GetObject("remove_all_categories", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap reset_categories {
             get {
                 object obj = ResourceManager.GetObject("reset_categories", resourceCulture);
@@ -378,6 +399,13 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap reset_unassigned {
             get {
                 object obj = ResourceManager.GetObject("reset_unassigned", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap switch_view {
+            get {
+                object obj = ResourceManager.GetObject("switch_view", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

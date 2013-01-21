@@ -40,17 +40,24 @@
 			this.addModToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.addModFromURLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.tsbResetCategories = new System.Windows.Forms.ToolStripSplitButton();
+			this.addNewCategory = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetDefaultCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetModsCategory = new System.Windows.Forms.ToolStripMenuItem();
+			this.removeAllCategories = new System.Windows.Forms.ToolStripMenuItem();
+			this.collapseAllCategories = new System.Windows.Forms.ToolStripMenuItem();
+			this.expandAllCategories = new System.Windows.Forms.ToolStripMenuItem();
+			this.toggleHiddenCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.tsbActivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeactivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeleteMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripButton();
 			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
+			this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.lvwMods = new Nexus.UI.Controls.IconListView();
 			this.clmModName = new System.Windows.Forms.ColumnHeader();
+			this.clmCategory = new System.Windows.Forms.ColumnHeader();
 			this.clmInstallDate = new System.Windows.Forms.ColumnHeader();
 			this.clmVersion = new System.Windows.Forms.ColumnHeader();
 			this.clmWebVersion = new System.Windows.Forms.ColumnHeader();
@@ -82,13 +89,14 @@
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsbAddMod,
-			this.tsbResetCategories,
             this.tsbActivate,
             this.tsbDeactivate,
             this.tsbDeleteMod,
             this.tsbTagMod,
 			this.tsbCheckModVersions,
-			this.tsbToggleEndorse});
+			this.tsbToggleEndorse,
+			this.tsbResetCategories,
+			this.tsbSwitchView});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(49, 453);
@@ -127,13 +135,26 @@
 			// 
 			this.tsbResetCategories.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
 			this.tsbResetCategories.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.resetDefaultCategories,
-            this.resetModsCategory});
+            this.addNewCategory,
+			this.collapseAllCategories,
+			this.expandAllCategories,
+			this.resetDefaultCategories,
+            this.resetModsCategory,
+			this.removeAllCategories,
+			this.toggleHiddenCategories});
 			this.tsbResetCategories.Image = global::Nexus.Client.Properties.Resources.reset_categories;
 			this.tsbResetCategories.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbResetCategories.Name = "tsbResetCategories";
 			this.tsbResetCategories.Size = new System.Drawing.Size(46, 36);
-			this.tsbResetCategories.Text = "Categories";
+			this.tsbResetCategories.Text = "Categories: add new category";
+			// 
+			// addNewCategory
+			// 
+			this.addNewCategory.Image = global::Nexus.Client.Properties.Resources.reset_categories;
+			this.addNewCategory.Name = "addNewCategory";
+			this.addNewCategory.Size = new System.Drawing.Size(195, 38);
+			this.addNewCategory.Text = "Categories: add new category";
+			this.addNewCategory.Click += new System.EventHandler(this.addNewCategory_Click);
 			// 
 			// resetDefaultCategories
 			// 
@@ -150,6 +171,38 @@
 			this.resetModsCategory.Size = new System.Drawing.Size(195, 38);
 			this.resetModsCategory.Text = "Categories: reset all mods to unassigned";
 			this.resetModsCategory.Click += new System.EventHandler(this.resetModsCategory_Click);
+			// 
+			// removeAllCategories
+			// 
+			this.removeAllCategories.Image = global::Nexus.Client.Properties.Resources.remove_all_categories;
+			this.removeAllCategories.Name = "removeAllCategories";
+			this.removeAllCategories.Size = new System.Drawing.Size(195, 38);
+			this.removeAllCategories.Text = "Categories: remove all categories";
+			this.removeAllCategories.Click += new System.EventHandler(this.removeAllCategories_Click);
+			// 
+			// collapseAllCategories
+			// 
+			this.collapseAllCategories.Image = global::Nexus.Client.Properties.Resources.collapse_all;
+			this.collapseAllCategories.Name = "collapseAllCategories";
+			this.collapseAllCategories.Size = new System.Drawing.Size(195, 38);
+			this.collapseAllCategories.Text = "Categories: collapse all categories";
+			this.collapseAllCategories.Click += new System.EventHandler(this.collapseAllCategories_Click);
+			// 
+			// expandAllCategories
+			// 
+			this.expandAllCategories.Image = global::Nexus.Client.Properties.Resources.expand_all;
+			this.expandAllCategories.Name = "expandAllCategories";
+			this.expandAllCategories.Size = new System.Drawing.Size(195, 38);
+			this.expandAllCategories.Text = "Categories: expand all categories";
+			this.expandAllCategories.Click += new System.EventHandler(this.expandAllCategories_Click);
+			// 
+			// toggleHiddenCategories
+			// 
+			this.toggleHiddenCategories.Image = global::Nexus.Client.Properties.Resources.reset_categories;
+			this.toggleHiddenCategories.Name = "toggleHiddenCategories";
+			this.toggleHiddenCategories.Size = new System.Drawing.Size(195, 38);
+			this.toggleHiddenCategories.Text = "Categories: toggle hidden categories";
+			this.toggleHiddenCategories.Click += new System.EventHandler(this.toggleHiddenCategories_Click);
 			// 
 			// tsbActivate
 			// 
@@ -206,6 +259,16 @@
 			this.tsbToggleEndorse.Text = "toolStripButton1";
 			this.tsbToggleEndorse.Enabled = false;
 			// 
+			// tsbSwitchView
+			// 
+			this.tsbSwitchView.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbSwitchView.Image = global::Nexus.Client.Properties.Resources.switch_view;
+			this.tsbSwitchView.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbSwitchView.Name = "tsbSwitchView";
+			this.tsbSwitchView.Size = new System.Drawing.Size(46, 36);
+			this.tsbSwitchView.Text = "Switches the Mod Manager views";
+			this.tsbSwitchView.Click += new System.EventHandler(tsbSwitchCategory_Click);
+			// 
 			// sptMods
 			// 
 			this.sptMods.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -230,6 +293,7 @@
 			this.lvwMods.CheckBoxes = true;
 			this.lvwMods.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.clmModName,
+			this.clmCategory,
 			this.clmInstallDate,
             this.clmVersion,
             this.clmWebVersion,
@@ -260,6 +324,10 @@
 			// clmModName
 			// 
 			this.clmModName.Text = "Name";
+			// 
+			// clmCategory
+			// 
+			this.clmCategory.Text = "Category";
 			// 
 			// clmInstallDate
 			// 
@@ -304,6 +372,7 @@
 			this.clwCategoryView.View = System.Windows.Forms.View.Details;
 			this.clwCategoryView.VirtualMode = true;
 			this.clwCategoryView.Resize += new System.EventHandler(this.lvwMods_Resize);
+			this.clwCategoryView.Visible = true;
 			// 
 			// sptSummaryInfo
 			// 
@@ -387,10 +456,16 @@
 		private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem addModFromURLToolStripMenuItem;
 		private System.Windows.Forms.ToolStripSplitButton tsbResetCategories;
+		private System.Windows.Forms.ToolStripMenuItem addNewCategory;
 		private System.Windows.Forms.ToolStripMenuItem resetDefaultCategories;
 		private System.Windows.Forms.ToolStripMenuItem resetModsCategory;
+		private System.Windows.Forms.ToolStripMenuItem removeAllCategories;
+		private System.Windows.Forms.ToolStripMenuItem collapseAllCategories;
+		private System.Windows.Forms.ToolStripMenuItem expandAllCategories;
+		private System.Windows.Forms.ToolStripMenuItem toggleHiddenCategories;
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;
 		private System.Windows.Forms.ColumnHeader clmModName;
+		private System.Windows.Forms.ColumnHeader clmCategory;
 		private System.Windows.Forms.ColumnHeader clmInstallDate;
 		private System.Windows.Forms.ColumnHeader clmVersion;
 		private System.Windows.Forms.ColumnHeader clmWebVersion;
@@ -402,5 +477,6 @@
 		private System.Windows.Forms.ToolStripButton tsbTagMod;
 		private System.Windows.Forms.ToolStripButton tsbCheckModVersions;
 		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
+		private System.Windows.Forms.ToolStripButton tsbSwitchView;
 	}
 }

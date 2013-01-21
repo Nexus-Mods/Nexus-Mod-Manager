@@ -280,4 +280,16 @@
   <data name="text_x_generic" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\text-x-generic.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="remove_all_categories" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\remove_all_categories.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="collapse_all" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\collapse_all.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="expand_all" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\expand_all.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="switch_view" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\switch_view.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

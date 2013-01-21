@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
+    <ProductVersion>9.0.21022</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -277,6 +277,10 @@
     <None Include="Resources\document-export-4.png" />
     <None Include="Resources\document-import-2.png" />
     <None Include="Resources\edit-copy-6.png" />
+    <None Include="Resources\remove_all_categories.png" />
+    <None Include="Resources\collapse_all.png" />
+    <None Include="Resources\expand_all.png" />
+    <None Include="Resources\switch_view.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\text-x-generic.png" />
     <None Include="Resources\unendorsed_small.png" />

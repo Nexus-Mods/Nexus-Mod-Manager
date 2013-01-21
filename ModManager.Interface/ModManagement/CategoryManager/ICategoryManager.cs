@@ -45,14 +45,9 @@ namespace Nexus.Client.ModManagement
 		IModCategory AddCategory(IModCategory p_mctCategory);
 
 		/// <summary>
-		/// Replace a category.
+		/// Updates the category file.
 		/// </summary>
-		/// <remarks>
-		/// This replace the category without changing its key.
-		/// </remarks>
-		/// <param name="p_mctOldCategory">The category to be replaced with the new category in the category manager.</param>
-		/// <param name="p_mctNewCategory">The category with which to replace the old category in the category manager.</param>
-		void ReplaceCategory(IModCategory p_mctOldCategory, IModCategory p_mctNewCategory);
+		void UpdateCategory();
 
 		/// <summary>
 		/// Removes the category from the category manager.

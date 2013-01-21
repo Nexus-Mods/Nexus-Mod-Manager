@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
@@ -269,7 +270,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// Deletes the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to activate.</param>
-		protected void DeleteMod(IMod p_modMod)
+		public void DeleteMod(IMod p_modMod)
 		{
 			if (ConfirmModFileDeletion(p_modMod))
 			{
@@ -378,15 +379,17 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public bool ResetDefaultCategories()
 		{
-			string strMessage = "Are you sure you want to reset to the Nexus site default categories?.";
+			string strMessage = "Are you sure you want to reset to the Nexus site default categories?";
 			strMessage += Environment.NewLine + Environment.NewLine + "Note: The category list will revert to the Nexus default and your downloaded mods will be automatically reassigned to the Nexus categories.";
 			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
 				this.CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
+
 				if (!OfflineMode)
 					CheckForUpdates(true);
 				SwitchModsToUnassigned(-1);
+
 				return true;
 			}
 
@@ -398,11 +401,29 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public bool ResetToUnassigned()
 		{
-			string strMessage = "Are you sure you want to reset all mods to the Unassigned category?.";
+			string strMessage = "Are you sure you want to reset all mods to the Unassigned category?";
 			strMessage += Environment.NewLine + Environment.NewLine + "Note: If you're using custom categories you won't be able to revert this operation.";
 			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
+				SwitchModsToUnassigned(0);
+				return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Removes all categories and set all mods to Unassigned.
+		/// </summary>
+		public bool RemoveAllCategories()
+		{
+			string strMessage = "Are you sure you want to remove all the categories and set all mods to Unassigned?";
+			strMessage += Environment.NewLine + Environment.NewLine + "Note: If you're using custom categories you won't be able to revert this operation.";
+			DialogResult Result = MessageBox.Show(strMessage, "Category remove", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (Result == DialogResult.Yes)
+			{
+				CategoryManager.ResetCategories(String.Empty);
 				SwitchModsToUnassigned(0);
 				return true;
 			}

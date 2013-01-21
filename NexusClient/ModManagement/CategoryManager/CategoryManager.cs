@@ -228,19 +228,6 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Resets to the repository default categories.
-		/// </summary>
-		public void ResetCategories(string p_strDefaultCategories)
-		{
-			m_tslCategories.Clear();
-			m_tslCategories.Add(new ModCategory());
-			if (!String.IsNullOrEmpty(p_strDefaultCategories))
-				LoadCategories(XDocument.Parse(p_strDefaultCategories));
-			SaveCategories();
-			return;
-		}
-
-		/// <summary>
 		/// Loads the data from the category file.
 		/// </summary>
 		private void LoadCategories(XDocument p_docCategories)
@@ -260,6 +247,30 @@ namespace Nexus.Client.ModManagement
 					m_tslCategories.Add(new ModCategory(Convert.ToInt32(xelCategory.Attribute("ID").Value), strCategoryName, strCategoryPath));
 				}
 			}
+		}
+
+		/// <summary>
+		/// Loads the categories.
+		/// </summary>
+		public void ResetCategories(Uri p_uriDefaultCategories)
+		{
+			m_tslCategories.Clear();
+			m_tslCategories.Add(new ModCategory());
+			if (p_uriDefaultCategories != null)
+				LoadCategories(XDocument.Load(p_uriDefaultCategories.AbsoluteUri));
+			SaveCategories();
+		}
+
+		/// <summary>
+		/// Resets to the repository default categories.
+		/// </summary>
+		public void ResetCategories(string p_strDefaultCategories)
+		{
+			m_tslCategories.Clear();
+			m_tslCategories.Add(new ModCategory());
+			if (!String.IsNullOrEmpty(p_strDefaultCategories))
+				LoadCategories(XDocument.Parse(p_strDefaultCategories));
+			SaveCategories();
 		}
 
 		/// <summary>
@@ -310,14 +321,10 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Replaces a category in the list.
+		/// Updates the category file.
 		/// </summary>
-		/// <param name="p_mctOldCategory">The category to be replaced with the new.</param>
-		/// <param name="p_mctNewCategory">The p_mctNewCategory with which to replace the old one.</param>
-		public void ReplaceCategory(IModCategory p_mctOldCategory, IModCategory p_mctNewCategory)
+		public void UpdateCategory()
 		{
-			m_tslCategories.Remove(p_mctOldCategory);
-			m_tslCategories.Add(p_mctNewCategory);
 			SaveCategories();
 		}
 
@@ -329,6 +336,16 @@ namespace Nexus.Client.ModManagement
 		{
 			m_tslCategories.Remove(p_mctCategory);
 			SaveCategories();
+		}
+
+		/// <summary>
+		/// Finds the category by Id.
+		/// </summary>
+		/// <param name="p_intCategoryId">The category Id.</param>
+		public IModCategory FindCategory(Int32 p_intCategoryId)
+		{
+			IModCategory imcCategory = m_tslCategories.Find(Item => Item.Id == p_intCategoryId);
+			return (imcCategory == null ? (IModCategory) new ModCategory() : imcCategory);
 		}
 
 		#endregion
