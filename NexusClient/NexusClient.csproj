@@ -1,0 +1,607 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="3.5" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.21022</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Nexus.Client</RootNamespace>
+    <AssemblyName>NexusClient</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ApplicationIcon>Resources\tes_logo.ico</ApplicationIcon>
+    <TargetZone>Internet</TargetZone>
+    <GenerateManifests>false</GenerateManifests>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Debug\NexusClient.XML</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="EnvironmentInfo.cs" />
+    <Compile Include="GameModeSelectionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GameModeSelectionForm.Designer.cs">
+      <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GameModeSelector.cs" />
+    <Compile Include="HeaderlessTextWriterTraceListener.cs" />
+    <Compile Include="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MainFormVM.cs" />
+    <Compile Include="ModAuthoring\ModBuilder.cs" />
+    <Compile Include="ModAuthoring\ModPackager.cs" />
+    <Compile Include="ModAuthoring\UI\Controls\ModInfoEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\ModInfoEditor.Designer.cs">
+      <DependentUpon>ModInfoEditor.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\ModFilesTreeView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\ModFilesTreeView.Designer.cs">
+      <DependentUpon>ModFilesTreeView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\ModInfoEditorVM.cs" />
+    <Compile Include="ModAuthoring\UI\Controls\ReadmeEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\ReadmeEditor.Designer.cs">
+      <DependentUpon>ReadmeEditor.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\ScriptEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\ScriptEditor.Designer.cs">
+      <DependentUpon>ScriptEditor.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\Controls\InstallScriptEditorVM.cs" />
+    <Compile Include="ModAuthoring\UI\Controls\ModScriptEditorVM.cs" />
+    <Compile Include="ModAuthoring\UI\ModPackagingForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModAuthoring\UI\ModPackagingForm.Designer.cs">
+      <DependentUpon>ModPackagingForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModAuthoring\Project.cs" />
+    <Compile Include="ModAuthoring\UI\ModPackagingFormVM.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.DummyMod.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.TransactionEnlistment.cs" />
+    <Compile Include="ModManagement\ModFileInstaller.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.cs" />
+    <Compile Include="ModManagement\ModInstaller.cs" />
+    <Compile Include="ModManagement\ModInstallerFactory.cs" />
+    <Compile Include="ModManagement\ModManager.cs" />
+    <Compile Include="ModManagement\ModRegistry.cs" />
+    <Compile Include="ModManagement\UI\ModManagerControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModManagerControl.Designer.cs">
+      <DependentUpon>ModManagerControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModManagerVM.cs" />
+    <Compile Include="ModManagement\UI\OverwriteForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\UI\OverwriteForm.Designer.cs">
+      <DependentUpon>OverwriteForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Mods\NexusMod.cs" />
+    <Compile Include="Mods\NexusModCacheManager.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="ActivityMonitoring\UI\ActivityMonitorControl.resx">
+      <DependentUpon>ActivityMonitorControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ApplicationInitializationForm.resx">
+      <DependentUpon>ApplicationInitializationForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="DownloadMonitoring\UI\DownloadMonitorControl.resx">
+      <DependentUpon>DownloadMonitorControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GameDetectionForm.resx">
+      <DependentUpon>GameDetectionForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\DownloadSettingsPage.resx">
+      <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\GameModeListViewItem.resx">
+      <DependentUpon>GameModeListViewItem.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\GameModeSearchListViewItem.resx">
+      <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GameModeSelectionForm.resx">
+      <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="LoginForm.resx">
+      <DependentUpon>LoginForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModAuthoring\UI\Controls\ModFilesTreeView.resx">
+      <DependentUpon>ModFilesTreeView.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModAuthoring\UI\Controls\ModInfoEditor.resx">
+      <DependentUpon>ModInfoEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModAuthoring\UI\Controls\ReadmeEditor.resx">
+      <DependentUpon>ReadmeEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModAuthoring\UI\Controls\ScriptEditor.resx">
+      <DependentUpon>ScriptEditor.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModAuthoring\UI\ModPackagingForm.resx">
+      <DependentUpon>ModPackagingForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModManagement\UI\ModManagerControl.resx">
+      <DependentUpon>ModManagerControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModManagement\UI\ModTaggerForm.resx">
+      <DependentUpon>ModTaggerForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModManagement\UI\OverwriteForm.resx">
+      <DependentUpon>OverwriteForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="PluginManagement\UI\PluginManagerControl.resx">
+      <DependentUpon>PluginManagerControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\ModOptionsPage.resx">
+      <DependentUpon>ModOptionsPage.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\SettingsForm.resx">
+      <DependentUpon>SettingsForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\GeneralSettingsPage.resx">
+      <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Include="Settings.cs" />
+    <Compile Include="Util\NexusFileUtil.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="data\7z-32bit.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\7z-64bit.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="data\TxFileMAnager Licence.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="data\Nexus Mod Manager Licence.rtf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="data\Licence.rtf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Resources\down.png" />
+    <None Include="Resources\change_game_mode.png" />
+    <None Include="Resources\media-playback-pause-7.png" />
+    <None Include="Resources\media-playback-start-7.png" />
+    <None Include="Resources\preferences-system-4.png" />
+    <None Include="Resources\system-software-update-2.png" />
+    <None Include="Resources\edit-clear-3.png" />
+    <None Include="Resources\info_add.png" />
+    <None Include="Resources\dialog-warning-4.png" />
+    <None Include="data\DockPanel Suite Licence.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="data\AntlrBuildTask Licence.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Resources\application-exit-2.png" />
+    <None Include="Resources\go_premium.png" />
+    <None Include="Resources\en.gif" />
+    <None Include="Resources\nl.gif" />
+    <None Include="Resources\endorsed.png" />
+    <None Include="Resources\endorsed_small.png" />
+    <None Include="Resources\reset_categories.png" />
+    <None Include="Resources\reset_default.png" />
+    <None Include="Resources\reset_unassigned.png" />
+    <None Include="Resources\document-export-4.png" />
+    <None Include="Resources\document-import-2.png" />
+    <None Include="Resources\edit-copy-6.png" />
+    <None Include="Resources\remove_all_categories.png" />
+    <None Include="Resources\collapse_all.png" />
+    <None Include="Resources\expand_all.png" />
+    <None Include="Resources\switch_view.png" />
+    <Content Include="Resources\tes_logo.ico" />
+    <None Include="Resources\text-x-generic.png" />
+    <None Include="Resources\unendorsed_small.png" />
+    <None Include="Resources\unendorsed.png" />
+    <None Include="Resources\us.gif" />
+    <None Include="Resources\tes_logo_full.png" />
+    <None Include="Resources\up.png" />
+    <None Include="Resources\system-settings.png" />
+    <None Include="Resources\add_mod_url.png" />
+    <None Include="Resources\edit-delete.png" />
+    <Compile Include="ActivityMonitoring\ActivityMonitor.cs" />
+    <Compile Include="ActivityMonitoring\UI\ActivityListViewItem.cs" />
+    <Compile Include="ActivityMonitoring\UI\ActivityMonitorControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ActivityMonitoring\UI\ActivityMonitorControl.Designer.cs">
+      <DependentUpon>ActivityMonitorControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ActivityMonitoring\UI\ActivityMonitorVM.cs" />
+    <Compile Include="ApplicationInitializationForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ApplicationInitializationForm.Designer.cs">
+      <DependentUpon>ApplicationInitializationForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ApplicationInitializer.cs" />
+    <Compile Include="Bootstrapper.cs" />
+    <Compile Include="DownloadManagement\DownloadedFileInfo.cs" />
+    <Compile Include="DownloadMonitoring\DownloadMonitor.cs" />
+    <Compile Include="DownloadMonitoring\UI\DownloadListViewItem.cs" />
+    <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.designer.cs">
+      <DependentUpon>DownloadMonitorControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="DownloadMonitoring\UI\DownloadMonitorVM.cs" />
+    <Compile Include="IMessager.cs" />
+    <Compile Include="MessagerClient.cs" />
+    <Compile Include="ModManagement\CategoryManager\CategoryManager.cs" />
+    <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
+    <Compile Include="ModRepositories\FileServerZone.cs" />
+    <Compile Include="ModRepositories\FileserverInfo.cs" />
+    <Compile Include="ModRepositories\ModCategory.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ImportFailedEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\EventArgs\ImportSucceededEventArgs.cs" />
+    <Compile Include="PluginManagement\UI\Exceptions\InvalidImportSourceException.cs" />
+    <Compile Include="Settings\DownloadSettingsGroup.cs" />
+    <Compile Include="Settings\UI\DownloadSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\DownloadSettingsPage.Designer.cs">
+      <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\CategoryListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\CategoryListView.designer.cs">
+      <DependentUpon>CategoryListView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.designer.cs">
+      <DependentUpon>CustomizableToolStripProgressBar.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\GameModeListViewItem.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\GameModeListViewItem.Designer.cs">
+      <DependentUpon>GameModeListViewItem.cs</DependentUpon>
+    </Compile>
+    <Compile Include="HelpInformation.cs" />
+    <Compile Include="GameDetectionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GameDetectionForm.Designer.cs">
+      <DependentUpon>GameDetectionForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GameDetectionVM.cs" />
+    <Compile Include="UI\Controls\GameModeListView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\GameModeSearchListViewItem.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\GameModeSearchListViewItem.Designer.cs">
+      <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Games\FileSearcher.cs" />
+    <Compile Include="Games\GameDiscoverer.cs" />
+    <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
+    <Compile Include="Games\GameModeRegistry.cs" />
+    <Compile Include="UI\Controls\GameModeListViewItemBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="LoginForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LoginForm.Designer.cs">
+      <DependentUpon>LoginForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="LoginFormVM.cs" />
+    <Compile Include="MessagerServer.cs" />
+    <Compile Include="ModManagement\AddModTask.cs" />
+    <Compile Include="ModManagement\AutoTagger.cs" />
+    <Compile Include="ModManagement\AutoUpdater.cs" />
+    <Compile Include="ModManagement\IniUpgradeInstaller.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.InstalledItemDictionary`2.cs" />
+    <Compile Include="ModManagement\InstallationLog\UpgradeMismatchedVersionScanner.cs" />
+    <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0300Task.cs" />
+    <Compile Include="ModManagement\InstallationLog\Upgraders\InstallLogUpgrader.cs" />
+    <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0200Task.cs" />
+    <Compile Include="ModManagement\InstallationLog\Upgraders\UpgradeException.cs" />
+    <Compile Include="ModManagement\InstallationLog\Upgraders\UpgradeTask.cs" />
+    <Compile Include="ModManagement\ModActivator.cs" />
+    <Compile Include="ModManagement\ModDeleter.cs" />
+    <Compile Include="ModManagement\ModFileUpgradeInstaller.cs" />
+    <Compile Include="ModManagement\ModManager.AddModQueue.cs" />
+    <Compile Include="ModManagement\BasicUninstallTask.cs" />
+    <Compile Include="ModManagement\IniInstaller.cs" />
+    <Compile Include="ModManagement\IniMethods.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.InstallerStack.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.ActiveModRegistry.cs" />
+    <Compile Include="ModManagement\ModInstallerBase.cs" />
+    <Compile Include="ModManagement\ModMatcher.cs" />
+    <Compile Include="ModManagement\ModUninstaller.cs" />
+    <Compile Include="ModManagement\ModUpgrader.cs" />
+    <Compile Include="ModManagement\NexusUrl.cs" />
+    <Compile Include="ModManagement\PrepareModTask.cs" />
+    <Compile Include="ModManagement\UI\ModTaggerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModTaggerForm.Designer.cs">
+      <DependentUpon>ModTaggerForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModTaggerVM.cs" />
+    <Compile Include="ModRepositories\IModFileInfo.cs" />
+    <Compile Include="ModRepositories\IModRepository.cs" />
+    <Compile Include="ModRepositories\Nexus\CookieEndpointBehaviour.cs" />
+    <Compile Include="ModRepositories\Nexus\CookieMessageInspector.cs" />
+    <Compile Include="ModRepositories\Nexus\NexusModFileInfo.cs" />
+    <Compile Include="ModRepositories\ModInfo.cs" />
+    <Compile Include="ModRepositories\Nexus\HttpUserAgentEndpointBehaviour.cs" />
+    <Compile Include="ModRepositories\Nexus\HttpUserAgentMessageInspector.cs" />
+    <Compile Include="ModRepositories\Nexus\INexusModRepositoryApi.cs" />
+    <Compile Include="ModRepositories\ModFileCategory.cs" />
+    <Compile Include="ModRepositories\Nexus\NexusModInfo.cs" />
+    <Compile Include="ModRepositories\Nexus\NexusModRepository.cs" />
+    <Compile Include="ModRepositories\RepositoryUnavailableException.cs" />
+    <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.cs" />
+    <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.TransactionEnlistment.cs" />
+    <Compile Include="PluginManagement\OrderLog\PluginOrderLog.cs" />
+    <Compile Include="PluginManagement\OrderLog\PluginOrderLog.TransactionEnlistment.cs" />
+    <Compile Include="PluginManagement\PluginManager.cs" />
+    <Compile Include="PluginManagement\PluginRegistry.cs" />
+    <Compile Include="PluginManagement\PluginRegistry.TransactionEnlistment.cs" />
+    <Compile Include="PluginManagement\UI\PluginManagerControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PluginManagement\UI\PluginManagerControl.Designer.cs">
+      <DependentUpon>PluginManagerControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="PluginManagement\UI\PluginManagerVM.cs" />
+    <Compile Include="DownloadManagement\FileDownloadTask.cs" />
+    <Compile Include="ServiceManager.cs" />
+    <Compile Include="Settings\ModOptionsSettingsGroup.cs" />
+    <Compile Include="Settings\UI\ModOptionsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\ModOptionsPage.Designer.cs">
+      <DependentUpon>ModOptionsPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Settings\UI\SettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\SettingsForm.Designer.cs">
+      <DependentUpon>SettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Settings\UI\SettingsFormVM.cs" />
+    <Compile Include="Settings\GeneralSettingsGroup.cs" />
+    <Compile Include="Settings\UI\GeneralSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\GeneralSettingsPage.Designer.cs">
+      <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\SelectedItemEventArgs.cs" />
+    <Compile Include="UI\NexusFontSetResolver.cs" />
+    <Compile Include="Updating\ProgrammeUpdater.cs" />
+    <Compile Include="Updating\UpdateManager.cs" />
+    <Compile Include="Updating\UpdateTask.cs" />
+    <Compile Include="Util\UacUtil.cs" />
+    <None Include="Resources\deactivate_mod.png" />
+    <None Include="Resources\activate_mod.png" />
+    <None Include="Resources\add_mod.png" />
+    <None Include="app.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Resources\edit-delete-6.png" />
+    <None Include="Resources\compilebasic.png" />
+    <None Include="Resources\folders-open.png" />
+    <None Include="Resources\document-new-4.png" />
+    <None Include="Resources\document-save-5.png" />
+    <None Include="Resources\document-preview.png" />
+    <None Include="Resources\042b_AddCategory_48x48_72.png" />
+    <None Include="Resources\add_filtered_file_48x48.png" />
+    <None Include="Resources\077_AddFile_48x48_72.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\ICSharpCode.TextEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="ObjectListView, Version=2.5.1.25760, Culture=neutral, PublicKeyToken=b1c5bf581481bcd4, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\ObjectListView.dll</HintPath>
+    </Reference>
+    <Reference Include="SevenZipSharp, Version=0.64.3890.29348, Culture=neutral, PublicKeyToken=20de82c62b055c88, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\SevenZipSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Remoting" />
+    <Reference Include="System.Runtime.Serialization">
+      <RequiredTargetFramework>3.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.ServiceModel">
+      <RequiredTargetFramework>3.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.ServiceModel.Web">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="WindowsBase">
+      <RequiredTargetFramework>3.0</RequiredTargetFramework>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
+      <Project>{E824ACBB-90C8-4C60-9D52-9C8020E98E3E}</Project>
+      <Name>ChinhDo.Transactions.FileManager</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Commanding\Commanding.csproj">
+      <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
+      <Name>Commanding</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\UI\UI.csproj">
+      <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
+      <Name>UI</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\DockPanelSuite\DockPanelSuite.csproj">
+      <Project>{C75532C4-765B-418E-B09B-46D36B2ABDB1}</Project>
+      <Name>DockPanelSuite</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ModManager.Interface\ModManager.Interface.csproj">
+      <Project>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</Project>
+      <Name>ModManager.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Mods\Mods.csproj">
+      <Project>{01078394-1286-47DF-8421-94CC07167B19}</Project>
+      <Name>Mods</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NexusClient.Interface\NexusClient.Interface.csproj">
+      <Project>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</Project>
+      <Name>NexusClient.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Scripting\Scripting.csproj">
+      <Project>{66DC8748-2DC2-4E6E-B645-080E0CFDC831}</Project>
+      <Name>Scripting</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Transactions\Transactions.csproj">
+      <Project>{EA39FD1B-CF1C-4F56-80EE-52A8FA042964}</Project>
+      <Name>Transactions</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Util\Util.csproj">
+      <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
+      <Name>Util</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.2.0">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 2.0 %28x86%29</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.0">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.0 %28x86%29</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
