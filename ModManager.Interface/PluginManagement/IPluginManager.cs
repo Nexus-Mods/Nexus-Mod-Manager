@@ -24,6 +24,12 @@ namespace Nexus.Client.PluginManagement
 		/// <value>The list of mods being managed by the mod manager.</value>
 		ReadOnlyObservableList<Plugin> ActivePlugins { get; }
 
+		/// <summary>
+		/// Gets the max allowed number of active plugins.
+		/// </summary>
+		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
+		Int32  MaxAllowedActivePluginsCount { get; }
+
 		#endregion
 
 		#region Singleton

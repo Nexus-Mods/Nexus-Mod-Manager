@@ -115,6 +115,18 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the max allowed number of active plugins.
+		/// </summary>
+		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
+		public Int32 MaxAllowedActivePluginsCount 
+		{
+			get
+			{
+				return GameMode.MaxAllowedActivePluginsCount;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

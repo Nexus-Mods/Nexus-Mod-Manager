@@ -32,6 +32,7 @@ namespace Nexus.Client.Games.Gamebryo
 		private GamebryoPluginDiscoverer m_pdvPluginDiscoverer = null;
 		private GamebryoPluginOrderLogSerializer m_posPluginOrderSerializer = null;
 		private GamebryoPluginOrderValidator m_povPluginOrderValidator = null;
+		private const Int32 m_intMaxAllowedPlugins = 255;
 
 		#region Properties
 
@@ -130,9 +131,9 @@ namespace Nexus.Client.Games.Gamebryo
 		public abstract string UserGameDataPath { get; }
 
 		/// <summary>
-		/// Gets the directory where Fallout 3 plugins are installed.
+		/// Gets the directory where plugins are installed.
 		/// </summary>
-		/// <value>The directory where Fallout 3 plugins are installed.</value>
+		/// <value>The directory where plugins are installed.</value>
 		public override string PluginDirectory
 		{
 			get
@@ -141,6 +142,18 @@ namespace Nexus.Client.Games.Gamebryo
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
+			}
+		}
+
+		/// <summary>
+		/// Gets the max allowed number of active plugins.
+		/// </summary>
+		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
+		public override Int32 MaxAllowedActivePluginsCount
+		{
+			get
+			{
+				return m_intMaxAllowedPlugins;
 			}
 		}
 

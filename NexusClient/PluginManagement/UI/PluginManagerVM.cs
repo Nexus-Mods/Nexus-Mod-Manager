@@ -168,6 +168,18 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <value>The game mode currently being managed.</value>
 		protected IGameMode CurrentGameMode { get; private set; }
 
+		/// <summary>
+		/// Gets the max allowed number of active plugins.
+		/// </summary>
+		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
+		public Int32 MaxAllowedActivePluginsCount
+		{
+			get
+			{
+				return PluginManager.MaxAllowedActivePluginsCount;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

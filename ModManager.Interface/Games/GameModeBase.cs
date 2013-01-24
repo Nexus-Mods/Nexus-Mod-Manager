@@ -180,6 +180,7 @@ namespace Nexus.Client.Games
 
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
 		private IGameModeDescriptor m_gmdGameModeInfo = null;
+		private const Int32 m_intMaxAllowedPlugins = 0;
 
 		#region Properties
 
@@ -373,6 +374,18 @@ namespace Nexus.Client.Games
 		/// </remarks>
 		/// <value>The directory where plugins are installed.</value>
 		public abstract string PluginDirectory { get; }
+
+		/// <summary>
+		/// Gets the max allowed number of active plugins.
+		/// </summary>
+		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
+		public virtual Int32 MaxAllowedActivePluginsCount 
+		{
+			get
+			{
+				return m_intMaxAllowedPlugins;
+			}
+		}
 
 		#endregion
 
