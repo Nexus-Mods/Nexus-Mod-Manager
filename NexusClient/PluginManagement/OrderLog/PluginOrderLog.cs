@@ -133,7 +133,8 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			    {
 				    Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(strPlugin);
 				    Trace.TraceInformation("Loading {0} (IsNull={1})", strPlugin, (plgPlugin == null));
-				    m_oclOrderedPlugins.Add(plgPlugin);
+				    if (plgPlugin != null) 
+						m_oclOrderedPlugins.Add(plgPlugin);
 			    }
 			Trace.Unindent();
 		}
