@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 
@@ -28,28 +30,6 @@ namespace Nexus.Client.ModManagement
 			{
 				return CURRENT_VERSION;
 			}
-		}
-
-		#endregion
-
-		#region Singleton
-
-		private static ICategoryManager m_icmCurrent = null;
-
-		/// <summary>
-		/// Initializes the category manager.
-		/// </summary>
-		/// <param name="p_strModInstallDirectory">The path of the directory where all of the mods are installed.</param>
-		/// <param name="p_strCategoryPath">The path from which to load the categories information.</param>
-		/// <returns>The initialized category manager.</returns>
-		/// <exception cref="InvalidOperationException">Thrown if the category manager has already
-		/// been initialized.</exception>
-		public static ICategoryManager Initialize(string p_strModInstallDirectory, string p_strCategoryPath)
-		{
-			if (m_icmCurrent != null)
-				throw new InvalidOperationException("The Category Manager has already been initialized.");
-			m_icmCurrent = new CategoryManager(p_strModInstallDirectory, p_strCategoryPath);
-			return m_icmCurrent;
 		}
 
 		#endregion
@@ -180,39 +160,9 @@ namespace Nexus.Client.ModManagement
 		#region Serialization/Deserialization
 
 		/// <summary>
-		/// Gets the category info that is currently in the category file, indexed by category key.
-		/// </summary>
-		/// <returns>The category info that is currently in the category file, indexed by category key.</returns>
-		private IDictionary<string, IModCategory> GetCategoryInfo()
-		{
-			Dictionary<string, IModCategory> dicCategoryInfo = new Dictionary<string, IModCategory>();
-			XDocument docCategories = XDocument.Load(CategoryFilePath);
-
-			string strVersion = docCategories.Element("categoryManager").Attribute("fileVersion").Value;
-			if (!CURRENT_VERSION.ToString().Equals(strVersion))
-				throw new Exception(String.Format("Invalid Category Manager version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
-
-			XElement xelCategoryList = docCategories.Descendants("categoryList").FirstOrDefault();
-			if (xelCategoryList != null)
-			{
-				foreach (XElement xelCategory in xelCategoryList.Elements("category"))
-				{
-					string strCategoryPath = xelCategory.Attribute("path").Value;
-					strCategoryPath = Path.Combine(ModInstallDirectory, strCategoryPath);
-					string strCategoryName = xelCategory.Element("name").Value;
-					IModCategory mctCategory = null;
-					mctCategory.CategoryName = strCategoryName;
-					mctCategory.CategoryPath = strCategoryPath;
-					mctCategory.Id = String.IsNullOrEmpty(xelCategory.Attribute("ID").Value) ? 0 : Convert.ToInt32(xelCategory.Attribute("ID").Value);
-					dicCategoryInfo[xelCategory.Attribute("ID").Value] = mctCategory;
-				}
-			}
-			return dicCategoryInfo;
-		}
-
-		/// <summary>
 		/// Loads the categories.
 		/// </summary>
+		/// <param name="p_strDefaultCategories">The string containing the default categories.</param>
 		public void LoadCategories(string p_strDefaultCategories)
 		{
 			if (!File.Exists(CategoryFilePath))
@@ -230,6 +180,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Loads the data from the category file.
 		/// </summary>
+		/// <param name="p_docCategories">The XML dolcument containing the categories.</param>
 		private void LoadCategories(XDocument p_docCategories)
 		{
 			string strVersion = p_docCategories.Element("categoryManager").Attribute("fileVersion").Value;
@@ -250,8 +201,9 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Loads the categories.
+		/// Loads the categories from an online source.
 		/// </summary>
+		/// <param name="p_uriDefaultCategories">The online path where the category file is stored.</param>
 		public void ResetCategories(Uri p_uriDefaultCategories)
 		{
 			m_tslCategories.Clear();
@@ -264,6 +216,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Resets to the repository default categories.
 		/// </summary>
+		/// <param name="p_strDefaultCategories">The string containing the new category list.</param>
 		public void ResetCategories(string p_strDefaultCategories)
 		{
 			m_tslCategories.Clear();
@@ -380,6 +333,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// This restores the first valid backup of the category file.
 		/// </summary>
+		/// <param name="p_strCategoryPath">The path to the category folder.</param>
 		public static bool Restore(string p_strCategoryPath)
 		{
 			string strSuffix = "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bad";
@@ -409,11 +363,25 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_ModManager">The Mod Manager.</param>
+		/// <param name="p_lstMods">The list of mods to update.</param>
+		/// <param name="p_intNewValue">The new category id value.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask Update(ModManager p_ModManager, IList<IMod> p_lstMods, Int32 p_intNewValue, ConfirmActionMethod p_camConfirm)
+		{
+			CategorySwitchTask cstCategorySwitch = new CategorySwitchTask(p_ModManager, p_lstMods, p_intNewValue);
+			cstCategorySwitch.Update(p_camConfirm);
+			return cstCategorySwitch;
+		}
+
+		/// <summary>
 		/// This disposes of the category manager, allowing it to be re-initialized.
 		/// </summary>
 		public void Release()
 		{
-			m_icmCurrent = null;
 		}
 	}
 }

@@ -10,6 +10,7 @@ using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 
@@ -269,7 +270,7 @@ namespace Nexus.Client.ModManagement
 			DownloadMonitor = p_dmrMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
-			CheckForUpdates(false, false);
+			StartupCheckForUpdates();
 		}
 
 		#endregion
@@ -415,30 +416,25 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Check for updates to the managed mods.
 		/// </summary>
-		/// <param name="p_booOverrideDateCheck">Whether to override the date check.</param>
-		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
-		public string CheckForUpdates(bool p_booOverrideDateCheck, bool p_booOverrideCategorySetup)
+		public string StartupCheckForUpdates()
 		{
 			string strMessage = String.Empty;
 
-			if ((EnvironmentInfo.Settings.CheckForNewModVersions) || (p_booOverrideDateCheck))
+			if (EnvironmentInfo.Settings.CheckForNewModVersions)
 			{
 				try
 				{
-					if ((String.IsNullOrEmpty(EnvironmentInfo.Settings.LastModVersionsCheckDate)) || (p_booOverrideDateCheck) || ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastModVersionsCheckDate)).TotalDays >= EnvironmentInfo.Settings.ModVersionsCheckInterval))
+					if ((String.IsNullOrEmpty(EnvironmentInfo.Settings.LastModVersionsCheckDate)) || ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastModVersionsCheckDate)).TotalDays >= EnvironmentInfo.Settings.ModVersionsCheckInterval))
 					{
-						AutoUpdater.CheckForUpdates(p_booOverrideCategorySetup);
+						AutoUpdater.CheckForUpdates();
 						EnvironmentInfo.Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
 						EnvironmentInfo.Settings.Save();
-						strMessage = "Update check successfully performed.";
 					}
 				}
 				catch (Exception e)
 				{
 					EnvironmentInfo.Settings.LastModVersionsCheckDate = "";
 					EnvironmentInfo.Settings.Save();
-					strMessage = "Couldn't perform the update check, retry later.";
-					strMessage = e.Message;
 				}
 			}
 
@@ -462,6 +458,19 @@ namespace Nexus.Client.ModManagement
 		public void SwitchModCategory(IMod p_modMod, Int32 p_intCategoryId)
 		{
 			AutoUpdater.SwitchModCategory(p_modMod, p_intCategoryId);
+		}
+
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask UpdateMods(bool p_booOverrideCategorySetup, ConfirmActionMethod p_camConfirm)
+		{
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, ManagedModRegistry, p_booOverrideCategorySetup);
+			mutModUpdateCheck.Update(p_camConfirm);
+			return mutModUpdateCheck;
 		}
 
 		#endregion

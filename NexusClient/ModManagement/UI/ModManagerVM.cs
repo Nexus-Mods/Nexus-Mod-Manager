@@ -11,6 +11,7 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.Settings;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 
@@ -22,6 +23,8 @@ namespace Nexus.Client.ModManagement.UI
 	/// </summary>
 	public class ModManagerVM
 	{
+		private bool m_booIsCategoryInitialized = false;
+
 		#region Events
 
 		/// <summary>
@@ -43,6 +46,25 @@ namespace Nexus.Client.ModManagement.UI
 		/// Raised when a mod is being tagged.
 		/// </summary>
 		public event EventHandler<EventArgs<ModTaggerVM>> TaggingMod = delegate { };
+
+		/// <summary>
+		/// Raised when the category list is being updated.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> UpdatingCategory = delegate { };
+
+		/// <summary>
+		/// Raised when the mods list is being updated.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> UpdatingMods = delegate { };
+
+		#endregion
+
+		#region Delegates
+
+		/// <summary>
+		/// Called when an updater's action needs to be confirmed.
+		/// </summary>
+		public ConfirmActionMethod ConfirmUpdaterAction = delegate { return true; };
 
 		#endregion
 
@@ -124,9 +146,9 @@ namespace Nexus.Client.ModManagement.UI
 		protected ModManager ModManager { get; private set; }
 
 		/// <summary>
-		/// Gets the mod manager to use to manage mods.
+		/// Gets the category manager to use to manage categories.
 		/// </summary>
-		/// <value>The mod manager to use to manage mods.</value>
+		/// <value>The category manager to use to manage categories.</value>
 		public CategoryManager CategoryManager { get; private set; }
 
 		/// <summary>
@@ -189,6 +211,18 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		/// <summary>
+		/// Gets whether the category file has been initialized.
+		/// </summary>
+		/// <value>Whether the category file has been initialized.</value>
+		public bool IsCategoryInitialized
+		{
+			get
+			{
+				return m_booIsCategoryInitialized;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -205,25 +239,11 @@ namespace Nexus.Client.ModManagement.UI
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
 			CategoryManager = new CategoryManager(ModManager.CurrentGameModeModDirectory, "categories");
-			if (!this.CategoryManager.IsValidPath)
+			if (this.CategoryManager.IsValidPath)
 			{
-				//messagebox load game default or just unassigned
-				string strMessage = "You currently don't have any file categories setup.";
-				strMessage += Environment.NewLine + "Would you like NMM to organise your mods based on the categories the Nexus sites use, or would you like to organise your categories yourself?";
-				strMessage += Environment.NewLine + Environment.NewLine + "Note: If you choose to use Nexus categories you can still create your own categories and move your files around them. This initial Nexus setup is just a template for you to use.";
-				
-				DialogResult Result = MessageBox.Show(strMessage, "Category setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-				if (Result == DialogResult.Yes)
-				{
-					this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
-					if (!OfflineMode)
-						CheckForUpdates(true);
-				}
-				else
-					this.CategoryManager.LoadCategories(String.Empty);	
+				this.CategoryManager.LoadCategories(String.Empty);
+				m_booIsCategoryInitialized = true;
 			}
-			else
-				this.CategoryManager.LoadCategories(String.Empty);	
 
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
@@ -341,9 +361,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		/// <returns>Message</returns>
 		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
-		public string CheckForUpdates(bool p_booOverrideCategorySetup)
+		public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
-			return ModManager.CheckForUpdates(true, p_booOverrideCategorySetup);
+			UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(p_booOverrideCategorySetup, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>
@@ -423,7 +443,7 @@ namespace Nexus.Client.ModManagement.UI
 			DialogResult Result = MessageBox.Show(strMessage, "Category remove", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
-				CategoryManager.ResetCategories(String.Empty);
+				CategoryManager.ResetCategories	(String.Empty);
 				SwitchModsToUnassigned(0);
 				return true;
 			}
@@ -434,12 +454,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Sets all managed mods to the Unassigned category.
 		/// </summary>
+		/// <param name="p_intUnassignedId">The unassigned category Id.</param>
 		private void SwitchModsToUnassigned(Int32 p_intUnassignedId)
 		{
-			foreach (IMod modMod in ManagedMods)
-			{
-				SwitchModCategory(modMod, p_intUnassignedId);
-			}
+			UpdatingCategory(this, new EventArgs<IBackgroundTask>(CategoryManager.Update(ModManager, ManagedMods, p_intUnassignedId, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>
@@ -448,14 +466,37 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_imcCategory">The removed category.</param>
 		public void SwitchModsToUnassigned(IModCategory p_imcCategory)
 		{
-			var CategoryMods = from Mod in ManagedMods
-							   where ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_imcCategory.Id)
-							   select Mod;
+			var CategoryMods = ManagedMods.Where(Mod => (Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_imcCategory.Id).ToList();
 
-			foreach (IMod modMod in CategoryMods)
+			UpdatingCategory(this, new EventArgs<IBackgroundTask>(CategoryManager.Update(ModManager, CategoryMods, 0, ConfirmUpdaterAction)));
+		}
+
+		/// <summary>
+		/// Checks if the CategoryManager has been properly initialized.
+		/// </summary>
+		public void CheckCategoryManager()
+		{
+			if (!this.CategoryManager.IsValidPath)
 			{
-				SwitchModCategory(modMod, 0);
+				string strMessage = "You currently don't have any file categories setup.";
+				strMessage += Environment.NewLine + "Would you like NMM to organise your mods based on the categories the Nexus sites use, or would you like to organise your categories yourself?";
+				strMessage += Environment.NewLine + Environment.NewLine + "Note: If you choose to use Nexus categories you can still create your own categories and move your files around them. This initial Nexus setup is just a template for you to use.";
+
+				DialogResult Result = MessageBox.Show(strMessage, "Category setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+				if (Result == DialogResult.Yes)
+				{
+					this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
+					if (!OfflineMode)
+						CheckForUpdates(true);
+				}
+				else
+				{
+					this.CategoryManager.LoadCategories(String.Empty);
+					SwitchModsToUnassigned(0);
+				}
 			}
+			else
+				this.CategoryManager.LoadCategories(String.Empty);	
 		}
 
 		#endregion

@@ -30,6 +30,10 @@ namespace Nexus.Client.UI.Controls
 
 		#region Properties
 
+		/// <summary>
+		/// Gets or sets whether to show the hidden categories (no mods assigned).
+		/// </summary>
+		/// <value>Whether to show the hidden categories (no mods assigned).</value>
 		public bool ShowHiddenCategories
 		{
 			get
@@ -42,6 +46,10 @@ namespace Nexus.Client.UI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets the currently selected item.
+		/// </summary>
+		/// <value>The currently selected item.</value>
 		public ListViewItem GetSelectedItem
 		{
 			get
@@ -50,6 +58,10 @@ namespace Nexus.Client.UI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets the currently selected mod.
+		/// </summary>
+		/// <value>The currently selected mod.</value>
 		public IMod GetSelectedMod
 		{
 			get
@@ -57,7 +69,11 @@ namespace Nexus.Client.UI.Controls
 				return m_modSelectedMod;
 			}
 		}
-		
+
+		/// <summary>
+		/// Gets the ListViewItems from the reference table.
+		/// </summary>
+		/// <value>The ListViewItems from the reference table.</value>
 		protected IEnumerable<ListViewItem> lviCategoryItems
 		{
 			get
@@ -66,8 +82,16 @@ namespace Nexus.Client.UI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets the category manager to use to manage categories.
+		/// </summary>
+		/// <value>The category manager to use to manage categories.</value>
 		protected CategoryManager CategoryManager { get; private set; }
 
+		/// <summary>
+		/// Gets the list of categories being managed by the category manager.
+		/// </summary>
+		/// <value>The list of categories being managed by the category manager.</value>
 		protected ThreadSafeObservableList<IModCategory> Categories
 		{
 			get
@@ -113,9 +137,8 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.Tag = false;
 
-			this.CellEditActivation = CellEditActivateMode.SingleClick;
+			this.CellEditActivation = CellEditActivateMode.None;
 
-			// TODO Category: Check if valid
 			m_lvwList = p_lvwList;
 			CategoryManager = p_cmgCategoryManager;
 
@@ -509,7 +532,6 @@ namespace Nexus.Client.UI.Controls
 
 				if (m_booShowEmpty || (ModCount > 0))
 				{
-					//Category.Text = imcCategory.CategoryName + "(" + ModCount.ToString() + ")";
 					Category.Text = imcCategory.CategoryName;
 					ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
 					Sub.Name = "InstallDate";
@@ -540,10 +562,11 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Adds a new category to the TreeListView.
 		/// </summary>
+		/// <param name="p_imcCategory">The category to add to the roots list.</param>
+		/// <param name="booIsNew">Whether the category is new or was just hidden.</param>
 		public void AddData(IModCategory p_imcCategory, bool booIsNew)
 		{
 			ListViewItem Category = new ListViewItem();
-			//Category.Text = p_imcCategory.CategoryName + "(" + GetCategoryModCount(p_imcCategory, lviCategoryItems).ToString() + ")";
 			Category.Text = p_imcCategory.CategoryName;
 			ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
 			Sub.Name = "InstallDate";
@@ -575,6 +598,7 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Removes the category from the TreeListView.
 		/// </summary>
+		/// <param name="p_mctCategory">The category to remove.</param>
 		public bool RemoveData(ModCategory p_mctCategory)
 		{
 			if (this.Items.Count > 0)
@@ -595,6 +619,7 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Refresh the category in the TreeListView.
 		/// </summary>
+		/// <param name="p_mctCategory">The category to refresh.</param>
 		public bool RefreshData(ModCategory p_mctCategory)
 		{
 			if (this.Items.Count > 0)
@@ -615,6 +640,8 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Update the category in the TreeListView.
 		/// </summary>
+		/// <param name="p_mctCategory">The category to update.</param>
+		/// <param name="strOldValue">The previous category name.</param>
 		public void UpdateData(ModCategory p_mctCategory, string strOldValue)
 		{
 			if (this.Items.Count > 0)
@@ -640,6 +667,7 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Gets the mod count for the current category.
 		/// </summary>
+		/// <param name="p_imcCategory">The category to count.</param>
 		public Int32 GetCategoryModCount(IModCategory p_imcCategory)
 		{
 			var CategoryMods = from Mod in lviCategoryItems
@@ -652,6 +680,8 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Gets the mod count for the current category.
 		/// </summary>
+		/// <param name="p_imcCategory">The category to count.</param>
+		/// <param name="p_lviItems">The ListViewItem containing the categories.</param>
 		public Int32 GetCategoryModCount(IModCategory p_imcCategory, IEnumerable<ListViewItem> p_lviItems)
 		{
 			var CategoryMods = from Mod in p_lviItems
@@ -664,6 +694,7 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Removes the selected category.
 		/// </summary>
+		/// <param name="p_imcCategory">The category to remove.</param>
 		public void RemoveCategory(IModCategory p_imcCategory)
 		{
 			if ((p_imcCategory != null) && (p_imcCategory.Id != 0))
@@ -697,16 +728,31 @@ namespace Nexus.Client.UI.Controls
 
 		#region EventHandler
 
+		/// <summary>
+		/// Handles the cmsContextMenu.CategoryRemove event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
 		private void cmsContextMenu_CategoryRemove(object sender, EventArgs e)
 		{
 			RemoveCategory(m_imcSelectedCategory);
 		}
 
+		/// <summary>
+		/// Handles the cmsContextMenu.CategoryNew event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
 		private void cmsContextMenu_CategoryNew(object sender, EventArgs e)
 		{
 			AddNewCategory();
 		}
 
+		/// <summary>
+		/// Handles the cmsContextMenu.CategoryClicked event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
 		private void cmsContextMenu_CategoryClicked(object sender, EventArgs e)
 		{
 			ToolStripItem item = sender as ToolStripItem;
@@ -718,5 +764,17 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		#endregion
+
+		/// <summary>
+		/// This resizes the columns to fill the list view.
+		/// </summary>
+		public void SizeColumnsToFit()
+		{
+			Int32 intFixedWidth = 0;
+			for (Int32 i = 0; i < this.Columns.Count; i++)
+				if (this.Columns[i] != tlcModName)
+					intFixedWidth += this.Columns[i].Width;
+			tlcModName.Width = this.ClientSize.Width - intFixedWidth;
+		}
 	}
 }
