@@ -1350,10 +1350,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 					}
 					if (OModBaseVersion >= 1)
 						bwrConfig.Write(intBuildVersion);
-					bwrConfig.Write(OModVersion >= 5 ? OModVersion : Convert.ToByte(5));
+					bwrConfig.Write(OModVersion >= 6 ? OModVersion : Convert.ToByte(6));
 					bwrConfig.Write(String.IsNullOrEmpty(Id) ? "" : Id);
 					bwrConfig.Write(String.IsNullOrEmpty(LastKnownVersion) ? "" : LastKnownVersion);
 					bwrConfig.Write(IsEndorsed.ToString());
+					bwrConfig.Write(CategoryId);
+					bwrConfig.Write(CustomCategoryId);
 					intLength = stmConfig.Length;
 				}
 				byte[] bteConfig = new byte[intLength];
@@ -1428,6 +1430,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 						{
 							IsEndorsed = false;
 						}
+
+						if (OModVersion >= 6)
+						{
+							CategoryId = brdConfig.ReadInt32();
+							CustomCategoryId = brdConfig.ReadInt32();
+						}
 					}
 					else
 						OModVersion = OModBaseVersion;
@@ -1479,6 +1487,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 							brdConfig.ReadString();
 							brdConfig.ReadString();
 							brdConfig.ReadString();
+
+							if (bteOModVersion >= 6)
+							{
+								brdConfig.ReadInt32();
+								brdConfig.ReadInt32();
+							}
 						}
 					}
 				}

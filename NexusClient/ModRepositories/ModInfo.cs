@@ -125,6 +125,7 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_verMachineVersion">The version of the mod.</param>
 		/// <param name="p_strAuthor">The author of the mod.</param>
 		/// <param name="p_strCategoryId">The category of the mod.</param>
+		/// <param name="p_strCustomCategoryId">The custom category of the mod.</param>
 		/// <param name="p_strDescription">The description of the mod.</param>
 		/// <param name="p_strInstallDate">The install date of the mod.</param>
 		/// <param name="p_uriWebsite">The website of the mod.</param>
@@ -149,6 +150,7 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_verMachineVersion">The version of the mod.</param>
 		/// <param name="p_strAuthor">The author of the mod.</param>
 		/// <param name="p_strCategoryId">The category of the mod.</param>
+		/// <param name="p_strCustomCategoryId">The custom category of the mod.</param>
 		/// <param name="p_strDescription">The description of the mod.</param>
 		/// <param name="p_strInstallDate">The install date of the mod.</param>
 		/// <param name="p_uriWebsite">The website of the mod.</param>

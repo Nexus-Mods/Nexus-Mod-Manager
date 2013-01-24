@@ -71,6 +71,18 @@ namespace Nexus.Client.Games.FalloutNV
 			}
 		}
 
+		/// <summary>
+		/// Gets the default game categories.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public override string GameDefaultCategories
+		{
+			get
+			{
+				return Properties.Resources.Categories;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

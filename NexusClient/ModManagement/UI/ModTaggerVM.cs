@@ -100,6 +100,11 @@ namespace Nexus.Client.ModManagement.UI
 		public void SaveTags()
 		{
 			ModInfoEditorVM.EditedModInfoVM.Commit();
+			ModInfo modMod = (ModInfo)m_mifCurrentTagOption;
+			modMod.CustomCategoryId = Mod.CustomCategoryId;
+			modMod.InstallDate = Mod.InstallDate;
+			modMod.IsEndorsed = Mod.IsEndorsed;
+			modMod.CategoryId = Mod.CategoryId;
 			ModTagger.Tag(Mod, m_mifCurrentTagOption, true);
 		}
 	}
