@@ -97,6 +97,12 @@ namespace Nexus.Client.Games
 		/// <value>The directory where plugins are installed.</value>
 		string PluginDirectory { get; }
 
+		/// <summary>
+		/// Gets the max allowed number of active plugins.
+		/// </summary>
+		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
+		Int32 MaxAllowedActivePluginsCount { get; }
+
 		#endregion
 
 		#region Plugin Management
