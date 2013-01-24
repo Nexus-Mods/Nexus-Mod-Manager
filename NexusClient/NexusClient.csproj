@@ -321,7 +321,9 @@
     <Compile Include="IMessager.cs" />
     <Compile Include="MessagerClient.cs" />
     <Compile Include="ModManagement\CategoryManager\CategoryManager.cs" />
+    <Compile Include="ModManagement\CategorySwitchTask.cs" />
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
+    <Compile Include="ModManagement\ModUpdateCheckTask.cs" />
     <Compile Include="ModRepositories\FileServerZone.cs" />
     <Compile Include="ModRepositories\FileserverInfo.cs" />
     <Compile Include="ModRepositories\ModCategory.cs" />

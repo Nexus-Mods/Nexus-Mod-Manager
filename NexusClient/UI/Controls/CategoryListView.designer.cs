@@ -52,7 +52,6 @@ namespace Nexus.Client.UI.Controls
             this.tlcVersion,
             this.tlcWebVersion,
             this.tlcAuthor});
-
 			// 
 			// cmsContextMenu
 			// 
@@ -63,32 +62,36 @@ namespace Nexus.Client.UI.Controls
 			// 
 			this.tlcModName.Text = "Name";
 			this.tlcModName.Width = 250;
-			this.tlcModName.IsEditable = true;
+			this.tlcModName.IsEditable = false;
 			// 
 			// tlcInstallDate
 			// 
 			this.tlcInstallDate.Text = "Install Date";
-			this.tlcInstallDate.Width = 125;
+			this.tlcInstallDate.Width = 140;
 			this.tlcInstallDate.IsEditable = false;
 			// 
 			// tlcEndorsement
 			// 
 			this.tlcEndorsement.Text = "Endorsement";
+			this.tlcEndorsement.TextAlign = HorizontalAlignment.Center;
 			this.tlcEndorsement.IsEditable = false;
 			// 
 			// tlcVersion
 			// 
 			this.tlcVersion.Text = "Version";
+			this.tlcVersion.TextAlign = HorizontalAlignment.Center;
 			this.tlcVersion.IsEditable = false;
 			// 
 			// tlcWebVersion
 			// 
 			this.tlcWebVersion.Text = "Latest Version";
+			this.tlcWebVersion.TextAlign = HorizontalAlignment.Center;
 			this.tlcWebVersion.IsEditable = false;
 			// 
 			// tlcAuthor
 			// 
 			this.tlcAuthor.Text = "Author";
+			this.tlcAuthor.Width = 100;
 			this.tlcAuthor.IsEditable = false;
 		}
 

@@ -372,6 +372,8 @@
 			this.clwCategoryView.View = System.Windows.Forms.View.Details;
 			this.clwCategoryView.VirtualMode = true;
 			this.clwCategoryView.Resize += new System.EventHandler(this.lvwMods_Resize);
+			this.clwCategoryView.AfterLabelEdit += new System.Windows.Forms.LabelEditEventHandler(this.clwCategoryView_AfterLabelEdit);
+			this.clwCategoryView.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.clwCategoryView_ColumnWidthChanging);
 			this.clwCategoryView.Visible = true;
 			// 
 			// sptSummaryInfo
@@ -440,7 +442,6 @@
 			((System.ComponentModel.ISupportInitialize)(this.ipbScreenShot)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
-
 		}
 
 		#endregion

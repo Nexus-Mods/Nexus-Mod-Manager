@@ -131,20 +131,11 @@ namespace Nexus.Client.ModManagement
 		/// Check for updates to the managed mods.
 		/// </summary>
 		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
-		public void CheckForUpdates(bool p_booOverrideCategorySetup)
+		public void CheckForUpdates()
 		{
 			List<string> ModList = new List<string>();
 
-			if (p_booOverrideCategorySetup)
-			{
-				var UnassignedMods = from Mod in ManagedModRegistry.RegisteredMods
-								   where (Mod.CategoryId == 0)
-								   select Mod;
-
-				m_lstModList.AddRange(UnassignedMods);
-			}
-			else
-				m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
+			m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
 
 			for (int i = 0; i < m_lstModList.Count; i++)
 			{
@@ -168,10 +159,7 @@ namespace Nexus.Client.ModManagement
 
 				if (!String.IsNullOrEmpty(modID))
 				{
-					if (p_booOverrideCategorySetup)
-						ModList.Add(String.Format("{0}", modID));
-					else
-						ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
+					ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
 				}
 
 				// Prevents the repository request string from becoming too long.
@@ -350,7 +338,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to add the newest info.</param>
 		/// <param name="p_mifNewestInfo">The newest info to add for the given mod.</param>
-		private void AddNewVersionNumberForMod(IMod p_modMod, IModInfo p_mifNewestInfo)
+		public void AddNewVersionNumberForMod(IMod p_modMod, IModInfo p_mifNewestInfo)
 		{
 			lock (m_oclNewInfo)
 			{
