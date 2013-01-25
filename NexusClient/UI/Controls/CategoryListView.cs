@@ -54,7 +54,25 @@ namespace Nexus.Client.UI.Controls
 		{
 			get
 			{
-				return (ListViewItem)this.SelectedItem.RowObject;
+				if ((this.SelectedObjects != null) && (this.SelectedObjects.Count > 0))
+					return GetSelectedItems.First();
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
+		/// Gets the currently selected items.
+		/// </summary>
+		/// <value>The currently selected items.</value>
+		public List<ListViewItem> GetSelectedItems
+		{
+			get
+			{
+				List<ListViewItem> lstListViewItem = new List<ListViewItem>();
+				foreach (ListViewItem item in this.SelectedObjects)
+					lstListViewItem.Add(item);
+				return lstListViewItem;
 			}
 		}
 
@@ -138,6 +156,7 @@ namespace Nexus.Client.UI.Controls
 			this.Tag = false;
 
 			this.CellEditActivation = CellEditActivateMode.None;
+			this.MultiSelect = true;
 
 			m_lvwList = p_lvwList;
 			CategoryManager = p_cmgCategoryManager;
@@ -248,12 +267,7 @@ namespace Nexus.Client.UI.Controls
 
 			tlcModName.AspectToStringConverter = delegate(object x)
 			{
-				IModCategory imcCategory = CategoryManager.Categories.Find(Item => Item.CategoryName == x.ToString());
-
-				if (imcCategory != null)
-					return x.ToString() + " (" + GetCategoryModCount(imcCategory) + ")";
-				else
-					return x.ToString();
+				return x.ToString();
 			};
 
 			tlcInstallDate.AspectGetter = delegate(object rowObject)
@@ -479,7 +493,7 @@ namespace Nexus.Client.UI.Controls
 				ListViewItem lviItem = (ListViewItem)rowObject;
 				if ((lviItem.Tag).GetType() == typeof(ModCategory))
 				{
-					return new Bitmap(Properties.Resources.activate_mod, 16, 16);
+					return new Bitmap(CreateBitmapImage(GetCategoryModCount((IModCategory)lviItem.Tag, lviCategoryItems).ToString()), 13 , 15);
 				}
 				else
 				{
@@ -593,6 +607,8 @@ namespace Nexus.Client.UI.Controls
 
 			if (booIsNew)
 				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(p_imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
+
+			this.EnsureVisible(this.Items.Count - 1);
 		}
 
 		/// <summary>
@@ -756,7 +772,8 @@ namespace Nexus.Client.UI.Controls
 		private void cmsContextMenu_CategoryClicked(object sender, EventArgs e)
 		{
 			ToolStripItem item = sender as ToolStripItem;
-			if (m_modSelectedMod != null)
+
+			if (this.SelectedObjects.Count > 0)
 			{
 				if (this.CategorySwitch != null)
 					this.CategorySwitch((IModCategory)Categories.Find(Item => Item.CategoryName == item.Text), new EventArgs());
@@ -775,6 +792,28 @@ namespace Nexus.Client.UI.Controls
 				if (this.Columns[i] != tlcModName)
 					intFixedWidth += this.Columns[i].Width;
 			tlcModName.Width = this.ClientSize.Width - intFixedWidth;
+		}
+
+		/// <summary>
+		/// This dynamically creates a transparency enabled png merging the folder icon with the mod count.
+		/// </summary>
+		private Bitmap CreateBitmapImage(string sImageText)
+		{
+			Bitmap objBmpImage = new Bitmap(Properties.Resources.category_folder);
+			int intWidth = 0;
+			int intHeight = 0;
+			Font objFont = new Font("Arial", 14, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+			Graphics objGraphics = Graphics.FromImage(objBmpImage);
+			intWidth = (int)objGraphics.MeasureString(sImageText, objFont).Width;
+			intHeight = (int)objGraphics.MeasureString(sImageText, objFont).Height;
+			objBmpImage = new Bitmap(objBmpImage, new Size(intWidth + 2, intHeight + 4));
+			objGraphics = Graphics.FromImage(objBmpImage);
+			objGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+			objGraphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+			objGraphics.DrawString(sImageText, objFont, new SolidBrush(Color.FromArgb(25, 25, 25)), 1, 5);
+			objGraphics.Flush();
+			objBmpImage.MakeTransparent(Color.Magenta);
+			return (objBmpImage);
 		}
 	}
 }
