@@ -154,7 +154,6 @@ namespace Nexus.Client.ModManagement.UI
 				if (!ViewModel.IsCategoryInitialized)
 				{
 					ViewModel.CheckCategoryManager();
-					clwCategoryView.LoadData();
 					clwCategoryView.SetupContextMenu();
 					clwCategoryView.RebuildAll(true);
 				}
@@ -468,25 +467,44 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				clwCategoryView.Setup(lvwMods, ViewModel.CategoryManager);
 
+				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
 				{
+					if ((clwCategoryView.SelectedObjects.Count > 0) && !m_booDisableSummary)
+					{
+						if (clwCategoryView.GetSelectedItem.Tag.GetType() != typeof(ModCategory))
+							UpdateSummary((IMod)clwCategoryView.GetSelectedItem.Tag);
+					}
+					else
+						UpdateSummary(null);
 					SetCommandExecutableStatus();
 				};
 
-				// Enables installing/uninstalling mods using the double click
+				// Enables installing/uninstalling mods using the double click; if a category is clicked it will be expanded/collapsed
 				this.clwCategoryView.CellClick += delegate(object sender, BrightIdeasSoftware.CellClickEventArgs e)
 				{
 					if ((e.ClickCount == 2) && (e.Item != null))
 					{
 						try
 						{
-							IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
-							if (modMod != null)
+							ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
+							if (lviItem.Tag.GetType() == typeof(ModCategory))
 							{
-								if (((ListViewItem)e.Item.RowObject).Checked)
-									ViewModel.DeactivateModCommand.Execute(modMod);
+								if (clwCategoryView.IsExpanded(lviItem))
+									clwCategoryView.Collapse(lviItem);
 								else
-									ViewModel.ActivateModCommand.Execute(modMod);
+									clwCategoryView.Expand(lviItem);
+							}
+							else
+							{
+								IMod modMod = (IMod)lviItem.Tag;
+								if (modMod != null)
+								{
+									if (((ListViewItem)e.Item.RowObject).Checked)
+										ViewModel.DeactivateModCommand.Execute(modMod);
+									else
+										ViewModel.ActivateModCommand.Execute(modMod);
+								}
 							}
 						}
 						catch
@@ -512,7 +530,6 @@ namespace Nexus.Client.ModManagement.UI
 							{
 								IMod modMod = (IMod)objTag;
 								ViewModel.DeleteMod(modMod);
-								clwCategoryView.RebuildAll(true);
 							}
 							catch
 							{
@@ -534,14 +551,17 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (e.Column.Text == "Latest Version")
 			{
-				IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
-				if (!modMod.IsMatchingVersion())
+				if (((ListViewItem)e.Item.RowObject).Tag.GetType() != typeof(ModCategory))
 				{
-					e.AutoPopDelay = 10000;
-					e.Title = "New Version Available Online";
-					e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Warning;
-					e.Text = "There's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.";
-					e.IsBalloon = true;
+					IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
+					if (!modMod.IsMatchingVersion())
+					{
+						e.AutoPopDelay = 10000;
+						e.Title = "New Version Available Online";
+						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Warning;
+						e.Text = "There's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.";
+						e.IsBalloon = true;
+					}
 				}
 			}
 		}
@@ -554,17 +574,32 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_CategorySwitch(object sender, EventArgs e)
 		{
-			if ((clwCategoryView.GetSelectedMod != null) && (sender != null))
+			if ((clwCategoryView.SelectedObjects.Count > 0) && (sender != null))
 			{
-				IMod modMod = clwCategoryView.GetSelectedMod;
-				ModCategory mctOldCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId);
 				IModCategory imcNewCategory = (IModCategory)sender;
+				List<IMod> lstSelectedMods = new List<IMod>();
+				List<ModCategory> lstOldCategory = new List<ModCategory>();
+				foreach (ListViewItem lviItem in clwCategoryView.GetSelectedItems)
+				{
+					if (lviItem.Tag.GetType() != typeof(ModCategory))
+					{
+						IMod modMod = (IMod)lviItem.Tag;
+						ModCategory mctOldCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId);
+						if (!lstOldCategory.Contains(mctOldCategory))
+							lstOldCategory.Add(mctOldCategory);
+						lstSelectedMods.Add(modMod);
+					}
+				}
 
-				ViewModel.SwitchModCategory(modMod, imcNewCategory.Id);
+				ViewModel.SwitchModsToCategory(lstSelectedMods, imcNewCategory.Id);
+
 				if (clwCategoryView.RefreshData(new ModCategory(imcNewCategory)))
 					clwCategoryView.AddData(imcNewCategory, false);
-				if (clwCategoryView.GetCategoryModCount(mctOldCategory) == 0)
-					clwCategoryView.RemoveData(mctOldCategory);
+
+				foreach (ModCategory mctOld in lstOldCategory)
+					if ((clwCategoryView.GetCategoryModCount(mctOld) == 0) && !clwCategoryView.ShowHiddenCategories)
+						clwCategoryView.RemoveData(mctOld);
+
 				clwCategoryView.RebuildAll(true);
 			}
 		}
@@ -1118,6 +1153,8 @@ namespace Nexus.Client.ModManagement.UI
 				return;
 			}
 
+			ModCategory mctCategory = null;
+
 			switch (e.Action)
 			{
 				case NotifyCollectionChangedAction.Add:
@@ -1125,16 +1162,31 @@ namespace Nexus.Client.ModManagement.UI
 					foreach (IMod modAdded in e.NewItems)
 					{
 						AddModToList(modAdded);
+						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modAdded.CustomCategoryId >= 0 ? modAdded.CustomCategoryId : modAdded.CategoryId);
 					}
 					break;
 				case NotifyCollectionChangedAction.Remove:
 					foreach (IMod modRemoved in e.OldItems)
 					{
 						RemoveModFromList(modRemoved);
+						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modRemoved.CustomCategoryId >= 0 ? modRemoved.CustomCategoryId : modRemoved.CategoryId);
 					}
 					break;
 			}
 
+			if (mctCategory != null)
+			{
+				if ((e.NewItems != null) && (e.NewItems.Count > 0))
+				{
+					if (clwCategoryView.RefreshData(new ModCategory(mctCategory)))
+						clwCategoryView.AddData(mctCategory, false);
+				}
+				else if ((e.OldItems != null) && (e.OldItems.Count > 0))
+				{
+					if ((clwCategoryView.GetCategoryModCount(mctCategory) == 0) && !clwCategoryView.ShowHiddenCategories)
+						clwCategoryView.RemoveData(mctCategory);
+				}
+			}
 			clwCategoryView.RebuildAll(true);
 		}
 
@@ -1463,6 +1515,17 @@ namespace Nexus.Client.ModManagement.UI
 		/// This resizes the columns to fill the list view.
 		/// </summary>
 		protected void SizeColumnsToFit()
+		{
+			if (lvwMods.Visible)
+				SizeColumnsToFitLvw();
+			else if (clwCategoryView.Visible)
+				SizeColumnsToFitClw();
+		}
+
+		/// <summary>
+		/// This resizes the columns to fill the list view.
+		/// </summary>
+		protected void SizeColumnsToFitLvw()
 		{
 			if (lvwMods.Columns.Count == 0)
 				return;
