@@ -408,7 +408,7 @@ namespace Nexus.Client.ModManagement.UI
 
 				if (!OfflineMode)
 					CheckForUpdates(true);
-				SwitchModsToUnassigned(-1);
+				SwitchModsToCategory(-1);
 
 				return true;
 			}
@@ -426,7 +426,7 @@ namespace Nexus.Client.ModManagement.UI
 			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
-				SwitchModsToUnassigned(0);
+				SwitchModsToCategory(0);
 				return true;
 			}
 
@@ -444,7 +444,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (Result == DialogResult.Yes)
 			{
 				CategoryManager.ResetCategories	(String.Empty);
-				SwitchModsToUnassigned(0);
+				SwitchModsToCategory(0);
 				return true;
 			}
 
@@ -452,12 +452,22 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Sets all managed mods to the Unassigned category.
+		/// Sets all managed mods to the given category id.
 		/// </summary>
-		/// <param name="p_intUnassignedId">The unassigned category Id.</param>
-		private void SwitchModsToUnassigned(Int32 p_intUnassignedId)
+		/// <param name="p_intCategoryId">The unassigned category Id.</param>
+		private void SwitchModsToCategory(Int32 p_intCategoryId)
 		{
-			UpdatingCategory(this, new EventArgs<IBackgroundTask>(CategoryManager.Update(ModManager, ManagedMods, p_intUnassignedId, ConfirmUpdaterAction)));
+			UpdatingCategory(this, new EventArgs<IBackgroundTask>(CategoryManager.Update(ModManager, ManagedMods, p_intCategoryId, ConfirmUpdaterAction)));
+		}
+
+		/// <summary>
+		/// Sets the selected mods to the given category id.
+		/// </summary>
+		/// <param name="p_lstSelectedMods">The list of selected mods.</param>
+		/// <param name="p_intCategoryId">The unassigned category Id.</param>
+		public void SwitchModsToCategory(List<IMod> p_lstSelectedMods, Int32 p_intCategoryId)
+		{
+			UpdatingCategory(this, new EventArgs<IBackgroundTask>(CategoryManager.Update(ModManager, p_lstSelectedMods, p_intCategoryId, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>
@@ -492,7 +502,7 @@ namespace Nexus.Client.ModManagement.UI
 				else
 				{
 					this.CategoryManager.LoadCategories(String.Empty);
-					SwitchModsToUnassigned(0);
+					SwitchModsToCategory(0);
 				}
 			}
 			else
