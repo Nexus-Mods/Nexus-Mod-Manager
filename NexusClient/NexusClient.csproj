@@ -281,6 +281,7 @@
     <None Include="Resources\collapse_all.png" />
     <None Include="Resources\expand_all.png" />
     <None Include="Resources\switch_view.png" />
+    <None Include="Resources\category_folder.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\text-x-generic.png" />
     <None Include="Resources\unendorsed_small.png" />

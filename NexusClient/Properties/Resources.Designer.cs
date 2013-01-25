@@ -109,6 +109,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap category_folder {
+            get {
+                object obj = ResourceManager.GetObject("category_folder", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap change_game_mode {
             get {
                 object obj = ResourceManager.GetObject("change_game_mode", resourceCulture);
