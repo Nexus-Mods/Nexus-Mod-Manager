@@ -154,6 +154,7 @@ namespace Nexus.Client.ModManagement.UI
 				if (!ViewModel.IsCategoryInitialized)
 				{
 					ViewModel.CheckCategoryManager();
+					clwCategoryView.LoadData();
 					clwCategoryView.SetupContextMenu();
 					clwCategoryView.RebuildAll(true);
 				}
