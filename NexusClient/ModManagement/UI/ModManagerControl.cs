@@ -1161,8 +1161,10 @@ namespace Nexus.Client.ModManagement.UI
 				case NotifyCollectionChangedAction.Replace:
 					foreach (IMod modAdded in e.NewItems)
 					{
+						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modAdded.CategoryId);
 						AddModToList(modAdded);
-						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modAdded.CustomCategoryId >= 0 ? modAdded.CustomCategoryId : modAdded.CategoryId);
+						if (mctCategory.Id == 0)
+							ViewModel.SwitchModCategory(modAdded, 0);
 					}
 					break;
 				case NotifyCollectionChangedAction.Remove:
