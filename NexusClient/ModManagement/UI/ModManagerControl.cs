@@ -518,21 +518,24 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					if (e.KeyData == Keys.Delete)
 					{
-						object objTag = clwCategoryView.GetSelectedItem.Tag;
+						if (clwCategoryView.GetSelectedItem != null)
+						{
+							object objTag = clwCategoryView.GetSelectedItem.Tag;
 
-						if (objTag.GetType() == typeof(ModCategory))
-						{
-							clwCategoryView.RemoveCategory((IModCategory)objTag);
-						}
-						else
-						{
-							try
+							if (objTag.GetType() == typeof(ModCategory))
 							{
-								IMod modMod = (IMod)objTag;
-								ViewModel.DeleteMod(modMod);
+								clwCategoryView.RemoveCategory((IModCategory)objTag);
 							}
-							catch
+							else
 							{
+								try
+								{
+									IMod modMod = (IMod)objTag;
+									ViewModel.DeleteMod(modMod);
+								}
+								catch
+								{
+								}
 							}
 						}
 					}
