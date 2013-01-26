@@ -126,14 +126,21 @@ namespace Nexus.Client.BackgroundTasks.UI
 				pnlItemProgress.Visible = Task.ShowItemProgress;
 				if (pnlItemProgress.Visible)
 				{
-					pbrItemProgress.Value = Task.ItemProgress;
+					if ((Task.ItemProgress <= pbrItemProgress.Maximum) && (Task.ItemProgress <= Task.ItemProgressMaximum))
+						pbrItemProgress.Value = Task.ItemProgress;
+					else
+						pbrItemProgress.Value = (pbrItemProgress.Maximum > Task.ItemProgressMaximum) ? Task.ItemProgressMaximum : pbrItemProgress.Maximum;
 					lblItemMessage.Text = Task.ItemMessage;
 					pbrItemProgress.Maximum = Task.ItemProgressMaximum;
 					pbrItemProgress.Minimum = Task.ItemProgressMinimum;
 					pbrItemProgress.Step = Task.ItemProgressStepSize;
 					pbrItemProgress.Style = Task.ShowItemProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 				}
-				pbrTotalProgress.Value = Task.OverallProgress;
+
+				if ((Task.OverallProgress <= pbrTotalProgress.Maximum) && (Task.OverallProgress <= Task.OverallProgressMaximum))
+					pbrTotalProgress.Value = Task.OverallProgress;
+				else
+					pbrTotalProgress.Value = (pbrTotalProgress.Maximum > Task.OverallProgressMaximum) ? Task.OverallProgressMaximum : pbrTotalProgress.Maximum;
 				lblTotalMessage.Text = Task.OverallMessage;
 				pbrTotalProgress.Maximum = Task.OverallProgressMaximum;
 				pbrTotalProgress.Minimum = Task.OverallProgressMinimum;

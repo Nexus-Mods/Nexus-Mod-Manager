@@ -106,7 +106,8 @@ namespace Nexus.Client.ModManagement
 				ItemMessage = modMod.ModName;
 				ItemProgress = 1;
 				ModManager.SwitchModCategory(modMod, CategoryId);
-				StepOverallProgress();
+				if (OverallProgress < OverallProgressMaximum)
+					StepOverallProgress();
 				ItemProgress = 0;
 			}
 			return null;
