@@ -174,5 +174,12 @@ namespace Nexus.Client.PluginManagement
 		/// <returns><c>true</c> if the specified file is a plugin file that can be activated in the game mode;
 		/// <c>false</c> otherwise.</returns>
 		bool IsActivatiblePluginFile(string p_strPath);
+
+		/// <summary>
+		/// Determines if the game mode can handle more active plugins.
+		/// </summary>
+		/// <returns><c>true</c> if it can;
+		/// <c>false</c> otherwise.</returns>
+		bool CanActivatePlugins();
 	}
 }
