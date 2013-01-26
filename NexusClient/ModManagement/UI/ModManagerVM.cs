@@ -489,7 +489,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (!this.CategoryManager.IsValidPath)
 			{
 				string strMessage = "You currently don't have any file categories setup.";
-				strMessage += Environment.NewLine + "Would you like NMM to organise your mods based on the categories the Nexus sites use, or would you like to organise your categories yourself?";
+				strMessage += Environment.NewLine + "Would you like NMM to organise your mods based on the categories the Nexus sites use (YES), or would you like to organise your categories yourself (NO)?";
 				strMessage += Environment.NewLine + Environment.NewLine + "Note: If you choose to use Nexus categories you can still create your own categories and move your files around them. This initial Nexus setup is just a template for you to use.";
 
 				DialogResult Result = MessageBox.Show(strMessage, "Category setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
