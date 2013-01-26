@@ -504,11 +504,11 @@ namespace Nexus.Client.PluginManagement.UI
 			if (ViewModel.CanChangeActiveState((Plugin)rlvPlugins.Items[e.Index].Tag))
 			{
 				if (e.NewValue == CheckState.Checked)
-					if ((ViewModel.MaxAllowedActivePluginsCount > 0) && (rlvPlugins.Items.Count >= ViewModel.MaxAllowedActivePluginsCount))
+					if ((ViewModel.MaxAllowedActivePluginsCount > 0) && (ViewModel.ActivePlugins.Count >= ViewModel.MaxAllowedActivePluginsCount))
 					{
 						string strTooManyPlugins = String.Format("The requested change to the active plugins list would result in over {0} plugins being active.", ViewModel.MaxAllowedActivePluginsCount);
 						strTooManyPlugins += Environment.NewLine + String.Format("The current game doesn't support more than {0} active plugins, you need to disable at least one plugin to continue.", ViewModel.MaxAllowedActivePluginsCount);
-						strTooManyPlugins += Environment.NewLine + Environment.NewLine + String.Format("NOTE: This is a game limitation, not {0}'s.", Application.ProductName);
+						strTooManyPlugins += Environment.NewLine + Environment.NewLine + String.Format("NOTE: This is a game engine limitation, not {0}'s.", Application.ProductName);
 						MessageBox.Show(strTooManyPlugins, "Too many active plugins",  MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 					else
