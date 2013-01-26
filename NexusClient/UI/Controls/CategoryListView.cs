@@ -820,7 +820,15 @@ namespace Nexus.Client.UI.Controls
 			Bitmap objBmpImage = new Bitmap(Properties.Resources.category_folder);
 			int intWidth = 0;
 			int intHeight = 0;
-			Font objFont = new Font("Arial", 14, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+			string strImageFont = "Arial";
+			System.Drawing.FontStyle fsFontStyle = FontStyle.Bold;
+
+			if (!IsFontInstalled(strImageFont))
+				strImageFont = SystemFonts.DefaultFont.Name;
+			if (!SupportBold(new Font(strImageFont, 8)))
+				fsFontStyle = FontStyle.Regular;
+
+			Font objFont = new Font(strImageFont, 14, fsFontStyle, System.Drawing.GraphicsUnit.Pixel);
 			Graphics objGraphics = Graphics.FromImage(objBmpImage);
 			intWidth = (int)objGraphics.MeasureString(sImageText, objFont).Width;
 			intHeight = (int)objGraphics.MeasureString(sImageText, objFont).Height;
@@ -832,6 +840,38 @@ namespace Nexus.Client.UI.Controls
 			objGraphics.Flush();
 			objBmpImage.MakeTransparent(Color.Magenta);
 			return (objBmpImage);
+		}
+
+		/// <summary>
+		/// This checks if the passed font is present.
+		/// </summary>
+		private bool IsFontInstalled(string fontName)
+		{
+			using (var testFont = new Font(fontName, 8))
+			{
+				return 0 == string.Compare(
+				  fontName,
+				  testFont.Name,
+				  StringComparison.InvariantCultureIgnoreCase);
+			}
+		}
+
+		/// <summary>
+		/// This checks if the passed font support Bold.
+		/// </summary>
+		private bool SupportBold(Font font)
+		{
+			try
+			{
+				using (Font bold = new Font(font, FontStyle.Bold))
+				{
+					return true;
+				}
+			}
+			catch (ArgumentException)
+			{
+				return false;
+			}
 		}
 	}
 }
