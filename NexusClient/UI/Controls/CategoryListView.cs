@@ -278,11 +278,12 @@ namespace Nexus.Client.UI.Controls
 				if (lviItem.Tag.GetType() != typeof(ModCategory))
 				{
 					if (!String.IsNullOrEmpty(lviItem.SubItems[tlcInstallDate.Name].Text))
-						Val = lviItem.SubItems[tlcInstallDate.Name].Text;
-					return Val;
+						Val = lviItem.SubItems[tlcInstallDate.Name].Text;		
+					if (CheckDate(Val))
+						return Convert.ToDateTime(Val);
 				}
-				else
-					return String.Empty;
+
+				return null;
 			};
 
 			tlcEndorsement.AspectGetter = delegate(object rowObject)
@@ -792,6 +793,23 @@ namespace Nexus.Client.UI.Controls
 				if (this.Columns[i] != tlcModName)
 					intFixedWidth += this.Columns[i].Width;
 			tlcModName.Width = this.ClientSize.Width - intFixedWidth;
+		}
+
+		/// <summary>
+		/// This checks if the passed date string is a valid date.
+		/// </summary>
+		/// <param name="p_strDate">The date string to check.</param>
+		protected bool CheckDate(String p_strDate)
+		{
+			try
+			{
+				DateTime dt = DateTime.Parse(p_strDate);
+				return true;
+			}
+			catch
+			{
+				return false;
+			}
 		}
 
 		/// <summary>
