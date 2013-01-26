@@ -303,8 +303,17 @@ namespace Nexus.Client.ModManagement
 			TransactionalFileManager.WriteAllBytes(strInstallFilePath, p_bteData);
             // Checks whether the file is a gamebryo plugin
             if (IsPlugin)
-			    if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
-				    PluginManager.AddPlugin(strInstallFilePath);
+				if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
+				{
+					if (!PluginManager.CanActivatePlugins())
+					{
+						string strTooManyPlugins = String.Format("The requested change to the active plugins list would result in over {0} plugins being active.", PluginManager.MaxAllowedActivePluginsCount);
+						strTooManyPlugins += Environment.NewLine + String.Format("The current game doesn't support more than {0} active plugins, you need to disable at least one plugin to continue.", PluginManager.MaxAllowedActivePluginsCount);
+						strTooManyPlugins += Environment.NewLine + Environment.NewLine + String.Format("NOTE: This is a game engine limitation.") + Environment.NewLine;
+						throw new Exception(strTooManyPlugins);
+					}
+					PluginManager.AddPlugin(strInstallFilePath);
+				}
 			InstallLog.AddDataFile(Mod, p_strPath);
 			return IsPlugin;
 		}

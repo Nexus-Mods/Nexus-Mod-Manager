@@ -380,7 +380,18 @@ namespace Nexus.Client.PluginManagement
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
 				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
+
 			return ManagedPluginRegistry.IsActivatiblePluginFile(strPath);
+		}
+
+		/// <summary>
+		/// Determines if the game mode can handle more active plugins.
+		/// </summary>
+		/// <returns><c>true</c> if it can;
+		/// <c>false</c> otherwise.</returns>
+		public bool CanActivatePlugins()
+		{ 
+			return !((GameMode.MaxAllowedActivePluginsCount > 0) && (ActivePlugins.Count >= GameMode.MaxAllowedActivePluginsCount));
 		}
 	}
 }
