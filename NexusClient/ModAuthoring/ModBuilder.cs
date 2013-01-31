@@ -5,12 +5,13 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
-using SevenZip;
 using Nexus.Client.UI;
+using SevenZip;
 
 namespace Nexus.Client.ModAuthoring
 {
@@ -169,42 +170,51 @@ namespace Nexus.Client.ModAuthoring
 			ItemMessage = "Examining archive...";
 			ItemProgress = 0;
 			ItemProgressMaximum = p_mfrFormats.Formats.Count;
-			using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
+			IModFormat mftDestFormat = null;
+
+			try
 			{
-				if (Status == TaskStatus.Cancelling)
-					return lstFoundMods;
-				ReadOnlyCollection<string> lstArchiveFiles = szeExtractor.ArchiveFileNames;
-				foreach (IModFormat mftFormat in p_mfrFormats.Formats)
+				using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
 				{
-					ItemMessage = String.Format("Examining archive for {0} mods...", mftFormat.Name);
-					lstModsInArchive.AddRange(lstArchiveFiles.Where(x => mftFormat.Extension.Equals(Path.GetExtension(x), StringComparison.OrdinalIgnoreCase)));
-					StepItemProgress();
 					if (Status == TaskStatus.Cancelling)
 						return lstFoundMods;
+					ReadOnlyCollection<string> lstArchiveFiles = szeExtractor.ArchiveFileNames;
+					foreach (IModFormat mftFormat in p_mfrFormats.Formats)
+					{
+						ItemMessage = String.Format("Examining archive for {0} mods...", mftFormat.Name);
+						lstModsInArchive.AddRange(lstArchiveFiles.Where(x => mftFormat.Extension.Equals(Path.GetExtension(x), StringComparison.OrdinalIgnoreCase)));
+						StepItemProgress();
+						if (Status == TaskStatus.Cancelling)
+							return lstFoundMods;
+					}
+					StepOverallProgress();
+				}
+
+				if (lstModsInArchive.Count == 0)
+				{
+					ItemMessage = "Determining archive format...";
+					ItemProgress = 0;
+					ItemProgressMaximum = p_mfrFormats.Formats.Count;
+					List<KeyValuePair<FormatConfidence, IModFormat>> lstFormats = new List<KeyValuePair<FormatConfidence, IModFormat>>();
+					foreach (IModFormat mftFormat in p_mfrFormats.Formats)
+					{
+						lstFormats.Add(new KeyValuePair<FormatConfidence, IModFormat>(mftFormat.CheckFormatCompliance(p_strArchivePath), mftFormat));
+						StepItemProgress();
+						if (Status == TaskStatus.Cancelling)
+							return lstFoundMods;
+					}
+					lstFormats.Sort((x, y) => y.Key.CompareTo(x.Key));
+					if ((lstFormats.Count == 0) || (lstFormats[0].Key <= FormatConfidence.Convertible))
+						return lstFoundMods;
+					mftDestFormat = lstFormats[0].Value;
 				}
 				StepOverallProgress();
 			}
-			IModFormat mftDestFormat = null;
-			if (lstModsInArchive.Count == 0)
+			catch (Exception ex)
 			{
-				ItemMessage = "Determining archive format...";
-				ItemProgress = 0;
-				ItemProgressMaximum = p_mfrFormats.Formats.Count;
-				List<KeyValuePair<FormatConfidence, IModFormat>> lstFormats = new List<KeyValuePair<FormatConfidence, IModFormat>>();
-				foreach (IModFormat mftFormat in p_mfrFormats.Formats)
-				{
-					lstFormats.Add(new KeyValuePair<FormatConfidence, IModFormat>(mftFormat.CheckFormatCompliance(p_strArchivePath), mftFormat));
-					StepItemProgress();
-					if (Status == TaskStatus.Cancelling)
-						return lstFoundMods;
-				}
-				lstFormats.Sort((x, y) => y.Key.CompareTo(x.Key));
-				if ((lstFormats.Count == 0) || (lstFormats[0].Key <= FormatConfidence.Convertible))
-					return lstFoundMods;
-				mftDestFormat = lstFormats[0].Value;
+				MessageBox.Show("An error has occured with the following archive: " + p_strArchivePath + "\n\n ERROR: " + ex.Message);
+				return lstFoundMods;
 			}
-			StepOverallProgress();
-
 			string strTmpPath = null;
 			try
 			{
