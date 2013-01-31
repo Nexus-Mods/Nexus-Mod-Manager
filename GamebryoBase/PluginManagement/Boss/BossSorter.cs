@@ -817,10 +817,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		/// <param name="p_strActivePlugins">The list of plugins to set as active.</param>
 		public void SetActivePlugins(string[] p_strActivePlugins)
 		{
-			UInt32 uintStatus = 0;
-			using (StringArrayManualMarshaler ammMarshaler = new StringArrayManualMarshaler("UTF8"))
-				uintStatus = m_dlgSetActivePlugins(m_ptrBossDb, ammMarshaler.MarshalManagedToNative(StripPluginDirectory(p_strActivePlugins)), Convert.ToUInt32(p_strActivePlugins.Length));
-			HandleStatusCode(uintStatus);
+			try
+			{
+				UInt32 uintStatus = 0;
+				using (StringArrayManualMarshaler ammMarshaler = new StringArrayManualMarshaler("UTF8"))
+					uintStatus = m_dlgSetActivePlugins(m_ptrBossDb, ammMarshaler.MarshalManagedToNative(StripPluginDirectory(p_strActivePlugins)), Convert.ToUInt32(p_strActivePlugins.Length));
+				HandleStatusCode(uintStatus);
+			}
+			catch
+			{
+				MessageBox.Show("The selected plugin has been manually removed." + Environment.NewLine + "Restart NMM or select again your game on Change Game Mode to refresh the plugin list.");
+			}
 		}
 
 		/// <summary>
