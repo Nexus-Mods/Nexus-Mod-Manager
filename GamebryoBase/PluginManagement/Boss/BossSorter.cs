@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
