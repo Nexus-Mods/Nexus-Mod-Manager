@@ -17,6 +17,7 @@ using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.UI.Controls;
+using Nexus.Client.Settings;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -151,6 +152,9 @@ namespace Nexus.Client.ModManagement.UI
 				m_booControlIsLoaded = true;
 				LoadMetrics();
 				LoadCategoryView();
+				clwCategoryView.Visible = ViewModel.Settings.UseCategoryView;
+				lvwMods.Visible = !ViewModel.Settings.UseCategoryView;
+
 				if (!ViewModel.IsCategoryInitialized)
 				{
 					ViewModel.CheckCategoryManager();
@@ -209,7 +213,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private void  ToggleEndorsement()
+		private void ToggleEndorsement()
 		{
 			tsbToggleEndorse.Enabled = false;
 			bool booCurrentState = false;
@@ -669,6 +673,8 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.Visible = !clwCategoryView.Visible;
 			lvwMods.Visible = !lvwMods.Visible;
 			tsbResetCategories.Enabled = clwCategoryView.Visible;
+			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
@@ -1211,7 +1217,7 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, PropertyChangedEventArgs>)Mod_PropertyChanged, sender, e);
 				return;
 			}
-			if (!m_booDisableSummary) 
+			if (!m_booDisableSummary)
 				UpdateSummary((IMod)sender);
 			AddModToList((IMod)sender);
 		}
@@ -1392,7 +1398,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (!lviMod.Checked)
 				ViewModel.ActivateModCommand.Execute((IMod)lviMod.Tag);
 			else
-				ViewModel.DeactivateModCommand.Execute((IMod)lviMod.Tag);	
+				ViewModel.DeactivateModCommand.Execute((IMod)lviMod.Tag);
 		}
 
 		#endregion
