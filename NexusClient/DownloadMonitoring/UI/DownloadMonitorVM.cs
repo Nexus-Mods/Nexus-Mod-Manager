@@ -1,5 +1,6 @@
 ﻿using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
+using Nexus.Client.ModManagement;
 using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
 using System.ComponentModel;
@@ -30,7 +31,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// The commands takes an argument describing the task to be cancel.
 		/// </remarks>
 		/// <value>The command to cancel a task.</value>
-		public Command<IBackgroundTask> CancelTaskCommand { get; private set; }
+		public Command<AddModTask> CancelTaskCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the command to remove a task from the list.
@@ -39,7 +40,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// The commands takes an argument describing the task to be removed.
 		/// </remarks>
 		/// <value>The command to remove a task from the list.</value>
-		public Command<IBackgroundTask> RemoveTaskCommand { get; private set; }
+		public Command<AddModTask> RemoveTaskCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the command to pause a task.
@@ -48,7 +49,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// The commands takes an argument describing the task to be paused.
 		/// </remarks>
 		/// <value>The command to pause a task.</value>
-		public Command<IBackgroundTask> PauseTaskCommand { get; private set; }
+		public Command<AddModTask> PauseTaskCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the command to resume a task.
@@ -57,7 +58,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// The commands takes an argument describing the task to be resumed.
 		/// </remarks>
 		/// <value>The command to resume a task.</value>
-		public Command<IBackgroundTask> ResumeTaskCommand { get; private set; }
+		public Command<AddModTask> ResumeTaskCommand { get; private set; }
 
 		#endregion
 
@@ -71,7 +72,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the list of tasks being monitored.
 		/// </summary>
 		/// <value>The list of tasks being monitored.</value>
-		public ReadOnlyObservableList<IBackgroundTask> Tasks
+		public ReadOnlyObservableList<AddModTask> Tasks
 		{
 			get
 			{
@@ -83,7 +84,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the list of tasks being executed.
 		/// </summary>
 		/// <value>The list of tasks being executed.</value>
-		public ReadOnlyObservableList<IBackgroundTask> ActiveTasks
+		public ReadOnlyObservableList<AddModTask> ActiveTasks
 		{
 			get
 			{
@@ -165,10 +166,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			m_booOfflineMode = p_booOfflineMode;
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
-			CancelTaskCommand = new Command<IBackgroundTask>("Cancel", "Cancels the selected Download.", CancelTask);
-			RemoveTaskCommand = new Command<IBackgroundTask>("Remove", "Removes the selected Download.", RemoveTask);
-			PauseTaskCommand = new Command<IBackgroundTask>("Pause", "Pauses the selected Download.", PauseTask);
-			ResumeTaskCommand = new Command<IBackgroundTask>("Resume", "Resumes the selected Download.", ResumeTask);
+			CancelTaskCommand = new Command<AddModTask>("Cancel", "Cancels the selected Download.", CancelTask);
+			RemoveTaskCommand = new Command<AddModTask>("Remove", "Removes the selected Download.", RemoveTask);
+			PauseTaskCommand = new Command<AddModTask>("Pause", "Pauses the selected Download.", PauseTask);
+			ResumeTaskCommand = new Command<AddModTask>("Resume", "Resumes the selected Download.", ResumeTask);
 		}
 
 		#endregion
@@ -225,8 +226,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <summary>
 		/// Removes the given task.
 		/// </summary>
-		/// <param name="p_tskTask">The task to remove.</param>
-		public void RemoveTask(IBackgroundTask p_tskTask)
+		/// <param name="p_tskTask">IBackgroundTask task to remove.</param>
+		public void RemoveTask(AddModTask p_tskTask)
 		{
 			if (DownloadMonitor.CanRemove(p_tskTask))
 				DownloadMonitor.RemoveDownload(p_tskTask);

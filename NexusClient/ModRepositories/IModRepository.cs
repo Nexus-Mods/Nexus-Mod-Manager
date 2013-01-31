@@ -141,7 +141,7 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strUserLocation">The preferred user location.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		FileserverInfo GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation);
+		List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation);
 
 		/// <summary>
 		/// Gets the file info for the specified download file of the specified mod.

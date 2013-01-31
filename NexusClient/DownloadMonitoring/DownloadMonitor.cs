@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.ModManagement;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 
@@ -10,8 +11,8 @@ namespace Nexus.Client.DownloadMonitoring
 	/// </summary>
 	public class DownloadMonitor : INotifyPropertyChanged
 	{
-		private ThreadSafeObservableList<IBackgroundTask> m_oclTasks = new ThreadSafeObservableList<IBackgroundTask>();
-		private ObservableSet<IBackgroundTask> m_setActiveTasks = new ObservableSet<IBackgroundTask>();
+		private ThreadSafeObservableList<AddModTask> m_oclTasks = new ThreadSafeObservableList<AddModTask>();
+		private ObservableSet<AddModTask> m_setActiveTasks = new ObservableSet<AddModTask>();
 		private int m_TotalSpeed = 0;
 		private int m_TotalProgress = 0;
 		private int m_TotalMaximumProgress = 0;
@@ -28,13 +29,13 @@ namespace Nexus.Client.DownloadMonitoring
 		/// Gets the list of tasks being monitored.
 		/// </summary>
 		/// <value>The list of tasks being monitored.</value>
-		public ReadOnlyObservableList<IBackgroundTask> Tasks { get; private set; }
+		public ReadOnlyObservableList<AddModTask> Tasks { get; private set; }
 
 		/// <summary>
 		/// Gets the list of tasks being executed.
 		/// </summary>
 		/// <value>The list of tasks being executed.</value>
-		public ReadOnlyObservableList<IBackgroundTask> ActiveTasks { get; private set; }
+		public ReadOnlyObservableList<AddModTask> ActiveTasks { get; private set; }
 
 		/// <summary>
 		/// Gets or sets the current download speed.
@@ -114,8 +115,8 @@ namespace Nexus.Client.DownloadMonitoring
 		/// </summary>
 		public DownloadMonitor()
 		{
-			Tasks = new ReadOnlyObservableList<IBackgroundTask>(m_oclTasks);
-			ActiveTasks = new ReadOnlyObservableList<IBackgroundTask>(m_setActiveTasks);
+			Tasks = new ReadOnlyObservableList<AddModTask>(m_oclTasks);
+			ActiveTasks = new ReadOnlyObservableList<AddModTask>(m_setActiveTasks);
 		}
 
 		#endregion
@@ -124,7 +125,7 @@ namespace Nexus.Client.DownloadMonitoring
 		/// Adds a task to the monitor.
 		/// </summary>
 		/// <param name="p_tskTask">The task to monitor.</param>
-		public void AddActivity(IBackgroundTask p_tskTask)
+		public void AddActivity(AddModTask p_tskTask)
 		{
 			p_tskTask.PropertyChanged += new System.ComponentModel.PropertyChangedEventHandler(Task_PropertyChanged);
 			m_oclTasks.Add(p_tskTask);
@@ -142,21 +143,21 @@ namespace Nexus.Client.DownloadMonitoring
 		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
 		private void Task_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
-			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.IsActive)))
+			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.IsActive)))
 			{
-				IBackgroundTask tskTask = (IBackgroundTask)sender;
+				AddModTask tskTask = (AddModTask)sender;
 				if (tskTask.IsActive)
 					m_setActiveTasks.Add(tskTask);
 				else
 					m_setActiveTasks.Remove(tskTask);
 			}
 
-			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.TaskSpeed)))
+			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.TaskSpeed)))
 			{
 				int speed = 0;
 				int progress = 0;
 				int maxprogress = 0;
-				foreach (IBackgroundTask Task in ActiveTasks)
+				foreach (AddModTask Task in ActiveTasks)
 				{
 					speed += Task.TaskSpeed;
 					progress += Task.ItemProgress;
@@ -178,7 +179,7 @@ namespace Nexus.Client.DownloadMonitoring
 		/// Tasks can only be removed if they are not running.
 		/// </remarks>
 		/// <param name="p_tskTask">The task to remove.</param>
-		public void RemoveDownload(IBackgroundTask p_tskTask)
+		public void RemoveDownload(AddModTask p_tskTask)
 		{
 			if (CanRemove(p_tskTask))
 			{

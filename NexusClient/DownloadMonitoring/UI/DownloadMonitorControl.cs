@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
+using Nexus.Client.ModManagement;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 
@@ -38,15 +39,15 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			set
 			{
 				m_vmlViewModel = value;
-				foreach (IBackgroundTask tskDownload in m_vmlViewModel.Tasks)
+				foreach (AddModTask tskDownload in m_vmlViewModel.Tasks)
 					AddTaskToList(tskDownload);
 				m_vmlViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				m_vmlViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
 
-				new ToolStripItemCommandBinding<IBackgroundTask>(tsbCancel, m_vmlViewModel.CancelTaskCommand, GetSelectedTask);
-				new ToolStripItemCommandBinding<IBackgroundTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask);
-				new ToolStripItemCommandBinding<IBackgroundTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask);
-				new ToolStripItemCommandBinding<IBackgroundTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask);
+				new ToolStripItemCommandBinding<AddModTask>(tsbCancel, m_vmlViewModel.CancelTaskCommand, GetSelectedTask);
+				new ToolStripItemCommandBinding<AddModTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask);
+				new ToolStripItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask);
+				new ToolStripItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask);
 				ViewModel.CancelTaskCommand.CanExecute = false;
 				ViewModel.RemoveTaskCommand.CanExecute = false;
 				ViewModel.PauseTaskCommand.CanExecute = false;
@@ -67,11 +68,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public DownloadMonitorControl()
 		{
 			InitializeComponent();
-			clmOverallMessage.Name = ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage);
-			clmOverallProgress.Name = ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress);
-			clmItemMessage.Name = ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage);
-			clmItemProgress.Name = ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress);
-			clmStatus.Name = ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status);
+			clmOverallMessage.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallMessage);
+			clmOverallProgress.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallProgress);
+			clmItemMessage.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage);
+			clmItemProgress.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress);
+			clmStatus.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.Status);
 
 			m_tmrColumnSizer.Interval = 100;
 			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
@@ -139,7 +140,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <returns>The <see cref="IBackgroundTask"/> that is currently selected in the view, or
 		/// <c>null</c> if no <see cref="IBackgroundTask"/> is selected.</returns>
-		private IBackgroundTask GetSelectedTask()
+		private AddModTask GetSelectedTask()
 		{
 			if (lvwTasks.SelectedItems.Count == 0)
 				return null;
@@ -166,7 +167,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// already exists in the list, nothing is done.
 		/// </summary>
 		/// <param name="p_tskTask">The <see cref="IBackgroundTask"/> to add to the view's list.</param>
-		protected void AddTaskToList(IBackgroundTask p_tskTask)
+		protected void AddTaskToList(AddModTask p_tskTask)
 		{
 			foreach (DownloadListViewItem lviExisitingDownload in lvwTasks.Items)
 				if (lviExisitingDownload.Task == p_tskTask)
@@ -197,14 +198,14 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			{
 				case NotifyCollectionChangedAction.Add:
 				case NotifyCollectionChangedAction.Replace:
-					foreach (IBackgroundTask tskAdded in e.NewItems)
+					foreach (AddModTask tskAdded in e.NewItems)
 						AddTaskToList(tskAdded);
 					break;
 				case NotifyCollectionChangedAction.Move:
 					//TODO Download order matters (some tasks depend on others)
 					break;
 				case NotifyCollectionChangedAction.Remove:
-					foreach (IBackgroundTask tskRemoved in e.OldItems)
+					foreach (AddModTask tskRemoved in e.OldItems)
 					{
 						for (Int32 i = lvwTasks.Items.Count - 1; i >= 0; i--)
 							if (((DownloadListViewItem)lvwTasks.Items[i]).Task == tskRemoved)
@@ -268,7 +269,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
 		private void Task_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
-			if (e.PropertyName == ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status))
+			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
 			{
 				if (InvokeRequired)
 					Invoke((Action)SetCommandExecutableStatus);

@@ -35,13 +35,13 @@ namespace Nexus.Client.ModManagement
 		public string SourcePath { get; set; }
 
 		/// <summary>
-		/// Gets or sets the source name.
+		/// Gets or sets the source name list.
 		/// </summary>
 		/// <remarks>
 		/// The source name is the name of the source fileserver.
 		/// </remarks>
 		/// <value>The source fileserver name.</value>
-		public string SourceName { get; set; }
+		public List<string> SourceName { get; set; }
 
 		/// <summary>
 		/// Gets or sets the default source path of the mod.
@@ -89,6 +89,7 @@ namespace Nexus.Client.ModManagement
 			DownloadFiles = new List<Uri>();
 			DownloadedFiles = new List<string>();
 			PausedFiles = new List<string>();
+			SourceName = new List<string>();
 		}
 
 		/// <summary>
@@ -98,14 +99,14 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strDefaultSourcePath">The default source path of the mod.</param>
 		/// <param name="p_enmDownloadFiles">The list of files that still need to be downloaded to build the mod.</param>
 		/// <param name="p_tstStatus">The status of the task that is adding the mod.</param>
-		public AddModDescriptor(Uri p_uriSourceUri, string p_strDefaultSourcePath, IEnumerable<Uri> p_enmDownloadFiles, TaskStatus p_tstStatus, string p_strSourceName)
+		public AddModDescriptor(Uri p_uriSourceUri, string p_strDefaultSourcePath, IEnumerable<Uri> p_enmDownloadFiles, TaskStatus p_tstStatus, List<string> p_lstSourceName)
 			: this()
 		{
 			SourceUri = p_uriSourceUri;
 			DefaultSourcePath = p_strDefaultSourcePath;
 			if (p_enmDownloadFiles != null)
 				DownloadFiles.AddRange(p_enmDownloadFiles);
-			SourceName = String.IsNullOrEmpty(p_strSourceName) ? String.Empty : p_strSourceName;
+			SourceName = p_lstSourceName;
 			Status = p_tstStatus;
 		}
 
@@ -143,14 +144,25 @@ namespace Nexus.Client.ModManagement
 			SourcePath = (string)xsrSerializer.Deserialize(reader);
 			reader.ReadEndElement();
 
-			try
+			booIsEmpty = reader.IsEmptyElement;
+			reader.ReadStartElement("sourceName");
+			if (!booIsEmpty)
 			{
-				reader.ReadStartElement("sourceName");
-				xsrSerializer = new XmlSerializer(typeof(string));
-				SourceName = (string)xsrSerializer.Deserialize(reader);
+				while (reader.MoveToContent() == XmlNodeType.Element && reader.LocalName == "string")
+				{
+					try
+					{
+						xsrSerializer = new XmlSerializer(typeof(string));
+						SourceName.Add((string)xsrSerializer.Deserialize(reader));
+					}
+					catch
+					{
+					}
+				}
 				reader.ReadEndElement();
+				if (SourceName.Count == 0)
+					SourceName.Add("Default");
 			}
-			catch { }
 
 			reader.ReadStartElement("defaultSourcePath");
 			xsrSerializer = new XmlSerializer(typeof(string));
@@ -159,7 +171,14 @@ namespace Nexus.Client.ModManagement
 
 			reader.ReadStartElement("status");
 			xsrSerializer = new XmlSerializer(typeof(TaskStatus));
-			Status = (TaskStatus)xsrSerializer.Deserialize(reader);
+			try
+			{
+				Status = (TaskStatus)xsrSerializer.Deserialize(reader);
+			}
+			catch
+			{
+				Status = TaskStatus.Paused;
+			}
 			reader.ReadEndElement();
 
 			booIsEmpty = reader.IsEmptyElement;
@@ -212,8 +231,11 @@ namespace Nexus.Client.ModManagement
 			writer.WriteEndElement();
 
 			writer.WriteStartElement("sourceName");
-			xsrSerializer = new XmlSerializer(typeof(string));
-			xsrSerializer.Serialize(writer, SourceName);
+			foreach (string strCaption in SourceName)
+			{
+				xsrSerializer = new XmlSerializer(typeof(string));
+				xsrSerializer.Serialize(writer, strCaption);
+			}
 			writer.WriteEndElement();
 
 			writer.WriteStartElement("defaultSourcePath");

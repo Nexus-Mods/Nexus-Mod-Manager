@@ -767,13 +767,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strUserLocation">The preferred user location.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public FileserverInfo GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation)
+		public List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation)
 		{
 			if (IsOffline)
 				return null;
 
 			List<FileserverInfo> fsiServerInfo = new List<FileserverInfo>();
-			FileserverInfo fsiBestMatch;
+			List<FileserverInfo> fsiBestMatch;
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
@@ -799,44 +799,49 @@ namespace Nexus.Client.ModRepositories.Nexus
 		}
 
 
-		private FileserverInfo GetBestFileserver(List<FileserverInfo> fsiList, bool p_booPremiumOnly, string p_strUserLocation)
+		private List<FileserverInfo> GetBestFileserver(List<FileserverInfo> fsiList, bool p_booPremiumOnly, string p_strUserLocation)
 		{
-			FileserverInfo fsiBestMatch = new FileserverInfo();
+			List<FileserverInfo> fsiBestMatch = new List<FileserverInfo>();
+			int intServerAffinity = 0;	
 
 			try
 			{
+				if (p_strUserLocation != "default")
+					intServerAffinity = FileServerZones.Find(x => x.FileServerID == p_strUserLocation).FileServerAffinity;
+
 				if (p_booPremiumOnly && p_strUserLocation != "default")
 				{
 					fsiBestMatch = (from Url
 									in fsiList
-									where Url.IsPremium == p_booPremiumOnly && Url.Country == p_strUserLocation
-									orderby Url.ConnectedUsers ascending
-									select Url).FirstOrDefault();
+									where FileServerZones.Find(x => x.FileServerID == Url.Country).FileServerAffinity == intServerAffinity && !String.IsNullOrEmpty(Url.DownloadLink)
+									orderby Url.IsPremium descending, Url.ConnectedUsers ascending
+									select Url).ToList();
 				}
-				
-				if ((((fsiBestMatch == null) || String.IsNullOrEmpty(fsiBestMatch.DownloadLink)) && p_booPremiumOnly) || (p_booPremiumOnly && p_strUserLocation == "default"))
+				else if (p_booPremiumOnly && p_strUserLocation == "default")
 				{
 					fsiBestMatch = (from Url
 									in fsiList
-									where Url.IsPremium == p_booPremiumOnly
-									orderby Url.ConnectedUsers ascending
-									select Url).FirstOrDefault();
-				}
-				else if (p_strUserLocation != "default")
-				{
-					fsiBestMatch = (from Url
-									in fsiList
-									where Url.Country == p_strUserLocation
-									orderby Url.ConnectedUsers ascending
-									select Url).FirstOrDefault();
+									where !String.IsNullOrEmpty(Url.DownloadLink)
+									orderby Url.IsPremium descending, Url.ConnectedUsers ascending
+									select Url).ToList();
 				}
 
-				if ((fsiBestMatch == null) || String.IsNullOrEmpty(fsiBestMatch.DownloadLink))
+				if ((p_strUserLocation != "default") && ((fsiBestMatch == null) || (fsiBestMatch.Count == 0)))
 				{
 					fsiBestMatch = (from Url
 									in fsiList
+									where FileServerZones.Find(x => x.FileServerID == Url.Country).FileServerAffinity == intServerAffinity && !String.IsNullOrEmpty(Url.DownloadLink)
 									orderby Url.ConnectedUsers ascending
-									select Url).FirstOrDefault();
+									select Url).ToList();
+				}
+
+				if ((fsiBestMatch == null) || (fsiBestMatch.Count == 0))
+				{
+					fsiBestMatch = (from Url
+									in fsiList
+									where !String.IsNullOrEmpty(Url.DownloadLink)
+									orderby Url.IsPremium descending, Url.ConnectedUsers ascending
+									select Url).ToList();
 				}
 			}
 			catch

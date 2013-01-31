@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.ModManagement;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.DownloadMonitoring.UI
@@ -17,7 +18,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the <see cref="IBackgroundTask"/> whose status is being displayed by this list view item.
 		/// </summary>
 		/// <value>The <see cref="IBackgroundTask"/> whose status is being displayed by this list view item.</value>
-		public IBackgroundTask Task { get; private set; }
+		public AddModTask Task { get; private set; }
 
 		#endregion
 
@@ -28,7 +29,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <param name="p_tskTask">The task whose status is to be displayed by this list
 		/// view item.</param>
-		public DownloadListViewItem(IBackgroundTask p_tskTask)
+		public DownloadListViewItem(AddModTask p_tskTask)
 		{
 			Task = p_tskTask;
 
@@ -102,10 +103,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			string strPropertyName = e.PropertyName;
 			if ((ListView != null) && ListView.InvokeRequired)
 			{
-				ListView.Invoke((Action<IBackgroundTask, string>)HandleChangedTaskProperty, sender, e.PropertyName);
+				ListView.Invoke((Action<AddModTask, string>)HandleChangedTaskProperty, sender, e.PropertyName);
 				return;
 			}
-			HandleChangedTaskProperty((IBackgroundTask)sender, e.PropertyName);
+			HandleChangedTaskProperty((AddModTask)sender, e.PropertyName);
 		}
 
 		/// <summary>
@@ -113,51 +114,50 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <param name="p_tskTask">The task whose property has changed.</param>
 		/// <param name="p_strPropertyName">The name of the propety that has changed.</param>
-		private void HandleChangedTaskProperty(IBackgroundTask p_tskTask, string p_strPropertyName)
+		private void HandleChangedTaskProperty(AddModTask p_tskTask, string p_strPropertyName)
 		{
-			if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)))
+			if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallMessage)))
 			{
-				SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)].Text = p_tskTask.OverallMessage;
+				SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallMessage)].Text = p_tskTask.OverallMessage;
 			}
-			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage)))
+			else if ((p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ETA_Seconds))) || (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ETA_Minutes))))
 			{
-				string Message = p_tskTask.ItemMessage;
-				if (Message.IndexOf("ETA:") > 0)
-				{
-					try
-					{
-						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = Message.Substring(Message.IndexOf("(") + 1, Message.IndexOf(")") - Message.IndexOf("(") - 1);
-						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage)].Text = Message.Substring(Message.LastIndexOf("(") + 1, Message.LastIndexOf(")") - Message.LastIndexOf("(") - 1);
-						SubItems["ETA"].Text = Message.Substring(Message.IndexOf("ETA:") + 5, Message.LastIndexOf("(") - Message.IndexOf("ETA:") - 6);
-						if ((p_tskTask.Status.ToString() == "Running") && (p_tskTask.Status.ToString() == SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text))
-							SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text = "Downloading";
-						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = p_tskTask.ActiveThreads.ToString();
-					}
-					catch
-					{
-					}
-				}
-				else if (Message.IndexOf("Fileserver:") >= 0)
-					SubItems["Fileserver"].Text = Message.Substring(Message.IndexOf(":") + 1);
+				SubItems["ETA"].Text = String.Format("{0:00}:{1:00}", p_tskTask.ETA_Minutes, p_tskTask.ETA_Seconds);
 			}
-			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress))
-					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgressMaximum))
-					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgressMinimum))
-					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ShowItemProgress))
-					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ShowItemProgressAsMarquee)))
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.FileServer)))
+			{
+				SubItems["Fileserver"].Text = p_tskTask.FileServer;
+			}
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.TaskSpeed)))
+			{
+				SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage)].Text = String.Format("{0:} kb/s", p_tskTask.TaskSpeed.ToString());
+			}
+			else if ((p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.DownloadProgress))) || (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.DownloadMaximum))))
+			{
+				SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallProgress)].Text = String.Format("{0}kb / {1}kb", p_tskTask.DownloadProgress, p_tskTask.DownloadMaximum);
+			}
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ActiveThreads)))
+			{
+				SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress)].Text = p_tskTask.ActiveThreads.ToString();
+			}
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress))
+					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgressMaximum))
+					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgressMinimum))
+					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ShowItemProgress))
+					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ShowItemProgressAsMarquee)))
 			{
 				if (p_tskTask.ShowItemProgress)
 				{
 					if (p_tskTask.ShowItemProgressAsMarquee)
-						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = "Working...";
+						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress)].Text = "Working...";
 				}
 				else
 				{
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage)].Text = null;
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = null;
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage)].Text = null;
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress)].Text = null;
 				}
 			}
-			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)))
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)))
 			{
 				if (p_tskTask.Status == TaskStatus.Running)
 				{
@@ -166,20 +166,19 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				else
 				{
 					SubItems[p_strPropertyName].Text = p_tskTask.Status.ToString();
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemMessage)].Text = "";
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = "";
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage)].Text = "";
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress)].Text = "";
 					if (!(p_tskTask.Status.ToString() == "Paused"))
-						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = "";
+						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallProgress)].Text = "";
 					SubItems["ETA"].Text = "";
 				}
 			}
-			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.InnerTaskStatus)))
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.InnerTaskStatus)))
 			{
 				if (p_tskTask.InnerTaskStatus.ToString() == "Retrying")
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text = p_tskTask.InnerTaskStatus.ToString();
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = p_tskTask.InnerTaskStatus.ToString();
 				else if (p_tskTask.InnerTaskStatus.ToString() == "Running")
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)].Text = "Downloading";
-
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = "Downloading";
 			}
 		}
 

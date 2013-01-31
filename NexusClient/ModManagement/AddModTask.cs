@@ -111,6 +111,7 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		private readonly object LOCK_OBJECT = new object();
 		private IGameMode m_gmdGameMode = null;
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
 		private ModRegistry m_mrgModRegistry = null;
@@ -121,13 +122,17 @@ namespace Nexus.Client.ModManagement
 		private List<IBackgroundTask> m_lstRunningTasks = new List<IBackgroundTask>();
 		private bool m_booFinishedDownloads = false;
 		private Int32 m_intOverallProgressOffset = 0;
-		private Int32 m_ActiveThreads = 0;
 		private Uri m_uriPath = null;
 		private DateTime m_dteStartTime = DateTime.Now;
 		private Int32 m_intPreviousProgress = 0;
 		private Stack<Int32> m_lstPreviousSpeed = new Stack<Int32> { };
 		private Stopwatch swtSpeed = new Stopwatch();
-		private string m_strFileserverCaption = string.Empty;
+		private List<string> m_strFileserverCaptions = new List<string>();
+		private Double m_dblMinutes = 0;
+		private Int32 m_intSeconds = 0;
+		private Int32 m_intDownloadProgress = 0;
+		private Int32 m_intDownloadMaximum = 0;
+		private string m_strFileserver = String.Empty;
 
 		#region Properties
 
@@ -156,22 +161,6 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Gets the number of currently active threads.
-		/// </summary>
-		/// <value>The number of currently active threads.</value>
-		public override Int32 ActiveThreads
-		{
-			get
-			{
-				return m_ActiveThreads;
-			}
-			set
-			{
-				m_ActiveThreads = value;
-			}
-		}
-
-		/// <summary>
 		/// Gets the time that has elapsed downloading the file.
 		/// </summary>
 		/// <value>The time that has elapsed downloading the file.</value>
@@ -180,6 +169,136 @@ namespace Nexus.Client.ModManagement
 			get
 			{
 				return DateTime.Now.Subtract(m_dteStartTime);
+			}
+		}
+
+		/// <summary>
+		/// Gets the current task speed.
+		/// </summary>
+		/// <value>The current task speed.</value>
+		public Double ETA_Minutes
+		{
+			get
+			{
+				return m_dblMinutes;
+			}
+			set
+			{
+				bool booChanged = false;
+				lock (LOCK_OBJECT)
+				{
+					if (m_dblMinutes != value)
+					{
+						booChanged = true;
+						m_dblMinutes = value;
+					}
+				}
+				if (booChanged)
+					OnPropertyChanged(() => ETA_Minutes);
+			}
+		}
+
+		/// <summary>
+		/// Gets the current task speed.
+		/// </summary>
+		/// <value>The current task speed.</value>
+		public Int32 ETA_Seconds
+		{
+			get
+			{
+				return m_intSeconds;
+			}
+			set
+			{
+				bool booChanged = false;
+				lock (LOCK_OBJECT)
+				{
+					if (m_intSeconds != value)
+					{
+						booChanged = true;
+						m_intSeconds = value;
+					}
+				}
+				if (booChanged)
+					OnPropertyChanged(() => ETA_Seconds);
+			}
+		}
+
+		/// <summary>
+		/// Gets the current task speed.
+		/// </summary>
+		/// <value>The current task speed.</value>
+		public Int32 DownloadProgress
+		{
+			get
+			{
+				return m_intDownloadProgress;
+			}
+			set
+			{
+				bool booChanged = false;
+				lock (LOCK_OBJECT)
+				{
+					if (m_intDownloadProgress != value)
+					{
+						booChanged = true;
+						m_intDownloadProgress = value;
+					}
+				}
+				if (booChanged)
+					OnPropertyChanged(() => DownloadProgress);
+			}
+		}
+
+		/// <summary>
+		/// Gets the current task speed.
+		/// </summary>
+		/// <value>The current task speed.</value>
+		public Int32 DownloadMaximum
+		{
+			get
+			{
+				return m_intDownloadMaximum;
+			}
+			set
+			{
+				bool booChanged = false;
+				lock (LOCK_OBJECT)
+				{
+					if (m_intDownloadMaximum != value)
+					{
+						booChanged = true;
+						m_intDownloadMaximum = value;
+					}
+				}
+				if (booChanged)
+					OnPropertyChanged(() => DownloadMaximum);
+			}
+		}
+
+		/// <summary>
+		/// Gets the current task speed.
+		/// </summary>
+		/// <value>The current task speed.</value>
+		public string FileServer
+		{
+			get
+			{
+				return m_strFileserver;
+			}
+			set
+			{
+				bool booChanged = false;
+				lock (LOCK_OBJECT)
+				{
+					if (m_strFileserver != value)
+					{
+						booChanged = true;
+						m_strFileserver = value;
+					}
+				}
+				if (booChanged)
+					OnPropertyChanged(() => FileServer);
 			}
 		}
 
@@ -337,7 +456,7 @@ namespace Nexus.Client.ModManagement
 				switch (p_uriPath.Scheme.ToLowerInvariant())
 				{
 					case "file":
-						amdDescriptor = new AddModDescriptor(p_uriPath, p_uriPath.LocalPath, null, TaskStatus.Running, String.Empty);
+						amdDescriptor = new AddModDescriptor(p_uriPath, p_uriPath.LocalPath, null, TaskStatus.Running, new List<string>());
 						break;
 					case "nxm":
 						NexusUrl nxuModUrl = new NexusUrl(p_uriPath);
@@ -349,8 +468,8 @@ namespace Nexus.Client.ModManagement
 						}
 
 						IModFileInfo mfiFile = null;
-						FileserverInfo fsiServerInfo = new FileserverInfo();
-						Uri[] uriFilesToDownload = null;
+						List<FileserverInfo> lstFileServerInfo = new List<FileserverInfo>();
+						List<Uri> uriFilesToDownload = new List<Uri>();
 						try
 						{
 							if (String.IsNullOrEmpty(nxuModUrl.FileId))
@@ -362,11 +481,15 @@ namespace Nexus.Client.ModManagement
 								Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
 								return null;
 							}
-							fsiServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.PremiumOnly, m_eifEnvironmentInfo.Settings.UserLocation);
-							if (!String.IsNullOrEmpty(fsiServerInfo.DownloadLink))
+							lstFileServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.PremiumOnly, m_eifEnvironmentInfo.Settings.UserLocation);
+							if (lstFileServerInfo.Count > 0)
 							{
-								uriFilesToDownload = new Uri[] { new Uri(fsiServerInfo.DownloadLink) };
-								m_strFileserverCaption = fsiServerInfo.Name;
+								foreach (FileserverInfo fsiFileServer in lstFileServerInfo)
+									if (!String.IsNullOrEmpty(fsiFileServer.DownloadLink))
+									{
+										uriFilesToDownload.Add(new Uri(fsiFileServer.DownloadLink));
+										m_strFileserverCaptions.Add(fsiFileServer.Name);
+									}
 							}
 						}
 						catch (RepositoryUnavailableException e)
@@ -374,10 +497,10 @@ namespace Nexus.Client.ModManagement
 							TraceUtil.TraceException(e);
 							return null;
 						}
-						if ((uriFilesToDownload == null) || (uriFilesToDownload.Length <= 0))
+						if ((uriFilesToDownload == null) || (uriFilesToDownload.Count <= 0))
 							return null;
 						string strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
-						amdDescriptor = new AddModDescriptor(p_uriPath, strSourcePath, uriFilesToDownload, TaskStatus.Running, m_strFileserverCaption);
+						amdDescriptor = new AddModDescriptor(p_uriPath, strSourcePath, uriFilesToDownload, TaskStatus.Running, m_strFileserverCaptions);
 						break;
 					default:
 						Trace.TraceInformation(String.Format("[{0}] Can't get the file.", p_uriPath.ToString()));
@@ -387,7 +510,7 @@ namespace Nexus.Client.ModManagement
 				m_eifEnvironmentInfo.Settings.Save();
 			}
 			else
-				m_strFileserverCaption = amdDescriptor.SourceName;
+				m_strFileserverCaptions = amdDescriptor.SourceName;
 			return amdDescriptor;
 		}
 
@@ -400,19 +523,16 @@ namespace Nexus.Client.ModManagement
 		protected void DownloadFiles(List<Uri> p_lstFiles)
 		{
 			Trace.TraceInformation(String.Format("[{0}] Downloading Files.", Descriptor.SourceUri.ToString()));
-			foreach (Uri uriFile in p_lstFiles)
-			{
-				Trace.TraceInformation(String.Format("[{0}] Launching downloading of {1}.", Descriptor.SourceUri.ToString(), uriFile.ToString()));
-				Dictionary<string, string> dicAuthenticationTokens = m_eifEnvironmentInfo.Settings.RepositoryAuthenticationTokens[m_mrpModRepository.Id];
-				//TODO get the max connection and block size from settings
-				Int32 intConnections = m_eifEnvironmentInfo.Settings.NumberOfConnections <= m_mrpModRepository.AllowedConnections.Max() ? m_eifEnvironmentInfo.Settings.NumberOfConnections : m_mrpModRepository.AllowedConnections.Max();
+			Trace.TraceInformation(String.Format("[{0}] Launching downloading of {1}.", Descriptor.SourceUri.ToString(), p_lstFiles[0].ToString()));
+			Dictionary<string, string> dicAuthenticationTokens = m_eifEnvironmentInfo.Settings.RepositoryAuthenticationTokens[m_mrpModRepository.Id];
+			//TODO get the max connection and block size from settings
+			Int32 intConnections = m_eifEnvironmentInfo.Settings.NumberOfConnections <= m_mrpModRepository.AllowedConnections.Max() ? m_eifEnvironmentInfo.Settings.NumberOfConnections : m_mrpModRepository.AllowedConnections.Max();
 
-				FileDownloadTask fdtDownloader = new FileDownloadTask(intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
-				fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
-				fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);
-				m_lstRunningTasks.Add(fdtDownloader);
-				fdtDownloader.DownloadAsync(uriFile, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
-			}
+			FileDownloadTask fdtDownloader = new FileDownloadTask(intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
+			fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
+			fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);
+			m_lstRunningTasks.Add(fdtDownloader);
+			fdtDownloader.DownloadAsync(p_lstFiles, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
 		}
 
 		/// <summary>
@@ -489,11 +609,17 @@ namespace Nexus.Client.ModManagement
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
                 if ((ItemProgress == 0) && (intSpeed == 0))
                     ItemMessage = "Starting the download...";
-                else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
+				else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
 					ItemMessage = "Resuming the download...";
-                else
-					ItemMessage = String.Format("Downloading: ({3}kb / {4}kb) ETA: {1:00}:{2:00} ({0:} kb/s)...", TaskSpeed, dblMinutes, intSeconds, (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024), (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024));
-				m_ActiveThreads = fdtDownloader.ActiveThreads;
+				else
+				{
+					ETA_Minutes = dblMinutes;
+					ETA_Seconds = intSeconds;
+					DownloadProgress = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024);
+					DownloadMaximum = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024);
+				}
+					
+				ActiveThreads = fdtDownloader.ActiveThreads;
 			}
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)) ||
 				e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)))
@@ -505,7 +631,7 @@ namespace Nexus.Client.ModManagement
 				else if (fdtDownloader.Status == TaskStatus.Running)
 				{
 					OverallMessage = String.Format("{0}", GetModDisplayName());
-					ItemMessage = "Fileserver:" + m_strFileserverCaption;
+					FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
 				}
 				InnerTaskStatus = fdtDownloader.Status;
 			}
@@ -524,7 +650,8 @@ namespace Nexus.Client.ModManagement
 				DownloadedFileInfo dfiDownloadInfo = (DownloadedFileInfo)e.ReturnValue;
 				if (String.IsNullOrEmpty(Descriptor.SourcePath) && (Descriptor.DownloadFiles.IndexOf(dfiDownloadInfo.URL) == 0))
 					Descriptor.SourcePath = dfiDownloadInfo.SavedFilePath;
-				Descriptor.DownloadFiles.Remove(dfiDownloadInfo.URL);
+
+				Descriptor.DownloadFiles.Clear();
 				Descriptor.DownloadedFiles.Add(dfiDownloadInfo.SavedFilePath);
 
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];

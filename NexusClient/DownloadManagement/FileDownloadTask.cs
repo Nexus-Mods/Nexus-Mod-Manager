@@ -81,8 +81,8 @@ namespace Nexus.Client.DownloadManagement
 		private string m_strUserAgent = "";
 		private Int32 m_intMaxConnections = 4;
 		private Int32 m_intMinBlockSize = 500 * 1024;
-		private Int32 m_intRetries = 10;
-		private Int32 m_intRetryInterval = 6000;
+		private Int32 m_intRetries = 5;
+		private Int32 m_intRetryInterval = 3000;
 		private System.Timers.Timer m_tmrUpdater = new System.Timers.Timer(1000);
 		private FileDownloader m_fdrDownloader = null;
 		private AutoResetEvent m_areWaitForDownload = null;
@@ -216,7 +216,6 @@ namespace Nexus.Client.DownloadManagement
 			m_areWaitForDownload.WaitOne();
 		}
 
-
 		/// <summary>
 		/// Downloads the speificed file to the specified location.
 		/// </summary>
@@ -236,14 +235,39 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
 		public void DownloadAsync(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
+			DownloadAsync(new List<Uri>() {p_uriURL}, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+		}
+
+		/// <summary>
+		/// Downloads the speificed file to the specified location.
+		/// </summary>
+		/// <remarks>
+		/// This method starts the download and returns.
+		/// 
+		/// If the given <paramref name="p_strSavePath"/> already exists, an attempt will be made to
+		/// resume the download. If the pre-existing file is not a partial download, or the download
+		/// cannot be resumed, the file will be overwritten.
+		/// </remarks>
+		/// <param name="p_uriURL">The URL list of the file to download.</param>
+		/// <param name="p_dicCookies">A list of cookies that should be sent in the request to download the file.</param>
+		/// <param name="p_strSavePath">The path to which to save the file.
+		/// If <paramref name="p_booUseDefaultFileName"/> is <c>false</c>, this value should be a complete
+		/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
+		/// this value should be the directory in which to save the file.</param>
+		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
+		public void DownloadAsync(List<Uri> p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
+		{
 			System.Diagnostics.Stopwatch swRetry = new System.Diagnostics.Stopwatch();
 			int retries = 0;
+			int i = 0;
+			Uri uriURL = p_uriURL[i];
+			ItemProgress = i;
 
 			while (retries <= m_intRetries)
 			{
 				Status = TaskStatus.Running;
-				m_fdrDownloader = new FileDownloader(p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
-				m_steState = new State(true, p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+				m_fdrDownloader = new FileDownloader(uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
+				m_steState = new State(true, uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
 				m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
 				ShowItemProgress = false;
 				OverallProgressMaximum = m_fdrDownloader.FileSize;
@@ -259,14 +283,21 @@ namespace Nexus.Client.DownloadManagement
 					if (m_fdrDownloader.FileNotFound)
 					{
 						Status = TaskStatus.Error;
-						OnTaskEnded(String.Format("File does not exist: {0}", p_uriURL.ToString()), null);
+						OnTaskEnded(String.Format("File does not exist: {0}", uriURL.ToString()), null);
 						return;
 					}
-					else if (retries < m_intRetries)
+					else if (++retries <= m_intRetries)
 					{
 						swRetry.Start();
-						OverallMessage = String.Format("Server busy or unavailable, retrying.. ({0}/{1})", ++retries, m_intRetries);
+						OverallMessage = String.Format("Server busy or unavailable, retrying.. ({0}/{1})", retries, m_intRetries);
 						Status = TaskStatus.Retrying;
+
+						if ((retries == m_intRetries) && (++i < p_uriURL.Count))
+						{
+							ItemProgress = i;
+							retries = 0;
+							uriURL = p_uriURL[i];
+						}
 
 						while (swRetry.ElapsedMilliseconds < m_intRetryInterval)
 						{
@@ -279,7 +310,7 @@ namespace Nexus.Client.DownloadManagement
 					else
 					{
 						Status = TaskStatus.Error;
-						OnTaskEnded(String.Format("Error trying to get the file: {0}", p_uriURL.ToString()), null);
+						OnTaskEnded(String.Format("Error trying to get the file: {0}", uriURL.ToString()), null);
 						return;
 					}
 				}
