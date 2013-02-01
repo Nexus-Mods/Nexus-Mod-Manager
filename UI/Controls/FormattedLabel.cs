@@ -385,6 +385,7 @@ namespace Nexus.UI.Controls
 				{@"\[font\=(.*?)\](.*?)\[\/font\]",@"<font face=$1>$2</font>"}, // font face
 				{@"\[center\](.*?)\[\/center\]",@"<div align=""center"">$1</div>"}, // centre align
 				{@"\[right\](.*?)\[\/right\]",@"<div align=""right"">$1</div>"}, // right align
+				{@"\[youtube\](\(?)(.*\.+youtube+\..*)\[\/youtube\]",@"<a href=""$2"">$2</a>"},  // youtube
 				{@"\[youtube\](.*?)\[\/youtube\]",@"<a href=""http://www.youtube.com/watch?v=$1"">http://www.youtube.com/watch?v=$1</a>"},  // youtube
 				{@"\[size=(.*?)\](.*?)\[\/size\]",@"<font size=""$1"">$2</font>"}, //size
 				{@"\[spoiler\](.*?)\[\/spoiler\]",@"<strong>SPOILER:</strong> <span style=""color: #404040; border-bottom: 1px solid white;"">$1</span>"} //spoiler
