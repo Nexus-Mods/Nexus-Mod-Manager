@@ -675,6 +675,7 @@ namespace Nexus.Client.ModManagement.UI
 			tsbResetCategories.Enabled = clwCategoryView.Visible;
 			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
 			ViewModel.Settings.Save();
+			SetCommandExecutableStatus();
 		}
 
 		/// <summary>
