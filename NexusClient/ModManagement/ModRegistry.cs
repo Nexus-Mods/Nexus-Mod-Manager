@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Windows.Forms;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
 
@@ -37,6 +38,7 @@ namespace Nexus.Client.ModManagement
 			ModRegistry mdrRegistry = new ModRegistry(p_frgFormatRegistry);
 			string[] strMods = Directory.GetFiles(p_strSearchPath, "*", p_booRecurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 			IMod modMod = null;
+			List<string> modList = new List<String>();
 			bool booExcluded = false;
 			foreach (string strMod in strMods)
 			{
@@ -50,13 +52,33 @@ namespace Nexus.Client.ModManagement
 				if (booExcluded)
 					continue;
 				Trace.TraceInformation("Found: {0}", strMod);
-				modMod = mdrRegistry.CreateMod(strMod);
+
+				try
+				{
+					modMod = mdrRegistry.CreateMod(strMod);
+				}
+				catch
+				{
+					modList.Add(strMod);
+					modMod = null;
+				}
+
 				if (modMod == null)
 					continue;
 				mdrRegistry.m_oclRegisteredMods.Add(modMod);
 				Trace.Indent();
 				Trace.TraceInformation("Registered.");
 				Trace.Unindent();
+			}
+
+			if (modList.Count > 0)
+			{
+				string strErrorMessage = "Error during the loading of the following mods: " + Environment.NewLine;
+				foreach (string modstr in modList)
+				{
+					strErrorMessage += modstr + Environment.NewLine;
+				}
+				MessageBox.Show(strErrorMessage);
 			}
 
 			Trace.Unindent();
