@@ -391,7 +391,7 @@
 			// sptSummaryInfo.Panel2
 			// 
 			this.sptSummaryInfo.Panel2.Controls.Add(this.flbInfo);
-			this.sptSummaryInfo.Size = new System.Drawing.Size(289, 453);
+			this.sptSummaryInfo.Size = new System.Drawing.Size(189, 453);
 			this.sptSummaryInfo.SplitterDistance = 142;
 			this.sptSummaryInfo.TabIndex = 0;
 			// 
