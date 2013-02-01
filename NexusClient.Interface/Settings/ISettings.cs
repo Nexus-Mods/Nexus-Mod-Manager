@@ -57,7 +57,13 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <value>The id of the remembered game mode.</value>
 		string RememberedGameMode { get; set;  }
-		
+
+		/// <summary>
+		/// Gets or sets whether the selected view mode should be rememberd the next time the client is started.
+		/// </summary>
+		/// <value>Whether the selected view mode should be rememberd the next time the client is started.</value>
+		bool UseCategoryView { get; set; }
+
 		/// <summary>
 		/// Gets the installation path dictionary.
 		/// </summary>
