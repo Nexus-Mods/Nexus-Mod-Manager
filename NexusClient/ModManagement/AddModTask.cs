@@ -691,9 +691,17 @@ namespace Nexus.Client.ModManagement
 		protected void AddModFile(ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
 			string strPath = String.IsNullOrEmpty(Descriptor.SourcePath) ? Descriptor.DefaultSourcePath : Descriptor.SourcePath;
-
 			m_booFinishedDownloads = true;
-			if (!File.Exists(strPath))
+			FileAttributes fa = File.GetAttributes(strPath);
+			
+			if (fa.ToString().IndexOf(FileAttributes.ReadOnly.ToString()) > -1)
+			{
+				OverallMessage = String.Format("The archive is read only: {0}", strPath);
+				ItemMessage = "The archive is read only";
+				Status = TaskStatus.Error;
+				OnTaskEnded(OverallMessage, null);
+			}
+			else if (!File.Exists(strPath))
 			{
 				OverallMessage = String.Format("File does not exist: {0}", strPath);
 				ItemMessage = "File does not exist";

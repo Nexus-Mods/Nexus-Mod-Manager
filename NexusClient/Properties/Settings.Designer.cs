@@ -230,6 +230,21 @@ namespace Nexus.Client.Properties {
 		[global::System.Configuration.UserScopedSettingAttribute()]
 		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
 		[global::System.Configuration.DefaultSettingValueAttribute("True")]
+		public bool UseCategoryView
+		{
+			get
+			{
+				return ((bool)(this["UseCategoryView"]));
+			}
+			set
+			{
+				this["UseCategoryView"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("True")]
 		public bool SupportOfflineMode
 		{
 			get
