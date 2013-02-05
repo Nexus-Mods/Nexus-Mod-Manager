@@ -65,6 +65,12 @@ namespace Nexus.Client.Settings
 		bool UseCategoryView { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the category view should show or hide the empty categories.
+		/// </summary>
+		/// <value>Whether the category view should show or hide the empty categories.</value>
+		bool ShowEmptyCategory { get; set; }
+
+		/// <summary>
 		/// Gets the installation path dictionary.
 		/// </summary>
 		/// <remarks>

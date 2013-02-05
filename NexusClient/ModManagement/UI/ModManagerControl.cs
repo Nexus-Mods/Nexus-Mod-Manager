@@ -468,6 +468,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		private void LoadCategoryView()
 		{
+			clwCategoryView.ShowHiddenCategories = ViewModel.Settings.ShowEmptyCategory;
+
 			if (clwCategoryView.Tag == null)
 			{
 				clwCategoryView.Setup(lvwMods, ViewModel.CategoryManager);
@@ -708,6 +710,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void toggleHiddenCategories_Click(object sender, EventArgs e)
 		{
+			ViewModel.Settings.ShowEmptyCategory = !clwCategoryView.ShowHiddenCategories;
 			clwCategoryView.ShowHiddenCategories = !clwCategoryView.ShowHiddenCategories;
 			clwCategoryView.LoadData();
 		}
