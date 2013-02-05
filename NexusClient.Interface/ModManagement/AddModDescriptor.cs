@@ -145,21 +145,25 @@ namespace Nexus.Client.ModManagement
 			reader.ReadEndElement();
 
 			booIsEmpty = reader.IsEmptyElement;
-			reader.ReadStartElement("sourceName");
-			if (!booIsEmpty)
+			try
 			{
-				while (reader.MoveToContent() == XmlNodeType.Element && reader.LocalName == "string")
+				reader.ReadStartElement("sourceName");
+
+				if (!booIsEmpty)
 				{
-					try
+					while (reader.MoveToContent() == XmlNodeType.Element && reader.LocalName == "string")
 					{
 						xsrSerializer = new XmlSerializer(typeof(string));
 						SourceName.Add((string)xsrSerializer.Deserialize(reader));
 					}
-					catch
-					{
-					}
+					reader.ReadEndElement();
 				}
-				reader.ReadEndElement();
+			}
+			catch
+			{
+			}
+			finally
+			{
 				if (SourceName.Count == 0)
 					SourceName.Add("Default");
 			}
@@ -169,17 +173,18 @@ namespace Nexus.Client.ModManagement
 			DefaultSourcePath = (string)xsrSerializer.Deserialize(reader);
 			reader.ReadEndElement();
 
-			reader.ReadStartElement("status");
-			xsrSerializer = new XmlSerializer(typeof(TaskStatus));
+
 			try
 			{
+				reader.ReadStartElement("status");
+				xsrSerializer = new XmlSerializer(typeof(TaskStatus));
 				Status = (TaskStatus)xsrSerializer.Deserialize(reader);
+				reader.ReadEndElement();
 			}
 			catch
 			{
 				Status = TaskStatus.Paused;
 			}
-			reader.ReadEndElement();
 
 			booIsEmpty = reader.IsEmptyElement;
 			reader.ReadStartElement("downloadFiles");
