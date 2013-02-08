@@ -191,6 +191,7 @@ namespace Nexus.Client
 						{
 							Trace.TraceInformation("Adding mod: " + uriModToAdd.ToString());
 							msgMessager.AddMod(uriModToAdd.ToString());
+							uriModToAdd = null;
 						}
 
 						Trace.TraceInformation("Running Application.");

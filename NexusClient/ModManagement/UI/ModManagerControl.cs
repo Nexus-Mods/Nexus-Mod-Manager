@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
@@ -468,6 +469,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		private void LoadCategoryView()
 		{
+			clwCategoryView.ShowHiddenCategories = ViewModel.Settings.ShowEmptyCategory;
+
 			if (clwCategoryView.Tag == null)
 			{
 				clwCategoryView.Setup(lvwMods, ViewModel.CategoryManager);
@@ -475,7 +478,7 @@ namespace Nexus.Client.ModManagement.UI
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
 				{
-					if ((clwCategoryView.SelectedObjects.Count > 0) && !m_booDisableSummary)
+					if ((clwCategoryView.SelectedObjects.Count > 0) && !m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 					{
 						if (clwCategoryView.GetSelectedItem.Tag.GetType() != typeof(ModCategory))
 							UpdateSummary((IMod)clwCategoryView.GetSelectedItem.Tag);
@@ -574,6 +577,42 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		/// <summary>
+		/// Handles the <see cref="TreeView.Expanding"/> event of the category view.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="BrightIdeasSoftware.TreeBranchExpandingEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_TreeBranchExpanding(object sender, BrightIdeasSoftware.TreeBranchExpandingEventArgs e)
+		{
+			if (e.Item != null)
+			{
+				ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
+				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				{
+					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					mctUpdatedCategory.NewMods = 0;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="TreeView.Collapsing"/> event of the category view.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="BrightIdeasSoftware.TreeBranchExpandingEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_TreeBranchCollapsing(object sender, BrightIdeasSoftware.TreeBranchCollapsingEventArgs e)
+		{
+			if (e.Item != null)
+			{
+				ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
+				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				{
+					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					mctUpdatedCategory.NewMods = 0;
+				}
+			}
+		}
+		
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.CategorySwitch"/> of the switch
 		/// mod category context menu.
@@ -684,6 +723,18 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void tsbToggleSidePanel_Click(object sender, EventArgs e)
+		{
+			ViewModel.Settings.ShowSidePanel = !ViewModel.Settings.ShowSidePanel;
+			ViewModel.Settings.Save();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
+		/// category button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void collapseAllCategories_Click(object sender, EventArgs e)
 		{
 			clwCategoryView.CollapseAll();
@@ -708,6 +759,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void toggleHiddenCategories_Click(object sender, EventArgs e)
 		{
+			ViewModel.Settings.ShowEmptyCategory = !clwCategoryView.ShowHiddenCategories;
 			clwCategoryView.ShowHiddenCategories = !clwCategoryView.ShowHiddenCategories;
 			clwCategoryView.LoadData();
 		}
@@ -729,8 +781,8 @@ namespace Nexus.Client.ModManagement.UI
 					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
 					string strOldValue = mctUpdatedCategory.CategoryName;
 					mctUpdatedCategory.CategoryName = strValue;
-					mctUpdatedCategory.CategoryPath = strValue;
-					ViewModel.CategoryManager.UpdateCategory();
+					mctUpdatedCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty)); ;
+					ViewModel.CategoryManager.UpdateCategoryFile();
 					clwCategoryView.UpdateData(mctUpdatedCategory, strOldValue);
 				}
 				else
@@ -764,8 +816,8 @@ namespace Nexus.Client.ModManagement.UI
 					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
 					string strOldValue = mctUpdatedCategory.CategoryName;
 					mctUpdatedCategory.CategoryName = strValue;
-					mctUpdatedCategory.CategoryPath = strValue;
-					ViewModel.CategoryManager.UpdateCategory();
+					mctUpdatedCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty)); ;
+					ViewModel.CategoryManager.UpdateCategoryFile();
 					clwCategoryView.UpdateData(mctUpdatedCategory, strOldValue);
 				}
 				else
@@ -1191,6 +1243,7 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if ((e.NewItems != null) && (e.NewItems.Count > 0))
 				{
+					mctCategory.NewMods += 1;
 					if (clwCategoryView.RefreshData(new ModCategory(mctCategory)))
 						clwCategoryView.AddData(mctCategory, false);
 				}
@@ -1218,7 +1271,7 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, PropertyChangedEventArgs>)Mod_PropertyChanged, sender, e);
 				return;
 			}
-			if (!m_booDisableSummary)
+			if (!m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)sender);
 			AddModToList((IMod)sender);
 		}
@@ -1448,7 +1501,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void lvwMods_SelectedIndexChanged(object sender, EventArgs e)
 		{
-			if ((lvwMods.SelectedItems.Count > 0) && !m_booDisableSummary)
+			if ((lvwMods.SelectedItems.Count > 0) && !m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)lvwMods.SelectedItems[0].Tag);
 			else
 				UpdateSummary(null);

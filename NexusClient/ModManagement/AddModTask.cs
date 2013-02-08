@@ -692,9 +692,20 @@ namespace Nexus.Client.ModManagement
 		{
 			string strPath = String.IsNullOrEmpty(Descriptor.SourcePath) ? Descriptor.DefaultSourcePath : Descriptor.SourcePath;
 			m_booFinishedDownloads = true;
-			FileAttributes fa = File.GetAttributes(strPath);
-			
-			if (fa.ToString().IndexOf(FileAttributes.ReadOnly.ToString()) > -1)
+			FileAttributes faAttributes = File.GetAttributes(strPath);
+
+			DriveInfo diDestinationHD = new DriveInfo(Path.GetPathRoot(m_gmdGameMode.PluginDirectory));
+			long lngDestinationFreeSpace = diDestinationHD.TotalFreeSpace;
+			FileInfo fiArchive = new FileInfo(strPath);
+
+			if (lngDestinationFreeSpace < fiArchive.Length)
+			{
+				OverallMessage = String.Format("Not enough free space on your HD: {0}", diDestinationHD.Name);
+				ItemMessage = "Not enough free space on your HD.";
+				Status = TaskStatus.Error;
+				OnTaskEnded(OverallMessage, null);
+			}
+			else if (faAttributes.ToString().IndexOf(FileAttributes.ReadOnly.ToString()) > -1)
 			{
 				OverallMessage = String.Format("The archive is read only: {0}", strPath);
 				ItemMessage = "The archive is read only";
@@ -779,7 +790,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Registers the given mods with the registry.
 		/// </summary>
-		/// <param name="p_lstAddedMods">The mads that have been added and need to be registered with the manager.</param>
+		/// <param name="p_lstAddedMods">The mods that have been added and need to be registered with the manager.</param>
 		protected void RegisterModFiles(IList<string> p_lstAddedMods)
 		{
 			OverallMessage = "Adding mods to manager...";
@@ -788,12 +799,24 @@ namespace Nexus.Client.ModManagement
 			{
 				ItemProgress = 0;
 				ItemProgressMaximum = p_lstAddedMods.Count;
+
 				foreach (string strMod in p_lstAddedMods)
 				{
-					if (m_eifEnvironmentInfo.Settings.AddMissingInfoToMods)
-						m_mrgModRegistry.RegisterMod(strMod, ModInfo);
-					else
-						m_mrgModRegistry.RegisterMod(strMod);
+					try
+					{
+						if (m_eifEnvironmentInfo.Settings.AddMissingInfoToMods)
+							m_mrgModRegistry.RegisterMod(strMod, ModInfo);
+						else
+							m_mrgModRegistry.RegisterMod(strMod);
+					}
+					catch (Exception ex)
+					{
+						OverallMessage = String.Format("There was an error registering this mod: {1}" + Environment.NewLine + "Error: {0} ", ex.Message, GetModDisplayName());
+						ItemMessage = "Error registering mod.";
+						Status = TaskStatus.Error;
+						OnTaskEnded(null, null);
+						return;
+					}
 					StepItemProgress();
 				}
 			}
