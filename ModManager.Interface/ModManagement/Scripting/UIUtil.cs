@@ -95,7 +95,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		public DialogResult ShowMessageBox(string p_strMessage, string p_strCaption, MessageBoxButtons p_mbbButtons, MessageBoxIcon p_mbiIcon)
 		{
 			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, p_mbbButtons, p_mbiIcon), null);
+			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, p_mbbButtons, p_mbiIcon, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
 			return drsResult;
 		}
 
@@ -107,7 +107,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		public DialogResult ShowMessageBox(string p_strMessage)
 		{
 			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage), null);
+			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, string.Empty, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
 			return drsResult;
 		}
 
@@ -120,7 +120,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		public DialogResult ShowMessageBox(string p_strMessage, string p_strCaption)
 		{
 			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption), null);
+			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, MessageBoxButtons.OK, MessageBoxIcon.Information,  MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
 			return drsResult;
 		}
 
@@ -134,7 +134,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		public DialogResult ShowMessageBox(string p_strMessage, string p_strCaption, MessageBoxButtons p_mbbButtons)
 		{
 			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, p_mbbButtons), null);
+			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, p_mbbButtons, MessageBoxIcon.Information,  MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
 			return drsResult;
 		}
 
