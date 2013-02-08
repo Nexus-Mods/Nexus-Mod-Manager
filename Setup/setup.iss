@@ -15,7 +15,7 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.41.0'
+#define MyAppVersion '0.42.0'
 #define SetupScriptVersion '0.7.1.0'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
@@ -50,6 +50,7 @@ SolidCompression=true
 Compression=lzma2/Max
 ChangesAssociations=true
 LicenseFile=..\bin\Release\data\Licence.rtf
+InfoBeforeFile=..\bin\Release\data\Release.txt
 MinVersion=0,5.01
 PrivilegesRequired=admin
 ArchitecturesAllowed=x86 x64 ia64
@@ -156,6 +157,12 @@ begin
 #endif
 	
 	Result := true;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpInfoBefore then
+    WizardForm.PageNameLabel.Caption := 'Release Notes';
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
