@@ -78,7 +78,7 @@ namespace Nexus.Client.ModManagement.UI
 			Mod = p_modMod;
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
-			m_mifCurrentTagOption = new ModInfo();
+			m_mifCurrentTagOption = new ModInfo(Mod);
 			ModInfoEditorVM = new ModInfoEditorVM(m_mifCurrentTagOption, p_setSettings);
 			ModInfoEditorVM.EditedModInfoVM.LoadInfoValues(p_modMod);
 		}
