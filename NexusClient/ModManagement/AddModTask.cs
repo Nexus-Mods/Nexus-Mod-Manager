@@ -692,9 +692,20 @@ namespace Nexus.Client.ModManagement
 		{
 			string strPath = String.IsNullOrEmpty(Descriptor.SourcePath) ? Descriptor.DefaultSourcePath : Descriptor.SourcePath;
 			m_booFinishedDownloads = true;
-			FileAttributes fa = File.GetAttributes(strPath);
-			
-			if (fa.ToString().IndexOf(FileAttributes.ReadOnly.ToString()) > -1)
+			FileAttributes faAttributes = File.GetAttributes(strPath);
+
+			DriveInfo diDestinationHD = new DriveInfo(Path.GetPathRoot(m_gmdGameMode.PluginDirectory));
+			long lngDestinationFreeSpace = diDestinationHD.TotalFreeSpace;
+			FileInfo fiArchive = new FileInfo(strPath);
+
+			if (lngDestinationFreeSpace < fiArchive.Length)
+			{
+				OverallMessage = String.Format("Not enough free space on your HD: {0}", diDestinationHD.Name);
+				ItemMessage = "Not enough free space on your HD.";
+				Status = TaskStatus.Error;
+				OnTaskEnded(OverallMessage, null);
+			}
+			else if (faAttributes.ToString().IndexOf(FileAttributes.ReadOnly.ToString()) > -1)
 			{
 				OverallMessage = String.Format("The archive is read only: {0}", strPath);
 				ItemMessage = "The archive is read only";
