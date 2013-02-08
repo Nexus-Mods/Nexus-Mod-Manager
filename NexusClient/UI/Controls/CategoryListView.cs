@@ -324,7 +324,7 @@ namespace Nexus.Client.UI.Controls
 
 			tlcVersion.AspectGetter = delegate(object rowObject)
 			{
-				string Val = "<No Data>";
+				string Val = string.Empty;
 				ListViewItem lviItem = (ListViewItem)rowObject;
 
 				if (lviItem.Tag.GetType() != typeof(ModCategory))
@@ -339,7 +339,7 @@ namespace Nexus.Client.UI.Controls
 
 			tlcWebVersion.AspectGetter = delegate(object rowObject)
 			{
-				string Val = "<No Data>";
+				string Val = String.Empty;
 				ListViewItem lviItem = (ListViewItem)rowObject;
 
 				if (lviItem.Tag.GetType() != typeof(ModCategory))
@@ -354,7 +354,7 @@ namespace Nexus.Client.UI.Controls
 
 			tlcAuthor.AspectGetter = delegate(object rowObject)
 			{
-				string Val = "<No Data>";
+				string Val = String.Empty;
 				ListViewItem lviItem = (ListViewItem)rowObject;
 
 				if (lviItem.Tag.GetType() != typeof(ModCategory))
