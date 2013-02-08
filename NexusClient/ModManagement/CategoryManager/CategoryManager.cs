@@ -276,7 +276,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Updates the category file.
 		/// </summary>
-		public void UpdateCategory()
+		public void UpdateCategoryFile()
 		{
 			SaveCategories();
 		}
