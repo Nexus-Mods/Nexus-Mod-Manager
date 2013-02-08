@@ -283,6 +283,9 @@
     <None Include="Resources\switch_view.png" />
     <None Include="Resources\category_folder.png" />
     <None Include="Resources\side_panel.png" />
+    <None Include="data\release.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\text-x-generic.png" />
     <None Include="Resources\unendorsed_small.png" />
