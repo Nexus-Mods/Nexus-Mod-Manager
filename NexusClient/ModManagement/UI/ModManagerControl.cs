@@ -475,7 +475,7 @@ namespace Nexus.Client.ModManagement.UI
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
 				{
-					if ((clwCategoryView.SelectedObjects.Count > 0) && !m_booDisableSummary)
+					if ((clwCategoryView.SelectedObjects.Count > 0) && !m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 					{
 						if (clwCategoryView.GetSelectedItem.Tag.GetType() != typeof(ModCategory))
 							UpdateSummary((IMod)clwCategoryView.GetSelectedItem.Tag);
@@ -676,6 +676,18 @@ namespace Nexus.Client.ModManagement.UI
 			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
 			ViewModel.Settings.Save();
 			SetCommandExecutableStatus();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
+		/// category button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void tsbToggleSidePanel_Click(object sender, EventArgs e)
+		{
+			ViewModel.Settings.ShowSidePanel = !ViewModel.Settings.ShowSidePanel;
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
@@ -1218,7 +1230,7 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, PropertyChangedEventArgs>)Mod_PropertyChanged, sender, e);
 				return;
 			}
-			if (!m_booDisableSummary)
+			if (!m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)sender);
 			AddModToList((IMod)sender);
 		}
@@ -1448,7 +1460,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void lvwMods_SelectedIndexChanged(object sender, EventArgs e)
 		{
-			if ((lvwMods.SelectedItems.Count > 0) && !m_booDisableSummary)
+			if ((lvwMods.SelectedItems.Count > 0) && !m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)lvwMods.SelectedItems[0].Tag);
 			else
 				UpdateSummary(null);

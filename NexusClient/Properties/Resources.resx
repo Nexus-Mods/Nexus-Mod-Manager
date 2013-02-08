@@ -295,4 +295,7 @@
   <data name="category_folder" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\category_folder.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="side_panel" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\side_panel.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

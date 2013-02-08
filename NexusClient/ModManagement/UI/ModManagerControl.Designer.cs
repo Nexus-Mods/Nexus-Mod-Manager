@@ -54,6 +54,7 @@
 			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripButton();
 			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
 			this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
+			this.tsbToggleSidePanel = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.lvwMods = new Nexus.UI.Controls.IconListView();
 			this.clmModName = new System.Windows.Forms.ColumnHeader();
@@ -96,7 +97,8 @@
 			this.tsbCheckModVersions,
 			this.tsbToggleEndorse,
 			this.tsbResetCategories,
-			this.tsbSwitchView});
+			this.tsbSwitchView,
+			this.tsbToggleSidePanel});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(49, 453);
@@ -268,6 +270,16 @@
 			this.tsbSwitchView.Size = new System.Drawing.Size(46, 36);
 			this.tsbSwitchView.Text = "Switches the Mod Manager views";
 			this.tsbSwitchView.Click += new System.EventHandler(tsbSwitchCategory_Click);
+			// 
+			// tsbToggleSidePanel
+			// 
+			this.tsbToggleSidePanel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbToggleSidePanel.Image = global::Nexus.Client.Properties.Resources.side_panel;
+			this.tsbToggleSidePanel.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbToggleSidePanel.Name = "tsbToggleSidePanel";
+			this.tsbToggleSidePanel.Size = new System.Drawing.Size(46, 36);
+			this.tsbToggleSidePanel.Text = "Toggles the side panel";
+			this.tsbToggleSidePanel.Click += new System.EventHandler(tsbToggleSidePanel_Click);
 			// 
 			// sptMods
 			// 
@@ -479,5 +491,6 @@
 		private System.Windows.Forms.ToolStripButton tsbCheckModVersions;
 		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
 		private System.Windows.Forms.ToolStripButton tsbSwitchView;
+		private System.Windows.Forms.ToolStripButton tsbToggleSidePanel;
 	}
 }
