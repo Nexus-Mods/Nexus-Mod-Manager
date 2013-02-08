@@ -30,6 +30,12 @@ namespace Nexus.Client.Mods
 		/// <value>The path to the category.</value>
 		string CategoryPath { get; set; }
 
+		/// <summary>
+		/// Gets or sets the number of new mods in the category.
+		/// </summary>
+		/// <value>The number of new mods in the category.</value>
+		Int32 NewMods { get; set; }
+
 		#endregion
 	}
 }

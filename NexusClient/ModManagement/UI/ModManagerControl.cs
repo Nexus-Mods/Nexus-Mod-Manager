@@ -575,6 +575,42 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles the <see cref="TreeView.Expanding"/> event of the category view.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="BrightIdeasSoftware.TreeBranchExpandingEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_TreeBranchExpanding(object sender, BrightIdeasSoftware.TreeBranchExpandingEventArgs e)
+		{
+			if (e.Item != null)
+			{
+				ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
+				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				{
+					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					mctUpdatedCategory.NewMods = 0;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="TreeView.Collapsing"/> event of the category view.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="BrightIdeasSoftware.TreeBranchExpandingEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_TreeBranchCollapsing(object sender, BrightIdeasSoftware.TreeBranchCollapsingEventArgs e)
+		{
+			if (e.Item != null)
+			{
+				ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
+				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				{
+					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					mctUpdatedCategory.NewMods = 0;
+				}
+			}
+		}
+		
+		/// <summary>
 		/// Handles the <see cref="CategoryListView.CategorySwitch"/> of the switch
 		/// mod category context menu.
 		/// </summary>
@@ -730,7 +766,7 @@ namespace Nexus.Client.ModManagement.UI
 					string strOldValue = mctUpdatedCategory.CategoryName;
 					mctUpdatedCategory.CategoryName = strValue;
 					mctUpdatedCategory.CategoryPath = strValue;
-					ViewModel.CategoryManager.UpdateCategory();
+					ViewModel.CategoryManager.UpdateCategoryFile();
 					clwCategoryView.UpdateData(mctUpdatedCategory, strOldValue);
 				}
 				else
@@ -765,7 +801,7 @@ namespace Nexus.Client.ModManagement.UI
 					string strOldValue = mctUpdatedCategory.CategoryName;
 					mctUpdatedCategory.CategoryName = strValue;
 					mctUpdatedCategory.CategoryPath = strValue;
-					ViewModel.CategoryManager.UpdateCategory();
+					ViewModel.CategoryManager.UpdateCategoryFile();
 					clwCategoryView.UpdateData(mctUpdatedCategory, strOldValue);
 				}
 				else
@@ -1191,6 +1227,7 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if ((e.NewItems != null) && (e.NewItems.Count > 0))
 				{
+					mctCategory.NewMods += 1;
 					if (clwCategoryView.RefreshData(new ModCategory(mctCategory)))
 						clwCategoryView.AddData(mctCategory, false);
 				}
