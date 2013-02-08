@@ -847,7 +847,7 @@ namespace Nexus.Client.UI.Controls
 			System.Drawing.FontStyle fsFontStyle = FontStyle.Bold;
 
 			if (!IsFontInstalled(strImageFont))
-				strImageFont = SystemFonts.DefaultFont.Name;
+				strImageFont = this.Font.FontFamily.ToString();
 			if (!SupportBold(new Font(strImageFont, 8)))
 				fsFontStyle = FontStyle.Regular;
 
@@ -870,12 +870,19 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		private bool IsFontInstalled(string fontName)
 		{
-			using (var testFont = new Font(fontName, 8))
+			try
 			{
-				return 0 == string.Compare(
-				  fontName,
-				  testFont.Name,
-				  StringComparison.InvariantCultureIgnoreCase);
+				using (var testFont = new Font(fontName, 8))
+				{
+					return 0 == string.Compare(
+					  fontName,
+					  testFont.Name,
+					  StringComparison.InvariantCultureIgnoreCase);
+				}
+			}
+			catch
+			{
+				return false;
 			}
 		}
 
