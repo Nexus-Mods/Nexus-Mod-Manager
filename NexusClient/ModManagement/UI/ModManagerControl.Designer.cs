@@ -54,6 +54,7 @@
 			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripButton();
 			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
 			this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
+			this.tsbToggleSidePanel = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.lvwMods = new Nexus.UI.Controls.IconListView();
 			this.clmModName = new System.Windows.Forms.ColumnHeader();
@@ -96,7 +97,8 @@
 			this.tsbCheckModVersions,
 			this.tsbToggleEndorse,
 			this.tsbResetCategories,
-			this.tsbSwitchView});
+			this.tsbSwitchView,
+			this.tsbToggleSidePanel});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(49, 453);
@@ -269,6 +271,16 @@
 			this.tsbSwitchView.Text = "Switches the Mod Manager views";
 			this.tsbSwitchView.Click += new System.EventHandler(tsbSwitchCategory_Click);
 			// 
+			// tsbToggleSidePanel
+			// 
+			this.tsbToggleSidePanel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbToggleSidePanel.Image = global::Nexus.Client.Properties.Resources.side_panel;
+			this.tsbToggleSidePanel.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbToggleSidePanel.Name = "tsbToggleSidePanel";
+			this.tsbToggleSidePanel.Size = new System.Drawing.Size(46, 36);
+			this.tsbToggleSidePanel.Text = "Toggles the side panel";
+			this.tsbToggleSidePanel.Click += new System.EventHandler(tsbToggleSidePanel_Click);
+			// 
 			// sptMods
 			// 
 			this.sptMods.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -374,6 +386,8 @@
 			this.clwCategoryView.Resize += new System.EventHandler(this.lvwMods_Resize);
 			this.clwCategoryView.AfterLabelEdit += new System.Windows.Forms.LabelEditEventHandler(this.clwCategoryView_AfterLabelEdit);
 			this.clwCategoryView.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.clwCategoryView_ColumnWidthChanging);
+			this.clwCategoryView.Expanding += new System.EventHandler<BrightIdeasSoftware.TreeBranchExpandingEventArgs>(this.clwCategoryView_TreeBranchExpanding);
+			this.clwCategoryView.Collapsing += new System.EventHandler<BrightIdeasSoftware.TreeBranchCollapsingEventArgs>(this.clwCategoryView_TreeBranchCollapsing);
 			this.clwCategoryView.Visible = true;
 			// 
 			// sptSummaryInfo
@@ -479,5 +493,6 @@
 		private System.Windows.Forms.ToolStripButton tsbCheckModVersions;
 		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
 		private System.Windows.Forms.ToolStripButton tsbSwitchView;
+		private System.Windows.Forms.ToolStripButton tsbToggleSidePanel;
 	}
 }

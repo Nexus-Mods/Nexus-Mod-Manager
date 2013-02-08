@@ -65,6 +65,12 @@ namespace Nexus.Client.Settings
 		bool UseCategoryView { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the side panel should be shown in the mod panel.
+		/// </summary>
+		/// <value>Whether the side panel should be shown in the mod panel.</value>
+		bool ShowSidePanel { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the category view should show or hide the empty categories.
 		/// </summary>
 		/// <value>Whether the category view should show or hide the empty categories.</value>
