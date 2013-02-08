@@ -1,0 +1,13 @@
+New Feature: NMM category control will now save whether the user was showing or hiding empty categories.
+New Feature: Visual feedback when a newly added mod is placed under a category node.
+New Feature: Added a new button to disable to side panel in the Mod panel.
+
+Bugfix: This should once and for all fix the "QueuesModToAdd" crash.
+Bugfix: Crash caused by invalid chars in category names.
+Bugfix: Crash while unable to register an added mod.
+Bugfix: Fix for this repeated download bug: http://forums.nexusmods.com/index.php?/tracker/issue-4513-nmm-download-with-nmm-repeated-download-bug/.
+Bugfix: Crash while trying to add a mod to the manager and there isn't enough free space on the destination HD.
+Bugfix: NMM failing to show a MessageBox to the user, also resulting in NMM freezing while installing some scripted fomod/omod files.
+Bugfix: NMM unable to properly save/load the custom screenshot added to mods.
+Bugfix: The category view will now show empty fields instead of <No Data>.
+Bugfix: Another missing/corrupt font crash.
