@@ -278,12 +278,25 @@ namespace Nexus.Client.UI.Controls
 				if (lviItem.Tag.GetType() != typeof(ModCategory))
 				{
 					if (!String.IsNullOrEmpty(lviItem.SubItems[tlcInstallDate.Name].Text))
-						Val = lviItem.SubItems[tlcInstallDate.Name].Text;		
+						Val = lviItem.SubItems[tlcInstallDate.Name].Text;
 					if (CheckDate(Val))
 						return Convert.ToDateTime(Val);
 				}
+				else
+					return ((ModCategory)lviItem.Tag).NewMods.ToString();
 
 				return null;
+			};
+
+			tlcInstallDate.AspectToStringConverter = delegate(object x)
+			{
+				int intCheck;
+				if ((x != null) && (!Int32.TryParse(x.ToString(), out intCheck)))
+				{
+					return x.ToString();
+				}
+				else
+					return String.Empty;
 			};
 
 			tlcEndorsement.AspectGetter = delegate(object rowObject)
@@ -494,12 +507,23 @@ namespace Nexus.Client.UI.Controls
 				ListViewItem lviItem = (ListViewItem)rowObject;
 				if ((lviItem.Tag).GetType() == typeof(ModCategory))
 				{
-					return new Bitmap(CreateBitmapImage(GetCategoryModCount((IModCategory)lviItem.Tag, lviCategoryItems).ToString()), 13 , 15);
+					return new Bitmap(CreateBitmapImage(GetCategoryModCount((IModCategory)lviItem.Tag, lviCategoryItems).ToString(), Properties.Resources.category_folder, 14, 2, 4, 1, 5), 13, 15);
 				}
 				else
 				{
 					return new Bitmap(lviItem.Checked ? Properties.Resources.dialog_ok_4_16 : Properties.Resources.dialog_cancel_4_16, 12, 12);
 				}
+			};
+
+			tlcInstallDate.ImageGetter = delegate(object rowObject)
+			{
+				ListViewItem lviItem = (ListViewItem)rowObject;
+				if ((lviItem.Tag).GetType() == typeof(ModCategory))
+				{
+					if (((ModCategory)lviItem.Tag).NewMods > 0)
+						return new Bitmap(CreateBitmapImage(((ModCategory)lviItem.Tag).NewMods.ToString(), Properties.Resources.AddFile_48x48, 16, 4, 4, -2, -1), 16, 16);
+				}
+				return null;
 			};
 
 			tlcEndorsement.ImageGetter = delegate(object rowObject)
@@ -815,9 +839,8 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// This dynamically creates a transparency enabled png merging the folder icon with the mod count.
 		/// </summary>
-		private Bitmap CreateBitmapImage(string sImageText)
+		private Bitmap CreateBitmapImage(string sImageText, Bitmap p_objBmpImage, Int32 p_intFontSize, Int32 p_intFontHRatio, Int32 p_intFontVRatio, Int32 p_intFontHOffset, Int32 p_intFontVOffset)
 		{
-			Bitmap objBmpImage = new Bitmap(Properties.Resources.category_folder);
 			int intWidth = 0;
 			int intHeight = 0;
 			string strImageFont = "Arial";
@@ -828,18 +851,18 @@ namespace Nexus.Client.UI.Controls
 			if (!SupportBold(new Font(strImageFont, 8)))
 				fsFontStyle = FontStyle.Regular;
 
-			Font objFont = new Font(strImageFont, 14, fsFontStyle, System.Drawing.GraphicsUnit.Pixel);
-			Graphics objGraphics = Graphics.FromImage(objBmpImage);
+			Font objFont = new Font(strImageFont, p_intFontSize, fsFontStyle, System.Drawing.GraphicsUnit.Pixel);
+			Graphics objGraphics = Graphics.FromImage(p_objBmpImage);
 			intWidth = (int)objGraphics.MeasureString(sImageText, objFont).Width;
 			intHeight = (int)objGraphics.MeasureString(sImageText, objFont).Height;
-			objBmpImage = new Bitmap(objBmpImage, new Size(intWidth + 2, intHeight + 4));
-			objGraphics = Graphics.FromImage(objBmpImage);
+			p_objBmpImage = new Bitmap(p_objBmpImage, new Size(intWidth + p_intFontHRatio, intHeight + p_intFontVRatio));
+			objGraphics = Graphics.FromImage(p_objBmpImage);
 			objGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 			objGraphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-			objGraphics.DrawString(sImageText, objFont, new SolidBrush(Color.FromArgb(25, 25, 25)), 1, 5);
+			objGraphics.DrawString(sImageText, objFont, new SolidBrush(Color.FromArgb(25, 25, 25)), p_intFontHOffset, p_intFontVOffset);
 			objGraphics.Flush();
-			objBmpImage.MakeTransparent(Color.Magenta);
-			return (objBmpImage);
+			p_objBmpImage.MakeTransparent(Color.Magenta);
+			return (p_objBmpImage);
 		}
 
 		/// <summary>
