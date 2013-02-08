@@ -65,6 +65,12 @@ namespace Nexus.Client.Settings
 		bool UseCategoryView { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the side panel should be shown in the mod panel.
+		/// </summary>
+		/// <value>Whether the side panel should be shown in the mod panel.</value>
+		bool ShowSidePanel { get; set; }
+
+		/// <summary>
 		/// Gets the installation path dictionary.
 		/// </summary>
 		/// <remarks>

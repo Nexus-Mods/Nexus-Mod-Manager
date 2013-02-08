@@ -47,7 +47,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Updates the category file.
 		/// </summary>
-		void UpdateCategory();
+		void UpdateCategoryFile();
 
 		/// <summary>
 		/// Removes the category from the category manager.

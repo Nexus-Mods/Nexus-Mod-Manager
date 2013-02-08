@@ -26,6 +26,12 @@ namespace Nexus.Client.ModRepositories
 		/// <value>The path to the category.</value>
 		public string CategoryPath { get; set; }
 
+		/// <summary>
+		/// Gets or sets the number of new mods in the category.
+		/// </summary>
+		/// <value>The number of new mods in the category.</value>
+		public Int32 NewMods { get; set; }
+
 		#endregion
 
 		#region Constructors
@@ -35,6 +41,7 @@ namespace Nexus.Client.ModRepositories
 			Id = 0;
 			CategoryName = "Unassigned";
 			CategoryPath = "Unassigned";
+			NewMods = 0;
 		}
 
 		public ModCategory(Int32 p_intCatId, string p_strCatName, string p_strCatPath)
@@ -42,6 +49,7 @@ namespace Nexus.Client.ModRepositories
 			Id = p_intCatId;
 			CategoryName = p_strCatName;
 			CategoryPath = p_strCatPath;
+			NewMods = 0;
 		}
 
 		public ModCategory(IModCategory p_imcCategory)
@@ -49,6 +57,7 @@ namespace Nexus.Client.ModRepositories
 			Id = p_imcCategory.Id;
 			CategoryName = p_imcCategory.CategoryName;
 			CategoryPath = p_imcCategory.CategoryPath;
+			NewMods = p_imcCategory.NewMods;
 		}
 
 		#endregion
