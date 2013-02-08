@@ -410,6 +410,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap side_panel {
+            get {
+                object obj = ResourceManager.GetObject("side_panel", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap switch_view {
             get {
                 object obj = ResourceManager.GetObject("switch_view", resourceCulture);

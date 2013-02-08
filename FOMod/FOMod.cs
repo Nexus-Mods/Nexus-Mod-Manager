@@ -434,8 +434,13 @@ namespace Nexus.Client.Mods.Formats.FOMod
 						break;
 					}
 
+
 			//check for screenshot
-			string[] strScreenshots = m_arcFile.GetFiles("fomod", "screenshot*", false);
+			string[] strScreenshots;
+			if (p_booUseCache && (m_arcCacheFile != null))
+				strScreenshots = m_arcCacheFile.GetFiles("fomod", "screenshot*", false);
+			else
+				strScreenshots = m_arcFile.GetFiles("fomod", "screenshot*", false);
 			//TODO make sure the file is a valid image
 			if (strScreenshots.Length > 0)
 				m_strScreenshotPath = strScreenshots[0];
@@ -688,6 +693,19 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		}
 
 		/// <summary>
+		/// Replaces the specified file with the given data.
+		/// </summary>
+		/// <param name="p_strPath">The path of the file to replace.</param>
+		/// <param name="p_bteData">The new file data.</param>
+		protected void CreateOrReplaceFile(string p_strPath, byte[] p_bteData)
+		{
+			if (!m_arcFile.ReadOnly && !m_arcFile.IsSolid)
+				m_arcFile.ReplaceFile(GetRealPath(p_strPath), p_bteData);
+			if (m_arcCacheFile != null)
+				m_arcCacheFile.ReplaceFile(GetRealPath(p_strPath), p_bteData);
+		}
+
+		/// <summary>
 		/// Replaces the specified file with the given text.
 		/// </summary>
 		/// <param name="p_strPath">The path of the file to replace.</param>
@@ -856,7 +874,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-			if (p_booOverwriteAllValues || (Screenshot == null))
+			if (p_booOverwriteAllValues || (Screenshot != p_mifInfo.Screenshot))
 			{
 				if (p_mifInfo.Screenshot == null)
 				{
@@ -869,7 +887,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				else
 				{
 					Screenshot = p_mifInfo.Screenshot;
-					ReplaceFile(m_strScreenshotPath, Screenshot.Data);
+					CreateOrReplaceFile(m_strScreenshotPath, Screenshot.Data);
 				}
 			}
 		}
