@@ -67,6 +67,7 @@ namespace Nexus.Client.UI.Controls
 			// tlcInstallDate
 			// 
 			this.tlcInstallDate.Text = "Install Date";
+			this.tlcInstallDate.TextAlign = HorizontalAlignment.Center;
 			this.tlcInstallDate.Width = 80;
 			this.tlcInstallDate.IsEditable = false;
 			// 
