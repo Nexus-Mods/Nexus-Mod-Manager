@@ -1,3 +1,7 @@
+Version 0.42.1:
+Bugfix: Crash while trying to add new mods for Dark Souls.
+
+Version 0.42.0:
 New Feature: NMM category control will now save whether the user was showing or hiding empty categories.
 New Feature: Visual feedback when a newly added mod is placed under a category node.
 New Feature: Added a new button to disable to side panel in the Mod panel.
