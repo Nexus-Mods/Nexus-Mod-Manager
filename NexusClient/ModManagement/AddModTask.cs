@@ -694,7 +694,7 @@ namespace Nexus.Client.ModManagement
 			m_booFinishedDownloads = true;
 			FileAttributes faAttributes = File.GetAttributes(strPath);
 
-			DriveInfo diDestinationHD = new DriveInfo(Path.GetPathRoot(m_gmdGameMode.PluginDirectory));
+			DriveInfo diDestinationHD = new DriveInfo(Path.GetPathRoot(m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory));
 			long lngDestinationFreeSpace = diDestinationHD.TotalFreeSpace;
 			FileInfo fiArchive = new FileInfo(strPath);
 
