@@ -89,6 +89,8 @@ namespace Nexus.Client
 		{
 			InitializeComponent();
 
+			this.FormClosing += new FormClosingEventHandler(this.CheckDownloadsOnClosing);
+
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
@@ -208,6 +210,24 @@ namespace Nexus.Client
 		{
 			if (FileUtil.IsValidPath(ViewModel.GamePath))
 				System.Diagnostics.Process.Start(ViewModel.GamePath);
+		}
+
+		/// <summary>
+		/// Checks if there are any active downloads before closing the mod manager.
+		/// </summary>
+		/// <remarks>
+		/// If there's an active download, the program will ask the user if he really wants to close it.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="FormClosingEventArgs"/> describing the event arguments.</param>
+		private void CheckDownloadsOnClosing(object sender, FormClosingEventArgs e)
+		{
+			if (this.ViewModel.DownloadMonitorVM.ActiveTasks.Count > 0)
+			{
+				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing download, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				if (drFormClose != DialogResult.Yes)
+					e.Cancel = true;
+			}
 		}
 
 		/// <summary>
@@ -406,7 +426,7 @@ namespace Nexus.Client
 						tpbDownloadSpeed.Value = 1024;
 				}
 			}
- 		}
+		}
 
 		#endregion
 
