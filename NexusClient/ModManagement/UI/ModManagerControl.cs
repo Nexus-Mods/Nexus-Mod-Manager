@@ -111,6 +111,7 @@ namespace Nexus.Client.ModManagement.UI
 			lvwMods.FontChanged += new EventHandler(lvwMods_FontChanged);
 			clwCategoryView.CategorySwitch += new EventHandler(CategoryListView_CategorySwitch);
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
+			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -672,6 +673,17 @@ namespace Nexus.Client.ModManagement.UI
 				if (booShowUnassigned)
 					clwCategoryView.AddData(new ModCategory(), false);
 			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.FileDropped"/> of the switch
+		/// mod category context menu.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_FileDropped(object sender, EventArgs e)
+		{
+				ViewModel.AddModCommand.Execute(sender.ToString());
 		}
 
 		/// <summary>
