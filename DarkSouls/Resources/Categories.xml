@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Armour" ID="111">
+      <name>Armour</name>
+    </category>
+    <category path="Miscellaneous" ID="102">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Shields" ID="113">
+      <name>Shields</name>
+    </category>
+    <category path="User Interface" ID="114">
+      <name>User Interface</name>
+    </category>
+    <category path="Utilities and Tools" ID="99">
+      <name>Utilities and Tools</name>
+    </category>
+    <category path="Weapon and Armour Sets" ID="112">
+      <name>Weapon and Armour Sets</name>
+    </category>
+    <category path="Weapons" ID="110">
+      <name>Weapons</name>
+    </category>
+  </categoryList>
+</categoryManager>
