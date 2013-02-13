@@ -139,7 +139,7 @@ namespace Nexus.Client
 		/// Gets the <see cref="NexusFontSetResolver"/> to use.
 		/// </summary>
 		/// <value>The <see cref="NexusFontSetResolver"/> to use.</value>
-		public NexusFontSetResolver FontSetResolver { get; private set;}
+		public NexusFontSetResolver FontSetResolver { get; private set; }
 
 		#endregion
 
@@ -247,6 +247,20 @@ namespace Nexus.Client
 			StepOverallProgress();
 
 			string strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
+
+			try
+			{
+				Path.GetDirectoryName(strUacCheckPath);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath));
+				string strPathMessage = (String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath));
+				string strPathDetails = String.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
+				p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, "Error", MessageBoxIcon.Error);
+				return false;
+			}
+
 			if (!UacCheck(strUacCheckPath))
 			{
 				Trace.TraceError("Unable to get write permissions for: " + strUacCheckPath);
@@ -563,6 +577,19 @@ namespace Nexus.Client
 
 			foreach (KeyValuePair<string, string> kvpUacCheckPath in dicPaths)
 			{
+				try
+				{
+					Path.GetDirectoryName(kvpUacCheckPath.Key);
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
+					string strPathMessage = (String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
+					string strPathDetails = String.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
+					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, "Error", MessageBoxIcon.Error);
+					return false;
+				}
+
 				if (!UacCheck(kvpUacCheckPath.Key))
 				{
 					Trace.TraceError("Unable to get write permissions for: " + kvpUacCheckPath.Key);
