@@ -115,7 +115,7 @@ namespace Nexus.Client.ModManagement
 			if (m_booOverrideCategorySetup)
 			{
 				var UnassignedMods = from Mod in ManagedModRegistry.RegisteredMods
-									 where (Mod.CategoryId == 0)
+									 where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
 									 select Mod;
 
 				m_lstModList.AddRange(UnassignedMods);
