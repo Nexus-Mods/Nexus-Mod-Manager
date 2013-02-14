@@ -357,6 +357,30 @@ namespace Nexus.Client.ModManagement.UI
 		#region Mod Updating
 
 		/// <summary>
+		/// Check for updates to the managed mods.
+		/// </summary>
+		public void StartupCheckForUpdates()
+		{
+			if (Settings.CheckForNewModVersions)
+			{
+				try
+				{
+					if ((String.IsNullOrEmpty(Settings.LastModVersionsCheckDate)) || ((DateTime.Today - Convert.ToDateTime(Settings.LastModVersionsCheckDate)).TotalDays >= Settings.ModVersionsCheckInterval))
+					{
+						CheckForUpdates(false);
+						Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
+						Settings.Save();
+					}
+				}
+				catch
+				{
+					Settings.LastModVersionsCheckDate = "";
+					Settings.Save();
+				}
+			}
+		}
+
+		/// <summary>
 		/// Checks for mod updates.
 		/// </summary>
 		/// <returns>Message</returns>
@@ -406,9 +430,9 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				this.CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
 
+				SwitchModsToCategory(-1);
 				if (!OfflineMode)
 					CheckForUpdates(true);
-				SwitchModsToCategory(-1);
 
 				return true;
 			}
