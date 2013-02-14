@@ -341,7 +341,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					do
 					{
 						strKey = Path.GetFileNameWithoutExtension(Path.GetRandomFileName());
-					} while (m_amrModKeys.DoesKeyExist(strKey) && EnlistedInstallLog.m_amrModKeys.DoesKeyExist(strKey));
+					} while (m_amrModKeys.DoesKeyExist(strKey) || EnlistedInstallLog.m_amrModKeys.DoesKeyExist(strKey));
 					m_amrModKeys.RegisterMod(p_modMod, strKey, p_booIsSpecial);
 					m_setRemovedModKeys.Remove(strKey);
 					if (CurrentTransaction == null)
