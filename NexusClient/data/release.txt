@@ -1,4 +1,4 @@
-Version 0.43.0:
+Version 0.43.1:
 New Feature: NMM will now warn the user if he tries to close the program while there's an ongoing download.
 New Feature: Users will now be able to drag&drop mod files into the manager control to install them.
 
