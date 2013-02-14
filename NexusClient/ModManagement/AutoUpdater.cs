@@ -128,55 +128,6 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		/// <summary>
-		/// Check for updates to the managed mods.
-		/// </summary>
-		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
-		public void CheckForUpdates()
-		{
-			List<string> ModList = new List<string>();
-
-			m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
-
-			for (int i = 0; i < m_lstModList.Count; i++)
-			{
-				string modID = String.Empty;
-				Int32 isEndorsed = 0;
-				if (!String.IsNullOrEmpty(m_lstModList[i].Id))
-				{
-					modID = m_lstModList[i].Id;
-					isEndorsed = m_lstModList[i].IsEndorsed ? 1 : 0;
-				}
-				else
-				{
-					IModInfo mifInfo = ModRepository.GetModInfoForFile(m_lstModList[i].Filename);
-					if (mifInfo != null)
-					{
-						modID = mifInfo.Id;
-						m_lstModList[i].Id = modID;
-						AddNewVersionNumberForMod(m_lstModList[i], mifInfo);
-					}
-				}
-
-				if (!String.IsNullOrEmpty(modID))
-				{
-					ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
-				}
-
-				// Prevents the repository request string from becoming too long.
-				if (ModList.Count == 250)
-				{
-					CheckForModListUpdate(ModList);
-					ModList.Clear();
-				}
-			}
-
-			if (ModList.Count > 0)
-				CheckForModListUpdate(ModList);
-
-			m_lstModList.Clear();
-		}
-
-		/// <summary>
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
@@ -227,43 +178,6 @@ namespace Nexus.Client.ModManagement
 					foreach (IMod modMod in e.OldItems)
 						m_oclNewInfo.RemoveAll(x => x.Mod == modMod);
 					break;
-			}
-		}
-
-		/// <summary>
-		/// Checks for the updated information for the given mods.
-		/// </summary>
-		/// <param name="p_lstModList">The mods for which to check for updates.</param>
-		private void CheckForModListUpdate(List<string> p_lstModList)
-		{
-			List<IModInfo> mifInfo = new List<IModInfo>();
-
-			try
-			{
-				if (!ModRepository.IsOffline)
-				{
-					//get mod info
-					for (int i = 0; i <= 2; i++)
-					{
-						mifInfo = ModRepository.GetModListInfo(p_lstModList);
-
-						if (mifInfo != null)
-							break;
-
-						Thread.Sleep(1000);
-					}
-
-					foreach (IModInfo modUpdate in mifInfo)
-						foreach (IMod modMod in m_lstModList.Where(x => (String.IsNullOrEmpty(modUpdate.Id) ? "0" : modUpdate.Id) == x.Id))
-						{
-							AddNewVersionNumberForMod(modMod, modUpdate);
-							modMod.UpdateInfo(modUpdate, false);
-						}
-				}
-			}
-			catch (RepositoryUnavailableException)
-			{
-				//the repository is not available, so don't bother
 			}
 		}
 

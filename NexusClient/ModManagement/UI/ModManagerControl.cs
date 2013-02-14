@@ -155,6 +155,7 @@ namespace Nexus.Client.ModManagement.UI
 				LoadCategoryView();
 				clwCategoryView.Visible = ViewModel.Settings.UseCategoryView;
 				lvwMods.Visible = !ViewModel.Settings.UseCategoryView;
+				ViewModel.StartupCheckForUpdates();
 
 				if (!ViewModel.IsCategoryInitialized)
 				{
