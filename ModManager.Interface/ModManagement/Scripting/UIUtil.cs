@@ -95,7 +95,15 @@ namespace Nexus.Client.ModManagement.Scripting
 		public DialogResult ShowMessageBox(string p_strMessage, string p_strCaption, MessageBoxButtons p_mbbButtons, MessageBoxIcon p_mbiIcon)
 		{
 			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, p_mbbButtons, p_mbiIcon, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
+			try
+			{
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+				SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, p_mbbButtons, p_mbiIcon, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
 			return drsResult;
 		}
 
@@ -106,9 +114,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The <see cref="DialogResult"/> corressponding to the button pushed on the message box.</returns>
 		public DialogResult ShowMessageBox(string p_strMessage)
 		{
-			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, string.Empty, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
-			return drsResult;
+			return ShowMessageBox(p_strMessage, string.Empty, MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		/// <summary>
@@ -119,9 +125,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The <see cref="DialogResult"/> corressponding to the button pushed on the message box.</returns>
 		public DialogResult ShowMessageBox(string p_strMessage, string p_strCaption)
 		{
-			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, MessageBoxButtons.OK, MessageBoxIcon.Information,  MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
-			return drsResult;
+			return ShowMessageBox(p_strMessage, p_strCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		/// <summary>
@@ -133,9 +137,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The <see cref="DialogResult"/> corressponding to the button pushed on the message box.</returns>
 		public DialogResult ShowMessageBox(string p_strMessage, string p_strCaption, MessageBoxButtons p_mbbButtons)
 		{
-			DialogResult drsResult = DialogResult.None;
-			SyncContext.Send(x => drsResult = MessageBox.Show(p_strMessage, p_strCaption, p_mbbButtons, MessageBoxIcon.Information,  MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly), null);
-			return drsResult;
+			return ShowMessageBox(p_strMessage, p_strCaption, p_mbbButtons, MessageBoxIcon.Information);
 		}
 
 		#endregion
