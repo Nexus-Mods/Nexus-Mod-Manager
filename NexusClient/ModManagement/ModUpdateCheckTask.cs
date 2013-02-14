@@ -123,8 +123,7 @@ namespace Nexus.Client.ModManagement
 			else
 				m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
 
-			OverallProgressMaximum = 1 + (int)Math.Ceiling(((double)(m_lstModList.Count / 250)));
-			StepOverallProgress();
+			OverallProgressMaximum = m_lstModList.Count * 2;
 			ItemProgressMaximum = (m_lstModList.Count > 250) ? 250 : m_lstModList.Count;
 
 			for (int i = 0; i < m_lstModList.Count; i++)
@@ -159,6 +158,8 @@ namespace Nexus.Client.ModManagement
 
 				if (ItemProgress < ItemProgressMaximum)
 					StepItemProgress();
+				if (OverallProgress < OverallProgressMaximum)
+					StepOverallProgress();
 
 				// Prevents the repository request string from becoming too long.
 				if (ModList.Count == 250)
@@ -166,8 +167,6 @@ namespace Nexus.Client.ModManagement
 					CheckForModListUpdate(ModList);
 					ModList.Clear();
 					OverallMessage = "Updating mods info: setup search...";
-					if (OverallProgress < OverallProgressMaximum)
-						StepOverallProgress();
 					ItemProgress = 0;
 					ItemProgressMaximum = (m_lstModList.Count == 250) ? 1 : (m_lstModList.Count - (i + 1));
 				}
@@ -207,26 +206,27 @@ namespace Nexus.Client.ModManagement
 
 					ItemProgress = 0;
 					ItemProgressMaximum = mifInfo.Count;
+					OverallProgressMaximum = OverallProgress + mifInfo.Count;
 
 					foreach (ModInfo modUpdate in mifInfo)
 					{
 						if (m_booCancel)
 							break;
+						if (OverallProgress < OverallProgressMaximum)
+							StepOverallProgress();
 
 						ItemMessage = modUpdate.ModName;
 
 						foreach (IMod modMod in m_lstModList.Where(x => (String.IsNullOrEmpty(modUpdate.Id) ? "0" : modUpdate.Id) == x.Id))
 						{
 							ItemMessage = modMod.ModName;
-							ItemProgress = 1;
+							if (ItemProgress < ItemProgressMaximum)
+								StepItemProgress();
 							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
 							AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
 							modMod.UpdateInfo(modUpdate, false);
 							ItemProgress = 0;
 						}
-
-						if (ItemProgress < ItemProgressMaximum)
-							StepItemProgress();
 					}
 				}
 			}
