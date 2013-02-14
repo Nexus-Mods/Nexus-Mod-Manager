@@ -208,7 +208,7 @@ namespace Nexus.Client.UI.Controls
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
 
-			foreach (IModCategory imcCategory in Categories)
+			foreach (IModCategory imcCategory in Categories.OrderBy(x => x.CategoryName))
 				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
 		}
 
@@ -629,10 +629,6 @@ namespace Nexus.Client.UI.Controls
 			Category.SubItems.Add(Sub);
 			Category.Tag = p_imcCategory;
 			this.AddObject(Category);
-
-			if (booIsNew)
-				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(p_imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
-
 			this.EnsureVisible(this.Items.Count - 1);
 		}
 
@@ -763,6 +759,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.AddData(CategoryManager.AddCategory(), true);
 			this.RebuildAll(true);
+			this.SetupContextMenu();
 		}
 
 		#endregion
