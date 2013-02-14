@@ -1,3 +1,16 @@
+Version 0.43.0:
+New Feature: NMM will now warn the user if he tries to close the program while there's an ongoing download.
+New Feature: Users will now be able to drag&drop mod files into the manager control to install them.
+
+Bugfix: InstallLog didn't properly check for already present random mod keys (this will prevent the "An item with the same key has already been added" crash).
+Bugfix: Mod autoupdate check removing category info from mods, causing missing mods from categories.
+Bugfix: Uac check crashing with illegal folder paths.
+Bugfix: Scripted mod install failing when the installer tried to show a message to the user (throwing a Security exception).
+Bugfix: ProgressDialog bug causing mod update checks to fail.
+Bugfix: Illegal folder paths crashing the game scan process.
+Bugfix: The "move to category" ContextMenu didn't properly sort alphabetically.
+Bugfix: Prevents the user from settings Mods or Install Info folders equal to: HD root, game root, installed mods folder.
+
 Version 0.42.1:
 Bugfix: Crash while trying to add new mods for Dark Souls.
 
