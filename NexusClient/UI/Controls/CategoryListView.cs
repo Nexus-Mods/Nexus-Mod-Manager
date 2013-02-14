@@ -17,7 +17,6 @@ namespace Nexus.Client.UI.Controls
 	public partial class CategoryListView : BrightIdeasSoftware.TreeListView
 	{
 		IconListView m_lvwList = null;
-		IMod m_modSelectedMod = null;
 		IModCategory m_imcSelectedCategory = null;
 		bool m_booShowEmpty = false;
 
@@ -25,6 +24,7 @@ namespace Nexus.Client.UI.Controls
 
 		public event EventHandler CategorySwitch;
 		public event EventHandler CategoryRemoved;
+		public event EventHandler FileDropped;
 
 		#endregion
 
@@ -84,7 +84,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			get
 			{
-				return m_modSelectedMod;
+				return (IMod)this.GetSelectedItem.Tag;
 			}
 		}
 
@@ -157,6 +157,7 @@ namespace Nexus.Client.UI.Controls
 
 			this.CellEditActivation = CellEditActivateMode.None;
 			this.MultiSelect = true;
+			this.AllowDrop = true;
 
 			m_lvwList = p_lvwList;
 			CategoryManager = p_cmgCategoryManager;
@@ -208,7 +209,7 @@ namespace Nexus.Client.UI.Controls
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
 
-			foreach (IModCategory imcCategory in Categories)
+			foreach (IModCategory imcCategory in Categories.OrderBy(x => x.CategoryName))
 				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
 		}
 
@@ -378,12 +379,12 @@ namespace Nexus.Client.UI.Controls
 
 			this.CanDrop += delegate(object sender, BrightIdeasSoftware.OlvDropEventArgs e)
 			{
-				if ((e.DropTargetItem == null) || (this.GetSelectedItem.Tag.GetType() == typeof(ModCategory)))
-					return;
+				ListViewItem lviItem = null;
 
-				ListViewItem lviItem = (ListViewItem)e.DropTargetItem.RowObject;
+				if ((e.DropTargetItem != null) && (this.GetSelectedItem.Tag.GetType() != typeof(ModCategory)))
+					lviItem = (ListViewItem)e.DropTargetItem.RowObject;
 
-				if (lviItem != null)
+				if ((lviItem != null) || (e.DragEventArgs.Data.GetData(DataFormats.FileDrop) != null))
 				{
 					e.Effect = DragDropEffects.Move;
 				}
@@ -391,35 +392,41 @@ namespace Nexus.Client.UI.Controls
 
 			this.Dropped += delegate(object sender, BrightIdeasSoftware.OlvDropEventArgs e)
 			{
-				if (e.DropTargetItem == null)
-					return;
+				string[] strFiles = e.DragEventArgs.Data.GetData(DataFormats.FileDrop) != null ? (string[])e.DragEventArgs.Data.GetData(DataFormats.FileDrop) : null;
 
-				ListViewItem lviItem = (ListViewItem)e.DropTargetItem.RowObject;
-
-				if ((lviItem != null) && (lviItem.Tag != null))
+				if (strFiles != null)
 				{
-					IModCategory imcCategory = null;
+					foreach (string strFilePath in strFiles)
+						this.FileDropped(strFilePath, new EventArgs());
+				}
+				else if (e.DropTargetItem != null)
+				{
+					ListViewItem lviItem = (ListViewItem)e.DropTargetItem.RowObject;
 
-					if (lviItem.Tag.GetType() == typeof(ModCategory))
+					if ((lviItem != null) && (lviItem.Tag != null))
 					{
-						imcCategory = (IModCategory)lviItem.Tag;
-					}
-					else
-					{
-						try
-						{
-							IMod modMod = (IMod)lviItem.Tag;
-							imcCategory = CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId);
-						}
-						catch
-						{
-						}
-					}
+						IModCategory imcCategory = null;
 
-					if ((imcCategory != null) && (this.CategorySwitch != null))
-					{
-						m_modSelectedMod = (IMod)this.GetSelectedItem.Tag;
-						this.CategorySwitch(imcCategory, new EventArgs());
+						if (lviItem.Tag.GetType() == typeof(ModCategory))
+						{
+							imcCategory = (IModCategory)lviItem.Tag;
+						}
+						else
+						{
+							try
+							{
+								IMod modMod = (IMod)lviItem.Tag;
+								imcCategory = CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId);
+							}
+							catch
+							{
+							}
+						}
+
+						if ((imcCategory != null) && (this.CategorySwitch != null))
+						{
+							this.CategorySwitch(imcCategory, new EventArgs());
+						}
 					}
 				}
 			};
@@ -470,7 +477,6 @@ namespace Nexus.Client.UI.Controls
 					{
 						this.cmsContextMenu.Items[0].Visible = true;
 						this.cmsContextMenu.Items[1].Visible = false;
-						m_modSelectedMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
 					}
 
 					e.MenuStrip = this.cmsContextMenu;
@@ -629,10 +635,6 @@ namespace Nexus.Client.UI.Controls
 			Category.SubItems.Add(Sub);
 			Category.Tag = p_imcCategory;
 			this.AddObject(Category);
-
-			if (booIsNew)
-				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(p_imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
-
 			this.EnsureVisible(this.Items.Count - 1);
 		}
 
@@ -763,6 +765,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.AddData(CategoryManager.AddCategory(), true);
 			this.RebuildAll(true);
+			this.SetupContextMenu();
 		}
 
 		#endregion

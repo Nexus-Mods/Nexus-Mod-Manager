@@ -19,22 +19,7 @@ namespace Nexus.Client.Games.Morrowind
         private MorrowindToolLauncher m_gtlToolLauncher = null;
 
         #region Properties
-
-        /// <summary>
-        /// Gets the directory where Morrowind plugins are installed.
-        /// </summary>
-        /// <value>The directory where Morrowind plugins are installed.</value>
-        public override string PluginDirectory
-        {
-            get
-            {
-                string strPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Data Files");
-                if (!Directory.Exists(strPath))
-                    Directory.CreateDirectory(strPath);
-                return strPath;
-            }
-        }
-
+               
         /// <summary>
         /// Gets the list of possible script extender executable files for the game.
         /// </summary>

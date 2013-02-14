@@ -20,11 +20,13 @@ namespace Nexus.Client.Games.DarkSouls
 		/// Gets the directory where DarkSouls plugins are installed.
 		/// </summary>
 		/// <value>The directory where DarkSouls plugins are installed.</value>
-		protected virtual string PluginDirectory
+		public override string PluginDirectory
 		{
 			get
 			{
 				string strPath = Path.Combine(InstallationPath, @"dsfix\tex_override");
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
 				return strPath;
 			}
 		}

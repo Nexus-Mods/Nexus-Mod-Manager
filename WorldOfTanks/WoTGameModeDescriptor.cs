@@ -20,7 +20,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// Gets the directory where WorldOfTanks plugins are installed.
 		/// </summary>
 		/// <value>The directory where WorldOfTanks plugins are installed.</value>
-		protected virtual string PluginDirectory
+		public override string PluginDirectory
 		{
 			get
 			{
@@ -34,6 +34,8 @@ namespace Nexus.Client.Games.WorldOfTanks
 						strVersion = strVersion.Substring(0, strVersion.LastIndexOf("."));
 				}
 				strPath = Path.Combine(strPath, strVersion);
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
 				return strPath;
 			}
 		}

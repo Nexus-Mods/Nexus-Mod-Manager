@@ -408,20 +408,22 @@ namespace Nexus.Client
 					EnvironmentInfo.Settings.LastUpdateCheckDate = DateTime.Today.ToShortDateString();
 					EnvironmentInfo.Settings.Save();
 				}
-
-				try
+				else
 				{
-					if ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastUpdateCheckDate)).TotalDays >= EnvironmentInfo.Settings.UpdateCheckInterval)
+					try
 					{
-						UpdateProgramme();
-						EnvironmentInfo.Settings.LastUpdateCheckDate = DateTime.Today.ToShortDateString();
+						if ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastUpdateCheckDate)).TotalDays >= EnvironmentInfo.Settings.UpdateCheckInterval)
+						{
+							UpdateProgramme();
+							EnvironmentInfo.Settings.LastUpdateCheckDate = DateTime.Today.ToShortDateString();
+							EnvironmentInfo.Settings.Save();
+						}
+					}
+					catch
+					{
+						EnvironmentInfo.Settings.LastUpdateCheckDate = "";
 						EnvironmentInfo.Settings.Save();
 					}
-				}
-				catch
-				{
-					EnvironmentInfo.Settings.LastUpdateCheckDate = "";
-					EnvironmentInfo.Settings.Save();
 				}
 			}
 		}
