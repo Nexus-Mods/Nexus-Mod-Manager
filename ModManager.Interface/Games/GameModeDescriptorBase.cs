@@ -87,6 +87,12 @@ namespace Nexus.Client.Games
 			}
 		}
 
+		/// <summary>
+		/// Gets the directory where the game plugins are installed.
+		/// </summary>
+		/// <value>The directory where the game plugins are installed.</value>
+		public abstract string PluginDirectory { get; }
+
 		#endregion
 
 		#region Constructors
