@@ -393,12 +393,19 @@ namespace Nexus.Client.Games
 				return false;
 
 			bool booFound = false;
-			foreach (string strExe in m_dicGameModesById[p_strGameModeId].GameExecutables)
-				if (File.Exists(Path.Combine(p_strInstallPath, strExe)))
+			try
+			{
+				if (m_dicGameModesById.Count > 0)
 				{
-					booFound = true;
-					break;
+					foreach (string strExe in m_dicGameModesById[p_strGameModeId].GameExecutables)
+						if (File.Exists(Path.Combine(p_strInstallPath, strExe)))
+						{
+							booFound = true;
+							break;
+						}
 				}
+			}
+			catch { }
 			return booFound;
 		}
 	}
