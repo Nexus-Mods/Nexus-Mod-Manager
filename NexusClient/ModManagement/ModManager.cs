@@ -270,7 +270,6 @@ namespace Nexus.Client.ModManagement
 			DownloadMonitor = p_dmrMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
-			StartupCheckForUpdates();
 		}
 
 		#endregion
@@ -412,34 +411,6 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		#region Mod Updating
-
-		/// <summary>
-		/// Check for updates to the managed mods.
-		/// </summary>
-		public string StartupCheckForUpdates()
-		{
-			string strMessage = String.Empty;
-
-			if (EnvironmentInfo.Settings.CheckForNewModVersions)
-			{
-				try
-				{
-					if ((String.IsNullOrEmpty(EnvironmentInfo.Settings.LastModVersionsCheckDate)) || ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastModVersionsCheckDate)).TotalDays >= EnvironmentInfo.Settings.ModVersionsCheckInterval))
-					{
-						AutoUpdater.CheckForUpdates();
-						EnvironmentInfo.Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
-						EnvironmentInfo.Settings.Save();
-					}
-				}
-				catch (Exception e)
-				{
-					EnvironmentInfo.Settings.LastModVersionsCheckDate = "";
-					EnvironmentInfo.Settings.Save();
-				}
-			}
-
-			return strMessage;
-		}
 
 		/// <summary>
 		/// Toggles the endorsement for the given mod.
