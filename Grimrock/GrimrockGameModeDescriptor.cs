@@ -20,12 +20,14 @@ namespace Nexus.Client.Games.Grimrock
 		/// Gets the directory where Grimrock plugins are installed.
 		/// </summary>
 		/// <value>The directory where Grimrock plugins are installed.</value>
-		protected virtual string PluginDirectory
+		public override string PluginDirectory
 		{
 			get
 			{
 				string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 				strPath = Path.Combine(strPath, @"Almost Human\Legend of Grimrock\Dungeons");
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
 				return strPath;
 			}
 		}

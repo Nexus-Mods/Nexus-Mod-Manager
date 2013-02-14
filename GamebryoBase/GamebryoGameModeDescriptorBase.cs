@@ -16,11 +16,14 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets the directory where Fallout 3 plugins are installed.
 		/// </summary>
 		/// <value>The directory where Fallout 3 plugins are installed.</value>
-		protected virtual string PluginDirectory
+		public override string PluginDirectory
 		{
 			get
 			{
-				return Path.Combine(InstallationPath, "Data");
+				string strPath = Path.Combine(InstallationPath, "Data");
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
+				return strPath;
 			}
 		}
 
