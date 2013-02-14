@@ -21,11 +21,14 @@ namespace Nexus.Client.Games.Morrowind
 		/// Gets the directory where Morrowind plugins are installed.
 		/// </summary>
 		/// <value>The directory where Morrowind plugins are installed.</value>
-		protected override string PluginDirectory
+		public override string PluginDirectory
 		{
 			get
 			{
-				return Path.Combine(InstallationPath, "Data Files");
+				string strPath = Path.Combine(InstallationPath, "Data Files");
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
+				return strPath;
 			}
 		}
 

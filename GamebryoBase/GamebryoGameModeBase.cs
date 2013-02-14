@@ -129,22 +129,7 @@ namespace Nexus.Client.Games.Gamebryo
 		/// </summary>
 		/// <value>The path to the per user game data.</value>
 		public abstract string UserGameDataPath { get; }
-
-		/// <summary>
-		/// Gets the directory where plugins are installed.
-		/// </summary>
-		/// <value>The directory where plugins are installed.</value>
-		public override string PluginDirectory
-		{
-			get
-			{
-				string strPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Data");
-				if (!Directory.Exists(strPath))
-					Directory.CreateDirectory(strPath);
-				return strPath;
-			}
-		}
-
+        		
 		/// <summary>
 		/// Gets the max allowed number of active plugins.
 		/// </summary>

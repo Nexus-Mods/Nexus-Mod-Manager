@@ -355,6 +355,18 @@ namespace Nexus.Client.Games
 		public abstract bool UsesPlugins { get; }
 
 		/// <summary>
+		/// Gets the directory where the game plugins are installed.
+		/// </summary>
+		/// <value>The directory where the game plugins are installed.</value>
+		public virtual string PluginDirectory 
+		{
+			get
+			{
+				return m_gmdGameModeInfo.PluginDirectory;
+			}
+		}
+
+		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
 		/// <value>The default game categories stored in the resource file.</value>
@@ -365,15 +377,6 @@ namespace Nexus.Client.Games
 				return String.Empty;
 			}
 		}
-
-		/// <summary>
-		/// Gets the directory where plugins are installed.
-		/// </summary>
-		/// <remarks>
-		/// If the game mode does not use plugins, this should return null.
-		/// </remarks>
-		/// <value>The directory where plugins are installed.</value>
-		public abstract string PluginDirectory { get; }
 
 		/// <summary>
 		/// Gets the max allowed number of active plugins.
