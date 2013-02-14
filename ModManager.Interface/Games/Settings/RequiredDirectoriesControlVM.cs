@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Windows.Forms;
 using System.IO;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
@@ -113,6 +114,21 @@ namespace Nexus.Client.Games.Settings
 			if (String.IsNullOrEmpty(p_strPath))
 			{
 				Errors.SetError(p_strProperty, String.Format("You must select a {0}.", p_strPathName));
+				return false;
+			}
+			else if (
+				(!String.Equals(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId], p_strPath)) ||
+				(!String.Equals(Path.GetPathRoot(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId]), p_strPath)) ||
+				(!String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
+				)
+			{
+				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
+					"HD root - {2}" + Environment.NewLine +
+					"Game root folder - {1}" + Environment.NewLine +
+					"Game plugin folder - {3}",
+					p_strPathName, EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId],
+					Path.GetPathRoot(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId]),
+					GameModeDescriptor.PluginDirectory));
 				return false;
 			}
 			return true;

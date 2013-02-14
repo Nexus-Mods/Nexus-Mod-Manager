@@ -60,6 +60,12 @@ namespace Nexus.Client.Games
 		/// <value>The custom message for missing critical files.</value>
 		string CriticalFilesErrorMessage { get; }
 
+		/// <summary>
+		/// Gets the directory where the game plugins are installed.
+		/// </summary>
+		/// <value>The directory where the game plugins are installed.</value>
+		string PluginDirectory { get; }
+
 		#endregion
 	}
 }

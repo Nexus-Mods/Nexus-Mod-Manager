@@ -122,6 +122,18 @@ namespace Nexus.Client
 				}
 			}
 
+			/// <summary>
+			/// Gets the directory where the game plugins are installed.
+			/// </summary>
+			/// <value>The directory where the game plugins are installed.</value>
+			public virtual string PluginDirectory
+			{
+				get
+				{
+					throw new NotImplementedException();
+				}
+			}
+
 			#endregion
 		}
 
