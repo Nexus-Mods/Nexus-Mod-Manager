@@ -117,9 +117,9 @@ namespace Nexus.Client.Games.Settings
 				return false;
 			}
 			else if (
-				(!String.Equals(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId], p_strPath)) ||
-				(!String.Equals(Path.GetPathRoot(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId]), p_strPath)) ||
-				(!String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
+				(String.Equals(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId], p_strPath)) ||
+				(p_strPath.Length <= 4) ||
+				(String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
 				)
 			{
 				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
@@ -127,7 +127,7 @@ namespace Nexus.Client.Games.Settings
 					"Game root folder - {1}" + Environment.NewLine +
 					"Game plugin folder - {3}",
 					p_strPathName, EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId],
-					Path.GetPathRoot(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId]),
+					Path.GetPathRoot(p_strPath),
 					GameModeDescriptor.PluginDirectory));
 				return false;
 			}

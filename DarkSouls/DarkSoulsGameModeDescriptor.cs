@@ -24,7 +24,7 @@ namespace Nexus.Client.Games.DarkSouls
 		{
 			get
 			{
-				string strPath = Path.Combine(InstallationPath, @"dsfix\tex_override");
+				string strPath = InstallationPath;
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
