@@ -20,6 +20,7 @@ namespace Nexus.Client.ModManagement
 		private List<string> m_lstDontOverwriteFolders = new List<string>();
 		private List<string> m_lstOverwriteMods = new List<string>();
 		private List<string> m_lstDontOverwriteMods = new List<string>();
+		private List<string> m_lstErrorMods = new List<string>();
 		private bool m_booDontOverwriteAll = false;
 		private bool m_booOverwriteAll = false;
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
@@ -67,6 +68,18 @@ namespace Nexus.Client.ModManagement
         /// </summary>
         /// <value>true or false.</value>
         protected bool IsPlugin { get; private set; }
+
+		/// <summary>
+		/// Gets a list of install errors.
+		/// </summary>
+		/// <value>The list of errors.</value>
+		public List<string> InstallErrors
+		{
+			get
+			{
+				return m_lstErrorMods;
+			}
+		}
 
 		#endregion
 
@@ -334,6 +347,7 @@ namespace Nexus.Client.ModManagement
 			string strUninstallingModKey = InstallLog.GetModKey(Mod);
 			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
 			string strBackupDirectory = Path.Combine(GameModeInfo.OverwriteDirectory, Path.GetDirectoryName(p_strPath));
+			FileInfo fiInfo = null;
 			if (File.Exists(strInstallFilePath))
 			{
 				string strCurrentOwnerKey = InstallLog.GetCurrentFileOwnerKey(p_strPath);
@@ -343,7 +357,12 @@ namespace Nexus.Client.ModManagement
 					//if we did install the file, replace it with the file we overwrote
 					// when we installed the file
 					// if we didn't overwrite a file, then just delete the current file
-					TransactionalFileManager.Delete(strInstallFilePath);
+					fiInfo = new FileInfo(strInstallFilePath);
+					if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
+						m_lstErrorMods.Add(strInstallFilePath);
+					else
+						TransactionalFileManager.Delete(strInstallFilePath);                        
+
                     if (IsPlugin)
 					    if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
 						    PluginManager.RemovePlugin(strInstallFilePath);
@@ -358,8 +377,18 @@ namespace Nexus.Client.ModManagement
 							string strBackupFileName = Path.GetFileName(Directory.GetFiles(Path.GetDirectoryName(strRestoreFromPath), Path.GetFileName(strRestoreFromPath))[0]);
 							strBackupFileName = strBackupFileName.Substring(strBackupFileName.IndexOf('_') + 1);
 							string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
-							TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
-							TransactionalFileManager.Delete(strRestoreFromPath);
+
+							if (m_lstErrorMods.Count < 0)
+							{
+								fiInfo = new FileInfo(strRestoreFromPath);
+								if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
+									m_lstErrorMods.Add(strInstallFilePath);
+								else
+								{
+									TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+									TransactionalFileManager.Delete(strRestoreFromPath);
+								}
+							}
 						}
 					}
 
@@ -371,7 +400,13 @@ namespace Nexus.Client.ModManagement
 			//remove our version of the file from the backup directory
 			string strOverwritePath = Path.Combine(strBackupDirectory, strUninstallingModKey + "_" + Path.GetFileName(p_strPath));
 			if (File.Exists(strOverwritePath))
-				TransactionalFileManager.Delete(strOverwritePath);
+			{
+				fiInfo = new FileInfo(strOverwritePath);
+				if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
+					m_lstErrorMods.Add(strInstallFilePath);
+				else
+					TransactionalFileManager.Delete(strOverwritePath);
+			}
 
 			//remove any empty directories from the overwrite folder we may have created
 			string strStopDirectory = GameModeInfo.OverwriteDirectory;

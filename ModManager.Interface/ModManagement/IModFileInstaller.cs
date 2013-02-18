@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Nexus.Client.ModManagement
 {
@@ -50,5 +51,11 @@ namespace Nexus.Client.ModManagement
 		/// Finalizes the installation of the files.
 		/// </summary>
 		void FinalizeInstall();
+
+		/// <summary>
+		/// Gets a list of install errors.
+		/// </summary>
+		/// <value>The list of errors.</value>
+		List<string> InstallErrors { get; }
 	}
 }

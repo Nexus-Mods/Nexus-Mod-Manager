@@ -1,4 +1,5 @@
-﻿using ChinhDo.Transactions;
+﻿using System;
+using ChinhDo.Transactions;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Scripting;
@@ -103,13 +104,14 @@ namespace Nexus.Client.ModManagement
 			// as a result, we only allow one mod to be installed at a time,
 			// hence the lock.
 			bool booSuccess = false;
+			string strErrorMessage = String.Empty;
 			lock (objInstallLock)
 			{
 				using (TransactionScope tsTransaction = new TransactionScope())
 				{
 					TxFileManager tfmFileManager = new TxFileManager();
 
-					booSuccess = RunBasicUninstallScript(tfmFileManager);
+					booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
 					if (booSuccess)
 					{
 						ModInstallLog.RemoveMod(Mod);
@@ -118,10 +120,10 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 			if (booSuccess)
-				OnTaskSetCompleted(booSuccess, "The mod was successfully deactivated.", Mod);
+				OnTaskSetCompleted(booSuccess, "The mod was successfully deactivated." + Environment.NewLine + strErrorMessage, Mod);
 			else
-				OnTaskSetCompleted(booSuccess, "The mod was not deactivated.", Mod);
-		}
+				OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
+			}
 
 		/// <summary>
 		/// Runs the basic uninstall script.
@@ -132,23 +134,32 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <returns><c>true</c> if the uninstallation was successful;
 		/// <c>false</c> otherwise.</returns>
-		protected bool RunBasicUninstallScript(TxFileManager p_tfmFileManager)
+		protected bool RunBasicUninstallScript(TxFileManager p_tfmFileManager, out string p_strErrorMessage)
 		{
+			p_strErrorMessage = null;
 			IDataFileUtil dfuDataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
 
 			IModFileInstaller mfiFileInstaller = new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, dfuDataFileUtility, p_tfmFileManager, null, GameMode.UsesPlugins);
 			IIniInstaller iniIniInstaller = new IniInstaller(Mod, ModInstallLog, p_tfmFileManager, null);
 			IGameSpecificValueInstaller gviGameSpecificValueInstaller = GameMode.GetGameSpecificValueInstaller(Mod, ModInstallLog, p_tfmFileManager, new NexusFileUtil(EnvironmentInfo), null);
-			
+
 			InstallerGroup ipgInstallers = new InstallerGroup(dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager);
 			BasicUninstallTask butTask = new BasicUninstallTask(Mod, ipgInstallers, ModInstallLog);
 			OnTaskStarted(butTask);
+
 			bool booResult = butTask.Execute();
+
+			if (mfiFileInstaller.InstallErrors.Count > 0)
+			{
+				p_strErrorMessage = Environment.NewLine + "The manager was unable to remove these files:" + Environment.NewLine;
+				foreach (string strPath in mfiFileInstaller.InstallErrors)
+					p_strErrorMessage += strPath + Environment.NewLine;
+			}
 
 			mfiFileInstaller.FinalizeInstall();
 			iniIniInstaller.FinalizeInstall();
-            if (gviGameSpecificValueInstaller != null)
-			    gviGameSpecificValueInstaller.FinalizeInstall();
+			if (gviGameSpecificValueInstaller != null)
+				gviGameSpecificValueInstaller.FinalizeInstall();
 
 			return booResult;
 		}
