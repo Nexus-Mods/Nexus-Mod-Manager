@@ -1,0 +1,30 @@
+Version 0.43.1:
+New Feature: NMM will now warn the user if he tries to close the program while there's an ongoing download.
+New Feature: Users will now be able to drag&drop mod files into the manager control to install them.
+
+Bugfix: InstallLog didn't properly check for already present random mod keys (this will prevent the "An item with the same key has already been added" crash).
+Bugfix: Mod autoupdate check removing category info from mods, causing missing mods from categories.
+Bugfix: Uac check crashing with illegal folder paths.
+Bugfix: Scripted mod install failing when the installer tried to show a message to the user (throwing a Security exception).
+Bugfix: ProgressDialog bug causing mod update checks to fail.
+Bugfix: Illegal folder paths crashing the game scan process.
+Bugfix: The "move to category" ContextMenu didn't properly sort alphabetically.
+Bugfix: Prevents the user from settings Mods or Install Info folders equal to: HD root, game root, installed mods folder.
+
+Version 0.42.1:
+Bugfix: Crash while trying to add new mods for Dark Souls.
+
+Version 0.42.0:
+New Feature: NMM category control will now save whether the user was showing or hiding empty categories.
+New Feature: Visual feedback when a newly added mod is placed under a category node.
+New Feature: Added a new button to disable to side panel in the Mod panel.
+
+Bugfix: This should once and for all fix the "QueuesModToAdd" crash.
+Bugfix: Crash caused by invalid chars in category names.
+Bugfix: Crash while unable to register an added mod.
+Bugfix: Fix for this repeated download bug: http://forums.nexusmods.com/index.php?/tracker/issue-4513-nmm-download-with-nmm-repeated-download-bug/.
+Bugfix: Crash while trying to add a mod to the manager and there isn't enough free space on the destination HD.
+Bugfix: NMM failing to show a MessageBox to the user, also resulting in NMM freezing while installing some scripted fomod/omod files.
+Bugfix: NMM unable to properly save/load the custom screenshot added to mods.
+Bugfix: The category view will now show empty fields instead of <No Data>.
+Bugfix: Another missing/corrupt font crash.
