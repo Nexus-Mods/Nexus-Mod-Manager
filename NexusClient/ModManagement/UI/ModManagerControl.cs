@@ -553,6 +553,9 @@ namespace Nexus.Client.ModManagement.UI
 				};
 
 				clwCategoryView.LoadData();
+
+				if (ViewModel.Settings.ShowExpandedCategories)
+					clwCategoryView.ExpandAll();
 			}
 		}
 
@@ -794,6 +797,8 @@ namespace Nexus.Client.ModManagement.UI
 		private void collapseAllCategories_Click(object sender, EventArgs e)
 		{
 			clwCategoryView.CollapseAll();
+			ViewModel.Settings.ShowExpandedCategories = false;
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
@@ -805,6 +810,8 @@ namespace Nexus.Client.ModManagement.UI
 		private void expandAllCategories_Click(object sender, EventArgs e)
 		{
 			clwCategoryView.ExpandAll();
+			ViewModel.Settings.ShowExpandedCategories = true;
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
