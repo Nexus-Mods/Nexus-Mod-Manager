@@ -55,6 +55,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string m_strInstallDate = null;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
+		private bool m_booUpdateWarningEnabled = true;
 		private IScript m_scpInstallScript = null;
 
 		#endregion
@@ -277,6 +278,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 						m_strScreenshotPath = "fomod/screenshot" + value.GetExtension();
 					SetPropertyIfChanged(ref m_ximScreenshot, value, () => Screenshot);
 				}
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the user wants to be warned about new versions.
+		/// </summary>
+		/// <value>Whether the user wants to be warned about new versions</value>
+		public bool UpdateWarningEnabled
+		{
+			get
+			{
+				return m_booUpdateWarningEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateWarningEnabled, value, () => UpdateWarningEnabled);
 			}
 		}
 
@@ -862,6 +879,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				Website = p_mifInfo.Website;
 				booChangedValue = true;
 			}
+			if ((p_booOverwriteAllValues) || (UpdateWarningEnabled != p_mifInfo.UpdateWarningEnabled))
+			{
+				UpdateWarningEnabled = p_mifInfo.UpdateWarningEnabled;
+				booChangedValue = true;
+			}
 
 			if (booChangedValue)
 			{
@@ -917,6 +939,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (Website != null)
 				xndInfo.AppendChild(p_xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
 			return xndInfo;
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("UpdateWarningEnabled")).InnerText = UpdateWarningEnabled.ToString();
 		}
 
 		/// <summary>
@@ -998,6 +1021,19 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				Uri uriUrl = null;
 				if (UriUtil.TryBuildUri(xndWebsite.InnerText, out uriUrl))
 					Website = uriUrl;
+			}
+
+			XmlNode xndUpdateWarningEnabled = xndRoot.SelectSingleNode("UpdateWarningEnabled");
+			if (xndUpdateWarningEnabled != null)
+			{
+				try
+				{
+					UpdateWarningEnabled = Convert.ToBoolean(xndUpdateWarningEnabled.InnerText);
+				}
+				catch
+				{
+					UpdateWarningEnabled = true;
+				}
 			}
 		}
 
