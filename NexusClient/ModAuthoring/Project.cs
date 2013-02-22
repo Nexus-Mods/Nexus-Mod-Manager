@@ -29,6 +29,7 @@ namespace Nexus.Client.ModAuthoring
 		private string m_strInstallDate = null;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
+		private bool m_booUpdateWarningEnabled = true;
 		private IScript m_sctInstallScript = null;
 		private Readme m_rmeModReadme = null;
 		private IList<VirtualFileSystemItem> m_setFiles = null;
@@ -243,6 +244,22 @@ namespace Nexus.Client.ModAuthoring
 			set
 			{
 				SetPropertyIfChanged(ref m_ximScreenshot, value, () => Screenshot);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the user wants to be warned about new versions.
+		/// </summary>
+		/// <value>Whether the user wants to be warned about new versions</value>
+		public bool UpdateWarningEnabled
+		{
+			get
+			{
+				return m_booUpdateWarningEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateWarningEnabled, value, () => UpdateWarningEnabled);
 			}
 		}
 

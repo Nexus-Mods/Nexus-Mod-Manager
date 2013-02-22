@@ -387,7 +387,19 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
 		public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
-			UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(p_booOverrideCategorySetup, ConfirmUpdaterAction)));
+			List<IMod> lstModList = new List<IMod>();
+
+			if (p_booOverrideCategorySetup)
+			{
+				lstModList.AddRange(from Mod in ManagedMods
+									where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
+									select Mod);
+			}
+			else
+				lstModList.AddRange(ManagedMods);
+				
+			if (lstModList.Count > 0)
+				UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>
@@ -402,6 +414,20 @@ namespace Nexus.Client.ModManagement.UI
 				throw new Exception("we couldn't find a proper Nexus ID or the file no longer exists on the Nexus sites.");
 
 			ModManager.ToggleModEndorsement(p_modMod);
+		}
+
+		/// <summary>
+		/// Toggles the mod update warning.
+		/// </summary>
+		/// <param name="p_lstMods">The mod list.</param>
+		public void ToggleModUpdateWarning(List<IMod> p_lstMods)
+		{
+			foreach (IMod modMod in p_lstMods)
+			{
+				ModInfo mifUpdatedMod = new ModInfo(modMod);
+				mifUpdatedMod.UpdateWarningEnabled = !modMod.UpdateWarningEnabled;
+				modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+			}
 		}
 
 		#endregion
@@ -467,7 +493,7 @@ namespace Nexus.Client.ModManagement.UI
 			DialogResult Result = MessageBox.Show(strMessage, "Category remove", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
-				CategoryManager.ResetCategories	(String.Empty);
+				CategoryManager.ResetCategories(String.Empty);
 				SwitchModsToCategory(0);
 				return true;
 			}

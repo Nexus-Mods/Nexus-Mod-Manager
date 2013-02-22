@@ -57,6 +57,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private string m_strInstallDate = null;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
+		private bool m_booUpdateWarningEnabled = true;
 		private IScript m_scpInstallScript = null;
 
 		private Int32 m_intReadOnlyInitFileBlockExtractionStages = 0;
@@ -281,6 +282,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 					m_booHasScreenshot = (value != null);
 					OnPropertyChanged(() => Screenshot);
 				}
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the user wants to be warned about new versions.
+		/// </summary>
+		/// <value>Whether the user wants to be warned about new versions</value>
+		public bool UpdateWarningEnabled
+		{
+			get
+			{
+				return m_booUpdateWarningEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateWarningEnabled, value, () => UpdateWarningEnabled);
 			}
 		}
 
