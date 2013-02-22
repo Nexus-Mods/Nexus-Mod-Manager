@@ -272,6 +272,20 @@ namespace Nexus.Client.Properties {
 			}
 		}
 
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("False")]
+		public bool ShowExpandedCategories
+		{
+			get
+			{
+				return ((bool)(this["ShowExpandedCategories"]));
+			}
+			set
+			{
+				this["ShowExpandedCategories"] = value;
+			}
+		}
 
 		[global::System.Configuration.UserScopedSettingAttribute()]
 		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

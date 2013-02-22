@@ -263,6 +263,12 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <value>The mod's screenshot.</value>
 			public ExtendedImage Screenshot { get; set; }
 
+			/// <summary>
+			/// Gets or sets whether the user wants to be warned about new versions.
+			/// </summary>
+			/// <value>Whether the user wants to be warned about new versions</value>
+			public bool UpdateWarningEnabled { get; set; }
+
 			#endregion
 
 			/// <summary>
@@ -283,6 +289,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					HumanReadableVersion = p_mifInfo.HumanReadableVersion;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
 					LastKnownVersion = p_mifInfo.LastKnownVersion;
+				if (p_booOverwriteAllValues || (IsEndorsed != p_mifInfo.IsEndorsed))
+					IsEndorsed = p_mifInfo.IsEndorsed;
 				if (p_booOverwriteAllValues || (MachineVersion == null))
 					MachineVersion = p_mifInfo.MachineVersion;
 				if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
@@ -299,6 +307,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					Website = p_mifInfo.Website;
 				if (p_booOverwriteAllValues || (Screenshot == null))
 					Screenshot = p_mifInfo.Screenshot;
+				if (p_booOverwriteAllValues || (UpdateWarningEnabled != p_mifInfo.UpdateWarningEnabled))
+					UpdateWarningEnabled = p_mifInfo.UpdateWarningEnabled;
 			}
 
 			#endregion
