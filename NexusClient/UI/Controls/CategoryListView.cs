@@ -25,6 +25,7 @@ namespace Nexus.Client.UI.Controls
 		public event EventHandler CategorySwitch;
 		public event EventHandler CategoryRemoved;
 		public event EventHandler FileDropped;
+		public event EventHandler UpdateWarningToggle;
 
 		#endregion
 
@@ -206,6 +207,7 @@ namespace Nexus.Client.UI.Controls
 			cmsContextMenu.Items.Clear();
 			cmsContextMenu.Items.Add("Move to Category:");
 			cmsContextMenu.Items.Add("Categories:");
+			cmsContextMenu.Items.Add("Toggle mod update warning", new Bitmap(Properties.Resources.update_warning, 16, 16), new EventHandler(cmsContextMenu_ToggleUpdateWarning));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
 
@@ -500,9 +502,16 @@ namespace Nexus.Client.UI.Controls
 					IMod modMod = (IMod)lviItem.Tag;
 					if (modMod != null)
 					{
-						if (!modMod.IsMatchingVersion())
+						if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
 							return new Bitmap(Properties.Resources.dialog_warning_4, 16, 16);
 					}
+				}
+				else
+				{
+					int intCategoryId = ((IModCategory)lviItem.Tag).Id;
+
+					if (GetOutdatedModList(intCategoryId).Count > 0)
+						return new Bitmap(Properties.Resources.dialog_warning_4, 16, 16);
 				}
 
 				return null;
@@ -768,6 +777,22 @@ namespace Nexus.Client.UI.Controls
 			this.SetupContextMenu();
 		}
 
+				/// <summary>
+		/// Gets the mod count for the current category.
+		/// </summary>
+		/// <param name="p_intCategoryID">The category ID.</param>
+		public List<IMod> GetOutdatedModList(Int32 p_intCategoryID)
+		{
+			var CategoryMods = from Mod in lviCategoryItems
+								where (((IMod)Mod.Tag != null)
+								&& ((IMod)Mod.Tag).UpdateWarningEnabled
+								&& ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == p_intCategoryID)
+								&& !((IMod)Mod.Tag).IsMatchingVersion())
+								select (IMod)Mod.Tag;
+
+			return new List<IMod>(CategoryMods);
+		}
+
 		#endregion
 
 		#region EventHandler
@@ -790,6 +815,17 @@ namespace Nexus.Client.UI.Controls
 		private void cmsContextMenu_CategoryNew(object sender, EventArgs e)
 		{
 			AddNewCategory();
+		}
+
+		/// <summary>
+		/// Handles the cmsContextMenu.CategoryNew event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+		private void cmsContextMenu_ToggleUpdateWarning(object sender, EventArgs e)
+		{
+			if (this.UpdateWarningToggle != null)
+				this.UpdateWarningToggle(this, new EventArgs());
 		}
 
 		/// <summary>

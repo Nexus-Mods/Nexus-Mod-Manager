@@ -112,6 +112,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategorySwitch += new EventHandler(CategoryListView_CategorySwitch);
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
+			clwCategoryView.UpdateWarningToggle += new EventHandler(CategoryListView_ToggleUpdateWarning);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -576,6 +577,22 @@ namespace Nexus.Client.ModManagement.UI
 						e.IsBalloon = true;
 					}
 				}
+				else
+				{
+					IModCategory imcModCategory = (IModCategory)((ListViewItem)e.Item.RowObject).Tag;
+					List<IMod> lstOutdatedMods = new List<IMod>(clwCategoryView.GetOutdatedModList(imcModCategory.Id));
+					if (lstOutdatedMods.Count > 0)
+					{
+						e.AutoPopDelay = 10000;
+						e.Title = "Some mods in this category could require an update";
+						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
+						string strModlist = String.Empty;
+						foreach (IMod modMod in lstOutdatedMods)
+							strModlist += modMod.ModName + "\r\n";
+						e.Text = strModlist;
+						e.IsBalloon = true;
+					}
+				}
 			}
 		}
 
@@ -649,6 +666,32 @@ namespace Nexus.Client.ModManagement.UI
 					if ((clwCategoryView.GetCategoryModCount(mctOld) == 0) && !clwCategoryView.ShowHiddenCategories)
 						clwCategoryView.RemoveData(mctOld);
 
+				clwCategoryView.RebuildAll(true);
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.UpdateWarningToggle"/> of the toggle
+		/// mod update warning context menu.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_ToggleUpdateWarning(object sender, EventArgs e)
+		{
+			List<IMod> lstSelectedMods = new List<IMod>();
+
+			foreach (ListViewItem lviItem in clwCategoryView.GetSelectedItems)
+			{
+				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				{
+					IMod modMod = (IMod)lviItem.Tag;
+					lstSelectedMods.Add(modMod);
+				}
+			}
+
+			if (lstSelectedMods.Count > 0)
+			{
+				ViewModel.ToggleModUpdateWarning(lstSelectedMods);
 				clwCategoryView.RebuildAll(true);
 			}
 		}

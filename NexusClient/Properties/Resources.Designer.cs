@@ -473,6 +473,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap update_warning {
+            get {
+                object obj = ResourceManager.GetObject("update_warning", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap us {
             get {
                 object obj = ResourceManager.GetObject("us", resourceCulture);
