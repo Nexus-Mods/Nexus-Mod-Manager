@@ -1,3 +1,12 @@
+Version 0.43.2
+New Feature: NMM will now remember if the user chose to expand/collapse all categories in the Category View.
+New Feature: NMM will now show a warning icon if a mod in a category requires an update.
+New Feature: The user will now be able to toggle the update warning for any mod (right click one or more mods in Category View mode and select "Toggle mod Update Warning").
+
+Bugfix: NMM removing screenshot files from newly added fomod files.
+Bugfix: NMM unable to install fomod installers missing a screenshot.
+Bugfix: Various crashes while NMM was unable to remove installed mod files (missing, read-only, hidden).
+
 Version 0.43.1:
 New Feature: NMM will now warn the user if he tries to close the program while there's an ongoing download.
 New Feature: Users will now be able to drag&drop mod files into the manager control to install them.
