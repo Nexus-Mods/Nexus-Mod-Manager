@@ -89,6 +89,12 @@ namespace Nexus.Client.Mods
 		/// <value>The mod's screenshot.</value>
 		ExtendedImage Screenshot { get; }
 
+		/// <summary>
+		/// Gets or sets whether the user wants to be warned about new versions.
+		/// </summary>
+		/// <value>Whether the user wants to be warned about new versions</value>
+		bool UpdateWarningEnabled { get; }
+
 		#endregion
 
 		/// <summary>

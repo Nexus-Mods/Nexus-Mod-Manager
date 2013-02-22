@@ -416,6 +416,20 @@ namespace Nexus.Client.ModManagement.UI
 			ModManager.ToggleModEndorsement(p_modMod);
 		}
 
+		/// <summary>
+		/// Toggles the mod update warning.
+		/// </summary>
+		/// <param name="p_lstMods">The mod list.</param>
+		public void ToggleModUpdateWarning(List<IMod> p_lstMods)
+		{
+			foreach (IMod modMod in p_lstMods)
+			{
+				ModInfo mifUpdatedMod = new ModInfo(modMod);
+				mifUpdatedMod.UpdateWarningEnabled = !modMod.UpdateWarningEnabled;
+				modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+			}
+		}
+
 		#endregion
 
 		#region Category Updating

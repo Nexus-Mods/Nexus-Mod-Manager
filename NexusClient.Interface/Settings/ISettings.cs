@@ -77,6 +77,12 @@ namespace Nexus.Client.Settings
 		bool ShowEmptyCategory { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the category view should expand all the categories when loaded.
+		/// </summary>
+		/// <value>Whether the category view should expand all the categories when loaded.</value>
+		bool ShowExpandedCategories { get; set; }
+
+		/// <summary>
 		/// Gets the installation path dictionary.
 		/// </summary>
 		/// <remarks>
