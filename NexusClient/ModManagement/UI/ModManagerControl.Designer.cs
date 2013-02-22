@@ -42,6 +42,7 @@
 			this.tsbResetCategories = new System.Windows.Forms.ToolStripSplitButton();
 			this.addNewCategory = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetDefaultCategories = new System.Windows.Forms.ToolStripMenuItem();
+			this.resetUnassignedToDefaultCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetModsCategory = new System.Windows.Forms.ToolStripMenuItem();
 			this.removeAllCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.collapseAllCategories = new System.Windows.Forms.ToolStripMenuItem();
@@ -141,6 +142,7 @@
 			this.collapseAllCategories,
 			this.expandAllCategories,
 			this.resetDefaultCategories,
+			this.resetUnassignedToDefaultCategories,
             this.resetModsCategory,
 			this.removeAllCategories,
 			this.toggleHiddenCategories});
@@ -165,6 +167,14 @@
 			this.resetDefaultCategories.Size = new System.Drawing.Size(195, 38);
 			this.resetDefaultCategories.Text = "Categories: reset to Nexus site defaults";
 			this.resetDefaultCategories.Click += new System.EventHandler(this.resetDefaultCategories_Click);
+			// 
+			// resetUnassignedToDefaultCategories
+			// 
+			this.resetUnassignedToDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
+			this.resetUnassignedToDefaultCategories.Name = "resetUnassignedToDefaultCategories";
+			this.resetUnassignedToDefaultCategories.Size = new System.Drawing.Size(195, 38);
+			this.resetUnassignedToDefaultCategories.Text = "Categories: reset Unassigned mods to Nexus site defaults";
+			this.resetUnassignedToDefaultCategories.Click += new System.EventHandler(this.resetUnassignedToDefaultCategories_Click);
 			// 
 			// resetModsCategory
 			// 
@@ -473,6 +483,7 @@
 		private System.Windows.Forms.ToolStripSplitButton tsbResetCategories;
 		private System.Windows.Forms.ToolStripMenuItem addNewCategory;
 		private System.Windows.Forms.ToolStripMenuItem resetDefaultCategories;
+		private System.Windows.Forms.ToolStripMenuItem resetUnassignedToDefaultCategories;
 		private System.Windows.Forms.ToolStripMenuItem resetModsCategory;
 		private System.Windows.Forms.ToolStripMenuItem removeAllCategories;
 		private System.Windows.Forms.ToolStripMenuItem collapseAllCategories;

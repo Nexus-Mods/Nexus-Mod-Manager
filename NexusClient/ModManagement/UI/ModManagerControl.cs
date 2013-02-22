@@ -704,6 +704,28 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the reset unassigned mods
+		/// to repository default button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void resetUnassignedToDefaultCategories_Click(object sender, EventArgs e)
+		{
+			List<IMod> lstSelectedMods = new List<IMod>();
+			lstSelectedMods.AddRange(from Mod in ViewModel.ManagedMods
+								where ((Mod.CategoryId > 0) && (Mod.CustomCategoryId == 0))
+								select Mod);
+			if (lstSelectedMods.Count > 0)
+				ViewModel.SwitchModsToCategory(lstSelectedMods, -1);
+
+			ViewModel.CheckForUpdates(true);
+
+			clwCategoryView.LoadData();
+			clwCategoryView.SetupContextMenu();
+			clwCategoryView.RebuildAll(true);
+		}
+
+		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
 		/// category button.
 		/// </summary>

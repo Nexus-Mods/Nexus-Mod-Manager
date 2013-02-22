@@ -434,12 +434,12 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>
-		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+		/// <param name="p_lstModList">The list of mods we need to update.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask UpdateMods(bool p_booOverrideCategorySetup, ConfirmActionMethod p_camConfirm)
+		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm)
 		{
-			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, ManagedModRegistry, p_booOverrideCategorySetup);
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList);
 			mutModUpdateCheck.Update(p_camConfirm);
 			return mutModUpdateCheck;
 		}

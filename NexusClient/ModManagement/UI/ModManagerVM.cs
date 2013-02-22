@@ -387,7 +387,19 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
 		public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
-			UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(p_booOverrideCategorySetup, ConfirmUpdaterAction)));
+			List<IMod> lstModList = new List<IMod>();
+
+			if (p_booOverrideCategorySetup)
+			{
+				lstModList.AddRange(from Mod in ManagedMods
+									where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
+									select Mod);
+			}
+			else
+				lstModList.AddRange(ManagedMods);
+				
+			if (lstModList.Count > 0)
+				UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>
@@ -467,7 +479,7 @@ namespace Nexus.Client.ModManagement.UI
 			DialogResult Result = MessageBox.Show(strMessage, "Category remove", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
-				CategoryManager.ResetCategories	(String.Empty);
+				CategoryManager.ResetCategories(String.Empty);
 				SwitchModsToCategory(0);
 				return true;
 			}
