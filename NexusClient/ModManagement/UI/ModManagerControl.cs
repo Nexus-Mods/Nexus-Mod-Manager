@@ -112,6 +112,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategorySwitch += new EventHandler(CategoryListView_CategorySwitch);
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
+			clwCategoryView.UpdateWarningToggle += new EventHandler(CategoryListView_ToggleUpdateWarning);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -552,6 +553,9 @@ namespace Nexus.Client.ModManagement.UI
 				};
 
 				clwCategoryView.LoadData();
+
+				if (ViewModel.Settings.ShowExpandedCategories)
+					clwCategoryView.ExpandAll();
 			}
 		}
 
@@ -573,6 +577,22 @@ namespace Nexus.Client.ModManagement.UI
 						e.Title = "New Version Available Online";
 						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Warning;
 						e.Text = "There's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.";
+						e.IsBalloon = true;
+					}
+				}
+				else
+				{
+					IModCategory imcModCategory = (IModCategory)((ListViewItem)e.Item.RowObject).Tag;
+					List<IMod> lstOutdatedMods = new List<IMod>(clwCategoryView.GetOutdatedModList(imcModCategory.Id));
+					if (lstOutdatedMods.Count > 0)
+					{
+						e.AutoPopDelay = 10000;
+						e.Title = "Some mods in this category could require an update";
+						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
+						string strModlist = String.Empty;
+						foreach (IMod modMod in lstOutdatedMods)
+							strModlist += modMod.ModName + "\r\n";
+						e.Text = strModlist;
 						e.IsBalloon = true;
 					}
 				}
@@ -654,6 +674,32 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles the <see cref="CategoryListView.UpdateWarningToggle"/> of the toggle
+		/// mod update warning context menu.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_ToggleUpdateWarning(object sender, EventArgs e)
+		{
+			List<IMod> lstSelectedMods = new List<IMod>();
+
+			foreach (ListViewItem lviItem in clwCategoryView.GetSelectedItems)
+			{
+				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				{
+					IMod modMod = (IMod)lviItem.Tag;
+					lstSelectedMods.Add(modMod);
+				}
+			}
+
+			if (lstSelectedMods.Count > 0)
+			{
+				ViewModel.ToggleModUpdateWarning(lstSelectedMods);
+				clwCategoryView.RebuildAll(true);
+			}
+		}
+
+		/// <summary>
 		/// Handles the <see cref="CategoryListView.CategoryRemoved"/> of the switch
 		/// mod category context menu.
 		/// </summary>
@@ -704,6 +750,28 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the reset unassigned mods
+		/// to repository default button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void resetUnassignedToDefaultCategories_Click(object sender, EventArgs e)
+		{
+			List<IMod> lstSelectedMods = new List<IMod>();
+			lstSelectedMods.AddRange(from Mod in ViewModel.ManagedMods
+								where ((Mod.CategoryId > 0) && (Mod.CustomCategoryId == 0))
+								select Mod);
+			if (lstSelectedMods.Count > 0)
+				ViewModel.SwitchModsToCategory(lstSelectedMods, -1);
+
+			ViewModel.CheckForUpdates(true);
+
+			clwCategoryView.LoadData();
+			clwCategoryView.SetupContextMenu();
+			clwCategoryView.RebuildAll(true);
+		}
+
+		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
 		/// category button.
 		/// </summary>
@@ -751,6 +819,8 @@ namespace Nexus.Client.ModManagement.UI
 		private void collapseAllCategories_Click(object sender, EventArgs e)
 		{
 			clwCategoryView.CollapseAll();
+			ViewModel.Settings.ShowExpandedCategories = false;
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
@@ -762,6 +832,8 @@ namespace Nexus.Client.ModManagement.UI
 		private void expandAllCategories_Click(object sender, EventArgs e)
 		{
 			clwCategoryView.ExpandAll();
+			ViewModel.Settings.ShowExpandedCategories = true;
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>

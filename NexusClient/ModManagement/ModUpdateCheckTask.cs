@@ -34,14 +34,6 @@ namespace Nexus.Client.ModManagement
 		/// <value>The current mod repository.</value>
 		protected IModRepository ModRepository { get; private set; }
 
-		/// <summary>
-		/// Gets the <see cref="ModRegistry"/> that contains the list
-		/// of managed <see cref="IMod"/>s.
-		/// </summary>
-		/// <value>The <see cref="ModRegistry"/> that contains the list
-		/// of managed <see cref="IMod"/>s.</value>
-		protected ModRegistry ManagedModRegistry { get; private set; }
-
 		#endregion
 
 		#region Constructors
@@ -51,14 +43,12 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_AutoUpdater">The AutoUpdater.</param>
 		/// <param name="p_ModRepository">The current mod repository.</param>
-		/// <param name="p_ModRegistry">The current managed mod registry.</param>
-		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
-		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, ModRegistry p_ModRegistry, bool p_booOverrideCategorySetup)
+		/// <param name="p_lstModList">The list of mods we need to update.</param>
+		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, List<IMod> p_lstModList)
 		{
 			AutoUpdater = p_AutoUpdater;
 			ModRepository = p_ModRepository;
-			ManagedModRegistry = p_ModRegistry;
-			m_booOverrideCategorySetup = p_booOverrideCategorySetup;
+			m_lstModList.AddRange(p_lstModList);
 		}
 
 		#endregion
@@ -111,17 +101,6 @@ namespace Nexus.Client.ModManagement
 			ItemProgressStepSize = 1;
 			ItemProgressMaximum = 1;
 			OverallProgressMaximum = 1;
-
-			if (m_booOverrideCategorySetup)
-			{
-				var UnassignedMods = from Mod in ManagedModRegistry.RegisteredMods
-									 where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
-									 select Mod;
-
-				m_lstModList.AddRange(UnassignedMods);
-			}
-			else
-				m_lstModList.AddRange(ManagedModRegistry.RegisteredMods);
 
 			OverallProgressMaximum = m_lstModList.Count * 2;
 			ItemProgressMaximum = (m_lstModList.Count > 250) ? 250 : m_lstModList.Count;
