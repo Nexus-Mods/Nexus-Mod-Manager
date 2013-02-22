@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -749,7 +750,13 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public byte[] GetFile(string p_strFile)
 		{
 			if (!ContainsFile(p_strFile))
-				throw new FileNotFoundException("File doesn't exist in FOMod", p_strFile);
+			{
+				if (Path.GetFileNameWithoutExtension(p_strFile).ToLower() == "screenshot")
+					return (byte[])(new ImageConverter().ConvertTo(new Bitmap(1, 1), typeof(byte[])));
+				else
+					throw new FileNotFoundException("File doesn't exist in FOMod", p_strFile);
+			}		
+				
 			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(p_strFile)))
 				return m_arcCacheFile.GetFileContents(GetRealPath(p_strFile));
 			return m_arcFile.GetFileContents(GetRealPath(p_strFile));
@@ -900,7 +907,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			{
 				if (p_mifInfo.Screenshot == null)
 				{
-					if (Screenshot != null)
+					if ((Screenshot != null) && p_booOverwriteAllValues)
 					{
 						DeleteFile(m_strScreenshotPath);
 						Screenshot = p_mifInfo.Screenshot;
