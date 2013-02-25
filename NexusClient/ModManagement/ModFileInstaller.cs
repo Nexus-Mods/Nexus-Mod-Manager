@@ -63,11 +63,11 @@ namespace Nexus.Client.ModManagement
 		/// <value>The manager to use to manage plugins.</value>
 		protected IPluginManager PluginManager { get; private set; }
 
-        /// <summary>
-        /// Gets whether the file is a mod or a plugin.
-        /// </summary>
-        /// <value>true or false.</value>
-        protected bool IsPlugin { get; private set; }
+		/// <summary>
+		/// Gets whether the file is a mod or a plugin.
+		/// </summary>
+		/// <value>true or false.</value>
+		protected bool IsPlugin { get; private set; }
 
 		/// <summary>
 		/// Gets a list of install errors.
@@ -95,7 +95,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_dfuDataFileUtility">The utility class to use to work with data files.</param>
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-        /// <param name="p_UsesPlugins">Whether the file is a mod or a plugin.</param>
+		/// <param name="p_UsesPlugins">Whether the file is a mod or a plugin.</param>
 		public ModFileInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins)
 		{
 			GameModeInfo = p_gmiGameModeInfo;
@@ -105,7 +105,7 @@ namespace Nexus.Client.ModManagement
 			DataFileUtility = p_dfuDataFileUtility;
 			TransactionalFileManager = p_tfmFileManager;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b, m) => OverwriteResult.No);
-            IsPlugin = p_UsesPlugins;
+			IsPlugin = p_UsesPlugins;
 		}
 
 		#endregion
@@ -314,8 +314,8 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 			TransactionalFileManager.WriteAllBytes(strInstallFilePath, p_bteData);
-            // Checks whether the file is a gamebryo plugin
-            if (IsPlugin)
+			// Checks whether the file is a gamebryo plugin
+			if (IsPlugin)
 				if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
 				{
 					if (!PluginManager.CanActivatePlugins())
@@ -358,14 +358,14 @@ namespace Nexus.Client.ModManagement
 					// when we installed the file
 					// if we didn't overwrite a file, then just delete the current file
 					fiInfo = new FileInfo(strInstallFilePath);
-					if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
+					if (fiInfo.IsReadOnly)
 						m_lstErrorMods.Add(strInstallFilePath);
 					else
-						TransactionalFileManager.Delete(strInstallFilePath);                        
+						TransactionalFileManager.Delete(strInstallFilePath);
 
-                    if (IsPlugin)
-					    if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
-						    PluginManager.RemovePlugin(strInstallFilePath);
+					if (IsPlugin)
+						if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
+							PluginManager.RemovePlugin(strInstallFilePath);
 					string strPreviousOwnerKey = InstallLog.GetPreviousFileOwnerKey(p_strPath);
 					if (strPreviousOwnerKey != null)
 					{
@@ -378,17 +378,15 @@ namespace Nexus.Client.ModManagement
 							strBackupFileName = strBackupFileName.Substring(strBackupFileName.IndexOf('_') + 1);
 							string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
 
-							if (m_lstErrorMods.Count < 0)
+							fiInfo = new FileInfo(strRestoreFromPath);
+							if (fiInfo.IsReadOnly)
+								m_lstErrorMods.Add(strInstallFilePath);
+							else
 							{
-								fiInfo = new FileInfo(strRestoreFromPath);
-								if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
-									m_lstErrorMods.Add(strInstallFilePath);
-								else
-								{
-									TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
-									TransactionalFileManager.Delete(strRestoreFromPath);
-								}
+								TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+								TransactionalFileManager.Delete(strRestoreFromPath);
 							}
+
 						}
 					}
 
@@ -411,7 +409,7 @@ namespace Nexus.Client.ModManagement
 			//remove any empty directories from the overwrite folder we may have created
 			string strStopDirectory = GameModeInfo.OverwriteDirectory;
 			TrimEmptyDirectories(Path.GetDirectoryName(strOverwritePath), strStopDirectory);
-			
+
 			InstallLog.RemoveDataFile(Mod, p_strPath);
 		}
 
