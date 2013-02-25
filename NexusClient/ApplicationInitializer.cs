@@ -618,11 +618,13 @@ namespace Nexus.Client
 		protected bool UacCheck(string p_strPath)
 		{
 			string strInstallationPath = p_strPath;
-			while (!Directory.Exists(strInstallationPath))
-				strInstallationPath = Path.GetDirectoryName(strInstallationPath);
-			string strTestFile = Path.Combine(strInstallationPath, "limited");
+			string strTestFile = null;
 			try
 			{
+				while (!Directory.Exists(strInstallationPath))
+					strInstallationPath = Path.GetDirectoryName(strInstallationPath);
+				strTestFile = Path.Combine(strInstallationPath, "limited");
+
 				string strVirtualStore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualStore\\");
 				strVirtualStore = Path.Combine(strVirtualStore, strInstallationPath.Remove(0, 3));
 				strVirtualStore = Path.Combine(strVirtualStore, "limited");
@@ -634,6 +636,11 @@ namespace Nexus.Client
 					Trace.TraceError(String.Format("UAC is messing us up: {0}", p_strPath));
 					return false;
 				}
+			}
+			catch (ArgumentException ex)
+			{
+				Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error: " + Environment.NewLine + "{1}", strInstallationPath, ex.Message));
+				return false;
 			}
 			catch
 			{
