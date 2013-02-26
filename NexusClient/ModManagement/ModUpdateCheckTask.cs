@@ -202,6 +202,7 @@ namespace Nexus.Client.ModManagement
 							if (ItemProgress < ItemProgressMaximum)
 								StepItemProgress();
 							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
+							modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
 							AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
 							modMod.UpdateInfo(modUpdate, false);
 							ItemProgress = 0;
