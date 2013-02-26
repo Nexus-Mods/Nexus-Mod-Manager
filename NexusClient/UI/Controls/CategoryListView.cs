@@ -503,7 +503,9 @@ namespace Nexus.Client.UI.Controls
 					if (modMod != null)
 					{
 						if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
-							return new Bitmap(Properties.Resources.dialog_warning_4, 16, 16);
+							return new Bitmap(Properties.Resources.update_warning, 16, 16);
+						else if (!modMod.IsMatchingVersion())
+							return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
 					}
 				}
 				else
@@ -511,7 +513,7 @@ namespace Nexus.Client.UI.Controls
 					int intCategoryId = ((IModCategory)lviItem.Tag).Id;
 
 					if (GetOutdatedModList(intCategoryId).Count > 0)
-						return new Bitmap(Properties.Resources.dialog_warning_4, 16, 16);
+						return new Bitmap(Properties.Resources.update_warning, 16, 16);
 				}
 
 				return null;
