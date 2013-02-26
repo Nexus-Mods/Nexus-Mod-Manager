@@ -681,20 +681,27 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_ToggleUpdateWarning(object sender, EventArgs e)
 		{
-			List<IMod> lstSelectedMods = new List<IMod>();
+			HashSet<IMod> hashMods = new HashSet<IMod>();
 
 			foreach (ListViewItem lviItem in clwCategoryView.GetSelectedItems)
 			{
 				if (lviItem.Tag.GetType() != typeof(ModCategory))
 				{
 					IMod modMod = (IMod)lviItem.Tag;
-					lstSelectedMods.Add(modMod);
+					hashMods.Add(modMod);
+				}
+				else
+				{
+					IModCategory imcCategory = (IModCategory)lviItem.Tag;
+					var CategoryMods = ViewModel.ManagedMods.Where(Mod => (Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == imcCategory.Id).ToList();
+					foreach (IMod Mod in CategoryMods)
+						hashMods.Add(Mod);
 				}
 			}
 
-			if (lstSelectedMods.Count > 0)
+			if (hashMods.Count > 0)
 			{
-				ViewModel.ToggleModUpdateWarning(lstSelectedMods);
+				ViewModel.ToggleModUpdateWarning(hashMods);
 				clwCategoryView.RebuildAll(true);
 			}
 		}

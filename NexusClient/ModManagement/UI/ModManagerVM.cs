@@ -420,9 +420,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// Toggles the mod update warning.
 		/// </summary>
 		/// <param name="p_lstMods">The mod list.</param>
-		public void ToggleModUpdateWarning(List<IMod> p_lstMods)
+		public void ToggleModUpdateWarning(HashSet<IMod> p_hashMods)
 		{
-			foreach (IMod modMod in p_lstMods)
+			foreach (IMod modMod in p_hashMods)
 			{
 				ModInfo mifUpdatedMod = new ModInfo(modMod);
 				mifUpdatedMod.UpdateWarningEnabled = !modMod.UpdateWarningEnabled;

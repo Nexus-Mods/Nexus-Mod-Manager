@@ -777,8 +777,8 @@ namespace Nexus.Client.UI.Controls
 			this.SetupContextMenu();
 		}
 
-				/// <summary>
-		/// Gets the mod count for the current category.
+		/// <summary>
+		/// Gets the list of outdated mods in the selected category.
 		/// </summary>
 		/// <param name="p_intCategoryID">The category ID.</param>
 		public List<IMod> GetOutdatedModList(Int32 p_intCategoryID)
