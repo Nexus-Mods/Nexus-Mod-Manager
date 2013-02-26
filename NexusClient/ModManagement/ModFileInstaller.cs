@@ -63,11 +63,11 @@ namespace Nexus.Client.ModManagement
 		/// <value>The manager to use to manage plugins.</value>
 		protected IPluginManager PluginManager { get; private set; }
 
-        /// <summary>
-        /// Gets whether the file is a mod or a plugin.
-        /// </summary>
-        /// <value>true or false.</value>
-        protected bool IsPlugin { get; private set; }
+		/// <summary>
+		/// Gets whether the file is a mod or a plugin.
+		/// </summary>
+		/// <value>true or false.</value>
+		protected bool IsPlugin { get; private set; }
 
 		/// <summary>
 		/// Gets a list of install errors.
@@ -95,7 +95,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_dfuDataFileUtility">The utility class to use to work with data files.</param>
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-        /// <param name="p_UsesPlugins">Whether the file is a mod or a plugin.</param>
+		/// <param name="p_UsesPlugins">Whether the file is a mod or a plugin.</param>
 		public ModFileInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins)
 		{
 			GameModeInfo = p_gmiGameModeInfo;
@@ -105,7 +105,7 @@ namespace Nexus.Client.ModManagement
 			DataFileUtility = p_dfuDataFileUtility;
 			TransactionalFileManager = p_tfmFileManager;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b, m) => OverwriteResult.No);
-            IsPlugin = p_UsesPlugins;
+			IsPlugin = p_UsesPlugins;
 		}
 
 		#endregion
@@ -121,9 +121,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strPath">The file path, relative to the Data folder, whose writability is to be verified.</param>
 		/// <returns><c>true</c> if the location specified by <paramref name="p_strPath"/>
 		/// can be written; <c>false</c> otherwise.</returns>
-		protected bool TestDoOverwrite(string p_strPath)
+		protected bool TestDoOverwrite(string p_strPath, FileInfo Info)
 		{
 			string strDataPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+			if (Info.IsReadOnly == true)
+				m_booOverwriteAll = false;
 			if (!File.Exists(strDataPath))
 				return true;
 			string strLoweredPath = strDataPath.ToLowerInvariant();
@@ -169,80 +171,103 @@ namespace Nexus.Client.ModManagement
 				strMessage = "Data file '{0}' already exists." + Environment.NewLine +
 								"Overwrite with this mod's file?";
 			}
-			switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strPath), true, (modOld != null)))
+			if (Info.IsReadOnly == true)
 			{
-				case OverwriteResult.Yes:
-					return true;
-				case OverwriteResult.No:
-					return false;
-				case OverwriteResult.NoToAll:
-					m_booDontOverwriteAll = true;
-					return false;
-				case OverwriteResult.YesToAll:
-					m_booOverwriteAll = true;
-					return true;
-				case OverwriteResult.NoToGroup:
-					Queue<string> folders = new Queue<string>();
-					folders.Enqueue(Path.GetDirectoryName(strLoweredPath));
-					while (folders.Count > 0)
-					{
-						strLoweredPath = folders.Dequeue();
-						if (!m_lstOverwriteFolders.Contains(strLoweredPath))
+				strMessage = "Data file '{0}' already exists and is ReadOnly." + Environment.NewLine +
+								"Overwrite with this mod's file?";
+				switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strPath), false, false))
+				{
+					case OverwriteResult.Yes:
+						return true;
+					case OverwriteResult.YesToAll:
+						m_booOverwriteAll = true;
+						return true;
+					case OverwriteResult.NoToAll:
+						m_booDontOverwriteAll = true;
+						return false;
+					case OverwriteResult.No:
+						return false;
+					default:
+						throw new Exception("Sanity check failed: OverwriteDialog returned a value not present in the OverwriteResult enum");
+				}
+			}
+			else
+			{
+				switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strPath), true, (modOld != null)))
+				{
+					case OverwriteResult.Yes:
+						return true;
+					case OverwriteResult.No:
+						return false;
+					case OverwriteResult.NoToAll:
+						m_booDontOverwriteAll = true;
+						return false;
+					case OverwriteResult.YesToAll:
+						m_booOverwriteAll = true;
+						return true;
+					case OverwriteResult.NoToGroup:
+						Queue<string> folders = new Queue<string>();
+						folders.Enqueue(Path.GetDirectoryName(strLoweredPath));
+						while (folders.Count > 0)
 						{
-							m_lstDontOverwriteFolders.Add(strLoweredPath);
-							foreach (string s in Directory.GetDirectories(strLoweredPath))
+							strLoweredPath = folders.Dequeue();
+							if (!m_lstOverwriteFolders.Contains(strLoweredPath))
 							{
-								folders.Enqueue(s.ToLowerInvariant());
+								m_lstDontOverwriteFolders.Add(strLoweredPath);
+								foreach (string s in Directory.GetDirectories(strLoweredPath))
+								{
+									folders.Enqueue(s.ToLowerInvariant());
+								}
 							}
 						}
-					}
-					return false;
-				case OverwriteResult.YesToGroup:
-					folders = new Queue<string>();
-					folders.Enqueue(Path.GetDirectoryName(strLoweredPath));
-					while (folders.Count > 0)
-					{
-						strLoweredPath = folders.Dequeue();
-						if (!m_lstDontOverwriteFolders.Contains(strLoweredPath))
+						return false;
+					case OverwriteResult.YesToGroup:
+						folders = new Queue<string>();
+						folders.Enqueue(Path.GetDirectoryName(strLoweredPath));
+						while (folders.Count > 0)
 						{
-							m_lstOverwriteFolders.Add(strLoweredPath);
-							foreach (string s in Directory.GetDirectories(strLoweredPath))
+							strLoweredPath = folders.Dequeue();
+							if (!m_lstDontOverwriteFolders.Contains(strLoweredPath))
 							{
-								folders.Enqueue(s.ToLowerInvariant());
+								m_lstOverwriteFolders.Add(strLoweredPath);
+								foreach (string s in Directory.GetDirectories(strLoweredPath))
+								{
+									folders.Enqueue(s.ToLowerInvariant());
+								}
 							}
 						}
-					}
-					return true;
-				case OverwriteResult.NoToMod:
-					strModFile = modOld.Filename;
-					strModFileID = modOld.Id;
-					if (!String.IsNullOrEmpty(strModFileID))
-					{
-						if (!m_lstOverwriteMods.Contains(strModFileID))
-							m_lstDontOverwriteMods.Add(strModFileID);
-					}
-					else
-					{
-						if (!m_lstOverwriteMods.Contains(strModFile))
-							m_lstDontOverwriteMods.Add(strModFile);
-					}
-					return false;
-				case OverwriteResult.YesToMod:
-					strModFile = modOld.Filename;
-					strModFileID = modOld.Id;
-					if (!String.IsNullOrEmpty(strModFileID))
-					{
-						if (!m_lstDontOverwriteMods.Contains(strModFileID))
-							m_lstOverwriteMods.Add(strModFileID);
-					}
-					else
-					{
-						if (!m_lstDontOverwriteMods.Contains(strModFile))
-							m_lstOverwriteMods.Add(strModFile);
-					}
-					return true;
-				default:
-					throw new Exception("Sanity check failed: OverwriteDialog returned a value not present in the OverwriteResult enum");
+						return true;
+					case OverwriteResult.NoToMod:
+						strModFile = modOld.Filename;
+						strModFileID = modOld.Id;
+						if (!String.IsNullOrEmpty(strModFileID))
+						{
+							if (!m_lstOverwriteMods.Contains(strModFileID))
+								m_lstDontOverwriteMods.Add(strModFileID);
+						}
+						else
+						{
+							if (!m_lstOverwriteMods.Contains(strModFile))
+								m_lstDontOverwriteMods.Add(strModFile);
+						}
+						return false;
+					case OverwriteResult.YesToMod:
+						strModFile = modOld.Filename;
+						strModFileID = modOld.Id;
+						if (!String.IsNullOrEmpty(strModFileID))
+						{
+							if (!m_lstDontOverwriteMods.Contains(strModFileID))
+								m_lstOverwriteMods.Add(strModFileID);
+						}
+						else
+						{
+							if (!m_lstDontOverwriteMods.Contains(strModFile))
+								m_lstOverwriteMods.Add(strModFile);
+						}
+						return true;
+					default:
+						throw new Exception("Sanity check failed: OverwriteDialog returned a value not present in the OverwriteResult enum");
+				}
 			}
 		}
 
@@ -276,15 +301,18 @@ namespace Nexus.Client.ModManagement
 		{
 			DataFileUtility.AssertFilePathIsSafe(p_strPath);
 			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+			FileInfo Info = new FileInfo(strInstallFilePath);
 			if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
 				TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
 			else
 			{
-				if (!TestDoOverwrite(p_strPath))
+				if (!TestDoOverwrite(p_strPath, Info))
 					return false;
 
 				if (File.Exists(strInstallFilePath))
 				{
+					if (Info.IsReadOnly == true)
+						File.SetAttributes(strInstallFilePath, File.GetAttributes(strInstallFilePath) & ~FileAttributes.ReadOnly);
 					string strInstallDirectory = Path.GetDirectoryName(p_strPath);
 					string strBackupDirectory = Path.Combine(GameModeInfo.OverwriteDirectory, strInstallDirectory);
 					string strOldModKey = InstallLog.GetCurrentFileOwnerKey(p_strPath);
@@ -308,14 +336,17 @@ namespace Nexus.Client.ModManagement
 						strFile = strOldModKey + "_" + strFile;
 
 						string strBackupFilePath = Path.Combine(strBackupDirectory, strFile);
+						Info = new FileInfo(strBackupFilePath);
+						if ((Info.IsReadOnly == true) && (File.Exists(strBackupFilePath)))
+							File.SetAttributes(strBackupFilePath, File.GetAttributes(strBackupFilePath) & ~FileAttributes.ReadOnly);
 						TransactionalFileManager.Copy(strInstallFilePath, strBackupFilePath, true);
 					}
 					TransactionalFileManager.Delete(strInstallFilePath);
 				}
 			}
 			TransactionalFileManager.WriteAllBytes(strInstallFilePath, p_bteData);
-            // Checks whether the file is a gamebryo plugin
-            if (IsPlugin)
+			// Checks whether the file is a gamebryo plugin
+			if (IsPlugin)
 				if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
 				{
 					if (!PluginManager.CanActivatePlugins())
@@ -361,11 +392,11 @@ namespace Nexus.Client.ModManagement
 					if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
 						m_lstErrorMods.Add(strInstallFilePath);
 					else
-						TransactionalFileManager.Delete(strInstallFilePath);                        
+						TransactionalFileManager.Delete(strInstallFilePath);
 
-                    if (IsPlugin)
-					    if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
-						    PluginManager.RemovePlugin(strInstallFilePath);
+					if (IsPlugin)
+						if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
+							PluginManager.RemovePlugin(strInstallFilePath);
 					string strPreviousOwnerKey = InstallLog.GetPreviousFileOwnerKey(p_strPath);
 					if (strPreviousOwnerKey != null)
 					{
@@ -411,7 +442,7 @@ namespace Nexus.Client.ModManagement
 			//remove any empty directories from the overwrite folder we may have created
 			string strStopDirectory = GameModeInfo.OverwriteDirectory;
 			TrimEmptyDirectories(Path.GetDirectoryName(strOverwritePath), strStopDirectory);
-			
+
 			InstallLog.RemoveDataFile(Mod, p_strPath);
 		}
 
