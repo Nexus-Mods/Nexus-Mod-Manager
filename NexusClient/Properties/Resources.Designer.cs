@@ -480,6 +480,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap update_warning_disabled {
+            get {
+                object obj = ResourceManager.GetObject("update_warning_disabled", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap us {
             get {
                 object obj = ResourceManager.GetObject("us", resourceCulture);
