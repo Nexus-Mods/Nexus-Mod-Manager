@@ -159,14 +159,16 @@ namespace Nexus.Client.Util
 				}
 				catch (Exception e)
 				{
-					if (!(e is IOException || e is UnauthorizedAccessException))
+					if (!(e is IOException || e is UnauthorizedAccessException || e is DirectoryNotFoundException))
 						throw;
 					try
 					{
 						ClearAttributes(p_strPath, true);
 					}
-					catch (ArgumentException)
+					catch (Exception ex)
 					{
+						if (!(ex is ArgumentException || ex is DirectoryNotFoundException))
+							throw;
 						//we couldn't clear the attributes
 					}
 				}
