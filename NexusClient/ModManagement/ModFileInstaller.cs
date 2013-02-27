@@ -389,7 +389,7 @@ namespace Nexus.Client.ModManagement
 					// when we installed the file
 					// if we didn't overwrite a file, then just delete the current file
 					fiInfo = new FileInfo(strInstallFilePath);
-					if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
+					if (fiInfo.IsReadOnly)
 						m_lstErrorMods.Add(strInstallFilePath);
 					else
 						TransactionalFileManager.Delete(strInstallFilePath);
@@ -409,17 +409,15 @@ namespace Nexus.Client.ModManagement
 							strBackupFileName = strBackupFileName.Substring(strBackupFileName.IndexOf('_') + 1);
 							string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
 
-							if (m_lstErrorMods.Count < 0)
+							fiInfo = new FileInfo(strRestoreFromPath);
+							if (fiInfo.IsReadOnly)
+								m_lstErrorMods.Add(strInstallFilePath);
+							else
 							{
-								fiInfo = new FileInfo(strRestoreFromPath);
-								if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
-									m_lstErrorMods.Add(strInstallFilePath);
-								else
-								{
-									TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
-									TransactionalFileManager.Delete(strRestoreFromPath);
-								}
+								TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+								TransactionalFileManager.Delete(strRestoreFromPath);
 							}
+
 						}
 					}
 
