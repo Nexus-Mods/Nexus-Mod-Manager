@@ -154,9 +154,10 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				m_booControlIsLoaded = true;
 				LoadMetrics();
+				clwCategoryView.CategoryModeEnabled = ViewModel.Settings.UseCategoryView;
 				LoadCategoryView();
-				clwCategoryView.Visible = ViewModel.Settings.UseCategoryView;
-				lvwMods.Visible = !ViewModel.Settings.UseCategoryView;
+				lvwMods.Visible = false;
+
 				ViewModel.StartupCheckForUpdates();
 
 				if (!ViewModel.IsCategoryInitialized)
@@ -166,6 +167,7 @@ namespace Nexus.Client.ModManagement.UI
 					clwCategoryView.SetupContextMenu();
 					clwCategoryView.RebuildAll(true);
 				}
+
 				m_booDisableSummary = false;
 			}
 		}
@@ -797,11 +799,13 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void tsbSwitchCategory_Click(object sender, EventArgs e)
 		{
-			clwCategoryView.Visible = !clwCategoryView.Visible;
-			lvwMods.Visible = !lvwMods.Visible;
-			tsbResetCategories.Enabled = clwCategoryView.Visible;
+			clwCategoryView.CategoryModeEnabled = !clwCategoryView.CategoryModeEnabled;
+			clwCategoryView.Visible = false;
+			clwCategoryView.LoadData();
+			clwCategoryView.RebuildAll(false);
 			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
 			ViewModel.Settings.Save();
+			clwCategoryView.Visible = true;
 			SetCommandExecutableStatus();
 		}
 
