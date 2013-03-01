@@ -72,6 +72,7 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		private ModActivator m_macModActivator = null;
+		private ReadMeManager m_rmmReadMeManager = null;
 
 		#region Properties
 
@@ -180,6 +181,18 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Gets the newest available information about the managed mods.
+		/// </summary>
+		/// <value>The newest available information about the managed mods.</value>
+		public ReadMeManager ReadMeManager
+		{
+			get
+			{
+				return m_rmmReadMeManager;
+			}
+		}
+
+		/// <summary>
 		/// Gets the list of mods being managed by the mod manager.
 		/// </summary>
 		/// <value>The list of mods being managed by the mod manager.</value>
@@ -262,6 +275,7 @@ namespace Nexus.Client.ModManagement
 		{
 			GameMode = p_gmdGameMode;
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			m_rmmReadMeManager = new ReadMeManager(EnvironmentInfo.Settings.ModFolder[GameMode.ModeId]);
 			ModRepository = p_mrpModRepository;
 			FormatRegistry = p_frgFormatRegistry;
 			ManagedModRegistry = p_mdrManagedModRegistry;
