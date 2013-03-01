@@ -331,6 +331,7 @@
     <Compile Include="ModManagement\CategorySwitchTask.cs" />
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
     <Compile Include="ModManagement\ModUpdateCheckTask.cs" />
+    <Compile Include="ModManagement\ReadMeManager\ReadMeManager.cs" />
     <Compile Include="ModRepositories\FileServerZone.cs" />
     <Compile Include="ModRepositories\FileserverInfo.cs" />
     <Compile Include="ModRepositories\ModCategory.cs" />

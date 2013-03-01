@@ -62,6 +62,9 @@ namespace Nexus.Client.ModManagement.UI
 		public static OverwriteResult ShowDialog(IWin32Window p_winOwner, string p_strMessage, bool p_booAllowGroup, bool p_booAllowMod)
 		{
 			OverwriteForm of = new OverwriteForm(p_strMessage, p_booAllowGroup, p_booAllowMod);
+			string strFont = of.Font.FontFamily.ToString();
+			of.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
+			of.Font = new System.Drawing.Font(strFont, 10.95F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel, ((byte)(0)));
 			of.ShowDialog(p_winOwner);
 			return of.m_owrResult;
 		}
@@ -78,6 +81,9 @@ namespace Nexus.Client.ModManagement.UI
 		public static OverwriteResult ShowDialog(string p_strMessage, bool p_booAllowGroup, bool p_booAllowMod)
 		{
 			OverwriteForm of = new OverwriteForm(p_strMessage, p_booAllowGroup, p_booAllowMod);
+			string strFont = of.Font.FontFamily.ToString();
+			of.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
+			of.Font = new System.Drawing.Font(strFont, 10.95F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel, ((byte)(0)));
 			of.ShowDialog();
 			return of.m_owrResult;
 		}
