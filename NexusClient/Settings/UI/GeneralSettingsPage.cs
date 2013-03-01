@@ -66,6 +66,7 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(ckbCheckModVersions, () => ckbCheckModVersions.Checked, p_gsgSettings, () => p_gsgSettings.CheckForNewMods);
 			BindingHelper.CreateFullBinding(ckbScanSubfolders, () => ckbScanSubfolders.Checked, p_gsgSettings, () => p_gsgSettings.ScanSubfoldersForMods);
 			BindingHelper.CreateFullBinding(ckbCloseManagerAfterGameLaunch, () => ckbCloseManagerAfterGameLaunch.Checked, p_gsgSettings, () => p_gsgSettings.CloseModManagerAfterGameLaunch);
+			BindingHelper.CreateFullBinding(ckbShowSidePanel, () => ckbShowSidePanel.Checked, p_gsgSettings, () => p_gsgSettings.ShowSidePanel);
 
 			BindingHelper.CreateFullBinding(cbxProgramUpdateCheckInterval, () => cbxProgramUpdateCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.UpdateCheckInterval);
 			BindingHelper.CreateFullBinding(cbxModVersionsCheckInterval, () => cbxModVersionsCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.ModVersionsCheckInterval);
