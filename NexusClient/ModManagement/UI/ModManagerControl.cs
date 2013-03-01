@@ -338,6 +338,7 @@ namespace Nexus.Client.ModManagement.UI
 					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)clwCategoryView.GetSelectedItem.Tag);
 
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
+				
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = !ViewModel.OfflineMode;
 				tsbToggleEndorse.Enabled = !ViewModel.OfflineMode;
@@ -352,6 +353,9 @@ namespace Nexus.Client.ModManagement.UI
 				tsbToggleEndorse.Enabled = false;
 				tsbToggleEndorse.Image = Properties.Resources.unendorsed;
 			}
+
+			this.tsbDeactivate.Visible = ViewModel.DeactivateModCommand.CanExecute;
+			this.tsbActivate.Visible = ViewModel.ActivateModCommand.CanExecute;
 		}
 
 		#endregion
@@ -803,18 +807,6 @@ namespace Nexus.Client.ModManagement.UI
 			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
 			ViewModel.Settings.Save();
 			SetCommandExecutableStatus();
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
-		/// category button.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void tsbToggleSidePanel_Click(object sender, EventArgs e)
-		{
-			ViewModel.Settings.ShowSidePanel = !ViewModel.Settings.ShowSidePanel;
-			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
