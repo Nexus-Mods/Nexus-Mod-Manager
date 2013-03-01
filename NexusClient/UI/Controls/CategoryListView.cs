@@ -19,6 +19,7 @@ namespace Nexus.Client.UI.Controls
 		IconListView m_lvwList = null;
 		IModCategory m_imcSelectedCategory = null;
 		bool m_booShowEmpty = false;
+		bool m_booCategoryMode = true;
 
 		#region Custom Events
 
@@ -45,6 +46,22 @@ namespace Nexus.Client.UI.Controls
 			set
 			{
 				m_booShowEmpty = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to enable the category mode.
+		/// </summary>
+		/// <value>Whether to enable the category mode.</value>
+		public bool CategoryModeEnabled
+		{
+			get
+			{
+				return m_booCategoryMode;
+			}
+			set
+			{
+				m_booCategoryMode = value;
 			}
 		}
 
@@ -165,11 +182,13 @@ namespace Nexus.Client.UI.Controls
 			tlcWebVersion.Name = "WebVersion";
 			tlcAuthor.Name = "Author";
 			tlcEndorsement.Name = "Endorsement";
+			tlcCategory.Name = "Category";
 			tlcModName.AspectName = "Text";
 			tlcInstallDate.AspectName = "Text";
 			tlcVersion.AspectName = "Text";
 			tlcWebVersion.AspectName = "Text";
 			tlcAuthor.AspectName = "Text";
+			tlcCategory.AspectName = "Text";
 		}
 
 		#endregion
@@ -253,7 +272,10 @@ namespace Nexus.Client.UI.Controls
 			this.CanExpandGetter = delegate(object x)
 			{
 				ListViewItem lviItem = (ListViewItem)x;
-				return ((lviItem.Tag).GetType() == typeof(ModCategory));
+				if (m_booCategoryMode)
+					return ((lviItem.Tag).GetType() == typeof(ModCategory));
+				else
+					return ((lviItem.Tag).GetType() == typeof(ModInfo));
 			};
 		}
 
@@ -398,6 +420,20 @@ namespace Nexus.Client.UI.Controls
 				}
 				else
 					return String.Empty;
+			};
+
+			tlcCategory.AspectGetter = delegate(object rowObject)
+			{
+				string Val = String.Empty;
+				ListViewItem lviItem = (ListViewItem)rowObject;
+
+				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				{
+					IMod modMod = ((IMod)lviItem.Tag);
+					Val = CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId).CategoryName;
+				}
+
+				return Val;
 			};
 		}
 
@@ -601,43 +637,53 @@ namespace Nexus.Client.UI.Controls
 			{
 				foreach (ListViewItem Item in Roots)
 				{
-					if (Item.Tag.GetType() == typeof(ModCategory))
+					//if (Item.Tag.GetType() == typeof(ModCategory))
 						RemoveObject(Item);
 				}
 			}
 
-			// Setup categories
-			foreach (IModCategory imcCategory in Categories)
+			if (m_booCategoryMode)
 			{
-				ListViewItem Category = new ListViewItem();
-				Int32 ModCount = GetCategoryModCount(imcCategory, lviCategoryItems);
+				tlcCategory.IsVisible = false;
 
-				if (m_booShowEmpty || (ModCount > 0))
+				// Setup categories
+				foreach (IModCategory imcCategory in Categories)
 				{
-					Category.Text = imcCategory.CategoryName;
-					ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "InstallDate";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "Endorsement";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "HumanReadableVersion";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "WebVersion";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "Author";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Category.Tag = imcCategory;
-					this.AddObject(Category);
+					ListViewItem Category = new ListViewItem();
+					Int32 ModCount = GetCategoryModCount(imcCategory, lviCategoryItems);
+
+					if (m_booShowEmpty || (ModCount > 0))
+					{
+						Category.Text = imcCategory.CategoryName;
+						ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "InstallDate";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "Endorsement";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "HumanReadableVersion";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "WebVersion";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "Author";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Category.Tag = imcCategory;
+						this.AddObject(Category);
+					}
 				}
+			}
+			else
+			{
+				tlcCategory.IsVisible = true;
+				this.SetObjects(m_lvwList.Items);
 			}
 		}
 
@@ -669,7 +715,7 @@ namespace Nexus.Client.UI.Controls
 			Sub = new ListViewItem.ListViewSubItem();
 			Sub.Name = "Author";
 			Sub.Text = "";
-			Category.SubItems.Add(Sub);
+			Category.SubItems.Add(Sub);;
 			Category.Tag = p_imcCategory;
 			this.AddObject(Category);
 			this.EnsureVisible(this.Items.Count - 1);
@@ -702,14 +748,17 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_mctCategory">The category to refresh.</param>
 		public bool RefreshData(ModCategory p_mctCategory)
 		{
-			if (this.Items.Count > 0)
+			if (m_booCategoryMode)
 			{
-				foreach (ListViewItem Item in Roots)
+				if (this.Items.Count > 0)
 				{
-					if (((ModCategory)Item.Tag).Equals(p_mctCategory))
+					foreach (ListViewItem Item in Roots)
 					{
-						RefreshObject(Item);
-						return false;
+						if (((ModCategory)Item.Tag).Equals(p_mctCategory))
+						{
+							RefreshObject(Item);
+							return false;
+						}
 					}
 				}
 			}
