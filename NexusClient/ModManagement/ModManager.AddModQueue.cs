@@ -73,7 +73,7 @@ namespace Nexus.Client.ModManagement
 				if (m_dicActiveTasks.ContainsKey(p_uriPath))
 					return m_dicActiveTasks[p_uriPath];
 				Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
-				AddModTask amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
+				AddModTask amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
 				amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 				m_dicActiveTasks[p_uriPath] = amtModAdder;
 				m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);

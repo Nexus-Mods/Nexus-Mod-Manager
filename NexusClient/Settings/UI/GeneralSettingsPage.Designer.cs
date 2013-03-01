@@ -39,6 +39,7 @@
 			this.ckbAddMissingInfo = new System.Windows.Forms.CheckBox();
 			this.ckbCheckModVersions = new System.Windows.Forms.CheckBox();
 			this.ckbCheckForUpdates = new System.Windows.Forms.CheckBox();
+			this.ckbShowSidePanel = new System.Windows.Forms.CheckBox();
 			this.cbxProgramUpdateCheckInterval = new System.Windows.Forms.ComboBox();
 			this.cbxModVersionsCheckInterval = new System.Windows.Forms.ComboBox();
 			this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
@@ -120,9 +121,10 @@
 			this.groupBox5.Controls.Add(this.cbxModVersionsCheckInterval);
 			this.groupBox5.Controls.Add(this.ckbCheckForUpdates);
 			this.groupBox5.Controls.Add(this.cbxProgramUpdateCheckInterval);
+			this.groupBox5.Controls.Add(this.ckbShowSidePanel);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
-			this.groupBox5.Size = new System.Drawing.Size(368, 134);
+			this.groupBox5.Size = new System.Drawing.Size(368, 157);
 			this.groupBox5.TabIndex = 23;
 			this.groupBox5.TabStop = false;
 			this.groupBox5.Text = "Options";
@@ -195,6 +197,16 @@
 			this.ckbCloseManagerAfterGameLaunch.Text = "Close {0} after launching game";
 			this.ckbCloseManagerAfterGameLaunch.UseVisualStyleBackColor = true;
 			// 
+			// ckbShowSidePanel
+			// 
+			this.ckbShowSidePanel.AutoSize = true;
+			this.ckbShowSidePanel.Location = new System.Drawing.Point(16, 134);
+			this.ckbShowSidePanel.Name = "ckbShowSidePanel";
+			this.ckbShowSidePanel.Size = new System.Drawing.Size(217, 17);
+			this.ckbShowSidePanel.TabIndex = 8;
+			this.ckbShowSidePanel.Text = "Enable mod info side panel";
+			this.ckbShowSidePanel.UseVisualStyleBackColor = true;
+			// 
 			// GeneralSettingsPage
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -228,6 +240,7 @@
 		private System.Windows.Forms.CheckBox ckbCheckForUpdates;
 		private System.Windows.Forms.CheckBox ckbScanSubfolders;
 		private System.Windows.Forms.CheckBox ckbCloseManagerAfterGameLaunch;
+		private System.Windows.Forms.CheckBox ckbShowSidePanel;
 		private System.Windows.Forms.ComboBox cbxProgramUpdateCheckInterval;
 		private System.Windows.Forms.ComboBox cbxModVersionsCheckInterval;
 	}

@@ -244,6 +244,36 @@ namespace Nexus.Client.Properties {
 
 		[global::System.Configuration.UserScopedSettingAttribute()]
 		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("0")]
+		public int CategoryViewDefaultSortColumn
+		{
+			get
+			{
+				return ((int)(this["CategoryViewDefaultSortColumn"]));
+			}
+			set
+			{
+				this["CategoryViewDefaultSortColumn"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("1")]
+		public int CategoryViewDefaultSortOrder
+		{
+			get
+			{
+				return ((int)(this["CategoryViewDefaultSortOrder"]));
+			}
+			set
+			{
+				this["CategoryViewDefaultSortOrder"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
 		[global::System.Configuration.DefaultSettingValueAttribute("True")]
 		public bool ShowSidePanel
 		{

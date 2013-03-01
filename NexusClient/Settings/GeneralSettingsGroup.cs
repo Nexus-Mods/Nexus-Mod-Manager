@@ -68,6 +68,7 @@ namespace Nexus.Client.Settings
 		private bool m_booCloseModManagerAfterGameLaunch = true;
 		private Int32 m_intUpdateCheckInterval = 0;
 		private Int32 m_intModVersionsCheckInterval = 0;
+		private bool m_booShowSidePanel = true;
 
 		#region Properties
 
@@ -244,6 +245,23 @@ namespace Nexus.Client.Settings
 				m_booCloseModManagerAfterGameLaunch = value;
 			}
 		}
+
+		/// <summary>
+		/// Gets or sets whether or not to show the side panel.
+		/// </summary>
+		/// <value>Whether or not to show the side panel.</value>
+		public bool ShowSidePanel
+		{
+			get
+			{
+				return m_booShowSidePanel;
+			}
+			set
+			{
+				m_booShowSidePanel = value;
+			}
+		}
+
 
 		#endregion
 
@@ -442,6 +460,7 @@ namespace Nexus.Client.Settings
 			UpdateCheckInterval = EnvironmentInfo.Settings.UpdateCheckInterval;
 			ScanSubfoldersForMods = EnvironmentInfo.Settings.ScanSubfoldersForMods;
 			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;
+			ShowSidePanel = EnvironmentInfo.Settings.ShowSidePanel;
 		}
 
 		/// <summary>
@@ -485,6 +504,7 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.UpdateCheckInterval = UpdateCheckInterval;
 			EnvironmentInfo.Settings.ScanSubfoldersForMods = ScanSubfoldersForMods;
 			EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = CloseModManagerAfterGameLaunch;
+			EnvironmentInfo.Settings.ShowSidePanel = ShowSidePanel;
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}

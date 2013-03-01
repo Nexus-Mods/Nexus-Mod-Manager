@@ -109,10 +109,13 @@ namespace Nexus.Client.ModManagement.UI
 			InitializeComponent();
 
 			lvwMods.FontChanged += new EventHandler(lvwMods_FontChanged);
+			clwCategoryView.BeforeSorting += new EventHandler<BrightIdeasSoftware.BeforeSortingEventArgs>(clwCategoryView_BeforeSorting);
+			clwCategoryView.ColumnClick += new ColumnClickEventHandler(clwCategoryView_ColumnClick);
 			clwCategoryView.CategorySwitch += new EventHandler(CategoryListView_CategorySwitch);
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
 			clwCategoryView.UpdateWarningToggle += new EventHandler(CategoryListView_ToggleUpdateWarning);
+			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -154,9 +157,10 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				m_booControlIsLoaded = true;
 				LoadMetrics();
+				clwCategoryView.CategoryModeEnabled = ViewModel.Settings.UseCategoryView;
 				LoadCategoryView();
-				clwCategoryView.Visible = ViewModel.Settings.UseCategoryView;
-				lvwMods.Visible = !ViewModel.Settings.UseCategoryView;
+				lvwMods.Visible = false;
+
 				ViewModel.StartupCheckForUpdates();
 
 				if (!ViewModel.IsCategoryInitialized)
@@ -166,6 +170,7 @@ namespace Nexus.Client.ModManagement.UI
 					clwCategoryView.SetupContextMenu();
 					clwCategoryView.RebuildAll(true);
 				}
+
 				m_booDisableSummary = false;
 			}
 		}
@@ -338,6 +343,7 @@ namespace Nexus.Client.ModManagement.UI
 					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)clwCategoryView.GetSelectedItem.Tag);
 
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
+				
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = !ViewModel.OfflineMode;
 				tsbToggleEndorse.Enabled = !ViewModel.OfflineMode;
@@ -352,6 +358,9 @@ namespace Nexus.Client.ModManagement.UI
 				tsbToggleEndorse.Enabled = false;
 				tsbToggleEndorse.Image = Properties.Resources.unendorsed;
 			}
+
+			this.tsbDeactivate.Visible = ViewModel.DeactivateModCommand.CanExecute;
+			this.tsbActivate.Visible = ViewModel.ActivateModCommand.CanExecute;
 		}
 
 		#endregion
@@ -473,6 +482,10 @@ namespace Nexus.Client.ModManagement.UI
 		private void LoadCategoryView()
 		{
 			clwCategoryView.ShowHiddenCategories = ViewModel.Settings.ShowEmptyCategory;
+			SortOrder sroDefaultSortOrder = SortOrder.Ascending;
+			if (Enum.IsDefined(typeof(SortOrder), ViewModel.Settings.CategoryViewDefaultSortOrder))
+				sroDefaultSortOrder = (SortOrder)ViewModel.Settings.CategoryViewDefaultSortOrder;
+			clwCategoryView.SetPrimarySortColumn(ViewModel.Settings.CategoryViewDefaultSortColumn, sroDefaultSortOrder);
 
 			if (clwCategoryView.Tag == null)
 			{
@@ -550,6 +563,30 @@ namespace Nexus.Client.ModManagement.UI
 							}
 						}
 					}
+				};
+
+				this.clwCategoryView.CellRightClick += delegate(object sender, BrightIdeasSoftware.CellRightClickEventArgs e)
+				{
+					if (e.Item != null)
+					{
+						if (((ListViewItem)e.Item.RowObject).Tag.GetType() == typeof(ModCategory))
+						{
+							clwCategoryView.SetupContextMenuFor(true, false);
+							clwCategoryView.SelectedCategory = (ModCategory)((ListViewItem)e.Item.RowObject).Tag;
+						}
+						else
+						{
+							bool booShowOpenReadMe = false;
+							IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
+							if (modMod != null)
+								booShowOpenReadMe = ViewModel.GetModReadMe(modMod);
+							clwCategoryView.SetupContextMenuFor(false, booShowOpenReadMe);
+						}
+
+						e.MenuStrip = clwCategoryView.CategoryViewContextMenu;
+					}
+					else
+						e.MenuStrip = null;
 				};
 
 				clwCategoryView.LoadData();
@@ -634,7 +671,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 		}
-		
+
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.CategorySwitch"/> of the switch
 		/// mod category context menu.
@@ -671,6 +708,17 @@ namespace Nexus.Client.ModManagement.UI
 
 				clwCategoryView.RebuildAll(true);
 			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.OpenReadMeFile"/> of the opening
+		/// of the ReaMe file.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_OpenReadMeFile(object sender, EventArgs e)
+		{
+			ViewModel.OpenReadMe(clwCategoryView.GetSelectedMod);
 		}
 
 		/// <summary>
@@ -737,7 +785,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_FileDropped(object sender, EventArgs e)
 		{
-				ViewModel.AddModCommand.Execute(sender.ToString());
+			ViewModel.AddModCommand.Execute(sender.ToString());
 		}
 
 		/// <summary>
@@ -766,8 +814,8 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			List<IMod> lstSelectedMods = new List<IMod>();
 			lstSelectedMods.AddRange(from Mod in ViewModel.ManagedMods
-								where ((Mod.CategoryId > 0) && (Mod.CustomCategoryId == 0))
-								select Mod);
+									 where ((Mod.CategoryId > 0) && (Mod.CustomCategoryId == 0))
+									 select Mod);
 			if (lstSelectedMods.Count > 0)
 				ViewModel.SwitchModsToCategory(lstSelectedMods, -1);
 
@@ -797,24 +845,14 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void tsbSwitchCategory_Click(object sender, EventArgs e)
 		{
-			clwCategoryView.Visible = !clwCategoryView.Visible;
-			lvwMods.Visible = !lvwMods.Visible;
-			tsbResetCategories.Enabled = clwCategoryView.Visible;
+			clwCategoryView.CategoryModeEnabled = !clwCategoryView.CategoryModeEnabled;
+			clwCategoryView.Visible = false;
+			clwCategoryView.LoadData();
+			clwCategoryView.RebuildAll(false);
 			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
 			ViewModel.Settings.Save();
+			clwCategoryView.Visible = true;
 			SetCommandExecutableStatus();
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
-		/// category button.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void tsbToggleSidePanel_Click(object sender, EventArgs e)
-		{
-			ViewModel.Settings.ShowSidePanel = !ViewModel.Settings.ShowSidePanel;
-			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
@@ -924,6 +962,34 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles the <see cref="CategoryListView.ColumnClick"/> event of the category view.
+		/// </summary>
+		/// <remarks>
+		/// Saves the sort order.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="LabelEditEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_ColumnClick(object sender, ColumnClickEventArgs e)
+		{
+			ViewModel.Settings.CategoryViewDefaultSortColumn = e.Column;
+			ViewModel.Settings.CategoryViewDefaultSortOrder = (int)clwCategoryView.LastSortOrder;
+			ViewModel.Settings.Save();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.BeforeSorting"/> event of the category view.
+		/// </summary>
+		/// <remarks>
+		/// Saves the sort order.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="BrightIdeasSoftware.BeforeSortingEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_BeforeSorting(object sender, BrightIdeasSoftware.BeforeSortingEventArgs e)
+		{
+			clwCategoryView.SetSecondarySortColumn();
+		}
+		
+		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the reset mods to
 		/// the Unassigned category.
 		/// </summary>
@@ -952,7 +1018,7 @@ namespace Nexus.Client.ModManagement.UI
 				clwCategoryView.SetupContextMenu();
 				clwCategoryView.RebuildAll(true);
 			}
-		}
+		}		
 
 		#endregion
 
@@ -1326,6 +1392,7 @@ namespace Nexus.Client.ModManagement.UI
 					foreach (IMod modRemoved in e.OldItems)
 					{
 						RemoveModFromList(modRemoved);
+						ViewModel.DeleteReadMe(modRemoved);
 						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modRemoved.CustomCategoryId >= 0 ? modRemoved.CustomCategoryId : modRemoved.CategoryId);
 					}
 					break;

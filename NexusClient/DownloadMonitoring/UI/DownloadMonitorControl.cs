@@ -156,6 +156,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			ViewModel.RemoveTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanRemoveDownload(GetSelectedTask());
 			ViewModel.PauseTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanPauseDownload(GetSelectedTask()) && !ViewModel.OfflineMode;
 			ViewModel.ResumeTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanResumeDownload(GetSelectedTask()) && !ViewModel.OfflineMode;
+
+			this.tsbCancel.Visible = ViewModel.CancelTaskCommand.CanExecute;
+			this.tsbPause.Visible = ViewModel.PauseTaskCommand.CanExecute;
+			this.tsbRemove.Visible = ViewModel.RemoveTaskCommand.CanExecute;
+			this.tsbResume.Visible = ViewModel.ResumeTaskCommand.CanExecute;
 		}
 
 		#endregion

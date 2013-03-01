@@ -202,18 +202,18 @@ namespace Nexus.Client
 
 			StringBuilder stbPromptMessage = new StringBuilder();
 			stbPromptMessage.AppendFormat("{0} has encountered an error and needs to close.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
-			stbPromptMessage.AppendLine("A Trace Log was created at:");
+			stbPromptMessage.AppendLine("A Trace Log file was created at:");
 			stbPromptMessage.AppendLine(htlListener.FilePath);
 			stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
 			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/");
-			stbPromptMessage.AppendLine("If you can't find a solution, please include the contents of that file if you want to make a bug report:");
+			stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
 			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
 			try
 			{
 				//the extended message box contains an activex control wich must be run in an STA thread,
 				// we can't control what thread this gets called on, so create one if we need to
 				string strException = "The following information is in the Trace Log:" + Environment.NewLine + TraceUtil.CreateTraceExceptionString(ex);
-				ThreadStart actShowMessage = () => ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Error", strException, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				ThreadStart actShowMessage = () => ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Error", strException, MessageBoxButtons.OK, MessageBoxIcon.Information);
 				ApartmentState astState = ApartmentState.Unknown;
 				Thread.CurrentThread.TrySetApartmentState(astState);
 				if (astState == ApartmentState.STA)
