@@ -44,14 +44,16 @@ namespace Nexus.Client.UI.Controls
 			this.tlcVersion = new BrightIdeasSoftware.OLVColumn();
 			this.tlcWebVersion = new BrightIdeasSoftware.OLVColumn();
 			this.tlcAuthor = new BrightIdeasSoftware.OLVColumn();
+			this.tlcCategory = new BrightIdeasSoftware.OLVColumn();
 
 			this.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.tlcModName,
-            this.tlcInstallDate,
+			this.tlcModName,
+			this.tlcCategory,
+			this.tlcInstallDate,
 			this.tlcEndorsement,
-            this.tlcVersion,
-            this.tlcWebVersion,
-            this.tlcAuthor});
+			this.tlcVersion,
+			this.tlcWebVersion,
+			this.tlcAuthor});
 			// 
 			// cmsContextMenu
 			// 
@@ -95,6 +97,12 @@ namespace Nexus.Client.UI.Controls
 			this.tlcAuthor.Text = "Author";
 			this.tlcAuthor.Width = 60;
 			this.tlcAuthor.IsEditable = false;
+			// 
+			// tlcCategory
+			// 
+			this.tlcCategory.Text = "Category";
+			this.tlcCategory.Width = 80;
+			this.tlcCategory.IsEditable = false;
 		}
 
 		#endregion
@@ -106,5 +114,6 @@ namespace Nexus.Client.UI.Controls
 		private BrightIdeasSoftware.OLVColumn tlcVersion;
 		private BrightIdeasSoftware.OLVColumn tlcWebVersion;
 		private BrightIdeasSoftware.OLVColumn tlcAuthor;
+		private BrightIdeasSoftware.OLVColumn tlcCategory;
 	}
 }
