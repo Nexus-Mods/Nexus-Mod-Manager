@@ -65,6 +65,18 @@ namespace Nexus.Client.Settings
 		bool UseCategoryView { get; set; }
 
 		/// <summary>
+		/// Gets or sets the category view default sorting column.
+		/// </summary>
+		/// <value>The category view default sorting column.</value>
+		int CategoryViewDefaultSortColumn { get; set; }
+
+		/// <summary>
+		/// Gets or sets the category view default sort order.
+		/// </summary>
+		/// <value>The category view default sort order.</value>
+		int CategoryViewDefaultSortOrder { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the side panel should be shown in the mod panel.
 		/// </summary>
 		/// <value>Whether the side panel should be shown in the mod panel.</value>

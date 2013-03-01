@@ -944,5 +944,27 @@ namespace Nexus.Client.UI.Controls
 				return false;
 			}
 		}
+
+		/// <summary>
+		/// This sets the sort column for the category view control.
+		/// </summary>
+		/// <param name="p_intPrimaryColumn">The name of the column to sort by.</param>
+		/// <param name="p_sroPrimarySortOrder">The sort order.</param>
+		public void SetPrimarySortColumn(int p_intPrimaryColumn, SortOrder p_sroPrimarySortOrder)
+		{
+			this.PrimarySortColumn = this.ColumnsInDisplayOrder[p_intPrimaryColumn];
+			this.PrimarySortOrder = p_sroPrimarySortOrder;
+			this.SecondarySortColumn = tlcModName;
+			this.SecondarySortOrder = SortOrder.Ascending;
+		}
+
+		/// <summary>
+		/// This sets the sort column for the category view control.
+		/// </summary>
+		public void SetSecondarySortColumn()
+		{
+			this.SecondarySortColumn = tlcModName;
+			this.SecondarySortOrder = SortOrder.Ascending;
+		}
 	}
 }

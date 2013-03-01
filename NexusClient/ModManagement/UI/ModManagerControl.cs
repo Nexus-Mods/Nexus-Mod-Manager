@@ -109,6 +109,8 @@ namespace Nexus.Client.ModManagement.UI
 			InitializeComponent();
 
 			lvwMods.FontChanged += new EventHandler(lvwMods_FontChanged);
+			clwCategoryView.BeforeSorting += new EventHandler<BrightIdeasSoftware.BeforeSortingEventArgs>(clwCategoryView_BeforeSorting);
+			clwCategoryView.ColumnClick += new ColumnClickEventHandler(clwCategoryView_ColumnClick);
 			clwCategoryView.CategorySwitch += new EventHandler(CategoryListView_CategorySwitch);
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
@@ -473,6 +475,10 @@ namespace Nexus.Client.ModManagement.UI
 		private void LoadCategoryView()
 		{
 			clwCategoryView.ShowHiddenCategories = ViewModel.Settings.ShowEmptyCategory;
+			SortOrder sroDefaultSortOrder = SortOrder.Ascending;
+			if (Enum.IsDefined(typeof(SortOrder), ViewModel.Settings.CategoryViewDefaultSortOrder))
+				sroDefaultSortOrder = (SortOrder)ViewModel.Settings.CategoryViewDefaultSortOrder;
+			clwCategoryView.SetPrimarySortColumn(ViewModel.Settings.CategoryViewDefaultSortColumn, sroDefaultSortOrder);
 
 			if (clwCategoryView.Tag == null)
 			{
@@ -924,6 +930,34 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles the <see cref="CategoryListView.ColumnClick"/> event of the category view.
+		/// </summary>
+		/// <remarks>
+		/// Saves the sort order.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="LabelEditEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_ColumnClick(object sender, ColumnClickEventArgs e)
+		{
+			ViewModel.Settings.CategoryViewDefaultSortColumn = e.Column;
+			ViewModel.Settings.CategoryViewDefaultSortOrder = (int)clwCategoryView.LastSortOrder;
+			ViewModel.Settings.Save();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.BeforeSorting"/> event of the category view.
+		/// </summary>
+		/// <remarks>
+		/// Saves the sort order.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="BrightIdeasSoftware.BeforeSortingEventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_BeforeSorting(object sender, BrightIdeasSoftware.BeforeSortingEventArgs e)
+		{
+			clwCategoryView.SetSecondarySortColumn();
+		}
+		
+		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the reset mods to
 		/// the Unassigned category.
 		/// </summary>
@@ -952,7 +986,7 @@ namespace Nexus.Client.ModManagement.UI
 				clwCategoryView.SetupContextMenu();
 				clwCategoryView.RebuildAll(true);
 			}
-		}
+		}		
 
 		#endregion
 
