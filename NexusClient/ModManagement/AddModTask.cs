@@ -13,6 +13,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using ChinhDo.Transactions;
 
 namespace Nexus.Client.ModManagement
 {
@@ -115,6 +116,7 @@ namespace Nexus.Client.ModManagement
 		private IGameMode m_gmdGameMode = null;
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
 		private ModRegistry m_mrgModRegistry = null;
+		private ReadMeManager m_rmmReadMeManager = null;
 		private IModRepository m_mrpModRepository = null;
 		private IModFormatRegistry m_mfrModFormatRegistry = null;
 		private ConfirmOverwriteCallback m_cocConfirmOverwrite = null;
@@ -310,6 +312,7 @@ namespace Nexus.Client.ModManagement
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_gmdGameMode">The game mode for which mods are being managed.</param>
+		/// <param name="p_rmmReadMeManager">The ReadMe Manager info.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_mrgModRegistry">The <see cref="ModRegistry"/> that contains the list of managed <see cref="IMod"/>s.</param>
 		/// <param name="p_frgFormatRegistry">The <see cref="IModFormatRegistry"/> that contains the list
@@ -317,7 +320,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_mrpModRepository">The mod repository from which to get mods and mod metadata.</param>
 		/// <param name="p_uriPath">The path to the mod to add.</param>
 		/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
-		public AddModTask(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, ModRegistry p_mrgModRegistry, IModFormatRegistry p_frgFormatRegistry, IModRepository p_mrpModRepository, Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
+		public AddModTask(IGameMode p_gmdGameMode, ReadMeManager p_rmmReadMeManager, IEnvironmentInfo p_eifEnvironmentInfo, ModRegistry p_mrgModRegistry, IModFormatRegistry p_frgFormatRegistry, IModRepository p_mrpModRepository, Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
 			m_gmdGameMode = p_gmdGameMode;
 			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
@@ -326,6 +329,7 @@ namespace Nexus.Client.ModManagement
 			m_mrpModRepository = p_mrpModRepository;
 			m_uriPath = p_uriPath;
 			m_cocConfirmOverwrite = p_cocConfirmOverwrite;
+			m_rmmReadMeManager = p_rmmReadMeManager;
 		}
 
 		#endregion
@@ -420,7 +424,7 @@ namespace Nexus.Client.ModManagement
 					}
 				case "nxm":
 					NexusUrl nxuModUrl = new NexusUrl(p_amdDescriptor.SourceUri);
-                    if ((String.IsNullOrEmpty(nxuModUrl.ModId)) || (string.IsNullOrEmpty(nxuModUrl.FileId)))
+					if ((String.IsNullOrEmpty(nxuModUrl.ModId)) || (string.IsNullOrEmpty(nxuModUrl.FileId)))
 						throw new ArgumentException("Invalid Nexus URI: " + p_amdDescriptor.SourceUri.ToString());
 					IModInfo mifInfo = null;
 					try
@@ -601,14 +605,14 @@ namespace Nexus.Client.ModManagement
 						TaskSpeed = (m_lstPreviousSpeed.Count > 0) && (m_lstPreviousSpeed.Average() > 0) ? (int)m_lstPreviousSpeed.Average() : (intSpeed / 1024);
 				}
 				else
-				{					
+				{
 					swtSpeed.Start();
 				}
 
 				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
-                if ((ItemProgress == 0) && (intSpeed == 0))
-                    ItemMessage = "Starting the download...";
+				if ((ItemProgress == 0) && (intSpeed == 0))
+					ItemMessage = "Starting the download...";
 				else if ((ItemProgress == intLastProgress) && (intSpeed == 0))
 					ItemMessage = "Resuming the download...";
 				else
@@ -618,7 +622,7 @@ namespace Nexus.Client.ModManagement
 					DownloadProgress = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024);
 					DownloadMaximum = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024);
 				}
-					
+
 				ActiveThreads = fdtDownloader.ActiveThreads;
 			}
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)) ||
@@ -808,6 +812,13 @@ namespace Nexus.Client.ModManagement
 							m_mrgModRegistry.RegisterMod(strMod, ModInfo);
 						else
 							m_mrgModRegistry.RegisterMod(strMod);
+
+						if (m_rmmReadMeManager != null)
+						{
+							TxFileManager p_tfmFileManager = new TxFileManager();
+							string strModFolderPath = m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory;
+							m_rmmReadMeManager.VerifyReadMeFile(p_tfmFileManager, strMod, strModFolderPath, Path.GetFileNameWithoutExtension(strMod));
+						}
 					}
 					catch (Exception ex)
 					{

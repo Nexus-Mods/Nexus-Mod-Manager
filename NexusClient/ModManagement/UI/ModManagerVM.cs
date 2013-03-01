@@ -254,6 +254,51 @@ namespace Nexus.Client.ModManagement.UI
 
 		#endregion
 
+		#region Readme Management
+		/// <summary>
+		/// Delete the ReadMe file.
+		/// </summary>
+		/// <param name="p_modMod">Delete the ReadMe file.</param>
+		public void DeleteReadMe(IMod p_modMod)
+		{
+			ModManager.ReadMeManager.DeleteReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
+		}
+
+		/// <summary>
+		/// Checks the ReadMe file path if exists.
+		/// </summary>
+		public bool GetModReadMe(IMod p_modMod)
+		{
+			if (String.IsNullOrEmpty(ModManager.ReadMeManager.GetModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename))))
+				return false;
+			else
+				return true;
+		}
+
+		/// <summary>
+		/// Open the ReadMe file.
+		/// </summary>
+		public bool OpenReadMe(IMod p_modMod)
+		{
+			bool booResult = false;
+			string strReadMe = ModManager.ReadMeManager.GetModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
+			if (!String.IsNullOrEmpty(strReadMe))
+			{
+				try
+				{
+					System.Diagnostics.Process.Start(strReadMe);
+					booResult = true;
+				}
+				catch
+				{
+					booResult = false;
+				}
+			}
+			return booResult;
+		}
+
+		#endregion
+
 		#region Mod Addition/Deletion
 
 		/// <summary>
@@ -397,7 +442,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 				lstModList.AddRange(ManagedMods);
-				
+
 			if (lstModList.Count > 0)
 				UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
 		}
@@ -556,7 +601,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 			else
-				this.CategoryManager.LoadCategories(String.Empty);	
+				this.CategoryManager.LoadCategories(String.Empty);
 		}
 
 		#endregion
