@@ -113,6 +113,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
 			clwCategoryView.UpdateWarningToggle += new EventHandler(CategoryListView_ToggleUpdateWarning);
+			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -552,6 +553,30 @@ namespace Nexus.Client.ModManagement.UI
 					}
 				};
 
+				this.clwCategoryView.CellRightClick += delegate(object sender, BrightIdeasSoftware.CellRightClickEventArgs e)
+				{
+					if (e.Item != null)
+					{
+						if (((ListViewItem)e.Item.RowObject).Tag.GetType() == typeof(ModCategory))
+						{
+							clwCategoryView.SetupContextMenuFor(true, false);
+							clwCategoryView.SelectedCategory = (ModCategory)((ListViewItem)e.Item.RowObject).Tag;
+						}
+						else
+						{
+							bool booShowOpenReadMe = false;
+							IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
+							if (modMod != null)
+								booShowOpenReadMe = ViewModel.GetModReadMe(modMod);
+							clwCategoryView.SetupContextMenuFor(false, booShowOpenReadMe);
+						}
+
+						e.MenuStrip = clwCategoryView.CategoryViewContextMenu;
+					}
+					else
+						e.MenuStrip = null;
+				};
+
 				clwCategoryView.LoadData();
 
 				if (ViewModel.Settings.ShowExpandedCategories)
@@ -634,7 +659,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 		}
-		
+
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.CategorySwitch"/> of the switch
 		/// mod category context menu.
@@ -671,6 +696,17 @@ namespace Nexus.Client.ModManagement.UI
 
 				clwCategoryView.RebuildAll(true);
 			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.OpenReadMeFile"/> of the opening
+		/// of the ReaMe file.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_OpenReadMeFile(object sender, EventArgs e)
+		{
+			ViewModel.OpenReadMe(clwCategoryView.GetSelectedMod);
 		}
 
 		/// <summary>
@@ -737,7 +773,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_FileDropped(object sender, EventArgs e)
 		{
-				ViewModel.AddModCommand.Execute(sender.ToString());
+			ViewModel.AddModCommand.Execute(sender.ToString());
 		}
 
 		/// <summary>
@@ -766,8 +802,8 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			List<IMod> lstSelectedMods = new List<IMod>();
 			lstSelectedMods.AddRange(from Mod in ViewModel.ManagedMods
-								where ((Mod.CategoryId > 0) && (Mod.CustomCategoryId == 0))
-								select Mod);
+									 where ((Mod.CategoryId > 0) && (Mod.CustomCategoryId == 0))
+									 select Mod);
 			if (lstSelectedMods.Count > 0)
 				ViewModel.SwitchModsToCategory(lstSelectedMods, -1);
 
@@ -1326,6 +1362,7 @@ namespace Nexus.Client.ModManagement.UI
 					foreach (IMod modRemoved in e.OldItems)
 					{
 						RemoveModFromList(modRemoved);
+						ViewModel.DeleteReadMe(modRemoved);
 						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modRemoved.CustomCategoryId >= 0 ? modRemoved.CustomCategoryId : modRemoved.CategoryId);
 					}
 					break;
