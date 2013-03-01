@@ -19,6 +19,7 @@ namespace Nexus.Client.UI.Controls
 		IconListView m_lvwList = null;
 		IModCategory m_imcSelectedCategory = null;
 		bool m_booShowEmpty = false;
+		bool m_booCategoryMode = true;
 
 		#region Custom Events
 
@@ -26,6 +27,7 @@ namespace Nexus.Client.UI.Controls
 		public event EventHandler CategoryRemoved;
 		public event EventHandler FileDropped;
 		public event EventHandler UpdateWarningToggle;
+		public event EventHandler OpenReadMeFile;
 
 		#endregion
 
@@ -44,6 +46,22 @@ namespace Nexus.Client.UI.Controls
 			set
 			{
 				m_booShowEmpty = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to enable the category mode.
+		/// </summary>
+		/// <value>Whether to enable the category mode.</value>
+		public bool CategoryModeEnabled
+		{
+			get
+			{
+				return m_booCategoryMode;
+			}
+			set
+			{
+				m_booCategoryMode = value;
 			}
 		}
 
@@ -86,6 +104,34 @@ namespace Nexus.Client.UI.Controls
 			get
 			{
 				return (IMod)this.GetSelectedItem.Tag;
+			}
+		}
+
+		/// <summary>
+		/// Gets the currently selected category.
+		/// </summary>
+		/// <value>The currently selected category.</value>
+		public IModCategory SelectedCategory
+		{
+			get
+			{
+				return m_imcSelectedCategory;
+			}
+			set
+			{
+				m_imcSelectedCategory = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets the currently selected category.
+		/// </summary>
+		/// <value>The currently selected category.</value>
+		public ContextMenuStrip CategoryViewContextMenu
+		{
+			get
+			{
+				return this.cmsContextMenu;
 			}
 		}
 
@@ -136,11 +182,13 @@ namespace Nexus.Client.UI.Controls
 			tlcWebVersion.Name = "WebVersion";
 			tlcAuthor.Name = "Author";
 			tlcEndorsement.Name = "Endorsement";
+			tlcCategory.Name = "Category";
 			tlcModName.AspectName = "Text";
 			tlcInstallDate.AspectName = "Text";
 			tlcVersion.AspectName = "Text";
 			tlcWebVersion.AspectName = "Text";
 			tlcAuthor.AspectName = "Text";
+			tlcCategory.AspectName = "Text";
 		}
 
 		#endregion
@@ -190,7 +238,7 @@ namespace Nexus.Client.UI.Controls
 			SetupHyperlinkManager();
 
 			// Setup mouse events
-			SetupMouseEvents();
+			//SetupMouseEvents();
 
 			// Setup ImageGetters
 			SetupImageGetters();
@@ -208,6 +256,7 @@ namespace Nexus.Client.UI.Controls
 			cmsContextMenu.Items.Add("Move to Category:");
 			cmsContextMenu.Items.Add("Categories:");
 			cmsContextMenu.Items.Add("Toggle mod update warning", new Bitmap(Properties.Resources.update_warning, 16, 16), new EventHandler(cmsContextMenu_ToggleUpdateWarning));
+			cmsContextMenu.Items.Add("Open ReadMe file", new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_OpenReadMeFile));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
 
@@ -223,7 +272,10 @@ namespace Nexus.Client.UI.Controls
 			this.CanExpandGetter = delegate(object x)
 			{
 				ListViewItem lviItem = (ListViewItem)x;
-				return ((lviItem.Tag).GetType() == typeof(ModCategory));
+				if (m_booCategoryMode)
+					return ((lviItem.Tag).GetType() == typeof(ModCategory));
+				else
+					return ((lviItem.Tag).GetType() == typeof(ModInfo));
 			};
 		}
 
@@ -235,12 +287,12 @@ namespace Nexus.Client.UI.Controls
 			this.ChildrenGetter = delegate(object x)
 			{
 				ListViewItem Item = (ListViewItem)x;
-				object lviItem = Item.Tag; 
+				object lviItem = Item.Tag;
 				if (lviItem.GetType() == typeof(ModCategory))
 				{
 					var CategoryMods = from Mod in lviCategoryItems
-						where ((IMod)Mod.Tag != null) && ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == ((IModCategory)lviItem).Id)
-						select Mod;
+									   where ((IMod)Mod.Tag != null) && ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == ((IModCategory)lviItem).Id)
+									   select Mod;
 					return CategoryMods;
 				}
 				else
@@ -320,9 +372,9 @@ namespace Nexus.Client.UI.Controls
 				return Value;
 			};
 
-			tlcEndorsement.AspectToStringConverter = delegate(object x) 
+			tlcEndorsement.AspectToStringConverter = delegate(object x)
 			{
-				return String.Empty; 
+				return String.Empty;
 			};
 
 			tlcVersion.AspectGetter = delegate(object rowObject)
@@ -368,6 +420,20 @@ namespace Nexus.Client.UI.Controls
 				}
 				else
 					return String.Empty;
+			};
+
+			tlcCategory.AspectGetter = delegate(object rowObject)
+			{
+				string Val = String.Empty;
+				ListViewItem lviItem = (ListViewItem)rowObject;
+
+				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				{
+					IMod modMod = ((IMod)lviItem.Tag);
+					Val = CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId).CategoryName;
+				}
+
+				return Val;
 			};
 		}
 
@@ -461,31 +527,27 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
-		/// Setup the Mouse Events
+		/// Setup the context menu items visibility
 		/// </summary>
-		public void SetupMouseEvents()
+		/// <param name="p_booCategorySetup">Whether to setup the visibility for a category or a mod</param>
+		/// <param name="p_booReadMeEnabled">Whether the Open Mod ReadMe button should be enabled</param>
+		public void SetupContextMenuFor(bool p_booCategorySetup, bool p_booReadMeEnabled)
 		{
-			this.CellRightClick += delegate(object sender, BrightIdeasSoftware.CellRightClickEventArgs e)
+			if (p_booCategorySetup)
 			{
-				if (e.Item != null)
-				{
-					if (((ListViewItem)e.Item.RowObject).Tag.GetType() == typeof(ModCategory))
-					{
-						this.cmsContextMenu.Items[0].Visible = false;
-						this.cmsContextMenu.Items[1].Visible = true;
-						m_imcSelectedCategory = (ModCategory)((ListViewItem)e.Item.RowObject).Tag;
-					}
-					else
-					{
-						this.cmsContextMenu.Items[0].Visible = true;
-						this.cmsContextMenu.Items[1].Visible = false;
-					}
-
-					e.MenuStrip = this.cmsContextMenu;
-				}
-				else
-					e.MenuStrip = null;
-			};
+				this.cmsContextMenu.Items[0].Visible = false;
+				this.cmsContextMenu.Items[1].Visible = true;
+				this.cmsContextMenu.Items[2].Visible = true;
+				this.cmsContextMenu.Items[3].Visible = false;
+			}
+			else
+			{
+				this.cmsContextMenu.Items[0].Visible = true;
+				this.cmsContextMenu.Items[1].Visible = false;
+				this.cmsContextMenu.Items[2].Visible = true;
+				this.cmsContextMenu.Items[3].Visible = true;
+				this.cmsContextMenu.Items[3].Enabled = p_booReadMeEnabled;
+			}
 		}
 
 		/// <summary>
@@ -575,43 +637,53 @@ namespace Nexus.Client.UI.Controls
 			{
 				foreach (ListViewItem Item in Roots)
 				{
-					if (Item.Tag.GetType() == typeof(ModCategory))
+					//if (Item.Tag.GetType() == typeof(ModCategory))
 						RemoveObject(Item);
 				}
 			}
 
-			// Setup categories
-			foreach (IModCategory imcCategory in Categories)
+			if (m_booCategoryMode)
 			{
-				ListViewItem Category = new ListViewItem();
-				Int32 ModCount = GetCategoryModCount(imcCategory, lviCategoryItems);
+				tlcCategory.IsVisible = false;
 
-				if (m_booShowEmpty || (ModCount > 0))
+				// Setup categories
+				foreach (IModCategory imcCategory in Categories)
 				{
-					Category.Text = imcCategory.CategoryName;
-					ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "InstallDate";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "Endorsement";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "HumanReadableVersion";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "WebVersion";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Sub = new ListViewItem.ListViewSubItem();
-					Sub.Name = "Author";
-					Sub.Text = "";
-					Category.SubItems.Add(Sub);
-					Category.Tag = imcCategory;
-					this.AddObject(Category);
+					ListViewItem Category = new ListViewItem();
+					Int32 ModCount = GetCategoryModCount(imcCategory, lviCategoryItems);
+
+					if (m_booShowEmpty || (ModCount > 0))
+					{
+						Category.Text = imcCategory.CategoryName;
+						ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "InstallDate";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "Endorsement";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "HumanReadableVersion";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "WebVersion";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Sub = new ListViewItem.ListViewSubItem();
+						Sub.Name = "Author";
+						Sub.Text = "";
+						Category.SubItems.Add(Sub);
+						Category.Tag = imcCategory;
+						this.AddObject(Category);
+					}
 				}
+			}
+			else
+			{
+				tlcCategory.IsVisible = true;
+				this.SetObjects(m_lvwList.Items);
 			}
 		}
 
@@ -643,7 +715,7 @@ namespace Nexus.Client.UI.Controls
 			Sub = new ListViewItem.ListViewSubItem();
 			Sub.Name = "Author";
 			Sub.Text = "";
-			Category.SubItems.Add(Sub);
+			Category.SubItems.Add(Sub);;
 			Category.Tag = p_imcCategory;
 			this.AddObject(Category);
 			this.EnsureVisible(this.Items.Count - 1);
@@ -676,14 +748,17 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_mctCategory">The category to refresh.</param>
 		public bool RefreshData(ModCategory p_mctCategory)
 		{
-			if (this.Items.Count > 0)
+			if (m_booCategoryMode)
 			{
-				foreach (ListViewItem Item in Roots)
+				if (this.Items.Count > 0)
 				{
-					if (((ModCategory)Item.Tag).Equals(p_mctCategory))
+					foreach (ListViewItem Item in Roots)
 					{
-						RefreshObject(Item);
-						return false;
+						if (((ModCategory)Item.Tag).Equals(p_mctCategory))
+						{
+							RefreshObject(Item);
+							return false;
+						}
 					}
 				}
 			}
@@ -786,11 +861,11 @@ namespace Nexus.Client.UI.Controls
 		public List<IMod> GetOutdatedModList(Int32 p_intCategoryID)
 		{
 			var CategoryMods = from Mod in lviCategoryItems
-								where (((IMod)Mod.Tag != null)
-								&& ((IMod)Mod.Tag).UpdateWarningEnabled
-								&& ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == p_intCategoryID)
-								&& !((IMod)Mod.Tag).IsMatchingVersion())
-								select (IMod)Mod.Tag;
+							   where (((IMod)Mod.Tag != null)
+							   && ((IMod)Mod.Tag).UpdateWarningEnabled
+							   && ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == p_intCategoryID)
+							   && !((IMod)Mod.Tag).IsMatchingVersion())
+							   select (IMod)Mod.Tag;
 
 			return new List<IMod>(CategoryMods);
 		}
@@ -828,6 +903,17 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.UpdateWarningToggle != null)
 				this.UpdateWarningToggle(this, new EventArgs());
+		}
+
+		/// <summary>
+		/// Handles the cmsContextMenu.OpenReadMefile event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+		private void cmsContextMenu_OpenReadMeFile(object sender, EventArgs e)
+		{
+			if (this.OpenReadMeFile != null)
+				this.OpenReadMeFile(this, new EventArgs());
 		}
 
 		/// <summary>
