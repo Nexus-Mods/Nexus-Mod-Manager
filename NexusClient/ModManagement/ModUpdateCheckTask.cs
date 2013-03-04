@@ -198,7 +198,6 @@ namespace Nexus.Client.ModManagement
 
 						foreach (IMod modMod in m_lstModList.Where(x => (String.IsNullOrEmpty(modUpdate.Id) ? "0" : modUpdate.Id) == x.Id))
 						{
-							ItemMessage = modMod.ModName;
 							if (ItemProgress < ItemProgressMaximum)
 								StepItemProgress();
 							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
