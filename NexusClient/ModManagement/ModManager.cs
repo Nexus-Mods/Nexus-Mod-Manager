@@ -458,6 +458,18 @@ namespace Nexus.Client.ModManagement
 			return mutModUpdateCheck;
 		}
 
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask SetupReadMeManager(ConfirmActionMethod p_camConfirm)
+		{
+			ReadMeSetupTask rmsReadMeManagerSetup = new ReadMeSetupTask(ReadMeManager);
+			rmsReadMeManagerSetup.Update(p_camConfirm);
+			return rmsReadMeManagerSetup;
+		}
+
 		#endregion
 	}
 }

@@ -18,10 +18,79 @@ namespace Nexus.Client.ModManagement
 {
 	public partial class ReadMeManager
 	{
+		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
+		private static readonly String READMEMANAGER_FILE = "ReadMeManager.xml";
+
 		#region Fields
 
-		private string m_strReadMePath = null;
+		private string m_strReadMePath = string.Empty;
+		private bool m_booIsInitialized = false;
 		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		private Dictionary<string, string> m_dicReadMeFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+		#endregion
+
+		/// <summary>
+		/// Reads the ReadMe manager version from the given file.
+		/// </summary>
+		/// <param name="p_strCategoryPath">The category file whose version is to be read.</param>
+		/// <returns>The version of the specified category file, or a version of
+		/// <c>0.0.0.0</c> if the file format is not recognized.</returns>
+		public static Version ReadVersion(string p_strReadMePath)
+		{
+			string strReadMeFilePath = Path.Combine(p_strReadMePath, READMEMANAGER_FILE);
+			if (!File.Exists(strReadMeFilePath))
+				return new Version("0.0.0.0");
+
+			XDocument docCategory = XDocument.Load(strReadMeFilePath);
+
+			XElement xelCategory = docCategory.Element("categoryManager");
+			if (xelCategory == null)
+				return new Version("0.0.0.0");
+
+			XAttribute xatVersion = xelCategory.Attribute("fileVersion");
+			if (xatVersion == null)
+				return new Version("0.0.0.0");
+
+			return new Version(xatVersion.Value);
+		}
+
+		#region Properties
+
+		/// <summary>
+		/// The full path to the readme config file.
+		/// </summary>
+		protected string ReadMeFilePath
+		{
+			get
+			{
+				return Path.Combine(m_strReadMePath, READMEMANAGER_FILE);
+			}
+		}
+
+		/// <summary>
+		/// The full path to the ReadMe folder.
+		/// </summary>
+		public string ReadMeFolder
+		{
+			get
+			{
+				return m_strReadMePath;
+			}
+		}
+
+		/// <summary>
+		/// Whether the readme manager has been properly initialized.
+		/// </summary>
+		public bool IsInitialized
+		{
+			get
+			{
+				return m_booIsInitialized;
+			}
+		}
+
+
 
 		#endregion
 
@@ -30,10 +99,13 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// A simple constructor that initializes the ReadMeManager.
 		/// </summary>
+		/// <param name="p_strFilePath">The path where the ReadMe folder should be created.</param>
 		public ReadMeManager(string p_strFilePath)
 		{
-			m_strReadMePath = Path.Combine(p_strFilePath, "ReadMe");
-			CheckReadMeFolder(m_strReadMePath);
+			m_strReadMePath = Path.Combine(p_strFilePath, "ReadMe"); ;
+			m_dicReadMeFiles.Clear();
+			if (CheckReadMeFolder())
+				LoadReadMe();
 		}
 
 		#endregion
@@ -41,50 +113,98 @@ namespace Nexus.Client.ModManagement
 		#region ReadMe Management
 
 		/// <summary>
-		/// Verifies if the readme file.
+		/// Verifies if the readme file exists in the archive and saves it to the ReadMe folder.
 		/// </summary>
-		public bool VerifyReadMeFile(TxFileManager p_tfmFileManager, string strArchivePath, string strModFolderPath, string strModName)
+		/// <param name="strArchivePath">The path to the mod archive.</param>
+		public bool VerifyReadMeFile(TxFileManager p_tfmFileManager, string p_strArchivePath)
 		{
-			Archive arcFile = new Archive(strArchivePath);
-			List<string> lstFiles = GetFileList(arcFile, true);
-			string strReadMePath = m_strReadMePath;
-			string p_strFileName = null;
-			byte[] p_bteData = null;
-			for (int i = 0; i < lstFiles.Count; i++)
+			try
 			{
-				p_strFileName = lstFiles[i].ToString();
-				if (p_strFileName.ToLower().Contains("readme"))
+				Archive arcFile = new Archive(p_strArchivePath);
+				List<string> lstFiles = GetFileList(arcFile, true);
+				string strReadMePath = m_strReadMePath;
+				string strFileName = String.Empty;
+				string strReadMeFile = String.Empty;
+				string strModFile = Path.GetFileName(p_strArchivePath);
+				byte[] bteData = null;
+				for (int i = 0; i < lstFiles.Count; i++)
 				{
-					CheckReadMeFolder(strReadMePath);
-
-					p_bteData = arcFile.GetFileContents(lstFiles[i]);
-					strReadMePath = Path.Combine(strReadMePath, strModName + ".txt");
-					p_tfmFileManager.WriteAllBytes(strReadMePath, p_bteData);
+					strFileName = lstFiles[i].ToString();
+					if (strFileName.ToLower().Contains("readme"))
+					{
+						bteData = arcFile.GetFileContents(lstFiles[i]);
+						strReadMeFile = Path.GetFileNameWithoutExtension(strModFile) + Path.GetExtension(strFileName);
+						strReadMePath = Path.Combine(strReadMePath, strReadMeFile);
+						p_tfmFileManager.WriteAllBytes(strReadMePath, bteData);
+						m_dicReadMeFiles.Add(Path.GetFileNameWithoutExtension(strModFile), strReadMeFile);
+					}
 				}
 			}
+			catch
+			{
+				return false;
+			}
+
 			return true;
 		}
 
 		/// <summary>
-		/// Verifies the readme folder.
+		/// Checks if the read me folder is already present, otherwise it tries to create it.
 		/// </summary>
-		public bool CheckReadMeFolder(string p_strReadMeFolder)
+		public bool CheckReadMeFolder()
 		{
-			if (!Directory.Exists(p_strReadMeFolder))
-				Directory.CreateDirectory(Path.GetDirectoryName(p_strReadMeFolder));
+			try
+			{
+				Directory.SetCurrentDirectory(Directory.GetParent(m_strReadMePath).FullName);
+				Directory.CreateDirectory("ReadMe");
+			}
+			catch
+			{
+				return false;
+			}
 
 			return true;
+		}
+
+		/// <summary>
+		/// Check if the readme setup file is already present.
+		/// </summary>
+		public void LoadReadMe()
+		{
+			string strReadMeManagerPath = ReadMeFilePath;
+			if (File.Exists(strReadMeManagerPath))
+			{
+				XDocument docReadMe = XDocument.Load(strReadMeManagerPath);
+				string strVersion = docReadMe.Element("readmeManager").Attribute("fileVersion").Value;
+				if (!CURRENT_VERSION.ToString().Equals(strVersion))
+					throw new Exception(String.Format("Invalid ReadMe Manager version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
+
+				XElement xelReadMeList = docReadMe.Descendants("readmeList").FirstOrDefault();
+				if (xelReadMeList != null)
+				{
+					foreach (XElement xelReadMe in xelReadMeList.Elements("readmeFile"))
+					{
+						string strFileName = xelReadMe.Attribute("fileName").Value;
+						string strFilePath = xelReadMe.Attribute("filePath").Value;
+						m_dicReadMeFiles.Add(strFileName, strFilePath);
+					}
+				}
+
+				m_booIsInitialized = true;
+			}
 		}
 
 		/// <summary>
 		/// Deletes the readme file.
 		/// </summary>
+		/// <param name="p_strFileName">The path where the ReadMe folder should be created.</param>
 		public void DeleteReadMe(string p_strFileName)
 		{
-			string strPath = Path.Combine(m_strReadMePath, p_strFileName + ".txt");
-
-			if (File.Exists(strPath))
-				FileUtil.ForceDelete(strPath);
+			string strFilePath = m_dicReadMeFiles[p_strFileName];
+			strFilePath = Path.Combine(m_strReadMePath, strFilePath);
+			if (File.Exists(strFilePath))
+				FileUtil.ForceDelete(strFilePath);
+			m_dicReadMeFiles.Remove(p_strFileName);
 		}
 
 		/// <summary>
@@ -114,13 +234,39 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Checks the ReadMe file path if exists.
 		/// </summary>
-		public string GetModReadMe(string p_strPath)
+		/// <param name="p_strFileName">The mod file name.</param>
+		public string GetModReadMe(string p_strFileName)
 		{
-			string strModReadMeFile = Path.Combine(m_strReadMePath, p_strPath + ".txt");
-			if (File.Exists(strModReadMeFile))
-				return strModReadMeFile;
-			else
-				return string.Empty;
+			string strReadMe = String.Empty;
+			if (m_dicReadMeFiles.ContainsKey(p_strFileName))
+			{
+				string strModReadMeFile = m_dicReadMeFiles[p_strFileName];
+				strModReadMeFile = Path.Combine(m_strReadMePath, strModReadMeFile);
+				if (File.Exists(strModReadMeFile))
+					strReadMe = strModReadMeFile;
+			}
+
+			return strReadMe;
+		}
+
+		/// <summary>
+		/// Save the data to the category file.
+		/// </summary>
+		public void SaveReadMeConfig()
+		{
+			XDocument docReadMe = new XDocument();
+			XElement xelRoot = new XElement("readmeManager", new XAttribute("fileVersion", CURRENT_VERSION));
+			docReadMe.Add(xelRoot);
+
+			XElement xelReadMeList = new XElement("readmeList");
+			xelRoot.Add(xelReadMeList);
+			xelReadMeList.Add(from ReadMe in m_dicReadMeFiles
+							  select new XElement("readmeFile",
+									   new XAttribute("fileName", ReadMe.Key),
+									   new XAttribute("filePath", ReadMe.Value)));
+
+			if (CheckReadMeFolder())
+				docReadMe.Save(ReadMeFilePath);
 		}
 
 		#endregion

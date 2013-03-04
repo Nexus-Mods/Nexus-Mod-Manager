@@ -57,6 +57,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> UpdatingMods = delegate { };
 
+		/// <summary>
+		/// Raised when the readme manager is being set up.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ReadMeManagerSetup = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -245,6 +250,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_booIsCategoryInitialized = true;
 			}
 
+
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
 			ActivateModCommand = new Command<IMod>("Activate Mod", "Activates the selected mod.", ActivateMod);
@@ -262,6 +268,7 @@ namespace Nexus.Client.ModManagement.UI
 		public void DeleteReadMe(IMod p_modMod)
 		{
 			ModManager.ReadMeManager.DeleteReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
+			ModManager.ReadMeManager.SaveReadMeConfig();
 		}
 
 		/// <summary>
@@ -602,6 +609,32 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 				this.CategoryManager.LoadCategories(String.Empty);
+		}
+
+		#endregion
+
+		#region ReadMe Manager
+
+		/// <summary>
+		/// Checks if the ReadMe Manager has been properly initialized.
+		/// </summary>
+		public void CheckReadMeManager()
+		{
+			if (!this.ModManager.ReadMeManager.IsInitialized)
+			{
+				string strMessage = "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archives size.";
+				MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				SetupReadMeManager();
+			}
+		}
+
+		/// <summary>
+		/// Readme Manager setup.
+		/// </summary>
+		/// <returns>Message</returns>
+		public void SetupReadMeManager()
+		{
+			ReadMeManagerSetup(this, new EventArgs<IBackgroundTask>(ModManager.SetupReadMeManager(ConfirmUpdaterAction)));
 		}
 
 		#endregion

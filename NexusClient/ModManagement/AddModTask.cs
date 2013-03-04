@@ -815,9 +815,10 @@ namespace Nexus.Client.ModManagement
 
 						if (m_rmmReadMeManager != null)
 						{
-							TxFileManager p_tfmFileManager = new TxFileManager();
+							TxFileManager tfmFileManager = new TxFileManager();
 							string strModFolderPath = m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory;
-							m_rmmReadMeManager.VerifyReadMeFile(p_tfmFileManager, strMod, strModFolderPath, Path.GetFileNameWithoutExtension(strMod));
+							if (m_rmmReadMeManager.VerifyReadMeFile(tfmFileManager, strMod))
+								m_rmmReadMeManager.SaveReadMeConfig();
 						}
 					}
 					catch (Exception ex)

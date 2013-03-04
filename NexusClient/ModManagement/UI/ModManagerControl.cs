@@ -54,6 +54,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel = value;
 				m_vmlViewModel.UpdatingCategory += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingCategory);
 				m_vmlViewModel.UpdatingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingMods);
+				m_vmlViewModel.ReadMeManagerSetup += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ReadMeManagerSetup);
 				m_vmlViewModel.AddingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AddingMod);
 				m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
@@ -170,6 +171,8 @@ namespace Nexus.Client.ModManagement.UI
 					clwCategoryView.SetupContextMenu();
 					clwCategoryView.RebuildAll(true);
 				}
+
+				ViewModel.CheckReadMeManager();
 
 				m_booDisableSummary = false;
 			}
@@ -445,6 +448,26 @@ namespace Nexus.Client.ModManagement.UI
 			if (InvokeRequired)
 			{
 				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_UpdatingMods, sender, e);
+				return;
+			}
+			m_booDisableSummary = true;
+			ProgressDialog.ShowDialog(this, e.Argument);
+			m_booDisableSummary = false;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="MainFormVM.ReadMeManagerSetup"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_ReadMeManagerSetup(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ReadMeManagerSetup, sender, e);
 				return;
 			}
 			m_booDisableSummary = true;
