@@ -620,7 +620,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void CheckReadMeManager()
 		{
-			if (!this.ModManager.ReadMeManager.IsInitialized)
+			if ((this.ModManager.ManagedMods.Count > 0) && (!this.ModManager.ReadMeManager.IsInitialized))
 			{
 				string strMessage = "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.";
 				MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.OK, MessageBoxIcon.Information);

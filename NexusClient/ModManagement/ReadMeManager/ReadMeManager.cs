@@ -146,9 +146,12 @@ namespace Nexus.Client.ModManagement
 					if (VerifyExtension(Path.GetExtension(strFileName).ToLower()))
 					{
 						bteData = arcFile.GetFileContents(lstFiles[i]);
-						strReadMeFile = Path.GetFileName(strFileName);
-						strReadMePath = Path.Combine(ReadMeTempPath, strReadMeFile);
-						p_tfmFileManager.WriteAllBytes(strReadMePath, bteData);
+						if (bteData.Length > 0)
+						{
+							strReadMeFile = Path.GetFileName(strFileName);
+							strReadMePath = Path.Combine(ReadMeTempPath, strReadMeFile);
+							p_tfmFileManager.WriteAllBytes(strReadMePath, bteData);
+						}
 					}
 				}
 				string[] strFilesToCompress = Directory.GetFiles(ReadMeTempPath, "*.*", SearchOption.AllDirectories);
