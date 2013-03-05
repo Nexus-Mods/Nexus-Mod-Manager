@@ -256,7 +256,6 @@ namespace Nexus.Client.UI.Controls
 			cmsContextMenu.Items.Add("Move to Category:");
 			cmsContextMenu.Items.Add("Categories:");
 			cmsContextMenu.Items.Add("Toggle mod update warning", new Bitmap(Properties.Resources.update_warning, 16, 16), new EventHandler(cmsContextMenu_ToggleUpdateWarning));
-			cmsContextMenu.Items.Add("Open ReadMe file", new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_OpenReadMeFile));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
 
@@ -530,23 +529,38 @@ namespace Nexus.Client.UI.Controls
 		/// Setup the context menu items visibility
 		/// </summary>
 		/// <param name="p_booCategorySetup">Whether to setup the visibility for a category or a mod</param>
-		/// <param name="p_booReadMeEnabled">Whether the Open Mod ReadMe button should be enabled</param>
-		public void SetupContextMenuFor(bool p_booCategorySetup, bool p_booReadMeEnabled)
+		/// <param name="p_strReadMeFiles">The readme files</param>
+		public void SetupContextMenuFor(bool p_booCategorySetup, string[] p_strReadMeFiles)
 		{
 			if (p_booCategorySetup)
 			{
 				this.cmsContextMenu.Items[0].Visible = false;
 				this.cmsContextMenu.Items[1].Visible = true;
 				this.cmsContextMenu.Items[2].Visible = true;
-				this.cmsContextMenu.Items[3].Visible = false;
+				if (cmsContextMenu.Items.Count > 3)
+					cmsContextMenu.Items.RemoveAt(3);
 			}
 			else
 			{
 				this.cmsContextMenu.Items[0].Visible = true;
 				this.cmsContextMenu.Items[1].Visible = false;
 				this.cmsContextMenu.Items[2].Visible = true;
+
+				if (cmsContextMenu.Items.Count > 3)
+					cmsContextMenu.Items.RemoveAt(3);
+				if (p_strReadMeFiles != null)
+				{
+					cmsContextMenu.Items.Add("Open ReadMe file:", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
+					foreach (string strFile in p_strReadMeFiles)
+						(cmsContextMenu.Items[3] as ToolStripMenuItem).DropDownItems.Add(strFile, new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_OpenReadMeFile));
+					this.cmsContextMenu.Items[3].Enabled = true;
+				}
+				else
+				{
+					cmsContextMenu.Items.Add("No ReadMe for this mod", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
+					this.cmsContextMenu.Items[3].Enabled = false;
+				}
 				this.cmsContextMenu.Items[3].Visible = true;
-				this.cmsContextMenu.Items[3].Enabled = p_booReadMeEnabled;
 			}
 		}
 
@@ -913,7 +927,7 @@ namespace Nexus.Client.UI.Controls
 		private void cmsContextMenu_OpenReadMeFile(object sender, EventArgs e)
 		{
 			if (this.OpenReadMeFile != null)
-				this.OpenReadMeFile(this, new EventArgs());
+				this.OpenReadMeFile(sender, new EventArgs());
 		}
 
 		/// <summary>
