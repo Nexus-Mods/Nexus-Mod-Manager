@@ -241,6 +241,9 @@
     <Content Include="data\7z-64bit.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="data\releasenotes.rtf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="data\TxFileMAnager Licence.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -283,9 +286,6 @@
     <None Include="Resources\switch_view.png" />
     <None Include="Resources\category_folder.png" />
     <None Include="Resources\side_panel.png" />
-    <None Include="data\release.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
