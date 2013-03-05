@@ -264,7 +264,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Delete the ReadMe file.
 		/// </summary>
-		/// <param name="p_modMod">Delete the ReadMe file.</param>
+		/// <param name="p_modMod">The mod.</param>
 		public void DeleteReadMe(IMod p_modMod)
 		{
 			ModManager.ReadMeManager.DeleteReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
@@ -274,21 +274,21 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Checks the ReadMe file path if exists.
 		/// </summary>
-		public bool GetModReadMe(IMod p_modMod)
+		/// <param name="p_modMod">The mod.</param>
+		public string[] GetModReadMe(IMod p_modMod)
 		{
-			if (String.IsNullOrEmpty(ModManager.ReadMeManager.GetModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename))))
-				return false;
-			else
-				return true;
+			return ModManager.ReadMeManager.CheckModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
 		}
 
 		/// <summary>
 		/// Open the ReadMe file.
 		/// </summary>
-		public bool OpenReadMe(IMod p_modMod)
+		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_strFileName">The file to open.</param>
+		public bool OpenReadMe(IMod p_modMod, string p_strFileName)
 		{
 			bool booResult = false;
-			string strReadMe = ModManager.ReadMeManager.GetModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
+			string strReadMe = ModManager.ReadMeManager.GetModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strFileName);
 			if (!String.IsNullOrEmpty(strReadMe))
 			{
 				try
@@ -622,7 +622,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (!this.ModManager.ReadMeManager.IsInitialized)
 			{
-				string strMessage = "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archives size.";
+				string strMessage = "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.";
 				MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				SetupReadMeManager();
 			}
