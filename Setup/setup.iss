@@ -15,7 +15,7 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.43.2'
+#define MyAppVersion '0.44.0'
 #define SetupScriptVersion '0.7.1.0'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
@@ -70,9 +70,9 @@ Name: associateFomodFiles; Description: &Associate *.FOMOD files with {#MyAppSet
 Name: associateOmodFiles; Description: &Associate *.OMOD files with {#MyAppSetupName}; GroupDescription: Other tasks:;
 
 [Files]
-Source: "..\bin\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app};
+Source: "..\bin\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flags: ignoreversion
 Source: "..\bin\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
-Source: "..\bin\Release\*.dll"; DestDir: {app};
+Source: "..\bin\Release\*.dll"; DestDir: {app}; Flags: ignoreversion
 Source: "..\bin\Release\data\*"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
 Source: "..\bin\Release\GameModes\*"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
 Source: "..\bin\Release\ModFormats\*"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
