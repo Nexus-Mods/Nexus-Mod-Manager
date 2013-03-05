@@ -12,6 +12,7 @@ using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Games;
 using ChinhDo.Transactions;
+using SevenZip;
 
 
 namespace Nexus.Client.ModManagement
@@ -26,7 +27,7 @@ namespace Nexus.Client.ModManagement
 		private string m_strReadMePath = string.Empty;
 		private bool m_booIsInitialized = false;
 		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-		private Dictionary<string, string> m_dicReadMeFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		private Dictionary<string, string[]> m_dicReadMeFiles = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
 		#endregion
 
@@ -65,6 +66,17 @@ namespace Nexus.Client.ModManagement
 			get
 			{
 				return Path.Combine(m_strReadMePath, READMEMANAGER_FILE);
+			}
+		}
+
+		/// <summary>
+		/// The path to the readme temp folder.
+		/// </summary>
+		protected string ReadMeTempPath
+		{
+			get
+			{
+				return Path.Combine(m_strReadMePath, "Temp");
 			}
 		}
 
@@ -115,7 +127,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Verifies if the readme file exists in the archive and saves it to the ReadMe folder.
 		/// </summary>
-		/// <param name="strArchivePath">The path to the mod archive.</param>
+		/// <param name="p_strArchivePath">The path to the mod archive.</param>
 		public bool VerifyReadMeFile(TxFileManager p_tfmFileManager, string p_strArchivePath)
 		{
 			try
@@ -126,19 +138,30 @@ namespace Nexus.Client.ModManagement
 				string strFileName = String.Empty;
 				string strReadMeFile = String.Empty;
 				string strModFile = Path.GetFileName(p_strArchivePath);
+				string strArchiveFile = Path.GetFileNameWithoutExtension(strModFile) + ".7z";
 				byte[] bteData = null;
 				for (int i = 0; i < lstFiles.Count; i++)
 				{
 					strFileName = lstFiles[i].ToString();
-					if (strFileName.ToLower().Contains("readme"))
+					if (VerifyExtension(Path.GetExtension(strFileName).ToLower()))
 					{
 						bteData = arcFile.GetFileContents(lstFiles[i]);
-						strReadMeFile = Path.GetFileNameWithoutExtension(strModFile) + Path.GetExtension(strFileName);
-						strReadMePath = Path.Combine(strReadMePath, strReadMeFile);
+						strReadMeFile = Path.GetFileName(strFileName);
+						strReadMePath = Path.Combine(ReadMeTempPath, strReadMeFile);
 						p_tfmFileManager.WriteAllBytes(strReadMePath, bteData);
-						m_dicReadMeFiles.Add(Path.GetFileNameWithoutExtension(strModFile), strReadMeFile);
 					}
 				}
+				string[] strFilesToCompress = Directory.GetFiles(ReadMeTempPath, "*.*", SearchOption.AllDirectories);
+				if (strFilesToCompress.Length > 0)
+					if (CreateReadMeArchive(strArchiveFile, strFilesToCompress))
+					{
+						for (int i = 0; i < strFilesToCompress.Length; i++)
+						{
+							strFilesToCompress[i] = Path.GetFileName(strFilesToCompress[i]);
+						}
+
+						m_dicReadMeFiles.Add(Path.GetFileNameWithoutExtension(strArchiveFile), strFilesToCompress);
+					}
 			}
 			catch
 			{
@@ -146,6 +169,53 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return true;
+		}
+
+		/// <summary>
+		/// Creates the readme files archive for the current mod.
+		/// </summary>
+		/// <param name="p_strArchiveFile">The archive name.</param>
+		/// <param name="p_strFilesToCompress">The list of files to compress.</param>
+		protected bool CreateReadMeArchive(string p_strArchiveFile, string[] p_strFilesToCompress)
+		{
+			try
+			{
+				SevenZipCompressor szcCompressor = new SevenZipCompressor();
+				szcCompressor.ArchiveFormat = OutArchiveFormat.SevenZip;
+				szcCompressor.CompressionLevel = CompressionLevel.Normal;
+				szcCompressor.CompressFiles(p_strArchiveFile, p_strFilesToCompress);
+
+				foreach (string File in p_strFilesToCompress)
+					FileUtil.ForceDelete(File);
+
+				return true;
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Removes any file in the ReadMe/Temp folder.
+		/// </summary>
+		protected void PurgeTempFolder()
+		{
+			Directory.SetCurrentDirectory(ReadMeTempPath);
+			foreach (string strFile in Directory.GetFiles(ReadMeTempPath))
+				FileUtil.ForceDelete(strFile);
+		}
+
+		/// <summary>
+		/// Verifies if the file extension is supported by the program.
+		/// </summary>
+		/// <param name="strExtension"> The file extension to verify.</param>
+		protected bool VerifyExtension(string strExtension)
+		{
+			if ((strExtension == ".rtf") || (strExtension == ".doc") || (strExtension == ".docx") || (strExtension == ".htm") || (strExtension == ".html") || (strExtension == ".txt"))
+				return true;
+			else
+				return false;
 		}
 
 		/// <summary>
@@ -157,6 +227,8 @@ namespace Nexus.Client.ModManagement
 			{
 				Directory.SetCurrentDirectory(Directory.GetParent(m_strReadMePath).FullName);
 				Directory.CreateDirectory("ReadMe");
+				Directory.SetCurrentDirectory(m_strReadMePath);
+				Directory.CreateDirectory("Temp");
 			}
 			catch
 			{
@@ -182,11 +254,15 @@ namespace Nexus.Client.ModManagement
 				XElement xelReadMeList = docReadMe.Descendants("readmeList").FirstOrDefault();
 				if (xelReadMeList != null)
 				{
-					foreach (XElement xelReadMe in xelReadMeList.Elements("readmeFile"))
+					foreach (XElement xelReadMe in xelReadMeList.Elements("modFile"))
 					{
-						string strFileName = xelReadMe.Attribute("fileName").Value;
-						string strFilePath = xelReadMe.Attribute("filePath").Value;
-						m_dicReadMeFiles.Add(strFileName, strFilePath);
+						string strModName = xelReadMe.Attribute("modName").Value;
+						int intFiles = 0;
+						string[] strFiles = new string[xelReadMe.Elements("readmeFile").Count()];
+						foreach (XElement xelFile in xelReadMe.Elements("readmeFile"))
+							strFiles[intFiles++] = xelFile.Attribute("readmeName").Value;
+
+						m_dicReadMeFiles.Add(strModName, strFiles);
 					}
 				}
 
@@ -200,7 +276,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strFileName">The path where the ReadMe folder should be created.</param>
 		public void DeleteReadMe(string p_strFileName)
 		{
-			string strFilePath = m_dicReadMeFiles[p_strFileName];
+			string strFilePath = p_strFileName + ".7z" ;
 			strFilePath = Path.Combine(m_strReadMePath, strFilePath);
 			if (File.Exists(strFilePath))
 				FileUtil.ForceDelete(strFilePath);
@@ -232,21 +308,48 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Checks the ReadMe file path if exists.
+		/// Get the ReadMe file path if it exists.
 		/// </summary>
 		/// <param name="p_strFileName">The mod file name.</param>
-		public string GetModReadMe(string p_strFileName)
+		/// <param name="p_intReadmeFile">The index of the readme file to get.</param>
+		public string GetModReadMe(string p_strModName, string p_strFileName)
 		{
 			string strReadMe = String.Empty;
-			if (m_dicReadMeFiles.ContainsKey(p_strFileName))
+			if (m_dicReadMeFiles.ContainsKey(p_strModName))
 			{
-				string strModReadMeFile = m_dicReadMeFiles[p_strFileName];
+				string strModReadMeFile = p_strModName + ".7z";
 				strModReadMeFile = Path.Combine(m_strReadMePath, strModReadMeFile);
 				if (File.Exists(strModReadMeFile))
-					strReadMe = strModReadMeFile;
+				{
+					PurgeTempFolder();
+					Archive arcFile = new Archive(strModReadMeFile);
+					byte[] bteData = arcFile.GetFileContents(p_strFileName);
+					if ((bteData != null) && (bteData.Length > 0))
+					{
+						TxFileManager tfmFileManager = new TxFileManager();
+						string strReadMeFile = Path.Combine(ReadMeTempPath, p_strFileName);
+						tfmFileManager.WriteAllBytes(strReadMeFile, bteData);
+						return strReadMeFile;
+					}
+				}
 			}
 
 			return strReadMe;
+		}
+
+		/// <summary>
+		/// Check if there's a readme file for the given mod.
+		/// </summary>
+		/// <param name="p_strFileName">The mod file name.</param>
+		public string[] CheckModReadMe(string p_strModName)
+		{
+			string strReadMe = String.Empty;
+			if (m_dicReadMeFiles.ContainsKey(p_strModName))
+			{
+				return m_dicReadMeFiles[p_strModName];
+			}
+
+			return null;
 		}
 
 		/// <summary>
@@ -261,9 +364,11 @@ namespace Nexus.Client.ModManagement
 			XElement xelReadMeList = new XElement("readmeList");
 			xelRoot.Add(xelReadMeList);
 			xelReadMeList.Add(from ReadMe in m_dicReadMeFiles
-							  select new XElement("readmeFile",
-									   new XAttribute("fileName", ReadMe.Key),
-									   new XAttribute("filePath", ReadMe.Value)));
+									select new XElement("modFile",
+									new XAttribute("modName", ReadMe.Key),
+										from FilePath in ReadMe.Value
+										select new XElement("readmeFile",
+											new XAttribute("readmeName",FilePath))));
 
 			if (CheckReadMeFolder())
 				docReadMe.Save(ReadMeFilePath);

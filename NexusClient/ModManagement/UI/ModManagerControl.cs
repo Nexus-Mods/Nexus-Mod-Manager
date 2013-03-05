@@ -158,6 +158,9 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				m_booControlIsLoaded = true;
 				LoadMetrics();
+
+				ViewModel.CheckReadMeManager();
+				
 				clwCategoryView.CategoryModeEnabled = ViewModel.Settings.UseCategoryView;
 				LoadCategoryView();
 				lvwMods.Visible = false;
@@ -171,8 +174,6 @@ namespace Nexus.Client.ModManagement.UI
 					clwCategoryView.SetupContextMenu();
 					clwCategoryView.RebuildAll(true);
 				}
-
-				ViewModel.CheckReadMeManager();
 
 				m_booDisableSummary = false;
 			}
@@ -473,6 +474,10 @@ namespace Nexus.Client.ModManagement.UI
 			m_booDisableSummary = true;
 			ProgressDialog.ShowDialog(this, e.Argument);
 			m_booDisableSummary = false;
+
+			string strMessage = "NMM has gone through your current mod list and linked as many ReadMe's it could find to your mods.";
+			strMessage += "You can view your mod's ReadMe's by right-clicking a mod in your mod list and clicking 'Open ReadMe file'.";
+			MessageBox.Show(strMessage, "ReadMe Manager Setup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		#endregion
@@ -594,16 +599,16 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						if (((ListViewItem)e.Item.RowObject).Tag.GetType() == typeof(ModCategory))
 						{
-							clwCategoryView.SetupContextMenuFor(true, false);
+							clwCategoryView.SetupContextMenuFor(true, null);
 							clwCategoryView.SelectedCategory = (ModCategory)((ListViewItem)e.Item.RowObject).Tag;
 						}
 						else
 						{
-							bool booShowOpenReadMe = false;
+							string[] strReadmeFiles = null;
 							IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
 							if (modMod != null)
-								booShowOpenReadMe = ViewModel.GetModReadMe(modMod);
-							clwCategoryView.SetupContextMenuFor(false, booShowOpenReadMe);
+								strReadmeFiles = ViewModel.GetModReadMe(modMod);
+							clwCategoryView.SetupContextMenuFor(false, strReadmeFiles);
 						}
 
 						e.MenuStrip = clwCategoryView.CategoryViewContextMenu;
@@ -741,7 +746,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_OpenReadMeFile(object sender, EventArgs e)
 		{
-			ViewModel.OpenReadMe(clwCategoryView.GetSelectedMod);
+			ViewModel.OpenReadMe(clwCategoryView.GetSelectedMod, sender.ToString());
 		}
 
 		/// <summary>
