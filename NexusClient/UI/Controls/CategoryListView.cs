@@ -16,7 +16,7 @@ namespace Nexus.Client.UI.Controls
 {
 	public partial class CategoryListView : BrightIdeasSoftware.TreeListView
 	{
-		IconListView m_lvwList = null;
+		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
 		IModCategory m_imcSelectedCategory = null;
 		bool m_booShowEmpty = false;
 		bool m_booCategoryMode = true;
@@ -69,7 +69,7 @@ namespace Nexus.Client.UI.Controls
 		/// Gets the currently selected item.
 		/// </summary>
 		/// <value>The currently selected item.</value>
-		public ListViewItem GetSelectedItem
+		public object GetSelectedItem
 		{
 			get
 			{
@@ -84,14 +84,14 @@ namespace Nexus.Client.UI.Controls
 		/// Gets the currently selected items.
 		/// </summary>
 		/// <value>The currently selected items.</value>
-		public List<ListViewItem> GetSelectedItems
+		public List<object> GetSelectedItems
 		{
 			get
 			{
-				List<ListViewItem> lstListViewItem = new List<ListViewItem>();
-				foreach (ListViewItem item in this.SelectedObjects)
-					lstListViewItem.Add(item);
-				return lstListViewItem;
+				List<object> lstObjects = new List<object>();
+				foreach (object Item in this.SelectedObjects)
+					lstObjects.Add(Item);
+				return lstObjects;
 			}
 		}
 
@@ -103,7 +103,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			get
 			{
-				return (IMod)this.GetSelectedItem.Tag;
+				return (IMod)this.GetSelectedItem;
 			}
 		}
 
@@ -132,18 +132,6 @@ namespace Nexus.Client.UI.Controls
 			get
 			{
 				return this.cmsContextMenu;
-			}
-		}
-
-		/// <summary>
-		/// Gets the ListViewItems from the reference table.
-		/// </summary>
-		/// <value>The ListViewItems from the reference table.</value>
-		protected IEnumerable<ListViewItem> lviCategoryItems
-		{
-			get
-			{
-				return m_lvwList.Items.Cast<ListViewItem>();
 			}
 		}
 
@@ -200,7 +188,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_lvwList">The source list view.</param>
 		/// <param name="p_cmgCategoryManager">The mod Category Manager.</param>
-		public void Setup(IconListView p_lvwList, CategoryManager p_cmgCategoryManager)
+		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, CategoryManager p_cmgCategoryManager)
 		{
 			this.Tag = false;
 
@@ -208,8 +196,8 @@ namespace Nexus.Client.UI.Controls
 			this.MultiSelect = true;
 			this.AllowDrop = true;
 
-			m_lvwList = p_lvwList;
 			CategoryManager = p_cmgCategoryManager;
+			m_rolManagedMods = p_rolManagedMods;
 
 			// Setup menuStrip commands
 			SetupContextMenu();
@@ -224,8 +212,11 @@ namespace Nexus.Client.UI.Controls
 			this.UseSubItemCheckBoxes = true;
 			this.BooleanCheckStateGetter = delegate(object x)
 			{
-				ListViewItem lviItem = (ListViewItem)x;
-				return lviItem.Checked;
+				if (x.GetType() != typeof(ModCategory))
+					if (!String.IsNullOrEmpty(((IMod)x).InstallDate))
+						return true;
+
+				return false;
 			};
 
 			// Setup AspectGetter (IconListView cell parser)
@@ -270,11 +261,10 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.CanExpandGetter = delegate(object x)
 			{
-				ListViewItem lviItem = (ListViewItem)x;
 				if (m_booCategoryMode)
-					return ((lviItem.Tag).GetType() == typeof(ModCategory));
+					return (x.GetType() == typeof(ModCategory));
 				else
-					return ((lviItem.Tag).GetType() == typeof(ModInfo));
+					return (x.GetType() == typeof(IMod));
 			};
 		}
 
@@ -285,12 +275,10 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.ChildrenGetter = delegate(object x)
 			{
-				ListViewItem Item = (ListViewItem)x;
-				object lviItem = Item.Tag;
-				if (lviItem.GetType() == typeof(ModCategory))
+				if (x.GetType() == typeof(ModCategory))
 				{
-					var CategoryMods = from Mod in lviCategoryItems
-									   where ((IMod)Mod.Tag != null) && ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == ((IModCategory)lviItem).Id)
+					var CategoryMods = from Mod in m_rolManagedMods
+									   where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == ((IModCategory)x).Id)
 									   select Mod;
 					return CategoryMods;
 				}
@@ -307,14 +295,13 @@ namespace Nexus.Client.UI.Controls
 			tlcModName.AspectGetter = delegate(object rowObject)
 			{
 				string Val = String.Empty;
-				ListViewItem lviItem = (ListViewItem)rowObject;
 
-				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				if (rowObject.GetType() == typeof(ModCategory))
 				{
-					Val = ((IModCategory)lviItem.Tag).CategoryName;
+					Val = ((IModCategory)rowObject).CategoryName;
 				}
 				else
-					Val = ((IMod)lviItem.Tag).ModName;
+					Val = ((IMod)rowObject).ModName;
 
 				return Val;
 			};
@@ -327,17 +314,16 @@ namespace Nexus.Client.UI.Controls
 			tlcInstallDate.AspectGetter = delegate(object rowObject)
 			{
 				string Val = String.Empty;
-				ListViewItem lviItem = (ListViewItem)rowObject;
 
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					if (!String.IsNullOrEmpty(lviItem.SubItems[tlcInstallDate.Name].Text))
-						Val = lviItem.SubItems[tlcInstallDate.Name].Text;
+					if (!String.IsNullOrEmpty(((IMod)rowObject).InstallDate))
+						Val = ((IMod)rowObject).InstallDate;
 					if (CheckDate(Val))
 						return Convert.ToDateTime(Val);
 				}
 				else
-					return ((ModCategory)lviItem.Tag).NewMods.ToString();
+					return ((ModCategory)rowObject).NewMods.ToString();
 
 				return null;
 			};
@@ -357,11 +343,9 @@ namespace Nexus.Client.UI.Controls
 			{
 				string Value = String.Empty;
 
-				ListViewItem lviItem = (ListViewItem)rowObject;
-
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					IMod modMod = (IMod)lviItem.Tag;
+					IMod modMod = (IMod)rowObject;
 					if (modMod != null)
 					{
 						Value = modMod.IsEndorsed.ToString();
@@ -379,12 +363,11 @@ namespace Nexus.Client.UI.Controls
 			tlcVersion.AspectGetter = delegate(object rowObject)
 			{
 				string Val = string.Empty;
-				ListViewItem lviItem = (ListViewItem)rowObject;
 
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					if (!String.IsNullOrEmpty(lviItem.SubItems[tlcVersion.Name].Text))
-						Val = lviItem.SubItems[tlcVersion.Name].Text;
+					if (!String.IsNullOrEmpty(((IMod)rowObject).HumanReadableVersion))
+						Val = ((IMod)rowObject).HumanReadableVersion;
 					return Val;
 				}
 				else
@@ -394,12 +377,11 @@ namespace Nexus.Client.UI.Controls
 			tlcWebVersion.AspectGetter = delegate(object rowObject)
 			{
 				string Val = String.Empty;
-				ListViewItem lviItem = (ListViewItem)rowObject;
 
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					if (!String.IsNullOrEmpty(lviItem.SubItems[tlcWebVersion.Name].Text))
-						Val = lviItem.SubItems[tlcWebVersion.Name].Text;
+					if (!String.IsNullOrEmpty(((IMod)rowObject).LastKnownVersion))
+						Val = ((IMod)rowObject).LastKnownVersion;
 					return Val;
 				}
 				else
@@ -409,12 +391,11 @@ namespace Nexus.Client.UI.Controls
 			tlcAuthor.AspectGetter = delegate(object rowObject)
 			{
 				string Val = String.Empty;
-				ListViewItem lviItem = (ListViewItem)rowObject;
 
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					if (!String.IsNullOrEmpty(lviItem.SubItems[tlcAuthor.Name].Text))
-						Val = lviItem.SubItems[tlcAuthor.Name].Text;
+					if (!String.IsNullOrEmpty(((IMod)rowObject).Author))
+						Val = ((IMod)rowObject).Author;
 					return Val;
 				}
 				else
@@ -424,11 +405,10 @@ namespace Nexus.Client.UI.Controls
 			tlcCategory.AspectGetter = delegate(object rowObject)
 			{
 				string Val = String.Empty;
-				ListViewItem lviItem = (ListViewItem)rowObject;
 
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					IMod modMod = ((IMod)lviItem.Tag);
+					IMod modMod = (IMod)rowObject;
 					Val = CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId).CategoryName;
 				}
 
@@ -446,12 +426,11 @@ namespace Nexus.Client.UI.Controls
 
 			this.CanDrop += delegate(object sender, BrightIdeasSoftware.OlvDropEventArgs e)
 			{
-				ListViewItem lviItem = null;
+				IMod modMod = null;
+				if ((e.DropTargetItem != null) && (this.GetSelectedItem.GetType() != typeof(ModCategory)))
+					modMod = (IMod)e.DropTargetItem.RowObject;
 
-				if ((e.DropTargetItem != null) && (this.GetSelectedItem.Tag.GetType() != typeof(ModCategory)))
-					lviItem = (ListViewItem)e.DropTargetItem.RowObject;
-
-				if ((lviItem != null) || (e.DragEventArgs.Data.GetData(DataFormats.FileDrop) != null))
+				if ((modMod != null) || (e.DragEventArgs.Data.GetData(DataFormats.FileDrop) != null))
 				{
 					e.Effect = DragDropEffects.Move;
 				}
@@ -468,21 +447,19 @@ namespace Nexus.Client.UI.Controls
 				}
 				else if (e.DropTargetItem != null)
 				{
-					ListViewItem lviItem = (ListViewItem)e.DropTargetItem.RowObject;
-
-					if ((lviItem != null) && (lviItem.Tag != null))
+					if (e.DropTargetItem.RowObject != null)
 					{
 						IModCategory imcCategory = null;
 
-						if (lviItem.Tag.GetType() == typeof(ModCategory))
+						if (e.DropTargetItem.RowObject.GetType() == typeof(ModCategory))
 						{
-							imcCategory = (IModCategory)lviItem.Tag;
+							imcCategory = (IModCategory)e.DropTargetItem.RowObject;
 						}
 						else
 						{
 							try
 							{
-								IMod modMod = (IMod)lviItem.Tag;
+								IMod modMod = (IMod)e.DropTargetItem.RowObject;
 								imcCategory = CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId);
 							}
 							catch
@@ -509,7 +486,7 @@ namespace Nexus.Client.UI.Controls
 			{
 				try
 				{
-					IModInfo mifInfo = (IModInfo)((ListViewItem)(((BrightIdeasSoftware.IsHyperlinkEventArgs)e).Model)).Tag;
+					IModInfo mifInfo = (IModInfo)e.Model;
 					if (!(mifInfo == null))
 					{
 						if (mifInfo.Website == null)
@@ -571,11 +548,9 @@ namespace Nexus.Client.UI.Controls
 		{
 			tlcWebVersion.ImageGetter = delegate(object rowObject)
 			{
-				ListViewItem lviItem = (ListViewItem)rowObject;
-
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					IMod modMod = (IMod)lviItem.Tag;
+					IMod modMod = (IMod)rowObject;
 					if (modMod != null)
 					{
 						if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
@@ -586,7 +561,7 @@ namespace Nexus.Client.UI.Controls
 				}
 				else
 				{
-					int intCategoryId = ((IModCategory)lviItem.Tag).Id;
+					int intCategoryId = ((IModCategory)rowObject).Id;
 
 					if (GetOutdatedModList(intCategoryId).Count > 0)
 						return new Bitmap(Properties.Resources.update_warning, 16, 16);
@@ -597,35 +572,31 @@ namespace Nexus.Client.UI.Controls
 
 			tlcModName.ImageGetter = delegate(object rowObject)
 			{
-				ListViewItem lviItem = (ListViewItem)rowObject;
-				if ((lviItem.Tag).GetType() == typeof(ModCategory))
+				if (rowObject.GetType() == typeof(ModCategory))
 				{
-					return new Bitmap(CreateBitmapImage(GetCategoryModCount((IModCategory)lviItem.Tag, lviCategoryItems).ToString(), Properties.Resources.category_folder, 14, 2, 4, 1, 5), 13, 15);
+					return new Bitmap(CreateBitmapImage(GetCategoryModCount((IModCategory)rowObject).ToString(), Properties.Resources.category_folder, 14, 2, 4, 1, 5), 13, 15);
 				}
 				else
 				{
-					return new Bitmap(lviItem.Checked ? Properties.Resources.dialog_ok_4_16 : Properties.Resources.dialog_cancel_4_16, 12, 12);
+					return new Bitmap(String.IsNullOrEmpty(((IMod)rowObject).InstallDate) ? Properties.Resources.dialog_cancel_4_16 : Properties.Resources.dialog_ok_4_16, 12, 12);
 				}
 			};
 
 			tlcInstallDate.ImageGetter = delegate(object rowObject)
 			{
-				ListViewItem lviItem = (ListViewItem)rowObject;
-				if ((lviItem.Tag).GetType() == typeof(ModCategory))
+				if (rowObject.GetType() == typeof(ModCategory))
 				{
-					if (((ModCategory)lviItem.Tag).NewMods > 0)
-						return new Bitmap(CreateBitmapImage(((ModCategory)lviItem.Tag).NewMods.ToString(), Properties.Resources.AddFile_48x48, 16, 4, 4, -2, -1), 16, 16);
+					if (((ModCategory)rowObject).NewMods > 0)
+						return new Bitmap(CreateBitmapImage(((ModCategory)rowObject).NewMods.ToString(), Properties.Resources.AddFile_48x48, 16, 4, 4, -2, -1), 16, 16);
 				}
 				return null;
 			};
 
 			tlcEndorsement.ImageGetter = delegate(object rowObject)
 			{
-				ListViewItem lviItem = (ListViewItem)rowObject;
-
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					IMod modMod = (IMod)lviItem.Tag;
+					IMod modMod = (IMod)rowObject;
 					if (modMod != null)
 					{
 						if (modMod.IsEndorsed)
@@ -649,10 +620,9 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.Items.Count > 0)
 			{
-				foreach (ListViewItem Item in Roots)
+				foreach (object Item in Roots)
 				{
-					//if (Item.Tag.GetType() == typeof(ModCategory))
-						RemoveObject(Item);
+					RemoveObject(Item);
 				}
 			}
 
@@ -663,33 +633,11 @@ namespace Nexus.Client.UI.Controls
 				// Setup categories
 				foreach (IModCategory imcCategory in Categories)
 				{
-					ListViewItem Category = new ListViewItem();
-					Int32 ModCount = GetCategoryModCount(imcCategory, lviCategoryItems);
+					ModCategory Category = new ModCategory(imcCategory);
+					Int32 ModCount = GetCategoryModCount(imcCategory);
 
 					if (m_booShowEmpty || (ModCount > 0))
 					{
-						Category.Text = imcCategory.CategoryName;
-						ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
-						Sub.Name = "InstallDate";
-						Sub.Text = "";
-						Category.SubItems.Add(Sub);
-						Sub = new ListViewItem.ListViewSubItem();
-						Sub.Name = "Endorsement";
-						Sub.Text = "";
-						Category.SubItems.Add(Sub);
-						Sub = new ListViewItem.ListViewSubItem();
-						Sub.Name = "HumanReadableVersion";
-						Sub.Text = "";
-						Category.SubItems.Add(Sub);
-						Sub = new ListViewItem.ListViewSubItem();
-						Sub.Name = "WebVersion";
-						Sub.Text = "";
-						Category.SubItems.Add(Sub);
-						Sub = new ListViewItem.ListViewSubItem();
-						Sub.Name = "Author";
-						Sub.Text = "";
-						Category.SubItems.Add(Sub);
-						Category.Tag = imcCategory;
 						this.AddObject(Category);
 					}
 				}
@@ -697,7 +645,7 @@ namespace Nexus.Client.UI.Controls
 			else
 			{
 				tlcCategory.IsVisible = true;
-				this.SetObjects(m_lvwList.Items);
+				this.SetObjects(m_rolManagedMods);
 			}
 		}
 
@@ -708,29 +656,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="booIsNew">Whether the category is new or was just hidden.</param>
 		public void AddData(IModCategory p_imcCategory, bool booIsNew)
 		{
-			ListViewItem Category = new ListViewItem();
-			Category.Text = p_imcCategory.CategoryName;
-			ListViewItem.ListViewSubItem Sub = new ListViewItem.ListViewSubItem();
-			Sub.Name = "InstallDate";
-			Sub.Text = "";
-			Category.SubItems.Add(Sub);
-			Sub = new ListViewItem.ListViewSubItem();
-			Sub.Name = "Endorsement";
-			Sub.Text = "";
-			Category.SubItems.Add(Sub);
-			Sub = new ListViewItem.ListViewSubItem();
-			Sub.Name = "HumanReadableVersion";
-			Sub.Text = "";
-			Category.SubItems.Add(Sub);
-			Sub = new ListViewItem.ListViewSubItem();
-			Sub.Name = "WebVersion";
-			Sub.Text = "";
-			Category.SubItems.Add(Sub);
-			Sub = new ListViewItem.ListViewSubItem();
-			Sub.Name = "Author";
-			Sub.Text = "";
-			Category.SubItems.Add(Sub);;
-			Category.Tag = p_imcCategory;
+			ModCategory Category = new ModCategory(p_imcCategory);
 			this.AddObject(Category);
 			this.EnsureVisible(this.Items.Count - 1);
 		}
@@ -741,14 +667,17 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_mctCategory">The category to remove.</param>
 		public bool RemoveData(ModCategory p_mctCategory)
 		{
-			if (this.Items.Count > 0)
+			if (CategoryModeEnabled)
 			{
-				foreach (ListViewItem Item in Roots)
+				if (this.Items.Count > 0)
 				{
-					if (((ModCategory)Item.Tag).Equals(p_mctCategory))
+					foreach (object Item in Roots)
 					{
-						RemoveObject(Item);
-						return true;
+						if (((ModCategory)Item).Equals(p_mctCategory))
+						{
+							RemoveObject(Item);
+							return true;
+						}
 					}
 				}
 			}
@@ -766,9 +695,9 @@ namespace Nexus.Client.UI.Controls
 			{
 				if (this.Items.Count > 0)
 				{
-					foreach (ListViewItem Item in Roots)
+					foreach (object Item in Roots)
 					{
-						if (((ModCategory)Item.Tag).Equals(p_mctCategory))
+						if (((ModCategory)Item).Equals(p_mctCategory))
 						{
 							RefreshObject(Item);
 							return false;
@@ -789,9 +718,9 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.Items.Count > 0)
 			{
-				foreach (ListViewItem Item in Roots)
+				foreach (object Item in Roots)
 				{
-					if (((ModCategory)Item.Tag).Equals(p_mctCategory))
+					if (((ModCategory)Item).Equals(p_mctCategory))
 					{
 						foreach (ToolStripDropDownItem DDItem in (cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems)
 							if (DDItem.Text == strOldValue)
@@ -813,8 +742,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_imcCategory">The category to count.</param>
 		public Int32 GetCategoryModCount(IModCategory p_imcCategory)
 		{
-			var CategoryMods = from Mod in lviCategoryItems
-							   where ((IMod)Mod.Tag != null) && ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == p_imcCategory.Id)
+			var CategoryMods = from Mod in m_rolManagedMods
+							   where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_imcCategory.Id)
 							   select Mod;
 
 			return CategoryMods.Count();
@@ -825,10 +754,10 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_imcCategory">The category to count.</param>
 		/// <param name="p_lviItems">The ListViewItem containing the categories.</param>
-		public Int32 GetCategoryModCount(IModCategory p_imcCategory, IEnumerable<ListViewItem> p_lviItems)
+		public Int32 GetCategoryModCount(IModCategory p_imcCategory, IEnumerable<IMod> p_modItems)
 		{
-			var CategoryMods = from Mod in p_lviItems
-							   where ((IMod)Mod.Tag != null) && ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == p_imcCategory.Id)
+			var CategoryMods = from Mod in p_modItems
+							   where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_imcCategory.Id)
 							   select Mod;
 
 			return CategoryMods.Count();
@@ -874,12 +803,12 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_intCategoryID">The category ID.</param>
 		public List<IMod> GetOutdatedModList(Int32 p_intCategoryID)
 		{
-			var CategoryMods = from Mod in lviCategoryItems
-							   where (((IMod)Mod.Tag != null)
-							   && ((IMod)Mod.Tag).UpdateWarningEnabled
-							   && ((((IMod)Mod.Tag).CustomCategoryId >= 0 ? ((IMod)Mod.Tag).CustomCategoryId : ((IMod)Mod.Tag).CategoryId) == p_intCategoryID)
-							   && !((IMod)Mod.Tag).IsMatchingVersion())
-							   select (IMod)Mod.Tag;
+			var CategoryMods = from Mod in m_rolManagedMods
+							   where (Mod != null)
+							   && Mod.UpdateWarningEnabled
+							   && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_intCategoryID)
+							   && !Mod.IsMatchingVersion()
+							   select Mod;
 
 			return new List<IMod>(CategoryMods);
 		}
