@@ -331,7 +331,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (lvwMods.Visible)
 				return (IMod)lvwMods.SelectedItems[0].Tag;
 			else
-				return (IMod)clwCategoryView.GetSelectedItem.Tag;
+				return (IMod)clwCategoryView.GetSelectedItem;
 		}
 
 		/// <summary>
@@ -339,12 +339,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		protected void SetCommandExecutableStatus()
 		{
-			if (((lvwMods.SelectedItems.Count > 0) && lvwMods.Visible) || ((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.Tag.GetType() != typeof(ModCategory))))
+			if (((lvwMods.SelectedItems.Count > 0) && lvwMods.Visible) || ((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
 			{
 				if (lvwMods.Visible)
 					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)lvwMods.SelectedItems[0].Tag);
 				else if (clwCategoryView.Visible)
-					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)clwCategoryView.GetSelectedItem.Tag);
+					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)clwCategoryView.GetSelectedItem);
 
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
 				
@@ -517,15 +517,15 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (clwCategoryView.Tag == null)
 			{
-				clwCategoryView.Setup(lvwMods, ViewModel.CategoryManager);
+				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.CategoryManager);
 
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
 				{
 					if ((clwCategoryView.SelectedObjects.Count > 0) && !m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 					{
-						if (clwCategoryView.GetSelectedItem.Tag.GetType() != typeof(ModCategory))
-							UpdateSummary((IMod)clwCategoryView.GetSelectedItem.Tag);
+						if (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))
+							UpdateSummary((IMod)clwCategoryView.GetSelectedItem);
 					}
 					else
 						UpdateSummary(null);
@@ -539,20 +539,19 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						try
 						{
-							ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
-							if (lviItem.Tag.GetType() == typeof(ModCategory))
+							if (e.Item.RowObject.GetType() == typeof(ModCategory))
 							{
-								if (clwCategoryView.IsExpanded(lviItem))
-									clwCategoryView.Collapse(lviItem);
+								if (clwCategoryView.IsExpanded(e.Item.RowObject))
+									clwCategoryView.Collapse(e.Item.RowObject);
 								else
-									clwCategoryView.Expand(lviItem);
+									clwCategoryView.Expand(e.Item.RowObject);
 							}
 							else
 							{
-								IMod modMod = (IMod)lviItem.Tag;
+								IMod modMod = (IMod)e.Item.RowObject;
 								if (modMod != null)
 								{
-									if (((ListViewItem)e.Item.RowObject).Checked)
+									if (!String.IsNullOrEmpty(modMod.InstallDate))
 										ViewModel.DeactivateModCommand.Execute(modMod);
 									else
 										ViewModel.ActivateModCommand.Execute(modMod);
@@ -572,17 +571,17 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						if (clwCategoryView.GetSelectedItem != null)
 						{
-							object objTag = clwCategoryView.GetSelectedItem.Tag;
+							object objSelectedItem = clwCategoryView.GetSelectedItem;
 
-							if (objTag.GetType() == typeof(ModCategory))
+							if (objSelectedItem.GetType() == typeof(ModCategory))
 							{
-								clwCategoryView.RemoveCategory((IModCategory)objTag);
+								clwCategoryView.RemoveCategory((IModCategory)objSelectedItem);
 							}
 							else
 							{
 								try
 								{
-									IMod modMod = (IMod)objTag;
+									IMod modMod = (IMod)objSelectedItem;
 									ViewModel.DeleteMod(modMod);
 								}
 								catch
@@ -593,19 +592,20 @@ namespace Nexus.Client.ModManagement.UI
 					}
 				};
 
+				// populates the context menu for the selected item
 				this.clwCategoryView.CellRightClick += delegate(object sender, BrightIdeasSoftware.CellRightClickEventArgs e)
 				{
 					if (e.Item != null)
 					{
-						if (((ListViewItem)e.Item.RowObject).Tag.GetType() == typeof(ModCategory))
+						if (e.Item.RowObject.GetType() == typeof(ModCategory))
 						{
 							clwCategoryView.SetupContextMenuFor(true, null);
-							clwCategoryView.SelectedCategory = (ModCategory)((ListViewItem)e.Item.RowObject).Tag;
+							clwCategoryView.SelectedCategory = (ModCategory)e.Item.RowObject;
 						}
 						else
 						{
 							string[] strReadmeFiles = null;
-							IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
+							IMod modMod = (IMod)e.Item.RowObject;
 							if (modMod != null)
 								strReadmeFiles = ViewModel.GetModReadMe(modMod);
 							clwCategoryView.SetupContextMenuFor(false, strReadmeFiles);
@@ -633,9 +633,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (e.Column.Text == "Latest Version")
 			{
-				if (((ListViewItem)e.Item.RowObject).Tag.GetType() != typeof(ModCategory))
+				if (e.Item.RowObject.GetType() != typeof(ModCategory))
 				{
-					IMod modMod = (IMod)((ListViewItem)e.Item.RowObject).Tag;
+					IMod modMod = (IMod)e.Item.RowObject;
 					if (!modMod.IsMatchingVersion())
 					{
 						e.AutoPopDelay = 10000;
@@ -647,7 +647,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 				else
 				{
-					IModCategory imcModCategory = (IModCategory)((ListViewItem)e.Item.RowObject).Tag;
+					IModCategory imcModCategory = (IModCategory)e.Item.RowObject;
 					List<IMod> lstOutdatedMods = new List<IMod>(clwCategoryView.GetOutdatedModList(imcModCategory.Id));
 					if (lstOutdatedMods.Count > 0)
 					{
@@ -673,10 +673,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (e.Item != null)
 			{
-				ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
-				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				if (e.Item.RowObject.GetType() == typeof(ModCategory))
 				{
-					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					ModCategory mctUpdatedCategory = (ModCategory)e.Item.RowObject;
 					mctUpdatedCategory.NewMods = 0;
 				}
 			}
@@ -691,10 +690,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (e.Item != null)
 			{
-				ListViewItem lviItem = (ListViewItem)e.Item.RowObject;
-				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				if (e.Item.RowObject.GetType() == typeof(ModCategory))
 				{
-					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					ModCategory mctUpdatedCategory = (ModCategory)e.Item.RowObject;
 					mctUpdatedCategory.NewMods = 0;
 				}
 			}
@@ -713,11 +711,11 @@ namespace Nexus.Client.ModManagement.UI
 				IModCategory imcNewCategory = (IModCategory)sender;
 				List<IMod> lstSelectedMods = new List<IMod>();
 				List<ModCategory> lstOldCategory = new List<ModCategory>();
-				foreach (ListViewItem lviItem in clwCategoryView.GetSelectedItems)
+				foreach (object Item in clwCategoryView.GetSelectedItems)
 				{
-					if (lviItem.Tag.GetType() != typeof(ModCategory))
+					if (Item.GetType() != typeof(ModCategory))
 					{
-						IMod modMod = (IMod)lviItem.Tag;
+						IMod modMod = (IMod)Item;
 						ModCategory mctOldCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId);
 						if (!lstOldCategory.Contains(mctOldCategory))
 							lstOldCategory.Add(mctOldCategory);
@@ -727,12 +725,15 @@ namespace Nexus.Client.ModManagement.UI
 
 				ViewModel.SwitchModsToCategory(lstSelectedMods, imcNewCategory.Id);
 
-				if (clwCategoryView.RefreshData(new ModCategory(imcNewCategory)))
-					clwCategoryView.AddData(imcNewCategory, false);
+				if (clwCategoryView.CategoryModeEnabled)
+				{
+					if (clwCategoryView.RefreshData(new ModCategory(imcNewCategory)))
+						clwCategoryView.AddData(imcNewCategory, false);
 
-				foreach (ModCategory mctOld in lstOldCategory)
-					if ((clwCategoryView.GetCategoryModCount(mctOld) == 0) && !clwCategoryView.ShowHiddenCategories)
-						clwCategoryView.RemoveData(mctOld);
+					foreach (ModCategory mctOld in lstOldCategory)
+						if ((clwCategoryView.GetCategoryModCount(mctOld) == 0) && !clwCategoryView.ShowHiddenCategories)
+							clwCategoryView.RemoveData(mctOld);
+				}
 
 				clwCategoryView.RebuildAll(true);
 			}
@@ -759,16 +760,16 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			HashSet<IMod> hashMods = new HashSet<IMod>();
 
-			foreach (ListViewItem lviItem in clwCategoryView.GetSelectedItems)
+			foreach (object Item in clwCategoryView.GetSelectedItems)
 			{
-				if (lviItem.Tag.GetType() != typeof(ModCategory))
+				if (Item.GetType() != typeof(ModCategory))
 				{
-					IMod modMod = (IMod)lviItem.Tag;
+					IMod modMod = (IMod)Item;
 					hashMods.Add(modMod);
 				}
 				else
 				{
-					IModCategory imcCategory = (IModCategory)lviItem.Tag;
+					IModCategory imcCategory = (IModCategory)Item;
 					var CategoryMods = ViewModel.ManagedMods.Where(Mod => (Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == imcCategory.Id).ToList();
 					foreach (IMod Mod in CategoryMods)
 						hashMods.Add(Mod);
@@ -800,7 +801,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.SwitchModsToUnassigned((IModCategory)sender);
 				clwCategoryView.RebuildAll(true);
 
-				if (booShowUnassigned)
+				if (booShowUnassigned && clwCategoryView.CategoryModeEnabled)
 					clwCategoryView.AddData(new ModCategory(), false);
 			}
 		}
@@ -932,11 +933,9 @@ namespace Nexus.Client.ModManagement.UI
 			string strValue = e.NewValue.ToString();
 			if (!String.IsNullOrEmpty(strValue))
 			{
-				ListViewItem lviItem = (ListViewItem)e.ListViewItem.RowObject;
-
-				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				if (e.ListViewItem.RowObject.GetType() == typeof(ModCategory))
 				{
-					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					ModCategory mctUpdatedCategory = (ModCategory)e.ListViewItem.RowObject;
 					string strOldValue = mctUpdatedCategory.CategoryName;
 					mctUpdatedCategory.CategoryName = strValue;
 					mctUpdatedCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty)); ;
@@ -946,7 +945,7 @@ namespace Nexus.Client.ModManagement.UI
 				else
 				{
 					lock (lvwMods)
-						ViewModel.UpdateModName((IMod)lviItem.Tag, strValue);
+						ViewModel.UpdateModName((IMod)e.ListViewItem.RowObject, strValue);
 					clwCategoryView.RebuildAll(true);
 				}
 			}
@@ -967,11 +966,9 @@ namespace Nexus.Client.ModManagement.UI
 			string strValue = e.Label;
 			if (!String.IsNullOrEmpty(strValue))
 			{
-				ListViewItem lviItem = (ListViewItem)clwCategoryView.SelectedItem.RowObject;
-
-				if (lviItem.Tag.GetType() == typeof(ModCategory))
+				if (clwCategoryView.SelectedItem.RowObject.GetType() == typeof(ModCategory))
 				{
-					ModCategory mctUpdatedCategory = (ModCategory)lviItem.Tag;
+					ModCategory mctUpdatedCategory = (ModCategory)clwCategoryView.SelectedItem.RowObject;
 					string strOldValue = mctUpdatedCategory.CategoryName;
 					mctUpdatedCategory.CategoryName = strValue;
 					mctUpdatedCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty)); ;
@@ -981,7 +978,7 @@ namespace Nexus.Client.ModManagement.UI
 				else
 				{
 					lock (clwCategoryView)
-						ViewModel.UpdateModName((IMod)lviItem.Tag, strValue);
+						ViewModel.UpdateModName((IMod)clwCategoryView.SelectedItem.RowObject, strValue);
 					clwCategoryView.RebuildAll(true);
 				}
 			}
@@ -1396,9 +1393,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		private void ManagedMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (lvwMods.InvokeRequired)
+			if (clwCategoryView.InvokeRequired)
 			{
-				lvwMods.Invoke((MethodInvoker)(() => ManagedMods_CollectionChanged(sender, e)));
+				clwCategoryView.Invoke((MethodInvoker)(() => ManagedMods_CollectionChanged(sender, e)));
 				return;
 			}
 
@@ -1426,20 +1423,35 @@ namespace Nexus.Client.ModManagement.UI
 					break;
 			}
 
-			if (mctCategory != null)
+			if (clwCategoryView.CategoryModeEnabled)
+			{
+				if (mctCategory != null)
+				{
+					if ((e.NewItems != null) && (e.NewItems.Count > 0))
+					{
+						mctCategory.NewMods += 1;
+						if (clwCategoryView.RefreshData(new ModCategory(mctCategory)))
+							clwCategoryView.AddData(mctCategory, false);
+					}
+					else if ((e.OldItems != null) && (e.OldItems.Count > 0))
+					{
+						if ((clwCategoryView.GetCategoryModCount(mctCategory) == 0) && !clwCategoryView.ShowHiddenCategories)
+							clwCategoryView.RemoveData(mctCategory);
+					}
+				}
+			}
+			else
 			{
 				if ((e.NewItems != null) && (e.NewItems.Count > 0))
 				{
-					mctCategory.NewMods += 1;
-					if (clwCategoryView.RefreshData(new ModCategory(mctCategory)))
-						clwCategoryView.AddData(mctCategory, false);
+					clwCategoryView.AddObjects(e.NewItems);
 				}
 				else if ((e.OldItems != null) && (e.OldItems.Count > 0))
 				{
-					if ((clwCategoryView.GetCategoryModCount(mctCategory) == 0) && !clwCategoryView.ShowHiddenCategories)
-						clwCategoryView.RemoveData(mctCategory);
+					clwCategoryView.RemoveObjects(clwCategoryView.SelectedObjects);
 				}
 			}
+
 			clwCategoryView.RebuildAll(true);
 		}
 

@@ -374,8 +374,8 @@ namespace Nexus.Client
 			}
 			StepOverallProgress();
 
-			//UpgradeMismatchedVersionMods(svmServices.ModInstallLog, svmServices.ModManager);
-			//StepOverallProgress();
+			UpgradeMismatchedVersionMods(svmServices.ModInstallLog, svmServices.ModManager);
+			StepOverallProgress();
 
 			if (!UninstallMissingMods(gmdGameMode, EnvironmentInfo, svmServices.ModManager))
 			{
