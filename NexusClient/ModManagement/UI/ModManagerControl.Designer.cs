@@ -56,19 +56,11 @@
 			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
 			this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
-			this.lvwMods = new Nexus.UI.Controls.IconListView();
-			this.clmModName = new System.Windows.Forms.ColumnHeader();
-			this.clmCategory = new System.Windows.Forms.ColumnHeader();
-			this.clmInstallDate = new System.Windows.Forms.ColumnHeader();
-			this.clmVersion = new System.Windows.Forms.ColumnHeader();
-			this.clmWebVersion = new System.Windows.Forms.ColumnHeader();
-			this.clmAuthor = new System.Windows.Forms.ColumnHeader();
-			this.clmEndorsement = new System.Windows.Forms.ColumnHeader();
 			this.sptSummaryInfo = new System.Windows.Forms.SplitContainer();
 			this.ipbScreenShot = new Nexus.UI.Controls.ImagePreviewBox();
 			this.flbInfo = new Nexus.UI.Controls.FormattedLabel();
 			this.clwCategoryView = new Nexus.Client.UI.Controls.CategoryListView();
-			
+
 			this.ofdChooseMod = new System.Windows.Forms.OpenFileDialog();
 			this.toolStrip1.SuspendLayout();
 			this.sptMods.Panel1.SuspendLayout();
@@ -288,7 +280,6 @@
 			// 
 			// sptMods.Panel1
 			// 
-			this.sptMods.Panel1.Controls.Add(this.lvwMods);
 			this.sptMods.Panel1.Controls.Add(this.clwCategoryView);
 			// 
 			// sptMods.Panel2
@@ -297,68 +288,6 @@
 			this.sptMods.Size = new System.Drawing.Size(608, 453);
 			this.sptMods.SplitterDistance = 315;
 			this.sptMods.TabIndex = 1;
-			// 
-			// lvwMods
-			// 
-			this.lvwMods.CheckBoxes = true;
-			this.lvwMods.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.clmModName,
-			this.clmCategory,
-			this.clmInstallDate,
-            this.clmVersion,
-            this.clmWebVersion,
-			this.clmEndorsement,
-            this.clmAuthor});
-			this.lvwMods.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.lvwMods.FullRowSelect = true;
-			this.lvwMods.HideSelection = false;
-			this.lvwMods.LabelEdit = true;
-			this.lvwMods.Location = new System.Drawing.Point(0, 0);
-			this.lvwMods.MultiSelect = false;
-			this.lvwMods.Name = "lvwMods";
-			this.lvwMods.OwnerDraw = true;
-			this.lvwMods.ShowItemToolTips = true;
-			this.lvwMods.Size = new System.Drawing.Size(315, 453);
-			this.lvwMods.Sorting = System.Windows.Forms.SortOrder.Ascending;
-			this.lvwMods.TabIndex = 0;
-			this.lvwMods.UseCompatibleStateImageBehavior = false;
-			this.lvwMods.View = System.Windows.Forms.View.Details;
-			this.lvwMods.Resize += new System.EventHandler(this.lvwMods_Resize);
-			this.lvwMods.AfterLabelEdit += new System.Windows.Forms.LabelEditEventHandler(this.lvwMods_AfterLabelEdit);
-			this.lvwMods.SelectedIndexChanged += new System.EventHandler(this.lvwMods_SelectedIndexChanged);
-			this.lvwMods.MouseMove += new System.Windows.Forms.MouseEventHandler(this.lvwMods_MouseMove);
-			this.lvwMods.MouseDown += new System.Windows.Forms.MouseEventHandler(this.lvwMods_MouseDown);
-			this.lvwMods.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.lvwMods_ColumnWidthChanging);
-			this.lvwMods.Visible = false;
-			// 
-			// clmModName
-			// 
-			this.clmModName.Text = "Name";
-			// 
-			// clmCategory
-			// 
-			this.clmCategory.Text = "Category";
-			// 
-			// clmInstallDate
-			// 
-			this.clmInstallDate.Text = "Install Date";
-			this.clmInstallDate.Width = 125;
-			// 
-			// clmVersion
-			// 
-			this.clmVersion.Text = "Version";
-			// 
-			// clmWebVersion
-			// 
-			this.clmWebVersion.Text = "Latest Version";
-			// 
-			// clmAuthor
-			// 
-			this.clmAuthor.Text = "Author";
-			// 
-			// clmEndorsement
-			// 
-			this.clmEndorsement.Text = "Endorsement";
 			// 
 			// clwCategoryView
 			// 
@@ -381,7 +310,7 @@
 			this.clwCategoryView.UseHyperlinks = true;
 			this.clwCategoryView.View = System.Windows.Forms.View.Details;
 			this.clwCategoryView.VirtualMode = true;
-			this.clwCategoryView.Resize += new System.EventHandler(this.lvwMods_Resize);
+			this.clwCategoryView.Resize += new System.EventHandler(this.clwCategoryView_Resize);
 			this.clwCategoryView.AfterLabelEdit += new System.Windows.Forms.LabelEditEventHandler(this.clwCategoryView_AfterLabelEdit);
 			this.clwCategoryView.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.clwCategoryView_ColumnWidthChanging);
 			this.clwCategoryView.Expanding += new System.EventHandler<BrightIdeasSoftware.TreeBranchExpandingEventArgs>(this.clwCategoryView_TreeBranchExpanding);
@@ -460,7 +389,6 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.SplitContainer sptMods;
-		private Nexus.UI.Controls.IconListView lvwMods;
 		private System.Windows.Forms.SplitContainer sptSummaryInfo;
 		private Nexus.UI.Controls.ImagePreviewBox ipbScreenShot;
 		private Nexus.UI.Controls.FormattedLabel flbInfo;
@@ -478,13 +406,6 @@
 		private System.Windows.Forms.ToolStripMenuItem expandAllCategories;
 		private System.Windows.Forms.ToolStripMenuItem toggleHiddenCategories;
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;
-		private System.Windows.Forms.ColumnHeader clmModName;
-		private System.Windows.Forms.ColumnHeader clmCategory;
-		private System.Windows.Forms.ColumnHeader clmInstallDate;
-		private System.Windows.Forms.ColumnHeader clmVersion;
-		private System.Windows.Forms.ColumnHeader clmWebVersion;
-		private System.Windows.Forms.ColumnHeader clmAuthor;
-		private System.Windows.Forms.ColumnHeader clmEndorsement;
 		private System.Windows.Forms.ToolStripButton tsbActivate;
 		private System.Windows.Forms.ToolStripButton tsbDeactivate;
 		private System.Windows.Forms.ToolStripButton tsbDeleteMod;
