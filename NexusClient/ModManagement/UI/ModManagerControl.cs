@@ -29,10 +29,8 @@ namespace Nexus.Client.ModManagement.UI
 	{
 		private ModManagerVM m_vmlViewModel = null;
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();
-		private bool m_booSettingModActiveCheck = false;
 		private bool m_booResizing = false;
 		private Timer m_tmrColumnSizer = new Timer();
-		private ListViewItem.ListViewSubItem m_lsiLastSelectedWebVersion = null;
 		private bool m_booControlIsLoaded = false;
 		private bool m_booDisableSummary = true;
 
@@ -59,11 +57,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
 				m_vmlViewModel.TaggingMod += new EventHandler<EventArgs<ModTaggerVM>>(ViewModel_TaggingMod);
-				m_vmlViewModel.NewestModInfo.CollectionChanged += new NotifyCollectionChangedEventHandler(NewestModInfo_CollectionChanged);
-				foreach (IMod modMod in m_vmlViewModel.ManagedMods)
-					AddModToList(modMod);
 				m_vmlViewModel.ManagedMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedMods_CollectionChanged);
-				m_vmlViewModel.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
 
 				LoadModFormatFilter();
 
@@ -77,7 +71,6 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ConfirmModUpgrade = ConfirmModUpgrade;
 
 				new ToolStripItemCommandBinding<IMod>(tsbDeleteMod, m_vmlViewModel.DeleteModCommand, GetSelectedMod);
-				new KeyDownCommandBinding<IMod>(lvwMods, m_vmlViewModel.DeleteModCommand, GetSelectedMod, Keys.Delete);
 				new ToolStripItemCommandBinding<IMod>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DeactivateModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
@@ -109,7 +102,6 @@ namespace Nexus.Client.ModManagement.UI
 			this.Load += new EventHandler(ModManagerControl_Load);
 			InitializeComponent();
 
-			lvwMods.FontChanged += new EventHandler(lvwMods_FontChanged);
 			clwCategoryView.BeforeSorting += new EventHandler<BrightIdeasSoftware.BeforeSortingEventArgs>(clwCategoryView_BeforeSorting);
 			clwCategoryView.ColumnClick += new ColumnClickEventHandler(clwCategoryView_ColumnClick);
 			clwCategoryView.CategorySwitch += new EventHandler(CategoryListView_CategorySwitch);
@@ -119,14 +111,6 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
-
-			clmModName.Name = "ModName";
-			clmCategory.Name = "Category";
-			clmInstallDate.Name = "InstallDate";
-			clmVersion.Name = "HumanReadableVersion";
-			clmWebVersion.Name = "WebVersion";
-			clmAuthor.Name = "Author";
-			clmEndorsement.Name = "Endorsement";
 
 			tsbAddMod.DefaultItem = tsbAddMod.DropDownItems[0];
 			tsbAddMod.Text = tsbAddMod.DefaultItem.Text;
@@ -160,10 +144,9 @@ namespace Nexus.Client.ModManagement.UI
 				LoadMetrics();
 
 				ViewModel.CheckReadMeManager();
-				
+
 				clwCategoryView.CategoryModeEnabled = ViewModel.Settings.UseCategoryView;
 				LoadCategoryView();
-				lvwMods.Visible = false;
 
 				ViewModel.StartupCheckForUpdates();
 
@@ -172,7 +155,7 @@ namespace Nexus.Client.ModManagement.UI
 					ViewModel.CheckCategoryManager();
 					clwCategoryView.LoadData();
 					clwCategoryView.SetupContextMenu();
-					clwCategoryView.RebuildAll(true);
+					clwCategoryView.ReloadList();
 				}
 
 				m_booDisableSummary = false;
@@ -187,7 +170,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (m_booControlIsLoaded && (ViewModel != null))
 			{
 				ViewModel.Settings.SplitterSizes.LoadSplitterSizes("modManager", sptMods);
-				ViewModel.Settings.ColumnWidths.LoadColumnWidths("modManager", lvwMods);
+				ViewModel.Settings.ColumnWidths.LoadColumnWidths("modManager", clwCategoryView);
 
 				FindForm().FormClosing += new FormClosingEventHandler(PluginManagerControl_FormClosing);
 				SizeColumnsToFit();
@@ -206,7 +189,6 @@ namespace Nexus.Client.ModManagement.UI
 		private void PluginManagerControl_FormClosing(object sender, FormClosingEventArgs e)
 		{
 			ViewModel.Settings.SplitterSizes.SaveSplitterSizes("modManager", sptMods);
-			ViewModel.Settings.ColumnWidths.SaveColumnWidths("modManager", lvwMods);
 			ViewModel.Settings.Save();
 		}
 
@@ -262,8 +244,6 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event.</param>
 		private void ModManagerControl_Load(object sender, EventArgs e)
 		{
-			lvwMods.ItemCheck += new ItemCheckEventHandler(lvwMods_ItemCheck);
-			lvwMods.ItemActivate += new EventHandler(lvwMods_ItemActivate);
 		}
 
 		/// <summary>
@@ -282,7 +262,6 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.AddingMod -= ViewModel_AddingMod;
 				m_vmlViewModel.ChangingModActivation -= ViewModel_ChangingModActivation;
 				m_vmlViewModel.ManagedMods.CollectionChanged -= ManagedMods_CollectionChanged;
-				m_vmlViewModel.ActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
 			}
 
 			foreach (IBackgroundTaskSet btsSet in lstRunningTaskSets)
@@ -325,11 +304,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <c>null</c> if no mod is selected.</returns>
 		private IMod GetSelectedMod()
 		{
-			if ((lvwMods.Visible && (lvwMods.SelectedItems.Count == 0)) || (clwCategoryView.Visible && (clwCategoryView.SelectedIndices.Count == 0)))
+			if (clwCategoryView.Visible && (clwCategoryView.SelectedIndices.Count == 0))
 				return null;
-
-			if (lvwMods.Visible)
-				return (IMod)lvwMods.SelectedItems[0].Tag;
 			else
 				return (IMod)clwCategoryView.GetSelectedItem;
 		}
@@ -339,15 +315,13 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		protected void SetCommandExecutableStatus()
 		{
-			if (((lvwMods.SelectedItems.Count > 0) && lvwMods.Visible) || ((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
+			if (((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
 			{
-				if (lvwMods.Visible)
-					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)lvwMods.SelectedItems[0].Tag);
-				else if (clwCategoryView.Visible)
+				if (clwCategoryView.Visible)
 					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)clwCategoryView.GetSelectedItem);
 
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
-				
+
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = !ViewModel.OfflineMode;
 				tsbToggleEndorse.Enabled = !ViewModel.OfflineMode;
@@ -710,32 +684,17 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				IModCategory imcNewCategory = (IModCategory)sender;
 				List<IMod> lstSelectedMods = new List<IMod>();
-				List<ModCategory> lstOldCategory = new List<ModCategory>();
 				foreach (object Item in clwCategoryView.GetSelectedItems)
 				{
 					if (Item.GetType() != typeof(ModCategory))
 					{
 						IMod modMod = (IMod)Item;
-						ModCategory mctOldCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modMod.CustomCategoryId >= 0 ? modMod.CustomCategoryId : modMod.CategoryId);
-						if (!lstOldCategory.Contains(mctOldCategory))
-							lstOldCategory.Add(mctOldCategory);
 						lstSelectedMods.Add(modMod);
 					}
 				}
 
 				ViewModel.SwitchModsToCategory(lstSelectedMods, imcNewCategory.Id);
-
-				if (clwCategoryView.CategoryModeEnabled)
-				{
-					if (clwCategoryView.RefreshData(new ModCategory(imcNewCategory)))
-						clwCategoryView.AddData(imcNewCategory, false);
-
-					foreach (ModCategory mctOld in lstOldCategory)
-						if ((clwCategoryView.GetCategoryModCount(mctOld) == 0) && !clwCategoryView.ShowHiddenCategories)
-							clwCategoryView.RemoveData(mctOld);
-				}
-
-				clwCategoryView.RebuildAll(true);
+				clwCategoryView.ReloadList();
 			}
 		}
 
@@ -779,7 +738,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (hashMods.Count > 0)
 			{
 				ViewModel.ToggleModUpdateWarning(hashMods);
-				clwCategoryView.RebuildAll(true);
+				clwCategoryView.ReloadList();
 			}
 		}
 
@@ -793,16 +752,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (sender != null)
 			{
-				bool booShowUnassigned = false;
-				if (clwCategoryView.GetCategoryModCount(new ModCategory()) == 0)
-					if (clwCategoryView.GetCategoryModCount((IModCategory)sender) > 0)
-						booShowUnassigned = true;
-
+				clwCategoryView.RemoveObject((IModCategory)sender);
 				ViewModel.SwitchModsToUnassigned((IModCategory)sender);
-				clwCategoryView.RebuildAll(true);
-
-				if (booShowUnassigned && clwCategoryView.CategoryModeEnabled)
-					clwCategoryView.AddData(new ModCategory(), false);
+				clwCategoryView.ReloadList();
 			}
 		}
 
@@ -827,9 +779,11 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (ViewModel.ResetDefaultCategories())
 			{
+				clwCategoryView.Visible = false;
 				clwCategoryView.LoadData();
 				clwCategoryView.SetupContextMenu();
-				clwCategoryView.RebuildAll(true);
+				clwCategoryView.ReloadList();
+				clwCategoryView.Visible = true;
 			}
 		}
 
@@ -850,9 +804,11 @@ namespace Nexus.Client.ModManagement.UI
 
 			ViewModel.CheckForUpdates(true);
 
+			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
 			clwCategoryView.SetupContextMenu();
-			clwCategoryView.RebuildAll(true);
+			clwCategoryView.ReloadList();
+			clwCategoryView.Visible = true;
 		}
 
 		/// <summary>
@@ -867,8 +823,8 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
-		/// category button.
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the switch view
+		/// button.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
@@ -877,7 +833,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategoryModeEnabled = !clwCategoryView.CategoryModeEnabled;
 			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
-			clwCategoryView.RebuildAll(false);
+			clwCategoryView.ReloadList();
 			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
 			ViewModel.Settings.Save();
 			clwCategoryView.Visible = true;
@@ -920,7 +876,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			ViewModel.Settings.ShowEmptyCategory = !clwCategoryView.ShowHiddenCategories;
 			clwCategoryView.ShowHiddenCategories = !clwCategoryView.ShowHiddenCategories;
-			clwCategoryView.LoadData();
+			clwCategoryView.ReloadList();
 		}
 
 		/// <summary>
@@ -944,9 +900,9 @@ namespace Nexus.Client.ModManagement.UI
 				}
 				else
 				{
-					lock (lvwMods)
+					lock (clwCategoryView)
 						ViewModel.UpdateModName((IMod)e.ListViewItem.RowObject, strValue);
-					clwCategoryView.RebuildAll(true);
+					clwCategoryView.ReloadList();
 				}
 			}
 
@@ -979,7 +935,7 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					lock (clwCategoryView)
 						ViewModel.UpdateModName((IMod)clwCategoryView.SelectedItem.RowObject, strValue);
-					clwCategoryView.RebuildAll(true);
+					clwCategoryView.ReloadList();
 				}
 			}
 
@@ -1013,7 +969,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			clwCategoryView.SetSecondarySortColumn();
 		}
-		
+
 		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the reset mods to
 		/// the Unassigned category.
@@ -1025,7 +981,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (ViewModel.ResetToUnassigned())
 			{
 				clwCategoryView.LoadData();
-				clwCategoryView.RebuildAll(true);
+				clwCategoryView.ReloadList();
 			}
 		}
 
@@ -1041,54 +997,15 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				clwCategoryView.LoadData();
 				clwCategoryView.SetupContextMenu();
-				clwCategoryView.RebuildAll(true);
+				clwCategoryView.ReloadList();
 			}
-		}		
+		}
 
 		#endregion
 
 		#region Mod Management
 
 		#region Mod Addition
-
-		/// <summary>
-		/// Adds the given mod to the view's list. If the mod already exists in the list,
-		/// it is replaced with the new version.
-		/// </summary>
-		/// <param name="p_modAdded">The mod to add to the view's list.</param>
-		protected void AddModToList(IMod p_modAdded)
-		{
-			ListViewItem lviMod = null;
-			lock (lvwMods)
-			{
-				if (lvwMods.Items.ContainsKey(p_modAdded.Filename.ToLowerInvariant()))
-					lviMod = lvwMods.Items[p_modAdded.Filename.ToLowerInvariant()];
-				else
-				{
-					lviMod = new ListViewItem();
-					for (Int32 i = 1; i < lvwMods.Columns.Count; i++)
-					{
-						lviMod.SubItems.Add(new ListViewItem.ListViewSubItem());
-						lviMod.SubItems[i].Name = lvwMods.Columns[i].Name;
-					}
-					lviMod.Name = p_modAdded.Filename.ToLowerInvariant();
-					lviMod.UseItemStyleForSubItems = false;
-					lvwMods.Items.Add(lviMod);
-				}
-			}
-			lviMod.Tag = p_modAdded;
-			lviMod.Text = p_modAdded.ModName;
-			lviMod.SubItems[clmCategory.Name].Text = ViewModel.CategoryManager.FindCategory(p_modAdded.CustomCategoryId >= 0 ? p_modAdded.CustomCategoryId : p_modAdded.CategoryId).CategoryName;
-			lviMod.SubItems[clmVersion.Name].Text = p_modAdded.HumanReadableVersion;
-			lviMod.SubItems[clmWebVersion.Name].Text = p_modAdded.HumanReadableVersion;
-			UpdateNewestVersion(lviMod);
-			lviMod.SubItems[clmAuthor.Name].Text = p_modAdded.Author;
-			lviMod.SubItems[clmInstallDate.Name].Text = p_modAdded.InstallDate;
-			p_modAdded.PropertyChanged -= new PropertyChangedEventHandler(Mod_PropertyChanged);
-			p_modAdded.PropertyChanged += new PropertyChangedEventHandler(Mod_PropertyChanged);
-			SetModActivationCheck(lviMod, ViewModel.ActiveMods.Contains(p_modAdded));
-			lvwMods.Sort();
-		}
 
 		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the add mod
@@ -1184,16 +1101,6 @@ namespace Nexus.Client.ModManagement.UI
 		#region Mod Removal
 
 		/// <summary>
-		/// Removes the given mod from the view's list.
-		/// </summary>
-		/// <param name="p_modRemoved">The mod to remove from the view's list.</param>
-		protected void RemoveModFromList(IMod p_modRemoved)
-		{
-			lock (lvwMods)
-				lvwMods.Items.RemoveByKey(p_modRemoved.Filename.ToLowerInvariant());
-		}
-
-		/// <summary>
 		/// Handles the <see cref="ModManagerVM.DeletingMod"/> event of the view model.
 		/// </summary>
 		/// <remarks>
@@ -1228,160 +1135,6 @@ namespace Nexus.Client.ModManagement.UI
 
 		#endregion
 
-		#region Mod Updates
-
-		/// <summary>
-		/// Updates the latest mod version to reflect the newest available information.
-		/// </summary>
-		/// <param name="p_lviMod">The list item to update.</param>
-		private void UpdateNewestVersion(ListViewItem p_lviMod)
-		{
-			IMod modMod = (IMod)p_lviMod.Tag;
-			AutoUpdater.UpdateInfo uifNewModInfo = ViewModel.NewestModInfo.Find(x => x.Mod == modMod);
-			ListViewItem.ListViewSubItem lsiWebVersion = p_lviMod.SubItems[clmWebVersion.Name];
-			lvwMods.ClearMessage(lsiWebVersion);
-			if ((uifNewModInfo != null) && (uifNewModInfo.NewestInfo != null))
-			{
-				lsiWebVersion.Text = uifNewModInfo.NewestInfo.HumanReadableVersion;
-				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Regular);
-				if (uifNewModInfo.NewestInfo.Website != null)
-				{
-					if ((!String.IsNullOrEmpty(uifNewModInfo.NewestInfo.LastKnownVersion) && !uifNewModInfo.IsMatchingVersion(uifNewModInfo.NewestInfo.LastKnownVersion)) || !uifNewModInfo.IsMatchingVersion(modMod.HumanReadableVersion))
-						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
-					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
-				}
-				else
-					lsiWebVersion.ForeColor = lvwMods.ForeColor;
-
-				lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], uifNewModInfo.NewestInfo.IsEndorsed ? "Endorsed" : "Unendorsed", uifNewModInfo.NewestInfo.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
-				lsiWebVersion.Tag = uifNewModInfo.NewestInfo;
-			}
-			else
-			{
-				lsiWebVersion.Text = String.IsNullOrEmpty(modMod.LastKnownVersion) ? modMod.HumanReadableVersion : modMod.LastKnownVersion;
-				lsiWebVersion.Font = new Font(p_lviMod.SubItems[clmWebVersion.Name].Font, FontStyle.Regular);
-
-				if (modMod.Website != null)
-				{
-					if (!modMod.IsMatchingVersion())
-						lvwMods.SetMessage(lsiWebVersion, "Update available", Properties.Resources.dialog_warning_4);
-					lsiWebVersion.ForeColor = Color.FromKnownColor(KnownColor.HotTrack);
-					lvwMods.SetMessage(p_lviMod.SubItems[clmEndorsement.Name], modMod.IsEndorsed ? "Endorsed" : "Unendorsed", modMod.IsEndorsed ? Properties.Resources.endorsed_small : Properties.Resources.unendorsed_small);
-					lsiWebVersion.Tag = modMod;
-				}
-				else
-				{
-					lsiWebVersion.ForeColor = lvwMods.ForeColor;
-					lsiWebVersion.Tag = null;
-				}
-			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
-		/// newest mod info list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the list of mods to refelct changes to the mewest available mod info.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
-		private void NewestModInfo_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-		{
-			if (lvwMods.InvokeRequired)
-			{
-				lvwMods.Invoke((Action<object, NotifyCollectionChangedEventArgs>)NewestModInfo_CollectionChanged, sender, e);
-				return;
-			}
-			lock (lvwMods)
-			{
-				switch (e.Action)
-				{
-					case NotifyCollectionChangedAction.Add:
-					case NotifyCollectionChangedAction.Replace:
-						foreach (AutoUpdater.UpdateInfo ui in e.NewItems)
-							foreach (ListViewItem lviSearch in lvwMods.Items)
-								if (lviSearch.Tag == ui.Mod)
-								{
-									UpdateNewestVersion(lviSearch);
-									break;
-								}
-						break;
-					case NotifyCollectionChangedAction.Remove:
-					case NotifyCollectionChangedAction.Reset:
-						foreach (AutoUpdater.UpdateInfo ui in e.OldItems)
-							foreach (ListViewItem lviSearch in lvwMods.Items)
-								if (lviSearch.Tag == ui.Mod)
-								{
-									UpdateNewestVersion(lviSearch);
-									break;
-								}
-						break;
-				}
-			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="Control.MouseMove"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This fakes the web version column into looking like a hyperlink.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="MouseEventArgs"/> describing the event arguments.</param>
-		private void lvwMods_MouseMove(object sender, MouseEventArgs e)
-		{
-			ListViewHitTestInfo htiInfo = lvwMods.HitTest(e.Location);
-			ListViewItem.ListViewSubItem lsiSubItem = htiInfo.SubItem;
-			if ((lsiSubItem == null) || (lsiSubItem == m_lsiLastSelectedWebVersion))
-				return;
-			if (m_lsiLastSelectedWebVersion != null)
-			{
-				m_lsiLastSelectedWebVersion.Font = new Font(m_lsiLastSelectedWebVersion.Font, FontStyle.Regular);
-				m_lsiLastSelectedWebVersion = null;
-			}
-			lvwMods.Cursor = Cursors.Default;
-			if ((lsiSubItem == htiInfo.Item.SubItems[clmWebVersion.Name]) && (lsiSubItem.Tag != null))
-			{
-				IModInfo mifNewInfo = (IModInfo)lsiSubItem.Tag;
-				if (mifNewInfo.Website == null)
-					return;
-				m_lsiLastSelectedWebVersion = lsiSubItem;
-				lsiSubItem.Font = new Font(lsiSubItem.Font, FontStyle.Underline);
-				lvwMods.Cursor = Cursors.Hand;
-			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="Control.MouseDown"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This opens the website for the newest version of the mod.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="MouseEventArgs"/> describing the event arguments.</param>
-		private void lvwMods_MouseDown(object sender, MouseEventArgs e)
-		{
-			ListViewHitTestInfo htiInfo = lvwMods.HitTest(e.Location);
-			ListViewItem.ListViewSubItem lsiSubItem = htiInfo.SubItem;
-			if ((e.Button != MouseButtons.Left) || (lsiSubItem == null) || (lsiSubItem != htiInfo.Item.SubItems[clmWebVersion.Name]) || (lsiSubItem.Tag == null))
-				return;
-			IModInfo mifNewInfo = (IModInfo)lsiSubItem.Tag;
-			if (mifNewInfo.Website == null)
-				return;
-			try
-			{
-				System.Diagnostics.Process.Start(mifNewInfo.Website.ToString());
-			}
-			catch (Win32Exception)
-			{
-				MessageBox.Show(this, "Cannot find programme to open: " + mifNewInfo.Website, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-				Trace.WriteLine("Cannot find programme to open: " + mifNewInfo.Website);
-			}
-		}
-
-		#endregion
-
 		/// <summary>
 		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
 		/// installed mod list.
@@ -1395,7 +1148,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (clwCategoryView.InvokeRequired)
 			{
-				clwCategoryView.Invoke((MethodInvoker)(() => ManagedMods_CollectionChanged(sender, e)));
+				clwCategoryView.BeginInvoke((MethodInvoker)(() => ManagedMods_CollectionChanged(sender, e)));
 				return;
 			}
 
@@ -1408,7 +1161,6 @@ namespace Nexus.Client.ModManagement.UI
 					foreach (IMod modAdded in e.NewItems)
 					{
 						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modAdded.CategoryId);
-						AddModToList(modAdded);
 						if (mctCategory.Id == 0)
 							ViewModel.SwitchModCategory(modAdded, 0);
 					}
@@ -1416,7 +1168,6 @@ namespace Nexus.Client.ModManagement.UI
 				case NotifyCollectionChangedAction.Remove:
 					foreach (IMod modRemoved in e.OldItems)
 					{
-						RemoveModFromList(modRemoved);
 						ViewModel.DeleteReadMe(modRemoved);
 						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modRemoved.CustomCategoryId >= 0 ? modRemoved.CustomCategoryId : modRemoved.CategoryId);
 					}
@@ -1430,13 +1181,11 @@ namespace Nexus.Client.ModManagement.UI
 					if ((e.NewItems != null) && (e.NewItems.Count > 0))
 					{
 						mctCategory.NewMods += 1;
-						if (clwCategoryView.RefreshData(new ModCategory(mctCategory)))
-							clwCategoryView.AddData(mctCategory, false);
+						clwCategoryView.RefreshObject(mctCategory);
 					}
 					else if ((e.OldItems != null) && (e.OldItems.Count > 0))
 					{
-						if ((clwCategoryView.GetCategoryModCount(mctCategory) == 0) && !clwCategoryView.ShowHiddenCategories)
-							clwCategoryView.RemoveData(mctCategory);
+						clwCategoryView.RefreshObject(mctCategory);
 					}
 				}
 			}
@@ -1452,7 +1201,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 
-			clwCategoryView.RebuildAll(true);
+			clwCategoryView.ReloadList();
 		}
 
 		/// <summary>
@@ -1472,7 +1221,6 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			if (!m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)sender);
-			AddModToList((IMod)sender);
 		}
 
 		#endregion
@@ -1491,9 +1239,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booIsActive">Whether the item should be active.</param>
 		protected void SetModActivationCheck(ListViewItem p_lviPlugin, bool p_booIsActive)
 		{
-			m_booSettingModActiveCheck = true;
 			p_lviPlugin.Checked = p_booIsActive;
-			m_booSettingModActiveCheck = false;
 		}
 
 		/// <summary>
@@ -1509,54 +1255,6 @@ namespace Nexus.Client.ModManagement.UI
 			e.Argument.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(TaskSet_TaskStarted);
 			e.Argument.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(TaskSet_TaskSetCompleted);
 			lstRunningTaskSets.Add(e.Argument);
-		}
-
-		/// <summary>
-		/// Show the given mod as being either active or inactive in the view.
-		/// </summary>
-		/// <param name="p_modActivated">The mod whose active status has changed.</param>
-		/// <param name="p_booIsActive">Whether the given mod is active.</param>
-		protected void SetModActive(IMod p_modActivated, bool p_booIsActive)
-		{
-			ListViewItem lviMod = null;
-			lock (lvwMods)
-			{
-				if (!lvwMods.Items.ContainsKey(p_modActivated.Filename.ToLowerInvariant()))
-					return;
-				lviMod = lvwMods.Items[p_modActivated.Filename.ToLowerInvariant()];
-			}
-			SetModActivationCheck(lviMod, p_booIsActive);
-		}
-
-		/// <summary>
-		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
-		/// active mod list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the list of mods to refelct changes to which mods are active.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
-		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-		{
-			if (lvwMods.InvokeRequired)
-			{
-				lvwMods.Invoke((MethodInvoker)(() => ActiveMods_CollectionChanged(sender, e)));
-				return;
-			}
-			switch (e.Action)
-			{
-				case NotifyCollectionChangedAction.Add:
-					foreach (IMod modAdded in e.NewItems)
-						SetModActive(modAdded, true);
-					break;
-				case NotifyCollectionChangedAction.Remove:
-				case NotifyCollectionChangedAction.Reset:
-					foreach (IMod modAdded in e.OldItems)
-						SetModActive(modAdded, false);
-					break;
-			}
-			SetCommandExecutableStatus();
 		}
 
 		/// <summary>
@@ -1604,56 +1302,6 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		/// <summary>
-		/// Handles the <see cref="ListView.ItemCheck"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This prevents manual toggling of the check boxes.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="ItemCheckEventArgs"/> describing the event arguments.</param>
-		private void lvwMods_ItemCheck(object sender, ItemCheckEventArgs e)
-		{
-			lock (lvwMods)
-			{
-				e.NewValue = ViewModel.ActiveMods.Contains((IMod)lvwMods.Items[e.Index].Tag) ? CheckState.Checked : CheckState.Unchecked;
-				if (e.NewValue == CheckState.Checked)
-				{
-					if (String.IsNullOrEmpty(lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text))
-						lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text = DateTime.Now.ToString();
-				}
-				else if (e.NewValue == CheckState.Unchecked)
-					if (!String.IsNullOrEmpty(lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text))
-						lvwMods.Items[e.Index].SubItems[clmInstallDate.Name].Text = String.Empty;
-			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ListView.ItemActivate"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This event is used instead of <see cref="ListView.ItemChecked"/> or
-		/// <see cref="ListView.ItemCheck"/> as it is more deliberate (on the part of the user).
-		/// It is too easy to accidentally check or uncheck a checkbox, which could be annoying
-		/// for the user (accidentally deactivating a mod that take 30 minutes to activate would
-		/// cause angst). This is unlike the plugin list, where activating/deactivating plugins
-		/// is cheap, so the simplier events make more sense.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="ItemCheckEventArgs"/> describing the event arguments.</param>
-		private void lvwMods_ItemActivate(object sender, EventArgs e)
-		{
-			if (m_booSettingModActiveCheck)
-				return;
-			if (lvwMods.SelectedItems.Count == 0)
-				return;
-			ListViewItem lviMod = lvwMods.SelectedItems[0];
-			if (!lviMod.Checked)
-				ViewModel.ActivateModCommand.Execute((IMod)lviMod.Tag);
-			else
-				ViewModel.DeactivateModCommand.Execute((IMod)lviMod.Tag);
-		}
-
 		#endregion
 
 		#region Tagging
@@ -1671,61 +1319,7 @@ namespace Nexus.Client.ModManagement.UI
 			new ModTaggerForm(e.Argument).ShowDialog(this);
 		}
 
-		/// <summary>
-		/// Handles the <see cref="ListView.AfterLabelEdit"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the name of the mod.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="LabelEditEventArgs"/> describing the event arguments.</param>
-		private void lvwMods_AfterLabelEdit(object sender, LabelEditEventArgs e)
-		{
-			if (String.IsNullOrEmpty(e.Label))
-				return;
-			lock (lvwMods)
-				ViewModel.UpdateModName((IMod)lvwMods.Items[e.Item].Tag, e.Label);
-			e.CancelEdit = true;
-		}
-
 		#endregion
-
-		/// <summary>
-		/// Handles the <see cref="ListView.SelectedIndexChanged"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This displays the screenshot and description of the selected mod.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void lvwMods_SelectedIndexChanged(object sender, EventArgs e)
-		{
-			if ((lvwMods.SelectedItems.Count > 0) && !m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
-				UpdateSummary((IMod)lvwMods.SelectedItems[0].Tag);
-			else
-				UpdateSummary(null);
-			SetCommandExecutableStatus();
-		}
-
-		/// <summary>
-		/// Handles the <see cref="Control.FontChanged"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the subitems to the new font.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void lvwMods_FontChanged(object sender, EventArgs e)
-		{
-			foreach (ListViewItem lviItem in lvwMods.Items)
-			{
-				if (lviItem.Font != lvwMods.Font)
-					lviItem.Font = new Font(lvwMods.Font.FontFamily, lviItem.Font.Size, lviItem.Font.Style);
-				foreach (ListViewItem.ListViewSubItem lsiSubItem in lviItem.SubItems)
-					if (lsiSubItem.Font != lvwMods.Font)
-						lsiSubItem.Font = new Font(lvwMods.Font.FontFamily, lsiSubItem.Font.Size, lsiSubItem.Font.Style);
-			}
-		}
 
 		/// <summary>
 		/// Updates the displayed summary information to reflect the
@@ -1781,26 +1375,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		protected void SizeColumnsToFit()
 		{
-			if (lvwMods.Visible)
-				SizeColumnsToFitLvw();
-			else if (clwCategoryView.Visible)
+			if (clwCategoryView.Visible)
 				SizeColumnsToFitClw();
-		}
-
-		/// <summary>
-		/// This resizes the columns to fill the list view.
-		/// </summary>
-		protected void SizeColumnsToFitLvw()
-		{
-			if (lvwMods.Columns.Count == 0)
-				return;
-			m_booResizing = true;
-			Int32 intFixedWidth = 0;
-			for (Int32 i = 0; i < lvwMods.Columns.Count; i++)
-				if (lvwMods.Columns[i] != clmModName)
-					intFixedWidth += lvwMods.Columns[i].Width;
-			clmModName.Width = lvwMods.ClientSize.Width - intFixedWidth;
-			m_booResizing = false;
 		}
 
 		/// <summary>
@@ -1811,34 +1387,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void lvwMods_Resize(object sender, EventArgs e)
+		private void clwCategoryView_Resize(object sender, EventArgs e)
 		{
 			m_tmrColumnSizer.Stop();
 			m_tmrColumnSizer.Start();
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ListView.ColumnWidthChanging"/> event of the mod list.
-		/// </summary>
-		/// <remarks>
-		/// This resizes the column next to the column being resized to resize as well,
-		/// so that the columns keep the list view filled.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ColumnWidthChangingEventArgs"/> describing the event arguments.</param>
-		private void lvwMods_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
-		{
-			if (m_booResizing)
-				return;
-			ColumnHeader clmThis = lvwMods.Columns[e.ColumnIndex];
-			ColumnHeader clmOther = null;
-			if (e.ColumnIndex == lvwMods.Columns.Count - 1)
-				clmOther = lvwMods.Columns[e.ColumnIndex - 1];
-			else
-				clmOther = lvwMods.Columns[e.ColumnIndex + 1];
-			m_booResizing = true;
-			clmOther.Width += (clmThis.Width - e.NewWidth);
-			m_booResizing = false;
 		}
 
 		/// <summary>
