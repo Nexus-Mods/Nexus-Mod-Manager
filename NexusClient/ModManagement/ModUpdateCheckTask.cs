@@ -118,12 +118,20 @@ namespace Nexus.Client.ModManagement
 				}
 				else
 				{
-					IModInfo mifInfo = ModRepository.GetModInfoForFile(m_lstModList[i].Filename);
-					if (mifInfo != null)
+					try
 					{
-						modID = mifInfo.Id;
-						m_lstModList[i].Id = modID;
-						AutoUpdater.AddNewVersionNumberForMod(m_lstModList[i], mifInfo);
+						IModInfo mifInfo = ModRepository.GetModInfoForFile(m_lstModList[i].Filename);
+
+						if (mifInfo != null)
+						{
+							modID = mifInfo.Id;
+							m_lstModList[i].Id = modID;
+							AutoUpdater.AddNewVersionNumberForMod(m_lstModList[i], mifInfo);
+						}
+					}
+					catch (RepositoryUnavailableException)
+					{
+						//the repository is not available, so don't bother
 					}
 				}
 
