@@ -58,6 +58,13 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
 				m_vmlViewModel.TaggingMod += new EventHandler<EventArgs<ModTaggerVM>>(ViewModel_TaggingMod);
 				m_vmlViewModel.ManagedMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedMods_CollectionChanged);
+				m_vmlViewModel.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
+				foreach (IMod modMod in m_vmlViewModel.ManagedMods)
+				{
+					modMod.PropertyChanged -= new PropertyChangedEventHandler(Mod_PropertyChanged);
+					modMod.PropertyChanged += new PropertyChangedEventHandler(Mod_PropertyChanged);
+				}
+
 
 				LoadModFormatFilter();
 
@@ -1163,6 +1170,8 @@ namespace Nexus.Client.ModManagement.UI
 						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modAdded.CategoryId);
 						if (mctCategory.Id == 0)
 							ViewModel.SwitchModCategory(modAdded, 0);
+						modAdded.PropertyChanged -= new PropertyChangedEventHandler(Mod_PropertyChanged);
+						modAdded.PropertyChanged += new PropertyChangedEventHandler(Mod_PropertyChanged);
 					}
 					break;
 				case NotifyCollectionChangedAction.Remove:
@@ -1219,6 +1228,11 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, PropertyChangedEventArgs>)Mod_PropertyChanged, sender, e);
 				return;
 			}
+			if (!clwCategoryView.CategoryModeEnabled)
+			{
+				clwCategoryView.RefreshObject((IMod)sender);
+				clwCategoryView.ReloadList();
+			}
 			if (!m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)sender);
 		}
@@ -1255,6 +1269,43 @@ namespace Nexus.Client.ModManagement.UI
 			e.Argument.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(TaskSet_TaskStarted);
 			e.Argument.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(TaskSet_TaskSetCompleted);
 			lstRunningTaskSets.Add(e.Argument);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
+		/// active mod list.
+		/// </summary>
+		/// <remarks>
+		/// This updates the list of mods to refelct changes to which mods are active.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
+		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (clwCategoryView.InvokeRequired)
+			{
+				clwCategoryView.BeginInvoke((MethodInvoker)(() => ActiveMods_CollectionChanged(sender, e)));
+				return;
+			}
+			switch (e.Action)
+			{
+				case NotifyCollectionChangedAction.Add:
+					foreach (IMod modAdded in e.NewItems)
+						if (!clwCategoryView.CategoryModeEnabled)
+							clwCategoryView.RefreshObject(modAdded);
+					break;
+				case NotifyCollectionChangedAction.Remove:
+				case NotifyCollectionChangedAction.Reset:
+					foreach (IMod modAdded in e.OldItems)
+						if (!clwCategoryView.CategoryModeEnabled)
+							clwCategoryView.RefreshObject(modAdded);
+					break;
+			}
+
+			if (!clwCategoryView.CategoryModeEnabled)
+				clwCategoryView.ReloadList();
+
+			SetCommandExecutableStatus();
 		}
 
 		/// <summary>
