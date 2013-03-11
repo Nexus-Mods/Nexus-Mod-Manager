@@ -28,6 +28,7 @@ namespace Nexus.Client.ModManagement
 		/// <value>The AutoUpdater.</value>
 		protected ReadMeManager rmmReadMeManager { get; private set; }
 		protected TxFileManager tfmFileManager = new TxFileManager();
+		protected List<IMod> m_lstModList = new List<IMod>();
 
 		#endregion
 
@@ -36,9 +37,10 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public ReadMeSetupTask(ReadMeManager p_rmmReadMeManager)
+		public ReadMeSetupTask(ReadMeManager p_rmmReadMeManager, List<IMod> p_lstModList)
 		{
 			rmmReadMeManager = p_rmmReadMeManager;
+			m_lstModList = p_lstModList;
 		}
 
 		#endregion
@@ -80,18 +82,17 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] p_objArgs)
 		{
-			string[] strFiles = Directory.GetFiles(Directory.GetParent(rmmReadMeManager.ReadMeFolder).FullName, "*.*", SearchOption.TopDirectoryOnly);
 			OverallMessage = "Scanning mod archives for readme files...";
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
-			OverallProgressMaximum = strFiles.Length;
+			OverallProgressMaximum = m_lstModList.Count;
 			ShowItemProgress = false;
 			
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
 
-			foreach (string strFile in strFiles)
+			foreach (IMod modMod in m_lstModList)
 			{
-				rmmReadMeManager.VerifyReadMeFile(tfmFileManager, strFile);
+				rmmReadMeManager.VerifyReadMeFile(tfmFileManager, modMod.Filename);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				if (m_booCancel)

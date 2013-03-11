@@ -623,8 +623,10 @@ namespace Nexus.Client.ModManagement.UI
 			if ((this.ModManager.ManagedMods.Count > 0) && (!this.ModManager.ReadMeManager.IsInitialized))
 			{
 				string strMessage = "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.";
-				MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
-				SetupReadMeManager();
+				strMessage += Environment.NewLine + "Do you want to perform the Readme Manager startup scan?";
+				strMessage += Environment.NewLine + Environment.NewLine + "Note: if choose not to, you will be able to perform a scan by selecting any number of mods, and choosing 'Readme Scan' in the right-click menu.";
+				if (MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+					SetupReadMeManager(ModManager.ManagedMods.ToList<IMod>());
 			}
 		}
 
@@ -632,9 +634,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// Readme Manager setup.
 		/// </summary>
 		/// <returns>Message</returns>
-		public void SetupReadMeManager()
+		/// <param name="p_lstModList">The list of mods.</param>
+		public void SetupReadMeManager(List<IMod> p_lstModList)
 		{
-			ReadMeManagerSetup(this, new EventArgs<IBackgroundTask>(ModManager.SetupReadMeManager(ConfirmUpdaterAction)));
+			ReadMeManagerSetup(this, new EventArgs<IBackgroundTask>(ModManager.SetupReadMeManager(p_lstModList, ConfirmUpdaterAction)));
 		}
 
 		#endregion
