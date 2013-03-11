@@ -154,7 +154,7 @@ namespace Nexus.Client.Games
 			/// Gets the path of the directory where this Game Mode's categories are stored.
 			/// </summary>
 			/// <value>The path of the directory where this Game Mode's categories are stored.</value>
-			public string CategoryDirectory 
+			public string CategoryDirectory
 			{
 				get
 				{
@@ -311,6 +311,18 @@ namespace Nexus.Client.Games
 		public abstract Version GameVersion { get; }
 
 		/// <summary>
+		/// Gets the string version of the installed game.
+		/// </summary>
+		/// <value>The string version of the installed game.</value>
+		public virtual string NonStandardGameVersion
+		{
+			get
+			{
+				return GameVersion.ToString();
+			}
+		}
+
+		/// <summary>
 		/// Gets a list of paths to which the game mode writes.
 		/// </summary>
 		/// <value>A list of paths to which the game mode writes.</value>
@@ -358,7 +370,7 @@ namespace Nexus.Client.Games
 		/// Gets the directory where the game plugins are installed.
 		/// </summary>
 		/// <value>The directory where the game plugins are installed.</value>
-		public virtual string PluginDirectory 
+		public virtual string PluginDirectory
 		{
 			get
 			{
@@ -382,7 +394,7 @@ namespace Nexus.Client.Games
 		/// Gets the max allowed number of active plugins.
 		/// </summary>
 		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
-		public virtual Int32 MaxAllowedActivePluginsCount 
+		public virtual Int32 MaxAllowedActivePluginsCount
 		{
 			get
 			{

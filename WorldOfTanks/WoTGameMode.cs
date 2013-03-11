@@ -32,7 +32,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 		/// </summary>
 		/// <param name="p_strGameInstallPath">The path in which the game is installed.</param>
 		/// <returns>The version of the installed game.</value>
-		public static Version ReadVersion(string p_strGameInstallPath)
+		public static string ReadVersion(string p_strGameInstallPath)
 		{
 			string strVersion = null;
 			if (String.IsNullOrEmpty(p_strGameInstallPath))
@@ -48,7 +48,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 					return null;
 				string versionPattern = @"\d+\.\d+\.\w+";
 				strVersion = Regex.Match(strVersion, versionPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Value;
-				return new Version(strVersion);
+				return strVersion;
 			}
 			return null;
 		}
@@ -60,10 +60,10 @@ namespace Nexus.Client.Games.WorldOfTanks
 		#region Properties
 
 		/// <summary>
-		/// Gets the version of the installed game.
+		/// Gets the string version of the installed game.
 		/// </summary>
-		/// <value>The version of the installed game.</value>
-		public override Version GameVersion
+		/// <value>The string version of the installed game.</value>
+		public override string NonStandardGameVersion
 		{
 			get
 			{
@@ -75,6 +75,25 @@ namespace Nexus.Client.Games.WorldOfTanks
 						break;
 				string strFullPath = String.Join(Path.DirectorySeparatorChar.ToString(), strPath, 0, intModFolderIndex);
 				return ReadVersion(strFullPath);
+			}
+		}
+
+		/// <summary>
+		/// Gets the string version of the installed game.
+		/// </summary>
+		/// <value>The string version of the installed game.</value>
+		public override Version GameVersion
+		{
+			get
+			{
+				try
+				{
+					return new Version(NonStandardGameVersion);
+				}
+				catch
+				{
+					return new Version(Regex.Match(NonStandardGameVersion, @"\d+(?:\.\d+)+").Value);
+				}
 			}
 		}
 
@@ -170,7 +189,7 @@ namespace Nexus.Client.Games.WorldOfTanks
 				return false;
 			}
 		}
-        		
+
 		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
