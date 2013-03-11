@@ -149,7 +149,6 @@ namespace Nexus.Client.ModManagement.UI
 			if (!DesignMode)
 			{
 				m_booControlIsLoaded = true;
-				LoadMetrics();
 
 				ViewModel.CheckReadMeManager();
 
@@ -175,29 +174,13 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		protected void LoadMetrics()
 		{
-			if (m_booControlIsLoaded && (ViewModel != null))
+			if (ViewModel != null)
 			{
 				ViewModel.Settings.SplitterSizes.LoadSplitterSizes("modManager", sptMods);
 				ViewModel.Settings.ColumnWidths.LoadColumnWidths("modManager", clwCategoryView);
 
-				FindForm().FormClosing += new FormClosingEventHandler(PluginManagerControl_FormClosing);
 				SizeColumnsToFit();
-				SizeColumnsToFitClw();
 			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="Form.Closing"/> event of the parent form.
-		/// </summary>
-		/// <remarks>
-		/// This save the control's metrics.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="FormClosingEventArgs"/> describing the event arguments.</param>
-		private void PluginManagerControl_FormClosing(object sender, FormClosingEventArgs e)
-		{
-			ViewModel.Settings.SplitterSizes.SaveSplitterSizes("modManager", sptMods);
-			ViewModel.Settings.Save();
 		}
 
 		#endregion
@@ -1495,6 +1478,23 @@ namespace Nexus.Client.ModManagement.UI
 			m_booResizing = true;
 			clmOther.Width += (clmThis.Width - e.NewWidth);
 			m_booResizing = false;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ListView.ColumnWidthChanged"/> event of the mod list.
+		/// </summary>
+		/// <remarks>
+		/// This saves the column width.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="ColumnWidthChangedEventHandler"/> describing the event arguments.</param>
+		private void clwCategoryView_ColumnWidthChanged(object sender, ColumnWidthChangedEventArgs e)
+		{
+			if (m_booResizing)
+				return;
+
+			ViewModel.Settings.ColumnWidths.SaveColumnWidths("modManager", clwCategoryView);
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
