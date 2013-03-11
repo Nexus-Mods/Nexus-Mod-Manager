@@ -55,6 +55,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ReadMeManagerSetup += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ReadMeManagerSetup);
 				m_vmlViewModel.AddingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AddingMod);
 				m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
+				m_vmlViewModel.DeactivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
 				m_vmlViewModel.TaggingMod += new EventHandler<EventArgs<ModTaggerVM>>(ViewModel_TaggingMod);
 				m_vmlViewModel.ManagedMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedMods_CollectionChanged);
@@ -482,6 +483,17 @@ namespace Nexus.Client.ModManagement.UI
 			toolStrip1.ResumeLayout();
 			ViewModel.Settings.SelectedAddModCommandIndex = tsbAddMod.DropDownItems.IndexOf(e.ClickedItem);
 			ViewModel.Settings.Save();
+		}
+
+ 		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the deactivate all 
+		/// all the Active Mods button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void DeactivateAllMods_Click(object sender, EventArgs e)
+		{
+			ViewModel.DeactivateMultipleMods(ViewModel.ActiveMods);
 		}
 
 		#region Category Management
@@ -1269,6 +1281,29 @@ namespace Nexus.Client.ModManagement.UI
 		#endregion
 
 		#region Mod Activation
+
+		/// <summary>
+		/// Handles the <see cref="MainFormVM.DeactivatingMultipleMods"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_DeactivatingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_DeactivatingMultipleMods, sender, e);
+				return;
+			}
+			m_booDisableSummary = true;
+			ProgressDialog.ShowDialog(this, e.Argument);
+			m_booDisableSummary = false;
+
+			string strMessage = "All the active mods were uninstalled.";
+			MessageBox.Show(strMessage, "Mod uninstall complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
 
 		/// <summary>
 		/// Sets the checked state of the given list view item.
