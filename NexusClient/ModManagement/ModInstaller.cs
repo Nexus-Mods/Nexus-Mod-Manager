@@ -141,6 +141,7 @@ namespace Nexus.Client.ModManagement
 						booSuccess = RunScript(tfmFileManager);
 						if (booSuccess)
 						{
+							Mod.InstallDate = DateTime.Now.ToString();
 							tsTransaction.Complete();
 							strMessage = "The mod was successfully activated.";
 						}
