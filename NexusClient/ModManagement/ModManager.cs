@@ -463,9 +463,9 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask SetupReadMeManager(ConfirmActionMethod p_camConfirm)
+		public IBackgroundTask SetupReadMeManager(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm)
 		{
-			ReadMeSetupTask rmsReadMeManagerSetup = new ReadMeSetupTask(ReadMeManager);
+			ReadMeSetupTask rmsReadMeManagerSetup = new ReadMeSetupTask(ReadMeManager, p_lstModList);
 			rmsReadMeManagerSetup.Update(p_camConfirm);
 			return rmsReadMeManagerSetup;
 		}

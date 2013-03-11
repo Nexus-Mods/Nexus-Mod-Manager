@@ -27,6 +27,7 @@ namespace Nexus.Client.UI.Controls
 		public event EventHandler FileDropped;
 		public event EventHandler UpdateWarningToggle;
 		public event EventHandler OpenReadMeFile;
+		public event EventHandler ReadmeScan;
 
 		#endregion
 
@@ -244,6 +245,7 @@ namespace Nexus.Client.UI.Controls
 			cmsContextMenu.Items.Add("Move to Category:");
 			cmsContextMenu.Items.Add("Categories:");
 			cmsContextMenu.Items.Add("Toggle mod update warning", new Bitmap(Properties.Resources.update_warning, 16, 16), new EventHandler(cmsContextMenu_ToggleUpdateWarning));
+			cmsContextMenu.Items.Add("Scan selected mods for Readme files", new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_ReadmeScan));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
 
@@ -518,30 +520,32 @@ namespace Nexus.Client.UI.Controls
 				this.cmsContextMenu.Items[0].Visible = false;
 				this.cmsContextMenu.Items[1].Visible = true;
 				this.cmsContextMenu.Items[2].Visible = true;
-				if (cmsContextMenu.Items.Count > 3)
-					cmsContextMenu.Items.RemoveAt(3);
+				this.cmsContextMenu.Items[3].Visible = true;
+				if (cmsContextMenu.Items.Count > 4)
+					cmsContextMenu.Items.RemoveAt(4);
 			}
 			else
 			{
 				this.cmsContextMenu.Items[0].Visible = true;
 				this.cmsContextMenu.Items[1].Visible = false;
 				this.cmsContextMenu.Items[2].Visible = true;
+				this.cmsContextMenu.Items[3].Visible = true;
 
-				if (cmsContextMenu.Items.Count > 3)
-					cmsContextMenu.Items.RemoveAt(3);
+				if (cmsContextMenu.Items.Count > 4)
+					cmsContextMenu.Items.RemoveAt(4);
 				if (p_strReadMeFiles != null)
 				{
 					cmsContextMenu.Items.Add("Open ReadMe file:", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
 					foreach (string strFile in p_strReadMeFiles)
-						(cmsContextMenu.Items[3] as ToolStripMenuItem).DropDownItems.Add(strFile, new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_OpenReadMeFile));
-					this.cmsContextMenu.Items[3].Enabled = true;
+						(cmsContextMenu.Items[4] as ToolStripMenuItem).DropDownItems.Add(strFile, new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_OpenReadMeFile));
+					this.cmsContextMenu.Items[4].Enabled = true;
 				}
 				else
 				{
 					cmsContextMenu.Items.Add("No ReadMe for this mod", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
-					this.cmsContextMenu.Items[3].Enabled = false;
+					this.cmsContextMenu.Items[4].Enabled = false;
 				}
-				this.cmsContextMenu.Items[3].Visible = true;
+				this.cmsContextMenu.Items[4].Visible = true;
 			}
 		}
 
@@ -614,33 +618,6 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		#endregion
-
-		/// <summary>
-		/// Applies the default list filters
-		/// </summary>
-		private void ApplyFilters(ModCategory p_mctModCategory)
-		{
-			this.ModelFilter = new ModelFilter(delegate(object x)
-			{
-				if ((x.GetType() == typeof(ModCategory)) && !ShowHiddenCategories)
-					if ((p_mctModCategory != null) && ((ModCategory)x == p_mctModCategory))
-						return true;
-					else if ((Categories.Count > 1) && (GetCategoryModCount((ModCategory)x) <= 0))
-						return false;
-
-				return true;
-			});
-		}
-
-		/// <summary>
-		/// Realoads the treeview applying the default filters
-		/// </summary>
-		public void ReloadList()
-		{
-			this.RebuildAll(true);
-			if (CategoryModeEnabled)
-				ApplyFilters(null);
-		}
 
 		#region Category Management
 
@@ -839,7 +816,7 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
-		/// Handles the cmsContextMenu.CategoryNew event.
+		/// Handles the cmsContextMenu.ToggleUpdateWarning event.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
@@ -847,6 +824,17 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.UpdateWarningToggle != null)
 				this.UpdateWarningToggle(this, new EventArgs());
+		}
+
+		/// <summary>
+		/// Handles the cmsContextMenu.ReadmeScan event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+		private void cmsContextMenu_ReadmeScan(object sender, EventArgs e)
+		{
+			if (this.ReadmeScan != null)
+				this.ReadmeScan(this, new EventArgs());
 		}
 
 		/// <summary>
@@ -877,6 +865,33 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Applies the default list filters
+		/// </summary>
+		private void ApplyFilters(ModCategory p_mctModCategory)
+		{
+			this.ModelFilter = new ModelFilter(delegate(object x)
+			{
+				if ((x.GetType() == typeof(ModCategory)) && !ShowHiddenCategories)
+					if ((p_mctModCategory != null) && ((ModCategory)x == p_mctModCategory))
+						return true;
+					else if ((Categories.Count > 1) && (GetCategoryModCount((ModCategory)x) <= 0))
+						return false;
+
+				return true;
+			});
+		}
+
+		/// <summary>
+		/// Realoads the treeview applying the default filters
+		/// </summary>
+		public void ReloadList()
+		{
+			this.RebuildAll(true);
+			if (CategoryModeEnabled)
+				ApplyFilters(null);
+		}
 
 		/// <summary>
 		/// This resizes the columns to fill the list view.
