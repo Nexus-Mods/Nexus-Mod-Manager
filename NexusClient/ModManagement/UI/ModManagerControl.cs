@@ -533,7 +533,7 @@ namespace Nexus.Client.ModManagement.UI
 								IMod modMod = (IMod)e.Item.RowObject;
 								if (modMod != null)
 								{
-									if (!String.IsNullOrEmpty(modMod.InstallDate))
+									if (ViewModel.ActiveMods.Contains(modMod))
 										ViewModel.DeactivateModCommand.Execute(modMod);
 									else
 										ViewModel.ActivateModCommand.Execute(modMod);
