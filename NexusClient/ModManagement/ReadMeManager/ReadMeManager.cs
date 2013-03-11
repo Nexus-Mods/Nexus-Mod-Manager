@@ -140,6 +140,9 @@ namespace Nexus.Client.ModManagement
 				string strModFile = Path.GetFileName(p_strArchivePath);
 				string strArchiveFile = Path.GetFileNameWithoutExtension(strModFile) + ".7z";
 				byte[] bteData = null;
+				
+				PurgeTempFolder();
+
 				for (int i = 0; i < lstFiles.Count; i++)
 				{
 					strFileName = lstFiles[i].ToString();
@@ -186,7 +189,7 @@ namespace Nexus.Client.ModManagement
 				SevenZipCompressor szcCompressor = new SevenZipCompressor();
 				szcCompressor.ArchiveFormat = OutArchiveFormat.SevenZip;
 				szcCompressor.CompressionLevel = CompressionLevel.Normal;
-				szcCompressor.CompressFiles(p_strArchiveFile, p_strFilesToCompress);
+				szcCompressor.CompressFiles(Path.Combine(m_strReadMePath, p_strArchiveFile), p_strFilesToCompress);
 
 				foreach (string File in p_strFilesToCompress)
 					FileUtil.ForceDelete(File);
@@ -295,7 +298,7 @@ namespace Nexus.Client.ModManagement
 		private List<string> GetFileList(Archive p_arcArchive, bool p_booRecurse)
 		{
 			List<string> lstFiles = new List<string>();
-			foreach (string strFile in p_arcArchive.GetFiles("", p_booRecurse))
+			foreach (string strFile in p_arcArchive.GetFiles("", "*.txt|*.doc|*.docx|*.htm|*.html|*.rtf", p_booRecurse))
 				if (!m_dicMovedArchiveFiles.ContainsValue(strFile))
 					if (!strFile.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
 						lstFiles.Add(strFile);

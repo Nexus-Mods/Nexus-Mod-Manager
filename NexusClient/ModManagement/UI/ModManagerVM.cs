@@ -361,7 +361,6 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		protected void ActivateMod(IMod p_modMod)
 		{
-			p_modMod.InstallDate = DateTime.Now.ToString();
 			IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite);
 			if (btsInstall != null)
 				ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
@@ -373,7 +372,6 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		protected void DeactivateMod(IMod p_modMod)
 		{
-			p_modMod.InstallDate = null;
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod);
 			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
 		}
@@ -623,8 +621,10 @@ namespace Nexus.Client.ModManagement.UI
 			if ((this.ModManager.ManagedMods.Count > 0) && (!this.ModManager.ReadMeManager.IsInitialized))
 			{
 				string strMessage = "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.";
-				MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
-				SetupReadMeManager();
+				strMessage += Environment.NewLine + "Do you want to perform the Readme Manager startup scan?";
+				strMessage += Environment.NewLine + Environment.NewLine + "Note: if choose not to, you will be able to perform a scan by selecting any number of mods, and choosing 'Readme Scan' in the right-click menu.";
+				if (MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+					SetupReadMeManager(ModManager.ManagedMods.ToList<IMod>());
 			}
 		}
 
@@ -632,9 +632,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// Readme Manager setup.
 		/// </summary>
 		/// <returns>Message</returns>
-		public void SetupReadMeManager()
+		/// <param name="p_lstModList">The list of mods.</param>
+		public void SetupReadMeManager(List<IMod> p_lstModList)
 		{
-			ReadMeManagerSetup(this, new EventArgs<IBackgroundTask>(ModManager.SetupReadMeManager(ConfirmUpdaterAction)));
+			ReadMeManagerSetup(this, new EventArgs<IBackgroundTask>(ModManager.SetupReadMeManager(p_lstModList, ConfirmUpdaterAction)));
 		}
 
 		#endregion

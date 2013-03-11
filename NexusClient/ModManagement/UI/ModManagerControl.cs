@@ -115,6 +115,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
 			clwCategoryView.UpdateWarningToggle += new EventHandler(CategoryListView_ToggleUpdateWarning);
+			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
 			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
@@ -456,7 +457,7 @@ namespace Nexus.Client.ModManagement.UI
 			ProgressDialog.ShowDialog(this, e.Argument);
 			m_booDisableSummary = false;
 
-			string strMessage = "NMM has gone through your current mod list and linked as many ReadMe's it could find to your mods.";
+			string strMessage = "NMM has gone through the mod list and linked as many ReadMe's it could find to your mods.";
 			strMessage += "You can view your mod's ReadMe's by right-clicking a mod in your mod list and clicking 'Open ReadMe file'.";
 			MessageBox.Show(strMessage, "ReadMe Manager Setup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
@@ -532,7 +533,7 @@ namespace Nexus.Client.ModManagement.UI
 								IMod modMod = (IMod)e.Item.RowObject;
 								if (modMod != null)
 								{
-									if (!String.IsNullOrEmpty(modMod.InstallDate))
+									if (ViewModel.ActiveMods.Contains(modMod))
 										ViewModel.DeactivateModCommand.Execute(modMod);
 									else
 										ViewModel.ActivateModCommand.Execute(modMod);
@@ -724,6 +725,38 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_ToggleUpdateWarning(object sender, EventArgs e)
 		{
+			HashSet<IMod> hashMods = GetSelectedModsHashset();
+
+			if ((hashMods != null) && (hashMods.Count > 0))
+			{
+				ViewModel.ToggleModUpdateWarning(hashMods);
+				clwCategoryView.ReloadList();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.UpdateWarningToggle"/> of the toggle
+		/// mod update warning context menu.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_ReadmeScan(object sender, EventArgs e)
+		{
+			HashSet<IMod> hashMods = GetSelectedModsHashset();
+
+			if ((hashMods != null) && (hashMods.Count > 0))
+			{
+				ViewModel.SetupReadMeManager(hashMods.ToList<IMod>());
+				clwCategoryView.ReloadList();
+			}
+		}
+
+		/// <summary>
+		/// Parse the mod control list for selected mods.
+		/// </summary>
+		/// <returns>The hasset containing the selected mods.</returns>
+		private HashSet<IMod> GetSelectedModsHashset()
+		{
 			HashSet<IMod> hashMods = new HashSet<IMod>();
 
 			foreach (object Item in clwCategoryView.GetSelectedItems)
@@ -742,11 +775,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 
-			if (hashMods.Count > 0)
-			{
-				ViewModel.ToggleModUpdateWarning(hashMods);
-				clwCategoryView.ReloadList();
-			}
+			return hashMods;
 		}
 
 		/// <summary>

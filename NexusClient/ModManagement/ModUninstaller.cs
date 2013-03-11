@@ -114,6 +114,7 @@ namespace Nexus.Client.ModManagement
 					booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
 					if (booSuccess)
 					{
+						Mod.InstallDate = null;
 						ModInstallLog.RemoveMod(Mod);
 						tsTransaction.Complete();
 					}
