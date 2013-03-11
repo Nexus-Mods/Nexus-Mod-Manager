@@ -325,6 +325,7 @@
 			this.clwCategoryView.Resize += new System.EventHandler(this.clwCategoryView_Resize);
 			this.clwCategoryView.AfterLabelEdit += new System.Windows.Forms.LabelEditEventHandler(this.clwCategoryView_AfterLabelEdit);
 			this.clwCategoryView.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.clwCategoryView_ColumnWidthChanging);
+			this.clwCategoryView.ColumnWidthChanged += new System.Windows.Forms.ColumnWidthChangedEventHandler(this.clwCategoryView_ColumnWidthChanged);
 			this.clwCategoryView.Expanding += new System.EventHandler<BrightIdeasSoftware.TreeBranchExpandingEventArgs>(this.clwCategoryView_TreeBranchExpanding);
 			this.clwCategoryView.Collapsing += new System.EventHandler<BrightIdeasSoftware.TreeBranchCollapsingEventArgs>(this.clwCategoryView_TreeBranchCollapsing);
 			this.clwCategoryView.Visible = true;

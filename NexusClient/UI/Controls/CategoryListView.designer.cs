@@ -63,21 +63,18 @@ namespace Nexus.Client.UI.Controls
 			// tlcModName
 			// 
 			this.tlcModName.Text = "Name";
-			this.tlcModName.Width = 250;
 			this.tlcModName.IsEditable = false;
 			// 
 			// tlcInstallDate
 			// 
 			this.tlcInstallDate.Text = "Install Date";
 			this.tlcInstallDate.TextAlign = HorizontalAlignment.Center;
-			this.tlcInstallDate.Width = 80;
 			this.tlcInstallDate.IsEditable = false;
 			// 
 			// tlcEndorsement
 			// 
 			this.tlcEndorsement.Text = "Endorsement";
 			this.tlcEndorsement.TextAlign = HorizontalAlignment.Center;
-			this.tlcEndorsement.Width = 50;
 			this.tlcEndorsement.IsEditable = false;
 			// 
 			// tlcVersion
@@ -95,13 +92,11 @@ namespace Nexus.Client.UI.Controls
 			// tlcAuthor
 			// 
 			this.tlcAuthor.Text = "Author";
-			this.tlcAuthor.Width = 60;
 			this.tlcAuthor.IsEditable = false;
 			// 
 			// tlcCategory
 			// 
 			this.tlcCategory.Text = "Category";
-			this.tlcCategory.Width = 80;
 			this.tlcCategory.IsEditable = false;
 		}
 
