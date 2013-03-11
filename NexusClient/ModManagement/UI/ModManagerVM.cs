@@ -62,6 +62,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ReadMeManagerSetup = delegate { };
 
+		/// <summary>
+		/// Raised when uninstalling multiple mods.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> DeactivatingMultipleMods = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -374,6 +379,19 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod);
 			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
+		}
+
+		/// <summary>
+		/// Deactivates all the mods.
+		/// </summary>
+		/// <param name="p_rolModList">The list of Active Mods.</param>
+		public void DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList)
+		{
+			DialogResult Result = MessageBox.Show("Do you want to deactivate all the active mods?", "Deativate Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (Result == DialogResult.Yes)
+			{
+				DeactivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DeactivateMultipleMods(p_rolModList, ConfirmUpdaterAction)));
+			}
 		}
 
 		#endregion

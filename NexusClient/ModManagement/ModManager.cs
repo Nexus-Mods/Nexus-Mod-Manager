@@ -463,6 +463,18 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
+		{
+			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory);
+			dmmDeactivateAllMods.Update(p_camConfirm);
+			return dmmDeactivateAllMods;
+		}
+
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask SetupReadMeManager(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm)
 		{
 			ReadMeSetupTask rmsReadMeManagerSetup = new ReadMeSetupTask(ReadMeManager, p_lstModList);

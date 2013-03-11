@@ -55,6 +55,7 @@
 			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripButton();
 			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
 			this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
+			this.tsbDeactivateMods = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.sptSummaryInfo = new System.Windows.Forms.SplitContainer();
 			this.ipbScreenShot = new Nexus.UI.Controls.ImagePreviewBox();
@@ -85,6 +86,7 @@
             this.tsbActivate,
             this.tsbDeactivate,
             this.tsbDeleteMod,
+			this.tsbDeactivateMods,
             this.tsbTagMod,
 			this.tsbCheckModVersions,
 			this.tsbToggleEndorse,
@@ -223,6 +225,16 @@
 			this.tsbDeactivate.Name = "tsbDeactivate";
 			this.tsbDeactivate.Size = new System.Drawing.Size(46, 36);
 			this.tsbDeactivate.Text = "toolStripButton1";
+			// 
+			// tsbDeactivateMods
+			// 
+			this.tsbDeactivateMods.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbDeactivateMods.Image = global::Nexus.Client.Properties.Resources.edit_delete;
+			this.tsbDeactivateMods.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbDeactivateMods.Name = "tsbDeactivateMods";
+			this.tsbDeactivateMods.Size = new System.Drawing.Size(46, 36);
+			this.tsbDeactivateMods.Text = "Uninstalls all the Active Mods";
+			this.tsbDeactivateMods.Click += new System.EventHandler(this.DeactivateAllMods_Click);
 			// 
 			// tsbDeleteMod
 			// 
@@ -413,5 +425,6 @@
 		private System.Windows.Forms.ToolStripButton tsbCheckModVersions;
 		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
 		private System.Windows.Forms.ToolStripButton tsbSwitchView;
+		private System.Windows.Forms.ToolStripButton tsbDeactivateMods;
 	}
 }

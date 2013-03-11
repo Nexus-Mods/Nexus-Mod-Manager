@@ -329,6 +329,7 @@
     <Compile Include="MessagerClient.cs" />
     <Compile Include="ModManagement\CategoryManager\CategoryManager.cs" />
     <Compile Include="ModManagement\CategorySwitchTask.cs" />
+    <Compile Include="ModManagement\DeactivateMultipleModsTask.cs" />
     <Compile Include="ModManagement\InstallationLog\Upgraders\Upgrade0400Task.cs" />
     <Compile Include="ModManagement\ModUpdateCheckTask.cs" />
     <Compile Include="ModManagement\ReadMeManager\ReadMeManager.cs" />
