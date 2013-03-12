@@ -474,7 +474,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void DeactivateAllMods_Click(object sender, EventArgs e)
+		public void DeactivateAllMods()
 		{
 			ViewModel.DeactivateMultipleMods(ViewModel.ActiveMods);
 		}

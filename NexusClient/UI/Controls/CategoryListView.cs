@@ -628,10 +628,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.Items.Count > 0)
 			{
-				foreach (object Item in Roots)
-				{
-					RemoveObject(Item);
-				}
+				this.ClearObjects();
 			}
 
 			if (CategoryModeEnabled)
