@@ -387,7 +387,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_rolModList">The list of Active Mods.</param>
 		public void DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList)
 		{
-			DialogResult Result = MessageBox.Show("Do you want to deactivate all the active mods?", "Deativate Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			DialogResult Result = MessageBox.Show("Do you want to uninstall all the active mods?", "Deativate Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
 				DeactivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DeactivateMultipleMods(p_rolModList, ConfirmUpdaterAction)));

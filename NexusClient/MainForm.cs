@@ -204,6 +204,14 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Uninstall all active mods.
+		/// </summary>
+		protected void UninstallAllMods()
+		{
+			mmgModManager.DeactivateAllMods();
+		}
+
+		/// <summary>
 		/// Opens the selected game folder.
 		/// </summary>
 		protected void OpenGameFolder()
@@ -561,6 +569,12 @@ namespace Nexus.Client
 			tmiResetTool.ImageScaling = ToolStripItemImageScaling.None;
 			new ToolStripItemCommandBinding(tmiResetTool, cmdResetUI);
 			spbTools.DropDownItems.Add(tmiResetTool);
+
+			Command cmdUninstallAllMods = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
+			ToolStripMenuItem tmiUninstallAllMods = new ToolStripMenuItem();
+			tmiUninstallAllMods.Image = global::Nexus.Client.Properties.Resources.edit_delete;
+			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
+			spbTools.DropDownItems.Add(tmiUninstallAllMods);
 
 			foreach (ITool tolTool in ViewModel.GameToolLauncher.Tools)
 			{
