@@ -16,6 +16,7 @@ namespace Nexus.Client.UI.Controls
 	public partial class CategoryListView : BrightIdeasSoftware.TreeListView
 	{
 		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
+		ReadOnlyObservableList<IMod> m_rolActiveMods = null;
 		IModCategory m_imcSelectedCategory = null;
 		bool m_booShowEmpty = false;
 		bool m_booCategoryMode = true;
@@ -188,7 +189,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_lvwList">The source list view.</param>
 		/// <param name="p_cmgCategoryManager">The mod Category Manager.</param>
-		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, CategoryManager p_cmgCategoryManager)
+		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, CategoryManager p_cmgCategoryManager)
 		{
 			this.Tag = false;
 
@@ -199,6 +200,7 @@ namespace Nexus.Client.UI.Controls
 
 			CategoryManager = p_cmgCategoryManager;
 			m_rolManagedMods = p_rolManagedMods;
+			m_rolActiveMods = p_rolActiveMods;
 
 			// Setup menuStrip commands
 			SetupContextMenu();
@@ -214,7 +216,7 @@ namespace Nexus.Client.UI.Controls
 			this.BooleanCheckStateGetter = delegate(object x)
 			{
 				if (x.GetType() != typeof(ModCategory))
-					if (!String.IsNullOrEmpty(((IMod)x).InstallDate))
+					if (m_rolActiveMods.Contains((IMod)x))
 						return true;
 
 				return false;
@@ -586,7 +588,7 @@ namespace Nexus.Client.UI.Controls
 				}
 				else
 				{
-					return new Bitmap(String.IsNullOrEmpty(((IMod)rowObject).InstallDate) ? Properties.Resources.dialog_cancel_4_16 : Properties.Resources.dialog_ok_4_16, 12, 12);
+					return new Bitmap(!m_rolActiveMods.Contains((IMod)rowObject) ? Properties.Resources.dialog_cancel_4_16 : Properties.Resources.dialog_ok_4_16, 12, 12);
 				}
 			};
 
