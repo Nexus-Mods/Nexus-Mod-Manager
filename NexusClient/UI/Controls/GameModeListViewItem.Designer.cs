@@ -48,6 +48,7 @@
 			this.lblGameModeName.Text = "GAME TITLE";
 			this.lblGameModeName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 			this.lblGameModeName.Click += new System.EventHandler(this.Control_Click);
+			this.lblGameModeName.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(lblGameModeName_MouseDoubleClick);
 			// 
 			// pbxGameLogo
 			// 

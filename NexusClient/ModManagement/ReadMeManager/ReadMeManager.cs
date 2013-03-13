@@ -17,7 +17,7 @@ using SevenZip;
 
 namespace Nexus.Client.ModManagement
 {
-	public partial class ReadMeManager
+	public class ReadMeManager
 	{
 		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
 		private static readonly String READMEMANAGER_FILE = "ReadMeManager.xml";
@@ -146,7 +146,7 @@ namespace Nexus.Client.ModManagement
 				for (int i = 0; i < lstFiles.Count; i++)
 				{
 					strFileName = lstFiles[i].ToString();
-					if (VerifyExtension(Path.GetExtension(strFileName).ToLower()))
+					if (Readme.IsValidReadme(Path.GetExtension(strFileName).ToLower()))
 					{
 						bteData = arcFile.GetFileContents(lstFiles[i]);
 						if (bteData.Length > 0)
@@ -210,18 +210,6 @@ namespace Nexus.Client.ModManagement
 			Directory.SetCurrentDirectory(ReadMeTempPath);
 			foreach (string strFile in Directory.GetFiles(ReadMeTempPath))
 				FileUtil.ForceDelete(strFile);
-		}
-
-		/// <summary>
-		/// Verifies if the file extension is supported by the program.
-		/// </summary>
-		/// <param name="strExtension"> The file extension to verify.</param>
-		protected bool VerifyExtension(string strExtension)
-		{
-			if ((strExtension == ".rtf") || (strExtension == ".doc") || (strExtension == ".docx") || (strExtension == ".htm") || (strExtension == ".html") || (strExtension == ".txt"))
-				return true;
-			else
-				return false;
 		}
 
 		/// <summary>

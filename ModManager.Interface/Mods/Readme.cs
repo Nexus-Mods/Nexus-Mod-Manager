@@ -23,7 +23,12 @@ namespace Nexus.Client.Mods
 		/// <summary>
 		/// HTML
 		/// </summary>
-		HTML
+		HTML,
+
+		/// <summary>
+		/// DOC
+		/// </summary>
+		DOC
 	}
 
 	/// <summary>
@@ -39,7 +44,9 @@ namespace Nexus.Client.Mods
 																			{".txt", ReadmeFormat.PlainText},
 																			{".rtf", ReadmeFormat.RichText},
 																			{".html", ReadmeFormat.HTML},
-																			{".htm", ReadmeFormat.HTML}
+																			{".htm", ReadmeFormat.HTML},
+																			{".doc", ReadmeFormat.DOC},
+																			{".docx", ReadmeFormat.DOC}
 																		};
 
 		/// <summary>
@@ -151,7 +158,7 @@ namespace Nexus.Client.Mods
 		{
 			if (String.IsNullOrEmpty(p_strPath))
 				return false;
-			return IsValidExtension(Path.GetExtension(p_strPath));
+			return IsValidExtension(Path.GetExtension(p_strPath.ToLower()));
 		}
 
 		/// <summary>
