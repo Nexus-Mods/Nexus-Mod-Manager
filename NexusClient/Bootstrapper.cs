@@ -120,28 +120,38 @@ namespace Nexus.Client
 						if (booOwnsMutex)
 							break;
 
-						//If the mutex isn't owned, attempt to talk across the messager.
-						using (IMessager msgMessager = MessagerClient.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
+						try
 						{
-							if (msgMessager != null)
+							//If the mutex isn't owned, attempt to talk across the messager.
+							using (IMessager msgMessager = MessagerClient.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
 							{
-								//Messenger was created OK, send download request, or bring to front.
-								if (uriModToAdd != null)
+								if (msgMessager != null)
 								{
-									Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
-									msgMessager.AddMod(uriModToAdd.ToString());
+									//Messenger was created OK, send download request, or bring to front.
+									if (uriModToAdd != null)
+									{
+										Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
+										msgMessager.AddMod(uriModToAdd.ToString());
+									}
+									else
+									{
+										Trace.TraceInformation(String.Format("Messaging to bring to front."));
+										msgMessager.BringToFront();
+									}
+									return true;
 								}
-								else
-								{
-									Trace.TraceInformation(String.Format("Messaging to bring to front."));
-									msgMessager.BringToFront();
-								}
-								return true;
 							}
+							mtxGameModeMutex.Close();
+							mtxGameModeMutex = null;
 						}
-						mtxGameModeMutex.Close();
-						mtxGameModeMutex = null;
-
+						catch (InvalidOperationException)
+						{
+							StringBuilder stbPromptMessage = new StringBuilder();
+							stbPromptMessage.AppendFormat("{0} was unable to start. It appears another instance of {0} is already running.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
+							stbPromptMessage.AppendFormat("If you were trying to download multiple files, wait for {0} to start before clicking on a new file download.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
+							MessageBox.Show(stbPromptMessage.ToString(), "Already running", MessageBoxButtons.OK, MessageBoxIcon.Information);
+							return false;
+						}
 						//Messenger couldn't be created, so sleep for a few seconds to give time for opening
 						// the running copy of the mod manager to start up/shut down
 						Thread.Sleep(TimeSpan.FromSeconds(5.0d));
