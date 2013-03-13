@@ -1,0 +1,1668 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Functions>
+  <!-- Enums for function args -->
+  <Enum name="Gender">
+    <Element name="Male" value="0" />
+    <Element name="Female" value="1" />
+  </Enum>
+  <Enum name="MiscStat">
+    <Element name="Quests Completed" value="00" />
+    <Element name="Locations Discovered" value="01" />
+    <Element name="People Killed" value="02" />
+    <Element name="Creatures Killed" value="03" />
+    <Element name="Locks Picked" value="04" />
+    <Element name="Computers Hacked" value="05" />
+    <Element name="Stimpaks Taken" value="06" />
+    <Element name="Rad-X Taken" value="07" />
+    <Element name="RadAway Taken" value="08" />
+    <Element name="Chems Taken" value="09" />
+    <Element name="Times Addicted" value="10" />
+    <Element name="Mines Disarmed" value="11" />
+    <Element name="Speech Successes" value="12" />
+    <Element name="Pockets Picked" value="13" />
+    <Element name="Pants Exploded" value="14" />
+    <Element name="Books Read" value="15" />
+    <Element name="Bobbleheads Found" value="16" />
+    <Element name="Weapons Created" value="17" />
+    <Element name="People Mezzed" value="18" />
+    <Element name="Captives Rescued" value="19" />
+    <Element name="Sandman Kills" value="20" />
+    <Element name="Paralyzing Punches" value="21" />
+    <Element name="Robots Disabled" value="22" />
+    <Element name="Contracts Completed" value="23" />
+    <Element name="Corpses Eaten" value="24" />
+    <Element name="Mysterious Stranger Visits" value="25" />
+  </Enum>
+  <Enum name="CriticalStage">
+    <Element name="GooStart" value="1" />
+    <Element name="GooEnd" value="2" />
+    <Element name="DisintegrateStart" value="3" />
+    <Element name="DisintegrateEnd" value="4" />
+  </Enum>
+  <Enum name="ActorValue">
+    <Element name="Aggression" value="0" />
+    <Element name="Confidence" value="1" />
+    <Element name="Energy" value="2" />
+    <Element name="Responsibility" value="3" />
+    <Element name="Mood" value="4" />
+
+    <Element name="Strength" value="5" />
+    <Element name="Perception" value="6" />
+    <Element name="Endurance" value="7" />
+    <Element name="Charisma" value="8" />
+    <Element name="Intelligence" value="9" />
+    <Element name="Agility" value="10" />
+    <Element name="Luck" value="11" />
+
+    <Element name="ActionPoints" value="12" />
+    <Element name="CarryWeight" value="13" />
+    <Element name="CritChance" value="14" />
+    <Element name="HealRate" value="15" />
+    <Element name="Health" value="16" />
+    <Element name="MeleeDamage" value="17" />
+    <Element name="DamageResistance" value="18" />
+    <Element name="DamageResist" value="18" />
+    <Element name="PoisonResistance" value="19" />
+    <Element name="RadResistance" value="20" />
+    <Element name="SpeedMultiplier" value="21" />
+    <Element name="Fatigue" value="22" />
+    <Element name="Karma" value="23" />
+    <Element name="XP" value="24" />
+
+    <Element name="HeadCondition" value="25" />
+    <Element name="TorsoCondition" value="26" />
+    <Element name="LeftArmCondition" value="27" />
+    <Element name="RightArmCondition" value="28" />
+    <Element name="LeftLegCondition" value="29" />
+    <Element name="RightLegCondition" value="30" />
+    <!-- Alternate names -->
+    <Element name="PerceptionCondition" value="25" />
+    <Element name="EnduranceCondition" value="26" />
+    <Element name="LeftAttackCondition" value="27" />
+    <Element name="RightAttackCondition" value="28" />
+    <Element name="LeftMobilityCondition" value="29" />
+    <Element name="RightMobilityCondition" value="30" />
+    <Element name="BrainCondition" value="31" />
+
+    <Element name="Barter" value="32" />
+    <Element name="BigGuns" value="33" />
+    <Element name="EnergyWeapons" value="34" />
+    <Element name="Explosives" value="35" />
+    <Element name="Lockpick" value="36" />
+    <Element name="Medicine" value="37" />
+    <Element name="MeleeWeapons" value="38" />
+    <Element name="Repair" value="39" />
+    <Element name="Science" value="40" />
+    <Element name="SmallGuns" value="41" />
+    <Element name="Sneak" value="42" />
+    <Element name="Speech" value="43" />
+    <Element name="Throwing" value="44" />
+    <Element name="Unarmed" value="45" />
+
+    <Element name="InventoryWeight" value="46" />
+    <Element name="Paralysis" value="47" />
+    <Element name="Invisibility" value="48" />
+    <Element name="Chameleon" value="49" />
+    <Element name="NightEye" value="50" />
+    <Element name="DetectLifeRange" value="51" />
+    <Element name="FireResistance" value="52" />
+    <Element name="WaterBreathing" value="53" />
+    <Element name="RadLevel" value="54" />
+    <Element name="RadiationRads" value="54" />
+    <Element name="BloodyMess" value="55" />
+    <Element name="UnarmedDamage" value="56" />
+    <Element name="Assistance" value="57" />
+
+    <Element name="EnergyResistance" value="60" />
+    <Element name="EMPResistance" value="61" />
+    <Element name="variable01" value="62" />
+    <Element name="variable02" value="63" />
+    <Element name="variable03" value="64" />
+    <Element name="variable04" value="65" />
+    <Element name="variable05" value="66" />
+    <Element name="variable06" value="67" />
+    <Element name="variable07" value="68" />
+    <Element name="variable08" value="69" />
+    <Element name="variable09" value="70" />
+    <Element name="variable10" value="71" />
+    
+    <!--Not sure of the accuracy of these-->
+  </Enum>
+
+  <Enum name="AnimationGroup">
+    <Element name="Idle" value="00" />
+    <Element name="DynamicIdle" value="01" />
+    <Element name="SpecialIdle" value="02" />
+    <Element name="Forward" value="03" />
+    <Element name="Backward" value="04" />
+    <Element name="Left" value="05" />
+    <Element name="Right" value="06" />
+    <Element name="FastForward" value="07" />
+    <Element name="FastBackward" value="08" />
+    <Element name="FastLeft" value="09" />
+    <Element name="FastRight" value="10" />
+    <Element name="DodgeForward" value="11" />
+    <Element name="DodgeBack" value="12" />
+    <Element name="DodgeLeft" value="13" />
+    <Element name="DodgeRight" value="14" />
+    <Element name="TurnLeft" value="15" />
+    <Element name="TurnRight" value="16" />
+    <Element name="Equip" value="17" />
+    <Element name="Unequip" value="18" />
+    <Element name="AttackBow" value="19" />
+    <Element name="AttackLeft" value="20" />
+    <Element name="AttackRight" value="21" />
+    <Element name="AttackPower" value="22" />
+    <Element name="AttackForwardPower" value="23" />
+    <Element name="AttackBackPower" value="24" />
+    <Element name="AttackLeftPower" value="25" />
+    <Element name="AttackRightPower" value="26" />
+    <Element name="BlockIdle" value="27" />
+    <Element name="BlockHit" value="28" />
+    <Element name="BlockAttack" value="29" />
+    <Element name="Recoil" value="30" />
+    <Element name="Stagger" value="31" />
+    <Element name="Death" value="32" />
+    <Element name="TorchIdle" value="33" />
+    <Element name="CastSelf" value="34" />
+    <Element name="CastTouch" value="35" />
+    <Element name="CastTarget" value="36" />
+    <Element name="CastSelfAlt" value="37" />
+    <Element name="CastTouchAlt" value="38" />
+    <Element name="CastTargetAlt" value="39" />
+    <Element name="JumpStart" value="40" />
+    <Element name="JumpLoop" value="41" />
+    <Element name="JumpLand" value="42" />
+  </Enum>
+  <!-- Block types -->
+  <Block name="GameMode" opcode="00" />
+  <Block name="MenuMode" opcode="01" requiredargs="0">
+    <Arg name="Menu" type="int"/>
+  </Block>
+  <Block name="OnActivate" opcode="02" requiredargs="0">
+    <Arg name="Actor" type="ref"/>
+  </Block>
+  <Block name="OnAdd" opcode="03" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnEquip" opcode="04" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnUnequip" opcode="05" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnDrop" opcode="06" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <!-- On yield -->
+  <Block name="SayToDone" opcode="07" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnHit" opcode="08" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnHitWith" opcode="09" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnDeath" opcode="0a" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnMurder" opcode="0b" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <!-- Was onKnockout in oblivion -->
+  <Block name="OnCombatEnd" opcode="0c" />
+  <Block name="OnKnockout" opcode="0c" />
+  <Block name="OnAlarm" opcode="0d" requiredargs="0">
+    <Arg name="Crime type" type="short"/>
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnAlarmVictim" opcode="0e" requiredargs="0">
+    <Arg name="Crime type" type="short"/>
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnPackageStart" opcode="0f" requiredargs="0">
+    <Arg name="Package" type="ref"/>
+  </Block>
+  <!-- Both names used... -->
+  <Block name="OnPackageEnd" opcode="10" requiredargs="0">
+    <Arg name="Package" type="ref"/>
+  </Block>
+  <Block name="OnPackageDone" opcode="10" requiredargs="0">
+    <Arg name="Package" type="ref"/>
+  </Block>
+  <Block name="ScriptEffectStart" opcode="11" />
+  <Block name="ScriptEffectFinish" opcode="12" />
+  <Block name="ScriptEffectUpdate" opcode="13" />
+  <Block name="OnPackageChange" opcode="14" requiredargs="0">
+    <Arg name="Package" type="ref"/>
+  </Block>
+  <Block name="OnLoad" opcode="15" />
+  <Block name="OnMagicEffectHit" opcode="16" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnSell" opcode="17" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnTrigger" opcode="18" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnStartCombat" opcode="19" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <!-- OnTriggerActor on uesp? -->
+  <Block name="OnTriggerEnter" opcode="1a" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <!-- OnTriggerMob -->
+  <Block name="OnTriggerLeave" opcode="1b" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnActorEquip" opcode="1c" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnActorUnequip" opcode="1d" requiredargs="0">
+    <Arg name="Reference" type="ref"/>
+  </Block>
+  <Block name="OnReset" opcode="1e" />
+  <Block name="onOpen" opcode="1f" />
+  <Block name="onClose" opcode="20" />
+  <Block name="onGrab" opcode="21" />
+  <Block name="onRelease" opcode="22" />
+  <Block name="onDestructionStageChange" opcode="23">
+    <Arg name="Unknown" type="int"/>
+  </Block>
+
+  <!-- Functions -->
+  <Func name="GetDistance" opcode="1001" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="AddItem" opcode="1002" requiredargs="2" >
+    <Arg name="object ID" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetEssential" opcode="1003" requiredargs="1" >
+    <Arg name="actor base" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Rotate" opcode="1004" >
+    <Arg name="axis" type="axis" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetLocked" opcode="1005"  />
+  <Func name="GetPos" opcode="1006" >
+    <Arg name="axis" type="axis" />
+  </Func>
+  <Func name="SetPos" opcode="1007" >
+    <Arg name="axis" type="axis" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="GetAngle" opcode="1008" >
+    <Arg name="axis" type="axis" />
+  </Func>
+  <Func name="SetAngle" opcode="1009" >
+    <Arg name="axis" type="axis" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="GetStartingPos" opcode="100A" >
+    <Arg name="axis" type="axis" />
+  </Func>
+  <Func name="GetStartingAngle" opcode="100B" >
+    <Arg name="axis" type="axis" />
+  </Func>
+  <Func name="GetSecondsPassed" opcode="100C"  />
+  <Func name="Activate" opcode="100D" requiredargs="0" >
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetActorValue" opcode="100E" short="GetAV" desc="Get an actor value. [player.getav luck]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue"/>
+  </Func>
+  <Func name="SetActorValue" opcode="100F" short="SetAV" desc="Set an actor value. [player.setav luck, 75]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ModActorValue" opcode="1010" short="ModAV" desc="Modify an actor value. [player.modav luck, -10]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetAtStart" opcode="1011"  />
+  <Func name="GetCurrentTime" opcode="1012"  />
+  <Func name="PlayGroup" opcode="1013" desc="IE: PlayGroup SEQNAME 1" >
+    <Arg name="Animation group" type="enum" enumtype="AnimationGroup" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="LoopGroup" opcode="1014" >
+    <Arg name="Animation group" type="enum" enumtype="AnimationGroup" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SkipAnim" opcode="1015"  />
+  <Func name="StartCombat" opcode="1016" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="StopCombat" opcode="1017"  />
+  <Func name="GetScale" opcode="1018"  />
+  <Func name="IsMoving" opcode="1019" desc="Is the actor moving?"  />
+  <Func name="IsTurning" opcode="101A" desc="Is the actor turning?"  />
+  <Func name="GetLineOfSight" opcode="101B" short="GetLOS" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="AddSpell" opcode="101C" >
+    <Arg name="spell item" type="ref" />
+  </Func>
+  <Func name="RemoveSpell" opcode="101D" >
+    <Arg name="spell item" type="ref" />
+  </Func>
+  <Func name="Cast" opcode="101E" >
+    <Arg name="magic item" type="ref" />
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetButtonPressed" opcode="101F"  />
+  <Func name="GetInSameCell" opcode="1020" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="Enable" opcode="1021" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Disable" opcode="1022" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetDisabled" opcode="1023"  />
+  <Func name="MenuMode" opcode="1024" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="PlaceAtMe" opcode="1025" requiredargs="1" >
+    <Arg name="object id" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="PlaySound" opcode="1026" desc="Play a 2D sound. (Optional: 1 to indicate a system sound, 0 otherwise." requiredargs="1" >
+    <Arg name="Sound" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetDisease" opcode="1027"  />
+  <Func name="GetVampire" opcode="1028"  />
+  <Func name="GetClothingValue" opcode="1029"  />
+  <Func name="SameFaction" opcode="102A" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="SameRace" opcode="102B" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="SameSex" opcode="102C" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="GetDetected" opcode="102D" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="GetDead" opcode="102E"  />
+  <Func name="GetItemCount" opcode="102F" >
+    <Arg name="object ID" type="ref" />
+  </Func>
+  <Func name="GetGold" opcode="1030"  />
+  <Func name="GetSleeping" opcode="1031"  />
+  <Func name="GetTalkedToPC" opcode="1032"  />
+  <Func name="Say" opcode="1033" requiredargs="1" >
+    <Arg name="Topic" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="actor base" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SayTo" opcode="1034" requiredargs="2" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="Topic" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetScriptVariable" opcode="1035" >
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="Variable name" type="string" />
+  </Func>
+  <Func name="StartQuest" opcode="1036" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="StopQuest" opcode="1037" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="GetQuestRunning" opcode="1038" short="GetQR" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="SetStage" opcode="1039" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="Stage" type="int" />
+  </Func>
+  <Func name="GetStage" opcode="103A" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="GetStageDone" opcode="103B" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="Stage" type="int" />
+  </Func>
+  <Func name="GetFactionRankDifference" opcode="103C" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="GetAlarmed" opcode="103D"  />
+  <Func name="IsRaining" opcode="103E"  />
+  <Func name="GetAttacked" opcode="103F"  />
+  <Func name="GetIsCreature" opcode="1040"  />
+  <Func name="GetLockLevel" opcode="1041"  />
+  <Func name="GetShouldAttack" opcode="1042" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="GetInCell" opcode="1043" >
+    <Arg name="Cell" type="ref" />
+  </Func>
+  <Func name="GetIsClass" opcode="1044" >
+    <Arg name="Class" type="ref" />
+  </Func>
+  <Func name="GetIsRace" opcode="1045" >
+    <Arg name="Race" type="ref" />
+  </Func>
+  <Func name="GetIsSex" opcode="1046" >
+    <Arg name="Gender" type="enum" enumtype="Gender" />
+  </Func>
+  <Func name="GetInFaction" opcode="1047" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="GetIsID" opcode="1048" >
+    <Arg name="object id" type="ref" />
+  </Func>
+  <Func name="GetFactionRank" opcode="1049" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="GetGlobalValue" opcode="104A" >
+    <Arg name="Global" type="ref" />
+  </Func>
+  <Func name="IsSnowing" opcode="104B"  />
+  <Func name="GetDisposition" opcode="104C" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="GetRandomPercent" opcode="104D"  />
+  <Func name="StreamMusic" opcode="104E" >
+    <Arg name="String" type="string" />
+  </Func>
+  <Func name="GetQuestVariable" opcode="104F" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="Variable name" type="string" />
+  </Func>
+  <Func name="GetLevel" opcode="1050"  />
+  <Func name="GetArmorRating" opcode="1051"  />
+  <Func name="RemoveItem" opcode="1052" requiredargs="2" >
+    <Arg name="object ID" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ModDisposition" opcode="1053" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetDeadCount" opcode="1054" >
+    <Arg name="actor base" type="ref" />
+  </Func>
+  <Func name="ShowMap" opcode="1055" requiredargs="1" >
+    <Arg name="Map marker" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="StartConversation" opcode="1056" desc="Start a conversation [Bob.StartConversation Joe, SecretTopic]" requiredargs="1" >
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="Topic" type="ref" />
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Drop" opcode="1057" >
+    <Arg name="object id" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="AddTopic" opcode="1058" >
+    <Arg name="Topic" type="ref" />
+  </Func>
+  <!-- Need to hard code this one... -->
+  <!--Func name="ShowMessage" opcode="1059" paddingbytes="6" >
+    <Arg name="Message" type="ref" />
+  </Func-->
+  <Func name="SetAlert" opcode="105A" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetIsAlerted" opcode="105B"  />
+  <Func name="Look" opcode="105C" requiredargs="1" >
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="StopLook" opcode="105D"  />
+  <Func name="EvaluatePackage" opcode="105E" short="evp"  />
+  <Func name="SendAssaultAlarm" opcode="105F" requiredargs="0" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="EnablePlayerControls" opcode="1060" desc="7 optional (0/1) values. movement|pipboy|fighting|pov|looking|rollover|sneaking ex: 1 0 0 1 0 0 0" requiredargs="0" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="DisablePlayerControls" opcode="1061" desc="7 optional (0/1) values. movement|pipboy|fighting|pov|looking|rollover|sneaking ex: 1 0 0 1 0 0 0" requiredargs="0" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPlayerControlsDisabled" opcode="1062" desc="7 (0/1) values. movement|pipboy|fighting|pov|looking|rollover|sneaking ex: 1 0 0 1 0 0 0" requiredargs="0">
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetHeadingAngle" opcode="1063" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="PickIdle" opcode="1064"  />
+  <Func name="IsWeaponOut" opcode="1065"  />
+  <Func name="IsTorchOut" opcode="1066"  />
+  <Func name="IsShieldOut" opcode="1067"  />
+  <Func name="CreateDetectionEvent" opcode="1068" requiredargs="2" >
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsActionRef" opcode="1069" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="IsFacingUp" opcode="106A"  />
+  <Func name="GetKnockedState" opcode="106B"  />
+  <Func name="GetWeaponAnimType" opcode="106C"  />
+  <Func name="IsWeaponSkillType" opcode="106D" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+  </Func>
+  <Func name="GetCurrentAIPackage" opcode="106E"  />
+  <Func name="IsWaiting" opcode="106F"  />
+  <Func name="IsIdlePlaying" opcode="1070"  />
+  <Func name="CompleteQuest" opcode="1071" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="Lock" opcode="1072" requiredargs="0" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="UnLock" opcode="1073" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetMinorCrimeCount" opcode="1074"  />
+  <Func name="GetMajorCrimeCount" opcode="1075"  />
+  <Func name="GetActorAggroRadiusViolated" opcode="1076"  />
+  <Func name="GetCrimeKnown" opcode="1077" >
+    <Arg name="Crime type" type="short" />
+    <Arg name="Actor" type="ref" />
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="SetEnemy" opcode="1078" requiredargs="2" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetAlly" opcode="1079" requiredargs="2" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetCrime" opcode="107A" requiredargs="1" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="Crime type" type="short" />
+  </Func>
+  <Func name="IsGreetingPlayer" opcode="107B"  />
+  <Func name="StartMisterSandMan" opcode="107C" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="IsGuard" opcode="107D"  />
+  <Func name="StartCannibal" opcode="107E" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="HasBeenEaten" opcode="107F"  />
+  <Func name="GetFatiguePercentage" opcode="1080" short="GetFatigue"  />
+  <Func name="GetPCIsClass" opcode="1081" >
+    <Arg name="Class" type="ref" />
+  </Func>
+  <Func name="GetPCIsRace" opcode="1082" >
+    <Arg name="Race" type="ref" />
+  </Func>
+  <Func name="GetPCIsSex" opcode="1083" >
+    <Arg name="Gender" type="enum" enumtype="Gender"/>
+  </Func>
+  <Func name="GetPCInFaction" opcode="1084" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="SameFactionAsPC" opcode="1085"  />
+  <Func name="SameRaceAsPC" opcode="1086"  />
+  <Func name="SameSexAsPC" opcode="1087"  />
+  <Func name="GetIsReference" opcode="1088" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="SetFactionRank" opcode="1089" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ModFactionRank" opcode="108A" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="KillActor" opcode="108B" short="kill" requiredargs="0" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ResurrectActor" opcode="108C" short="resurrect" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsTalking" opcode="108D"  />
+  <Func name="GetWalkSpeed" opcode="108E" short="GetWalk"  />
+  <Func name="GetCurrentAIProcedure" opcode="108F"  />
+  <Func name="GetTrespassWarningLevel" opcode="1090"  />
+  <Func name="IsTrespassing" opcode="1091"  />
+  <Func name="IsInMyOwnedCell" opcode="1092"  />
+  <Func name="GetWindSpeed" opcode="1093"  />
+  <Func name="GetCurrentWeatherPercent" opcode="1094" short="getweatherpct"  />
+  <Func name="GetIsCurrentWeather" opcode="1095" short="getweather" >
+    <Arg name="Weather ID" type="ref" />
+  </Func>
+  <Func name="IsContinuingPackagePCNear" opcode="1096"  />
+  <Func name="AddScriptPackage" opcode="1097" >
+    <Arg name="Package" type="ref" />
+  </Func>
+  <Func name="RemoveScriptPackage" opcode="1098"  />
+  <Func name="CanHaveFlames" opcode="1099"  />
+  <Func name="HasFlames" opcode="109A"  />
+  <Func name="AddFlames" opcode="109B"  />
+  <Func name="RemoveFlames" opcode="109C"  />
+  <Func name="GetOpenState" opcode="109D"  />
+  <Func name="MoveToMarker" opcode="109E" short="MoveTo" requiredargs="1" >
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="GetSitting" opcode="109F"  />
+  <Func name="GetFurnitureMarkerID" opcode="10A0"  />
+  <Func name="GetIsCurrentPackage" opcode="10A1" >
+    <Arg name="Package" type="ref" />
+  </Func>
+  <Func name="IsCurrentFurnitureRef" opcode="10A2" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="IsCurrentFurnitureObj" opcode="10A3" >
+    <Arg name="Furniture" type="ref" />
+  </Func>
+  <Func name="SetSize" opcode="10A4" short="CSize" desc="Shrink/Grow an actor. [player.shrink 0.0 or radius]" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="RemoveMe" opcode="10A5" requiredargs="0" >
+    <Arg name="Container" type="ref" />
+  </Func>
+  <Func name="DropMe" opcode="10A6"  />
+  <Func name="GetFactionReaction" opcode="10A7" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="SetFactionReaction" opcode="10A8" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ModFactionReaction" opcode="10A9" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetDayOfWeek" opcode="10AA"  />
+  <Func name="IgnoreCrime" opcode="10AB" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetTalkedToPCParam" opcode="10AC" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="RemoveAllItems" opcode="10AD" requiredargs="0" >
+    <Arg name="Container" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="WakeUpPC" opcode="10AE" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsPCSleeping" opcode="10AF"  />
+  <Func name="IsPCAMurderer" opcode="10B0"  />
+  <Func name="SetCombatStyle" opcode="10B1" short="setcs" requiredargs="0" >
+    <Arg name="Combat style" type="ref" />
+  </Func>
+  <Func name="PlaySound3D" opcode="10B2" >
+    <Arg name="Sound" type="ref" />
+  </Func>
+  <Func name="SelectPlayerSpell" opcode="10B3" short="spspell" >
+    <Arg name="spell item" type="ref" />
+  </Func>
+  <Func name="GetDetectionLevel" opcode="10B4" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="IsActorDetected" opcode="10B5"  />
+  <Func name="GetEquipped" opcode="10B6" >
+    <Arg name="object ID" type="ref" />
+  </Func>
+  <Func name="Wait" opcode="10B7" >
+    <Arg name="Package" type="ref" />
+  </Func>
+  <Func name="StopWaiting" opcode="10B8" >
+    <Arg name="Package" type="ref" />
+  </Func>
+  <Func name="IsSwimming" opcode="10B9"  />
+  <Func name="ScriptEffectElapsedSeconds" opcode="10BA"  />
+  <Func name="SetCellPublicFlag" opcode="10BB" short="setpublic" desc="Set public flag on cell. [setpublic MyCell 1]" >
+    <Arg name="Cell" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPCSleepHours" opcode="10BC"  />
+  <Func name="SetPCSleepHours" opcode="10BD" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetAmountSoldStolen" opcode="10BE"  />
+  <Func name="ModAmountSoldStolen" opcode="10BF" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetIgnoreCrime" opcode="10C0"  />
+  <Func name="GetPCExpelled" opcode="10C1" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="SetPCExpelled" opcode="10C2" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPCFactionMurder" opcode="10C3" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="SetPCFactionMurder" opcode="10C4" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPCEnemyofFaction" opcode="10C5" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="SetPCEnemyofFaction" opcode="10C6" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPCFactionAttack" opcode="10C7" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="SetPCFactionAttack" opcode="10C8" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="UnusedFunction21" opcode="10C9"  />
+  <Func name="UnusedFunction22" opcode="10CA"  />
+  <Func name="GetDestroyed" opcode="10CB"  />
+  <Func name="SetDestroyed" opcode="10CC" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetActionRef" opcode="10CD" short="getAR"  />
+  <Func name="GetSelf" opcode="10CE" short="this"  />
+  <Func name="GetContainer" opcode="10CF"  />
+  <Func name="GetForceRun" opcode="10D0"  />
+  <Func name="SetForceRun" opcode="10D1" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetForceSneak" opcode="10D2"  />
+  <Func name="SetForceSneak" opcode="10D3" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="AdvancePCSkill" opcode="10D4" short="AdvSkill" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="AdvancePCLevel" opcode="10D5" short="AdvLevel"  />
+  <Func name="HasMagicEffect" opcode="10D6" >
+    <Arg name="Magic effect" type="ref" />
+  </Func>
+  <Func name="GetDefaultOpen" opcode="10D7" desc="Returns 1 if this object is open by default."  />
+  <Func name="SetDefaultOpen" opcode="10D8" desc="A value of 1 will make the object open by default." >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ShowClassMenu" opcode="10D9"  />
+  <Func name="ShowRaceMenu" opcode="10DA"  />
+  <Func name="GetAnimAction" opcode="10DB" desc="Return the actors current anim action."  />
+  <Func name="ShowNameMenu" opcode="10DC"  />
+  <Func name="SetOpenState" opcode="10DD" desc="A value of 1 will make the object open." >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="UnusedFunction26" opcode="10DE"  />
+  <Func name="IsSpellTarget" opcode="10DF" >
+    <Arg name="magic item" type="ref" />
+  </Func>
+  <Func name="GetVATSMode" opcode="10E0"  />
+  <Func name="GetPersuasionNumber" opcode="10E1"  />
+  <Func name="GetSandman" opcode="10E2"  />
+  <Func name="GetCannibal" opcode="10E3"  />
+  <Func name="GetIsClassDefault" opcode="10E4" >
+    <Arg name="Class" type="ref" />
+  </Func>
+  <Func name="GetClassDefaultMatch" opcode="10E5"  />
+  <Func name="GetInCellParam" opcode="10E6" >
+    <Arg name="Cell" type="ref" />
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="SetInChargen" opcode="10E7" desc="A value of 1 will be in chargen." >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetCombatTarget" opcode="10E8"  />
+  <Func name="GetPackageTarget" opcode="10E9"  />
+  <Func name="ShowSpellMaking" opcode="10EA"  />
+  <Func name="GetVatsTargetHeight" opcode="10EB"  />
+  <Func name="SetGhost" opcode="10EC" desc="A value of 1 will make the NPC act as a 'ghost'." >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetIsGhost" opcode="10ED" desc="Returns 1 if the actor is acting as a 'ghost'."  />
+  <Func name="EquipItem" opcode="10EE" short="EquipObject" requiredargs="1" >
+    <Arg name="object id" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="UnequipItem" opcode="10EF" short="UnEquipObject" requiredargs="1" >
+    <Arg name="object id" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetClass" opcode="10F0" >
+    <Arg name="Class" type="ref" />
+  </Func>
+  <Func name="SetUnconscious" opcode="10F1" desc="A value of 1 will be unconscious." >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetUnconscious" opcode="10F2" desc="Returns 1 if is unconscious."  />
+  <Func name="SetRestrained" opcode="10F3" desc="A value of 1 will be restrained." >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetRestrained" opcode="10F4" desc="Returns 1 if is restrained."  />
+  <Func name="ForceFlee" opcode="10F5" short="Flee" desc="Forces a actor to flee if destination or cell is passed in uses them" requiredargs="0" >
+    <Arg name="Cell" type="ref" />
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetIsUsedItem" opcode="10F6" >
+    <Arg name="object ID" type="ref" />
+  </Func>
+  <Func name="GetIsUsedItemType" opcode="10F7" >
+    <Arg name="Form type" type="ref" />
+  </Func>
+  <Func name="UnusedFunction9" opcode="10F8"  />
+  <Func name="UnusedFunction10" opcode="10F9"  />
+  <Func name="UnusedFunction11" opcode="10FA"  />
+  <Func name="UnusedFunction12" opcode="10FB"  />
+  <Func name="UnusedFunction13" opcode="10FC"  />
+  <Func name="UnusedFunction14" opcode="10FD"  />
+  <Func name="GetIsPlayableRace" opcode="10FE"  />
+  <Func name="GetOffersServicesNow" opcode="10FF"  />
+  <Func name="GetGameSetting" opcode="1100" short="GetGS" >
+    <Arg name="String" type="string" />
+  </Func>
+  <!-- Not sure about this one... Argument isn't in the function dump -->
+  <Func name="StopCombatAlarmOnActor" opcode="1101" short="SCAOnActor" requiredargs="0" skipargs="true">
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="GetUsedItemLevel" opcode="1102"  />
+  <Func name="GetUsedItemActivate" opcode="1103"  />
+  <Func name="SetWeather" opcode="1104" short="sw" desc="Sets the active weather to the specified type" requiredargs="1" >
+    <Arg name="Weather ID" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ForceTakeCover" opcode="1105" short="TakeCover" desc="Forces a actor to move away from the target actor for a period of time" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ModBarterGold" opcode="1106" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetBarterGold" opcode="1107" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetBarterGold" opcode="1108"  />
+  <Func name="IsTimePassing" opcode="1109"  />
+  <Func name="IsPleasant" opcode="110A"  />
+  <Func name="IsCloudy" opcode="110B"  />
+  <Func name="TrapUpdate" opcode="110C"  />
+  <Func name="SetQuestObject" opcode="110D" >
+    <Arg name="object id" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ForceActorValue" opcode="110E" short="ForceAV" desc="Does modav XXX (value - getav XXX). [player.forceav luck 25]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ModPCSkill" opcode="110F" short="ModPCS" desc="Modify the Players Skill. [modpcs Blunt, 10]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ModPCAttribute" opcode="1110" short="ModPCA" desc="Modify an actor value. [modpca luck, 10]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="EnableFastTravel" opcode="1111" short="EnableFast" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetArmorRatingUpperBody" opcode="1112"  />
+  <Func name="GetParentRef" opcode="1113"  />
+  <Func name="PlayBink" opcode="1114" requiredargs="1" >
+    <Arg name="String" type="string" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetBaseActorValue" opcode="1115" short="GetBaseAV" desc="Get a base actor value. [player.getbaseav luck]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+  </Func>
+  <Func name="IsOwner" opcode="1116" desc="get the ownership of the ref" requiredargs="0" >
+    <Arg name="Owner" type="ref" />
+  </Func>
+  <Func name="SetOwnership" opcode="1117" requiredargs="0" >
+    <Arg name="Owner" type="ref" />
+  </Func>
+  <Func name="IsCellOwner" opcode="1118" desc="get the ownership of the ref" requiredargs="1" >
+    <Arg name="Cell" type="ref" />
+    <Arg name="Owner" type="ref" />
+  </Func>
+  <Func name="SetCellOwnership" opcode="1119" requiredargs="1" >
+    <Arg name="Cell" type="ref" />
+    <Arg name="Owner" type="ref" />
+  </Func>
+  <Func name="IsHorseStolen" opcode="111A"  />
+  <Func name="SetCellFullName" opcode="111B" >
+    <Arg name="Cell" type="ref" />
+    <Arg name="Message" type="ref" />
+  </Func>
+  <Func name="SetActorFullName" opcode="111C" >
+    <Arg name="Message" type="ref" />
+  </Func>
+  <Func name="IsLeftUp" opcode="111D"  />
+  <Func name="IsSneaking" opcode="111E"  />
+  <Func name="IsRunning" opcode="111F"  />
+  <Func name="GetFriendHit" opcode="1120"  />
+  <Func name="IsInCombat" opcode="1121"  />
+  <Func name="SetPackDuration" opcode="1122" short="SPDur" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="PlayMagicShaderVisuals" opcode="1123" short="PMS" requiredargs="1" >
+    <Arg name="Effect shader ID" type="ref" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="PlayMagicEffectVisuals" opcode="1124" short="PME" requiredargs="1" >
+    <Arg name="Magic effect" type="ref" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="StopMagicShaderVisuals" opcode="1125" short="SMS" >
+    <Arg name="Effect shader ID" type="ref" />
+  </Func>
+  <Func name="StopMagicEffectVisuals" opcode="1126" short="SME" >
+    <Arg name="Magic effect" type="ref" />
+  </Func>
+  <Func name="ResetInterior" opcode="1127" >
+    <Arg name="Cell" type="ref" />
+  </Func>
+  <!-- Can't handle functions with variable numbers of arguments in an expression -->
+  <Func name="IsAnimPlaying" opcode="1128" requiredargs="0">
+    <Arg name="Animation group" type="enum" enumtype="AnimationGroup" />
+  </Func>
+  <Func name="SetActorAlpha" opcode="1129" short="SAA" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="EnableLinkedPathPoints" opcode="112A"  />
+  <Func name="DisableLinkedPathPoints" opcode="112B"  />
+  <Func name="IsInInterior" opcode="112C"  />
+  <Func name="ForceWeather" opcode="112D" short="fw" desc="Forces the active weather to the specified type, without transition." requiredargs="1" >
+    <Arg name="Weather ID" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ToggleActorsAI" opcode="112E"  />
+  <Func name="IsActorsAIOff" opcode="112F"  />
+  <Func name="IsWaterObject" opcode="1130" desc="Water condition used for drinking animation."  />
+  <Func name="UnusedFunction15" opcode="1131"  />
+  <Func name="IsActorUsingATorch" opcode="1132"  />
+  <Func name="SetLevel" opcode="1133" requiredargs="1" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ResetFallDamageTimer" opcode="1134"  />
+  <Func name="IsXBox" opcode="1135"  />
+  <Func name="GetInWorldspace" opcode="1136" >
+    <Arg name="World space" type="ref" />
+  </Func>
+  <Func name="ModPCMiscStat" opcode="1137" short="ModPCMS" >
+    <Arg name="Misc stat" type="enum" enumtype="MiscStat"/>
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPCMiscStat" opcode="1138" short="GetPCMS" >
+    <Arg name="Misc stat" type="enum" enumtype="MiscStat" />
+  </Func>
+  <Func name="IsActorEvil" opcode="1139"  />
+  <Func name="IsActorAVictim" opcode="113A"  />
+  <Func name="GetTotalPersuasionNumber" opcode="113B"  />
+  <Func name="SetScale" opcode="113C" desc="Set the scale of an object" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="ModScale" opcode="113D" desc="Modify the scale of an object" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="GetIdleDoneOnce" opcode="113E"  />
+  <Func name="KillAllActors" opcode="113F" short="killall" requiredargs="0" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="GetNoRumors" opcode="1140"  />
+  <Func name="SetNoRumors" opcode="1141" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Dispel" opcode="1142" >
+    <Arg name="magic item" type="ref" />
+  </Func>
+  <Func name="WhichServiceMenu" opcode="1143"  />
+  <Func name="TriggerHitShader" opcode="1144" short="ths" requiredargs="0" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="FunctionUnused16" opcode="1145"  />
+  <Func name="Reset3DState" opcode="1146"  />
+  <Func name="IsRidingHorse" opcode="1147"  />
+  <Func name="DispelAllSpells" opcode="1148"  />
+  <Func name="UnusedFunction17" opcode="1149"  />
+  <Func name="AddAchievement" opcode="114A" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="DuplicateAllItems" opcode="114B" requiredargs="0" >
+    <Arg name="Container" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsInDangerousWater" opcode="114C"  />
+  <Func name="EssentialDeathReload" opcode="114D" >
+    <Arg name="String" type="string" />
+  </Func>
+  <Func name="SetShowQuestItems" opcode="114E" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="DuplicateNPCStats" opcode="114F" requiredargs="0" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="ResetHealth" opcode="1150"  />
+  <Func name="SetIgnoreFriendlyHits" opcode="1151" short="sifh" desc="Set whether an actor should ignore friendly hits (0-no, 1-yes)" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetIgnoreFriendlyHits" opcode="1152" short="gifh" desc="See if an actor is ignoring friendly hits"  />
+  <Func name="IsPlayersLastRiddenHorse" opcode="1153"  />
+  <Func name="SetActorRefraction" opcode="1154" short="sar" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="SetItemValue" opcode="1155" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetRigidBodyMass" opcode="1156" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="ShowViewerStrings" opcode="1157" short="svs"  />
+  <Func name="ReleaseWeatherOverride" opcode="1158" short="rwo"  />
+  <Func name="SetAllReachable" opcode="1159" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetAllVisible" opcode="115A" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetNoAvoidance" opcode="115B" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SendTrespassAlarm" opcode="115C" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="SetSceneIsComplex" opcode="115D" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Autosave" opcode="115E"  />
+  <Func name="StartMasterFileSeekData" opcode="115F"  />
+  <Func name="DumpMasterFileSeekData" opcode="1160"  />
+  <Func name="IsActor" opcode="1161"  />
+  <Func name="IsEssential" opcode="1162"  />
+  <Func name="PreloadMagicEffect" opcode="1163" >
+    <Arg name="Magic effect" type="ref" />
+  </Func>
+  <Func name="ShowDialogSubtitles" opcode="1164" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="UnusedFunction27" opcode="1165"  />
+  <Func name="IsPlayerMovingIntoNewSpace" opcode="1166"  />
+  <Func name="UnusedFunction28" opcode="1167"  />
+  <Func name="UnusedFunction29" opcode="1168"  />
+  <Func name="GetTimeDead" opcode="1169"  />
+  <Func name="GetPlayerHasLastRiddenHorse" opcode="116A"  />
+  <Func name="GetLinkedRef" opcode="116B"  />
+  <Func name="DamageObject" opcode="116C" short="do" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="IsChild" opcode="116D"  />
+  <Func name="UnusedFunction1" opcode="116E"  />
+  <Func name="GetLastPlayerAction" opcode="116F"  />
+  <Func name="IsPlayerActionActive" opcode="1170" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetTalkingActivatorActor" opcode="1171" requiredargs="0" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="IsTalkingActivatorActor" opcode="1172" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="ShowBarterMenu" opcode="1173" short="sbm" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsInList" opcode="1174" >
+    <Arg name="FormList" type="ref" />
+  </Func>
+  <Func name="UnusedFunction18" opcode="1175"  />
+  <Func name="AddPerk" opcode="1176" >
+    <Arg name="Perk" type="ref" />
+  </Func>
+  <Func name="RewardXP" opcode="1177" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ShowHackingMiniGame" opcode="1178" short="shmg"  />
+  <Func name="ShowSurgeryMenu" opcode="1179" short="ssmg"  />
+  <Func name="ShowRepairMenu" opcode="117A" short="srm"  />
+  <Func name="FunctionUnused19" opcode="117B" short="unused"  />
+  <Func name="AddNote" opcode="117C" short="AN" >
+    <Arg name="Note" type="ref" />
+  </Func>
+  <Func name="RemoveNote" opcode="117D" short="RN" >
+    <Arg name="Note" type="ref" />
+  </Func>
+  <Func name="GetHasNote" opcode="117E" short="GetN" >
+    <Arg name="Note" type="ref" />
+  </Func>
+  <Func name="AddToFaction" opcode="117F" short="Addfac" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="RemoveFromFaction" opcode="1180" short="Removefac" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="DamageActorValue" opcode="1181" short="DamageAV" desc="Damage an actor value." >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="RestoreActorValue" opcode="1182" short="RestoreAV" desc="Restore an actor value." >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="TriggerHUDShudder" opcode="1183" short="hudsh" desc="Trigger shudder effect on HUD.  Params=Intensity/Duration." requiredargs="0" >
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="SetDisposition" opcode="1184" short="SetDisp" desc="Sets the dispostion with modifiers" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ShowComputersInterface" opcode="1185" short="sci"  />
+  <Func name="SetGlobalTimeMultiplier" opcode="1186" short="sgtm" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="GetHitLocation" opcode="1187" desc="What BGSBodyPart::LIMB_ENUM was hit. -1 = none, 0 = torso, ..."  />
+  <Func name="IsPC1stPerson" opcode="1188" short="pc1st" desc="Is the player playing in 1st person mode?"  />
+  <Func name="PurgeCellBuffers" opcode="1189" short="pcb" desc="Forcibly unloads all unattached cells in cell buffers."  />
+  <Func name="PushActorAway" opcode="118A" >
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetActorsAI" opcode="118B" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ClearOwnership" opcode="118C"  />
+  <Func name="GetCauseofDeath" opcode="118D" desc="What killed the actor"  />
+  <Func name="IsLimbGone" opcode="118E" desc="Is BGSBodyPart::LIMB_ENUM been dismembered" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsWeaponInList" opcode="118F" desc="Is the current weapon in the form list" >
+    <Arg name="FormList" type="ref" />
+  </Func>
+  <Func name="PlayIdle" opcode="1190" desc="Play this idle on the current actor." >
+    <Arg name="String" type="string" />
+  </Func>
+  <Func name="ApplyImageSpaceModifier" opcode="1191" short="imod" desc="Adds an imagespace modifier to the active list" requiredargs="1" >
+    <Arg name="Imagespace Modifier ID" type="ref" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="RemoveImageSpaceModifier" opcode="1192" short="rimod" desc="Removes an imagespace modifier from the active list" requiredargs="1" >
+    <Arg name="Imagespace Modifier ID" type="ref" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="HasFriendDisposition" opcode="1193"  />
+  <Func name="FunctionUnused20" opcode="1194"  />
+  <Func name="FriendDispositionBoost" opcode="1195"  />
+  <Func name="SetCellImageSpace" opcode="1196" >
+    <Arg name="Cell" type="ref" />
+    <Arg name="Imagespace" type="ref" />
+  </Func>
+  <Func name="ShowChargenMenu" opcode="1197" short="scgm"  />
+  <Func name="GetVATSValue" opcode="1198" requiredargs="1" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsKiller" opcode="1199" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="IsKillerObject" opcode="119A" >
+    <Arg name="FormList" type="ref" />
+  </Func>
+  <Func name="GetFactionCombatReaction" opcode="119B" >
+    <Arg name="Fraction" type="ref" />
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="UseWeapon" opcode="119C" requiredargs="4" >
+    <Arg name="object id" type="ref" />
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="object reference ID" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="EvaluateSpellConditions" opcode="119D" short="esc"  />
+  <Func name="ToggleMotionBlur" opcode="119E" short="tmb" desc="Toggle Motion Blur for the selected reference"  />
+  <Func name="Exists" opcode="119F" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetGroupMemberCount" opcode="11A0"  />
+  <Func name="GetGroupTargetCount" opcode="11A1"  />
+  <Func name="SetObjectiveCompleted" opcode="11A2" desc="Set objective completion status: 0-Off, 1-On" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetObjectiveDisplayed" opcode="11A3" desc="Set objective displayed status: 0-Off, 1-On" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetObjectiveCompleted" opcode="11A4" desc="Get objective completion status: 0-Off, 1-On" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetObjectiveDisplayed" opcode="11A5" desc="Get objective displayed status: 0-Off, 1-On" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetImageSpace" opcode="11A6" requiredargs="0" >
+    <Arg name="Imagespace" type="ref" />
+  </Func>
+  <Func name="PipboyRadio" opcode="11A7" short="prad" desc="Control the Pipboy radio. Enable, Disable, Tune" requiredargs="1" >
+    <Arg name="String" type="string" />
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="RemovePerk" opcode="11A8" >
+    <Arg name="Perk" type="ref" />
+  </Func>
+  <Func name="DisableAllActors" opcode="11A9" short="DisAA"  />
+  <Func name="GetIsFormType" opcode="11AA" >
+    <Arg name="String" type="string" />
+  </Func>
+  <Func name="GetIsVoiceType" opcode="11AB" >
+    <Arg name="Voice type" type="ref" />
+  </Func>
+  <Func name="GetPlantedExplosive" opcode="11AC"  />
+  <Func name="CompleteAllObjectives" opcode="11AD" desc="Complete all of a quest's objectives" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="IsActorTalkingThroughActivator" opcode="11AE"  />
+  <Func name="GetHealthPercentage" opcode="11AF"  />
+  <Func name="SetAudioMultithreading" opcode="11B0" short="SAM" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetIsObjectType" opcode="11B1" >
+    <Arg name="Form type" type="ref" />
+  </Func>
+  <Func name="ShowChargenMenuParams" opcode="11B2" short="scgmp" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetDialogueEmotion" opcode="11B3"  />
+  <Func name="GetDialogueEmotionValue" opcode="11B4"  />
+  <Func name="ExitGame" opcode="11B5" short="exit"  />
+  <Func name="GetIsCreatureType" opcode="11B6" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetMerchantContainer" opcode="11B7" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="RemoveMerchantContainer" opcode="11B8"  />
+  <Func name="ShowWarning" opcode="11B9" paddingbytes="2" >
+    <Arg name="String" type="string" />
+  </Func>
+  <Func name="EnterTrigger" opcode="11BA" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="MarkForDelete" opcode="11BB"  />
+  <Func name="AddItemHealthPercent" opcode="11BC" requiredargs="3" >
+    <Arg name="object id" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="float" type="float" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="PlaceAtMeHealthPercent" opcode="11BD" requiredargs="2" >
+    <Arg name="object id" type="ref" />
+    <Arg name="float" type="float" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetInZone" opcode="11BE" >
+    <Arg name="Encounter zone" type="ref" />
+  </Func>
+  <Func name="DisableNavMesh" opcode="11BF" desc="Disable navmesh by FormID" >
+    <Arg name="String" type="string" />
+  </Func>
+  <Func name="EnableNavMesh" opcode="11C0" desc="Enable navmesh by FormID" >
+    <Arg name="String" type="string" />
+  </Func>
+  <Func name="HasPerk" opcode="11C1" >
+    <Arg name="Perk" type="ref" />
+  </Func>
+  <Func name="GetFactionRelation" opcode="11C2" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="IsLastIdlePlayed" opcode="11C3" >
+    <Arg name="Idle form" type="ref" />
+  </Func>
+  <Func name="SetNPCRadio" opcode="11C4" short="snr" desc="Enable/Disable NPC radio playback: 0-Off, 1-On " >
+    <Arg name="integer" type="int" />
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="SetPlayerTeammate" opcode="11C5" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPlayerTeammate" opcode="11C6"  />
+  <Func name="GetPlayerTeammateCount" opcode="11C7"  />
+  <Func name="OpenTeammateContainer" opcode="11C8" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ClearFactionPlayerEnemyFlag" opcode="11C9" >
+    <Arg name="Fraction" type="ref" />
+  </Func>
+  <Func name="ClearActorsFactionsPlayerEnemyFlag" opcode="11CA"  />
+  <Func name="GetActorCrimePlayerEnemy" opcode="11CB"  />
+  <Func name="GetActorFactionPlayerEnemy" opcode="11CC"  />
+  <Func name="SetPlayerTagSkill" opcode="11CD" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsPlayerTagSkill" opcode="11CE" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+  </Func>
+  <Func name="GetPlayerGrabbedRef" opcode="11CF"  />
+  <Func name="IsPlayerGrabbedRef" opcode="11D0" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="PlaceLeveledActorAtMe" opcode="11D1" requiredargs="1" >
+    <Arg name="object id" type="ref" />
+    <Arg name="integer" type="int" />
+    <Arg name="Encounter zone" type="ref" />
+  </Func>
+  <Func name="UnusedFunction" opcode="11D2"  />
+  <Func name="ShowLockpickMenu" opcode="11D3" short="slpm" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetBroadcastState" opcode="11D4"  />
+  <Func name="SetBroadcastState" opcode="11D5" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="StartRadioConversation" opcode="11D6" requiredargs="0" >
+    <Arg name="Topic" type="ref" />
+  </Func>
+  <Func name="GetDestructionStage" opcode="11D7"  />
+  <Func name="ClearDestruction" opcode="11D8"  />
+  <Func name="CastImmediateOnSelf" opcode="11D9" short="cios" >
+    <Arg name="magic item" type="ref" />
+  </Func>
+  <Func name="GetIsAlignment" opcode="11DA" >
+    <Arg name="Alignment" type="ref" />
+  </Func>
+  <Func name="ResetQuest" opcode="11DB" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="SetQuestDelay" opcode="11DC" >
+    <Arg name="Quest" type="ref" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="ForceActiveQuest" opcode="11DD" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="GetThreatRatio" opcode="11DE" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="MatchFaceGeometry" opcode="11DF" >
+    <Arg name="Actor" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetIsUsedItemEquipType" opcode="11E0" >
+    <Arg name="Equip type" type="ref" />
+  </Func>
+  <Func name="GetPlayerName" opcode="11E1"  />
+  <Func name="FireWeapon" opcode="11E2" >
+    <Arg name="object id" type="ref" />
+  </Func>
+  <Func name="ShowTutorialMenu" opcode="11E3" requiredargs="0" >
+    <Arg name="Message" type="ref" />
+  </Func>
+  <Func name="AgeRace" opcode="11E4" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="MatchRace" opcode="11E5" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="SetPCYoung" opcode="11E6" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SexChange" opcode="11E7" requiredargs="0" >
+    <Arg name="Gender" type="enum" enumtype="Gender" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ShowSPECIALBookMenu" opcode="11E8" short="ssbm"  />
+  <Func name="GetConcussed" opcode="11E9"  />
+  <Func name="SetZoneRespawns" opcode="11EA" >
+    <Arg name="Encounter zone" type="ref" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetVATSTarget" opcode="11EB" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetMapMarkerVisible" opcode="11EC"  />
+  <Func name="ResetInventory" opcode="11ED"  />
+  <Func name="ShowSPECIALBookMenuParams" opcode="11EE" short="ssbmp" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetPermanentActorValue" opcode="11EF" short="GetPermAV" desc="Get an actor value ignoring temporary modifiers. [player.getav luck]" >
+    <Arg name="Actor value" type="enum" enumtype="ActorValue" />
+  </Func>
+  <Func name="GetKillingBlowLimb" opcode="11F0" desc="Which BGSBodyPart::LIMB_ENUM received the killing blow"  />
+  <Func name="ShowBarberMenu" opcode="11F1"  />
+  <Func name="ShowPlasticSurgeonMenu" opcode="11F2"  />
+  <Func name="TriggerLODApocalypse" opcode="11F3"  />
+  <Func name="GetWeaponHealthPerc" opcode="11F4"  />
+  <Func name="SetWeaponHealthPerc" opcode="11F5" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="ModWeaponHealthPerc" opcode="11F6" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="GetRadiationLevel" opcode="11F7"  />
+  <Func name="ShowAllMapMarkers" opcode="11F8" short="tmm" desc="Shows/hides map markers (1 shows, 0 hides)(1 travel(default), 0 no travel)(1 all, 0 all but hidden(default))." requiredargs="1" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ShowChargenMenuModValues" opcode="11F9" short="scgmod" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ResetAI" opcode="11FA"  />
+  <Func name="SetRumble" opcode="11FB" desc="Creates rumble in the controller (left motor) (right motor) (duration)" >
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="SetNoActivationSound" opcode="11FC" desc="Set the sound to play when activation fails (Sound)" >
+    <Arg name="Sound" type="ref" />
+  </Func>
+  <Func name="ClearNoActivationSound" opcode="11FD" desc="Clear the activation failure sound"  />
+  <Func name="GetLastHitCritical" opcode="11FE"  />
+  <Func name="PlayMusic" opcode="11FF" >
+    <Arg name="Music" type="ref" />
+  </Func>
+  <Func name="SetLocationSpecificLoadScreensOnly" opcode="1200" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ResetPipboyManager" opcode="1201"  />
+  <Func name="SetPCToddler" opcode="1202" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsCombatTarget" opcode="1203" >
+    <Arg name="Actor" type="ref" />
+  </Func>
+  <Func name="RewardKarma" opcode="1204" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="TriggerScreenBlood" opcode="1205" short="tsb" desc="Trigger screen blood" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="GetVATSRightAreaFree" opcode="1206" requiredargs="0" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetVATSLeftAreaFree" opcode="1207" requiredargs="0" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetVATSBackAreaFree" opcode="1208" requiredargs="0" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetVATSFrontAreaFree" opcode="1209" requiredargs="0" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetIsLockBroken" opcode="120A"  />
+  <Func name="IsPS3" opcode="120B"  />
+  <Func name="IsWin32" opcode="120C"  />
+  <Func name="GetVATSRightTargetVisible" opcode="120D" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetVATSLeftTargetVisible" opcode="120E" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetVATSBackTargetVisible" opcode="120F" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="GetVATSFrontTargetVisible" opcode="1210" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="AttachAshPile" opcode="1211" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetCriticalStage" opcode="1212" >
+    <Arg name="Crittical stage" type="enum" enumtype="CriticalStage"/>
+  </Func>
+  <Func name="IsInCriticalStage" opcode="1213" >
+    <Arg name="Crittical stage" type="enum" enumtype="CriticalStage" />
+  </Func>
+  <Func name="RemoveFromAllFactions" opcode="1214"  />
+  <Func name="GetXPForNextLevel" opcode="1215"  />
+  <Func name="ShowLockpickMenuDebug" opcode="1216" short="slpmd" requiredargs="0" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ForceSave" opcode="1217"  />
+  <Func name="SetSPECIALPoints" opcode="1218" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="AddSPECIALPoints" opcode="1219" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetTagSkills" opcode="121A" requiredargs="1" >
+    <Arg name="integer" type="int" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="AddTagSkills" opcode="121B" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Sin" opcode="121C" requiredargs="1" >
+    <Arg name="float" type="float" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Cos" opcode="121D" requiredargs="1" >
+    <Arg name="float" type="float" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Tan" opcode="121E" requiredargs="1" >
+    <Arg name="float" type="float" />
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="Sqrt" opcode="121F" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="Log" opcode="1220" requiredargs="1" >
+    <Arg name="float" type="float" />
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="Abs" opcode="1221" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="GetQuestCompleted" opcode="1222" short="GetQC" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="ForceTerminalBack" opcode="1223"  />
+  <Func name="PipBoyRadioOff" opcode="1224"  />
+  <Func name="AutoDisplayObjectives" opcode="1225" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="IsGoreDisabled" opcode="1226"  />
+  <Func name="FadeSFX" opcode="1227" short="FSFX" >
+    <Arg name="float" type="float" />
+  </Func>
+  <Func name="SetMinimalUse" opcode="1228" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="SetPCCanUsePowerArmor" opcode="1229" >
+    <Arg name="integer" type="int" />
+  </Func>
+  <Func name="ShowQuestStages" opcode="122A" short="SQS" >
+    <Arg name="Quest" type="ref" />
+  </Func>
+  <Func name="GetSpellUsageNum" opcode="122B" >
+    <Arg name="magic item" type="ref" />
+  </Func>
+  <Func name="ForceRadioStationUpdate" opcode="122C" short="FRSU"  />
+  <Func name="GetActorsInHigh" opcode="122D"  />
+  <Func name="HasLoaded3D" opcode="122E"  />
+  <Func name="DisableAllMines" opcode="122F"  />
+  <Func name="SetLastExtDoorActivated" opcode="1230" >
+    <Arg name="object reference ID" type="ref" />
+  </Func>
+  <Func name="KillQuestUpdates" opcode="1231" short="KQU"  />
+  <Func name="IsImageSpaceActive" opcode="1232" >
+    <Arg name="Imagespace Modifier ID" type="ref" />
+  </Func>
+</Functions>
