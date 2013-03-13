@@ -207,20 +207,21 @@ namespace Nexus.Client
 		/// <summary>
 		/// Hanldes the <see cref="Control.Click"/> event of the OK button.
 		/// </summary>
-		/// <remarks>
-		/// This makes the mod manager remember the selected game, if requested.
-		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butOK_Click(object sender, EventArgs e)
 		{
-			if (!RescanRequested)
-			{
-				Settings.RememberGameMode = cbxRemember.Checked;
-				Settings.RememberedGameMode = SelectedGameModeId;
-				Settings.Save();
-			}
-			DialogResult = DialogResult.OK;
+			StartupGameMode();
+		}
+
+		/// <summary>
+		/// Hanldes the <see cref="Control.MouseDoubleClick"/> event of the controls.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
+		private void glvGameMode_MouseDoubleClick(object sender, MouseEventArgs e)
+		{
+			StartupGameMode();
 		}
 
 		/// <summary>
@@ -236,6 +237,23 @@ namespace Nexus.Client
 		{
 			if (glvGameMode.SelectedGameMode.ModeTheme.Icon != null)
 				Icon = glvGameMode.SelectedGameMode.ModeTheme.Icon;
+		}
+
+		/// <summary>
+		/// Starts the mod manager for the selected game mode.
+		/// </summary>
+		/// <remarks>
+		/// This makes the mod manager remember the selected game, if requested.
+		/// </remarks>
+		private void StartupGameMode()
+		{
+			if (!RescanRequested)
+			{
+				Settings.RememberGameMode = cbxRemember.Checked;
+				Settings.RememberedGameMode = SelectedGameModeId;
+				Settings.Save();
+			}
+			DialogResult = DialogResult.OK;
 		}
 	}
 }
