@@ -69,6 +69,7 @@ namespace Nexus.Client.Settings
 		private Int32 m_intUpdateCheckInterval = 0;
 		private Int32 m_intModVersionsCheckInterval = 0;
 		private bool m_booShowSidePanel = true;
+		private bool m_booSkipReadmeFiles = true;
 
 		#region Properties
 
@@ -262,6 +263,21 @@ namespace Nexus.Client.Settings
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the manager should prevent the extraction of readme files.
+		/// </summary>
+		/// <value>Whether the manager should prevent the extraction of readme files.</value>
+		public bool SkipReadmeFiles
+		{
+			get
+			{
+				return m_booSkipReadmeFiles;
+			}
+			set
+			{
+				m_booSkipReadmeFiles = value;
+			}
+		}
 
 		#endregion
 
@@ -461,6 +477,7 @@ namespace Nexus.Client.Settings
 			ScanSubfoldersForMods = EnvironmentInfo.Settings.ScanSubfoldersForMods;
 			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;
 			ShowSidePanel = EnvironmentInfo.Settings.ShowSidePanel;
+			SkipReadmeFiles = EnvironmentInfo.Settings.SkipReadmeFiles;
 		}
 
 		/// <summary>
@@ -505,6 +522,7 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.ScanSubfoldersForMods = ScanSubfoldersForMods;
 			EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = CloseModManagerAfterGameLaunch;
 			EnvironmentInfo.Settings.ShowSidePanel = ShowSidePanel;
+			EnvironmentInfo.Settings.SkipReadmeFiles = SkipReadmeFiles;
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}

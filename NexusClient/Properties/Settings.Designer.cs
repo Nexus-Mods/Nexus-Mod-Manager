@@ -286,6 +286,21 @@ namespace Nexus.Client.Properties {
 				this["ShowSidePanel"] = value;
 			}
 		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("True")]
+		public bool SkipReadmeFiles
+		{
+			get
+			{
+				return ((bool)(this["SkipReadmeFiles"]));
+			}
+			set
+			{
+				this["SkipReadmeFiles"] = value;
+			}
+		}
 		
 		[global::System.Configuration.UserScopedSettingAttribute()]
 		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

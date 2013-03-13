@@ -42,6 +42,12 @@ namespace Nexus.Client.ModManagement
 		/// <value>The manager to use to manage plugins.</value>
 		protected IPluginManager PluginManager { get; private set; }
 
+		/// <summary>
+		/// Gets or sets whether the installer should skip readme files.
+		/// </summary>
+		/// <value>Whether the installer should skip readme files.</value>
+		protected bool SkipReadme { get; set; }
+
 		#endregion
 
 		#region Constructors
@@ -53,12 +59,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_gmdGameMode">The the current game mode.</param>
 		/// <param name="p_mfiFileInstaller">The file installer to use.</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
-		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager)
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, bool p_booSkipReadme)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			FileInstaller = p_mfiFileInstaller;
 			PluginManager = p_pmgPluginManager;
+			SkipReadme = p_booSkipReadme;
 		}
 
 		#endregion
@@ -94,9 +101,12 @@ namespace Nexus.Client.ModManagement
 				if (Status == TaskStatus.Cancelling)
 					return false;
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile);
-				if (FileInstaller.InstallFileFromMod(strFile, strFixedPath))
-					if (PluginManager.IsActivatiblePluginFile(strFixedPath))
-						PluginManager.ActivatePlugin(strFixedPath);
+				if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower())))
+				{
+					if (FileInstaller.InstallFileFromMod(strFile, strFixedPath))
+						if (PluginManager.IsActivatiblePluginFile(strFixedPath))
+							PluginManager.ActivatePlugin(strFixedPath);
+				}
 				StepOverallProgress();
 			}
 			return true;

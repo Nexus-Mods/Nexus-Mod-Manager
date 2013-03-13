@@ -129,7 +129,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager);
+				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles);
 				OnTaskStarted(bitTask); 
 				booSuccess = bitTask.Execute();
 			}
