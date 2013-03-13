@@ -40,6 +40,7 @@
 			this.ckbCheckModVersions = new System.Windows.Forms.CheckBox();
 			this.ckbCheckForUpdates = new System.Windows.Forms.CheckBox();
 			this.ckbShowSidePanel = new System.Windows.Forms.CheckBox();
+			this.ckbSkipReadmeFiles = new System.Windows.Forms.CheckBox();
 			this.cbxProgramUpdateCheckInterval = new System.Windows.Forms.ComboBox();
 			this.cbxModVersionsCheckInterval = new System.Windows.Forms.ComboBox();
 			this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
@@ -122,9 +123,10 @@
 			this.groupBox5.Controls.Add(this.ckbCheckForUpdates);
 			this.groupBox5.Controls.Add(this.cbxProgramUpdateCheckInterval);
 			this.groupBox5.Controls.Add(this.ckbShowSidePanel);
+			this.groupBox5.Controls.Add(this.ckbSkipReadmeFiles);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
-			this.groupBox5.Size = new System.Drawing.Size(368, 157);
+			this.groupBox5.Size = new System.Drawing.Size(368, 180);
 			this.groupBox5.TabIndex = 23;
 			this.groupBox5.TabStop = false;
 			this.groupBox5.Text = "Options";
@@ -207,6 +209,16 @@
 			this.ckbShowSidePanel.Text = "Enable mod info side panel";
 			this.ckbShowSidePanel.UseVisualStyleBackColor = true;
 			// 
+			// ckbSkipReadmeFiles
+			// 
+			this.ckbSkipReadmeFiles.AutoSize = true;
+			this.ckbSkipReadmeFiles.Location = new System.Drawing.Point(16, 157);
+			this.ckbSkipReadmeFiles.Name = "ckbSkipReadmeFiles";
+			this.ckbSkipReadmeFiles.Size = new System.Drawing.Size(217, 17);
+			this.ckbSkipReadmeFiles.TabIndex = 8;
+			this.ckbSkipReadmeFiles.Text = "Don't extract ReadMe files";
+			this.ckbSkipReadmeFiles.UseVisualStyleBackColor = true;
+			// 
 			// GeneralSettingsPage
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -241,6 +253,7 @@
 		private System.Windows.Forms.CheckBox ckbScanSubfolders;
 		private System.Windows.Forms.CheckBox ckbCloseManagerAfterGameLaunch;
 		private System.Windows.Forms.CheckBox ckbShowSidePanel;
+		private System.Windows.Forms.CheckBox ckbSkipReadmeFiles;
 		private System.Windows.Forms.ComboBox cbxProgramUpdateCheckInterval;
 		private System.Windows.Forms.ComboBox cbxModVersionsCheckInterval;
 	}
