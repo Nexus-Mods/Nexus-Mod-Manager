@@ -54,6 +54,12 @@ namespace Nexus.Client.Games
 		string ModDownloadCacheDirectory { get; }
 
 		/// <summary>
+		/// Gets the path of the directory where the ReadMe file is stored.
+		/// </summary>
+		/// <value>The path of the directory where the ReadMe file is stored.</value>
+		string ModReadMeDirectory { get; }
+
+		/// <summary>
 		/// Gets the path of the directory where this Game Mode's categories are stored.
 		/// </summary>
 		/// <value>The path of the directory where this Game Mode's categories are stored.</value>

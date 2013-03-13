@@ -148,6 +148,22 @@ namespace Nexus.Client.Games
 				}
 			}
 
+			/// <summary>
+			/// Gets the path of the directory where the ReadMe file is stored.
+			/// </summary>
+			/// <value>The path of the directory where the ReadMe file is stored.</value>
+			public string ModReadMeDirectory
+			{
+				get
+				{
+					string strDirectory = ModDirectory;
+					if (String.IsNullOrEmpty(strDirectory))
+						return null;
+					strDirectory = Path.Combine(strDirectory, "readme");
+					return strDirectory;
+				}
+			}
+
 			#endregion
 
 			/// <summary>

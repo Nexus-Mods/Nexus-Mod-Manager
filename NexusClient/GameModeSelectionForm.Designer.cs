@@ -117,6 +117,7 @@
 			this.glvGameMode.Size = new System.Drawing.Size(464, 271);
 			this.glvGameMode.TabIndex = 4;
 			this.glvGameMode.SelectedItemChanged += new System.EventHandler<Nexus.Client.UI.Controls.SelectedItemEventArgs>(this.glvGameMode_SelectedItemChanged);
+			this.glvGameMode.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(glvGameMode_MouseDoubleClick);
 			// 
 			// GameModeSelectionForm
 			// 
