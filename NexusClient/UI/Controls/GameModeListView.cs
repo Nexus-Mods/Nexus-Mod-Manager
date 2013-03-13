@@ -221,6 +221,7 @@ namespace Nexus.Client.UI.Controls
 				Controls.Remove(e.Control);
 				m_flpPanel.Controls.Add(e.Control);
 				e.Control.Click += new EventHandler(GameModeListView_Click);
+				e.Control.MouseDoubleClick += new MouseEventHandler(GameModeListView_MouseDoubleClick);
 				e.Control.GotFocus += new EventHandler(GameModeListView_GotFocus);
 				e.Control.LostFocus += new EventHandler(GameModeListView_LostFocus);
 				e.Control.PreviewKeyDown += new PreviewKeyDownEventHandler(GameModeListView_PreviewKeyDown);
@@ -245,6 +246,20 @@ namespace Nexus.Client.UI.Controls
 		private void GameModeListView_Click(object sender, EventArgs e)
 		{
 			SelectedItem = (GameModeListViewItemBase)sender;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.MouseDoubleClick"/> event of list view items.
+		/// </summary>
+		/// <remarks>
+		/// This selects the clicked item.
+		/// </remarks>
+		/// <param name="sender">The <see cref="GameModeListViewItemBase"/> that raised the event.</param>
+		/// <param name="e">An <see cref="MouseEventArgs"/> descriibng the event arguments.</param>
+		private void GameModeListView_MouseDoubleClick(object sender, MouseEventArgs e)
+		{
+			SelectedItem = (GameModeListViewItemBase)sender;
+			OnMouseDoubleClick(e);
 		}
 
 		/// <summary>

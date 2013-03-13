@@ -44,5 +44,18 @@ namespace Nexus.Client.UI.Controls
 		{
 			OnClick(e);
 		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.MouseDoubleClick"/> event of all contained controls.
+		/// </summary>
+		/// <remarks>
+		/// This passes the click event to the control.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
+		private void lblGameModeName_MouseDoubleClick(object sender, MouseEventArgs e)
+		{
+			OnMouseDoubleClick(e);
+		}
 	}
 }
