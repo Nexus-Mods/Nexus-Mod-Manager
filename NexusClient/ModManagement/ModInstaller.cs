@@ -283,7 +283,7 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller)
 		{
-			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager);
+			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles);
 			OnTaskStarted(bitTask);
 			return bitTask.Execute();
 		}

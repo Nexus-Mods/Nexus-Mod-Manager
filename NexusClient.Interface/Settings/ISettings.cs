@@ -83,6 +83,12 @@ namespace Nexus.Client.Settings
 		bool ShowSidePanel { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the manager should prevent readme files from being installed.
+		/// </summary>
+		/// <value>Whether the manager should prevent readme files from being installed.</value>
+		bool SkipReadmeFiles { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the category view should show or hide the empty categories.
 		/// </summary>
 		/// <value>Whether the category view should show or hide the empty categories.</value>
