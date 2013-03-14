@@ -927,7 +927,7 @@ namespace Nexus.Client.ModManagement.UI
 					ModCategory mctUpdatedCategory = (ModCategory)e.ListViewItem.RowObject;
 					string strOldValue = mctUpdatedCategory.CategoryName;
 					mctUpdatedCategory.CategoryName = strValue;
-					mctUpdatedCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty)); ;
+					mctUpdatedCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty));
 					ViewModel.CategoryManager.UpdateCategoryFile();
 					clwCategoryView.UpdateData(mctUpdatedCategory, strOldValue);
 				}
@@ -935,8 +935,9 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					lock (clwCategoryView)
 						ViewModel.UpdateModName((IMod)e.ListViewItem.RowObject, strValue);
-					clwCategoryView.ReloadList();
 				}
+
+				clwCategoryView.ReloadList();
 			}
 
 			e.Cancel = true;
@@ -957,12 +958,15 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if (clwCategoryView.SelectedItem.RowObject.GetType() == typeof(ModCategory))
 				{
-					ModCategory mctUpdatedCategory = (ModCategory)clwCategoryView.SelectedItem.RowObject;
+					ModCategory mctListCategory = (ModCategory)clwCategoryView.SelectedItem.RowObject;
+					IModCategory mctUpdatedCategory = ViewModel.CategoryManager.FindCategory(mctListCategory.Id);
 					string strOldValue = mctUpdatedCategory.CategoryName;
-					mctUpdatedCategory.CategoryName = strValue;
-					mctUpdatedCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty)); ;
-					ViewModel.CategoryManager.UpdateCategoryFile();
-					clwCategoryView.UpdateData(mctUpdatedCategory, strOldValue);
+					mctListCategory.CategoryName = strValue;
+					mctListCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty));
+					mctUpdatedCategory.CategoryName = mctListCategory.CategoryName;
+					mctUpdatedCategory.CategoryPath = mctListCategory.CategoryPath;
+					ViewModel.CategoryManager.UpdateCategoryFile();	
+					clwCategoryView.UpdateData(new ModCategory(mctListCategory), strOldValue);
 				}
 				else
 				{
@@ -970,6 +974,8 @@ namespace Nexus.Client.ModManagement.UI
 						ViewModel.UpdateModName((IMod)clwCategoryView.SelectedItem.RowObject, strValue);
 					clwCategoryView.ReloadList();
 				}
+				clwCategoryView.Sort();
+				clwCategoryView.EnsureVisible(clwCategoryView.SelectedIndex);
 			}
 
 			e.CancelEdit = true;
