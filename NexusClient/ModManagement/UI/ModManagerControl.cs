@@ -190,7 +190,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			try
 			{
+				m_booDisableSummary = true;
 				ViewModel.CheckForUpdates(false);
+				m_booDisableSummary = false;
 			}
 			catch (Exception e)
 			{
