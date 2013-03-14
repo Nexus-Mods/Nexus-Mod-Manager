@@ -636,7 +636,7 @@ namespace Nexus.Client.UI.Controls
 			if (CategoryModeEnabled)
 			{
 				tlcCategory.IsVisible = false;
-				this.SetObjects(Categories);
+				this.SetObjects(CategoryManager.Categories);
 				ApplyFilters(null);
 			}
 			else
@@ -705,13 +705,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.Items.Count > 0)
 			{
-				foreach (ToolStripDropDownItem DDItem in (cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems)
-					if (DDItem.Text == strOldValue)
-					{
-						(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Remove(DDItem);
-						(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(p_mctCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
-						break;
-					}
+				SetupContextMenu();
 				RefreshObject(p_mctCategory);
 			}
 		}
