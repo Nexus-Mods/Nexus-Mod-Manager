@@ -121,13 +121,18 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strPath">The file path, relative to the Data folder, whose writability is to be verified.</param>
 		/// <returns><c>true</c> if the location specified by <paramref name="p_strPath"/>
 		/// can be written; <c>false</c> otherwise.</returns>
-		protected bool TestDoOverwrite(string p_strPath, FileInfo Info)
+		protected bool TestDoOverwrite(string p_strPath)
 		{
 			string strDataPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
-			if (Info.IsReadOnly == true)
-				m_booOverwriteAll = false;
+			bool booFIDataPath = false;
 			if (!File.Exists(strDataPath))
 				return true;
+			else
+			{
+				booFIDataPath = new FileInfo(strDataPath).IsReadOnly;
+				if (booFIDataPath)
+					m_booOverwriteAll = false;
+			}
 			string strLoweredPath = strDataPath.ToLowerInvariant();
 			if (m_lstOverwriteFolders.Contains(Path.GetDirectoryName(strLoweredPath)))
 				return true;
@@ -163,19 +168,23 @@ namespace Nexus.Client.ModManagement
 					if (m_lstDontOverwriteMods.Contains(strModFile))
 						return false;
 				}
-				strMessage = String.Format("Data file '{{0}}' has already been installed by '{0}'" + Environment.NewLine +
-								"Overwrite with this mod's file?", modOld.ModName);
+				strMessage = String.Format("Data file '{{0}}' has already been installed by '{0}'", modOld.ModName);
+				if (booFIDataPath)
+					strMessage += " and is ReadOnly.";
+				strMessage += Environment.NewLine + "Overwrite with this mod's file?";
 			}
 			else
 			{
-				strMessage = "Data file '{0}' already exists." + Environment.NewLine +
-								"Overwrite with this mod's file?";
+				strMessage = "Data file '{0}' already exists";
+				if (booFIDataPath)
+					strMessage += " and is ReadOnly.";
+				else
+					strMessage += ".";
+				strMessage += Environment.NewLine + "Overwrite with this mod's file?";
 			}
-			if (Info.IsReadOnly == true)
+			if (booFIDataPath)
 			{
-				strMessage = "Data file '{0}' already exists and is ReadOnly." + Environment.NewLine +
-								"Overwrite with this mod's file?";
-				switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strPath), false, false))
+				switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strPath), true, (modOld != null)))
 				{
 					case OverwriteResult.Yes:
 						return true;
@@ -306,7 +315,7 @@ namespace Nexus.Client.ModManagement
 				TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
 			else
 			{
-				if (!TestDoOverwrite(p_strPath, Info))
+				if (!TestDoOverwrite(p_strPath))
 					return false;
 
 				if (File.Exists(strInstallFilePath))
