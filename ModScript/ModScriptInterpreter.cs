@@ -95,12 +95,33 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				strCode = strCode.Replace(colStrings[i].Value, strShieldText);
 				dicProtectedStrings[strShieldText] = colStrings[i].Value;
 			}
+			//remove comments
+			var blockComments = @"/\*(.*?)\*/";
+			var lineComments = @"//(.*?)\r?\n";
+			var strings = @"""((\\[^\n]|[^""\n])*)""";
+			var verbatimStrings = @"@(""[^""]*"")+";
+
+			strCode = Regex.Replace(strCode,
+				blockComments + "|" + lineComments + "|" + strings + "|" + verbatimStrings,
+				me =>
+				{
+					if (me.Value.StartsWith("/*") || me.Value.StartsWith("//"))
+						return me.Value.StartsWith("//") ? Environment.NewLine : "";
+					// Keep the literal strings
+					return me.Value;
+				},
+				RegexOptions.Singleline);
+
+			//move initial curly bracket
+			Regex rgxCurlyBrackets = new Regex("\r\n^{", RegexOptions.Multiline);
+			strCode = rgxCurlyBrackets.Replace(strCode, "{");
+
 			//strip comments
 			Regex rgxComments = new Regex(";.*$", RegexOptions.Multiline);
 			strCode = rgxComments.Replace(strCode, "");
 			foreach (string strKey in dicProtectedStrings.Keys)
 				strCode = strCode.Replace(strKey, dicProtectedStrings[strKey]);
-			
+
 			AntlrParserBase cpbParser = CreateParser(strCode, ertErrors);
 			ITree astModSCript = cpbParser.Parse();
 			if (ertErrors.HasErrors)
