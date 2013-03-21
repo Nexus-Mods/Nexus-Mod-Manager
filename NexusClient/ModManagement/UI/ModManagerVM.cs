@@ -638,9 +638,14 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if ((this.ModManager.ManagedMods.Count > 0) && (!this.ModManager.ReadMeManager.IsInitialized))
 			{
-				string strMessage = "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.";
+				string strMessage = string.Empty;
+				if (ModManager.ReadMeManager.IsXMLCorrupt)
+					strMessage = "An error occurred loading the ReadMeManager.xml file." + Environment.NewLine + Environment.NewLine;
+
+				strMessage += "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.";
 				strMessage += Environment.NewLine + "Do you want to perform the Readme Manager startup scan?";
 				strMessage += Environment.NewLine + Environment.NewLine + "Note: if choose not to, you will be able to perform a scan by selecting any number of mods, and choosing 'Readme Scan' in the right-click menu.";
+
 				if (MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 					SetupReadMeManager(ModManager.ManagedMods.ToList<IMod>());
 			}
