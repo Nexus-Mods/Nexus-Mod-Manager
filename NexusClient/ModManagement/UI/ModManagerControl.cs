@@ -1210,7 +1210,6 @@ namespace Nexus.Client.ModManagement.UI
 					foreach (IMod modRemoved in e.OldItems)
 					{
 						ViewModel.DeleteReadMe(modRemoved);
-						mctCategory = (ModCategory)ViewModel.CategoryManager.FindCategory(modRemoved.CustomCategoryId >= 0 ? modRemoved.CustomCategoryId : modRemoved.CategoryId);
 					}
 					break;
 			}
@@ -1222,10 +1221,6 @@ namespace Nexus.Client.ModManagement.UI
 					if ((e.NewItems != null) && (e.NewItems.Count > 0))
 					{
 						mctCategory.NewMods += 1;
-						clwCategoryView.RefreshObject(mctCategory);
-					}
-					else if ((e.OldItems != null) && (e.OldItems.Count > 0))
-					{
 						clwCategoryView.RefreshObject(mctCategory);
 					}
 				}
