@@ -48,6 +48,22 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			m_sicContext = CreateInterpreterContext(p_msfFunctions);
 		}
 
+		/// <summary>
+		/// A simple construtor that initializes the object with the given values.
+		/// </summary>
+		/// <param name="p_strScript">The script to execute.</param>
+		public ModScriptInterpreter(string p_strScript)
+		{
+			m_strScript = p_strScript;
+			Regex rgxAllowRunOnLines = new Regex(@"^\s*AllowRunOnLines\s*$", RegexOptions.Multiline);
+			if (rgxAllowRunOnLines.IsMatch(m_strScript))
+			{
+				m_strScript = rgxAllowRunOnLines.Replace(m_strScript, "");
+				Regex rgxContinuedLines = new Regex(@"\\\s*\n", RegexOptions.Multiline);
+				m_strScript = rgxContinuedLines.Replace(m_strScript, "");
+			}
+		}
+
 		#endregion
 
 		/// <summary>
@@ -66,20 +82,21 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// Parses the given Mod Script into an AST.
 		/// </summary>
 		/// <param name="p_strModScriptCode">The Mod Script to compile.</param>
+		/// <param name="p_booCompileTest">Whether the prograsm is just checking if the script compiles.</param>
 		/// <returns>The AST built from the given Mod Script.</returns>
-		private ITree GenerateAst(string p_strModScriptCode)
+		private ITree GenerateAst(string p_strModScriptCode, bool p_booCompileTest)
 		{
 			ErrorTracker ertErrors = new ErrorTracker();
 			string strCode = p_strModScriptCode;
 
 			//unescape characters
-			Regex rgxStrings = new Regex("[^\\\\]\".*?[^\\\\]\"", RegexOptions.Multiline);
+			Regex rgxStrings = new Regex("[^\\\\](\"(\"|(.*?[^\\\\]\")))", RegexOptions.Multiline);
 			MatchCollection colStrings = rgxStrings.Matches(strCode);
 			Dictionary<string, string> dicProtectedStrings = new Dictionary<string, string>();
 			for (Int32 i = colStrings.Count - 1; i >= 0; i--)
 			{
 				string strShieldText = "<SHIELD" + i + ">";
-				strCode = strCode.Replace(colStrings[i].Value, strShieldText);
+				strCode = strCode.Replace(colStrings[i].Groups[1].Value, strShieldText);
 				dicProtectedStrings[strShieldText] = colStrings[i].Value;
 			}
 			strCode = strCode.Replace(@"\""", @"""").Replace(@"\\", @"\");
@@ -95,26 +112,6 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				strCode = strCode.Replace(colStrings[i].Value, strShieldText);
 				dicProtectedStrings[strShieldText] = colStrings[i].Value;
 			}
-			//remove comments
-			var blockComments = @"/\*(.*?)\*/";
-			var lineComments = @"//(.*?)\r?\n";
-			var strings = @"""((\\[^\n]|[^""\n])*)""";
-			var verbatimStrings = @"@(""[^""]*"")+";
-
-			strCode = Regex.Replace(strCode,
-				blockComments + "|" + lineComments + "|" + strings + "|" + verbatimStrings,
-				me =>
-				{
-					if (me.Value.StartsWith("/*") || me.Value.StartsWith("//"))
-						return me.Value.StartsWith("//") ? Environment.NewLine : "";
-					// Keep the literal strings
-					return me.Value;
-				},
-				RegexOptions.Singleline);
-
-			//move initial curly bracket
-			Regex rgxCurlyBrackets = new Regex("\r\n^{", RegexOptions.Multiline);
-			strCode = rgxCurlyBrackets.Replace(strCode, "{");
 
 			//strip comments
 			Regex rgxComments = new Regex(";.*$", RegexOptions.Multiline);
@@ -124,7 +121,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 
 			AntlrParserBase cpbParser = CreateParser(strCode, ertErrors);
 			ITree astModSCript = cpbParser.Parse();
-			if (ertErrors.HasErrors)
+			if ((ertErrors.HasErrors) && !p_booCompileTest)
 			{
 				m_sicContext.FunctionProxy.ExtendedMessageBox("Invalid Mod Script", "Error", ertErrors.ToHtml(), MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return null;
@@ -167,13 +164,29 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		#region Execution
 
 		/// <summary>
+		/// Tries to compile the script.
+		/// </summary>
+		/// <returns><c>true</c> if the script compiled successfully;
+		/// <c>false</c> otherwise.</returns>
+		public bool Compile()
+		{
+			ITree astScript = null;
+			try
+			{
+				astScript = GenerateAst(m_strScript, true);
+			}
+			catch { }
+			return (astScript == null);
+		}
+
+		/// <summary>
 		/// Executes the script.
 		/// </summary>
 		/// <returns><c>true</c> if the script completed successfully;
 		/// <c>false</c> otherwise.</returns>
 		public bool Execute()
 		{
-			ITree astScript = GenerateAst(m_strScript);
+			ITree astScript = GenerateAst(m_strScript, false);
 			if (astScript == null)
 				return false;
 			object objValue = Run(astScript);
@@ -248,7 +261,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				case ModScriptParser.EXECLINES:
 					ITree astNewCode = p_astScript.GetChild(0);
 					string strNewCode = (string)Run(astNewCode, true);
-					ITree astCompiledCode = GenerateAst(strNewCode);
+					ITree astCompiledCode = GenerateAst(strNewCode, false);
 					if (astCompiledCode == null)
 					{
 						m_booReturnSet = true;
