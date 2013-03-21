@@ -366,7 +366,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <returns><c>true</c> if the load order can be exported; <c>false</c> otherwise.</returns>
 		public bool CanExecuteExportCommands()
 		{
-			return CurrentGameMode.UsesPlugins && (ActivePlugins.Count > 0);
+			return CurrentGameMode.UsesPlugins && (ManagedPlugins.Count > 0);
 		}
 
 		/// <summary>
@@ -384,7 +384,7 @@ namespace Nexus.Client.PluginManagement.UI
 			p_twWriter.WriteLine();
 
 			int intNumPluginsExported = 0;
-			foreach (Plugin p in ActivePlugins)
+			foreach (Plugin p in ManagedPlugins)
 			{
 				p_twWriter.WriteLine(Path.GetFileName(p.Filename));
 				intNumPluginsExported++;
