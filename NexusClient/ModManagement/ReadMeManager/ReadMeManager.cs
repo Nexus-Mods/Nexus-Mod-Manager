@@ -21,6 +21,7 @@ namespace Nexus.Client.ModManagement
 	{
 		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
 		private static readonly String READMEMANAGER_FILE = "ReadMeManager.xml";
+		private bool m_booReadMeXMLError = false;
 
 		#region Fields
 
@@ -102,7 +103,16 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-
+		/// <summary>
+		/// Whether the readme manager XML is corrupt.
+		/// </summary>
+		public bool IsXMLCorrupt
+		{
+			get
+			{
+				return m_booReadMeXMLError;
+			}
+		}
 
 		#endregion
 
@@ -117,7 +127,18 @@ namespace Nexus.Client.ModManagement
 			m_strReadMePath = Path.Combine(p_strFilePath, "ReadMe"); ;
 			m_dicReadMeFiles.Clear();
 			if (CheckReadMeFolder())
-				LoadReadMe();
+			{
+				try
+				{
+					LoadReadMe();
+				}
+				catch
+				{
+					m_booReadMeXMLError = true;
+					FileUtil.ForceDelete(Path.Combine(m_strReadMePath, "ReadMeManager.xml"));
+				}
+			}
+
 		}
 
 		#endregion
@@ -140,7 +161,7 @@ namespace Nexus.Client.ModManagement
 				string strModFile = Path.GetFileName(p_strArchivePath);
 				string strArchiveFile = Path.GetFileNameWithoutExtension(strModFile) + ".7z";
 				byte[] bteData = null;
-				
+
 				PurgeTempFolder();
 
 				for (int i = 0; i < lstFiles.Count; i++)
@@ -270,7 +291,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strFileName">The path where the ReadMe folder should be created.</param>
 		public void DeleteReadMe(string p_strFileName)
 		{
-			string strFilePath = p_strFileName + ".7z" ;
+			string strFilePath = p_strFileName + ".7z";
 			strFilePath = Path.Combine(m_strReadMePath, strFilePath);
 			if (File.Exists(strFilePath))
 				FileUtil.ForceDelete(strFilePath);
@@ -358,14 +379,20 @@ namespace Nexus.Client.ModManagement
 			XElement xelReadMeList = new XElement("readmeList");
 			xelRoot.Add(xelReadMeList);
 			xelReadMeList.Add(from ReadMe in m_dicReadMeFiles
-									select new XElement("modFile",
-									new XAttribute("modName", ReadMe.Key),
-										from FilePath in ReadMe.Value
-										select new XElement("readmeFile",
-											new XAttribute("readmeName",FilePath))));
+							  select new XElement("modFile",
+							  new XAttribute("modName", ReadMe.Key),
+								  from FilePath in ReadMe.Value
+								  select new XElement("readmeFile",
+									  new XAttribute("readmeName", FilePath))));
 
-			if (CheckReadMeFolder())
-				docReadMe.Save(ReadMeFilePath);
+			if (!Directory.Exists(ReadMeFilePath))
+				CheckReadMeFolder();
+
+			using (StreamWriter sw = new StreamWriter(ReadMeFilePath))
+			{
+				docReadMe.Save(sw);
+			}
+
 		}
 
 		#endregion
