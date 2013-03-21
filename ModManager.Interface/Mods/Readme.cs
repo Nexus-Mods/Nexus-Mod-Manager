@@ -28,7 +28,12 @@ namespace Nexus.Client.Mods
 		/// <summary>
 		/// DOC
 		/// </summary>
-		DOC
+		DOC,
+
+		/// <summary>
+		/// PDF
+		/// </summary>
+		PDF
 	}
 
 	/// <summary>
@@ -46,7 +51,8 @@ namespace Nexus.Client.Mods
 																			{".html", ReadmeFormat.HTML},
 																			{".htm", ReadmeFormat.HTML},
 																			{".doc", ReadmeFormat.DOC},
-																			{".docx", ReadmeFormat.DOC}
+																			{".docx", ReadmeFormat.DOC},
+																			{".pdf", ReadmeFormat.PDF}
 																		};
 
 		/// <summary>

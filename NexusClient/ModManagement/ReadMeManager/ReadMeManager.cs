@@ -307,7 +307,7 @@ namespace Nexus.Client.ModManagement
 		private List<string> GetFileList(Archive p_arcArchive, bool p_booRecurse)
 		{
 			List<string> lstFiles = new List<string>();
-			foreach (string strFile in p_arcArchive.GetFiles("", "*.txt|*.doc|*.docx|*.htm|*.html|*.rtf", p_booRecurse))
+			foreach (string strFile in p_arcArchive.GetFiles("", "*.txt|*.doc|*.docx|*.htm|*.html|*.rtf|*.pdf", p_booRecurse))
 				if (!m_dicMovedArchiveFiles.ContainsValue(strFile))
 					if (!strFile.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
 						lstFiles.Add(strFile);
