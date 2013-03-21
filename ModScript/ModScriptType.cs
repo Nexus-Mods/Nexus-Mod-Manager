@@ -113,12 +113,8 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateScript(IScript p_scpScript)
 		{
-			/* sccCompiler = new CSharpScriptCompiler();
-			CompilerErrorCollection cecErrors = null;
-			sccCompiler.Compile(((CSharpScript)p_scpScript).Code, BaseScriptType, out cecErrors);
-			return cecErrors == null;*/
-			//TODO implement ModScript script validation
-			throw new NotImplementedException();
+			ModScriptInterpreter msiScriptCompile = new ModScriptInterpreter(((ModScript)p_scpScript).Code);
+			return msiScriptCompile.Compile();
 		}
 
 		#endregion

@@ -492,9 +492,15 @@ namespace Nexus.Client.Mods.Formats.OMod
 				{
 					if (ContainsFile(Path.Combine(CONVERSION_FOLDER, strScriptName)))
 					{
-						m_booHasInstallScript = true;
-						m_stpInstallScriptType = stpScript;
-						break;
+						StreamReader sreScript = new StreamReader(Path.Combine(CONVERSION_FOLDER, strScriptName));
+						string strCode = sreScript.ReadToEnd();
+						sreScript.Close();
+						if (stpScript.ValidateScript(stpScript.LoadScript(strCode)))
+						{
+							m_booHasInstallScript = true;
+							m_stpInstallScriptType = stpScript;
+							break;
+						}
 					}
 				}
 				if (m_booHasInstallScript)
@@ -556,9 +562,17 @@ namespace Nexus.Client.Mods.Formats.OMod
 					{
 						if (szeOmod.ArchiveFileNames.Contains(strScriptName))
 						{
-							m_booHasInstallScript = true;
-							m_stpInstallScriptType = stpScript;
-							break;
+							using (MemoryStream stmScript = new MemoryStream())
+							{
+								szeOmod.ExtractFile(strScriptName, stmScript);
+								string strCode = System.Text.Encoding.Default.GetString(stmScript.ToArray());
+								if (stpScript.ValidateScript(stpScript.LoadScript(strCode)))
+								{
+									m_booHasInstallScript = true;
+									m_stpInstallScriptType = stpScript;
+									break;
+								}
+							}
 						}
 					}
 					if (m_booHasInstallScript)
