@@ -104,6 +104,34 @@ namespace Nexus.Client.Games.Settings
 		#region Validation
 
 		/// <summary>
+		/// Checks if the specified directory are equals.
+		/// </summary>
+		/// <returns><c>true</c> if the specified directory are not equals;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateDirectory(string p_strModPath, string p_strModPathName, string p_strModProperty, string p_strInstallPath, string p_strInstallPathName, string p_strInstallProperty)
+		{
+			Errors.Clear(p_strModProperty);
+			if (String.IsNullOrEmpty(p_strModPath))
+			{
+				Errors.SetError(p_strModProperty, String.Format("You must select a {0}.", p_strModPathName));
+				return false;
+			}
+			Errors.Clear(p_strInstallProperty);
+			if (String.IsNullOrEmpty(p_strInstallPath))
+			{
+				Errors.SetError(p_strInstallProperty, String.Format("You must select a {0}.", p_strInstallPathName));
+				return false;
+			}
+
+			if (String.Equals(p_strModPath, p_strInstallPath))
+			{
+				Errors.SetError(p_strModProperty, string.Format("You can't set the {0} equal to the {1}.", p_strModPathName, p_strInstallPathName));
+				return false;
+			}
+			return true;
+		}
+
+		/// <summary>
 		/// Validates the specified directory.
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory is valid;
@@ -161,9 +189,11 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			return ValidateModDirectory() && ValidateInstallInfoDirectory();
+			if (ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory), InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory)))
+				return ValidateModDirectory() && ValidateInstallInfoDirectory();
+			else
+				return false;
 		}
-
 
 		#endregion
 
