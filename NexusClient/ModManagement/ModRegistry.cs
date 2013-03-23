@@ -33,7 +33,7 @@ namespace Nexus.Client.ModManagement
 
 			List<string> lstExludedPaths = new List<string>();
 			for (Int32 i = 0; i < p_strExcludedSubDirectories.Length; i++)
-				lstExludedPaths.Add(p_strExcludedSubDirectories[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
+				lstExludedPaths.Add((p_strExcludedSubDirectories[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar).ToLower());
 
 			ModRegistry mdrRegistry = new ModRegistry(p_frgFormatRegistry);
 			string[] strMods = Directory.GetFiles(p_strSearchPath, "*", p_booRecurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
@@ -42,9 +42,10 @@ namespace Nexus.Client.ModManagement
 			bool booExcluded = false;
 			foreach (string strMod in strMods)
 			{
+				string strModPath = strMod.ToLower();
 				booExcluded = false;
 				foreach (string strExclusion in lstExludedPaths)
-					if (strMod.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).StartsWith(strExclusion))
+					if (strModPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).StartsWith(strExclusion))
 					{
 						booExcluded = true;
 						break;
