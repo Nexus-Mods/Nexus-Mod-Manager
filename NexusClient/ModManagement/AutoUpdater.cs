@@ -150,6 +150,7 @@ namespace Nexus.Client.ModManagement
 		{
 			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
 			mifUpdatedMod.CustomCategoryId = p_intCategoryId;
+			mifUpdatedMod.UpdateWarningEnabled = p_modMod.UpdateWarningEnabled;
 			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
 		}
 
