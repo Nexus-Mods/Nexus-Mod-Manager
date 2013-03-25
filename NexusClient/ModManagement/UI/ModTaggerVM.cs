@@ -105,6 +105,7 @@ namespace Nexus.Client.ModManagement.UI
 			modMod.InstallDate = Mod.InstallDate;
 			modMod.IsEndorsed = Mod.IsEndorsed;
 			modMod.CategoryId = Mod.CategoryId;
+			modMod.UpdateWarningEnabled = Mod.UpdateWarningEnabled;
 			ModTagger.Tag(Mod, m_mifCurrentTagOption, true);
 		}
 	}
