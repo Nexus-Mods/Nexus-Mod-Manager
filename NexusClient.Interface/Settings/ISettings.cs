@@ -45,7 +45,7 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <value>Whether the manager supports the offline mode.</value>
 		bool SupportOfflineMode { get; set; }
-	
+
 		/// <summary>
 		/// Gets or sets whether the manager should work in offline mode.
 		/// </summary>
@@ -56,7 +56,7 @@ namespace Nexus.Client.Settings
 		/// Gets or sets the id of the remembered game mode.
 		/// </summary>
 		/// <value>The id of the remembered game mode.</value>
-		string RememberedGameMode { get; set;  }
+		string RememberedGameMode { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether the selected view mode should be rememberd the next time the client is started.
@@ -87,6 +87,12 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <value>Whether the manager should prevent readme files from being installed.</value>
 		bool SkipReadmeFiles { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether the manager should prevent the visualization of the Mod Warning Icon.
+		/// </summary>
+		/// <value>Whether the manager should prevent the visualization of the Mod Warning Icon.</value>
+		bool HideModUpdateWarningIcon { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether the category view should show or hide the empty categories.

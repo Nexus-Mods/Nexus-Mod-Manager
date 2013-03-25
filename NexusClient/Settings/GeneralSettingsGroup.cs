@@ -70,6 +70,7 @@ namespace Nexus.Client.Settings
 		private Int32 m_intModVersionsCheckInterval = 0;
 		private bool m_booShowSidePanel = true;
 		private bool m_booSkipReadmeFiles = true;
+		private bool m_booHideModUpdateWarningIcon = true;
 
 		#region Properties
 
@@ -279,6 +280,22 @@ namespace Nexus.Client.Settings
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the manager should prevent the visualization of the Mod Warning Icon.
+		/// </summary>
+		/// <value>Whether the manager should prevent the visualization of the Mod Warning Icon.</value>
+		public bool HideModUpdateWarningIcon
+		{
+			get
+			{
+				return m_booHideModUpdateWarningIcon;
+			}
+			set
+			{
+				m_booHideModUpdateWarningIcon = value;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -478,6 +495,7 @@ namespace Nexus.Client.Settings
 			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;
 			ShowSidePanel = EnvironmentInfo.Settings.ShowSidePanel;
 			SkipReadmeFiles = EnvironmentInfo.Settings.SkipReadmeFiles;
+			HideModUpdateWarningIcon = EnvironmentInfo.Settings.HideModUpdateWarningIcon;
 		}
 
 		/// <summary>
@@ -523,6 +541,7 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = CloseModManagerAfterGameLaunch;
 			EnvironmentInfo.Settings.ShowSidePanel = ShowSidePanel;
 			EnvironmentInfo.Settings.SkipReadmeFiles = SkipReadmeFiles;
+			EnvironmentInfo.Settings.HideModUpdateWarningIcon = HideModUpdateWarningIcon;
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}
