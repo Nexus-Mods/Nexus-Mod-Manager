@@ -116,6 +116,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
 			clwCategoryView.UpdateWarningToggle += new EventHandler(CategoryListView_ToggleUpdateWarning);
+			clwCategoryView.ToggleAllWarnings += new EventHandler(CategoryListView_ToggleAllWarnings);
 			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
 			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
@@ -470,7 +471,7 @@ namespace Nexus.Client.ModManagement.UI
 			ViewModel.Settings.Save();
 		}
 
- 		/// <summary>
+		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the deactivate all 
 		/// all the Active Mods button.
 		/// </summary>
@@ -496,7 +497,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (clwCategoryView.Tag == null)
 			{
-				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.CategoryManager);
+				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.CategoryManager, ViewModel.Settings);
 
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
@@ -601,6 +602,15 @@ namespace Nexus.Client.ModManagement.UI
 				if (ViewModel.Settings.ShowExpandedCategories)
 					clwCategoryView.ExpandAll();
 			}
+		}
+
+		/// <summary>
+		/// Reload the mod list control if needed
+		/// </summary>
+		public void RefreshModList()
+		{
+			if (!clwCategoryView.CategoryModeEnabled)
+				clwCategoryView.LoadData();
 		}
 
 		/// <summary>
@@ -726,8 +736,28 @@ namespace Nexus.Client.ModManagement.UI
 
 			if ((hashMods != null) && (hashMods.Count > 0))
 			{
-				ViewModel.ToggleModUpdateWarning(hashMods);
+				ViewModel.ToggleModUpdateWarning(hashMods, null);
 				clwCategoryView.ReloadList();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.ToggleAllWarnings"/> of the toggle
+		/// mod update warning context menu.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_ToggleAllWarnings(object sender, EventArgs e)
+		{
+			HashSet<IMod> hashMods;
+			if (ViewModel.ManagedMods.Count > 0)
+			{
+				hashMods = new HashSet<IMod>(ViewModel.ManagedMods);
+				if ((hashMods != null) && (hashMods.Count > 0))
+				{
+					ViewModel.ToggleModUpdateWarning(hashMods, (bool?)sender);
+					clwCategoryView.ReloadList();
+				}
 			}
 		}
 
@@ -965,7 +995,7 @@ namespace Nexus.Client.ModManagement.UI
 					mctListCategory.CategoryPath = Path.GetInvalidFileNameChars().Aggregate(strValue, (current, c) => current.Replace(c.ToString(), string.Empty));
 					mctUpdatedCategory.CategoryName = mctListCategory.CategoryName;
 					mctUpdatedCategory.CategoryPath = mctListCategory.CategoryPath;
-					ViewModel.CategoryManager.UpdateCategoryFile();	
+					ViewModel.CategoryManager.UpdateCategoryFile();
 					clwCategoryView.UpdateData(new ModCategory(mctListCategory), strOldValue);
 				}
 				else

@@ -49,7 +49,7 @@
 			this.tbcTabs.Location = new System.Drawing.Point(0, 0);
 			this.tbcTabs.Name = "tbcTabs";
 			this.tbcTabs.SelectedIndex = 0;
-			this.tbcTabs.Size = new System.Drawing.Size(406, 343);
+			this.tbcTabs.Size = new System.Drawing.Size(406, 366);
 			this.tbcTabs.TabIndex = 22;
 			// 
 			// label10
@@ -134,7 +134,7 @@
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.butCancel;
-			this.ClientSize = new System.Drawing.Size(406, 390);
+			this.ClientSize = new System.Drawing.Size(406, 413);
 			this.Controls.Add(this.tbcTabs);
 			this.Controls.Add(this.panel1);
 			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
