@@ -41,6 +41,7 @@
 			this.ckbCheckForUpdates = new System.Windows.Forms.CheckBox();
 			this.ckbShowSidePanel = new System.Windows.Forms.CheckBox();
 			this.ckbSkipReadmeFiles = new System.Windows.Forms.CheckBox();
+			this.ckbHideModUpdateWarningIcon = new System.Windows.Forms.CheckBox();
 			this.cbxProgramUpdateCheckInterval = new System.Windows.Forms.ComboBox();
 			this.cbxModVersionsCheckInterval = new System.Windows.Forms.ComboBox();
 			this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
@@ -124,9 +125,10 @@
 			this.groupBox5.Controls.Add(this.cbxProgramUpdateCheckInterval);
 			this.groupBox5.Controls.Add(this.ckbShowSidePanel);
 			this.groupBox5.Controls.Add(this.ckbSkipReadmeFiles);
+			this.groupBox5.Controls.Add(this.ckbHideModUpdateWarningIcon);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
-			this.groupBox5.Size = new System.Drawing.Size(368, 180);
+			this.groupBox5.Size = new System.Drawing.Size(368, 203);
 			this.groupBox5.TabIndex = 23;
 			this.groupBox5.TabStop = false;
 			this.groupBox5.Text = "Options";
@@ -219,6 +221,16 @@
 			this.ckbSkipReadmeFiles.Text = "Don't extract ReadMe files";
 			this.ckbSkipReadmeFiles.UseVisualStyleBackColor = true;
 			// 
+			// ckbHideModUpdateWarningIcon
+			// 
+			this.ckbHideModUpdateWarningIcon.AutoSize = true;
+			this.ckbHideModUpdateWarningIcon.Location = new System.Drawing.Point(16, 180);
+			this.ckbHideModUpdateWarningIcon.Name = "ckbHideModUpdateWarningIcon";
+			this.ckbHideModUpdateWarningIcon.Size = new System.Drawing.Size(217, 17);
+			this.ckbHideModUpdateWarningIcon.TabIndex = 8;
+			this.ckbHideModUpdateWarningIcon.Text = "Hide Mod Update Warning Icon ";
+			this.ckbHideModUpdateWarningIcon.UseVisualStyleBackColor = true;
+			// 
 			// GeneralSettingsPage
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -254,6 +266,7 @@
 		private System.Windows.Forms.CheckBox ckbCloseManagerAfterGameLaunch;
 		private System.Windows.Forms.CheckBox ckbShowSidePanel;
 		private System.Windows.Forms.CheckBox ckbSkipReadmeFiles;
+		private System.Windows.Forms.CheckBox ckbHideModUpdateWarningIcon;
 		private System.Windows.Forms.ComboBox cbxProgramUpdateCheckInterval;
 		private System.Windows.Forms.ComboBox cbxModVersionsCheckInterval;
 	}
