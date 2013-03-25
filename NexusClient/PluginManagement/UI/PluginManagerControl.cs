@@ -63,7 +63,7 @@ namespace Nexus.Client.PluginManagement.UI
 				new ToolStripItemCommandBinding<IList<Plugin>>(tsbMoveDown, m_vmlViewModel.MoveDownCommand, GetSelectedPlugins);
 				Command cmdDisableAll = new Command("Disable All Plugins", "Disable all the active plugins.", DisableAllPlugins);
 				new ToolStripItemCommandBinding(tsbDisableAll, cmdDisableAll);
-				Command cmdEnableAll = new Command("Enable All Plugins", "Enable all the unactive plugins.", EnableAllPlugins);
+				Command cmdEnableAll = new Command("Enable All Plugins", "Enable all the inactive plugins.", EnableAllPlugins);
 				new ToolStripItemCommandBinding(tsbEnableAll, cmdEnableAll);
 				new ToolStripItemCommandBinding<string>(tsmiExportToTextFile, m_vmlViewModel.ExportLoadOrderToFileCommand, GetExportToFileArgs);
 				new ToolStripItemCommandBinding(tsmiExportToClipboard, m_vmlViewModel.ExportLoadOrderToClipboardCommand);
@@ -172,7 +172,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		protected void EnableAllPlugins()
 		{
-			if (MessageBox.Show("Do you really want to enable all unactive plugins?", "Confirm?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.DefaultDesktopOnly) == DialogResult.Yes)
+			if (MessageBox.Show("Do you really want to enable all inactive plugins?", "Confirm?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.DefaultDesktopOnly) == DialogResult.Yes)
 				foreach (ListViewItem items in rlvPlugins.Items)
 				{
 					if ((items.Checked == false) && (items.Index > 0))
