@@ -34,7 +34,7 @@ namespace Nexus.Client.Settings.UI
 		{
 			SettingsGroup = p_gsgSettings;
 			InitializeComponent();
-			
+
 			cbxProgramUpdateCheckInterval.DataSource = Enum.GetValues(typeof(DaysInterval))
 				.Cast<DaysInterval>()
 				.Select(p => new { Value = (int)p, Key = p.ToString() })
@@ -68,6 +68,7 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(ckbCloseManagerAfterGameLaunch, () => ckbCloseManagerAfterGameLaunch.Checked, p_gsgSettings, () => p_gsgSettings.CloseModManagerAfterGameLaunch);
 			BindingHelper.CreateFullBinding(ckbShowSidePanel, () => ckbShowSidePanel.Checked, p_gsgSettings, () => p_gsgSettings.ShowSidePanel);
 			BindingHelper.CreateFullBinding(ckbSkipReadmeFiles, () => ckbSkipReadmeFiles.Checked, p_gsgSettings, () => p_gsgSettings.SkipReadmeFiles);
+			BindingHelper.CreateFullBinding(ckbHideModUpdateWarningIcon, () => ckbHideModUpdateWarningIcon.Checked, p_gsgSettings, () => p_gsgSettings.HideModUpdateWarningIcon);
 
 			BindingHelper.CreateFullBinding(cbxProgramUpdateCheckInterval, () => cbxProgramUpdateCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.UpdateCheckInterval);
 			BindingHelper.CreateFullBinding(cbxModVersionsCheckInterval, () => cbxModVersionsCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.ModVersionsCheckInterval);

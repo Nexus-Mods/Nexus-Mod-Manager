@@ -8,6 +8,7 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Settings;
 using Nexus.UI.Controls;
 using BrightIdeasSoftware;
 
@@ -27,6 +28,7 @@ namespace Nexus.Client.UI.Controls
 		public event EventHandler CategoryRemoved;
 		public event EventHandler FileDropped;
 		public event EventHandler UpdateWarningToggle;
+		public event EventHandler ToggleAllWarnings;
 		public event EventHandler OpenReadMeFile;
 		public event EventHandler ReadmeScan;
 
@@ -154,6 +156,12 @@ namespace Nexus.Client.UI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Gets the application and user settings.
+		/// </summary>
+		/// <value>The application and user settings.</value>
+		protected ISettings Settings;
+
 		#endregion
 
 		#region Constructors
@@ -189,7 +197,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_lvwList">The source list view.</param>
 		/// <param name="p_cmgCategoryManager">The mod Category Manager.</param>
-		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, CategoryManager p_cmgCategoryManager)
+		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
 		{
 			this.Tag = false;
 
@@ -201,6 +209,7 @@ namespace Nexus.Client.UI.Controls
 			CategoryManager = p_cmgCategoryManager;
 			m_rolManagedMods = p_rolManagedMods;
 			m_rolActiveMods = p_rolActiveMods;
+			Settings = p_Settings;
 
 			// Setup menuStrip commands
 			SetupContextMenu();
@@ -246,10 +255,13 @@ namespace Nexus.Client.UI.Controls
 			cmsContextMenu.Items.Clear();
 			cmsContextMenu.Items.Add("Move to Category:");
 			cmsContextMenu.Items.Add("Categories:");
-			cmsContextMenu.Items.Add("Toggle mod update warning", new Bitmap(Properties.Resources.update_warning, 16, 16), new EventHandler(cmsContextMenu_ToggleUpdateWarning));
+			cmsContextMenu.Items.Add("Mod update warnings", new Bitmap(Properties.Resources.update_warning, 16, 16));
 			cmsContextMenu.Items.Add("Scan selected mods for Readme files", new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_ReadmeScan));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
+			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Toggle mod update warning", null, new EventHandler(cmsContextMenu_ToggleUpdateWarning));
+			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Enable all the mod update warnings", null, new EventHandler(cmsContextMenu_EnableAllWarnings));
+			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Disable all the mod update warnings", null, new EventHandler(cmsContextMenu_DisableAllWarnings));
 
 			foreach (IModCategory imcCategory in Categories.OrderBy(x => x.CategoryName))
 				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
@@ -565,7 +577,7 @@ namespace Nexus.Client.UI.Controls
 					{
 						if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
 							return new Bitmap(Properties.Resources.update_warning, 16, 16);
-						else if (!modMod.IsMatchingVersion())
+						else if ((!modMod.IsMatchingVersion()) && (!Settings.HideModUpdateWarningIcon))
 							return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
 					}
 				}
@@ -817,6 +829,28 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.UpdateWarningToggle != null)
 				this.UpdateWarningToggle(this, new EventArgs());
+		}
+
+		/// <summary>
+		/// Handles the cmsContextMenu.EnableAllWarnings event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+		private void cmsContextMenu_EnableAllWarnings(object sender, EventArgs e)
+		{
+			if (this.ToggleAllWarnings != null)
+				this.ToggleAllWarnings(true, new EventArgs());
+		}
+
+		/// <summary>
+		/// Handles the cmsContextMenu.DisableAllWarnings event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+		private void cmsContextMenu_DisableAllWarnings(object sender, EventArgs e)
+		{
+			if (this.ToggleAllWarnings != null)
+				this.ToggleAllWarnings(false, new EventArgs());
 		}
 
 		/// <summary>

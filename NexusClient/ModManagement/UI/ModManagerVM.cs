@@ -487,13 +487,22 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Toggles the mod update warning.
 		/// </summary>
-		/// <param name="p_lstMods">The mod list.</param>
-		public void ToggleModUpdateWarning(HashSet<IMod> p_hashMods)
+		/// <param name="p_hashMods">The mod list.</param>
+		public void ToggleModUpdateWarning(HashSet<IMod> p_hashMods, bool? p_booEnable)
 		{
 			foreach (IMod modMod in p_hashMods)
 			{
 				ModInfo mifUpdatedMod = new ModInfo(modMod);
-				mifUpdatedMod.UpdateWarningEnabled = !modMod.UpdateWarningEnabled;
+				if (p_booEnable == null)
+					mifUpdatedMod.UpdateWarningEnabled = !modMod.UpdateWarningEnabled;
+				else
+				{
+					if (modMod.UpdateWarningEnabled == p_booEnable.Value)
+						continue;
+					else
+						mifUpdatedMod.UpdateWarningEnabled = p_booEnable.Value;
+				}
+
 				modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
 			}
 		}

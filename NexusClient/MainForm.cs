@@ -507,7 +507,8 @@ namespace Nexus.Client
 		private void tsbSettings_Click(object sender, EventArgs e)
 		{
 			SettingsForm frmSettings = new SettingsForm(ViewModel.SettingsFormVM);
-			frmSettings.ShowDialog(this);
+			if (frmSettings.ShowDialog(this) == DialogResult.OK)
+				mmgModManager.RefreshModList();
 		}
 
 		/// <summary>
