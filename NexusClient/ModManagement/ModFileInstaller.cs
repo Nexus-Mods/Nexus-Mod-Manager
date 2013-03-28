@@ -448,7 +448,8 @@ namespace Nexus.Client.ModManagement
 
 			//remove any empty directories from the overwrite folder we may have created
 			string strStopDirectory = GameModeInfo.OverwriteDirectory;
-			TrimEmptyDirectories(Path.GetDirectoryName(strOverwritePath), strStopDirectory);
+			string strFileName = Path.GetFileName(strOverwritePath);
+			TrimEmptyDirectories(strOverwritePath.Replace(strFileName, ""), strStopDirectory);
 
 			InstallLog.RemoveDataFile(Mod, p_strPath);
 		}
