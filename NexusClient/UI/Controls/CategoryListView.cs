@@ -259,9 +259,9 @@ namespace Nexus.Client.UI.Controls
 			cmsContextMenu.Items.Add("Scan selected mods for Readme files", new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_ReadmeScan));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
 			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
-			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Toggle mod update warning", null, new EventHandler(cmsContextMenu_ToggleUpdateWarning));
-			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Enable all the mod update warnings", null, new EventHandler(cmsContextMenu_EnableAllWarnings));
-			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Disable all the mod update warnings", null, new EventHandler(cmsContextMenu_DisableAllWarnings));
+			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Toggle mod update warning on selected file/s", null, new EventHandler(cmsContextMenu_ToggleUpdateWarning));
+			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Enable mod update warnings for all files", null, new EventHandler(cmsContextMenu_EnableAllWarnings));
+			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Disable mod update warnings for all files", null, new EventHandler(cmsContextMenu_DisableAllWarnings));
 
 			foreach (IModCategory imcCategory in Categories.OrderBy(x => x.CategoryName))
 				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
