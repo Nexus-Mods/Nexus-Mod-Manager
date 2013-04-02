@@ -456,9 +456,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			//check for screenshot
 			string[] strScreenshots;
 			if (p_booUseCache && (m_arcCacheFile != null))
-				strScreenshots = m_arcCacheFile.GetFiles("fomod", "screenshot*", false);
+				strScreenshots = m_arcCacheFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
 			else
-				strScreenshots = m_arcFile.GetFiles("fomod", "screenshot*", false);
+				strScreenshots = m_arcFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
 			//TODO make sure the file is a valid image
 			if (strScreenshots.Length > 0)
 				m_strScreenshotPath = strScreenshots[0];
@@ -661,8 +661,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (m_dicMovedArchiveFiles.ContainsKey(strPath))
 				return true;
 			if (m_arcFile.ContainsFile(GetRealPath(strPath)))
-				return true;
-			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(GetRealPath(strPath))))
 				return true;
 			return ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)));
 		}
