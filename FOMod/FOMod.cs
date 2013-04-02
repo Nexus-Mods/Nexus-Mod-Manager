@@ -662,6 +662,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				return true;
 			if (m_arcFile.ContainsFile(GetRealPath(strPath)))
 				return true;
+			if (m_arcCacheFile.ContainsFile(GetRealPath(strPath)))
+				return true;
 			return ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)));
 		}
 
@@ -682,7 +684,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			string strAdjustedPath = null;
 			if (m_dicMovedArchiveFiles.TryGetValue(strPath, out strAdjustedPath))
 				return strAdjustedPath;
-			return Path.Combine(m_strPrefixPath, p_strPath);
+			if (strPath.ToLowerInvariant().IndexOf(m_strPrefixPath.ToLowerInvariant()) == 0)
+				return p_strPath;
+			else
+				return Path.Combine(m_strPrefixPath, p_strPath);
 		}
 
 		/// <summary>

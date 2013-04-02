@@ -461,6 +461,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>
+		/// <param name="p_rolModList">The mod list.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
@@ -473,6 +474,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>
+		/// <param name="p_lstModList">The mod list.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask SetupReadMeManager(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm)
@@ -480,6 +482,20 @@ namespace Nexus.Client.ModManagement
 			ReadMeSetupTask rmsReadMeManagerSetup = new ReadMeSetupTask(ReadMeManager, p_lstModList);
 			rmsReadMeManagerSetup.Update(p_camConfirm);
 			return rmsReadMeManagerSetup;
+		}
+
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_hashMods">The hash of mods.</param>
+		/// <param name="p_booEnable">Enable/Disable/Toggle.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask ToggleUpdateWarningTask(HashSet<IMod> p_hashMods, bool? p_booEnable, ConfirmActionMethod p_camConfirm)
+		{
+			ToggleUpdateWarningTask tuwToggleWarning = new ToggleUpdateWarningTask(p_hashMods, p_booEnable, p_camConfirm);
+			tuwToggleWarning.Update(p_camConfirm);
+			return tuwToggleWarning;
 		}
 
 		#endregion

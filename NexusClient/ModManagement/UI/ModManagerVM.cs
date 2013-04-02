@@ -62,6 +62,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ReadMeManagerSetup = delegate { };
 
+
+		/// <summary>
+		/// Raised when the toggle all mods is being set up.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> TogglingAllWarning = delegate { };
+
 		/// <summary>
 		/// Raised when uninstalling multiple mods.
 		/// </summary>
@@ -488,23 +494,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// Toggles the mod update warning.
 		/// </summary>
 		/// <param name="p_hashMods">The mod list.</param>
+		/// <param name="p_booEnable">Whether to enable/disable the warning or toggle it if null.</param>
 		public void ToggleModUpdateWarning(HashSet<IMod> p_hashMods, bool? p_booEnable)
 		{
-			foreach (IMod modMod in p_hashMods)
-			{
-				ModInfo mifUpdatedMod = new ModInfo(modMod);
-				if (p_booEnable == null)
-					mifUpdatedMod.UpdateWarningEnabled = !modMod.UpdateWarningEnabled;
-				else
-				{
-					if (modMod.UpdateWarningEnabled == p_booEnable.Value)
-						continue;
-					else
-						mifUpdatedMod.UpdateWarningEnabled = p_booEnable.Value;
-				}
-
-				modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
-			}
+			TogglingAllWarning(this, new EventArgs<IBackgroundTask>(ModManager.ToggleUpdateWarningTask(p_hashMods, p_booEnable, ConfirmUpdaterAction)));
 		}
 
 		#endregion
