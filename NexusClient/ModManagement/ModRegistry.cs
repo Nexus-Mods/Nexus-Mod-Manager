@@ -74,12 +74,12 @@ namespace Nexus.Client.ModManagement
 
 			if (modList.Count > 0)
 			{
-				string strErrorMessage = "Error during the loading of the following mods: " + Environment.NewLine;
+				string strErrorMessage = "Error loading the following mods: " + Environment.NewLine;
 				foreach (string modstr in modList)
 				{
 					strErrorMessage += modstr + Environment.NewLine;
 				}
-				MessageBox.Show(strErrorMessage);
+				MessageBox.Show(strErrorMessage, "Mod loading error", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 
 			Trace.Unindent();

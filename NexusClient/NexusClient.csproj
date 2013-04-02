@@ -52,6 +52,7 @@
   <ItemGroup>
     <Compile Include="EnvironmentInfo.cs" />
     <Compile Include="GameModeSelectionForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="GameModeSelectionForm.Designer.cs">
       <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
@@ -59,6 +60,7 @@
     <Compile Include="GameModeSelector.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
     <Compile Include="MainForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
@@ -110,12 +112,14 @@
     <Compile Include="ModManagement\ModManager.cs" />
     <Compile Include="ModManagement\ModRegistry.cs" />
     <Compile Include="ModManagement\UI\ModManagerControl.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="ModManagement\UI\ModManagerControl.Designer.cs">
       <DependentUpon>ModManagerControl.cs</DependentUpon>
     </Compile>
     <Compile Include="ModManagement\UI\ModManagerVM.cs" />
     <Compile Include="ModManagement\UI\OverwriteForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="ModManagement\UI\OverwriteForm.Designer.cs">
       <DependentUpon>OverwriteForm.cs</DependentUpon>
@@ -297,12 +301,14 @@
     <Compile Include="ActivityMonitoring\ActivityMonitor.cs" />
     <Compile Include="ActivityMonitoring\UI\ActivityListViewItem.cs" />
     <Compile Include="ActivityMonitoring\UI\ActivityMonitorControl.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="ActivityMonitoring\UI\ActivityMonitorControl.Designer.cs">
       <DependentUpon>ActivityMonitorControl.cs</DependentUpon>
     </Compile>
     <Compile Include="ActivityMonitoring\UI\ActivityMonitorVM.cs" />
     <Compile Include="ApplicationInitializationForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="ApplicationInitializationForm.Designer.cs">
       <DependentUpon>ApplicationInitializationForm.cs</DependentUpon>
@@ -313,6 +319,7 @@
     <Compile Include="DownloadMonitoring\DownloadMonitor.cs" />
     <Compile Include="DownloadMonitoring\UI\DownloadListViewItem.cs" />
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.designer.cs">
       <DependentUpon>DownloadMonitorControl.cs</DependentUpon>
@@ -356,12 +363,14 @@
       <DependentUpon>CustomizableToolStripProgressBar.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\Controls\GameModeListViewItem.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\Controls\GameModeListViewItem.Designer.cs">
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
     </Compile>
     <Compile Include="HelpInformation.cs" />
     <Compile Include="GameDetectionForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="GameDetectionForm.Designer.cs">
       <DependentUpon>GameDetectionForm.cs</DependentUpon>
@@ -371,6 +380,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\Controls\GameModeSearchListViewItem.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\Controls\GameModeSearchListViewItem.Designer.cs">
       <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
@@ -380,8 +390,10 @@
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
     <Compile Include="UI\Controls\GameModeListViewItemBase.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="LoginForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="LoginForm.Designer.cs">
       <DependentUpon>LoginForm.cs</DependentUpon>
@@ -415,6 +427,7 @@
     <Compile Include="ModManagement\NexusUrl.cs" />
     <Compile Include="ModManagement\PrepareModTask.cs" />
     <Compile Include="ModManagement\UI\ModTaggerForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="ModManagement\UI\ModTaggerForm.Designer.cs">
       <DependentUpon>ModTaggerForm.cs</DependentUpon>
@@ -441,6 +454,7 @@
     <Compile Include="PluginManagement\PluginRegistry.cs" />
     <Compile Include="PluginManagement\PluginRegistry.TransactionEnlistment.cs" />
     <Compile Include="PluginManagement\UI\PluginManagerControl.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="PluginManagement\UI\PluginManagerControl.Designer.cs">
       <DependentUpon>PluginManagerControl.cs</DependentUpon>
@@ -456,6 +470,7 @@
       <DependentUpon>ModOptionsPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Settings\UI\SettingsForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Settings\UI\SettingsForm.Designer.cs">
       <DependentUpon>SettingsForm.cs</DependentUpon>
