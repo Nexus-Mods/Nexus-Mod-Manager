@@ -515,7 +515,7 @@ namespace Nexus.Client.Util
 				Int32 intStopIndex = 0;
 				foreach (string strFile in m_strFiles)
 				{
-					if (Directory.GetParent(strFile).Name.ToLowerInvariant() == p_strDirectory.ToLowerInvariant())
+					if (strFile.StartsWith(strPrefix, StringComparison.InvariantCultureIgnoreCase))
 					{
 						if (!p_booRecurse)
 						{
