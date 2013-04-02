@@ -2,7 +2,11 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Text;
+using System.Threading;
+using System.Windows.Forms;
 using Nexus.Client.Util;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.Updating
 {
@@ -69,7 +73,37 @@ namespace Nexus.Client.Updating
 
 			if (verNew > new Version(ProgrammeMetadata.VersionString))
 			{
-				if (!Confirm(String.Format("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine), "New Version"))
+				StringBuilder stbPromptMessage = new StringBuilder();
+				stbPromptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine).AppendLine();
+				stbPromptMessage.AppendLine();
+				stbPromptMessage.AppendLine();
+				stbPromptMessage.AppendLine("NOTE: You can find the change log for the new release here:");
+				stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/896029-nexus-mod-manager-release-notes/");
+				DialogResult drResult = DialogResult.No;
+
+				try
+				{
+					//the extended message box contains an activex control wich must be run in an STA thread,
+					// we can't control what thread this gets called on, so create one if we need to
+					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+					ApartmentState astState = ApartmentState.Unknown;
+					Thread.CurrentThread.TrySetApartmentState(astState);
+					if (astState == ApartmentState.STA)
+						actShowMessage();
+					else
+					{
+						Thread thdMessage = new Thread(actShowMessage);
+						thdMessage.SetApartmentState(ApartmentState.STA);
+						thdMessage.Start();
+						thdMessage.Join();
+					}
+
+				}
+				catch
+				{
+				}
+
+				if (drResult  == DialogResult.Cancel)
 				{
 					Trace.Unindent();
 					return CancelUpdate();
