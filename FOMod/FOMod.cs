@@ -662,7 +662,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				return true;
 			if (m_arcFile.ContainsFile(GetRealPath(strPath)))
 				return true;
-			if (m_arcCacheFile.ContainsFile(GetRealPath(strPath)))
+			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(GetRealPath(strPath))))
 				return true;
 			return ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)));
 		}
