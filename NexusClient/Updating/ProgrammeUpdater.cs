@@ -71,21 +71,22 @@ namespace Nexus.Client.Updating
 				return false;
 			}
 
+			StringBuilder stbPromptMessage = new StringBuilder();
+			DialogResult drResult = DialogResult.No;
+
 			if (verNew > new Version(ProgrammeMetadata.VersionString))
 			{
-				StringBuilder stbPromptMessage = new StringBuilder();
 				stbPromptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine).AppendLine();
 				stbPromptMessage.AppendLine();
 				stbPromptMessage.AppendLine();
 				stbPromptMessage.AppendLine("NOTE: You can find the change log for the new release here:");
 				stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/896029-nexus-mod-manager-release-notes/");
-				DialogResult drResult = DialogResult.No;
 
 				try
 				{
 					//the extended message box contains an activex control wich must be run in an STA thread,
 					// we can't control what thread this gets called on, so create one if we need to
-					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
 					ApartmentState astState = ApartmentState.Unknown;
 					Thread.CurrentThread.TrySetApartmentState(astState);
 					if (astState == ApartmentState.STA)
@@ -103,7 +104,7 @@ namespace Nexus.Client.Updating
 				{
 				}
 
-				if (drResult  == DialogResult.Cancel)
+				if (drResult == DialogResult.Cancel)
 				{
 					Trace.Unindent();
 					return CancelUpdate();
@@ -133,6 +134,37 @@ namespace Nexus.Client.Updating
 					return true;
 				}
 			}
+			else
+			{
+				stbPromptMessage.AppendFormat("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
+				stbPromptMessage.AppendLine();
+				stbPromptMessage.AppendLine();
+				stbPromptMessage.AppendLine("NOTE: You can find the release notes, planned features and past versions here:");
+				stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/896029-nexus-mod-manager-release-notes/");
+
+				try
+				{
+					//the extended message box contains an activex control wich must be run in an STA thread,
+					// we can't control what thread this gets called on, so create one if we need to
+					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					ApartmentState astState = ApartmentState.Unknown;
+					Thread.CurrentThread.TrySetApartmentState(astState);
+					if (astState == ApartmentState.STA)
+						actShowMessage();
+					else
+					{
+						Thread thdMessage = new Thread(actShowMessage);
+						thdMessage.SetApartmentState(ApartmentState.STA);
+						thdMessage.Start();
+						thdMessage.Join();
+					}
+
+				}
+				catch
+				{
+				}
+			}
+
 			SetMessage(String.Format("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName));
 			SetProgress(2);
 			Trace.Unindent();
