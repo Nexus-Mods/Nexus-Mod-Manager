@@ -8,6 +8,7 @@ using Nexus.Client.Games;
 using Nexus.Client.Plugins;
 using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
+using System.Linq;
 
 namespace Nexus.Client.PluginManagement.UI
 {
@@ -384,9 +385,10 @@ namespace Nexus.Client.PluginManagement.UI
 			p_twWriter.WriteLine();
 
 			int intNumPluginsExported = 0;
+
 			foreach (Plugin p in ManagedPlugins)
 			{
-				p_twWriter.WriteLine(Path.GetFileName(p.Filename));
+				p_twWriter.WriteLine(Path.GetFileName(p.Filename) + "=" + (ActivePlugins.Contains(p) ? "1" : "0"));
 				intNumPluginsExported++;
 			}
 
@@ -460,7 +462,7 @@ namespace Nexus.Client.PluginManagement.UI
 
 			// The SortableDateTimePattern property uses the ':' character, which can't be used in file names, so use '-' instead.
 			strDateTimeStamp = strDateTimeStamp.Replace(':', '-');
-			
+
 			return string.Format("LoadOrder_{0}_{1}.txt", CurrentGameMode.ModeId, strDateTimeStamp);
 		}
 
@@ -523,26 +525,28 @@ namespace Nexus.Client.PluginManagement.UI
 		/// Applies the load order specified by the given list of registered plugins
 		/// </summary>
 		/// <param name="p_lstRegisteredPlugins">The list of registered plugins.</param>
-		private void ApplyLoadOrder(List<Plugin> p_lstRegisteredPlugins)
+		private void ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins)
 		{
 			Transactions.TransactionScope tsTransaction = null;
 			try
 			{
 				tsTransaction = new Transactions.TransactionScope();
 
-				foreach (Plugin plgPlugin in PluginManager.ManagedPlugins)
+				foreach (KeyValuePair<Plugin, string> kvp in p_kvpRegisteredPlugins)
 				{
-					if (PluginManager.CanChangeActiveState(plgPlugin))
-						PluginManager.DeactivatePlugin(plgPlugin);
+					if (kvp.Value == "1")
+					{
+						if (PluginManager.CanChangeActiveState(kvp.Key))
+							PluginManager.ActivatePlugin(kvp.Key);
+					}
+					if (kvp.Value == "0")
+					{
+						if (PluginManager.CanChangeActiveState(kvp.Key))
+							PluginManager.DeactivatePlugin(kvp.Key);
+					}
 				}
 
-				foreach (Plugin plgPlugin in p_lstRegisteredPlugins)
-				{
-					if (PluginManager.CanChangeActiveState(plgPlugin))
-						PluginManager.ActivatePlugin(plgPlugin);
-				}
-
-				PluginManager.SetPluginOrder(p_lstRegisteredPlugins);
+				PluginManager.SetPluginOrder(p_kvpRegisteredPlugins.Keys.ToList());
 
 				tsTransaction.Complete();
 			}
@@ -563,7 +567,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <returns><c>true</c> if a load order can be imported; <c>false</c> otherwise.</returns>
 		public bool CanExecuteImportCommands()
 		{
-			return CurrentGameMode.UsesPlugins 
+			return CurrentGameMode.UsesPlugins
 				&& !string.IsNullOrEmpty(CurrentGameMode.PluginDirectory)
 				&& (ManagedPlugins.Count > 0);
 		}
@@ -580,28 +584,28 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <summary>
 		/// Gets a list of registered plugins and unregistered plugin filenames for the specified game mode and list of plugin filenames.
 		/// </summary>
-		/// <param name="p_lstPluginFilenames">The list of plugin filenames.</param>
+		/// <param name="p_dPluginFilenames">The dictionary of plugin filenames.</param>
 		/// <param name="p_lstRegisteredPlugins">The return list of registered plugins.</param>
 		/// <param name="p_lstUnregisteredPlugins">The return list of unregistered plugin filenames.</param>
 		/// <exception cref="InvalidImportSourceException">The value of PluginDirectory for the current game mode is empty.</exception>
-		private void GetRegisteredPlugins(List<string> p_lstPluginFilenames, out List<Plugin> p_lstRegisteredPlugins, out List<string> p_lstUnregisteredPlugins)
+		private void GetRegisteredPlugins(Dictionary<string, string> p_dctPluginFilenames, out Dictionary<Plugin, string> p_kvpRegisteredPlugins, out List<string> p_lstUnregisteredPlugins)
 		{
 			string strPluginDirectory = CurrentGameMode.PluginDirectory;
 
 			if (string.IsNullOrEmpty(strPluginDirectory))
 				throw new InvalidImportSourceException(string.Format("The PluginDirectory path of the specified import source game mode, {0}, is empty.", CurrentGameMode));
 
-			p_lstRegisteredPlugins = new List<Plugin>();
+			p_kvpRegisteredPlugins = new Dictionary<Plugin, string>();
 			p_lstUnregisteredPlugins = new List<string>();
 
-			foreach (string strPluginFilename in p_lstPluginFilenames)
+			foreach (KeyValuePair<string, string> kvp in p_dctPluginFilenames)
 			{
-				string strPluginPath = Path.Combine(strPluginDirectory, strPluginFilename);
+				string strPluginPath = Path.Combine(strPluginDirectory, kvp.Key);
 				Plugin plgPlugin = PluginManager.GetRegisteredPlugin(strPluginPath);
 				if (plgPlugin != null)
-					p_lstRegisteredPlugins.Add(plgPlugin);
+					p_kvpRegisteredPlugins.Add(plgPlugin, kvp.Value);
 				else
-					p_lstUnregisteredPlugins.Add(strPluginFilename);
+					p_lstUnregisteredPlugins.Add(kvp.Key);
 			}
 		}
 
@@ -618,8 +622,8 @@ namespace Nexus.Client.PluginManagement.UI
 			if (p_trReader == null)
 				throw new ArgumentNullException("p_trReader");
 
-			List<string> lstPluginFilenames = ReadImportSource(p_trReader);
-			p_intTotalPluginCount = lstPluginFilenames.Count;
+			Dictionary<string, string> kvpPluginFilenames = ReadImportSource(p_trReader);
+			p_intTotalPluginCount = kvpPluginFilenames.Count;
 
 			if (p_intTotalPluginCount == 0)
 			{
@@ -628,18 +632,19 @@ namespace Nexus.Client.PluginManagement.UI
 				return;
 			}
 
-			List<Plugin> lstRegisteredPlugins;
-			GetRegisteredPlugins(lstPluginFilenames, out lstRegisteredPlugins, out p_lstUnregisteredPlugins);
+			Dictionary<Plugin, string> kvpRegisteredPlugins;
 
-			if (lstRegisteredPlugins.Count == 0)
+			GetRegisteredPlugins(kvpPluginFilenames, out kvpRegisteredPlugins, out p_lstUnregisteredPlugins);
+
+			if (kvpRegisteredPlugins.Count == 0)
 			{
 				p_intImportedCount = 0;
 				return;
 			}
 
-			ApplyLoadOrder(lstRegisteredPlugins);
+			ApplyLoadOrder(kvpRegisteredPlugins);
 
-			p_intImportedCount = lstRegisteredPlugins.Count;
+			p_intImportedCount = kvpRegisteredPlugins.Count;
 		}
 
 		/// <summary>
@@ -817,9 +822,9 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <exception cref="InvalidImportSourceException">A game mode is not defined in the specified import source.</exception>
 		/// <exception cref="InvalidImportSourceException">More than one game mode is defined in the specified import source.</exception>
 		/// <exception cref="InvalidImportSourceException">The game mode if defined in the specified import source does not match the id for the current game mode.</exception>
-		private List<string> ReadImportSource(TextReader p_trReader)
+		private Dictionary<string, string> ReadImportSource(TextReader p_trReader)
 		{
-			List<string> lstPluginFilenames = new List<string>();
+			Dictionary<string, string> kvpLoadOrder = new Dictionary<string, string>();
 
 			string strLine;
 			string strGameModeId = null;
@@ -837,9 +842,16 @@ namespace Nexus.Client.PluginManagement.UI
 						throw new InvalidImportSourceException("The specified import source has more than one game mode defined.");
 				}
 
-				Match mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m))$");
+				Match mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m))=([0:1])$");
 				if (mchPlugin.Success)
-					lstPluginFilenames.Add(strLine);
+					kvpLoadOrder.Add(strLine.Split('=')[0], strLine.Split('=')[1]);
+				else
+				{
+					mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m))$");
+					if (mchPlugin.Success)
+						kvpLoadOrder.Add(strLine, String.Empty);
+				}
+
 			}
 
 			if (string.IsNullOrEmpty(strGameModeId))
@@ -847,7 +859,7 @@ namespace Nexus.Client.PluginManagement.UI
 			else if (strGameModeId != CurrentGameMode.ModeId)
 				throw new InvalidImportSourceException(string.Format("The game mode of the specified import source, {0}, does not match the current game mode, {1}.", strGameModeId, CurrentGameMode.ModeId));
 
-			return lstPluginFilenames;
+			return kvpLoadOrder;
 		}
 
 		#endregion
