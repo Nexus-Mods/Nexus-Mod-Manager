@@ -1025,7 +1025,8 @@ namespace Nexus.Client.ModManagement.UI
 					clwCategoryView.ReloadList();
 				}
 				clwCategoryView.Sort();
-				clwCategoryView.EnsureVisible(clwCategoryView.SelectedIndex);
+				if (clwCategoryView.SelectedItem != null)
+					clwCategoryView.SelectedItem.EnsureVisible();
 			}
 
 			e.CancelEdit = true;
