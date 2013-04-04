@@ -154,7 +154,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// Gets or sets the Endorsement state of the mod.
 		/// </summary>
 		/// <value>The Endorsement state of the mod.</value>
-		public bool IsEndorsed 
+		public bool IsEndorsed
 		{
 			get
 			{
@@ -492,14 +492,18 @@ namespace Nexus.Client.Mods.Formats.OMod
 				{
 					if (ContainsFile(Path.Combine(CONVERSION_FOLDER, strScriptName)))
 					{
-						StreamReader sreScript = new StreamReader(Path.Combine(CONVERSION_FOLDER, strScriptName));
-						string strCode = sreScript.ReadToEnd();
-						sreScript.Close();
-						if (stpScript.ValidateScript(stpScript.LoadScript(strCode)))
+						if (File.Exists(Path.Combine(CONVERSION_FOLDER, strScriptName)))
 						{
-							m_booHasInstallScript = true;
-							m_stpInstallScriptType = stpScript;
-							break;
+							StreamReader sreScript = new StreamReader(Path.Combine(CONVERSION_FOLDER, strScriptName));
+
+							string strCode = sreScript.ReadToEnd();
+							sreScript.Close();
+							if (stpScript.ValidateScript(stpScript.LoadScript(strCode)))
+							{
+								m_booHasInstallScript = true;
+								m_stpInstallScriptType = stpScript;
+								break;
+							}
 						}
 					}
 				}

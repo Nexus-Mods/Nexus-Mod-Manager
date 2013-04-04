@@ -26,6 +26,7 @@ namespace Nexus.Client.ModManagement
 		#region Fields
 
 		private string m_strReadMePath = string.Empty;
+		private string strCurrentDirectory = string.Empty;
 		private bool m_booIsInitialized = false;
 		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private Dictionary<string, string[]> m_dicReadMeFiles = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
@@ -240,6 +241,7 @@ namespace Nexus.Client.ModManagement
 		{
 			try
 			{
+				strCurrentDirectory = Directory.GetCurrentDirectory();
 				Directory.SetCurrentDirectory(Directory.GetParent(m_strReadMePath).FullName);
 				Directory.CreateDirectory("ReadMe");
 				Directory.SetCurrentDirectory(m_strReadMePath);
@@ -392,6 +394,8 @@ namespace Nexus.Client.ModManagement
 			{
 				docReadMe.Save(sw);
 			}
+
+			Directory.SetCurrentDirectory(strCurrentDirectory);
 
 		}
 
