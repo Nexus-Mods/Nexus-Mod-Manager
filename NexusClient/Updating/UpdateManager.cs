@@ -44,10 +44,11 @@ namespace Nexus.Client.Updating
 		/// Runs the managed updaters.
 		/// </summary>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask Update(ConfirmActionMethod p_camConfirm)
+		public IBackgroundTask Update(ConfirmActionMethod p_camConfirm, bool p_booIsAutoCheck)
 		{
-			UpdateTask utkUpdaters = new UpdateTask(GameMode, EnvironmentInfo);
+			UpdateTask utkUpdaters = new UpdateTask(GameMode, EnvironmentInfo, p_booIsAutoCheck);
 			utkUpdaters.Update(p_camConfirm);
 			return utkUpdaters;
 		}

@@ -392,7 +392,17 @@ namespace Nexus.Client
 		private void UpdateProgramme()
 		{
 			if (!OfflineMode)
-				Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction)));
+				UpdateProgramme(false);
+		}
+
+		/// <summary>
+		/// Updates the programme.
+		/// </summary>
+		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
+		private void UpdateProgramme(bool p_booIsAutoCheck)
+		{
+			if (!OfflineMode)
+				Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction, p_booIsAutoCheck)));
 		}
 
 		/// <summary>
@@ -404,7 +414,7 @@ namespace Nexus.Client
 			{
 				if (String.IsNullOrEmpty(EnvironmentInfo.Settings.LastUpdateCheckDate))
 				{
-					UpdateProgramme();
+					UpdateProgramme(true);
 					EnvironmentInfo.Settings.LastUpdateCheckDate = DateTime.Today.ToShortDateString();
 					EnvironmentInfo.Settings.Save();
 				}
@@ -414,7 +424,7 @@ namespace Nexus.Client
 					{
 						if ((DateTime.Today - Convert.ToDateTime(EnvironmentInfo.Settings.LastUpdateCheckDate)).TotalDays >= EnvironmentInfo.Settings.UpdateCheckInterval)
 						{
-							UpdateProgramme();
+							UpdateProgramme(true);
 							EnvironmentInfo.Settings.LastUpdateCheckDate = DateTime.Today.ToShortDateString();
 							EnvironmentInfo.Settings.Save();
 						}

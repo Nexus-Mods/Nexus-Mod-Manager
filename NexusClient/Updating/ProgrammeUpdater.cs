@@ -15,6 +15,8 @@ namespace Nexus.Client.Updating
 	/// </summary>
 	public class ProgrammeUpdater : UpdaterBase
 	{
+		private bool m_booIsAutoCheck = false;
+
 		#region Properties
 
 		/// <summary>
@@ -37,9 +39,11 @@ namespace Nexus.Client.Updating
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public ProgrammeUpdater(IEnvironmentInfo p_eifEnvironmentInfo)
+		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
+		public ProgrammeUpdater(IEnvironmentInfo p_eifEnvironmentInfo, bool p_booIsAutoCheck)
 			: base(p_eifEnvironmentInfo)
 		{
+			m_booIsAutoCheck = p_booIsAutoCheck;
 			SetRequiresRestart(true);
 		}
 
@@ -134,7 +138,7 @@ namespace Nexus.Client.Updating
 					return true;
 				}
 			}
-			else
+			else if (!m_booIsAutoCheck)
 			{
 				stbPromptMessage.AppendFormat("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
 				stbPromptMessage.AppendLine();
