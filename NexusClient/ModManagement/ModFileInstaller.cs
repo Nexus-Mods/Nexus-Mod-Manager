@@ -387,6 +387,10 @@ namespace Nexus.Client.ModManagement
 			string strUninstallingModKey = InstallLog.GetModKey(Mod);
 			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
 			string strBackupDirectory = Path.Combine(GameModeInfo.OverwriteDirectory, Path.GetDirectoryName(p_strPath));
+			string strFile;
+			string strRestoreFromPath = string.Empty;
+			bool booRestoreFile = false;
+
 			FileInfo fiInfo = null;
 			if (File.Exists(strInstallFilePath))
 			{
@@ -403,31 +407,33 @@ namespace Nexus.Client.ModManagement
 					else
 						TransactionalFileManager.Delete(strInstallFilePath);
 
-					if (IsPlugin)
-						if (PluginManager.IsActivatiblePluginFile(strInstallFilePath))
-							PluginManager.RemovePlugin(strInstallFilePath);
 					string strPreviousOwnerKey = InstallLog.GetPreviousFileOwnerKey(p_strPath);
 					if (strPreviousOwnerKey != null)
 					{
-						string strFile = strPreviousOwnerKey + "_" + Path.GetFileName(p_strPath);
-						string strRestoreFromPath = Path.Combine(strBackupDirectory, strFile);
+						strFile = strPreviousOwnerKey + "_" + Path.GetFileName(p_strPath);
+						strRestoreFromPath = Path.Combine(strBackupDirectory, strFile);
 						if (File.Exists(strRestoreFromPath))
-						{
-							//we get the file name this way in order to preserve the file name's case
-							string strBackupFileName = Path.GetFileName(Directory.GetFiles(Path.GetDirectoryName(strRestoreFromPath), Path.GetFileName(strRestoreFromPath))[0]);
-							strBackupFileName = strBackupFileName.Substring(strBackupFileName.IndexOf('_') + 1);
-							string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
+							booRestoreFile = true;
+					}
 
-							fiInfo = new FileInfo(strRestoreFromPath);
-							if (fiInfo.IsReadOnly)
-								m_lstErrorMods.Add(strInstallFilePath);
-							else
-							{
-								TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
-								TransactionalFileManager.Delete(strRestoreFromPath);
-							}
+					if (IsPlugin)
+						if ((PluginManager.IsActivatiblePluginFile(strInstallFilePath)) && !booRestoreFile)
+							PluginManager.RemovePlugin(strInstallFilePath);
 
-						}
+					if (booRestoreFile)
+					{
+						//we get the file name this way in order to preserve the file name's case
+						string strBackupFileName = Path.GetFileName(Directory.GetFiles(Path.GetDirectoryName(strRestoreFromPath), Path.GetFileName(strRestoreFromPath))[0]);
+						strBackupFileName = strBackupFileName.Substring(strBackupFileName.IndexOf('_') + 1);
+						string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
+
+						fiInfo = new FileInfo(strRestoreFromPath);
+						TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+
+						if (fiInfo.IsReadOnly)
+							m_lstErrorMods.Add(strInstallFilePath);
+						else
+							TransactionalFileManager.Delete(strRestoreFromPath);
 					}
 
 					//remove any empty directories from the data folder we may have created
