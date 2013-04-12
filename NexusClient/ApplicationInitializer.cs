@@ -1028,19 +1028,13 @@ namespace Nexus.Client
 					}
 
 					string strMessage = String.Format("'{0}' was deleted without being deactivated. " + Environment.NewLine +
-										"If you don't uninstall the Mod, {1} will close and you will " +
-										"have to put the Mod back in the mods folder." + Environment.NewLine +
-										"Would you like to uninstall the missing Mod?", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
-					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Warning)) == DialogResult.No)
+										"{1} will now automatically uninstall the missing mod's files.", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
+					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Warning)) == DialogResult.OK)
 					{
-						Trace.TraceInformation("Aborting.");
-						Trace.Unindent();
-						Trace.Unindent();
-						return false;
+						Trace.TraceInformation("Removing.");
+						IBackgroundTaskSet btsDeactivator = p_mmgModManager.DeactivateMod(modMissing);
+						WaitForSet(btsDeactivator, true);
 					}
-					Trace.TraceInformation("Removing.");
-					IBackgroundTaskSet btsDeactivator = p_mmgModManager.DeactivateMod(modMissing);
-					WaitForSet(btsDeactivator, true);
 
 					Trace.TraceInformation("Uninstalled.");
 					Trace.Unindent();
