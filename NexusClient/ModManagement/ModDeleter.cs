@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Nexus.Client.BackgroundTasks;
@@ -62,6 +63,7 @@ namespace Nexus.Client.ModManagement
 		protected void DeleteModFile(IMod p_modMod)
 		{
 			FileUtil.ForceDelete(p_modMod.Filename);
+			FileUtil.ForceDelete(Path.Combine(Path.Combine(Path.GetDirectoryName(p_modMod.Filename), "cache"), Path.GetFileName(p_modMod.Filename) + ".zip"));
 		}
 	}
 }
