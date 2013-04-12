@@ -1284,7 +1284,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 				else if ((e.OldItems != null) && (e.OldItems.Count > 0))
 				{
-					clwCategoryView.RemoveObjects(clwCategoryView.SelectedObjects);
+					clwCategoryView.RemoveObjects(e.OldItems);
 				}
 			}
 
