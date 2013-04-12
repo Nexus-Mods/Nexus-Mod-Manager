@@ -313,7 +313,13 @@ namespace Nexus.Client.ModManagement.InstallationLog
 						strVersion = xelVersion.Value;
 						IMod modMod = ManagedModRegistry.GetMod(strModPath) ?? new DummyMod(strModName, strModPath, verVersion, strVersion, "", strInstallDate);
 						modMod.InstallDate = strInstallDate;
-						m_amrModKeys.RegisterMod(modMod, xelMod.Attribute("key").Value);
+
+						try
+						{
+							m_amrModKeys.RegisterMod(modMod, xelMod.Attribute("key").Value);
+						}
+						catch (ArgumentException) { }
+
 						if (modMod is DummyMod)
 							Trace.WriteLine("Missing");
 						else
