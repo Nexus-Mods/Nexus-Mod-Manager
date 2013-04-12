@@ -1024,10 +1024,18 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_sroPrimarySortOrder">The sort order.</param>
 		public void SetPrimarySortColumn(int p_intPrimaryColumn, SortOrder p_sroPrimarySortOrder)
 		{
-			this.PrimarySortColumn = this.ColumnsInDisplayOrder[p_intPrimaryColumn];
-			this.PrimarySortOrder = p_sroPrimarySortOrder;
-			this.SecondarySortColumn = tlcModName;
-			this.SecondarySortOrder = SortOrder.Ascending;
+			if (this.Columns.Count > 0)
+			{
+				if (p_intPrimaryColumn > (this.Columns.Count - 1))
+					p_intPrimaryColumn = this.Columns.Count - 1;
+				else if (p_intPrimaryColumn < 0)
+					p_intPrimaryColumn = 0;
+
+				this.PrimarySortColumn = this.ColumnsInDisplayOrder[p_intPrimaryColumn];
+				this.PrimarySortOrder = p_sroPrimarySortOrder;
+				this.SecondarySortColumn = tlcModName;
+				this.SecondarySortOrder = SortOrder.Ascending;
+			}
 		}
 
 		/// <summary>
