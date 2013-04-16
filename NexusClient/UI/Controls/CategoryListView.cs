@@ -439,21 +439,7 @@ namespace Nexus.Client.UI.Controls
 
 			this.CanDrop += delegate(object sender, BrightIdeasSoftware.OlvDropEventArgs e)
 			{
-				IMod modMod = null;
-				IModCategory imcCategory = null;
-				if (e.DropTargetItem != null)
-				{
-					if (this.GetSelectedItem.GetType() != typeof(ModCategory))
-						modMod = (IMod)e.DropTargetItem.RowObject;
-					else
-						imcCategory = (IModCategory)e.DropTargetItem.RowObject;
-				}
-
-
-				if (((modMod != null) || (imcCategory != null)) || (e.DragEventArgs.Data.GetData(DataFormats.FileDrop) != null))
-				{
-					e.Effect = DragDropEffects.Move;
-				}
+				e.Effect = DragDropEffects.Move;
 			};
 
 			this.Dropped += delegate(object sender, BrightIdeasSoftware.OlvDropEventArgs e)
