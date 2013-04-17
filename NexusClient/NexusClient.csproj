@@ -286,6 +286,8 @@
     <None Include="Resources\switch_view.png" />
     <None Include="Resources\category_folder.png" />
     <None Include="Resources\side_panel.png" />
+    <None Include="Resources\cz.png" />
+    <None Include="Resources\europeanunion.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
