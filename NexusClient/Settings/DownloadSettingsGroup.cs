@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.ModRepositories;
@@ -15,7 +16,7 @@ namespace Nexus.Client.Settings
 
 		private bool m_booPremiumOnly = false;
 		private bool m_booPremiumEnabled = false;
-		private string m_strUserLocation = "";
+		private string m_strUserLocation = "default";
 		private Int32 m_intConnections = 1;
 
 		#region Properties
@@ -99,7 +100,7 @@ namespace Nexus.Client.Settings
 		/// Gets the repository's file server zones.
 		/// </summary>
 		/// <value>the repository's file server zones.</value>
-		public IList<FileServerZone> FileServerZones { get; private set; }
+		public List<FileServerZone> FileServerZones { get; private set; }
 
 		/// <summary>
 		/// Gets the number allowed connections.
@@ -120,7 +121,7 @@ namespace Nexus.Client.Settings
 		{
 			bool MemberCheck = false;
 
-			FileServerZones = p_fszFileServerZones;
+			FileServerZones = p_fszFileServerZones.ToList();
 			AllowedConnections = p_intAllowedConnections;
 			if (EnvironmentInfo.Settings.NumberOfConnections > AllowedConnections.Length)
 			{
@@ -153,7 +154,11 @@ namespace Nexus.Client.Settings
 		public override void Load()
 		{
 			PremiumOnly = EnvironmentInfo.Settings.PremiumOnly;
-			UserLocation = EnvironmentInfo.Settings.UserLocation;
+			FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
+			if (fszUser != null)
+				UserLocation = fszUser.FileServerID;
+			else
+				UserLocation = "default";
 			NumberOfConnections = EnvironmentInfo.Settings.NumberOfConnections;
 		}
 
