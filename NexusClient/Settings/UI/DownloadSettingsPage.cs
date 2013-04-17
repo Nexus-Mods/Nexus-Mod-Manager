@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Util;
@@ -11,6 +13,8 @@ namespace Nexus.Client.Settings.UI
 	/// </summary>
 	public partial class DownloadSettingsPage : UserControl, ISettingsGroupView
 	{
+		private IList<FileServerZone> m_fszFileServerZone;
+
 		#region Constructors
 
 		/// <summary>
@@ -23,6 +27,7 @@ namespace Nexus.Client.Settings.UI
 			InitializeComponent();
 
 			BindingSource bsFileServerZones = new BindingSource();
+			m_fszFileServerZone = p_dsgSettings.FileServerZones;
 			bsFileServerZones.DataSource = p_dsgSettings.FileServerZones;
 
 			cbxConnections.DataSource = p_dsgSettings.AllowedConnections;
@@ -52,5 +57,52 @@ namespace Nexus.Client.Settings.UI
 		public SettingsGroup SettingsGroup { get; private set; }
 
 		#endregion
+
+		private void cbxServerLocation_DrawItem(object sender, DrawItemEventArgs e)
+		{
+			string strImageFont = "Arial";
+			System.Drawing.FontStyle fsFontStyle = FontStyle.Regular;
+
+			if (!IsFontInstalled(strImageFont))
+				strImageFont = this.Font.FontFamily.ToString();
+
+			Font objFont = new Font(strImageFont, 11, fsFontStyle, System.Drawing.GraphicsUnit.Pixel);
+
+			// Let's highlight the currently selected item like any well 
+			// behaved combo box should
+			e.Graphics.FillRectangle(Brushes.Bisque, e.Bounds);
+			e.Graphics.DrawString(m_fszFileServerZone[e.Index].FileServerName, objFont, Brushes.Black,
+								  new Point(m_fszFileServerZone[e.Index].FileServerFlag.Width * 2, e.Bounds.Y));
+			e.Graphics.DrawImage(m_fszFileServerZone[e.Index].FileServerFlag, new Point(e.Bounds.X, e.Bounds.Y));
+          
+			if ((e.State & DrawItemState.Focus) == 0)
+			{
+				e.Graphics.FillRectangle(Brushes.White, e.Bounds);
+				e.Graphics.DrawString(m_fszFileServerZone[e.Index].FileServerName, objFont, Brushes.Black,
+									  new Point(m_fszFileServerZone[e.Index].FileServerFlag.Width * 2, e.Bounds.Y));
+				e.Graphics.DrawImage(m_fszFileServerZone[e.Index].FileServerFlag, new Point(e.Bounds.X, e.Bounds.Y));
+			}  
+		}
+
+		/// <summary>
+		/// This checks if the passed font is present.
+		/// </summary>
+		private bool IsFontInstalled(string fontName)
+		{
+			try
+			{
+				using (var testFont = new Font(fontName, 8))
+				{
+					return 0 == string.Compare(
+					  fontName,
+					  testFont.Name,
+					  StringComparison.InvariantCultureIgnoreCase);
+				}
+			}
+			catch
+			{
+				return false;
+			}
+		}
 	}
 }
