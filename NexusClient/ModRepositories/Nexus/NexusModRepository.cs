@@ -95,6 +95,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public List<FileServerZone> FileServerZones { get; private set; }
 
 		/// <summary>
+		/// Gets the repository's file server zones.
+		/// </summary>
+		/// <value>the repository's file server zones.</value>
+		private List<FileServerZone> RepositoryFileServerZones { get; set; }
+
+		/// <summary>
 		/// Gets the number allowed connections.
 		/// </summary>
 		/// <value>The number allowed connections.</value>
@@ -124,11 +130,19 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			FileServerZones = new List<FileServerZone>();
 			FileServerZones.Add(new FileServerZone());
-			FileServerZones.Add(new FileServerZone("en", "England", 1, global::Nexus.Client.Properties.Resources.en));
 			FileServerZones.Add(new FileServerZone("us.w", "US West Coast", 2, global::Nexus.Client.Properties.Resources.us));
 			FileServerZones.Add(new FileServerZone("us.e", "US East Coast", 2, global::Nexus.Client.Properties.Resources.us));
 			FileServerZones.Add(new FileServerZone("us.c", "US Central", 2, global::Nexus.Client.Properties.Resources.us));
-			FileServerZones.Add(new FileServerZone("nl", "Netherlands", 1, global::Nexus.Client.Properties.Resources.nl));
+			FileServerZones.Add(new FileServerZone("eu", "European Union", 1, global::Nexus.Client.Properties.Resources.europeanunion));
+
+			RepositoryFileServerZones = new List<FileServerZone>();
+			RepositoryFileServerZones.Add(new FileServerZone());
+			RepositoryFileServerZones.Add(new FileServerZone("en", "England", 1, global::Nexus.Client.Properties.Resources.en));
+			RepositoryFileServerZones.Add(new FileServerZone("us.w", "US West Coast", 2, global::Nexus.Client.Properties.Resources.us));
+			RepositoryFileServerZones.Add(new FileServerZone("us.e", "US East Coast", 2, global::Nexus.Client.Properties.Resources.us));
+			RepositoryFileServerZones.Add(new FileServerZone("us.c", "US Central", 2, global::Nexus.Client.Properties.Resources.us));
+			RepositoryFileServerZones.Add(new FileServerZone("nl", "Netherlands", 1, global::Nexus.Client.Properties.Resources.nl));
+			RepositoryFileServerZones.Add(new FileServerZone("cz", "Czech Republic", 1, global::Nexus.Client.Properties.Resources.cz));
 		}
 
 		/// <summary>
@@ -807,13 +821,19 @@ namespace Nexus.Client.ModRepositories.Nexus
 			try
 			{
 				if (p_strUserLocation != "default")
-					intServerAffinity = FileServerZones.Find(x => x.FileServerID == p_strUserLocation).FileServerAffinity;
+				{
+					FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == p_strUserLocation);
+					if (fszUser != null)
+						intServerAffinity = fszUser.FileServerAffinity;
+					else
+						p_strUserLocation = "default";
+				}
 
 				if (p_booPremiumOnly && p_strUserLocation != "default")
 				{
 					fsiBestMatch = (from Url
 									in fsiList
-									where FileServerZones.Find(x => x.FileServerID == Url.Country).FileServerAffinity == intServerAffinity && !String.IsNullOrEmpty(Url.DownloadLink)
+									where RepositoryFileServerZones.Find(x => x.FileServerID == Url.Country).FileServerAffinity == intServerAffinity && !String.IsNullOrEmpty(Url.DownloadLink)
 									orderby Url.IsPremium descending, Url.ConnectedUsers ascending
 									select Url).ToList();
 				}
@@ -830,7 +850,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				{
 					fsiBestMatch = (from Url
 									in fsiList
-									where FileServerZones.Find(x => x.FileServerID == Url.Country).FileServerAffinity == intServerAffinity && !String.IsNullOrEmpty(Url.DownloadLink)
+									where RepositoryFileServerZones.Find(x => x.FileServerID == Url.Country).FileServerAffinity == intServerAffinity && !String.IsNullOrEmpty(Url.DownloadLink)
 									orderby Url.ConnectedUsers ascending
 									select Url).ToList();
 				}

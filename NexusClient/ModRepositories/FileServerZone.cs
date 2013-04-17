@@ -92,6 +92,7 @@ namespace Nexus.Client.ModRepositories
 			m_strFileServerID = "default";
 			m_strFileServerName = "Default";
 			m_intAffinityID = 0;
+			m_imgFileServerFlag = new Bitmap(16, 11);
 		}
 
 		/// <summary>
@@ -105,6 +106,7 @@ namespace Nexus.Client.ModRepositories
 			m_strFileServerID = p_strFileServerID;
 			m_strFileServerName = p_strFileServerName;
 			m_intAffinityID = p_intAffinityID;
+			m_imgFileServerFlag = new Bitmap(16, 11);
 		}
 
 		/// <summary>

@@ -137,6 +137,13 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        internal static System.Drawing.Bitmap cz {
+            get {
+                object obj = ResourceManager.GetObject("cz", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
         internal static System.Drawing.Bitmap deactivate_mod {
             get {
                 object obj = ResourceManager.GetObject("deactivate_mod", resourceCulture);
@@ -301,6 +308,13 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap endorsed_small {
             get {
                 object obj = ResourceManager.GetObject("endorsed_small", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        internal static System.Drawing.Bitmap europeanunion {
+            get {
+                object obj = ResourceManager.GetObject("europeanunion", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

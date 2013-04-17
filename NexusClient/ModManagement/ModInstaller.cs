@@ -144,6 +144,7 @@ namespace Nexus.Client.ModManagement
 							Mod.InstallDate = DateTime.Now.ToString();
 							tsTransaction.Complete();
 							strMessage = "The mod was successfully activated.";
+							GC.GetTotalMemory(true);
 						}
 					}
 				}
@@ -303,7 +304,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The file installer to use to install the mod's files.</returns>
 		protected virtual IModFileInstaller CreateFileInstaller(TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-            return new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins);
+			return new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins);
 		}
 
 		/// <summary>
