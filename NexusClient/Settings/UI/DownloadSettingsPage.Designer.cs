@@ -55,12 +55,14 @@
 			// 
 			// cbxServerLocation
 			// 
+			this.cbxServerLocation.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
 			this.cbxServerLocation.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
 			this.cbxServerLocation.FormattingEnabled = true;
 			this.cbxServerLocation.Location = new System.Drawing.Point(111, 25);
 			this.cbxServerLocation.Name = "cbxServerLocation";
 			this.cbxServerLocation.Size = new System.Drawing.Size(186, 21);
 			this.cbxServerLocation.TabIndex = 1;
+			this.cbxServerLocation.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.cbxServerLocation_DrawItem);
 			// 
 			// label5
 			// 
