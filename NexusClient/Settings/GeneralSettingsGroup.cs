@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using Nexus.Client.Games;
@@ -71,6 +72,7 @@ namespace Nexus.Client.Settings
 		private bool m_booShowSidePanel = true;
 		private bool m_booSkipReadmeFiles = true;
 		private bool m_booHideModUpdateWarningIcon = true;
+		private string m_strTraceLogPath = null;
 
 		#region Properties
 
@@ -117,6 +119,22 @@ namespace Nexus.Client.Settings
 			set
 			{
 				SetPropertyIfChanged(ref m_booCheckForNewMods, value, () => CheckForNewMods);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		public string TraceLogPath
+		{
+			get
+			{
+				return m_strTraceLogPath;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strTraceLogPath, value, () => TraceLogPath);
 			}
 		}
 
@@ -496,6 +514,7 @@ namespace Nexus.Client.Settings
 			ShowSidePanel = EnvironmentInfo.Settings.ShowSidePanel;
 			SkipReadmeFiles = EnvironmentInfo.Settings.SkipReadmeFiles;
 			HideModUpdateWarningIcon = EnvironmentInfo.Settings.HideModUpdateWarningIcon;
+			TraceLogPath = string.IsNullOrEmpty(EnvironmentInfo.Settings.TraceLogFolder) ? EnvironmentInfo.ApplicationPersonalDataFolderPath : EnvironmentInfo.Settings.TraceLogFolder;
 		}
 
 		/// <summary>
@@ -542,6 +561,16 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.ShowSidePanel = ShowSidePanel;
 			EnvironmentInfo.Settings.SkipReadmeFiles = SkipReadmeFiles;
 			EnvironmentInfo.Settings.HideModUpdateWarningIcon = HideModUpdateWarningIcon;
+			try
+			{
+				if (!Directory.Exists(TraceLogPath))
+					TraceLogPath = EnvironmentInfo.ApplicationPersonalDataFolderPath;
+			}
+			catch
+			{
+				TraceLogPath = EnvironmentInfo.ApplicationPersonalDataFolderPath;
+			}
+			EnvironmentInfo.Settings.TraceLogFolder = TraceLogPath;
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}
