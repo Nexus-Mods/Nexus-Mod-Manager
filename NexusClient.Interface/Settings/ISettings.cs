@@ -152,6 +152,15 @@ namespace Nexus.Client.Settings
 		string TraceLogFolder { get; set; }
 
 		/// <summary>
+		/// Gets the path of the folder where a game mode's TraceLog is stored.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding install info folder paths.
+		/// </remarks>
+		/// <value>The path of the folder where a game mode's TraceLog is stored.</value>
+		string TempPathFolder { get; set; }
+
+		/// <summary>
 		/// Gets whether or not a game mode has completed it's first-time setup.
 		/// </summary>
 		/// <value>Whether or not a game mode has completed it's first-time setup.</value>
