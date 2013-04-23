@@ -46,6 +46,10 @@
 			this.cbxModVersionsCheckInterval = new System.Windows.Forms.ComboBox();
 			this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
 			this.ckbCloseManagerAfterGameLaunch = new System.Windows.Forms.CheckBox();
+			this.lblTraceLogDirectory = new System.Windows.Forms.Label();
+			this.tbxTraceLogDirectory = new System.Windows.Forms.TextBox();
+			this.butSelectTraceLogDirectory = new System.Windows.Forms.Button();
+			this.fbdTraceLogDirectory = new System.Windows.Forms.FolderBrowserDialog();
 			this.flpGeneral.SuspendLayout();
 			this.gbxAssociations.SuspendLayout();
 			this.flpFileAssociations.SuspendLayout();
@@ -126,6 +130,9 @@
 			this.groupBox5.Controls.Add(this.ckbShowSidePanel);
 			this.groupBox5.Controls.Add(this.ckbSkipReadmeFiles);
 			this.groupBox5.Controls.Add(this.ckbHideModUpdateWarningIcon);
+			this.groupBox5.Controls.Add(this.butSelectTraceLogDirectory);
+			this.groupBox5.Controls.Add(this.tbxTraceLogDirectory);
+			this.groupBox5.Controls.Add(this.lblTraceLogDirectory);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
 			this.groupBox5.Size = new System.Drawing.Size(368, 203);
@@ -214,7 +221,7 @@
 			// ckbSkipReadmeFiles
 			// 
 			this.ckbSkipReadmeFiles.AutoSize = true;
-			this.ckbSkipReadmeFiles.Location = new System.Drawing.Point(16, 157);
+			this.ckbSkipReadmeFiles.Location = new System.Drawing.Point(185, 134);
 			this.ckbSkipReadmeFiles.Name = "ckbSkipReadmeFiles";
 			this.ckbSkipReadmeFiles.Size = new System.Drawing.Size(217, 17);
 			this.ckbSkipReadmeFiles.TabIndex = 8;
@@ -224,12 +231,40 @@
 			// ckbHideModUpdateWarningIcon
 			// 
 			this.ckbHideModUpdateWarningIcon.AutoSize = true;
-			this.ckbHideModUpdateWarningIcon.Location = new System.Drawing.Point(16, 180);
+			this.ckbHideModUpdateWarningIcon.Location = new System.Drawing.Point(185, 65);
 			this.ckbHideModUpdateWarningIcon.Name = "ckbHideModUpdateWarningIcon";
 			this.ckbHideModUpdateWarningIcon.Size = new System.Drawing.Size(217, 17);
 			this.ckbHideModUpdateWarningIcon.TabIndex = 8;
 			this.ckbHideModUpdateWarningIcon.Text = "Hide Mod Update Warning Icon ";
 			this.ckbHideModUpdateWarningIcon.UseVisualStyleBackColor = true;
+			// 
+			// lblTraceLogDirectory
+			// 
+			this.lblTraceLogDirectory.AutoSize = true;
+			this.lblTraceLogDirectory.Location = new System.Drawing.Point(16, 155);
+			this.lblTraceLogDirectory.Name = "lblTraceLogDirectory";
+			this.lblTraceLogDirectory.Size = new System.Drawing.Size(73, 13);
+			this.lblTraceLogDirectory.TabIndex = 3;
+			this.lblTraceLogDirectory.Text = "TraceLog Directory:";
+			// 
+			// tbxTraceLogDirectory
+			// 
+			this.tbxTraceLogDirectory.Location = new System.Drawing.Point(16, 170);
+			this.tbxTraceLogDirectory.Name = "tbxTraceLogDirectory";
+			this.tbxTraceLogDirectory.Size = new System.Drawing.Size(290, 20);
+			this.tbxTraceLogDirectory.TabIndex = 1;
+			// 
+			// butSelectTraceLogDirectory
+			// 
+			this.butSelectTraceLogDirectory.AutoSize = true;
+			this.butSelectTraceLogDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butSelectTraceLogDirectory.Location = new System.Drawing.Point(324, 170);
+			this.butSelectTraceLogDirectory.Name = "butSelectTraceLogDirectory";
+			this.butSelectTraceLogDirectory.Size = new System.Drawing.Size(26, 23);
+			this.butSelectTraceLogDirectory.TabIndex = 2;
+			this.butSelectTraceLogDirectory.Text = "...";
+			this.butSelectTraceLogDirectory.UseVisualStyleBackColor = true;
+			this.butSelectTraceLogDirectory.Click += new System.EventHandler(this.butSelectTraceLogDirectory_Click);
 			// 
 			// GeneralSettingsPage
 			// 
@@ -260,6 +295,10 @@
 		private System.Windows.Forms.CheckBox ckbAddMissingInfo;
 		private System.Windows.Forms.CheckBox ckbCheckModVersions;
 		private System.Windows.Forms.ToolTip ttpTip;
+		private System.Windows.Forms.Label lblTraceLogDirectory;
+		private System.Windows.Forms.TextBox tbxTraceLogDirectory;
+		private System.Windows.Forms.Button butSelectTraceLogDirectory;
+		private System.Windows.Forms.FolderBrowserDialog fbdTraceLogDirectory;
 		private System.Windows.Forms.CheckBox ckbAssociateURL;
 		private System.Windows.Forms.CheckBox ckbCheckForUpdates;
 		private System.Windows.Forms.CheckBox ckbScanSubfolders;
