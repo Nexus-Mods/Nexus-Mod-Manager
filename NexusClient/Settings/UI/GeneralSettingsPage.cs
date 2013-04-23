@@ -74,6 +74,7 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(cbxModVersionsCheckInterval, () => cbxModVersionsCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.ModVersionsCheckInterval);
 
 			BindingHelper.CreateFullBinding(tbxTraceLogDirectory, () => tbxTraceLogDirectory.Text, p_gsgSettings, () => p_gsgSettings.TraceLogPath);
+			BindingHelper.CreateFullBinding(tbxTempPathDirectory, () => tbxTempPathDirectory.Text, p_gsgSettings, () => p_gsgSettings.TempPath);
 
 			if (!p_gsgSettings.CanAssociateFiles)
 			{
@@ -148,6 +149,24 @@ namespace Nexus.Client.Settings.UI
 			if (fbdTraceLogDirectory.ShowDialog(this.FindForm()) == DialogResult.OK)
 			{
 				tbxTraceLogDirectory.Text = fbdTraceLogDirectory.SelectedPath;
+				ValidateChildren();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the select working directory button.
+		/// </summary>
+		/// <remarks>
+		/// This opens the folder selection dialog for the selection of the working directory.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butSelectTempPathDirectory_Click(object sender, EventArgs e)
+		{
+			fbdTempPathDirectory.SelectedPath = tbxTempPathDirectory.Text;
+			if (fbdTempPathDirectory.ShowDialog(this.FindForm()) == DialogResult.OK)
+			{
+				tbxTempPathDirectory.Text = fbdTempPathDirectory.SelectedPath;
 				ValidateChildren();
 			}
 		}

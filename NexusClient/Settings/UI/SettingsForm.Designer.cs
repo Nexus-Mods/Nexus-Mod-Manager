@@ -134,7 +134,7 @@
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.butCancel;
-			this.ClientSize = new System.Drawing.Size(406, 413);
+			this.ClientSize = new System.Drawing.Size(406, 520);
 			this.Controls.Add(this.tbcTabs);
 			this.Controls.Add(this.panel1);
 			this.m_fpdFontProvider.SetFontSet(this, "StandardText");

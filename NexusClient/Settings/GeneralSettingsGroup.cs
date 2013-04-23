@@ -73,6 +73,7 @@ namespace Nexus.Client.Settings
 		private bool m_booSkipReadmeFiles = true;
 		private bool m_booHideModUpdateWarningIcon = true;
 		private string m_strTraceLogPath = null;
+		private string m_strTempPath = null;
 
 		#region Properties
 
@@ -135,6 +136,22 @@ namespace Nexus.Client.Settings
 			set
 			{
 				SetPropertyIfChanged(ref m_strTraceLogPath, value, () => TraceLogPath);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the path to which Temporary files should be installed.
+		/// </summary>
+		/// <value>The path to which Temporary files should be installed.</value>
+		public string TempPath
+		{
+			get
+			{
+				return m_strTempPath;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strTempPath, value, () => TempPath);
 			}
 		}
 
@@ -515,6 +532,7 @@ namespace Nexus.Client.Settings
 			SkipReadmeFiles = EnvironmentInfo.Settings.SkipReadmeFiles;
 			HideModUpdateWarningIcon = EnvironmentInfo.Settings.HideModUpdateWarningIcon;
 			TraceLogPath = string.IsNullOrEmpty(EnvironmentInfo.Settings.TraceLogFolder) ? EnvironmentInfo.ApplicationPersonalDataFolderPath : EnvironmentInfo.Settings.TraceLogFolder;
+			TempPath = string.IsNullOrEmpty(EnvironmentInfo.Settings.TempPathFolder) ? EnvironmentInfo.TemporaryPath : EnvironmentInfo.Settings.TempPathFolder;
 		}
 
 		/// <summary>
@@ -571,6 +589,7 @@ namespace Nexus.Client.Settings
 				TraceLogPath = EnvironmentInfo.ApplicationPersonalDataFolderPath;
 			}
 			EnvironmentInfo.Settings.TraceLogFolder = TraceLogPath;
+			EnvironmentInfo.Settings.TempPathFolder = TempPath;
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}

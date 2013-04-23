@@ -49,7 +49,11 @@
 			this.lblTraceLogDirectory = new System.Windows.Forms.Label();
 			this.tbxTraceLogDirectory = new System.Windows.Forms.TextBox();
 			this.butSelectTraceLogDirectory = new System.Windows.Forms.Button();
+			this.lblTempPathDirectory = new System.Windows.Forms.Label();
+			this.tbxTempPathDirectory = new System.Windows.Forms.TextBox();
+			this.butSelectTempPathDirectory = new System.Windows.Forms.Button();
 			this.fbdTraceLogDirectory = new System.Windows.Forms.FolderBrowserDialog();
+			this.fbdTempPathDirectory = new System.Windows.Forms.FolderBrowserDialog();
 			this.flpGeneral.SuspendLayout();
 			this.gbxAssociations.SuspendLayout();
 			this.flpFileAssociations.SuspendLayout();
@@ -133,9 +137,12 @@
 			this.groupBox5.Controls.Add(this.butSelectTraceLogDirectory);
 			this.groupBox5.Controls.Add(this.tbxTraceLogDirectory);
 			this.groupBox5.Controls.Add(this.lblTraceLogDirectory);
+			this.groupBox5.Controls.Add(this.butSelectTempPathDirectory);
+			this.groupBox5.Controls.Add(this.tbxTempPathDirectory);
+			this.groupBox5.Controls.Add(this.lblTempPathDirectory);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
-			this.groupBox5.Size = new System.Drawing.Size(368, 203);
+			this.groupBox5.Size = new System.Drawing.Size(368, 300);
 			this.groupBox5.TabIndex = 23;
 			this.groupBox5.TabStop = false;
 			this.groupBox5.Text = "Options";
@@ -221,7 +228,7 @@
 			// ckbSkipReadmeFiles
 			// 
 			this.ckbSkipReadmeFiles.AutoSize = true;
-			this.ckbSkipReadmeFiles.Location = new System.Drawing.Point(185, 134);
+			this.ckbSkipReadmeFiles.Location = new System.Drawing.Point(16, 180);
 			this.ckbSkipReadmeFiles.Name = "ckbSkipReadmeFiles";
 			this.ckbSkipReadmeFiles.Size = new System.Drawing.Size(217, 17);
 			this.ckbSkipReadmeFiles.TabIndex = 8;
@@ -231,7 +238,7 @@
 			// ckbHideModUpdateWarningIcon
 			// 
 			this.ckbHideModUpdateWarningIcon.AutoSize = true;
-			this.ckbHideModUpdateWarningIcon.Location = new System.Drawing.Point(185, 65);
+			this.ckbHideModUpdateWarningIcon.Location = new System.Drawing.Point(16, 157);
 			this.ckbHideModUpdateWarningIcon.Name = "ckbHideModUpdateWarningIcon";
 			this.ckbHideModUpdateWarningIcon.Size = new System.Drawing.Size(217, 17);
 			this.ckbHideModUpdateWarningIcon.TabIndex = 8;
@@ -241,7 +248,7 @@
 			// lblTraceLogDirectory
 			// 
 			this.lblTraceLogDirectory.AutoSize = true;
-			this.lblTraceLogDirectory.Location = new System.Drawing.Point(16, 155);
+			this.lblTraceLogDirectory.Location = new System.Drawing.Point(16, 205);
 			this.lblTraceLogDirectory.Name = "lblTraceLogDirectory";
 			this.lblTraceLogDirectory.Size = new System.Drawing.Size(73, 13);
 			this.lblTraceLogDirectory.TabIndex = 3;
@@ -249,7 +256,7 @@
 			// 
 			// tbxTraceLogDirectory
 			// 
-			this.tbxTraceLogDirectory.Location = new System.Drawing.Point(16, 170);
+			this.tbxTraceLogDirectory.Location = new System.Drawing.Point(16, 220);
 			this.tbxTraceLogDirectory.Name = "tbxTraceLogDirectory";
 			this.tbxTraceLogDirectory.Size = new System.Drawing.Size(290, 20);
 			this.tbxTraceLogDirectory.TabIndex = 1;
@@ -258,13 +265,41 @@
 			// 
 			this.butSelectTraceLogDirectory.AutoSize = true;
 			this.butSelectTraceLogDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butSelectTraceLogDirectory.Location = new System.Drawing.Point(324, 170);
+			this.butSelectTraceLogDirectory.Location = new System.Drawing.Point(320, 220);
 			this.butSelectTraceLogDirectory.Name = "butSelectTraceLogDirectory";
 			this.butSelectTraceLogDirectory.Size = new System.Drawing.Size(26, 23);
 			this.butSelectTraceLogDirectory.TabIndex = 2;
 			this.butSelectTraceLogDirectory.Text = "...";
 			this.butSelectTraceLogDirectory.UseVisualStyleBackColor = true;
 			this.butSelectTraceLogDirectory.Click += new System.EventHandler(this.butSelectTraceLogDirectory_Click);
+			// 
+			// butSelectTempPathDirectory
+			// 
+			this.butSelectTempPathDirectory.AutoSize = true;
+			this.butSelectTempPathDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butSelectTempPathDirectory.Location = new System.Drawing.Point(320, 260);
+			this.butSelectTempPathDirectory.Name = "butSelectTempPathDirectory";
+			this.butSelectTempPathDirectory.Size = new System.Drawing.Size(26, 23);
+			this.butSelectTempPathDirectory.TabIndex = 2;
+			this.butSelectTempPathDirectory.Text = "...";
+			this.butSelectTempPathDirectory.UseVisualStyleBackColor = true;
+			this.butSelectTempPathDirectory.Click += new System.EventHandler(this.butSelectTempPathDirectory_Click);
+			// 
+			// lblTempPathDirectory
+			// 
+			this.lblTempPathDirectory.AutoSize = true;
+			this.lblTempPathDirectory.Location = new System.Drawing.Point(16, 245);
+			this.lblTempPathDirectory.Name = "lblTempPathDirectory";
+			this.lblTempPathDirectory.Size = new System.Drawing.Size(73, 13);
+			this.lblTempPathDirectory.TabIndex = 3;
+			this.lblTempPathDirectory.Text = "Temporary Path Directory:";
+			// 
+			// tbxTempPathDirectory
+			// 
+			this.tbxTempPathDirectory.Location = new System.Drawing.Point(16, 260);
+			this.tbxTempPathDirectory.Name = "tbxTempPathDirectory";
+			this.tbxTempPathDirectory.Size = new System.Drawing.Size(290, 20);
+			this.tbxTempPathDirectory.TabIndex = 1;
 			// 
 			// GeneralSettingsPage
 			// 
@@ -298,7 +333,11 @@
 		private System.Windows.Forms.Label lblTraceLogDirectory;
 		private System.Windows.Forms.TextBox tbxTraceLogDirectory;
 		private System.Windows.Forms.Button butSelectTraceLogDirectory;
+		private System.Windows.Forms.Label lblTempPathDirectory;
+		private System.Windows.Forms.TextBox tbxTempPathDirectory;
+		private System.Windows.Forms.Button butSelectTempPathDirectory;
 		private System.Windows.Forms.FolderBrowserDialog fbdTraceLogDirectory;
+		private System.Windows.Forms.FolderBrowserDialog fbdTempPathDirectory;
 		private System.Windows.Forms.CheckBox ckbAssociateURL;
 		private System.Windows.Forms.CheckBox ckbCheckForUpdates;
 		private System.Windows.Forms.CheckBox ckbScanSubfolders;
