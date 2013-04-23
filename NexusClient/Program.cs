@@ -50,7 +50,7 @@ namespace Nexus.Client
 						return;
 					}
 				}
-				
+
 #if DEBUG
 				Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException, true);
 #else
@@ -61,7 +61,7 @@ namespace Nexus.Client
 
 				Application.EnableVisualStyles();
 				Application.SetCompatibleTextRenderingDefault(false);
-				
+
 				UpgradeSettings(Properties.Settings.Default);
 				EnvironmentInfo = new EnvironmentInfo(Properties.Settings.Default);
 				if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
@@ -72,8 +72,8 @@ namespace Nexus.Client
 				try
 				{
 #endif
-				Bootstrapper btsInitializer = new Bootstrapper(EnvironmentInfo);
-				btsInitializer.RunMainForm(p_strArgs);
+					Bootstrapper btsInitializer = new Bootstrapper(EnvironmentInfo);
+					btsInitializer.RunMainForm(p_strArgs);
 #if !DEBUG
 				}
 				catch (Exception e)
@@ -133,9 +133,9 @@ namespace Nexus.Client
 			string strTraceFile = "TraceLog" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt";
 			TextWriterTraceListener ttlTraceFile = null;
 			if (p_booForceTrace)
-				ttlTraceFile = new HeaderlessTextWriterTraceListener(Path.Combine(p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath, strTraceFile));
+				ttlTraceFile = new HeaderlessTextWriterTraceListener(Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
 			else
-				ttlTraceFile = new HeaderlessTextWriterTraceListener(new MemoryStream(), Path.Combine(p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath, strTraceFile));
+				ttlTraceFile = new HeaderlessTextWriterTraceListener(new MemoryStream(), Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
 			ttlTraceFile.Name = "DefaultListener";
 			Trace.Listeners.Add(ttlTraceFile);
 			Trace.TraceInformation("Trace file has been created: " + strTraceFile);
@@ -145,14 +145,14 @@ namespace Nexus.Client
 			stbStatus.AppendFormat("OS version: {0}", Environment.OSVersion.ToString()).AppendLine();
 
 			stbStatus.AppendLine("Installed .NET Versions:");
-			RegistryKey rkyIinstalledVersions = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP"); 
+			RegistryKey rkyIinstalledVersions = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP");
 			string[] strVersionNames = rkyIinstalledVersions.GetSubKeyNames();
 			foreach (string strFrameworkVersion in strVersionNames)
 			{
 				string strSP = rkyIinstalledVersions.OpenSubKey(strFrameworkVersion).GetValue("SP", 0).ToString();
-				stbStatus.AppendFormat("\t{0} SP {1}", strFrameworkVersion, strSP).AppendLine();				
+				stbStatus.AppendFormat("\t{0} SP {1}", strFrameworkVersion, strSP).AppendLine();
 			}
-			
+
 			stbStatus.AppendFormat("Tracing is forced: {0}", p_booForceTrace).AppendLine();
 			Trace.TraceInformation(stbStatus.ToString());
 		}

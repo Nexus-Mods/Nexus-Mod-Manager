@@ -666,6 +666,21 @@ namespace Nexus.Client.Properties
 
 		[global::System.Configuration.UserScopedSettingAttribute()]
 		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("")]
+		public string TraceLogFolder
+		{
+			get
+			{
+				return ((string)(this["TraceLogFolder"]));
+			}
+			set
+			{
+				this["TraceLogFolder"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
 		[global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<WindowPositions />\r\n\t\t\t")]
 		public global::Nexus.Client.Settings.WindowPositions WindowPositions
 		{
