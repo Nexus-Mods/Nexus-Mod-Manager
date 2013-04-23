@@ -697,21 +697,21 @@ namespace Nexus.Client.ModManagement
 			string strPath = String.IsNullOrEmpty(Descriptor.SourcePath) ? Descriptor.DefaultSourcePath : Descriptor.SourcePath;
 			m_booFinishedDownloads = true;
 			FileAttributes faAttributes = File.GetAttributes(strPath);
+			FileInfo fiArchive = new FileInfo(strPath);
+			long lngDestinationFreeSpace = fiArchive.Length;
 
 			if (Path.GetPathRoot(m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) != Path.DirectorySeparatorChar.ToString())
 			{
 				DriveInfo diDestinationHD = new DriveInfo(Path.GetPathRoot(m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory));
-				long lngDestinationFreeSpace = diDestinationHD.TotalFreeSpace;
-				FileInfo fiArchive = new FileInfo(strPath);
+				lngDestinationFreeSpace = diDestinationHD.TotalFreeSpace;
+			}
 
-
-				if (lngDestinationFreeSpace < fiArchive.Length)
-				{
-					OverallMessage = String.Format("Not enough free space on your HD: {0}", diDestinationHD.Name);
-					ItemMessage = "Not enough free space on your HD.";
-					Status = TaskStatus.Error;
-					OnTaskEnded(OverallMessage, null);
-				}
+			if (lngDestinationFreeSpace < fiArchive.Length)
+			{
+				OverallMessage = String.Format("Not enough free space on your HD: {0}", diDestinationHD.Name);
+				ItemMessage = "Not enough free space on your HD.";
+				Status = TaskStatus.Error;
+				OnTaskEnded(OverallMessage, null);
 			}
 			else if (faAttributes.ToString().IndexOf(FileAttributes.ReadOnly.ToString()) > -1)
 			{
