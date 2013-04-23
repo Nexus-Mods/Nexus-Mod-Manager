@@ -73,6 +73,8 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(cbxProgramUpdateCheckInterval, () => cbxProgramUpdateCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.UpdateCheckInterval);
 			BindingHelper.CreateFullBinding(cbxModVersionsCheckInterval, () => cbxModVersionsCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.ModVersionsCheckInterval);
 
+			BindingHelper.CreateFullBinding(tbxTraceLogDirectory, () => tbxTraceLogDirectory.Text, p_gsgSettings, () => p_gsgSettings.TraceLogPath);
+
 			if (!p_gsgSettings.CanAssociateFiles)
 			{
 				gbxAssociations.Enabled = false;
@@ -131,5 +133,23 @@ namespace Nexus.Client.Settings.UI
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the select working directory button.
+		/// </summary>
+		/// <remarks>
+		/// This opens the folder selection dialog for the selection of the working directory.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butSelectTraceLogDirectory_Click(object sender, EventArgs e)
+		{
+			fbdTraceLogDirectory.SelectedPath = tbxTraceLogDirectory.Text;
+			if (fbdTraceLogDirectory.ShowDialog(this.FindForm()) == DialogResult.OK)
+			{
+				tbxTraceLogDirectory.Text = fbdTraceLogDirectory.SelectedPath;
+				ValidateChildren();
+			}
+		}
 	}
 }
