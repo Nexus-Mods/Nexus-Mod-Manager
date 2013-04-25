@@ -95,7 +95,10 @@ namespace Nexus.Client.ModManagement
 					return null;
 				ModUninstaller munUninstaller = m_mifModInstallerFactory.CreateUninstaller(modMod);
 				munUninstaller.Install();
-				if (OverallProgress > OverallProgressMaximum)
+
+				while (!munUninstaller.IsCompleted)
+				{ }
+				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 			}
 			return null;
