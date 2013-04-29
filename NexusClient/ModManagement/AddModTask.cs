@@ -426,18 +426,28 @@ namespace Nexus.Client.ModManagement
 					NexusUrl nxuModUrl = new NexusUrl(p_amdDescriptor.SourceUri);
 					if ((String.IsNullOrEmpty(nxuModUrl.ModId)) || (string.IsNullOrEmpty(nxuModUrl.FileId)))
 						throw new ArgumentException("Invalid Nexus URI: " + p_amdDescriptor.SourceUri.ToString());
-					IModInfo mifInfo = null;
+					ModInfo modInfo = null;
+
 					try
 					{
-						mifInfo = m_mrpModRepository.GetModInfo(nxuModUrl.ModId);
+						modInfo = (ModInfo)m_mrpModRepository.GetModInfo(nxuModUrl.ModId);
+
+						IMod modMod = m_mrgModRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
+						if (modMod != null)
+						{
+							modInfo.IsEndorsed = modMod.IsEndorsed;
+							modInfo.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
+							modInfo.CustomCategoryId = modMod.CustomCategoryId;
+						}
+
 						IModFileInfo mfiFileInfo = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
-						mifInfo = AutoTagger.CombineInfo(mifInfo, mfiFileInfo);
+						modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
 					}
 					catch (RepositoryUnavailableException e)
 					{
 						TraceUtil.TraceException(e);
 					}
-					return mifInfo;
+					return modInfo;
 				default:
 					Trace.TraceInformation(String.Format("[{0}] Can't get mod info.", p_amdDescriptor.SourceUri.ToString()));
 					throw new Exception("Unable to retrieve mod info: " + p_amdDescriptor.SourceUri.ToString());
