@@ -159,7 +159,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		protected void DisableAllPlugins()
 		{
-			if (MessageBox.Show("Do you really want to disable all active plugins?", "Confirm?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.DefaultDesktopOnly) == DialogResult.Yes)
+			if (MessageBox.Show("Do you really want to disable all active plugins?", "Confirm?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
 				foreach (ListViewItem items in rlvPlugins.Items)
 				{
 					if ((items.Checked) && (items.Index > 0))
@@ -172,7 +172,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		protected void EnableAllPlugins()
 		{
-			if (MessageBox.Show("Do you really want to enable all inactive plugins?", "Confirm?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.DefaultDesktopOnly) == DialogResult.Yes)
+			if (MessageBox.Show("Do you really want to enable all inactive plugins?", "Confirm?", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
 				foreach (ListViewItem items in rlvPlugins.Items)
 				{
 					if ((items.Checked == false) && (items.Index > 0))
@@ -509,7 +509,7 @@ namespace Nexus.Client.PluginManagement.UI
 						string strTooManyPlugins = String.Format("The requested change to the active plugins list would result in over {0} plugins being active.", ViewModel.MaxAllowedActivePluginsCount);
 						strTooManyPlugins += Environment.NewLine + String.Format("The current game doesn't support more than {0} active plugins, you need to disable at least one plugin to continue.", ViewModel.MaxAllowedActivePluginsCount);
 						strTooManyPlugins += Environment.NewLine + Environment.NewLine + String.Format("NOTE: This is a game engine limitation, not {0}'s.", Application.ProductName);
-						MessageBox.Show(strTooManyPlugins, "Too many active plugins",  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						MessageBox.Show(strTooManyPlugins, "Too many active plugins", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 					else
 						ViewModel.ActivatePlugin((Plugin)rlvPlugins.Items[e.Index].Tag);
@@ -667,7 +667,7 @@ namespace Nexus.Client.PluginManagement.UI
 		#region Load Order IO
 
 		#region Export
-		
+
 		/// <summary>
 		/// Returns the full path of the text file to export to.
 		/// </summary>
@@ -744,7 +744,7 @@ namespace Nexus.Client.PluginManagement.UI
 
 			string details = string.Format("{0} {1} successfully exported.", e.ExportedPluginCount, (e.ExportedPluginCount == 1) ? "plugin was" : "plugins were");
 			ExtendedMessageBox.Show(this, message, ViewModel.Settings.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
-		} 
+		}
 
 		#endregion
 
@@ -790,7 +790,7 @@ namespace Nexus.Client.PluginManagement.UI
 
 			if (sbDetails.Length > 0)
 				sbDetails.Insert(0, "The following plugin(s) were not imported: " + Environment.NewLine);
-			
+
 			if (sbDetails.Length > 0)
 				p_strDetails = sbDetails.ToString();
 			else
@@ -899,9 +899,9 @@ namespace Nexus.Client.PluginManagement.UI
 
 			ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.Settings.ModManagerName, strDetails, ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
-		
+
 		#endregion
-		
+
 		#endregion
 	}
 }
