@@ -172,7 +172,7 @@
 			this.pnlDetails.ResumeLayout(false);
 			this.ResumeLayout(false);
 			this.PerformLayout();
-
+			this.TopMost = true;
 		}
 
 		#endregion

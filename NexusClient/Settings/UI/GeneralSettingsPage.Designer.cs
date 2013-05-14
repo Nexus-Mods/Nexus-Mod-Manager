@@ -50,6 +50,7 @@
 			this.tbxTraceLogDirectory = new System.Windows.Forms.TextBox();
 			this.butSelectTraceLogDirectory = new System.Windows.Forms.Button();
 			this.lblTempPathDirectory = new System.Windows.Forms.Label();
+			this.lblTempPathWarning = new System.Windows.Forms.Label();
 			this.tbxTempPathDirectory = new System.Windows.Forms.TextBox();
 			this.butSelectTempPathDirectory = new System.Windows.Forms.Button();
 			this.fbdTraceLogDirectory = new System.Windows.Forms.FolderBrowserDialog();
@@ -140,6 +141,7 @@
 			this.groupBox5.Controls.Add(this.butSelectTempPathDirectory);
 			this.groupBox5.Controls.Add(this.tbxTempPathDirectory);
 			this.groupBox5.Controls.Add(this.lblTempPathDirectory);
+			this.groupBox5.Controls.Add(this.lblTempPathWarning);
 			this.groupBox5.Location = new System.Drawing.Point(3, 80);
 			this.groupBox5.Name = "groupBox5";
 			this.groupBox5.Size = new System.Drawing.Size(368, 300);
@@ -277,7 +279,7 @@
 			// 
 			this.butSelectTempPathDirectory.AutoSize = true;
 			this.butSelectTempPathDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butSelectTempPathDirectory.Location = new System.Drawing.Point(320, 260);
+			this.butSelectTempPathDirectory.Location = new System.Drawing.Point(320, 275);
 			this.butSelectTempPathDirectory.Name = "butSelectTempPathDirectory";
 			this.butSelectTempPathDirectory.Size = new System.Drawing.Size(26, 23);
 			this.butSelectTempPathDirectory.TabIndex = 2;
@@ -294,12 +296,22 @@
 			this.lblTempPathDirectory.TabIndex = 3;
 			this.lblTempPathDirectory.Text = "Temporary Path Directory:";
 			// 
+			// lblTempPathWarning
+			// 
+			this.lblTempPathWarning.AutoSize = true;
+			this.lblTempPathWarning.Location = new System.Drawing.Point(16, 260);
+			this.lblTempPathWarning.Name = "lblTempPathDirectory";
+			this.lblTempPathWarning.Size = new System.Drawing.Size(73, 13);
+			this.lblTempPathWarning.TabIndex = 4;
+			this.lblTempPathWarning.Text = "(For safety reasons this folder must be called \"Temp\")";
+			// 
 			// tbxTempPathDirectory
 			// 
-			this.tbxTempPathDirectory.Location = new System.Drawing.Point(16, 260);
+			this.tbxTempPathDirectory.Location = new System.Drawing.Point(16, 275);
 			this.tbxTempPathDirectory.Name = "tbxTempPathDirectory";
 			this.tbxTempPathDirectory.Size = new System.Drawing.Size(290, 20);
 			this.tbxTempPathDirectory.TabIndex = 1;
+			this.tbxTempPathDirectory.LostFocus += new System.EventHandler(tbxTempPathDirectory_LostFocus);
 			// 
 			// GeneralSettingsPage
 			// 
@@ -334,6 +346,7 @@
 		private System.Windows.Forms.TextBox tbxTraceLogDirectory;
 		private System.Windows.Forms.Button butSelectTraceLogDirectory;
 		private System.Windows.Forms.Label lblTempPathDirectory;
+		private System.Windows.Forms.Label lblTempPathWarning;
 		private System.Windows.Forms.TextBox tbxTempPathDirectory;
 		private System.Windows.Forms.Button butSelectTempPathDirectory;
 		private System.Windows.Forms.FolderBrowserDialog fbdTraceLogDirectory;
