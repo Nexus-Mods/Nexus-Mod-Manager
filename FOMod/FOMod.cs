@@ -225,7 +225,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 		}
 
- 		/// <summary>
+		/// <summary>
 		/// Gets or sets the install date of the mod.
 		/// </summary>
 		/// <value>The install date of the mod.</value>
@@ -634,7 +634,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 			m_strPrefixPath = strPrefixPath;
 		}
-		
+
 		/// <summary>
 		/// Handles the <see cref="Archive.FilesChanged"/> event of the FOMod's archive.
 		/// </summary>
@@ -758,8 +758,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					return (byte[])(new ImageConverter().ConvertTo(new Bitmap(1, 1), typeof(byte[])));
 				else
 					throw new FileNotFoundException("File doesn't exist in FOMod", p_strFile);
-			}		
-				
+			}
+
 			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(p_strFile)))
 				return m_arcCacheFile.GetFileContents(GetRealPath(p_strFile));
 			return m_arcFile.GetFileContents(GetRealPath(p_strFile));
@@ -811,6 +811,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			foreach (string strFile in m_dicMovedArchiveFiles.Keys)
 				if (strFile.StartsWith(strPathPrefix, StringComparison.OrdinalIgnoreCase) && !strFile.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
 					lstFiles.Add(strFile);
+			lstFiles.Sort(CompareOrderFoldersFirst);
 			return lstFiles;
 		}
 
@@ -1056,6 +1057,45 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public override string ToString()
 		{
 			return ModName;
+		}
+
+		public static int CompareOrderFoldersFirst(string x, string y)
+		{
+			if (String.IsNullOrEmpty(x))
+			{
+				if (String.IsNullOrEmpty(y))
+					return 0;
+				else
+					return -1;
+
+			}
+			else
+			{
+				if (String.IsNullOrEmpty(y))
+					return 1;
+				else
+				{
+					string xDir = Path.GetDirectoryName(x);
+					string yDir = Path.GetDirectoryName(y);
+
+					if (String.IsNullOrEmpty(xDir))
+					{
+						if (String.IsNullOrEmpty(yDir))
+							return 0;
+						else
+							return 1;
+					}
+					else
+					{
+						if (String.IsNullOrEmpty(yDir))
+							return -1;
+						else
+						{
+							return xDir.CompareTo(yDir);
+						}
+					}
+				}
+			}
 		}
 	}
 }
