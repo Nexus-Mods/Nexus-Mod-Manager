@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.IO;
+using System.Linq;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Microsoft.Win32;
@@ -207,11 +208,19 @@ namespace Nexus.Client.Games.Settings
 
 			string strInstalationPath = EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId];
 			string strDirectory = null;
+			string strRandomGameKey = String.Empty;
 			bool booRetrieved = false;
 
 			if (strRegMod != null)
 				ModDirectory = strRegMod;
-			else
+			else if (EnvironmentInfo.Settings.ModFolder.Keys.Count > 0)
+			{
+				strRandomGameKey = EnvironmentInfo.Settings.ModFolder.FirstOrDefault().Key;
+				strRegMod = EnvironmentInfo.Settings.ModFolder[strRandomGameKey];
+				if (!String.IsNullOrEmpty(strRegMod))
+					ModDirectory = strRegMod.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+			}
+			if (string.IsNullOrEmpty(ModDirectory))
 			{
 				if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
 					booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("ModFolder~{0}", GameModeDescriptor.ModeId), out strDirectory);
@@ -227,7 +236,15 @@ namespace Nexus.Client.Games.Settings
 
 			if (strRegInst != null)
 				InstallInfoDirectory = strRegInst;
-			else
+			else if (EnvironmentInfo.Settings.ModFolder.Keys.Count > 0)
+			{
+				if (String.IsNullOrEmpty(strRandomGameKey))
+					strRandomGameKey = EnvironmentInfo.Settings.InstallInfoFolder.FirstOrDefault().Key;
+				strRegInst = EnvironmentInfo.Settings.InstallInfoFolder[strRandomGameKey];
+				if (!String.IsNullOrEmpty(strRegInst))
+					InstallInfoDirectory = strRegInst.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+			}
+			if (String.IsNullOrEmpty(InstallInfoDirectory))
 			{
 				strDirectory = null;
 				booRetrieved = false;
