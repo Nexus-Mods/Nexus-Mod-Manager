@@ -492,13 +492,16 @@ namespace Nexus.Client.UI.Controls
 			{
 				try
 				{
-					IModInfo mifInfo = (IModInfo)e.Model;
-					if (!(mifInfo == null))
+					if (e.Model.GetType() != typeof(ModCategory))
 					{
-						if (mifInfo.Website == null)
-							e.Url = null;
-						else
-							e.Url = mifInfo.Website.ToString();
+						IModInfo mifInfo = (IModInfo)e.Model;
+						if (!(mifInfo == null))
+						{
+							if (mifInfo.Website == null)
+								e.Url = null;
+							else
+								e.Url = mifInfo.Website.ToString();
+						}
 					}
 				}
 				catch
