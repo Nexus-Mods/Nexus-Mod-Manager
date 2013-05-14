@@ -250,34 +250,40 @@ namespace Nexus.Client
 			{
 				new XmlSerializer(typeof(WindowPositions));
 			}
-			catch (InvalidOperationException)
+			catch (Exception ex)
 			{
-				string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
+				if (ex is InvalidOperationException)
+				{
+					string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
 									"The sandbox is preventing {0} from performing" + Environment.NewLine +
 									"important operations. Please run {0} again," + Environment.NewLine +
 									"without the sandbox.";
-				string strDetails = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
-									"If you are running Comodo, please add {0} to the exception list.<br/><br/>" +
-									"If you are not running in a sandbox, press Cancel, and make a bug report " +
-									"with the generated TraceLog.";
-				if (ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OKCancel, MessageBoxIcon.Error) == DialogResult.Cancel)
-					throw;
-				return false;
-			}
-			catch (System.Runtime.InteropServices.ExternalException)
-			{
-				string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
+					string strDetails = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
+										"If you are running Comodo, please add {0} to the exception list.<br/><br/>" +
+										"If you are not running in a sandbox, press Cancel, and make a bug report " +
+										"with the generated TraceLog.";
+					if (ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OKCancel, MessageBoxIcon.Error) == DialogResult.Cancel)
+						throw;
+					return false;
+				}
+				else if (ex is System.Runtime.InteropServices.ExternalException)
+				{
+					string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
 									"The sandbox is preventing {0} from performing" + Environment.NewLine +
 									"important operations. Please run {0} again," + Environment.NewLine +
 									"without the sandbox.";
-				string strDetails = "This error commonly occurs on computers running Zone Alarm.<br/>" +
-									"If you are running Zone Alarm, please add {0} to the exception list.<br/><br/>" +
-									"If you are not running in a sandbox, press Cancel, and make a bug report " +
-									"with the generated TraceLog.";
-				if (ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OKCancel, MessageBoxIcon.Error) == DialogResult.Cancel)
-					throw;
-				return false;
+					string strDetails = "This error commonly occurs on computers running Zone Alarm.<br/>" +
+										"If you are running Zone Alarm, please add {0} to the exception list.<br/><br/>" +
+										"If you are not running in a sandbox, press Cancel, and make a bug report " +
+										"with the generated TraceLog.";
+					if (ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OKCancel, MessageBoxIcon.Error) == DialogResult.Cancel)
+						throw;
+					return false;
+				}
+				else
+					throw ex;
 			}
+
 
 			return true;
 		}
