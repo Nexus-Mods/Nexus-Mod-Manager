@@ -430,18 +430,22 @@ namespace Nexus.Client.ModManagement
 
 					try
 					{
-						modInfo = (ModInfo)m_mrpModRepository.GetModInfo(nxuModUrl.ModId);
-
-						IMod modMod = m_mrgModRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
-						if (modMod != null)
+						if (!m_mrpModRepository.IsOffline)
 						{
-							modInfo.IsEndorsed = modMod.IsEndorsed;
-							modInfo.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
-							modInfo.CustomCategoryId = modMod.CustomCategoryId;
-						}
+							modInfo = (ModInfo)m_mrpModRepository.GetModInfo(nxuModUrl.ModId);
 
-						IModFileInfo mfiFileInfo = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
-						modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
+							IMod modMod = m_mrgModRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
+							if ((modMod != null) && (modInfo != null))
+							{
+								modInfo.IsEndorsed = modMod.IsEndorsed;
+								modInfo.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
+								modInfo.CustomCategoryId = modMod.CustomCategoryId;
+							}
+
+							IModFileInfo mfiFileInfo = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+							if ((modInfo != null) && (mfiFileInfo != null))
+								modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
+						}
 					}
 					catch (RepositoryUnavailableException e)
 					{
