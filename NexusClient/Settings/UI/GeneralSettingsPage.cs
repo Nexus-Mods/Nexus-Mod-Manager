@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Drawing;
 using System.Windows.Forms;
@@ -166,9 +167,39 @@ namespace Nexus.Client.Settings.UI
 			fbdTempPathDirectory.SelectedPath = tbxTempPathDirectory.Text;
 			if (fbdTempPathDirectory.ShowDialog(this.FindForm()) == DialogResult.OK)
 			{
-				tbxTempPathDirectory.Text = fbdTempPathDirectory.SelectedPath;
+				string strPath = Path.GetFileName(fbdTempPathDirectory.SelectedPath);
+				if (String.IsNullOrEmpty(strPath))
+					strPath = Path.GetDirectoryName(fbdTempPathDirectory.SelectedPath);
+
+				if (!(strPath.ToLower().Contains("temp")))
+					tbxTempPathDirectory.Text = Path.Combine(fbdTempPathDirectory.SelectedPath, "Temp");
+				else
+					tbxTempPathDirectory.Text = fbdTempPathDirectory.SelectedPath;
+
 				ValidateChildren();
 			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.KeyUp"/> event of the select working directory button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void tbxTempPathDirectory_LostFocus(object sender, EventArgs e)
+		{
+			if (!Path.Equals(tbxTempPathDirectory.Text, SettingsGroup.EnvironmentInfo.TemporaryPath))
+			{
+				string strPath = Path.GetFileName(tbxTempPathDirectory.Text);
+
+				if (String.IsNullOrEmpty(strPath))
+					strPath = Path.GetDirectoryName(tbxTempPathDirectory.Text);
+				if (!String.IsNullOrEmpty(strPath))
+				{
+					if (!(strPath.ToLower().Contains("temp")))
+						tbxTempPathDirectory.Text = Path.Combine(tbxTempPathDirectory.Text, "Temp");
+				}
+			}
+			ValidateChildren();
 		}
 	}
 }
