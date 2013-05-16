@@ -37,10 +37,6 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="Witcher2, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Witcher2\bin\Debug\Witcher2.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -69,6 +65,10 @@
     <ProjectReference Include="..\Util\Util.csproj">
       <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
       <Name>Util</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Witcher2\Witcher2.csproj">
+      <Project>{26DE5F01-5335-4B76-8AF2-B4A043F26BD5}</Project>
+      <Name>Witcher2</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
