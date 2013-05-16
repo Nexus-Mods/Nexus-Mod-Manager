@@ -89,10 +89,16 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grimrock", "Grimrock\Grimrock.csproj", "{39D12E77-0684-4720-8AB5-AC40145C1A3D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grimrock.ModScript", "Grimrock.ModScript\Grimrock.ModScript.csproj", "{5E9729A4-8027-4E38-9ADF-B4DF1CDABB99}"
+	ProjectSection(ProjectDependencies) = postProject
+		{39D12E77-0684-4720-8AB5-AC40145C1A3D} = {39D12E77-0684-4720-8AB5-AC40145C1A3D}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Witcher2", "Witcher2\Witcher2.csproj", "{26DE5F01-5335-4B76-8AF2-B4A043F26BD5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Witcher2.ModScript", "Witcher2.ModScript\Witcher2.ModScript.csproj", "{45415363-6F56-4983-BE27-9FC58CB8C00C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{26DE5F01-5335-4B76-8AF2-B4A043F26BD5} = {26DE5F01-5335-4B76-8AF2-B4A043F26BD5}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

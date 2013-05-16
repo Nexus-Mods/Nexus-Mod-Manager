@@ -8,8 +8,8 @@
     <ProjectGuid>{45415363-6F56-4983-BE27-9FC58CB8C00C}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Grimrock.ModScript</RootNamespace>
-    <AssemblyName>Grimrock.ModScript</AssemblyName>
+    <RootNamespace>Witcher2.ModScript</RootNamespace>
+    <AssemblyName>Witcher2.ModScript</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

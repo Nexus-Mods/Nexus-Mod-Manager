@@ -3,7 +3,7 @@ using Nexus.Client.ModManagement.Scripting.ModScript;
 namespace Nexus.Client.Games.Witcher2.Scripting.ModScript
 {
     /// <summary>
-    /// Provides the function context to use when executing Grimrock Mod Script scripts.
+    /// Provides the function context to use when executing Witcher2 Mod Script scripts.
     /// </summary>
     public class Witcher2ModScriptInterpreterContext : ModScriptInterpreterContext
     {
