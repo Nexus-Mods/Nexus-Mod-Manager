@@ -79,6 +79,17 @@ namespace Nexus.Client.Mods
 		}
 
 		/// <summary>
+		/// Gets the cache file for the specified path.
+		/// </summary>
+		/// <param name="p_strPath">The path for which to get the cache file.</param>
+		/// <returns>The cache file for the specified path, or <c>null</c>
+		/// if there is no cache file.</returns>
+		public string GetCacheFile(string p_strPath)
+		{
+			return Path.Combine(ModCacheDirectory, Path.GetFileName(p_strPath) + ".zip");
+		}
+
+		/// <summary>
 		/// Gets the cache file for the specified mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to get the cache file.</param>
