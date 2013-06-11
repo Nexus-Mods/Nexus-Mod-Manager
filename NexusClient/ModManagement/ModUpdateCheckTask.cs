@@ -191,28 +191,31 @@ namespace Nexus.Client.ModManagement
 						Thread.Sleep(1000);
 					}
 
-					ItemProgress = 0;
-					ItemProgressMaximum = mifInfo.Count;
-					OverallProgressMaximum = OverallProgress + mifInfo.Count;
-
-					foreach (ModInfo modUpdate in mifInfo)
+					if (mifInfo != null)
 					{
-						if (m_booCancel)
-							break;
-						if (OverallProgress < OverallProgressMaximum)
-							StepOverallProgress();
+						ItemProgress = 0;
+						ItemProgressMaximum = mifInfo.Count;
+						OverallProgressMaximum = OverallProgress + mifInfo.Count;
 
-						ItemMessage = modUpdate.ModName;
-
-						foreach (IMod modMod in m_lstModList.Where(x => (String.IsNullOrEmpty(modUpdate.Id) ? "0" : modUpdate.Id) == x.Id))
+						foreach (ModInfo modUpdate in mifInfo)
 						{
-							if (ItemProgress < ItemProgressMaximum)
-								StepItemProgress();
-							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
-							modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
-							AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
-							modMod.UpdateInfo(modUpdate, false);
-							ItemProgress = 0;
+							if (m_booCancel)
+								break;
+							if (OverallProgress < OverallProgressMaximum)
+								StepOverallProgress();
+
+							ItemMessage = modUpdate.ModName;
+
+							foreach (IMod modMod in m_lstModList.Where(x => (String.IsNullOrEmpty(modUpdate.Id) ? "0" : modUpdate.Id) == x.Id))
+							{
+								if (ItemProgress < ItemProgressMaximum)
+									StepItemProgress();
+								modUpdate.CustomCategoryId = modMod.CustomCategoryId;
+								modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
+								AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
+								modMod.UpdateInfo(modUpdate, false);
+								ItemProgress = 0;
+							}
 						}
 					}
 				}
