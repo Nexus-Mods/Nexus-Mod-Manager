@@ -23,7 +23,7 @@ namespace Nexus.Client.Settings
 			List<Int32> lstWidths = new List<Int32>();
 			Stack<SplitContainer> stkSplitters = new Stack<SplitContainer>();
 			stkSplitters.Push(p_spcSplitter);
-			while (stkSplitters.Count>0)
+			while (stkSplitters.Count > 0)
 			{
 				SplitContainer spcCurrent = stkSplitters.Pop();
 				lstWidths.Add(spcCurrent.SplitterDistance);
@@ -48,23 +48,27 @@ namespace Nexus.Client.Settings
 		/// <param name="p_spcSplitter">The control whose splitter distances are to be set.</param>
 		public void LoadSplitterSizes(string p_strName, SplitContainer p_spcSplitter)
 		{
-			List<Int32> lstWidths = this[p_strName];
-			if (lstWidths == null)
-				return;
-			Queue<Int32> queWidths = new Queue<Int32>(lstWidths);
-			Stack<SplitContainer> stkSplitters = new Stack<SplitContainer>();
-			stkSplitters.Push(p_spcSplitter);
-			while (queWidths.Count > 0)
+			try
 			{
-				SplitContainer spcCurrent = stkSplitters.Pop();
-				spcCurrent.SplitterDistance = queWidths.Dequeue();
-				foreach (Control ctlSplitter in spcCurrent.Panel1.Controls)
-					if (ctlSplitter is SplitContainer)
-						stkSplitters.Push((SplitContainer)ctlSplitter);
-				foreach (Control ctlSplitter in spcCurrent.Panel2.Controls)
-					if (ctlSplitter is SplitContainer)
-						stkSplitters.Push((SplitContainer)ctlSplitter);
+				List<Int32> lstWidths = this[p_strName];
+				if (lstWidths == null)
+					return;
+				Queue<Int32> queWidths = new Queue<Int32>(lstWidths);
+				Stack<SplitContainer> stkSplitters = new Stack<SplitContainer>();
+				stkSplitters.Push(p_spcSplitter);
+				while (queWidths.Count > 0)
+				{
+					SplitContainer spcCurrent = stkSplitters.Pop();
+					spcCurrent.SplitterDistance = queWidths.Dequeue();
+					foreach (Control ctlSplitter in spcCurrent.Panel1.Controls)
+						if (ctlSplitter is SplitContainer)
+							stkSplitters.Push((SplitContainer)ctlSplitter);
+					foreach (Control ctlSplitter in spcCurrent.Panel2.Controls)
+						if (ctlSplitter is SplitContainer)
+							stkSplitters.Push((SplitContainer)ctlSplitter);
+				}
 			}
+			catch { }
 		}
 	}
 }
