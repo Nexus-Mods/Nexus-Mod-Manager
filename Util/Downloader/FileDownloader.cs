@@ -22,6 +22,8 @@ namespace Nexus.Client.Util.Downloader
 		private Int32 m_intMaxBlockSize = 5000 * 1024;
 		private Int32 m_intWriteBufferSize = 1024;
 		private Uri m_uriURL = null;
+		private string m_strErrorCode = null;
+		private string m_strErrorInfo = null;
 		private string m_strSavePath = null;
 		private string m_strFileMetadataPath = null;
 		private string m_strUserAgent = "";
@@ -208,6 +210,36 @@ namespace Nexus.Client.Util.Downloader
 			get
 			{
 				return m_fmdInfo.NotFound;
+			}
+		}
+
+		/// <summary>
+		/// Gets the current error code, if anything wrong happened.
+		/// </summary>
+		/// <value>The current error code, if anything wrong happened.</value>
+		public string ErrorCode 
+		{
+			get
+			{
+				if (String.IsNullOrEmpty(m_strErrorCode))
+					return ((m_fmdInfo != null) ? m_fmdInfo.NexusError : String.Empty);
+				else
+					return m_strErrorCode;	
+			}
+		}
+
+		/// <summary>
+		/// Gets the current error info, if anything wrong happened.
+		/// </summary>
+		/// <value>The current error info, if anything wrong happened.</value>
+		public string ErrorInfo
+		{
+			get
+			{
+				if (String.IsNullOrEmpty(m_strErrorInfo))
+					return ((m_fmdInfo != null) ? m_fmdInfo.NexusErrorInfo : String.Empty);
+				else
+					return m_strErrorInfo;
 			}
 		}
 
@@ -444,6 +476,11 @@ namespace Nexus.Client.Util.Downloader
 		{
 			lock (m_lstDownloaders)
 			{
+				if (((BlockDownloader)sender).ErrorCode == "666")
+				{
+					m_strErrorCode = ((BlockDownloader)sender).ErrorCode;
+					m_strErrorInfo = ((BlockDownloader)sender).ErrorInfo;
+				}
 				m_lstDownloaders.Remove((BlockDownloader)sender);
 			}
 			if (m_lstDownloaders.Count == 0)
@@ -499,6 +536,9 @@ namespace Nexus.Client.Util.Downloader
 					if (wrpDownload != null)
 						switch (wrpDownload.StatusCode)
 						{
+							case HttpStatusCode.ServiceUnavailable:
+								fmiInfo = new FileMetadata(e.Response.Headers);
+								break;
 							case HttpStatusCode.NotFound:
 								fmiInfo = new FileMetadata();
 								fmiInfo.NotFound = true;

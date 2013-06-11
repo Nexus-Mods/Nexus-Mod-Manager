@@ -58,6 +58,18 @@ namespace Nexus.Client.Util.Downloader
 		public string ETag { get; private set; }
 
 		/// <summary>
+		/// Gets Nexus error code.
+		/// </summary>
+		/// <value>The Nexus error code.</value>
+		public string NexusError { get; private set; }
+
+		/// <summary>
+		/// Gets the Nexus error info.
+		/// </summary>
+		/// <value>The Nexus error info.</value>
+		public string NexusErrorInfo { get; private set; }
+
+		/// <summary>
 		/// Gets the other headers that are available for the file.
 		/// </summary>
 		/// <value>The other headers that are available for the file.</value>
@@ -132,8 +144,11 @@ namespace Nexus.Client.Util.Downloader
 								Length = Int32.Parse(strRange[3]);
 						}
 						break;
-					case "ETag":
-						ETag = p_whcFileHeader.GetValues(strKey)[0];
+					case "NexusError":
+						NexusError = p_whcFileHeader.GetValues(strKey)[0];
+						break;
+					case "NexusErrorInfo":
+						NexusErrorInfo = p_whcFileHeader.GetValues(strKey)[0];
 						break;
 					default:
 						Other[strKey] = p_whcFileHeader.GetValues(strKey);
