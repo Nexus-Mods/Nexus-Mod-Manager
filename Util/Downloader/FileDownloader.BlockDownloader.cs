@@ -48,6 +48,18 @@ namespace Nexus.Client.Util.Downloader
 				}
 			}
 
+			/// <summary>
+			/// Gets the current error code, if anything wrong happened.
+			/// </summary>
+			/// <value>The current error code, if anything wrong happened.</value>
+			public string ErrorCode { get; private set; }
+
+			/// <summary>
+			/// Gets the current error info, if anything wrong happened.
+			/// </summary>
+			/// <value>The current error info, if anything wrong happened.</value>
+			public string ErrorInfo { get; private set; }
+
 			#endregion
 
 			#region Constructors
@@ -243,7 +255,24 @@ namespace Nexus.Client.Util.Downloader
 									switch (wrpDownload.StatusCode)
 									{
 										case HttpStatusCode.ServiceUnavailable:
-											if (wrpDownload.Headers.AllKeys[1] == "Retry-After")
+											foreach (string strKey in wrpDownload.Headers.Keys)
+											{
+												switch (strKey)
+												{
+													case "NexusError":
+														ErrorCode = wrpDownload.Headers.GetValues(strKey)[0];
+														break;
+													case "NexusErrorInfo":
+														ErrorInfo = wrpDownload.Headers.GetValues(strKey)[0];
+														break;
+												}
+											}
+
+											if (ErrorCode == "666")
+											{
+												booRetry = false;
+											}
+											else if (wrpDownload.Headers.AllKeys[1] == "Retry-After")
 												booRetry = true;
 											else
 											{
