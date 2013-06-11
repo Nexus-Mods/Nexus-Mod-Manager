@@ -10,6 +10,7 @@ using Nexus.Client.DownloadMonitoring.UI;
 using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
+using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.Settings.UI;
@@ -370,6 +371,17 @@ namespace Nexus.Client
 
 			if (!ViewModel.OfflineMode)
 			{
+				if ((e.OldItems != null) && (e.OldItems.Count > 0))
+				{
+					foreach (AddModTask Task in e.OldItems)
+						if (!String.IsNullOrEmpty(Task.ErrorCode) && (Task.ErrorCode == "666") && !((Task.Status == TaskStatus.Cancelling) || (Task.Status == TaskStatus.Cancelled) || (Task.Status == TaskStatus.Complete)))
+						{
+							MessageBox.Show(String.Format("The NMM web services have currently been disabled by staff of the sites."
+								+ " This is NOT an error with NMM and you DO NOT need to report this error to us."
+								+ " This is normally a temporary problem so please try again a bit later on in the day." + Environment.NewLine
+								+ "If the staff have provided a reason for this down time we'll display it below: {0}", Environment.NewLine + Environment.NewLine + Task.ErrorInfo), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+						}
+				}
 				tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
 				if (dmcDownloadMonitor.ViewModel.ActiveTasks.Count <= 0)
 					UpdateProgressBarSpeed("TotalSpeed", true);

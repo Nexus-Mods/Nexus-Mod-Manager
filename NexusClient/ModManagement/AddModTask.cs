@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadManagement;
 using Nexus.Client.Games;
@@ -304,6 +305,18 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the current error code, if anything wrong happened.
+		/// </summary>
+		/// <value>The current error code, if anything wrong happened.</value>
+		public string ErrorCode { get; private set; }
+
+		/// <summary>
+		/// Gets the current error info, if anything wrong happened.
+		/// </summary>
+		/// <value>The current error info, if anything wrong happened.</value>
+		public string ErrorInfo { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -339,6 +352,8 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public void AddMod()
 		{
+			string strNexusError = String.Empty;
+			string strNexusErrorInfo = String.Empty;
 			Trace.TraceInformation(String.Format("[{0}] Starting Add Mod Task.", m_uriPath));
 			Status = TaskStatus.Running;
 			OverallProgress = 0;
@@ -346,7 +361,29 @@ namespace Nexus.Client.ModManagement
 			ShowItemProgress = true;
 			OverallMessage = String.Format("{0}...", m_uriPath);
 
-			Descriptor = BuildDescriptor(m_uriPath);
+			try
+			{
+				Descriptor = BuildDescriptor(m_uriPath);
+			}
+			catch (System.ServiceModel.CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+				}
+			}
 			if (Descriptor == null)
 			{
 				if (m_mrpModRepository.IsOffline)
@@ -358,9 +395,19 @@ namespace Nexus.Client.ModManagement
 				}
 				else
 				{
+					ErrorCode = strNexusError;
+					ErrorInfo = strNexusErrorInfo;
 					Status = TaskStatus.Error;
-					OverallMessage = String.Format("File does not exist: {0}", m_uriPath.ToString());
-					OnTaskEnded(String.Format("File does not exist: {0}", m_uriPath.ToString()), null);
+					if (!String.IsNullOrEmpty(strNexusErrorInfo))
+					{
+						OverallMessage = strNexusErrorInfo;
+						OnTaskEnded(strNexusErrorInfo, null);
+					}
+					else
+					{
+						OverallMessage = String.Format("Server Unreachable: {0}", m_uriPath.ToString());
+						OnTaskEnded(String.Format("Server Unreachable: {0}", m_uriPath.ToString()), null);
+					}
 					return;
 				}
 			}
@@ -515,6 +562,7 @@ namespace Nexus.Client.ModManagement
 							TraceUtil.TraceException(e);
 							return null;
 						}
+
 						if ((uriFilesToDownload == null) || (uriFilesToDownload.Count <= 0))
 							return null;
 						string strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
@@ -684,6 +732,12 @@ namespace Nexus.Client.ModManagement
 			}
 			else if (IsActive)
 			{
+				if ((FileDownloadTask)sender != null)
+				{
+					ErrorCode = ((FileDownloadTask)sender).ErrorCode;
+					ErrorInfo = ((FileDownloadTask)sender).ErrorInfo;
+				}
+
 				Status = e.Status;
 				OverallMessage = e.Message;
 				OnTaskEnded(e.Message, e.ReturnValue);

@@ -933,10 +933,6 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
-			catch (CommunicationException e)
-			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
-			}
 			catch (SerializationException e)
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);

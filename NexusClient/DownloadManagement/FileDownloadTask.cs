@@ -170,6 +170,18 @@ namespace Nexus.Client.DownloadManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the current error code, if anything wrong happened.
+		/// </summary>
+		/// <value>The current error code, if anything wrong happened.</value>
+		public string ErrorCode { get; private set; }
+
+		/// <summary>
+		/// Gets the current error info, if anything wrong happened.
+		/// </summary>
+		/// <value>The current error info, if anything wrong happened.</value>
+		public string ErrorInfo { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -286,6 +298,14 @@ namespace Nexus.Client.DownloadManagement
 						OnTaskEnded(String.Format("File does not exist: {0}", uriURL.ToString()), null);
 						return;
 					}
+					else if (m_fdrDownloader.ErrorCode == "666")
+					{
+						ErrorCode = m_fdrDownloader.ErrorCode;
+						ErrorInfo = m_fdrDownloader.ErrorInfo;
+						Status = TaskStatus.Error;
+						OnTaskEnded(m_fdrDownloader.ErrorInfo, null);
+						return;
+					}
 					else if (++retries <= m_intRetries)
 					{
 						swRetry.Start();
@@ -348,7 +368,12 @@ namespace Nexus.Client.DownloadManagement
 				}
 				else
 					Status = TaskStatus.Incomplete;
-				OnTaskEnded(String.Format("Error: {0} , unable to finish the download.", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
+				ErrorCode = ((FileDownloader)sender).ErrorCode;
+				ErrorInfo = ((FileDownloader)sender).ErrorInfo;
+				if (ErrorCode == "666")
+					OnTaskEnded(String.Format("{1}: {0} , ", ((FileDownloader)sender).URL, ErrorInfo), ((FileDownloader)sender).URL);
+				else
+					OnTaskEnded(String.Format("Error: {0} , unable to finish the download.", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
 			}
 			else
 			{
