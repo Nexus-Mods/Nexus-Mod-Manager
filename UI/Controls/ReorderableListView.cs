@@ -332,19 +332,23 @@ namespace Nexus.UI.Controls
 		/// <param name="m">The <see cref="Message"/> to process.</param>
 		protected override void WndProc(ref Message m)
 		{
-			base.WndProc(ref m);
-
-			//the listview control doesn't use the Paint event, so we have to watch for the
-			// paint windows message
-			if ((m.Msg == WM_PAINT) && (m_intInsertIndex != -1) && (!m_booIsDropping))
+			try
 			{
-				Rectangle rctItem = GetItemRect(m_intInsertIndex);
-				//the items will be inserted below
-				if (m_intInsertIndex > SelectedIndices[0])
-					DrawInsertionIndicator(rctItem.Bottom);
-				else	//the items will be inserted above
-					DrawInsertionIndicator(rctItem.Top);
+				base.WndProc(ref m);
+
+				//the listview control doesn't use the Paint event, so we have to watch for the
+				// paint windows message
+				if ((m.Msg == WM_PAINT) && (m_intInsertIndex != -1) && (!m_booIsDropping))
+				{
+					Rectangle rctItem = GetItemRect(m_intInsertIndex);
+					//the items will be inserted below
+					if (m_intInsertIndex > SelectedIndices[0])
+						DrawInsertionIndicator(rctItem.Bottom);
+					else	//the items will be inserted above
+						DrawInsertionIndicator(rctItem.Top);
+				}
 			}
+			catch { }
 		}
 
 		/// <summary>
