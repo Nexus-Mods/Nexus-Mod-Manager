@@ -213,12 +213,20 @@ namespace Nexus.Client.Games.Settings
 
 			if (strRegMod != null)
 				ModDirectory = strRegMod;
+			else if (EnvironmentInfo.Settings.ModFolder.ContainsKey(GameModeDescriptor.ModeId))
+				ModDirectory = EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId];
 			else if (EnvironmentInfo.Settings.ModFolder.Keys.Count > 0)
 			{
 				strRandomGameKey = EnvironmentInfo.Settings.ModFolder.FirstOrDefault().Key;
 				strRegMod = EnvironmentInfo.Settings.ModFolder[strRandomGameKey];
 				if (!String.IsNullOrEmpty(strRegMod))
-					ModDirectory = strRegMod.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+				{
+					if (strRegMod.IndexOf(strRandomGameKey) >= 0)
+						ModDirectory = strRegMod.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+					else
+						ModDirectory = strRegMod.Replace(Path.GetFileName(strRegMod), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegMod));
+				}
+
 			}
 			if (string.IsNullOrEmpty(ModDirectory))
 			{
@@ -236,13 +244,20 @@ namespace Nexus.Client.Games.Settings
 
 			if (strRegInst != null)
 				InstallInfoDirectory = strRegInst;
+			else if (EnvironmentInfo.Settings.InstallInfoFolder.ContainsKey(GameModeDescriptor.ModeId))
+				InstallInfoDirectory = EnvironmentInfo.Settings.InstallInfoFolder[GameModeDescriptor.ModeId];
 			else if (EnvironmentInfo.Settings.ModFolder.Keys.Count > 0)
 			{
 				if (String.IsNullOrEmpty(strRandomGameKey))
 					strRandomGameKey = EnvironmentInfo.Settings.InstallInfoFolder.FirstOrDefault().Key;
 				strRegInst = EnvironmentInfo.Settings.InstallInfoFolder[strRandomGameKey];
 				if (!String.IsNullOrEmpty(strRegInst))
-					InstallInfoDirectory = strRegInst.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+				{
+					if (strRegInst.IndexOf(strRandomGameKey) >= 0)
+						InstallInfoDirectory = strRegInst.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+					else
+						InstallInfoDirectory = strRegInst.Replace(Path.GetFileName(strRegInst), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegInst));
+				}
 			}
 			if (String.IsNullOrEmpty(InstallInfoDirectory))
 			{
