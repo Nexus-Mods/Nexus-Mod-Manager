@@ -314,6 +314,28 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (CommunicationException e)
 			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE clicking the OFFLINE button.", e);
+
+				}
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			catch (SerializationException e)
@@ -355,6 +377,28 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (CommunicationException e)
 			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE clicking the OFFLINE button.", e);
+
+				}
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
 			}
 			catch (SerializationException e)
@@ -895,6 +939,28 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (CommunicationException e)
 			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE clicking the OFFLINE button.", e);
+
+				}
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 			catch (SerializationException e)
