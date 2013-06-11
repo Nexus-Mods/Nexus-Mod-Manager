@@ -370,7 +370,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
 			FileUtility = p_futFileUtility;
-			
+
 			string strBAPIPath = Path.Combine(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "data"), p_eifEnvironmentInfo.Is64BitProcess ? "boss64.dll" : "boss32.dll");
 
 			m_ptrBossApi = LoadLibrary(strBAPIPath);
@@ -378,7 +378,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				throw new BossException(String.Format("Could not load BAPI library: {0}", strBAPIPath));
 
 			LoadMethods();
-			
+
 			m_ptrBossDb = CreateBossDb();
 
 			MasterlistPath = p_strMasterlistPath;
@@ -643,9 +643,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 				case "Skyrim":
 					uintClientGameId = 3;
 					break;
-                case "Morrowind":
-                    uintClientGameId = 6;
-                    break;
+				case "Morrowind":
+					uintClientGameId = 6;
+					break;
 				default:
 					throw new BossException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
@@ -745,9 +745,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
 		private string[] RemoveNonExistentPlugins(string[] p_strPlugins)
 		{
 			List<string> lstRealPlugins = new List<string>();
-			foreach (string strPlugin in p_strPlugins)
-				if (File.Exists(strPlugin))
-					lstRealPlugins.Add(strPlugin);
+			if (p_strPlugins != null)
+			{
+				foreach (string strPlugin in p_strPlugins)
+					if (File.Exists(strPlugin))
+						lstRealPlugins.Add(strPlugin);
+			}
 			return lstRealPlugins.ToArray();
 		}
 
