@@ -129,7 +129,47 @@ namespace Nexus.Client.Updating
 					string strOldPath = strNewInstaller;
 					strNewInstaller = Path.Combine(Path.GetTempPath(), Path.GetFileName(strNewInstaller));
 					FileUtil.ForceDelete(strNewInstaller);
-					File.Move(strOldPath, strNewInstaller);
+
+					try
+					{
+						File.Move(strOldPath, strNewInstaller);
+					}
+					catch (FileNotFoundException)
+					{
+						StringBuilder stbAVMessage = new StringBuilder();
+						stbAVMessage.AppendLine("Unable to find the downloaded update:");
+						stbAVMessage.AppendLine("this could be caused by a network issue or by your anti-virus software deleting it falsely flagging the installer as a virus.");
+						stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
+						stbAVMessage.AppendLine();
+						stbAVMessage.AppendFormat("To fix this issue you need to add {0}'s executable and all its folders to your", EnvironmentInfo.Settings.ModManagerName).AppendLine();
+						stbAVMessage.AppendLine("anti-virus exception list. You can also download the update manually from:");
+						stbAVMessage.AppendLine("http://skyrim.nexusmods.com/mods/modmanager/");
+
+						try
+						{
+							//the extended message box contains an activex control wich must be run in an STA thread,
+							// we can't control what thread this gets called on, so create one if we need to
+							ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+							ApartmentState astState = ApartmentState.Unknown;
+							Thread.CurrentThread.TrySetApartmentState(astState);
+							if (astState == ApartmentState.STA)
+								actShowMessage();
+							else
+							{
+								Thread thdMessage = new Thread(actShowMessage);
+								thdMessage.SetApartmentState(ApartmentState.STA);
+								thdMessage.Start();
+								thdMessage.Join();
+							}
+
+						}
+						catch
+						{
+						}
+
+						Trace.Unindent();
+						return CancelUpdate();
+					}
 
 					SetMessage("Launching installer...");
 					ProcessStartInfo psiInfo = new ProcessStartInfo(strNewInstaller);

@@ -144,6 +144,9 @@ namespace Nexus.Client.Util.Downloader
 								Length = Int32.Parse(strRange[3]);
 						}
 						break;
+					case "ETag":
+						ETag = p_whcFileHeader.GetValues(strKey)[0];
+						break;
 					case "NexusError":
 						NexusError = p_whcFileHeader.GetValues(strKey)[0];
 						break;
