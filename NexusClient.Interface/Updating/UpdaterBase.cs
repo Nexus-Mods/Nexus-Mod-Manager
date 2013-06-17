@@ -247,8 +247,8 @@ namespace Nexus.Client.Updating
 		/// <returns>The local path where the specified file was saved.</returns>
 		protected string DownloadFile(Uri p_uriUrl)
 		{
-			//TODO get the max connection and block size from settings
-			FileDownloader fdrDownloader = new FileDownloader(p_uriUrl, null, EnvironmentInfo.TemporaryPath, true, 5, 500 * 1024, "");
+			//TODO get the block size from settings
+			FileDownloader fdrDownloader = new FileDownloader(p_uriUrl, null, EnvironmentInfo.TemporaryPath, true, 1, 500 * 1024, "");
 			fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
 			fdrDownloader.StartDownload();
 			m_dicWaitForDownloads[fdrDownloader] = new AutoResetEvent(false);
@@ -276,7 +276,9 @@ namespace Nexus.Client.Updating
 				fdrDownloader.Cleanup();
 				m_dicSaveDownloadPaths[fdrDownloader] = null;
 			}
-			m_dicSaveDownloadPaths[fdrDownloader] = e.SavedFileName;
+			else
+				m_dicSaveDownloadPaths[fdrDownloader] = e.SavedFileName;
+
 			if (m_dicWaitForDownloads.ContainsKey(fdrDownloader))
 				m_dicWaitForDownloads[fdrDownloader].Set();
 		}
