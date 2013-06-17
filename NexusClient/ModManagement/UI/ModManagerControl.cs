@@ -1295,6 +1295,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 
 			clwCategoryView.ReloadList();
+			SetCommandExecutableStatus();
 		}
 
 		/// <summary>
