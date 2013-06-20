@@ -13,6 +13,7 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
 using Nexus.Transactions;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {
@@ -69,6 +70,8 @@ namespace Nexus.Client.ModManagement
 		/// <value>The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</value>
 		protected SynchronizationContext UIContext { get; private set; }
 
+		protected ReadOnlyObservableList<IMod> ActiveMods { get; set; }
+
 		#endregion
 
 		#region Constructors
@@ -85,7 +88,8 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -95,6 +99,7 @@ namespace Nexus.Client.ModManagement
 			ModInstallLog = p_ilgModInstallLog;
 			PluginManager = p_pmgPluginManager;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate;
+			ActiveMods = p_rolActiveMods;
 		}
 
 		#endregion
@@ -239,7 +244,7 @@ namespace Nexus.Client.ModManagement
 				gviGameSpecificValueInstaller.FinalizeInstall();
 			}
 			else
-				booResult = RunBasicInstallScript(mfiFileInstaller);
+				booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods);
 			mfiFileInstaller.FinalizeInstall();
 			return booResult;
 		}
@@ -280,11 +285,12 @@ namespace Nexus.Client.ModManagement
 		/// and activates all plugin files.
 		/// </remarks>
 		/// <param name="p_mfiFileInstaller">The file installer to use.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <returns><c>true</c> if the installation was successful;
 		/// <c>false</c> otherwise.</returns>
-		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller)
+		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles);
+			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles, p_rolActiveMods);
 			OnTaskStarted(bitTask);
 			return bitTask.Execute();
 		}

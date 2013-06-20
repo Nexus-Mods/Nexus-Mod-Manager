@@ -2,6 +2,9 @@
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Games;
+using Nexus.Client.Util.Collections;
+
 
 namespace Nexus.Client.ModManagement
 {
@@ -35,6 +38,14 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode.</value>
 		protected IInstallLog ModInstallLog { get; private set; }
 
+		/// <summary>
+		/// Gets the current game mode.
+		/// </summary>
+		/// <value>The the current game mode.</value>
+		protected IGameMode GameMode { get; private set; }
+
+		protected ReadOnlyObservableList<IMod> ActiveMods { get; set; }
+
 		#endregion
 
 		#region Constructors
@@ -46,11 +57,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_ilgModInstallLog">The install log that tracks mod install info
 		/// for the current game mode</param>
-		public BasicUninstallTask(IMod p_modMod, InstallerGroup p_igpInstallers, IInstallLog p_ilgModInstallLog)
+		/// <param name="p_gmdGameMode">The the current game mode.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		public BasicUninstallTask(IMod p_modMod, InstallerGroup p_igpInstallers, IInstallLog p_ilgModInstallLog, IGameMode p_gmdGameMode, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			Installers = p_igpInstallers;
 			ModInstallLog = p_ilgModInstallLog;
+			GameMode = p_gmdGameMode;
+			ActiveMods = p_rolActiveMods;
 		}
 
 		#endregion
@@ -88,6 +103,7 @@ namespace Nexus.Client.ModManagement
 			ItemProgressMaximum = lstFiles.Count;
 			ItemProgress = 0;
 			ItemMessage = "Uninstalling Files...";
+
 			foreach (string strFile in lstFiles)
 			{
 				if (Status == TaskStatus.Cancelling)
@@ -97,7 +113,6 @@ namespace Nexus.Client.ModManagement
 			}
 			StepOverallProgress();
 
-			
 			ItemProgressMaximum = lstIniEdits.Count;
 			ItemProgress = 0;
 			ItemMessage = "Undoing Ini Edits...";
@@ -109,7 +124,7 @@ namespace Nexus.Client.ModManagement
 				StepItemProgress();
 			}
 			StepOverallProgress();
-						
+
 			ItemProgressMaximum = lstGameSpecificValueEdits.Count;
 			ItemProgress = 0;
 			ItemMessage = "Undoing Game Specific Value Edits...";
@@ -121,6 +136,9 @@ namespace Nexus.Client.ModManagement
 				StepItemProgress();
 			}
 			StepOverallProgress();
+
+			if (GameMode.RequiresModFileMerge)
+				GameMode.ModFileMerge(ActiveMods, Mod, true);
 
 			return true;
 		}

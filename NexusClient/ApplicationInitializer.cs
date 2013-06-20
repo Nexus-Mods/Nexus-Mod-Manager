@@ -1032,7 +1032,7 @@ namespace Nexus.Client
 					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Warning)) == DialogResult.OK)
 					{
 						Trace.TraceInformation("Removing.");
-						IBackgroundTaskSet btsDeactivator = p_mmgModManager.DeactivateMod(modMissing);
+						IBackgroundTaskSet btsDeactivator = p_mmgModManager.DeactivateMod(modMissing, p_mmgModManager.ActiveMods);
 						WaitForSet(btsDeactivator, true);
 					}
 

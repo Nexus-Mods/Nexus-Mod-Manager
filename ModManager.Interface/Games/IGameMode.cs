@@ -12,6 +12,7 @@ using Nexus.Client.Plugins;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games
 {
@@ -93,6 +94,16 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
 		Int32 MaxAllowedActivePluginsCount { get; }
+
+		/// <summary>
+		/// Whether the game requires mod file merging.
+		/// </summary>
+		bool RequiresModFileMerge { get; }
+
+		/// <summary>
+		/// The name of the game's merged file.
+		/// </summary>
+		string MergedFileName { get; }
 
 		#endregion
 
@@ -209,5 +220,14 @@ namespace Nexus.Client.Games
 		/// <param name="p_strPath">The path to adjust</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, string p_strModFileName);
+
+		/// <summary>
+		/// Merges the mod files if requested by the game.
+		/// </summary>
+		/// <returns>Merges the mod files if requested by the game.</returns>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		/// <param name="p_modMod">The current mod.</param>
+		/// <param name="p_booRemove">Whether we're adding or removing the mod.</param>
+		void ModFileMerge(ReadOnlyObservableList<IMod> p_rolActiveMods, IMod p_modMod, bool p_booRemove);
 	}
 }

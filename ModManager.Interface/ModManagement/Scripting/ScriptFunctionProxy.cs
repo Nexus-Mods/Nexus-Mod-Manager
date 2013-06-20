@@ -129,8 +129,8 @@ namespace Nexus.Client.ModManagement.Scripting
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles);
-				OnTaskStarted(bitTask); 
+				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles, null);
+				OnTaskStarted(bitTask);
 				booSuccess = bitTask.Execute();
 			}
 			finally
@@ -640,7 +640,7 @@ namespace Nexus.Client.ModManagement.Scripting
 					plgCurrent = plgNext;
 					continue;
 				}
-				Installers.PluginManager.SetPluginOrderIndex(plgNext, intCurrentPosition+1);
+				Installers.PluginManager.SetPluginOrderIndex(plgNext, intCurrentPosition + 1);
 				//if the reorder worked, we have a new current, otherwise the old one is still the
 				// correct current.
 				if (intNextPosition != Installers.PluginManager.GetPluginOrderIndex(plgNext))
