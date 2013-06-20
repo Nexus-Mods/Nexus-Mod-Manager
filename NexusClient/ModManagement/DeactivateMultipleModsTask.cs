@@ -93,7 +93,7 @@ namespace Nexus.Client.ModManagement
 				modMod.InstallDate = null;
 				if (!m_iilInstallLog.ActiveMods.Contains(modMod))
 					return null;
-				ModUninstaller munUninstaller = m_mifModInstallerFactory.CreateUninstaller(modMod);
+				ModUninstaller munUninstaller = m_mifModInstallerFactory.CreateUninstaller(modMod, m_rolModList);
 				munUninstaller.Install();
 
 				while (!munUninstaller.IsCompleted)

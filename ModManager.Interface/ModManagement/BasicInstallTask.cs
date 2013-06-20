@@ -4,6 +4,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {
@@ -48,6 +49,8 @@ namespace Nexus.Client.ModManagement
 		/// <value>Whether the installer should skip readme files.</value>
 		protected bool SkipReadme { get; set; }
 
+		protected ReadOnlyObservableList<IMod> ActiveMods { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -59,13 +62,16 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_gmdGameMode">The the current game mode.</param>
 		/// <param name="p_mfiFileInstaller">The file installer to use.</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
-		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, bool p_booSkipReadme)
+		/// <param name="p_booSkipReadme">Whether to skip the installation of readme files.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			FileInstaller = p_mfiFileInstaller;
 			PluginManager = p_pmgPluginManager;
 			SkipReadme = p_booSkipReadme;
+			ActiveMods = p_rolActiveMods;
 		}
 
 		#endregion
@@ -96,16 +102,23 @@ namespace Nexus.Client.ModManagement
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
 			List<string> lstFiles = Mod.GetFileList();
 			OverallProgressMaximum = lstFiles.Count;
+
+			if (GameMode.RequiresModFileMerge)
+				GameMode.ModFileMerge(ActiveMods, Mod, false);
+
 			foreach (string strFile in lstFiles)
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, Path.GetFileNameWithoutExtension(Mod.Filename));
-				if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
+				if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(strFile) == GameMode.MergedFileName)))
 				{
-					if (FileInstaller.InstallFileFromMod(strFile, strFixedPath))
-						if (PluginManager.IsActivatiblePluginFile(strFixedPath))
-							PluginManager.ActivatePlugin(strFixedPath);
+					if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
+					{
+						if (FileInstaller.InstallFileFromMod(strFile, strFixedPath))
+							if (PluginManager.IsActivatiblePluginFile(strFixedPath))
+								PluginManager.ActivatePlugin(strFixedPath);
+					}
 				}
 				StepOverallProgress();
 			}

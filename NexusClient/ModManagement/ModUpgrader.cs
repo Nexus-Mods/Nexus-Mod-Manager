@@ -45,7 +45,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		public ModUpgrader(IMod p_modOldMod, IMod p_modNewMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
-			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_dlgOverwriteConfirmationDelegate)
+			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_dlgOverwriteConfirmationDelegate, null)
 		{
 			OldMod = p_modOldMod;
 		}
@@ -107,3 +107,4 @@ namespace Nexus.Client.ModManagement
 		}
 	}
 }
+	
