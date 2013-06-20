@@ -8,6 +8,7 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
 using Nexus.Transactions;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {
@@ -50,6 +51,8 @@ namespace Nexus.Client.ModManagement
 		/// <value>The manager to use to manage plugins.</value>
 		protected IPluginManager PluginManager { get; private set; }
 
+		protected ReadOnlyObservableList<IMod> ActiveMods { get; set; }
+
 		#endregion
 
 		#region Constructors
@@ -63,13 +66,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ilgModInstallLog">The install log that tracks mod install info
 		/// for the current game mode</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
-		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager)
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			ModInstallLog = p_ilgModInstallLog;
 			PluginManager = p_pmgPluginManager;
+			ActiveMods = p_rolActiveMods;
 		}
 
 		#endregion
@@ -124,7 +129,7 @@ namespace Nexus.Client.ModManagement
 				OnTaskSetCompleted(booSuccess, "The mod was successfully deactivated." + Environment.NewLine + strErrorMessage, Mod);
 			else
 				OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
-			}
+		}
 
 		/// <summary>
 		/// Runs the basic uninstall script.
@@ -145,7 +150,7 @@ namespace Nexus.Client.ModManagement
 			IGameSpecificValueInstaller gviGameSpecificValueInstaller = GameMode.GetGameSpecificValueInstaller(Mod, ModInstallLog, p_tfmFileManager, new NexusFileUtil(EnvironmentInfo), null);
 
 			InstallerGroup ipgInstallers = new InstallerGroup(dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager);
-			BasicUninstallTask butTask = new BasicUninstallTask(Mod, ipgInstallers, ModInstallLog);
+			BasicUninstallTask butTask = new BasicUninstallTask(Mod, ipgInstallers, ModInstallLog, GameMode, ActiveMods);
 			OnTaskStarted(butTask);
 
 			bool booResult = butTask.Execute();

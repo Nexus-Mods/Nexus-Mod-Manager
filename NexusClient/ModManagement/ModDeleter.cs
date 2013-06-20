@@ -9,6 +9,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.PluginManagement;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {
@@ -28,8 +29,9 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ilgModInstallLog">The install log that tracks mod install info
 		/// for the current game mode</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
-		public ModDeleter(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager)
-			:base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ilgModInstallLog, p_pmgPluginManager)
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		public ModDeleter(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
+			: base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ilgModInstallLog, p_pmgPluginManager, p_rolActiveMods)
 		{
 		}
 

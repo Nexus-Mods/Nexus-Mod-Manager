@@ -6,6 +6,7 @@ using System;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.ModManagement.UI;
 using System.Threading;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
 {
@@ -50,10 +51,11 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to create the installer.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <returns>A mod installer for the given mod.</returns>
-		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, p_dlgOverwriteConfirmationDelegate);
+			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
 		}
 
 		/// <summary>
@@ -72,20 +74,22 @@ namespace Nexus.Client.ModManagement
 		/// Creates a mod uninstaller for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to create the uninstaller.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <returns>A mod uninstaller for the given mod.</returns>
-		public ModUninstaller CreateUninstaller(IMod p_modMod)
+		public ModUninstaller CreateUninstaller(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ilgInstallLog, m_pmgPluginManager);
+			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
 		}
 
 		/// <summary>
 		/// Creates a mod deleter for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to create the deleter.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <returns>A mod deleter for the given mod.</returns>
-		public ModDeleter CreateDelete(IMod p_modMod)
+		public ModDeleter CreateDelete(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ilgInstallLog, m_pmgPluginManager);
+			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
 		}
 	}
 }

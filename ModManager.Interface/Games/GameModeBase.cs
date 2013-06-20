@@ -418,6 +418,28 @@ namespace Nexus.Client.Games
 			}
 		}
 
+		/// <summary>
+		/// Whether the game requires mod file merging.
+		/// </summary>
+		public virtual bool RequiresModFileMerge 
+		{ 
+			get
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// The name of the game's merged file.
+		/// </summary>
+		public virtual string MergedFileName 
+		{
+			get
+			{
+				return String.Empty;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -576,6 +598,17 @@ namespace Nexus.Client.Games
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Merges the mod files if requested by the game.
+		/// </summary>
+		/// <returns>Merges the mod files if requested by the game.</returns>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		/// <param name="p_modMod">The current mod.</param>
+		/// <param name="p_booRemove">Whether we're adding or removing the mod.</param>
+		public virtual void ModFileMerge(ReadOnlyObservableList<IMod> p_rolActiveMods, IMod p_modMod, bool p_booRemove)
+		{
+		}
 
 		/// <summary>
 		/// Disposes of the unamanged resources.

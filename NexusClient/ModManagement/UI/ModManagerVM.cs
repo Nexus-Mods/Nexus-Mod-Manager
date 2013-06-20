@@ -357,7 +357,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (ConfirmModFileDeletion(p_modMod))
 			{
-				IBackgroundTaskSet btsInstall = ModManager.DeleteMod(p_modMod);
+				IBackgroundTaskSet btsInstall = ModManager.DeleteMod(p_modMod, ModManager.ActiveMods);
 				DeletingMod(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
 			}
 		}
@@ -372,7 +372,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		protected void ActivateMod(IMod p_modMod)
 		{
-			IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite);
+			IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
 			if (btsInstall != null)
 				ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
 		}
@@ -383,7 +383,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		protected void DeactivateMod(IMod p_modMod)
 		{
-			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod);
+			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
 		}
 
