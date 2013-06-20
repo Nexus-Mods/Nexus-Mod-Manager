@@ -154,8 +154,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			switch (p_gmdGameMode.ModeId)
 			{
-				case "DragonAgeOrigins":
-					m_strWebsite = "";
+				case "DragonAge":
+					m_strWebsite = "dragonage.nexusmods.com";
 					m_strEndpoint = "DAONexusREST";
 					break;
 				case "Fallout3":

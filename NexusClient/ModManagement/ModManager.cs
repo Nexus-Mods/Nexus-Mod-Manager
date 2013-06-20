@@ -321,11 +321,12 @@ namespace Nexus.Client.ModManagement
 		/// The mod is deactivated, unregistered, and then deleted.
 		/// </remarks>
 		/// <param name="p_modMod">The mod to delete.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <returns>A background task set allowing the caller to track the progress of the operation,
 		/// or <c>null</c> if no long-running operation needs to be done.</returns>
-		public IBackgroundTaskSet DeleteMod(IMod p_modMod)
+		public IBackgroundTaskSet DeleteMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			ModDeleter mddDeleter = InstallerFactory.CreateDelete(p_modMod);
+			ModDeleter mddDeleter = InstallerFactory.CreateDelete(p_modMod, p_rolActiveMods);
 			mddDeleter.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(Deactivator_TaskSetCompleted);
 			mddDeleter.Install();
 			return mddDeleter;
@@ -353,12 +354,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_modMod">The mod to activate.</param>
 		/// <param name="p_dlgUpgradeConfirmationDelegate">The delegate that is called to confirm whether an upgrade install should be performed.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
+		/// <param name="p_rolActiveMods">The list or Active mods.</param>
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
-		public IBackgroundTaskSet ActivateMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		public IBackgroundTaskSet ActivateMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			if (InstallationLog.ActiveMods.Contains(p_modMod))
 				return null;
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
 		}
 
 		/// <summary>
@@ -399,12 +401,13 @@ namespace Nexus.Client.ModManagement
 		/// deactivates the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to deactivate.</param>
+		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
-		public IBackgroundTaskSet DeactivateMod(IMod p_modMod)
+		public IBackgroundTaskSet DeactivateMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			if (!InstallationLog.ActiveMods.Contains(p_modMod))
 				return null;
-			ModUninstaller munUninstaller = InstallerFactory.CreateUninstaller(p_modMod);
+			ModUninstaller munUninstaller = InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods);
 			munUninstaller.Install();
 			return munUninstaller;
 		}
