@@ -56,7 +56,7 @@ namespace Nexus.Client.ModManagement
 
 				try
 				{
-					string strCachePath = p_frgCacheManager.GetCacheFile(strMod);
+					string strCachePath = p_frgCacheManager.GetCacheFilePath(strMod);
 					modMod = mdrRegistry.CreateMod(strMod, strCachePath);
 				}
 				catch

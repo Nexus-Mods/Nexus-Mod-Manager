@@ -100,24 +100,32 @@ namespace Nexus.Client.ModManagement
 		protected override object DoWork(object[] p_objArgs)
 		{
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+			bool booSecondaryInstall = false;
 			List<string> lstFiles = Mod.GetFileList();
 			OverallProgressMaximum = lstFiles.Count;
 
 			if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);
 
+			if (GameMode.HasSecondaryInstallPath)
+				booSecondaryInstall = GameMode.CheckSecondaryInstall(Path.GetFileName(Mod.Filename));
+
 			foreach (string strFile in lstFiles)
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, Path.GetFileNameWithoutExtension(Mod.Filename));
-				if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(strFile) == GameMode.MergedFileName)))
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, Mod);
+
+				if (!(string.IsNullOrEmpty(strFixedPath) && booSecondaryInstall))
 				{
-					if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
+					if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(strFile) == GameMode.MergedFileName)))
 					{
-						if (FileInstaller.InstallFileFromMod(strFile, strFixedPath))
-							if (PluginManager.IsActivatiblePluginFile(strFixedPath))
-								PluginManager.ActivatePlugin(strFixedPath);
+						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
+						{
+							if (FileInstaller.InstallFileFromMod(strFile, strFixedPath, booSecondaryInstall))
+								if (PluginManager.IsActivatiblePluginFile(strFixedPath))
+									PluginManager.ActivatePlugin(strFixedPath);
+						}
 					}
 				}
 				StepOverallProgress();

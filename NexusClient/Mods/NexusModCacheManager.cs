@@ -79,14 +79,43 @@ namespace Nexus.Client.Mods
 		}
 
 		/// <summary>
+		/// Gets the path to the specified mod's cache file.
+		/// </summary>
+		/// <param name="p_strPath">The path for which to get the cache file.</param>
+		/// <returns>The path to the specified mod's cache file.</returns>
+		public string GetCacheFilePath(string p_strPath)
+		{
+			return Path.Combine(ModCacheDirectory, Path.GetFileName(p_strPath) + ".zip");
+		}
+
+		/// <summary>
 		/// Gets the cache file for the specified path.
 		/// </summary>
 		/// <param name="p_strPath">The path for which to get the cache file.</param>
 		/// <returns>The cache file for the specified path, or <c>null</c>
 		/// if there is no cache file.</returns>
-		public string GetCacheFile(string p_strPath)
+		public Archive GetCacheFile(string p_strPath)
 		{
-			return Path.Combine(ModCacheDirectory, Path.GetFileName(p_strPath) + ".zip");
+			string strCachePath = Path.Combine(ModCacheDirectory, Path.GetFileName(p_strPath) + ".zip");
+			if (File.Exists(strCachePath))
+			{
+				try
+				{
+					return new Archive(strCachePath);
+				}
+				catch (SevenZipArchiveException)
+				{
+					//the cachef ile is corrupt - so delete it
+					FileUtil.ForceDelete(strCachePath);
+				}
+				catch (UnauthorizedAccessException)
+				{
+					//we can't access the file - who know why
+					//destroy it so we can try again
+					FileUtil.ForceDelete(strCachePath);
+				}
+			}
+			return null;
 		}
 
 		/// <summary>

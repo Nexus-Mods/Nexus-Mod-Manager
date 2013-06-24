@@ -192,7 +192,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				booSuccess = Installers.FileInstaller.InstallFileFromMod(p_strFrom, strFixedTo);
+				booSuccess = Installers.FileInstaller.InstallFileFromMod(p_strFrom, strFixedTo, false);
 			}
 			finally
 			{
@@ -324,7 +324,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		public bool GenerateDataFile(string p_strPath, byte[] p_bteData)
 		{
 			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			return Installers.FileInstaller.GenerateDataFile(strFixedPath, p_bteData);
+			return Installers.FileInstaller.GenerateDataFile(strFixedPath, p_bteData, false);
 		}
 
 		#endregion

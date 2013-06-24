@@ -108,6 +108,8 @@ namespace Nexus.Client.ModManagement
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
+				if (GameMode.HasSecondaryInstallPath)
+					GameMode.CheckSecondaryUninstall(strFile);
 				Installers.FileInstaller.UninstallDataFile(strFile);
 				StepItemProgress();
 			}

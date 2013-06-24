@@ -29,6 +29,22 @@ namespace Nexus.Client.Games.DragonAge
 		}
 
 		/// <summary>
+		/// Gets the secondary path to which mod files should be installed.
+		/// </summary>
+		/// <value>The secondary path to which mod files should be installed.</value>
+		public override string SecondaryInstallationPath
+		{
+			get
+			{
+				string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+				strPath = Path.Combine(strPath, @"Bioware\Dragon Age\");
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
+				return strPath;
+			}
+		}
+
+		/// <summary>
 		/// Gets the display name of the game mode.
 		/// </summary>
 		/// <value>The display name of the game mode.</value>

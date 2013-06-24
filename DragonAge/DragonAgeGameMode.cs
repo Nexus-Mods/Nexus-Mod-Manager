@@ -36,9 +36,7 @@ namespace Nexus.Client.Games.DragonAge
         private DragonAgeGameModeDescriptor m_gmdGameModeInfo = null;
         private DragonAgeLauncher m_glnGameLauncher = null;
         private DragonAgeToolLauncher m_gtlToolLauncher = null;
-		private Dictionary<string, string> m_dicDAModPaths = new Dictionary<string, string>();
-        private string strXMLDirectory = null; 
-        
+        private string strXMLDirectory = null;         
 
 		#region Properties
 
@@ -203,6 +201,17 @@ namespace Nexus.Client.Games.DragonAge
 			}
 		}
 
+		/// <summary>
+		/// Whether the game has a secondary install path.
+		/// </summary>
+		public override bool HasSecondaryInstallPath
+		{
+			get
+			{
+				return true;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -345,28 +354,48 @@ namespace Nexus.Client.Games.DragonAge
 		/// to be relative to the new instaalation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
-		/// <param name="p_strPath">The path to adjust</param>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <param name="p_modMod">The mod.</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, string p_strModFileName)
+		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
 		{
 			string strPath = String.Empty;
-			if (m_dicDAModPaths != null)
-				strPath = m_dicDAModPaths.FirstOrDefault(x => x.Key == p_strModFileName).Value;
+			string strModFileName = Path.GetFileNameWithoutExtension(p_modMod.Filename);
+			string strModFileExtension = Path.GetExtension(p_modMod.Filename);
+
+			if (Path.GetFileName(p_strPath).Equals("manifest.xml", StringComparison.InvariantCultureIgnoreCase))
+			{
+				AddManifest(p_modMod);
+				return String.Empty;
+			}
+
+			if (strModFileExtension.Equals(".dazip", StringComparison.InvariantCultureIgnoreCase))
+				if (p_strPath.StartsWith("contents", StringComparison.InvariantCultureIgnoreCase))
+					strPath = p_strPath.Remove(0, 9);
 
 			if (String.IsNullOrEmpty(strPath))
 			{
 				strPath = Path.GetDirectoryName(p_strPath);
 
 				if (String.IsNullOrEmpty(strPath))
-					strPath = p_strModFileName;
-
-				m_dicDAModPaths.Add(p_strModFileName, strPath);
+					strPath = strModFileName;
 			}
 
-			return (String.IsNullOrEmpty(Path.GetDirectoryName(p_strPath))) ? Path.Combine(strPath, p_strPath) : p_strPath;
+			return (String.IsNullOrEmpty(Path.GetDirectoryName(p_strPath))) ? Path.Combine(strPath, p_strPath) : strPath;
 		}
 
-       
+		private void AddManifest(IMod p_modMod)
+		{
+			string strAddins = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"Bioware\Dragon Age\Settings\AddIns.xml");
+			XDocument XDoc = XDocument.Load(strAddins);
+
+			XDocument docManifest = XDocument.Parse(Encoding.ASCII.GetString(p_modMod.GetFile("Manifest.xml")));
+			XElement xelAddinsList = docManifest.Descendants("AddInsList").FirstOrDefault();
+			foreach (XElement XAddin in xelAddinsList.Elements("AddInItem"))
+				XDoc.Root.Add(XAddin);
+
+			XDoc.Save(strAddins);
+		}
 
         /// <summary>
         /// Function inside the MergeElements of the Dragon Age gamemode.
@@ -521,6 +550,42 @@ namespace Nexus.Client.Games.DragonAge
                 XDocMerge.Save(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
             
         }
+
+		/// <summary>
+		/// Checks whether to use the secondary mod install method.
+		/// </summary>
+		/// <returns>Whether to use the secondary mod install method.</returns>
+		/// <param name="p_strModFileName">The mod filename</param>
+		public override bool CheckSecondaryInstall(string p_strModFileName)
+		{
+			if (!String.IsNullOrEmpty(p_strModFileName))
+				if (Path.GetExtension(p_strModFileName).Equals(".dazip", StringComparison.InvariantCultureIgnoreCase))
+					return true;
+
+			return false;
+		}
+
+		/// <summary>
+		/// Checks whether the system needs to uninstal secondary parameters.
+		/// </summary>
+		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
+		/// <param name="p_strFileName">The filename.</param>
+		public override void CheckSecondaryUninstall(string p_strFileName)
+		{
+			if (Path.GetExtension(p_strFileName).Equals(".cif", StringComparison.InvariantCultureIgnoreCase))
+			{
+				string strID = Path.GetFileNameWithoutExtension(p_strFileName);
+				string strAddins = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"Bioware\Dragon Age\Settings\AddIns.xml");
+				XDocument XDoc = XDocument.Load(strAddins);
+				XElement xelAddinsList = XDoc.Descendants("AddInsList").FirstOrDefault();
+				foreach (XElement XAddin in xelAddinsList.Elements("AddInItem"))
+				{
+					if ((XAddin.Attribute("UID") != null) && (XAddin.Attribute("UID").Value.Equals(strID, StringComparison.InvariantCultureIgnoreCase)))
+						XAddin.Remove();
+				}
+				XDoc.Save(strAddins);
+			}
+		}
 
 		/// <summary>
 		/// Disposes of the unamanged resources.

@@ -74,6 +74,18 @@ namespace Nexus.Client
 			}
 
 			/// <summary>
+			/// Gets the secondary path to which mod files should be installed.
+			/// </summary>
+			/// <value>The secondary path to which mod files should be installed.</value>
+			public string SecondaryInstallationPath
+			{
+				get
+				{
+					throw new NotImplementedException();
+				}
+			}
+
+			/// <summary>
 			/// Gets the path to the game executable.
 			/// </summary>
 			/// <returns>The path to the game executable, or

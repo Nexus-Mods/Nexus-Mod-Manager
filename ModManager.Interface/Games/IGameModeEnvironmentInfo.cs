@@ -15,6 +15,12 @@ namespace Nexus.Client.Games
 		string InstallationPath { get; }
 
 		/// <summary>
+		/// Gets the secondary path to which mod files should be installed.
+		/// </summary>
+		/// <value>The secondary path to which mod files should be installed.</value>
+		string SecondaryInstallationPath { get; }
+
+		/// <summary>
 		/// Gets the path to the game executable.
 		/// </summary>
 		/// <value>The path to the game executable.</value>

@@ -33,6 +33,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		#region Fields
 
 		private string m_strFilePath = null;
+		private string m_strNestedFilePath = null;
 		private Archive m_arcFile = null;
 		private Archive m_arcCacheFile;
 		private string m_strPrefixPath = null;
@@ -368,7 +369,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		{
 			get
 			{
-				return m_strFilePath;
+				return String.IsNullOrEmpty(m_strNestedFilePath) ? m_strFilePath : m_strNestedFilePath;
 			}
 		}
 
@@ -403,12 +404,28 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
+
+
+			#region Temporary fix for nested .dazip files
+			string[] strNested = m_arcFile.GetFiles("", "*.dazip", true);
+			if (strNested.Length == 1)
+			{
+				string strFilePath = Path.Combine(Path.Combine(Path.GetTempPath(), "NMM"), strNested[0]);
+				FileUtil.WriteAllBytes(strFilePath, GetFile(strNested[0]));
+				if (File.Exists(strFilePath))
+				{
+					m_arcFile = new Archive(strFilePath);
+					m_strNestedFilePath = strFilePath;
+				}
+			}
+			#endregion
+
 			m_arcFile.ReadOnlyInitProgressUpdated += new CancelProgressEventHandler(ArchiveFile_ReadOnlyInitProgressUpdated);
 
 			FindPathPrefix();
 			if (p_booUseCache)
 			{
-				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(this);
+				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(m_strFilePath);
 				//check to make sure the cache isn't bad
 				if ((m_arcCacheFile != null) && !m_arcCacheFile.ContainsFile(GetRealPath("fomod/info.xml")))
 				{
@@ -682,6 +699,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			string strAdjustedPath = null;
 			if (m_dicMovedArchiveFiles.TryGetValue(strPath, out strAdjustedPath))
 				return strAdjustedPath;
+			if (String.IsNullOrEmpty(m_strPrefixPath))
+				return p_strPath;
 			if (strPath.ToLowerInvariant().IndexOf(m_strPrefixPath.ToLowerInvariant()) == 0)
 				return p_strPath;
 			else

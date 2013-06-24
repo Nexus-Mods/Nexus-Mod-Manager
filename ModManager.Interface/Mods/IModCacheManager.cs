@@ -17,6 +17,13 @@ namespace Nexus.Client.Mods
 		FileUtil FileUtility { get; }
 
 		/// <summary>
+		/// Gets the path to the specified mod's cache file.
+		/// </summary>
+		/// <param name="p_strPath">The path for which to get the cache file.</param>
+		/// <returns>The path to the specified mod's cache file.</returns>
+		string GetCacheFilePath(string p_strPath);
+
+		/// <summary>
 		/// Gets the cache file for the specified mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to get the cache file.</param>
@@ -30,7 +37,7 @@ namespace Nexus.Client.Mods
 		/// <param name="p_strPath">The path for which to get the cache file.</param>
 		/// <returns>The cache file for the specified path, or <c>null</c>
 		/// if there is no cache file.</returns>
-		string GetCacheFile(string p_strPath);
+		Archive GetCacheFile(string p_strPath);
 
 		/// <summary>
 		/// Creates a cache file for the given mod, containing the specified files.

@@ -105,6 +105,11 @@ namespace Nexus.Client.Games
 		/// </summary>
 		string MergedFileName { get; }
 
+		/// <summary>
+		/// Whether the game has a secondary install path.
+		/// </summary>
+		bool HasSecondaryInstallPath { get; }
+
 		#endregion
 
 		#region Plugin Management
@@ -217,9 +222,10 @@ namespace Nexus.Client.Games
 		/// to be relative to the new instaalation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
-		/// <param name="p_strPath">The path to adjust</param>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <param name="p_modMod">The mod.</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, string p_strModFileName);
+		string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod);
 
 		/// <summary>
 		/// Merges the mod files if requested by the game.
@@ -229,5 +235,19 @@ namespace Nexus.Client.Games
 		/// <param name="p_modMod">The current mod.</param>
 		/// <param name="p_booRemove">Whether we're adding or removing the mod.</param>
 		void ModFileMerge(ReadOnlyObservableList<IMod> p_rolActiveMods, IMod p_modMod, bool p_booRemove);
+
+		/// <summary>
+		/// Checks whether to use the secondary mod install method.
+		/// </summary>
+		/// <returns>Whether to use the secondary mod install method.</returns>
+		/// <param name="p_strModFileName">The mod filename</param>
+		bool CheckSecondaryInstall(string p_strModFileName);
+
+		/// <summary>
+		/// Checks whether the system needs to uninstal secondary parameters.
+		/// </summary>
+		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
+		/// <param name="p_strFileName">The filename.</param>
+		void CheckSecondaryUninstall(string p_strFileName);
 	}
 }

@@ -315,22 +315,24 @@ namespace Nexus.Client.Games.Witcher2
 		/// to be relative to the new instaalation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
-		/// <param name="p_strPath">The path to adjust</param>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <param name="p_modMod">The mod.</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, string p_strModFileName)
+		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
 		{
 			string strPath = String.Empty;
+			string strModFileName = Path.GetFileNameWithoutExtension(p_modMod.Filename);
 			if (m_dicW2ModPaths != null)
-				strPath = m_dicW2ModPaths.FirstOrDefault(x => x.Key == p_strModFileName).Value;
+				strPath = m_dicW2ModPaths.FirstOrDefault(x => x.Key == strModFileName).Value;
 
 			if (String.IsNullOrEmpty(strPath))
 			{
 				strPath = Path.GetDirectoryName(p_strPath);
 
 				if (String.IsNullOrEmpty(strPath))
-					strPath = p_strModFileName;
+					strPath = strModFileName;
 
-				m_dicW2ModPaths.Add(p_strModFileName, strPath);
+				m_dicW2ModPaths.Add(strModFileName, strPath);
 			}
 
 			return (String.IsNullOrEmpty(Path.GetDirectoryName(p_strPath))) ? Path.Combine(strPath, p_strPath) : p_strPath;

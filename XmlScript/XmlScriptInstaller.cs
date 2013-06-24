@@ -172,7 +172,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				ItemProgress = 0;
 				ItemProgressMaximum = 2;
 
-				Installers.FileInstaller.InstallFileFromMod(strSource, GameMode.GetModFormatAdjustedPath(Mod.Format, strDest));
+				Installers.FileInstaller.InstallFileFromMod(strSource, GameMode.GetModFormatAdjustedPath(Mod.Format, strDest), false);
 
 				StepItemProgress();
 
@@ -213,7 +213,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 				strMODFile = lstModFiles[i];
 				string strNewFileName = strMODFile.Substring(strFrom.Length, strMODFile.Length - strFrom.Length);
-				Installers.FileInstaller.InstallFileFromMod(strMODFile, GameMode.GetModFormatAdjustedPath(Mod.Format, Path.Combine(strTo, strNewFileName)));
+				Installers.FileInstaller.InstallFileFromMod(strMODFile, GameMode.GetModFormatAdjustedPath(Mod.Format, Path.Combine(strTo, strNewFileName)), false);
 
 				StepItemProgress();
 			}

@@ -57,6 +57,18 @@ namespace Nexus.Client.Games
 			}
 
 			/// <summary>
+			/// Gets the secondary path to which mod files should be installed.
+			/// </summary>
+			/// <value>The secondary path to which mod files should be installed.</value>
+			public string SecondaryInstallationPath
+			{
+				get
+				{
+					return GameMode.SecondaryInstallationPath;
+				}
+			}
+
+			/// <summary>
 			/// Gets the path to the game executable.
 			/// </summary>
 			/// <value>The path to the game executable.</value>
@@ -255,6 +267,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the secondary path to which mod files should be installed.
+		/// </summary>
+		/// <value>The secondary path to which mod files should be installed.</value>
+		public string SecondaryInstallationPath
+		{
+			get
+			{
+				return m_gmdGameModeInfo.SecondaryInstallationPath;
+			}
+		}
+
+		/// <summary>
 		/// Gets the path to the game executable.
 		/// </summary>
 		/// <value>The path to the game executable.</value>
@@ -442,6 +466,17 @@ namespace Nexus.Client.Games
 
 		#endregion
 
+		/// <summary>
+		/// Whether the game has a secondary install path.
+		/// </summary>
+		public virtual bool HasSecondaryInstallPath
+		{
+			get
+			{
+				return false;
+			}
+		}
+
 		#region Constructors
 
 		/// <summary>
@@ -573,9 +608,10 @@ namespace Nexus.Client.Games
 		/// to be relative to the new instaalation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
-		/// <param name="p_strPath">The path to adjust</param>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <param name="p_modMod">The mod.</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, string p_strModFileName)
+		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
 		{
 			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath);
 		}
@@ -607,6 +643,25 @@ namespace Nexus.Client.Games
 		/// <param name="p_modMod">The current mod.</param>
 		/// <param name="p_booRemove">Whether we're adding or removing the mod.</param>
 		public virtual void ModFileMerge(ReadOnlyObservableList<IMod> p_rolActiveMods, IMod p_modMod, bool p_booRemove)
+		{
+		}
+
+		/// <summary>
+		/// Checks whether to use the secondary mod install method.
+		/// </summary>
+		/// <returns>Whether to use the secondary mod install method.</returns>
+		/// <param name="p_strModFileName">The mod filename</param>
+		public virtual bool CheckSecondaryInstall(string p_strModFileName)
+		{
+			return false;
+		}
+
+		/// <summary>
+		/// Checks whether the system needs to uninstal secondary parameters.
+		/// </summary>
+		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
+		/// <param name="p_strFileName">The filename.</param>
+		public virtual void CheckSecondaryUninstall(string p_strFileName)
 		{
 		}
 

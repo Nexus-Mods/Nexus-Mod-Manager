@@ -16,9 +16,10 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_strModFilePath">The path of the file in the Mod to install.</param>
 		/// <param name="p_strInstallPath">The path on the file system where the file is to be created.</param>
+		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> if the user chose
 		/// not to overwrite an existing file.</returns>
-		bool InstallFileFromMod(string p_strModFilePath, string p_strInstallPath);
+		bool InstallFileFromMod(string p_strModFilePath, string p_strInstallPath, bool p_booSecondaryInstallPath);
 
 		/// <summary>
 		/// Writes the file represented by the given byte array to the given path.
@@ -29,11 +30,12 @@ namespace Nexus.Client.ModManagement
 		/// </remarks>
 		/// <param name="p_strPath">The path where the file is to be created.</param>
 		/// <param name="p_bteData">The data that is to make up the file.</param>
+		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> if the user chose
 		/// not to overwrite an existing file.</returns>
 		/// <exception cref="Nexus.Client.ModManagement.Scripting.IllegalFilePathException">Thrown if <paramref name="p_strPath"/> is
 		/// not safe.</exception>
-		bool GenerateDataFile(string p_strPath, byte[] p_bteData);
+		bool GenerateDataFile(string p_strPath, byte[] p_bteData, bool p_booSecondaryInstallPath);
 
 		/// <summary>
 		/// Uninstalls the specified file.

@@ -73,11 +73,12 @@ namespace Nexus.Client.ModManagement
 		/// </remarks>
 		/// <param name="p_strPath">The path where the file is to be created.</param>
 		/// <param name="p_bteData">The data that is to make up the file.</param>
+		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> if the user chose
 		/// not to overwrite an existing file.</returns>
 		/// <exception cref="IllegalFilePathException">Thrown if <paramref name="p_strPath"/> is
 		/// not safe.</exception>
-		public override bool GenerateDataFile(string p_strPath, byte[] p_bteData)
+		public override bool GenerateDataFile(string p_strPath, byte[] p_bteData, bool p_booSecondaryInstallPath)
 		{
 			DataFileUtility.AssertFilePathIsSafe(p_strPath);
 			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
@@ -101,7 +102,7 @@ namespace Nexus.Client.ModManagement
 				return true;
 			}
 
-			return base.GenerateDataFile(p_strPath, p_bteData);
+			return base.GenerateDataFile(p_strPath, p_bteData, false);
 		}
 
 		/// <summary>

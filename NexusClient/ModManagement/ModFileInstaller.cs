@@ -285,12 +285,13 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_strModFilePath">The path of the file in the Mod to install.</param>
 		/// <param name="p_strInstallPath">The path on the file system where the file is to be installed.</param>
+		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> if the user chose
 		/// not to overwrite an existing file.</returns>
-		public bool InstallFileFromMod(string p_strModFilePath, string p_strInstallPath)
+		public bool InstallFileFromMod(string p_strModFilePath, string p_strInstallPath, bool p_booSecondaryInstallPath)
 		{
 			byte[] bteModFile = Mod.GetFile(p_strModFilePath);
-			return GenerateDataFile(p_strInstallPath, bteModFile);
+			return GenerateDataFile(p_strInstallPath, bteModFile, p_booSecondaryInstallPath);
 		}
 
 		/// <summary>
@@ -302,14 +303,21 @@ namespace Nexus.Client.ModManagement
 		/// </remarks>
 		/// <param name="p_strPath">The path where the file is to be created.</param>
 		/// <param name="p_bteData">The data that is to make up the file.</param>
+		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> if the user chose
 		/// not to overwrite an existing file.</returns>
 		/// <exception cref="IllegalFilePathException">Thrown if <paramref name="p_strPath"/> is
 		/// not safe.</exception>
-		public virtual bool GenerateDataFile(string p_strPath, byte[] p_bteData)
+		public virtual bool GenerateDataFile(string p_strPath, byte[] p_bteData, bool p_booSecondaryInstallPath)
 		{
 			DataFileUtility.AssertFilePathIsSafe(p_strPath);
-			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+			string strInstallFilePath = String.Empty;
+
+			if (p_booSecondaryInstallPath && !(String.IsNullOrEmpty(GameModeInfo.SecondaryInstallationPath)))
+				strInstallFilePath = Path.Combine(GameModeInfo.SecondaryInstallationPath, p_strPath);
+			else
+				strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+
 			FileInfo Info = new FileInfo(strInstallFilePath);
 			if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
 				TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
