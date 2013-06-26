@@ -158,6 +158,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strWebsite = "dragonage.nexusmods.com";
 					m_strEndpoint = "DAONexusREST";
 					break;
+				case "DragonAge2":
+					m_strWebsite = "dragonage2.nexusmods.com";
+					m_strEndpoint = "DA2NexusREST";
+					break;
 				case "Fallout3":
 					m_strWebsite = "fallout3.nexusmods.com";
 					m_strEndpoint = "FO3NexusREST";
