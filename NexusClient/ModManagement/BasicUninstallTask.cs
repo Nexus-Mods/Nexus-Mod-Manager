@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.IO;
+using System.Collections.Generic;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
 using Nexus.Client.BackgroundTasks;
@@ -110,7 +112,18 @@ namespace Nexus.Client.ModManagement
 					return false;
 				if (GameMode.HasSecondaryInstallPath)
 					GameMode.CheckSecondaryUninstall(strFile);
-				Installers.FileInstaller.UninstallDataFile(strFile);
+				try
+				{
+					Installers.FileInstaller.UninstallDataFile(strFile);
+				}
+				catch (UnauthorizedAccessException)
+				{
+					string strDetails = "Access to the path: " + Environment.NewLine + strFile + " is denied." + Environment.NewLine +
+										"This error commonly occurs when Antivirus programs (even if disabled) prevents NMM from interacting with game/mod files." + Environment.NewLine +
+										"Please add NMM and its folders to the antivirus' exception list.";
+					Installers.FileInstaller.InstallErrors.Add(strDetails);
+					return false;
+				}
 				StepItemProgress();
 			}
 			StepOverallProgress();
