@@ -939,7 +939,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (CommunicationException e)
 			{
-				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
 				{
 					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
 					string strNexusError = String.Empty;
