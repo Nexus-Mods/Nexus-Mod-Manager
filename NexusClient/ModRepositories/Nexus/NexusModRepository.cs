@@ -195,7 +195,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "LOGNexusREST";
 					break;
 				case "Witcher2":
-					m_strWebsite = "witcher.nexusmods.com";
+					m_strWebsite = "witcher2.nexusmods.com";
 					m_strEndpoint = "W2NexusREST";
 					break;
 				default:
