@@ -31,10 +31,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DragonAge2, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\DragonAge2\bin\Debug\DragonAge2.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -53,6 +49,10 @@
     <ProjectReference Include="..\Commanding\Commanding.csproj">
       <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
       <Name>Commanding</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\DragonAge2\DragonAge2.csproj">
+      <Project>{E618F2F0-857C-4C78-8DD4-F2EE6D63B4CF}</Project>
+      <Name>DragonAge2</Name>
     </ProjectReference>
     <ProjectReference Include="..\ModManager.Interface\ModManager.Interface.csproj">
       <Project>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</Project>
