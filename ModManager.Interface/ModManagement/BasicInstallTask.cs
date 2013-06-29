@@ -116,7 +116,7 @@ namespace Nexus.Client.ModManagement
 					return false;
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, Mod);
 
-				if (!(string.IsNullOrEmpty(strFixedPath) && booSecondaryInstall))
+				if (!string.IsNullOrEmpty(strFixedPath))
 				{
 					if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(strFile) == GameMode.MergedFileName)))
 					{

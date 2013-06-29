@@ -59,6 +59,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
 		private IScript m_scpInstallScript = null;
+		private bool m_booUsesPlugins = false;
 
 		#endregion
 
@@ -374,6 +375,18 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		}
 
 		/// <summary>
+		/// Gets the path to the mod archive.
+		/// </summary>
+		/// <value>The path to the mod archive.</value>
+		public string ModArchivePath
+		{
+			get
+			{
+				return m_strFilePath;
+			}
+		}
+
+		/// <summary>
 		/// Gets the registry of supported script types.
 		/// </summary>
 		/// <value>The registry of supported script types.</value>
@@ -396,7 +409,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_mftModFormat">The format of the mod.</param>
 		/// <param name="p_mcmModCacheManager">The manager for the current game mode's mod cache.</param>
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
-		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry)
+		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins)
 		{
 			Format = p_mftModFormat;
 			ScriptTypeRegistry = p_stgScriptTypeRegistry;
@@ -506,7 +519,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-			ModName = Path.GetFileNameWithoutExtension(Filename);
+			ModName = Path.GetFileNameWithoutExtension(m_strFilePath);
 			LoadInfo();
 		}
 
@@ -601,7 +614,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 						booFoundPrefix = true;
 						break;
 					}
-					booFoundData |= Path.GetFileName(strDirectory).Equals("data", StringComparison.OrdinalIgnoreCase);
+					if (m_booUsesPlugins)
+						booFoundData |= Path.GetFileName(strDirectory).Equals("data", StringComparison.OrdinalIgnoreCase);
 				}
 				if (booFoundPrefix)
 				{
@@ -854,7 +868,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				Id = p_mifInfo.Id;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues || String.IsNullOrEmpty(ModName) || ModName.Equals(Path.GetFileNameWithoutExtension(Filename))) && !String.IsNullOrEmpty(p_mifInfo.ModName))
+			if ((p_booOverwriteAllValues || String.IsNullOrEmpty(ModName) || ModName.Equals(Path.GetFileNameWithoutExtension(m_strFilePath))) && !String.IsNullOrEmpty(p_mifInfo.ModName))
 			{
 				ModName = p_mifInfo.ModName;
 				booChangedValue = true;

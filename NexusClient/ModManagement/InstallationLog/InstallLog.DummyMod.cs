@@ -72,6 +72,18 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public string Filename { get; private set; }
 
 			/// <summary>
+			/// Gets the path to the mod archive.
+			/// </summary>
+			/// <value>The path to the mod archive.</value>
+			public string ModArchivePath 
+			{ 
+				get
+				{
+					return Filename;
+				}
+			}
+
+			/// <summary>
 			/// Gets the format of the mod.
 			/// </summary>
 			/// <value>The format of the mod.</value>

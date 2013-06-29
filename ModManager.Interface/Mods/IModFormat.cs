@@ -77,7 +77,7 @@ namespace Nexus.Client.Mods
 		/// </remarks>
 		/// <param name="p_strPath">The path of the file from which to create an <see cref="IMod"/>.</param>
 		/// <returns>A mod from the specified file.</returns>
-		IMod CreateMod(string p_strPath);
+		IMod CreateMod(string p_strPath, bool p_booUsesPlugins);
 
 		/// <summary>
 		/// Gets a <see cref="IModCompressor"/> that can compress a source folder into

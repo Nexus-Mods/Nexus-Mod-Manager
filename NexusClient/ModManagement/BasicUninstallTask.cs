@@ -92,6 +92,7 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool UninstallFiles()
 		{
+			bool booSecondaryInstall = false;
 			OverallMessage = "Uninstalling Mod...";
 			ShowItemProgress = true;
 			OverallProgressStepSize = 1;
@@ -106,6 +107,9 @@ namespace Nexus.Client.ModManagement
 			ItemProgress = 0;
 			ItemMessage = "Uninstalling Files...";
 
+			if (GameMode.HasSecondaryInstallPath)
+				booSecondaryInstall = GameMode.CheckSecondaryInstall(Path.GetFileName(Mod.Filename));
+
 			foreach (string strFile in lstFiles)
 			{
 				if (Status == TaskStatus.Cancelling)
@@ -114,7 +118,7 @@ namespace Nexus.Client.ModManagement
 					GameMode.CheckSecondaryUninstall(strFile);
 				try
 				{
-					Installers.FileInstaller.UninstallDataFile(strFile);
+					Installers.FileInstaller.UninstallDataFile(strFile, booSecondaryInstall);
 				}
 				catch (UnauthorizedAccessException)
 				{

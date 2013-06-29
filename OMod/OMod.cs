@@ -400,6 +400,18 @@ namespace Nexus.Client.Mods.Formats.OMod
 		}
 
 		/// <summary>
+		/// Gets the path to the mod archive.
+		/// </summary>
+		/// <value>The path to the mod archive.</value>
+		public string ModArchivePath
+		{
+			get
+			{
+				return m_strFilePath;
+			}
+		}
+
+		/// <summary>
 		/// Gets the format of the mod.
 		/// </summary>
 		/// <value>The format of the mod.</value>

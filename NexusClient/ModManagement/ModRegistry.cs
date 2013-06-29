@@ -24,7 +24,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_booRecurse">Whether to check sub folders of <paramref name="p_strSearchPath"/> for mods.</param>
 		/// <param name="p_strExcludedSubDirectories">The list of subdirectories not to examine for mods.</param>
 		/// <returns>A registry containing all of the discovered mods.</returns>
-		public static ModRegistry DiscoverManagedMods(IModFormatRegistry p_frgFormatRegistry, IModCacheManager p_frgCacheManager, string p_strSearchPath, bool p_booRecurse, params string[] p_strExcludedSubDirectories)
+		public static ModRegistry DiscoverManagedMods(IModFormatRegistry p_frgFormatRegistry, IModCacheManager p_frgCacheManager, string p_strSearchPath, bool p_booRecurse, bool p_booUsesPlugins, params string[] p_strExcludedSubDirectories)
 		{
 			Trace.TraceInformation("Discovering Managed Mods...");
 			Trace.Indent();
@@ -35,7 +35,7 @@ namespace Nexus.Client.ModManagement
 			for (Int32 i = 0; i < p_strExcludedSubDirectories.Length; i++)
 				lstExludedPaths.Add((p_strExcludedSubDirectories[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar).ToLower());
 
-			ModRegistry mdrRegistry = new ModRegistry(p_frgFormatRegistry);
+			ModRegistry mdrRegistry = new ModRegistry(p_frgFormatRegistry, p_booUsesPlugins);
 			string[] strMods = Directory.GetFiles(p_strSearchPath, "*", p_booRecurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 			IMod modMod = null;
 			List<string> modList = new List<String>();
@@ -57,7 +57,7 @@ namespace Nexus.Client.ModManagement
 				try
 				{
 					string strCachePath = p_frgCacheManager.GetCacheFilePath(strMod);
-					modMod = mdrRegistry.CreateMod(strMod, strCachePath);
+					modMod = mdrRegistry.CreateMod(strMod, strCachePath, p_booUsesPlugins);
 				}
 				catch
 				{
@@ -88,6 +88,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		private ThreadSafeObservableList<IMod> m_oclRegisteredMods = new ThreadSafeObservableList<IMod>();
+		private bool m_booUsesPlugins = false;
 
 		#region Properties
 
@@ -114,9 +115,10 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_frgFormatRegistry">The <see cref="IModFormatRegistry"/> that contains the list
 		/// of supported <see cref="IModFormat"/>s.</param>
-		public ModRegistry(IModFormatRegistry p_frgFormatRegistry)
+		public ModRegistry(IModFormatRegistry p_frgFormatRegistry, bool p_booUsesPlugins)
 		{
 			FormatRegistry = p_frgFormatRegistry;
+			m_booUsesPlugins = p_booUsesPlugins;
 			RegisteredMods = new ReadOnlyObservableList<IMod>(m_oclRegisteredMods);
 		}
 
@@ -129,7 +131,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strCachePath">The path to the cache file.</param>
 		/// <returns>A mod of the appropriate type from the specified file, if the type of hte mod
 		/// can be determined; <c>null</c> otherwise.</returns>
-		protected IMod CreateMod(string p_strModPath, string p_strCachePath)
+		protected IMod CreateMod(string p_strModPath, string p_strCachePath, bool p_booUsesPlugins)
 		{
 			if ((String.IsNullOrEmpty(p_strCachePath)) || (!File.Exists(p_strCachePath)))
 				p_strCachePath = p_strModPath;
@@ -140,7 +142,7 @@ namespace Nexus.Client.ModManagement
 			lstFormats.Sort((x, y) => -x.Key.CompareTo(y.Key));
 			if (lstFormats[0].Key <= FormatConfidence.Convertible)
 				return null;
-			return lstFormats[0].Value.CreateMod(p_strModPath);
+			return lstFormats[0].Value.CreateMod(p_strModPath, p_booUsesPlugins);
 		}
 
 		/// <summary>
@@ -168,7 +170,7 @@ namespace Nexus.Client.ModManagement
 			for (intExistingIndex = 0; intExistingIndex < m_oclRegisteredMods.Count; intExistingIndex++)
 				if (p_strModPath.Equals(m_oclRegisteredMods[intExistingIndex].Filename, StringComparison.OrdinalIgnoreCase))
 					break;
-			modMod = CreateMod(p_strModPath, string.Empty);
+			modMod = CreateMod(p_strModPath, string.Empty, m_booUsesPlugins);
 			if (p_mifTagInfo != null)
 				modMod.UpdateInfo(p_mifTagInfo, false);
 			if (modMod == null)
@@ -198,7 +200,7 @@ namespace Nexus.Client.ModManagement
 		public IMod GetMod(string p_strModPath)
 		{
 			return (from m in m_oclRegisteredMods
-					where m.Filename.Equals(p_strModPath, StringComparison.OrdinalIgnoreCase)
+					where m.ModArchivePath.Equals(p_strModPath, StringComparison.OrdinalIgnoreCase)
 					select m).FirstOrDefault();
 		}
 	}

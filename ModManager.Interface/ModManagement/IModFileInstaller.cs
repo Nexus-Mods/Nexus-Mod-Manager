@@ -47,7 +47,8 @@ namespace Nexus.Client.ModManagement
 		/// the file is deleted.
 		/// </remarks>
 		/// <param name="p_strPath">The path to the file that is to be uninstalled.</param>
-		void UninstallDataFile(string p_strPath);
+		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
+		void UninstallDataFile(string p_strPath, bool p_booSecondaryInstallPath);
 
 		/// <summary>
 		/// Finalizes the installation of the files.

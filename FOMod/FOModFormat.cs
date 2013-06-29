@@ -121,11 +121,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// </remarks>
 		/// <param name="p_strPath">The path of the file from which to create an <see cref="IMod"/>.</param>
 		/// <returns>A mod from the specified file.</returns>
-		public IMod CreateMod(string p_strPath)
+		public IMod CreateMod(string p_strPath, bool p_booUsesPlugins)
 		{
 			if (CheckFormatCompliance(p_strPath) <= FormatConfidence.Convertible)
 				throw new ModFormatException(this);
-			return new FOMod(p_strPath, this, ModCacheManager, IScriptTypeRegistry);
+			return new FOMod(p_strPath, this, ModCacheManager, IScriptTypeRegistry, p_booUsesPlugins);
 		}
 
 		/// <summary>

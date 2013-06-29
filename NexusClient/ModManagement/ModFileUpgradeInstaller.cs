@@ -114,7 +114,7 @@ namespace Nexus.Client.ModManagement
 		public override void FinalizeInstall()
 		{
 			foreach (string strFile in OriginallyInstalledFiles)
-				UninstallDataFile(strFile);
+				UninstallDataFile(strFile, false);
 		}
 	}
 }

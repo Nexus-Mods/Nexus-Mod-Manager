@@ -363,22 +363,24 @@ namespace Nexus.Client.Games.DragonAge
 			string strModFileName = Path.GetFileNameWithoutExtension(p_modMod.Filename);
 			string strModFileExtension = Path.GetExtension(p_modMod.Filename);
 
-			if (Path.GetFileName(p_strPath).Equals("manifest.xml", StringComparison.InvariantCultureIgnoreCase))
-			{
-				AddManifest(p_modMod);
-				return String.Empty;
-			}
-
 			if (strModFileExtension.Equals(".dazip", StringComparison.InvariantCultureIgnoreCase))
+			{
+				if (Path.GetFileName(p_strPath).Equals("manifest.xml", StringComparison.InvariantCultureIgnoreCase))
+				{
+					AddManifest(p_modMod);
+					return String.Empty;
+				}
+
 				if (p_strPath.StartsWith("contents", StringComparison.InvariantCultureIgnoreCase))
 					strPath = p_strPath.Remove(0, 9);
+			}
 
 			if (String.IsNullOrEmpty(strPath))
 			{
-				strPath = Path.GetDirectoryName(p_strPath);
-
-				if (String.IsNullOrEmpty(strPath))
+				if (String.IsNullOrEmpty(Path.GetDirectoryName(p_strPath)))
 					strPath = strModFileName;
+				else
+					strPath = p_strPath;
 			}
 
 			return (String.IsNullOrEmpty(Path.GetDirectoryName(p_strPath))) ? Path.Combine(strPath, p_strPath) : strPath;
@@ -566,9 +568,9 @@ namespace Nexus.Client.Games.DragonAge
 		}
 
 		/// <summary>
-		/// Checks whether the system needs to uninstal secondary parameters.
+		/// Checks whether the system needs to uninstall secondary parameters.
 		/// </summary>
-		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
+		/// <returns>Whether the system needs to uninstall secondary parameters.</returns>
 		/// <param name="p_strFileName">The filename.</param>
 		public override void CheckSecondaryUninstall(string p_strFileName)
 		{

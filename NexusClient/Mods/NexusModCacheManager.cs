@@ -75,7 +75,7 @@ namespace Nexus.Client.Mods
 		/// <returns>The path to the specified mod's cache file.</returns>
 		private string GetCacheFilePath(IMod p_modMod)
 		{
-			return Path.Combine(ModCacheDirectory, Path.GetFileName(p_modMod.Filename) + ".zip");
+			return Path.Combine(ModCacheDirectory, Path.GetFileName(p_modMod.ModArchivePath) + ".zip");
 		}
 
 		/// <summary>

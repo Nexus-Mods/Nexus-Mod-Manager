@@ -389,11 +389,18 @@ namespace Nexus.Client.ModManagement
 		/// the file is deleted.
 		/// </remarks>
 		/// <param name="p_strPath">The path to the file that is to be uninstalled.</param>
-		public void UninstallDataFile(string p_strPath)
+		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
+		public void UninstallDataFile(string p_strPath, bool p_booSecondaryInstallPath)
 		{
+			string strInstallFilePath = String.Empty;
 			DataFileUtility.AssertFilePathIsSafe(p_strPath);
 			string strUninstallingModKey = InstallLog.GetModKey(Mod);
-			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+
+			if (p_booSecondaryInstallPath && !(String.IsNullOrEmpty(GameModeInfo.SecondaryInstallationPath)))
+				strInstallFilePath = Path.Combine(GameModeInfo.SecondaryInstallationPath, p_strPath);
+			else
+				strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+
 			string strBackupDirectory = Path.Combine(GameModeInfo.OverwriteDirectory, Path.GetDirectoryName(p_strPath));
 			string strFile;
 			string strRestoreFromPath = string.Empty;

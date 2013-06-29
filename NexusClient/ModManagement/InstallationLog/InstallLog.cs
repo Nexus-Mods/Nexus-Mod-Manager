@@ -290,12 +290,12 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				{
 					string strModPath = xelMod.Attribute("path").Value;
 					Trace.Write("Found " + strModPath + "...");
-					if (OriginalValueMod.Filename.Equals(strModPath))
+					if (OriginalValueMod.ModArchivePath.Equals(strModPath))
 					{
 						m_amrModKeys.RegisterMod(OriginalValueMod, xelMod.Attribute("key").Value, true);
 						Trace.WriteLine("OK");
 					}
-					else if (ModManagerValueMod.Filename.Equals(strModPath))
+					else if (ModManagerValueMod.ModArchivePath.Equals(strModPath))
 					{
 						m_amrModKeys.RegisterMod(ModManagerValueMod, xelMod.Attribute("key").Value, true);
 						Trace.WriteLine("OK");
@@ -378,7 +378,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			xelRoot.Add(xelModList);
 			xelModList.Add(from kvp in m_amrModKeys.Registrations
 						   select new XElement("mod",
-									new XAttribute("path", (kvp.Key is DummyMod) ? kvp.Key.Filename : kvp.Key.Filename.Substring(ModInstallDirectory.Length)),
+									new XAttribute("path", (kvp.Key is DummyMod) ? kvp.Key.ModArchivePath : kvp.Key.ModArchivePath.Substring(ModInstallDirectory.Length)),
 									new XAttribute("key", kvp.Value),
 									new XElement("version",
 										new XAttribute("machineVersion", kvp.Key.MachineVersion ?? new Version()),
@@ -547,7 +547,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			foreach (KeyValuePair<string, IMod> kvpMod in GetInstallLogModInfo())
 			{
 				IMod modRegistered = GetMod(kvpMod.Key);
-				if ((modRegistered != null) && File.Exists(modRegistered.Filename) && !String.Equals(modRegistered.HumanReadableVersion ?? "", kvpMod.Value.HumanReadableVersion ?? ""))
+				if ((modRegistered != null) && File.Exists(modRegistered.ModArchivePath) && !String.Equals(modRegistered.HumanReadableVersion ?? "", kvpMod.Value.HumanReadableVersion ?? ""))
 					yield return new KeyValuePair<IMod, IMod>(kvpMod.Value, modRegistered);
 			}
 		}

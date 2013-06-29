@@ -19,6 +19,12 @@ namespace Nexus.Client.Mods
 		string Filename { get; }
 
 		/// <summary>
+		/// Gets the path to the mod archive.
+		/// </summary>
+		/// <value>The path to the mod archive.</value>
+		string ModArchivePath { get; }
+
+		/// <summary>
 		/// Gets the format of the mod.
 		/// </summary>
 		/// <value>The format of the mod.</value>
