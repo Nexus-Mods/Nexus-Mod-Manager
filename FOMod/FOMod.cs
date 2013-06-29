@@ -414,6 +414,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			Format = p_mftModFormat;
 			ScriptTypeRegistry = p_stgScriptTypeRegistry;
 			bool p_booUseCache = true;
+			m_booUsesPlugins = p_booUsePlugins;
 
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
