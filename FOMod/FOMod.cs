@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Util;
 using SevenZip;
+using System.Text;
 
 namespace Nexus.Client.Mods.Formats.FOMod
 {
@@ -415,28 +417,121 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			ScriptTypeRegistry = p_stgScriptTypeRegistry;
 			bool p_booUseCache = true;
 			m_booUsesPlugins = p_booUsePlugins;
+			bool booCheckNested = true;
+			bool booCheckPrefix = true;
+			bool booCheckScript = true;
+			bool booUpdateCacheInfo = false;
+			string strCheckPrefix = null;
+			string strCheckScriptPath = null;
+			string strCheckScriptType = null;
 
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
 
-
-			#region Temporary fix for nested .dazip files
-			string[] strNested = m_arcFile.GetFiles("", "*.dazip", true);
-			if (strNested.Length == 1)
+			#region Check for cacheInfo.txt file
+			m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(m_strFilePath);
+			if (m_arcCacheFile != null)
 			{
-				string strFilePath = Path.Combine(Path.Combine(Path.GetTempPath(), "NMM"), strNested[0]);
-				FileUtil.WriteAllBytes(strFilePath, GetFile(strNested[0]));
-				if (File.Exists(strFilePath))
+				if (m_arcCacheFile.ContainsFile("cacheInfo.txt"))
 				{
-					m_arcFile = new Archive(strFilePath);
-					m_strNestedFilePath = strFilePath;
+					byte[] bCacheInfo = m_arcCacheFile.GetFileContents("cacheInfo.txt");
+					string sCacheInfo = Encoding.UTF8.GetString(bCacheInfo, 0, bCacheInfo.Length);
+					string[] strPref = sCacheInfo.Split(new string[] { "@@" }, StringSplitOptions.RemoveEmptyEntries);
+					if (strPref.Length > 0)
+					{
+						booCheckNested = Convert.ToBoolean(strPref[0]);
+
+						if (strPref.Length > 1)
+						{
+							strCheckPrefix = strPref[1];
+							if (strCheckPrefix.Equals("-"))
+								strCheckPrefix = String.Empty;
+							booCheckPrefix = false;
+						}
+
+						if (strPref.Length > 2)
+						{
+							strCheckScriptPath = strPref[2];
+							if (strCheckScriptPath.Equals("-"))
+								strCheckScriptPath = String.Empty;
+							strCheckScriptType = strPref[3];
+							if (strCheckScriptType.Equals("-"))
+								strCheckScriptType = String.Empty;
+							booCheckScript = false;
+						}
+					}
 				}
 			}
+
 			#endregion
+
+			if (booCheckNested)
+			{
+				#region Temporary fix for nested .dazip files
+				string[] strNested = m_arcFile.GetFiles("", "*.dazip", true);
+				if (strNested.Length == 1)
+				{
+					string strFilePath = Path.Combine(Path.Combine(Path.GetTempPath(), "NMM"), strNested[0]);
+					FileUtil.WriteAllBytes(strFilePath, GetFile(strNested[0]));
+					if (File.Exists(strFilePath))
+					{
+						m_arcFile = new Archive(strFilePath);
+						m_strNestedFilePath = strFilePath;
+					}
+				}
+				#endregion
+			}
 
 			m_arcFile.ReadOnlyInitProgressUpdated += new CancelProgressEventHandler(ArchiveFile_ReadOnlyInitProgressUpdated);
 
-			FindPathPrefix();
+			if (booCheckPrefix)
+			{
+				FindPathPrefix();
+				booUpdateCacheInfo = true;
+			}
+			else
+				m_strPrefixPath = String.IsNullOrEmpty(strCheckPrefix) ? String.Empty : strCheckPrefix;
+
+			//check for script
+			if (booCheckScript)
+			{
+				foreach (IScriptType stpScript in p_stgScriptTypeRegistry.Types)
+				{
+					foreach (string strScriptName in stpScript.FileNames)
+					{
+						string strScriptPath = Path.Combine("fomod", strScriptName);
+						if (ContainsFile(strScriptPath))
+						{
+							m_strInstallScriptPath = strScriptPath;
+							m_stpInstallScriptType = stpScript;
+							break;
+						}
+					}
+					if (!String.IsNullOrEmpty(m_strInstallScriptPath))
+						break;
+				}
+
+				booUpdateCacheInfo = true;
+			}
+			else
+			{
+				m_strInstallScriptPath = strCheckScriptPath;
+				m_stpInstallScriptType = String.IsNullOrEmpty(strCheckScriptType) ? null : p_stgScriptTypeRegistry.Types.FirstOrDefault(x => x.TypeName.Equals(strCheckScriptType));
+			}
+
+			if (booUpdateCacheInfo || (!m_arcCacheFile.ContainsFile("cacheInfo.txt")))
+			{
+
+				Byte[] bteText = new UTF8Encoding(true).GetBytes(String.Format("{0}@@{1}@@{2}@@{3}",
+					(!String.IsNullOrEmpty(m_strNestedFilePath)).ToString(),
+					String.IsNullOrEmpty(m_strPrefixPath) ? "-" : m_strPrefixPath,
+					String.IsNullOrEmpty(m_strInstallScriptPath) ? "-" : m_strInstallScriptPath,
+					(m_stpInstallScriptType == null) ? "-" : m_stpInstallScriptType.TypeName));
+
+				if (bteText != null)
+					m_arcCacheFile.ReplaceFile("cacheInfo.txt", bteText);
+			}
+
 			if (p_booUseCache)
 			{
 				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(m_strFilePath);
@@ -449,23 +544,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 			m_arcFile.FilesChanged += new EventHandler(Archive_FilesChanged);
-
-			//check for script
-			foreach (IScriptType stpScript in p_stgScriptTypeRegistry.Types)
-			{
-				foreach (string strScriptName in stpScript.FileNames)
-				{
-					string strScriptPath = Path.Combine("fomod", strScriptName);
-					if (ContainsFile(strScriptPath))
-					{
-						m_strInstallScriptPath = strScriptPath;
-						m_stpInstallScriptType = stpScript;
-						break;
-					}
-				}
-				if (!String.IsNullOrEmpty(m_strInstallScriptPath))
-					break;
-			}
 
 			//check for readme
 			string strBaseName = Path.GetFileNameWithoutExtension(p_strFilePath);
