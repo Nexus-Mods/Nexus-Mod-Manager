@@ -31,12 +31,12 @@ namespace Nexus.Client.Games.DragonAge
 	/// <summary>
 	/// Provides information required for the program to manage Dragon Age game's plugins and mods.
 	/// </summary>
-    public class DragonAgeGameMode : GameModeBase
+	public class DragonAgeGameMode : GameModeBase
 	{
-        private DragonAgeGameModeDescriptor m_gmdGameModeInfo = null;
-        private DragonAgeLauncher m_glnGameLauncher = null;
-        private DragonAgeToolLauncher m_gtlToolLauncher = null;
-        private string strXMLDirectory = null;         
+		private DragonAgeGameModeDescriptor m_gmdGameModeInfo = null;
+		private DragonAgeLauncher m_glnGameLauncher = null;
+		private DragonAgeToolLauncher m_gtlToolLauncher = null;
+		private string strXMLDirectory = null;
 
 		#region Properties
 
@@ -89,7 +89,7 @@ namespace Nexus.Client.Games.DragonAge
 		/// <summary>
 		/// Gets the path to the per user Dragon Age data.
 		/// </summary>
-        /// <value>The path to the per user Dragon Age data.</value>
+		/// <value>The path to the per user Dragon Age data.</value>
 		public string UserGameDataPath
 		{
 			get
@@ -107,7 +107,7 @@ namespace Nexus.Client.Games.DragonAge
 			get
 			{
 				if (m_glnGameLauncher == null)
-                    m_glnGameLauncher = new DragonAgeLauncher(this, EnvironmentInfo);
+					m_glnGameLauncher = new DragonAgeLauncher(this, EnvironmentInfo);
 				return m_glnGameLauncher;
 			}
 		}
@@ -121,7 +121,7 @@ namespace Nexus.Client.Games.DragonAge
 			get
 			{
 				if (m_gtlToolLauncher == null)
-                    m_gtlToolLauncher = new DragonAgeToolLauncher(this, EnvironmentInfo);
+					m_gtlToolLauncher = new DragonAgeToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
 			}
 		}
@@ -399,159 +399,163 @@ namespace Nexus.Client.Games.DragonAge
 			XDoc.Save(strAddins);
 		}
 
-        /// <summary>
-        /// Function inside the MergeElements of the Dragon Age gamemode.
-        /// </summary>
-        /// <param name="p_xeA">The first Xelement.</param>
-        /// <param name="p_xeB">The second Xelement</param>
-        /// <returns>Function inside the MergeElements of the Dragon Age gamemode.</returns>
-        private static bool AreEquivalent(XElement p_xeA, XElement p_xeB)
-        {
-            if (p_xeA.Name != p_xeB.Name) return false;
-            if (!p_xeA.HasAttributes && !p_xeB.HasAttributes) return true;
-            if (!p_xeA.HasAttributes || !p_xeB.HasAttributes) return false;
-            if (p_xeA.Attributes().Count() != p_xeB.Attributes().Count()) return false;
+		/// <summary>
+		/// Function inside the MergeElements of the Dragon Age gamemode.
+		/// </summary>
+		/// <param name="p_xeA">The first Xelement.</param>
+		/// <param name="p_xeB">The second Xelement</param>
+		/// <returns>Function inside the MergeElements of the Dragon Age gamemode.</returns>
+		private static bool AreEquivalent(XElement p_xeA, XElement p_xeB)
+		{
+			if (p_xeA.Name != p_xeB.Name) return false;
+			if (!p_xeA.HasAttributes && !p_xeB.HasAttributes) return true;
+			if (!p_xeA.HasAttributes || !p_xeB.HasAttributes) return false;
+			if (p_xeA.Attributes().Count() != p_xeB.Attributes().Count()) return false;
 
-            return p_xeA.Attributes().All(attA => p_xeB.Attributes(attA.Name)
-                .Count(attB => attB.Value == attA.Value) != 0);
-        }
+			return p_xeA.Attributes().All(attA => p_xeB.Attributes(attA.Name)
+				.Count(attB => attB.Value == attA.Value) != 0);
+		}
 
-        /// <summary>
+		/// <summary>
 		/// Function inside the ModFileMerge of the Dragon Age gamemode.
-        /// </summary>
-        /// <param name="p_xeParentA">The first Xelement.</param>
-        /// <param name="p_xeParentB">The second Xelement</param>
+		/// </summary>
+		/// <param name="p_xeParentA">The first Xelement.</param>
+		/// <param name="p_xeParentB">The second Xelement</param>
 		/// <returns>Function inside the ModFileMerge of the Dragon Age gamemode.</returns>
-        private static void MergeElements(XElement p_xeParentA, XElement p_xeParentB)
-        {
-            try
-            {
-                foreach (XElement childB in p_xeParentB.DescendantNodes())
-                {
-                    bool isMatchFound = false;
-                    foreach (XElement childA in p_xeParentA.Descendants())
-                    {
-                        if (AreEquivalent(childA, childB))
-                        {
-                            MergeElements(childA, childB);
-                            isMatchFound = true;
-                            break;
-                        }
-                    }
+		private static void MergeElements(XElement p_xeParentA, XElement p_xeParentB)
+		{
+			try
+			{
+				foreach (XElement childB in p_xeParentB.DescendantNodes())
+				{
+					bool isMatchFound = false;
+					foreach (XElement childA in p_xeParentA.Descendants())
+					{
+						if ((!childA.Value.ToString().StartsWith("<!--")) || (!childB.Value.ToString().StartsWith("<!--")))
+						{
+							if (AreEquivalent(childA, childB))
+							{
+								MergeElements(childA, childB);
+								isMatchFound = true;
+								break;
+							}
+						}
+					}
 
-                    if (!isMatchFound) p_xeParentA.Add(childB);
-                }
-            }
-            catch
-            { }
-        }
+					if (!isMatchFound) p_xeParentA.Add(childB);
+				}
+			}
+			catch
+			{ }
+		}
 
-        /// <summary>
-        /// Merges the chargenmorphcfg.xml file of the Dragon Age mods.
-        /// </summary>
+		/// <summary>
+		/// Merges the chargenmorphcfg.xml file of the Dragon Age mods.
+		/// </summary>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <param name="p_modMod">The current mod.</param>
 		/// <param name="p_booRemove">Whether we're adding or removing the mod.</param>
 		public override void ModFileMerge(ReadOnlyObservableList<IMod> p_rolActiveMods, IMod p_modMod, bool p_booRemove)
-        {
-            
-            List<string> lstFiles = null;
-            XDocument XDoc = null;
-            XDocument XDocMerge = null;
-            bool booMerge = false;            
-            Byte[] bFile = null;
-            strXMLDirectory = Path.Combine(m_gmdGameModeInfo.InstallationPath, "NMM_chargenmorphcfg");
+		{
 
-            #region activeMods
+			List<string> lstFiles = null;
+			XDocument XDoc = null;
+			XDocument XDocMerge = null;
+			bool booMerge = false;
+			Byte[] bFile = null;
+			strXMLDirectory = Path.Combine(m_gmdGameModeInfo.InstallationPath, "NMM_chargenmorphcfg");
+
+			#region activeMods
 
 			if (p_booRemove)
-                File.Delete(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
+				File.Delete(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
 
 
 			if ((!File.Exists(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"))) || (p_booRemove))
-            {
+			{
 				foreach (IMod modMod in p_rolActiveMods)
-                {
+				{
 					if (modMod.Filename != p_modMod.Filename)
-                    {
-                        lstFiles = modMod.GetFileList();
+					{
+						lstFiles = modMod.GetFileList();
 
-                        foreach (string strFile in lstFiles)
-                        {
-                            if (strFile.EndsWith("chargenmorphcfg.xml"))
-                            {
-                                bFile = modMod.GetFile(strFile);
-                                string responseText = Encoding.ASCII.GetString(bFile);
+						foreach (string strFile in lstFiles)
+						{
+							if (strFile.EndsWith("chargenmorphcfg.xml"))
+							{
+								bFile = modMod.GetFile(strFile);
+								string responseText = Encoding.ASCII.GetString(bFile);
 
-                                XDoc = XDocument.Parse(responseText.Replace("???", ""));
-                                if (XDocMerge == null)
-                                {
-                                    XDocMerge = XDoc;
-                                    booMerge = true;
-                                }
-                                else
-                                {
-                                    foreach (XElement ele in XDoc.Root.Elements())
-                                    {
-                                        XElement xeDoc = XDoc.Root.Element(ele.Name.ToString());
-                                        XElement xeDocMerge = XDocMerge.Root.Element(ele.Name.ToString());
-                                        MergeElements(xeDoc, xeDocMerge);
-                                    }
+								XDoc = XDocument.Parse(responseText.Replace("???", ""));
+								if (XDocMerge == null)
+								{
+									XDocMerge = XDoc;
+									booMerge = true;
+								}
+								else
+								{
+									foreach (XElement ele in XDoc.Root.Elements())
+									{
 
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            else
-            {
+										XElement xeDoc = XDoc.Root.Element(ele.Name.ToString());
+										XElement xeDocMerge = XDocMerge.Root.Element(ele.Name.ToString());
+										MergeElements(xeDoc, xeDocMerge);
+									}
 
-                bFile = File.ReadAllBytes(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
-                string responseText = Encoding.ASCII.GetString(bFile);
+								}
+							}
+						}
+					}
+				}
+			}
+			else
+			{
 
-                XDoc = XDocument.Parse(responseText.Replace("???", ""));
-                booMerge = true;
-            }
+				bFile = File.ReadAllBytes(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
+				string responseText = Encoding.ASCII.GetString(bFile);
 
-            #endregion
+				XDoc = XDocument.Parse(responseText.Replace("???", ""));
+				booMerge = true;
+			}
 
-            #region currentMod
+			#endregion
+
+			#region currentMod
 			if ((p_modMod != null) && (!p_rolActiveMods.Contains(p_modMod)))
-            {
+			{
 				lstFiles = p_modMod.GetFileList();
-                foreach (string strFile in lstFiles)
-                {
-                    if (strFile.EndsWith("chargenmorphcfg.xml"))
-                    {
+				foreach (string strFile in lstFiles)
+				{
+					if (strFile.EndsWith("chargenmorphcfg.xml"))
+					{
 						bFile = p_modMod.GetFile(strFile);
-                        string responseText = Encoding.ASCII.GetString(bFile);
+						string responseText = Encoding.ASCII.GetString(bFile);
 
-                        XDocMerge = XDocument.Parse(responseText.Replace("???", ""));
+						XDocMerge = XDocument.Parse(responseText.Replace("???", ""));
 
-                        if (booMerge)
-                        {
-                            foreach (XElement ele in XDoc.Root.Elements())
-                            {
-                                XElement xeDoc = XDoc.Root.Element(ele.Name.ToString());
-                                XElement xeDocMerge = XDocMerge.Root.Element(ele.Name.ToString());
-                                MergeElements(xeDoc, xeDocMerge);
-                            }
-                        }
-                    }
-                }
-            }
-            #endregion
+						if (booMerge)
+						{
+							foreach (XElement ele in XDoc.Root.Elements())
+							{
+								XElement xeDoc = XDoc.Root.Element(ele.Name.ToString());
+								XElement xeDocMerge = XDocMerge.Root.Element(ele.Name.ToString());
+								MergeElements(xeDoc, xeDocMerge);
+							}
+						}
+					}
+				}
+			}
+			#endregion
 
-            if (!Directory.Exists(strXMLDirectory))
-                Directory.CreateDirectory(strXMLDirectory);
+			if (!Directory.Exists(strXMLDirectory))
+				Directory.CreateDirectory(strXMLDirectory);
 
-            if(XDoc != null)
-                XDoc.Save(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
-            else if(XDocMerge != null)
-                XDocMerge.Save(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
-            
-        }
+			if (XDoc != null)
+				XDoc.Save(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
+			else if (XDocMerge != null)
+				XDocMerge.Save(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
+
+		}
 
 		/// <summary>
 		/// Checks whether to use the secondary mod install method.
