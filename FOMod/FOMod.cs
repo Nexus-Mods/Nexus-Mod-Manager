@@ -519,19 +519,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				m_stpInstallScriptType = String.IsNullOrEmpty(strCheckScriptType) ? null : p_stgScriptTypeRegistry.Types.FirstOrDefault(x => x.TypeName.Equals(strCheckScriptType));
 			}
 
-			if (booUpdateCacheInfo || (!m_arcCacheFile.ContainsFile("cacheInfo.txt")))
-			{
-
-				Byte[] bteText = new UTF8Encoding(true).GetBytes(String.Format("{0}@@{1}@@{2}@@{3}",
-					(!String.IsNullOrEmpty(m_strNestedFilePath)).ToString(),
-					String.IsNullOrEmpty(m_strPrefixPath) ? "-" : m_strPrefixPath,
-					String.IsNullOrEmpty(m_strInstallScriptPath) ? "-" : m_strInstallScriptPath,
-					(m_stpInstallScriptType == null) ? "-" : m_stpInstallScriptType.TypeName));
-
-				if (bteText != null)
-					m_arcCacheFile.ReplaceFile("cacheInfo.txt", bteText);
-			}
-
 			if (p_booUseCache)
 			{
 				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(m_strFilePath);
@@ -560,7 +547,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 						m_strReadmePath = "docs/Readme - " + strBaseName + Readme.ValidExtensions[i];
 						break;
 					}
-
 
 			//check for screenshot
 			string[] strScreenshots;
@@ -596,6 +582,19 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				{
 					FileUtil.ForceDelete(strTmpInfo);
 				}
+			}
+
+			if (booUpdateCacheInfo || (!m_arcCacheFile.ContainsFile("cacheInfo.txt")))
+			{
+
+				Byte[] bteText = new UTF8Encoding(true).GetBytes(String.Format("{0}@@{1}@@{2}@@{3}",
+					(!String.IsNullOrEmpty(m_strNestedFilePath)).ToString(),
+					String.IsNullOrEmpty(m_strPrefixPath) ? "-" : m_strPrefixPath,
+					String.IsNullOrEmpty(m_strInstallScriptPath) ? "-" : m_strInstallScriptPath,
+					(m_stpInstallScriptType == null) ? "-" : m_stpInstallScriptType.TypeName));
+
+				if (bteText != null)
+					m_arcCacheFile.ReplaceFile("cacheInfo.txt", bteText);
 			}
 
 			ModName = Path.GetFileNameWithoutExtension(m_strFilePath);
