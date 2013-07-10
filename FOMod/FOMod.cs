@@ -62,6 +62,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private bool m_booUpdateWarningEnabled = true;
 		private IScript m_scpInstallScript = null;
 		private bool m_booUsesPlugins = false;
+		private bool m_booMovedArchiveInitialized = false;
 
 		#endregion
 
@@ -490,7 +491,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				booUpdateCacheInfo = true;
 			}
 			else
+			{
 				m_strPrefixPath = String.IsNullOrEmpty(strCheckPrefix) ? String.Empty : strCheckPrefix;
+			}
 
 			//check for script
 			if (booCheckScript)
@@ -715,33 +718,40 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 			strPrefixPath = (strPrefixPath == null) ? "" : strPrefixPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			if (!String.IsNullOrEmpty(strPrefixPath))
-			{
-				strPrefixPath = strPrefixPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-				strPrefixPath = strPrefixPath.Trim(Path.DirectorySeparatorChar);
-				strPrefixPath += Path.DirectorySeparatorChar;
-				m_dicMovedArchiveFiles.Clear();
-				string[] strFiles = m_arcFile.GetFiles("/", true);
-				Int32 intTrimLength = strPrefixPath.Length;
-				for (Int32 i = strFiles.Length - 1; i >= 0; i--)
-				{
-					strFiles[i] = strFiles[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-					string strFile = strFiles[i];
-					string strNewFileName = null;
-					if (!strFile.StartsWith(strPrefixPath, StringComparison.OrdinalIgnoreCase))
-					{
-						strNewFileName = strFile;
-						string strDirectory = Path.GetDirectoryName(strNewFileName);
-						string strFileName = Path.GetFileNameWithoutExtension(strFile);
-						string strExtension = Path.GetExtension(strFile);
-						for (Int32 j = 1; m_dicMovedArchiveFiles.ContainsKey(strNewFileName); j++)
-							strNewFileName = Path.Combine(strDirectory, strFileName + " " + j + strExtension);
-					}
-					else
-						strNewFileName = strFile.Remove(0, intTrimLength);
-					m_dicMovedArchiveFiles[strNewFileName] = strFile;
-				}
-			}
+				strPrefixPath = InitializeMovedArchive(strPrefixPath);
+
+			m_booMovedArchiveInitialized = true;
 			m_strPrefixPath = strPrefixPath;
+		}
+
+		private string InitializeMovedArchive(string p_strPathPrefix)
+		{
+			p_strPathPrefix = p_strPathPrefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			p_strPathPrefix = p_strPathPrefix.Trim(Path.DirectorySeparatorChar);
+			p_strPathPrefix += Path.DirectorySeparatorChar;
+			m_dicMovedArchiveFiles.Clear();
+			string[] strFiles = m_arcFile.GetFiles("/", true);
+			Int32 intTrimLength = p_strPathPrefix.Length;
+			for (Int32 i = strFiles.Length - 1; i >= 0; i--)
+			{
+				strFiles[i] = strFiles[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				string strFile = strFiles[i];
+				string strNewFileName = null;
+				if (!strFile.StartsWith(p_strPathPrefix, StringComparison.OrdinalIgnoreCase))
+				{
+					strNewFileName = strFile;
+					string strDirectory = Path.GetDirectoryName(strNewFileName);
+					string strFileName = Path.GetFileNameWithoutExtension(strFile);
+					string strExtension = Path.GetExtension(strFile);
+					for (Int32 j = 1; m_dicMovedArchiveFiles.ContainsKey(strNewFileName); j++)
+						strNewFileName = Path.Combine(strDirectory, strFileName + " " + j + strExtension);
+				}
+				else
+					strNewFileName = strFile.Remove(0, intTrimLength);
+				m_dicMovedArchiveFiles[strNewFileName] = strFile;
+			}
+
+			return p_strPathPrefix;
 		}
 
 		/// <summary>
@@ -910,6 +920,12 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public List<string> GetFileList(string p_strFolderPath, bool p_booRecurse)
 		{
 			List<string> lstFiles = new List<string>();
+			if (!m_booMovedArchiveInitialized)
+			{
+				if (!String.IsNullOrEmpty(m_strPrefixPath))
+					InitializeMovedArchive(m_strPrefixPath);
+				m_booMovedArchiveInitialized = true;
+			}
 			foreach (string strFile in m_arcFile.GetFiles(p_strFolderPath, p_booRecurse))
 				if (!m_dicMovedArchiveFiles.ContainsValue(strFile))
 					if (!strFile.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
