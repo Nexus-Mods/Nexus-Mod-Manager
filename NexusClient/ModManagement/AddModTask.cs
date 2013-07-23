@@ -416,7 +416,9 @@ namespace Nexus.Client.ModManagement
 
 			OverallMessage = String.Format("{0}...", GetModDisplayName());
 
-			if (Descriptor.Status == TaskStatus.Paused)
+			if (Descriptor.Status == TaskStatus.Error)
+				Cancel();
+			else if (Descriptor.Status == TaskStatus.Paused)
 				Pause();
 			else
 			{
@@ -932,7 +934,19 @@ namespace Nexus.Client.ModManagement
 			OverallMessage = String.Format("Cancelled {0}", GetModDisplayName());
 			ItemMessage = "Cancelled";
 			Status = TaskStatus.Cancelled;
+
+			if (Descriptor == null)
+			{
+				Status = TaskStatus.Error;
+				Descriptor = BuildDescriptor(m_uriPath);
+				Descriptor.Status = Status;
+				OverallMessage = String.Format("An error occurred while cancelling: {0}", m_uriPath.ToString());
+				OnTaskEnded(String.Format("An error occurred while cancelling: {0}", m_uriPath.ToString()), null);
+				return;
+			}
+
 			OnTaskEnded(Descriptor.SourceUri);
+
 		}
 
 		/// <summary>
