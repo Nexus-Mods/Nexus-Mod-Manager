@@ -652,7 +652,8 @@ namespace Nexus.Client.ModManagement
 					{
 						if (m_intPreviousProgress == 0)
 							m_intPreviousProgress = fdtDownloader.ResumedByteCount > 0 ? fdtDownloader.ResumedByteCount : 0;
-						TaskSpeed = (int)(((double)(m_dicDownloaderProgress[fdtDownloader].AdjustedProgress - m_intPreviousProgress) / (swtSpeed.ElapsedMilliseconds / 1000)) / 1024);
+						if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
+							TaskSpeed = (int)(((double)(m_dicDownloaderProgress[fdtDownloader].AdjustedProgress - m_intPreviousProgress) / (swtSpeed.ElapsedMilliseconds / 1000)) / 1024);
 						if (TaskSpeed >= 0)
 						{
 							if (m_lstPreviousSpeed.Count == 10)
@@ -661,7 +662,8 @@ namespace Nexus.Client.ModManagement
 						}
 						if (m_lstPreviousSpeed.Count > 1)
 							TaskSpeed = (int)m_lstPreviousSpeed.Average();
-						m_intPreviousProgress = m_dicDownloaderProgress[fdtDownloader].AdjustedProgress;
+						if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
+							m_intPreviousProgress = m_dicDownloaderProgress[fdtDownloader].AdjustedProgress;
 						swtSpeed.Reset();
 						swtSpeed.Start();
 					}
@@ -683,8 +685,12 @@ namespace Nexus.Client.ModManagement
 				{
 					ETA_Minutes = dblMinutes;
 					ETA_Seconds = intSeconds;
-					DownloadProgress = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024);
-					DownloadMaximum = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024);
+
+					if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
+					{
+						DownloadProgress = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024);
+						DownloadMaximum = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024);
+					}
 				}
 
 				ActiveThreads = fdtDownloader.ActiveThreads;
@@ -699,7 +705,8 @@ namespace Nexus.Client.ModManagement
 				else if (fdtDownloader.Status == TaskStatus.Running)
 				{
 					OverallMessage = String.Format("{0}", GetModDisplayName());
-					FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
+					if (m_strFileserverCaptions.ContainsKey(fdtDownloader.ItemProgress))
+						FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
 				}
 				InnerTaskStatus = fdtDownloader.Status;
 			}
