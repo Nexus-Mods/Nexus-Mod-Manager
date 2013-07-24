@@ -128,6 +128,12 @@ namespace Nexus.Client.ModManagement
 					Installers.FileInstaller.InstallErrors.Add(strDetails);
 					return false;
 				}
+				catch (NullReferenceException ex)
+				{
+					string strDetails = ex.Message;
+					Installers.FileInstaller.InstallErrors.Add(strDetails);
+					return false;
+				}
 				StepItemProgress();
 			}
 			StepOverallProgress();
