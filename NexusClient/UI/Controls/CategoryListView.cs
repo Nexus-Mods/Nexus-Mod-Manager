@@ -221,7 +221,7 @@ namespace Nexus.Client.UI.Controls
 			SetupCategorySorter();
 
 			this.CheckBoxes = false;
-			this.UseSubItemCheckBoxes = true;
+			this.UseSubItemCheckBoxes = false;
 			this.BooleanCheckStateGetter = delegate(object x)
 			{
 				if (x.GetType() != typeof(ModCategory))
