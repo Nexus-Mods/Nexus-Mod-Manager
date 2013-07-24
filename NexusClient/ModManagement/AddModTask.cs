@@ -705,8 +705,7 @@ namespace Nexus.Client.ModManagement
 				else if (fdtDownloader.Status == TaskStatus.Running)
 				{
 					OverallMessage = String.Format("{0}", GetModDisplayName());
-					if (m_strFileserverCaptions.ContainsKey(fdtDownloader.ItemProgress))
-						FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
+					FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
 				}
 				InnerTaskStatus = fdtDownloader.Status;
 			}
