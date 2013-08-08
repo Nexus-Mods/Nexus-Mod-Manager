@@ -115,8 +115,8 @@ namespace Nexus.Client.Games
 					return null;
 				string strSearchPath = queSearchPaths.Dequeue();
 				intFOlderCnt++;
-                if (!FileUtil.IsValidPath(strSearchPath))
-                    continue;
+				if (!FileUtil.IsValidPath(strSearchPath))
+					continue;
 				Search(strSearchPath, rgxPatterns);
 				if (EndTaskRequested)
 					return null;
@@ -216,6 +216,12 @@ namespace Nexus.Client.Games
 				//There's something wrong with the path, looks like a drive or UNC name , so let's bail
 				return;
 			}
+			catch (NotSupportedException)
+			{
+				//There's something wrong with the path, like an absolute path appended to another absolute path.
+				Trace.TraceInformation("NotSupportedException while getting files from: {0}", p_strPath);
+				return;
+			}
 			if (strHaystackFiles == null)
 				return;
 			for (Int32 i = 0; i < strHaystackFiles.Length; i++)
@@ -231,3 +237,4 @@ namespace Nexus.Client.Games
 		}
 	}
 }
+	

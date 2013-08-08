@@ -215,6 +215,15 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <summary>
 		/// Returns a factory that is used to create proxies to the repository.
 		/// </summary>
+		/// <returns>A factory that is used to create proxies to the repository.</returns>
+		protected ChannelFactory<INexusModRepositoryApi> GetProxyFactory(long p_timeout)
+		{
+			return GetProxyFactory(false, p_timeout);
+		}
+
+		/// <summary>
+		/// Returns a factory that is used to create proxies to the repository.
+		/// </summary>
 		/// <param name="p_booIsGatekeeper">Whether or not we are communicating with the gatekeeper.</param>
 		/// <returns>A factory that is used to create proxies to the repository.</returns>
 		protected ChannelFactory<INexusModRepositoryApi> GetProxyFactory(bool p_booIsGatekeeper)
@@ -222,6 +231,25 @@ namespace Nexus.Client.ModRepositories.Nexus
 			ChannelFactory<INexusModRepositoryApi> cftProxyFactory = new ChannelFactory<INexusModRepositoryApi>(p_booIsGatekeeper ? "GatekeeperNexusREST" : m_strEndpoint);
 			cftProxyFactory.Endpoint.Behaviors.Add(new HttpUserAgentEndpointBehaviour(UserAgent));
 			cftProxyFactory.Endpoint.Behaviors.Add(new CookieEndpointBehaviour(m_dicAuthenticationTokens));
+			return cftProxyFactory;
+		}
+
+		/// <summary>
+		/// Returns a factory that is used to create proxies to the repository.
+		/// </summary>
+		/// <param name="p_booIsGatekeeper">Whether or not we are communicating with the gatekeeper.</param>
+		/// <param name="p_timeout">The timeout value.</param>
+		/// <returns>A factory that is used to create proxies to the repository.</returns>
+		protected ChannelFactory<INexusModRepositoryApi> GetProxyFactory(bool p_booIsGatekeeper, long p_timeout)
+		{
+			ChannelFactory<INexusModRepositoryApi> cftProxyFactory = new ChannelFactory<INexusModRepositoryApi>(p_booIsGatekeeper ? "GatekeeperNexusREST" : m_strEndpoint);
+			cftProxyFactory.Endpoint.Behaviors.Add(new HttpUserAgentEndpointBehaviour(UserAgent));
+			cftProxyFactory.Endpoint.Behaviors.Add(new CookieEndpointBehaviour(m_dicAuthenticationTokens));
+			if (p_timeout > 0)
+			{
+				cftProxyFactory.Endpoint.Binding.OpenTimeout = TimeSpan.FromSeconds(p_timeout);
+				cftProxyFactory.Endpoint.Binding.SendTimeout = TimeSpan.FromSeconds(p_timeout);
+			}
 			return cftProxyFactory;
 		}
 
@@ -485,7 +513,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 			try
 			{
-				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					nmiInfo = nmrApi.GetModInfo(p_strModId);
@@ -530,9 +558,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 			try
 			{
-				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
 				{
+
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+
 					nmiInfo = nmrApi.GetModListInfo(ModList);
 				}
 			}
@@ -761,7 +791,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 			try
 			{
-				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					return nmrApi.GetModFiles(p_strModId).ConvertAll(x => (IModFileInfo)x);
