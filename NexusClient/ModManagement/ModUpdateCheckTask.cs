@@ -16,9 +16,10 @@ namespace Nexus.Client.ModManagement
 {
 	public class ModUpdateCheckTask : ThreadedBackgroundTask
 	{
-		bool m_booCancel = false;
-		bool m_booOverrideCategorySetup = false;
+		private bool m_booCancel = false;
+		private bool m_booOverrideCategorySetup = false;
 		private List<IMod> m_lstModList = new List<IMod>();
+		private int m_intRetries = 0;
 
 		#region Properties
 
@@ -181,7 +182,7 @@ namespace Nexus.Client.ModManagement
 				if (!ModRepository.IsOffline)
 				{
 					//get mod info
-					for (int i = 0; i <= 2; i++)
+					for (int i = 0; i <= m_intRetries; i++)
 					{
 						mifInfo = ModRepository.GetModListInfo(p_lstModList);
 
