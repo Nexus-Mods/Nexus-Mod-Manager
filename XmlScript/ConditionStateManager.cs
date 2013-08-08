@@ -5,6 +5,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.Util;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Games;
+using System.IO;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript
 {
@@ -39,7 +40,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// </summary>
 		/// <value>The mod for which the script is running.</value>
 		public IMod Mod { get; private set; }
-		
+
 		/// <summary>
 		/// Gets the game mode currently being managed.
 		/// </summary>
@@ -130,7 +131,16 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			if (String.IsNullOrEmpty(p_strPath))
 				return null;
 			if (!m_dicImageCache.ContainsKey(p_strPath))
-				m_dicImageCache[p_strPath] = new ExtendedImage(Mod.GetFile(p_strPath));
+			{
+				try
+				{
+					m_dicImageCache[p_strPath] = new ExtendedImage(Mod.GetFile(p_strPath));
+				}
+				catch (FileNotFoundException)
+				{
+					return Properties.Resources.notFoundJPG;
+				}
+			}
 			return m_dicImageCache[p_strPath];
 		}
 	}
