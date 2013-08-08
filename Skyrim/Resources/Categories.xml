@@ -52,6 +52,9 @@
     <category path="Environmental" ID="74">
       <name>Environmental</name>
     </category>
+	<category path="Followers" ID="96">
+		<name>Followers</name>
+	</category>
     <category path="Gameplay effects and changes" ID="24">
       <name>Gameplay effects and changes</name>
     </category>
