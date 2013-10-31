@@ -370,12 +370,21 @@ namespace Nexus.Client
 				if (gdrGameDetector.DiscoveredGameModes.Count == 0)
 					return null;
 				m_eifEnvironmentInfo.Settings.InstalledGames.Clear();
+				Int32 j = 0;
 				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
 				{
-					IGameModeFactory gmfGameModeFactory = p_gmrSupportedGameModes.GetGameMode(gidGameMode.GameMode.ModeId);
-					m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetInstallationPath(gidGameMode.GameInstallPath);
-					m_eifEnvironmentInfo.Settings.ExecutablePaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetExecutablePath(gidGameMode.GameInstallPath);
-					m_eifEnvironmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
+					if ((gidGameMode != null) && (gidGameMode.GameMode != null))
+					{
+						IGameModeFactory gmfGameModeFactory = p_gmrSupportedGameModes.GetGameMode(gidGameMode.GameMode.ModeId);
+						m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetInstallationPath(gidGameMode.GameInstallPath);
+						m_eifEnvironmentInfo.Settings.ExecutablePaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetExecutablePath(gidGameMode.GameInstallPath);
+						m_eifEnvironmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
+					}
+					else
+					{
+						MessageBox.Show(string.Format("An error occured during the scan of the game {0} : {1}", gdrGameDetector.DiscoveredGameModes[j].GameMode.ModeId, Environment.NewLine + "The object GameMode is NULL"));
+					}
+					j++;
 				}
 				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
 				m_eifEnvironmentInfo.Settings.Save();
