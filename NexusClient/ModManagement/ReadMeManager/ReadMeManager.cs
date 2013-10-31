@@ -26,7 +26,6 @@ namespace Nexus.Client.ModManagement
 		#region Fields
 
 		private string m_strReadMePath = string.Empty;
-		private string strCurrentDirectory = string.Empty;
 		private bool m_booIsInitialized = false;
 		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private Dictionary<string, string[]> m_dicReadMeFiles = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
@@ -168,7 +167,7 @@ namespace Nexus.Client.ModManagement
 				for (int i = 0; i < lstFiles.Count; i++)
 				{
 					strFileName = lstFiles[i].ToString();
-					if (Readme.IsValidReadme(Path.GetExtension(strFileName).ToLower()))
+					if (Readme.IsValidReadme(strFileName))
 					{
 						bteData = arcFile.GetFileContents(lstFiles[i]);
 						if (bteData.Length > 0)
@@ -229,9 +228,11 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected void PurgeTempFolder()
 		{
+			string strCurrentDirectory = Directory.GetCurrentDirectory();
 			Directory.SetCurrentDirectory(ReadMeTempPath);
 			foreach (string strFile in Directory.GetFiles(ReadMeTempPath))
 				FileUtil.ForceDelete(strFile);
+			Directory.SetCurrentDirectory(strCurrentDirectory);
 		}
 
 		/// <summary>
@@ -239,20 +240,26 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public bool CheckReadMeFolder()
 		{
+			bool booCheck = false;
+			string strCurrentDirectory = Directory.GetCurrentDirectory();
 			try
 			{
-				strCurrentDirectory = Directory.GetCurrentDirectory();
 				Directory.SetCurrentDirectory(Directory.GetParent(m_strReadMePath).FullName);
 				Directory.CreateDirectory("ReadMe");
 				Directory.SetCurrentDirectory(m_strReadMePath);
 				Directory.CreateDirectory("Temp");
+				booCheck = true;
 			}
 			catch
 			{
-				return false;
+				booCheck = false;
+			}
+			finally
+			{
+				Directory.SetCurrentDirectory(strCurrentDirectory);
 			}
 
-			return true;
+			return booCheck;
 		}
 
 		/// <summary>
@@ -394,9 +401,6 @@ namespace Nexus.Client.ModManagement
 			{
 				docReadMe.Save(sw);
 			}
-
-			Directory.SetCurrentDirectory(strCurrentDirectory);
-
 		}
 
 		#endregion

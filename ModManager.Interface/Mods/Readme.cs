@@ -56,6 +56,13 @@ namespace Nexus.Client.Mods
 																		};
 
 		/// <summary>
+		/// The mapping of invalid filenames to their respective readme formats.
+		/// </summary>
+		private static List<string> m_lstFilenames = new List<string>	{
+																			{"script.txt"},
+																		};
+
+		/// <summary>
 		/// Get the list of valid extensions.
 		/// </summary>
 		/// <value>The list of valid extensions.</value>
@@ -164,6 +171,8 @@ namespace Nexus.Client.Mods
 		{
 			if (String.IsNullOrEmpty(p_strPath))
 				return false;
+			if (!IsValidFilename(Path.GetFileName(p_strPath.ToLower())))
+				return false;
 			return IsValidExtension(Path.GetExtension(p_strPath.ToLower()));
 		}
 
@@ -178,6 +187,17 @@ namespace Nexus.Client.Mods
 			if (!p_strExtension.StartsWith("."))
 				p_strExtension = "." + p_strExtension;
 			return m_dicFormats.ContainsKey(p_strExtension);
+		}
+
+		/// <summary>
+		/// Determines if the given filename is a valid readme file.
+		/// </summary>
+		/// <param name="p_strExtension">The filename whose validity is to be determined.</param>
+		/// <returns><c>true</c> if the given filename is a valid readme file;
+		/// <c>false</c> otherwise.</returns>
+		public static bool IsValidFilename(string p_strFilename)
+		{
+			return !m_lstFilenames.Contains(p_strFilename);
 		}
 	}
 }
