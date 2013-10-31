@@ -10,7 +10,7 @@ namespace Nexus.Client.Games.DragonAge2
 	/// </summary>
     public class DragonAge2GameModeDescriptor : GameModeDescriptorBase
 	{
-		private static string[] EXECUTABLES = { "DragonAge2Launcher.exe" };
+		private static string[] EXECUTABLES = { "DragonAge2.exe" };
 		private static string[] CRITICAL_PLUGINS = { };
         private const string MODE_ID = "DragonAge2";
 
