@@ -6,13 +6,13 @@ using Nexus.Client.Games.DragonAge;
 namespace Nexus.Client.Games.DragonAge
 {
 	/// <summary>
-    /// Provides common information about DragonAge based games.
+	/// Provides common information about DragonAge based games.
 	/// </summary>
-    public class DragonAgeGameModeDescriptor : GameModeDescriptorBase
+	public class DragonAgeGameModeDescriptor : GameModeDescriptorBase
 	{
-		private static string[] EXECUTABLES = { "DAOriginsLauncher.exe" };
+		private static string[] EXECUTABLES = { "daorigins.exe" };
 		private static string[] CRITICAL_PLUGINS = { };
-        private const string MODE_ID = "DragonAge";
+		private const string MODE_ID = "DragonAge";
 
 		#region Properties
 
