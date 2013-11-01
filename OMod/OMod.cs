@@ -504,12 +504,20 @@ namespace Nexus.Client.Mods.Formats.OMod
 				{
 					if (ContainsFile(Path.Combine(CONVERSION_FOLDER, strScriptName)))
 					{
+						StreamReader sreScript = null;
+						string strCode = String.Empty;
+
 						if (File.Exists(Path.Combine(CONVERSION_FOLDER, strScriptName)))
 						{
-							StreamReader sreScript = new StreamReader(Path.Combine(CONVERSION_FOLDER, strScriptName));
-
-							string strCode = sreScript.ReadToEnd();
+							sreScript = new StreamReader(Path.Combine(CONVERSION_FOLDER, strScriptName));
+							strCode = sreScript.ReadToEnd();
 							sreScript.Close();
+						}
+						else
+							strCode = TextUtil.ByteToString(GetFile(Path.Combine(CONVERSION_FOLDER, strScriptName))).Trim('\0');
+
+						if (!String.IsNullOrEmpty(strCode))
+						{
 							if (stpScript.ValidateScript(stpScript.LoadScript(strCode)))
 							{
 								m_booHasInstallScript = true;

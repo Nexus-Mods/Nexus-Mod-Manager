@@ -176,7 +176,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				astScript = GenerateAst(m_strScript, true);
 			}
 			catch { }
-			return (astScript == null);
+			return (astScript != null);
 		}
 
 		/// <summary>
