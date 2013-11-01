@@ -36,6 +36,7 @@ namespace Nexus.Client
 				m_vmlViewModel = value;
 				butOK.Enabled = false;
 				m_vmlViewModel.GameDetector.GameResolved += new EventHandler<GameModeDiscoveredEventArgs>(GameDetector_GameResolved);
+				m_vmlViewModel.GameDetector.DisableButOk += new EventHandler<GameModeDiscoveredEventArgs>(GameDetector_DisableButOk);
 				List<IGameModeDescriptor> lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
 				for (Int32 i = 0; i < lstGameModes.Count; i++)
 				{
@@ -98,6 +99,19 @@ namespace Nexus.Client
 			}
 			if (ViewModel.GameDetector.ResolvedGameModes.Count() == ViewModel.SupportedGameModes.RegisteredGameModes.Count())
 				butOK.Enabled = true;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="GameDiscoverer.DisableButOk"/> event of the game discoverer.
+		/// </summary>
+		/// <remarks>
+		/// Disable the OK button.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
+		private void GameDetector_DisableButOk(object sender, GameModeDiscoveredEventArgs e)
+		{
+			butOK.Enabled = false;
 		}
 
 		/// <summary>
