@@ -47,9 +47,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/toggleendorsement/{p_strModId}?lvote={p_intLocalState}",
+			UriTemplate = "Mods/toggleendorsement/{p_strModId}?lvote={p_intLocalState}&game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		bool ToggleEndorsement(string p_strModId, int p_intLocalState);
+		bool ToggleEndorsement(string p_strModId, int p_intLocalState, int p_intGameId);
 
 		/// <summary>
 		/// Gets the info about the specified mod from the repository.
@@ -59,9 +59,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/{p_strModId}/",
+			UriTemplate = "Mods/{p_strModId}/?game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		NexusModInfo GetModInfo(string p_strModId);
+		NexusModInfo GetModInfo(string p_strModId, int p_intGameId);
 
 		/// <summary>
 		/// Gets the info about the specified mod list from the repository.
@@ -71,9 +71,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebInvoke(Method = "POST",
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/GetUpdates?ModList={p_strModList}",
+			UriTemplate = "Mods/GetUpdates?ModList={p_strModList}&game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		NexusModInfo[] GetModListInfo(string p_strModList);
+		NexusModInfo[] GetModListInfo(string p_strModList, int p_intGameId);
 
 		/// <summary>
 		/// Gets the files associated with the specified mod from the repository.
@@ -83,9 +83,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Files/indexfrommod/{p_strModId}",
+			UriTemplate = "Files/indexfrommod/{p_strModId}?game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		List<NexusModFileInfo> GetModFiles(string p_strModId);
+		List<NexusModFileInfo> GetModFiles(string p_strModId, int p_intGameId);
 
 		/// <summary>
 		/// Gets the file info for the specified download file of the specified mod.
@@ -95,9 +95,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Files/{p_strFileId}/",
+			UriTemplate = "Files/{p_strFileId}/?game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		NexusModFileInfo GetModFile(string p_strFileId);
+		NexusModFileInfo GetModFile(string p_strFileId, int p_intGameId);
 
 		/// <summary>
 		/// Gets the download URLs of all the parts associated with the specified file.
@@ -107,9 +107,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Files/download/{p_strFileId}",
+			UriTemplate = "Files/download/{p_strFileId}/?game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		List<FileserverInfo> GetModFileDownloadUrls(string p_strFileId);
+		List<FileserverInfo> GetModFileDownloadUrls(string p_strFileId, int p_intGameId);
 
 		/// <summary>
 		/// Gets the user credentials.
@@ -118,9 +118,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Core/Libs/Flamework/Entities/User?GetCredentials",
+			UriTemplate = "Core/Libs/Flamework/Entities/User?GetCredentials&game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		string[] GetCredentials();
+		string[] GetCredentials(int p_intGameId);
 
 		/// <summary>
 		/// Finds the mods containing the given search terms.
@@ -132,23 +132,23 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[OperationContract]
 		[WebGet(
 			BodyStyle = WebMessageBodyStyle.Bare,
-			UriTemplate = "Mods/?Find&name={p_strModNameSearchString}&type={p_strType}",
+			UriTemplate = "Mods/Find/?name={p_strModNameSearchString}&type={p_strType}&game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
-		List<NexusModInfo> FindMods(string p_strModNameSearchString, string p_strType);
+		List<NexusModInfo> FindMods(string p_strModNameSearchString, string p_strType, int p_intGameId);
 
-        /// <summary>
-        /// Finds the mods for the given Author.
-        /// </summary>
-        /// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-        /// <param name="p_strType">Whether the returned mods' names should include all of
-        /// the given search terms, or any of the terms.</param>
-        /// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
-        /// <returns>The mod info for the mods matching the given search criteria.</returns>
-        [OperationContract]
-        [WebGet(
-            BodyStyle = WebMessageBodyStyle.Bare,
-            UriTemplate = "Mods/?Find&name={p_strModNameSearchString}&author={p_strAuthorSearchString}&type={p_strType}",
-            ResponseFormat = WebMessageFormat.Json)]
-        List<NexusModInfo> FindModsAuthor(string p_strModNameSearchString, string p_strType, string p_strAuthorSearchString);
+		/// <summary>
+		/// Finds the mods for the given Author.
+		/// </summary>
+		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="p_strType">Whether the returned mods' names should include all of
+		/// the given search terms, or any of the terms.</param>
+		/// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
+		/// <returns>The mod info for the mods matching the given search criteria.</returns>
+		[OperationContract]
+		[WebGet(
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "Mods/Find/?name={p_strModNameSearchString}&author={p_strAuthorSearchString}&type={p_strType}&game_id={p_intGameId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		List<NexusModInfo> FindModsAuthor(string p_strModNameSearchString, string p_strType, string p_strAuthorSearchString, int p_intGameId);
 	}
 }
