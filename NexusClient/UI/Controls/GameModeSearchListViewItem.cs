@@ -189,6 +189,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butSelectPath_Click(object sender, EventArgs e)
 		{
+			Discoverer.DisableButtonOk(GameMode.ModeId);
 			fbdSelectPath.SelectedPath = tbxInstallPath.Text;
 			if (fbdSelectPath.ShowDialog(this) == DialogResult.OK)
 				tbxInstallPath.Text = fbdSelectPath.SelectedPath;

@@ -192,7 +192,7 @@ namespace Nexus.Client
 		private static void HandleException(Exception ex)
 		{
 			HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
-
+			DialogResult drResult = DialogResult.No;
 			Trace.WriteLine("");
 			Trace.TraceError("Tracing an Unhandled Exception:");
 			TraceUtil.TraceException(ex);
@@ -208,12 +208,14 @@ namespace Nexus.Client
 			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/");
 			stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
 			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+			stbPromptMessage.AppendLine(Environment.NewLine + "Do you want to open the TraceLog folder?");
 			try
 			{
 				//the extended message box contains an activex control wich must be run in an STA thread,
 				// we can't control what thread this gets called on, so create one if we need to
 				string strException = "The following information is in the Trace Log:" + Environment.NewLine + TraceUtil.CreateTraceExceptionString(ex);
-				ThreadStart actShowMessage = () => ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Error", strException, MessageBoxButtons.OK, MessageBoxIcon.Information);
+				ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Error", strException, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+
 				ApartmentState astState = ApartmentState.Unknown;
 				Thread.CurrentThread.TrySetApartmentState(astState);
 				if (astState == ApartmentState.STA)
@@ -224,6 +226,16 @@ namespace Nexus.Client
 					thdMessage.SetApartmentState(ApartmentState.STA);
 					thdMessage.Start();
 					thdMessage.Join();
+					if (drResult == DialogResult.Yes)
+					{
+						try
+						{
+							System.Diagnostics.Process prc = new System.Diagnostics.Process();
+							prc.StartInfo.FileName = Path.GetDirectoryName(htlListener.FilePath);
+							prc.Start();
+						}
+						catch { }
+					}
 				}
 			}
 			catch
