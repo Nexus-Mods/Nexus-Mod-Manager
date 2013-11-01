@@ -81,16 +81,23 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 		/// </summary>
 		public void ToggleArchiveInvalidation()
 		{
-			if (!File.Exists(GameMode.SettingsFiles.IniPath))
+			try
 			{
-				MessageBox.Show(String.Format("You have no {0} INI file. Please run {0} to initialize the file before turning on Archive Invalidation.", GameMode.Name), "Missing INI", MessageBoxButtons.OK, MessageBoxIcon.Information);
-				return;
+				if (!File.Exists(GameMode.SettingsFiles.IniPath))
+				{
+					MessageBox.Show(String.Format("You have no {0} INI file. Please run {0} to initialize the file before turning on Archive Invalidation.", GameMode.Name), "Missing INI", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return;
+				}
+				DisplayToolViewEventArgs teaArgs = new DisplayToolViewEventArgs(m_tvwToolView, true);
+				DisplayToolView(this, teaArgs);
+				if (Update())
+					((CheckedCommand)LaunchCommand).IsChecked = IsActive();
+				CloseToolView(this, teaArgs);
 			}
-			DisplayToolViewEventArgs teaArgs = new DisplayToolViewEventArgs(m_tvwToolView, true);
-			DisplayToolView(this, teaArgs);
-			if (Update())
-				((CheckedCommand)LaunchCommand).IsChecked = IsActive();
-			CloseToolView(this, teaArgs);
+			catch (Exception ex)
+			{
+				MessageBox.Show(ex.Message);
+			}
 		}
 
 		/// <summary>
@@ -119,6 +126,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 					return true;
 				}
 			}
+
 			return false;
 		}
 

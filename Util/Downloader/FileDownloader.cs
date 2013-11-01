@@ -78,7 +78,7 @@ namespace Nexus.Client.Util.Downloader
 			}
 		}
 
- 		/// <summary>
+		/// <summary>
 		/// Gets the number of currently active downloaders.
 		/// </summary>
 		/// <value>The number of currently active downloaders.</value>
@@ -122,7 +122,7 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				return new string[]{m_strFileMetadataPath, m_strSavePath};
+				return new string[] { m_strFileMetadataPath, m_strSavePath };
 			}
 		}
 
@@ -149,7 +149,10 @@ namespace Nexus.Client.Util.Downloader
 				if (DownloadSpeed == 0)
 					return TimeSpan.MaxValue;
 				Int64 lngRemainingData = m_fmdInfo.Length - DownloadedByteCount;
-				Int64 lngNanoSecondsLeft = lngRemainingData / DownloadSpeed * 1000000000;
+				Int64 lngNanoSecondsLeft = 0;
+				if (DownloadSpeed > 0)
+					lngNanoSecondsLeft = lngRemainingData / DownloadSpeed * 1000000000;
+
 				return new TimeSpan(lngNanoSecondsLeft / 100);
 			}
 		}
@@ -217,14 +220,14 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the current error code, if anything wrong happened.
 		/// </summary>
 		/// <value>The current error code, if anything wrong happened.</value>
-		public string ErrorCode 
+		public string ErrorCode
 		{
 			get
 			{
 				if (String.IsNullOrEmpty(m_strErrorCode))
 					return ((m_fmdInfo != null) ? m_fmdInfo.NexusError : String.Empty);
 				else
-					return m_strErrorCode;	
+					return m_strErrorCode;
 			}
 		}
 
