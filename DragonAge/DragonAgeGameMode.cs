@@ -467,7 +467,7 @@ namespace Nexus.Client.Games.DragonAge
 
 			#region activeMods
 
-			if (p_booRemove)
+			if (p_booRemove && File.Exists(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml")))
 				File.Delete(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"));
 
 
