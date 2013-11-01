@@ -58,6 +58,11 @@ namespace Nexus.Client.Games
 		public event EventHandler<GameModeDiscoveredEventArgs> PathFound = delegate { };
 
 		/// <summary>
+		/// Raised when a possible installation path for a game mode has been found.
+		/// </summary>
+		public event EventHandler<GameModeDiscoveredEventArgs> DisableButOk = delegate { };
+
+		/// <summary>
 		/// Raised when a game has been resolved.
 		/// </summary>
 		/// <remarks>
@@ -132,6 +137,26 @@ namespace Nexus.Client.Games
 		{
 			PathFound(this, e);
 		}
+
+		/// <summary>
+		/// Raises the <see cref="PathFound"/> event.
+		/// </summary>
+		/// <param name="e">An <see cref="GameModeDiscoveredEventArgs"/> describing the task that was started.</param>
+		protected virtual void OnDisableButOk(GameModeDiscoveredEventArgs e)
+		{
+			DisableButOk(this, e);
+		}
+
+		/// <summary>
+		/// Raises the <see cref="PathFound"/> event.
+		/// </summary>
+		/// <param name="p_gmdGameMode">The game mode which has been resolved.</param>
+		/// <param name="p_strFoundPath">The installaiton path that was found.</param>
+		protected void OnDisableButOk(IGameModeDescriptor p_gmdGameMode, string p_strFoundPath)
+		{
+			OnDisableButOk(new GameModeDiscoveredEventArgs(p_gmdGameMode, p_strFoundPath));
+		}
+
 
 		/// <summary>
 		/// Raises the <see cref="PathFound"/> event.
@@ -307,6 +332,15 @@ namespace Nexus.Client.Games
 			OnGameResolved(m_dicGameModesById[p_strGameModeId], null);
 			if (m_dicCandidatePathsByGame.Count == 0)
 				Status = TaskStatus.Complete;
+		}
+
+		/// <summary>
+		/// Cancels the search for the specified game mode.
+		/// </summary>
+		/// <param name="p_strGameModeId">The id of the game mode for which to stop searching.</param>
+		public void DisableButtonOk(string p_strGameModeId)
+		{
+			OnDisableButOk(m_dicGameModesById[p_strGameModeId], null);
 		}
 
 		/// <summary>
