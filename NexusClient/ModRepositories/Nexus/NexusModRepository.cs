@@ -31,6 +31,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 		private string m_strWebsite = null;
 		private string m_strEndpoint = null;
+		private int m_intRemoteGameId = 0;
 		private string[] m_strUserStatus = null;
 		private Dictionary<string, string> m_dicAuthenticationTokens = null;
 
@@ -157,46 +158,57 @@ namespace Nexus.Client.ModRepositories.Nexus
 				case "DragonAge":
 					m_strWebsite = "dragonage.nexusmods.com";
 					m_strEndpoint = "DAONexusREST";
+					m_intRemoteGameId = 140;
 					break;
 				case "DragonAge2":
 					m_strWebsite = "dragonage2.nexusmods.com";
 					m_strEndpoint = "DA2NexusREST";
+					m_intRemoteGameId = 141;
 					break;
 				case "Fallout3":
 					m_strWebsite = "fallout3.nexusmods.com";
 					m_strEndpoint = "FO3NexusREST";
+					m_intRemoteGameId = 120;
 					break;
 				case "FalloutNV":
 					m_strWebsite = "newvegas.nexusmods.com";
 					m_strEndpoint = "FONVNexusREST";
+					m_intRemoteGameId = 130;
 					break;
 				case "Morrowind":
 					m_strWebsite = "morrowind.nexusmods.com";
 					m_strEndpoint = "MWNexusREST";
+					m_intRemoteGameId = 100;
 					break;
 				case "Oblivion":
 					m_strWebsite = "oblivion.nexusmods.com";
 					m_strEndpoint = "OBNexusREST";
+					m_intRemoteGameId = 101;
 					break;
 				case "Skyrim":
 					m_strWebsite = "skyrim.nexusmods.com";
 					m_strEndpoint = "SKYRIMNexusREST";
+					m_intRemoteGameId = 110;
 					break;
 				case "WorldOfTanks":
 					m_strWebsite = "worldoftanks.nexusmods.com";
 					m_strEndpoint = "WOTNexusREST";
+					m_intRemoteGameId = 160;
 					break;
 				case "DarkSouls":
 					m_strWebsite = "darksouls.nexusmods.com";
 					m_strEndpoint = "DSNexusREST";
+					m_intRemoteGameId = 162;
 					break;
 				case "Grimrock":
 					m_strWebsite = "grimrock.nexusmods.com";
 					m_strEndpoint = "LOGNexusREST";
+					m_intRemoteGameId = 161;
 					break;
 				case "Witcher2":
 					m_strWebsite = "witcher2.nexusmods.com";
 					m_strEndpoint = "W2NexusREST";
+					m_intRemoteGameId = 153;
 					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
@@ -516,7 +528,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					nmiInfo = nmrApi.GetModInfo(p_strModId);
+					nmiInfo = nmrApi.GetModInfo(p_strModId, m_intRemoteGameId);
 				}
 			}
 			catch (TimeoutException e)
@@ -563,7 +575,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 
-					nmiInfo = nmrApi.GetModListInfo(ModList);
+					nmiInfo = nmrApi.GetModListInfo(ModList, m_intRemoteGameId);
 				}
 			}
 			catch (TimeoutException e)
@@ -604,7 +616,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					booOnlineState = nmrApi.ToggleEndorsement(p_strModId, p_intLocalState);
+					booOnlineState = nmrApi.ToggleEndorsement(p_strModId, p_intLocalState, m_intRemoteGameId);
 				}
 			}
 			catch (TimeoutException e)
@@ -652,7 +664,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
-					nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));
+					nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					return mfiMods;
 				}
 			}
@@ -705,9 +717,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
 					if (String.IsNullOrEmpty(p_strModAuthor))
-						nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY").ForEach(x => mfiMods.Add(Convert(x)));
+						nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					else
-						nmrApi.FindModsAuthor(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", p_strModAuthor).ForEach(x => mfiMods.Add(Convert(x)));
+						nmrApi.FindModsAuthor(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", p_strModAuthor, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					return mfiMods;
 				}
 			}
@@ -756,7 +768,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
-					nmrApi.FindModsAuthor(strSearchString, "ANY", p_strAuthorSearchString).ForEach(x => mfiMods.Add(Convert(x)));
+					nmrApi.FindModsAuthor(strSearchString, "ANY", p_strAuthorSearchString, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					return mfiMods;
 				}
 			}
@@ -794,7 +806,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					return nmrApi.GetModFiles(p_strModId).ConvertAll(x => (IModFileInfo)x);
+					return nmrApi.GetModFiles(p_strModId, m_intRemoteGameId).ConvertAll(x => (IModFileInfo)x);
 				}
 			}
 			catch (TimeoutException e)
@@ -875,7 +887,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					fsiServerInfo = nmrApi.GetModFileDownloadUrls(p_strFileId);
+					fsiServerInfo = nmrApi.GetModFileDownloadUrls(p_strFileId, m_intRemoteGameId);
 					fsiBestMatch = GetBestFileserver(fsiServerInfo, p_booPremiumOnly, p_strUserLocation);
 				}
 			}
@@ -964,7 +976,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					m_strUserStatus = nmrApi.GetCredentials();
+					m_strUserStatus = nmrApi.GetCredentials(m_intRemoteGameId);
 				}
 			}
 			catch (TimeoutException e)
@@ -1026,7 +1038,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					return nmrApi.GetModFile(p_strFileId);
+					return nmrApi.GetModFile(p_strFileId, m_intRemoteGameId);
 				}
 			}
 			catch (TimeoutException e)
@@ -1063,7 +1075,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(strModId);
+					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(strModId, m_intRemoteGameId);
 					NexusModFileInfo mfiFileInfo = mfiFiles.Find(x => x.Filename.Equals(strFilename, StringComparison.OrdinalIgnoreCase));
 					if (mfiFileInfo == null)
 						mfiFileInfo = mfiFiles.Find(x => x.Filename.Replace(' ', '_').Equals(strFilename, StringComparison.OrdinalIgnoreCase));
@@ -1111,7 +1123,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(p_strModId);
+					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(p_strModId, m_intRemoteGameId);
 					NexusModFileInfo mfiDefault = (from f in mfiFiles
 												   where f.Category == ModFileCategory.MainFiles
 												   orderby f.Date descending
