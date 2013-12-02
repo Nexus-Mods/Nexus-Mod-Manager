@@ -661,8 +661,9 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
 		/// <param name="p_strFileName">The filename.</param>
-		public virtual void CheckSecondaryUninstall(string p_strFileName)
+		public virtual bool CheckSecondaryUninstall(string p_strFileName)
 		{
+            return false;
 		}
 
 		/// <summary>

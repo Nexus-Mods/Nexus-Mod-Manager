@@ -576,7 +576,7 @@ namespace Nexus.Client.Games.DragonAge
 		/// </summary>
 		/// <returns>Whether the system needs to uninstall secondary parameters.</returns>
 		/// <param name="p_strFileName">The filename.</param>
-		public override void CheckSecondaryUninstall(string p_strFileName)
+		public override bool CheckSecondaryUninstall(string p_strFileName)
 		{
 			if (Path.GetExtension(p_strFileName).Equals(".cif", StringComparison.InvariantCultureIgnoreCase))
 			{
@@ -591,6 +591,8 @@ namespace Nexus.Client.Games.DragonAge
 				}
 				XDoc.Save(strAddins);
 			}
+
+            return false;
 		}
 
 		/// <summary>

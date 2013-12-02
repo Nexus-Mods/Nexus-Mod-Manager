@@ -248,6 +248,6 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
 		/// <param name="p_strFileName">The filename.</param>
-		void CheckSecondaryUninstall(string p_strFileName);
+		bool CheckSecondaryUninstall(string p_strFileName);
 	}
 }
