@@ -269,13 +269,13 @@ namespace Nexus.Client.Games.XRebirth
 		/// <returns>Null on error otherwise the mod name</returns>
 		private string LoadModNameInternal(IMod p_modMod)
 		{
-			var file = p_modMod.GetFile("content.xml");
-			var xmlStr = Encoding.UTF8.GetString(file);
+			var bteContentFile = p_modMod.GetFile("content.xml");
+			var strContentXml = Encoding.UTF8.GetString(bteContentFile);
 
-			var xml = XDocument.Parse(xmlStr);
-			if (xml.Root != null)
+			var xdocContentXml = XDocument.Parse(strContentXml);
+			if (xdocContentXml.Root != null)
 			{
-				return xml.Root.Attribute("name").Value;
+				return xdocContentXml.Root.Attribute("name").Value;
 			}
 			return null;
 		}
@@ -301,9 +301,9 @@ namespace Nexus.Client.Games.XRebirth
 		private bool NeedsPathAdjust(IMod p_modMod)
 		{
 			// this is ok to throw if nessecary, handled in calling function
-			var contentXml = p_modMod.GetFileList().Single(f => f.Contains("content.xml"));
-			var nestLevels = contentXml.Split('\\').Count();
-			if (nestLevels == 1 || nestLevels > 2)
+			var strContentXmlPath = p_modMod.GetFileList().Single(f => f.Contains("content.xml"));
+			var intNestLevels = strContentXmlPath.Split('\\').Count();
+			if (intNestLevels == 1 || intNestLevels > 2)
 				return true;
 
 			return false;
@@ -359,16 +359,16 @@ namespace Nexus.Client.Games.XRebirth
 					try
 					{
 						// if this throws or returns null, the mod package is invalid
-						var modInternalName = LoadModNameInternal(p_modMod);
-						if (string.IsNullOrEmpty(modInternalName))
+						var strModInternalName = LoadModNameInternal(p_modMod);
+						if (string.IsNullOrEmpty(strModInternalName))
 							throw new ArgumentException(
 								"The attribute 'name' is set improperly in the file 'content.xml'.");
 
-						return Path.Combine(modInternalName, p_strPath);
+						return Path.Combine(strModInternalName, p_strPath);
 					}
-					catch (FileNotFoundException fEx)
+					catch (FileNotFoundException exFileNotFound)
 					{
-						if (fEx.FileName.Equals("content.xml"))
+						if (exFileNotFound.FileName.Equals("content.xml"))
 							// return friendly error message
 							throw new FileNotFoundException("Mod package does not include a content.xml file.");
 						// we don't know what this is, rethrow it.
@@ -390,16 +390,16 @@ namespace Nexus.Client.Games.XRebirth
 			{
 				try
 				{
-					var xml = XDocument.Load(Path.Combine(InstallationPath, p_strFileName));
-					var name = xml.Root.Attribute("name").Value;
-					var saveAttribute = xml.Root.Attribute("save");
-					string saveValue = null;
-					if (saveAttribute != null)
+					var xdocContentXml = XDocument.Load(Path.Combine(InstallationPath, p_strFileName));
+					var strModName = xdocContentXml.Root.Attribute("name").Value;
+					var strSaveAttribute = xdocContentXml.Root.Attribute("save");
+					string strSaveValue = null;
+					if (strSaveAttribute != null)
 					{
-						saveValue = saveAttribute.Value;
+						strSaveValue = strSaveAttribute.Value;
 					}
 
-					if (string.IsNullOrEmpty(saveValue) || saveValue.Equals("true") || saveValue.Equals("1"))
+					if (string.IsNullOrEmpty(strSaveValue) || strSaveValue.Equals("true") || strSaveValue.Equals("1"))
 					{
 						DialogResult drResult = DialogResult.None;
 						try
@@ -410,7 +410,7 @@ namespace Nexus.Client.Games.XRebirth
 										ExtendedMessageBox.Show(null,
 											string.Format(
 												"The author of the {0} mod has chosen that his mod should get recorded in your save games.\nIf you played the game while this mod was active, your save files may no longer work.\nDo you want to continue?",
-												name), "Warning", MessageBoxButtons.YesNo,
+												strModName), "Warning", MessageBoxButtons.YesNo,
 											MessageBoxIcon.Exclamation);
 
 							ApartmentState astState = ApartmentState.Unknown;
@@ -432,7 +432,7 @@ namespace Nexus.Client.Games.XRebirth
 						{
 							drResult = MessageBox.Show(string.Format(
 								"The author of the {0} mod has choosen that his mod should get recorded in your save games.\nIf you played the game while this mod was active, your save files may no longer work.\nDo you want to continue?",
-								name), "Warning", MessageBoxButtons.YesNo,
+								strModName), "Warning", MessageBoxButtons.YesNo,
 								MessageBoxIcon.Exclamation);
 							if (drResult == DialogResult.No)
 								return false;
