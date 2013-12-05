@@ -425,7 +425,7 @@ namespace Nexus.Client.Games.XRebirth
 								thdMessage.Join();
 
 								if (drResult == DialogResult.No)
-									return false;
+									return true;
 							}
 						}
 						catch (Exception)
@@ -435,18 +435,18 @@ namespace Nexus.Client.Games.XRebirth
 								strModName), "Warning", MessageBoxButtons.YesNo,
 								MessageBoxIcon.Exclamation);
 							if (drResult == DialogResult.No)
-								return false;
+								return true;
 						}
 					}
 				}
 				catch
 				{
-					return false;
+					return true;
 				}
 				
 			}
 			
-			return true;
+			return false;
 		}
 
 		public override bool HasSecondaryInstallPath
