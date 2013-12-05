@@ -210,11 +210,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "W2NexusREST";
 					m_intRemoteGameId = 153;
 					break;
-                case "XRebirth":
-                    m_strWebsite = "xrebirth.nexusmods.com";
-                    m_strEndpoint = "XRNexusREST";
-                    m_intRemoteGameId = 154;
-                    break;
+				case "XRebirth":
+					m_strWebsite = "xrebirth.nexusmods.com";
+					m_strEndpoint = "XRNexusREST";
+					m_intRemoteGameId = 154;
+					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}

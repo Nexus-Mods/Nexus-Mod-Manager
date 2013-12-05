@@ -663,7 +663,7 @@ namespace Nexus.Client.Games
 		/// <param name="p_strFileName">The filename.</param>
 		public virtual bool CheckSecondaryUninstall(string p_strFileName)
 		{
-            return false;
+			return false;
 		}
 
 		/// <summary>

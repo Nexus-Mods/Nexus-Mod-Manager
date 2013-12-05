@@ -592,7 +592,7 @@ namespace Nexus.Client.Games.DragonAge
 				XDoc.Save(strAddins);
 			}
 
-            return false;
+			return false;
 		}
 
 		/// <summary>
