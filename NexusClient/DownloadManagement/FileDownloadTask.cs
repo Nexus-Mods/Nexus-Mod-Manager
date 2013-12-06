@@ -411,7 +411,12 @@ namespace Nexus.Client.DownloadManagement
 		public override void Pause()
 		{
 			Status = TaskStatus.Paused;
-			m_fdrDownloader.Stop();
+			if (m_fdrDownloader != null)
+				m_fdrDownloader.Stop();
+			else
+			{
+				base.Cancel();
+			}
 		}
 
 		/// <summary>
