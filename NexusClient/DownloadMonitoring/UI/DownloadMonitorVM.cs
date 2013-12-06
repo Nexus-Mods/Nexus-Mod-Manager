@@ -282,7 +282,23 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public void ResumeTask(IBackgroundTask p_tskTask)
 		{
 			if (DownloadMonitor.CanResume(p_tskTask))
-				DownloadMonitor.ResumeDownload(p_tskTask);
+			{
+				BackgroundWorker bgwWorker;
+				bgwWorker = new BackgroundWorker();
+				bgwWorker.DoWork += new DoWorkEventHandler(bgwWorker_DoWork);
+				bgwWorker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bgwWorker_RunWorkerCompleted);
+				bgwWorker.RunWorkerAsync(p_tskTask);
+			}
+		}
+
+		void bgwWorker_DoWork(object sender, DoWorkEventArgs e)
+		{
+			DownloadMonitor.ResumeDownload((IBackgroundTask)e.Argument);
+		}
+
+		void bgwWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		{
+
 		}
 
 		/// <summary>
