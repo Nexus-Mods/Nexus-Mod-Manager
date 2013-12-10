@@ -15,7 +15,7 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.45.7'
+#define MyAppVersion '0.46.0'
 #define SetupScriptVersion '0.7.1.0'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
