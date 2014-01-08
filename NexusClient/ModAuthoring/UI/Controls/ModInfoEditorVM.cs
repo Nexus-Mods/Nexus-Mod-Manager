@@ -22,6 +22,8 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		private string m_strDescription = null;
 		private string m_strInstallDate = null;
 		private string m_strWebsite = null;
+		private Int32 m_intCategoryID = 0;
+		private bool m_booIsEndorsed = false;
 		private ExtendedImage m_eimScreenshot = null;
 
 		#region Properties
@@ -177,6 +179,38 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		}
 
 		/// <summary>
+		/// Gets or sets the CategoryId of the mod.
+		/// </summary>
+		/// <value>The CategoryId of the mod.</value>
+		public Int32 CategoryId 
+		{
+			get
+			{
+				return m_intCategoryID;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_intCategoryID, value, () => CategoryId);
+			} 
+		}
+
+		/// <summary>
+		/// Gets or sets the Endorsement state of the mod.
+		/// </summary>
+		/// <value>The Endorsement state of the mod.</value>
+		public bool IsEndorsed 
+		{
+			get
+			{
+				return m_booIsEndorsed;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booIsEndorsed, value, () => IsEndorsed);
+			}
+		}
+
+		/// <summary>
 		/// Gets the validation errors for the current values.
 		/// </summary>
 		/// <value>The validation errors for the current values.</value>
@@ -223,6 +257,8 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				midInfo.InstallDate = InstallDate;
 				midInfo.Website = String.IsNullOrEmpty(Website) ? null : new Uri(Website);
 				midInfo.Screenshot = Screenshot;
+				midInfo.CategoryId = CategoryId;
+				midInfo.IsEndorsed = IsEndorsed;
 				ModInfo.UpdateInfo(midInfo, true);
 			}
 			return ModInfo;
@@ -259,6 +295,8 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				InstallDate = p_mifModInfo.InstallDate;
 				Website = (p_mifModInfo.Website == null) ? null : p_mifModInfo.Website.ToString();
 				Screenshot = p_mifModInfo.Screenshot;
+				CategoryId = p_mifModInfo.CategoryId;
+				IsEndorsed = p_mifModInfo.IsEndorsed;
 			}
 		}
 
@@ -283,6 +321,10 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				Website = (ModInfo.Website == null) ? null : ModInfo.Website.ToString();
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.Screenshot)))
 				Screenshot = ModInfo.Screenshot;
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.IsEndorsed)))
+				IsEndorsed = ModInfo.IsEndorsed;
+			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.CategoryId)))
+				IsEndorsed = ModInfo.IsEndorsed;
 		}
 
 		#endregion

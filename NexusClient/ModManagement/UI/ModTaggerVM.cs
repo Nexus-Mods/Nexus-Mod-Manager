@@ -103,8 +103,6 @@ namespace Nexus.Client.ModManagement.UI
 			ModInfo modMod = (ModInfo)m_mifCurrentTagOption;
 			modMod.CustomCategoryId = Mod.CustomCategoryId;
 			modMod.InstallDate = Mod.InstallDate;
-			modMod.IsEndorsed = Mod.IsEndorsed;
-			modMod.CategoryId = Mod.CategoryId;
 			modMod.UpdateWarningEnabled = Mod.UpdateWarningEnabled;
 			ModTagger.Tag(Mod, m_mifCurrentTagOption, true);
 		}
