@@ -322,7 +322,7 @@ namespace Nexus.Client
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			if (GameMode.UsesPlugins)
 				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode);
-			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, OfflineMode);
+			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mrpModRepository, OfflineMode);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
@@ -336,7 +336,7 @@ namespace Nexus.Client
 			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
 			if (!ModRepository.IsOffline)
 			{
-				DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository.FileServerZones, ModRepository.AllowedConnections, (ModRepository.UserStatus == null) || String.IsNullOrEmpty(ModRepository.UserStatus[1]) ? 3 : Convert.ToInt32(ModRepository.UserStatus[1]));
+				DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository.FileServerZones, (ModRepository.UserStatus == null) || String.IsNullOrEmpty(ModRepository.UserStatus[1]) ? 3 : Convert.ToInt32(ModRepository.UserStatus[1]));
 				lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
 			}
 			if (p_gmdGameMode.SettingsGroupViews != null)

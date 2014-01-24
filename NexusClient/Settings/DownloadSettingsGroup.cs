@@ -14,7 +14,7 @@ namespace Nexus.Client.Settings
 	public class DownloadSettingsGroup : SettingsGroup
 	{
 
-		private bool m_booPremiumOnly = false;
+		private bool m_booUseMultithreadedDownloads = false;
 		private bool m_booPremiumEnabled = false;
 		private string m_strUserLocation = "default";
 		private Int32 m_intConnections = 1;
@@ -34,18 +34,18 @@ namespace Nexus.Client.Settings
 		}
 
 		/// <summary>
-		/// Gets or sets whether the user wants to use only Premium Server.
+		/// Gets or sets whether to use multithreaded downloads.
 		/// </summary>
-		/// <value>Whether the user wants to use only Premium Server.</value>
-		public bool PremiumOnly
+		/// <value>Whether to use multithreaded downloads.</value>
+		public bool UseMultithreadedDownloads
 		{
 			get
 			{
-				return m_booPremiumOnly;
+				return m_booUseMultithreadedDownloads;
 			}
 			set
 			{
-				SetPropertyIfChanged(ref m_booPremiumOnly, value, () => PremiumOnly);
+				SetPropertyIfChanged(ref m_booUseMultithreadedDownloads, value, () => UseMultithreadedDownloads);
 			}
 		}
 
@@ -81,32 +81,10 @@ namespace Nexus.Client.Settings
 		}
 
 		/// <summary>
-		/// Gets or sets the number of connections per file.
-		/// </summary>
-		/// <value>The number of connections per file.</value>
-		public Int32 NumberOfConnections
-		{
-			get
-			{
-				return m_intConnections;
-			}
-			set
-			{
-				SetPropertyIfChanged(ref m_intConnections, value, () => NumberOfConnections);
-			}
-		}
-
-		/// <summary>
 		/// Gets the repository's file server zones.
 		/// </summary>
 		/// <value>the repository's file server zones.</value>
 		public List<FileServerZone> FileServerZones { get; private set; }
-
-		/// <summary>
-		/// Gets the number allowed connections.
-		/// </summary>
-		/// <value>The number allowed connections.</value>
-		public Int32[] AllowedConnections { get; private set; }
 
 		#endregion
 
@@ -116,29 +94,43 @@ namespace Nexus.Client.Settings
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public DownloadSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IList<FileServerZone> p_fszFileServerZones, Int32[] p_intAllowedConnections, Int32 p_intUserStatus)
+		public DownloadSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IList<FileServerZone> p_fszFileServerZones, Int32 p_intUserStatus)
 			: base(p_eifEnvironmentInfo)
 		{
 			bool MemberCheck = false;
-
-			FileServerZones = p_fszFileServerZones.ToList();
-			AllowedConnections = p_intAllowedConnections;
-			if (EnvironmentInfo.Settings.NumberOfConnections > AllowedConnections.Length)
-			{
-				EnvironmentInfo.Settings.NumberOfConnections = AllowedConnections.Length;
-				MemberCheck = true;
-			}
 			if ((p_intUserStatus != 4) && (p_intUserStatus != 6) && (p_intUserStatus != 13) && (p_intUserStatus != 27) && (p_intUserStatus != 31) && (p_intUserStatus != 32))
 			{
-				if (EnvironmentInfo.Settings.PremiumOnly)
-				{
-					EnvironmentInfo.Settings.PremiumOnly = false;
-					MemberCheck = true;
-				}
 				PremiumEnabled = false;
+				FileServerZones = p_fszFileServerZones.Where(x => x.IsPremium == false).ToList();
 			}
 			else
+			{
 				PremiumEnabled = true;
+				FileServerZones = p_fszFileServerZones.ToList();
+			}
+
+			FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
+
+			if (!PremiumEnabled)
+			{
+				if (fszUser != null)
+				{
+					if (fszUser.IsPremium)
+					{
+						EnvironmentInfo.Settings.UserLocation = "default";
+						MemberCheck = true;
+					}
+				}
+				else
+					EnvironmentInfo.Settings.UserLocation = "default";
+
+				if (EnvironmentInfo.Settings.UseMultithreadedDownloads)
+				{
+					EnvironmentInfo.Settings.UseMultithreadedDownloads = false;
+					MemberCheck = true;
+				}
+			}
+
 			if (MemberCheck)
 			{
 				Load();
@@ -153,13 +145,12 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		public override void Load()
 		{
-			PremiumOnly = EnvironmentInfo.Settings.PremiumOnly;
+			UseMultithreadedDownloads = EnvironmentInfo.Settings.UseMultithreadedDownloads;
 			FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
 			if (fszUser != null)
 				UserLocation = fszUser.FileServerID;
 			else
 				UserLocation = "default";
-			NumberOfConnections = EnvironmentInfo.Settings.NumberOfConnections;
 		}
 
 		/// <summary>
@@ -169,9 +160,8 @@ namespace Nexus.Client.Settings
 		/// <c>false</c> otherwise.</returns>
 		public override bool Save()
 		{
-			EnvironmentInfo.Settings.PremiumOnly = PremiumOnly;
+			EnvironmentInfo.Settings.UseMultithreadedDownloads = UseMultithreadedDownloads;
 			EnvironmentInfo.Settings.UserLocation = UserLocation;
-			EnvironmentInfo.Settings.NumberOfConnections = NumberOfConnections;
 			EnvironmentInfo.Settings.Save();
 			return true;
 		}

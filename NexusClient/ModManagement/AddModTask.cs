@@ -164,6 +164,18 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Gets whether the task supports queuing.
+		/// </summary>
+		/// <value>Thether the task supports queuing.</value>
+		public override bool SupportsQueue
+		{
+			get
+			{
+				return true;
+			}
+		}
+
+		/// <summary>
 		/// Gets the time that has elapsed downloading the file.
 		/// </summary>
 		/// <value>The time that has elapsed downloading the file.</value>
@@ -350,7 +362,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Starts the mod adding task.
 		/// </summary>
-		public void AddMod()
+		public void AddMod(bool p_booQueued)
 		{
 			string strNexusError = String.Empty;
 			string strNexusErrorInfo = String.Empty;
@@ -420,6 +432,8 @@ namespace Nexus.Client.ModManagement
 				Cancel();
 			else if (Descriptor.Status == TaskStatus.Paused)
 				Pause();
+			else if ((Descriptor.Status == TaskStatus.Queued) || (p_booQueued))
+				Queue();
 			else
 			{
 				if (Descriptor.DownloadFiles.IsNullOrEmpty())
@@ -433,7 +447,7 @@ namespace Nexus.Client.ModManagement
 					OverallProgressMaximum = 6;
 					ItemProgressMaximum = 0;
 					ItemMessage = String.Format("Downloading {0}...", GetModDisplayName());
-					DownloadFiles(Descriptor.DownloadFiles);
+					DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
 				}
 			}
 		}
@@ -548,7 +562,7 @@ namespace Nexus.Client.ModManagement
 								Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
 								return null;
 							}
-							lstFileServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.PremiumOnly, m_eifEnvironmentInfo.Settings.UserLocation);
+							lstFileServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.UserLocation);
 							if (lstFileServerInfo.Count > 0)
 							{
 								foreach (FileserverInfo fsiFileServer in lstFileServerInfo)
@@ -588,17 +602,17 @@ namespace Nexus.Client.ModManagement
 		/// Downloads the given files.
 		/// </summary>
 		/// <param name="p_lstFiles">The files to download.</param>
-		protected void DownloadFiles(List<Uri> p_lstFiles)
+		protected void DownloadFiles(List<Uri> p_lstFiles, bool p_booQueued)
 		{
 			Trace.TraceInformation(String.Format("[{0}] Downloading Files.", Descriptor.SourceUri.ToString()));
 			Trace.TraceInformation(String.Format("[{0}] Launching downloading of {1}.", Descriptor.SourceUri.ToString(), p_lstFiles[0].ToString()));
 			Dictionary<string, string> dicAuthenticationTokens = m_eifEnvironmentInfo.Settings.RepositoryAuthenticationTokens[m_mrpModRepository.Id];
-			//TODO get the max connection and block size from settings
-			Int32 intConnections = m_eifEnvironmentInfo.Settings.NumberOfConnections <= m_mrpModRepository.AllowedConnections.Max() ? m_eifEnvironmentInfo.Settings.NumberOfConnections : m_mrpModRepository.AllowedConnections.Max();
+			Int32 intConnections = m_eifEnvironmentInfo.Settings.UseMultithreadedDownloads ? m_mrpModRepository.AllowedConnections : 1;
 
 			FileDownloadTask fdtDownloader = new FileDownloadTask(intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
 			fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
 			fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);
+
 			m_lstRunningTasks.Add(fdtDownloader);
 			fdtDownloader.DownloadAsync(p_lstFiles, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
 		}
@@ -750,7 +764,7 @@ namespace Nexus.Client.ModManagement
 				OverallMessage = e.Message;
 				OnTaskEnded(e.Message, e.ReturnValue);
 			}
-			else if (e.Status == TaskStatus.Paused)
+			else if ((e.Status == TaskStatus.Paused) || (e.Status == TaskStatus.Queued))
 			{
 				string[] TempFiles = (string[])e.ReturnValue;
 				Descriptor.PausedFiles.AddRange(TempFiles);
@@ -935,7 +949,7 @@ namespace Nexus.Client.ModManagement
 		{
 			base.Cancel();
 			foreach (IBackgroundTask tskTask in m_lstRunningTasks)
-				if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete) || (tskTask.Status == TaskStatus.Retrying))
+				if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete) || (tskTask.Status == TaskStatus.Retrying) || (tskTask.Status == TaskStatus.Queued))
 					tskTask.Cancel();
 			OverallMessage = String.Format("Cancelled {0}", GetModDisplayName());
 			ItemMessage = "Cancelled";
@@ -976,16 +990,36 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Queues the task.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown if the task does not support queuing.</exception>
+		public virtual void Queue()
+		{
+			Status = TaskStatus.Queued;
+			for (Int32 i = m_lstRunningTasks.Count - 1; i >= 0; i--)
+			{
+				if (i >= m_lstRunningTasks.Count)
+					continue;
+				IBackgroundTask tskTask = m_lstRunningTasks[i];
+				if (tskTask.SupportsQueue)
+					tskTask.Queue();
+				else
+					tskTask.Cancel();
+			}
+			OnTaskEnded(Descriptor.SourceUri);
+		}
+
+		/// <summary>
 		/// Resumes the task.
 		/// </summary>
 		/// <exception cref="InvalidOperationException">Thrown if the task is not paused.</exception>
 		public override void Resume()
 		{
-			if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete))
+			if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued))
 				throw new InvalidOperationException("Task is not paused.");
 			m_lstRunningTasks.Clear();
 			m_dicDownloaderProgress.Clear();
-			AddMod();
+			AddMod(false);
 		}
 
 		#endregion
@@ -1018,7 +1052,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event's arguments.</param>
 		protected override void OnTaskEnded(TaskEndedEventArgs e)
 		{
-			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (Descriptor != null))
+			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued) && (Descriptor != null))
 			{
 				foreach (string strFile in Descriptor.DownloadedFiles)
 					if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))
