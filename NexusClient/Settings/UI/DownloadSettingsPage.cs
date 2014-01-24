@@ -30,18 +30,15 @@ namespace Nexus.Client.Settings.UI
 			m_fszFileServerZone = p_dsgSettings.FileServerZones;
 			bsFileServerZones.DataSource = p_dsgSettings.FileServerZones;
 
-			cbxConnections.DataSource = p_dsgSettings.AllowedConnections;
 			cbxServerLocation.DataSource = bsFileServerZones.DataSource;
 			cbxServerLocation.DisplayMember = "FileServerName";
 			cbxServerLocation.ValueMember = "FileServerID";
 
 			BindingHelper.CreateFullBinding(cbxServerLocation, () => cbxServerLocation.SelectedValue, p_dsgSettings, () => p_dsgSettings.UserLocation);
-			BindingHelper.CreateFullBinding(cbxConnections, () => cbxConnections.SelectedItem, p_dsgSettings, () => p_dsgSettings.NumberOfConnections);
 			if (p_dsgSettings.PremiumEnabled)
-				BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.PremiumOnly);
+				BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.UseMultithreadedDownloads);
 			else
 			{
-				cbxConnections.Enabled = false;
 				ckbPremiumOnly.Enabled = false;
 			}
 		}
