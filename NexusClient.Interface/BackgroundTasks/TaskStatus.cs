@@ -44,6 +44,11 @@ namespace Nexus.Client.BackgroundTasks
 		/// <summary>
 		/// Indicates the task is retrying.
 		/// </summary>
-		Retrying
+		Retrying,
+
+		/// <summary>
+		/// Indicates the task has been queued.
+		/// </summary>
+		Queued
 	}
 }
