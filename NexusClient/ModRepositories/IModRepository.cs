@@ -54,7 +54,13 @@ namespace Nexus.Client.ModRepositories
 		/// Gets the number allowed connections.
 		/// </summary>
 		/// <value>The number allowed connections.</value>
-		Int32[] AllowedConnections { get; }
+		Int32 AllowedConnections { get; }
+
+		/// <summary>
+		/// Gets the number of maximum allowed concurrent downloads.
+		/// </summary>
+		/// <value>The number of maximum allowed concurrent downloads.</value>
+		Int32 MaxConcurrentDownloads { get; }
 
 		#endregion
 
@@ -137,11 +143,10 @@ namespace Nexus.Client.ModRepositories
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
 		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
-		/// <param name="p_booPremiumOnly">Whether the user wants to use Premium servers only.</param>
 		/// <param name="p_strUserLocation">The preferred user location.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, bool p_booPremiumOnly, string p_strUserLocation);
+		List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, string p_strUserLocation);
 
 		/// <summary>
 		/// Gets the file info for the specified download file of the specified mod.

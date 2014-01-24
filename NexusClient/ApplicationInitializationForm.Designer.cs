@@ -84,7 +84,6 @@
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
 			this.Name = "ApplicationInitializationForm";
-			this.ShowInTaskbar = false;
 			this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Nexus Mod Manager";
