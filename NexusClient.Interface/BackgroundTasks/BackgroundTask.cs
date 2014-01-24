@@ -144,6 +144,18 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Gets whether the task supports pausing.
+		/// </summary>
+		/// <value>Thether the task supports pausing.</value>
+		public virtual bool SupportsQueue
+		{
+			get
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Gets whether the task supports retrying.
 		/// </summary>
 		/// <value>Thether the task supports retrying.</value>
@@ -643,6 +655,15 @@ namespace Nexus.Client
 		public virtual void Pause()
 		{
 			throw new InvalidOperationException("Task does not support pausing.");
+		}
+
+		/// <summary>
+		/// Queues the task.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown if the task does not support queuing.</exception>
+		public virtual void Queue()
+		{
+			throw new InvalidOperationException("Task does not support queuing.");
 		}
 
 		/// <summary>

@@ -239,9 +239,25 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		private void ActiveTasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			if (lvwTasks.InvokeRequired)
+			{
+				if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+				{
+					AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+					if (amtQueued != null)
+						m_vmlViewModel.ResumeTask(amtQueued);
+				}
 				lvwTasks.Invoke((Action)UpdateTitle);
+			}
 			else
+			{
+				if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+				{
+					AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+					if (amtQueued != null)
+						m_vmlViewModel.ResumeTask(amtQueued);
+				}
 				UpdateTitle();
+			}
 		}
 
 		/// <summary>
@@ -276,10 +292,31 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
 			{
+				AddModTask tskTask = (AddModTask)sender;
+				if (tskTask.Status == TaskStatus.Queued)
+					if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+						m_vmlViewModel.ResumeTask(tskTask);
+
 				if (InvokeRequired)
 					Invoke((Action)SetCommandExecutableStatus);
 				else
 					SetCommandExecutableStatus();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="INotifyPropertyChanged.PropertyChanged"/> of the active tasks being monitored.
+		/// </summary>
+		/// <remarks>
+		/// This adjusts the command availability based on the active task's status.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
+		private void ActiveTasks_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		{
+			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
+			{
+
 			}
 		}
 
