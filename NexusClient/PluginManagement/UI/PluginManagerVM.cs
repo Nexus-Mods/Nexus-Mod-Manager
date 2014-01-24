@@ -306,7 +306,7 @@ namespace Nexus.Client.PluginManagement.UI
 				}
 				if (intIndex >= PluginManager.ManagedPlugins.Count)
 					intIndex--;
-				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex++);
+				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex);
 			}
 		}
 
