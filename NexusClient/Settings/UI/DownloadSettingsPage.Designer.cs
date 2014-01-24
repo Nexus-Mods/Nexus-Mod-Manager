@@ -32,7 +32,6 @@
 			this.cbxServerLocation = new System.Windows.Forms.ComboBox();
 			this.label5 = new System.Windows.Forms.Label();
 			this.groupBox2 = new System.Windows.Forms.GroupBox();
-			this.cbxConnections = new System.Windows.Forms.ComboBox();
 			this.label1 = new System.Windows.Forms.Label();
 			this.ckbPremiumOnly = new System.Windows.Forms.CheckBox();
 			this.label6 = new System.Windows.Forms.Label();
@@ -77,25 +76,15 @@
 			// 
 			this.groupBox2.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
-			this.groupBox2.Controls.Add(this.cbxConnections);
 			this.groupBox2.Controls.Add(this.label1);
 			this.groupBox2.Controls.Add(this.ckbPremiumOnly);
 			this.groupBox2.Controls.Add(this.label6);
 			this.groupBox2.Location = new System.Drawing.Point(3, 80);
 			this.groupBox2.Name = "groupBox2";
-			this.groupBox2.Size = new System.Drawing.Size(414, 92);
+			this.groupBox2.Size = new System.Drawing.Size(414, 48);
 			this.groupBox2.TabIndex = 7;
 			this.groupBox2.TabStop = false;
 			this.groupBox2.Text = "Premium features";
-			// 
-			// cbxConnections
-			// 
-			this.cbxConnections.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-			this.cbxConnections.FormattingEnabled = true;
-			this.cbxConnections.Location = new System.Drawing.Point(111, 53);
-			this.cbxConnections.Name = "cbxConnections";
-			this.cbxConnections.Size = new System.Drawing.Size(186, 21);
-			this.cbxConnections.TabIndex = 2;
 			// 
 			// label1
 			// 
@@ -104,7 +93,7 @@
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(183, 13);
 			this.label1.TabIndex = 4;
-			this.label1.Text = "Only download from Premium servers:";
+			this.label1.Text = "Use multithreaded downloads:";
 			// 
 			// ckbPremiumOnly
 			// 
@@ -114,15 +103,6 @@
 			this.ckbPremiumOnly.Size = new System.Drawing.Size(15, 14);
 			this.ckbPremiumOnly.TabIndex = 0;
 			this.ckbPremiumOnly.UseVisualStyleBackColor = true;
-			// 
-			// label6
-			// 
-			this.label6.AutoSize = true;
-			this.label6.Location = new System.Drawing.Point(6, 56);
-			this.label6.Name = "label6";
-			this.label6.Size = new System.Drawing.Size(103, 13);
-			this.label6.TabIndex = 6;
-			this.label6.Text = "Connections per file:";
 			// 
 			// DownloadSettingsPage
 			// 
@@ -145,7 +125,6 @@
 		private System.Windows.Forms.GroupBox groupBox1;
 		private System.Windows.Forms.GroupBox groupBox2;
 		private System.Windows.Forms.ComboBox cbxServerLocation;
-		private System.Windows.Forms.ComboBox cbxConnections;
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Label label5;
 		private System.Windows.Forms.Label label6;

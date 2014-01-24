@@ -1,9 +1,11 @@
 ﻿using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModRepositories;
 using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
 using System.ComponentModel;
+using System.Linq;
 
 namespace Nexus.Client.DownloadMonitoring.UI
 {
@@ -14,6 +16,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	public class DownloadMonitorVM : INotifyPropertyChanged
 	{
 		bool m_booOfflineMode = false;
+		IModRepository m_mrpModRepository = null;
 
 		#region Properties
 
@@ -60,6 +63,21 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <value>The command to resume a task.</value>
 		public Command<AddModTask> ResumeTaskCommand { get; private set; }
 
+		/// <summary>
+		/// Gets the number of maximum allowed concurrent downloads.
+		/// </summary>
+		/// <value>The number of maximum allowed concurrent downloads.</value>
+		public int MaxConcurrentDownloads
+		{
+			get
+			{
+				if (m_mrpModRepository != null)
+					return m_mrpModRepository.MaxConcurrentDownloads;
+				else
+					return 5;
+			}
+		}
+
 		#endregion
 
 		/// <summary>
@@ -89,6 +107,18 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			get
 			{
 				return DownloadMonitor.ActiveTasks;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of tasks being executed.
+		/// </summary>
+		/// <value>The list of tasks being executed.</value>
+		public AddModTask QueuedTask
+		{
+			get
+			{
+				return DownloadMonitor.Tasks.Where(x => x.Status == TaskStatus.Queued).FirstOrDefault();
 			}
 		}
 
@@ -159,11 +189,12 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <param name="p_amnDownloadMonitor">The Download manager to use to manage the monitored activities.</param>
 		/// <param name="p_setSettings">The application and user settings.</param>
-		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, bool p_booOfflineMode)
+		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, IModRepository p_mrpModRepository, bool p_booOfflineMode)
 		{
 			DownloadMonitor = p_amnDownloadMonitor;
 			Settings = p_setSettings;
 			m_booOfflineMode = p_booOfflineMode;
+			m_mrpModRepository = p_mrpModRepository;
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
 			CancelTaskCommand = new Command<AddModTask>("Cancel", "Cancels the selected Download.", CancelTask);
