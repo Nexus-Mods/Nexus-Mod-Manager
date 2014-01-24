@@ -438,16 +438,16 @@ namespace Nexus.Client.Properties
 
 		[global::System.Configuration.UserScopedSettingAttribute()]
 		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-		[global::System.Configuration.DefaultSettingValueAttribute("False")]
-		public bool PremiumOnly
+		[global::System.Configuration.DefaultSettingValueAttribute("True")]
+		public bool UseMultithreadedDownloads
 		{
 			get
 			{
-				return ((bool)(this["PremiumOnly"]));
+				return ((bool)(this["UseMultithreadedDownloads"]));
 			}
 			set
 			{
-				this["PremiumOnly"] = value;
+				this["UseMultithreadedDownloads"] = value;
 			}
 		}
 
@@ -463,21 +463,6 @@ namespace Nexus.Client.Properties
 			set
 			{
 				this["UserLocation"] = value;
-			}
-		}
-
-		[global::System.Configuration.UserScopedSettingAttribute()]
-		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-		[global::System.Configuration.DefaultSettingValueAttribute("4")]
-		public int NumberOfConnections
-		{
-			get
-			{
-				return ((int)(this["NumberOfConnections"]));
-			}
-			set
-			{
-				this["NumberOfConnections"] = value;
 			}
 		}
 

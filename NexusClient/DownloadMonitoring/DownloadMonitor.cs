@@ -225,7 +225,7 @@ namespace Nexus.Client.DownloadMonitoring
 		/// <c>false</c> otherwise.</returns>
 		public bool CanResume(IBackgroundTask p_tskTask)
 		{
-			return (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete);
+			return (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete) || (p_tskTask.Status == TaskStatus.Queued);
 		}
 
 		/// <summary>

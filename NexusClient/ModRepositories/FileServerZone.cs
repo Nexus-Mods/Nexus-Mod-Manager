@@ -13,6 +13,7 @@ namespace Nexus.Client.ModRepositories
 		private string m_strFileServerID = String.Empty;
 		private Image m_imgFileServerFlag = null;
 		private Int32 m_intAffinityID = 0;
+		private bool m_booPremium = false;
 
 		#region Properties
 
@@ -80,6 +81,22 @@ namespace Nexus.Client.ModRepositories
 			}
 		}
 
+		/// <summary>
+		/// Gets the premium status of the fileserver.
+		/// </summary>
+		/// <value>The premium status of the fileserver.</value>
+		public bool IsPremium
+		{
+			get
+			{
+				return m_booPremium;
+			}
+			private set
+			{
+				m_booPremium = value;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -93,6 +110,7 @@ namespace Nexus.Client.ModRepositories
 			m_strFileServerName = "Default";
 			m_intAffinityID = 0;
 			m_imgFileServerFlag = new Bitmap(16, 11);
+			m_booPremium = false;
 		}
 
 		/// <summary>
@@ -101,12 +119,14 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strFileServerID">The fileserver ID.</param>
 		/// <param name="p_strFileServerName">The fileserver name.</param>
 		/// <param name="p_intAffinityID">The fileserver affinity.</param>
-		public FileServerZone(string p_strFileServerID, string p_strFileServerName, Int32 p_intAffinityID)
+		/// <param name="p_booPremium">The fileserver premium status.</param>
+		public FileServerZone(string p_strFileServerID, string p_strFileServerName, Int32 p_intAffinityID, bool p_booPremium)
 		{
 			m_strFileServerID = p_strFileServerID;
 			m_strFileServerName = p_strFileServerName;
 			m_intAffinityID = p_intAffinityID;
 			m_imgFileServerFlag = new Bitmap(16, 11);
+			m_booPremium = p_booPremium;
 		}
 
 		/// <summary>
@@ -116,12 +136,14 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strFileServerName">The fileserver name.</param>
 		/// <param name="p_intAffinityID">The fileserver affinity.</param>
 		/// <param name="p_imgFileServerFlag">The fileserver image.</param>
-		public FileServerZone(string p_strFileServerID, string p_strFileServerName, Int32 p_intAffinityID, Image p_imgFileServerFlag)
+		/// <param name="p_booPremium">The fileserver premium status.</param>
+		public FileServerZone(string p_strFileServerID, string p_strFileServerName, Int32 p_intAffinityID, Image p_imgFileServerFlag, bool p_booPremium)
 		{
 			m_strFileServerID = p_strFileServerID;
 			m_strFileServerName = p_strFileServerName;
 			m_intAffinityID = p_intAffinityID;
 			m_imgFileServerFlag = p_imgFileServerFlag;
+			m_booPremium = p_booPremium;
 		}
 
 		#endregion

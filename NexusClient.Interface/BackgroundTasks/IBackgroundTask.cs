@@ -150,6 +150,12 @@ namespace Nexus.Client.BackgroundTasks
 		/// <value>Thether the task supports pausing.</value>
 		bool SupportsPause { get; }
 
+		/// <summary>
+		/// Gets whether the task supports queuing.
+		/// </summary>
+		/// <value>Thether the task supports queuing.</value>
+		bool SupportsQueue { get; }
+
 		#endregion
 
 		#region Task Control
@@ -164,6 +170,12 @@ namespace Nexus.Client.BackgroundTasks
 		/// </summary>
 		/// <exception cref="InvalidOperationException">Thrown if the task does not support pausing.</exception>
 		void Pause();
+
+		/// <summary>
+		/// Queues the task.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown if the task does not support queuing.</exception>
+		void Queue();
 
 		/// <summary>
 		/// Resumes the task.

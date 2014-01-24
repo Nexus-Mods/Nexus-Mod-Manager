@@ -81,8 +81,8 @@ namespace Nexus.Client.DownloadManagement
 		private string m_strUserAgent = "";
 		private Int32 m_intMaxConnections = 4;
 		private Int32 m_intMinBlockSize = 500 * 1024;
-		private Int32 m_intRetries = 5;
-		private Int32 m_intRetryInterval = 3000;
+		private Int32 m_intRetries = 3;
+		private Int32 m_intRetryInterval = 10000;
 		private System.Timers.Timer m_tmrUpdater = new System.Timers.Timer(1000);
 		private FileDownloader m_fdrDownloader = null;
 		private AutoResetEvent m_areWaitForDownload = null;
@@ -107,6 +107,18 @@ namespace Nexus.Client.DownloadManagement
 		/// </summary>
 		/// <value>Thether the task supports retrying.</value>
 		public override bool SupportsRetry
+		{
+			get
+			{
+				return true;
+			}
+		}
+
+		/// <summary>
+		/// Gets whether the task supports queuing.
+		/// </summary>
+		/// <value>Thether the task supports queuing.</value>
+		public override bool SupportsQueue
 		{
 			get
 			{
@@ -270,7 +282,7 @@ namespace Nexus.Client.DownloadManagement
 		public void DownloadAsync(List<Uri> p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
 			System.Diagnostics.Stopwatch swRetry = new System.Diagnostics.Stopwatch();
-			int retries = 0;
+			int retries = 1;
 			int i = 0;
 			Uri uriURL = p_uriURL[i];
 			ItemProgress = i;
@@ -420,12 +432,23 @@ namespace Nexus.Client.DownloadManagement
 		}
 
 		/// <summary>
+		/// Queues the task.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown if the task does not support queuing.</exception>
+		public override void Queue()
+		{
+			Status = TaskStatus.Queued;
+			if (m_fdrDownloader != null)
+				m_fdrDownloader.Stop();
+		}
+
+		/// <summary>
 		/// Resumes the task.
 		/// </summary>
 		/// <exception cref="InvalidOperationException">Thrown if the task is not paused.</exception>
 		public override void Resume()
 		{
-			if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete))
+			if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued))
 				throw new InvalidOperationException("Task is not paused.");
 			if (m_steState.IsAsync)
 				DownloadAsync(m_steState.URL, m_steState.Cookies, m_steState.SavePath, m_steState.UseDefaultFileName);
@@ -465,8 +488,11 @@ namespace Nexus.Client.DownloadManagement
 		/// </remarks>
 		public void Dispose()
 		{
-			m_fdrDownloader.DownloadComplete -= new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
-			m_fdrDownloader.Stop();
+			if (m_fdrDownloader != null)
+			{
+				m_fdrDownloader.DownloadComplete -= new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
+				m_fdrDownloader.Stop();
+			}
 		}
 
 		#endregion
