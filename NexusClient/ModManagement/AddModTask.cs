@@ -136,6 +136,7 @@ namespace Nexus.Client.ModManagement
 		private Int32 m_intDownloadProgress = 0;
 		private Int32 m_intDownloadMaximum = 0;
 		private string m_strFileserver = String.Empty;
+		private string m_strRepositoryMessage = String.Empty;
 
 		#region Properties
 
@@ -562,7 +563,8 @@ namespace Nexus.Client.ModManagement
 								Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
 								return null;
 							}
-							lstFileServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.UserLocation);
+							string strRepositoryMessage;
+							lstFileServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.UserLocation, out strRepositoryMessage);
 							if (lstFileServerInfo.Count > 0)
 							{
 								foreach (FileserverInfo fsiFileServer in lstFileServerInfo)
@@ -571,6 +573,8 @@ namespace Nexus.Client.ModManagement
 										uriFilesToDownload.Add(new Uri(fsiFileServer.DownloadLink));
 										m_strFileserverCaptions.Add(fsiFileServer.Name);
 									}
+								if (!String.IsNullOrEmpty(strRepositoryMessage))
+									m_strRepositoryMessage = strRepositoryMessage;
 							}
 						}
 						catch (RepositoryUnavailableException e)
@@ -718,7 +722,7 @@ namespace Nexus.Client.ModManagement
 				}
 				else if (fdtDownloader.Status == TaskStatus.Running)
 				{
-					OverallMessage = String.Format("{0}", GetModDisplayName());
+					OverallMessage = String.Format("{0}{1}", m_strRepositoryMessage, GetModDisplayName());
 					FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
 				}
 				InnerTaskStatus = fdtDownloader.Status;
