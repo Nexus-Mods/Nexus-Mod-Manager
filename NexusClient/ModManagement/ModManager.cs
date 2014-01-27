@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadMonitoring;
 using Nexus.Client.Games;
@@ -13,6 +14,7 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Settings;
 
 namespace Nexus.Client.ModManagement
 {
@@ -80,7 +82,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the application's envrionment info.
 		/// </summary>
 		/// <value>The application's envrionment info.</value>
-		protected IEnvironmentInfo EnvironmentInfo { get; private set; }
+		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
 		/// <summary>
 		/// Gets the current game mode.
@@ -92,7 +94,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the mod repository from which to get mods and mod metadata.
 		/// </summary>
 		/// <value>The mod repository from which to get mods and mod metadata.</value>
-		protected IModRepository ModRepository { get; private set; }
+		public IModRepository ModRepository { get; private set; }
 
 		/// <summary>
 		/// Gets the mod auto updater.
@@ -288,6 +290,59 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
+		#region Login Management
+
+		/// <summary>
+		/// Logins the user into the current mod repository.
+		/// </summary>
+		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
+		/// <returns><c>true</c> if the user was successfully logged in;
+		/// <c>false</c> otherwise</returns>
+		protected bool LoginUser(LoginFormVM p_vmlViewModel)
+		{
+			LoginForm frmLogin = new LoginForm(p_vmlViewModel);
+			return frmLogin.ShowDialog() == DialogResult.OK;
+		}
+
+		/// <summary>
+		/// Logins the user into the current mod repository.
+		/// </summary>
+		/// <param name="p_gmdGameMode">The current game mode.</param>
+		/// <param name="p_mrpModRepository">The mod repository to use to retrieve mods and mod metadata.</param>
+		/// <returns><c>true</c> if the user was successfully logged in;
+		/// <c>false</c> otherwise</returns>
+		public bool Login()
+		{
+			if (EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id] == null)
+				EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id] = new KeyedSettings<string>();
+
+			Dictionary<string, string> dicAuthTokens = new Dictionary<string, string>(EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id]);
+			bool booCredentialsExpired = false;
+			string strError = String.Empty;
+
+			try
+			{
+				booCredentialsExpired = !ModRepository.Login(dicAuthTokens);
+			}
+			catch (RepositoryUnavailableException e)
+			{
+				strError = e.Message;
+				dicAuthTokens.Clear();
+			}
+
+			if ((dicAuthTokens.Count == 0) || booCredentialsExpired)
+			{
+				string strMessage = String.Format("You must log into the {0} website.", ModRepository.Name);
+				string strCancelWarning = String.Format("If you do not login {0} will close.", EnvironmentInfo.Settings.ModManagerName);
+				strError = booCredentialsExpired ? "Your login has expired. Please login again." : strError;
+				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, ModRepository, GameMode.ModeTheme, strMessage, strError, strCancelWarning);
+				return LoginUser(vmlLoginVM);
+			}
+			return true;
+		}
+
+		#endregion
+
 		#region Mod Addition
 
 		/// <summary>
@@ -298,8 +353,24 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTask AddMod(string p_strPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
-			Uri uriPath = new Uri(p_strPath);
-			return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
+			if (ModRepository.UserStatus != null)
+			{
+				Uri uriPath = new Uri(p_strPath);
+				return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
+			}
+			else
+			{
+				if (Login())
+				{
+					Uri uriPath = new Uri(p_strPath);
+					return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
+				}
+				else
+				{
+					MessageBox.Show("You can't download mods while unauthenticated!");
+					return null;
+				}
+			}
 		}
 
 		/// <summary>
@@ -456,9 +527,14 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm)
 		{
-			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList);
-			mutModUpdateCheck.Update(p_camConfirm);
-			return mutModUpdateCheck;
+			if (ModRepository.UserStatus != null)
+			{
+				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList);
+				mutModUpdateCheck.Update(p_camConfirm);
+				return mutModUpdateCheck;
+			}
+			else
+				throw new Exception("Login required");
 		}
 
 		/// <summary>

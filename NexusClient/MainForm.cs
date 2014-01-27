@@ -153,6 +153,15 @@ namespace Nexus.Client
 				dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
 			}
 
+			UserStatusFeedback();
+		}
+
+		/// <summary>
+		/// Sets the UI elements providing feedback on the user online status.
+		/// </summary>
+		protected void UserStatusFeedback()
+		{
+
 			if (ViewModel.OfflineMode)
 			{
 				tpbDownloadSpeed.Visible = false;
@@ -160,7 +169,7 @@ namespace Nexus.Client
 				tsbGoPremium.Visible = false;
 				tlbDownloads.Font = new Font(tlbGoPremium.Font, FontStyle.Bold);
 				tlbDownloads.ForeColor = Color.Red;
-				tlbDownloads.Text = "OFFLINE MODE";
+				tlbDownloads.Text = "OFFLINE";
 			}
 			else
 			{
@@ -807,8 +816,7 @@ namespace Nexus.Client
 		private bool ConfirmCloseAfterGameLaunch(out bool p_booRememberSelection)
 		{
 			bool booRemember = false;
-			bool booClose = (ExtendedMessageBox.Show(this, String.Format("Would you like {0} to close after launching the game?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Close", "details", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out booRemember) == DialogResult.Yes);
-			//bool booClose = (ExtendedMessageBox.Show(this, String.Format("Would you like {0} to close after launching the game?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Close", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out booRemember) == DialogResult.Yes);
+			bool booClose = (ExtendedMessageBox.Show(this, String.Format("Would you like {0} to close after launching the game?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Close", "Details", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out booRemember) == DialogResult.Yes);
 			p_booRememberSelection = booRemember;
 			return booClose;
 		}
@@ -851,7 +859,6 @@ namespace Nexus.Client
 					byte b = clrOld.B;
 
 					r = g = b = (byte)(0.21 * r + 0.72 * g + 0.07 * b);
-					//r = g = b = (byte)(0.299 * r + 0.587 * g + 0.114 * b);
 
 					r = (byte)(r / 255.0 * p_thmTheme.PrimaryColour.R);
 					g = (byte)(g / 255.0 * p_thmTheme.PrimaryColour.G);

@@ -322,7 +322,7 @@ namespace Nexus.Client
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			if (GameMode.UsesPlugins)
 				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode);
-			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mrpModRepository, OfflineMode);
+			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository, OfflineMode);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
@@ -391,8 +391,7 @@ namespace Nexus.Client
 		/// </summary>
 		private void UpdateProgramme()
 		{
-			if (!OfflineMode)
-				UpdateProgramme(false);
+			UpdateProgramme(false);
 		}
 
 		/// <summary>

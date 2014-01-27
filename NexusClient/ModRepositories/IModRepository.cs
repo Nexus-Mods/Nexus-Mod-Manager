@@ -45,6 +45,12 @@ namespace Nexus.Client.ModRepositories
 		bool IsOffline { get; }
 
 		/// <summary>
+		/// Gets whether the repository supports unauthenticated downloads.
+		/// </summary>
+		/// <value>Whether the repository supports unauthenticated downloads.</value>
+		bool SupportsUnauthenticatedDownload { get; }
+
+		/// <summary>
 		/// Gets the repository's file server zones.
 		/// </summary>
 		/// <value>the repository's file server zones.</value>

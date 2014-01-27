@@ -358,12 +358,6 @@ namespace Nexus.Client
 			Trace.Unindent();
 			StepOverallProgress();
 
-			if (!Login(gmdGameMode, mrpModRepository))
-			{
-				p_vwmErrorMessage = null;
-				Status = TaskStatus.Error;
-				return false;
-			}
 			StepOverallProgress();
 
 			ServiceManager svmServices = InitializeServices(gmdGameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);

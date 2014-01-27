@@ -33,7 +33,6 @@
 			this.label3 = new System.Windows.Forms.Label();
 			this.butLogin = new System.Windows.Forms.Button();
 			this.butOffline = new System.Windows.Forms.Button();
-			this.butCancel = new System.Windows.Forms.Button();
 			this.tbxUsername = new System.Windows.Forms.TextBox();
 			this.tbxPassword = new System.Windows.Forms.TextBox();
 			this.ckbStayLoggedIn = new System.Windows.Forms.CheckBox();
@@ -90,20 +89,9 @@
 			this.butOffline.Name = "butOffline";
 			this.butOffline.Size = new System.Drawing.Size(75, 23);
 			this.butOffline.TabIndex = 4;
-			this.butOffline.Text = "Offline";
+			this.butOffline.Text = " Stay Offline";
 			this.butOffline.UseVisualStyleBackColor = true;
 			this.butOffline.Click += new System.EventHandler(this.butOffline_Click);
-			// 
-			// butCancel
-			// 
-			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.butCancel.Location = new System.Drawing.Point(169, 113);
-			this.butCancel.Name = "butCancel";
-			this.butCancel.Size = new System.Drawing.Size(75, 23);
-			this.butCancel.TabIndex = 5;
-			this.butCancel.Text = "Cancel";
-			this.butCancel.UseVisualStyleBackColor = true;
-			this.butCancel.Click += new System.EventHandler(this.butCancel_Click);
 			// 
 			// tbxUsername
 			// 
@@ -196,7 +184,6 @@
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.AutoSize = true;
 			this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.CancelButton = this.butCancel;
 			this.ClientSize = new System.Drawing.Size(256, 191);
 			this.Controls.Add(this.panel3);
 			this.Controls.Add(this.panel2);

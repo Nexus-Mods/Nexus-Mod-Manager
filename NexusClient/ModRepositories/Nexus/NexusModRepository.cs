@@ -79,6 +79,18 @@ namespace Nexus.Client.ModRepositories.Nexus
 		}
 
 		/// <summary>
+		/// Gets whether the repository supports unauthenticated downloads.
+		/// </summary>
+		/// <value>Whether the repository supports unauthenticated downloads.</value>
+		public bool SupportsUnauthenticatedDownload 
+		{
+			get
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Gets the User Agent used for the mod repository.
 		/// </summary>
 		/// <value>The User Agent.</value>

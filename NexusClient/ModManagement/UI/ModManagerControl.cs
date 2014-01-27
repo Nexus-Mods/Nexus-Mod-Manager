@@ -92,6 +92,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeactivateModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
 
+
 				addModFromURLToolStripMenuItem.Enabled = !m_vmlViewModel.OfflineMode;
 
 				LoadMetrics();
@@ -214,6 +215,7 @@ namespace Nexus.Client.ModManagement.UI
 				IMod modMod = GetSelectedMod();
 				booCurrentState = modMod.IsEndorsed;
 				ViewModel.ToggleModEndorsement(modMod);
+				tsbToggleEndorse.Enabled = true;
 			}
 			catch (Exception e)
 			{
@@ -319,8 +321,8 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
 
 				ViewModel.DeleteModCommand.CanExecute = true;
-				ViewModel.TagModCommand.CanExecute = !ViewModel.OfflineMode;
-				tsbToggleEndorse.Enabled = !ViewModel.OfflineMode;
+				ViewModel.TagModCommand.CanExecute = true;
+				tsbToggleEndorse.Enabled = true;
 				tsbToggleEndorse.Image = GetSelectedMod().IsEndorsed ? Properties.Resources.unendorsed : Properties.Resources.endorsed;
 			}
 			else

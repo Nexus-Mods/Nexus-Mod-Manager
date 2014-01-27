@@ -6,6 +6,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
 using System.ComponentModel;
 using System.Linq;
+using System.Windows.Forms;
 
 namespace Nexus.Client.DownloadMonitoring.UI
 {
@@ -17,6 +18,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	{
 		bool m_booOfflineMode = false;
 		IModRepository m_mrpModRepository = null;
+		ModManager m_mmgModManager = null;
 
 		#region Properties
 
@@ -189,11 +191,12 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <param name="p_amnDownloadMonitor">The Download manager to use to manage the monitored activities.</param>
 		/// <param name="p_setSettings">The application and user settings.</param>
-		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, IModRepository p_mrpModRepository, bool p_booOfflineMode)
+		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, ModManager p_mmgModManager, IModRepository p_mrpModRepository, bool p_booOfflineMode)
 		{
 			DownloadMonitor = p_amnDownloadMonitor;
 			Settings = p_setSettings;
 			m_booOfflineMode = p_booOfflineMode;
+			m_mmgModManager = p_mmgModManager;
 			m_mrpModRepository = p_mrpModRepository;
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
@@ -312,14 +315,26 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">The task to resume.</param>
 		public void ResumeTask(IBackgroundTask p_tskTask)
 		{
-			if (DownloadMonitor.CanResume(p_tskTask))
+			bool booCanResume = false;
+			if (!m_mrpModRepository.SupportsUnauthenticatedDownload)
 			{
-				BackgroundWorker bgwWorker;
-				bgwWorker = new BackgroundWorker();
-				bgwWorker.DoWork += new DoWorkEventHandler(bgwWorker_DoWork);
-				bgwWorker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bgwWorker_RunWorkerCompleted);
-				bgwWorker.RunWorkerAsync(p_tskTask);
+				if (m_mmgModManager.Login())
+						booCanResume = true;
+				else
+					MessageBox.Show("You can't resume a download while unauthenticated!");
 			}
+			else
+				booCanResume = true;
+
+			if (booCanResume)
+				if (DownloadMonitor.CanResume(p_tskTask))
+				{
+					BackgroundWorker bgwWorker;
+					bgwWorker = new BackgroundWorker();
+					bgwWorker.DoWork += new DoWorkEventHandler(bgwWorker_DoWork);
+					bgwWorker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bgwWorker_RunWorkerCompleted);
+					bgwWorker.RunWorkerAsync(p_tskTask);
+				}
 		}
 
 		void bgwWorker_DoWork(object sender, DoWorkEventArgs e)

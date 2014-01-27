@@ -410,8 +410,21 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to tag.</param>
 		protected void TagMod(IMod p_modMod)
 		{
-			ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
-			TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
+			if (ModManager.ModRepository.UserStatus != null)
+			{
+				ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
+				TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
+			}
+			else
+			{
+				if (ModManager.Login())
+				{
+					ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
+					TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
+				}
+				else if (OfflineMode)
+					MessageBox.Show("This function is unavailable while being offline!");
+			}
 		}
 
 		/// <summary>
@@ -473,7 +486,17 @@ namespace Nexus.Client.ModManagement.UI
 				lstModList.AddRange(ManagedMods);
 
 			if (lstModList.Count > 0)
-				UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
+			{
+				if (ModManager.ModRepository.UserStatus != null)
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
+				else
+				{
+					if (ModManager.Login())
+						UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
+					else if (OfflineMode)
+						MessageBox.Show("You can't check for mod updates while being offline!");
+				}
+			}
 		}
 
 		/// <summary>
@@ -482,12 +505,20 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
 		public void ToggleModEndorsement(IMod p_modMod)
 		{
-			string strResult = string.Empty;
 
+			string strResult = string.Empty;
 			if (String.IsNullOrEmpty(p_modMod.Id))
 				throw new Exception("we couldn't find a proper Nexus ID or the file no longer exists on the Nexus sites.");
 
-			ModManager.ToggleModEndorsement(p_modMod);
+			if (ModManager.ModRepository.UserStatus != null)
+				ModManager.ToggleModEndorsement(p_modMod);
+			else
+			{
+				if (ModManager.Login())
+					ModManager.ToggleModEndorsement(p_modMod);
+				else if (OfflineMode)
+					MessageBox.Show("You can't toggle mod endorsement while being offline!");
+			}
 		}
 
 		/// <summary>
