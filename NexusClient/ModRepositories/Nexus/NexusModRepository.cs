@@ -894,10 +894,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
 		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
 		/// <param name="p_strUserLocation">The preferred user location.</param>
+		/// <param name="p_strRepositoryMessage">Custom repository message, if needed.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, string p_strUserLocation)
+		public List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, string p_strUserLocation, out string p_strRepositoryMessage)
 		{
+			p_strRepositoryMessage = String.Empty;
 			if (IsOffline)
 				return null;
 
@@ -909,7 +911,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					fsiServerInfo = nmrApi.GetModFileDownloadUrls(p_strFileId, m_intRemoteGameId);
-					fsiBestMatch = GetBestFileserver(fsiServerInfo, p_strUserLocation);
+					fsiBestMatch = GetBestFileserver(fsiServerInfo, p_strUserLocation, out p_strRepositoryMessage);
 				}
 			}
 			catch (TimeoutException e)
@@ -928,11 +930,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		}
 
 
-		private List<FileserverInfo> GetBestFileserver(List<FileserverInfo> fsiList, string p_strUserLocation)
+		private List<FileserverInfo> GetBestFileserver(List<FileserverInfo> fsiList, string p_strUserLocation, out string p_strRepositoryMessage)
 		{
 			List<FileserverInfo> fsiBestMatch = new List<FileserverInfo>();
 			int intServerAffinity = 0;
 			bool booPremium = false;
+			bool booPremiumUnavailable = false;
+			p_strRepositoryMessage = String.Empty;
 
 			try
 			{
@@ -965,6 +969,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 									select Url).ToList();
 				}
 
+				if (fsiBestMatch == null)
+					booPremiumUnavailable = true;
+
 				if ((p_strUserLocation != "default") && ((fsiBestMatch == null) || (fsiBestMatch.Count == 0)))
 				{
 					fsiBestMatch = (from Url
@@ -986,6 +993,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 			catch
 			{
 			}
+
+			if (booPremium && booPremiumUnavailable && ((p_strUserLocation == "us.p1") || (p_strUserLocation == "us.p2") || (p_strUserLocation == "eu.p1")))
+				p_strRepositoryMessage = "Premium server unavailable, redirected: ";
 
 			return fsiBestMatch;
 		}
