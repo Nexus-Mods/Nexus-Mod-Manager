@@ -159,8 +159,6 @@ namespace Nexus.Client.ModManagement.UI
 				clwCategoryView.CategoryModeEnabled = ViewModel.Settings.UseCategoryView;
 				LoadCategoryView();
 
-				ViewModel.StartupCheckForUpdates();
-
 				if (!ViewModel.IsCategoryInitialized)
 				{
 					ViewModel.CheckCategoryManager();

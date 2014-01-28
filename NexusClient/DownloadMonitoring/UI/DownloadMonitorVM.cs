@@ -16,7 +16,6 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	/// </summary>
 	public class DownloadMonitorVM : INotifyPropertyChanged
 	{
-		bool m_booOfflineMode = false;
 		IModRepository m_mrpModRepository = null;
 		ModManager m_mmgModManager = null;
 
@@ -174,11 +173,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			get
 			{
-				return m_booOfflineMode;
-			}
-			private set
-			{
-				m_booOfflineMode = value;
+				return m_mrpModRepository.IsOffline;
 			}
 		}
 
@@ -191,11 +186,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <param name="p_amnDownloadMonitor">The Download manager to use to manage the monitored activities.</param>
 		/// <param name="p_setSettings">The application and user settings.</param>
-		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, ModManager p_mmgModManager, IModRepository p_mrpModRepository, bool p_booOfflineMode)
+		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, ModManager p_mmgModManager, IModRepository p_mrpModRepository)
 		{
 			DownloadMonitor = p_amnDownloadMonitor;
 			Settings = p_setSettings;
-			m_booOfflineMode = p_booOfflineMode;
 			m_mmgModManager = p_mmgModManager;
 			m_mrpModRepository = p_mrpModRepository;
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);

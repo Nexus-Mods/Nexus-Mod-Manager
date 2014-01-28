@@ -56,6 +56,7 @@ namespace Nexus.Client
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.PropertyChanged += new System.ComponentModel.PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
+				this.ViewModel.ModRepository.UserStatusUpdate += new EventHandler(ModRepository_UserStatusUpdate);
 
 				ApplyTheme(m_vmlViewModel.ModeTheme);
 
@@ -167,12 +168,11 @@ namespace Nexus.Client
 				tpbDownloadSpeed.Visible = false;
 				tlbGoPremium.Visible = false;
 				tsbGoPremium.Visible = false;
-				tlbDownloads.Font = new Font(tlbGoPremium.Font, FontStyle.Bold);
-				tlbDownloads.ForeColor = Color.Red;
-				tlbDownloads.Text = "OFFLINE";
+				tsbOnlineStatus.Image = new Bitmap(Properties.Resources.offline_icon, 36, 34);
 			}
 			else
 			{
+				tsbOnlineStatus.Image = new Bitmap(Properties.Resources.online_icon, 36, 34);
 				Int32 UserStatus = (ViewModel.UserStatus == null) || String.IsNullOrEmpty(ViewModel.UserStatus[1]) ? 3 : Convert.ToInt32(ViewModel.UserStatus[1]);
 
 				if ((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32))
@@ -335,6 +335,24 @@ namespace Nexus.Client
 		#endregion
 
 		#region Tasks
+
+		/// <summary>
+		/// Handles the <see cref="ModRepository.UserStatusUpdate"/> event of the tasks list.
+		/// </summary>
+		/// <remarks>
+		/// Updates the UI elements.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void ModRepository_UserStatusUpdate(object sender, EventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs>)ModRepository_UserStatusUpdate, sender, e);
+				return;
+			}
+			UserStatusFeedback();
+		}
 
 		/// <summary>
 		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the tasks list.
