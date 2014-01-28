@@ -448,7 +448,18 @@ namespace Nexus.Client.ModManagement
 					OverallProgressMaximum = 6;
 					ItemProgressMaximum = 0;
 					ItemMessage = String.Format("Downloading {0}...", GetModDisplayName());
-					DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
+
+					try
+					{
+						DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
+					}
+					catch (IOException)
+					{
+						Status = TaskStatus.Error;
+						OverallMessage = String.Format("This mod is already downloading: {0}", GetModDisplayName());
+						OnTaskEnded(String.Format("This mod is already downloading: {0}", GetModDisplayName()), null);
+						return;
+					}
 				}
 			}
 		}

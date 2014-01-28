@@ -288,6 +288,8 @@
     <None Include="Resources\side_panel.png" />
     <None Include="Resources\cz.png" />
     <None Include="Resources\europeanunion.png" />
+    <None Include="Resources\offline-icon.png" />
+    <None Include="Resources\online-icon.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />

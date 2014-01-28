@@ -18,6 +18,13 @@ namespace Nexus.Client.Settings
 		private bool m_booPremiumEnabled = false;
 		private string m_strUserLocation = "default";
 		private Int32 m_intConnections = 1;
+		private IModRepository m_mmrModRepository = null;
+
+		#region Custom Events
+
+		public event EventHandler UpdatedSettings;
+
+		#endregion
 
 		#region Properties
 
@@ -94,19 +101,41 @@ namespace Nexus.Client.Settings
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public DownloadSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IList<FileServerZone> p_fszFileServerZones, Int32 p_intUserStatus)
+		public DownloadSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mmrModRepository)
 			: base(p_eifEnvironmentInfo)
 		{
-			bool MemberCheck = false;
-			if ((p_intUserStatus != 4) && (p_intUserStatus != 6) && (p_intUserStatus != 13) && (p_intUserStatus != 27) && (p_intUserStatus != 31) && (p_intUserStatus != 32))
+			m_mmrModRepository = p_mmrModRepository;
+			m_mmrModRepository.UserStatusUpdate += new EventHandler(m_mmrModRepository_UserStatusUpdate);
+
+			if (LoadRepositorySettings())
+			{
+				Load();
+				Save();
+			}
+		}
+
+		#endregion
+
+		private bool LoadRepositorySettings()
+		{
+			bool MemberCheck  = false;
+			Int32 UserStatus = 3;
+
+			if (FileServerZones != null)
+				FileServerZones.Clear();
+
+			if (m_mmrModRepository.UserStatus != null)
+				UserStatus = Convert.ToInt32(m_mmrModRepository.UserStatus[1]);
+
+			if ((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32))
 			{
 				PremiumEnabled = false;
-				FileServerZones = p_fszFileServerZones.Where(x => x.IsPremium == false).ToList();
+				FileServerZones = m_mmrModRepository.FileServerZones.Where(x => x.IsPremium == false).ToList();
 			}
 			else
 			{
 				PremiumEnabled = true;
-				FileServerZones = p_fszFileServerZones.ToList();
+				FileServerZones = m_mmrModRepository.FileServerZones.ToList();
 			}
 
 			FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
@@ -131,14 +160,8 @@ namespace Nexus.Client.Settings
 				}
 			}
 
-			if (MemberCheck)
-			{
-				Load();
-				Save();
-			}
+			return MemberCheck;
 		}
-
-		#endregion
 
 		/// <summary>
 		/// Loads the grouped setting values from the persistent store.
@@ -164,6 +187,13 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.UserLocation = UserLocation;
 			EnvironmentInfo.Settings.Save();
 			return true;
+		}
+
+		private void m_mmrModRepository_UserStatusUpdate(object sender, EventArgs e)
+		{
+			LoadRepositorySettings();
+			if (this.UpdatedSettings != null)
+				this.UpdatedSettings(this, new EventArgs());
 		}
 	}
 }

@@ -12,6 +12,12 @@ namespace Nexus.Client.ModRepositories
 	/// </remarks>
 	public interface IModRepository
 	{
+		#region Custom Events
+
+		event EventHandler UserStatusUpdate;
+
+		#endregion
+
 		#region Properties
 
 		/// <summary>
@@ -204,11 +210,5 @@ namespace Nexus.Client.ModRepositories
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms);
-
-		/// <summary>
-		/// Sets whether the repository should be used in offline mode.
-		/// </summary>
-		/// <param name="p_booOfflineMode">Whether the repository should be in a forced offline mode</param>
-		void SetOfflineMode(bool p_booOfflineMode);
 	}
 }
