@@ -35,6 +35,7 @@
 			this.label1 = new System.Windows.Forms.Label();
 			this.ckbPremiumOnly = new System.Windows.Forms.CheckBox();
 			this.label6 = new System.Windows.Forms.Label();
+			this.lblWarning = new System.Windows.Forms.Label();
 			this.groupBox1.SuspendLayout();
 			this.groupBox2.SuspendLayout();
 			this.SuspendLayout();
@@ -81,7 +82,7 @@
 			this.groupBox2.Controls.Add(this.label6);
 			this.groupBox2.Location = new System.Drawing.Point(3, 80);
 			this.groupBox2.Name = "groupBox2";
-			this.groupBox2.Size = new System.Drawing.Size(414, 48);
+			this.groupBox2.Size = new System.Drawing.Size(414, 53);
 			this.groupBox2.TabIndex = 7;
 			this.groupBox2.TabStop = false;
 			this.groupBox2.Text = "Premium features";
@@ -91,7 +92,7 @@
 			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(6, 25);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(183, 13);
+			this.label1.Size = new System.Drawing.Size(149, 13);
 			this.label1.TabIndex = 4;
 			this.label1.Text = "Use multithreaded downloads:";
 			// 
@@ -104,10 +105,27 @@
 			this.ckbPremiumOnly.TabIndex = 0;
 			this.ckbPremiumOnly.UseVisualStyleBackColor = true;
 			// 
+			// label6
+			// 
+			this.label6.Location = new System.Drawing.Point(0, 0);
+			this.label6.Name = "label6";
+			this.label6.Size = new System.Drawing.Size(100, 23);
+			this.label6.TabIndex = 5;
+			// 
+			// lblWarning
+			// 
+			this.lblWarning.AutoSize = true;
+			this.lblWarning.Location = new System.Drawing.Point(12, 225);
+			this.lblWarning.Name = "label2";
+			this.lblWarning.Size = new System.Drawing.Size(57, 13);
+			this.lblWarning.TabIndex = 8;
+			this.lblWarning.Text = "* Some of the settings won't be available while offline.";
+			// 
 			// DownloadSettingsPage
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.Controls.Add(this.lblWarning);
 			this.Controls.Add(this.groupBox1);
 			this.Controls.Add(this.groupBox2);
 			this.Name = "DownloadSettingsPage";
@@ -117,6 +135,7 @@
 			this.groupBox2.ResumeLayout(false);
 			this.groupBox2.PerformLayout();
 			this.ResumeLayout(false);
+			this.PerformLayout();
 
 		}
 
@@ -129,5 +148,6 @@
 		private System.Windows.Forms.Label label5;
 		private System.Windows.Forms.Label label6;
 		private System.Windows.Forms.CheckBox ckbPremiumOnly;
+		private System.Windows.Forms.Label lblWarning;
 	}
 }

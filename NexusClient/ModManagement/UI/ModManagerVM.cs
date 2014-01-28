@@ -223,7 +223,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			get
 			{
-				return ModManager.RepositoryOfflineMode;
+				return ModManager.ModRepository.IsOffline;
 			}
 		}
 
@@ -410,7 +410,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to tag.</param>
 		protected void TagMod(IMod p_modMod)
 		{
-			if (ModManager.ModRepository.UserStatus != null)
+			if (!ModManager.ModRepository.IsOffline)
 			{
 				ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
 				TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
@@ -444,30 +444,6 @@ namespace Nexus.Client.ModManagement.UI
 		#region Mod Updating
 
 		/// <summary>
-		/// Check for updates to the managed mods.
-		/// </summary>
-		public void StartupCheckForUpdates()
-		{
-			if (Settings.CheckForNewModVersions)
-			{
-				try
-				{
-					if ((String.IsNullOrEmpty(Settings.LastModVersionsCheckDate)) || ((DateTime.Today - Convert.ToDateTime(Settings.LastModVersionsCheckDate)).TotalDays >= Settings.ModVersionsCheckInterval))
-					{
-						CheckForUpdates(false);
-						Settings.LastModVersionsCheckDate = DateTime.Today.ToShortDateString();
-						Settings.Save();
-					}
-				}
-				catch
-				{
-					Settings.LastModVersionsCheckDate = "";
-					Settings.Save();
-				}
-			}
-		}
-
-		/// <summary>
 		/// Checks for mod updates.
 		/// </summary>
 		/// <returns>Message</returns>
@@ -487,7 +463,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (lstModList.Count > 0)
 			{
-				if (ModManager.ModRepository.UserStatus != null)
+				if (!ModManager.ModRepository.IsOffline)
 					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
 				else
 				{
@@ -510,7 +486,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (String.IsNullOrEmpty(p_modMod.Id))
 				throw new Exception("we couldn't find a proper Nexus ID or the file no longer exists on the Nexus sites.");
 
-			if (ModManager.ModRepository.UserStatus != null)
+			if (!ModManager.ModRepository.IsOffline)
 				ModManager.ToggleModEndorsement(p_modMod);
 			else
 			{

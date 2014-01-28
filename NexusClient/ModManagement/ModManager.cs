@@ -353,7 +353,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTask AddMod(string p_strPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
-			if (ModRepository.UserStatus != null)
+			if (!ModRepository.IsOffline)
 			{
 				Uri uriPath = new Uri(p_strPath);
 				return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
