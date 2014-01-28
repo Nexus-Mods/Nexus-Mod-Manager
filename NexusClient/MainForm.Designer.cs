@@ -59,6 +59,7 @@
 			this.tpbDownloadSpeed = new Nexus.Client.UI.Controls.CustomizableToolStripProgressBar();
 			this.tsbGoPremium = new System.Windows.Forms.ToolStripButton();
 			this.tlbGoPremium = new System.Windows.Forms.ToolStripLabel();
+			this.tsbOnlineStatus = new System.Windows.Forms.ToolStripButton();
 			this.toolStrip1.SuspendLayout();
 			this.tssDownload.SuspendLayout();
 			this.SuspendLayout();
@@ -225,6 +226,7 @@
 			// 
 			this.tssDownload.AutoSize = false;
 			this.tssDownload.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+			this.tsbOnlineStatus,
 			this.tlbDownloads,
 			this.tpbDownloadSpeed,
 			this.tsbGoPremium,
@@ -258,6 +260,16 @@
 			this.tsbGoPremium.Name = "tsbGoPremium";
 			this.tsbGoPremium.Size = new System.Drawing.Size(36, 34);
 			this.tsbGoPremium.Click += new System.EventHandler(this.tsbGoPremium_Click);
+			// 
+			// tsbOnlineStatus
+			// 
+			this.tsbOnlineStatus.AutoSize = false;
+			this.tsbOnlineStatus.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbOnlineStatus.Image = global::Nexus.Client.Properties.Resources.offline_icon;
+			this.tsbOnlineStatus.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+			this.tsbOnlineStatus.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbOnlineStatus.Name = "tsbOnlineStatus";
+			this.tsbOnlineStatus.Size = new System.Drawing.Size(36, 34);
 			// 
 			// tlbGoPremium
 			// 
@@ -299,5 +311,6 @@
 		private System.Windows.Forms.ToolStripLabel tlbDownloads;
 		private System.Windows.Forms.ToolStripLabel tlbGoPremium;
 		private System.Windows.Forms.ToolStripButton tsbGoPremium;
+		private System.Windows.Forms.ToolStripButton tsbOnlineStatus;
 	}
 }

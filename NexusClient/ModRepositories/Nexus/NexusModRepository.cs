@@ -36,6 +36,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 		private string[] m_strUserStatus = null;
 		private Dictionary<string, string> m_dicAuthenticationTokens = null;
 
+		#region Custom Events
+
+		public event EventHandler UserStatusUpdate;
+
+		#endregion
+
 		#region Properties
 
 		/// <summary>
@@ -100,7 +106,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// Gets whether the repository is in a forced offline mode.
 		/// </summary>
 		/// <value>Whether the repository is in a forced offline mode.</value>
-		public bool IsOffline { get; private set; }
+		public bool IsOffline 
+		{
+			get
+			{
+				return m_strUserStatus == null;
+			}
+		}
 
 		/// <summary>
 		/// Gets the repository's file server zones.
@@ -499,15 +511,6 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			if (m_dicAuthenticationTokens != null)
 				m_dicAuthenticationTokens.Clear();
-		}
-
-		/// <summary>
-		/// Sets whether the repository should be used in offline mode.
-		/// </summary>
-		/// <param name="p_booOfflineMode">Whether the repository should be in a forced offline mode</param>
-		public void SetOfflineMode(bool p_booOfflineMode)
-		{
-			IsOffline = p_booOfflineMode;
 		}
 
 		#endregion
@@ -1068,6 +1071,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 						AllowedConnections = 4;
 						m_intMaxConcurrentDownloads = 10;
 					}
+
+			UserStatusUpdateEvent();
 		}
 
 		/// <summary>
@@ -1200,5 +1205,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 		}
 
 		#endregion
+
+		private void UserStatusUpdateEvent()
+		{
+			if (this.UserStatusUpdate != null)
+				this.UserStatusUpdate(this, new EventArgs());
+		}
 	}
 }

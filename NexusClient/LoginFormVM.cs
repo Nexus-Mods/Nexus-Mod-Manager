@@ -170,15 +170,7 @@ namespace Nexus.Client
 			else
 				EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
 			EnvironmentInfo.Settings.Save();
-			ModRepository.SetOfflineMode(false);
 			return true;
-		}
-
-		public bool OfflineMode()
-		{
-			ModRepository.SetOfflineMode(EnvironmentInfo.Settings.SupportOfflineMode);
-
-			return EnvironmentInfo.Settings.SupportOfflineMode;
 		}
 	}
 }

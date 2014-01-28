@@ -89,7 +89,7 @@ namespace Nexus.Client
 		/// Gets the repository we are logging in to.
 		/// </summary>
 		/// <value>The repository we are logging in to.</value>
-		protected IModRepository ModRepository { get; private set; }
+		public IModRepository ModRepository { get; private set; }
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
@@ -322,7 +322,7 @@ namespace Nexus.Client
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			if (GameMode.UsesPlugins)
 				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode);
-			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository, OfflineMode);
+			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
@@ -334,11 +334,9 @@ namespace Nexus.Client
 			List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>();
 			lstSettingGroups.Add(new GeneralSettingsPage(gsgGeneralSettings));
 			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
-			if (!ModRepository.IsOffline)
-			{
-				DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository.FileServerZones, (ModRepository.UserStatus == null) || String.IsNullOrEmpty(ModRepository.UserStatus[1]) ? 3 : Convert.ToInt32(ModRepository.UserStatus[1]));
-				lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
-			}
+			DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
+			lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
+
 			if (p_gmdGameMode.SettingsGroupViews != null)
 				lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
 

@@ -24,23 +24,10 @@ namespace Nexus.Client.Settings.UI
 		public DownloadSettingsPage(DownloadSettingsGroup p_dsgSettings)
 		{
 			SettingsGroup = p_dsgSettings;
+			p_dsgSettings.UpdatedSettings += new EventHandler(dsgSettings_UpdatedSettings);
 			InitializeComponent();
 
-			BindingSource bsFileServerZones = new BindingSource();
-			m_fszFileServerZone = p_dsgSettings.FileServerZones;
-			bsFileServerZones.DataSource = p_dsgSettings.FileServerZones;
-
-			cbxServerLocation.DataSource = bsFileServerZones.DataSource;
-			cbxServerLocation.DisplayMember = "FileServerName";
-			cbxServerLocation.ValueMember = "FileServerID";
-
-			BindingHelper.CreateFullBinding(cbxServerLocation, () => cbxServerLocation.SelectedValue, p_dsgSettings, () => p_dsgSettings.UserLocation);
-			if (p_dsgSettings.PremiumEnabled)
-				BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.UseMultithreadedDownloads);
-			else
-			{
-				ckbPremiumOnly.Enabled = false;
-			}
+			SetBindings(p_dsgSettings);
 		}
 
 		#endregion
@@ -55,6 +42,33 @@ namespace Nexus.Client.Settings.UI
 
 		#endregion
 
+		private void SetBindings(DownloadSettingsGroup p_dsgSettings)
+		{
+			BindingSource bsFileServerZones = new BindingSource();
+			if (m_fszFileServerZone != null)
+				m_fszFileServerZone.Clear();
+			m_fszFileServerZone = p_dsgSettings.FileServerZones;
+
+			bsFileServerZones.DataSource = p_dsgSettings.FileServerZones;
+
+			cbxServerLocation.DataSource = bsFileServerZones.DataSource;
+			cbxServerLocation.DisplayMember = "FileServerName";
+			cbxServerLocation.ValueMember = "FileServerID";
+
+			cbxServerLocation.DataBindings.Clear();
+			BindingHelper.CreateFullBinding(cbxServerLocation, () => cbxServerLocation.SelectedValue, p_dsgSettings, () => p_dsgSettings.UserLocation);
+			if (p_dsgSettings.PremiumEnabled)
+			{
+				ckbPremiumOnly.DataBindings.Clear();
+				BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.UseMultithreadedDownloads);
+				ckbPremiumOnly.Enabled = true;
+			}
+			else
+			{
+				ckbPremiumOnly.Enabled = false;
+			}
+		}
+
 		private void cbxServerLocation_DrawItem(object sender, DrawItemEventArgs e)
 		{
 			string strImageFont = "Arial";
@@ -67,18 +81,24 @@ namespace Nexus.Client.Settings.UI
 
 			// Let's highlight the currently selected item like any well 
 			// behaved combo box should
-			e.Graphics.FillRectangle(Brushes.Bisque, e.Bounds);
-			e.Graphics.DrawString(m_fszFileServerZone[e.Index].FileServerName, objFont, Brushes.Black,
-								  new Point(m_fszFileServerZone[e.Index].FileServerFlag.Width * 2, e.Bounds.Y));
-			e.Graphics.DrawImage(m_fszFileServerZone[e.Index].FileServerFlag, new Point(e.Bounds.X, e.Bounds.Y));
-          
-			if ((e.State & DrawItemState.Focus) == 0)
+			try
 			{
-				e.Graphics.FillRectangle(Brushes.White, e.Bounds);
+				e.Graphics.FillRectangle(Brushes.Bisque, e.Bounds);
 				e.Graphics.DrawString(m_fszFileServerZone[e.Index].FileServerName, objFont, Brushes.Black,
 									  new Point(m_fszFileServerZone[e.Index].FileServerFlag.Width * 2, e.Bounds.Y));
 				e.Graphics.DrawImage(m_fszFileServerZone[e.Index].FileServerFlag, new Point(e.Bounds.X, e.Bounds.Y));
-			}  
+
+				if ((e.State & DrawItemState.Focus) == 0)
+				{
+					e.Graphics.FillRectangle(Brushes.White, e.Bounds);
+					e.Graphics.DrawString(m_fszFileServerZone[e.Index].FileServerName, objFont, Brushes.Black,
+										  new Point(m_fszFileServerZone[e.Index].FileServerFlag.Width * 2, e.Bounds.Y));
+					e.Graphics.DrawImage(m_fszFileServerZone[e.Index].FileServerFlag, new Point(e.Bounds.X, e.Bounds.Y));
+				}
+			}
+			catch
+			{
+			}
 		}
 
 		/// <summary>
@@ -100,6 +120,13 @@ namespace Nexus.Client.Settings.UI
 			{
 				return false;
 			}
+		}
+
+		private void dsgSettings_UpdatedSettings(object sender, EventArgs e)
+		{
+			DownloadSettingsGroup dsgSettings = (DownloadSettingsGroup)sender;
+			if (dsgSettings != null)
+				SetBindings(dsgSettings);
 		}
 	}
 }
