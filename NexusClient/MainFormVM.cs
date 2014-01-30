@@ -19,6 +19,7 @@ using Nexus.Client.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using Nexus.Client.Commands.Generic;
+using Nexus.UI.Controls;
 using System.Drawing;
 
 namespace Nexus.Client
@@ -84,6 +85,12 @@ namespace Nexus.Client
 		/// </summary>
 		/// <value>The update manager to use to perform updates.</value>
 		protected UpdateManager UpdateManager { get; private set; }
+
+		/// <summary>
+		/// Gets the mod manager to use to manage mods.
+		/// </summary>
+		/// <value>The mod manager to use to manage mods.</value>
+		protected ModManager ModManager { get; private set; }
 
 		/// <summary>
 		/// Gets the repository we are logging in to.
@@ -313,10 +320,9 @@ namespace Nexus.Client
 		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
-
 			GameMode = p_gmdGameMode;
 			GameMode.GameLauncher.GameLaunching += new CancelEventHandler(GameLauncher_GameLaunching);
-
+			ModManager = p_mmgModManager;
 			ModRepository = p_mrpModRepository;
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
@@ -454,15 +460,21 @@ namespace Nexus.Client
 			}
 		}
 
+
+
 		/// <summary>
 		/// Logs out of all mod repositories.
 		/// </summary>
 		private void Logout()
 		{
-			ModRepository.Logout();
-			EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
-			EnvironmentInfo.Settings.Save();
-			RequestedGameMode = GameMode.ModeId;
+			if (ModRepository.IsOffline)
+				ModManager.Login();
+			else
+			{
+				ModRepository.Logout();
+				EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
+				EnvironmentInfo.Settings.Save();
+			}
 		}
 	}
 }

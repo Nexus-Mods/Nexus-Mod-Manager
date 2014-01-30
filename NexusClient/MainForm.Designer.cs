@@ -47,7 +47,6 @@
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.spbLaunch = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbHelp = new System.Windows.Forms.ToolStripSplitButton();
-			this.tsbLogout = new System.Windows.Forms.ToolStripButton();
 			this.spbChangeMode = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbTools = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbFolders = new System.Windows.Forms.ToolStripSplitButton();
@@ -72,7 +71,6 @@
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.spbLaunch,
             this.spbHelp,
-            this.tsbLogout,
             this.spbChangeMode,
             this.spbTools,
 			this.spbFolders,
@@ -103,16 +101,6 @@
 			this.spbHelp.Size = new System.Drawing.Size(48, 36);
 			this.spbHelp.Text = "Help";
 			this.spbHelp.ButtonClick += new System.EventHandler(this.spbHelp_ButtonClick);
-			// 
-			// tsbLogout
-			// 
-			this.tsbLogout.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
-			this.tsbLogout.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbLogout.Image = global::Nexus.Client.Properties.Resources.application_exit_2;
-			this.tsbLogout.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbLogout.Name = "tsbLogout";
-			this.tsbLogout.Size = new System.Drawing.Size(36, 36);
-			this.tsbLogout.Text = "toolStripButton1";
 			// 
 			// spbChangeMode
 			// 
@@ -304,7 +292,6 @@
 		private System.Windows.Forms.ToolStripSplitButton spbFolders;
 		private System.Windows.Forms.ToolStripButton tsbUpdate;
 		private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanel1;
-		private System.Windows.Forms.ToolStripButton tsbLogout;
 		private System.Windows.Forms.ToolStripSplitButton spbHelp;
 		private System.Windows.Forms.StatusStrip tssDownload;
 		private Nexus.Client.UI.Controls.CustomizableToolStripProgressBar tpbDownloadSpeed;

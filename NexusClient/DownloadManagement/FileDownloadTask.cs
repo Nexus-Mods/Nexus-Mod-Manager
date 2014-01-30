@@ -306,9 +306,28 @@ namespace Nexus.Client.DownloadManagement
 				{
 					if (m_fdrDownloader.FileNotFound)
 					{
-						Status = TaskStatus.Error;
-						OnTaskEnded(String.Format("File does not exist: {0}", uriURL.ToString()), null);
-						return;
+						swRetry.Start();
+						retries = 0;
+						OverallMessage = String.Format("File not found on this server, retrying.. ({0}/{1})", retries, m_intRetries);
+						Status = TaskStatus.Retrying;
+
+						if (i++ == p_uriURL.Count)
+						{
+							Status = TaskStatus.Error;
+							OnTaskEnded(String.Format("File does not exist: {0}", uriURL.ToString()), null);
+							return;
+						}
+
+						ItemProgress = i;
+						uriURL = p_uriURL[i];
+
+						while (swRetry.ElapsedMilliseconds < m_intRetryInterval)
+						{
+							if (Status == TaskStatus.Cancelling)
+								break;
+						}
+						swRetry.Stop();
+						swRetry.Reset();
 					}
 					else if (m_fdrDownloader.ErrorCode == "666")
 					{

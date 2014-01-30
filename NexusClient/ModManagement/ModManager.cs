@@ -367,7 +367,7 @@ namespace Nexus.Client.ModManagement
 				}
 				else
 				{
-					MessageBox.Show("You can't download mods while unauthenticated!");
+					MessageBox.Show("You need to login to NMM before you can download mods!");
 					return null;
 				}
 			}

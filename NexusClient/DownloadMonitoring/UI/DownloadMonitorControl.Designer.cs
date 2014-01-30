@@ -122,6 +122,8 @@
 			this.lvwTasks.Resize += new System.EventHandler(this.lvwTasks_Resize);
 			this.lvwTasks.SelectedIndexChanged += new System.EventHandler(this.lvwTasks_SelectedIndexChanged);
 			this.lvwTasks.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.lvwTasks_ColumnWidthChanging);
+			this.lvwTasks.MouseClick += new System.Windows.Forms.MouseEventHandler(DownloadMonitorControl_MouseClick);
+			this.lvwTasks.KeyUp += new System.Windows.Forms.KeyEventHandler(DownloadMonitorControl_KeyUp);
 			// 
 			// clmOverallMessage
 			// 

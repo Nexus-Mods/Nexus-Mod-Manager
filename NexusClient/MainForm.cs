@@ -166,9 +166,12 @@ namespace Nexus.Client
 			if (ViewModel.OfflineMode)
 			{
 				tpbDownloadSpeed.Visible = false;
-				tlbGoPremium.Visible = false;
+				tlbGoPremium.Visible = true;
+				tlbGoPremium.Text = "You are not logged in.";
 				tsbGoPremium.Visible = false;
 				tsbOnlineStatus.Image = new Bitmap(Properties.Resources.offline_icon, 36, 34);
+				tlbDownloads.Visible = false;
+				tpbDownloadSpeed.Visible = false;
 			}
 			else
 			{
@@ -277,8 +280,7 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tsbUpdate, ViewModel.UpdateCommand);
 
 			ViewModel.LogoutCommand.BeforeExecute += new EventHandler<CancelEventArgs>(LogoutCommand_BeforeExecute);
-			ViewModel.LogoutCommand.Executed += new EventHandler(LogoutCommand_Executed);
-			new ToolStripItemCommandBinding(tsbLogout, ViewModel.LogoutCommand);
+			new ToolStripItemCommandBinding(tsbOnlineStatus, ViewModel.LogoutCommand);
 
 			BindLaunchCommands();
 			BindToolCommands();
@@ -287,19 +289,6 @@ namespace Nexus.Client
 		}
 
 		#region Logout
-
-		/// <summary>
-		/// Handles the <see cref="Command.Executed"/> event of the logout command.
-		/// </summary>
-		/// <remarks>
-		/// This closes the application.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void LogoutCommand_Executed(object sender, EventArgs e)
-		{
-			Close();
-		}
 
 		/// <summary>
 		/// Handles the <see cref="Command.BeforeExecute"/> event of the logout command.
@@ -311,8 +300,9 @@ namespace Nexus.Client
 		/// <param name="e">A <see cref="CancelEventArgs"/> describing the event arguments.</param>
 		private void LogoutCommand_BeforeExecute(object sender, CancelEventArgs e)
 		{
-			if (MessageBox.Show(this, "Are you sure you want to logout?", "Logout", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
-				e.Cancel = true;
+			if (!ViewModel.OfflineMode)
+				if (ExtendedMessageBox.Show(this, "Do you want to logout?", "Logout", System.Windows.Forms.MessageBoxButtons.YesNo, System.Windows.Forms.MessageBoxIcon.Question) != System.Windows.Forms.DialogResult.Yes)
+					e.Cancel = true;
 		}
 
 		#endregion

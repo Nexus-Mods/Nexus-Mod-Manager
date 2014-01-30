@@ -53,7 +53,7 @@
 			this.lblPrompt.Name = "lblPrompt";
 			this.lblPrompt.Size = new System.Drawing.Size(181, 13);
 			this.lblPrompt.TabIndex = 0;
-			this.lblPrompt.Text = "You must login to the Nexus website.";
+			this.lblPrompt.Text = "Please login with your Nexus username and password.";
 			// 
 			// label2
 			// 

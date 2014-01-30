@@ -486,7 +486,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 					}
 
 					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
-						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE clicking the OFFLINE button.", e);
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
 
 				}
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
@@ -511,6 +511,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			if (m_dicAuthenticationTokens != null)
 				m_dicAuthenticationTokens.Clear();
+
+			if (m_strUserStatus != null)
+				m_strUserStatus = null;
+
+			UserStatusUpdateEvent();
 		}
 
 		#endregion
@@ -1054,7 +1059,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 					}
 
 					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
-						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE clicking the OFFLINE button.", e);
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
 
 				}
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);

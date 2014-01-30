@@ -152,12 +152,6 @@ namespace Nexus.Client.Settings
 				}
 				else
 					EnvironmentInfo.Settings.UserLocation = "default";
-
-				if (EnvironmentInfo.Settings.UseMultithreadedDownloads)
-				{
-					EnvironmentInfo.Settings.UseMultithreadedDownloads = false;
-					MemberCheck = true;
-				}
 			}
 
 			return MemberCheck;
