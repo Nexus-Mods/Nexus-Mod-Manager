@@ -119,7 +119,7 @@
 			this.lblWarning.Name = "label2";
 			this.lblWarning.Size = new System.Drawing.Size(57, 13);
 			this.lblWarning.TabIndex = 8;
-			this.lblWarning.Text = "* Some of the settings won't be available while offline.";
+			this.lblWarning.Text = "* Some of the settings are only available for logged in Premium users.";
 			// 
 			// DownloadSettingsPage
 			// 

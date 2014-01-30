@@ -100,13 +100,17 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> that describes the event arguments.</param>
 		private void Task_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
-			string strPropertyName = e.PropertyName;
-			if ((ListView != null) && ListView.InvokeRequired)
+			try
 			{
-				ListView.Invoke((Action<AddModTask, string>)HandleChangedTaskProperty, sender, e.PropertyName);
-				return;
+				string strPropertyName = e.PropertyName;
+				if ((ListView != null) && ListView.InvokeRequired)
+				{
+					ListView.Invoke((Action<AddModTask, string>)HandleChangedTaskProperty, sender, e.PropertyName);
+					return;
+				}
+				HandleChangedTaskProperty((AddModTask)sender, e.PropertyName);
 			}
-			HandleChangedTaskProperty((AddModTask)sender, e.PropertyName);
+			catch {}
 		}
 
 		/// <summary>

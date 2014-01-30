@@ -1071,7 +1071,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndVersion.InnerText = HumanReadableVersion;
 			if (MachineVersion != null)
 				xndVersion.Attributes.Append(p_xmlDocument.CreateAttribute("MachineVersion")).Value = MachineVersion.ToString();
-			xndInfo.AppendChild(p_xmlDocument.CreateElement("LastKnownVersion")).InnerText = LastKnownVersion;
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("LatestKnownVersion")).InnerText = LastKnownVersion;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Id")).InnerText = Id;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Author")).InnerText = Author;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("CategoryId")).InnerText = CategoryId.ToString();
@@ -1116,7 +1116,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-			XmlNode xndLastKnownVersion = xndRoot.SelectSingleNode("LastKnownVersion");
+			XmlNode xndLastKnownVersion = xndRoot.SelectSingleNode("LatestKnownVersion");
 			if ((xndLastKnownVersion != null) && (!p_booFillOnlyEmptyValues || String.IsNullOrEmpty(LastKnownVersion)))
 				LastKnownVersion = xndLastKnownVersion.InnerText;
 
@@ -1165,16 +1165,21 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					Website = uriUrl;
 			}
 
-			XmlNode xndUpdateWarningEnabled = xndRoot.SelectSingleNode("UpdateWarningEnabled");
-			if (xndUpdateWarningEnabled != null)
+			if (String.IsNullOrEmpty(LastKnownVersion))
+				UpdateWarningEnabled = false;
+			else
 			{
-				try
+				XmlNode xndUpdateWarningEnabled = xndRoot.SelectSingleNode("UpdateWarningEnabled");
+				if (xndUpdateWarningEnabled != null)
 				{
-					UpdateWarningEnabled = Convert.ToBoolean(xndUpdateWarningEnabled.InnerText);
-				}
-				catch
-				{
-					UpdateWarningEnabled = true;
+					try
+					{
+						UpdateWarningEnabled = Convert.ToBoolean(xndUpdateWarningEnabled.InnerText);
+					}
+					catch
+					{
+						UpdateWarningEnabled = true;
+					}
 				}
 			}
 		}

@@ -183,10 +183,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		protected void SetCommandExecutableStatus()
 		{
-			ViewModel.CancelTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanCancelTask(GetSelectedTask()) && !ViewModel.OfflineMode;
+			ViewModel.CancelTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanCancelTask(GetSelectedTask());
 			ViewModel.RemoveTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanRemoveDownload(GetSelectedTask());
 			ViewModel.PauseTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanPauseDownload(GetSelectedTask()) && !ViewModel.OfflineMode;
-			ViewModel.ResumeTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanResumeDownload(GetSelectedTask()) && !ViewModel.OfflineMode;
+			ViewModel.ResumeTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanResumeDownload(GetSelectedTask());
 
 			this.tsbCancel.Visible = ViewModel.CancelTaskCommand.CanExecute;
 			this.tsbPause.Visible = ViewModel.PauseTaskCommand.CanExecute;
@@ -269,25 +269,28 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		private void ActiveTasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (lvwTasks.InvokeRequired)
+			if (this.IsHandleCreated)
 			{
-				if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+				if (lvwTasks.InvokeRequired)
 				{
-					AddModTask amtQueued = m_vmlViewModel.QueuedTask;
-					if (amtQueued != null)
-						m_vmlViewModel.ResumeTask(amtQueued);
+					if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+					{
+						AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+						if (amtQueued != null)
+							m_vmlViewModel.ResumeTask(amtQueued);
+					}
+					lvwTasks.Invoke((Action)UpdateTitle);
 				}
-				lvwTasks.Invoke((Action)UpdateTitle);
-			}
-			else
-			{
-				if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+				else
 				{
-					AddModTask amtQueued = m_vmlViewModel.QueuedTask;
-					if (amtQueued != null)
-						m_vmlViewModel.ResumeTask(amtQueued);
+					if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+					{
+						AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+						if (amtQueued != null)
+							m_vmlViewModel.ResumeTask(amtQueued);
+					}
+					UpdateTitle();
 				}
-				UpdateTitle();
 			}
 		}
 

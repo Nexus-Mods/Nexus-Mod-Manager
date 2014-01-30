@@ -127,7 +127,7 @@ namespace Nexus.Client.Settings
 			if (m_mmrModRepository.UserStatus != null)
 				UserStatus = Convert.ToInt32(m_mmrModRepository.UserStatus[1]);
 
-			if ((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32))
+			if (((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32)) && !m_mmrModRepository.IsOffline)
 			{
 				PremiumEnabled = false;
 				FileServerZones = m_mmrModRepository.FileServerZones.Where(x => x.IsPremium == false).ToList();
