@@ -135,8 +135,16 @@ namespace Nexus.Client.ModManagement
 		private Int32 m_intSeconds = 0;
 		private Int32 m_intDownloadProgress = 0;
 		private Int32 m_intDownloadMaximum = 0;
+		private Int32 m_intLocalID;
 		private string m_strFileserver = String.Empty;
 		private string m_strRepositoryMessage = String.Empty;
+
+		#region Statics
+
+		private static Int32 m_intCounter = 0;
+		private static Dictionary<string, Int32> m_dctSourceUri = new Dictionary<string, Int32>();
+
+		#endregion
 
 		#region Properties
 
@@ -356,6 +364,7 @@ namespace Nexus.Client.ModManagement
 			m_uriPath = p_uriPath;
 			m_cocConfirmOverwrite = p_cocConfirmOverwrite;
 			m_rmmReadMeManager = p_rmmReadMeManager;
+			m_intLocalID = m_intCounter++;
 		}
 
 		#endregion
@@ -451,6 +460,10 @@ namespace Nexus.Client.ModManagement
 
 					try
 					{
+						if (m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && (m_dctSourceUri[Descriptor.SourceUri.ToString()] != m_intLocalID))
+							throw new IOException();
+						else
+							m_dctSourceUri.Add(Descriptor.SourceUri.ToString(), m_intLocalID);
 						DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
 					}
 					catch (IOException)
@@ -963,6 +976,7 @@ namespace Nexus.Client.ModManagement
 		public override void Cancel()
 		{
 			base.Cancel();
+
 			foreach (IBackgroundTask tskTask in m_lstRunningTasks)
 				if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete) || (tskTask.Status == TaskStatus.Retrying) || (tskTask.Status == TaskStatus.Queued))
 					tskTask.Cancel();
@@ -991,6 +1005,7 @@ namespace Nexus.Client.ModManagement
 		public override void Pause()
 		{
 			Status = TaskStatus.Paused;
+
 			for (Int32 i = m_lstRunningTasks.Count - 1; i >= 0; i--)
 			{
 				if (i >= m_lstRunningTasks.Count)
@@ -1008,7 +1023,7 @@ namespace Nexus.Client.ModManagement
 		/// Queues the task.
 		/// </summary>
 		/// <exception cref="InvalidOperationException">Thrown if the task does not support queuing.</exception>
-		public virtual void Queue()
+		public override void Queue()
 		{
 			Status = TaskStatus.Queued;
 			for (Int32 i = m_lstRunningTasks.Count - 1; i >= 0; i--)
@@ -1034,7 +1049,7 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidOperationException("Task is not paused.");
 			m_lstRunningTasks.Clear();
 			m_dicDownloaderProgress.Clear();
-			AddMod(false);
+			AddMod(Status != TaskStatus.Queued);
 		}
 
 		#endregion
@@ -1069,6 +1084,8 @@ namespace Nexus.Client.ModManagement
 		{
 			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued) && (Descriptor != null))
 			{
+				m_dctSourceUri.Remove(Descriptor.SourceUri.ToString());
+
 				foreach (string strFile in Descriptor.DownloadedFiles)
 					if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))
 						FileUtil.ForceDelete(strFile);

@@ -165,13 +165,14 @@ namespace Nexus.Client
 
 			if (ViewModel.OfflineMode)
 			{
-				tpbDownloadSpeed.Visible = false;
+				if (tpbDownloadSpeed != null)
+					tpbDownloadSpeed.Visible = false;
 				tlbGoPremium.Visible = true;
 				tlbGoPremium.Text = "You are not logged in.";
+				tlbGoPremium.Font = new Font(base.Font, FontStyle.Bold);
 				tsbGoPremium.Visible = false;
 				tsbOnlineStatus.Image = new Bitmap(Properties.Resources.offline_icon, 36, 34);
 				tlbDownloads.Visible = false;
-				tpbDownloadSpeed.Visible = false;
 			}
 			else
 			{
@@ -185,10 +186,13 @@ namespace Nexus.Client
 					tsbGoPremium.Enabled = true;
 					tlbGoPremium.Text = "Go Faster, Go Premium!";
 					tlbGoPremium.Font = new Font(base.Font, FontStyle.Bold);
-					tpbDownloadSpeed.Maximum = 1024;
-					tpbDownloadSpeed.Value = 0;
-					tpbDownloadSpeed.ColorFillMode = Nexus.Client.UI.Controls.ProgressLabel.FillType.Descending;
-					tpbDownloadSpeed.ShowOptionalProgress = false;
+					if (tpbDownloadSpeed != null)
+					{
+						tpbDownloadSpeed.Maximum = 1024;
+						tpbDownloadSpeed.Value = 0;
+						tpbDownloadSpeed.ColorFillMode = Nexus.Client.UI.Controls.ProgressLabel.FillType.Descending;
+						tpbDownloadSpeed.ShowOptionalProgress = false;
+					}
 					tlbDownloads.Tag = "Download Speed:";
 				}
 				else
@@ -196,13 +200,17 @@ namespace Nexus.Client
 					tlbGoPremium.Visible = false;
 					tsbGoPremium.Visible = false;
 					tsbGoPremium.Enabled = false;
-					tpbDownloadSpeed.Maximum = 100;
-					tpbDownloadSpeed.Value = 0;
-					tpbDownloadSpeed.ColorFillMode = Nexus.Client.UI.Controls.ProgressLabel.FillType.Ascending;
-					tpbDownloadSpeed.ShowOptionalProgress = true;
+					if (tpbDownloadSpeed != null)
+					{
+						tpbDownloadSpeed.Maximum = 100;
+						tpbDownloadSpeed.Value = 0;
+						tpbDownloadSpeed.ColorFillMode = Nexus.Client.UI.Controls.ProgressLabel.FillType.Ascending;
+						tpbDownloadSpeed.ShowOptionalProgress = true;
+					}
 					tlbDownloads.Tag = "Download Progress:";
 				}
-				tpbDownloadSpeed.Visible = false;
+				if (tpbDownloadSpeed != null)
+					tpbDownloadSpeed.Visible = true;
 				tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
 			}
 		}
@@ -430,37 +438,40 @@ namespace Nexus.Client
 		/// <param name="OverrideSpeed">If true the speed value is overridden with a 0.</param>
 		private void UpdateProgressBarSpeed(string PropertyName, bool OverrideSpeed)
 		{
-			if ((tpbDownloadSpeed.IsValid) && ((PropertyName == "TotalSpeed") || (PropertyName == "TotalProgress")))
+			if (tpbDownloadSpeed != null)
 			{
-				if (OverrideSpeed)
+				if ((tpbDownloadSpeed.IsValid) && ((PropertyName == "TotalSpeed") || (PropertyName == "TotalProgress")))
 				{
-					tpbDownloadSpeed.Value = 0;
-					if ((tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed))
-						tpbDownloadSpeed.Maximum = 1;
-					tpbDownloadSpeed.Visible = false;
-				}
-				else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed)
-				{
-					tpbDownloadSpeed.Visible = true;
-					tpbDownloadSpeed.Maximum = dmcDownloadMonitor.ViewModel.TotalSpeed > 0 ? dmcDownloadMonitor.ViewModel.TotalSpeed : 1;
-					tpbDownloadSpeed.Value = tpbDownloadSpeed.Maximum;
-				}
-				else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Ascending)
-				{
-					tpbDownloadSpeed.Visible = true;
-					if (dmcDownloadMonitor.ViewModel.TotalMaxProgress > 0)
+					if (OverrideSpeed)
 					{
-						tpbDownloadSpeed.Value = Convert.ToInt32((Convert.ToSingle(dmcDownloadMonitor.ViewModel.TotalProgress) / Convert.ToSingle(dmcDownloadMonitor.ViewModel.TotalMaxProgress)) * 100);
-						tpbDownloadSpeed.OptionalValue = dmcDownloadMonitor.ViewModel.TotalSpeed;
+						tpbDownloadSpeed.Value = 0;
+						if ((tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed))
+							tpbDownloadSpeed.Maximum = 1;
+						tpbDownloadSpeed.Visible = false;
 					}
-				}
-				else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Descending)
-				{
-					tpbDownloadSpeed.Visible = true;
-					if (dmcDownloadMonitor.ViewModel.TotalSpeed <= 1024)
-						tpbDownloadSpeed.Value = dmcDownloadMonitor.ViewModel.TotalSpeed;
-					else
-						tpbDownloadSpeed.Value = 1024;
+					else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Fixed)
+					{
+						tpbDownloadSpeed.Visible = true;
+						tpbDownloadSpeed.Maximum = dmcDownloadMonitor.ViewModel.TotalSpeed > 0 ? dmcDownloadMonitor.ViewModel.TotalSpeed : 1;
+						tpbDownloadSpeed.Value = tpbDownloadSpeed.Maximum;
+					}
+					else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Ascending)
+					{
+						tpbDownloadSpeed.Visible = true;
+						if (dmcDownloadMonitor.ViewModel.TotalMaxProgress > 0)
+						{
+							tpbDownloadSpeed.Value = Convert.ToInt32((Convert.ToSingle(dmcDownloadMonitor.ViewModel.TotalProgress) / Convert.ToSingle(dmcDownloadMonitor.ViewModel.TotalMaxProgress)) * 100);
+							tpbDownloadSpeed.OptionalValue = dmcDownloadMonitor.ViewModel.TotalSpeed;
+						}
+					}
+					else if (tpbDownloadSpeed.ColorFillMode == Nexus.Client.UI.Controls.ProgressLabel.FillType.Descending)
+					{
+						tpbDownloadSpeed.Visible = true;
+						if (dmcDownloadMonitor.ViewModel.TotalSpeed <= 1024)
+							tpbDownloadSpeed.Value = dmcDownloadMonitor.ViewModel.TotalSpeed;
+						else
+							tpbDownloadSpeed.Value = 1024;
+					}
 				}
 			}
 		}
