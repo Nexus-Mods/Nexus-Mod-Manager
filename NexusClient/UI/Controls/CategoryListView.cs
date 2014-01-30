@@ -19,6 +19,7 @@ namespace Nexus.Client.UI.Controls
 		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
 		ReadOnlyObservableList<IMod> m_rolActiveMods = null;
 		IModCategory m_imcSelectedCategory = null;
+		IModRepository m_mmrModRepository = null;
 		bool m_booShowEmpty = false;
 		bool m_booCategoryMode = true;
 
@@ -157,6 +158,18 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
+		/// Gets whether the manager is in offline mode.
+		/// </summary>
+		/// <value>Whether the manager is in offline mode.</value>
+		protected bool IsOffline
+		{
+			get
+			{
+				return (m_mmrModRepository != null) ? m_mmrModRepository.IsOffline : true;
+			}
+		}
+
+		/// <summary>
 		/// Gets the application and user settings.
 		/// </summary>
 		/// <value>The application and user settings.</value>
@@ -197,7 +210,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_lvwList">The source list view.</param>
 		/// <param name="p_cmgCategoryManager">The mod Category Manager.</param>
-		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
+		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, IModRepository p_mmrModRepository, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
 		{
 			this.Tag = false;
 
@@ -207,6 +220,7 @@ namespace Nexus.Client.UI.Controls
 			this.UseFiltering = true;
 
 			CategoryManager = p_cmgCategoryManager;
+			m_mmrModRepository = p_mmrModRepository;
 			m_rolManagedMods = p_rolManagedMods;
 			m_rolActiveMods = p_rolActiveMods;
 			Settings = p_Settings;
@@ -391,7 +405,7 @@ namespace Nexus.Client.UI.Controls
 			{
 				string Val = String.Empty;
 
-				if (rowObject.GetType() != typeof(ModCategory))
+				if ((rowObject.GetType() != typeof(ModCategory)) && !IsOffline)
 				{
 					if (!String.IsNullOrEmpty(((IMod)rowObject).LastKnownVersion))
 						Val = ((IMod)rowObject).LastKnownVersion;
@@ -559,23 +573,26 @@ namespace Nexus.Client.UI.Controls
 		{
 			tlcWebVersion.ImageGetter = delegate(object rowObject)
 			{
-				if (rowObject.GetType() != typeof(ModCategory))
+				if (!IsOffline)
 				{
-					IMod modMod = (IMod)rowObject;
-					if (modMod != null)
+					if (rowObject.GetType() != typeof(ModCategory))
 					{
-						if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
-							return new Bitmap(Properties.Resources.update_warning, 16, 16);
-						else if ((!modMod.IsMatchingVersion()) && (!Settings.HideModUpdateWarningIcon))
-							return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
+						IMod modMod = (IMod)rowObject;
+						if (modMod != null)
+						{
+							if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
+								return new Bitmap(Properties.Resources.update_warning, 16, 16);
+							else if ((!modMod.IsMatchingVersion()) && (!Settings.HideModUpdateWarningIcon))
+								return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
+						}
 					}
-				}
-				else
-				{
-					int intCategoryId = ((IModCategory)rowObject).Id;
+					else
+					{
+						int intCategoryId = ((IModCategory)rowObject).Id;
 
-					if (GetOutdatedModList(intCategoryId).Count > 0)
-						return new Bitmap(Properties.Resources.update_warning, 16, 16);
+						if (GetOutdatedModList(intCategoryId).Count > 0)
+							return new Bitmap(Properties.Resources.update_warning, 16, 16);
+					}
 				}
 
 				return null;

@@ -22,7 +22,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		private string m_strTitleAllActive = "Download Manager ({0})";
 		private string m_strTitleSomeActive = "Download Manager ({0}/{1})";
 		private bool m_booControlIsLoaded = false;
-		
+
 		#region Properties
 
 		/// <summary>
@@ -48,6 +48,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				new ToolStripItemCommandBinding<AddModTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask);
 				new ToolStripItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask);
 				new ToolStripItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask);
+
 				ViewModel.CancelTaskCommand.CanExecute = false;
 				ViewModel.RemoveTaskCommand.CanExecute = false;
 				ViewModel.PauseTaskCommand.CanExecute = false;
@@ -133,6 +134,35 @@ namespace Nexus.Client.DownloadMonitoring.UI
 
 		#endregion
 
+		/// <summary>
+		/// Hanldes the <see cref="Control.MouseClick"/> event of the controls.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
+		private void DownloadMonitorControl_MouseClick(object sender, MouseEventArgs e)
+		{
+			if (e.Button == MouseButtons.Right)
+			{
+				ContextMenu m = new ContextMenu();
+				m.MenuItems.Clear();
+				m.MenuItems.Add(new MenuItem("Copy to clipboard", new EventHandler(cmsContextMenu_Copy)));
+				m.Show((Control)(sender), e.Location);
+			}
+		}
+
+		/// <summary>
+		/// Hanldes the <see cref="Control.KeyUp"/> event of the controls.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
+		private void DownloadMonitorControl_KeyUp(object sender, KeyEventArgs e)
+		{
+			if (e.KeyData == (Keys.C | Keys.Control))
+			{
+				Clipboard.SetText(lvwTasks.FocusedItem.Text);
+			}
+		}
+
 		#region Binding
 
 		/// <summary>
@@ -144,6 +174,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			if (lvwTasks.SelectedItems.Count == 0)
 				return null;
+
 			return ((DownloadListViewItem)lvwTasks.SelectedItems[0]).Task;
 		}
 
@@ -265,8 +296,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		protected void UpdateTitle()
 		{
-			Int32 intActiveCount =0;
-			Int32 intTotalCount =0;
+			Int32 intActiveCount = 0;
+			Int32 intTotalCount = 0;
 			if (ViewModel != null)
 			{
 				intActiveCount = ViewModel.ActiveTasks.Count;
@@ -328,6 +359,16 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		private void lvwTasks_SelectedIndexChanged(object sender, EventArgs e)
 		{
 			SetCommandExecutableStatus();
+		}
+
+		/// <summary>
+		/// Handles the cmsContextMenu.ReadmeScan event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+		private void cmsContextMenu_Copy(object sender, EventArgs e)
+		{
+			Clipboard.SetText(lvwTasks.FocusedItem.Text);
 		}
 
 		#region Column Resizing

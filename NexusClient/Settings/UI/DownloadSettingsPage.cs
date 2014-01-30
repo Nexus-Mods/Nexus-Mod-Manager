@@ -57,16 +57,9 @@ namespace Nexus.Client.Settings.UI
 
 			cbxServerLocation.DataBindings.Clear();
 			BindingHelper.CreateFullBinding(cbxServerLocation, () => cbxServerLocation.SelectedValue, p_dsgSettings, () => p_dsgSettings.UserLocation);
-			if (p_dsgSettings.PremiumEnabled)
-			{
-				ckbPremiumOnly.DataBindings.Clear();
-				BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.UseMultithreadedDownloads);
-				ckbPremiumOnly.Enabled = true;
-			}
-			else
-			{
-				ckbPremiumOnly.Enabled = false;
-			}
+			ckbPremiumOnly.DataBindings.Clear();
+			BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.UseMultithreadedDownloads);
+			ckbPremiumOnly.Enabled = p_dsgSettings.PremiumEnabled;
 		}
 
 		private void cbxServerLocation_DrawItem(object sender, DrawItemEventArgs e)

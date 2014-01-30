@@ -518,7 +518,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (clwCategoryView.Tag == null)
 			{
-				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.CategoryManager, ViewModel.Settings);
+				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.CategoryManager, ViewModel.Settings);
 
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)

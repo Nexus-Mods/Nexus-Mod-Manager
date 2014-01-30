@@ -162,6 +162,12 @@ namespace Nexus.Client.ModManagement.UI
 		protected ModManager ModManager { get; private set; }
 
 		/// <summary>
+		/// Gets the mod repository from which to get mods and mod metadata.
+		/// </summary>
+		/// <value>The mod repository from which to get mods and mod metadata.</value>
+		public IModRepository ModRepository { get; private set; }
+
+		/// <summary>
 		/// Gets the category manager to use to manage categories.
 		/// </summary>
 		/// <value>The category manager to use to manage categories.</value>
@@ -252,6 +258,7 @@ namespace Nexus.Client.ModManagement.UI
 		public ModManagerVM(ModManager p_mmdModManager, ISettings p_setSettings, Theme p_thmTheme)
 		{
 			ModManager = p_mmdModManager;
+			ModRepository = p_mmdModManager.ModRepository;
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
 			CategoryManager = new CategoryManager(ModManager.CurrentGameModeModDirectory, "categories");
