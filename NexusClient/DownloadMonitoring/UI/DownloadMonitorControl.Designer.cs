@@ -31,8 +31,10 @@
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.tsbCancel = new System.Windows.Forms.ToolStripButton();
 			this.tsbRemove = new System.Windows.Forms.ToolStripButton();
+			this.tsbRemoveAll = new System.Windows.Forms.ToolStripButton();
 			this.tsbPause = new System.Windows.Forms.ToolStripButton();
 			this.tsbResume = new System.Windows.Forms.ToolStripButton();
+			this.tsbResumeAll = new System.Windows.Forms.ToolStripButton();
 			this.lvwTasks = new Nexus.UI.Controls.DoubleBufferedListView();
 			this.clmOverallMessage = new System.Windows.Forms.ColumnHeader();
 			this.clmOverallProgress = new System.Windows.Forms.ColumnHeader();
@@ -55,7 +57,9 @@
             this.tsbResume,
             this.tsbCancel,
             this.tsbPause,
-            this.tsbRemove});
+            this.tsbRemove,
+			this.tsbResumeAll,
+			this.tsbRemoveAll});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(37, 183);
@@ -81,6 +85,15 @@
 			this.tsbRemove.Size = new System.Drawing.Size(34, 36);
 			this.tsbRemove.Text = "Remove";
 			// 
+			// tsbRemoveAll
+			// 
+			this.tsbRemoveAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbRemoveAll.Image = global::Nexus.Client.Properties.Resources.edit_clear_3;
+			this.tsbRemoveAll.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbRemoveAll.Name = "tsbRemoveAll";
+			this.tsbRemoveAll.Size = new System.Drawing.Size(34, 36);
+			this.tsbRemoveAll.Text = "Remove All";
+			// 
 			// tsbPause
 			// 
 			this.tsbPause.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
@@ -98,6 +111,15 @@
 			this.tsbResume.Name = "tsbResume";
 			this.tsbResume.Size = new System.Drawing.Size(34, 36);
 			this.tsbResume.Text = "Resume";
+			// 
+			// tsbResumeAll
+			// 
+			this.tsbResumeAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbResumeAll.Image = global::Nexus.Client.Properties.Resources.compilebasic;
+			this.tsbResumeAll.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbResumeAll.Name = "tsbResumeAll";
+			this.tsbResumeAll.Size = new System.Drawing.Size(34, 36);
+			this.tsbResumeAll.Text = "Resume All";
 			// 
 			// lvwTasks
 			// 
@@ -190,5 +212,7 @@
 		private System.Windows.Forms.ToolStripButton tsbRemove;
 		private System.Windows.Forms.ToolStripButton tsbPause;
 		private System.Windows.Forms.ToolStripButton tsbResume;
+		private System.Windows.Forms.ToolStripButton tsbResumeAll;
+		private System.Windows.Forms.ToolStripButton tsbRemoveAll;
 	}
 }
