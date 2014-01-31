@@ -247,7 +247,7 @@ namespace Nexus.Client.DownloadMonitoring
 		/// <c>false</c> otherwise.</returns>
 		public bool CanPause(IBackgroundTask p_tskTask)
 		{
-			return p_tskTask.SupportsPause && ((p_tskTask.Status == TaskStatus.Running) && !(p_tskTask.InnerTaskStatus == TaskStatus.Retrying));
+			return p_tskTask.SupportsPause && ((p_tskTask.Status == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Retrying) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying));
 		}
 
 		/// <summary>

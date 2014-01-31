@@ -278,25 +278,30 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			if (this.IsHandleCreated)
 			{
-				if (lvwTasks.InvokeRequired)
+				if (!ViewModel.OfflineMode)
 				{
-					if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+					if (lvwTasks.InvokeRequired)
 					{
-						AddModTask amtQueued = m_vmlViewModel.QueuedTask;
-						if (amtQueued != null)
-							m_vmlViewModel.ResumeTask(amtQueued);
+						lock (m_vmlViewModel.RunningTasks)
+							if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+							{
+								AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+								if (amtQueued != null)
+									m_vmlViewModel.ResumeTask(amtQueued);
+							}
+						lvwTasks.Invoke((Action)UpdateTitle);
 					}
-					lvwTasks.Invoke((Action)UpdateTitle);
-				}
-				else
-				{
-					if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+					else
 					{
-						AddModTask amtQueued = m_vmlViewModel.QueuedTask;
-						if (amtQueued != null)
-							m_vmlViewModel.ResumeTask(amtQueued);
+						lock (m_vmlViewModel.RunningTasks)
+							if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+							{
+								AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+								if (amtQueued != null)
+									m_vmlViewModel.ResumeTask(amtQueued);
+							}
+						UpdateTitle();
 					}
-					UpdateTitle();
 				}
 			}
 		}
@@ -333,15 +338,19 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
 			{
-				AddModTask tskTask = (AddModTask)sender;
-				if (tskTask.Status == TaskStatus.Queued)
-					if (m_vmlViewModel.ActiveTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
-						m_vmlViewModel.ResumeTask(tskTask);
+				if (!ViewModel.OfflineMode)
+				{
+					AddModTask tskTask = (AddModTask)sender;
+					if (tskTask.Status == TaskStatus.Queued)
+						lock (m_vmlViewModel.RunningTasks)
+							if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+								m_vmlViewModel.ResumeTask(tskTask);
 
-				if (InvokeRequired)
-					Invoke((Action)SetCommandExecutableStatus);
-				else
-					SetCommandExecutableStatus();
+					if (InvokeRequired)
+						Invoke((Action)SetCommandExecutableStatus);
+					else
+						SetCommandExecutableStatus();
+				}
 			}
 		}
 

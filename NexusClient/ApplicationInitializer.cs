@@ -679,7 +679,7 @@ namespace Nexus.Client
 			{
 				string strMessage = String.Format("You must log into the {0} website.", p_mrpModRepository.Name);
 				string strCancelWarning = String.Format("If you do not login {0} will close.", EnvironmentInfo.Settings.ModManagerName);
-				strError = booCredentialsExpired ? "Your login has expired. Please login again." : strError;
+				strError = booCredentialsExpired ? "You need to login using your Nexus username and password." : strError;
 				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, strMessage, strError, strCancelWarning);
 				return LoginUser(vmlLoginVM);
 			}

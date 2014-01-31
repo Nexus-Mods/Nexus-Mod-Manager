@@ -683,11 +683,14 @@ namespace Nexus.Client.ModManagement
 				TimeSpan tspTimeRemaining = TimeSpan.Zero;
 				foreach (DownloadProgressState dpsState in m_dicDownloaderProgress.Values)
 				{
-					intProgress += dpsState.AdjustedProgress;
-					intProgressMaximum += dpsState.AdjustedProgressMaximum;
-					intSpeed += dpsState.DownloadSpeed;
-					if (tspTimeRemaining < dpsState.TimeRemaining)
-						tspTimeRemaining = dpsState.TimeRemaining;
+					if (dpsState != null)
+					{
+						intProgress += dpsState.AdjustedProgress;
+						intProgressMaximum += dpsState.AdjustedProgressMaximum;
+						intSpeed += dpsState.DownloadSpeed;
+						if (tspTimeRemaining < dpsState.TimeRemaining)
+							tspTimeRemaining = dpsState.TimeRemaining;
+					}
 				}
 				ItemProgress = intProgress;
 				ItemProgressMaximum = intProgressMaximum;
