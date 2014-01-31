@@ -183,6 +183,14 @@ namespace Nexus.Client.Settings
 			return true;
 		}
 
+		/// <summary>
+		/// Handles the <see cref="m_mmrModRepository.UserStatusUpdate"/> event of the tasks list.
+		/// </summary>
+		/// <remarks>
+		/// Updates the UI elements.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void m_mmrModRepository_UserStatusUpdate(object sender, EventArgs e)
 		{
 			LoadRepositorySettings();

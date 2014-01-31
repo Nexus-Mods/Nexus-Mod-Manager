@@ -405,7 +405,7 @@ namespace Nexus.Client.UI.Controls
 			{
 				string Val = String.Empty;
 
-				if ((rowObject.GetType() != typeof(ModCategory)) && !IsOffline)
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
 					if (!String.IsNullOrEmpty(((IMod)rowObject).LastKnownVersion))
 						Val = ((IMod)rowObject).LastKnownVersion;
@@ -573,26 +573,23 @@ namespace Nexus.Client.UI.Controls
 		{
 			tlcWebVersion.ImageGetter = delegate(object rowObject)
 			{
-				if (!IsOffline)
+				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					if (rowObject.GetType() != typeof(ModCategory))
+					IMod modMod = (IMod)rowObject;
+					if (modMod != null)
 					{
-						IMod modMod = (IMod)rowObject;
-						if (modMod != null)
-						{
-							if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
-								return new Bitmap(Properties.Resources.update_warning, 16, 16);
-							else if ((!modMod.IsMatchingVersion()) && (!Settings.HideModUpdateWarningIcon))
-								return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
-						}
-					}
-					else
-					{
-						int intCategoryId = ((IModCategory)rowObject).Id;
-
-						if (GetOutdatedModList(intCategoryId).Count > 0)
+						if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
 							return new Bitmap(Properties.Resources.update_warning, 16, 16);
+						else if ((!modMod.IsMatchingVersion()) && (!Settings.HideModUpdateWarningIcon))
+							return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
 					}
+				}
+				else
+				{
+					int intCategoryId = ((IModCategory)rowObject).Id;
+
+					if (GetOutdatedModList(intCategoryId).Count > 0)
+						return new Bitmap(Properties.Resources.update_warning, 16, 16);
 				}
 
 				return null;
