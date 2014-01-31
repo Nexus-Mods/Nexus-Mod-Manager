@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.ModManagement;
 using Nexus.Client.UI;
@@ -48,6 +49,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				new ToolStripItemCommandBinding<AddModTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask);
 				new ToolStripItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask);
 				new ToolStripItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask);
+				Command cmdRemoveAll = new Command("Remove all", "Purges the completed/failed downloads from the list.", ViewModel.RemoveAllTasks);
+				new ToolStripItemCommandBinding(tsbRemoveAll, cmdRemoveAll);
+				Command cmdResumeAll = new Command("Resume all", "Resumes all paused/queued downloads.", ViewModel.ResumeAllTasks);
+				new ToolStripItemCommandBinding(tsbResumeAll, cmdResumeAll);
 
 				ViewModel.CancelTaskCommand.CanExecute = false;
 				ViewModel.RemoveTaskCommand.CanExecute = false;
@@ -192,6 +197,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			this.tsbPause.Visible = ViewModel.PauseTaskCommand.CanExecute;
 			this.tsbRemove.Visible = ViewModel.RemoveTaskCommand.CanExecute;
 			this.tsbResume.Visible = ViewModel.ResumeTaskCommand.CanExecute;
+			this.tsbResumeAll.Visible = true;
+			this.tsbRemoveAll.Visible = true;
 		}
 
 		#endregion

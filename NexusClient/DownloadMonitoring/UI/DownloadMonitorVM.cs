@@ -264,6 +264,22 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		}
 
 		/// <summary>
+		/// Removes all the completed/failed tasks.
+		/// </summary>
+		public void RemoveAllTasks()
+		{
+			List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
+			lock (Tasks)
+			{
+				foreach (IBackgroundTask btTask in Tasks)
+					lstTasks.Add(btTask);
+			}
+			if (lstTasks.Count > 0)
+				foreach (IBackgroundTask btRemovable in lstTasks)
+					RemoveTask((AddModTask)btRemovable);
+		}
+
+		/// <summary>
 		/// Determines if the given <see cref="IBackgroundTask"/> can be removed.
 		/// </summary>
 		/// <param name="p_tskTask">The task for which it is to be determined
@@ -312,7 +328,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public void ResumeTask(IBackgroundTask p_tskTask)
 		{
 			bool booCanResume = false;
-			if (!m_mrpModRepository.SupportsUnauthenticatedDownload)
+			if (m_mrpModRepository.IsOffline && (!m_mrpModRepository.SupportsUnauthenticatedDownload))
 			{
 				if (m_mmgModManager.Login())
 						booCanResume = true;
@@ -321,6 +337,9 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			}
 			else
 				booCanResume = true;
+
+			if (ActiveTasks.Count >= MaxConcurrentDownloads)
+				booCanResume = false;
 
 			if (booCanResume)
 				if (DownloadMonitor.CanResume(p_tskTask))
@@ -331,6 +350,22 @@ namespace Nexus.Client.DownloadMonitoring.UI
 					bgwWorker.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bgwWorker_RunWorkerCompleted);
 					bgwWorker.RunWorkerAsync(p_tskTask);
 				}
+		}
+
+		/// <summary>
+		/// Resumes all paused tasks.
+		/// </summary>
+		public void ResumeAllTasks()
+		{
+			List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
+			lock (Tasks)
+			{
+				foreach (IBackgroundTask btTask in Tasks)
+					lstTasks.Add(btTask);
+			}
+			if (lstTasks.Count > 0)
+				foreach (IBackgroundTask btPaused in lstTasks)
+					ResumeTask(btPaused);
 		}
 
 		void bgwWorker_DoWork(object sender, DoWorkEventArgs e)
