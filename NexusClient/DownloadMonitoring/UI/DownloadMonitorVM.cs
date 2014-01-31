@@ -5,6 +5,7 @@ using Nexus.Client.ModRepositories;
 using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -192,6 +193,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			Settings = p_setSettings;
 			m_mmgModManager = p_mmgModManager;
 			m_mrpModRepository = p_mrpModRepository;
+			m_mrpModRepository.UserStatusUpdate += new System.EventHandler(m_mrpModRepository_UserStatusUpdate);
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
 			CancelTaskCommand = new Command<AddModTask>("Cancel", "Cancels the selected Download.", CancelTask);
@@ -244,7 +246,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <c>false</c> otherwise.</returns>
 		public bool CanCancelTask(IBackgroundTask p_tskTask)
 		{
-			return (p_tskTask.Status == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying);
+			return (p_tskTask.Status == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying) || (p_tskTask.InnerTaskStatus == TaskStatus.Queued);
 		}
 
 		#endregion
@@ -339,6 +341,30 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		void bgwWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 
+		}
+
+		/// <summary>
+		/// Handles the <see cref="m_mrpModRepository.UserStatusUpdate"/> event of the tasks list.
+		/// </summary>
+		/// <remarks>
+		/// Updates the UI elements.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void m_mrpModRepository_UserStatusUpdate(object sender, System.EventArgs e)
+		{
+			List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
+			if (m_mrpModRepository.IsOffline)
+			{
+				lock (ActiveTasks)
+				{
+					foreach (IBackgroundTask btTask in ActiveTasks)
+						lstTasks.Add(btTask);
+				}
+				if (lstTasks.Count > 0)
+					foreach (IBackgroundTask btActive in lstTasks)
+						PauseTask(btActive);
+			}
 		}
 
 		/// <summary>

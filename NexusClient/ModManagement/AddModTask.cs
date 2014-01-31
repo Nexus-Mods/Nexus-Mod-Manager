@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadManagement;
 using Nexus.Client.Games;
@@ -460,10 +461,13 @@ namespace Nexus.Client.ModManagement
 
 					try
 					{
-						if (m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && (m_dctSourceUri[Descriptor.SourceUri.ToString()] != m_intLocalID))
-							throw new IOException();
-						else
-							m_dctSourceUri.Add(Descriptor.SourceUri.ToString(), m_intLocalID);
+						lock (m_dctSourceUri)
+						{
+							if (m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && (m_dctSourceUri[Descriptor.SourceUri.ToString()] != m_intLocalID))
+								throw new IOException();
+							else if (!m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()))
+								m_dctSourceUri.Add(Descriptor.SourceUri.ToString(), m_intLocalID);
+						}
 						DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
 					}
 					catch (IOException)
@@ -1025,7 +1029,6 @@ namespace Nexus.Client.ModManagement
 		/// <exception cref="InvalidOperationException">Thrown if the task does not support queuing.</exception>
 		public override void Queue()
 		{
-			Status = TaskStatus.Queued;
 			for (Int32 i = m_lstRunningTasks.Count - 1; i >= 0; i--)
 			{
 				if (i >= m_lstRunningTasks.Count)
@@ -1036,7 +1039,9 @@ namespace Nexus.Client.ModManagement
 				else
 					tskTask.Cancel();
 			}
-			OnTaskEnded(Descriptor.SourceUri);
+
+			OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Queued, "Queued", Descriptor.SourceUri));
+			Status = TaskStatus.Queued;
 		}
 
 		/// <summary>
@@ -1082,9 +1087,12 @@ namespace Nexus.Client.ModManagement
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event's arguments.</param>
 		protected override void OnTaskEnded(TaskEndedEventArgs e)
 		{
-			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued) && (Descriptor != null))
+			if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (e.Status != TaskStatus.Queued) && (Descriptor != null))
 			{
-				m_dctSourceUri.Remove(Descriptor.SourceUri.ToString());
+				if ((e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Incomplete) && (e.Status != TaskStatus.Queued))
+					lock (m_dctSourceUri)
+						if (m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && (m_dctSourceUri[Descriptor.SourceUri.ToString()] == m_intLocalID))
+							m_dctSourceUri.Remove(Descriptor.SourceUri.ToString());
 
 				foreach (string strFile in Descriptor.DownloadedFiles)
 					if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))

@@ -54,10 +54,12 @@ namespace Nexus.Client.Settings.UI
 			cbxServerLocation.DataSource = bsFileServerZones.DataSource;
 			cbxServerLocation.DisplayMember = "FileServerName";
 			cbxServerLocation.ValueMember = "FileServerID";
-
-			cbxServerLocation.DataBindings.Clear();
+			
+			if (cbxServerLocation.DataBindings != null)
+				cbxServerLocation.DataBindings.Clear();
 			BindingHelper.CreateFullBinding(cbxServerLocation, () => cbxServerLocation.SelectedValue, p_dsgSettings, () => p_dsgSettings.UserLocation);
-			ckbPremiumOnly.DataBindings.Clear();
+			if (ckbPremiumOnly.DataBindings != null)
+				ckbPremiumOnly.DataBindings.Clear();
 			BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.UseMultithreadedDownloads);
 			ckbPremiumOnly.Enabled = p_dsgSettings.PremiumEnabled;
 		}
