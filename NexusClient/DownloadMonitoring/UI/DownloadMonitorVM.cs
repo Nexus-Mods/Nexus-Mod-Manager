@@ -116,6 +116,20 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the list of tasks being executed.
 		/// </summary>
 		/// <value>The list of tasks being executed.</value>
+		public List<AddModTask> RunningTasks
+		{
+			get
+			{
+				ReadOnlyObservableList<AddModTask> rolTasks = DownloadMonitor.Tasks;
+				lock (rolTasks)
+					return rolTasks.Where(x => x.Status == TaskStatus.Running || x.Status == TaskStatus.Retrying).ToList();
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of tasks being executed.
+		/// </summary>
+		/// <value>The list of tasks being executed.</value>
 		public AddModTask QueuedTask
 		{
 			get
@@ -246,7 +260,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <c>false</c> otherwise.</returns>
 		public bool CanCancelTask(IBackgroundTask p_tskTask)
 		{
-			return (p_tskTask.Status == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying) || (p_tskTask.InnerTaskStatus == TaskStatus.Queued);
+			return (p_tskTask.Status == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying) || (p_tskTask.Status == TaskStatus.Queued);
 		}
 
 		#endregion
@@ -338,8 +352,9 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			else
 				booCanResume = true;
 
-			if (ActiveTasks.Count >= MaxConcurrentDownloads)
-				booCanResume = false;
+			lock (RunningTasks)
+				if (RunningTasks.Count >= MaxConcurrentDownloads)
+					booCanResume = false;
 
 			if (booCanResume)
 				if (DownloadMonitor.CanResume(p_tskTask))
@@ -361,7 +376,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			lock (Tasks)
 			{
 				foreach (IBackgroundTask btTask in Tasks)
-					lstTasks.Add(btTask);
+					if ((btTask.Status == TaskStatus.Paused) || (btTask.Status == TaskStatus.Incomplete))
+						lstTasks.Add(btTask);
 			}
 			if (lstTasks.Count > 0)
 				foreach (IBackgroundTask btPaused in lstTasks)

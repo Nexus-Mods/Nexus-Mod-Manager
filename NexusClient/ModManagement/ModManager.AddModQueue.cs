@@ -93,11 +93,14 @@ namespace Nexus.Client.ModManagement
 			{
 				if ((e.Status != TaskStatus.Incomplete) && (e.Status != TaskStatus.Paused))
 				{
-					Uri uriKey = (from k in m_dicActiveTasks
-								  where (k.Value == sender)
-								  select k.Key).FirstOrDefault();
-					if (uriKey != null)
-						m_dicActiveTasks.Remove(uriKey);
+					lock (m_dicActiveTasks)
+					{
+						Uri uriKey = (from k in m_dicActiveTasks
+									  where (k.Value == sender)
+									  select k.Key).FirstOrDefault();
+						if (uriKey != null)
+							m_dicActiveTasks.Remove(uriKey);
+					}
 				}
 			}
 

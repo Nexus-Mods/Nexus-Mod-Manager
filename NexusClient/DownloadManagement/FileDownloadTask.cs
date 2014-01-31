@@ -286,10 +286,15 @@ namespace Nexus.Client.DownloadManagement
 			int i = 0;
 			Uri uriURL = p_uriURL[i];
 			ItemProgress = i;
+			Status = TaskStatus.Running;
 
 			while (retries <= m_intRetries)
 			{
-				Status = TaskStatus.Running;
+				if (Status == TaskStatus.Paused)
+					Pause();
+				else if (Status != TaskStatus.Running)
+					Status = TaskStatus.Running;
+
 				m_fdrDownloader = new FileDownloader(uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
 				m_steState = new State(true, uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
 				m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
