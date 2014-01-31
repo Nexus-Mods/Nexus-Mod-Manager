@@ -756,6 +756,10 @@ namespace Nexus.Client.ModManagement
 					OverallMessage = String.Format("{0}{1}", m_strRepositoryMessage, GetModDisplayName());
 					FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
 				}
+				else if (fdtDownloader.Status == TaskStatus.Paused)
+				{
+					OverallMessage = String.Format("{0}{1}", "Paused: ", GetModDisplayName());
+				}
 				InnerTaskStatus = fdtDownloader.Status;
 			}
 		}
@@ -1012,7 +1016,6 @@ namespace Nexus.Client.ModManagement
 		public override void Pause()
 		{
 			Status = TaskStatus.Paused;
-
 			for (Int32 i = m_lstRunningTasks.Count - 1; i >= 0; i--)
 			{
 				if (i >= m_lstRunningTasks.Count)
@@ -1023,7 +1026,7 @@ namespace Nexus.Client.ModManagement
 				else
 					tskTask.Cancel();
 			}
-			OnTaskEnded(Descriptor.SourceUri);
+			OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Paused, "Paused", Descriptor.SourceUri));
 		}
 
 		/// <summary>

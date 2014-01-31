@@ -291,7 +291,7 @@ namespace Nexus.Client.DownloadManagement
 			while (retries <= m_intRetries)
 			{
 				if (Status == TaskStatus.Paused)
-					Pause();
+					break;
 				else if (Status != TaskStatus.Running)
 					Status = TaskStatus.Running;
 
@@ -328,7 +328,7 @@ namespace Nexus.Client.DownloadManagement
 
 						while (swRetry.ElapsedMilliseconds < m_intRetryInterval)
 						{
-							if (Status == TaskStatus.Cancelling)
+							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused))
 								break;
 						}
 						swRetry.Stop();
@@ -357,7 +357,7 @@ namespace Nexus.Client.DownloadManagement
 
 						while (swRetry.ElapsedMilliseconds < m_intRetryInterval)
 						{
-							if (Status == TaskStatus.Cancelling)
+							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused))
 								break;
 						}
 						swRetry.Stop();
@@ -376,8 +376,11 @@ namespace Nexus.Client.DownloadManagement
 				}
 			}
 
-			m_fdrDownloader.StartDownload();
-			m_tmrUpdater.Start();
+			if (Status == TaskStatus.Running)
+			{
+				m_fdrDownloader.StartDownload();
+				m_tmrUpdater.Start();
+			}
 		}
 
 		/// <summary>
