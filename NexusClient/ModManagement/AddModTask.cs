@@ -459,24 +459,19 @@ namespace Nexus.Client.ModManagement
 					ItemProgressMaximum = 0;
 					ItemMessage = String.Format("Downloading {0}...", GetModDisplayName());
 
-					try
+					lock (m_dctSourceUri)
 					{
-						lock (m_dctSourceUri)
+						if (m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && (m_dctSourceUri[Descriptor.SourceUri.ToString()] != m_intLocalID))
 						{
-							if (m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && (m_dctSourceUri[Descriptor.SourceUri.ToString()] != m_intLocalID))
-								throw new IOException();
-							else if (!m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()))
-								m_dctSourceUri.Add(Descriptor.SourceUri.ToString(), m_intLocalID);
+							Status = TaskStatus.Error;
+							OverallMessage = String.Format("This mod is already downloading: {0}", GetModDisplayName());
+							OnTaskEnded(String.Format("This mod is already downloading: {0}", GetModDisplayName()), null);
+							return;
 						}
-						DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
+						else if (!m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()))
+							m_dctSourceUri.Add(Descriptor.SourceUri.ToString(), m_intLocalID);
 					}
-					catch (IOException)
-					{
-						Status = TaskStatus.Error;
-						OverallMessage = String.Format("This mod is already downloading: {0}", GetModDisplayName());
-						OnTaskEnded(String.Format("This mod is already downloading: {0}", GetModDisplayName()), null);
-						return;
-					}
+					DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
 				}
 			}
 		}
@@ -641,7 +636,7 @@ namespace Nexus.Client.ModManagement
 			Dictionary<string, string> dicAuthenticationTokens = m_eifEnvironmentInfo.Settings.RepositoryAuthenticationTokens[m_mrpModRepository.Id];
 			Int32 intConnections = m_eifEnvironmentInfo.Settings.UseMultithreadedDownloads ? m_mrpModRepository.AllowedConnections : 1;
 
-			FileDownloadTask fdtDownloader = new FileDownloadTask(intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
+			FileDownloadTask fdtDownloader = new FileDownloadTask(m_mrpModRepository, intConnections, 1024 * 500, m_mrpModRepository.UserAgent);
 			fdtDownloader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Downloader_TaskEnded);
 			fdtDownloader.PropertyChanged += new PropertyChangedEventHandler(Downloader_PropertyChanged);
 
@@ -702,7 +697,7 @@ namespace Nexus.Client.ModManagement
 						if (m_intPreviousProgress == 0)
 							m_intPreviousProgress = fdtDownloader.ResumedByteCount > 0 ? fdtDownloader.ResumedByteCount : 0;
 						if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
-							TaskSpeed = (int)(((double)(m_dicDownloaderProgress[fdtDownloader].AdjustedProgress - m_intPreviousProgress) / (swtSpeed.ElapsedMilliseconds / 1000)) / 1024);
+							TaskSpeed = (int)((double)(m_dicDownloaderProgress[fdtDownloader].AdjustedProgress - m_intPreviousProgress) / (swtSpeed.ElapsedMilliseconds / 1000));
 						if (TaskSpeed >= 0)
 						{
 							if (m_lstPreviousSpeed.Count == 10)
@@ -717,7 +712,7 @@ namespace Nexus.Client.ModManagement
 						swtSpeed.Start();
 					}
 					else
-						TaskSpeed = (m_lstPreviousSpeed.Count > 0) && (m_lstPreviousSpeed.Average() > 0) ? (int)m_lstPreviousSpeed.Average() : (intSpeed / 1024);
+						TaskSpeed = (m_lstPreviousSpeed.Count > 0) && (m_lstPreviousSpeed.Average() > 0) ? (int)m_lstPreviousSpeed.Average() : intSpeed;
 				}
 				else
 				{
@@ -737,8 +732,8 @@ namespace Nexus.Client.ModManagement
 
 					if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
 					{
-						DownloadProgress = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgress / 1024);
-						DownloadMaximum = (m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum / 1024);
+						DownloadProgress = m_dicDownloaderProgress[fdtDownloader].AdjustedProgress;
+						DownloadMaximum = m_dicDownloaderProgress[fdtDownloader].AdjustedProgressMaximum;
 					}
 				}
 
@@ -1026,7 +1021,7 @@ namespace Nexus.Client.ModManagement
 				else
 					tskTask.Cancel();
 			}
-			OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Paused, "Paused", Descriptor.SourceUri));
+			OnTaskEnded(Descriptor.SourceUri);
 		}
 
 		/// <summary>
@@ -1046,7 +1041,7 @@ namespace Nexus.Client.ModManagement
 					tskTask.Cancel();
 			}
 
-			OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Queued, "Queued", Descriptor.SourceUri));
+			OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Queued, "Queued", (Descriptor != null ? Descriptor.SourceUri : null)));
 			Status = TaskStatus.Queued;
 		}
 
@@ -1060,7 +1055,8 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidOperationException("Task is not paused.");
 			m_lstRunningTasks.Clear();
 			m_dicDownloaderProgress.Clear();
-			AddMod(Status != TaskStatus.Queued);
+			//AddMod(Status != TaskStatus.Queued);
+			AddMod(false);
 		}
 
 		#endregion

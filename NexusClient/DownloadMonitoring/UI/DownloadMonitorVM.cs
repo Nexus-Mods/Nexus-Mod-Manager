@@ -17,7 +17,6 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	/// </summary>
 	public class DownloadMonitorVM : INotifyPropertyChanged
 	{
-		IModRepository m_mrpModRepository = null;
 		ModManager m_mmgModManager = null;
 
 		#region Properties
@@ -73,8 +72,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			get
 			{
-				if (m_mrpModRepository != null)
-					return m_mrpModRepository.MaxConcurrentDownloads;
+				if (ModRepository != null)
+					return ModRepository.MaxConcurrentDownloads;
 				else
 					return 5;
 			}
@@ -87,6 +86,12 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <value>The Download manager to use to manage the monitored activities.</value>
 		protected DownloadMonitor DownloadMonitor { get; private set; }
+
+		/// <summary>
+		/// Gets the mod repository from which to get mods and mod metadata.
+		/// </summary>
+		/// <value>The mod repository from which to get mods and mod metadata.</value>
+		public IModRepository ModRepository { get; private set; }
 
 		/// <summary>
 		/// Gets the list of tasks being monitored.
@@ -180,18 +185,6 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <value>The application and user settings.</value>
 		public ISettings Settings { get; private set; }
 
-		/// <summary>
-		/// Gets or sets whether the manager is in offline mode.
-		/// </summary>
-		/// <value>Whether the manager is in offline mode.</value>
-		public bool OfflineMode
-		{
-			get
-			{
-				return m_mrpModRepository.IsOffline;
-			}
-		}
-
 		#endregion
 
 		#region Constructors
@@ -206,8 +199,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			DownloadMonitor = p_amnDownloadMonitor;
 			Settings = p_setSettings;
 			m_mmgModManager = p_mmgModManager;
-			m_mrpModRepository = p_mrpModRepository;
-			m_mrpModRepository.UserStatusUpdate += new System.EventHandler(m_mrpModRepository_UserStatusUpdate);
+			ModRepository = p_mrpModRepository;
+			ModRepository.UserStatusUpdate += new System.EventHandler(ModRepository_UserStatusUpdate);
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
 			CancelTaskCommand = new Command<AddModTask>("Cancel", "Cancels the selected Download.", CancelTask);
@@ -333,6 +326,32 @@ namespace Nexus.Client.DownloadMonitoring.UI
 
 		#endregion
 
+		#region Queue Command
+
+		/// <summary>
+		/// Puases the given task.
+		/// </summary>
+		/// <param name="p_tskTask">The task to pause.</param>
+		public void QueueTask(IBackgroundTask p_tskTask)
+		{
+			if (DownloadMonitor.CanQueue(p_tskTask))
+				DownloadMonitor.QueueDownload(p_tskTask);
+		}
+
+		/// <summary>
+		/// Determines if the given <see cref="IBackgroundTask"/> can be paused.
+		/// </summary>
+		/// <param name="p_tskTask">The task for which it is to be determined
+		/// if it can be paused.</param>
+		/// <returns><c>true</c> if the task can be paused;
+		/// <c>false</c> otherwise.</returns>
+		public bool CanQueueDownload(IBackgroundTask p_tskTask)
+		{
+			return DownloadMonitor.CanQueue(p_tskTask);
+		}
+
+		#endregion
+
 		#region Resume Command
 
 		/// <summary>
@@ -342,15 +361,19 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public void ResumeTask(IBackgroundTask p_tskTask)
 		{
 			bool booCanResume = false;
-			if (m_mrpModRepository.IsOffline && (!m_mrpModRepository.SupportsUnauthenticatedDownload))
+
+			lock (ModRepository)
 			{
-				if (m_mmgModManager.Login())
+				if (ModRepository.IsOffline && (!ModRepository.SupportsUnauthenticatedDownload))
+				{
+					if (m_mmgModManager.Login())
 						booCanResume = true;
+					else
+						MessageBox.Show("You can't resume a download while unauthenticated!");
+				}
 				else
-					MessageBox.Show("You can't resume a download while unauthenticated!");
+					booCanResume = true;
 			}
-			else
-				booCanResume = true;
 
 			lock (RunningTasks)
 				if (RunningTasks.Count >= MaxConcurrentDownloads)
@@ -402,20 +425,21 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void m_mrpModRepository_UserStatusUpdate(object sender, System.EventArgs e)
+		private void ModRepository_UserStatusUpdate(object sender, System.EventArgs e)
 		{
 			List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
-			if (m_mrpModRepository.IsOffline)
-			{
-				lock (ActiveTasks)
+			lock (ModRepository)
+				if (ModRepository.IsOffline)
 				{
-					foreach (IBackgroundTask btTask in ActiveTasks)
-						lstTasks.Add(btTask);
+					lock (Tasks)
+					{
+						foreach (IBackgroundTask btTask in Tasks)
+							lstTasks.Add(btTask);
+					}
+					if (lstTasks.Count > 0)
+						foreach (IBackgroundTask btActive in lstTasks)
+							PauseTask(btActive);
 				}
-				if (lstTasks.Count > 0)
-					foreach (IBackgroundTask btActive in lstTasks)
-						PauseTask(btActive);
-			}
 		}
 
 		/// <summary>

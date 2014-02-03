@@ -62,7 +62,7 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				return (m_fwrWriter == null) ? m_intInitialDownloadedByteCount : m_fwrWriter.WrittenByteCount;
+				return (m_fwrWriter == null) ? m_intInitialDownloadedByteCount : m_fwrWriter.WrittenByteCount / 1024;
 			}
 		}
 
@@ -148,7 +148,7 @@ namespace Nexus.Client.Util.Downloader
 			{
 				if (DownloadSpeed == 0)
 					return TimeSpan.MaxValue;
-				Int64 lngRemainingData = m_fmdInfo.Length - DownloadedByteCount;
+				Int64 lngRemainingData = m_fmdInfo.Length - (DownloadedByteCount * 1024);
 				Int64 lngNanoSecondsLeft = 0;
 				if (DownloadSpeed > 0)
 					lngNanoSecondsLeft = lngRemainingData / DownloadSpeed * 1000000000;
@@ -321,7 +321,7 @@ namespace Nexus.Client.Util.Downloader
 					rgsRanges.AddRange(Range.Parse(strCleanRange));
 				}
 			}
-			m_intInitialDownloadedByteCount = rgsRanges.TotalSize;
+			m_intInitialDownloadedByteCount = rgsRanges.TotalSize / 1024;
 		}
 
 		#region Event Raising
