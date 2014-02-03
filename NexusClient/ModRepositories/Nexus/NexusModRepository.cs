@@ -110,7 +110,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			get
 			{
-				return m_strUserStatus == null;
+				return ((m_strUserStatus == null) || (m_strUserStatus.Length <= 0));
 			}
 		}
 

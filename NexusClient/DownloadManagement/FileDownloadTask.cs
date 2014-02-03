@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Timers;
+using Nexus.Client.UI;
+using Nexus.Client.ModRepositories;
 using Nexus.Client.Util.Downloader;
 using Nexus.Client.BackgroundTasks;
 
@@ -89,6 +91,12 @@ namespace Nexus.Client.DownloadManagement
 		private State m_steState = null;
 
 		#region Properties
+
+				/// <summary>
+		/// Gets the mod repository from which to get mods and mod metadata.
+		/// </summary>
+		/// <value>The mod repository from which to get mods and mod metadata.</value>
+		protected IModRepository ModRepository { get; private set; }
 
 		/// <summary>
 		/// Gets whether the task supports pausing.
@@ -205,12 +213,13 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="p_intMinBlockSize">The minimum block size that should be downloaded at once. This should
 		/// ideally be some mulitple of the available bandwidth.</param>
 		/// <param name="p_strUserAgent">The current User Agent.</param>
-		public FileDownloadTask(Int32 p_intMaxConnections, Int32 p_intMinBlockSize, string p_strUserAgent)
+		public FileDownloadTask(IModRepository p_mmrModRepository, Int32 p_intMaxConnections, Int32 p_intMinBlockSize, string p_strUserAgent)
 		{
 			m_intMaxConnections = p_intMaxConnections;
 			m_intMinBlockSize = p_intMinBlockSize;
 			m_strUserAgent = p_strUserAgent;
 			m_tmrUpdater.Elapsed += new ElapsedEventHandler(Updater_Elapsed);
+			ModRepository = p_mmrModRepository;
 		}
 
 		#endregion
@@ -288,31 +297,33 @@ namespace Nexus.Client.DownloadManagement
 			ItemProgress = i;
 			Status = TaskStatus.Running;
 
-			while (retries <= m_intRetries)
+			while ((retries <= m_intRetries) || (Status != TaskStatus.Paused) || (Status != TaskStatus.Queued))
 			{
-				if (Status == TaskStatus.Paused)
+				if ((Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
 					break;
-				else if (Status != TaskStatus.Running)
+				else if (Status == TaskStatus.Retrying)
 					Status = TaskStatus.Running;
 
 				m_fdrDownloader = new FileDownloader(uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
 				m_steState = new State(true, uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
 				m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
 				ShowItemProgress = false;
-				OverallProgressMaximum = m_fdrDownloader.FileSize;
+				OverallProgressMaximum = m_fdrDownloader.FileSize / 1024;
 				OverallProgressMinimum = 0;
 				OverallProgressStepSize = 1;
 				OverallProgress = m_fdrDownloader.DownloadedByteCount;
 
 				if (Status == TaskStatus.Cancelling)
 					retries = m_intRetries;
+				else if (Status == TaskStatus.Paused)
+					break;
 
 				if (!m_fdrDownloader.FileExists)
 				{
 					if (m_fdrDownloader.FileNotFound)
 					{
 						swRetry.Start();
-						retries = 0;
+						retries = 1;
 						OverallMessage = String.Format("File not found on this server, retrying.. ({0}/{1})", retries, m_intRetries);
 						Status = TaskStatus.Retrying;
 
@@ -326,9 +337,9 @@ namespace Nexus.Client.DownloadManagement
 						ItemProgress = i;
 						uriURL = p_uriURL[i];
 
-						while (swRetry.ElapsedMilliseconds < m_intRetryInterval)
+						while ((swRetry.ElapsedMilliseconds < m_intRetryInterval) && swRetry.IsRunning)
 						{
-							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused))
+							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
 								break;
 						}
 						swRetry.Stop();
@@ -351,13 +362,13 @@ namespace Nexus.Client.DownloadManagement
 						if ((retries == m_intRetries) && (++i < p_uriURL.Count))
 						{
 							ItemProgress = i;
-							retries = 0;
+							retries = 1;
 							uriURL = p_uriURL[i];
 						}
 
-						while (swRetry.ElapsedMilliseconds < m_intRetryInterval)
+						while ((swRetry.ElapsedMilliseconds < m_intRetryInterval) && swRetry.IsRunning)
 						{
-							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused))
+							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
 								break;
 						}
 						swRetry.Stop();
@@ -376,7 +387,9 @@ namespace Nexus.Client.DownloadManagement
 				}
 			}
 
-			if (Status == TaskStatus.Running)
+			if (ModRepository.IsOffline)
+				this.Pause();
+			else if (Status == TaskStatus.Running)
 			{
 				m_fdrDownloader.StartDownload();
 				m_tmrUpdater.Start();
@@ -433,7 +446,7 @@ namespace Nexus.Client.DownloadManagement
 				Status = TaskStatus.Cancelling;
 				base.Cancel();
 			}
-			else if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete))
+			else if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued))
 				base.Cancel();
 			else
 			{
@@ -467,6 +480,10 @@ namespace Nexus.Client.DownloadManagement
 			Status = TaskStatus.Queued;
 			if (m_fdrDownloader != null)
 				m_fdrDownloader.Stop();
+			else
+			{
+				base.Cancel();
+			}
 		}
 
 		/// <summary>

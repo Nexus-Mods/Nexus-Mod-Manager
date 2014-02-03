@@ -467,14 +467,15 @@ namespace Nexus.Client
 		/// </summary>
 		private void Logout()
 		{
-			if (ModRepository.IsOffline)
-				ModManager.Login();
-			else
-			{
-				ModRepository.Logout();
-				EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
-				EnvironmentInfo.Settings.Save();
-			}
+			lock (ModRepository)
+				if (ModRepository.IsOffline)
+					ModManager.Login();
+				else
+				{
+					ModRepository.Logout();
+					EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
+					EnvironmentInfo.Settings.Save();
+				}
 		}
 	}
 }

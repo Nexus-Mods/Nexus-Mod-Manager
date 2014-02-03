@@ -190,7 +190,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			ViewModel.CancelTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanCancelTask(GetSelectedTask());
 			ViewModel.RemoveTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanRemoveDownload(GetSelectedTask());
-			ViewModel.PauseTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanPauseDownload(GetSelectedTask()) && !ViewModel.OfflineMode;
+			ViewModel.PauseTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanPauseDownload(GetSelectedTask()) && !ViewModel.ModRepository.IsOffline;
 			ViewModel.ResumeTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanResumeDownload(GetSelectedTask());
 
 			this.tsbCancel.Visible = ViewModel.CancelTaskCommand.CanExecute;
@@ -278,31 +278,56 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			if (this.IsHandleCreated)
 			{
-				if (!ViewModel.OfflineMode)
-				{
-					if (lvwTasks.InvokeRequired)
+				lock (ViewModel.ModRepository)
+					if (!ViewModel.ModRepository.IsOffline)
 					{
-						lock (m_vmlViewModel.RunningTasks)
-							if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
-							{
-								AddModTask amtQueued = m_vmlViewModel.QueuedTask;
-								if (amtQueued != null)
-									m_vmlViewModel.ResumeTask(amtQueued);
-							}
-						lvwTasks.Invoke((Action)UpdateTitle);
+						switch (e.Action)
+						{
+							case NotifyCollectionChangedAction.Add:
+							case NotifyCollectionChangedAction.Replace:
+								foreach (AddModTask tskAdded in e.NewItems)
+									if (ViewModel.ModRepository.IsOffline)
+										m_vmlViewModel.PauseTask(tskAdded);
+									else if (m_vmlViewModel.RunningTasks.Count > m_vmlViewModel.MaxConcurrentDownloads)
+										m_vmlViewModel.QueueTask(tskAdded);
+								break;
+							case NotifyCollectionChangedAction.Remove:
+								foreach (AddModTask tskRemoved in e.OldItems)
+								{
+									if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+									{
+										AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+										if (amtQueued != null)
+											m_vmlViewModel.ResumeTask(amtQueued);
+									}
+								}
+								break;
+							default:
+								throw new Exception("Unrecognized value for NotifyCollectionChangedAction.");
+						}
+						if (lvwTasks.InvokeRequired)
+						{
+							//lock (m_vmlViewModel.RunningTasks)
+							//    if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+							//    {
+							//        AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+							//        if (amtQueued != null)
+							//            m_vmlViewModel.ResumeTask(amtQueued);
+							//    }
+							lvwTasks.Invoke((Action)UpdateTitle);
+						}
+						else
+						{
+							//lock (m_vmlViewModel.RunningTasks)
+							//    if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+							//    {
+							//        AddModTask amtQueued = m_vmlViewModel.QueuedTask;
+							//        if (amtQueued != null)
+							//            m_vmlViewModel.ResumeTask(amtQueued);
+							//    }
+							UpdateTitle();
+						}
 					}
-					else
-					{
-						lock (m_vmlViewModel.RunningTasks)
-							if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
-							{
-								AddModTask amtQueued = m_vmlViewModel.QueuedTask;
-								if (amtQueued != null)
-									m_vmlViewModel.ResumeTask(amtQueued);
-							}
-						UpdateTitle();
-					}
-				}
 			}
 		}
 
@@ -338,19 +363,20 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		{
 			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
 			{
-				if (!ViewModel.OfflineMode)
-				{
-					AddModTask tskTask = (AddModTask)sender;
-					if (tskTask.Status == TaskStatus.Queued)
-						lock (m_vmlViewModel.RunningTasks)
-							if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
-								m_vmlViewModel.ResumeTask(tskTask);
+				//lock (ViewModel.ModRepository)
+				//    if (!ViewModel.ModRepository.IsOffline)
+				//    {
+				//        AddModTask tskTask = (AddModTask)sender;
+				//        if (tskTask.Status == TaskStatus.Queued)
+				//            lock (m_vmlViewModel.RunningTasks)
+				//                if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+				//                    m_vmlViewModel.ResumeTask(tskTask);
+				//    }
 
-					if (InvokeRequired)
-						Invoke((Action)SetCommandExecutableStatus);
-					else
-						SetCommandExecutableStatus();
-				}
+				if (InvokeRequired)
+					Invoke((Action)SetCommandExecutableStatus);
+				else
+					SetCommandExecutableStatus();
 			}
 		}
 

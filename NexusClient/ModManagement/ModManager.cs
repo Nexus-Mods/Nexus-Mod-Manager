@@ -338,7 +338,8 @@ namespace Nexus.Client.ModManagement
 				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, ModRepository, GameMode.ModeTheme, strMessage, strError, strCancelWarning);
 				return LoginUser(vmlLoginVM);
 			}
-			return true;
+			else
+				return true;
 		}
 
 		#endregion

@@ -247,7 +247,29 @@ namespace Nexus.Client.DownloadMonitoring
 		/// <c>false</c> otherwise.</returns>
 		public bool CanPause(IBackgroundTask p_tskTask)
 		{
-			return p_tskTask.SupportsPause && ((p_tskTask.Status == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Retrying) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying));
+			return p_tskTask.SupportsPause && ((p_tskTask.Status == TaskStatus.Running) || (p_tskTask.InnerTaskStatus == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Retrying) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying));
+		}
+
+		/// <summary>
+		/// Pauses a task.
+		/// </summary>
+		/// <param name="p_tskTask">The task to pause.</param>
+		public void QueueDownload(IBackgroundTask p_tskTask)
+		{
+			if (CanQueue(p_tskTask))
+				p_tskTask.Queue();
+		}
+
+		/// <summary>
+		/// Determines if the given <see cref="IBackgroundTask"/> can be paused.
+		/// </summary>
+		/// <param name="p_tskTask">The task for which it is to be determined
+		/// if it can be paused.</param>
+		/// <returns><c>true</c> if the p_tskTask can be paused;
+		/// <c>false</c> otherwise.</returns>
+		public bool CanQueue(IBackgroundTask p_tskTask)
+		{
+			return p_tskTask.SupportsQueue && ((p_tskTask.Status == TaskStatus.Running) || (p_tskTask.InnerTaskStatus == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Retrying) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying));
 		}
 
 		/// <summary>

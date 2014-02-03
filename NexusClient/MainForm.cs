@@ -309,7 +309,7 @@ namespace Nexus.Client
 		private void LogoutCommand_BeforeExecute(object sender, CancelEventArgs e)
 		{
 			if (!ViewModel.OfflineMode)
-				if (ExtendedMessageBox.Show(this, "Do you want to logout?", "Logout", System.Windows.Forms.MessageBoxButtons.YesNo, System.Windows.Forms.MessageBoxIcon.Question) != System.Windows.Forms.DialogResult.Yes)
+				if (ExtendedMessageBox.Show(this, "Do you want to logout? This will require you to authenticate using your username and password the next time you try to log in.", "Logout", System.Windows.Forms.MessageBoxButtons.YesNo, System.Windows.Forms.MessageBoxIcon.Question) != System.Windows.Forms.DialogResult.Yes)
 					e.Cancel = true;
 		}
 
