@@ -754,6 +754,7 @@ namespace Nexus.Client.ModManagement
 				else if (fdtDownloader.Status == TaskStatus.Paused)
 				{
 					OverallMessage = String.Format("{0}{1}", "Paused: ", GetModDisplayName());
+					FileServer = String.Empty;
 				}
 				InnerTaskStatus = fdtDownloader.Status;
 			}
@@ -1021,7 +1022,10 @@ namespace Nexus.Client.ModManagement
 				else
 					tskTask.Cancel();
 			}
-			OnTaskEnded(Descriptor.SourceUri);
+			if (Descriptor != null)
+				OnTaskEnded(Descriptor.SourceUri);
+			else
+				OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Paused, "Paused", null));
 		}
 
 		/// <summary>
@@ -1055,7 +1059,6 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidOperationException("Task is not paused.");
 			m_lstRunningTasks.Clear();
 			m_dicDownloaderProgress.Clear();
-			//AddMod(Status != TaskStatus.Queued);
 			AddMod(false);
 		}
 

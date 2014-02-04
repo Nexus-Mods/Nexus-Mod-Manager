@@ -440,7 +440,10 @@ namespace Nexus.Client.Util.Downloader
 				m_lstDownloaders.Clear();
 			}
 			if (m_fwrWriter != null)
+			{
 				m_fwrWriter.Close();
+				m_fwrWriter.Dispose();
+			}
 			bool booGetEntireFile = m_fmdInfo.Length > 0 ? (m_fmdInfo.Length - DownloadedByteCount == 0) : false;
 			if (booGetEntireFile)
 			{
