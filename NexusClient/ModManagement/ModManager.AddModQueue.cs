@@ -91,7 +91,7 @@ namespace Nexus.Client.ModManagement
 			/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 			private void ModAdder_TaskEnded(object sender, TaskEndedEventArgs e)
 			{
-				if ((e.Status != TaskStatus.Incomplete) && (e.Status != TaskStatus.Paused))
+				if ((e.Status != TaskStatus.Incomplete) && (e.Status != TaskStatus.Paused) && (e.Status != TaskStatus.Queued))
 				{
 					lock (m_dicActiveTasks)
 					{

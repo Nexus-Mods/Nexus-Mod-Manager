@@ -446,12 +446,11 @@ namespace Nexus.Client.DownloadManagement
 				Status = TaskStatus.Cancelling;
 				base.Cancel();
 			}
-			else if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued))
-				base.Cancel();
 			else
 			{
 				Status = TaskStatus.Cancelled;
-				m_fdrDownloader.Cleanup();
+				if (m_fdrDownloader != null)
+					m_fdrDownloader.Cleanup();
 				OnTaskEnded("Download cancelled.", m_fdrDownloader.URL);
 			}
 		}
@@ -536,6 +535,7 @@ namespace Nexus.Client.DownloadManagement
 			{
 				m_fdrDownloader.DownloadComplete -= new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
 				m_fdrDownloader.Stop();
+				m_fdrDownloader = null;
 			}
 		}
 

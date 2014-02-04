@@ -129,6 +129,7 @@ namespace Nexus.Client.Util.Downloader
 			public void Stop()
 			{
 				m_booKeepRunning = false;
+				m_fwrWriter.Close();
 			}
 
 			/// <summary>
