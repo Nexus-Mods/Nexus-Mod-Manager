@@ -471,7 +471,16 @@ namespace Nexus.Client.ModManagement
 						else if (!m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()))
 							m_dctSourceUri.Add(Descriptor.SourceUri.ToString(), m_intLocalID);
 					}
-					DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
+					try
+					{
+						DownloadFiles(Descriptor.DownloadFiles, p_booQueued);
+					}
+					catch
+					{
+						Status = TaskStatus.Error;
+						OverallMessage = "There was an error downloading this file.";
+						OnTaskEnded(Descriptor.SourceUri);
+					}
 				}
 			}
 		}
@@ -616,7 +625,8 @@ namespace Nexus.Client.ModManagement
 						throw new Exception("Unable to retrieve file: " + p_uriPath.ToString());
 				}
 				dicQueuedMods[p_uriPath.ToString()] = amdDescriptor;
-				m_eifEnvironmentInfo.Settings.Save();
+				lock (m_eifEnvironmentInfo.Settings)
+					m_eifEnvironmentInfo.Settings.Save();
 			}
 			else
 				m_strFileserverCaptions = amdDescriptor.SourceName;
@@ -779,7 +789,8 @@ namespace Nexus.Client.ModManagement
 
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
-				m_eifEnvironmentInfo.Settings.Save();
+				lock(m_eifEnvironmentInfo.Settings)
+					m_eifEnvironmentInfo.Settings.Save();
 
 				if (Descriptor.DownloadFiles.Count == 0)
 				{
@@ -984,9 +995,18 @@ namespace Nexus.Client.ModManagement
 		{
 			base.Cancel();
 
-			foreach (IBackgroundTask tskTask in m_lstRunningTasks)
+			for (Int32 i = m_lstRunningTasks.Count - 1; i >= 0; i--)
+			{
+				if (i >= m_lstRunningTasks.Count)
+					continue;
+				IBackgroundTask tskTask = m_lstRunningTasks[i];
 				if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete) || (tskTask.Status == TaskStatus.Retrying) || (tskTask.Status == TaskStatus.Queued))
 					tskTask.Cancel();
+			}
+
+			//foreach (IBackgroundTask tskTask in m_lstRunningTasks)
+			//    if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete) || (tskTask.Status == TaskStatus.Retrying) || (tskTask.Status == TaskStatus.Queued))
+			//        tskTask.Cancel();
 			OverallMessage = String.Format("Cancelled {0}", GetModDisplayName());
 			ItemMessage = "Cancelled";
 			Status = TaskStatus.Cancelled;
@@ -1002,7 +1022,6 @@ namespace Nexus.Client.ModManagement
 			}
 
 			OnTaskEnded(Descriptor.SourceUri);
-
 		}
 
 		/// <summary>
@@ -1078,7 +1097,8 @@ namespace Nexus.Client.ModManagement
 				Descriptor.Status = Status;
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
-				m_eifEnvironmentInfo.Settings.Save();
+				lock (m_eifEnvironmentInfo.Settings)
+					m_eifEnvironmentInfo.Settings.Save();
 			}
 			base.OnPropertyChanged(e);
 		}
@@ -1113,7 +1133,8 @@ namespace Nexus.Client.ModManagement
 				}
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods.Remove(Descriptor.SourceUri.ToString());
-				m_eifEnvironmentInfo.Settings.Save();
+				lock(m_eifEnvironmentInfo.Settings)
+					m_eifEnvironmentInfo.Settings.Save();
 			}
 			base.OnTaskEnded(e);
 		}

@@ -1070,12 +1070,21 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 
 			if (m_strUserStatus != null)
+			{
 				if (m_strUserStatus[1] != null)
+				{
 					if ((m_strUserStatus[1] == "4") || (m_strUserStatus[1] == "6") || (m_strUserStatus[1] == "13") || (m_strUserStatus[1] == "27") || (m_strUserStatus[1] == "31") || (m_strUserStatus[1] == "32"))
 					{
 						AllowedConnections = 4;
 						m_intMaxConcurrentDownloads = 10;
 					}
+					else
+					{
+						AllowedConnections = 1;
+						m_intMaxConcurrentDownloads = 5;
+					}
+				}
+			}
 
 			UserStatusUpdateEvent();
 		}
