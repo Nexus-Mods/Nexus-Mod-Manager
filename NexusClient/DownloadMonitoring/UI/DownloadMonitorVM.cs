@@ -253,7 +253,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <c>false</c> otherwise.</returns>
 		public bool CanCancelTask(IBackgroundTask p_tskTask)
 		{
-			return (p_tskTask.Status == TaskStatus.Running) || (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying) || (p_tskTask.Status == TaskStatus.Queued);
+			return (p_tskTask.Status == TaskStatus.Paused) || (p_tskTask.Status == TaskStatus.Incomplete) || (p_tskTask.InnerTaskStatus == TaskStatus.Retrying) || (p_tskTask.Status == TaskStatus.Queued);
 		}
 
 		#endregion
@@ -377,7 +377,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 
 			lock (RunningTasks)
 				if (RunningTasks.Count >= MaxConcurrentDownloads)
+				{
+					if (p_tskTask.SupportsQueue)
+						p_tskTask.Queue();
 					booCanResume = false;
+				}
 
 			if (booCanResume)
 				if (DownloadMonitor.CanResume(p_tskTask))

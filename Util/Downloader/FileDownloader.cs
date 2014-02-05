@@ -29,6 +29,7 @@ namespace Nexus.Client.Util.Downloader
 		private string m_strUserAgent = "";
 		private FileMetadata m_fmdInfo = null;
 		private Int32 m_intInitialDownloadedByteCount = 0;
+		private Int32 m_intInitialByteCount = 0;
 		private Queue<Range> m_queRequiredBlocks = new Queue<Range>();
 		private List<BlockDownloader> m_lstDownloaders = new List<BlockDownloader>();
 		private FileWriter m_fwrWriter = null;
@@ -67,6 +68,18 @@ namespace Nexus.Client.Util.Downloader
 		}
 
 		/// <summary>
+		/// Gets the number of bytes that have been downloaded.
+		/// </summary>
+		/// <value>The number of bytes that have been downloaded.</value>
+		protected Int32 ByteCount
+		{
+			get
+			{
+				return (m_fwrWriter == null) ? m_intInitialByteCount : m_fwrWriter.WrittenByteCount;
+			}
+		}
+
+		/// <summary>
 		/// Gets the number of bytes that have been previously downloaded.
 		/// </summary>
 		/// <value>The number of bytes that have been previously downloaded.</value>
@@ -74,7 +87,7 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				return m_intInitialDownloadedByteCount;
+				return m_intInitialDownloadedByteCount / 1024;
 			}
 		}
 
@@ -321,6 +334,7 @@ namespace Nexus.Client.Util.Downloader
 					rgsRanges.AddRange(Range.Parse(strCleanRange));
 				}
 			}
+			m_intInitialByteCount = rgsRanges.TotalSize;
 			m_intInitialDownloadedByteCount = rgsRanges.TotalSize / 1024;
 		}
 
@@ -444,7 +458,7 @@ namespace Nexus.Client.Util.Downloader
 				m_fwrWriter.Close();
 				m_fwrWriter.Dispose();
 			}
-			bool booGetEntireFile = m_fmdInfo.Length > 0 ? (m_fmdInfo.Length - DownloadedByteCount == 0) : false;
+			bool booGetEntireFile = m_fmdInfo.Length > 0 ? (m_fmdInfo.Length - ByteCount == 0) : false;
 			if (booGetEntireFile)
 			{
 				if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))

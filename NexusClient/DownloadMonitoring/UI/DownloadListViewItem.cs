@@ -192,6 +192,12 @@ namespace Nexus.Client.DownloadMonitoring.UI
 					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = p_tskTask.InnerTaskStatus.ToString();
 				else if (p_tskTask.InnerTaskStatus.ToString() == "Running")
 					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = "Downloading";
+				else
+				{
+					SubItems["ETA"].Text = "";
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage)].Text = "";
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress)].Text = "";
+				}
 			}
 		}
 

@@ -179,7 +179,8 @@ namespace Nexus.Client.Settings
 		{
 			EnvironmentInfo.Settings.UseMultithreadedDownloads = UseMultithreadedDownloads;
 			EnvironmentInfo.Settings.UserLocation = UserLocation;
-			EnvironmentInfo.Settings.Save();
+			lock (EnvironmentInfo.Settings)
+				EnvironmentInfo.Settings.Save();
 			return true;
 		}
 
