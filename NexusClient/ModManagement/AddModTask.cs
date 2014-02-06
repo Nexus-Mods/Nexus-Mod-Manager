@@ -1004,9 +1004,6 @@ namespace Nexus.Client.ModManagement
 					tskTask.Cancel();
 			}
 
-			//foreach (IBackgroundTask tskTask in m_lstRunningTasks)
-			//    if ((tskTask.Status == TaskStatus.Running) || (tskTask.Status == TaskStatus.Paused) || (tskTask.Status == TaskStatus.Incomplete) || (tskTask.Status == TaskStatus.Retrying) || (tskTask.Status == TaskStatus.Queued))
-			//        tskTask.Cancel();
 			OverallMessage = String.Format("Cancelled {0}", GetModDisplayName());
 			ItemMessage = "Cancelled";
 			Status = TaskStatus.Cancelled;

@@ -110,12 +110,15 @@ namespace Nexus.Client.ModManagement
 			{
 				string modID = String.Empty;
 				Int32 isEndorsed = 0;
+				string strLastVersion = String.Empty;
 				ItemMessage = m_lstModList[i].ModName;
 
 				if (!String.IsNullOrEmpty(m_lstModList[i].Id))
 				{
 					modID = m_lstModList[i].Id;
 					isEndorsed = m_lstModList[i].IsEndorsed ? 1 : 0;
+					strLastVersion = m_lstModList[i].LastKnownVersion;
+
 				}
 				else
 				{
@@ -127,6 +130,7 @@ namespace Nexus.Client.ModManagement
 						{
 							modID = mifInfo.Id;
 							m_lstModList[i].Id = modID;
+							strLastVersion = m_lstModList[i].LastKnownVersion;
 							AutoUpdater.AddNewVersionNumberForMod(m_lstModList[i], mifInfo);
 						}
 					}
@@ -138,7 +142,7 @@ namespace Nexus.Client.ModManagement
 
 				if (!String.IsNullOrEmpty(modID))
 				{
-					if (m_booOverrideCategorySetup)
+					if ((m_booOverrideCategorySetup) || (String.IsNullOrEmpty(strLastVersion)))
 						ModList.Add(String.Format("{0}", modID));
 					else
 						ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
