@@ -92,7 +92,7 @@ namespace Nexus.Client.DownloadManagement
 
 		#region Properties
 
-				/// <summary>
+		/// <summary>
 		/// Gets the mod repository from which to get mods and mod metadata.
 		/// </summary>
 		/// <value>The mod repository from which to get mods and mod metadata.</value>
@@ -110,7 +110,7 @@ namespace Nexus.Client.DownloadManagement
 			}
 		}
 
- 		/// <summary>
+		/// <summary>
 		/// Gets whether the task supports retrying.
 		/// </summary>
 		/// <value>Thether the task supports retrying.</value>
@@ -148,7 +148,7 @@ namespace Nexus.Client.DownloadManagement
 			}
 		}
 
- 		/// <summary>
+		/// <summary>
 		/// Gets the number of currently active download threads.
 		/// </summary>
 		/// <value>The number of currently active download threads.</value>
@@ -268,7 +268,7 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
 		public void DownloadAsync(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
-			DownloadAsync(new List<Uri>() {p_uriURL}, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+			DownloadAsync(new List<Uri>() { p_uriURL }, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
 		}
 
 		/// <summary>
@@ -511,12 +511,15 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="e">A <see cref="ElapsedEventArgs"/> describing the event arguments.</param>
 		private void Updater_Elapsed(object sender, ElapsedEventArgs e)
 		{
-			OverallMessage = String.Format(m_strMessageFormat, Path.GetFileName(m_fdrDownloader.SavePath), m_fdrDownloader.TimeRemaining.TotalMinutes, m_fdrDownloader.TimeRemaining.Seconds, m_fdrDownloader.DownloadSpeed / 1024);
-			OverallProgress = m_fdrDownloader.DownloadedByteCount;
-			if (Status == TaskStatus.Cancelling)
+			if (m_fdrDownloader != null)
 			{
-				m_fdrDownloader.Stop();
-				m_fdrDownloader.Cleanup();
+				OverallMessage = String.Format(m_strMessageFormat, Path.GetFileName(m_fdrDownloader.SavePath), m_fdrDownloader.TimeRemaining.TotalMinutes, m_fdrDownloader.TimeRemaining.Seconds, m_fdrDownloader.DownloadSpeed / 1024);
+				OverallProgress = m_fdrDownloader.DownloadedByteCount;
+				if (Status == TaskStatus.Cancelling)
+				{
+					m_fdrDownloader.Stop();
+					m_fdrDownloader.Cleanup();
+				}
 			}
 		}
 

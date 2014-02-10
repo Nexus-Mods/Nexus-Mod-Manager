@@ -87,7 +87,7 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				return m_intInitialDownloadedByteCount / 1024;
+				return m_intInitialDownloadedByteCount;
 			}
 		}
 
