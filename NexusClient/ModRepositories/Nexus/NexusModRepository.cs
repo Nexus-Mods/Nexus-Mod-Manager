@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -400,7 +401,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (TimeoutException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Timeout! Cannot reach the {0} login server.", Name), e);
 			}
 			catch (CommunicationException e)
 			{
@@ -423,14 +424,21 @@ namespace Nexus.Client.ModRepositories.Nexus
 					}
 
 					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+					{
+						Trace.WriteLine("Login error: " + e.Message);
+						if (e.InnerException != null)
+							Trace.WriteLine("Login inner exception: " + e.InnerException.Message);
 						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE clicking the OFFLINE button.", e);
-
+					}
 				}
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Error communicating with the server! Cannot reach the {0} login server.", Name), e);
 			}
 			catch (SerializationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+				Trace.WriteLine("Login error: " + e.Message);
+				if (e.InnerException != null)
+					Trace.WriteLine("Login inner exception: " + e.InnerException.Message);
+				throw new RepositoryUnavailableException(String.Format("Unexpected response! Cannot reach the {0} login server.", Name), e);
 			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			if (!String.IsNullOrEmpty(strCookie))
@@ -463,7 +471,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (TimeoutException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Timeout! Cannot reach the {0} login server.", Name), e);
 			}
 			catch (CommunicationException e)
 			{
@@ -486,14 +494,22 @@ namespace Nexus.Client.ModRepositories.Nexus
 					}
 
 					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+					{
+						Trace.WriteLine("Login error: " + e.Message);
+						if (e.InnerException != null)
+							Trace.WriteLine("Login inner exception: " + e.InnerException.Message);
 						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+					}
 
 				}
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Error communicating with the server! Cannot reach the {0} login server.", Name), e);
 			}
 			catch (SerializationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server.", Name), e);
+				Trace.WriteLine("Login error: " + e.Message);
+				if (e.InnerException != null)
+					Trace.WriteLine("Login inner exception: " + e.InnerException.Message);
+				throw new RepositoryUnavailableException(String.Format("Unexpected response! Cannot reach the {0} login server.", Name), e);
 			}
 			if (String.IsNullOrEmpty(strCookie))
 				m_dicAuthenticationTokens = null;
