@@ -241,7 +241,7 @@ namespace Nexus.Client.Updating
 			Version verNew = new Version("0.0.0.0");
 			try
 			{
-				string strNewVersion = wclNewVersion.DownloadString("http://dev.tesnexus.com/client/releases/latestversion.php");
+				string strNewVersion = wclNewVersion.DownloadString("http://dev.nexusmods.com/client/releases/latestversion.php");
 				if (!String.IsNullOrEmpty(strNewVersion))
 					verNew = new Version(strNewVersion);
 			}

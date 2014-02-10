@@ -77,7 +77,7 @@ namespace Nexus.Client.ModManagement
 				amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 				m_dicActiveTasks[p_uriPath] = amtModAdder;
 				m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
-				amtModAdder.AddMod(true);
+				amtModAdder.AddMod(false);
 				return amtModAdder;
 			}
 
