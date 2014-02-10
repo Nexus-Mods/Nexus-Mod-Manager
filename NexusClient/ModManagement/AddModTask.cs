@@ -789,7 +789,7 @@ namespace Nexus.Client.ModManagement
 
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
-				lock(m_eifEnvironmentInfo.Settings)
+				lock (m_eifEnvironmentInfo.Settings)
 					m_eifEnvironmentInfo.Settings.Save();
 
 				if (Descriptor.DownloadFiles.Count == 0)
@@ -1121,16 +1121,32 @@ namespace Nexus.Client.ModManagement
 						FileUtil.ForceDelete(strFile);
 				if (e.Status == TaskStatus.Cancelled)
 				{
-					foreach (string strFile in Descriptor.PausedFiles)
-						if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))
+					if (Descriptor != null)
+					{
+						if (Descriptor.PausedFiles.Count > 0)
 						{
-							FileUtil.ForceDelete(strFile);
+							foreach (string strFile in Descriptor.PausedFiles)
+								if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))
+								{
+									FileUtil.ForceDelete(strFile);
+								}
+							Descriptor.PausedFiles.Clear();
 						}
-					Descriptor.PausedFiles.Clear();
+						else
+						{
+							if (!String.IsNullOrEmpty(Descriptor.DefaultSourcePath))
+							{
+								if (File.Exists(Descriptor.DefaultSourcePath + ".parts"))
+									FileUtil.ForceDelete(Descriptor.DefaultSourcePath + ".parts");
+								if (File.Exists(Descriptor.DefaultSourcePath + ".partial"))
+									FileUtil.ForceDelete(Descriptor.DefaultSourcePath + ".partial");
+							}
+						}
+					}
 				}
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods.Remove(Descriptor.SourceUri.ToString());
-				lock(m_eifEnvironmentInfo.Settings)
+				lock (m_eifEnvironmentInfo.Settings)
 					m_eifEnvironmentInfo.Settings.Save();
 			}
 			base.OnTaskEnded(e);
