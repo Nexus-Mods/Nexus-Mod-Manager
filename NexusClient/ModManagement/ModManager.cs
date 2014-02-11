@@ -354,23 +354,29 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTask AddMod(string p_strPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
-			if (!ModRepository.IsOffline)
+			Uri uriPath = new Uri(p_strPath);
+			if (uriPath.Scheme.ToLowerInvariant().ToString() == "nxm")
 			{
-				Uri uriPath = new Uri(p_strPath);
-				return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
-			}
-			else
-			{
-				if (Login())
+				if (!ModRepository.IsOffline)
 				{
-					Uri uriPath = new Uri(p_strPath);
 					return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
 				}
 				else
 				{
-					MessageBox.Show("You need to login to NMM before you can download mods!");
-					return null;
+					if (Login())
+					{
+						return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
+					}
+					else
+					{
+						MessageBox.Show("You need to login to NMM before you can download mods!");
+						return null;
+					}
 				}
+			}
+			else
+			{
+				return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
 			}
 		}
 
