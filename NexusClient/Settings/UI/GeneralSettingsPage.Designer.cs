@@ -37,13 +37,11 @@
 			this.groupBox5 = new System.Windows.Forms.GroupBox();
 			this.ckbScanSubfolders = new System.Windows.Forms.CheckBox();
 			this.ckbAddMissingInfo = new System.Windows.Forms.CheckBox();
-			this.ckbCheckModVersions = new System.Windows.Forms.CheckBox();
 			this.ckbCheckForUpdates = new System.Windows.Forms.CheckBox();
 			this.ckbShowSidePanel = new System.Windows.Forms.CheckBox();
 			this.ckbSkipReadmeFiles = new System.Windows.Forms.CheckBox();
 			this.ckbHideModUpdateWarningIcon = new System.Windows.Forms.CheckBox();
 			this.cbxProgramUpdateCheckInterval = new System.Windows.Forms.ComboBox();
-			this.cbxModVersionsCheckInterval = new System.Windows.Forms.ComboBox();
 			this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
 			this.ckbCloseManagerAfterGameLaunch = new System.Windows.Forms.CheckBox();
 			this.lblTraceLogDirectory = new System.Windows.Forms.Label();
@@ -128,8 +126,6 @@
 			this.groupBox5.Controls.Add(this.ckbCloseManagerAfterGameLaunch);
 			this.groupBox5.Controls.Add(this.ckbScanSubfolders);
 			this.groupBox5.Controls.Add(this.ckbAddMissingInfo);
-			this.groupBox5.Controls.Add(this.ckbCheckModVersions);
-			this.groupBox5.Controls.Add(this.cbxModVersionsCheckInterval);
 			this.groupBox5.Controls.Add(this.ckbCheckForUpdates);
 			this.groupBox5.Controls.Add(this.cbxProgramUpdateCheckInterval);
 			this.groupBox5.Controls.Add(this.ckbShowSidePanel);
@@ -168,25 +164,6 @@
 			this.ckbAddMissingInfo.TabIndex = 4;
 			this.ckbAddMissingInfo.Text = "Add missing info to Mods";
 			this.ckbAddMissingInfo.UseVisualStyleBackColor = true;
-			// 
-			// ckbCheckModVersions
-			// 
-			this.ckbCheckModVersions.AutoSize = true;
-			this.ckbCheckModVersions.Location = new System.Drawing.Point(16, 42);
-			this.ckbCheckModVersions.Name = "ckbCheckModVersions";
-			this.ckbCheckModVersions.Size = new System.Drawing.Size(161, 17);
-			this.ckbCheckModVersions.TabIndex = 2;
-			this.ckbCheckModVersions.Text = "Check for new Mod versions - interval (in days):";
-			this.ckbCheckModVersions.UseVisualStyleBackColor = true;
-			// 
-			// cbxModVersionsCheckInterval
-			// 
-			this.cbxModVersionsCheckInterval.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-			this.cbxModVersionsCheckInterval.FormattingEnabled = true;
-			this.cbxModVersionsCheckInterval.Location = new System.Drawing.Point(267, 40);
-			this.cbxModVersionsCheckInterval.Name = "cbxModVersionsCheckInterval";
-			this.cbxModVersionsCheckInterval.Size = new System.Drawing.Size(64, 21);
-			this.cbxModVersionsCheckInterval.TabIndex = 3;
 			// 
 			// ckbCheckForUpdates
 			// 
@@ -230,7 +207,7 @@
 			// ckbSkipReadmeFiles
 			// 
 			this.ckbSkipReadmeFiles.AutoSize = true;
-			this.ckbSkipReadmeFiles.Location = new System.Drawing.Point(16, 180);
+			this.ckbSkipReadmeFiles.Location = new System.Drawing.Point(16, 42);
 			this.ckbSkipReadmeFiles.Name = "ckbSkipReadmeFiles";
 			this.ckbSkipReadmeFiles.Size = new System.Drawing.Size(217, 17);
 			this.ckbSkipReadmeFiles.TabIndex = 8;
@@ -340,7 +317,6 @@
 		private System.Windows.Forms.CheckBox ckbShellExtensions;
 		private System.Windows.Forms.GroupBox groupBox5;
 		private System.Windows.Forms.CheckBox ckbAddMissingInfo;
-		private System.Windows.Forms.CheckBox ckbCheckModVersions;
 		private System.Windows.Forms.ToolTip ttpTip;
 		private System.Windows.Forms.Label lblTraceLogDirectory;
 		private System.Windows.Forms.TextBox tbxTraceLogDirectory;
@@ -359,6 +335,5 @@
 		private System.Windows.Forms.CheckBox ckbSkipReadmeFiles;
 		private System.Windows.Forms.CheckBox ckbHideModUpdateWarningIcon;
 		private System.Windows.Forms.ComboBox cbxProgramUpdateCheckInterval;
-		private System.Windows.Forms.ComboBox cbxModVersionsCheckInterval;
 	}
 }

@@ -43,13 +43,6 @@ namespace Nexus.Client.Settings.UI
 			cbxProgramUpdateCheckInterval.DisplayMember = "Key";
 			cbxProgramUpdateCheckInterval.ValueMember = "Value";
 
-			cbxModVersionsCheckInterval.DataSource = Enum.GetValues(typeof(DaysInterval))
-				.Cast<DaysInterval>()
-				.Select(p => new { Value = (int)p, Key = p.ToString() })
-				.ToList();
-			cbxModVersionsCheckInterval.DisplayMember = "Key";
-			cbxModVersionsCheckInterval.ValueMember = "Value";
-
 			foreach (GeneralSettingsGroup.FileAssociationSetting fasFileAssociation in p_gsgSettings.FileAssociations)
 			{
 				CheckBox ckbFileAssociation = new CheckBox();
@@ -64,7 +57,6 @@ namespace Nexus.Client.Settings.UI
 
 			BindingHelper.CreateFullBinding(ckbCheckForUpdates, () => ckbCheckForUpdates.Checked, p_gsgSettings, () => p_gsgSettings.CheckForUpdatesOnStartup);
 			BindingHelper.CreateFullBinding(ckbAddMissingInfo, () => ckbAddMissingInfo.Checked, p_gsgSettings, () => p_gsgSettings.AddMissingModInfo);
-			BindingHelper.CreateFullBinding(ckbCheckModVersions, () => ckbCheckModVersions.Checked, p_gsgSettings, () => p_gsgSettings.CheckForNewMods);
 			BindingHelper.CreateFullBinding(ckbScanSubfolders, () => ckbScanSubfolders.Checked, p_gsgSettings, () => p_gsgSettings.ScanSubfoldersForMods);
 			BindingHelper.CreateFullBinding(ckbCloseManagerAfterGameLaunch, () => ckbCloseManagerAfterGameLaunch.Checked, p_gsgSettings, () => p_gsgSettings.CloseModManagerAfterGameLaunch);
 			BindingHelper.CreateFullBinding(ckbShowSidePanel, () => ckbShowSidePanel.Checked, p_gsgSettings, () => p_gsgSettings.ShowSidePanel);
@@ -72,7 +64,6 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(ckbHideModUpdateWarningIcon, () => ckbHideModUpdateWarningIcon.Checked, p_gsgSettings, () => p_gsgSettings.HideModUpdateWarningIcon);
 
 			BindingHelper.CreateFullBinding(cbxProgramUpdateCheckInterval, () => cbxProgramUpdateCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.UpdateCheckInterval);
-			BindingHelper.CreateFullBinding(cbxModVersionsCheckInterval, () => cbxModVersionsCheckInterval.SelectedValue, p_gsgSettings, () => p_gsgSettings.ModVersionsCheckInterval);
 
 			BindingHelper.CreateFullBinding(tbxTraceLogDirectory, () => tbxTraceLogDirectory.Text, p_gsgSettings, () => p_gsgSettings.TraceLogPath);
 			BindingHelper.CreateFullBinding(tbxTempPathDirectory, () => tbxTempPathDirectory.Text, p_gsgSettings, () => p_gsgSettings.TempPath);
