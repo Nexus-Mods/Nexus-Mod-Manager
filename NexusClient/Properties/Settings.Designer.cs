@@ -41,7 +41,7 @@ namespace Nexus.Client.Properties
 		[global::System.Configuration.DefaultSettingValueAttribute(@"
 				<KeyedSettingsOfString>
 					<item key=""Beta Wiki"">
-						<string>http://wiki.tesnexus.com/index.php/Category:NMM</string>
+						<string>http://wiki.nexusmods.com/index.php/Category:NMM</string>
 					</item>
 					<item key=""Beta Forums"">
 						<string>http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/</string>
