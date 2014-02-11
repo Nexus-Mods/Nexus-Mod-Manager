@@ -113,6 +113,9 @@ namespace Nexus.Client.ModManagement
 				string strLastVersion = String.Empty;
 				ItemMessage = m_lstModList[i].ModName;
 
+				if (m_booCancel)
+					break;
+
 				if (!String.IsNullOrEmpty(m_lstModList[i].Id))
 				{
 					modID = m_lstModList[i].Id;
@@ -153,6 +156,9 @@ namespace Nexus.Client.ModManagement
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 
+				if (m_booCancel)
+					break;
+
 				// Prevents the repository request string from becoming too long.
 				if (ModList.Count == 250)
 				{
@@ -164,7 +170,7 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 
-			if (ModList.Count > 0)
+			if (!m_booCancel && (ModList.Count > 0))
 				CheckForModListUpdate(ModList);
 
 			m_lstModList.Clear();
