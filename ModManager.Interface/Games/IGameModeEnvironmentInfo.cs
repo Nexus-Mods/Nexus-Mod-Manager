@@ -1,5 +1,4 @@
-﻿
-namespace Nexus.Client.Games
+﻿namespace Nexus.Client.Games
 {
 	/// <summary>
 	/// Information about the game mode's environement.

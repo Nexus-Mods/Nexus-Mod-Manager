@@ -1,4 +1,5 @@
-﻿
+﻿using Nexus.Client.Games;
+
 namespace Nexus.Client.Mods
 {
 	/// <summary>
@@ -76,8 +77,9 @@ namespace Nexus.Client.Mods
 		/// The specified file must be in the current format.
 		/// </remarks>
 		/// <param name="p_strPath">The path of the file from which to create an <see cref="IMod"/>.</param>
+		/// <param name="p_gmdGameMode">The game mode for which to create the plugin.</param>
 		/// <returns>A mod from the specified file.</returns>
-		IMod CreateMod(string p_strPath, bool p_booUsesPlugins);
+		IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode);
 
 		/// <summary>
 		/// Gets a <see cref="IModCompressor"/> that can compress a source folder into

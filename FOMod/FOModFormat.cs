@@ -3,6 +3,7 @@ using System.IO;
 using Nexus.Client.Util;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Scripting;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Mods.Formats.FOMod
 {
@@ -121,11 +122,12 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// </remarks>
 		/// <param name="p_strPath">The path of the file from which to create an <see cref="IMod"/>.</param>
 		/// <returns>A mod from the specified file.</returns>
-		public IMod CreateMod(string p_strPath, bool p_booUsesPlugins)
+		public IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode)
 		{
 			if (CheckFormatCompliance(p_strPath) <= FormatConfidence.Convertible)
 				throw new ModFormatException(this);
-			return new FOMod(p_strPath, this, ModCacheManager, IScriptTypeRegistry, p_booUsesPlugins);
+			
+			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, p_gmdGameMode.PluginDirectory, p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins);
 		}
 
 		/// <summary>

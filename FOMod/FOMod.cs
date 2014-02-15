@@ -27,11 +27,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 		#endregion
 
-		private static readonly List<string> StopFolders = new List<string>() { "fomod", "textures",
-																	"meshes", "music", "shaders", "video",
-																	"facegen", "menus", "lodsettings", "lsdata",
-																	"sound" };
-
 		#region Fields
 
 		private string m_strFilePath = null;
@@ -401,6 +396,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <value>The format of the mod.</value>
 		public IModFormat Format { get; private set; }
 
+		protected IList<string> StopFolders { get; private set; }
+		protected string PluginsDirectoryName { get; private set; }
+		protected IList<string> PluginExtensions { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -410,10 +409,18 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// </summary>
 		/// <param name="p_strFilePath">The mod file from which to create the FOMod.</param>
 		/// <param name="p_mftModFormat">The format of the mod.</param>
+		/// <param name="p_strStopFolders">A list of folders names that indicate the root of the mod file structure.</param>
+		/// <param name="p_strPluginsDirectoryName">The name of the folder that contains plugins.</param>
 		/// <param name="p_mcmModCacheManager">The manager for the current game mode's mod cache.</param>
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
-		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins)
+		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IEnumerable<string> p_enmStopFolders, string p_strPluginsDirectoryName, IEnumerable<string> p_enmPluginExtensions, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins)
 		{
+			StopFolders = new List<string>(p_enmStopFolders);
+			if (!StopFolders.Contains("fomod", StringComparer.OrdinalIgnoreCase))
+				StopFolders.Add("fomod");
+			PluginsDirectoryName = p_strPluginsDirectoryName;
+			PluginExtensions = new List<string>(p_enmPluginExtensions);
+
 			Format = p_mftModFormat;
 			ScriptTypeRegistry = p_stgScriptTypeRegistry;
 			bool p_booUseCache = true;
@@ -682,7 +689,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			Stack<string> stkPaths = new Stack<string>();
 			stkPaths.Push("/");
 
-			if (m_booUsesPlugins)
+			//if (m_booUsesPlugins)
 			{
 				while (stkPaths.Count > 0)
 				{
@@ -699,7 +706,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 							break;
 						}
 						if (m_booUsesPlugins)
-							booFoundData |= Path.GetFileName(strDirectory).Equals("data", StringComparison.OrdinalIgnoreCase);
+							booFoundData |= Path.GetFileName(strDirectory).Equals(PluginsDirectoryName, StringComparison.OrdinalIgnoreCase);
 					}
 					if (booFoundPrefix)
 					{
@@ -708,15 +715,23 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					}
 					if (booFoundData)
 					{
-						strPrefixPath = Path.Combine(strSourcePath, "Data");
+						strPrefixPath = Path.Combine(strSourcePath, PluginsDirectoryName);
 						break;
 					}
-					if (!booFoundData && (m_arcFile.GetFiles(strSourcePath, "*.esp", false).Length > 0 ||
-											m_arcFile.GetFiles(strSourcePath, "*.esm", false).Length > 0 ||
-											m_arcFile.GetFiles(strSourcePath, "*.bsa", false).Length > 0))
+					if (!booFoundData)
 					{
-						strPrefixPath = strSourcePath;
-						break;
+						bool booFound = false;
+						foreach (string strExtension in PluginExtensions)
+							if (m_arcFile.GetFiles(strSourcePath, "*" + strExtension, false).Length > 0)
+							{
+								booFound = true;
+								break;
+							}
+						if (booFound)
+						{
+							strPrefixPath = strSourcePath;
+							break;
+						}
 					}
 				}
 			}

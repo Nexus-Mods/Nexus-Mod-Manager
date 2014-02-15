@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
 
@@ -22,9 +23,10 @@ namespace Nexus.Client.ModManagement
 		/// of supported <see cref="IModFormat"/>s.</param>
 		/// <param name="p_strSearchPath">The path in which to search for mod format assemblies.</param>
 		/// <param name="p_booRecurse">Whether to check sub folders of <paramref name="p_strSearchPath"/> for mods.</param>
+		/// <param name="p_gmdGameMode">The game mode for which to discover mods.</param>
 		/// <param name="p_strExcludedSubDirectories">The list of subdirectories not to examine for mods.</param>
 		/// <returns>A registry containing all of the discovered mods.</returns>
-		public static ModRegistry DiscoverManagedMods(IModFormatRegistry p_frgFormatRegistry, IModCacheManager p_frgCacheManager, string p_strSearchPath, bool p_booRecurse, bool p_booUsesPlugins, params string[] p_strExcludedSubDirectories)
+		public static ModRegistry DiscoverManagedMods(IModFormatRegistry p_frgFormatRegistry, IModCacheManager p_frgCacheManager, string p_strSearchPath, bool p_booRecurse, IGameMode p_gmdGameMode, params string[] p_strExcludedSubDirectories)
 		{
 			Trace.TraceInformation("Discovering Managed Mods...");
 			Trace.Indent();
@@ -35,7 +37,7 @@ namespace Nexus.Client.ModManagement
 			for (Int32 i = 0; i < p_strExcludedSubDirectories.Length; i++)
 				lstExludedPaths.Add((p_strExcludedSubDirectories[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar).ToLower());
 
-			ModRegistry mdrRegistry = new ModRegistry(p_frgFormatRegistry, p_booUsesPlugins);
+			ModRegistry mdrRegistry = new ModRegistry(p_frgFormatRegistry, p_gmdGameMode);
 			string[] strMods = Directory.GetFiles(p_strSearchPath, "*", p_booRecurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 			IMod modMod = null;
 			List<string> modList = new List<String>();
@@ -57,7 +59,7 @@ namespace Nexus.Client.ModManagement
 				try
 				{
 					string strCachePath = p_frgCacheManager.GetCacheFilePath(strMod);
-					modMod = mdrRegistry.CreateMod(strMod, strCachePath, p_booUsesPlugins);
+					modMod = mdrRegistry.CreateMod(strMod, strCachePath, p_gmdGameMode);
 				}
 				catch
 				{
@@ -88,8 +90,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		private ThreadSafeObservableList<IMod> m_oclRegisteredMods = new ThreadSafeObservableList<IMod>();
-		private bool m_booUsesPlugins = false;
-
+		
 		#region Properties
 
 		/// <summary>
@@ -106,6 +107,11 @@ namespace Nexus.Client.ModManagement
 		/// of supported <see cref="IModFormat"/>s.</value>
 		public IModFormatRegistry FormatRegistry { get; set; }
 
+		/// <summary>
+		/// The <see cref="IGameMode"/> for which mods are to be registered.
+		/// </summary>
+		protected IGameMode GameMode { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -115,10 +121,11 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_frgFormatRegistry">The <see cref="IModFormatRegistry"/> that contains the list
 		/// of supported <see cref="IModFormat"/>s.</param>
-		public ModRegistry(IModFormatRegistry p_frgFormatRegistry, bool p_booUsesPlugins)
+		/// <param name="p_gmdGameMode">The <see cref="IGameMode"/> for which mods are to be registered.</param>
+		public ModRegistry(IModFormatRegistry p_frgFormatRegistry, IGameMode p_gmdGameMode)
 		{
+			GameMode = p_gmdGameMode;
 			FormatRegistry = p_frgFormatRegistry;
-			m_booUsesPlugins = p_booUsesPlugins;
 			RegisteredMods = new ReadOnlyObservableList<IMod>(m_oclRegisteredMods);
 		}
 
@@ -129,9 +136,10 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_strModPath">The path to the mod file.</param>
 		/// <param name="p_strCachePath">The path to the cache file.</param>
+		/// <param name="p_gmdGameMode">The game mode for which to create the plugin.</param>
 		/// <returns>A mod of the appropriate type from the specified file, if the type of hte mod
 		/// can be determined; <c>null</c> otherwise.</returns>
-		protected IMod CreateMod(string p_strModPath, string p_strCachePath, bool p_booUsesPlugins)
+		protected IMod CreateMod(string p_strModPath, string p_strCachePath, IGameMode p_gmdGameMode)
 		{
 			if ((String.IsNullOrEmpty(p_strCachePath)) || (!File.Exists(p_strCachePath)))
 				p_strCachePath = p_strModPath;
@@ -142,7 +150,7 @@ namespace Nexus.Client.ModManagement
 			lstFormats.Sort((x, y) => -x.Key.CompareTo(y.Key));
 			if (lstFormats[0].Key <= FormatConfidence.Convertible)
 				return null;
-			return lstFormats[0].Value.CreateMod(p_strModPath, p_booUsesPlugins);
+			return lstFormats[0].Value.CreateMod(p_strModPath, p_gmdGameMode);
 		}
 
 		/// <summary>
@@ -170,7 +178,7 @@ namespace Nexus.Client.ModManagement
 			for (intExistingIndex = 0; intExistingIndex < m_oclRegisteredMods.Count; intExistingIndex++)
 				if (p_strModPath.Equals(m_oclRegisteredMods[intExistingIndex].Filename, StringComparison.OrdinalIgnoreCase))
 					break;
-			modMod = CreateMod(p_strModPath, string.Empty, m_booUsesPlugins);
+			modMod = CreateMod(p_strModPath, string.Empty, GameMode);
 			if (p_mifTagInfo != null)
 				modMod.UpdateInfo(p_mifTagInfo, false);
 			if (modMod == null)

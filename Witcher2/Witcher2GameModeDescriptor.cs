@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Drawing;
 using Nexus.Client.Games.Witcher2;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Games.Witcher2
 {
@@ -10,11 +11,43 @@ namespace Nexus.Client.Games.Witcher2
 	/// </summary>
 	public class Witcher2GameModeDescriptor : GameModeDescriptorBase
 	{
-		private static string[] EXECUTABLES = { "userContentManager.exe" , "witcher2.exe" };
+		private static readonly List<string> PLUGIN_EXTENSIONS = new List<string>() { ".dzip" };
+		private static readonly List<string> STOP_FOLDERS = new List<string>() { "abilities", "characters", "combat", "cutscenes",
+																					"engine", "environment", "environment_levels", "fx",
+																					"game", "globals", "items", "junk",
+																					"levels", "reactions", "speedtree", "templates",
+																					"tests" };
+		private static string[] EXECUTABLES = { "userContentManager.exe", "witcher2.exe" };
 		private static string[] CRITICAL_PLUGINS = { "userContentManager.exe" };
         private const string MODE_ID = "Witcher2";
 
 		#region Properties
+
+		/// <summary>
+		/// Gets the extensions that are used by the game mode for plugin files.
+		/// </summary>
+		/// <value>The extensions that are used by the game mode for plugin files.</value>
+		public override IEnumerable<string> PluginExtensions
+		{
+			get
+			{
+				return PLUGIN_EXTENSIONS;
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of possible folders that should be looked for in mod archives to determine
+		/// file structure.
+		/// </summary>
+		/// <value>A list of possible folders that should be looked for in mod archives to determine
+		/// file structure.</value>
+		public override IEnumerable<string> StopFolders
+		{
+			get
+			{
+				return STOP_FOLDERS;
+			}
+		}
 
 		/// <summary>
 		/// Gets the directory where The Witcher 2 plugins are installed.
@@ -24,8 +57,25 @@ namespace Nexus.Client.Games.Witcher2
 		{
 			get
 			{
+				string strPath = Path.Combine(Path.GetDirectoryName(ExecutablePath), "CookedPC");
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
+				return strPath;
+			}
+		}
+
+		/// <summary>
+		/// Gets the secondary path to which mod files should be installed.
+		/// </summary>
+		/// <value>The secondary path to which mod files should be installed.</value>
+		public override string SecondaryInstallationPath
+		{
+			get
+			{
 				string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                strPath = Path.Combine(strPath, @"Steam\steamapps\common\the witcher 2\bin");
+				strPath = Path.Combine(strPath, @"Witcher 2\UserContent");
+				if (!Directory.Exists(strPath))
+					Directory.CreateDirectory(strPath);
 				return strPath;
 			}
 		}

@@ -25,11 +25,11 @@ namespace Nexus.Client.Games.Witcher2
 	/// <summary>
 	/// Provides information required for the program to manage the Witcher 2 game's plugins and mods.
 	/// </summary>
-    public class Witcher2GameMode : GameModeBase
+	public class Witcher2GameMode : GameModeBase
 	{
-        private Witcher2GameModeDescriptor m_gmdGameModeInfo = null;
-        private Witcher2Launcher m_glnGameLauncher = null;
-        private Witcher2ToolLauncher m_gtlToolLauncher = null;
+		private Witcher2GameModeDescriptor m_gmdGameModeInfo = null;
+		private Witcher2Launcher m_glnGameLauncher = null;
+		private Witcher2ToolLauncher m_gtlToolLauncher = null;
 		private Dictionary<string, string> m_dicW2ModPaths = new Dictionary<string, string>();
 
 		#region Properties
@@ -101,7 +101,7 @@ namespace Nexus.Client.Games.Witcher2
 			get
 			{
 				if (m_glnGameLauncher == null)
-                    m_glnGameLauncher = new Witcher2Launcher(this, EnvironmentInfo);
+					m_glnGameLauncher = new Witcher2Launcher(this, EnvironmentInfo);
 				return m_glnGameLauncher;
 			}
 		}
@@ -115,7 +115,7 @@ namespace Nexus.Client.Games.Witcher2
 			get
 			{
 				if (m_gtlToolLauncher == null)
-                    m_gtlToolLauncher = new Witcher2ToolLauncher(this, EnvironmentInfo);
+					m_gtlToolLauncher = new Witcher2ToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
 			}
 		}
@@ -147,21 +147,6 @@ namespace Nexus.Client.Games.Witcher2
 		}
 
 		/// <summary>
-		/// Gets the directory where plugins are installed.
-		/// </summary>
-		/// <remarks>
-		/// If the game mode does not use plugins, this should return null.
-		/// </remarks>
-		/// <value>The directory where plugins are installed.</value>
-		public override string PluginDirectory
-		{
-			get
-			{
-				return null;
-			}
-		}
-
-		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
 		/// <value>The default game categories stored in the resource file.</value>
@@ -170,6 +155,17 @@ namespace Nexus.Client.Games.Witcher2
 			get
 			{
 				return Properties.Resources.Categories;
+			}
+		}
+
+		/// <summary>
+		/// Whether the game has a secondary install path.
+		/// </summary>
+		public override bool HasSecondaryInstallPath
+		{
+			get
+			{
+				return true;
 			}
 		}
 
@@ -320,22 +316,41 @@ namespace Nexus.Client.Games.Witcher2
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
 		{
-			string strPath = String.Empty;
-			string strModFileName = Path.GetFileNameWithoutExtension(p_modMod.Filename);
-			if (m_dicW2ModPaths != null)
-				strPath = m_dicW2ModPaths.FirstOrDefault(x => x.Key == strModFileName).Value;
-
-			if (String.IsNullOrEmpty(strPath))
+			if (CheckSecondaryInstall(p_modMod))
 			{
-				strPath = Path.GetDirectoryName(p_strPath);
+				string strPath = String.Empty;
+				string strModFileName = Path.GetFileNameWithoutExtension(p_modMod.Filename);
+				if (m_dicW2ModPaths != null)
+					strPath = m_dicW2ModPaths.FirstOrDefault(x => x.Key == strModFileName).Value;
 
 				if (String.IsNullOrEmpty(strPath))
-					strPath = strModFileName;
+				{
+					strPath = Path.GetDirectoryName(p_strPath);
 
-				m_dicW2ModPaths.Add(strModFileName, strPath);
+					if (String.IsNullOrEmpty(strPath))
+						strPath = strModFileName;
+					strPath = strPath.Replace(" ", "");
+					m_dicW2ModPaths.Add(strModFileName, strPath);
+				}
+
+				return (String.IsNullOrEmpty(Path.GetDirectoryName(p_strPath))) ? Path.Combine(strPath, p_strPath) : p_strPath;
 			}
+			return p_strPath;
+		}
 
-			return (String.IsNullOrEmpty(Path.GetDirectoryName(p_strPath))) ? Path.Combine(strPath, p_strPath) : p_strPath;
+		/// <summary>
+		/// Checks whether to use the secondary mod install method.
+		/// </summary>
+		/// <returns>Whether to use the secondary mod install method.</returns>
+		/// <param name="p_modMod">The mod to be installed.</param>
+		public override bool CheckSecondaryInstall(IMod p_modMod)
+		{
+			//string strPattern = String.Format(@"[^\{0}\{1}]+[\{0}\{1}]cook\.hash", Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+			string strPattern = String.Format(@"cook\.hash", Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+			foreach (string strFile in p_modMod.GetFileList())
+				if (Regex.IsMatch(strFile, strPattern))
+					return true;
+			return false;
 		}
 
 		/// <summary>

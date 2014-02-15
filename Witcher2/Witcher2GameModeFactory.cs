@@ -61,7 +61,27 @@ namespace Nexus.Client.Games.Witcher2
 		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
-			return null;
+			string strRegistryKey = null;
+			if (EnvironmentInfo.Is64BitProcess)
+				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\Wow6432Node\CD Projekt RED\The Witcher 2";
+			else
+				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\CD Projekt RED\The Witcher 2";
+			Trace.TraceInformation(@"Checking: {0}\InstallFolder", strRegistryKey);
+			Trace.Indent();
+			string strValue = null;
+			try
+			{
+				strValue = Registry.GetValue(String.Format(strRegistryKey, GameModeDescriptor.ModeId), "InstallFolder", null) as string;
+			}
+			catch
+			{
+				//if we can't read the registry, just return null
+			}
+			if (!String.IsNullOrEmpty(strValue))
+				strValue = Path.Combine(strValue, "bin");
+			Trace.TraceInformation(String.Format("Found {0}", strValue));
+			Trace.Unindent();
+			return strValue;
 		}
 
 		/// <summary>
@@ -75,11 +95,10 @@ namespace Nexus.Client.Games.Witcher2
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
-			string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-			strPath = Path.Combine(strPath, @"Witcher 2\UserContent");
+			string strPath = Path.Combine(Path.GetDirectoryName(p_strGameInstallPath), "CookedPC");
 			if (!Directory.Exists(strPath))
 				Directory.CreateDirectory(strPath);
-            return strPath;
+			return strPath;
 		}
 
 		/// <summary>

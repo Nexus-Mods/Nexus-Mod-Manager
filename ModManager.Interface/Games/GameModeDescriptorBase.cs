@@ -1,4 +1,5 @@
 ﻿
+using System.Collections.Generic;
 namespace Nexus.Client.Games
 {
 	/// <summary>
@@ -61,6 +62,31 @@ namespace Nexus.Client.Games
 			}
 		}
 
+		/// <summary>
+		/// Gets the extensions that are used by the game mode for plugin files.
+		/// </summary>
+		/// <value>The extensions that are used by the game mode for plugin files.</value>
+		public virtual IEnumerable<string> PluginExtensions
+		{
+			get
+			{
+				return new List<string>();
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of possible folders that should be looked for in mod archives to determine
+		/// file structure.
+		/// </summary>
+		/// <value>A list of possible folders that should be looked for in mod archives to determine
+		/// file structure.</value>
+		public virtual IEnumerable<string> StopFolders
+		{
+			get
+			{
+				return new List<string>();
+			}
+		}
 
 		/// <summary>
 		/// Gets the path to the game executable.

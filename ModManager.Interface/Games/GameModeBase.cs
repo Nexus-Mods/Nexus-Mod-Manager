@@ -279,6 +279,32 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the extensions that are used by the game mode for plugin files.
+		/// </summary>
+		/// <value>The extensions that are used by the game mode for plugin files.</value>
+		public IEnumerable<string> PluginExtensions
+		{
+			get
+			{
+				return m_gmdGameModeInfo.PluginExtensions;
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of possible folders that should be looked for in mod archives to determine
+		/// file structure.
+		/// </summary>
+		/// <value>A list of possible folders that should be looked for in mod archives to determine
+		/// file structure.</value>
+		public IEnumerable<string> StopFolders
+		{
+			get
+			{
+				return m_gmdGameModeInfo.StopFolders;
+			}
+		}
+
+		/// <summary>
 		/// Gets the path to the game executable.
 		/// </summary>
 		/// <value>The path to the game executable.</value>
@@ -650,8 +676,8 @@ namespace Nexus.Client.Games
 		/// Checks whether to use the secondary mod install method.
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
-		/// <param name="p_strModFileName">The mod filename</param>
-		public virtual bool CheckSecondaryInstall(string p_strModFileName)
+		/// <param name="p_modMod">The mod to be installed.</param>
+		public virtual bool CheckSecondaryInstall(IMod p_modMod)
 		{
 			return false;
 		}

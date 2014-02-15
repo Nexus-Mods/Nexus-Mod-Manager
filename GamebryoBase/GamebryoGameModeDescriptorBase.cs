@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Nexus.Client.Games.Gamebryo
@@ -8,9 +9,40 @@ namespace Nexus.Client.Games.Gamebryo
 	/// </summary>
 	public abstract class GamebryoGameModeDescriptorBase : GameModeDescriptorBase
 	{
+		private static readonly List<string> PLUGIN_EXTENSIONS = new List<string>() { ".esm", ".esp", ".bsa" };
+		private static readonly List<string> STOP_FOLDERS = new List<string>() { "textures",
+																					"meshes", "music", "shaders", "video",
+																					"facegen", "menus", "lodsettings", "lsdata",
+																					"sound" };
 		private string[] m_strCriticalPlugins = null;
 
 		#region Properties
+
+		/// <summary>
+		/// Gets the extensions that are used by the game mode for plugin files.
+		/// </summary>
+		/// <value>The extensions that are used by the game mode for plugin files.</value>
+		public override IEnumerable<string> PluginExtensions
+		{
+			get
+			{
+				return PLUGIN_EXTENSIONS;
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of possible folders that should be looked for in mod archives to determine
+		/// file structure.
+		/// </summary>
+		/// <value>A list of possible folders that should be looked for in mod archives to determine
+		/// file structure.</value>
+		public override IEnumerable<string> StopFolders
+		{
+			get
+			{
+				return STOP_FOLDERS;
+			}
+		}
 
 		/// <summary>
 		/// Gets the directory where Fallout 3 plugins are installed.

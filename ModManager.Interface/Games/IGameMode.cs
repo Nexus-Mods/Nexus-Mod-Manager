@@ -240,8 +240,8 @@ namespace Nexus.Client.Games
 		/// Checks whether to use the secondary mod install method.
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
-		/// <param name="p_strModFileName">The mod filename</param>
-		bool CheckSecondaryInstall(string p_strModFileName);
+		/// <param name="p_modMod">The mod to be installed.</param>
+		bool CheckSecondaryInstall(IMod p_modMod);
 
 		/// <summary>
 		/// Checks whether the system needs to uninstal secondary parameters.
