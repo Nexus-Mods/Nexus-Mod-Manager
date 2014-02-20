@@ -89,6 +89,7 @@ namespace Nexus.Client
 		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
 		public MainForm(MainFormVM p_vmlViewModel)
 		{
+
 			InitializeComponent();
 
 			this.FormClosing += new FormClosingEventHandler(this.CheckDownloadsOnClosing);
@@ -96,6 +97,10 @@ namespace Nexus.Client
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
+			dockPanel1.ActiveContentChanged += new EventHandler(dockPanel1_ActiveContentChanged);
+			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
+			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
+			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
 
 			ViewModel = p_vmlViewModel;
 
@@ -116,6 +121,8 @@ namespace Nexus.Client
 		/// </remarks>
 		protected void InitializeDocuments()
 		{
+			string strTab = null;
+
 			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm") && !String.IsNullOrEmpty(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"]))
 			{
 				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
@@ -141,7 +148,12 @@ namespace Nexus.Client
 				mmgModManager.Show(dockPanel1);
 			}
 
-			if (ViewModel.UsesPlugins)
+			strTab = dockPanel1.ActiveDocument.DockHandler.TabText;
+
+			if (ViewModel.PluginManagerVM != null)
+				pmcPluginManager.Show(dockPanel1);
+
+			if ((ViewModel.UsesPlugins) && (strTab == "Plugins"))
 				pmcPluginManager.Show(dockPanel1);
 			else
 				mmgModManager.Show(dockPanel1);
@@ -260,12 +272,51 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// This will check whether the SearchBox should be visible.
+		/// </summary>
+		private void dockPanel1_ActiveContentChanged(object sender, EventArgs e)
+		{
+			if (this.Visible)
+			{
+				tstFind.Visible = (dockPanel1.ActiveDocument.DockHandler.TabText == "Mods");
+				tstFind.Enabled = (dockPanel1.ActiveDocument.DockHandler.TabText == "Mods");
+			}
+		}
+
+		/// <summary>
+		/// Set the focus to the Search Textbox.
+		/// </summary>
+		private void mmgModManager_SetTextBoxFocus(object sender, EventArgs e)
+		{
+			tstFind.Focus();
+		}
+
+		private void mmgModManager_ResetSearchBox(object sender, EventArgs e)
+		{
+			tstFind.Clear();
+		}
+
+		/// <summary>
+		/// Set the focus to the Search Textbox.
+		/// </summary>
+		private void dmcDownloadMonitor_SetTextBoxFocus(object sender, EventArgs e)
+		{
+			if (mmgModManager.Visible)
+				tstFind.Focus();
+		}
+
+		/// <summary>
 		/// Opens NMM's mods folder for the current game.
 		/// </summary>
 		protected void OpenModsFolder()
 		{
 			if (FileUtil.IsValidPath(ViewModel.ModsPath))
 				System.Diagnostics.Process.Start(ViewModel.ModsPath);
+		}
+
+		private void tstFind_KeyUp(object sender, KeyEventArgs e)
+		{
+			mmgModManager.FindItemWithText(this.tstFind.Text);
 		}
 
 		/// <summary>
