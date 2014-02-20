@@ -24,6 +24,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		private string m_strTitleSomeActive = "Download Manager ({0}/{1})";
 		private bool m_booControlIsLoaded = false;
 
+		public event EventHandler SetTextBoxFocus;
+
 		#region Properties
 
 		/// <summary>
@@ -165,6 +167,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			if (e.KeyData == (Keys.C | Keys.Control))
 			{
 				Clipboard.SetText(lvwTasks.FocusedItem.Text);
+			}
+			if (e.KeyData == (Keys.Control | Keys.F))
+			{
+				SetTextBoxFocus(this, e);
 			}
 		}
 
