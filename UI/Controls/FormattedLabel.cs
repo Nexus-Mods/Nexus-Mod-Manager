@@ -40,6 +40,7 @@ namespace Nexus.UI.Controls
 		}
 
 		private static Regex HTML_MATCHER = new Regex(@"(?i)(<[^>]*>)");
+        private static Regex HTML_DETECTION_MATCHER = new Regex(@"(?i)((<\s*br\s*/?\s*>)|(<\s*/[^>]*>))");
 		private static Regex HTML_CLOSING_MATCHER = new Regex(@"(?i)(</[^>]*>)");
 		private static Regex BBCODE_MATCHER = new Regex(@"(?i)(\[[^\]]*\])");
 		private static Regex BBCODE_CLOSING_MATCHER = new Regex(@"(?i)(\[/[^\]]*\])");
@@ -313,7 +314,8 @@ namespace Nexus.UI.Controls
 			Mode mdeOldMode = FormattingMode;
 			//check for closing tags is more accurate than tags in general
 			// often <...> and [...] are used as literals
-			Int32 intHtmlMatchCount = HTML_CLOSING_MATCHER.Matches(p_strText).Count;
+            // <br> is also a good indicator
+            Int32 intHtmlMatchCount = HTML_DETECTION_MATCHER.Matches(p_strText).Count;
 			Int32 intBBCodeMatchCount = BBCODE_CLOSING_MATCHER.Matches(p_strText).Count;
 			if ((intHtmlMatchCount > 0) && (intHtmlMatchCount > intBBCodeMatchCount))
 				FormattingMode = Mode.HTML;
