@@ -59,6 +59,7 @@
 			this.tsbGoPremium = new System.Windows.Forms.ToolStripButton();
 			this.tlbGoPremium = new System.Windows.Forms.ToolStripLabel();
 			this.tsbOnlineStatus = new System.Windows.Forms.ToolStripButton();
+			this.tstFind = new System.Windows.Forms.ToolStripTextBox();
 			this.toolStrip1.SuspendLayout();
 			this.tssDownload.SuspendLayout();
 			this.SuspendLayout();
@@ -69,13 +70,14 @@
 			this.m_fpdFontProvider.SetFontSize(this.toolStrip1, 9F);
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.spbLaunch,
-            this.spbHelp,
-            this.spbChangeMode,
-            this.spbTools,
+			this.spbLaunch,
+			this.spbHelp,
+			this.spbChangeMode,
+			this.spbTools,
 			this.spbFolders,
-            this.tsbSettings,
-            this.tsbUpdate});
+			this.tsbSettings,
+			this.tstFind,
+			this.tsbUpdate});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(804, 39);
@@ -226,8 +228,17 @@
 			// 
 			// tlbDownloads
 			// 
+
 			this.tlbDownloads.Name = "tlbDownloads";
 			this.tlbDownloads.Size = new System.Drawing.Size(0, 34);
+			// 
+			// tstFind
+			// 
+			this.tstFind.Visible = false;
+			this.tstFind.Name = "tstFind";
+			this.tstFind.Size = new System.Drawing.Size(100, 20);
+			this.tstFind.KeyUp += new System.Windows.Forms.KeyEventHandler(this.tstFind_KeyUp);
+			this.tstFind.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
 			// 
 			// tpbDownloadSpeed
 			// 
@@ -299,5 +310,6 @@
 		private System.Windows.Forms.ToolStripLabel tlbGoPremium;
 		private System.Windows.Forms.ToolStripButton tsbGoPremium;
 		private System.Windows.Forms.ToolStripButton tsbOnlineStatus;
+		public System.Windows.Forms.ToolStripTextBox tstFind;
 	}
 }

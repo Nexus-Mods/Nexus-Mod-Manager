@@ -22,6 +22,7 @@ namespace Nexus.Client.UI.Controls
 		IModRepository m_mmrModRepository = null;
 		bool m_booShowEmpty = false;
 		bool m_booCategoryMode = true;
+		string m_strLastSearchFilter = String.Empty;
 
 		#region Custom Events
 
@@ -742,7 +743,7 @@ namespace Nexus.Client.UI.Controls
 		/// Gets the mod count for the current category.
 		/// </summary>
 		/// <param name="p_imcCategory">The category to count.</param>
-		/// <param name="p_lviItems">The ListViewItem containing the categories.</param>
+		/// <param name="p_modItems">The Mod List containing the categories.</param>
 		public Int32 GetCategoryModCount(IModCategory p_imcCategory, IEnumerable<IMod> p_modItems)
 		{
 			var CategoryMods = from Mod in p_modItems
@@ -916,11 +917,46 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Realoads the treeview applying the default filters
 		/// </summary>
-		public void ReloadList()
+		/// <param name="p_booApplySearchFilter"> True if the function needs to restore the previous search filter.</param>
+		public void ReloadList(bool p_booApplySearchFilter)
 		{
 			this.RebuildAll(true);
 			if (CategoryModeEnabled)
 				ApplyFilters(null);
+			if (p_booApplySearchFilter)
+				AddStringFilter(m_strLastSearchFilter);
+			else
+			{
+				RemoveStringFilter();
+			}
+		}
+
+		/// <summary>
+		/// This will apply a string filter to the list.
+		/// </summary>
+		/// /// <param name="p_strFilter">The string filter.</param>
+		public void AddStringFilter(string p_strFilter)
+		{
+			TextMatchFilter tmfFilter = TextMatchFilter.Contains(this, p_strFilter);
+			tmfFilter.Columns = new OLVColumn[] { (OLVColumn)this.Columns[0] };
+			this.ModelFilter = tmfFilter;
+			HighlightTextRenderer highlightingRenderer = this.GetColumn(0).Renderer as HighlightTextRenderer;
+			if (highlightingRenderer != null)
+				highlightingRenderer.Filter = tmfFilter;
+			m_strLastSearchFilter = p_strFilter;
+		}
+
+		/// <summary>
+		/// This will remove the list filter.
+		/// </summary>
+		public void RemoveStringFilter()
+		{
+			TextMatchFilter tmfFilter = TextMatchFilter.Contains(this, String.Empty);
+			tmfFilter.Columns = new OLVColumn[] { (OLVColumn)this.Columns[0] };
+			HighlightTextRenderer highlightingRenderer = this.GetColumn(0).Renderer as HighlightTextRenderer;
+			if (highlightingRenderer != null)
+				highlightingRenderer.Filter = tmfFilter;
+			m_strLastSearchFilter = String.Empty;
 		}
 
 		/// <summary>
