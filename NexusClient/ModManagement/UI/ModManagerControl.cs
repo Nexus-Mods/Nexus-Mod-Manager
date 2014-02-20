@@ -31,8 +31,10 @@ namespace Nexus.Client.ModManagement.UI
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();
 		private bool m_booResizing = false;
 		private Timer m_tmrColumnSizer = new Timer();
-		private bool m_booControlIsLoaded = false;
 		private bool m_booDisableSummary = true;
+
+		public event EventHandler SetTextBoxFocus;
+		public event EventHandler ResetSearchBox;
 
 		#region Properties
 
@@ -149,8 +151,6 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (!DesignMode)
 			{
-				m_booControlIsLoaded = true;
-
 				ViewModel.CheckReadMeManager();
 
 				clwCategoryView.CategoryModeEnabled = ViewModel.Settings.UseCategoryView;
@@ -161,7 +161,8 @@ namespace Nexus.Client.ModManagement.UI
 					ViewModel.CheckCategoryManager();
 					clwCategoryView.LoadData();
 					clwCategoryView.SetupContextMenu();
-					clwCategoryView.ReloadList();
+					clwCategoryView.ReloadList(false);
+					ResetSearchBox(this, e);
 				}
 
 				m_booDisableSummary = false;
@@ -562,6 +563,15 @@ namespace Nexus.Client.ModManagement.UI
 					}
 				};
 
+				// The CRTL-F
+				this.clwCategoryView.KeyDown += delegate(object sender, KeyEventArgs e)
+				{
+					if (e.KeyData == (Keys.Control | Keys.F))
+					{
+						SetTextBoxFocus(this, e);
+					}
+				};
+
 				// Enables removing categories or mods using the DEL key
 				this.clwCategoryView.KeyUp += delegate(object sender, KeyEventArgs e)
 				{
@@ -588,6 +598,7 @@ namespace Nexus.Client.ModManagement.UI
 							}
 						}
 					}
+
 				};
 
 				// populates the context menu for the selected item
@@ -727,7 +738,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 
 				ViewModel.SwitchModsToCategory(lstSelectedMods, imcNewCategory.Id);
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(true);
 			}
 		}
 
@@ -755,7 +766,7 @@ namespace Nexus.Client.ModManagement.UI
 			if ((hashMods != null) && (hashMods.Count > 0))
 			{
 				ViewModel.ToggleModUpdateWarning(hashMods, null);
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(true);
 			}
 		}
 
@@ -791,7 +802,7 @@ namespace Nexus.Client.ModManagement.UI
 			if ((hashMods != null) && (hashMods.Count > 0))
 			{
 				ViewModel.SetupReadMeManager(hashMods.ToList<IMod>());
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(true);
 			}
 		}
 
@@ -834,7 +845,8 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				clwCategoryView.RemoveObject((IModCategory)sender);
 				ViewModel.SwitchModsToUnassigned((IModCategory)sender);
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(false);
+				ResetSearchBox(this, e);
 			}
 		}
 
@@ -862,7 +874,8 @@ namespace Nexus.Client.ModManagement.UI
 				clwCategoryView.Visible = false;
 				clwCategoryView.LoadData();
 				clwCategoryView.SetupContextMenu();
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(false);
+				ResetSearchBox(this, e);
 				clwCategoryView.Visible = true;
 			}
 		}
@@ -887,7 +900,8 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
 			clwCategoryView.SetupContextMenu();
-			clwCategoryView.ReloadList();
+			clwCategoryView.ReloadList(false);
+			ResetSearchBox(this, e);
 			clwCategoryView.Visible = true;
 		}
 
@@ -913,9 +927,10 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategoryModeEnabled = !clwCategoryView.CategoryModeEnabled;
 			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
-			clwCategoryView.ReloadList();
+			clwCategoryView.ReloadList(false);
 			ViewModel.Settings.UseCategoryView = !ViewModel.Settings.UseCategoryView;
 			ViewModel.Settings.Save();
+			ResetSearchBox(this, e);
 			clwCategoryView.Visible = true;
 			SetCommandExecutableStatus();
 		}
@@ -946,6 +961,7 @@ namespace Nexus.Client.ModManagement.UI
 			ViewModel.Settings.Save();
 		}
 
+
 		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
 		/// category button.
@@ -956,7 +972,8 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			ViewModel.Settings.ShowEmptyCategory = !clwCategoryView.ShowHiddenCategories;
 			clwCategoryView.ShowHiddenCategories = !clwCategoryView.ShowHiddenCategories;
-			clwCategoryView.ReloadList();
+			clwCategoryView.ReloadList(false);
+			ResetSearchBox(this, e);
 		}
 
 		/// <summary>
@@ -984,7 +1001,7 @@ namespace Nexus.Client.ModManagement.UI
 						ViewModel.UpdateModName((IMod)e.ListViewItem.RowObject, strValue);
 				}
 
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(true);
 			}
 
 			e.Cancel = true;
@@ -1025,7 +1042,7 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					lock (clwCategoryView)
 						ViewModel.UpdateModName((IMod)clwCategoryView.SelectedItem.RowObject, strValue);
-					clwCategoryView.ReloadList();
+					clwCategoryView.ReloadList(true);
 				}
 				clwCategoryView.Sort();
 				if (clwCategoryView.SelectedItem != null)
@@ -1074,7 +1091,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (ViewModel.ResetToUnassigned())
 			{
 				clwCategoryView.LoadData();
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(true);
 			}
 		}
 
@@ -1090,7 +1107,8 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				clwCategoryView.LoadData();
 				clwCategoryView.SetupContextMenu();
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(false);
+				ResetSearchBox(this, e);
 			}
 		}
 
@@ -1291,7 +1309,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 
-			clwCategoryView.ReloadList();
+			clwCategoryView.ReloadList(true);
 			SetCommandExecutableStatus();
 		}
 
@@ -1313,10 +1331,19 @@ namespace Nexus.Client.ModManagement.UI
 			if (!clwCategoryView.CategoryModeEnabled)
 			{
 				clwCategoryView.RefreshObject((IMod)sender);
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(true);
 			}
 			if (!m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)sender);
+		}
+
+		/// <summary>
+		/// Applies a string filter to the list view.
+		/// </summary>
+		public void FindItemWithText(string p_strFilter)
+		{
+			clwCategoryView.AddStringFilter(p_strFilter);
+			clwCategoryView.Refresh();
 		}
 
 		#endregion
@@ -1324,7 +1351,7 @@ namespace Nexus.Client.ModManagement.UI
 		#region Mod Activation
 
 		/// <summary>
-		/// Handles the <see cref="MainFormVM.DeactivatingMultipleMods"/> event of the view model.
+		/// Handles the <see cref="ModManagerVM.DeactivatingMultipleMods"/> event of the view model.
 		/// </summary>
 		/// <remarks>
 		/// This displays the progress dialog.
@@ -1408,7 +1435,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 
 			if (!clwCategoryView.CategoryModeEnabled)
-				clwCategoryView.ReloadList();
+				clwCategoryView.ReloadList(true);
 
 			SetCommandExecutableStatus();
 		}
@@ -1603,5 +1630,6 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		#endregion
+
 	}
 }
