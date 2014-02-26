@@ -431,7 +431,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE clicking the OFFLINE button.", e);
 					}
 				}
-				throw new RepositoryUnavailableException(String.Format("Error communicating with the server! Cannot reach the {0} login server.", Name), e);
+				if (e.Message == "Internal Server Error")
+					throw new RepositoryUnavailableException(String.Format("{0} server error! This is a server issue, try again after a few minutes.", Name), e);
+				else
+					throw new RepositoryUnavailableException(String.Format("Error communicating with the server! Cannot reach the {0} login server.", Name), e);
 			}
 			catch (SerializationException e)
 			{
