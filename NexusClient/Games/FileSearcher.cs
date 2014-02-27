@@ -159,6 +159,13 @@ namespace Nexus.Client.Games
 					// there are likely some other unusual cases
 					Trace.TraceInformation("IOException while getting subdirectories for: {0}", strSearchPath);
 				}
+				catch (NotSupportedException)
+				{
+		 			// not sure what goings on here
+					// it seems this can happen when a drive has folders created some special way under linux
+					// for example PlayOnLinux. F:\PlayOnLinux\logs\Diablo II : Lord Of Destruction_1318695546
+					Trace.TraceInformation("NotSupportedException while getting subdirectories for: {0}", strSearchPath);
+				}
 			}
 			return null;
 		}
