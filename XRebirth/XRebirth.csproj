@@ -66,8 +66,6 @@
     <Compile Include="SetupForm.designer.cs">
       <DependentUpon>SetupForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Steam\KeyValue.cs" />
-    <Compile Include="Steam\StreamHelpers.cs" />
     <Compile Include="Tools\XRebirthToolLauncher.cs" />
     <Compile Include="XRebirthGameMode.cs" />
     <Compile Include="XRebirthGameModeDescriptor.cs" />
