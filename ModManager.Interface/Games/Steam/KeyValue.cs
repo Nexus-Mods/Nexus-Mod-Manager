@@ -22,7 +22,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Nexus.Client.Games.XRebirth.Steam
+namespace Nexus.Client.Games.Steam
 {
 	class KvTextReader : StreamReader
 	{
