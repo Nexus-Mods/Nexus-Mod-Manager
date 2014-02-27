@@ -2,7 +2,7 @@
 using System.IO;
 using System.Text;
 
-namespace Nexus.Client.Games.XRebirth.Steam
+namespace Nexus.Client.Games.Steam
 {
 	internal static class StreamHelpers
 	{

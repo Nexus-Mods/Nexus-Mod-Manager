@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using Microsoft.Win32;
-using Nexus.Client.Games.XRebirth.Steam;
+using Nexus.Client.Games.Steam;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
