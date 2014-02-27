@@ -1342,6 +1342,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void FindItemWithText(string p_strFilter)
 		{
+			if (clwCategoryView.CategoryModeEnabled)
+				clwCategoryView.ExpandAll();
 			clwCategoryView.AddStringFilter(p_strFilter);
 			clwCategoryView.Refresh();
 		}
