@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - ElderScrollsOnline Module")]
+[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - TESO Module")]
 [assembly: AssemblyDescription("The Elder Scrolls Online Module for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Black Tree Gaming")]
-[assembly: AssemblyProduct("ElderScrollsOnline")]
+[assembly: AssemblyProduct("TESO")]
 [assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -33,5 +33,5 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 [assembly: AssemblyVersion("1.1")]
 // AssemblyFileVersionFormat("1.1.*")
-[assembly: AssemblyFileVersion("1.1.5172.17052")]
+[assembly: AssemblyFileVersion("1.1.5172.27520")]
 [assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString)]

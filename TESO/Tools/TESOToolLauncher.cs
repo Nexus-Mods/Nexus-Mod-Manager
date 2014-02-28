@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using Nexus.Client.Games.Tools;
 
-namespace Nexus.Client.Games.ElderScrollsOnline.Tools
+namespace Nexus.Client.Games.TESO.Tools
 {
     /// <summary>
-	/// Exposes the tools for ElderScrollsOnline.
+	/// Exposes the tools for TESO.
     /// </summary>
-    public class ElderScrollsOnlineToolLauncher : IToolLauncher
+    public class TESOToolLauncher : IToolLauncher
     {
         private List<ITool> m_lstTools = new List<ITool>();
 
@@ -49,7 +49,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline.Tools
         /// </summary>
         /// <param name="p_gmdGameMode">>The game mode currently being managed.</param>
         /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public ElderScrollsOnlineToolLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
+		public TESOToolLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
         {
             GameMode = p_gmdGameMode;
             EnvironmentInfo = p_eifEnvironmentInfo;

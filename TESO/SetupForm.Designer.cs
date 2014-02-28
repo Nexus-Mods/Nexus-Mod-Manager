@@ -1,4 +1,4 @@
-namespace Nexus.Client.Games.ElderScrollsOnline
+namespace Nexus.Client.Games.TESO
 {
 	partial class SetupForm
 	{

@@ -5,7 +5,7 @@ using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 
-namespace Nexus.Client.Games.ElderScrollsOnline.Settings.UI
+namespace Nexus.Client.Games.TESO.Settings.UI
 {
 	/// <summary>
 	/// The page of general settings.

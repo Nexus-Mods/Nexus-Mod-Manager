@@ -4,9 +4,9 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Xml;
 using ChinhDo.Transactions;
-using Nexus.Client.Games.ElderScrollsOnline.Settings;
-using Nexus.Client.Games.ElderScrollsOnline.Settings.UI;
-using Nexus.Client.Games.ElderScrollsOnline.Tools;
+using Nexus.Client.Games.TESO.Settings;
+using Nexus.Client.Games.TESO.Settings.UI;
+using Nexus.Client.Games.TESO.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
@@ -19,16 +19,16 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
 
-namespace Nexus.Client.Games.ElderScrollsOnline
+namespace Nexus.Client.Games.TESO
 {
 	/// <summary>
 	/// Provides information required for the program to manage The Elder Scrolls Online game's plugins and mods.
 	/// </summary>
-	public class ElderScrollsOnlineGameMode : GameModeBase
+	public class TESOGameMode : GameModeBase
 	{
-		private ElderScrollsOnlineGameModeDescriptor m_gmdGameModeInfo = null;
-		private ElderScrollsOnlineLauncher m_glnGameLauncher = null;
-		private ElderScrollsOnlineToolLauncher m_gtlToolLauncher = null;
+		private TESOGameModeDescriptor m_gmdGameModeInfo = null;
+		private TESOLauncher m_glnGameLauncher = null;
+		private TESOToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
 
@@ -79,9 +79,9 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 		}
 
 		/// <summary>
-		/// Gets the path to the per user ElderScrollsOnline data.
+		/// Gets the path to the per user TESO data.
 		/// </summary>
-		/// <value>The path to the per user ElderScrollsOnline data.</value>
+		/// <value>The path to the per user TESO data.</value>
 		public string UserGameDataPath
 		{
 			get
@@ -99,7 +99,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 			get
 			{
 				if (m_glnGameLauncher == null)
-					m_glnGameLauncher = new ElderScrollsOnlineLauncher(this, EnvironmentInfo);
+					m_glnGameLauncher = new TESOLauncher(this, EnvironmentInfo);
 				return m_glnGameLauncher;
 			}
 		}
@@ -113,7 +113,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 			get
 			{
 				if (m_gtlToolLauncher == null)
-					m_gtlToolLauncher = new ElderScrollsOnlineToolLauncher(this, EnvironmentInfo);
+					m_gtlToolLauncher = new TESOToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
 			}
 		}
@@ -165,7 +165,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
 		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
-		public ElderScrollsOnlineGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
+		public TESOGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
 			SettingsGroupViews = new List<ISettingsGroupView>();
@@ -283,7 +283,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 		protected override IGameModeDescriptor CreateGameModeDescriptor()
 		{
 			if (m_gmdGameModeInfo == null)
-				m_gmdGameModeInfo = new ElderScrollsOnlineGameModeDescriptor(EnvironmentInfo);
+				m_gmdGameModeInfo = new TESOGameModeDescriptor(EnvironmentInfo);
 			return m_gmdGameModeInfo;
 		}
 

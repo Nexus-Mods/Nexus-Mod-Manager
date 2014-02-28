@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.Games.ElderScrollsOnline.Settings.UI
+﻿namespace Nexus.Client.Games.TESO.Settings.UI
 {
 	partial class GeneralSettingsPage
 	{

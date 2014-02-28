@@ -8,13 +8,13 @@ using Nexus.Client.UI;
 using Nexus.Client.Util;
 using System.Xml;
 
-namespace Nexus.Client.Games.ElderScrollsOnline
+namespace Nexus.Client.Games.TESO
 {
 	/// <summary>
 	/// The base game mode factory that provides the commond functionality for
-    /// factories that build game modes for ElderScrollsOnline based games.
+    /// factories that build game modes for TESO based games.
 	/// </summary>
-	public class ElderScrollsOnlineGameModeFactory : IGameModeFactory
+	public class TESOGameModeFactory : IGameModeFactory
 	{
         private readonly IGameModeDescriptor m_gmdGameModeDescriptor = null;
 
@@ -46,10 +46,10 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 		/// A simple consturctor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's environement info.</param>
-		public ElderScrollsOnlineGameModeFactory(IEnvironmentInfo p_eifEnvironmentInfo)
+		public TESOGameModeFactory(IEnvironmentInfo p_eifEnvironmentInfo)
 		{
             EnvironmentInfo = p_eifEnvironmentInfo;
-			m_gmdGameModeDescriptor = new ElderScrollsOnlineGameModeDescriptor(p_eifEnvironmentInfo);
+			m_gmdGameModeDescriptor = new TESOGameModeDescriptor(p_eifEnvironmentInfo);
 		}
 
 		#endregion
@@ -108,7 +108,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 				EnvironmentInfo.Settings.Save();
 			}
 
-			ElderScrollsOnlineGameMode gmdGameMode = InstantiateGameMode(p_futFileUtility);
+			TESOGameMode gmdGameMode = InstantiateGameMode(p_futFileUtility);
             p_imsWarning = null;
 
 			return gmdGameMode;
@@ -119,9 +119,9 @@ namespace Nexus.Client.Games.ElderScrollsOnline
         /// </summary>
         /// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
         /// <returns>The game mode for which this is a factory.</returns>
-		protected ElderScrollsOnlineGameMode InstantiateGameMode(FileUtil p_futFileUtility)
+		protected TESOGameMode InstantiateGameMode(FileUtil p_futFileUtility)
         {
-			return new ElderScrollsOnlineGameMode(EnvironmentInfo, p_futFileUtility);
+			return new TESOGameMode(EnvironmentInfo, p_futFileUtility);
         }
 
 		/// <summary>
@@ -136,7 +136,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 			if (EnvironmentInfo.Settings.CustomGameModeSettings[GameModeDescriptor.ModeId] == null)
 				EnvironmentInfo.Settings.CustomGameModeSettings[GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
 
-			ElderScrollsOnlineSetupVM vmlSetup = new ElderScrollsOnlineSetupVM(EnvironmentInfo, GameModeDescriptor);
+			TESOSetupVM vmlSetup = new TESOSetupVM(EnvironmentInfo, GameModeDescriptor);
 			SetupForm frmSetup = new SetupForm(vmlSetup);
 			if (((DialogResult)p_dlgShowView(frmSetup, true)) == DialogResult.Cancel)
 				return false;

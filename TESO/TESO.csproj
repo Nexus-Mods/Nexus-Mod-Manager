@@ -8,8 +8,8 @@
     <ProjectGuid>{89D95C71-A132-46A0-9E3D-C5D4117F3B49}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Nexus.Client.Games.ElderScrollsOnline</RootNamespace>
-    <AssemblyName>ElderScrollsOnline</AssemblyName>
+    <RootNamespace>Nexus.Client.Games.TESO</RootNamespace>
+    <AssemblyName>TESO</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -44,11 +44,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ElderScrollsOnlineGameMode.cs" />
-    <Compile Include="ElderScrollsOnlineGameModeDescriptor.cs" />
-    <Compile Include="ElderScrollsOnlineGameModeFactory.cs" />
-    <Compile Include="ElderScrollsOnlineLauncher.cs" />
-    <Compile Include="ElderScrollsOnlineSetupVM.cs" />
+    <Compile Include="TESOGameMode.cs" />
+    <Compile Include="TESOGameModeDescriptor.cs" />
+    <Compile Include="TESOGameModeFactory.cs" />
+    <Compile Include="TESOLauncher.cs" />
+    <Compile Include="TESOSetupVM.cs" />
     <Compile Include="Settings\GeneralSettingsGroup.cs" />
     <Compile Include="Settings\UI\GeneralSettingsPage.cs">
       <SubType>UserControl</SubType>
@@ -68,7 +68,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Tools\ElderScrollsOnlineToolLauncher.cs" />
+    <Compile Include="Tools\TESOToolLauncher.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">

@@ -5,12 +5,12 @@ using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
 
-namespace Nexus.Client.Games.ElderScrollsOnline
+namespace Nexus.Client.Games.TESO
 {
     /// <summary>
-	/// Launches ElderScrollsOnline.
+	/// Launches TESO.
     /// </summary>
-    public class ElderScrollsOnlineLauncher : GameLauncherBase
+    public class TESOLauncher : GameLauncherBase
     {
 		private string ESOLaunchPath;
 
@@ -21,7 +21,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
         /// </summary>
         /// <param name="p_gmdGameMode">>The game mode currently being managed.</param>
         /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public ElderScrollsOnlineLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
+		public TESOLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
             : base(p_gmdGameMode, p_eifEnvironmentInfo)
         {
         }
@@ -41,7 +41,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-			AddLaunchCommand(new Command("PlainLaunch", "Launch The Elder Scrolls Online", "Launches plain The Elder Scrolls Online.", imgIcon, LaunchElderScrollsOnlinePlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", "Launch The Elder Scrolls Online", "Launches plain The Elder Scrolls Online.", imgIcon, LaunchTESOPlain, true));
 
 			strCommand = GetESOLauncherLaunchCommand();
 			Trace.TraceInformation("ESO Launcher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
@@ -54,7 +54,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom The Elder Scrolls Online", "Launches The Elder Scrolls Online with custom command.", imgIcon, LaunchElderScrollsOnlineCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom The Elder Scrolls Online", "Launches The Elder Scrolls Online with custom command.", imgIcon, LaunchTESOCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch the ESO Launcher", "Launches the ESO Launcher.", LaunchGame);
 
@@ -68,7 +68,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
         /// <summary>
         /// Launches the game with a custom command.
         /// </summary>
-		private void LaunchElderScrollsOnlineCustom()
+		private void LaunchTESOCustom()
         {
 			Trace.TraceInformation("Launching Elder Scrolls Online (Custom)...");
             Trace.Indent();
@@ -109,7 +109,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
         /// <summary>
         /// Launches the game without the launcher.
         /// </summary>
-		private void LaunchElderScrollsOnlinePlain()
+		private void LaunchTESOPlain()
         {
 			Trace.TraceInformation("Launching Elder Scrolls Online (Plain)...");
             Trace.Indent();
@@ -179,11 +179,11 @@ namespace Nexus.Client.Games.ElderScrollsOnline
         private void LaunchGame()
         {
 			if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
-				LaunchElderScrollsOnlineCustom();
+				LaunchTESOCustom();
 			else if (File.Exists(ESOLaunchPath))
 				LaunchESOLauncher();
 			else
-				LaunchElderScrollsOnlinePlain();
+				LaunchTESOPlain();
         }
 
         #endregion

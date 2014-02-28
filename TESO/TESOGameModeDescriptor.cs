@@ -1,25 +1,25 @@
 using System;
 using System.IO;
 using System.Drawing;
-using Nexus.Client.Games.ElderScrollsOnline;
+using Nexus.Client.Games.TESO;
 
-namespace Nexus.Client.Games.ElderScrollsOnline
+namespace Nexus.Client.Games.TESO
 {
 	/// <summary>
-	/// Provides common information about ElderScrollsOnline based games.
+	/// Provides common information about TESO based games.
 	/// </summary>
-	public class ElderScrollsOnlineGameModeDescriptor : GameModeDescriptorBase
+	public class TESOGameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "eso.exe" };
 		private static string[] CRITICAL_PLUGINS = null;
-		private const string MODE_ID = "ElderScrollsOnline";
+		private const string MODE_ID = "TESO";
 
 		#region Properties
 
 		/// <summary>
-		/// Gets the directory where ElderScrollsOnline plugins are installed.
+		/// Gets the directory where TESO plugins are installed.
 		/// </summary>
-		/// <value>The directory where ElderScrollsOnline plugins are installed.</value>
+		/// <value>The directory where TESO plugins are installed.</value>
 		public override string PluginDirectory
 		{
 			get
@@ -100,7 +100,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public ElderScrollsOnlineGameModeDescriptor(IEnvironmentInfo p_eifEnvironmentInfo)
+		public TESOGameModeDescriptor(IEnvironmentInfo p_eifEnvironmentInfo)
 			: base(p_eifEnvironmentInfo)
 		{
 		}

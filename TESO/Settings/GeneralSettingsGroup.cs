@@ -4,7 +4,7 @@ using Nexus.Client.Util;
 using System.IO;
 using System;
 
-namespace Nexus.Client.Games.ElderScrollsOnline
+namespace Nexus.Client.Games.TESO
 {
 	/// <summary>
 	/// The group of general settings.

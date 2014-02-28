@@ -113,7 +113,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DragonAge2.ModScript", "Dra
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XRebirth", "XRebirth\XRebirth.csproj", "{7D19B1A9-5B06-4354-A021-9B522771F914}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElderScrollsOnline", "ElderScrollsOnline\ElderScrollsOnline.csproj", "{89D95C71-A132-46A0-9E3D-C5D4117F3B49}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TESO", "TESO\TESO.csproj", "{89D95C71-A132-46A0-9E3D-C5D4117F3B49}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -4,14 +4,14 @@ using System.Windows.Forms;
 using Nexus.Client.UI;
 using Nexus.UI.Controls;
 
-namespace Nexus.Client.Games.ElderScrollsOnline
+namespace Nexus.Client.Games.TESO
 {
 	/// <summary>
-	/// This is the setup form for the ElderScrollsOnline game mode.
+	/// This is the setup form for the TESO game mode.
 	/// </summary>
 	public partial class SetupForm : ManagedFontForm, IView
 	{
-		private ElderScrollsOnlineSetupVM m_vmlViewModel = null;
+		private TESOSetupVM m_vmlViewModel = null;
 
 		#region Properties
 
@@ -28,9 +28,9 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 			}
 			private set
 			{
-				m_vmlViewModel = value as ElderScrollsOnlineSetupVM;
+				m_vmlViewModel = value as TESOSetupVM;
 				if (m_vmlViewModel == null)
-					throw new ArgumentException("The given view model must be a ElderScrollsOnlineSetupVM. Type found: " + value.GetType().FullName);
+					throw new ArgumentException("The given view model must be a TESOSetupVM. Type found: " + value.GetType().FullName);
 				lblTitle.Text = String.Format(lblTitle.Text, m_vmlViewModel.GameModeDescriptor.Name);
 				Text = String.Format(Text, m_vmlViewModel.GameModeDescriptor.Name);
 				rdcDirectories.ViewModel = m_vmlViewModel.RequiredDirectoriesControlVM;
@@ -54,7 +54,7 @@ namespace Nexus.Client.Games.ElderScrollsOnline
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
-		public SetupForm(ElderScrollsOnlineSetupVM p_vmlViewModel)
+		public SetupForm(TESOSetupVM p_vmlViewModel)
 			: this()
 		{
 			ViewModel = p_vmlViewModel;
