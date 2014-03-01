@@ -474,10 +474,10 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
 				}
-				else
-				{
-					MessageBox.Show("You can't check for mod updates while being offline!");
-				}
+			}
+			else
+			{
+				MessageBox.Show("You can't check for mod updates while being offline!");
 			}
 		}
 
