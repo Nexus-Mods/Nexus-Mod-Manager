@@ -152,7 +152,7 @@ namespace Nexus.Client.Games.TESO
 		{
 			get
 			{
-				return String.Empty;
+				return Properties.Resources.Categories;
 			}
 		}
 
