@@ -1309,7 +1309,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 
-			clwCategoryView.ReloadList(true);
+			clwCategoryView.ReloadList(false);
 			SetCommandExecutableStatus();
 		}
 
@@ -1328,9 +1328,9 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, PropertyChangedEventArgs>)Mod_PropertyChanged, sender, e);
 				return;
 			}
-			if (!clwCategoryView.CategoryModeEnabled)
+			if ((!clwCategoryView.CategoryModeEnabled) && (!String.Equals(e.PropertyName, "InstallDate")))
 			{
-				clwCategoryView.RefreshObject((IMod)sender);
+				//clwCategoryView.RefreshObject((IMod)sender);
 				clwCategoryView.ReloadList(true);
 			}
 			if (!m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
@@ -1424,15 +1424,15 @@ namespace Nexus.Client.ModManagement.UI
 			switch (e.Action)
 			{
 				case NotifyCollectionChangedAction.Add:
-					foreach (IMod modAdded in e.NewItems)
-						if (!clwCategoryView.CategoryModeEnabled)
-							clwCategoryView.RefreshObject(modAdded);
+					//foreach (IMod modAdded in e.NewItems)
+					//    if (!clwCategoryView.CategoryModeEnabled)
+					//        clwCategoryView.RefreshObject(modAdded);
 					break;
 				case NotifyCollectionChangedAction.Remove:
 				case NotifyCollectionChangedAction.Reset:
-					foreach (IMod modAdded in e.OldItems)
-						if (!clwCategoryView.CategoryModeEnabled)
-							clwCategoryView.RefreshObject(modAdded);
+					//foreach (IMod modAdded in e.OldItems)
+					//    if (!clwCategoryView.CategoryModeEnabled)
+					//        clwCategoryView.RefreshObject(modAdded);
 					break;
 			}
 
