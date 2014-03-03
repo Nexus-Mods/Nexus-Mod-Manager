@@ -89,6 +89,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[DataMember(Name = "voted_by_user")]
 		public bool IsEndorsed { get; set; }
 
+		/// <summary>
+		/// Gets or sets the mod page URI.
+		/// </summary>
+		/// <value>The mod page URI.</value>
+		[DataMember(Name = "mod_page_uri")]
+		public string Website { get; set; }
+
 		#endregion
 	}
 }
