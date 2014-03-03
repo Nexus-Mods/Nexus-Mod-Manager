@@ -554,12 +554,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <returns>The converted structure.</returns>
 		private IModInfo Convert(NexusModInfo p_nmiNexusModInfo)
 		{
-			//TODO ad URL to mod. should I generate the URL or should it be returned by the service?
-			// I'm leaning toward it being returned by the service, as the URL can change at the whim of the server,
-			// so having the base url hard-coded in the app is insane
-			// i could possiblly derive it based on the url of the service, but the service could be on a different server
-			string strURL = String.Format("http://{0}/downloads/file.php?id={1}", m_strWebsite, p_nmiNexusModInfo.Id);
-			Uri uriWebsite = new Uri(strURL);
+			Uri uriWebsite = (String.IsNullOrEmpty(p_nmiNexusModInfo.Website) ? null : new Uri(p_nmiNexusModInfo.Website));
 			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
