@@ -46,11 +46,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_AutoUpdater">The AutoUpdater.</param>
 		/// <param name="p_ModRepository">The current mod repository.</param>
 		/// <param name="p_lstModList">The list of mods we need to update.</param>
-		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, List<IMod> p_lstModList)
+		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
+		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup)
 		{
 			AutoUpdater = p_AutoUpdater;
 			ModRepository = p_ModRepository;
 			m_lstModList.AddRange(p_lstModList);
+			m_booOverrideCategorySetup = p_booOverrideCategorySetup;
 		}
 
 		#endregion

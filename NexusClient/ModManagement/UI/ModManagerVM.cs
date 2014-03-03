@@ -472,7 +472,7 @@ namespace Nexus.Client.ModManagement.UI
 
 				if (lstModList.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup)));
 				}
 			}
 			else
