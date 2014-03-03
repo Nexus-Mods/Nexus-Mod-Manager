@@ -49,6 +49,9 @@
     <category path="Dungeons - Vanilla" ID="91">
       <name>Dungeons - Vanilla</name>
     </category>
+	<category path="ENB Preset" ID="97">
+	  <name>ENB Preset</name>
+	</category>
     <category path="Environmental" ID="74">
       <name>Environmental</name>
     </category>
