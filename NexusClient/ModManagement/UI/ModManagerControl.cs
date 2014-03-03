@@ -1293,7 +1293,6 @@ namespace Nexus.Client.ModManagement.UI
 					if ((e.NewItems != null) && (e.NewItems.Count > 0))
 					{
 						mctCategory.NewMods += 1;
-						clwCategoryView.RefreshObject(mctCategory);
 					}
 				}
 			}
