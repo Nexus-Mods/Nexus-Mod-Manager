@@ -61,7 +61,39 @@ namespace Nexus.Client.Games.TESO
 		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
-			return null;
+			string strValue = null;
+
+			string strRegistryKey = null;
+			if (EnvironmentInfo.Is64BitProcess)
+				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\Wow6432Node\Zenimax_Online\Launcher";
+			else
+				strRegistryKey = @"HKEY_LOCAL_MACHINE\Software\Zenimax_Online\Launcher";
+			Trace.TraceInformation(@"Checking: {0}\InstallFolder", strRegistryKey);
+			Trace.Indent();
+
+			try
+			{
+				strValue = Registry.GetValue(String.Format(strRegistryKey, GameModeDescriptor.ModeId), "InstallPath", null) as string;
+			}
+			catch
+			{
+				//if we can't read the registry, just return null
+			}
+			if (!String.IsNullOrEmpty(strValue))
+			{
+				strValue = Path.GetDirectoryName(strValue);
+				string strPathNA = Path.Combine(strValue, @"The Elder Scrolls Online\game\client\eso.exe");
+				string strPathEU = Path.Combine(strValue, @"The Elder Scrolls Online EU\game\client\eso.exe");
+
+				if (File.Exists(strPathNA))
+					strValue = Path.GetDirectoryName(strPathNA);
+				if (File.Exists(strPathEU))
+					strValue = Path.GetDirectoryName(strPathEU);
+			}
+			Trace.TraceInformation(String.Format("Found {0}", strValue));
+			Trace.Unindent();
+
+			return strValue;
 		}
 
 		/// <summary>
