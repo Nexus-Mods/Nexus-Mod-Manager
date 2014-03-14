@@ -55,11 +55,13 @@
     </Compile>
     <Compile Include="Settings\GeneralSettingsGroup.cs" />
     <Compile Include="Settings\UI\GeneralSettingsPage.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Settings\UI\GeneralSettingsPage.Designer.cs">
       <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
     </Compile>
     <Compile Include="SetupForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SetupForm.designer.cs">
       <DependentUpon>SetupForm.cs</DependentUpon>

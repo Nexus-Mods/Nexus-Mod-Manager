@@ -26,7 +26,7 @@ namespace Nexus.Client.Games.Starbound
 		{
 			get
 			{
-                string strPath = Path.Combine(InstallationPath, "mods");
+                string strPath = Path.Combine(InstallationPath, "");
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
