@@ -12,11 +12,11 @@ namespace Nexus.Client.Games.TESO
 {
 	/// <summary>
 	/// The base game mode factory that provides the commond functionality for
-    /// factories that build game modes for TESO based games.
+	/// factories that build game modes for TESO based games.
 	/// </summary>
 	public class TESOGameModeFactory : IGameModeFactory
 	{
-        private readonly IGameModeDescriptor m_gmdGameModeDescriptor = null;
+		private readonly IGameModeDescriptor m_gmdGameModeDescriptor = null;
 
 		#region Properties
 
@@ -26,17 +26,17 @@ namespace Nexus.Client.Games.TESO
 		/// <value>The application's environement info.</value>
 		protected IEnvironmentInfo EnvironmentInfo { get; private set; }
 
-        /// <summary>
-        /// Gets the descriptor of the game mode that this factory builds.
-        /// </summary>
-        /// <value>The descriptor of the game mode that this factory builds.</value>
-        public IGameModeDescriptor GameModeDescriptor
-        {
-            get
-            {
-                return m_gmdGameModeDescriptor;
-            }
-        }
+		/// <summary>
+		/// Gets the descriptor of the game mode that this factory builds.
+		/// </summary>
+		/// <value>The descriptor of the game mode that this factory builds.</value>
+		public IGameModeDescriptor GameModeDescriptor
+		{
+			get
+			{
+				return m_gmdGameModeDescriptor;
+			}
+		}
 
 		#endregion
 
@@ -48,7 +48,7 @@ namespace Nexus.Client.Games.TESO
 		/// <param name="p_eifEnvironmentInfo">The application's environement info.</param>
 		public TESOGameModeFactory(IEnvironmentInfo p_eifEnvironmentInfo)
 		{
-            EnvironmentInfo = p_eifEnvironmentInfo;
+			EnvironmentInfo = p_eifEnvironmentInfo;
 			m_gmdGameModeDescriptor = new TESOGameModeDescriptor(p_eifEnvironmentInfo);
 		}
 
@@ -76,7 +76,11 @@ namespace Nexus.Client.Games.TESO
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
 			string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-			strPath = Path.Combine(strPath, @"Elder Scrolls Online\live\Addons");
+			string strLive = "live";
+			if (!String.IsNullOrEmpty(GameModeDescriptor.ExecutablePath))
+				if (Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(GameModeDescriptor.ExecutablePath))).Equals("The Elder Scrolls Online EU"))
+					strLive = "liveeu";
+			strPath = Path.Combine(strPath, String.Format(@"Elder Scrolls Online\{0}\Addons", strLive));
 			return strPath;
 		}
 
@@ -109,20 +113,20 @@ namespace Nexus.Client.Games.TESO
 			}
 
 			TESOGameMode gmdGameMode = InstantiateGameMode(p_futFileUtility);
-            p_imsWarning = null;
+			p_imsWarning = null;
 
 			return gmdGameMode;
 		}
 
-        /// <summary>
-        /// Instantiates the game mode.
-        /// </summary>
-        /// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
-        /// <returns>The game mode for which this is a factory.</returns>
+		/// <summary>
+		/// Instantiates the game mode.
+		/// </summary>
+		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
+		/// <returns>The game mode for which this is a factory.</returns>
 		protected TESOGameMode InstantiateGameMode(FileUtil p_futFileUtility)
-        {
+		{
 			return new TESOGameMode(EnvironmentInfo, p_futFileUtility);
-        }
+		}
 
 		/// <summary>
 		/// Performs the initial setup for the game mode being created.
@@ -143,16 +147,16 @@ namespace Nexus.Client.Games.TESO
 			return vmlSetup.Save();
 		}
 
-        /// <summary>
-        /// Performs the initializtion for the game mode being created.
-        /// </summary>
-        /// <param name="p_dlgShowView">The delegate to use to display a view.</param>
-        /// <param name="p_dlgShowMessage">The delegate to use to display a message.</param>
-        /// <returns><c>true</c> if the setup completed successfully;
-        /// <c>false</c> otherwise.</returns>
-        public bool PerformInitialization(ShowViewDelegate p_dlgShowView, ShowMessageDelegate p_dlgShowMessage)
-        {
-            return true;
-        }
+		/// <summary>
+		/// Performs the initializtion for the game mode being created.
+		/// </summary>
+		/// <param name="p_dlgShowView">The delegate to use to display a view.</param>
+		/// <param name="p_dlgShowMessage">The delegate to use to display a message.</param>
+		/// <returns><c>true</c> if the setup completed successfully;
+		/// <c>false</c> otherwise.</returns>
+		public bool PerformInitialization(ShowViewDelegate p_dlgShowView, ShowMessageDelegate p_dlgShowMessage)
+		{
+			return true;
+		}
 	}
 }

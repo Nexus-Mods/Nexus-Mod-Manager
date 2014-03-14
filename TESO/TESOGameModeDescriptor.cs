@@ -25,7 +25,11 @@ namespace Nexus.Client.Games.TESO
 			get
 			{
 				string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-				strPath = Path.Combine(strPath, @"Elder Scrolls Online\live\Addons");
+				string strLive = "live";
+				if (!String.IsNullOrEmpty(ExecutablePath))
+					if (Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(ExecutablePath))).Equals("The Elder Scrolls Online EU"))
+						strLive = "liveeu";
+				strPath = Path.Combine(strPath, String.Format(@"Elder Scrolls Online\{0}\Addons", strLive));
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
@@ -40,7 +44,7 @@ namespace Nexus.Client.Games.TESO
 		{
 			get
 			{
-				return " The Elder Scrolls Online";
+				return "The Elder Scrolls Online";
 			}
 		}
 
