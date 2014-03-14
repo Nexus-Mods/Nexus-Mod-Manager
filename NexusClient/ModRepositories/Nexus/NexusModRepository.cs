@@ -262,6 +262,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "XRNexusREST";
 					m_intRemoteGameId = 154;
 					break;
+				case "StateOfDecay":
+					m_strWebsite = "stateofdecay.nexusmods.com";
+					m_strEndpoint = "SODNexusREST";
+					m_intRemoteGameId = 223;
+					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
