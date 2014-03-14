@@ -262,11 +262,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "XRNexusREST";
 					m_intRemoteGameId = 154;
                     break;
-                case "Starbound":
-                    m_strWebsite = "starbound.nexusmods.com";
-                    m_strEndpoint = "STARBOUNDNexusREST";
-                    m_intRemoteGameId = 242;
-                    break;
+				case "Starbound":
+					m_strWebsite = "starbound.nexusmods.com";
+					m_strEndpoint = "STARBOUNDNexusREST";
+					m_intRemoteGameId = 242;
+					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
