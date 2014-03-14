@@ -276,7 +276,7 @@ namespace Nexus.Client
 		/// </summary>
 		private void dockPanel1_ActiveContentChanged(object sender, EventArgs e)
 		{
-			if (this.Visible)
+			if ((this.Visible) && (dockPanel1.ActiveDocument != null))
 			{
 				tstFind.Visible = (dockPanel1.ActiveDocument.DockHandler.TabText == "Mods");
 				tstFind.Enabled = (dockPanel1.ActiveDocument.DockHandler.TabText == "Mods");
