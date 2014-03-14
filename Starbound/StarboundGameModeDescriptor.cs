@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
 using Nexus.Client.Games.Starbound;
@@ -11,6 +12,7 @@ namespace Nexus.Client.Games.Starbound
 	public class StarboundGameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "win32\\starbound.exe", "win32\\starbound_opengl.exe" };
+		private static readonly List<string> STOP_FOLDERS = new List<string>() { "mods" };
 		private static string[] CRITICAL_PLUGINS = null;
 		private const string MODE_ID = "Starbound";
 
@@ -24,7 +26,7 @@ namespace Nexus.Client.Games.Starbound
 		{
 			get
 			{
-                string strPath = Path.Combine(InstallationPath, "");
+                string strPath = Path.Combine(InstallationPath, "mods");
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
