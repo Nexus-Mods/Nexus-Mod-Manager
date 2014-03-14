@@ -131,7 +131,7 @@ namespace Nexus.Client.Games.Starbound
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
-            string strPath = Path.Combine(p_strGameInstallPath, "");
+            string strPath = Path.Combine(p_strGameInstallPath, "mods");
 			return strPath;
 		}
 
