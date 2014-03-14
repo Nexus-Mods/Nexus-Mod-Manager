@@ -705,7 +705,7 @@ namespace Nexus.Client.UI.Controls
 					foreach (object Item in Roots)
 						if (((ModCategory)Item).Equals(p_mctCategory))
 						{
-							RefreshObject(p_mctCategory);
+							//RefreshObject(p_mctCategory);
 							return true;
 						}
 
@@ -722,7 +722,7 @@ namespace Nexus.Client.UI.Controls
 			if (this.Items.Count > 0)
 			{
 				SetupContextMenu();
-				RefreshObject(p_mctCategory);
+				//RefreshObject(p_mctCategory);
 			}
 		}
 
