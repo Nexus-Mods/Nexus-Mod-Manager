@@ -670,10 +670,13 @@ namespace Nexus.Client.UI.Controls
 		public void AddData(IModCategory p_imcCategory, bool booIsNew)
 		{
 			ModCategory Category = new ModCategory(p_imcCategory);
-			this.AddObject(Category);
-			ApplyFilters(Category);
-			if (this.Items.Count > 0)
-				this.EnsureVisible(this.Items.Count - 1);
+			if (CategoryModeEnabled)
+			{
+				this.AddObject(Category);
+				ApplyFilters(Category);
+				if (this.Items.Count > 0)
+					this.EnsureVisible(this.Items.Count - 1);
+			}
 		}
 
 		/// <summary>
