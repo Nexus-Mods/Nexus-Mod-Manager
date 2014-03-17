@@ -104,7 +104,14 @@ namespace Nexus.Client
 
 			ViewModel = p_vmlViewModel;
 
-			InitializeDocuments();
+			try
+			{
+				InitializeDocuments();
+			}
+			catch
+			{
+				ResetUI();
+			}
 
 			p_vmlViewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			m_fwsLastWindowState = WindowState;
