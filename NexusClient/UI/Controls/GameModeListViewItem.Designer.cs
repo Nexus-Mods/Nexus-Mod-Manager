@@ -38,12 +38,12 @@
 			this.lblGameModeName.AutoSize = true;
 			this.lblGameModeName.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.m_fpdFontProvider.SetFontSet(this.lblGameModeName, "HeadingText");
-			this.m_fpdFontProvider.SetFontSize(this.lblGameModeName, 20F);
+			this.m_fpdFontProvider.SetFontSize(this.lblGameModeName, 14F);
 			this.m_fpdFontProvider.SetFontStyle(this.lblGameModeName, System.Drawing.FontStyle.Bold);
 			this.lblGameModeName.Location = new System.Drawing.Point(60, 0);
-			this.lblGameModeName.MinimumSize = new System.Drawing.Size(100, 60);
+			this.lblGameModeName.MinimumSize = new System.Drawing.Size(100, 45);
 			this.lblGameModeName.Name = "lblGameModeName";
-			this.lblGameModeName.Size = new System.Drawing.Size(185, 60);
+			this.lblGameModeName.Size = new System.Drawing.Size(185, 45);
 			this.lblGameModeName.TabIndex = 2;
 			this.lblGameModeName.Text = "GAME TITLE";
 			this.lblGameModeName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -54,9 +54,9 @@
 			// 
 			this.pbxGameLogo.Dock = System.Windows.Forms.DockStyle.Left;
 			this.pbxGameLogo.Location = new System.Drawing.Point(0, 0);
-			this.pbxGameLogo.MinimumSize = new System.Drawing.Size(60, 60);
+			this.pbxGameLogo.MinimumSize = new System.Drawing.Size(60, 45);
 			this.pbxGameLogo.Name = "pbxGameLogo";
-			this.pbxGameLogo.Size = new System.Drawing.Size(60, 60);
+			this.pbxGameLogo.Size = new System.Drawing.Size(60, 45);
 			this.pbxGameLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
 			this.pbxGameLogo.TabIndex = 1;
 			this.pbxGameLogo.TabStop = false;
@@ -71,7 +71,7 @@
 			this.Controls.Add(this.lblGameModeName);
 			this.Controls.Add(this.pbxGameLogo);
 			this.Name = "GameModeListViewItem";
-			this.Size = new System.Drawing.Size(245, 60);
+			this.Size = new System.Drawing.Size(245, 45);
 			((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();

@@ -27,7 +27,7 @@ namespace Nexus.Client.UI.Controls
 			lblGameModeName.Text = GameMode.Name;
 			lblGameModeName.ForeColor = GameMode.ModeTheme.PrimaryColour;
 			if (GameMode.ModeTheme.Icon != null)
-				pbxGameLogo.Image = new Icon(GameMode.ModeTheme.Icon, 48, 48).ToBitmap();
+				pbxGameLogo.Image = new Icon(GameMode.ModeTheme.Icon, 32, 32).ToBitmap();
 		}
 
 		#endregion
