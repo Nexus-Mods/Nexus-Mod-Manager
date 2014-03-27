@@ -25,7 +25,7 @@ namespace Nexus.Client.Util.Downloader
 			/// </summary>
 			/// <value>The start position in the file at which to write
 			/// this block's data.</value>
-			public Int32 StartPosition { get; private set; }
+			public Int64 StartPosition { get; private set; }
 
 			/// <summary>
 			/// Gets the data to write to the file.
@@ -43,7 +43,7 @@ namespace Nexus.Client.Util.Downloader
 			/// <param name="p_intStartPosition">The start position in the file at which to write
 			/// this block's data.</param>
 			/// <param name="p_bteData">The data to write to the file.</param>
-			public FileBlock(Int32 p_intStartPosition, byte[] p_bteData)
+			public FileBlock(Int64 p_intStartPosition, byte[] p_bteData)
 			{
 				StartPosition = p_intStartPosition;
 				Data = p_bteData;
@@ -85,7 +85,7 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the total numbers of bytes that have beend written to the file.
 		/// </summary>
 		/// <value>The total numbers of bytes that have beend written to the file.</value>
-		public Int32 WrittenByteCount
+		public UInt64 WrittenByteCount
 		{
 			get
 			{
@@ -156,12 +156,12 @@ namespace Nexus.Client.Util.Downloader
 							fblData = m_sltBlocksToWrite[0];
 							m_sltBlocksToWrite.RemoveAt(0);
 						}
-						if (fblData.StartPosition > fsmFile.Length)
+						if (fblData.StartPosition > (Int64)fsmFile.Length)
 							fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
 						fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
 						fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
 
-						m_rgsWrittenRanges.AddRange(new Range(fblData.StartPosition, fblData.StartPosition + fblData.Data.Length - 1));
+						m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
 						StringBuilder stbRanges = new StringBuilder();
 						foreach (Range rngWritten in m_rgsWrittenRanges)
 							stbRanges.AppendLine(rngWritten.ToString());
@@ -192,13 +192,13 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		/// <param name="p_intStartPosition">The start position in the file at which to write the data.</param>
 		/// <param name="p_bteData">The data to write.</param>
-		public void EnqueueBlock(Int32 p_intStartPosition, byte[] p_bteData)
+		public void EnqueueBlock(UInt64 p_intStartPosition, byte[] p_bteData)
 		{
 			if (m_booIsClosing)
 				return;
 			lock (m_sltBlocksToWrite)
 			{
-				m_sltBlocksToWrite.Add(new FileBlock(p_intStartPosition, p_bteData));
+				m_sltBlocksToWrite.Add(new FileBlock((Int64)p_intStartPosition, p_bteData));
 				m_ewhProcessQueue.Set();
 			}
 		}

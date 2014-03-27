@@ -46,16 +46,16 @@ namespace Nexus.Client
 
 		private volatile string m_strOverallMessage = null;
 		private volatile bool m_booShowOverallProgressAsMarquee = false;
-		private volatile Int32 m_intOverallProgress = 0;
-		private volatile Int32 m_intOverallProgressMinimum = 0;
-		private volatile Int32 m_intOverallProgressMaximum = 100;
+		private Int64 m_intOverallProgress = 0;
+		private Int64 m_intOverallProgressMinimum = 0;
+		private Int64 m_intOverallProgressMaximum = 100;
 		private volatile Int32 m_intOverallProgressStepSize = 1;
 		private volatile bool m_booShowItemProgress = false;
 		private volatile bool m_booShowItemProgressAsMarquee = false;
 		private volatile string m_strItemMessage = null;
-		private volatile Int32 m_intItemProgress = 0;
-		private volatile Int32 m_intItemProgressMinimum = 0;
-		private volatile Int32 m_intItemProgressMaximum = 100;
+		private Int64 m_intItemProgress = 0;
+		private Int64 m_intItemProgressMinimum = 0;
+		private Int64 m_intItemProgressMaximum = 100;
 		private volatile Int32 m_intItemProgressStepSize = 1;
 		private volatile Int32 m_intItemSpeed = 0;
 		private volatile Int32 m_intActiveThreads = 0;
@@ -278,7 +278,7 @@ namespace Nexus.Client
 		/// Gets the progress on the overall work.
 		/// </summary>
 		/// <value>The progress on the overall work.</value>
-		public Int32 OverallProgress
+		public Int64 OverallProgress
 		{
 			get
 			{
@@ -304,7 +304,7 @@ namespace Nexus.Client
 		/// Gets the minimum value on the overall progress bar.
 		/// </summary>
 		/// <value>The minimum value on the overall progress bar.</value>
-		public Int32 OverallProgressMinimum
+		public Int64 OverallProgressMinimum
 		{
 			get
 			{
@@ -330,7 +330,7 @@ namespace Nexus.Client
 		/// Gets the maximum value on the overall progress bar.
 		/// </summary>
 		/// <value>The maximum value on the overall progress bar.</value>
-		public Int32 OverallProgressMaximum
+		public Int64 OverallProgressMaximum
 		{
 			get
 			{
@@ -465,7 +465,7 @@ namespace Nexus.Client
 		/// Gets the progress on current item of work.
 		/// </summary>
 		/// <value>The progress on current item of work.</value>
-		public Int32 ItemProgress
+		public Int64 ItemProgress
 		{
 			get
 			{
@@ -491,7 +491,7 @@ namespace Nexus.Client
 		/// Gets the minimum value on the item progress bar.
 		/// </summary>
 		/// <value>The minimum value on the item progress bar.</value>
-		public Int32 ItemProgressMinimum
+		public Int64 ItemProgressMinimum
 		{
 			get
 			{
@@ -517,7 +517,7 @@ namespace Nexus.Client
 		/// Gets the maximum value on the item progress bar.
 		/// </summary>
 		/// <value>The maximum value on the item progress bar.</value>
-		public Int32 ItemProgressMaximum
+		public Int64 ItemProgressMaximum
 		{
 			get
 			{

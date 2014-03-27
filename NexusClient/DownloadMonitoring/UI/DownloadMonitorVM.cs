@@ -4,6 +4,7 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
+using System;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Linq;
@@ -159,7 +160,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the total download progress.
 		/// </summary>
 		/// <value>The total download progress.</value>
-		public int TotalProgress
+		public Int64 TotalProgress
 		{
 			get
 			{
@@ -171,7 +172,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the total maximum download progress.
 		/// </summary>
 		/// <value>The total maximum download progress.</value>
-		public int TotalMaxProgress
+		public Int64 TotalMaxProgress
 		{
 			get
 			{

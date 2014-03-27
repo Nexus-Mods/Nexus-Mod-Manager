@@ -37,7 +37,7 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the length of the file, in bytes.
 		/// </summary>
 		/// <value>The length of the file, in bytes.</value>
-		public Int32 Length { get; private set; }
+		public UInt64 Length { get; private set; }
 
 		/// <summary>
 		/// Gets whether the file supports resuming.
@@ -128,7 +128,7 @@ namespace Nexus.Client.Util.Downloader
 						break;
 					case "Content-Length":
 						if (Length == 0)
-							Length = Int32.Parse(p_whcFileHeader.GetValues(strKey)[0]);
+							Length = UInt64.Parse(p_whcFileHeader.GetValues(strKey)[0]);
 						break;
 					case "Content-Type":
 						IsHtml = p_whcFileHeader.GetValues(strKey)[0].Equals("text/html", StringComparison.OrdinalIgnoreCase);
@@ -141,7 +141,7 @@ namespace Nexus.Client.Util.Downloader
 						{
 							string[] strRange = strValue.Split(' ', '-', '/');
 							if (strRange[0].Equals("bytes"))
-								Length = Int32.Parse(strRange[3]);
+								Length = UInt64.Parse(strRange[3]);
 						}
 						break;
 					case "ETag":

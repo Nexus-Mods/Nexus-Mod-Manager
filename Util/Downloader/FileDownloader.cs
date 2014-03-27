@@ -18,8 +18,8 @@ namespace Nexus.Client.Util.Downloader
 		public event EventHandler<CompletedDownloadEventArgs> DownloadComplete = delegate { };
 
 		private Int32 m_intMaxConnections = 5;
-		private Int32 m_intMinBlockSize = 500 * 1024;
-		private Int32 m_intMaxBlockSize = 5000 * 1024;
+		private Int32 m_intMinBlockSize = 1000 * 1024;
+		private Int32 m_intMaxBlockSize = 128 * 1024 * 1024;
 		private Int32 m_intWriteBufferSize = 1024;
 		private Uri m_uriURL = null;
 		private string m_strErrorCode = null;
@@ -28,8 +28,8 @@ namespace Nexus.Client.Util.Downloader
 		private string m_strFileMetadataPath = null;
 		private string m_strUserAgent = "";
 		private FileMetadata m_fmdInfo = null;
-		private Int32 m_intInitialDownloadedByteCount = 0;
-		private Int32 m_intInitialByteCount = 0;
+		private UInt64 m_intInitialDownloadedByteCount = 0;
+		private UInt64 m_intInitialByteCount = 0;
 		private Queue<Range> m_queRequiredBlocks = new Queue<Range>();
 		private List<BlockDownloader> m_lstDownloaders = new List<BlockDownloader>();
 		private FileWriter m_fwrWriter = null;
@@ -59,7 +59,7 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the number of bytes that have been downloaded.
 		/// </summary>
 		/// <value>The number of bytes that have been downloaded.</value>
-		public Int32 DownloadedByteCount
+		public UInt64 DownloadedByteCount
 		{
 			get
 			{
@@ -71,7 +71,7 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the number of bytes that have been downloaded.
 		/// </summary>
 		/// <value>The number of bytes that have been downloaded.</value>
-		protected Int32 ByteCount
+		protected UInt64 ByteCount
 		{
 			get
 			{
@@ -83,7 +83,7 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the number of bytes that have been previously downloaded.
 		/// </summary>
 		/// <value>The number of bytes that have been previously downloaded.</value>
-		public Int32 ResumedByteCount
+		public UInt64 ResumedByteCount
 		{
 			get
 			{
@@ -107,7 +107,7 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the size of the file to download, in bytes.
 		/// </summary>
 		/// <value>The size of the file to download, in bytes.</value>
-		public Int32 FileSize
+		public UInt64 FileSize
 		{
 			get
 			{
@@ -161,10 +161,10 @@ namespace Nexus.Client.Util.Downloader
 			{
 				if (DownloadSpeed == 0)
 					return TimeSpan.MaxValue;
-				Int64 lngRemainingData = m_fmdInfo.Length - (DownloadedByteCount * 1024);
+				UInt64 lngRemainingData = m_fmdInfo.Length - (DownloadedByteCount * 1024);
 				Int64 lngNanoSecondsLeft = 0;
 				if (DownloadSpeed > 0)
-					lngNanoSecondsLeft = lngRemainingData / DownloadSpeed * 1000000000;
+					lngNanoSecondsLeft = (Int64)(lngRemainingData / (UInt64)DownloadSpeed * 1000000000);
 
 				return new TimeSpan(lngNanoSecondsLeft / 100);
 			}
@@ -180,7 +180,7 @@ namespace Nexus.Client.Util.Downloader
 			{
 				if (DownloadSpeed == 0)
 					return TimeSpan.MaxValue;
-				Int64 lngNanoSecondsLeft = (Int64)m_fmdInfo.Length / DownloadSpeed * 1000000000;
+				Int64 lngNanoSecondsLeft = (Int64)(m_fmdInfo.Length / (UInt64)DownloadSpeed * 1000000000);
 				return new TimeSpan(lngNanoSecondsLeft / 100);
 			}
 		}
@@ -195,7 +195,7 @@ namespace Nexus.Client.Util.Downloader
 			{
 				if (m_lstDownloaders.Count == 0)
 					return 0;
-				Int32 intDownloadedThisSession = 0;
+				UInt64 intDownloadedThisSession = 0;
 				foreach (BlockDownloader bdlDownloader in m_lstDownloaders)
 					if (bdlDownloader.DownloadedByteCount > 0)
 						intDownloadedThisSession += bdlDownloader.DownloadedByteCount;
@@ -381,8 +381,10 @@ namespace Nexus.Client.Util.Downloader
 				throw new FileNotFoundException("The file to download does not exist.", m_uriURL.ToString());
 
 			Int32 intConnectionsToUse = m_fmdInfo.SupportsResume ? m_intMaxConnections : 1;
-			if (ServicePointManager.DefaultConnectionLimit < intConnectionsToUse)
-				throw new Exception(String.Format("Only {0} connections can be created to the same file; {1} are wanted.", ServicePointManager.DefaultConnectionLimit, intConnectionsToUse));
+			if (ServicePointManager.DefaultConnectionLimit < 1)
+				throw new Exception(String.Format("Only {0} connections can be created to the same file; {1} are wanted.", ServicePointManager.DefaultConnectionLimit, 1));
+			else if (ServicePointManager.DefaultConnectionLimit < intConnectionsToUse)
+				intConnectionsToUse = ServicePointManager.DefaultConnectionLimit;
 
 			//get the list of ranges we have not already downloaded
 			RangeSet rgsMissingRanges = new RangeSet();
@@ -401,7 +403,8 @@ namespace Nexus.Client.Util.Downloader
 			else if (File.Exists(m_strSavePath))
 				File.Delete(m_strSavePath);
 
-			Int32 intBaseBlockSize = Math.Max(rgsMissingRanges.TotalSize / intConnectionsToUse, m_intMinBlockSize);
+			Int32 intMinBlockSize = (Int32)Math.Min((UInt64)m_intMinBlockSize, rgsMissingRanges.TotalSize);
+			Int32 intBaseBlockSize = (Int32)Math.Max(rgsMissingRanges.TotalSize / (UInt64)intConnectionsToUse, (UInt64)intMinBlockSize);
 			if (intConnectionsToUse > 1)
 				intBaseBlockSize = Math.Min(intBaseBlockSize, m_intMaxBlockSize);
 
@@ -409,14 +412,14 @@ namespace Nexus.Client.Util.Downloader
 			foreach (Range rngNeeded in rgsMissingRanges)
 			{
 				//find out how many blocks will fit into the range
-				Int32 intBlockCount = rngNeeded.Size / intBaseBlockSize;
+				Int32 intBlockCount = (Int32)(rngNeeded.Size / (UInt64)intBaseBlockSize);
 				if (intBlockCount == 0)
 					intBlockCount = 1;
 				//there is likely to be some remainder (there are likely a fractional number of blocks
 				// in the range), so lets distrubute the remainder amongst all of the blocks
 				// we do this by elarging our blocksize
-				Int32 intBlockSize = (Int32)Math.Ceiling(rngNeeded.Size / (double)intBlockCount);
-				Int32 intBlockStart = rngNeeded.StartByte;
+				UInt64 intBlockSize = (UInt64)Math.Ceiling(rngNeeded.Size / (double)intBlockCount);
+				UInt64 intBlockStart = rngNeeded.StartByte;
 				for (; intBlockStart + intBlockSize < rngNeeded.EndByte; intBlockStart += intBlockSize)
 					m_queRequiredBlocks.Enqueue(new Range(intBlockStart, intBlockStart + intBlockSize - 1));
 				m_queRequiredBlocks.Enqueue(new Range(intBlockStart, rngNeeded.EndByte));

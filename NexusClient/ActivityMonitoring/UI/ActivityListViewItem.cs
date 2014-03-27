@@ -42,8 +42,8 @@ namespace Nexus.Client.ActivityMonitoring.UI
 				lsiSubItem.Text = "Working...";
 			else
 			{
-				Int32 intDenominator = p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum;
-				Int32 intPercent = (intDenominator == 0) ? 0 : p_tskTask.OverallProgress / intDenominator;
+				Int64 intDenominator = p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum;
+				Int64 intPercent = (intDenominator == 0) ? 0 : p_tskTask.OverallProgress / intDenominator;
 				lsiSubItem.Text = intPercent.ToString("P0");
 			}
 
@@ -60,8 +60,8 @@ namespace Nexus.Client.ActivityMonitoring.UI
 					lsiSubItem.Text = "Working...";
 				else
 				{
-					Int32 intDenominator = p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum;
-					Int32 intPercent = (intDenominator == 0) ? 0 : p_tskTask.ItemProgress / intDenominator;
+					Int64 intDenominator = p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum;
+					Int64 intPercent = (intDenominator == 0) ? 0 : p_tskTask.ItemProgress / intDenominator;
 					lsiSubItem.Text = intPercent.ToString("P0");
 				}
 			}
@@ -114,7 +114,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = "Working...";
 				else
 				{
-					Int32 intDivisor = p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum;
+					Int64 intDivisor = p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum;
 					float fltPercentage = (intDivisor == 0) ? 0 : ((float)p_tskTask.OverallProgress) / intDivisor;
 					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = fltPercentage.ToString("P0");
 				}
@@ -133,7 +133,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = "Working...";
 					else
 					{
-						Int32 intDivisor = p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum;
+						Int64 intDivisor = p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum;
 						float fltPercentage = (intDivisor == 0) ? 0 : ((float)p_tskTask.ItemProgress) / intDivisor;
 						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = fltPercentage.ToString("P0");
 					}

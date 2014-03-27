@@ -19,7 +19,7 @@ namespace Nexus.Client.Util.Downloader
 		/// The start byte is inclusive.
 		/// </remarks>
 		/// <value>The start byte of the range.</value>
-		public Int32 StartByte { get; private set; }
+		public UInt64 StartByte { get; private set; }
 
 		/// <summary>
 		/// Gets the end byte of the range.
@@ -28,13 +28,13 @@ namespace Nexus.Client.Util.Downloader
 		/// The end byte is inclusive.
 		/// </remarks>
 		/// <value>The end byte of the range.</value>
-		public Int32 EndByte { get; private set; }
+		public UInt64 EndByte { get; private set; }
 
 		/// <summary>
 		/// Gets the size of the range.
 		/// </summary>
 		/// <value>The size of the range.</value>
-		public Int32 Size
+		public UInt64 Size
 		{
 			get
 			{
@@ -52,7 +52,7 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		/// <param name="p_intStartByte">The inclusive start byte of the range.</param>
 		/// <param name="p_intEndByte">The inclusive end byte of the range.</param>
-		public Range(Int32 p_intStartByte, Int32 p_intEndByte)
+		public Range(UInt64 p_intStartByte, UInt64 p_intEndByte)
 		{
 			StartByte = p_intStartByte;
 			EndByte = p_intEndByte;
@@ -116,8 +116,8 @@ namespace Nexus.Client.Util.Downloader
 		public override int GetHashCode()
 		{
 			Int32 intHashCode = 53;
-			intHashCode = intHashCode * 97 + StartByte;
-			intHashCode = intHashCode * 97 + EndByte;
+			intHashCode = intHashCode * 97 + (Int32)StartByte;
+			intHashCode = intHashCode * 97 + (Int32)EndByte;
 			return intHashCode;
 		}
 
@@ -136,7 +136,7 @@ namespace Nexus.Client.Util.Downloader
 		/// to this <see cref="Range"/>.</param>
 		/// <returns><c>true</c> if this <see cref="Range"/> is equal to the specified range;
 		/// <c>false</c> otherwise.</returns>
-		public bool Equals(Int32 p_intStartByte, Int32 p_intEndByte)
+		public bool Equals(UInt64 p_intStartByte, UInt64 p_intEndByte)
 		{
 			return (StartByte == p_intStartByte) && (EndByte == p_intEndByte);
 		}
@@ -147,7 +147,7 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="p_intValue">The value for which it is to be determined if it is in this <see cref="Range"/>.</param>
 		/// <returns><c>true</c> if the given value is in this <see cref="Range"/>;
 		/// <c>false</c> otherwise.</returns>
-		public bool Contains(Int32 p_intValue)
+		public bool Contains(UInt64 p_intValue)
 		{
 			return (StartByte <= p_intValue) && (p_intValue <= EndByte);
 		}
@@ -252,7 +252,7 @@ namespace Nexus.Client.Util.Downloader
 			string[] strRange = p_strRange.Split('-');
 			if (strRange.Length != 2)
 				throw new FormatException(String.Format("{0} is not in the correct format (#-#)", p_strRange));
-			return new Range(Int32.Parse(strRange[0]), Int32.Parse(strRange[1]));
+			return new Range(UInt64.Parse(strRange[0]), UInt64.Parse(strRange[1]));
 		}
 
 		#endregion

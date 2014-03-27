@@ -45,19 +45,19 @@ namespace Nexus.Client.BackgroundTasks
 		/// Gets the progress on the overall work.
 		/// </summary>
 		/// <value>The progress on the overall work.</value>
-		Int32 OverallProgress { get; }
+		Int64 OverallProgress { get; }
 
 		/// <summary>
 		/// Gets the minimum value on the overall progress bar.
 		/// </summary>
 		/// <value>The minimum value on the overall progress bar.</value>
-		Int32 OverallProgressMinimum { get; }
+		Int64 OverallProgressMinimum { get; }
 
 		/// <summary>
 		/// Gets the maximum value on the overall progress bar.
 		/// </summary>
 		/// <value>The maximum value on the overall progress bar.</value>
-		Int32 OverallProgressMaximum { get; }
+		Int64 OverallProgressMaximum { get; }
 
 		/// <summary>
 		/// Gets the step size of the overall progress bar.
@@ -91,19 +91,19 @@ namespace Nexus.Client.BackgroundTasks
 		/// Gets the progress on current item of work.
 		/// </summary>
 		/// <value>The progress on current item of work.</value>
-		Int32 ItemProgress { get; }
+		Int64 ItemProgress { get; }
 
 		/// <summary>
 		/// Gets the minimum value on the item progress bar.
 		/// </summary>
 		/// <value>The minimum value on the item progress bar.</value>
-		Int32 ItemProgressMinimum { get; }
+		Int64 ItemProgressMinimum { get; }
 
 		/// <summary>
 		/// Gets the maximum value on the item progress bar.
 		/// </summary>
 		/// <value>The maximum value on the item progress bar.</value>
-		Int32 ItemProgressMaximum { get; }
+		Int64 ItemProgressMaximum { get; }
 
 		/// <summary>
 		/// Gets the step size of the item progress bar.

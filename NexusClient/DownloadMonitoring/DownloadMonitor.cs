@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModManagement;
 using Nexus.Client.Util;
@@ -14,8 +15,8 @@ namespace Nexus.Client.DownloadMonitoring
 		private ThreadSafeObservableList<AddModTask> m_oclTasks = new ThreadSafeObservableList<AddModTask>();
 		private ObservableSet<AddModTask> m_setActiveTasks = new ObservableSet<AddModTask>();
 		private int m_TotalSpeed = 0;
-		private int m_TotalProgress = 0;
-		private int m_TotalMaximumProgress = 0;
+		private Int64 m_TotalProgress = 0;
+		private Int64 m_TotalMaximumProgress = 0;
 
 		/// <summary>
 		/// Raised whenever a property of the class changes.
@@ -64,7 +65,7 @@ namespace Nexus.Client.DownloadMonitoring
 		/// Gets or sets the current download progress.
 		/// </summary>
 		/// <value>The download progress.</value>
-		public int TotalProgress
+		public Int64 TotalProgress
 		{
 			get
 			{
@@ -87,7 +88,7 @@ namespace Nexus.Client.DownloadMonitoring
 		/// Gets or sets the current download maximum progress.
 		/// </summary>
 		/// <value>The download maximum progress.</value>
-		public int TotalMaximumProgress
+		public Int64 TotalMaximumProgress
 		{
 			get
 			{
@@ -155,8 +156,8 @@ namespace Nexus.Client.DownloadMonitoring
 			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.TaskSpeed)))
 			{
 				int speed = 0;
-				int progress = 0;
-				int maxprogress = 0;
+				Int64 progress = 0;
+				Int64 maxprogress = 0;
 				foreach (AddModTask Task in ActiveTasks)
 				{
 					speed += Task.TaskSpeed;

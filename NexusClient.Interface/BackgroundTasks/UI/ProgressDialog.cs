@@ -58,15 +58,15 @@ namespace Nexus.Client.BackgroundTasks.UI
 			Task.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
 			InitializeComponent();
 
-			pbrItemProgress.Value = Task.ItemProgress;
+			pbrItemProgress.Value = (Int32)Task.ItemProgress;
 			lblItemMessage.Text = Task.ItemMessage;
-			pbrTotalProgress.Value = Task.OverallProgress;
+			pbrTotalProgress.Value = (Int32)Task.OverallProgress;
 			lblTotalMessage.Text = Task.OverallMessage;
-			pbrItemProgress.Maximum = Task.ItemProgressMaximum;
-			pbrItemProgress.Minimum = Task.ItemProgressMinimum;
+			pbrItemProgress.Maximum = (Int32)Task.ItemProgressMaximum;
+			pbrItemProgress.Minimum = (Int32)Task.ItemProgressMinimum;
 			pbrItemProgress.Step = Task.ItemProgressStepSize;
-			pbrTotalProgress.Maximum = Task.OverallProgressMaximum;
-			pbrTotalProgress.Minimum = Task.OverallProgressMinimum;
+			pbrTotalProgress.Maximum = (Int32)Task.OverallProgressMaximum;
+			pbrTotalProgress.Minimum = (Int32)Task.OverallProgressMinimum;
 			pbrTotalProgress.Step = Task.OverallProgressStepSize;
 			pnlItemProgress.Visible = Task.ShowItemProgress;
 			pbrTotalProgress.Style = Task.ShowOverallProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
@@ -127,23 +127,23 @@ namespace Nexus.Client.BackgroundTasks.UI
 				if (pnlItemProgress.Visible)
 				{
 					if ((Task.ItemProgress <= pbrItemProgress.Maximum) && (Task.ItemProgress <= Task.ItemProgressMaximum))
-						pbrItemProgress.Value = Task.ItemProgress;
+						pbrItemProgress.Value = (Int32)Task.ItemProgress;
 					else
-						pbrItemProgress.Value = (pbrItemProgress.Maximum > Task.ItemProgressMaximum) ? Task.ItemProgressMaximum : pbrItemProgress.Maximum;
+						pbrItemProgress.Value = (pbrItemProgress.Maximum > (Int32)Task.ItemProgressMaximum) ? (Int32)Task.ItemProgressMaximum : pbrItemProgress.Maximum;
 					lblItemMessage.Text = Task.ItemMessage;
-					pbrItemProgress.Maximum = Task.ItemProgressMaximum;
-					pbrItemProgress.Minimum = Task.ItemProgressMinimum;
+					pbrItemProgress.Maximum = (Int32)Task.ItemProgressMaximum;
+					pbrItemProgress.Minimum = (Int32)Task.ItemProgressMinimum;
 					pbrItemProgress.Step = Task.ItemProgressStepSize;
 					pbrItemProgress.Style = Task.ShowItemProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 				}
 
 				if ((Task.OverallProgress <= pbrTotalProgress.Maximum) && (Task.OverallProgress <= Task.OverallProgressMaximum))
-					pbrTotalProgress.Value = Task.OverallProgress;
+					pbrTotalProgress.Value = (Int32)Task.OverallProgress;
 				else
-					pbrTotalProgress.Value = (pbrTotalProgress.Maximum > Task.OverallProgressMaximum) ? Task.OverallProgressMaximum : pbrTotalProgress.Maximum;
+					pbrTotalProgress.Value = (pbrTotalProgress.Maximum > (Int32)Task.OverallProgressMaximum) ? (Int32)Task.OverallProgressMaximum : pbrTotalProgress.Maximum;
 				lblTotalMessage.Text = Task.OverallMessage;
-				pbrTotalProgress.Maximum = Task.OverallProgressMaximum;
-				pbrTotalProgress.Minimum = Task.OverallProgressMinimum;
+				pbrTotalProgress.Maximum = (Int32)Task.OverallProgressMaximum;
+				pbrTotalProgress.Minimum = (Int32)Task.OverallProgressMinimum;
 				pbrTotalProgress.Step = Task.OverallProgressStepSize;
 				pbrTotalProgress.Style = Task.ShowOverallProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 				/*

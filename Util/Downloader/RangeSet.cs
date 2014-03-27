@@ -22,14 +22,17 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the total size of the <see cref="Range"/>s in the set.
 		/// </summary>
 		/// <value>The total size of the <see cref="Range"/>s in the set.</value>
-		public Int32 TotalSize
+		public UInt64 TotalSize
 		{
 			get
 			{
-				Int32 intTotal = 0;
-				foreach (Range rngRange in m_sltRanges)
-					intTotal += rngRange.Size;
-				return intTotal;
+				lock (m_sltRanges)
+				{
+					UInt64 intTotal = 0;
+					foreach (Range rngRange in m_sltRanges)
+						intTotal += rngRange.Size;
+					return intTotal;
+				}
 			}
 		}
 

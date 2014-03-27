@@ -281,9 +281,9 @@ namespace Nexus.Client
 		{
 			try
 			{
-				Int32 intMax = ViewModel.OverallProgressMaximum;
-				Int32 intMin = ViewModel.OverallProgressMinimum;
-				Int32 intProgress = ViewModel.OverallProgress;
+				Int32 intMax = (Int32)ViewModel.OverallProgressMaximum;
+				Int32 intMin = (Int32)ViewModel.OverallProgressMinimum;
+				Int32 intProgress = (Int32)ViewModel.OverallProgress;
 				Int32 intDivisor = intMax - intMin;
 				float fltPercentage = (intDivisor > 0) ? ((float)intProgress) / intDivisor : 0;
 

@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Reflection;
 using Nexus.Client.Util.Threading;
-using System.Diagnostics;
 
 namespace Nexus.Client.Util.Downloader
 {
@@ -21,7 +22,7 @@ namespace Nexus.Client.Util.Downloader
 			private FileWriter m_fwrWriter = null;
 			private Int32 m_intBufferSize = 1 * 1024;
 			private bool m_booKeepRunning = true;
-			private Int32 m_intDownloadedByteCount = 0;
+			private UInt64 m_intDownloadedByteCount = 0;
 			private string m_strUserAgent = "";
 
 			#region Properties
@@ -40,11 +41,11 @@ namespace Nexus.Client.Util.Downloader
 			/// Gets the number of bytes that have been downloaded.
 			/// </summary>
 			/// <value>The number of bytes that have been downloaded.</value>
-			public Int32 DownloadedByteCount
+			public UInt64 DownloadedByteCount
 			{
 				get
 				{
-					return m_intDownloadedByteCount;
+						return m_intDownloadedByteCount;
 				}
 			}
 
@@ -142,9 +143,12 @@ namespace Nexus.Client.Util.Downloader
 				Int32 intLineTracker = 0;
 				try
 				{
-					for (Int32 i = 0; i < 10 && booRetry; i++)
+					for (Int32 i = 0; i < 5 && booRetry; i++)
 					{
 						booRetry = false;
+						MethodInfo method = typeof(WebHeaderCollection).GetMethod
+						("AddWithoutValidate", BindingFlags.Instance | BindingFlags.NonPublic);
+
 						HttpWebRequest hwrDownload = (HttpWebRequest)WebRequest.Create(m_fdrFileDownloader.URL);
 						intLineTracker = 1;
 						CookieContainer ckcCookies = new CookieContainer();
@@ -156,7 +160,9 @@ namespace Nexus.Client.Util.Downloader
 						hwrDownload.UserAgent = m_strUserAgent;
 						hwrDownload.AllowAutoRedirect = true;
 						intLineTracker = 3;
-						hwrDownload.AddRange(p_rngBlockToDownload.StartByte, p_rngBlockToDownload.EndByte);
+						string strK = "Range";
+						string strVal = string.Format("bytes={0}-{1}", p_rngBlockToDownload.StartByte, p_rngBlockToDownload.EndByte);
+						method.Invoke(hwrDownload.Headers, new object[] { strK, strVal });
 						intLineTracker = 4;
 						if (!String.IsNullOrEmpty(m_fmdInfo.ETag))
 							hwrDownload.Headers.Add("If-Match", m_fmdInfo.ETag);
@@ -178,7 +184,7 @@ namespace Nexus.Client.Util.Downloader
 								intLineTracker = 8;
 
 								//make sure we have the right range
-								Int32 intTotalFileLength = -1;
+								UInt64 intTotalFileLength = 0;
 								Range rngRetrievedRange = null;
 								if (wrpDownload.StatusCode == HttpStatusCode.PartialContent)
 								{
@@ -192,8 +198,8 @@ namespace Nexus.Client.Util.Downloader
 									if (!strRange[0].Equals("bytes"))
 										return;
 									intLineTracker = 12;
-									rngRetrievedRange = new Range(Int32.Parse(strRange[1]), Int32.Parse(strRange[2]));
-									intTotalFileLength = Int32.Parse(strRange[3]);
+									rngRetrievedRange = new Range(UInt64.Parse(strRange[1]), UInt64.Parse(strRange[2]));
+									intTotalFileLength = UInt64.Parse(strRange[3]);
 									intLineTracker = 13;
 								}
 								else if (wrpDownload.StatusCode == HttpStatusCode.OK)
@@ -203,7 +209,7 @@ namespace Nexus.Client.Util.Downloader
 									if (String.IsNullOrEmpty(strLengthValue))
 										return;
 									intLineTracker = 15;
-									intTotalFileLength = Int32.Parse(strLengthValue);
+									intTotalFileLength = UInt64.Parse(strLengthValue);
 									intLineTracker = 16;
 									rngRetrievedRange = new Range(0, intTotalFileLength - 1);
 									intLineTracker = 17;
@@ -224,7 +230,7 @@ namespace Nexus.Client.Util.Downloader
 										intLineTracker = 22;
 										byte[] bteBuffer = new byte[m_intBufferSize];
 										Int32 intReadCount = 0;
-										Int32 intTotalRead = 0;
+										UInt64 intTotalRead = 0;
 										intLineTracker = 23;
 										while (m_booKeepRunning && ((intReadCount = bsmBufferedData.Read(bteBuffer, 0, m_intBufferSize)) > 0))
 										{
@@ -233,8 +239,8 @@ namespace Nexus.Client.Util.Downloader
 											Array.Copy(bteBuffer, 0, bteData, 0, intReadCount);
 											m_fwrWriter.EnqueueBlock(rngRetrievedRange.StartByte + intTotalRead, bteData);
 											intLineTracker = 25;
-											intTotalRead += intReadCount;
-											m_intDownloadedByteCount += intReadCount;
+											intTotalRead += (UInt64)intReadCount;
+											m_intDownloadedByteCount += (UInt64)intReadCount;
 										}
 										intLineTracker = 26;
 									}

@@ -35,25 +35,25 @@ namespace Nexus.Client.ModManagement
 			/// Gets or sets the last recorded progress of the download.
 			/// </summary>
 			/// <value>The last recorded progress of the download.</value>
-			public Int32 OverallProgress { get; set; }
+			public Int64 OverallProgress { get; set; }
 
 			/// <summary>
 			/// Gets or sets the last recorded progress minimum of the download.
 			/// </summary>
 			/// <value>The last recorded progress minimum of the download.</value>
-			public Int32 OverallProgressMinimum { get; set; }
+			public Int64 OverallProgressMinimum { get; set; }
 
 			/// <summary>
 			/// Gets or sets the last recorded progress maximum of the download.
 			/// </summary>
 			/// <value>The last recorded progress maximum of the download.</value>
-			public Int32 OverallProgressMaximum { get; set; }
+			public Int64 OverallProgressMaximum { get; set; }
 
 			/// <summary>
 			/// Gets the last recorded progress of the download, adjusted to account for the progress minimum.
 			/// </summary>
 			/// <value>The last recorded progress of the download, adjusted to account for the progress minimum.</value>
-			public Int32 AdjustedProgress
+			public Int64 AdjustedProgress
 			{
 				get
 				{
@@ -65,7 +65,7 @@ namespace Nexus.Client.ModManagement
 			/// Gets the last recorded progress maximum of the download, adjusted to account for the progress minimum.
 			/// </summary>
 			/// <value>The last recorded progress maximum of the download, adjusted to account for the progress minimum.</value>
-			public Int32 AdjustedProgressMaximum
+			public Int64 AdjustedProgressMaximum
 			{
 				get
 				{
@@ -128,14 +128,14 @@ namespace Nexus.Client.ModManagement
 		private Int32 m_intOverallProgressOffset = 0;
 		private Uri m_uriPath = null;
 		private DateTime m_dteStartTime = DateTime.Now;
-		private Int32 m_intPreviousProgress = 0;
+		private Int64 m_intPreviousProgress = 0;
 		private Stack<Int32> m_lstPreviousSpeed = new Stack<Int32> { };
 		private Stopwatch swtSpeed = new Stopwatch();
 		private List<string> m_strFileserverCaptions = new List<string>();
 		private Double m_dblMinutes = 0;
 		private Int32 m_intSeconds = 0;
-		private Int32 m_intDownloadProgress = 0;
-		private Int32 m_intDownloadMaximum = 0;
+		private Int64 m_intDownloadProgress = 0;
+		private Int64 m_intDownloadMaximum = 0;
 		private Int32 m_intLocalID;
 		private string m_strFileserver = String.Empty;
 		private string m_strRepositoryMessage = String.Empty;
@@ -253,7 +253,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the current task speed.
 		/// </summary>
 		/// <value>The current task speed.</value>
-		public Int32 DownloadProgress
+		public Int64 DownloadProgress
 		{
 			get
 			{
@@ -279,7 +279,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the current task speed.
 		/// </summary>
 		/// <value>The current task speed.</value>
-		public Int32 DownloadMaximum
+		public Int64 DownloadMaximum
 		{
 			get
 			{
@@ -667,7 +667,7 @@ namespace Nexus.Client.ModManagement
 			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)) ||
 				e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgressMaximum)))
 			{
-				Int32 intLastProgress = 0;
+				Int64 intLastProgress = 0;
 				if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
 					intLastProgress = m_dicDownloaderProgress[fdtDownloader].OverallProgress;
 				else if (m_dicDownloaderProgress.Count == 0)
@@ -682,8 +682,8 @@ namespace Nexus.Client.ModManagement
 						m_dicDownloaderProgress[fdtDownloader] = new DownloadProgressState(fdtDownloader);
 					else
 						m_dicDownloaderProgress[fdtDownloader].Update(fdtDownloader);
-				Int32 intProgress = 0;
-				Int32 intProgressMaximum = 0;
+				Int64 intProgress = 0;
+				Int64 intProgressMaximum = 0;
 				Int32 intSpeed = 0;
 				TimeSpan tspTimeRemaining = TimeSpan.Zero;
 				foreach (DownloadProgressState dpsState in m_dicDownloaderProgress.Values)
@@ -705,7 +705,7 @@ namespace Nexus.Client.ModManagement
 					if (swtSpeed.ElapsedMilliseconds >= 1000)
 					{
 						if (m_intPreviousProgress == 0)
-							m_intPreviousProgress = fdtDownloader.ResumedByteCount > 0 ? fdtDownloader.ResumedByteCount : 0;
+							m_intPreviousProgress = (Int64)(fdtDownloader.ResumedByteCount > 0 ? fdtDownloader.ResumedByteCount : 0);
 						if (m_dicDownloaderProgress.ContainsKey(fdtDownloader))
 							TaskSpeed = (int)((double)(m_dicDownloaderProgress[fdtDownloader].AdjustedProgress - m_intPreviousProgress) / (swtSpeed.ElapsedMilliseconds / 1000));
 						if (TaskSpeed >= 0)
@@ -759,7 +759,7 @@ namespace Nexus.Client.ModManagement
 				else if (fdtDownloader.Status == TaskStatus.Running)
 				{
 					OverallMessage = String.Format("{0}{1}", m_strRepositoryMessage, GetModDisplayName());
-					FileServer = m_strFileserverCaptions[fdtDownloader.ItemProgress];
+					FileServer = m_strFileserverCaptions[(Int32)fdtDownloader.ItemProgress];
 				}
 				else if (fdtDownloader.Status == TaskStatus.Paused)
 				{

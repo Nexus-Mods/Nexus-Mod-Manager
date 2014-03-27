@@ -82,7 +82,7 @@ namespace Nexus.Client.DownloadManagement
 		private const string m_strMessageFormat = "Downloading {0} ({1:f0}:{2:d2} left - {3} kb/s)";
 		private string m_strUserAgent = "";
 		private Int32 m_intMaxConnections = 4;
-		private Int32 m_intMinBlockSize = 500 * 1024;
+		private Int32 m_intMinBlockSize = 1000 * 1024;
 		private Int32 m_intRetries = 3;
 		private Int32 m_intRetryInterval = 10000;
 		private System.Timers.Timer m_tmrUpdater = new System.Timers.Timer(1000);
@@ -180,7 +180,7 @@ namespace Nexus.Client.DownloadManagement
 		/// Gets the number of bytes that have been previously downloaded.
 		/// </summary>
 		/// <value>The number of bytes that have been previously downloaded.</value>
-		public Int32 ResumedByteCount
+		public UInt64 ResumedByteCount
 		{
 			get
 			{
@@ -308,10 +308,10 @@ namespace Nexus.Client.DownloadManagement
 				m_steState = new State(true, uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
 				m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
 				ShowItemProgress = false;
-				OverallProgressMaximum = m_fdrDownloader.FileSize / 1024;
+				OverallProgressMaximum = (Int64)(m_fdrDownloader.FileSize / 1024);
 				OverallProgressMinimum = 0;
 				OverallProgressStepSize = 1;
-				OverallProgress = m_fdrDownloader.DownloadedByteCount;
+				OverallProgress = (Int64)m_fdrDownloader.DownloadedByteCount;
 
 				if (Status == TaskStatus.Cancelling)
 					retries = m_intRetries;
@@ -514,7 +514,7 @@ namespace Nexus.Client.DownloadManagement
 			if (m_fdrDownloader != null)
 			{
 				OverallMessage = String.Format(m_strMessageFormat, Path.GetFileName(m_fdrDownloader.SavePath), m_fdrDownloader.TimeRemaining.TotalMinutes, m_fdrDownloader.TimeRemaining.Seconds, m_fdrDownloader.DownloadSpeed / 1024);
-				OverallProgress = m_fdrDownloader.DownloadedByteCount;
+				OverallProgress = (Int64)m_fdrDownloader.DownloadedByteCount;
 				if (Status == TaskStatus.Cancelling)
 				{
 					m_fdrDownloader.Stop();
