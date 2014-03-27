@@ -379,7 +379,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			lock (RunningTasks)
 				if (RunningTasks.Count >= MaxConcurrentDownloads)
 				{
-					if (p_tskTask.SupportsQueue)
+					if ((p_tskTask.SupportsQueue) && (p_tskTask.IsRemote))
 						p_tskTask.Queue();
 					booCanResume = false;
 				}

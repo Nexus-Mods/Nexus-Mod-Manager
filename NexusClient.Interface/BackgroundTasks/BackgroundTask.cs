@@ -59,6 +59,7 @@ namespace Nexus.Client
 		private volatile Int32 m_intItemProgressStepSize = 1;
 		private volatile Int32 m_intItemSpeed = 0;
 		private volatile Int32 m_intActiveThreads = 0;
+		private bool m_booIsRemote = false;
 
 		#region Properties
 
@@ -129,6 +130,20 @@ namespace Nexus.Client
 			{
 				return (Status == TaskStatus.Cancelling) || (Status == TaskStatus.Running);
 			}
+		}
+
+		/// <summary>
+		/// Gets whether or not the task is remote.
+		/// </summary>
+		/// <remarks>
+		/// This is shorthand for checking if the task
+		/// is either remote or local.
+		/// </remarks>
+		/// <value>Whether or not the task is remote.</value>
+		public virtual bool IsRemote
+		{
+			get { return m_booIsRemote; }
+			set { m_booIsRemote = value; }
 		}
 
 		/// <summary>
