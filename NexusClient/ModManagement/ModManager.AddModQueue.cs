@@ -23,6 +23,23 @@ namespace Nexus.Client.ModManagement
 			private IEnvironmentInfo m_eifEnvironmentInfo = null;
 			private Dictionary<Uri, AddModTask> m_dicActiveTasks = new Dictionary<Uri, AddModTask>();
 
+			/// <summary>
+			/// The number of running local addmod tasks.
+			/// </summary>
+			/// <remarks>
+			/// The number of running local addmod tasks.
+			/// </remarks>
+			private int LocalTaskCount
+			{
+				get
+				{
+					lock (m_dicActiveTasks)
+					{
+						return m_dicActiveTasks.Values.Where(x => !x.IsRemote).Count();
+					}
+				}
+			} 
+
 			#region Constructors
 
 			/// <summary>
@@ -70,14 +87,36 @@ namespace Nexus.Client.ModManagement
 			/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
 			public IBackgroundTask AddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 			{
-				if (m_dicActiveTasks.ContainsKey(p_uriPath))
-					return m_dicActiveTasks[p_uriPath];
-				Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
-				AddModTask amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
-				amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
-				m_dicActiveTasks[p_uriPath] = amtModAdder;
-				m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
-				amtModAdder.AddMod(false);
+				AddModTask amtModAdder = null;
+				
+				if (p_uriPath.Scheme.ToLowerInvariant().ToString() == "nxm")
+				{
+					if (m_dicActiveTasks.ContainsKey(p_uriPath))
+						return m_dicActiveTasks[p_uriPath];
+					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
+					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
+					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
+					amtModAdder.IsRemote = true;
+					m_dicActiveTasks[p_uriPath] = amtModAdder;
+					m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
+					amtModAdder.AddMod(false);
+				}
+				else
+				{
+					if (m_dicActiveTasks.ContainsKey(p_uriPath))
+						return m_dicActiveTasks[p_uriPath];
+					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
+					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
+					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
+					amtModAdder.IsRemote = false;
+					m_dicActiveTasks[p_uriPath] = amtModAdder;
+					m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
+
+					if (LocalTaskCount > 1)
+						amtModAdder.AddMod(true);
+					else
+						amtModAdder.AddMod(false);
+				}
 				return amtModAdder;
 			}
 
@@ -100,6 +139,8 @@ namespace Nexus.Client.ModManagement
 									  select k.Key).FirstOrDefault();
 						if (uriKey != null)
 							m_dicActiveTasks.Remove(uriKey);
+						if(m_dicActiveTasks.Count > 0)
+							ResumeQueued();
 					}
 				}
 			}
@@ -123,6 +164,19 @@ namespace Nexus.Client.ModManagement
 					throw new Exception("Cannot write file. Unable to find unused file name.");
 				p_strNewFilePath = strNewFileName;
 				return true;
+			}
+
+			/// <summary>
+			/// Resumes the queued running tasks.
+			/// </summary>
+			/// <remarks>
+			/// Resumes the queued running tasks.
+			/// </remarks>
+			private void ResumeQueued()
+			{
+				AddModTask amtTask = m_dicActiveTasks.Values.Where(x => (x.Status == TaskStatus.Queued) && !x.IsRemote).FirstOrDefault();
+				if (amtTask != null)
+					amtTask.Resume();
 			}
 
 			#region IDisposable Members
