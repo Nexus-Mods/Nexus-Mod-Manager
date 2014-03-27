@@ -294,13 +294,13 @@ namespace Nexus.Client.DownloadMonitoring.UI
 								foreach (AddModTask tskAdded in e.NewItems)
 									if (ViewModel.ModRepository.IsOffline)
 										m_vmlViewModel.PauseTask(tskAdded);
-									else if (m_vmlViewModel.RunningTasks.Count > m_vmlViewModel.MaxConcurrentDownloads)
+									else if ((m_vmlViewModel.RunningTasks.Count > m_vmlViewModel.MaxConcurrentDownloads) && (tskAdded.IsRemote))
 										m_vmlViewModel.QueueTask(tskAdded);
 								break;
 							case NotifyCollectionChangedAction.Remove:
 								foreach (AddModTask tskRemoved in e.OldItems)
 								{
-									if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads)
+									if ((m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads) && (tskRemoved.IsRemote))
 									{
 										AddModTask amtQueued = m_vmlViewModel.QueuedTask;
 										if (amtQueued != null)

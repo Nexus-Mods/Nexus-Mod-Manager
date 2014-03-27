@@ -145,6 +145,16 @@ namespace Nexus.Client.BackgroundTasks
 		bool IsActive { get; }
 
 		/// <summary>
+		/// Gets whether or not the task is remote.
+		/// </summary>
+		/// <remarks>
+		/// This is shorthand for checking if the task
+		/// is either remote or local.
+		/// </remarks>
+		/// <value>Whether or not the task is remote.</value>
+		bool IsRemote{ get; }
+
+		/// <summary>
 		/// Gets whether the task supports pausing.
 		/// </summary>
 		/// <value>Thether the task supports pausing.</value>
