@@ -123,7 +123,7 @@ namespace Nexus.Client.ModManagement
 						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
 						{
 							if (FileInstaller.InstallFileFromMod(strFile, strFixedPath, booSecondaryInstall))
-								if (PluginManager.IsActivatiblePluginFile(strFixedPath))
+								if ((GameMode.UsesPlugins) && (PluginManager.IsActivatiblePluginFile(strFixedPath)))
 									PluginManager.ActivatePlugin(strFixedPath);
 						}
 					}
