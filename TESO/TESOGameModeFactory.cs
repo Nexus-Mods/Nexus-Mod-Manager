@@ -82,13 +82,16 @@ namespace Nexus.Client.Games.TESO
 			if (!String.IsNullOrEmpty(strValue))
 			{
 				strValue = Path.GetDirectoryName(strValue);
-				string strPathNA = Path.Combine(strValue, @"The Elder Scrolls Online\game\client\eso.exe");
-				string strPathEU = Path.Combine(strValue, @"The Elder Scrolls Online EU\game\client\eso.exe");
+				if (!String.IsNullOrEmpty(strValue))
+				{
+					string strPathNA = Path.Combine(strValue, @"The Elder Scrolls Online\game\client\eso.exe");
+					string strPathEU = Path.Combine(strValue, @"The Elder Scrolls Online EU\game\client\eso.exe");
 
-				if (File.Exists(strPathNA))
-					strValue = Path.GetDirectoryName(strPathNA);
-				if (File.Exists(strPathEU))
-					strValue = Path.GetDirectoryName(strPathEU);
+					if (File.Exists(strPathNA))
+						strValue = Path.GetDirectoryName(strPathNA);
+					if (File.Exists(strPathEU))
+						strValue = Path.GetDirectoryName(strPathEU);
+				}
 			}
 			Trace.TraceInformation(String.Format("Found {0}", strValue));
 			Trace.Unindent();
