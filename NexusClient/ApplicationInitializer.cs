@@ -558,15 +558,15 @@ namespace Nexus.Client
 		{
 			Dictionary<string, string> dicPaths = new Dictionary<string, string>();
 			dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = "Install Info";
-			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory))
+			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory] = "Mods";
-			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory))
+			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory] = "Mods";
-			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory))
+			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory] = "Mods";
-			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory))
+			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = "Install Info";
-			if (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory))
+			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Categories";
 
 			foreach (KeyValuePair<string, string> kvpUacCheckPath in dicPaths)
