@@ -557,7 +557,8 @@ namespace Nexus.Client
 		protected bool UacCheckEnvironment(IGameMode p_gmdGameMode, out ViewMessage p_vwmErrorMessage)
 		{
 			Dictionary<string, string> dicPaths = new Dictionary<string, string>();
-			dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = "Install Info";
+			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory)))
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = "Install Info";
 			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory] = "Mods";
 			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory)))
