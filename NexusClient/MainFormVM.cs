@@ -404,8 +404,7 @@ namespace Nexus.Client
 		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
 		private void UpdateProgramme(bool p_booIsAutoCheck)
 		{
-			if (!OfflineMode)
-				Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction, p_booIsAutoCheck)));
+			Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction, p_booIsAutoCheck)));
 		}
 
 		/// <summary>
