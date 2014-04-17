@@ -267,8 +267,8 @@ namespace Nexus.Client.ModManagement.UI
 				this.CategoryManager.LoadCategories(String.Empty);
 				m_booIsCategoryInitialized = true;
 			}
-
-
+			else
+				this.CategoryManager.Backup();
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
 			ActivateModCommand = new Command<IMod>("Activate Mod", "Activates the selected mod.", ActivateMod);

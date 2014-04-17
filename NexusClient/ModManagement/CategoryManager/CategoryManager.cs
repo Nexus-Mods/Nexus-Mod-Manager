@@ -325,7 +325,7 @@ namespace Nexus.Client.ModManagement
 					}
 					if (File.Exists(strBackupCategoryPath))
 						File.Copy(strBackupCategoryPath, strBackupCategoryPath + "1", true);
-					File.Copy(CategoryFilePath, strBackupCategoryPath, true);
+					FileUtil.Move(CategoryFilePath, strBackupCategoryPath, true);
 				}
 			}
 		}
