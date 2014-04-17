@@ -388,10 +388,18 @@ namespace Nexus.Client.Settings
 				throw new InvalidOperationException("You must have administrative privileges to change file associations.");
 
 			string strFileId = p_fasFileAssociation.Extension.TrimStart('.').ToUpperInvariant() + "_File_Type";
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + p_fasFileAssociation.Extension, null, strFileId);
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + strFileId, null, p_fasFileAssociation.Description, RegistryValueKind.String);
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + strFileId + @"\DefaultIcon", null, Application.ExecutablePath + ",0", RegistryValueKind.String);
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + strFileId + @"\shell\open\command", null, "\"" + Application.ExecutablePath + "\" \"%1\"", RegistryValueKind.String);
+
+			try
+			{
+				Registry.SetValue(@"HKEY_CLASSES_ROOT\" + p_fasFileAssociation.Extension, null, strFileId);
+				Registry.SetValue(@"HKEY_CLASSES_ROOT\" + strFileId, null, p_fasFileAssociation.Description, RegistryValueKind.String);
+				Registry.SetValue(@"HKEY_CLASSES_ROOT\" + strFileId + @"\DefaultIcon", null, Application.ExecutablePath + ",0", RegistryValueKind.String);
+				Registry.SetValue(@"HKEY_CLASSES_ROOT\" + strFileId + @"\shell\open\command", null, "\"" + Application.ExecutablePath + "\" \"%1\"", RegistryValueKind.String);
+			}
+			catch (UnauthorizedAccessException)
+			{
+				throw new InvalidOperationException("Something (usually your antivirus) is preventing the program from interacting with the registry and changing the file associations.");
+			}
 		}
 
 		/// <summary>
