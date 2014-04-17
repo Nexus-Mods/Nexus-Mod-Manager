@@ -58,6 +58,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private IScript m_scpInstallScript = null;
 		private bool m_booUsesPlugins = false;
 		private bool m_booMovedArchiveInitialized = false;
+		private bool m_booAllowArchiveEdits = false;
 
 		#endregion
 
@@ -834,7 +835,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_strPath">The path of the file to delete.</param>
 		protected void DeleteFile(string p_strPath)
 		{
-			if (!m_arcFile.ReadOnly && !m_arcFile.IsSolid)
+			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly && !m_arcFile.IsSolid))
 				m_arcFile.DeleteFile(GetRealPath(p_strPath));
 			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(p_strPath)))
 				m_arcCacheFile.DeleteFile(GetRealPath(p_strPath));
@@ -847,7 +848,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_bteData">The new file data.</param>
 		protected void ReplaceFile(string p_strPath, byte[] p_bteData)
 		{
-			if (!m_arcFile.ReadOnly && !m_arcFile.IsSolid)
+			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly && !m_arcFile.IsSolid))
 				m_arcFile.ReplaceFile(GetRealPath(p_strPath), p_bteData);
 			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(GetRealPath(p_strPath)) || m_arcFile.ReadOnly))
 				m_arcCacheFile.ReplaceFile(GetRealPath(p_strPath), p_bteData);
@@ -860,7 +861,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_bteData">The new file data.</param>
 		protected void CreateOrReplaceFile(string p_strPath, byte[] p_bteData)
 		{
-			if (!m_arcFile.ReadOnly && !m_arcFile.IsSolid)
+			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly && !m_arcFile.IsSolid))
 				m_arcFile.ReplaceFile(GetRealPath(p_strPath), p_bteData);
 			if (m_arcCacheFile != null)
 				m_arcCacheFile.ReplaceFile(GetRealPath(p_strPath), p_bteData);
@@ -873,7 +874,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_strData">The new file text.</param>
 		protected void ReplaceFile(string p_strPath, string p_strData)
 		{
-			if (!m_arcFile.ReadOnly && !m_arcFile.IsSolid)
+			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly && !m_arcFile.IsSolid))
 				m_arcFile.ReplaceFile(GetRealPath(p_strPath), p_strData);
 			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(GetRealPath(p_strPath)) || m_arcFile.ReadOnly))
 				m_arcCacheFile.ReplaceFile(GetRealPath(p_strPath), p_strData);
