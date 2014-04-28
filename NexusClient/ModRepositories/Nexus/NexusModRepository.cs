@@ -242,6 +242,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "DSNexusREST";
 					m_intRemoteGameId = 162;
 					break;
+				case "DarkSouls2":
+					m_strWebsite = "darksouls2.nexusmods.com";
+					m_strEndpoint = "DS2NexusREST";
+					m_intRemoteGameId = 482;
+					break;
 				case "TESO":
 					m_strWebsite = "elderscrollsonline.nexusmods.com";
 					m_strEndpoint = "TESONexusREST";

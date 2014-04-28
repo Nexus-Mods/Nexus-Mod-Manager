@@ -66,7 +66,7 @@ namespace Nexus.Client.Settings
 		private bool m_booAddShellExtensions = true;
 		private bool m_booAssociateNxmUrls = true;
 		private bool m_booCheckForUpdatesOnStartup = true;
-		private bool m_booCloseModManagerAfterGameLaunch = true;
+		private bool m_booCloseModManagerAfterGameLaunch = false;
 		private Int32 m_intUpdateCheckInterval = 0;
 		private Int32 m_intModVersionsCheckInterval = 0;
 		private bool m_booShowSidePanel = true;
