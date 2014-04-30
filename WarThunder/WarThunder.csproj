@@ -46,6 +46,7 @@
   <ItemGroup>
     <Compile Include="Settings\GeneralSettingsGroup.cs" />
     <Compile Include="Settings\UI\GeneralSettingsPage.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Settings\UI\GeneralSettingsPage.Designer.cs">
       <DependentUpon>GeneralSettingsPage.cs</DependentUpon>
@@ -53,6 +54,7 @@
     <Compile Include="Tools\WarThunderToolLauncher.cs" />
     <Compile Include="WarThunderLauncher.cs" />
     <Compile Include="SetupForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SetupForm.Designer.cs">
       <DependentUpon>SetupForm.cs</DependentUpon>
