@@ -148,6 +148,7 @@
 			this.rlvPlugins.Size = new System.Drawing.Size(263, 453);
 			this.rlvPlugins.TabIndex = 0;
 			this.rlvPlugins.UseCompatibleStateImageBehavior = false;
+			this.rlvPlugins.HideSelection = false;
 			this.rlvPlugins.Resize += new System.EventHandler(this.rlvPlugins_Resize);
 			this.rlvPlugins.SelectedIndexChanged += new System.EventHandler(this.rlvPlugins_SelectedIndexChanged);
 			this.rlvPlugins.ItemsReordering += new System.EventHandler<Nexus.UI.Controls.ReorderingItemsEventArgs>(this.rlvPlugins_ItemsReordering);
