@@ -44,7 +44,10 @@ namespace Nexus.Client.Games.Settings
 				lblToolPrompt.Text = String.Format(lblToolPrompt.Text, ViewModel.RequiredToolName);
 				lblToolDirectoryLabel.Visible = ViewModel.RequiredTool;
 				tbxToolDirectory.Visible = ViewModel.RequiredTool;
+				tbxToolDirectory.Enabled = ViewModel.RequiredTool;
 				lblToolPrompt.Visible = ViewModel.RequiredTool;
+				butSelectToolDirectory.Visible = ViewModel.RequiredTool;
+				butSelectToolDirectory.Enabled = ViewModel.RequiredTool;
 			}
 		}
 
