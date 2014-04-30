@@ -651,6 +651,21 @@ namespace Nexus.Client.Properties
 
 		[global::System.Configuration.UserScopedSettingAttribute()]
 		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<PerGameModeSettingsOfString />\r\n\t\t\t")]
+		public global::Nexus.Client.Settings.PerGameModeSettings<string> ToolFolder
+		{
+			get
+			{
+				return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["ToolFolder"]));
+			}
+			set
+			{
+				this["ToolFolder"] = value;
+			}
+		}
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
 		[global::System.Configuration.DefaultSettingValueAttribute("")]
 		public string TraceLogFolder
 		{

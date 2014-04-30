@@ -116,12 +116,6 @@ namespace Nexus.Client.Games.DarkSouls2
 		public override void Load()
 		{
 			string strValue = null;
-			bool booRetrieved = false;
-			if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameMode.ModeId))
-				booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameMode.ModeId].TryGetValue(String.Format("InstallationPaths~{0}", GameMode.ModeId), out strValue);
-			if (!booRetrieved)
-				EnvironmentInfo.Settings.InstallationPaths.TryGetValue(GameMode.ModeId, out strValue);
-			InstallationPath = strValue;
 
 			strValue = null;
 			EnvironmentInfo.Settings.CustomLaunchCommands.TryGetValue(GameMode.ModeId, out strValue);
@@ -145,8 +139,6 @@ namespace Nexus.Client.Games.DarkSouls2
 				return false;
 			RequiredDirectoriesVM.SaveSettings(true);
 
-			if (!String.Equals(EnvironmentInfo.Settings.InstallationPaths[GameMode.ModeId], InstallationPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)))
-				EnvironmentInfo.Settings.DelayedSettings[GameMode.ModeId].Add(String.Format("InstallationPaths~{0}", GameMode.ModeId), InstallationPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
 			EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId] = FileUtil.StripInvalidPathChars(CustomLaunchCommand);
 			EnvironmentInfo.Settings.CustomLaunchCommandArguments[GameMode.ModeId] = CustomLaunchCommandArguments;
 			EnvironmentInfo.Settings.Save();
