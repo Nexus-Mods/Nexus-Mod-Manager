@@ -93,6 +93,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.ActivateModCommand.CanExecute = false;
 				ViewModel.DeactivateModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
+				ViewModel.ParentForm = this;
 
 				LoadMetrics();
 				HidePanels();

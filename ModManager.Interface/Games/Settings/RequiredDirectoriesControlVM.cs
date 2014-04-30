@@ -16,6 +16,8 @@ namespace Nexus.Client.Games.Settings
 	{
 		private string m_strInstallInfoDirectory = null;
 		private string m_strModDirectory = null;
+		private string m_strToolDirectory = null;
+		private bool m_booRequiredTool = false;
 
 		#region Properties
 
@@ -79,6 +81,46 @@ namespace Nexus.Client.Games.Settings
 		}
 
 		/// <summary>
+		/// Gets or sets the path of the directory where this Game Mode's required tool is installed.
+		/// </summary>
+		/// <value>The path of the directory where this Game Mode's required tool is installed.</value>
+		public string ToolDirectory
+		{
+			get
+			{
+				return m_strToolDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strToolDirectory, value, () => ToolDirectory);
+			}
+		}
+
+		/// <summary>
+		/// Gets whether the game mode is using a required tool for modding.
+		/// </summary>
+		/// <value>Whether the game mode is using a required tool for modding.</value>
+		public bool RequiredTool
+		{
+			get
+			{
+				return m_booRequiredTool;
+			}
+		}
+
+		/// <summary>
+		/// Gets the name of the required tool (if any) for the current game mode.
+		/// </summary>
+		/// <value>The name of the required tool (if any) for the current game mode.</value>
+		public string RequiredToolName 
+		{
+			get
+			{
+				return GameModeDescriptor.RequiredToolName;
+			}
+		}
+
+		/// <summary>
 		/// Gets the validation errors for the current values.
 		/// </summary>
 		/// <value>The validation errors for the current values.</value>
@@ -97,6 +139,7 @@ namespace Nexus.Client.Games.Settings
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmdGameModeInfo;
+			m_booRequiredTool = GameModeDescriptor.OrderedRequiredToolFileNames != null;
 			Errors = new ErrorContainer();
 		}
 
@@ -109,7 +152,7 @@ namespace Nexus.Client.Games.Settings
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory are not equals;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strModPath, string p_strModPathName, string p_strModProperty, string p_strInstallPath, string p_strInstallPathName, string p_strInstallProperty)
+		protected bool ValidateDirectory(string p_strModPath, string p_strModPathName, string p_strModProperty, string p_strInstallPath, string p_strInstallPathName, string p_strInstallProperty, string p_strToolPath, string p_strToolPathName, string p_strToolProperty)
 		{
 			Errors.Clear(p_strModProperty);
 			if (String.IsNullOrEmpty(p_strModPath))
@@ -129,6 +172,29 @@ namespace Nexus.Client.Games.Settings
 				Errors.SetError(p_strModProperty, string.Format("You can't set the {0} equal to the {1}.", p_strModPathName, p_strInstallPathName));
 				return false;
 			}
+
+			if (m_booRequiredTool)
+			{
+				Errors.Clear(p_strToolProperty);
+				if (!String.IsNullOrEmpty(p_strToolPath))
+				{
+					foreach (string ToolFile in GameModeDescriptor.OrderedRequiredToolFileNames)
+						try
+						{
+							if (!File.Exists(Path.Combine(p_strToolPath, Path.GetFileName(ToolFile))))
+							{
+								Errors.SetError(p_strToolProperty, String.Format("The file {0} is not present in the selected path.", Path.GetFileName(ToolFile)));
+								return false;
+							}
+						}
+						catch
+						{
+							Errors.SetError(p_strToolProperty, String.Format("You must select a valid {0} path.", p_strToolPathName));
+							return false;
+						}
+				}
+			}
+
 			return true;
 		}
 
@@ -147,19 +213,32 @@ namespace Nexus.Client.Games.Settings
 			}
 			else if (
 				(String.Equals(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId], p_strPath)) ||
-				(p_strPath.Length <= 4) ||
-				(String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
+				(p_strPath.Length <= 4)
 				)
 			{
 				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
 					"HD root - {2}" + Environment.NewLine +
-					"Game root folder - {1}" + Environment.NewLine +
-					"Game plugin folder - {3}",
+					"Game root folder - {1}" + Environment.NewLine,
 					p_strPathName, EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId],
-					Path.GetPathRoot(p_strPath),
-					GameModeDescriptor.PluginDirectory));
+					Path.GetPathRoot(p_strPath)));
 				return false;
 			}
+			else
+			{
+				try
+				{
+					if (String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
+					{
+						Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the plugin folder.", p_strPathName));
+						return false;
+					}
+				}
+				catch (ArgumentNullException)
+				{
+					// If the game doesn't supports plugins no need to check for it.
+				}
+			}
+
 			return true;
 		}
 
@@ -190,7 +269,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			if (ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory), InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory)))
+			if (ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory), InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory), ToolDirectory, "Required Tool Directory", ObjectHelper.GetPropertyName(() => ToolDirectory)))
 				return ValidateModDirectory() && ValidateInstallInfoDirectory();
 			else
 				return false;
@@ -206,7 +285,7 @@ namespace Nexus.Client.Games.Settings
 			string strRegMod = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId + " ", "Mods", null);
 			string strRegInst = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId + " ", "InstallInfo", null);
 
-			string strInstalationPath = EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId];
+			string strInstallationPath = EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId];
 			string strDirectory = null;
 			string strRandomGameKey = String.Empty;
 			bool booRetrieved = false;
@@ -239,7 +318,7 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.ModFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 				if (String.IsNullOrEmpty(strDirectory))
 				{
-					string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstalationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Mods");
+					string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Mods");
 					strDirectory = strDefault;
 				}
 				ModDirectory = strDirectory;
@@ -275,10 +354,34 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.InstallInfoFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 				if (String.IsNullOrEmpty(strDirectory))
 				{
-					string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstalationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Install Info");
+					string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Install Info");
 					strDirectory = strDefault;
 				}
 				InstallInfoDirectory = strDirectory;
+			}
+
+			if (m_booRequiredTool)
+			{
+				if (EnvironmentInfo.Settings.ToolFolder.ContainsKey(GameModeDescriptor.ModeId))
+					ToolDirectory = EnvironmentInfo.Settings.ToolFolder[GameModeDescriptor.ModeId];
+				if (string.IsNullOrEmpty(ToolDirectory))
+				{
+					strDirectory = null;
+					booRetrieved = false;
+					foreach (string ToolFile in GameModeDescriptor.OrderedRequiredToolFileNames)
+						if (File.Exists(ToolFile))
+							booRetrieved = true;
+						else
+						{
+							booRetrieved = false;
+							break;
+						}
+
+					if (booRetrieved)
+						strDirectory = Path.GetDirectoryName(GameModeDescriptor.OrderedRequiredToolFileNames[0]);
+					if (!String.IsNullOrEmpty(strDirectory))
+						ToolDirectory = strDirectory;
+				}
 			}
 
 			ValidateSettings();
@@ -328,6 +431,13 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].Add(String.Format("ModFolder~{0}", GameModeDescriptor.ModeId), ModDirectory);
 				else
 					EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId] = ModDirectory;
+			}
+			if (m_booRequiredTool)
+			{
+				if (!String.Equals(EnvironmentInfo.Settings.ToolFolder[GameModeDescriptor.ModeId], ToolDirectory))
+				{
+					EnvironmentInfo.Settings.ToolFolder[GameModeDescriptor.ModeId] = ToolDirectory;
+				}
 			}
 
 			SaveRegistry(GameModeDescriptor.ModeId, ModDirectory, InstallInfoDirectory);

@@ -144,8 +144,7 @@ namespace Nexus.Client.Games.DarkSouls2
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
-			string strPath = Path.Combine(p_strGameInstallPath, @"GeDoSaTo\textures\DarkSoulsII");
-			return strPath;
+			return m_gmdGameModeDescriptor.InstallationPath;
 		}
 
 		/// <summary>

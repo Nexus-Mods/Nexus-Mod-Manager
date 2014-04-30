@@ -70,6 +70,24 @@ namespace Nexus.Client.Games
 		string[] OrderedCriticalPluginNames { get; }
 
 		/// <summary>
+		/// Gets the name of the required tool (if any) for the current game mode.
+		/// </summary>
+		/// <value>The name of the required tool (if any) for the current game mode.</value>
+		string RequiredToolName { get; }
+
+		/// <summary>
+		/// Gets the list of required tools file names, ordered by load order.
+		/// </summary>
+		/// <value>The list of required tools file names, ordered by load order.</value>
+		string[] OrderedRequiredToolFileNames { get; }
+
+		/// <summary>
+		/// Gets the error message specific to a missing required tool.
+		/// </summary>
+		/// <value>The error message specific to a missing required tool.</value>
+		string RequiredToolErrorMessage { get; }
+
+		/// <summary>
 		/// Gets the theme to use for this game mode.
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>

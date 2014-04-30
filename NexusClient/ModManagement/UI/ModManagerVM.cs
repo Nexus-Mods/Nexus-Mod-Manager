@@ -7,6 +7,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
+using Nexus.UI.Controls;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -24,6 +25,7 @@ namespace Nexus.Client.ModManagement.UI
 	public class ModManagerVM
 	{
 		private bool m_booIsCategoryInitialized = false;
+		private Control m_ctlParentForm = null;
 
 		#region Events
 
@@ -245,6 +247,18 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		public Control ParentForm
+		{
+			get
+			{
+				return m_ctlParentForm;
+			}
+			set
+			{
+				m_ctlParentForm = value;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -379,9 +393,17 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		protected void ActivateMod(IMod p_modMod)
 		{
-			IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
-			if (btsInstall != null)
-				ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
+			string strErrorMessage = ModManager.RequiredToolErrorMessage;
+			if (String.IsNullOrEmpty(strErrorMessage))
+			{
+				IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+				if (btsInstall != null)
+					ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
+			}
+			else
+			{
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
 		}
 
 		/// <summary>
