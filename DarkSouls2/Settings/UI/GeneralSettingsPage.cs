@@ -43,28 +43,10 @@ namespace Nexus.Client.Games.DarkSouls2.Settings.UI
 			SettingsGroup = p_gsgSettings;
 			rdcDirectories.ViewModel = p_gsgSettings.RequiredDirectoriesVM;
 
-			lblWorkingDirectory.Text = String.Format(lblWorkingDirectory.Text, p_gsgSettings.Title);
-
-			BindingHelper.CreateFullBinding(tbxWorkingDirectory, () => tbxWorkingDirectory.Text, p_gsgSettings, () => p_gsgSettings.InstallationPath);
 			BindingHelper.CreateFullBinding(tbxCommand, () => tbxCommand.Text, p_gsgSettings, () => p_gsgSettings.CustomLaunchCommand);
 			BindingHelper.CreateFullBinding(tbxCommandArguments, () => tbxCommandArguments.Text, p_gsgSettings, () => p_gsgSettings.CustomLaunchCommandArguments);
 		}
 
 		#endregion
-
-		/// <summary>
-		/// Handles the <see cref="Control.Click"/> event of the select working directory button.
-		/// </summary>
-		/// <remarks>
-		/// This opens the folder selection dialog for the selection of the working directory.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void butSelectWorkingDirectory_Click(object sender, EventArgs e)
-		{
-			fbdWorkingDirectory.SelectedPath = tbxWorkingDirectory.Text;
-			if (fbdWorkingDirectory.ShowDialog(this.FindForm()) == DialogResult.OK)
-				tbxWorkingDirectory.Text = fbdWorkingDirectory.SelectedPath;
-		}
 	}
 }

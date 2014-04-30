@@ -54,7 +54,6 @@
     <Compile Include="Tools\DarkSouls2ToolLauncher.cs" />
     <Compile Include="DarkSouls2Launcher.cs" />
     <Compile Include="SetupForm.cs">
-      <SubType>Form</SubType>
     </Compile>
     <Compile Include="SetupForm.Designer.cs">
       <DependentUpon>SetupForm.cs</DependentUpon>

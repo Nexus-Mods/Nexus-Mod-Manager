@@ -134,6 +134,15 @@ namespace Nexus.Client.Settings
 		PerGameModeSettings<string> ModFolder { get; }
 
 		/// <summary>
+		/// Gets the path of the folder where a game's required tool is stored.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding required tool folder paths.
+		/// </remarks>
+		/// <value>The path of the folder where a game's required tool is stored.</value>
+		PerGameModeSettings<string> ToolFolder { get; }
+
+		/// <summary>
 		/// Gets the path of the folder where a game mode's install info is stored.
 		/// </summary>
 		/// <remarks>
