@@ -277,6 +277,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "SODNexusREST";
 					m_intRemoteGameId = 223;
 					break;
+				case "WarThunder":
+					m_strWebsite = "warthunder.nexusmods.com";
+					m_strEndpoint = "WTNexusREST";
+					m_intRemoteGameId = 449;
+					break;
 				default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
