@@ -42,6 +42,9 @@ namespace Nexus.Client.Games.Settings
 				lblModPrompt.Text = String.Format(lblModPrompt.Text, ViewModel.GameModeName);
 				lblInstallInfoPrompt.Text = String.Format(lblInstallInfoPrompt.Text, ViewModel.GameModeName);
 				lblToolPrompt.Text = String.Format(lblToolPrompt.Text, ViewModel.RequiredToolName);
+				lblToolDirectoryLabel.Visible = ViewModel.RequiredTool;
+				tbxToolDirectory.Visible = ViewModel.RequiredTool;
+				lblToolPrompt.Visible = ViewModel.RequiredTool;
 			}
 		}
 
