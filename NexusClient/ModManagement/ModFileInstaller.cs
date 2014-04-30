@@ -399,7 +399,7 @@ namespace Nexus.Client.ModManagement
 			if (p_booSecondaryInstallPath && !(String.IsNullOrEmpty(GameModeInfo.SecondaryInstallationPath)))
 				strInstallFilePath = Path.Combine(GameModeInfo.SecondaryInstallationPath, p_strPath);
 			else
-				strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+				strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath ?? "", p_strPath);
 
 			string strBackupDirectory = Path.Combine(GameModeInfo.OverwriteDirectory, Path.GetDirectoryName(p_strPath));
 			string strFile;

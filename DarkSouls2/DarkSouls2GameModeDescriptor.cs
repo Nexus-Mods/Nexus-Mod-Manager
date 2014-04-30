@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
+using System.Text;
 using Nexus.Client.Games.DarkSouls2;
 
 namespace Nexus.Client.Games.DarkSouls2
@@ -12,8 +13,10 @@ namespace Nexus.Client.Games.DarkSouls2
 	public class DarkSouls2GameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "DarkSoulsII.exe" };
-		private static string[] CRITICAL_PLUGINS = { @"GeDoSaTo\GeDoSaToTool.exe", @"GeDoSaTo\GeDoSaTo.ini", @"GeDoSaTo\GeDoSaTo.dll" };
+		private static string[] CRITICAL_PLUGINS = null;
+		private static string[] REQUIRED_TOOL_FILES = { @"GeDoSaTo\GeDoSaToTool.exe", @"GeDoSaTo\GeDoSaTo.ini", @"GeDoSaTo\GeDoSaTo.dll" };
 		private const string MODE_ID = "DarkSouls2";
+		private const string REQUIRED_TOOL = "GeDoSaTo";
 
 		#region Properties
 
@@ -25,10 +28,22 @@ namespace Nexus.Client.Games.DarkSouls2
 		{
 			get
 			{
-				string strPath = InstallationPath;
-				if (!Directory.Exists(strPath))
-					Directory.CreateDirectory(strPath);
-				return strPath;
+				return String.Empty;
+			}
+		}
+
+		/// <summary>
+		/// Gets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		public override string InstallationPath
+		{
+			get
+			{
+				if (EnvironmentInfo.Settings.ToolFolder.ContainsKey(MODE_ID))
+					if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.ToolFolder[MODE_ID]))
+						return Path.Combine(EnvironmentInfo.Settings.ToolFolder[MODE_ID], @"textures\DarkSoulsII");
+				return null;
 			}
 		}
 
@@ -76,10 +91,55 @@ namespace Nexus.Client.Games.DarkSouls2
 		{
 			get
 			{
-				if (!String.IsNullOrEmpty(ExecutablePath))
-					for (int i = 0; i < CRITICAL_PLUGINS.Length; i++)
-						CRITICAL_PLUGINS[i] = Path.Combine(ExecutablePath, CRITICAL_PLUGINS[i]);
 				return CRITICAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
+		/// Gets the name of the required tool (if any) for the current game mode.
+		/// </summary>
+		/// <value>The name of the required tool (if any) for the current game mode.</value>
+		public override string RequiredToolName 
+		{
+			get
+			{
+				return REQUIRED_TOOL;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of required tools file names, ordered by load order.
+		/// </summary>
+		/// <value>The list of required tools file names, ordered by load order.</value>
+		public override string[] OrderedRequiredToolFileNames
+		{
+			get
+			{
+				if (!String.IsNullOrEmpty(ExecutablePath))
+					for (int i = 0; i < REQUIRED_TOOL_FILES.Length; i++)
+						REQUIRED_TOOL_FILES[i] = Path.Combine(ExecutablePath, REQUIRED_TOOL_FILES[i]);
+				return REQUIRED_TOOL_FILES;
+			}
+		}
+
+		/// <summary>
+		/// Gets the error message specific to a missing required tool.
+		/// </summary>
+		/// <value>The error message specific to a missing required tool.</value>
+		public override string RequiredToolErrorMessage
+		{
+			get
+			{
+				StringBuilder stbPromptMessage = new StringBuilder();
+				stbPromptMessage.AppendFormat("You need to set the {0} tool folder to be able to install and use Dark Souls 2 mods.", REQUIRED_TOOL).AppendLine();
+				stbPromptMessage.AppendLine("You can download the latest version of this tool at:");
+				stbPromptMessage.AppendLine("http://blog.metaclassofnil.com/");
+				stbPromptMessage.AppendLine("Install the program, you can install it anywhere, by default NMM will look for it in:");
+				stbPromptMessage.AppendLine(@"\Steam\steamapps\common\Dark Souls II\Game\GeDoSaTo");
+				stbPromptMessage.AppendLine("After installing it open NMM's Settings menu (gears icon), go to the Dark Souls 2 tab,");
+				stbPromptMessage.AppendFormat("input the correct folder for {0} in the proper field and press OK.", REQUIRED_TOOL).AppendLine();
+				stbPromptMessage.AppendLine("Don't forget to set enableTextureOverride to true in the GeDoSaTo.ini file!");
+				return stbPromptMessage.ToString();
 			}
 		}
 
@@ -92,19 +152,6 @@ namespace Nexus.Client.Games.DarkSouls2
 			get
 			{
 				return new Theme(Properties.Resources.DarkSouls2_logo, Color.FromArgb(80, 45, 23), null);
-			}
-		}
-
-		/// <summary>
-		/// Gets the custom message for missing critical files.
-		/// </summary>
-		/// <value>The custom message for missing critical files.</value>
-		public override string CriticalFilesErrorMessage
-		{
-			get
-			{
-
-				return (@"GeDoSaTo by Durante is required for Dark Souls 2 modding, install it in Steam\steamapps\common\Dark Souls II\Game\ (a future release will enable you to set a custom folder for it) and up to date." + Environment.NewLine + "Link: http://blog.metaclassofnil.com/" + Environment.NewLine + "Install it, then restart NMM.");
 			}
 		}
 

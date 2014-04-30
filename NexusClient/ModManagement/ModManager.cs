@@ -254,6 +254,21 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets whether the required tool for the current game mode is missing.
+		/// </summary>
+		/// <value>Whether the required tool for the current game mode is missing.</value>
+		public string RequiredToolErrorMessage
+		{
+			get
+			{
+				if (GameMode.OrderedRequiredToolFileNames != null)
+					if (String.IsNullOrEmpty(GameMode.InstallationPath))
+						return GameMode.RequiredToolErrorMessage;
+				return String.Empty;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

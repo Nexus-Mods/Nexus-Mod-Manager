@@ -341,6 +341,42 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the name of the required tool (if any) for the current game mode.
+		/// </summary>
+		/// <value>The name of the required tool (if any) for the current game mode.</value>
+		public string RequiredToolName
+		{
+			get
+			{
+				return m_gmdGameModeInfo.RequiredToolName;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of required tools file names, ordered by load order.
+		/// </summary>
+		/// <value>The list of required tools file names, ordered by load order.</value>
+		public string[] OrderedRequiredToolFileNames
+		{
+			get
+			{
+				return m_gmdGameModeInfo.OrderedRequiredToolFileNames;
+			}
+		}
+
+		/// <summary>
+		/// Gets the error message specific to a missing required tool.
+		/// </summary>
+		/// <value>The error message specific to a missing required tool.</value>
+		public string RequiredToolErrorMessage
+		{
+			get
+			{
+				return m_gmdGameModeInfo.RequiredToolErrorMessage;
+			}
+		}
+
+		/// <summary>
 		/// Gets the theme to use for this game mode.
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>

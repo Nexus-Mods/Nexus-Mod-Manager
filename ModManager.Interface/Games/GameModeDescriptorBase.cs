@@ -40,7 +40,7 @@ namespace Nexus.Client.Games
 		/// Gets the path to which mod files should be installed.
 		/// </summary>
 		/// <value>The path to which mod files should be installed.</value>
-		public string InstallationPath
+		public virtual string InstallationPath
 		{
 			get
 			{
@@ -107,6 +107,42 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The list of critical plugin names, ordered by load order.</value>
 		public abstract string[] OrderedCriticalPluginNames { get; }
+
+		/// <summary>
+		/// Gets the name of the required tool (if any) for the current game mode.
+		/// </summary>
+		/// <value>The name of the required tool (if any) for the current game mode.</value>
+		public virtual string RequiredToolName 
+		{ 
+			get
+			{
+				return null;
+			} 
+		}
+
+		/// <summary>
+		/// Gets the list of required tools file names, ordered by load order.
+		/// </summary>
+		/// <value>The list of required tools file names, ordered by load order.</value>
+		public virtual string[] OrderedRequiredToolFileNames 
+		{
+			get
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Gets the error message specific to a missing required tool.
+		/// </summary>
+		/// <value>The error message specific to a missing required tool.</value>
+		public virtual string RequiredToolErrorMessage
+		{
+			get
+			{
+				return null;
+			}
+		}
 
 		/// <summary>
 		/// Gets the theme to use for this game mode.
