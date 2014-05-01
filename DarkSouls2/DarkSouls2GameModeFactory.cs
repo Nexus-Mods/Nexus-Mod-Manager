@@ -144,7 +144,10 @@ namespace Nexus.Client.Games.DarkSouls2
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
-			return m_gmdGameModeDescriptor.InstallationPath;
+			if (String.IsNullOrEmpty(m_gmdGameModeDescriptor.InstallationPath))
+				return p_strGameInstallPath;
+			else
+				return m_gmdGameModeDescriptor.InstallationPath;
 		}
 
 		/// <summary>
