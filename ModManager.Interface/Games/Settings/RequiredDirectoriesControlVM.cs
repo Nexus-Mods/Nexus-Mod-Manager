@@ -308,7 +308,6 @@ namespace Nexus.Client.Games.Settings
 							ModDirectory = strRegMod.Replace(Path.GetFileName(strRegMod), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegMod));
 					}
 				}
-
 			}
 			if (string.IsNullOrEmpty(ModDirectory))
 			{
