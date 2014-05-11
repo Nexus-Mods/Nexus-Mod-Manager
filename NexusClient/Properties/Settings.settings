@@ -1,0 +1,215 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Nexus.Client.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="SettingsUpgraded" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="InstalledGamesDetected" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="RememberedGameMode" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="ModCompressionLevel" Type="SevenZip.CompressionLevel" Scope="User">
+      <Value Profile="(Default)">Ultra</Value>
+    </Setting>
+    <Setting Name="ModCompressionFormat" Type="SevenZip.OutArchiveFormat" Scope="User">
+      <Value Profile="(Default)">SevenZip</Value>
+    </Setting>
+    <Setting Name="SelectedAddModCommandIndex" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="CheckForNewModVersions" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="AddMissingInfoToMods" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="CloseModManagerAfterGameLaunch" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="CloseModManagerAfterGameLaunchIsRemembered" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="RememberGameMode" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ScanSubfoldersForMods" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="CheckForUpdatesOnStartup" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="ModManagerUrl" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">http://www.nexusmods.com/content/modmanager/</Value>
+    </Setting>
+    <Setting Name="UserLocation" Type="System.String" Scope="User">
+      <Value Profile="(Default)">default</Value>
+    </Setting>
+    <Setting Name="UseMultithreadedDownloads" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="UpdateCheckInterval" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">3</Value>
+    </Setting>
+    <Setting Name="LastUpdateCheckDate" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="ModVersionsCheckInterval" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">3</Value>
+    </Setting>
+    <Setting Name="LastModVersionsCheckDate" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="TempPathFolder" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="TraceLogFolder" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="ShowExpandedCategories" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ShowEmptyCategory" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="HideModUpdateWarningIcon" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="SkipReadmeFiles" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="ShowSidePanel" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="CategoryViewDefaultSortOrder" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="CategoryViewDefaultSortColumn" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="UseCategoryView" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="OfflineMode" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="SupportOfflineMode" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="HelpLinks" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="Application">
+      <Value Profile="(Default)">
+     &lt;KeyedSettingsOfString&gt;
+      &lt;item key="Beta Wiki"&gt;
+       &lt;string&gt;http://wiki.nexusmods.com/index.php/Category:NMM&lt;/string&gt;
+      &lt;/item&gt;
+      &lt;item key="Beta Forums"&gt;
+       &lt;string&gt;http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/&lt;/string&gt;
+      &lt;/item&gt;
+      &lt;item key="Bug Report How To"&gt;
+       &lt;string&gt;http://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/&lt;/string&gt;
+      &lt;/item&gt;
+      &lt;item key="Report a Bug"&gt;
+       &lt;string&gt;http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/&lt;/string&gt;
+      &lt;/item&gt;
+     &lt;/KeyedSettingsOfString&gt;
+    </Value>
+    </Setting>
+    <Setting Name="ExecutablePaths" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="InstallationPaths" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="CompletedSetup" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfBoolean /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="ModFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="CustomGameModeSettings" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.PerGameModeSettings`1[System.Object]]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfPerGameModeSettingsOfObject /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="InstallInfoFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="DockPanelLayouts" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;KeyedSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="CustomLaunchCommands" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="CustomLaunchCommandArguments" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="SelectedLaunchCommands" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="RepositoryUsernames" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;KeyedSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="RepositoryAuthenticationTokens" Type="Nexus.Client.Settings.KeyedSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;KeyedSettingsOfKeyedSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="DelayedSettings" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="InstalledGames" Type="Nexus.Client.Settings.SettingsList" Scope="User">
+      <Value Profile="(Default)">
+     &lt;ArrayOfString xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="QueuedModsToAdd" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[Nexus.Client.ModManagement.AddModDescriptor]]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfKeyedSettingsOfAddModDescriptor /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="WindowPositions" Type="Nexus.Client.Settings.WindowPositions" Scope="User">
+      <Value Profile="(Default)">
+     &lt;WindowPositions /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="ColumnWidths" Type="Nexus.Client.Settings.ColumnWidths" Scope="User">
+      <Value Profile="(Default)">
+     &lt;ColumnWidths /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="SplitterSizes" Type="Nexus.Client.Settings.SplitterSizes" Scope="User">
+      <Value Profile="(Default)">
+     &lt;SplitterSizes /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="ToolFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
