@@ -52,9 +52,14 @@ namespace Nexus.Client.Games.Gamebryo
 		{
 			get
 			{
-				string strPath = Path.Combine(InstallationPath, "Data");
-				if (!Directory.Exists(strPath))
-					Directory.CreateDirectory(strPath);
+				string strPath = String.Empty;
+				if (!String.IsNullOrEmpty(InstallationPath))
+				{
+					Path.Combine(InstallationPath, "Data");
+					if (!Directory.Exists(strPath))
+						Directory.CreateDirectory(strPath);
+				}
+
 				return strPath;
 			}
 		}
