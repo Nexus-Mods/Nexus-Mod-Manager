@@ -550,8 +550,9 @@ namespace Nexus.Client
 												p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory};
 			foreach (string strPath in strPaths)
-				if (!Directory.Exists(strPath))
-					Directory.CreateDirectory(strPath);
+				if (!String.IsNullOrEmpty(strPath))
+					if (!Directory.Exists(strPath))
+						Directory.CreateDirectory(strPath);
 			p_vwmErrorMessage = null;
 			return true;
 		}
