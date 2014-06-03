@@ -32,6 +32,8 @@ namespace Nexus.Client
 		private PluginManagerControl pmcPluginManager = null;
 		private DownloadMonitorControl dmcDownloadMonitor = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
+        public string strOptionalPremiumMessage = string.Empty;
+ 
 
 		#region Properties
 
@@ -101,6 +103,7 @@ namespace Nexus.Client
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
+            p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 
 			ViewModel = p_vmlViewModel;
 
@@ -186,9 +189,9 @@ namespace Nexus.Client
 			{
 				if (tpbDownloadSpeed != null)
 					tpbDownloadSpeed.Visible = false;
-				tlbGoPremium.Visible = true;
-				tlbGoPremium.Text = "You are not logged in.";
-				tlbGoPremium.Font = new Font(base.Font, FontStyle.Bold);
+                tlbLoginMessage.Visible = true;
+                tlbLoginMessage.Text = "You are not logged in.";
+                tlbLoginMessage.Font = new Font(base.Font, FontStyle.Bold);
 				tsbGoPremium.Visible = false;
 				tsbOnlineStatus.Image = new Bitmap(Properties.Resources.offline_icon, 36, 34);
 				tlbDownloads.Visible = false;
@@ -200,11 +203,10 @@ namespace Nexus.Client
 
 				if ((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32))
 				{
-					tlbGoPremium.Visible = true;
+                    tlbLoginMessage.Visible = true;
 					tsbGoPremium.Visible = true;
 					tsbGoPremium.Enabled = true;
-					tlbGoPremium.Text = "Go Faster, Go Premium!";
-					tlbGoPremium.Font = new Font(base.Font, FontStyle.Bold);
+                    strOptionalPremiumMessage = " Not a Premium Member.";
 					if (tpbDownloadSpeed != null)
 					{
 						tpbDownloadSpeed.Maximum = 1024;
@@ -216,8 +218,9 @@ namespace Nexus.Client
 				}
 				else
 				{
-					tlbGoPremium.Visible = false;
+                    tlbLoginMessage.Visible = true;
 					tsbGoPremium.Visible = false;
+                    strOptionalPremiumMessage = string.Empty;
 					tsbGoPremium.Enabled = false;
 					if (tpbDownloadSpeed != null)
 					{
@@ -228,7 +231,7 @@ namespace Nexus.Client
 					}
 					tlbDownloads.Tag = "Download Progress:";
 				}
-				if (tpbDownloadSpeed != null)
+                if ((tpbDownloadSpeed != null) && (dmcDownloadMonitor.ViewModel.ActiveTasks.Count > 0))
 					tpbDownloadSpeed.Visible = true;
 				tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
 			}
@@ -249,6 +252,15 @@ namespace Nexus.Client
 		protected void UninstallAllMods()
 		{
 			mmgModManager.DeactivateAllMods();
+		}
+
+        private void LoginTask_PropertyChanged(object sender, EventArgs e)
+		{
+			LoginFormTask lftTask = (LoginFormTask)sender;
+			if ((lftTask.OverallMessage == "Logged in.") && (strOptionalPremiumMessage != string.Empty))
+				tlbLoginMessage.Text = lftTask.OverallMessage + strOptionalPremiumMessage;
+			else
+				tlbLoginMessage.Text = lftTask.OverallMessage;
 		}
 
 		/// <summary>

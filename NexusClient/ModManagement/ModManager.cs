@@ -16,6 +16,7 @@ using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Settings;
+using System.ComponentModel;
 
 namespace Nexus.Client.ModManagement
 {
@@ -79,6 +80,14 @@ namespace Nexus.Client.ModManagement
 
 		#region Properties
 
+        public event EventHandler<EventArgs<IBackgroundTask>> UpdateCheckStarted = delegate { };
+        public event EventHandler<EventArgs<IBackgroundTask>> EndorseStarted = delegate { };
+
+        /// <summary>
+		/// The loginform Task.
+		/// </summary>
+		public LoginFormTask LoginTask;
+
 		/// <summary>
 		/// Gets the application's envrionment info.
 		/// </summary>
@@ -89,7 +98,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the current game mode.
 		/// </summary>
 		/// <value>The current game mode.</value>
-		protected IGameMode GameMode { get; private set; }
+		public IGameMode GameMode { get; private set; }
 
 		/// <summary>
 		/// Gets the mod repository from which to get mods and mod metadata.
@@ -302,6 +311,7 @@ namespace Nexus.Client.ModManagement
 			DownloadMonitor = p_dmrMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
+            LoginTask = new LoginFormTask(this);
 		}
 
 		#endregion
@@ -314,49 +324,19 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
 		/// <returns><c>true</c> if the user was successfully logged in;
 		/// <c>false</c> otherwise</returns>
-		protected bool LoginUser(LoginFormVM p_vmlViewModel)
-		{
-			LoginForm frmLogin = new LoginForm(p_vmlViewModel);
-			return frmLogin.ShowDialog() == DialogResult.OK;
-		}
-
-		/// <summary>
-		/// Logins the user into the current mod repository.
-		/// </summary>
-		/// <param name="p_gmdGameMode">The current game mode.</param>
-		/// <param name="p_mrpModRepository">The mod repository to use to retrieve mods and mod metadata.</param>
-		/// <returns><c>true</c> if the user was successfully logged in;
-		/// <c>false</c> otherwise</returns>
 		public bool Login()
-		{
-			if (EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id] == null)
-				EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id] = new KeyedSettings<string>();
+        {
+			if (LoginTask.LoggedOut)
+				LoginTask.Update();
+			else if (LoginTask.LoggingIn)
+				MessageBox.Show("Wait for the login attempt.", "Login in progress...",MessageBoxButtons.OK, MessageBoxIcon.Information);
+			return LoginTask.LoggedIn;
+ 		}
 
-			Dictionary<string, string> dicAuthTokens = new Dictionary<string, string>(EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModRepository.Id]);
-			bool booCredentialsExpired = false;
-			string strError = String.Empty;
-
-			try
-			{
-				booCredentialsExpired = !ModRepository.Login(dicAuthTokens);
-			}
-			catch (RepositoryUnavailableException e)
-			{
-				strError = e.Message;
-				dicAuthTokens.Clear();
-			}
-
-			if ((dicAuthTokens.Count == 0) || booCredentialsExpired)
-			{
-				string strMessage = String.Format("You must log into the {0} website.", ModRepository.Name);
-				string strCancelWarning = String.Format("If you do not login {0} will close.", EnvironmentInfo.Settings.ModManagerName);
-				strError = booCredentialsExpired ? "You need to login using your Nexus username and password." : strError;
-				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, ModRepository, GameMode.ModeTheme, strMessage, strError, strCancelWarning);
-				return LoginUser(vmlLoginVM);
-			}
-			else
-				return true;
-		}
+		public void Logout()
+        {
+            LoginTask.Reset();
+ 		}
 
 		#endregion
 
@@ -379,15 +359,8 @@ namespace Nexus.Client.ModManagement
 				}
 				else
 				{
-					if (Login())
-					{
-						return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
-					}
-					else
-					{
-						MessageBox.Show("You need to login to NMM before you can download mods!");
-						return null;
-					}
+					Login();
+                    return AsyncAddMod(uriPath, p_cocConfirmOverwrite);
 				}
 			}
 			else
@@ -527,7 +500,7 @@ namespace Nexus.Client.ModManagement
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-		public void ToggleModEndorsement(IMod p_modMod)
+        public void ToggleModEndorsement(IMod p_modMod, HashSet<IMod> p_hashmod, bool? p_booEnable)
 		{
 			AutoUpdater.ToggleModEndorsement(p_modMod);
 		}
@@ -573,6 +546,130 @@ namespace Nexus.Client.ModManagement
 			dmmDeactivateAllMods.Update(p_camConfirm);
 			return dmmDeactivateAllMods;
 		}
+
+        #region asyncTag
+
+        public async void AsyncTagMod(ModManagement.UI.ModManagerVM p_ModManagerVM,  ModManagement.UI.ModTaggerVM p_ModTaggerVM, EventHandler<EventArgs<ModManagement.UI.ModTaggerVM>> p_TaggingMod)
+        {
+            int intRetry = 0;
+
+            while (intRetry < 5)
+            {
+                await Task.Delay(3000);
+                if (LoginTask.LoggedIn)
+                {
+                    p_TaggingMod(p_ModManagerVM, new EventArgs<ModManagement.UI.ModTaggerVM>(p_ModTaggerVM));
+                    break;
+                }
+                else
+                    intRetry++;
+            }
+        }
+
+        #endregion
+
+        #region asyncAddMod
+
+        public IBackgroundTask AsyncAddMod(Uri p_uriPath,ConfirmOverwriteCallback p_cocConfirmOverwrite)
+        {
+            IBackgroundTask tskAddModTask = ModAdditionQueue.AddMod(p_uriPath, p_cocConfirmOverwrite);
+            AsyncAddModTask(tskAddModTask);
+            return tskAddModTask;
+        }
+
+        public async void AsyncAddModTask(IBackgroundTask p_tskAddModTask)
+        {
+            int intRetry = 0;
+
+            while (intRetry < 5)
+            {
+                await Task.Delay(3000);
+                if (LoginTask.LoggedIn)
+                {
+                    if (p_tskAddModTask.Status == BackgroundTasks.TaskStatus.Paused)
+                        p_tskAddModTask.Resume();
+                    break;
+                }
+                else
+                {
+                    intRetry++;
+                }              
+            }
+        }
+
+        #endregion
+
+        #region asyncUpdate
+
+        /// <summary>
+        /// Runs the managed updaters.
+        /// </summary>
+        /// <param name="p_lstModList">The list of mods we need to update.</param>
+        /// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+        /// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
+        /// <returns>The background task that will run the updaters.</returns>
+        public void AsyncUpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup)
+        {
+            ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup);
+            AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
+        }
+        
+        public async Task AsyncUpdateModsTask(ModUpdateCheckTask p_mutModUpdateCheck, ConfirmActionMethod p_camConfirm)
+        {
+            int intRetry = 0;
+
+            while (intRetry < 5)
+            {
+                await Task.Delay(3000);
+                if (LoginTask.LoggedIn)
+                {
+                    p_mutModUpdateCheck.Update(p_camConfirm);
+                    UpdateCheckStarted(this, new EventArgs<IBackgroundTask>(p_mutModUpdateCheck));
+                    break;
+                }
+                else
+                    intRetry++;
+            }
+        }
+
+       #endregion 
+
+
+        #region asyncEndorse
+
+        /// <summary>
+        /// Runs the managed updaters.
+        /// </summary>
+        /// <param name="p_lstModList">The list of mods we need to update.</param>
+        /// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+        /// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
+        /// <returns>The background task that will run the updaters.</returns>
+        public void AsyncEndorseMod(HashSet<IMod> p_hashMods, bool? p_booEnable, ConfirmActionMethod p_camConfirm)
+        {
+            ToggleUpdateWarningTask mutModEndorseCheck = new ToggleUpdateWarningTask(p_hashMods, p_booEnable, p_camConfirm);
+            AsyncEndorseModTask(mutModEndorseCheck, p_camConfirm);
+        }
+
+        public async Task AsyncEndorseModTask(ToggleUpdateWarningTask mutModEndorseCheck, ConfirmActionMethod p_camConfirm)
+        {
+            int intRetry = 0;
+
+            while (intRetry < 5)
+            {
+                await Task.Delay(3000);
+                if (LoginTask.LoggedIn)
+                {
+                    mutModEndorseCheck.Update(p_camConfirm);
+                    EndorseStarted(this, new EventArgs<IBackgroundTask>(mutModEndorseCheck));
+                    break;
+                }
+                else
+                    intRetry++;
+            }
+        }
+
+        #endregion
+
 
 		/// <summary>
 		/// Runs the managed updaters.

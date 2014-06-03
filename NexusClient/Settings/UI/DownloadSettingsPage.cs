@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
+using System.Security;
+using System.Security.Permissions;
 using System.Windows.Forms;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Util;
@@ -26,6 +30,8 @@ namespace Nexus.Client.Settings.UI
 			SettingsGroup = p_dsgSettings;
 			p_dsgSettings.UpdatedSettings += new EventHandler(dsgSettings_UpdatedSettings);
 			InitializeComponent();
+
+			butChromeFix.Image = new Bitmap(Properties.Resources.uac_icon, 20, 20);
 
 			SetBindings(p_dsgSettings);
 		}
@@ -54,7 +60,7 @@ namespace Nexus.Client.Settings.UI
 			cbxServerLocation.DataSource = bsFileServerZones.DataSource;
 			cbxServerLocation.DisplayMember = "FileServerName";
 			cbxServerLocation.ValueMember = "FileServerID";
-			
+
 			if (cbxServerLocation.DataBindings != null)
 				cbxServerLocation.DataBindings.Clear();
 			BindingHelper.CreateFullBinding(cbxServerLocation, () => cbxServerLocation.SelectedValue, p_dsgSettings, () => p_dsgSettings.UserLocation);
@@ -122,6 +128,75 @@ namespace Nexus.Client.Settings.UI
 			DownloadSettingsGroup dsgSettings = (DownloadSettingsGroup)sender;
 			if (dsgSettings != null)
 				SetBindings(dsgSettings);
+		}
+
+		private void butChromeFix_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				ChromeFix();
+			}
+			catch (SecurityException)
+			{
+				MessageBox.Show("You MUST run the program as Administrator to use this functionality.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+		}
+
+		private void ChromeFix()
+		{
+			Process[] prcName = Process.GetProcessesByName("chrome");
+			if (prcName.Length > 0)
+			{
+				MessageBox.Show("Make sure Chrome is closed before running this fix.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			string strChromeAppDataPath = Path.Combine(Environment.GetEnvironmentVariable("LocalAppData"), @"Google\Chrome\User Data\");
+			FileInfo fiChrome = new FileInfo(Path.Combine(strChromeAppDataPath, "Local State"));
+			if (fiChrome.Exists)
+			{
+				try
+				{
+					fiChrome.CopyTo(Path.Combine(strChromeAppDataPath, "Local State.nmm.bak"), true);
+				}
+				catch
+				{
+					DialogResult drWarning = MessageBox.Show("Unable to backup the 'Local State' file, do you want to continue anyway?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+					if (drWarning == DialogResult.No)
+						return;
+				}
+
+				string[] lines = File.ReadAllLines(fiChrome.FullName);
+				using (StreamWriter swChromeLocalState = new StreamWriter(fiChrome.FullName))
+				{
+					bool booFound = false;
+					foreach (string line in lines)
+					{
+						string strLine = line;
+						if (!booFound)
+						{
+							if (strLine.IndexOf("\"excluded_schemes\": {") >= 0)
+							{
+								swChromeLocalState.WriteLine(strLine);
+								swChromeLocalState.WriteLine("         \"nxm\": false,");
+								booFound = true;
+								continue;
+							}
+						}
+						else
+						{
+							if (strLine.IndexOf("\"nxm\": ") >= 0)
+								continue;
+						}
+
+						swChromeLocalState.WriteLine(strLine);
+					}
+				}
+			}
+			else
+				MessageBox.Show("It seems that Chrome is not present (or properly installed) on your system.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+			MessageBox.Show("The fix was successfully applied.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 	}
 }

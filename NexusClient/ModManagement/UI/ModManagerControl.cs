@@ -196,9 +196,12 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			catch (Exception e)
 			{
-				string strMessage = "Couldn't perform the update check, retry later.";
-				strMessage += Environment.NewLine + Environment.NewLine + e.Message;
-				MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				if (e.Message != "Login required")
+				{
+					string strMessage = "Couldn't perform the update check, retry later.";
+					strMessage += Environment.NewLine + Environment.NewLine + e.Message;
+					MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
 			}
 		}
 
@@ -209,9 +212,10 @@ namespace Nexus.Client.ModManagement.UI
 
 			try
 			{
-				IMod modMod = GetSelectedMod();
+                HashSet<IMod> hashMods = GetSelectedModsHashset();
+                IMod modMod = GetSelectedMod();
 				booCurrentState = modMod.IsEndorsed;
-				ViewModel.ToggleModEndorsement(modMod);
+                ViewModel.ToggleModEndorsement(modMod, hashMods, null);
 				tsbToggleEndorse.Enabled = true;
 			}
 			catch (Exception e)
@@ -1501,7 +1505,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs{ModTaggerVM}"/> describing the event arguments.</param>
 		private void ViewModel_TaggingMod(object sender, EventArgs<ModTaggerVM> e)
 		{
-			new ModTaggerForm(e.Argument).ShowDialog(this);
+            if (!ViewModel.ModRepository.IsOffline)
+                new ModTaggerForm(e.Argument).ShowDialog(this);
 		}
 
 		#endregion
