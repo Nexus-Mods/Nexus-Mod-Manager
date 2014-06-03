@@ -17,7 +17,6 @@ namespace Nexus.Client.Settings
 		private bool m_booUseMultithreadedDownloads = false;
 		private bool m_booPremiumEnabled = false;
 		private string m_strUserLocation = "default";
-		private Int32 m_intConnections = 1;
 		private IModRepository m_mmrModRepository = null;
 
 		#region Custom Events

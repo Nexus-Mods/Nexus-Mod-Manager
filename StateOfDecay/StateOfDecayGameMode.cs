@@ -414,7 +414,7 @@ namespace Nexus.Client.Games.StateOfDecay
                 return p_strPath;
             }
             // IOEX from NeedsPathAdjust - Multiple content.xml found.
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
             {
                 throw new InvalidDataException("This package contains multiple mods, which is not supported.");
             }

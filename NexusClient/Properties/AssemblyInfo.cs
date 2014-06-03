@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Black Tree Gaming")]
 [assembly: AssemblyProduct("NexusModManager")]
-[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2011")]
+[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2014")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

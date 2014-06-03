@@ -166,7 +166,6 @@
 			this.panel3.Controls.Add(this.butLogin);
 			this.panel3.Controls.Add(this.label4);
 			this.panel3.Controls.Add(this.butOffline);
-			this.panel3.Controls.Add(this.butCancel);
 			this.panel3.Controls.Add(this.ckbStayLoggedIn);
 			this.panel3.Controls.Add(this.tbxUsername);
 			this.panel3.Controls.Add(this.tbxPassword);
@@ -211,7 +210,6 @@
 		private System.Windows.Forms.Label label3;
 		private System.Windows.Forms.Button butLogin;
 		private System.Windows.Forms.Button butOffline;
-		private System.Windows.Forms.Button butCancel;
 		private System.Windows.Forms.TextBox tbxUsername;
 		private System.Windows.Forms.TextBox tbxPassword;
 		private System.Windows.Forms.CheckBox ckbStayLoggedIn;

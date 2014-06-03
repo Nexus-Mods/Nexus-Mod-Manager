@@ -69,7 +69,7 @@ namespace Nexus.Client.Updating
 				return CancelUpdate();
 			}
 
-			if (verNew == new Version("0.0.0.0"))
+			if (verNew == new Version("69.69.69.69"))
 			{
 				SetMessage("Could not get version information from the update server.");
 				return false;
@@ -115,7 +115,7 @@ namespace Nexus.Client.Updating
 				}
 
 				SetMessage(String.Format("Downloading new {0} version...", EnvironmentInfo.Settings.ModManagerName));
-				string strNewInstaller = DownloadFile(new Uri(String.Format("http://dev.nexusmods.com/client/releases/Nexus Mod Manager-{0}.exe", verNew.ToString())));
+				string strNewInstaller = DownloadFile(new Uri(String.Format("http://dev.nexusmods.com/client/4.5/Nexus Mod Manager-{0}.exe", verNew.ToString())));
 				SetProgress(2);
 
 				if (CancelRequested)
@@ -234,14 +234,14 @@ namespace Nexus.Client.Updating
 		/// Gets the newest available programme version.
 		/// </summary>
 		/// <returns>The newest available programme version,
-		/// or 0.0.0.0 if now information could be retrieved.</returns>
+		/// or 69.69.69.69 if now information could be retrieved.</returns>
 		private Version GetNewProgrammeVersion()
 		{
 			WebClient wclNewVersion = new WebClient();
-			Version verNew = new Version("0.0.0.0");
+			Version verNew = new Version("69.69.69.69");
 			try
 			{
-				string strNewVersion = wclNewVersion.DownloadString("http://dev.nexusmods.com/client/releases/latestversion.php");
+				string strNewVersion = wclNewVersion.DownloadString("http://dev.nexusmods.com/client/4.5/latestversion.php");
 				if (!String.IsNullOrEmpty(strNewVersion))
 					verNew = new Version(strNewVersion);
 			}

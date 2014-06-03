@@ -19,8 +19,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class DeactivateMultipleModsTask : ThreadedBackgroundTask
 	{
-		bool m_booCancel = false;
-
 		#region Fields
 
 		private IInstallLog m_iilInstallLog = null;
@@ -70,7 +68,6 @@ namespace Nexus.Client.ModManagement
 		public override void Cancel()
 		{
 			base.Cancel();
-			m_booCancel = true;
 		}
 
 		/// <summary>

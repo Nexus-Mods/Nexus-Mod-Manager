@@ -250,7 +250,7 @@ namespace Nexus.Client
 			{
 				new XmlSerializer(typeof(WindowPositions));
 			}
-			catch (InvalidOperationException e)
+			catch (InvalidOperationException)
 			{
 
 				string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
@@ -262,7 +262,7 @@ namespace Nexus.Client
 				ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return false;
 			}
-			catch (System.Runtime.InteropServices.ExternalException e)
+			catch (System.Runtime.InteropServices.ExternalException)
 			{
 				string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
 								"The sandbox is preventing {0} from performing" + Environment.NewLine +
