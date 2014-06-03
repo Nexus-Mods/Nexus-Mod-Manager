@@ -60,7 +60,8 @@ namespace Nexus.Client.Updating
 			Trace.Indent();
 			SetProgressMaximum(2);
 			SetMessage(String.Format("Checking for new {0} version...", EnvironmentInfo.Settings.ModManagerName));
-			Version verNew = GetNewProgrammeVersion();
+			string strDownloadUri = String.Empty;
+			Version verNew = GetNewProgrammeVersion(out strDownloadUri);
 			SetProgress(1);
 
 			if (CancelRequested)
@@ -78,7 +79,7 @@ namespace Nexus.Client.Updating
 			StringBuilder stbPromptMessage = new StringBuilder();
 			DialogResult drResult = DialogResult.No;
 
-			if (verNew > new Version(ProgrammeMetadata.VersionString))
+			if ((verNew > new Version(ProgrammeMetadata.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
 			{
 				stbPromptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine).AppendLine();
 				stbPromptMessage.AppendLine();
@@ -115,7 +116,7 @@ namespace Nexus.Client.Updating
 				}
 
 				SetMessage(String.Format("Downloading new {0} version...", EnvironmentInfo.Settings.ModManagerName));
-				string strNewInstaller = DownloadFile(new Uri(String.Format("http://dev.nexusmods.com/client/4.5/Nexus Mod Manager-{0}.exe", verNew.ToString())));
+				string strNewInstaller = DownloadFile(new Uri(String.Format(strDownloadUri)));
 				SetProgress(2);
 
 				if (CancelRequested)
@@ -235,20 +236,25 @@ namespace Nexus.Client.Updating
 		/// </summary>
 		/// <returns>The newest available programme version,
 		/// or 69.69.69.69 if now information could be retrieved.</returns>
-		private Version GetNewProgrammeVersion()
+		private Version GetNewProgrammeVersion(out string p_strDownloadUri)
 		{
 			WebClient wclNewVersion = new WebClient();
 			Version verNew = new Version("69.69.69.69");
+			p_strDownloadUri = String.Empty;
 			try
 			{
 				string strNewVersion = wclNewVersion.DownloadString("http://dev.nexusmods.com/client/4.5/latestversion.php");
 				if (!String.IsNullOrEmpty(strNewVersion))
-					verNew = new Version(strNewVersion);
+				{
+					verNew = new Version(strNewVersion.Split('|')[0]);
+					p_strDownloadUri = strNewVersion.Split('|')[1];
+				}
 			}
 			catch (WebException e)
 			{
 				Trace.TraceError(String.Format("Could not connect to update server: {0}", e.Message));
 			}
+
 			return verNew;
 		}
 	}
