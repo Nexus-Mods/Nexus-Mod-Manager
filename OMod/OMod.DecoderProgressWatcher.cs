@@ -1,6 +1,6 @@
 ﻿using System;
 using Nexus.Client.Util;
-using SevenZip.Sdk;
+using SevenZip;
 
 namespace Nexus.Client.Mods.Formats.OMod
 {
