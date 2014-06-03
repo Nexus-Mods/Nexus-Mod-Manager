@@ -194,7 +194,10 @@ namespace Nexus.Client.Settings.UI
 				}
 			}
 			else
+			{
 				MessageBox.Show("It seems that Chrome is not present (or properly installed) on your system.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return;
+			}
 
 			MessageBox.Show("The fix was successfully applied.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}

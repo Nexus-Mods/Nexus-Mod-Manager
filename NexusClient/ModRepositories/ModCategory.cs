@@ -76,6 +76,10 @@ namespace Nexus.Client.ModRepositories
 					other.CategoryName == this.CategoryName);
 		}
 
+		public override int GetHashCode()
+		{
+			return base.GetHashCode();
+		}
 		#endregion
 	}
 }
