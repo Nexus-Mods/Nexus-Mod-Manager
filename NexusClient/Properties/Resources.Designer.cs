@@ -663,6 +663,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap uac_icon {
+            get {
+                object obj = ResourceManager.GetObject("uac_icon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap unendorsed {
             get {
                 object obj = ResourceManager.GetObject("unendorsed", resourceCulture);
