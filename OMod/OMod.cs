@@ -8,7 +8,7 @@ using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using SevenZip;
-using SevenZip.Sdk.Compression.Lzma;
+using SevenZip.Compression.LZMA;
 
 namespace Nexus.Client.Mods.Formats.OMod
 {
