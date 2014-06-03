@@ -57,7 +57,7 @@
 			this.tlbDownloads = new System.Windows.Forms.ToolStripLabel();
 			this.tpbDownloadSpeed = new Nexus.Client.UI.Controls.CustomizableToolStripProgressBar();
 			this.tsbGoPremium = new System.Windows.Forms.ToolStripButton();
-			this.tlbGoPremium = new System.Windows.Forms.ToolStripLabel();
+            this.tlbLoginMessage = new System.Windows.Forms.ToolStripLabel();
 			this.tsbOnlineStatus = new System.Windows.Forms.ToolStripButton();
 			this.tstFind = new System.Windows.Forms.ToolStripTextBox();
 			this.toolStrip1.SuspendLayout();
@@ -220,7 +220,7 @@
 			this.tlbDownloads,
 			this.tpbDownloadSpeed,
 			this.tsbGoPremium,
-			this.tlbGoPremium});
+			this.tlbLoginMessage});
 			this.tssDownload.Location = new System.Drawing.Point(0, 497);
 			this.tssDownload.Name = "tssDownload";
 			this.tssDownload.Size = new System.Drawing.Size(804, 36);
@@ -270,10 +270,10 @@
 			this.tsbOnlineStatus.Name = "tsbOnlineStatus";
 			this.tsbOnlineStatus.Size = new System.Drawing.Size(36, 34);
 			// 
-			// tlbGoPremium
+            // tlbLoginMessage
 			// 
-			this.tlbGoPremium.Name = "tlbGoPremium";
-			this.tlbGoPremium.Size = new System.Drawing.Size(0, 34);
+            this.tlbLoginMessage.Name = "tlbLoginMessage";
+            this.tlbLoginMessage.Size = new System.Drawing.Size(0, 34);
 			// 
 			// MainForm
 			// 
@@ -307,7 +307,7 @@
 		private System.Windows.Forms.StatusStrip tssDownload;
 		private Nexus.Client.UI.Controls.CustomizableToolStripProgressBar tpbDownloadSpeed;
 		private System.Windows.Forms.ToolStripLabel tlbDownloads;
-		private System.Windows.Forms.ToolStripLabel tlbGoPremium;
+        private System.Windows.Forms.ToolStripLabel tlbLoginMessage;
 		private System.Windows.Forms.ToolStripButton tsbGoPremium;
 		private System.Windows.Forms.ToolStripButton tsbOnlineStatus;
 		public System.Windows.Forms.ToolStripTextBox tstFind;

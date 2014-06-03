@@ -90,7 +90,7 @@ namespace Nexus.Client
 		/// Gets the mod manager to use to manage mods.
 		/// </summary>
 		/// <value>The mod manager to use to manage mods.</value>
-		protected ModManager ModManager { get; private set; }
+		public ModManager ModManager { get; private set; }
 
 		/// <summary>
 		/// Gets the repository we are logging in to.
@@ -472,6 +472,7 @@ namespace Nexus.Client
 				else
 				{
 					ModRepository.Logout();
+                    ModManager.Logout();
 					EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
 					EnvironmentInfo.Settings.Save();
 				}
