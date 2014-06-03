@@ -94,7 +94,6 @@ namespace Nexus.UI
 				}
 			}
 
-			private bool m_booIsUpdatingCheckStates = false;
 			private Type m_tpeEnumType = null;
 
 			#region Properties
@@ -187,8 +186,6 @@ namespace Nexus.UI
 			/// <param name="p_intCompositeFlag">The composite flag value to represent with the list box.</param>
 			protected void UpdateCheckedItems(Int32 p_intCompositeFlag)
 			{
-				m_booIsUpdatingCheckStates = true;
-
 				for (Int32 i = 0; i < Items.Count; i++)
 				{
 					FlagCheckedListBoxItem lbiItem = (FlagCheckedListBoxItem)Items[i];
@@ -197,8 +194,6 @@ namespace Nexus.UI
 					else
 						SetItemChecked(i, (lbiItem.Value & p_intCompositeFlag) == lbiItem.Value);
 				}
-
-				m_booIsUpdatingCheckStates = false;
 			}
 
 			/// <summary>

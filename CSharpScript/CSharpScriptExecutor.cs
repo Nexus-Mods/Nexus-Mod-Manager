@@ -87,7 +87,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 				ScriptRunner srnRunner = null;
 				try
 				{
-					srnRunner = (ScriptRunner)admScript.CreateInstanceFromAndUnwrap(typeof(ScriptRunner).Assembly.ManifestModule.FullyQualifiedName, typeof(ScriptRunner).FullName, false, BindingFlags.Default, null, args, null, null, null);
+					srnRunner = (ScriptRunner)admScript.CreateInstanceFromAndUnwrap(typeof(ScriptRunner).Assembly.ManifestModule.FullyQualifiedName, typeof(ScriptRunner).FullName, false, BindingFlags.Default, null, args, null, null);
 				}
 				finally
 				{
