@@ -411,9 +411,7 @@ namespace Nexus.Client.ModManagement
 			{
 				if (m_mrpModRepository.IsOffline)
 				{
-					Status = TaskStatus.Error;
-					OverallMessage = "Unable to download in Offline Mode!";
-					OnTaskEnded("Unable to download in Offline Mode!", null);
+                    Pause();
 					return;
 				}
 				else
@@ -1010,11 +1008,9 @@ namespace Nexus.Client.ModManagement
 
 			if (Descriptor == null)
 			{
-				Status = TaskStatus.Error;
-				Descriptor = BuildDescriptor(m_uriPath);
-				Descriptor.Status = Status;
-				OverallMessage = String.Format("An error occurred while cancelling: {0}", m_uriPath.ToString());
-				OnTaskEnded(String.Format("An error occurred while cancelling: {0}", m_uriPath.ToString()), null);
+                Descriptor = new AddModDescriptor(m_uriPath, String.Empty, null, Status, null);
+                OverallMessage = String.Format("Cancelled: {0}", m_uriPath.ToString());
+                OnTaskEnded(String.Format("Cancelled: {0}", m_uriPath.ToString()), null);
 				return;
 			}
 

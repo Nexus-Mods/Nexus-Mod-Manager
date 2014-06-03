@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client
 {
@@ -13,6 +14,17 @@ namespace Nexus.Client
 	public partial class LoginForm : ManagedFontForm
 	{
 		private LoginFormVM m_vmlViewModel = null;
+
+        private LoginFormTask m_lftLoginTask = null;
+
+		#region Events
+
+		/// <summary>
+		/// Raised when the programme is being updated.
+		/// </summary>
+		public event EventHandler Authenticating = delegate { };
+
+		#endregion
 
 		#region Properties
 
@@ -49,11 +61,13 @@ namespace Nexus.Client
 		/// A simple constructor the initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
-		public LoginForm(LoginFormVM p_vmlViewModel)
-		{
+		public LoginForm(LoginFormVM p_vmlViewModel, LoginFormTask p_lftLoginTask)
+        {
 			InitializeComponent();
 			lblError.Visible = true;
 			lblError.TextChanged += new EventHandler(lblError_TextChanged);
+            this.FormClosed += new FormClosedEventHandler(LoginForm_FormClosed);
+            m_lftLoginTask = p_lftLoginTask;
 			ViewModel = p_vmlViewModel;
 		}
 
@@ -90,8 +104,11 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butLogin_Click(object sender, EventArgs e)
 		{
-			if (ViewModel.Login())
-				DialogResult = DialogResult.OK;
+			if (Authenticating != null)
+			{
+				this.Hide();
+				Authenticating(this, new EventArgs());
+			}
 		}
 
 		/// <summary>
@@ -101,12 +118,20 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butCancel_Click(object sender, EventArgs e)
 		{
-			DialogResult = DialogResult.No;
+            m_lftLoginTask.Reset();
+            DialogResult = DialogResult.No;
 		}
 
 		private void butOffline_Click(object sender, EventArgs e)
 		{
-			DialogResult = DialogResult.No;
+            m_lftLoginTask.Reset();
+            DialogResult = DialogResult.No;
 		}
+
+         private void LoginForm_FormClosed(object sender, EventArgs e)
+		{
+			if (!m_lftLoginTask.LoggedIn)
+				m_lftLoginTask.Reset();
+ 		}
 	}
 }
