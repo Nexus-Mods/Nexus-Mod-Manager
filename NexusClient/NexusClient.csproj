@@ -67,6 +67,7 @@
     </Compile>
     <Compile Include="GameModeSelector.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
+    <Compile Include="LoginFormTask.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>

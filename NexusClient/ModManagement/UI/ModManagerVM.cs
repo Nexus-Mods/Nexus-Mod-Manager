@@ -161,7 +161,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// Gets the mod manager to use to manage mods.
 		/// </summary>
 		/// <value>The mod manager to use to manage mods.</value>
-		protected ModManager ModManager { get; private set; }
+		public ModManager ModManager { get; private set; }
 
 		/// <summary>
 		/// Gets the mod repository from which to get mods and mod metadata.
@@ -440,20 +440,16 @@ namespace Nexus.Client.ModManagement.UI
 		protected void TagMod(IMod p_modMod)
 		{
 			if (!ModManager.ModRepository.IsOffline)
-			{
-				ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
-				TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
-			}
-			else
-			{
-				if (ModManager.Login())
-				{
-					ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
-					TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
-				}
-				else if (OfflineMode)
-					MessageBox.Show("This function is unavailable while being offline!");
-			}
+            {
+                ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
+                TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
+            }
+            else
+            {
+                ModManager.Login();
+                ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
+                ModManager.AsyncTagMod(this, mtgTagger, TaggingMod);
+            }
 		}
 
 		/// <summary>
@@ -479,49 +475,48 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
 		public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
-			if ((!ModRepository.IsOffline) || (ModManager.Login()))
-			{
-				List<IMod> lstModList = new List<IMod>();
+            List < IMod > lstModList = new List<IMod>();
 
-				if (p_booOverrideCategorySetup)
-				{
-					lstModList.AddRange(from Mod in ManagedMods
-										where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
-										select Mod);
-				}
-				else
-					lstModList.AddRange(ManagedMods);
-
-				if (lstModList.Count > 0)
-				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup)));
-				}
-			}
-			else
-			{
-				MessageBox.Show("You can't check for mod updates while being offline!");
-			}
+            if (p_booOverrideCategorySetup)
+            {
+                lstModList.AddRange(from Mod in ManagedMods
+                                    where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
+                                    select Mod);
+            }
+            else
+                lstModList.AddRange(ManagedMods);
+            
+            if (!ModRepository.IsOffline)
+            {
+                if (lstModList.Count > 0)
+                {
+                    UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup)));
+                }
+            }
+            else
+            {
+                ModManager.Login();
+                ModManager.AsyncUpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup);
+            }
 		}
 
 		/// <summary>
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-		public void ToggleModEndorsement(IMod p_modMod)
-		{
+        public void ToggleModEndorsement(IMod p_modMod, HashSet<IMod> p_hashMods, bool? p_booEnable)
+        {
 
 			string strResult = string.Empty;
 			if (String.IsNullOrEmpty(p_modMod.Id))
 				throw new Exception("we couldn't find a proper Nexus ID or the file no longer exists on the Nexus sites.");
 
 			if (!ModManager.ModRepository.IsOffline)
-				ModManager.ToggleModEndorsement(p_modMod);
+                ModManager.ToggleModEndorsement(p_modMod, p_hashMods, p_booEnable);
 			else
 			{
-				if (ModManager.Login())
-					ModManager.ToggleModEndorsement(p_modMod);
-				else if (OfflineMode)
-					MessageBox.Show("You can't toggle mod endorsement while being offline!");
+                ModManager.Login();
+                ModManager.AsyncEndorseMod(p_hashMods, p_booEnable, ConfirmUpdaterAction);
 			}
 		}
 

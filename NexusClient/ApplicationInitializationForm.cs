@@ -384,7 +384,7 @@ namespace Nexus.Client
 		{
 			if (InvokeRequired)
 				return (bool)Invoke((Func<LoginFormVM, bool>)Login, p_vmlViewModel);
-			LoginForm frmLogin = new LoginForm(p_vmlViewModel);
+			LoginForm frmLogin = new LoginForm(p_vmlViewModel, null);
 			return frmLogin.ShowDialog(this) == DialogResult.OK;
 		}
 
