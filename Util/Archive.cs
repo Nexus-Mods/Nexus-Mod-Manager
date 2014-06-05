@@ -207,7 +207,7 @@ namespace Nexus.Client.Util
 			{
 				using (SevenZipExtractor szeExtractor = GetExtractor(p_strPath))
 				{
-					uint g = szeExtractor.FilesCount;
+					UInt32 g = szeExtractor.FilesCount;
 				}
 			}
 			catch (Exception)

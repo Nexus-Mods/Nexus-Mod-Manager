@@ -283,7 +283,7 @@ namespace Nexus.Client
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		protected void SetCompressorPath(EnvironmentInfo p_eifEnvironmentInfo)
 		{
-			string str7zPath = Path.Combine(p_eifEnvironmentInfo.ProgrammeInfoDirectory, p_eifEnvironmentInfo.Is64BitProcess ? "7z64.dll" : "7z.dll");
+			string str7zPath = Path.Combine(p_eifEnvironmentInfo.ProgrammeInfoDirectory, p_eifEnvironmentInfo.Is64BitProcess ? "7z-64bit.dll" : "7z-32bit.dll");
 			SevenZipCompressor.SetLibraryPath(str7zPath);
 		}
 

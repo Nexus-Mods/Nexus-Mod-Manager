@@ -294,10 +294,10 @@
     <None Include="Resources\europeanunion.png" />
     <None Include="Resources\offline-icon.png" />
     <None Include="Resources\online-icon.png" />
-    <Content Include="data\7z.dll">
+    <Content Include="data\7z-32bit.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\7z64.dll">
+    <Content Include="data\7z-64bit.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\tes_logo.ico" />
