@@ -26,7 +26,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		public byte[] Compile(string p_strCode, Type p_tpeBaseScriptType, out CompilerErrorCollection p_cecErrors)
 		{
 			Dictionary<string, string> dicOptions = new Dictionary<string, string>();
-			dicOptions["CompilerVersion"] = "v3.5";
+			dicOptions["CompilerVersion"] = "v4.0";
 			CSharpCodeProvider ccpProvider = new CSharpCodeProvider(dicOptions);
 			CompilerParameters cpmOptions = new CompilerParameters();
 			cpmOptions.GenerateExecutable = false;
