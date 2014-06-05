@@ -1,21 +1,14 @@
 // Define stuff we need to download/update/install
 
 #define use_msi31
-
-#define use_dotnetfx35
-// German languagepack?
-//#define use_dotnetfx35lp
-
-// Enable the required define(s) below if a local event function (prepended with Local) is used
-//#define haveLocalPrepareToInstall
-//#define haveLocalNeedRestart
-//#define haveLocalNextButtonClick
+;#define use_msi45
+#define use_dotnetfx45
 
 // End
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.49.6'
+#define MyAppVersion '0.50.0'
 #define SetupScriptVersion '0.7.1.0'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
@@ -23,7 +16,7 @@ AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
-AppCopyright=Copyright © {#MyPublisher} 2011-2013
+AppCopyright=Copyright © {#MyPublisher} 2011-2014
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyPublisher}
 AppPublisher={#MyPublisher}
@@ -42,6 +35,7 @@ CreateAppDir=true
 OutputDir=bin
 SourceDir=.
 AllowNoIcons=true
+SignedUninstaller=true
 UsePreviousGroup=true
 UsePreviousAppDir=true
 LanguageDetectionMethod=uilanguage
@@ -51,7 +45,7 @@ Compression=lzma2/Max
 ChangesAssociations=true
 LicenseFile=..\bin\Release\data\Licence.rtf
 InfoBeforeFile=..\bin\Release\data\releasenotes.rtf
-MinVersion=0,5.01
+MinVersion=0,6.0
 PrivilegesRequired=admin
 ArchitecturesAllowed=x86 x64 ia64
 ArchitecturesInstallIn64BitMode=x64 ia64
@@ -112,18 +106,20 @@ Root: HKCR; Subkey: OMOD_File_Type\shell\open\command; ValueType: string; ValueN
 
 #include "scripts\products.iss"
 
+#include "scripts\products\stringversion.iss"
 #include "scripts\products\winversion.iss"
 #include "scripts\products\fileversion.iss"
+#include "scripts\products\dotnetfxversion.iss"
 
 #ifdef use_msi31
 #include "scripts\products\msi31.iss"
 #endif
-
-#ifdef use_dotnetfx35
-#include "scripts\products\dotnetfx35sp1.iss"
-#ifdef use_dotnetfx35lp
-#include "scripts\products\dotnetfx35sp1lp.iss"
+#ifdef use_msi45
+#include "scripts\products\msi45.iss"
 #endif
+
+#ifdef use_dotnetfx45
+#include "scripts\products\dotnetfx45.iss"
 #endif
 
 [CustomMessages]
@@ -134,31 +130,6 @@ winxpsp3_title=Windows XP Service Pack 3
 #expr SaveToFile(AddBackslash(SourcePath) + "Preprocessed"+MyAppSetupname+SetupScriptVersion+".iss")
 
 [Code]
-function InitializeSetup(): Boolean;
-begin
-	//init windows version
-	initwinversion();
-	
-	//check if dotnetfx20 can be installed on this OS
-	//if not minwinspversion(5, 0, 3) then begin
-	//	MsgBox(FmtMessage(CustomMessage('depinstall_missing'), [CustomMessage('win2000sp3_title')]), mbError, MB_OK);
-	//	exit;
-	//end;
-	if not minwinspversion(5, 1, 3) then begin
-		MsgBox(FmtMessage(CustomMessage('depinstall_missing'), [CustomMessage('winxpsp3_title')]), mbError, MB_OK);
-		exit;
-	end;
-	
-#ifdef use_dotnetfx35
-	dotnetfx35sp1();
-#ifdef use_dotnetfx35lp
-	dotnetfx35sp1lp();
-#endif
-#endif
-	
-	Result := true;
-end;
-
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpInfoBefore then
@@ -182,5 +153,54 @@ begin
             DelTree(ExpandConstant('{localappdata}/') + mPub + '/{#MyExeName}*', False, True, True);
           End
       end;
+  end;
+end;
+
+    function GetUninstallString: string;
+var
+  sUnInstPath: string;
+  sUnInstallString: String;
+begin
+  Result := '';
+  sUnInstPath := ExpandConstant('Software\Microsoft\Windows\CurrentVersion\Uninstall\6af12c54-643b-4752-87d0-8335503010de_is1'); //Your App GUID/ID
+  sUnInstallString := '';
+  if not RegQueryStringValue(HKLM, sUnInstPath, 'UninstallString', sUnInstallString) then
+    RegQueryStringValue(HKCU, sUnInstPath, 'UninstallString', sUnInstallString);
+  Result := sUnInstallString;
+end;
+
+function IsUpgrade: Boolean;
+begin
+  Result := (GetUninstallString() <> '');
+end;
+
+function InitializeSetup: Boolean;
+var
+  V: Integer;
+  iResultCode: Integer;
+  sUnInstallString: string;
+begin
+#ifdef use_msi31
+	msi31('3.1');
+#endif
+#ifdef use_dotnetfx45
+    //dotnetfx45(2); // min allowed version is .netfx 4.5.2
+    dotnetfx45(0); // min allowed version is .netfx 4.5.0
+#endif
+
+  Result := True; // in case when no previous version is found
+  if RegValueExists(HKEY_LOCAL_MACHINE,'Software\Microsoft\Windows\CurrentVersion\Uninstall\6af12c54-643b-4752-87d0-8335503010de_is1', 'UninstallString') then  //Your App GUID/ID
+  begin
+    V := MsgBox(ExpandConstant('You need to uninstall your current version of NMM before you apply this update. When asked if you would like to remove the config files, select no. This will not remove or change any of your installed mods. Simply install NMM to the same location as before.'), mbInformation, MB_YESNO); //Custom Message if App installed
+    if V = IDYES then
+    begin
+      sUnInstallString := GetUninstallString();
+      sUnInstallString :=  RemoveQuotes(sUnInstallString);
+      Exec(ExpandConstant(sUnInstallString), '', '', SW_SHOW, ewWaitUntilTerminated, iResultCode);
+      Result := True; //if you want to proceed after uninstall
+                //Exit; //if you want to quit after uninstall
+    end
+    else
+      Result := False; //when older version present and not uninstalled
   end;
 end;
