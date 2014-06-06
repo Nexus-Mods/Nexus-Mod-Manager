@@ -79,6 +79,15 @@ namespace WeifenLuo.WinFormsUI.Docking {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Performance.
+        /// </summary>
+        internal static string Category_Performance {
+            get {
+                return ResourceManager.GetString("Category_Performance", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Property Changed.
         /// </summary>
         internal static string Category_PropertyChanged {
@@ -484,6 +493,15 @@ namespace WeifenLuo.WinFormsUI.Docking {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Occurs when the value of the AutoHideWindow&apos;s ActiveContent changed..
+        /// </summary>
+        internal static string DockPanel_ActiveAutoHideContentChanged_Description {
+            get {
+                return ResourceManager.GetString("DockPanel_ActiveAutoHideContentChanged_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Occurs when the value of ActiveContentProperty changed..
         /// </summary>
         internal static string DockPanel_ActiveContentChanged_Description {
@@ -588,6 +606,15 @@ namespace WeifenLuo.WinFormsUI.Docking {
         internal static string DockPanel_DockPanelSkin {
             get {
                 return ResourceManager.GetString("DockPanel_DockPanelSkin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The predefined style used as the base for the skin..
+        /// </summary>
+        internal static string DockPanel_DockPanelSkinStyle {
+            get {
+                return ResourceManager.GetString("DockPanel_DockPanelSkinStyle", resourceCulture);
             }
         }
         
@@ -709,11 +736,29 @@ namespace WeifenLuo.WinFormsUI.Docking {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Shows the hidden autohide content when hovering over the tab.  When disabled, the tab must be clicked to show the content..
+        /// </summary>
+        internal static string DockPanel_ShowAutoHideContentOnHover_Description {
+            get {
+                return ResourceManager.GetString("DockPanel_ShowAutoHideContentOnHover_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Determines if the document icon will be displayed in the tab strip..
         /// </summary>
         internal static string DockPanel_ShowDocumentIcon_Description {
             get {
                 return ResourceManager.GetString("DockPanel_ShowDocumentIcon_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Support deeply nested controls.  Disabling this setting may improve resize performance but may cause heavily nested content not to resize..
+        /// </summary>
+        internal static string DockPanel_SupportDeeplyNestedContent_Description {
+            get {
+                return ResourceManager.GetString("DockPanel_SupportDeeplyNestedContent_Description", resourceCulture);
             }
         }
         

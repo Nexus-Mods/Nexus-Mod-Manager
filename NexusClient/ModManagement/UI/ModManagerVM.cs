@@ -288,6 +288,8 @@ namespace Nexus.Client.ModManagement.UI
 			ActivateModCommand = new Command<IMod>("Activate Mod", "Activates the selected mod.", ActivateMod);
 			DeactivateModCommand = new Command<IMod>("Deactivate Mod", "Deactivates the selected mod.", DeactivateMod);
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
+
+			ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
 		}
 
 		#endregion
@@ -512,11 +514,11 @@ namespace Nexus.Client.ModManagement.UI
 				throw new Exception("we couldn't find a proper Nexus ID or the file no longer exists on the Nexus sites.");
 
 			if (!ModManager.ModRepository.IsOffline)
-                ModManager.ToggleModEndorsement(p_modMod, p_hashMods, p_booEnable);
+				ModManager.ToggleModEndorsement(p_modMod);
 			else
 			{
-                ModManager.Login();
-                ModManager.AsyncEndorseMod(p_hashMods, p_booEnable, ConfirmUpdaterAction);
+				ModManager.Login();
+				ModManager.AsyncEndorseMod(p_modMod);
 			}
 		}
 
@@ -707,6 +709,16 @@ namespace Nexus.Client.ModManagement.UI
 			setModExtensions.Add(".zip");
 			setModExtensions.Add(".rar");
 			return setModExtensions;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ModManager.UpdateCheckStarted"/> event of the ModManager.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ModManager_UpdateCheckStarted(object sender, EventArgs<IBackgroundTask> e)
+		{
+			UpdatingMods(sender, e);
 		}
 	}
 }
