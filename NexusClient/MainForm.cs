@@ -244,6 +244,11 @@ namespace Nexus.Client
 		{
 			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove("mainForm");
 			InitializeDocuments();
+			try
+			{
+				mmgModManager.ResetColumns();
+			}
+			catch { }
 		}
 
 		/// <summary>

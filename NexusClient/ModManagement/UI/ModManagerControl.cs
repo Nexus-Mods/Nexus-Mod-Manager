@@ -639,6 +639,14 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		//Resets the CategoryView Columns to the original width
+		/// </summary>
+		public void ResetColumns()
+		{
+			clwCategoryView.ResetColumns();
+		}
+
+		/// <summary>
 		/// Reload the mod list control if needed
 		/// </summary>
 		public void RefreshModList()

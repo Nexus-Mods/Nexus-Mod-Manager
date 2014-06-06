@@ -963,6 +963,21 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
+		//Resets the Columns to the original width
+		/// </summary>
+		public void ResetColumns()
+		{
+			tlcModName.Width = 100;
+			tlcCategory.Width = 100;
+			tlcInstallDate.Width = 100;
+			tlcEndorsement.Width = 100;
+			tlcVersion.Width = 100;
+			tlcWebVersion.Width = 100;
+			tlcAuthor.Width = 100;
+			SizeColumnsToFit();
+		}
+
+		/// <summary>
 		/// This resizes the columns to fill the list view.
 		/// </summary>
 		public void SizeColumnsToFit()
