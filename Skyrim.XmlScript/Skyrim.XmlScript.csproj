@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.30729</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{49859692-7AAF-4674-8945-57483EDC2A73}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Nexus.Client.Games.Skyrim.Scripting.XmlScript</RootNamespace>
+    <AssemblyName>Skyrim.XmlScript</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <OldToolsVersion>3.5</OldToolsVersion>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Debug\Skyrim.XmlScript.XML</DocumentationFile>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="CPL\Controls\SkyrimCplHighlightingStrategy.cs" />
+    <Compile Include="CPL\SkyrimCplParserFactory.cs" />
+    <Compile Include="CPL\SkyrimCplConverter.cs" />
+    <Compile Include="SkyrimXmlScriptType.cs" />
+    <Compile Include="SkyrimConditionStateManager.cs" />
+    <Compile Include="SkseCondition.cs" />
+    <Compile Include="Parsers\SkyrimParser50.cs" />
+    <Compile Include="Parsers\SkyrimParser20Helper.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Unparsers\SkyrimUnparser50.cs" />
+    <Compile Include="Unparsers\SkyrimUnparser20Helper.cs" />
+    <Compile Include="XmlScript40NodeAdapter.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Antlr3 Include="CPL\SkyrimCplParser.g">
+      <Generator>MSBuild:Compile</Generator>
+    </Antlr3>
+    <Antlr3 Include="CPL\SkyrimCplLexer.g">
+      <Generator>MSBuild:Compile</Generator>
+    </Antlr3>
+    <EmbeddedResource Include="data\XmlScript5.0.xsd" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AntlrUtil\AntlrUtil.csproj">
+      <Project>{8B2AD10B-4E22-4559-A784-648179225ADC}</Project>
+      <Name>AntlrUtil</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\UI\UI.csproj">
+      <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>
+      <Name>UI</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout3.XmlScript\Fallout3.XmlScript.csproj">
+      <Project>{56382977-AB31-4CE1-A21B-101338A99FD0}</Project>
+      <Name>Fallout3.XmlScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout3\Fallout3.csproj">
+      <Project>{211400C3-E73E-4EBA-A9C7-9900DF9E7719}</Project>
+      <Name>Fallout3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
+      <Name>GamebryoBase</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ModManager.Interface\ModManager.Interface.csproj">
+      <Project>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</Project>
+      <Name>ModManager.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ModScript\ModScript.csproj">
+      <Project>{474F11D4-9510-4C7D-AE19-C668FC0EC961}</Project>
+      <Name>ModScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NexusClient.Interface\NexusClient.Interface.csproj">
+      <Project>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</Project>
+      <Name>NexusClient.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Skyrim\Skyrim.csproj">
+      <Project>{BDF9F1A5-4A9D-4BB1-BABE-527EAAB20614}</Project>
+      <Name>Skyrim</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Util\Util.csproj">
+      <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
+      <Name>Util</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\XmlScript\XmlScript.csproj">
+      <Project>{B0F526DB-967B-4A57-9EC9-2E4950E54F26}</Project>
+      <Name>XmlScript</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Antlr3.Runtime, Version=3.4.1.9004, Culture=neutral, PublicKeyToken=eb42632606e9261f, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\Antlr\Antlr3.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\ICSharpCode.TextEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.XML" />
+    <Reference Include="System.Xml.Linq">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />
+  <PropertyGroup>
+    <!-- Folder containing AntlrBuildTask.dll -->
+    <AntlrBuildTaskPath>$(SolutionDir)\lib\Antlr</AntlrBuildTaskPath>
+    <!-- Path to the ANTLR Tool itself. -->
+    <AntlrToolPath>$(SolutionDir)\lib\Antlr\Antlr3.exe</AntlrToolPath>
+    <AntlrLibPaths>$(SolutionDir)\XmlScript\CPL</AntlrLibPaths>
+  </PropertyGroup>
+  <Import Project="$(SolutionDir)\lib\Antlr\Antlr3.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+  <Target Name="AfterBuild">
+    <ItemGroup>
+      <FilesToCopy Include="$(TargetDir)$(TargetName)*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(SolutionDir)$(OutDir)GameModes\" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

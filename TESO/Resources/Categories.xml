@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Action Bar" ID="8">
+      <name>Action Bar</name>
+    </category>
+    <category path="Action House, Vendors and Economy" ID="7">
+      <name>Action House, Vendors and Economy</name>
+    </category>
+    <category path="Bags, Bank and Inventory" ID="6">
+      <name>Bags, Bank and Inventory</name>
+    </category>
+    <category path="Buffs and Debuffs" ID="9">
+      <name>Buffs and Debuffs</name>
+    </category>
+    <category path="Chat and Communication" ID="10">
+      <name>Chat and Communication</name>
+    </category>
+    <category path="Class or Role Specific" ID="11">
+      <name>Class or Role Specific</name>
+    </category>
+    <category path="Combat" ID="12">
+      <name>Combat</name>
+    </category>
+    <category path="Crafting" ID="13">
+      <name>Crafting</name>
+    </category>
+    <category path="Looting" ID="16">
+      <name>Looting</name>
+    </category>
+    <category path="Mail" ID="5">
+      <name>Mail</name>
+    </category>
+    <category path="Maps and Compass" ID="14">
+      <name>Maps and Compass</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="PVP" ID="15">
+      <name>PVP</name>
+    </category>
+    <category path="Quests" ID="17">
+      <name>Quests</name>
+    </category>
+    <category path="Raiding" ID="4">
+      <name>Raiding</name>
+    </category>
+    <category path="Tools and utilities" ID="3">
+      <name>Tools and utilities</name>
+    </category>
+  </categoryList>
+</categoryManager>
