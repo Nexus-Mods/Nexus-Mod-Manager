@@ -81,7 +81,6 @@ namespace Nexus.Client.ModManagement
 		#region Properties
 
         public event EventHandler<EventArgs<IBackgroundTask>> UpdateCheckStarted = delegate { };
-        public event EventHandler<EventArgs<IBackgroundTask>> EndorseStarted = delegate { };
 
         /// <summary>
 		/// The loginform Task.
@@ -500,7 +499,7 @@ namespace Nexus.Client.ModManagement
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-        public void ToggleModEndorsement(IMod p_modMod, HashSet<IMod> p_hashmod, bool? p_booEnable)
+        public void ToggleModEndorsement(IMod p_modMod)
 		{
 			AutoUpdater.ToggleModEndorsement(p_modMod);
 		}
@@ -637,35 +636,25 @@ namespace Nexus.Client.ModManagement
 
         #region asyncEndorse
 
-        /// <summary>
-        /// Runs the managed updaters.
-        /// </summary>
-        /// <param name="p_lstModList">The list of mods we need to update.</param>
-        /// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
-        /// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-        /// <returns>The background task that will run the updaters.</returns>
-        public void AsyncEndorseMod(HashSet<IMod> p_hashMods, bool? p_booEnable, ConfirmActionMethod p_camConfirm)
+		/// <summary>
+		/// Async toggle of the endorsement for the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
+		public async void AsyncEndorseMod(IMod p_modMod)
         {
-            ToggleUpdateWarningTask mutModEndorseCheck = new ToggleUpdateWarningTask(p_hashMods, p_booEnable, p_camConfirm);
-            AsyncEndorseModTask(mutModEndorseCheck, p_camConfirm);
-        }
+			int intRetry = 0;
 
-        public async Task AsyncEndorseModTask(ToggleUpdateWarningTask mutModEndorseCheck, ConfirmActionMethod p_camConfirm)
-        {
-            int intRetry = 0;
-
-            while (intRetry < 5)
-            {
-                await Task.Delay(3000);
-                if (LoginTask.LoggedIn)
-                {
-                    mutModEndorseCheck.Update(p_camConfirm);
-                    EndorseStarted(this, new EventArgs<IBackgroundTask>(mutModEndorseCheck));
-                    break;
-                }
-                else
-                    intRetry++;
-            }
+			while (intRetry < 5)
+			{
+				await Task.Delay(3000);
+				if (LoginTask.LoggedIn)
+				{
+					AutoUpdater.ToggleModEndorsement(p_modMod);
+					break;
+				}
+				else
+					intRetry++;
+			}
         }
 
         #endregion
