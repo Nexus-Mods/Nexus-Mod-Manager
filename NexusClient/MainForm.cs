@@ -136,8 +136,12 @@ namespace Nexus.Client
 			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm") && !String.IsNullOrEmpty(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"]))
 			{
 				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
-				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
-					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.AutoHidePortion;
+				try
+				{
+					if (m_dblDefaultActivityManagerAutoHidePortion == 0)
+						m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.AutoHidePortion;
+				}
+				catch{}
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
 			}
@@ -151,7 +155,11 @@ namespace Nexus.Client
 				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
 					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.Height;
-				dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
+				try
+				{
+					dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
+				}
+				catch { }
 
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.Show(dockPanel1);
@@ -173,7 +181,11 @@ namespace Nexus.Client
 				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
 					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.Height;
-				dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
+				try
+				{
+					dmcDownloadMonitor.AutoHidePortion = m_dblDefaultActivityManagerAutoHidePortion;
+				}
+				catch { }
 			}
 
 			UserStatusFeedback();
