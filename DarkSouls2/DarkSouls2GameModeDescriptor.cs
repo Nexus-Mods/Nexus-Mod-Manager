@@ -14,7 +14,7 @@ namespace Nexus.Client.Games.DarkSouls2
 	{
 		private static string[] EXECUTABLES = { "DarkSoulsII.exe" };
 		private static string[] CRITICAL_PLUGINS = null;
-		private static string[] REQUIRED_TOOL_FILES = { @"GeDoSaTo\GeDoSaToTool.exe", @"GeDoSaTo\GeDoSaTo.ini", @"GeDoSaTo\GeDoSaTo.dll" };
+		private static string[] REQUIRED_TOOL_FILES = { @"GeDoSaTo\GeDoSaToTool.exe", @"GeDoSaTo\GeDoSaTo.dll" };
 		private const string MODE_ID = "DarkSouls2";
 		private const string REQUIRED_TOOL = "GeDoSaTo";
 
