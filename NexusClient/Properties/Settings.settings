@@ -98,6 +98,9 @@
     <Setting Name="SupportOfflineMode" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="ShowStartupMessage" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
     <Setting Name="HelpLinks" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="Application">
       <Value Profile="(Default)">
      &lt;KeyedSettingsOfString&gt;

@@ -83,6 +83,12 @@ namespace Nexus.Client.Settings
 		bool ShowSidePanel { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether to show a startup message.
+		/// </summary>
+		/// <value>Whether to show a startup message.</value>
+		bool ShowStartupMessage { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the manager should prevent readme files from being installed.
 		/// </summary>
 		/// <value>Whether the manager should prevent readme files from being installed.</value>

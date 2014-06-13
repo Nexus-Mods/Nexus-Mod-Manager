@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Drawing;
+using System.Text;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
@@ -1015,10 +1016,31 @@ namespace Nexus.Client
 		protected override void OnShown(EventArgs e)
 		{
 			base.OnShown(e);
+			ShowStartupMessage();
 			ViewModel.ViewIsShown();
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Shows a startup message if needed.
+		/// </summary>
+		private void ShowStartupMessage()
+		{
+			if  (ViewModel.EnvironmentInfo.Settings.ShowStartupMessage)
+			{
+				StringBuilder stbWarning = new StringBuilder();
+				stbWarning.AppendLine("Recently some spam emails have been doing the rounds about a new version of the Nexus Mod Manager, telling you to upgrade to the latest version.");
+				stbWarning.AppendLine("We have never emailed anyone in regards to NMM (indeed, the last time we did a mass email was in 2007), and if we did,");
+				stbWarning.AppendLine("we would never send it as an attachment or send you a link that would go anywhere other than the nexusmods.com domain.").AppendLine();
+				stbWarning.AppendLine("Please remain vigilant while you browse the Nexus and indeed the internet in general. The only place you should download NMM from is the nexusmods.com website or through NMM's built in updater.").AppendLine();
+				stbWarning.AppendLine("For more details on this topic please see the latest site news updates.");
+				MessageBox.Show(stbWarning.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+				ViewModel.EnvironmentInfo.Settings.ShowStartupMessage = false;
+				ViewModel.EnvironmentInfo.Settings.Save();
+			}
+		}
 
 		/// <summary>
 		/// Restores focus to the form.
