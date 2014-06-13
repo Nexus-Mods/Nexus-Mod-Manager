@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.50.2'
+#define MyAppVersion '0.50.3'
 #define SetupScriptVersion '0.7.1.0'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
@@ -177,6 +177,7 @@ end;
 function InitializeSetup: Boolean;
 var
   V: Integer;
+  Version: String;
   iResultCode: Integer;
   sUnInstallString: string;
 begin
@@ -191,16 +192,20 @@ begin
   Result := True; // in case when no previous version is found
   if RegValueExists(HKEY_LOCAL_MACHINE,'Software\Microsoft\Windows\CurrentVersion\Uninstall\6af12c54-643b-4752-87d0-8335503010de_is1', 'UninstallString') then  //Your App GUID/ID
   begin
-    V := MsgBox(ExpandConstant('You need to uninstall your current version of NMM before you apply this update. When asked if you would like to remove the config files, select no. This will not remove or change any of your installed mods. Simply install NMM to the same location as before.'), mbInformation, MB_YESNO); //Custom Message if App installed
-    if V = IDYES then
+    RegQueryStringValue(HKEY_LOCAL_MACHINE,'Software\Microsoft\Windows\CurrentVersion\Uninstall\6af12c54-643b-4752-87d0-8335503010de_is1', 'DisplayVersion', Version);
+    if Version < '0.50.0' then
     begin
-      sUnInstallString := GetUninstallString();
-      sUnInstallString :=  RemoveQuotes(sUnInstallString);
-      Exec(ExpandConstant(sUnInstallString), '', '', SW_SHOW, ewWaitUntilTerminated, iResultCode);
-      Result := True; //if you want to proceed after uninstall
-                //Exit; //if you want to quit after uninstall
-    end
-    else
-      Result := False; //when older version present and not uninstalled
+      V := MsgBox(ExpandConstant('You need to uninstall your current version of NMM before you apply this update. When asked if you would like to remove the config files, select no. This will not remove or change any of your installed mods. Simply install NMM to the same location as before.'), mbInformation, MB_YESNO); //Custom Message if App installed
+      if V = IDYES then
+      begin
+        sUnInstallString := GetUninstallString();
+        sUnInstallString :=  RemoveQuotes(sUnInstallString);
+        Exec(ExpandConstant(sUnInstallString), '', '', SW_SHOW, ewWaitUntilTerminated, iResultCode);
+        Result := True; //if you want to proceed after uninstall
+            //Exit; //if you want to quit after uninstall
+      end
+      else
+        Result := False; //when older version present and not uninstalled
+    end;
   end;
 end;
