@@ -22,7 +22,7 @@ namespace Nexus.Client.ModAuthoring
 		private string m_strLastKnownVersion = null;
 		private Int32 m_strCategoryId = 0;
 		private Int32 m_strCustomCategoryId = 0;
-		private bool m_booIsEndorsed = false;
+		private bool? m_booIsEndorsed = false;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -139,7 +139,7 @@ namespace Nexus.Client.ModAuthoring
 		/// Gets or sets the Endorsement state of the mod.
 		/// </summary>
 		/// <value>The Endorsement state of the mod.</value>
-		public bool IsEndorsed
+		public bool? IsEndorsed
 		{
 			get
 			{

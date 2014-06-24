@@ -225,7 +225,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// Gets or sets the Endorsement state of the mod.
 			/// </summary>
 			/// <value>The Endorsement state of the mod.</value>
-			public bool IsEndorsed { get; set; }
+			public bool? IsEndorsed { get; set; }
 
 			/// <summary>
 			/// Gets or sets the version of the mod.

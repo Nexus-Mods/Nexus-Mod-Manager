@@ -41,7 +41,7 @@ namespace Nexus.Client.ModRepositories
 		/// Gets or sets the Endorsement state of the mod.
 		/// </summary>
 		/// <value>The Endorsement state of the mod.</value>
-		public bool IsEndorsed { get; set; }
+		public bool? IsEndorsed { get; set; }
 
 		/// <summary>
 		/// Gets or sets the version of the mod.
@@ -136,7 +136,7 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strInstallDate">The install date of the mod.</param>
 		/// <param name="p_uriWebsite">The website of the mod.</param>
 		/// <param name="p_eimScreenshot">The mod's screenshot.</param>
-		public ModInfo(string p_strId, string p_strModName, string p_strHumanReadableVersion, string p_strLastKnownVersion, bool p_booIsEndorsed, Version p_verMachineVersion, string p_strAuthor, Int32 p_intCategoryId, Int32 p_intCustomCategoryId, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
+		public ModInfo(string p_strId, string p_strModName, string p_strHumanReadableVersion, string p_strLastKnownVersion, bool? p_booIsEndorsed, Version p_verMachineVersion, string p_strAuthor, Int32 p_intCategoryId, Int32 p_intCustomCategoryId, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
 		{
 			SetAllInfo(true, p_strId, p_strModName, p_strHumanReadableVersion, p_strLastKnownVersion, p_booIsEndorsed, p_verMachineVersion, p_strAuthor, p_intCategoryId, p_intCustomCategoryId, p_strDescription, p_strInstallDate, p_uriWebsite, p_eimScreenshot);
 		}
@@ -161,7 +161,7 @@ namespace Nexus.Client.ModRepositories
 		/// <param name="p_strInstallDate">The install date of the mod.</param>
 		/// <param name="p_uriWebsite">The website of the mod.</param>
 		/// <param name="p_eimScreenshot">The mod's screenshot.</param>
-		protected void SetAllInfo(bool p_booOverwriteAllValues, string p_strId, string p_strModName, string p_strHumanReadableVersion, string p_strLastKnownVersion, bool p_booIsEndorsed, Version p_verMachineVersion, string p_strAuthor, Int32 p_intCategoryId, Int32 p_intCustomCategoryId, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
+		protected void SetAllInfo(bool p_booOverwriteAllValues, string p_strId, string p_strModName, string p_strHumanReadableVersion, string p_strLastKnownVersion, bool? p_booIsEndorsed, Version p_verMachineVersion, string p_strAuthor, Int32 p_intCategoryId, Int32 p_intCustomCategoryId, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot)
 		{
 			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Id))
 				Id = p_strId;

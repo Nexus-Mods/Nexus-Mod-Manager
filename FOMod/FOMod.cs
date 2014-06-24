@@ -47,7 +47,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string m_strLastKnownVersion = null;
 		private Int32 m_strCategoryId = 0;
 		private Int32 m_strCustomCategoryId = 0;
-		private bool m_booIsEndorsed = false;
+		private bool? m_booIsEndorsed = false;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -166,7 +166,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// Gets or sets the Endorsement state of the mod.
 		/// </summary>
 		/// <value>The Endorsement state of the mod.</value>
-		public bool IsEndorsed
+		public bool? IsEndorsed
 		{
 			get
 			{
@@ -1161,11 +1161,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			{
 				try
 				{
-					IsEndorsed = Convert.ToBoolean(xndEndorsed.InnerText);
+					IsEndorsed = !String.IsNullOrEmpty(xndEndorsed.InnerText) ? (bool?)Convert.ToBoolean(xndEndorsed.InnerText) : null;
 				}
 				catch
 				{
-					IsEndorsed = false;
+					IsEndorsed = null;
 				}
 			}
 

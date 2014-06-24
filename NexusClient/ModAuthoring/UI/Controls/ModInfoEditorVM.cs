@@ -23,7 +23,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		private string m_strInstallDate = null;
 		private string m_strWebsite = null;
 		private Int32 m_intCategoryID = 0;
-		private bool m_booIsEndorsed = false;
+		private bool? m_booIsEndorsed = false;
 		private ExtendedImage m_eimScreenshot = null;
 
 		#region Properties
@@ -198,7 +198,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		/// Gets or sets the Endorsement state of the mod.
 		/// </summary>
 		/// <value>The Endorsement state of the mod.</value>
-		public bool IsEndorsed 
+		public bool? IsEndorsed 
 		{
 			get
 			{

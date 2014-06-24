@@ -133,7 +133,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
 		public void ToggleModEndorsement(IMod p_modMod)
 		{
-			bool booEndorsementState = ModRepository.ToggleEndorsement(p_modMod.Id, p_modMod.IsEndorsed ? 1 : 0);
+			bool? booEndorsementState = ModRepository.ToggleEndorsement(p_modMod.Id, p_modMod.IsEndorsed == true ? 1 : (p_modMod.IsEndorsed == false ? -1 : 0)); 
 			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
 			mifUpdatedMod.IsEndorsed = booEndorsementState;
 			mifUpdatedMod.HumanReadableVersion = String.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;

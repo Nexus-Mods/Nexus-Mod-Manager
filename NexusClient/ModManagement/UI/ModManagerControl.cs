@@ -208,7 +208,7 @@ namespace Nexus.Client.ModManagement.UI
 		private void ToggleEndorsement()
 		{
 			tsbToggleEndorse.Enabled = false;
-			bool booCurrentState = false;
+			bool? booCurrentState = false;
 
 			try
 			{
@@ -220,7 +220,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			catch (Exception e)
 			{
-				MessageBox.Show(this, String.Format("Unable to {0} this file:", booCurrentState ? "endorse" : "unendorse") + Environment.NewLine + e.Message, "Endorsement Error:", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(this, String.Format("Unable to {0} this file:", booCurrentState != true ? "endorse" : "unendorse") + Environment.NewLine + e.Message, "Endorsement Error:", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 
 			SetCommandExecutableStatus();
@@ -324,7 +324,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = true;
 				tsbToggleEndorse.Enabled = true;
-				tsbToggleEndorse.Image = GetSelectedMod().IsEndorsed ? Properties.Resources.unendorsed : Properties.Resources.endorsed;
+				tsbToggleEndorse.Image = GetSelectedMod().IsEndorsed == true ? Properties.Resources.unendorsed : Properties.Resources.endorsed;
 			}
 			else
 			{

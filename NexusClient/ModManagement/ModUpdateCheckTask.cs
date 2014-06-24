@@ -122,7 +122,7 @@ namespace Nexus.Client.ModManagement
 				if (!String.IsNullOrEmpty(m_lstModList[i].Id))
 				{
 					modID = m_lstModList[i].Id;
-					isEndorsed = m_lstModList[i].IsEndorsed ? 1 : 0;
+					isEndorsed = m_lstModList[i].IsEndorsed == true ? 1 : (m_lstModList[i].IsEndorsed == false ? -1 : 0);
 					strLastVersion = m_lstModList[i].LastKnownVersion;
 
 				}

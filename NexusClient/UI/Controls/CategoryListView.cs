@@ -625,7 +625,7 @@ namespace Nexus.Client.UI.Controls
 					IMod modMod = (IMod)rowObject;
 					if (modMod != null)
 					{
-						if (modMod.IsEndorsed)
+						if (modMod.IsEndorsed == true)
 							return new Bitmap(Properties.Resources.endorsed_small, 16, 16);
 						else
 							return new Bitmap(Properties.Resources.unendorsed_small, 16, 16);

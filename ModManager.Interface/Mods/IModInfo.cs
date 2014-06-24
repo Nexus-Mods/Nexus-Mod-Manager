@@ -39,7 +39,7 @@ namespace Nexus.Client.Mods
 		/// Gets or sets the Endorsement state of the mod.
 		/// </summary>
 		/// <value>The Endorsement state of the mod.</value>
-		bool IsEndorsed { get; }
+		bool? IsEndorsed { get; }
 
 		/// <summary>
 		/// Gets or sets the version of the mod.
