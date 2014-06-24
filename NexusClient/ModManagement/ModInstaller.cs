@@ -241,7 +241,9 @@ namespace Nexus.Client.ModManagement
 				booResult = sexScript.Execute(Mod.InstallScript);
 
 				iniIniInstaller.FinalizeInstall();
-				gviGameSpecificValueInstaller.FinalizeInstall();
+
+				if (gviGameSpecificValueInstaller != null)
+					gviGameSpecificValueInstaller.FinalizeInstall();
 			}
 			else
 				booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods);

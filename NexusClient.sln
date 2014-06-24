@@ -130,6 +130,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WarThunder", "WarThunder\WarThunder.csproj", "{058540C6-2029-4B4A-A6C7-03154853FDBB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StateOfDecay.ModScript", "StateOfDecay.ModScript\StateOfDecay.ModScript.csproj", "{230DB345-8E0D-440B-97B2-DDB9063FC04F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F9304F72-CE4D-4811-A5ED-0CE875696394} = {F9304F72-CE4D-4811-A5ED-0CE875696394}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

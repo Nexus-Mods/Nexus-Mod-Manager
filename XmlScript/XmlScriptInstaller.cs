@@ -159,8 +159,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					foreach (string strFile in lstFiles)
 					{
 						string strNewFileName = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile.Substring(strSource.Length, strFile.Length - strSource.Length));
-						if (Installers.PluginManager.IsActivatiblePluginFile(strNewFileName))
-							Installers.PluginManager.SetPluginActivation(strNewFileName, p_booActivate);
+						if (Installers.PluginManager != null)
+							if (Installers.PluginManager.IsActivatiblePluginFile(strNewFileName))
+								Installers.PluginManager.SetPluginActivation(strNewFileName, p_booActivate);
 						if (Status == TaskStatus.Cancelling)
 							return false;
 						StepItemProgress();
@@ -177,8 +178,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				StepItemProgress();
 
 				string strPluginPath = GameMode.GetModFormatAdjustedPath(Mod.Format, String.IsNullOrEmpty(strDest) ? strSource : strDest);
-				if (Installers.PluginManager.IsActivatiblePluginFile(strPluginPath))
-					Installers.PluginManager.SetPluginActivation(strPluginPath, p_booActivate);
+				if (Installers.PluginManager != null)
+					if (Installers.PluginManager.IsActivatiblePluginFile(strPluginPath))
+						Installers.PluginManager.SetPluginActivation(strPluginPath, p_booActivate);
 
 				StepItemProgress();
 			}
