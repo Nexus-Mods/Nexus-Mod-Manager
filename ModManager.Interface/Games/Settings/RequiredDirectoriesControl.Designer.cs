@@ -43,6 +43,7 @@
 			this.lblToolDirectoryLabel = new System.Windows.Forms.Label();
 			this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
 			this.fbdDirectory = new System.Windows.Forms.FolderBrowserDialog();
+			this.lbWarning = new System.Windows.Forms.Label();
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).BeginInit();
 			this.SuspendLayout();
 			// 
@@ -70,8 +71,8 @@
 			// 
 			// tbxInstallInfo
 			// 
-			this.tbxInstallInfo.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-						| System.Windows.Forms.AnchorStyles.Right)));
+			this.tbxInstallInfo.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.tbxInstallInfo.Location = new System.Drawing.Point(102, 59);
 			this.tbxInstallInfo.Name = "tbxInstallInfo";
 			this.tbxInstallInfo.Size = new System.Drawing.Size(286, 20);
@@ -110,8 +111,8 @@
 			// 
 			// tbxModDirectory
 			// 
-			this.tbxModDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-						| System.Windows.Forms.AnchorStyles.Right)));
+			this.tbxModDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.tbxModDirectory.Location = new System.Drawing.Point(102, 16);
 			this.tbxModDirectory.Name = "tbxModDirectory";
 			this.tbxModDirectory.Size = new System.Drawing.Size(286, 20);
@@ -131,7 +132,7 @@
 			this.butSelectToolDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.butSelectToolDirectory.AutoSize = true;
 			this.butSelectToolDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butSelectToolDirectory.Location = new System.Drawing.Point(394, 100);
+			this.butSelectToolDirectory.Location = new System.Drawing.Point(394, 104);
 			this.butSelectToolDirectory.Name = "butSelectToolDirectory";
 			this.butSelectToolDirectory.Size = new System.Drawing.Size(26, 23);
 			this.butSelectToolDirectory.TabIndex = 17;
@@ -142,17 +143,17 @@
 			// lblToolPrompt
 			// 
 			this.lblToolPrompt.AutoSize = true;
-			this.lblToolPrompt.Location = new System.Drawing.Point(3, 86);
+			this.lblToolPrompt.Location = new System.Drawing.Point(3, 90);
 			this.lblToolPrompt.Name = "lblToolPrompt";
-			this.lblToolPrompt.Size = new System.Drawing.Size(316, 13);
+			this.lblToolPrompt.Size = new System.Drawing.Size(309, 13);
 			this.lblToolPrompt.TabIndex = 18;
 			this.lblToolPrompt.Text = "(Optional) Select the path where the required {0} tool is installed.";
 			// 
 			// tbxToolDirectory
 			// 
-			this.tbxToolDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-						| System.Windows.Forms.AnchorStyles.Right)));
-			this.tbxToolDirectory.Location = new System.Drawing.Point(102, 102);
+			this.tbxToolDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.tbxToolDirectory.Location = new System.Drawing.Point(102, 106);
 			this.tbxToolDirectory.Name = "tbxToolDirectory";
 			this.tbxToolDirectory.Size = new System.Drawing.Size(286, 20);
 			this.tbxToolDirectory.TabIndex = 15;
@@ -160,9 +161,9 @@
 			// lblToolDirectoryLabel
 			// 
 			this.lblToolDirectoryLabel.AutoSize = true;
-			this.lblToolDirectoryLabel.Location = new System.Drawing.Point(20, 105);
+			this.lblToolDirectoryLabel.Location = new System.Drawing.Point(20, 109);
 			this.lblToolDirectoryLabel.Name = "lblToolDirectoryLabel";
-			this.lblToolDirectoryLabel.Size = new System.Drawing.Size(76, 13);
+			this.lblToolDirectoryLabel.Size = new System.Drawing.Size(77, 13);
 			this.lblToolDirectoryLabel.TabIndex = 16;
 			this.lblToolDirectoryLabel.Text = "Required Tool:";
 			// 
@@ -170,10 +171,23 @@
 			// 
 			this.erpErrors.ContainerControl = this;
 			// 
+			// lbWarning
+			// 
+			this.lbWarning.AutoSize = true;
+			this.lbWarning.ForeColor = System.Drawing.Color.Red;
+			this.lbWarning.Location = new System.Drawing.Point(20, 156);
+			this.lbWarning.MaximumSize = new System.Drawing.Size(400, 0);
+			this.lbWarning.Name = "lbWarning";
+			this.lbWarning.Size = new System.Drawing.Size(50, 13);
+			this.lbWarning.TabIndex = 20;
+			this.lbWarning.Text = "Warning:";
+			this.lbWarning.Visible = false;
+			// 
 			// RequiredDirectoriesControl
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.Controls.Add(this.lbWarning);
 			this.Controls.Add(this.butSelectInfoDirectory);
 			this.Controls.Add(this.lblInstallInfoPrompt);
 			this.Controls.Add(this.tbxInstallInfo);
@@ -187,6 +201,7 @@
 			this.Controls.Add(this.tbxToolDirectory);
 			this.Controls.Add(this.lblToolDirectoryLabel);
 			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
+			this.Name = "RequiredDirectoriesControl";
 			this.Size = new System.Drawing.Size(443, 405);
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).EndInit();
 			this.ResumeLayout(false);
@@ -210,5 +225,6 @@
 		private System.Windows.Forms.Label lblToolDirectoryLabel;
 		private System.Windows.Forms.ErrorProvider erpErrors;
 		private System.Windows.Forms.FolderBrowserDialog fbdDirectory;
+		private System.Windows.Forms.Label lbWarning;
 	}
 }
