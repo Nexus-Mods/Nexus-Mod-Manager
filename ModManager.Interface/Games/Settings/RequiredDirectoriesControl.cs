@@ -129,6 +129,14 @@ namespace Nexus.Client.Games.Settings
 				erpErrors.SetError(butSelectModDirectory, e.Error);
 			else if (e.Property.Equals(ObjectHelper.GetPropertyName<RequiredDirectoriesControlVM>(x => x.ToolDirectory)))
 				erpErrors.SetError(butSelectToolDirectory, e.Error);
+
+			if (e.Property.Equals("WARNING"))
+			{
+				lbWarning.Visible = true;
+				lbWarning.Text = "Warning: " + e.Error;
+			}
+			else
+				lbWarning.Visible = false;
 		}
 
 		#endregion
