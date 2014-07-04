@@ -382,6 +382,11 @@ namespace Nexus.Client
 
 			if (!UninstallMissingMods(gmdGameMode, EnvironmentInfo, svmServices.ModManager))
 			{
+				if (Status == TaskStatus.Retrying)
+				{
+					EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
+					EnvironmentInfo.Settings.Save();
+				}
 				p_vwmErrorMessage = null;
 				return false;
 			}
@@ -1035,12 +1040,22 @@ namespace Nexus.Client
 					}
 
 					string strMessage = String.Format("'{0}' was deleted without being deactivated. " + Environment.NewLine +
-										"{1} will now automatically uninstall the missing mod's files.", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
-					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Warning)) == DialogResult.OK)
+										"This could be caused by setting the wrong 'Mods' folder or an old config file being used." + Environment.NewLine +
+ 										"Do you want to go back to the Mods/Install Info path setup?" + Environment.NewLine +
+										"If you select NO {1} will automatically uninstall the missing mod's files.", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
+					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Warning)) == DialogResult.No)
 					{
 						Trace.TraceInformation("Removing.");
 						IBackgroundTaskSet btsDeactivator = p_mmgModManager.DeactivateMod(modMissing, p_mmgModManager.ActiveMods);
 						WaitForSet(btsDeactivator, true);
+					}
+					else
+					{
+						Status = TaskStatus.Retrying;
+						Trace.TraceInformation("Reset Paths.");
+						Trace.Unindent();
+						Trace.Unindent();
+						return false;
 					}
 
 					Trace.TraceInformation("Uninstalled.");
