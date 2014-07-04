@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Windows.Forms;
 using System.IO;
 using System.Linq;
@@ -18,6 +19,8 @@ namespace Nexus.Client.Games.Settings
 		private string m_strModDirectory = null;
 		private string m_strToolDirectory = null;
 		private bool m_booRequiredTool = false;
+		private List<string> lstModsAttempts = new List<string>();
+		private List<string> lstIIAttempts = new List<string>();
 
 		#region Properties
 
@@ -173,6 +176,37 @@ namespace Nexus.Client.Games.Settings
 				return false;
 			}
 
+			if (!CheckCleanModsFolder(p_strModPath))
+			{
+				if ((CheckCleanInstallInfoFolder(p_strInstallPath)) && !lstIIAttempts.Contains(p_strInstallPath))
+				{
+					lstIIAttempts.Add(p_strInstallPath);
+					Errors.SetError("WARNING", "the selected Install Info folder is empty, if you confirm this path your installed mods will show as uninstalled in NMM." +
+						Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
+					return false;
+				}
+			}
+			else
+			{
+				if (!CheckCleanInstallInfoFolder(p_strInstallPath) && !lstModsAttempts.Contains(p_strModPath))
+				{
+					lstModsAttempts.Add(p_strModPath);
+					Errors.SetError("WARNING", "the selected Mods folder is empty but there's a mod install registry present in the selected Install Info folder." +
+						" If you confirm this path NMM will prompt you to uninstall all installed mods whose archive is not present in the Mods folder." +
+						Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
+					return false;
+				}
+				else if (!lstIIAttempts.Contains(p_strInstallPath) || !lstModsAttempts.Contains(p_strModPath))
+				{
+					lstIIAttempts.Add(p_strInstallPath);
+					lstModsAttempts.Add(p_strModPath);
+					Errors.SetError("WARNING", "The folders you selected are empty. If this is your first time running NMM for this game, or if you want a fresh install," +
+						" then this isn't a problem and you can continue. If you have previously installed mods for this game via NMM then you should go back" +
+						" and choose the correct folder paths that you previously setup in NMM.");
+					return false;
+				}
+			}
+			
 			if (m_booRequiredTool)
 			{
 				Errors.Clear(p_strToolProperty);
@@ -194,6 +228,37 @@ namespace Nexus.Client.Games.Settings
 						}
 				}
 			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// Checks whether the selected Mods folder is clean.
+		/// </summary>
+		/// <returns><c>true</c> if the specified folder is clean;
+		/// <c>false</c> otherwise.</returns>
+		protected bool CheckCleanModsFolder(string p_strMods)
+		{
+			if (Directory.Exists(p_strMods))
+			{
+				if (Directory.Exists(Path.Combine(p_strMods, "cache")))
+				{
+					return ((Directory.GetFiles(p_strMods, "*.zip", SearchOption.TopDirectoryOnly).Length + Directory.GetFiles(p_strMods, "*.7z", SearchOption.TopDirectoryOnly).Length + Directory.GetFiles(p_strMods, "*.rar", SearchOption.TopDirectoryOnly).Length) <= 0);
+				}
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// Checks whether the selected Mods folder is clean.
+		/// </summary>
+		/// <returns><c>true</c> if the specified folder is clean;
+		/// <c>false</c> otherwise.</returns>
+		protected bool CheckCleanInstallInfoFolder(string p_strInstallInfo)
+		{
+			if (Directory.Exists(p_strInstallInfo))
+				return !(File.Exists(Path.Combine(p_strInstallInfo, "InstallLog.xml")));
 
 			return true;
 		}

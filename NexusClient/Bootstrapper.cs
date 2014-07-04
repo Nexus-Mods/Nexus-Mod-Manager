@@ -176,10 +176,20 @@ namespace Nexus.Client
 						return false;
 					}
 
-					ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo, nfrResolver);
-					ApplicationInitializationForm frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
-					ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
-					frmAppInitilizer.ShowDialog();
+					//ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo, nfrResolver);
+					//ApplicationInitializationForm frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
+					//ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
+					//frmAppInitilizer.ShowDialog();
+					ApplicationInitializer ainInitializer = null;
+					ApplicationInitializationForm frmAppInitilizer = null;
+					while ((ainInitializer == null) || (ainInitializer.Status == TaskStatus.Retrying))
+					{
+						ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo, nfrResolver);
+						frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
+						ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
+						frmAppInitilizer.ShowDialog();
+					}
+
 					if (ainInitializer.Status != TaskStatus.Complete)
 					{
 						if (ainInitializer.Status == TaskStatus.Error)
