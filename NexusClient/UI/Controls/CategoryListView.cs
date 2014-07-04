@@ -627,7 +627,7 @@ namespace Nexus.Client.UI.Controls
 					{
 						if (modMod.IsEndorsed == true)
 							return new Bitmap(Properties.Resources.endorsed_small, 16, 16);
-						else
+						else if (modMod.IsEndorsed == false)
 							return new Bitmap(Properties.Resources.unendorsed_small, 16, 16);
 					}
 				}
