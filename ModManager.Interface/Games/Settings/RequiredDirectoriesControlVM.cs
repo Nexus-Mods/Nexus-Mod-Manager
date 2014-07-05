@@ -196,7 +196,7 @@ namespace Nexus.Client.Games.Settings
 						Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
 					return false;
 				}
-				else if (!lstIIAttempts.Contains(p_strInstallPath) || !lstModsAttempts.Contains(p_strModPath))
+				else if (CheckCleanInstallInfoFolder(p_strInstallPath) && (!lstIIAttempts.Contains(p_strInstallPath) || !lstModsAttempts.Contains(p_strModPath)))
 				{
 					lstIIAttempts.Add(p_strInstallPath);
 					lstModsAttempts.Add(p_strModPath);

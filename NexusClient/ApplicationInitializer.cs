@@ -384,6 +384,8 @@ namespace Nexus.Client
 			{
 				if (Status == TaskStatus.Retrying)
 				{
+					if (svmServices != null)
+						DisposeServices(svmServices);
 					EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
 					EnvironmentInfo.Settings.Save();
 				}
@@ -1041,7 +1043,7 @@ namespace Nexus.Client
 
 					string strMessage = String.Format("'{0}' was deleted without being deactivated. " + Environment.NewLine +
 										"This could be caused by setting the wrong 'Mods' folder or an old config file being used." + Environment.NewLine +
- 										"Do you want to go back to the Mods/Install Info path setup?" + Environment.NewLine +
+										"If you haven't deleted or moved any of your mods on your hard-drive and they're still on your hard-drive somewhere then select YES and input the proper location of your Mods folder." + Environment.NewLine +
 										"If you select NO {1} will automatically uninstall the missing mod's files.", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
 					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Warning)) == DialogResult.No)
 					{
@@ -1064,6 +1066,24 @@ namespace Nexus.Client
 			}
 			Trace.Unindent();
 			return true;
+		}
+
+		/// <summary>
+		/// This disposes of the services we created.
+		/// </summary>
+		/// <param name="p_smgServices">The services to dispose.</param>
+		protected void DisposeServices(ServiceManager p_smgServices)
+		{
+			if (p_smgServices == null)
+				return;
+			p_smgServices.ModInstallLog.Release();
+			if (p_smgServices.ActivePluginLog != null)
+				p_smgServices.ActivePluginLog.Release();
+			if (p_smgServices.PluginOrderLog != null)
+				p_smgServices.PluginOrderLog.Release();
+			if (p_smgServices.PluginManager != null)
+				p_smgServices.PluginManager.Release();
+			p_smgServices.ModManager.Release();
 		}
 
 		#endregion
