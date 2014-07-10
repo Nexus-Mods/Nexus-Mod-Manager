@@ -17,6 +17,7 @@ namespace Nexus.Client
 	public partial class GameDetectionForm : ManagedFontForm
 	{
 		private GameDetectionVM m_vmlViewModel = null;
+		private List<IGameModeDescriptor> lstGameModes = null;
 
 		#region Properties
 
@@ -37,10 +38,11 @@ namespace Nexus.Client
 				butOK.Enabled = false;
 				m_vmlViewModel.GameDetector.GameResolved += new EventHandler<GameModeDiscoveredEventArgs>(GameDetector_GameResolved);
 				m_vmlViewModel.GameDetector.DisableButOk += new EventHandler<GameModeDiscoveredEventArgs>(GameDetector_DisableButOk);
-				List<IGameModeDescriptor> lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
+				GameModeSearchListViewItem gliGameModeItem = null;
+				lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
 				for (Int32 i = 0; i < lstGameModes.Count; i++)
 				{
-					GameModeSearchListViewItem gliGameModeItem = new GameModeSearchListViewItem(lstGameModes[i], m_vmlViewModel.GameDetector);
+					gliGameModeItem = new GameModeSearchListViewItem(lstGameModes[i], m_vmlViewModel.GameDetector);
 					gameModeListView1.Controls.Add(gliGameModeItem);
 				}
 
@@ -77,6 +79,7 @@ namespace Nexus.Client
 		public GameDetectionForm(GameDetectionVM p_vmlGameDetection)
 		{
 			InitializeComponent();
+			this.lblInfo.Text = string.Format("NMM needs to know what games you have installed on your system in order to continue.\nPlease use the red \"X\" or the green tick symbols next to each game to stop searching or to confirm your install paths.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
 			ViewModel = p_vmlGameDetection;
 		}
 
@@ -129,6 +132,41 @@ namespace Nexus.Client
 			{
 				DialogResult = DialogResult.Cancel;
 				ViewModel.Cancel();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the stop searching button.
+		/// </summary>
+		/// <remarks>
+		/// Confirms that the users wants to stop the game searching.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butStopSearching_Click(object sender, EventArgs e)
+		{
+			foreach (GameModeListViewItemBase glvGameModeListView in gameModeListView1.Items)
+			{
+				GameModeSearchListViewItem gsvGameModeSearchItem = (GameModeSearchListViewItem)glvGameModeListView;
+				if (!gsvGameModeSearchItem.GamePathFound)
+					gsvGameModeSearchItem.StopSearching();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the quick startup button.
+		/// </summary>
+		/// <remarks>
+		/// Confirms that the users wants to luanch the quick startup.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butQuickStartup_Click(object sender, EventArgs e)
+		{
+			foreach (GameModeListViewItemBase glvGameModeListView in gameModeListView1.Items)
+			{
+				GameModeSearchListViewItem gsvGameModeSearchItem = (GameModeSearchListViewItem)glvGameModeListView;
+				gsvGameModeSearchItem.StopSearching();
 			}
 		}
 
