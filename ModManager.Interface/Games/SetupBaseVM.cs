@@ -55,7 +55,7 @@ namespace Nexus.Client.Games
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmdGameModeInfo;
-			RequiredDirectoriesControlVM = new RequiredDirectoriesControlVM(p_eifEnvironmentInfo, p_gmdGameModeInfo);
+			RequiredDirectoriesControlVM = new RequiredDirectoriesControlVM(p_eifEnvironmentInfo, p_gmdGameModeInfo, true);
 		}
 
 		#endregion
