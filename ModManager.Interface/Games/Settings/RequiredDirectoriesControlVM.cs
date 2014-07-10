@@ -21,6 +21,7 @@ namespace Nexus.Client.Games.Settings
 		private bool m_booRequiredTool = false;
 		private List<string> lstModsAttempts = new List<string>();
 		private List<string> lstIIAttempts = new List<string>();
+		private bool m_booUseAdditionalChecks = false;
 
 		#region Properties
 
@@ -144,6 +145,22 @@ namespace Nexus.Client.Games.Settings
 			GameModeDescriptor = p_gmdGameModeInfo;
 			m_booRequiredTool = GameModeDescriptor.OrderedRequiredToolFileNames != null;
 			Errors = new ErrorContainer();
+			m_booUseAdditionalChecks = false;
+		}
+
+		/// <summary>
+		/// A simple constructor that initializes the object with the given dependencies.
+		/// </summary>
+		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="p_gmdGameModeInfo">The descriptor of the current game mode.</param>
+		/// <param name="p_booUseAdditionalChecks">Whether to use additional checks to validate the folders.</param>
+		public RequiredDirectoriesControlVM(IEnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, bool p_booUseAdditionalChecks)
+		{
+			EnvironmentInfo = p_eifEnvironmentInfo;
+			GameModeDescriptor = p_gmdGameModeInfo;
+			m_booRequiredTool = GameModeDescriptor.OrderedRequiredToolFileNames != null;
+			Errors = new ErrorContainer();
+			m_booUseAdditionalChecks = p_booUseAdditionalChecks;
 		}
 
 		#endregion
@@ -176,34 +193,37 @@ namespace Nexus.Client.Games.Settings
 				return false;
 			}
 
-			if (!CheckCleanModsFolder(p_strModPath))
+			if (m_booUseAdditionalChecks)
 			{
-				if ((CheckCleanInstallInfoFolder(p_strInstallPath)) && !lstIIAttempts.Contains(p_strInstallPath))
+				if (!CheckCleanModsFolder(p_strModPath))
 				{
-					lstIIAttempts.Add(p_strInstallPath);
-					Errors.SetError("WARNING", "the selected Install Info folder is empty, if you confirm this path your installed mods will show as uninstalled in NMM." +
-						Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
-					return false;
+					if ((CheckCleanInstallInfoFolder(p_strInstallPath)) && !lstIIAttempts.Contains(p_strInstallPath))
+					{
+						lstIIAttempts.Add(p_strInstallPath);
+						Errors.SetError("WARNING", "the selected Install Info folder is empty, if you confirm this path your installed mods will show as uninstalled in NMM." +
+							Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
+						return false;
+					}
 				}
-			}
-			else
-			{
-				if (!CheckCleanInstallInfoFolder(p_strInstallPath) && !lstModsAttempts.Contains(p_strModPath))
+				else
 				{
-					lstModsAttempts.Add(p_strModPath);
-					Errors.SetError("WARNING", "the selected Mods folder is empty but there's a mod install registry present in the selected Install Info folder." +
-						" If you confirm this path NMM will prompt you to uninstall all installed mods whose archive is not present in the Mods folder." +
-						Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
-					return false;
-				}
-				else if (CheckCleanInstallInfoFolder(p_strInstallPath) && (!lstIIAttempts.Contains(p_strInstallPath) || !lstModsAttempts.Contains(p_strModPath)))
-				{
-					lstIIAttempts.Add(p_strInstallPath);
-					lstModsAttempts.Add(p_strModPath);
-					Errors.SetError("WARNING", "The folders you selected are empty. If this is your first time running NMM for this game, or if you want a fresh install," +
-						" then this isn't a problem and you can continue. If you have previously installed mods for this game via NMM then you should go back" +
-						" and choose the correct folder paths that you previously setup in NMM.");
-					return false;
+					if (!CheckCleanInstallInfoFolder(p_strInstallPath) && !lstModsAttempts.Contains(p_strModPath))
+					{
+						lstModsAttempts.Add(p_strModPath);
+						Errors.SetError("WARNING", "the selected Mods folder is empty but there's a mod install registry present in the selected Install Info folder." +
+							" If you confirm this path NMM will prompt you to uninstall all installed mods whose archive is not present in the Mods folder." +
+							Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
+						return false;
+					}
+					else if (CheckCleanInstallInfoFolder(p_strInstallPath) && (!lstIIAttempts.Contains(p_strInstallPath) || !lstModsAttempts.Contains(p_strModPath)))
+					{
+						lstIIAttempts.Add(p_strInstallPath);
+						lstModsAttempts.Add(p_strModPath);
+						Errors.SetError("WARNING", "The folders you selected are empty. If this is your first time running NMM for this game, or if you want a fresh install," +
+							" then this isn't a problem and you can continue. If you have previously installed mods for this game via NMM then you should go back" +
+							" and choose the correct folder paths that you previously setup in NMM.");
+						return false;
+					}
 				}
 			}
 			
