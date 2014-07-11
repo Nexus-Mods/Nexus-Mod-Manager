@@ -67,6 +67,7 @@ namespace Nexus.Client.Settings
 		private bool m_booAssociateNxmUrls = true;
 		private bool m_booCheckForUpdatesOnStartup = true;
 		private bool m_booCloseModManagerAfterGameLaunch = false;
+		private bool m_booCheckForTipsOnStartup = true;
 		private Int32 m_intUpdateCheckInterval = 0;
 		private Int32 m_intModVersionsCheckInterval = 0;
 		private bool m_booShowSidePanel = true;
@@ -170,6 +171,21 @@ namespace Nexus.Client.Settings
 				SetPropertyIfChanged(ref m_intModVersionsCheckInterval, value, () => ModVersionsCheckInterval);
 			}
 		}
+
+		/// Gets or sets whether the client should check for updates on startup.
+        /// </summary>
+        /// <value>Whether the client should check for updates on startup.</value>
+        public bool CheckForTipsOnStartup
+        {
+            get
+            {
+                return m_booCheckForTipsOnStartup;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_booCheckForTipsOnStartup, value, () => CheckForTipsOnStartup);
+            }
+        }
 
 		/// <summary>
 		/// Gets or sets whether the client should add missing info to mods.
@@ -533,6 +549,7 @@ namespace Nexus.Client.Settings
 			ModVersionsCheckInterval = EnvironmentInfo.Settings.ModVersionsCheckInterval;
 			AddMissingModInfo = EnvironmentInfo.Settings.AddMissingInfoToMods;
 			CheckForUpdatesOnStartup = EnvironmentInfo.Settings.CheckForUpdatesOnStartup;
+			CheckForTipsOnStartup = EnvironmentInfo.Settings.CheckForTipsOnStartup;
 			UpdateCheckInterval = EnvironmentInfo.Settings.UpdateCheckInterval;
 			ScanSubfoldersForMods = EnvironmentInfo.Settings.ScanSubfoldersForMods;
 			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;

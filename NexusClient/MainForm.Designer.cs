@@ -44,6 +44,12 @@
 			WeifenLuo.WinFormsUI.Docking.DockPanelGradient dockPanelGradient3 = new WeifenLuo.WinFormsUI.Docking.DockPanelGradient();
 			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient6 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
 			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient7 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
+
+			this.caption = new System.Windows.Forms.TextBox();
+			this.content = new System.Windows.Forms.TextBox();
+			this.anchor = new System.Windows.Forms.Label();
+			this.showForm = new System.Windows.Forms.Button();
+
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.spbLaunch = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbHelp = new System.Windows.Forms.ToolStripSplitButton();
@@ -51,6 +57,7 @@
 			this.spbTools = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbFolders = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbSettings = new System.Windows.Forms.ToolStripButton();
+			this.tsbTips = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbUpdate = new System.Windows.Forms.ToolStripButton();
 			this.dockPanel1 = new WeifenLuo.WinFormsUI.Docking.DockPanel();
 			this.tssDownload = new System.Windows.Forms.StatusStrip();
@@ -76,6 +83,7 @@
 			this.spbTools,
 			this.spbFolders,
 			this.tsbSettings,
+			this.tsbTips,
 			this.tstFind,
 			this.tsbUpdate});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
@@ -144,6 +152,15 @@
 			this.tsbSettings.Size = new System.Drawing.Size(36, 36);
 			this.tsbSettings.Text = "Settings";
 			this.tsbSettings.Click += new System.EventHandler(this.tsbSettings_Click);
+			// 
+			// tsbTips
+			// 
+			this.tsbTips.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbTips.Image = global::Nexus.Client.Properties.Resources.tipsIcon;
+			this.tsbTips.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbTips.Name = "tsbTips";
+			this.tsbTips.Size = new System.Drawing.Size(36, 36);
+			this.tsbTips.Text = "Tips";
 			// 
 			// tsbUpdate
 			// 
@@ -298,6 +315,7 @@
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripSplitButton spbLaunch;
 		private System.Windows.Forms.ToolStripButton tsbSettings;
+		public System.Windows.Forms.ToolStripSplitButton tsbTips;
 		private System.Windows.Forms.ToolStripSplitButton spbChangeMode;
 		private System.Windows.Forms.ToolStripSplitButton spbTools;
 		private System.Windows.Forms.ToolStripSplitButton spbFolders;

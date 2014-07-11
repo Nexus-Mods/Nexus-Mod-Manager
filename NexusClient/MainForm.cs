@@ -1,7 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Drawing;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using Nexus.Client.Commands.Generic;
+using Nexus.Client.TipsManagement;
 using System.Text;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
@@ -35,6 +41,20 @@ namespace Nexus.Client
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
         public string strOptionalPremiumMessage = string.Empty;
  
+		private ToolStripMenuItem tmiShowTips = null;
+
+		private System.Windows.Forms.TextBox caption;
+		private System.Windows.Forms.TextBox content;
+		private System.Windows.Forms.Label anchor;
+		private System.Windows.Forms.Button showForm;
+
+		private int pointX = 0;
+		private int pointY = 0;
+		FormWindowState LastWindowState = FormWindowState.Minimized;
+		private bool m_booShowLastBaloon = false;
+		private BalloonManager bmBalloon = null;
+
+		private string m_strSelectedTipsVersion = String.Empty;
 
 		#region Properties
 
@@ -78,6 +98,11 @@ namespace Nexus.Client
 					spbHelp.DropDownItems.Add(tmiHelp);
 				}
 
+				bmBalloon = new BalloonManager();
+				bmBalloon.ShowNextClick += bmBalloon_ShowNextClick;
+				bmBalloon.ShowPreviousClick += bmBalloon_ShowPreviousClick;
+				bmBalloon.CloseClick += bmBalloon_CloseClick;
+
 				BindCommands();
 			}
 		}
@@ -97,6 +122,10 @@ namespace Nexus.Client
 
 			this.FormClosing += new FormClosingEventHandler(this.CheckDownloadsOnClosing);
 
+			this.ResizeEnd += MainForm_ResizeEnd;
+			this.ResizeBegin += MainForm_ResizeBegin;
+			this.Resize += MainForm_Resize;
+
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
@@ -105,6 +134,7 @@ namespace Nexus.Client
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
             p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
+			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
 
 			ViewModel = p_vmlViewModel;
 
@@ -191,6 +221,65 @@ namespace Nexus.Client
 
 			UserStatusFeedback();
 		}
+
+		/// <summary>
+		/// The function that checks the Tips.
+		/// </summary>
+		protected void LoadTips()
+		{
+            bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup);
+		}
+
+		/// <summary>
+		/// Shows the tips.
+		/// </summary>
+		/// <param name="p_strVersion">The version of the DropDownMenu clicked</param>
+		public void ShowTips(string p_strVersion)
+		{
+			if (!String.IsNullOrEmpty(p_strVersion))
+				bmBalloon.SetTipList(p_strVersion);
+			string strTipSection = String.IsNullOrEmpty(bmBalloon.TipSection) ? "toolStrip1" : bmBalloon.TipSection;
+			string strTipObject = String.IsNullOrEmpty(bmBalloon.TipObject) ? "tsbTips" : bmBalloon.TipObject;
+			bmBalloon.ShowNextTip(FindControlCoords(strTipSection, strTipObject));
+		}
+
+		/// <summary>
+		/// The BalloonManager ShowNextClick event.
+		/// </summary>
+		void bmBalloon_ShowNextClick(object sender, EventArgs e)
+		{
+			if (m_vmlViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup)
+			{
+				m_vmlViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup = false;
+				m_vmlViewModel.EnvironmentInfo.Settings.Save();
+			}
+
+			if (bmBalloon.CurrentTip == null)
+				ShowTips(m_vmlViewModel.EnvironmentInfo.ApplicationVersion.ToString());
+			else
+				ShowTips(String.Empty);
+		}
+
+		/// <summary>
+		/// The BalloonManager ShowPreviousClick event.
+		/// </summary>
+		void bmBalloon_ShowPreviousClick(object sender, EventArgs e)
+		{
+			ShowTips(String.Empty);
+		}
+
+		/// <summary>
+		/// The BalloonManager CloseClick event.
+		/// </summary>
+		void bmBalloon_CloseClick(object sender, EventArgs e)
+		{
+			if (m_vmlViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup)
+			{
+				m_vmlViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup = false;
+				m_vmlViewModel.EnvironmentInfo.Settings.Save();
+			}
+		}
+
 
 		/// <summary>
 		/// Sets the UI elements providing feedback on the user online status.
@@ -305,6 +394,61 @@ namespace Nexus.Client
 				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing download, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 				if (drFormClose != DialogResult.Yes)
 					e.Cancel = true;
+			}
+		}
+
+		private void MainForm_ResizeEnd(object sender, EventArgs e)
+		{
+			if ((ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup) && (bmBalloon.balloonHelp != null))
+			{
+				bmBalloon.balloonHelp.Close();
+				bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup);
+			}
+			else
+			{
+                if (m_booShowLastBaloon)
+                {
+                    m_booShowLastBaloon = false;
+					ShowTips(String.Empty);
+                }
+			}
+		}
+
+		private void MainForm_ResizeBegin(object sender, EventArgs e)
+		{
+			if (bmBalloon.balloonHelp.Visible)
+			{
+				if (bmBalloon.CurrentTip != null)
+					bmBalloon.SetPreviousTip(true);
+				bmBalloon.balloonHelp.Close();
+				m_booShowLastBaloon = true;
+			}
+			else
+				m_booShowLastBaloon = false;
+		}
+
+		private void MainForm_Resize(object sender, EventArgs e)
+		{
+			if (WindowState != LastWindowState)
+			{
+				LastWindowState = WindowState;
+
+				if ((WindowState == FormWindowState.Maximized) || (WindowState == FormWindowState.Normal))
+				{
+					if ((bmBalloon != null) && (bmBalloon.balloonHelp != null) && (bmBalloon.balloonHelp.Visible))
+					{
+						if (bmBalloon.CurrentTip != null)
+						{
+							bmBalloon.SetPreviousTip(true);
+							ShowTips(String.Empty);
+						}
+						else
+						{
+							bmBalloon.balloonHelp.Close();
+							bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup);
+						}
+					}
+				}
 			}
 		}
 
@@ -699,6 +843,21 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tmiResetTool, cmdResetUI);
 			spbTools.DropDownItems.Add(tmiResetTool);
 
+			 IEnumerable<string> enuVersions = bmBalloon.GetVersionList();
+            if (enuVersions != null)
+            {
+                foreach (string strVersion in enuVersions)
+                {
+                    Command<string> cmdShowTips = new Command<string>(strVersion, "Shows the tips for the current version.", ShowTips);
+                    tmiShowTips = new ToolStripMenuItem();
+                    tmiShowTips.ImageScaling = ToolStripItemImageScaling.None;
+                    tmiShowTips.Image = global::Nexus.Client.Properties.Resources.tipsIcon;
+                    new ToolStripItemCommandBinding<string>(tmiShowTips, cmdShowTips, GetSelectedVersion);
+                    
+                    tsbTips.DropDownItems.Add(tmiShowTips);    
+                }
+            }
+
 			Command cmdUninstallAllMods = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
 			ToolStripMenuItem tmiUninstallAllMods = new ToolStripMenuItem();
 			tmiUninstallAllMods.Image = global::Nexus.Client.Properties.Resources.edit_delete;
@@ -715,6 +874,21 @@ namespace Nexus.Client
 				tolTool.CloseToolView += new EventHandler<DisplayToolViewEventArgs>(Tool_CloseToolView);
 				spbTools.DropDownItems.Add(tmiTool);
 			}
+		}
+
+		private void tsbTips_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		{
+			m_strSelectedTipsVersion = e.ClickedItem.Text;
+		}
+             
+        private string GetSelectedVersion()
+        {
+			return m_strSelectedTipsVersion;
+        }
+                
+		private void close_Click(object sender, System.EventArgs e)
+		{
+			Close();
 		}
 
 		/// <summary>
@@ -771,6 +945,72 @@ namespace Nexus.Client
 		{
 			System.Diagnostics.Process.Start("http://skyrim.nexusmods.com/users/premium/");
 		}
+
+		private Point FindControlCoords(string p_section, string p_object)
+		{
+			Point pCoords = new Point(0, 0);
+			ToolStripItem rootItem = null;
+			Control root = null;
+
+			switch (p_section)
+			{
+				case "toolStrip1":
+					root = this.Controls.Find(p_section, true)[0];
+					rootItem = ((ToolStrip)root).Items.Find(p_object, true)[0];
+					pCoords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
+					pCoords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 30;
+					break;
+
+				case "tssDownload":
+					root = this.Controls.Find(p_section, true)[0];
+					rootItem = ((StatusStrip)root).Items.Find(p_object, true)[0];
+					pCoords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
+					pCoords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 60;
+					break;
+
+				case "ModManager.toolStrip1":
+					p_section = "toolStrip1";
+					root = mmgModManager.Controls.Find(p_section, true)[0];
+					rootItem = ((ToolStrip)root).Items.Find(p_object, true)[0];
+					pCoords.X = rootItem.AccessibilityObject.Bounds.Location.X - 5;
+					pCoords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 10;
+					break;
+
+				case "DownloadManager.toolStrip1":
+					p_section = "toolStrip1";
+					root = dmcDownloadMonitor.Controls.Find(p_section, true)[0];
+					rootItem = ((ToolStrip)root).Items.Find(p_object, true)[0];
+
+					switch (dmcDownloadMonitor.DockState)
+					{
+						case DockState.DockBottomAutoHide:
+							dmcDownloadMonitor.DockState = DockState.DockBottom;
+							break;
+						case DockState.DockLeftAutoHide:
+							dmcDownloadMonitor.DockState = DockState.DockLeft;
+							break;
+						case DockState.DockRightAutoHide:
+							dmcDownloadMonitor.DockState = DockState.DockRight;
+							break;
+						case DockState.DockTopAutoHide:
+							dmcDownloadMonitor.DockState = DockState.DockTop;
+							break;
+					}
+
+					if (!dmcDownloadMonitor.Visible)
+						dmcDownloadMonitor.Show();
+					pCoords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
+					pCoords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 40;
+					break;
+
+				case "CLWCategoryListView":
+					pCoords.X = mmgModManager.clwCategoryView.AccessibilityObject.Bounds.Location.X;
+					pCoords.Y = mmgModManager.clwCategoryView.AccessibilityObject.Bounds.Location.Y - 40;
+					break;
+			}
+
+			return pCoords;
+ 		}
 
 		#endregion
 
@@ -1004,6 +1244,8 @@ namespace Nexus.Client
 			base.OnResize(e);
 			if (WindowState != FormWindowState.Minimized)
 				m_fwsLastWindowState = WindowState;
+			else if ((bmBalloon != null) && (bmBalloon.balloonHelp != null) && (bmBalloon.balloonHelp.Visible))
+				bmBalloon.balloonHelp.Close();
 		}
 
 		/// <summary>
@@ -1018,6 +1260,7 @@ namespace Nexus.Client
 			base.OnShown(e);
 			ShowStartupMessage();
 			ViewModel.ViewIsShown();
+			LoadTips();
 		}
 
 		#endregion
@@ -1027,7 +1270,7 @@ namespace Nexus.Client
 		/// </summary>
 		private void ShowStartupMessage()
 		{
-			if  (ViewModel.EnvironmentInfo.Settings.ShowStartupMessage)
+			if (ViewModel.EnvironmentInfo.Settings.ShowStartupMessage)
 			{
 				StringBuilder stbWarning = new StringBuilder();
 				stbWarning.AppendLine("Recently some spam emails have been doing the rounds about a new version of the Nexus Mod Manager, telling you to upgrade to the latest version.");

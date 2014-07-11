@@ -316,6 +316,12 @@ namespace Nexus.Client.Settings
 		bool CheckForUpdatesOnStartup { get; set; }
 
 		/// <summary>
+        /// Gets or sets whether to check for tips on startup.
+        /// </summary>
+        /// <value>Whether to check for updates on startup.</value>
+        bool CheckForTipsOnStartup { get; set; }
+
+		/// <summary>
 		/// Gets or sets the last time the program checked for an update.
 		/// </summary>
 		/// <value>The last time the program checked for an update.</value>

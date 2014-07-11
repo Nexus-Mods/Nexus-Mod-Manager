@@ -32,6 +32,8 @@ namespace Nexus.Client
 		{
 			if (m_cchMessagerChannel == null)
 			{
+				System.Collections.IDictionary properties = new System.Collections.Hashtable();
+				properties["exclusiveAddressUse"] = false;
 				m_cchMessagerChannel = new IpcClientChannel();
 				ChannelServices.RegisterChannel(m_cchMessagerChannel, true);
 			}

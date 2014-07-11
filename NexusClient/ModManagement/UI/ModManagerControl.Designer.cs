@@ -388,12 +388,12 @@
 
 		#endregion
 
-		private System.Windows.Forms.ToolStrip toolStrip1;
+		public System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.SplitContainer sptMods;
 		private System.Windows.Forms.SplitContainer sptSummaryInfo;
 		private Nexus.UI.Controls.ImagePreviewBox ipbScreenShot;
 		private Nexus.UI.Controls.FormattedLabel flbInfo;
-		private Nexus.Client.UI.Controls.CategoryListView clwCategoryView;
+		public Nexus.Client.UI.Controls.CategoryListView clwCategoryView;
 		private System.Windows.Forms.ToolStripSplitButton tsbAddMod;
 		private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem addModFromURLToolStripMenuItem;

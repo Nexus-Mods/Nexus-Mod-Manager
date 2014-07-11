@@ -178,6 +178,21 @@ namespace Nexus.Client.Properties {
                 this["CheckForUpdatesOnStartup"] = value;
             }
         }
+		
+		[global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool CheckForTipsOnStartup
+        {
+            get
+            {
+                return ((bool)(this["CheckForTipsOnStartup"]));
+            }
+            set
+            {
+                this["CheckForTipsOnStartup"] = value;
+            }
+        }
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

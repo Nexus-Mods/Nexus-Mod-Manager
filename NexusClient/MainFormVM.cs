@@ -131,6 +131,15 @@ namespace Nexus.Client
 		public SettingsFormVM SettingsFormVM { get; private set; }
 
 		/// <summary>
+        /// Gets the command to show the tip.
+        /// </summary>
+        /// <remarks>
+        /// The commands takes an argument to show the tip.
+        /// </remarks>
+        /// <value>The command to tag a mod.</value>
+        public Command<string> TipsCommand { get; set; }
+
+		/// <summary>
 		/// Gets the id of the game mode to which to change, if a game mode change
 		/// has been requested.
 		/// </summary>

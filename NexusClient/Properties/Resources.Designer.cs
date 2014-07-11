@@ -133,6 +133,26 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap arrow_state_blue_left {
+            get {
+                object obj = ResourceManager.GetObject("arrow_state_blue_left", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap arrow_state_blue_right {
+            get {
+                object obj = ResourceManager.GetObject("arrow_state_blue_right", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap category_folder {
             get {
                 object obj = ResourceManager.GetObject("category_folder", resourceCulture);
@@ -473,6 +493,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap help_book {
+            get {
+                object obj = ResourceManager.GetObject("help_book", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap info_add {
             get {
                 object obj = ResourceManager.GetObject("info_add", resourceCulture);
@@ -657,6 +687,44 @@ namespace Nexus.Client.Properties {
             get {
                 object obj = ResourceManager.GetObject("text_x_generic", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap tipsClose {
+            get {
+                object obj = ResourceManager.GetObject("tipsClose", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap tipsIcon {
+            get {
+                object obj = ResourceManager.GetObject("tipsIcon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+        ///&lt;tipsManager&gt;
+        ///  &lt;tipsList&gt;
+        ///    &lt;tips section=&quot;ModManager.toolStrip1&quot; object=&quot;tsbToggleEndorse&quot; ID=&quot;2&quot; version=&quot;0.60.0&quot;&gt;
+        ///      &lt;text&gt;This version supports the new Abstain endorsement state (click once to Endorse and click again to Abstain).&lt;/text&gt;
+        ///    &lt;/tips&gt;
+        ///    &lt;tips section=&quot;toolStrip1&quot; object=&quot;tsbTips&quot; ID=&quot;1&quot; version=&quot;0.60.0&quot;&gt;
+        ///      &lt;text&gt;New feature: click here to activate the latest version tips or start a tutorial of the UI.&lt;/text&gt;
+        ///    &lt;/tips&gt;
+        ///    &lt;tips  [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string TipsXML {
+            get {
+                return ResourceManager.GetString("TipsXML", resourceCulture);
             }
         }
         
