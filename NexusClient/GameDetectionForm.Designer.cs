@@ -48,7 +48,7 @@
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Bottom;
 			this.panel1.Location = new System.Drawing.Point(0, 223);
 			this.panel1.Name = "panel1";
-			this.panel1.Size = new System.Drawing.Size(560, 48);
+			this.panel1.Size = new System.Drawing.Size(560, 80);
 			this.panel1.TabIndex = 0;
 			// 
 			// butQuickStartup
@@ -106,7 +106,7 @@
 			this.lblInfo.Size = new System.Drawing.Size(188, 23);
 			this.lblInfo.Visible = true;
 			this.lblInfo.TabIndex = 2;
-			this.lblInfo.MinimumSize = new System.Drawing.Size(768, 42);
+			this.lblInfo.MinimumSize = new System.Drawing.Size(768, 80);
 			// 
 			// gameModeListView1
 			// 
