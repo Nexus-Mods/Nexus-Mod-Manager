@@ -79,7 +79,7 @@ namespace Nexus.Client
 		public GameDetectionForm(GameDetectionVM p_vmlGameDetection)
 		{
 			InitializeComponent();
-			this.lblInfo.Text = string.Format("NMM needs to know what games you have installed on your system in order to continue.\nPlease use the red \"X\" or the green tick symbols next to each game to stop searching or to confirm your install paths.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
+			this.lblInfo.Text = string.Format("NMM needs to know what games you have installed on your system in order to continue.\nPlease use the green 'tick' symbols next to each game to confirm their install paths.\nPress the 'Stop searching' button if you'd like to manually specify your game folders.\nPress the 'Quick startup' button if you want to proceed with just the games you've already verified.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
 			ViewModel = p_vmlGameDetection;
 		}
 
