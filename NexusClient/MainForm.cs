@@ -39,8 +39,8 @@ namespace Nexus.Client
 		private PluginManagerControl pmcPluginManager = null;
 		private DownloadMonitorControl dmcDownloadMonitor = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
-        public string strOptionalPremiumMessage = string.Empty;
- 
+		public string strOptionalPremiumMessage = string.Empty;
+
 		private ToolStripMenuItem tmiShowTips = null;
 
 		private System.Windows.Forms.TextBox caption;
@@ -133,7 +133,7 @@ namespace Nexus.Client
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
-            p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
+			p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
 
 			ViewModel = p_vmlViewModel;
@@ -172,7 +172,7 @@ namespace Nexus.Client
 					if (m_dblDefaultActivityManagerAutoHidePortion == 0)
 						m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.AutoHidePortion;
 				}
-				catch{}
+				catch { }
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
 			}
@@ -227,7 +227,7 @@ namespace Nexus.Client
 		/// </summary>
 		protected void LoadTips()
 		{
-            bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup);
+			bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, ProgrammeMetadata.VersionString);
 		}
 
 		/// <summary>
@@ -291,9 +291,9 @@ namespace Nexus.Client
 			{
 				if (tpbDownloadSpeed != null)
 					tpbDownloadSpeed.Visible = false;
-                tlbLoginMessage.Visible = true;
-                tlbLoginMessage.Text = "You are not logged in.";
-                tlbLoginMessage.Font = new Font(base.Font, FontStyle.Bold);
+				tlbLoginMessage.Visible = true;
+				tlbLoginMessage.Text = "You are not logged in.";
+				tlbLoginMessage.Font = new Font(base.Font, FontStyle.Bold);
 				tsbGoPremium.Visible = false;
 				tsbOnlineStatus.Image = new Bitmap(Properties.Resources.offline_icon, 36, 34);
 				tlbDownloads.Visible = false;
@@ -305,10 +305,10 @@ namespace Nexus.Client
 
 				if ((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32))
 				{
-                    tlbLoginMessage.Visible = true;
+					tlbLoginMessage.Visible = true;
 					tsbGoPremium.Visible = true;
 					tsbGoPremium.Enabled = true;
-                    strOptionalPremiumMessage = " Not a Premium Member.";
+					strOptionalPremiumMessage = " Not a Premium Member.";
 					if (tpbDownloadSpeed != null)
 					{
 						tpbDownloadSpeed.Maximum = 1024;
@@ -320,9 +320,9 @@ namespace Nexus.Client
 				}
 				else
 				{
-                    tlbLoginMessage.Visible = true;
+					tlbLoginMessage.Visible = true;
 					tsbGoPremium.Visible = false;
-                    strOptionalPremiumMessage = string.Empty;
+					strOptionalPremiumMessage = string.Empty;
 					tsbGoPremium.Enabled = false;
 					if (tpbDownloadSpeed != null)
 					{
@@ -333,7 +333,7 @@ namespace Nexus.Client
 					}
 					tlbDownloads.Tag = "Download Progress:";
 				}
-                if ((tpbDownloadSpeed != null) && (dmcDownloadMonitor.ViewModel.ActiveTasks.Count > 0))
+				if ((tpbDownloadSpeed != null) && (dmcDownloadMonitor.ViewModel.ActiveTasks.Count > 0))
 					tpbDownloadSpeed.Visible = true;
 				tlbDownloads.Text = String.Format("{0} ({1} {2}) ", tlbDownloads.Tag, dmcDownloadMonitor.ViewModel.ActiveTasks.Count, (dmcDownloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
 			}
@@ -361,7 +361,7 @@ namespace Nexus.Client
 			mmgModManager.DeactivateAllMods();
 		}
 
-        private void LoginTask_PropertyChanged(object sender, EventArgs e)
+		private void LoginTask_PropertyChanged(object sender, EventArgs e)
 		{
 			LoginFormTask lftTask = (LoginFormTask)sender;
 			if ((lftTask.OverallMessage == "Logged in.") && (strOptionalPremiumMessage != string.Empty))
@@ -402,15 +402,15 @@ namespace Nexus.Client
 			if ((ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup) && (bmBalloon.balloonHelp != null))
 			{
 				bmBalloon.balloonHelp.Close();
-				bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup);
+				bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, ProgrammeMetadata.VersionString);
 			}
 			else
 			{
-                if (m_booShowLastBaloon)
-                {
-                    m_booShowLastBaloon = false;
+				if (m_booShowLastBaloon)
+				{
+					m_booShowLastBaloon = false;
 					ShowTips(String.Empty);
-                }
+				}
 			}
 		}
 
@@ -445,7 +445,7 @@ namespace Nexus.Client
 						else
 						{
 							bmBalloon.balloonHelp.Close();
-							bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup);
+							bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, ProgrammeMetadata.VersionString);
 						}
 					}
 				}
@@ -843,20 +843,20 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tmiResetTool, cmdResetUI);
 			spbTools.DropDownItems.Add(tmiResetTool);
 
-			 IEnumerable<string> enuVersions = bmBalloon.GetVersionList();
-            if (enuVersions != null)
-            {
-                foreach (string strVersion in enuVersions)
-                {
-                    Command<string> cmdShowTips = new Command<string>(strVersion, "Shows the tips for the current version.", ShowTips);
-                    tmiShowTips = new ToolStripMenuItem();
-                    tmiShowTips.ImageScaling = ToolStripItemImageScaling.None;
-                    tmiShowTips.Image = global::Nexus.Client.Properties.Resources.tipsIcon;
-                    new ToolStripItemCommandBinding<string>(tmiShowTips, cmdShowTips, GetSelectedVersion);
-                    
-                    tsbTips.DropDownItems.Add(tmiShowTips);    
-                }
-            }
+			IEnumerable<string> enuVersions = bmBalloon.GetVersionList();
+			if (enuVersions != null)
+			{
+				foreach (string strVersion in enuVersions)
+				{
+					Command<string> cmdShowTips = new Command<string>(strVersion, "Shows the tips for the current version.", ShowTips);
+					tmiShowTips = new ToolStripMenuItem();
+					tmiShowTips.ImageScaling = ToolStripItemImageScaling.None;
+					tmiShowTips.Image = global::Nexus.Client.Properties.Resources.tipsIcon;
+					new ToolStripItemCommandBinding<string>(tmiShowTips, cmdShowTips, GetSelectedVersion);
+
+					tsbTips.DropDownItems.Add(tmiShowTips);
+				}
+			}
 
 			Command cmdUninstallAllMods = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
 			ToolStripMenuItem tmiUninstallAllMods = new ToolStripMenuItem();
@@ -880,12 +880,12 @@ namespace Nexus.Client
 		{
 			m_strSelectedTipsVersion = e.ClickedItem.Text;
 		}
-             
-        private string GetSelectedVersion()
-        {
+
+		private string GetSelectedVersion()
+		{
 			return m_strSelectedTipsVersion;
-        }
-                
+		}
+
 		private void close_Click(object sender, System.EventArgs e)
 		{
 			Close();
@@ -1010,7 +1010,7 @@ namespace Nexus.Client
 			}
 
 			return pCoords;
- 		}
+		}
 
 		#endregion
 
