@@ -132,8 +132,8 @@ namespace Nexus.Client.Games.Settings
 
 			if (e.Property.Equals("WARNING"))
 			{
-				lbWarning.Visible = true;
 				lbWarning.Text = "Warning: " + e.Error;
+				lbWarning.Visible = true;
 			}
 			else
 				lbWarning.Visible = false;

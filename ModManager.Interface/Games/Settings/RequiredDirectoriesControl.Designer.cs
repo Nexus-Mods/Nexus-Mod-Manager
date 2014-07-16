@@ -175,12 +175,13 @@
 			// 
 			this.lbWarning.AutoSize = true;
 			this.lbWarning.ForeColor = System.Drawing.Color.Red;
-			this.lbWarning.Location = new System.Drawing.Point(20, 156);
+			this.lbWarning.Location = new System.Drawing.Point(38, 163);
 			this.lbWarning.MaximumSize = new System.Drawing.Size(400, 0);
 			this.lbWarning.Name = "lbWarning";
 			this.lbWarning.Size = new System.Drawing.Size(50, 13);
 			this.lbWarning.TabIndex = 20;
 			this.lbWarning.Text = "Warning:";
+			this.lbWarning.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
 			this.lbWarning.Visible = false;
 			// 
 			// RequiredDirectoriesControl
