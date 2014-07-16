@@ -30,6 +30,8 @@
 		{
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.butCancel = new System.Windows.Forms.Button();
+			this.butStopSearching = new System.Windows.Forms.Button();
+			this.butQuickStartup = new System.Windows.Forms.Button();
 			this.butOK = new System.Windows.Forms.Button();
 			this.lblInfo = new System.Windows.Forms.Label();
 			this.gameModeListView1 = new Nexus.Client.UI.Controls.GameModeListView();
@@ -38,20 +40,45 @@
 			// 
 			// panel1
 			// 
+			this.panel1.Controls.Add(this.butQuickStartup);
+			this.panel1.Controls.Add(this.butStopSearching);
 			this.panel1.Controls.Add(this.butCancel);
 			this.panel1.Controls.Add(this.butOK);
 			this.panel1.Controls.Add(this.lblInfo);
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Bottom;
 			this.panel1.Location = new System.Drawing.Point(0, 223);
 			this.panel1.Name = "panel1";
-			this.panel1.Size = new System.Drawing.Size(284, 48);
+			this.panel1.Size = new System.Drawing.Size(560, 80);
 			this.panel1.TabIndex = 0;
+			// 
+			// butQuickStartup
+			// 
+			this.butQuickStartup.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.butQuickStartup.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.butQuickStartup.Location = new System.Drawing.Point(395, 12);
+			this.butQuickStartup.Name = "butQuickStartup";
+			this.butQuickStartup.Size = new System.Drawing.Size(120, 23);
+			this.butQuickStartup.TabIndex = 3;
+			this.butQuickStartup.Text = "Quick Startup";
+			this.butQuickStartup.UseVisualStyleBackColor = true;
+			this.butQuickStartup.Click += new System.EventHandler(this.butQuickStartup_Click);
+			// 
+			// butStopSearching
+			// 
+			this.butStopSearching.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.butStopSearching.Location = new System.Drawing.Point(273, 12);
+			this.butStopSearching.Name = "butStopSearching";
+			this.butStopSearching.Size = new System.Drawing.Size(120, 23);
+			this.butStopSearching.TabIndex = 2;
+			this.butStopSearching.Text = "Stop Searching";
+			this.butStopSearching.UseVisualStyleBackColor = true;
+			this.butStopSearching.Click += new System.EventHandler(this.butStopSearching_Click);
 			// 
 			// butCancel
 			// 
 			this.butCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.butCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.butCancel.Location = new System.Drawing.Point(197, 12);
+			this.butCancel.Location = new System.Drawing.Point(195, 12);
 			this.butCancel.Name = "butCancel";
 			this.butCancel.Size = new System.Drawing.Size(75, 23);
 			this.butCancel.TabIndex = 1;
@@ -77,10 +104,9 @@
 			this.lblInfo.Location = new System.Drawing.Point(6, 6);
 			this.lblInfo.Name = "lblInfo";
 			this.lblInfo.Size = new System.Drawing.Size(188, 23);
-			this.lblInfo.Text = string.Format("NMM needs to know what games you have installed on your system in order to continue.\nPlease use the red \"X\" or the green tick symbols next to each game to stop searching or to confirm your install paths.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
 			this.lblInfo.Visible = true;
 			this.lblInfo.TabIndex = 2;
-			this.lblInfo.MinimumSize = new System.Drawing.Size(768, 42);
+			this.lblInfo.MinimumSize = new System.Drawing.Size(768, 80);
 			// 
 			// gameModeListView1
 			// 
@@ -120,6 +146,8 @@
 		private System.Windows.Forms.Panel panel1;
 		private Nexus.Client.UI.Controls.GameModeListView gameModeListView1;
 		private System.Windows.Forms.Button butCancel;
+		private System.Windows.Forms.Button butStopSearching;
+		private System.Windows.Forms.Button butQuickStartup;
 		private System.Windows.Forms.Button butOK;
 		private System.Windows.Forms.Label lblInfo;
 	}
