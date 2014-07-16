@@ -15,6 +15,9 @@ namespace Nexus.Client.UI.Controls
 	/// </summary>
 	public partial class GameModeSearchListViewItem : GameModeListViewItemBase
 	{
+		private bool m_booAcceptedPath = false;
+		private bool m_booGamePathDetected = false;
+		
 		#region Properties
 
 		/// <summary>
@@ -22,6 +25,14 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <value>The discoverer to use to find the game installation path.</value>
 		protected GameDiscoverer Discoverer { get; private set; }
+
+		public bool GamePathFound
+		{
+			get
+			{
+				return (m_booAcceptedPath || m_booGamePathDetected);
+			}
+		}
 
 		#endregion
 
@@ -90,6 +101,7 @@ namespace Nexus.Client.UI.Controls
 			}
 			if (e.GameMode.ModeId.Equals(GameMode.ModeId))
 			{
+				m_booGamePathDetected = true;
 				lblPath.Text = e.InstallationPath;
 				SetVisiblePanel(pnlCandidate);
 			}
@@ -109,6 +121,15 @@ namespace Nexus.Client.UI.Controls
 				lblProgressMessage.Invoke((Action<object, PropertyChangedEventArgs>)Detector_PropertyChanged, sender, e);
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)))
 				lblProgressMessage.Text = Discoverer.OverallMessage;
+		}
+
+		public void StopSearching()
+		{
+			if (Discoverer.Status != TaskStatus.Complete)
+			{
+				SetVisiblePanel(pnlNotFound);
+				Discoverer.Cancel(GameMode.ModeId);
+			}
 		}
 
 		#endregion
@@ -143,6 +164,7 @@ namespace Nexus.Client.UI.Controls
 				SetVisiblePanel(pnlNotFound);
 			else
 				SetVisiblePanel(pnlSearching);
+			m_booGamePathDetected = false;
 			Discoverer.Reject(GameMode.ModeId);
 		}
 
@@ -157,6 +179,7 @@ namespace Nexus.Client.UI.Controls
 		private void butCancel_Click(object sender, EventArgs e)
 		{
 			SetVisiblePanel(pnlNotFound);
+			m_booGamePathDetected = false;
 			Discoverer.Cancel(GameMode.ModeId);
 		}
 
@@ -200,6 +223,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		protected void DisplayFinalUI()
 		{
+			m_booAcceptedPath = true;
 			SetVisiblePanel(pnlSet);
 			lblFinalPath.Text = Discoverer.GetFinalPath(GameMode.ModeId);
 		}
