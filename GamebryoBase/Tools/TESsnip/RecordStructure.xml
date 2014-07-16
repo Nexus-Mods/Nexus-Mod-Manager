@@ -1,0 +1,1191 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Records>
+	<Group id="1">
+		<Subrecord name = "CTDA" desc = "Conditional" optional = "1" repeat = "1">
+			<Element name = "Comparison Type --  +1 means OR" type = "int" options = "equal;0;not equal;32;greater;64;greater / equal;96;less;128;less / equal;160"/>
+			<Element name = "Comparison Value" type = "float"/>
+			<Element name = "Function" type = "int" hexview="true"/>
+			<Element name = "Param 1 (can be int / float / formID)" type = "int"/>
+			<Element name = "Param 2 (can be int / float / formID)" type = "int"/>
+			<Element name = "Param 3 ??" type = "int"/>
+			<Element name = "Param 4??" type = "int"/>
+		</Subrecord>
+	</Group>
+	<Group id = "2">
+		<Subrecord name = "EFID" desc = " -------------------------------------------- Effect Code -------------------------------------------- " repeat = "3">
+			<Element name = "" type = "formid" reftype = "MGEF"/>
+		</Subrecord>
+		<Subrecord name = "EFIT" desc = "Effect Item">
+			<Element name = "Magnitude" type = "int"/>
+			<Element name = "int ??" type = "int"/>
+			<Element name = "Duration" type = "int"/>
+			<Element name = "int ??" type = "int"/>
+			<Element name = "Actor Value Code (?)" type = "int"/>
+		</Subrecord>
+		<Group id = "1"/>
+	</Group>
+	<Group id = "3">
+		<Subrecord name = "SCHR" desc = "Script Compilation Info">
+			<Element name = "unknown int" type = "int"/>
+			<Element name = "reference count" type = "int"/>
+			<Element name = "compiled script length" type = "int"/>
+			<Element name = "variable count" type = "int"/>
+			<Element name = "Quest Script (y/n)" type = "byte" options="yes;1;no;0"/>
+			<Element name = "Magic Effect Script (y/n)" type = "byte" options="yes;1;no;0"/>
+			<Element name = "unknown byte - flags" type = "byte"/>
+			<Element name = "unknown byte - flags" type = "byte"/>
+		</Subrecord>
+		<Subrecord name = "SCDA" desc = "Compiled Script" notininfo = "true" optional = "1">
+			<Element name = "compiled script blob" type = "blob"/>
+		</Subrecord>
+		<Subrecord name = "SCTX" desc = "Uncompiled Script" optional = "1">
+			<Element name = "" type = "fstring" multiline = "true"/>
+		</Subrecord>
+		<Subrecord name = "SLSD" desc = "Local Variable Data" optional = "2" repeat = "2">
+			<Element name = "index" type = "int"/>
+		</Subrecord>
+		<Subrecord name = "SCVR" desc = "Local Variable Name">
+			<Element name = "var name" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "SCRV" desc = "Referenced Variable ??" optional = "1" repeat = "1">
+			<Element name = "variable index ??" type = "int"/>
+		</Subrecord>
+		<Subrecord name = "SCRO" desc = "Referenced Object Record" optional = "1" repeat = "1">
+			<Element name = "Form ID" type = "formid"/>
+		</Subrecord>
+		<Subrecord name = "SCRV" desc = "Referenced Variable ??" optional = "1" repeat = "1">
+			<Element name = "variable index ??" type = "int"/>
+		</Subrecord>
+		<Subrecord name = "SCRO" desc = "Referenced Object Record" optional = "1" repeat = "1">
+			<Element name = "Form ID" type = "formid"/>
+		</Subrecord>
+		<Subrecord name = "SCRV" desc = "Referenced Variable ??" optional = "1" repeat = "1">
+			<Element name = "variable index ??" type = "int"/>
+		</Subrecord>
+		<Subrecord name = "SCRO" desc = "Referenced Object Record" optional = "1" repeat = "1">
+			<Element name = "Form ID" type = "formid"/>
+		</Subrecord>
+	</Group>
+	<Record name="TES4" desc="Main plugin header">
+		<Subrecord name="HEDR" desc="The main plugin header">
+			<Element name="File version" type="float" />
+			<Element name="Record count" type="int" />
+			<Element name="Unknown" type="int" />
+		</Subrecord>
+		<Subrecord name="CNAM" desc="Plugin author" optional="1">
+			<Element name="Author" type="string" />
+		</Subrecord>
+		<Subrecord name="SNAM" desc="Plugin description" optional="1">
+			<Element name="Description" type="string" multiline="true" />
+		</Subrecord>
+		<Subrecord name="MAST" desc="Plugin dependencies" optional="1" repeat="1">
+			<Element name="Master file" type="string" />
+		</Subrecord>
+		<Subrecord name="SCRN" desc="Screenshot" optional="1" notininfo="true">
+			<Element name="Screenshot" type="blob" />
+		</Subrecord>
+	</Record>
+	<Record name="GMST" desc="Game setting">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Setting name" type="string" condid="1"/>
+		</Subrecord>
+		<Subrecord name="DATA" desc="Setting value" condid="1" condition="startswith" condvalue="s">
+			<Element name="String Value" type="string" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Setting value" condid="1" condition="startswith" condvalue="f">
+			<Element name="Float Value" type="float" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Setting value" condid="1" condition="startswith" condvalue="i">
+			<Element name="Integer Value" type="int" />
+		</Subrecord>
+	</Record>
+	<Record name="MICN" desc="Menu Icon">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="ICON" desc="Icon Path">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+	</Record>
+	<Record name="GLOB" desc="Global Variable">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="FNAM" desc="Value Type">
+			<Element name="Value Type" type="byte" condid="1" options="int;115;float;102"/>
+		</Subrecord>
+		<Subrecord name="FLTV" desc="Value" condition="equal" condid="1" condvalue="115">
+			<Element name="Integer Value" type="float" />
+		</Subrecord>
+		<Subrecord name="FLTV" desc="Value" condition="equal" condid="1" condvalue="102">
+			<Element name="Float Value" type="float" />
+		</Subrecord>
+	</Record>
+	<Record name="CLAS" desc="Character Class">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Class Name">
+			<Element name="Name" type="string" />
+		</Subrecord>
+		<Subrecord name="DESC" desc="Unknown - Possibly Unused">
+			<Element name="Unknown" type="byte" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Class Data">
+			<Element name="Tag Skill 1 (AV Code)" type="int" />
+			<Element name="Tag Skill 2 (AV Code)" type="int" />
+			<Element name="Tag Skill 3 (AV Code)" type="int" />
+			<Element name="Unused Tag Slot (-1 indicates no more tag skills/may be updated if player uses Tag! Perk)" type="int" />
+			<Element name="Unused Tag Slot" type="int" />
+			<Element name="Unused Tag Slot" type="int" />
+			<Element name="Unused Tag Slot" type="int" />
+		</Subrecord>
+		<Subrecord name="ATTR" desc="Class SPECIAL Attributes">
+			<Element name="Strength" type="byte" />
+			<Element name="Perception" type="byte" />
+			<Element name="Endurance" type="byte" />
+			<Element name="Charisma" type="byte" />
+			<Element name="Intelligence" type="byte" />
+			<Element name="Agility" type="byte" />
+			<Element name="Luck" type="byte" />
+		</Subrecord>
+	</Record>
+	<Record name="MGEF" desc="Magic Effect">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Full Name" optional="1">
+			<Element name="Full Name" type="string" />
+		</Subrecord>
+		<Subrecord name="DESC" desc="Description">
+			<Element name="Description" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="MODL" notininfo="true" optional="1">
+			<Element name="MODL" type="blob" />
+		</Subrecord>
+		<Subrecord name = "DATA" desc = "Effect data">
+			<Element name = "flags" type = "byte"/>
+			<Element name = "flags" type = "byte"/>
+			<Element name = "flags" type = "byte"/>
+			<Element name = "flags" type = "byte"/>
+			<Element name = "Base Cost (unused)" type = "float" notininfo = "true"/>
+			<Element name = "Script Form ID" type = "formid" reftype = "SCRI"/>
+			<Element name = "Magic School (unused)" type = "int" notininfo = "true"/>
+			<Element name = "Resistance AV code" type = "int"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "unused byte" type = "byte" notininfo = "true"/>
+			<Element name = "unused byte" type = "byte" notininfo = "true"/>
+			<Element name = "Light" type = "formid" reftype = "LIGH"/>
+			<Element name = "Projectile Speed (unused)" type = "float" notininfo = "true"/>
+			<Element name = "Hit Effect Shader" type = "formid" reftype = "EFSH"/>
+			<Element name = "Enchantment Shader" type = "formid" reftype = "EFSH"/>
+			<Element name = "Casting Sound (unused)" type = "formid" reftype = "SOUN" notininfo = "false"/>
+			<Element name = "Bolt Sound (unused)" type = "formid" reftype = "SOUN" notininfo = "false"/>
+			<Element name = "Hit Sound Effect" type = "formid" reftype = "SOUN"/>
+			<Element name = "Area Sound (unused)" type = "formid" reftype = "SOUN" notininfo = "false"/>
+			<Element name = "CE Enchantment Factor (unused)" type = "float" notininfo = "true"/>
+			<Element name = "CE Barter Factor (unused)" type = "float" notininfo = "true"/>
+			<Element name = "is scripted / unknown" type = "int" options = "yes;1;no;0;n/a;12;n/a;13;n/a;24;n/a;31;n/a;33"/>
+			<Element name = "Actor Value Code" type = "int"/>
+		</Subrecord>
+	</Record>
+	<Record name = "SCPT" desc = "Script">
+		<Subrecord name = "EDID" desc = "Editor ID">
+			<Element name = "Editor ID" type = "string"/>
+		</Subrecord>
+		<Group id="3" />
+	</Record>
+	<Record name = "ENCH" desc = "'Enchantment'">
+		<Subrecord name = "EDID" desc = "Editor ID">
+			<Element name = "Editor ID" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "FULL" desc = "Name" optional = "1">
+			<Element name = "" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "ENIT" desc = "Enchantment Info and Type ??">
+			<Element name = "Enchantment Type" type = "int" options = "2 - weapon;2;3 - clothing;3"/>
+			<Element name = "unused int" type = "int" notininfo = "true"/>
+			<Element name = "unused int" type = "int" notininfo = "true"/>
+			<Element name = "flags ??" type = "byte"/>
+			<Element name = "flags ??" type = "byte"/>
+			<Element name = "flags ??" type = "byte"/>
+			<Element name = "flags ??" type = "byte"/>
+		</Subrecord>
+		<Group id = "2"/>
+	</Record>
+	<Record name = "SPEL" desc = "'Spell'">
+		<Subrecord name = "EDID" desc = "Editor ID">
+			<Element name = "Editor ID" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "FULL" desc = "Name" optional = "1">
+			<Element name = "" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "SPIT" desc = "Spell Info and Type ??">
+			<Element name = "Spell Type" type = "int" options = "normal/targeted;0;radiation sickness;1;ability;4;poison;5;withdrawal;10"/>
+			<Element name = "unused int" type = "int" notininfo = "true"/>
+			<Element name = "unused int" type = "int" notininfo = "true"/>
+			<Element name = "flags ??" type = "byte"/>
+			<Element name = "flags ??" type = "byte"/>
+			<Element name = "flags ??" type = "byte"/>
+			<Element name = "flags ??" type = "byte"/>
+		</Subrecord>
+		<Group id = "2"/>
+	</Record>
+	<Record name="ARMO" desc="Armor">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="OBND Data" notininfo="true">
+			<Element name="OBND Data" type="blob" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Full Item Name" optional="1">
+			<Element name="Full Item Name" type="string" />
+		</Subrecord>
+		<Subrecord name="SCRI" desc="ScriptID" optional="1">
+			<Element name="Script ID" type="formid" reftype="SCPT" />
+		</Subrecord>
+		<Subrecord name="EITM" desc="EnchantmentID" optional="1">
+			<Element name="Enchantment ID" type="formid" reftype="ENCH" />
+		</Subrecord>
+		<Subrecord name="BMDT" desc="??" notininfo="true">
+			<Element name="??" type="blob" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Model Path">
+			<Element name="Model Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data" optional="1" notininfo="true">
+			<Element name="Model Data" type="blob"/>
+		</Subrecord>
+		<Subrecord name="MODS" desc="Model Data S" optional="1" notininfo="true">
+			<Element name="ModelDataS" type="blob"/>
+		</Subrecord>
+		<Subrecord name="MODD" desc="MODD" optional="1">
+			<Element name="??" type="byte" />
+		</Subrecord>
+		<Subrecord name="MOD2" desc="Model Path 2" optional="1">
+			<Element name="Model Path 2" type="string" />
+		</Subrecord>
+		<Subrecord name="MO2T" desc="Model Data 2" optional="1" notininfo="true">
+			<Element name="Model Data 2" type="blob"/>
+		</Subrecord>
+		<Subrecord name="MO2S" desc="Model Data 2S" optional="1" notininfo="true">
+			<Element name="Model Data 2S" type="blob"/>
+		</Subrecord>
+		<Subrecord name="ICON" desc="Icon Path" optional="1">
+			<Element name="Icon Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MICO" desc="Mini Icon Path" optional="1">
+			<Element name="Mini Icon Path" type="string" />
+		</Subrecord>
+		<Subrecord name="BMCT" desc="BMCT" optional="1" notininfo="true">
+			<Element name="BMCT" type="blob"/>
+		</Subrecord>
+		<Subrecord name="MOD3" desc="Model Path 3" optional="1">
+			<Element name="Model Path 3" type="string" />
+		</Subrecord>
+		<Subrecord name="MO3T" desc="Model Data 3" optional="1" notininfo="true">
+			<Element name="Model Data 3" type="blob"/>
+		</Subrecord>
+		<Subrecord name="MO3S" desc="Model Data 3S" optional="1" notininfo="true">
+			<Element name="Model Data 3S" type="blob"/>
+		</Subrecord>
+		<Subrecord name="MOSD" desc="MOSD" optional="1">
+			<Element name="??" type="byte" />
+		</Subrecord>
+		<Subrecord name="MOD4" desc="Model Path 4" optional="1">
+			<Element name="Model Path 4" type="string" />
+		</Subrecord>
+		<Subrecord name="MO4T" desc="Model Data 4" optional="1" notininfo="true">
+			<Element name="Model Data 4" type="blob"/>
+		</Subrecord>
+		<Subrecord name="MO4S" desc="Model Data 4S" optional="1" notininfo="true">
+			<Element name="Model Data 4S" type="blob"/>
+		</Subrecord>
+		<Subrecord name="ICO2" desc="Icon Path 2" optional="1">
+			<Element name="Icon Path 2" type="string" />
+		</Subrecord>
+		<Subrecord name="REPL" desc="List of items that can be used to repair this item." optional="1">
+			<Element name="Repair List ID" type="formid" reftype="FLST" />
+		</Subrecord>
+		<Subrecord name="BIPL" desc="parts beloning to this item from ARMA" optional="1">
+			<Element name="Parts List ID" type="formid" reftype="FLST" />
+		</Subrecord>
+		<Subrecord name="ETYP" desc="Equipment Type">
+			<Element name="Equipment Type" type="int"/>
+		</Subrecord>
+		<Subrecord name="YNAM" desc="Pick Up Sound Ref" optional="1">
+			<Element name="Up Sound ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="ZNAM" desc="Drop Sound Ref" optional="1">
+			<Element name="Drop Sound ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Armor Data">
+			<Element name="Value" type="int"/>
+			<Element name="Max Condition(CND)" type="int"/>
+			<Element name="Weight(WG)" type="float"/>
+		</Subrecord>
+		<Subrecord name="DNAM" desc="Damage Resistance(DR) -- actual DR is this value*0.01">
+			<Element name="DR" type="int"/>
+		</Subrecord>
+	</Record>
+	<Record name="BOOK" desc="Book">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="OBND Data" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Book Name" optional="1">
+			<Element name="Name" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Book Model" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data ?? Blob" optional="1" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="SCRI" desc="Script Form ID" optional="1">
+			<Element name="Script Form ID" type="formid" reftype="SCPT"/>
+		</Subrecord>
+		<Subrecord name="ICON" desc="Book Icon" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="DESC" desc="Book Description - Sometimes a copy of the book name.">
+			<Element name="Description" type="string" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Book Settings">
+			<Element name="Unknown" type="byte" />
+			<Element name="Skill To Increase (0-13)" type="byte" />
+			<Element name="Book Value" type="int" />
+			<Element name="Book Weight" type="float" />
+		</Subrecord>
+	</Record>
+	<Record name="WEAP" desc="Weapon">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="??" notininfo="true"/>
+		<Subrecord name="FULL" desc="Name" optional="1">
+			<Element name="Name" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Model NIF" optional="1">
+			<Element name="Nif File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data" optional="1" notininfo="true"/>
+		<Subrecord name="MODD" desc="Model Data 2" optional="1">
+			<Element name="?? byte" type="byte" />
+		</Subrecord>
+		<Subrecord name="ICON" desc="Weapon Icon" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MICO" desc="Mini Icon" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="SCRI" desc="Script ID" optional="1">
+			<Element name="Script ID" type="formid" reftype="SCPT" />
+		</Subrecord>
+		<Subrecord name="DEST" desc="Destruction Start" optional="3" notininfo="true"/>
+		<Subrecord name="DSTD" desc="Destruction Data">
+			<Element name="??" type="short" notininfo="true"/>
+			<Element name="??" type="short" />
+			<Element name="??" type="int" notininfo="true"/>
+			<Element name="Explosion Form ID" type="formid" reftype="EXPL" />
+			<Element name="??" type="int" notininfo="true"/>
+			<Element name="??" type="int" notininfo="true"/>
+		</Subrecord>
+		<Subrecord name="DSTF" desc="Destruction Footer" notininfo="true"/>
+		<Subrecord name="EITM" desc="Enchantment Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="ENCH" />
+		</Subrecord>
+		<Subrecord name="EAMT" desc="Enchantment Charge Amount" optional="1">
+			<Element name="Amount" type="short" />
+		</Subrecord>
+		<Subrecord name="NAM0" desc="Ammo Type Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="AMMO" />
+		</Subrecord>
+		<Subrecord name="REPL" desc="Repair List" optional="1">
+			<Element name="Form ID" type="formid" reftype="FLST" />
+		</Subrecord>
+		<Subrecord name="ETYP" desc="Equip Type">
+			<Element name="Equip Type" type="int" />
+		</Subrecord>
+		<Subrecord name="BIPL" desc="Weapon Type List (for unarmed only?)" optional="1">
+			<Element name="Form ID" type="formid" reftype="FLST" />
+		</Subrecord>
+		<Subrecord name="NNAM" desc="Projectile Node" optional="1">
+			<Element name="Node Name" type="string" />
+		</Subrecord>
+		<Subrecord name="YNAM" desc="Sound Record - Pick Up" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="ZNAM" desc="Sound Record - Drop" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="MOD2" desc="Model NIF 2" optional="1">
+			<Element name="Nif File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MO2T" desc="Model Data 2" optional="1" notininfo="true"/>
+		<Subrecord name="MOD3" desc="Model NIF 3" optional="1">
+			<Element name="Nif File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MO3T" desc="Model Data 3" optional="1" notininfo="true"/>
+		<Subrecord name="MOD4" desc="Model NIF 4" optional="1">
+			<Element name="Nif File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MO4T" desc="Model Data 4" optional="1" notininfo="true"/>
+		<Subrecord name="NNAM" desc="Projectile Node" optional="1">
+			<Element name="Node Name" type="string" />
+		</Subrecord>
+		<Subrecord name="YNAM" desc="Sound Record - Pick Up" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="ZNAM" desc="Sound Record - Drop" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="INAM" desc="Impact Data Set Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="IPDS" />
+		</Subrecord>
+		<Subrecord name="WNAM" desc="World Static Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="STAT" />
+		</Subrecord>
+		<Subrecord name="SNAM" desc="Sound Record - Gun - Shoot 3D" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="XNAM" desc="Sound Record - Gun - Shoot 2D" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="NAM7" desc="Sound Record - Gun - Shoot 3d Looping" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="NAM6" desc="Sound Record - Block" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="TNAM" desc="Sound Record - Melee - Swing / Gun - No Ammo" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="UNAM" desc="Sound Record - Idle" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="NAM6" desc="Sound Record - Block" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="NAM9" desc="Sound Record - Equip" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="NAM8" desc="Sound Record - Unequip" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Weapon Data">
+			<Element name="Item Value (in caps)" type="int" />
+			<Element name="Max Item Condition" type="int" />
+			<Element name="Item Weight" type="float" />
+			<Element name="Weapon Damage" type="short" />
+			<Element name="Ammo Capacity" type="byte" />
+		</Subrecord>
+		<Subrecord name = "DNAM" desc = "Damage Data">
+			<Element name = "Weapon Animation Group" type = "int" options = "unarmed;0;1H melee;1;2H melee;2;pistol 1;3;pistol 2;4;rifle 1;5;rifle 2;6;flamer/gatling/minigun;8;launcher;9;grenade;10;mine;12"/>
+			<Element name = "Animation timescale" type = "float"/>
+			<Element name = "Unknown animation float" type = "float"/>
+			<Element name = "Fire trigger" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "Reload Animation" type = "byte"/>
+			<Element name = "Minimum Spread" type = "float"/>
+			<Element name = "Maximum Spread" type = "float"/>
+			<Element name = "unknown float" type = "float"/>
+			<Element name = "Zoom FOV" type = "float"/>
+			<Element name = "unused float ??" type = "float"/>
+			<Element name = "Projectile Form ID" type = "formid"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "Weapon Firing Animation" type = "byte"/>
+			<Element name = "Damage Multiplier?" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "Projectile Velocity ?? (multiples of 64) -- PROJ records also have velocity data" type = "float"/>
+			<Element name = "Max Range" type = "float"/>
+			<Element name = "Projectile Behavior (arcing, etc)" type = "int"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "Reload Time" type = "float"/>
+			<Element name = "Ammo Used Per Shot" type = "float"/>
+			<Element name = "AP Cost Per Shot" type = "float"/>
+			<Element name = "1st trigger delay" type = "float"/>
+			<Element name = "2nd trigger delay" type = "float"/>
+			<Element name = "rapid fire timing ??" type = "float"/>
+			<Element name = "unused float ??" type = "float"/>
+			<Element name = "critical death effect chance ??" type = "float"/>
+			<Element name = "unknown float" type = "float"/>
+			<Element name = "damage vs defense modifier ??" type = "float"/>
+			<Element name = "unused ?int ?" type = "int"/>
+			<Element name = "weapon skill type (av code)" type = "int"/>
+			<Element name = "unknown int - something about weapon type" type = "int"/>
+			<Element name = "unknown float ??" type = "float"/>
+			<Element name = "unknown float ??" type = "float"/>
+			<Element name = "resist type" type = "int"/>
+			<Element name = "burst mode fire rate ??" type = "float"/>
+			<Element name = "unknown float ?? - DO NOT CHANGE" type = "float"/>
+			<Element name = "unknown float ??" type = "float"/>
+		</Subrecord>
+		<Subrecord name="CRDT" desc="Critical Damage Data">
+			<Element name="Critical Damage Bonus ??" type="int" />
+			<Element name="Critical Chance ??" type="float" />
+			<Element name="unknown int" type="int" />
+			<Element name="Critical SPEL Effect" type="formid" reftype="SPEL" />
+		</Subrecord>
+	</Record>
+	<Record name="CONT" desc="Container">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="??" notininfo="true"/>
+		<Subrecord name="FULL" desc="Name" optional="1">
+			<Element name="Name" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Model NIF">
+			<Element name="Nif File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data" optional="1" notininfo="true"/>
+		<Subrecord name="SCRI" desc="Script ID" optional="1">
+			<Element name="Script ID" type="formid" reftype="SCPT" />
+		</Subrecord>
+		<Subrecord name="CNTO" desc="Container List Item" optional="2" repeat="2">
+			<Element name="Item Form ID" type="formid" />
+			<Element name="Count" type="int" />
+		</Subrecord>
+		<Subrecord name="COED" desc="CND extra data" optional="1">
+			<Element name="??" type="int" notininfo="true" />
+			<Element name="??" type="int" notininfo="true" />
+			<Element name="item condition" type="float" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Container Data">
+			<Element name="Unknown" type="byte" />
+			<Element name="Unknown" type="byte" />
+			<Element name="Unknown" type="byte" />
+			<Element name="Unknown" type="byte" />
+			<Element name="Unknown" type="byte" />
+		</Subrecord>
+		<Subrecord name="SNAM" desc="Sound Record - Open" optional="1">
+			<Element name="Sound Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="QNAM" desc="Sound Record - Close" optional="1">
+			<Element name="Sound Form ID" type="formid" reftype="SOUN" />
+		</Subrecord>
+	</Record>
+	<Record name="AMMO" desc="Ammunition Type">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="OBND Data">
+			<Element name="Unknown" type="int" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Full Name">
+			<Element name="Name" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Ammo Model">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data" optional="1" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="ICON" desc="Ammo Icon">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MICO" desc="Miniature Ammo Icon" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="YNAM" desc="Sound Up - What is this used for?">
+			<Element name="Sound" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="ZNAM" desc="Sound Down - What is this used for?">
+			<Element name="Sound" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Ammo Settings">
+			<Element name="Unknown" type="float" />
+			<Element name="Unknown" type="int" />
+			<Element name="Ammo Value" type="int" />
+			<Element name="Unknown" type="byte" />
+		</Subrecord>
+		<Subrecord name="ONAM" desc="Short Name - Displayed when viewing weapons.">
+			<Element name="Name" type="string" />
+		</Subrecord>
+	</Record>
+	<Record name="MISC" desc="Misc Item">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="OBND Data" notininfo="true">
+			<Element name="OBND Data" type="blob" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Item Name" optional="1">
+			<Element name="Name" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Item Model" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data" optional="1" notininfo="true" />
+		<Subrecord name="ICON" desc="Item Icon" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MICO" desc="Miniature Item Icon" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="SCRI" desc="Item Script" optional="1">
+			<Element name="Script Form ID" type="formid" reftype="SCPT" />
+		</Subrecord>
+		<Subrecord name="YNAM" desc="Item Pickup Sound" optional="1">
+			<Element name="Sound" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="ZNAM" desc="Item Drop Sound" optional="1">
+			<Element name="Sound" type="formid" reftype="SOUN" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Item Data">
+			<Element name="Value" type="int" />
+			<Element name="Weight" type="float" />
+		</Subrecord>
+	</Record>
+	<Record name="LVLC" desc="Leveled Creature">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="OBND Data">
+			<Element name="??" type="int" />
+		</Subrecord>
+		<Subrecord name="LVLD" desc="Chance None Value">
+			<Element name="Chance None in Percent" type="byte" />
+		</Subrecord>
+		<Subrecord name="LVLF" desc="List Flags">
+			<Element name="Flags" type="byte" />
+		</Subrecord>
+		<Subrecord name="LVLO" desc="List Item" optional="2" repeat="2">
+			<Element name="Level" type="short" />
+			<Element name="??" type="short" notininfo="true" />
+			<Element name="Creature" type="formid" />
+			<Element name="Count" type="short" />
+			<Element name="??" type="short" notininfo="true" />
+		</Subrecord>
+	</Record>
+	<Record name="LVLN" desc="Leveled NPC">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="OBND Data">
+			<Element name="??" type="int" />
+		</Subrecord>
+		<Subrecord name="LVLD" desc="Chance None Value">
+			<Element name="Chance None in Percent" type="byte" />
+		</Subrecord>
+		<Subrecord name="LVLF" desc="List Flags">
+			<Element name="Flags" type="byte" />
+		</Subrecord>
+		<Subrecord name="LVLO" desc="List Item" optional="1" repeat="1">
+			<Element name="Level" type="short" />
+			<Element name="??" type="short" notininfo="true" />
+			<Element name="NPC" type="formid" />
+			<Element name="Count" type="short" />
+			<Element name="??" type="short" notininfo="true" />
+		</Subrecord>
+	</Record>
+	<Record name="LVLI" desc="Leveled Item">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="OBND Data" optional="1">
+			<Element name="??" type="int" />
+		</Subrecord>
+		<Subrecord name="LVLD" desc="Chance None Value">
+			<Element name="Chance None in Percent" type="byte" />
+		</Subrecord>
+		<Subrecord name="LVLF" desc="List Flags">
+			<Element name="Flags" type="byte" />
+		</Subrecord>
+		<Subrecord name="LVLO" desc="List Item" optional="2" repeat="2">
+			<Element name="Level" type="short" />
+			<Element name="??" type="short" notininfo="true" />
+			<Element name="Item" type="formid" />
+			<Element name="Count" type="short" />
+			<Element name="??" type="short" notininfo="true" />
+		</Subrecord>
+		<Subrecord name="COED" desc="CND extra data" optional="1">
+			<Element name="??" type="int" notininfo="true" />
+			<Element name="??" type="int" notininfo="true" />
+			<Element name="item condition" type="float" />
+		</Subrecord>
+	</Record>
+	<Record name = "ALCH" desc = "'Consumable'">
+		<Subrecord name = "EDID" desc = "Editor ID">
+			<Element name = "Editor ID" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "OBND" desc = "OBND ??" optional = "1" notininfo = "true">
+			<Element name = "" type = "blob"/>
+		</Subrecord>
+		<Subrecord name = "FULL" desc = "Name" optional = "1">
+			<Element name = "" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "MODL" desc = "Model NIF" optional = "1">
+			<Element name = "File Path" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "MODT" desc = "MODT ??" optional = "1" notininfo = "true">
+			<Element name = "" type = "blob"/>
+		</Subrecord>
+		<Subrecord name = "ICON" desc = "Icon File" optional = "1">
+			<Element name = "File Path" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "MICO" desc = "Mini Icon File" optional = "1">
+			<Element name = "File Path" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "SCRI" desc = "Script ID" optional = "1">
+			<Element name = "Form ID" type = "formid" reftype = "SCPT"/>
+		</Subrecord>
+		<Subrecord name = "YNAM" desc = "Sound Record Type - Pick Up" optional = "1">
+			<Element name = "Form ID" type = "formid" reftype = "SOUN"/>
+		</Subrecord>
+		<Subrecord name = "ZNAM" desc = "Sound Record Type - Drop" optional = "1">
+			<Element name = "Form ID" type = "formid" reftype = "SOUN"/>
+		</Subrecord>
+		<Subrecord name = "ETYP" desc = "'Enchantment' Type ??">
+			<Element name = "Type" type = "int"/>
+		</Subrecord>
+		<Subrecord name = "DATA" desc = "Item Data">
+			<Element name = "Item Weight" type = "float"/>
+		</Subrecord>
+		<Subrecord name = "ENIT" desc = "'Enchantment' Info and Type">
+			<Element name = "Item Value (in caps)" type = "int"/>
+			<Element name = "Item Type" type = "byte" options = "normal;1;food;3;medicine;5" flags = "a;b;c;d"/>
+			<Element name = "unused flags" type = "byte" notininfo = "true"/>
+			<Element name = "unused flags" type = "byte" notininfo = "true"/>
+			<Element name = "unused flags" type = "byte" notininfo = "true"/>
+			<Element name = "Withdrawal Effect" type = "formid" reftype = "SPEL"/>
+			<Element name = "Addiction Chance" type = "float"/>
+			<Element name = "Consume Sound" type = "formid" reftype = "SOUN"/>
+		</Subrecord>
+		<Group id = "2"/>
+	</Record>
+	<Record name = "PROJ" desc = "Projectile">
+		<Subrecord name = "EDID" desc = "Editor ID">
+			<Element name = "Editor ID" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "OBND" desc = "Unknown blob">
+			<Element name = "Unknown" type = "int"/>
+			<Element name = "Unknown" type = "int"/>
+			<Element name = "Unknown" type = "int"/>
+		</Subrecord>
+		<Subrecord name = "FULL" desc = "Full Name" optional = "1">
+			<Element name = "Full Name" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "MODL" desc = "Model NIF">
+			<Element name = "Nif File Path" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "MODT" desc = "Model Data" optional = "1" notininfo = "true">
+			<Element name = "Unknown" type = "blob"/>
+		</Subrecord>
+		<Subrecord name = "DEST" desc = "Destruction Start" optional = "3" notininfo = "true">
+			<Element name = "Unknown" type = "blob"/>
+		</Subrecord>
+		<Subrecord name = "DSTD" desc = "Destruction Data" optional = "1">
+			<Element name = "??" type = "short" notininfo = "true"/>
+			<Element name = "??" type = "short"/>
+			<Element name = "??" type = "int" notininfo = "true"/>
+			<Element name = "Explosion Form ID" type = "formid" reftype = "EXPL"/>
+			<Element name = "??" type = "int" notininfo = "true"/>
+			<Element name = "??" type = "int" notininfo = "true"/>
+		</Subrecord>
+		<Subrecord name = "DSTF" desc = "Destruction Footer" optional = "1" notininfo = "true"/>
+		<Subrecord name = "DATA" desc = "data blob">
+			<Element name = "short" type = "short"/>
+			<Element name = "short" type = "short"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "Projectile Speed" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "Light Form ID" type = "formid" reftype = "LIGH"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "Explosion Form ID" type = "formid" reftype = "EXPL"/>
+			<Element name = "Sound Form ID" type = "formid" reftype = "SOUN"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+			<Element name = "float" type = "float"/>
+		</Subrecord>
+		<Subrecord name = "NAM1" desc = "Effect NIF">
+			<Element name = "Nif File Path" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "NAM2" desc = "Effect Data ??" optional = "1" notininfo = "true">
+			<Element name = "Unknown" type = "blob"/>
+		</Subrecord>
+		<Subrecord name = "VNAM" desc = "Silenced yes/no">
+			<Element name = "Silenced?" type = "int" options = "n/a;0;no;1;yes;2"/>
+		</Subrecord>
+	</Record>
+	<Record name="DIAL" desc="Dialogue Topic">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="QSTI" desc="Quest ID" optional="1" repeat="1">
+			<Element name="Form ID" type="formid" reftype="QUST" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Topic Text">
+			<Element name="Topic Name" type="string" />
+		</Subrecord>
+		<Subrecord name="PNAM" desc="Topic Priority">
+			<Element name="Priority Value" type="float" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Unknown Data 2">
+			<Element name="??" type="byte" />
+			<Element name="??" type="byte" />
+		</Subrecord>
+	</Record>
+	<Record name="INFO" desc="Dialogue Info">
+		<Subrecord name="DATA" desc="Unknown Data">
+			<Element name="??" type="byte" />
+			<Element name="??" type="byte" />
+			<Element name="??" type="byte" />
+			<Element name="??" type="byte" />
+		</Subrecord>
+		<Subrecord name="QSTI" desc="Quest ID">
+			<Element name="Form ID" type="formid" reftype="QUST" />
+		</Subrecord>
+		<Subrecord name="TRDT" desc="Topic Response Data" notininfo="true" repeat="4">
+			<Element name="??" type="int" />
+		</Subrecord>
+		<Subrecord name="NAM1" desc="Dialogue Text">
+			<Element name="text" type="string" />
+		</Subrecord>
+		<Subrecord name="NAM2" desc="Uknown Byte" notininfo="true">
+			<Element name="??" type="byte" />
+		</Subrecord>
+		<Subrecord name="NAM3" desc="Uknown Byte" notininfo="true">
+			<Element name="??" type="byte" />
+		</Subrecord>
+		<Subrecord name="SNAM" desc="Idle Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="IDLE" />
+		</Subrecord>
+		<Subrecord name="CTDA" desc="Info Conditional" optional="1" repeat="1">
+			<Element name="Comparison Type -- [   0_=    32_!=    64_>    96_>=    128_lt    160_lt=   --   +1 means OR   ]    " type="int" options="equal;0;not equal;32;greater;64;greater / equal;96;less;128;less / equal;160"/>
+			<Element name="Comparison Value" type="float" />
+			<Element name="Function" type="int" />
+			<Element name="Param 1 (can be int / float / formID)" type="int"/>
+			<Element name="Param 2 (can be int / float / formID)" type="int"/>
+		</Subrecord>
+		<Subrecord name = "TCLF" desc = "Linked From Topic" optional = "1">
+			<Element name = "link from" type = "formid" refype = "DIAL"/>
+		</Subrecord>
+		<Subrecord name = "TCLT" desc = "Linked To Topic" optional = "1" repeat = "1">
+			<Element name = "link to" type = "formid" reftype = "DIAL"/>
+		</Subrecord>
+		<Group id = "3"/>
+		<Subrecord name = "NEXT" desc = "Separator"/>
+		<Group id = "3"/>
+		<Subrecord name = "ANAM" desc = "Next Speaker">
+			<Element name = "NPC" type = "formid" reftype = "NPC_"/>
+		</Subrecord>
+	</Record>
+	<Record name = "QUST" desc = "Quest">
+		<Subrecord name = "EDID" desc = "Editor ID">
+			<Element name = "Editor ID" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "SCRI" desc = "Quest Script" optional = "1">
+			<Element name = "Form ID" type = "formid" reftype = "SCPT"/>
+		</Subrecord>
+		<Subrecord name = "FULL" desc = "Full Name" optional = "1">
+			<Element name = "Full Name" type = "string"/>
+		</Subrecord>
+		<Subrecord name = "DATA" desc = "Quest Data">
+			<Element name = "Flags ??" type = "byte" hexview = "true" flags = "a;b;c;d;e;e;f;g;h;i;j;k;l;m;n;o;p"/>
+			<Element name = "Priority" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "unknown byte" type = "byte"/>
+			<Element name = "Quest Delay Time" type = "float" options = "default (5s);0"/>
+		</Subrecord>
+		<Group id = "1"/>
+		<Subrecord name = "INDX" desc = " ---------------------------------------------------------- Quest Stage ---------------------------------------------------------- " optional = "15" repeat = "15">
+			<Element name = "Stage Number" type = "short"/>
+		</Subrecord>
+		<Subrecord name = "QSDT" desc = " ================== Quest Stage Data ================== " optional = "14" repeat = "14">
+			<Element name = "unknown byte" type = "byte"/>
+		</Subrecord>
+		<Group id = "1"/>
+		<Subrecord name = "CNAM" desc = "Stage Description" optional = "1">
+			<Element name = "Text" type = "string"/>
+		</Subrecord>
+		<Group id = "3"/>
+	</Record>
+	<Record name="EXPL" desc="Explosions">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="Unknown blob">
+			<Element name="Unknown" type="int"/>
+			<Element name="Unknown" type="int"/>
+			<Element name="Unknown" type="int"/>
+		</Subrecord>
+		<Subrecord name="FULL" desc="Full Name" optional="1">
+			<Element name="Full Name" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Model NIF">
+			<Element name="Nif File Path" type="string"/>
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data" notininfo="true" optional="1">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="EITM" desc="Enchantment Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="ENCH" />
+		</Subrecord>
+		<Subrecord name="MNAM" desc="Audio Space Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="IMAD" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Explosion Data">
+			<Element name="Radius" type="float"/>
+			<Element name="Damage" type="float"/>
+			<Element name="Unknown float" type="float"/>
+			<Element name="Light Form ID" type="formid" reftype="LIGH" />
+			<Element name="Sound 1 Form ID" type="formid" reftype="SOUN" />
+			<Element name="Lower Int" type="int"/>
+			<Element name="Unknown float" type="float"/>
+			<Element name="Impact Data Set Form ID" type="formid" reftype="IPDS" />
+			<Element name="Sound 2 Form ID" type="formid" reftype="SOUN" />
+			<Element name="RadRange" type="float"/>
+			<Element name="RadDuration" type="float"/>
+			<Element name="RadAmount" type="float"/>
+			<Element name="Binary Flag Int, 0 or 1?" type="int"/>
+		</Subrecord>
+	</Record>
+	<Record name="FLST" desc="Form ID List">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="LNAM" desc="List Item" optional="1" repeat="1">
+			<Element name="Form ID" type="formid" />
+		</Subrecord>
+	</Record>
+	<Record name="PERK" desc="Perk">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Perk Name" optional="1">
+			<Element name="Name" type="string" />
+		</Subrecord>
+		<Subrecord name="DESC" desc="Perk Description">
+			<Element name="Description" type="string" multiline="true" />
+		</Subrecord>
+		<Subrecord name="ICON" desc="Perk Icon Path" optional="1">
+			<Element name="Icon File Path" type="string" />
+		</Subrecord>
+		<Group id="1" />
+		<Subrecord name="DATA" desc="Perk Data">
+			<Element name="??" type="byte" notininfo="true"/>
+			<Element name="Min Level Requirement" type="byte" />
+			<Element name="Number of Ranks" type="byte" />
+			<Element name="Player Selectable on Level-up" type="byte" options="no;0;yes;1"/>
+			<Element name="Temporary?" type="byte" options="no;0;yes;1" optional="1"/>
+		</Subrecord>
+		<Subrecord name="PRKE" desc=" -------------------- Rank Effect Header --------------------" repeat="16">
+			<Element name="Effect Type" type="byte" condid="1" options="Linked Quest Stage;0;Linked SPEL;1;Complex;2"/>
+			<Element name="Rank Index" type="byte" />
+			<Element name="?? -- always 0" type="byte" notininfo="true"/>
+		</Subrecord>
+		<Subrecord name="DATA" desc="Linked Quest + Stage" condition="equal" condid="1" condvalue="0">
+			<Element name="Quest Form ID" type="formid" reftype="QUST"/>
+			<Element name="Quest Stage to trigger (matches INDX)" type="byte"/>
+			<Element name="Stage Data 2 -- ??" type="byte"/>
+			<Element name="Stage Data 3 -- ??" type="byte"/>
+			<Element name="Stage Data 4 -- ??" type="byte"/>
+		</Subrecord>
+		<Subrecord name="DATA" desc="Linked SPEL Record" condition="equal" condid="1" condvalue="1">
+			<Element name="Form ID" type="formid" reftype="SPEL"/>
+		</Subrecord>
+		<Subrecord name="DATA" desc="Effect Type ([X,3,3] for below affects combat stats depending on X: 0=normal damage  2=critical damage  6==damage to player limbs  8==VATS accuracy  36==critical chance AGAINST player" condition="equal" condid="1" condvalue="2">
+			<Element name="Type Data 1" type="byte"/>
+			<Element name="Type Data 2" type="byte"/>
+			<Element name="Type Data 3" type="byte"/>
+		</Subrecord>
+		<Subrecord name="PRKC" desc="Conditional Info" optional="2" repeat="2">
+			<Element name="reference for conditional" type="byte" options="player;0;player weapon/activation target;1;hit target;2"/>
+		</Subrecord>
+		<Group id="1" />
+		<Subrecord name="EPFT" desc="Extra Data Type" optional="1">
+			<Element name="Extra Data Type -- 1=float  3=FormID  4=script   -->" type="byte" condid="4" options="float;1;formid;3;script;4"/>
+		</Subrecord>
+		<Subrecord name="EPFD" desc="==> Float Value" condition="equal" condid="4" condvalue="1">
+			<Element name="float value" type="float"/>
+		</Subrecord>
+		<Subrecord name="EPFD" desc="==> (Leveled Item only?) Form ID" condition="equal" condid="4" condvalue="3">
+			<Element name="Form ID" type="formid" reftype="LVLI"/>
+		</Subrecord>
+		<Subrecord name="EPF2" desc="==> Script Data 2 ??" condition="equal" condid="4" condvalue="4">
+			<Element name="??" type="byte"/>
+		</Subrecord>
+		<Subrecord name="EPF3" desc="==> Script Data 3 ?? Always 00 00" condition="equal" condid="4" condvalue="4">
+			<Element name="??" type="short"/>
+		</Subrecord>
+		<Subrecord name="SCHR" desc="Script Header" condition="equal" condid="4" condvalue="4">
+			<Element name="Unknown" type="int"/>
+			<Element name="SCRO Count" type="int"/>
+			<Element name="SCDA Size" type="int"/>
+			<Element name="SCVR Count" type="int"/>
+			<Element name="Unknown--Always 00 00 01 00" type="int"/>
+		</Subrecord>
+		<Subrecord name="SCDA" desc="==> Script SCDA" condition="equal" condid="4" condvalue="4">
+			<Element name="script data blob 2 (compiled?)" type="int"/>
+		</Subrecord>
+		<Subrecord name="SCTX" desc="==> Script Text (Uncompiled)" condition="equal" condid="4" condvalue="4">
+			<Element name="Script Text (string, currently buggy so using type=int" type="int" />
+		</Subrecord>
+		<Subrecord name="SCRO" desc="==> Script Object ?? Seen as formid in other places" optional="1" condition="equal" condid="4" condvalue="4">
+			<Element name="Script Object ??" type="int"/>
+		</Subrecord>
+		<Subrecord name="PRKF" desc=" -------------------- Rank Effect Footer --------------------" notininfo="true">
+		</Subrecord>
+	</Record>
+	<Record name="ADDN" desc="Particle Effect">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="OBND" desc="Unknown blob">
+			<Element name="Unknown" type="int"/>
+			<Element name="Unknown" type="int"/>
+			<Element name="Unknown" type="int"/>
+		</Subrecord>
+		<Subrecord name="MODL" desc="Effect NIF">
+			<Element name="Nif File Path" type="string"/>
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Unique ID?">
+			<Element name="ID Number?" type="int"/>
+		</Subrecord>
+		<Subrecord name="SNAM" desc="Sound Type Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN"/>
+		</Subrecord>
+		<Subrecord name="DNAM" desc="Type??">
+			<Element name="Unknown" type="byte"/>
+			<Element name="Unknown" type="byte"/>
+			<Element name="Type?? -- usually 1" type="byte"/>
+			<Element name="Unknown" type="byte"/>
+		</Subrecord>
+	</Record>
+	<Record name="AVIF" desc="Actor Value Info">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Full Name" optional="1">
+			<Element name="Full Name Text" type="string" />
+		</Subrecord>
+		<Subrecord name="DESC" desc="Description">
+			<Element name="Description Text" type="string" />
+		</Subrecord>
+		<Subrecord name="ICON" desc="Icon Path" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="ANAM" desc="Alternate Name" optional="1">
+			<Element name="Alternate Name Text" type="string" />
+		</Subrecord>
+	</Record>
+	<Record name="RADS" desc="Radiation Stage">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Radiation Stage Data">
+			<Element name="Trigger Threshold in Rads" type="int" />
+			<Element name="Radiation Effects SPEL" type="formid" />
+		</Subrecord>
+	</Record>
+	<Record name="VTYP" desc="Voice Type">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="DNAM" desc="Voice Type Data -- 0=default? 1=male? 2=female 3=female ghoul/old?" optional="1">
+			<Element name="Voice Type" type="byte" options="default?;0;male?;1;female;2;female ghoul/old?;3"/>
+		</Subrecord>
+	</Record>
+	<Record name="IPCT" desc="Impact">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="MODL" desc="Impact NIF" optional="1">
+			<Element name="Nif File Path" type="string" />
+		</Subrecord>
+		<Subrecord name="MODT" desc="Model Data ??" optional="1" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Impact Data" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="DODT" desc="?? Data" optional="1" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="DNAM" desc="Decal Type Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="TXST"/>
+		</Subrecord>
+		<Subrecord name="SNAM" desc="Sound Type Record" optional="1">
+			<Element name="Form ID" type="formid" reftype="SOUN"/>
+		</Subrecord>
+	</Record>
+	<Record name="MESG" desc="Game messages">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="DESC" desc="Description">
+			<Element name="Message text" type="string" />
+		</Subrecord>
+		<Subrecord name="FULL" desc="Screen name" optional="1">
+			<Element name="Screen name" type="string" />
+		</Subrecord>
+		<Subrecord name="INAM" desc="?? -- Always 00 00 00 00">
+			<Element name="Unknown" type="int" />
+		</Subrecord>
+		<Subrecord name="DNAM" desc="Description Type (??)">
+			<Element name="Unknown" type="int" />
+		</Subrecord>
+		<Subrecord name="TNAM" desc="Message Type (??)" optional="1">
+			<Element name="Unknown" type="int" />
+		</Subrecord>
+		<Subrecord name="ITXT" desc="Button 1" repeat="2">
+			<Element name="Button 1 Text" type="string" />
+		</Subrecord>
+		<Group id="1" />
+	</Record>
+	<Record name="RGDL" desc="Ragdoll">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="NVER" desc="Nif Version ?? - Always 1">
+			<Element name="Unknown" type="int" />
+		</Subrecord>
+		<Subrecord name="DATA" desc="Ragdoll Data" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="XNAM" desc="Creature Type Record">
+			<Element name="Form ID" type="formid" reftype="CREA"/>
+		</Subrecord>
+		<Subrecord name="TNAM" desc="Body Part Data Record">
+			<Element name="Form ID" type="formid" reftype="BPTD"/>
+		</Subrecord>
+		<Subrecord name="RAFD" desc="Ragdoll Data 2" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="RAFB" desc="Ragdoll Data 3" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="RAPS" desc="Ragdoll Pose Data ??" notininfo="true">
+			<Element name="Unknown" type="blob" />
+		</Subrecord>
+		<Subrecord name="ANAM" desc="Ragdoll Pose File">
+			<Element name="Pose File Path" type="string" />
+		</Subrecord>
+	</Record>
+	<Record name="MUSC" desc="Music File">
+		<Subrecord name="EDID" desc="Editor ID">
+			<Element name="Editor ID" type="string" />
+		</Subrecord>
+		<Subrecord name="FNAM" desc="Music File Path" optional="1">
+			<Element name="File Path" type="string" />
+		</Subrecord>
+	</Record>
+</Records>
