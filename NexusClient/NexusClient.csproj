@@ -264,6 +264,8 @@
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\thumb_up.png" />
+    <None Include="Resources\thumb_no.png" />
     <EmbeddedResource Include="Resources\Tips.xml" />
     <None Include="Resources\tipsClose.png" />
     <None Include="Resources\tips.png" />

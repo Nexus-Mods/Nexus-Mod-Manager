@@ -693,6 +693,26 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap thumb_no {
+            get {
+                object obj = ResourceManager.GetObject("thumb_no", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap thumb_up {
+            get {
+                object obj = ResourceManager.GetObject("thumb_up", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap tipsClose {
             get {
                 object obj = ResourceManager.GetObject("tipsClose", resourceCulture);
@@ -714,13 +734,13 @@ namespace Nexus.Client.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;tipsManager&gt;
         ///  &lt;tipsList&gt;
-        ///    &lt;tips section=&quot;ModManager.toolStrip1&quot; object=&quot;tsbToggleEndorse&quot; ID=&quot;2&quot; version=&quot;0.60.0&quot;&gt;
+        ///      &lt;tips section=&quot;toolStrip1&quot; object=&quot;tsbTips&quot; ID=&quot;1&quot; version=&quot;0.51.0&quot;&gt;
+        ///      &lt;text&gt;Click here to check the latest version tips.&lt;/text&gt;
+        ///    &lt;/tips&gt;
+        ///    &lt;tips section=&quot;ModManager.toolStrip1&quot; object=&quot;tsbToggleEndorse&quot; ID=&quot;2&quot; version=&quot;0.51.0&quot;&gt;
         ///      &lt;text&gt;This version supports the new Abstain endorsement state (click once to Endorse and click again to Abstain).&lt;/text&gt;
         ///    &lt;/tips&gt;
-        ///    &lt;tips section=&quot;toolStrip1&quot; object=&quot;tsbTips&quot; ID=&quot;1&quot; version=&quot;0.60.0&quot;&gt;
-        ///      &lt;text&gt;New feature: click here to activate the latest version tips or start a tutorial of the UI.&lt;/text&gt;
-        ///    &lt;/tips&gt;
-        ///    &lt;tips  [rest of string was truncated]&quot;;.
+        ///    &lt;tips section=&quot;CLWCategoryListView&quot; object=&quot;column [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TipsXML {
             get {
