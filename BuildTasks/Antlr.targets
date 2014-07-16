@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<!-- The grammar files that will be compiled by the task -->
+	<ItemGroup>
+		<AntlrGrammarFiles Include="**\*.g"/>
+		<AntlrLibraryGrammarFiles Include="$(SolutionDir)**\*.g"/>
+	</ItemGroup>
+	<PropertyGroup>
+		<AntlrJarPath>$(SolutionDir)lib\antlr-3.3-complete.jar</AntlrJarPath>
+		<JavaPath>C:\Program Files (x86)\Java\jre6\bin\java.exe</JavaPath>
+	</PropertyGroup>
+
+	<!-- import the task assembly -->
+	<UsingTask AssemblyFile="$(SolutionDir)lib\BuildTasks.dll" TaskName="AntlrBuildTask"/>
+
+	<!-- Make sure the grammars are compiled before code compilation. -->
+	<PropertyGroup>
+		<CoreCompileDependsOn>
+			$(CoreCompileDependsOn);
+			CompileAntlrGrammars
+		</CoreCompileDependsOn>
+	</PropertyGroup>
+
+	<!-- The target that compiles the grammars. -->
+	<Target Name="CompileAntlrGrammars">
+		<AntlrBuildTask GrammarFile="%(AntlrGrammarFiles.FullPath)"
+						LibraryGrammarFiles="@(AntlrLibraryGrammarFiles)"
+						AntlrJarPath="$(AntlrJarPath)"
+						JavaPath="$(JavaPath)"
+						/>
+	</Target>
+</Project>
