@@ -1015,7 +1015,7 @@ namespace Nexus.Client
 					if (modNewVersion != null)
 					{
 						Trace.TraceInformation("Found alternate version...");
-						string strUpgradeMessage = String.Format("'{0}' was deleted without being deactivated. " + Environment.NewLine +
+						string strUpgradeMessage = String.Format("'{0}' cannot be found. " + Environment.NewLine +
 										"However, a different version has been detected. The installed, missing, version is {1}; the new version is {2}." + Environment.NewLine +
 										"You can either upgrade the mod or uninstall it. If you Cancel, {3} will close and you will " +
 										"have to put the Mod ({4}) back in the mods folder." + Environment.NewLine +
@@ -1041,10 +1041,11 @@ namespace Nexus.Client
 						}
 					}
 
-					string strMessage = String.Format("'{0}' was deleted without being deactivated. " + Environment.NewLine +
-										"This could be caused by setting the wrong 'Mods' folder or an old config file being used." + Environment.NewLine +
-										"If you haven't deleted or moved any of your mods on your hard-drive and they're still on your hard-drive somewhere then select YES and input the proper location of your Mods folder." + Environment.NewLine +
-										"If you select NO {1} will automatically uninstall the missing mod's files.", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
+					string strMessage = String.Format("'{0}' cannot be found. " + Environment.NewLine + Environment.NewLine +
+										"This could be caused by setting the wrong 'Mods' folder or an old config file being used." + Environment.NewLine + Environment.NewLine +
+										"If you haven't deleted or moved any of your mods on your hard-drive and they're still on your hard-drive somewhere then select YES and input the proper location of your Mods folder." + Environment.NewLine + Environment.NewLine +
+										"If you select NO {1} will automatically uninstall the missing mod's files." + Environment.NewLine + Environment.NewLine +
+										"NOTE: The mods folder is where NMM stores your mod archives, it is not the same location as your game's mod folder.", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
 					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Warning)) == DialogResult.No)
 					{
 						Trace.TraceInformation("Removing.");
