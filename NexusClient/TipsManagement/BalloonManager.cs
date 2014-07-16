@@ -40,7 +40,7 @@ namespace Nexus.Client.TipsManagement
 				return m_bmBalloonHelp;
 			}
 		}
-				
+
 		public ITips CurrentTip
 		{
 			get
@@ -48,7 +48,7 @@ namespace Nexus.Client.TipsManagement
 				return (m_lstCurrentTips != null) ? m_lstCurrentTips.Find(x => x.TipId == m_intCurrentTip) : null;
 			}
 		}
-		
+
 		public string TipSection
 		{
 			get
@@ -62,7 +62,7 @@ namespace Nexus.Client.TipsManagement
 		{
 			get
 			{
-				ITips itTip = m_lstCurrentTips.Find(x => x.TipId == m_intCurrentTip);
+				ITips itTip = (m_lstCurrentTips != null) ? m_lstCurrentTips.Find(x => x.TipId == m_intCurrentTip) : null;
 				return (itTip != null) ? itTip.TipObject : String.Empty;
 			}
 		}
@@ -74,7 +74,7 @@ namespace Nexus.Client.TipsManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-        public BalloonManager()
+		public BalloonManager()
 		{
 			m_lstTips = LoadTips();
 		}
@@ -86,22 +86,27 @@ namespace Nexus.Client.TipsManagement
 		/// <summary>
 		/// The initial tips check.
 		/// </summary>
-		public void CheckTips(int p_X, int p_Y, bool p_booCheckForTipsOnStartup)
+		public void CheckTips(int p_X, int p_Y, bool p_booCheckForTipsOnStartup, string p_strVersion)
 		{
-			try
-			{
-				RecreateBalloon(this, EventArgs.Empty);
+			SetTipList(p_strVersion);
 
-				m_bmBalloonHelp.Caption = "";
-				m_bmBalloonHelp.Content = "There are new Tips";
-				m_bmBalloonHelp.previousButton.Visible = false;
-				m_bmBalloonHelp.Icon = SystemIcons.Exclamation;
-				m_intCurrentTip = 1;
-				if (p_booCheckForTipsOnStartup)
-					m_bmBalloonHelp.ShowBalloon(p_X, p_Y);
-			}
-			catch
+			if ((m_lstCurrentTips != null) && (m_lstCurrentTips.Count > 0))
 			{
+				try
+				{
+					RecreateBalloon(this, EventArgs.Empty);
+
+					m_bmBalloonHelp.Caption = "";
+					m_bmBalloonHelp.Content = "There are new Tips";
+					m_bmBalloonHelp.previousButton.Visible = false;
+					m_bmBalloonHelp.Icon = SystemIcons.Exclamation;
+					m_intCurrentTip = 1;
+					if (p_booCheckForTipsOnStartup)
+						m_bmBalloonHelp.ShowBalloon(p_X, p_Y);
+				}
+				catch
+				{
+				}
 			}
 		}
 
@@ -220,13 +225,11 @@ namespace Nexus.Client.TipsManagement
 			{
 				foreach (XElement xelTip in xelTipsList.Elements("tips"))
 				{
-					
 					string strTipObject = xelTip.Attribute("object").Value;
 					string strTipSection = xelTip.Attribute("section").Value;
 					string strTipText = xelTip.Element("text").Value;
-                    string strVersion = xelTip.Attribute("version").Value;
-                    m_tslTips.Add(new Tips(Convert.ToInt32(xelTip.Attribute("ID").Value), strTipText, strTipSection, strTipObject, strVersion));
-					
+					string strVersion = xelTip.Attribute("version").Value;
+					m_tslTips.Add(new Tips(Convert.ToInt32(xelTip.Attribute("ID").Value), strTipText, strTipSection, strTipObject, strVersion));
 				}
 			}
 
@@ -264,15 +267,15 @@ namespace Nexus.Client.TipsManagement
 		/// <summary>
 		/// Updates the Current Tips list.
 		/// </summary>
-		public void SetTipList(string p_strVers)
-        {
+		public void SetTipList(string p_strVersion)
+		{
 			List<ITips> listTips = new List<ITips>();
-			listTips = m_lstTips.Where(x => x.TipVersion == p_strVers).ToList() ?? null;
-			
+			listTips = m_lstTips.Where(x => x.TipVersion == p_strVersion).ToList() ?? null;
+
 			if ((listTips != null) && (listTips.Count > 0))
 				m_lstCurrentTips = listTips;
 
 			m_intCurrentTip = 1;
-        }
+		}
 	}
 }
