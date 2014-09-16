@@ -12,6 +12,7 @@ namespace Nexus.Client.BackgroundTasks.UI
 	{
 		private Int32 m_intCreatedThreadId = -1;
 		private DialogResult m_drtLastDialogResult = DialogResult.None;
+		private bool m_booAllowCancel = true;
 
 		/// <summary>
 		/// Shows the progress dialog as a modal window.
@@ -20,7 +21,7 @@ namespace Nexus.Client.BackgroundTasks.UI
 		/// <returns>The <see cref="Form.DialogResult"/> of the prigress dialog.</returns>
 		public static DialogResult ShowDialog(IBackgroundTask p_bgtTask)
 		{
-			return new ProgressDialog(p_bgtTask).ShowDialog();
+			return new ProgressDialog(p_bgtTask, true).ShowDialog();
 		}
 
 		/// <summary>
@@ -31,8 +32,19 @@ namespace Nexus.Client.BackgroundTasks.UI
 		/// <returns>The <see cref="Form.DialogResult"/> of the prigress dialog.</returns>
 		public static DialogResult ShowDialog(IWin32Window p_winOwner, IBackgroundTask p_bgtTask)
 		{
-			return new ProgressDialog(p_bgtTask).ShowDialog(p_winOwner);
+			return new ProgressDialog(p_bgtTask, true).ShowDialog(p_winOwner);
 		}
+
+		/// <summary>
+		/// Shows the progress dialog as a modal window that is a child of the given owner.
+		/// </summary>
+		/// <param name="p_winOwner">The owner of the dialog.</param>
+		/// <param name="p_bgtTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
+		/// <returns>The <see cref="Form.DialogResult"/> of the prigress dialog.</returns>
+		public static DialogResult ShowDialog(IWin32Window p_winOwner, IBackgroundTask p_bgtTask, bool p_booAllowCancel)
+		{
+			return new ProgressDialog(p_bgtTask, p_booAllowCancel).ShowDialog(p_winOwner);
+ 		}
 
 		#region Properties
 
@@ -50,7 +62,7 @@ namespace Nexus.Client.BackgroundTasks.UI
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_bgtTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
-		protected ProgressDialog(IBackgroundTask p_bgtTask)
+		protected ProgressDialog(IBackgroundTask p_bgtTask, bool p_booAllowCancel)
 		{
 			m_intCreatedThreadId = Thread.CurrentThread.ManagedThreadId;
 			Task = p_bgtTask;
@@ -71,6 +83,8 @@ namespace Nexus.Client.BackgroundTasks.UI
 			pnlItemProgress.Visible = Task.ShowItemProgress;
 			pbrTotalProgress.Style = Task.ShowOverallProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 			pbrItemProgress.Style = Task.ShowItemProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
+
+			butCancel.Visible = p_booAllowCancel;
 		}
 
 		#endregion

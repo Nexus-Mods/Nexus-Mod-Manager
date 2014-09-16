@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
+using System.IO;
+using System.Xml.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadMonitoring;
 using Nexus.Client.DownloadMonitoring.UI;
@@ -20,7 +23,6 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using Nexus.Client.Commands.Generic;
 using Nexus.UI.Controls;
-using System.Drawing;
 
 namespace Nexus.Client
 {
@@ -39,6 +41,11 @@ namespace Nexus.Client
 		/// Raised when the programme is being updated.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> Updating = delegate { };
+
+		/// <summary>
+		/// Raised when switching profiles.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ProfileSwitching = delegate { };
 
 		#endregion
 
@@ -86,11 +93,23 @@ namespace Nexus.Client
 		/// <value>The update manager to use to perform updates.</value>
 		protected UpdateManager UpdateManager { get; private set; }
 
+ 		/// <summary>
+		/// Gets the profile manager to use to switch mod profiles.
+		/// </summary>
+		/// <value>The profile manager to use to switch mod profiles.</value>
+		public ProfileManager ProfileManager { get; private set; }
+
 		/// <summary>
 		/// Gets the mod manager to use to manage mods.
 		/// </summary>
 		/// <value>The mod manager to use to manage mods.</value>
 		public ModManager ModManager { get; private set; }
+
+		/// <summary>
+		/// Gets the plugin manager to use.
+		/// </summary>
+		/// <value>The plugin manager to use.</value>
+		public IPluginManager PluginManager { get; private set; }
 
 		/// <summary>
 		/// Gets the repository we are logging in to.
@@ -160,7 +179,7 @@ namespace Nexus.Client
 		/// Gets the game mode currently being managed.
 		/// </summary>
 		/// <value>The game mode currently being managed.</value>
-		protected IGameMode GameMode { get; private set; }
+		public IGameMode GameMode { get; private set; }
 
 		/// <summary>
 		/// Gets the help information.
@@ -332,6 +351,8 @@ namespace Nexus.Client
 			GameMode = p_gmdGameMode;
 			GameMode.GameLauncher.GameLaunching += new CancelEventHandler(GameLauncher_GameLaunching);
 			ModManager = p_mmgModManager;
+			PluginManager = p_pmgPluginManager;
+			ProfileManager = new ProfileManager(ModManager.VirtualModActivator, ModManager, p_eifEnvironmentInfo.Settings.ModFolder[GameMode.ModeId], GameMode.UsesPlugins);
 			ModRepository = p_mrpModRepository;
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
@@ -378,6 +399,21 @@ namespace Nexus.Client
 
 		#endregion
 
+		#region New Mod Install Migration
+
+		public bool RequiresModMigration()
+		{
+			if ((!ModManager.VirtualModActivator.Initialized || (Directory.Exists(ModManager.VirtualModActivator.VirtualPath) && (Directory.GetDirectories(ModManager.VirtualModActivator.VirtualPath).Length == 0))) && (ModManager.InstallationLog.ActiveMods.Count > 0))
+				return true;
+			else
+				if (!ModManager.VirtualModActivator.Initialized)
+					ModManager.VirtualModActivator.Setup();
+
+			return false;
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Requests a game mode change.
 		/// </summary>
@@ -414,6 +450,38 @@ namespace Nexus.Client
 		private void UpdateProgramme(bool p_booIsAutoCheck)
 		{
 			Updating(this, new EventArgs<IBackgroundTask>(UpdateManager.Update(ConfirmUpdaterAction, p_booIsAutoCheck)));
+		}
+
+ 		/// <summary>
+		/// Updates the programme.
+		/// </summary>
+		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
+		public void ProfileSwitch(IModProfile p_impProfile, List<IVirtualModLink> p_lstVirtualLinks)
+		{
+			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(p_impProfile, ModManager, p_lstVirtualLinks, ConfirmUpdaterAction)));
+		}
+
+		/// <summary>
+		/// Updates the programme.
+		/// </summary>
+		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
+		public void ProfilePluginImport()
+		{
+			IModProfile impCurrentProfile = ProfileManager.CurrentProfile;
+			if (impCurrentProfile != null)
+			{
+				if ((impCurrentProfile.LoadOrder != null) && (impCurrentProfile.LoadOrder.Count > 0))
+					PluginManagerVM.ImportLoadOrderFromDictionary(impCurrentProfile.LoadOrder);
+				else
+				{
+					Dictionary<string, string> dicProfile;
+					ProfileManager.LoadProfile(impCurrentProfile, out dicProfile);
+					if ((dicProfile != null) && (dicProfile.Count > 0) && (dicProfile.ContainsKey("loadorder")))
+					{
+						PluginManagerVM.ImportLoadOrderFromString(dicProfile["loadorder"]);
+					}
+				}
+			}
 		}
 
 		/// <summary>

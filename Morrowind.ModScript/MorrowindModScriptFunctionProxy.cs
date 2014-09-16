@@ -39,8 +39,8 @@ namespace Nexus.Client.Games.Morrowind.Scripting.ModScript
         /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
         /// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
         /// <param name="p_uipUIProxy">The UI manager to use to interact with UI elements.</param>
-        public MorrowindModScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, ModScriptUIUtil p_uipUIProxy)
-            : base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, p_uipUIProxy)
+		public MorrowindModScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, ModScriptUIUtil p_uipUIProxy)
+            : base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, p_uipUIProxy)
         {
         }
 
@@ -135,7 +135,7 @@ namespace Nexus.Client.Games.Morrowind.Scripting.ModScript
         public void RegisterBSA(string p_strBsaPath)
         {
             List<string> lstBsas = GetBSAList();
-            string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strBsaPath);
+            string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strBsaPath, true);
             if (lstBsas.Contains(strFixedPath, StringComparer.OrdinalIgnoreCase))
                 return;
             lstBsas.Add(strFixedPath);
@@ -150,7 +150,7 @@ namespace Nexus.Client.Games.Morrowind.Scripting.ModScript
         public void UnregisterBSA(string p_strBsaPath)
         {
             List<string> lstBsas = GetBSAList();
-            string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strBsaPath);
+            string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strBsaPath, true);
             Int32 intIndex = lstBsas.IndexOf(strFixedPath, StringComparer.OrdinalIgnoreCase);
             if (intIndex < 0)
                 return;

@@ -526,8 +526,6 @@ namespace Nexus.Client.Games
 			}
 		}
 
-		#endregion
-
 		/// <summary>
 		/// Whether the game has a secondary install path.
 		/// </summary>
@@ -538,6 +536,19 @@ namespace Nexus.Client.Games
 				return false;
 			}
 		}
+
+		/// <summary>
+		/// Whether the game requires the profile manager to save optional files.
+		/// </summary>
+		public virtual bool RequiresOptionalFilesCheckOnProfileSwitch
+		{
+			get
+			{
+				return false;
+			}
+		}
+
+		#endregion
 
 		#region Constructors
 
@@ -653,8 +664,9 @@ namespace Nexus.Client.Games
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust</param>
+		/// <param name="p_booIgnoreIfPresent">Whether to ignore the path if the specific root is already present</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath)
+		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
 		{
 			return p_strPath;
 		}
@@ -675,7 +687,7 @@ namespace Nexus.Client.Games
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
 		{
-			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath);
+			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath, false);
 		}
 
 		/// <summary>
@@ -726,6 +738,36 @@ namespace Nexus.Client.Games
 		public virtual bool CheckSecondaryUninstall(string p_strFileName)
 		{
 			return false;
+		}
+
+		/// <summary>
+		/// Whether to run a secondary tools if present.
+		/// </summary>
+		/// <returns>The path to the optional tool to run.</returns>
+		/// <param name="p_strMessage">The message to show to the user.</param>
+		public virtual string PostProfileSwitchTool(out string p_strMessage)
+		{
+			p_strMessage = String.Empty;
+			return String.Empty;
+		}
+
+		/// <summary>
+		/// Whether the profile manager should save extra files for the current game mode.
+		/// </summary>
+		/// <returns>The list of optional files to save (if present) in a profile.</returns>
+		/// <param name="p_strMessage">The list of files/plugins/mods to check.</param>
+		public virtual string[] GetOptionalFilesList(string[] p_strList)
+		{
+			return null;
+		}
+
+		/// <summary>
+		/// Whether the profile manager should load extra files for the current game mode.
+		/// </summary>
+		/// <returns>The list of optional files to load (if present) in a profile.</returns>
+		/// <param name="p_strMessage">The list of files/plugins/mods to load.</param>
+		public virtual void SetOptionalFilesList(string[] p_strList)
+		{
 		}
 
 		/// <summary>

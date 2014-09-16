@@ -52,6 +52,7 @@
 
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.spbLaunch = new System.Windows.Forms.ToolStripSplitButton();
+			this.spbProfiles = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbHelp = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbChangeMode = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbTools = new System.Windows.Forms.ToolStripSplitButton();
@@ -78,6 +79,7 @@
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
 			this.spbLaunch,
+			this.spbProfiles,
 			this.spbHelp,
 			this.spbChangeMode,
 			this.spbTools,
@@ -100,6 +102,15 @@
 			this.spbLaunch.Size = new System.Drawing.Size(166, 36);
 			this.spbLaunch.Text = "toolStripSplitButton1";
 			this.spbLaunch.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbLaunch_DropDownItemClicked);
+			// 
+			// spbProfiles
+			// 
+			this.spbProfiles.Image = ((System.Drawing.Image)(resources.GetObject("endorsed")));
+			this.spbProfiles.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.spbProfiles.Name = "spbProfiles";
+			this.spbProfiles.Size = new System.Drawing.Size(166, 36);
+			this.spbProfiles.Text = "Profiles";
+			this.spbProfiles.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbProfiles_DropDownItemClicked);
 			// 
 			// spbHelp
 			// 
@@ -314,6 +325,7 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripSplitButton spbLaunch;
+		private System.Windows.Forms.ToolStripSplitButton spbProfiles;
 		private System.Windows.Forms.ToolStripButton tsbSettings;
 		public System.Windows.Forms.ToolStripSplitButton tsbTips;
 		private System.Windows.Forms.ToolStripSplitButton spbChangeMode;

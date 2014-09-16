@@ -370,11 +370,6 @@ namespace Nexus.Client.Games.StateOfDecay
         /// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
         /// <param name="p_strPath">The path to adjust</param>
         /// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-        public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath)
-        {
-            return p_strPath;
-        }
-
         public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
         {
             try

@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Linq;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Games;
 using Nexus.Transactions;
 using Nexus.Client.Util;
 
@@ -88,11 +91,11 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <returns>The initialized install log.</returns>
 		/// <exception cref="InvalidOperationException">Thrown if the install log has already
 		/// been initialized.</exception>
-		public static IInstallLog Initialize(ModRegistry p_mdrManagedModRegistry, string p_strModInstallDirectory, string p_strLogPath)
+		public static IInstallLog Initialize(ModRegistry p_mdrManagedModRegistry, IGameMode p_gmdGameMode, string p_strModInstallDirectory, string p_strLogPath)
 		{
 			if (m_ilgCurrent != null)
 				throw new InvalidOperationException("The Install Log has already been initialized.");
-			m_ilgCurrent = new InstallLog(p_mdrManagedModRegistry, p_strModInstallDirectory, p_strLogPath);
+			m_ilgCurrent = new InstallLog(p_mdrManagedModRegistry, p_gmdGameMode, p_strModInstallDirectory, p_strLogPath);
 			return m_ilgCurrent;
 		}
 
@@ -163,6 +166,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// of managed <see cref="IMod"/>s.</value>
 		protected ModRegistry ManagedModRegistry { get; private set; }
 
+		protected IGameMode GameMode { get; private set; }
+
 		/// <summary>
 		/// Gets the path of the install log file.
 		/// </summary>
@@ -213,7 +218,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// of managed <see cref="IMod"/>s.</param>
 		/// <param name="p_strModInstallDirectory">The path of the directory where all of the mods are installed.</param>
 		/// <param name="p_strLogPath">The path from which to load the install log information.</param>
-		private InstallLog(ModRegistry p_mdrManagedModRegistry, string p_strModInstallDirectory, string p_strLogPath)
+		private InstallLog(ModRegistry p_mdrManagedModRegistry, IGameMode p_gmdGameMode, string p_strModInstallDirectory, string p_strLogPath)
 		{
 			m_dicInstalledFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 			m_dicInstalledIniEdits = new InstalledItemDictionary<IniEdit, string>();
@@ -221,6 +226,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			ModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 			ManagedModRegistry = p_mdrManagedModRegistry;
 			LogPath = p_strLogPath;
+			GameMode = p_gmdGameMode;
 			LoadInstallLog();
 			if (!m_amrModKeys.IsModRegistered(OriginalValueMod))
 				AddActiveMod(OriginalValueMod, true);
@@ -428,6 +434,37 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		}
 
 		#endregion
+
+
+		public byte[] GetXMLModList()
+		{
+			string strFileName = Path.GetRandomFileName() + ".xml";
+			string strTempPath = Path.Combine(Path.GetTempPath(), strFileName);
+			XDocument docVirtual = new XDocument();
+			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", "0.1.0.0"));
+			docVirtual.Add(xelRoot);
+
+			XElement xelLinkList = new XElement("linkList");
+			xelRoot.Add(xelLinkList);
+			xelLinkList.Add(from itm in m_dicInstalledFiles
+							select new XElement("link",
+								new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(GetCurrentFileOwner(itm.Item).Filename), GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename == GetCurrentFileOwner(itm.Item).Filename).Format, itm.Item, true))),
+								new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename == GetCurrentFileOwner(itm.Item).Filename).Format, itm.Item, true)),
+								new XElement("modName",
+									new XText(GetCurrentFileOwner(itm.Item).ModName)),
+								new XElement("modFileName",
+									new XText(GetCurrentFileOwner(itm.Item).Filename)),
+								new XElement("linkPriority",
+									new XText("0")),
+								new XElement("isActive",
+									new XText("true"))));
+			docVirtual.Save(strTempPath);
+
+			XmlDocument xmlDocument = new XmlDocument();
+			xmlDocument.Load(strTempPath);
+			FileUtil.ForceDelete(strTempPath);
+			return Encoding.UTF8.GetBytes(xmlDocument.OuterXml);
+		}
 
 		#region Transaction Handling
 

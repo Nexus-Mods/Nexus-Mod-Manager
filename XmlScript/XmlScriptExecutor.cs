@@ -15,6 +15,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	public class XmlScriptExecutor : ScriptExecutorBase
 	{
 		private SynchronizationContext m_scxSyncContext = null;
+		private IVirtualModActivator m_ivaVirtualModActivator = null;
 				
 		#region Properties
 
@@ -54,13 +55,14 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>		
-		public XmlScriptExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
+		public XmlScriptExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
 		{
 			m_scxSyncContext = p_scxUIContext;
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			Installers = p_igpInstallers;
+			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
 		}
 
 		#endregion
@@ -111,7 +113,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 			if (booPerformInstall)
 			{
-				XmlScriptInstaller xsiInstaller = new XmlScriptInstaller(Mod, GameMode, Installers);
+				XmlScriptInstaller xsiInstaller = new XmlScriptInstaller(Mod, GameMode, Installers, m_ivaVirtualModActivator);
 				OnTaskStarted(xsiInstaller);
 				return xsiInstaller.Install(hifHeaderInfo.Title, xscScript, csmStateManager, ofmOptions.FilesToInstall, ofmOptions.PluginsToActivate);				
 			}

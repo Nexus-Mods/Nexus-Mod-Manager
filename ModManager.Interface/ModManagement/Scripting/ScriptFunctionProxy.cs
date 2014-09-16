@@ -6,6 +6,7 @@ using System.Security.Permissions;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
+using Nexus.Client.ModManagement;
 using Nexus.Client.Mods;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util;
@@ -62,6 +63,18 @@ namespace Nexus.Client.ModManagement.Scripting
 		protected InstallerGroup Installers { get; private set; }
 
 		/// <summary>
+		/// Gets the virtual mod activator to use.
+		/// </summary>
+		/// <value>The virtual mod activator to use.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
+		/// <summary>
+		/// Gets the mod link installer to use.
+		/// </summary>
+		/// <value>The mod link installer to use.</value>
+		protected IModLinkInstaller ModLinkInstaller { get; private set; }
+
+		/// <summary>
 		/// Gets the manager to use to display UI elements.
 		/// </summary>
 		/// <value>The manager to use to display UI elements.</value>
@@ -79,13 +92,15 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_uipUIProxy">The UI manager to use to interact with UI elements.</param>
-		public ScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, UIUtil p_uipUIProxy)
+		public ScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, UIUtil p_uipUIProxy)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			Installers = p_igpInstallers;
 			UIManager = p_uipUIProxy;
+			VirtualModActivator = p_ivaVirtualModActivator;
+			ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 		}
 
 		#endregion
@@ -129,7 +144,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles, null);
+				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, null);
 				OnTaskStarted(bitTask);
 				booSuccess = bitTask.Execute();
 			}
@@ -187,12 +202,16 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
 		public virtual bool InstallFileFromMod(string p_strFrom, string p_strTo)
 		{
-			string strFixedTo = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strTo);
 			bool booSuccess = false;
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				booSuccess = Installers.FileInstaller.InstallFileFromMod(p_strFrom, strFixedTo, false);
+				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), p_strTo);
+
+				Installers.FileInstaller.InstallFileFromMod(p_strFrom, strVirtualPath);
+				ModLinkInstaller.AddFileLink(Mod, p_strTo, true);
+
+				booSuccess = true;
 			}
 			finally
 			{
@@ -202,7 +221,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
-		/// Installs the speified file from the mod to the file system.
+		/// Installs the specified file from the mod to the file system.
 		/// </summary>
 		/// <param name="p_strFile">The path of the file to install.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
@@ -284,7 +303,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A filtered list of all files in a user's Data directory.</returns>
 		public string[] GetExistingDataFileList(string p_strPath, string p_strPattern, bool p_booAllFolders)
 		{
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
+			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath, true);
 			return Installers.DataFileUtility.GetExistingDataFileList(strFixedPath, p_strPattern, p_booAllFolders);
 		}
 
@@ -296,7 +315,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// otherwise.</returns>
 		public bool DataFileExists(string p_strPath)
 		{
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
+			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath, true);
 			return Installers.DataFileUtility.DataFileExists(strFixedPath);
 		}
 
@@ -307,7 +326,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The specified file, or <c>null</c> if the file does not exist.</returns>
 		public byte[] GetExistingDataFile(string p_strPath)
 		{
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
+			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath, true);
 			return Installers.DataFileUtility.GetExistingDataFile(strFixedPath);
 		}
 
@@ -323,8 +342,22 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
 		public bool GenerateDataFile(string p_strPath, byte[] p_bteData)
 		{
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPath);
-			return Installers.FileInstaller.GenerateDataFile(strFixedPath, p_bteData, false);
+			bool booSuccess = false;
+			try
+			{
+				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), p_strPath);
+
+				Installers.FileInstaller.GenerateDataFile(strVirtualPath, p_bteData);
+				ModLinkInstaller.AddFileLink(Mod, p_strPath, true);
+
+				booSuccess = true;
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
+			return booSuccess;
 		}
 
 		#endregion
@@ -445,7 +478,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		protected string[] RelativizePluginPaths(IList<Plugin> p_lstPlugins)
 		{
 			string[] strPlugins = new string[p_lstPlugins.Count];
-			string strInstallationPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, GameMode.GetModFormatAdjustedPath(Mod.Format, null));
+			string strInstallationPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, GameMode.GetModFormatAdjustedPath(Mod.Format, null, true));
 			Int32 intTrimLength = strInstallationPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Length + 1;
 			for (Int32 i = 0; i < p_lstPlugins.Count; i++)
 				strPlugins[i] = p_lstPlugins[i].Filename.Remove(0, intTrimLength);
@@ -479,7 +512,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_booActivate">Whether to activate the plugin.</param>
 		public void SetPluginActivation(string p_strPluginPath, bool p_booActivate)
 		{
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPluginPath);
+			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPluginPath, true);
 			Installers.PluginManager.SetPluginActivation(strFixedPath, p_booActivate);
 		}
 
@@ -495,7 +528,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		protected void DoSetPluginOrderIndex(string p_strPlugin, int p_intNewIndex)
 		{
 
-			string strFixedPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPlugin));
+			string strFixedPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPlugin, true));
 			Plugin plgPlugin = Installers.PluginManager.ManagedPlugins.Find(x => x.Filename.Equals(strFixedPath, StringComparison.OrdinalIgnoreCase));
 			Installers.PluginManager.SetPluginOrderIndex(plgPlugin, p_intNewIndex);
 		}
@@ -614,7 +647,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				return;
 			List<string> lstRelativelyOrderedPlugins = new List<string>();
 			foreach (string strPlugin in p_strRelativelyOrderedPlugins)
-				lstRelativelyOrderedPlugins.Add(GameMode.GetModFormatAdjustedPath(Mod.Format, strPlugin));
+				lstRelativelyOrderedPlugins.Add(GameMode.GetModFormatAdjustedPath(Mod.Format, strPlugin, true));
 
 			Plugin plgCurrent = null;
 			Int32 intInitialIndex = 0;

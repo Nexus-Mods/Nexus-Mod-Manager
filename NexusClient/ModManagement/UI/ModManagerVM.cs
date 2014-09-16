@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
@@ -71,9 +72,19 @@ namespace Nexus.Client.ModManagement.UI
 		public event EventHandler<EventArgs<IBackgroundTask>> TogglingAllWarning = delegate { };
 
 		/// <summary>
+		/// Raised when disabling multiple mods.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> DisablingMultipleMods = delegate { };
+
+		/// <summary>
 		/// Raised when uninstalling multiple mods.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> DeactivatingMultipleMods = delegate { };
+
+		/// <summary>
+		/// Raised when installing multiple mods.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ActivatingMultipleMods = delegate { };
 
 		#endregion
 
@@ -144,7 +155,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// The commands takes an argument describing the mod to be deactivated.
 		/// </remarks>
 		/// <value>The command to deactivate a mod.</value>
-		public Command<IMod> DeactivateModCommand { get; private set; }
+		public Command<IMod> DisableModCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the command to tag a mod.
@@ -208,6 +219,18 @@ namespace Nexus.Client.ModManagement.UI
 			get
 			{
 				return ModManager.ActiveMods;
+			}
+		}
+
+		/// <summary>
+		/// Gets the current virtual mod activator.
+		/// </summary>
+		/// <value>The current virtual mod activator.</value>
+		public IVirtualModActivator VirtualModActivator
+		{
+			get
+			{
+				return ModManager.VirtualModActivator;
 			}
 		}
 
@@ -283,10 +306,11 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 				this.CategoryManager.Backup();
+
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
-			ActivateModCommand = new Command<IMod>("Activate Mod", "Activates the selected mod.", ActivateMod);
-			DeactivateModCommand = new Command<IMod>("Deactivate Mod", "Deactivates the selected mod.", DeactivateMod);
+			ActivateModCommand = new Command<IMod>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMod);
+			DisableModCommand = new Command<IMod>("Disable Mod", "Disables the selected mod.", DisableMod);
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
 
 			ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
@@ -398,9 +422,14 @@ namespace Nexus.Client.ModManagement.UI
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (String.IsNullOrEmpty(strErrorMessage))
 			{
-				IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
-				if (btsInstall != null)
-					ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
+				if (!ActiveMods.Contains(p_modMod))
+				{
+					IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+					if (btsInstall != null)
+						ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
+				}
+				else
+					EnableMod(p_modMod);
 			}
 			else
 			{
@@ -412,23 +441,50 @@ namespace Nexus.Client.ModManagement.UI
 		/// Deactivates the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to deactivate.</param>
-		protected void DeactivateMod(IMod p_modMod)
+		public void DeactivateMod(IMod p_modMod)
 		{
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
 		}
 
 		/// <summary>
+		/// Disables all the mods.
+		/// </summary>
+		/// <param name="p_rolModList">The list of mods to disable.</param>
+		public void DisableMultipleMods(List<IMod> p_rolModList)
+		{
+			DialogResult Result = MessageBox.Show("Do you want to disable all the active mods?", "Disable Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+			if (Result == DialogResult.Yes)
+			{
+				DisablingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DisableMultipleMods(p_rolModList, ConfirmUpdaterAction)));
+			}
+		}
+
+		/// <summary>
 		/// Deactivates all the mods.
 		/// </summary>
 		/// <param name="p_rolModList">The list of Active Mods.</param>
-		public void DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList)
+		public void DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, bool p_booForceUninstall)
 		{
-			DialogResult Result = MessageBox.Show("Do you want to uninstall all the active mods?", "Deativate Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			if (Result == DialogResult.Yes)
+			DialogResult Result = DialogResult.None;
+
+			if (!p_booForceUninstall)
+				Result = MessageBox.Show("Do you want to uninstall all the installed mods?", "Deactivate Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			
+			if (p_booForceUninstall || (Result == DialogResult.Yes))
 			{
 				DeactivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DeactivateMultipleMods(p_rolModList, ConfirmUpdaterAction)));
 			}
+		}
+
+		/// <summary>
+		/// Install all the mods.
+		/// </summary>
+		/// <param name="p_rolModList">The list of Active Mods.</param>
+		public void MultiModInstall(List<IMod> p_lstModList, bool p_booAllowCancel)
+		{
+			ActivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.ActivateMultipleMods(p_lstModList, p_booAllowCancel, ConfirmUpdaterAction, ConfirmItemOverwrite)));
 		}
 
 		#endregion
@@ -464,6 +520,20 @@ namespace Nexus.Client.ModManagement.UI
 			ModInfo mifNewInfo = new ModInfo(p_modMod);
 			mifNewInfo.ModName = p_strNewModName;
 			p_modMod.UpdateInfo(mifNewInfo, true);
+		}
+
+		#endregion
+
+		#region Virtual Mod Activation
+		
+		public void EnableMod(IMod p_modMod)
+		{
+			VirtualModActivator.EnableMod(p_modMod);
+		}
+
+		public void DisableMod(IMod p_modMod)
+		{
+			VirtualModActivator.DisableMod(p_modMod);
 		}
 
 		#endregion
@@ -643,7 +713,7 @@ namespace Nexus.Client.ModManagement.UI
 				strMessage += Environment.NewLine + "Would you like NMM to organise your mods based on the categories the Nexus sites use (YES), or would you like to organise your categories yourself (NO)?";
 				strMessage += Environment.NewLine + Environment.NewLine + "Note: If you choose to use Nexus categories you can still create your own categories and move your files around them. This initial Nexus setup is just a template for you to use.";
 
-				DialogResult Result = MessageBox.Show(strMessage, "Category setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+				DialogResult Result = ExtendedMessageBox.Show(null, strMessage, "Category setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 				if (Result == DialogResult.Yes)
 				{
 					this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
@@ -679,7 +749,7 @@ namespace Nexus.Client.ModManagement.UI
 				strMessage += Environment.NewLine + "Do you want to perform the Readme Manager startup scan?";
 				strMessage += Environment.NewLine + Environment.NewLine + "Note: if choose not to, you will be able to perform a scan by selecting any number of mods, and choosing 'Readme Scan' in the right-click menu.";
 
-				if (MessageBox.Show(strMessage, "Readme Manager Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+				if (ExtendedMessageBox.Show(null, strMessage, "Readme Manager Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 					SetupReadMeManager(ModManager.ManagedMods.ToList<IMod>());
 			}
 		}

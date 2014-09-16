@@ -71,19 +71,19 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		/// <value>The <see cref="PluginRegistry"/> that contains the list
 		/// of managed <see cref="Plugin"/>s.</value>
-		protected PluginRegistry ManagedPluginRegistry { get; private set; }
+		public PluginRegistry ManagedPluginRegistry { get; set; }
 
 		/// <summary>
 		/// Gets the <see cref="ActivePluginLog"/> tracking plugin activations for the current game mode.
 		/// </summary>
 		/// <value>The <see cref="ActivePluginLog"/> tracking plugin activations for the current game mode.</value>
-		protected ActivePluginLog ActivePluginLog { get; private set; }
+		public ActivePluginLog ActivePluginLog { get; private set; }
 
 		/// <summary>
 		/// Gets the <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.
 		/// </summary>
 		/// <value>The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</value>
-		protected IPluginOrderLog PluginOrderLog { get; private set; }
+		public IPluginOrderLog PluginOrderLog { get; private set; }
 
 		/// <summary>
 		/// Gets the object that validates plugin order.

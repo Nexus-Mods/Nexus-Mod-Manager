@@ -44,8 +44,8 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-		public ModUpgrader(IMod p_modOldMod, IMod p_modNewMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
-			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_dlgOverwriteConfirmationDelegate, null)
+		public ModUpgrader(IMod p_modOldMod, IMod p_modNewMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_dlgOverwriteConfirmationDelegate, null)
 		{
 			OldMod = p_modOldMod;
 		}
@@ -79,7 +79,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The file installer to use to install the mod's files.</returns>
 		protected override IIniInstaller CreateIniInstaller(TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			return new IniUpgradeInstaller(Mod, ModInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
+			return new IniUpgradeInstaller(Mod, ModInstallLog, VirtualModActivator, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
 		}
 
 		/// <summary>

@@ -1,4 +1,7 @@
-﻿using System.IO;
+﻿﻿using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using Nexus.Client.Games.Fallout3;
 using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Skyrim.Tools;
@@ -83,6 +86,17 @@ namespace Nexus.Client.Games.Skyrim
 			}
 		}
 
+		/// <summary>
+		/// Whether the game requires the profile manager to save optional files.
+		/// </summary>
+		public override bool RequiresOptionalFilesCheckOnProfileSwitch
+		{
+			get
+			{
+				return true;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -123,6 +137,33 @@ namespace Nexus.Client.Games.Skyrim
 		#endregion
 
 		/// <summary>
+		/// Whether to run a secondary tools if present.
+		/// </summary>
+		/// <returns>The path to the optional tool to run.</returns>
+		/// <param name="p_strMessage">The message to show to the user.</param>
+		public override string PostProfileSwitchTool(out string p_strMessage)
+		{
+			p_strMessage = "It seems that FNIS is installed: switching mod profiles while using FNIS could require you to run it to prevent broken ingame animations, do you want to run it?";
+			return Path.Combine(PluginDirectory, @"tools\GenerateFNIS_for_Users\GenerateFNISforUsers.exe");
+		}
+
+		/// <summary>
+		/// Whether the profile manager should save extra files for the current game mode.
+		/// </summary>
+		/// <returns>The list of optional files to save (if present) in a profile.</returns>
+		/// <param name="p_strMessage">The list of files/plugins/mods to check.</param>
+		public override string[] GetOptionalFilesList(string[] p_strList)
+		{
+			var regEx = new Regex("^bashed patch");
+			string[] strOptionalFiles = null;
+
+			if ((p_strList != null) && (p_strList.Length > 0))
+				strOptionalFiles = p_strList.Where(x => regEx.IsMatch(Path.GetFileName(x.ToLower()))).ToArray();
+
+			return strOptionalFiles;
+		}
+
+		/// <summary>
 		/// Creates a game mode descriptor for the current game mode.
 		/// </summary>
 		/// <returns>A game mode descriptor for the current game mode.</returns>
@@ -132,5 +173,18 @@ namespace Nexus.Client.Games.Skyrim
 				m_gmdGameModeInfo = new SkyrimGameModeDescriptor(EnvironmentInfo);
 			return m_gmdGameModeInfo;
 		}
+
+		/// <summary>
+		/// Whether the profile manager should load extra files for the current game mode.
+		/// </summary>
+		/// <returns>The list of optional files to load (if present) in a profile.</returns>
+		/// <param name="p_strMessage">The list of files/plugins/mods to load.</param>
+		public override void SetOptionalFilesList(string[] p_strList)
+		{
+			if ((p_strList != null) && (p_strList.Length > 0))
+				foreach (string strFile in p_strList)
+					File.Copy(strFile, Path.Combine(PluginDirectory, Path.GetFileName(strFile)), true);
+		}
+
 	}
 }

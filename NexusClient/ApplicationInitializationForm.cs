@@ -61,7 +61,7 @@ namespace Nexus.Client
 				m_vmlViewModel.TaskEnded += new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
 				m_vmlViewModel.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
 
-				lblVersion.Text = m_vmlViewModel.EnvironmentInfo.ApplicationVersion.ToString();
+				lblVersion.Text = Application.ProductVersion;
 				Text = m_vmlViewModel.EnvironmentInfo.Settings.ModManagerName;
 			}
 		}

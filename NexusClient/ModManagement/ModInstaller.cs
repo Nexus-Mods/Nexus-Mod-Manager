@@ -39,6 +39,12 @@ namespace Nexus.Client.ModManagement
 		protected IEnvironmentInfo EnvironmentInfo { get; set; }
 
 		/// <summary>
+		/// Gets the manager to use to manage plugins.
+		/// </summary>
+		/// <value>The manager to use to manage plugins.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
+		/// <summary>
 		/// Gets the current game mode.
 		/// </summary>
 		/// <value>The the current game mode.</value>
@@ -89,7 +95,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
-		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -98,6 +104,7 @@ namespace Nexus.Client.ModManagement
 			UIContext = p_scxUIContext;
 			ModInstallLog = p_ilgModInstallLog;
 			PluginManager = p_pmgPluginManager;
+			VirtualModActivator = p_ivaVirtualModActivator;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate;
 			ActiveMods = p_rolActiveMods;
 		}
@@ -235,7 +242,7 @@ namespace Nexus.Client.ModManagement
 				IGameSpecificValueInstaller gviGameSpecificValueInstaller = CreateGameSpecificValueInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 
 				InstallerGroup ipgInstallers = new InstallerGroup(dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager);
-				IScriptExecutor sexScript = Mod.InstallScript.Type.CreateExecutor(Mod, GameMode, EnvironmentInfo, ipgInstallers, UIContext);
+				IScriptExecutor sexScript = Mod.InstallScript.Type.CreateExecutor(Mod, GameMode, EnvironmentInfo, VirtualModActivator, ipgInstallers, UIContext);
 				sexScript.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(ScriptExecutor_TaskStarted);
 				sexScript.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(ScriptExecutor_TaskSetCompleted);
 				booResult = sexScript.Execute(Mod.InstallScript);
@@ -292,7 +299,7 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, EnvironmentInfo.Settings.SkipReadmeFiles, p_rolActiveMods);
+			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, p_rolActiveMods);
 			OnTaskStarted(bitTask);
 			return bitTask.Execute();
 		}
@@ -326,7 +333,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The file installer to use to install the mod's files.</returns>
 		protected virtual IIniInstaller CreateIniInstaller(TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			return new IniInstaller(Mod, ModInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
+			return new IniInstaller(Mod, ModInstallLog, VirtualModActivator, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
 		}
 
 		/// <summary>

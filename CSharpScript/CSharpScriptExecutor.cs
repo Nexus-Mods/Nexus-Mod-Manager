@@ -27,6 +27,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		private CSharpScriptFunctionProxy m_csfFunctions = null;
 		private IGameMode m_gmdGameMode = null;
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
+		private string m_strVirtualActivatorPath = String.Empty;
 
 		#region Properties
 
@@ -47,12 +48,13 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_csfFunctions">The proxy providing the implementations of the functions available to the C# script.</param>
 		/// <param name="p_tpeBaseScriptType">The type of the base script from which all C# scripts should derive.</param>
-		public CSharpScriptExecutor(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, CSharpScriptFunctionProxy p_csfFunctions, Type p_tpeBaseScriptType)
+		public CSharpScriptExecutor(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, CSharpScriptFunctionProxy p_csfFunctions, Type p_tpeBaseScriptType, string p_strVirtualActivatorFolder)
 		{
 			m_gmdGameMode = p_gmdGameMode;
 			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
 			m_csfFunctions = p_csfFunctions;
 			BaseScriptType = p_tpeBaseScriptType;
+			m_strVirtualActivatorPath = p_strVirtualActivatorFolder;
 		}
 
 		#endregion
@@ -272,6 +274,14 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Append, m_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, m_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
+
+			if (!String.IsNullOrEmpty(m_strVirtualActivatorPath))
+			{
+				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Write, m_strVirtualActivatorPath));
+				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_strVirtualActivatorPath));
+				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Append, m_strVirtualActivatorPath));
+				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, m_strVirtualActivatorPath));
+			}
 
 			foreach (string strPath in m_gmdGameMode.WritablePaths)
 			{

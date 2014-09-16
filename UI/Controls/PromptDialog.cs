@@ -96,10 +96,13 @@ namespace Nexus.UI.Controls
 			set
 			{
 				m_strValidationPattern = value;
-				if (!m_strValidationPattern.StartsWith("^"))
-					m_strValidationPattern = "^" + m_strValidationPattern;
-				if (!m_strValidationPattern.EndsWith("$"))
-					m_strValidationPattern += "$";
+				if (!String.IsNullOrEmpty(m_strValidationPattern))
+				{
+					if (!m_strValidationPattern.StartsWith("^"))
+						m_strValidationPattern = "^" + m_strValidationPattern;
+					if (!m_strValidationPattern.EndsWith("$"))
+						m_strValidationPattern += "$";
+				}
 			}
 		}
 

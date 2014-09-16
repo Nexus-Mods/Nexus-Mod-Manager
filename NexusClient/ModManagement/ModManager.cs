@@ -76,6 +76,7 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		private ModActivator m_macModActivator = null;
+		private VirtualModActivator m_vmaVirtualModActivator = null;
 		private ReadMeManager m_rmmReadMeManager = null;
 
 		#region Properties
@@ -141,7 +142,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the install log tracking mod activations for the current game mode.
 		/// </summary>
 		/// <value>The install log tracking mod activations for the current game mode.</value>
-		protected IInstallLog InstallationLog { get; private set; }
+		public IInstallLog InstallationLog { get; private set; }
 
 		/// <summary>
 		/// Gets the <see cref="IModFormatRegistry"/> that contains the list
@@ -166,6 +167,18 @@ namespace Nexus.Client.ModManagement
 		/// <value>The <see cref="AddModQueue"/> that contains the list
 		/// of <see cref="IMod"/>s to be added to the mod manager.</value>
 		protected AddModQueue ModAdditionQueue { get; private set; }
+
+		/// <summary>
+		/// Gets the current Virtual Mod Activator.
+		/// </summary>
+		/// <value>The current Virtual Mod Activator.</value>
+		public VirtualModActivator VirtualModActivator
+		{
+			get
+			{
+				return m_vmaVirtualModActivator;
+			}
+		}
 
 		/// <summary>
 		/// Gets the newest available information about the managed mods.
@@ -306,7 +319,9 @@ namespace Nexus.Client.ModManagement
 			FormatRegistry = p_frgFormatRegistry;
 			ManagedModRegistry = p_mdrManagedModRegistry;
 			InstallationLog = p_ilgInstallLog;
-			InstallerFactory = new ModInstallerFactory(p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager);
+			m_vmaVirtualModActivator = new VirtualModActivator(this, p_pmgPluginManager, p_gmdGameMode, p_ilgInstallLog, p_eifEnvironmentInfo, EnvironmentInfo.Settings.ModFolder[GameMode.ModeId]);
+			m_vmaVirtualModActivator.Initialize();
+			InstallerFactory = new ModInstallerFactory(p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager, m_vmaVirtualModActivator);
 			DownloadMonitor = p_dmrMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
@@ -426,7 +441,7 @@ namespace Nexus.Client.ModManagement
 		{
 			if (InstallationLog.ActiveMods.Contains(p_modMod))
 				return null;
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
 		}
 
 		/// <summary>
@@ -515,6 +530,19 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+ 		/// Runs the managed updaters.
+ 		/// </summary>
+		/// <param name="p_rolModList">The mod list.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask ActivateMultipleMods(List<IMod> p_lstModList, bool p_booAllowCancel, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		{
+			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, p_booAllowCancel, this.InstallationLog, this.InstallerFactory, p_dlgOverwriteConfirmationDelegate);
+			ammActivateAllMods.Update(p_camConfirm);
+			return ammActivateAllMods;
+		}
+
+		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>
 		/// <param name="p_lstModList">The list of mods we need to update.</param>
@@ -534,7 +562,20 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Runs the managed updaters.
+		/// Disables multiple mods.
+		/// </summary>
+		/// <param name="p_rolModList">The mod list.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask DisableMultipleMods(List<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
+		{
+			DisableMultipleModsTask dmmDisableAllMods = new DisableMultipleModsTask(p_rolModList, VirtualModActivator);
+			dmmDisableAllMods.Update(p_camConfirm);
+			return dmmDisableAllMods;
+		}
+
+		/// <summary>
+		/// Uninstalls multiple mods.
 		/// </summary>
 		/// <param name="p_rolModList">The mod list.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>

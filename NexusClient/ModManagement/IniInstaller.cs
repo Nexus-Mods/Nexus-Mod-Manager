@@ -36,6 +36,12 @@ namespace Nexus.Client.ModManagement
 		protected TxFileManager TransactionalFileManager { get; private set; }
 
 		/// <summary>
+		/// Gets the virtual mod activator to use.
+		/// </summary>
+		/// <value>The virtual mod activator to use.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
+		/// <summary>
 		/// Gets the set of Ini files that have been edited.
 		/// </summary>
 		protected Set<string> TouchedFiles { get; private set; }
@@ -51,11 +57,12 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ilgInstallLog">The install log to use to log file installations.</param>
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-		public IniInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		public IniInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, IVirtualModActivator p_ivaVirtualModActivator, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
 			TouchedFiles = new Set<string>(StringComparer.OrdinalIgnoreCase);
 			Mod = p_modMod;
 			InstallLog = p_ilgInstallLog;
+			VirtualModActivator = p_ivaVirtualModActivator;
 			TransactionalFileManager = p_tfmFileManager;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b, m) => OverwriteResult.No);
 		}
@@ -152,6 +159,10 @@ namespace Nexus.Client.ModManagement
 
 			IniMethods.WritePrivateProfileString(p_strSection, p_strKey, p_strValue, p_strSettingsFileName);
 			InstallLog.AddIniEdit(Mod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+
+			if (VirtualModActivator != null)
+				VirtualModActivator.LogIniEdits(Mod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+
 			return true;
 		}
 

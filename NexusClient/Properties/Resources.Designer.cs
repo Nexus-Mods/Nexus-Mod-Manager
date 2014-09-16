@@ -223,6 +223,26 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap dialog_accept {
+            get {
+                object obj = ResourceManager.GetObject("dialog_accept", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap dialog_block {
+            get {
+                object obj = ResourceManager.GetObject("dialog_block", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap dialog_cancel_4 {
             get {
                 object obj = ResourceManager.GetObject("dialog_cancel_4", resourceCulture);
@@ -373,6 +393,26 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap edit_4 {
+            get {
+                object obj = ResourceManager.GetObject("edit_4", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap edit_add_4 {
+            get {
+                object obj = ResourceManager.GetObject("edit_add_4", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap edit_clear_3 {
             get {
                 object obj = ResourceManager.GetObject("edit_clear_3", resourceCulture);
@@ -406,6 +446,16 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap edit_delete_6 {
             get {
                 object obj = ResourceManager.GetObject("edit_delete_6", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap edit_find_and_replace {
+            get {
+                object obj = ResourceManager.GetObject("edit_find_and_replace", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -466,6 +516,16 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap folders_open {
             get {
                 object obj = ResourceManager.GetObject("folders_open", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap format_line_spacing_triple {
+            get {
+                object obj = ResourceManager.GetObject("format_line_spacing_triple", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -706,6 +766,16 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap thumb_up {
             get {
                 object obj = ResourceManager.GetObject("thumb_up", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap thumbsup {
+            get {
+                object obj = ResourceManager.GetObject("thumbsup", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

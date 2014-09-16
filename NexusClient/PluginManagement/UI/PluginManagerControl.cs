@@ -448,7 +448,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_booIsActive">Whether the given plugin is active.</param>
 		protected void SetPluginActive(Plugin p_plgActivated, bool p_booIsActive)
 		{
-			if (!rlvPlugins.Items.ContainsKey(p_plgActivated.Filename.ToLowerInvariant()))
+			if ((p_plgActivated == null) || (!rlvPlugins.Items.ContainsKey(p_plgActivated.Filename.ToLowerInvariant())))
 				return;
 			ListViewItem lviPlugin = rlvPlugins.Items[p_plgActivated.Filename.ToLowerInvariant()];
 			SetPluginActivationCheck(lviPlugin, p_booIsActive);

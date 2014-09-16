@@ -418,13 +418,18 @@ namespace Nexus.Client.Util
 			m_strFiles.Clear();
 			using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
 			{
-				m_booIsSolid = szeExtractor.IsSolid;
-				foreach (ArchiveFileInfo afiFile in szeExtractor.ArchiveFileData)
-					if (!afiFile.IsDirectory)
-					{
-						m_dicFileInfo[afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)] = afiFile;
-						m_strFiles.Add(afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
-					}
+				try
+				{
+					m_booIsSolid = szeExtractor.IsSolid;
+
+					foreach (ArchiveFileInfo afiFile in szeExtractor.ArchiveFileData)
+						if (!afiFile.IsDirectory)
+						{
+							m_dicFileInfo[afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)] = afiFile;
+							m_strFiles.Add(afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+						}
+				}
+				catch { }
 			}
 			FilesChanged(this, new EventArgs());
 		}

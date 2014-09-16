@@ -326,6 +326,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 
 		#endregion
 
+		byte[] GetXMLModList();
+
 		/// <summary>
 		/// This backsup the install log.
 		/// </summary>

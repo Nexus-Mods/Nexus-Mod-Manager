@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
 using ChinhDo.Transactions;
 using Nexus.Client.Util.Collections;
 using System.Collections.Generic;
@@ -135,6 +136,26 @@ namespace Nexus.Client.Util
 			if (p_booOverwrite)
 				ForceDelete(p_strTo);
 			File.Move(p_strFrom, p_strTo);
+		}
+
+		/// <summary>
+		/// Creates a directory at the given path.
+		/// </summary>
+		/// <remarks>
+		/// The standard <see cref="Directory.CreateDirectory()"/> has a latency issue where
+		/// the directory is not necessarily ready for use immediately after creation. This
+		/// method waits until the cirectory is created and ready before returning.
+		/// </remarks>
+		/// <param name="p_strPath">The path of the directory to create.</param>
+		public static void CreateDirectory(string p_strPath)
+		{
+			int intRetries = 1;
+			Directory.CreateDirectory(p_strPath);
+			while (!Directory.Exists(p_strPath) && intRetries <= 10)
+			{
+				intRetries++;
+				Thread.Sleep(100);
+			}
 		}
 
 		/// <summary>

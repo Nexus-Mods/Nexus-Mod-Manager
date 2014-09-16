@@ -111,9 +111,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <returns>An executor that can run the script type.</returns>
-		public IScriptExecutor CreateExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
+		public IScriptExecutor CreateExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
 		{
-			return new XmlScriptExecutor(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, p_scxUIContext);
+			return new XmlScriptExecutor(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, p_scxUIContext);
 		}
 
 		/// <summary>

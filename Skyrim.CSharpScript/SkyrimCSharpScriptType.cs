@@ -38,11 +38,11 @@ namespace Nexus.Client.Games.Skyrim.Scripting.CSharpScript
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <returns>A proxy that implements the functions available to C# scripts.</returns>
-		protected override CSharpScriptFunctionProxy GetScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
+		protected override CSharpScriptFunctionProxy GetScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
 		{
 			BsaManager bmgBsaManager = new BsaManager((SkyrimGameMode)p_gmdGameMode);
 			UIUtil uitUiUtilities = new UIUtil(p_gmdGameMode, p_eifEnvironmentInfo, p_scxUIContext);
-			return new SkyrimCSharpScriptFunctionProxy(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, bmgBsaManager, uitUiUtilities);
+			return new SkyrimCSharpScriptFunctionProxy(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, bmgBsaManager, uitUiUtilities);
 		}
 	}
 }

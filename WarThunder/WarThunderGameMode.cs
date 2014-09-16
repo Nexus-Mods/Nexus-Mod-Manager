@@ -288,24 +288,6 @@ namespace Nexus.Client.Games.WarThunder
 		}
 
 		/// <summary>
-		/// Adjusts the given path to be relative to the installation path of the game mode.
-		/// </summary>
-		/// <remarks>
-		/// This is basically a hack to allow older FOMod/OMods to work. Older FOMods assumed
-		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
-		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
-		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
-		/// to be relative to the new instaalation path to make things work.
-		/// </remarks>
-		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
-		/// <param name="p_strPath">The path to adjust</param>
-		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath)
-		{
-			return p_strPath;
-		}
-
-		/// <summary>
 		/// Disposes of the unamanged resources.
 		/// </summary>
 		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="IDisposable.Dispose()"/> method.</param>

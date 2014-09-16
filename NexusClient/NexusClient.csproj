@@ -112,14 +112,20 @@
     </Compile>
     <Compile Include="ModAuthoring\Project.cs" />
     <Compile Include="ModAuthoring\UI\ModPackagingFormVM.cs" />
+    <Compile Include="ModManagement\ActivateMultipleModsTask.cs" />
+    <Compile Include="ModManagement\DisableMultipleModsTask.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.DummyMod.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.TransactionEnlistment.cs" />
     <Compile Include="ModManagement\ModFileInstaller.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.cs" />
     <Compile Include="ModManagement\ModInstaller.cs" />
     <Compile Include="ModManagement\ModInstallerFactory.cs" />
+    <Compile Include="ModManagement\ModLinkInstaller.cs" />
     <Compile Include="ModManagement\ModManager.cs" />
+    <Compile Include="ModManagement\ModProfile.cs" />
     <Compile Include="ModManagement\ModRegistry.cs" />
+    <Compile Include="ModManagement\ProfileActivationTask.cs" />
+    <Compile Include="ModManagement\ProfileManager\ProfileManager.cs" />
     <Compile Include="ModManagement\UI\ModManagerControl.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -133,6 +139,8 @@
     <Compile Include="ModManagement\UI\OverwriteForm.Designer.cs">
       <DependentUpon>OverwriteForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
+    <Compile Include="ModManagement\VirtualModLink.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
     <Compile Include="Program.cs" />
@@ -264,6 +272,10 @@
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="data\NewVersionDisclaimer.rtf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Resources\thumbsup.png" />
     <None Include="Resources\thumb_up.png" />
     <None Include="Resources\thumb_no.png" />
     <EmbeddedResource Include="Resources\Tips.xml" />
@@ -328,6 +340,12 @@
     <None Include="Resources\arrow_state_blue_left.png" />
     <None Include="Resources\arrow_state_blue_right.png" />
     <None Include="Resources\help_book.png" />
+    <None Include="Resources\dialog-accept.png" />
+    <None Include="Resources\dialog-block.png" />
+    <None Include="Resources\edit-4.png" />
+    <None Include="Resources\edit-add-4.png" />
+    <None Include="Resources\edit-find-and-replace.png" />
+    <None Include="Resources\format-line-spacing-triple.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
@@ -662,6 +680,7 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

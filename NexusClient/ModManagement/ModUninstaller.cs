@@ -51,6 +51,12 @@ namespace Nexus.Client.ModManagement
 		/// <value>The manager to use to manage plugins.</value>
 		protected IPluginManager PluginManager { get; private set; }
 
+		/// <summary>
+		/// Gets the current virtual mod activator.
+		/// </summary>
+		/// <value>The current virtual mod activator.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
 		protected ReadOnlyObservableList<IMod> ActiveMods { get; set; }
 
 		#endregion
@@ -67,7 +73,7 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
-		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -75,6 +81,7 @@ namespace Nexus.Client.ModManagement
 			ModInstallLog = p_ilgModInstallLog;
 			PluginManager = p_pmgPluginManager;
 			ActiveMods = p_rolActiveMods;
+			VirtualModActivator = p_ivaVirtualModActivator;
 		}
 
 		#endregion
@@ -146,11 +153,11 @@ namespace Nexus.Client.ModManagement
 			IDataFileUtil dfuDataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
 
 			IModFileInstaller mfiFileInstaller = new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, dfuDataFileUtility, p_tfmFileManager, null, GameMode.UsesPlugins);
-			IIniInstaller iniIniInstaller = new IniInstaller(Mod, ModInstallLog, p_tfmFileManager, null);
+			IIniInstaller iniIniInstaller = new IniInstaller(Mod, ModInstallLog, VirtualModActivator, p_tfmFileManager, null);
 			IGameSpecificValueInstaller gviGameSpecificValueInstaller = GameMode.GetGameSpecificValueInstaller(Mod, ModInstallLog, p_tfmFileManager, new NexusFileUtil(EnvironmentInfo), null);
 
 			InstallerGroup ipgInstallers = new InstallerGroup(dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager);
-			BasicUninstallTask butTask = new BasicUninstallTask(Mod, ipgInstallers, ModInstallLog, GameMode, ActiveMods);
+			BasicUninstallTask butTask = new BasicUninstallTask(Mod, VirtualModActivator, ipgInstallers, ModInstallLog, GameMode, ActiveMods);
 			OnTaskStarted(butTask);
 
 			bool booResult = butTask.Execute();

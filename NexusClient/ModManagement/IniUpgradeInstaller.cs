@@ -40,8 +40,8 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ilgInstallLog">The install log to use to log file installations.</param>
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-		public IniUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
-			: base(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate)
+		public IniUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, IVirtualModActivator p_ivaVirtualModActivator, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+			: base(p_modMod, p_ilgInstallLog, p_ivaVirtualModActivator, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate)
 		{
 			OriginallyInstalledEdits = new Set<IniEdit>();
 			OriginallyInstalledEdits.AddRange(InstallLog.GetInstalledIniEdits(Mod));

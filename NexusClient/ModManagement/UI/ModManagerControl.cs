@@ -58,6 +58,8 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ReadMeManagerSetup += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ReadMeManagerSetup);
 				m_vmlViewModel.AddingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AddingMod);
 				m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
+				m_vmlViewModel.ActivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMultipleMods);
+				m_vmlViewModel.DisablingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
 				m_vmlViewModel.DeactivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
 				m_vmlViewModel.TaggingMod += new EventHandler<EventArgs<ModTaggerVM>>(ViewModel_TaggingMod);
@@ -83,7 +85,7 @@ namespace Nexus.Client.ModManagement.UI
 
 				new ToolStripItemCommandBinding<IMod>(tsbDeleteMod, m_vmlViewModel.DeleteModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMod);
-				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DeactivateModCommand, GetSelectedMod);
+				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DisableModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
 				Command cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
 				new ToolStripItemCommandBinding(tsbToggleEndorse, cmdToggleEndorsement);
@@ -91,7 +93,7 @@ namespace Nexus.Client.ModManagement.UI
 				new ToolStripItemCommandBinding(tsbCheckModVersions, cmdCheckModVersions);
 				ViewModel.DeleteModCommand.CanExecute = false;
 				ViewModel.ActivateModCommand.CanExecute = false;
-				ViewModel.DeactivateModCommand.CanExecute = false;
+				ViewModel.DisableModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
 				ViewModel.ParentForm = this;
 
@@ -121,6 +123,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.ToggleAllWarnings += new EventHandler(CategoryListView_ToggleAllWarnings);
 			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
 			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
+			clwCategoryView.UninstallMod += new EventHandler(CategoryListView_UninstallMod);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -303,7 +306,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <c>null</c> if no mod is selected.</returns>
 		private IMod GetSelectedMod()
 		{
-			if (clwCategoryView.Visible && (clwCategoryView.SelectedIndices.Count == 0))
+			if ((clwCategoryView.Visible && (clwCategoryView.SelectedIndices.Count == 0)) || (clwCategoryView.GetSelectedItem == null))
 				return null;
 			else
 				return (IMod)clwCategoryView.GetSelectedItem;
@@ -312,31 +315,30 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Sets the executable status of the commands.
 		/// </summary>
-		protected void SetCommandExecutableStatus()
+		public void SetCommandExecutableStatus()
 		{
 			if (((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
 			{
 				if (clwCategoryView.Visible)
-					ViewModel.DeactivateModCommand.CanExecute = ViewModel.ActiveMods.Contains((IMod)clwCategoryView.GetSelectedItem);
+					ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(GetSelectedMod().Filename);
 
-				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DeactivateModCommand.CanExecute;
+				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DisableModCommand.CanExecute;
 
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = true;
 				tsbToggleEndorse.Enabled = true;
-				tsbToggleEndorse.Image = GetSelectedMod().IsEndorsed == true ? Properties.Resources.unendorsed : Properties.Resources.endorsed;
+				tsbToggleEndorse.Image = Properties.Resources.thumbsup;
 			}
 			else
 			{
 				ViewModel.ActivateModCommand.CanExecute = false;
-				ViewModel.DeactivateModCommand.CanExecute = false;
-				ViewModel.DeleteModCommand.CanExecute = false;
+				ViewModel.DisableModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
 				tsbToggleEndorse.Enabled = false;
-				tsbToggleEndorse.Image = Properties.Resources.unendorsed;
+				tsbToggleEndorse.Image = Properties.Resources.thumbsup;
 			}
 
-			this.tsbDeactivate.Visible = ViewModel.DeactivateModCommand.CanExecute;
+			this.tsbDeactivate.Visible = ViewModel.DisableModCommand.CanExecute;
 			this.tsbActivate.Visible = ViewModel.ActivateModCommand.CanExecute;
 		}
 
@@ -367,7 +369,12 @@ namespace Nexus.Client.ModManagement.UI
 				if (e.Success)
 					MessageBox.Show(this, e.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				else
+				{
+					IMod modMod = (IMod)e.ReturnValue;
+					if (modMod != null)
+						ViewModel.VirtualModActivator.DisableMod(modMod);
 					MessageBox.Show(this, e.Message, "Failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				}
 			}
 		}
 
@@ -496,15 +503,30 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ToolStripItem.Click"/> event of the deactivate all 
-		/// all the Active Mods button.
+		/// Disables all the currently active mods.
 		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		public void DeactivateAllMods()
+		public void DisableAllMods()
 		{
-			ViewModel.DeactivateMultipleMods(ViewModel.ActiveMods);
+			List<IMod> lstEnabledMods = ViewModel.ActiveMods.Where(x => ViewModel.VirtualModActivator.ActiveModList.Contains(x.Filename)).ToList();
+			if ((lstEnabledMods != null) && (lstEnabledMods.Count > 0))
+				ViewModel.DisableMultipleMods(lstEnabledMods);
 		}
+
+		/// <summary>
+		/// Uninstall all the currently installed mods.
+		/// </summary>
+		public void DeactivateAllMods(bool p_booForceUninstall)
+		{
+			ViewModel.DeactivateMultipleMods(ViewModel.ActiveMods, p_booForceUninstall);
+		}
+
+		/// <summary>
+		/// Installs multiple mods.
+		/// </summary>
+		public void MultiModInstall(List<IMod> p_lstMods, bool p_booAllowCancel)
+		{
+			ViewModel.MultiModInstall(p_lstMods, p_booAllowCancel);
+ 		}
 
 		#region Category Management
 
@@ -521,7 +543,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (clwCategoryView.Tag == null)
 			{
-				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.CategoryManager, ViewModel.Settings);
+				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator.VirtualLinks, ViewModel.CategoryManager, ViewModel.Settings);
 
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
@@ -555,8 +577,8 @@ namespace Nexus.Client.ModManagement.UI
 								IMod modMod = (IMod)e.Item.RowObject;
 								if (modMod != null)
 								{
-									if (ViewModel.ActiveMods.Contains(modMod))
-										ViewModel.DeactivateModCommand.Execute(modMod);
+									if (ViewModel.VirtualModActivator.ActiveModList.Contains(modMod.Filename))
+										ViewModel.DisableModCommand.Execute(modMod);
 									else
 										ViewModel.ActivateModCommand.Execute(modMod);
 								}
@@ -764,6 +786,28 @@ namespace Nexus.Client.ModManagement.UI
 		private void CategoryListView_OpenReadMeFile(object sender, EventArgs e)
 		{
 			ViewModel.OpenReadMe(clwCategoryView.GetSelectedMod, sender.ToString());
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.DisableMod"/> of the opening
+		/// of the ReaMe file.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_UninstallMod(object sender, EventArgs e)
+		{
+			ViewModel.DeactivateMod((IMod)sender);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.EnableMod"/> of the opening
+		/// of the ReaMe file.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_EnableMod(object sender, EventArgs e)
+		{
+			ViewModel.EnableMod(clwCategoryView.GetSelectedMod);
 		}
 
 		/// <summary>
@@ -1365,6 +1409,32 @@ namespace Nexus.Client.ModManagement.UI
 		#region Mod Activation
 
 		/// <summary>
+		/// Handles the <see cref="ModManagerVM.DisablingMultipleMods"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_DisablingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_DisablingMultipleMods, sender, e);
+				return;
+			}
+			m_booDisableSummary = true;
+			ProgressDialog.ShowDialog(this, e.Argument);
+			m_booDisableSummary = false;
+
+			if (this.Visible == true)
+			{
+				string strMessage = "All the active mods were disabled.";
+				MessageBox.Show(strMessage, "Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+		}
+
+		/// <summary>
 		/// Handles the <see cref="ModManagerVM.DeactivatingMultipleMods"/> event of the view model.
 		/// </summary>
 		/// <remarks>
@@ -1383,8 +1453,31 @@ namespace Nexus.Client.ModManagement.UI
 			ProgressDialog.ShowDialog(this, e.Argument);
 			m_booDisableSummary = false;
 
-			string strMessage = "All the active mods were uninstalled.";
-			MessageBox.Show(strMessage, "Mod uninstall complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			if (this.Visible == true)
+			{
+				string strMessage = "All the active mods were uninstalled.";
+				MessageBox.Show(strMessage, "Mod uninstall complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ModManagerVM.ActivatingMultipleMods"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_ActivatingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ActivatingMultipleMods, sender, e);
+				return;
+			}
+			m_booDisableSummary = true;
+			ProgressDialog.ShowDialog(this, e.Argument);
+			m_booDisableSummary = false;
 		}
 
 		/// <summary>

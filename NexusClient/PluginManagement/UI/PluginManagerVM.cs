@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
 using Nexus.Client.Plugins;
 using Nexus.Client.Settings;
+using Nexus.Client.UI;
+using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
-using System.Linq;
 
 namespace Nexus.Client.PluginManagement.UI
 {
@@ -44,6 +47,11 @@ namespace Nexus.Client.PluginManagement.UI
 		/// Raised when importing a load order succeeds.
 		/// </summary>
 		public event EventHandler<ImportSucceededEventArgs> ImportSucceeded = delegate { };
+
+		/// <summary>
+		/// Raised when switching profiles.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> PluginControlResetting = delegate { };
 
 		#endregion
 
@@ -396,6 +404,25 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Writes the current load order and the id of the specified game mode to the specified 
+		/// <see cref="TextWriter"/> and returns the stream.
+		/// </summary>
+		/// <param name="p_twWriter">The TextWriter to export the current load order to.</param>
+		/// <returns>The stream.</returns>
+		public byte[] ExportLoadOrder()
+		{
+			System.Text.StringBuilder sbLoadOrder = new System.Text.StringBuilder();
+			sbLoadOrder.AppendLine("GameMode=" + CurrentGameMode.ModeId);
+
+			foreach (Plugin p in ManagedPlugins)
+			{
+				sbLoadOrder.AppendLine(Path.GetFileName(p.Filename) + "=" + (ActivePlugins.Contains(p) ? "1" : "0"));
+			}
+
+			return System.Text.Encoding.UTF8.GetBytes(sbLoadOrder.ToString());
+		}
+
+		/// <summary>
 		/// Exports the current load order and game mode to a text file.
 		/// </summary>
 		/// <param name="p_strFilename">The filename to export the load order to.</param>
@@ -648,6 +675,40 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Read the load order from the specified <see cref="Dictionary<string, string>"/> and returns the number of
+		/// plugins imported as well as the number of plugins not found.
+		/// </summary>
+		/// <param name="p_dicDictionary">The Dictionary to read the load order from.</param>
+		/// <param name="p_intTotalPluginCount">The total number of plugins that were found in the specified import source.</param>
+		/// <param name="p_intImportedCount">The number of plugins imported.</param>
+		/// <param name="p_lstUnregisteredPlugins">The list of plugins that are not registered with the current <see cref="T:PluginManager"/>.</param>
+		private void ImportLoadOrder(Dictionary<string, string> p_dicDictionary, out int p_intTotalPluginCount, out int p_intImportedCount, out List<string> p_lstUnregisteredPlugins)
+		{
+			p_intTotalPluginCount = p_dicDictionary.Count;
+
+			if (p_intTotalPluginCount == 0)
+			{
+				p_intImportedCount = 0;
+				p_lstUnregisteredPlugins = null;
+				return;
+			}
+
+			Dictionary<Plugin, string> kvpRegisteredPlugins;
+
+			GetRegisteredPlugins(p_dicDictionary, out kvpRegisteredPlugins, out p_lstUnregisteredPlugins);
+
+			if (kvpRegisteredPlugins.Count == 0)
+			{
+				p_intImportedCount = 0;
+				return;
+			}
+
+			ApplyLoadOrder(kvpRegisteredPlugins);
+
+			p_intImportedCount = kvpRegisteredPlugins.Count;
+		}
+
+		/// <summary>
 		/// Imports a load order from the specified file.
 		/// </summary>
 		/// <param name="p_strFilename">The filename to import a load order from.</param>
@@ -679,6 +740,55 @@ namespace Nexus.Client.PluginManagement.UI
 				{
 					OnImportFailed(p_strFilename, ex);
 				}
+			}
+		}
+
+		/// <summary>
+		/// Imports a load order from the specified stream.
+		/// </summary>
+		/// <param name="p_strStream">The stream to import a load order from.</param>
+		public void ImportLoadOrderFromString(string p_strLoadOrder)
+		{
+			if (String.IsNullOrEmpty(p_strLoadOrder) || !CurrentGameMode.UsesPlugins)
+				return;
+
+			using (StringReader strReader = new StringReader(p_strLoadOrder))
+			{
+				try
+				{
+					int intTotalPluginCount;
+					int intImportedPluginCount;
+					List<string> lstPluginsNotImported;
+
+					ImportLoadOrder(strReader, out intTotalPluginCount, out intImportedPluginCount, out lstPluginsNotImported);
+				}
+				catch (Exception ex)
+				{
+					OnImportFailed("Profile Manager", ex);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Imports a load order from the specified Dictionary.
+		/// </summary>
+		/// <param name="p_dicDictionary">The Dictionary to import a load order from.</param>
+		public void ImportLoadOrderFromDictionary(Dictionary<string, string> p_dicDictionary)
+		{
+			if ((p_dicDictionary == null) || !(p_dicDictionary.Count > 0) || !CurrentGameMode.UsesPlugins)
+				return;
+
+			try
+			{
+				int intTotalPluginCount;
+				int intImportedPluginCount;
+				List<string> lstPluginsNotImported;
+
+				ImportLoadOrder(p_dicDictionary, out intTotalPluginCount, out intImportedPluginCount, out lstPluginsNotImported);
+			}
+			catch (Exception ex)
+			{
+				OnImportFailed("Profile Manager", ex);
 			}
 		}
 

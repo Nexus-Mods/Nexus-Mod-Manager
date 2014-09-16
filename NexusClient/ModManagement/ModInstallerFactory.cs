@@ -19,6 +19,7 @@ namespace Nexus.Client.ModManagement
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
 		private IInstallLog m_ilgInstallLog = null;
 		private IPluginManager m_pmgPluginManager = null;
+		private IVirtualModActivator m_ivaVirtualModActivator = null;
 		private FileUtil m_futFileUtility = null;
 		private SynchronizationContext m_scxUIContext = null;
 
@@ -34,7 +35,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ilgInstallLog">The install log that tracks mod install info
 		/// for the current game mode.</param>
 		/// <param name="p_pmgPluginManager">The plugin manager to use to work with plugins.</param>
-		public ModInstallerFactory(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
+		public ModInstallerFactory(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator)
 		{
 			m_gmdGameMode = p_gmdGameMode;
 			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
@@ -42,6 +43,7 @@ namespace Nexus.Client.ModManagement
 			m_scxUIContext = p_scxUIContext;
 			m_ilgInstallLog = p_ilgInstallLog;
 			m_pmgPluginManager = p_pmgPluginManager;
+			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
 		}
 
 		#endregion
@@ -55,7 +57,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod installer for the given mod.</returns>
 		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
+			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
 		}
 
 		/// <summary>
@@ -67,7 +69,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod upgrader for the given mod.</returns>
 		public ModInstaller CreateUpgradeInstaller(IMod p_modOldMod, IMod p_modNewMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			return new ModUpgrader(p_modOldMod, p_modNewMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, p_dlgOverwriteConfirmationDelegate);
+			return new ModUpgrader(p_modOldMod, p_modNewMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, p_dlgOverwriteConfirmationDelegate);
 		}
 
 		/// <summary>
@@ -78,7 +80,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod uninstaller for the given mod.</returns>
 		public ModUninstaller CreateUninstaller(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
+			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
 		}
 
 		/// <summary>
@@ -89,7 +91,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod deleter for the given mod.</returns>
 		public ModDeleter CreateDelete(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
+			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
 		}
 	}
 }

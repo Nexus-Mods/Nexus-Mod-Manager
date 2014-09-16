@@ -58,11 +58,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
-		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, bool p_booOverrideUpgrade)
 		{
 			ModMatcher mmcMatcher = new ModMatcher(InstallationLog.ActiveMods, true);
 			IMod modOldVersion = mmcMatcher.FindAlternateVersion(p_modMod, true);
-			ConfirmUpgradeResult curAction = (modOldVersion == null) ? ConfirmUpgradeResult.NormalActivation : p_dlgUpgradeConfirmationDelegate(modOldVersion, p_modMod);
+			ConfirmUpgradeResult curAction = ConfirmUpgradeResult.NormalActivation;
+
+			if (!p_booOverrideUpgrade)
+				curAction = (modOldVersion == null) ? ConfirmUpgradeResult.NormalActivation : p_dlgUpgradeConfirmationDelegate(modOldVersion, p_modMod);
+
 			switch (curAction)
 			{
 				case ConfirmUpgradeResult.Upgrade:

@@ -110,6 +110,11 @@ namespace Nexus.Client.Games
 		/// </summary>
 		bool HasSecondaryInstallPath { get; }
 
+		/// <summary>
+		/// Whether the game requires the profile manager to save optional files.
+		/// </summary>
+		bool RequiresOptionalFilesCheckOnProfileSwitch { get; }
+
 		#endregion
 
 		#region Plugin Management
@@ -208,8 +213,9 @@ namespace Nexus.Client.Games
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust</param>
+		/// <param name="p_booIgnoreIfPresent">Whether to ignore the path if the specific root is already present</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath);
+		string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent);
 
 		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.
@@ -249,5 +255,26 @@ namespace Nexus.Client.Games
 		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
 		/// <param name="p_strFileName">The filename.</param>
 		bool CheckSecondaryUninstall(string p_strFileName);
+
+		/// <summary>
+		/// Whether to run a secondary tools if present.
+		/// </summary>
+		/// <returns>The path to the optional tool to run.</returns>
+		/// <param name="p_strMessage">The message to show to the user.</param>
+		string PostProfileSwitchTool(out string p_strMessage);
+
+		/// <summary>
+		/// Whether the profile manager should save extra files for the current game mode.
+		/// </summary>
+		/// <returns>The list of optional files to save (if present) in a profile.</returns>
+		/// <param name="p_strMessage">The list of files/plugins/mods to save.</param>
+		string[] GetOptionalFilesList(string[] p_strList);
+
+		/// <summary>
+		/// Whether the profile manager should load extra files for the current game mode.
+		/// </summary>
+		/// <returns>The list of optional files to load (if present) in a profile.</returns>
+		/// <param name="p_strMessage">The list of files/plugins/mods to load.</param>
+		void SetOptionalFilesList(string[] p_strList);
 	}
 }

@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Xml.Linq;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.TipsManagement;
 using System.Text;
@@ -19,6 +21,7 @@ using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
@@ -40,6 +43,7 @@ namespace Nexus.Client
 		private DownloadMonitorControl dmcDownloadMonitor = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
 		public string strOptionalPremiumMessage = string.Empty;
+		private bool m_booIsSwitching = false;
 
 		private ToolStripMenuItem tmiShowTips = null;
 
@@ -72,6 +76,14 @@ namespace Nexus.Client
 			set
 			{
 				m_vmlViewModel = value;
+
+				m_vmlViewModel.ProfileSwitching += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ProfileSwitching);
+				m_vmlViewModel.ModManager.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
+				m_vmlViewModel.ModManager.VirtualModActivator.ModActivationChanged += new EventHandler(VirtualModActivator_ModActivationChanged);
+				m_vmlViewModel.ProfileManager.ModProfiles.CollectionChanged += new NotifyCollectionChangedEventHandler(ModProfiles_CollectionChanged);
+				if (ViewModel.GameMode.UsesPlugins)
+					m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
+
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
@@ -149,6 +161,46 @@ namespace Nexus.Client
 
 			p_vmlViewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			m_fwsLastWindowState = WindowState;
+
+			if (ViewModel.RequiresModMigration())
+			{
+				string strMigrationWarning = "This new version of NMM includes a major update to the way we store and install your mods which allows us to accommodate" + Environment.NewLine +
+					" mod profiling (different profiles for different playthroughs of your game)." + Environment.NewLine +
+					"In order for it to work NMM needs to uninstall all your currently installed mods." + Environment.NewLine + Environment.NewLine +
+					"Choose option 'YES' if you would like NMM to attempt to try and reinstall all your currently installed mods using the new method. " + Environment.NewLine +
+					"The migration procedure is a lengthy process and it could require several minutes depending on your PC speed and quantity and size " + Environment.NewLine +
+					"of your currently installed mods." + Environment.NewLine + "You will also be required to interact with ALL the scripted installers during the reinstall process." + Environment.NewLine + Environment.NewLine +
+					"Choose option 'NO' if you want NMM to uninstall all your mods and leave you to activate the ones you use again " + Environment.NewLine +
+					"(this doesn't delete your mods, it simply deactivates them)" + Environment.NewLine + Environment.NewLine +
+					"Choose the 'CANCEL' option if you would like to cancel this setup and not proceed with this new version. You will not be upgraded to this version of NMM" + Environment.NewLine;
+
+				DialogResult drResult = ExtendedMessageBox.Show(this, strMigrationWarning, "New version setup", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+
+				if (drResult == DialogResult.Cancel)
+					Environment.Exit(0);
+				else
+				{
+					byte[] bteLoadOrder = null;
+					byte[] bteModList = null;
+					int intModCount = -1;
+					if (drResult == DialogResult.Yes)
+					{
+						if (ViewModel.GameMode.UsesPlugins)
+							bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+						bteModList = ViewModel.ModManager.InstallationLog.GetXMLModList();
+						intModCount = ViewModel.ModManager.ActiveMods.Count;
+					}
+
+					UninstallAllMods(true);
+
+					ViewModel.ModManager.VirtualModActivator.Setup();
+					if (drResult == DialogResult.Yes)
+					{
+						AddNewProfile(bteModList, bteLoadOrder, intModCount);
+						SwitchProfile(ViewModel.ProfileManager.CurrentProfile, true);
+					}
+				}
+			}
 		}
 
 		#endregion
@@ -354,12 +406,28 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Disable all active mods.
+		/// </summary>
+		protected void DisableAllMods()
+		{
+			mmgModManager.DisableAllMods();
+		}
+
+		/// <summary>
 		/// Uninstall all active mods.
 		/// </summary>
 		protected void UninstallAllMods()
 		{
-			mmgModManager.DeactivateAllMods();
+			UninstallAllMods(false);
 		}
+
+ 		/// <summary>
+		/// Uninstall all active mods.
+		/// </summary>
+		protected void UninstallAllMods(bool p_booForceUninstall)
+		{
+			mmgModManager.DeactivateAllMods(p_booForceUninstall);
+ 		}
 
 		private void LoginTask_PropertyChanged(object sender, EventArgs e)
 		{
@@ -523,6 +591,7 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tsbOnlineStatus, ViewModel.LogoutCommand);
 
 			BindLaunchCommands();
+			BindProfileCommands();
 			BindToolCommands();
 			BindFolderCommands();
 			BindChangeModeCommands();
@@ -565,6 +634,71 @@ namespace Nexus.Client
 		#endregion
 
 		#region Tasks
+
+		private void ModProfiles_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ModProfiles_CollectionChanged, sender, e);
+				return;
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
+		/// active mod list.
+		/// </summary>
+		/// <remarks>
+		/// This updates the list of mods to refelct changes to which mods are active.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
+		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ActiveMods_CollectionChanged, sender, e);
+				return;
+			}
+			
+			if ((ViewModel.ProfileManager.CurrentProfile != null) && !m_booIsSwitching)
+			{
+				string[] strOptionalFiles = null;
+				if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+					if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
+						strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+
+				ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, strOptionalFiles);
+				BindProfileCommands();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
+		/// active mod list.
+		/// </summary>
+		/// <remarks>
+		/// This updates the list of mods to refelct changes to which mods are active.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
+		private void ActivePlugins_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ActivePlugins_CollectionChanged, sender, e);
+				return;
+			}
+
+			if ((ViewModel.ProfileManager.CurrentProfile != null) && !m_booIsSwitching)
+			{
+				byte[] bteLoadOrder = null;
+				if (ViewModel.GameMode.UsesPlugins)
+					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+
+				ViewModel.ProfileManager.UpdateProfileLoadOrder(ViewModel.ProfileManager.CurrentProfile, bteLoadOrder);
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="ModRepository.UserStatusUpdate"/> event of the tasks list.
@@ -843,6 +977,18 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tmiResetTool, cmdResetUI);
 			spbTools.DropDownItems.Add(tmiResetTool);
 
+			Command cmdDisableAllMods = new Command("Disable all active mods", "Disables all active mods.", DisableAllMods);
+			ToolStripMenuItem tmiDisableAllMods = new ToolStripMenuItem();
+			tmiDisableAllMods.Image = global::Nexus.Client.Properties.Resources.edit_delete;
+			new ToolStripItemCommandBinding(tmiDisableAllMods, cmdDisableAllMods);
+			spbTools.DropDownItems.Add(tmiDisableAllMods);
+
+			Command cmdUninstallAllMods = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
+			ToolStripMenuItem tmiUninstallAllMods = new ToolStripMenuItem();
+			tmiUninstallAllMods.Image = global::Nexus.Client.Properties.Resources.edit_delete_6;
+			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
+			spbTools.DropDownItems.Add(tmiUninstallAllMods);
+
 			IEnumerable<string> enuVersions = bmBalloon.GetVersionList();
 			if (enuVersions != null)
 			{
@@ -857,12 +1003,6 @@ namespace Nexus.Client
 					tsbTips.DropDownItems.Add(tmiShowTips);
 				}
 			}
-
-			Command cmdUninstallAllMods = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
-			ToolStripMenuItem tmiUninstallAllMods = new ToolStripMenuItem();
-			tmiUninstallAllMods.Image = global::Nexus.Client.Properties.Resources.edit_delete;
-			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
-			spbTools.DropDownItems.Add(tmiUninstallAllMods);
 
 			foreach (ITool tolTool in ViewModel.GameToolLauncher.Tools)
 			{
@@ -1096,6 +1236,68 @@ namespace Nexus.Client
 
 		#endregion
 
+		#region Task Set Handling
+
+		/// <summary>
+		/// Handles the <see cref="MainFormVM.ProfileSwitching"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_ProfileSwitching(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ProfileSwitching, sender, e);
+				return;
+			}
+			ProgressDialog.ShowDialog(this, e.Argument, false);
+
+			if (ViewModel.GameMode.UsesPlugins)
+				ViewModel.ProfilePluginImport();
+
+			string strMessage;
+			string strOptionalToolPath = ViewModel.GameMode.PostProfileSwitchTool(out strMessage);
+			if ((!String.IsNullOrEmpty(strOptionalToolPath)) && (File.Exists(strOptionalToolPath)))
+				if (ExtendedMessageBox.Show(this, strMessage, "Optional tool detected", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+					System.Diagnostics.Process.Start(strOptionalToolPath);
+
+			m_booIsSwitching = false;
+			ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null);
+			ViewModel.ProfileManager.SetDefaultProfile(ViewModel.ProfileManager.CurrentProfile);	
+			ViewModel.ProfileManager.SaveConfig();
+			//mmgModManager.ForceListRefresh();
+			BindProfileCommands();
+		}
+
+		private void VirtualModActivator_ModActivationChanged(object sender, EventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs>)VirtualModActivator_ModActivationChanged, sender, e);
+				return;
+			}
+
+			if (!m_booIsSwitching)
+			{
+				if (ViewModel.ProfileManager.CurrentProfile != null)
+				{
+					string[] strOptionalFiles = null;
+					if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+						if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
+							strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+
+					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, strOptionalFiles);
+					mmgModManager.SetCommandExecutableStatus();
+					BindProfileCommands();
+				}
+			}
+		}
+
+		#endregion
+
 		#region Game Launch Binding Helpers
 
 		/// <summary>
@@ -1135,6 +1337,62 @@ namespace Nexus.Client
 			ViewModel.GameLauncher.GameLaunched += new EventHandler<GameLaunchEventArgs>(GameLauncher_GameLaunched);
 		}
 
+ 		/// <summary>
+		/// Binds the game profiles commands to the UI.
+		/// </summary>
+		protected void BindProfileCommands()
+		{
+			if (ViewModel.ProfileManager.Initialized)
+			{
+				spbProfiles.DropDownItems.Clear();
+				spbProfiles.DefaultItem = null;
+				ToolStripMenuItem tmiMenuItem = new ToolStripMenuItem();
+				tmiMenuItem.Tag = "New";
+				tmiMenuItem.Text = "New Profile";
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
+				tmiMenuItem = new ToolStripMenuItem();
+				tmiMenuItem.Tag = "Rename";
+				tmiMenuItem.Text = "Rename Current Profile";
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
+				tmiMenuItem = new ToolStripMenuItem();
+				tmiMenuItem.Tag = "Remove";
+				tmiMenuItem.Text = "Remove Current Profile";
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
+				tmiMenuItem = new ToolStripMenuItem();
+				tmiMenuItem.Tag = "Save";
+				tmiMenuItem.Text = "Save Current Profile";
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
+				spbProfiles.DropDownItems.Add(new ToolStripSeparator());
+
+				foreach (IModProfile impProfile in ViewModel.ProfileManager.ModProfiles)
+				{
+					ToolStripMenuItem tmiProfile = new ToolStripMenuItem();
+					tmiProfile.Tag = impProfile;
+					tmiProfile.Text = impProfile.Name + " (" + impProfile.ModCount.ToString() + ")";
+					spbProfiles.DropDownItems.Add(tmiProfile);
+
+					if (impProfile.IsDefault)
+					{
+						spbProfiles.DefaultItem = tmiProfile;
+						spbProfiles.Text = impProfile.Name;
+						spbProfiles.Image = spbProfiles.Image;
+					}
+				}
+				if (spbProfiles.DefaultItem == null)
+				{
+					if (spbProfiles.DropDownItems.Count > 0)
+					{
+						spbProfiles.DefaultItem = spbProfiles.DropDownItems[0];
+						spbProfiles.Text = spbProfiles.DefaultItem.Text;
+						spbProfiles.Image = spbProfiles.Image;
+					}
+				}
+				spbProfiles.Visible = true;
+			}
+			else
+				spbProfiles.Visible = false;
+		}
+
 		/// <summary>
 		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
 		/// split button.
@@ -1152,6 +1410,202 @@ namespace Nexus.Client
 			spbLaunch.Image = e.ClickedItem.Image;
 			toolStrip1.ResumeLayout();
 			m_vmlViewModel.SelectedGameLaunchCommandId = ((Command)e.ClickedItem.Tag).Id;
+		}
+
+ 		/// <summary>
+		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the profiles
+		/// split button.
+		/// </summary>
+		/// <remarks>
+		/// This makes the last selected function the new default for the button.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
+		private void spbProfiles_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		{
+			spbProfiles.DefaultItem = e.ClickedItem;
+			spbProfiles.Text = e.ClickedItem.Text;
+			toolStrip1.SuspendLayout();
+			spbProfiles.Image = e.ClickedItem.Image;
+			toolStrip1.ResumeLayout();
+
+			if (e.ClickedItem.Tag.GetType() == typeof(string))
+			{
+				string strCommand = e.ClickedItem.Tag.ToString();
+				switch (strCommand)
+				{
+					case "New":
+						byte[] bteLoadOrder = null;
+						if (ViewModel.GameMode.UsesPlugins)
+							bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+						AddNewProfile(bteLoadOrder);
+						ModProfile mopCurrentProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+						if (mopCurrentProfile != null)
+						{
+							string strNewName = PromptDialog.ShowDialog(this, "Type the profile name:", "Set the Profile name", mopCurrentProfile.Name);
+							if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopCurrentProfile.Name, StringComparison.InvariantCulture))
+							{
+								mopCurrentProfile.Name = strNewName;
+								ViewModel.ProfileManager.UpdateProfile(mopCurrentProfile, null, null);
+								BindProfileCommands();
+							}
+						}
+						break;
+					case "Rename":
+						ModProfile mopCurrent = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+						if (mopCurrent != null)
+						{
+							string strNewName = PromptDialog.ShowDialog(this, "Type the new name:", "Rename Profile", mopCurrent.Name);
+							if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopCurrent.Name, StringComparison.InvariantCulture))
+							{
+								mopCurrent.Name = strNewName;
+								ViewModel.ProfileManager.UpdateProfile(mopCurrent, null, null);
+								BindProfileCommands();
+							}
+						}
+						break;
+					case "Remove":
+						ModProfile mopProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+						if (mopProfile != null)
+						{
+							DialogResult drResult = ExtendedMessageBox.Show(this, String.Format("Are you sure you want to remove the current profile: {0}", mopProfile.Name), "Remove Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+							if (drResult == DialogResult.Yes)
+							{
+								ViewModel.ProfileManager.RemoveProfile(mopProfile);
+								BindProfileCommands();
+							}
+						}
+						break;
+					case "Save":
+						ModProfile mopUpdate = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+						if (mopUpdate != null)
+						{
+							byte[] bteNewLoadOrder = null;
+							if (ViewModel.GameMode.UsesPlugins)
+								bteNewLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+
+							string[] strOptionalFiles = null;
+							if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+								if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
+									strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+
+							ViewModel.ProfileManager.UpdateProfile(mopUpdate, bteNewLoadOrder, strOptionalFiles);
+							BindProfileCommands();
+						}
+						break;
+					default:
+						break;
+				}
+			}
+			else
+			{
+				IModProfile impProfile = (IModProfile)e.ClickedItem.Tag;
+
+				if (impProfile != null)
+				{
+					SwitchProfile(impProfile, false);
+				}
+			}
+		}
+
+		private void AddNewProfile(byte[] p_bteLoadOrder)
+		{
+			AddNewProfile(null, p_bteLoadOrder, -1);
+		}
+
+		private void AddNewProfile(byte[] p_bteModList, byte[] p_bteLoadOrder, int p_intModCount)
+		{
+			string[] strOptionalFiles = null;
+
+			if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+				if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
+					strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+			IModProfile impProfile = ViewModel.ProfileManager.AddProfile(p_bteModList, p_bteLoadOrder, ViewModel.GameMode.ModeId, p_intModCount, strOptionalFiles);
+
+			BindProfileCommands();
+		}
+
+		private void SwitchProfile(IModProfile p_impProfile, bool p_booSilentInstall)
+		{
+			if (p_booSilentInstall || (ViewModel.ProfileManager.CurrentProfile == null) || (p_impProfile.Id != ViewModel.ProfileManager.CurrentProfile.Id))			
+			{
+				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
+				Dictionary<string, string> dicProfile = null;
+				Dictionary<string, string> dicNotFound = new Dictionary<string, string>();
+
+				if ((p_impProfile.ModFileList != null) && (p_impProfile.ModFileList.Count > 0))
+				{
+					lstVirtualLinks = p_impProfile.ModFileList;
+					dicNotFound = ViewModel.ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks);
+				}
+				else
+				{
+					ViewModel.ProfileManager.LoadProfile(p_impProfile, out dicProfile);
+					if ((dicProfile != null) && (dicProfile.Count > 0) && dicProfile.ContainsKey("modlist"))
+					{
+						lstVirtualLinks = ViewModel.ModManager.VirtualModActivator.LoadImportedList(dicProfile["modlist"]);
+						dicNotFound = ViewModel.ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks);
+					}
+				}
+
+				if ((dicNotFound != null) && (dicNotFound.Count > 0))
+				{
+					System.Text.StringBuilder sbMessage = new System.Text.StringBuilder();
+					string strDetails;
+
+					sbMessage.Append("The selected profile contains files from mods not currently installed.");
+					sbMessage.AppendLine("Do you want the manager to try and install the files present in the folder that aren't currently installed?");
+					System.Text.StringBuilder sbDetails = new System.Text.StringBuilder();
+
+					List<IMod> lstFoundMods = new List<IMod>();
+					List<IMod> lstManagedMods = new List<IMod>(ViewModel.ModManager.ManagedMods.ToList());
+					foreach (KeyValuePair<string, string> kvp in dicNotFound)
+					{
+						IMod modMod = lstManagedMods.Find(x => x.Filename == kvp.Key);
+						if (modMod != null)
+							lstFoundMods.Add(modMod);
+						sbDetails.AppendFormat("- Mod: {0} - filename: {1} - present: {2}", kvp.Value, kvp.Key, (modMod != null) ? "Yes" : "No").AppendLine();
+					}
+					if (sbDetails.Length > 0)
+						strDetails = sbDetails.ToString();
+					else
+						strDetails = null;
+
+					m_booIsSwitching = true;
+					ViewModel.ModManager.VirtualModActivator.DisableLinkCreation = true;
+
+					if (p_booSilentInstall)
+						mmgModManager.MultiModInstall(lstFoundMods, false);
+					else
+					{
+						DialogResult drResult = ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.ModManagerVM.Settings.ModManagerName, strDetails, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+						if (drResult == DialogResult.Yes)
+						{
+							if (lstFoundMods.Count > 0)
+								mmgModManager.MultiModInstall(lstFoundMods, false);
+						}
+						else if (drResult == DialogResult.Cancel)
+							return;
+					}
+				}
+
+				if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+					if ((dicProfile != null) && (dicProfile.Count > 0) && dicProfile.ContainsKey("optional"))
+					{
+						string[] strFiles = dicProfile["optional"].Split("#".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+						if ((strFiles != null) && (strFiles.Length > 0))
+							ViewModel.GameMode.SetOptionalFilesList(strFiles);
+						if (ViewModel.PluginManager != null)
+							foreach (string strFile in strFiles)
+							{
+								if (ViewModel.PluginManager.IsActivatiblePluginFile(strFile))
+									ViewModel.PluginManager.AddPlugin(strFile);
+							}
+					}
+
+				ViewModel.ModManager.VirtualModActivator.DisableLinkCreation = false;
+				ViewModel.ProfileSwitch(p_impProfile, lstVirtualLinks);
+			}
 		}
 
 		/// <summary>

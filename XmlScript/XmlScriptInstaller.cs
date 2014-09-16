@@ -13,6 +13,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// </summary>
 	public class XmlScriptInstaller : BackgroundTask
 	{
+		private IVirtualModActivator m_ivaVirtualModActivator = null;
+		private IModLinkInstaller m_mliModLinkInstaller = null;
+
 		#region Properties
 
 		/// <summary>
@@ -43,11 +46,13 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <param name="p_modMod">The mod for which the script is running.</param>
 		/// <param name="p_gmdGameMode">The game mode currently being managed.</param>
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
-		public XmlScriptInstaller(IMod p_modMod, IGameMode p_gmdGameMode, InstallerGroup p_igpInstallers)
+		public XmlScriptInstaller(IMod p_modMod, IGameMode p_gmdGameMode, InstallerGroup p_igpInstallers, IVirtualModActivator p_ivaVirtualModActivator)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			Installers = p_igpInstallers;
+			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
+			m_mliModLinkInstaller = m_ivaVirtualModActivator.GetModLinkInstaller();
 		}
 
 		#endregion
@@ -158,7 +163,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 						strSource += "/";
 					foreach (string strFile in lstFiles)
 					{
-						string strNewFileName = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile.Substring(strSource.Length, strFile.Length - strSource.Length));
+						string strNewFileName = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile.Substring(strSource.Length, strFile.Length - strSource.Length), true);
 						if (Installers.PluginManager != null)
 							if (Installers.PluginManager.IsActivatiblePluginFile(strNewFileName))
 								Installers.PluginManager.SetPluginActivation(strNewFileName, p_booActivate);
@@ -173,11 +178,12 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				ItemProgress = 0;
 				ItemProgressMaximum = 2;
 
-				Installers.FileInstaller.InstallFileFromMod(strSource, GameMode.GetModFormatAdjustedPath(Mod.Format, strDest), false);
+				//Installers.FileInstaller.InstallFileFromMod(strSource, GameMode.GetModFormatAdjustedPath(Mod.Format, strDest, false));
+				InstallFileFromMod(strSource, strDest);
 
 				StepItemProgress();
 
-				string strPluginPath = GameMode.GetModFormatAdjustedPath(Mod.Format, String.IsNullOrEmpty(strDest) ? strSource : strDest);
+				string strPluginPath = GameMode.GetModFormatAdjustedPath(Mod.Format, String.IsNullOrEmpty(strDest) ? strSource : strDest, true);
 				if (Installers.PluginManager != null)
 					if (Installers.PluginManager.IsActivatiblePluginFile(strPluginPath))
 						Installers.PluginManager.SetPluginActivation(strPluginPath, p_booActivate);
@@ -215,11 +221,39 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 				strMODFile = lstModFiles[i];
 				string strNewFileName = strMODFile.Substring(strFrom.Length, strMODFile.Length - strFrom.Length);
-				Installers.FileInstaller.InstallFileFromMod(strMODFile, GameMode.GetModFormatAdjustedPath(Mod.Format, Path.Combine(strTo, strNewFileName)), false);
+				if (strTo.Length > 0)
+					strNewFileName = Path.Combine(strTo, strNewFileName);
+				//Installers.FileInstaller.InstallFileFromMod(strMODFile, GameMode.GetModFormatAdjustedPath(Mod.Format, Path.Combine(strTo, strNewFileName), false));
+				InstallFileFromMod(strMODFile, strNewFileName);
 
 				StepItemProgress();
 			}
 			return true;
+		}
+
+		/// <summary>
+		/// Installs the specified file from the mod to the specified location on the file system.
+		/// </summary>
+		/// <param name="p_strFrom">The path of the file in the mod to install.</param>
+		/// <param name="p_strTo">The path on the file system where the file is to be created.</param>
+		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
+		protected bool InstallFileFromMod(string p_strFrom, string p_strTo)
+		{
+			bool booSuccess = false;
+
+			try
+			{
+				string strVirtualPath = Path.Combine(Path.Combine(m_ivaVirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), p_strTo);
+
+				Installers.FileInstaller.InstallFileFromMod(p_strFrom, strVirtualPath);
+				m_mliModLinkInstaller.AddFileLink(Mod, p_strTo, true);
+
+				booSuccess = true;
+			}
+			catch { }
+
+			return booSuccess;
+
 		}
 
 		#endregion

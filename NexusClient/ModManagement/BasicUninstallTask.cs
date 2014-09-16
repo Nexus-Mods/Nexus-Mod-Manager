@@ -40,6 +40,12 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode.</value>
 		protected IInstallLog ModInstallLog { get; private set; }
 
+ 		/// <summary>
+		/// Gets the current virtual mod activator.
+		/// </summary>
+		/// <value>The current virtual mod activator.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
 		/// <summary>
 		/// Gets the current game mode.
 		/// </summary>
@@ -61,9 +67,10 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode</param>
 		/// <param name="p_gmdGameMode">The the current game mode.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
-		public BasicUninstallTask(IMod p_modMod, InstallerGroup p_igpInstallers, IInstallLog p_ilgModInstallLog, IGameMode p_gmdGameMode, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		public BasicUninstallTask(IMod p_modMod, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, IInstallLog p_ilgModInstallLog, IGameMode p_gmdGameMode, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
+			VirtualModActivator = p_ivaVirtualModActivator;
 			Installers = p_igpInstallers;
 			ModInstallLog = p_ilgModInstallLog;
 			GameMode = p_gmdGameMode;
@@ -121,7 +128,8 @@ namespace Nexus.Client.ModManagement
 				}
 				try
 				{
-					Installers.FileInstaller.UninstallDataFile(strFile, booSecondaryInstall);
+					Installers.FileInstaller.UninstallDataFile(strFile);
+					VirtualModActivator.RemoveFileLink(strFile, Mod);
 				}
 				catch (UnauthorizedAccessException)
 				{
@@ -134,11 +142,19 @@ namespace Nexus.Client.ModManagement
 				catch (NullReferenceException ex)
 				{
 					string strDetails = ex.Message;
+					Installers.FileInstaller.InstallErrors.Add(strFile);
+					return false;
+				}
+				catch(Exception ex)
+				{
+					string strDetails = ex.Message;
 					Installers.FileInstaller.InstallErrors.Add(strDetails);
 					return false;
 				}
 				StepItemProgress();
 			}
+
+			VirtualModActivator.SaveList();
 			StepOverallProgress();
 
 			ItemProgressMaximum = lstIniEdits.Count;

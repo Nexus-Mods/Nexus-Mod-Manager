@@ -51,10 +51,11 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_modMod">The mod being installed.</param>
 		/// <param name="p_gmdGameMode">The game mode currently bieng managed.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="p_ivaVirtualModActivator">The current virtual mod activator.</param>
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <returns>An executor that can run the script type.</returns>
-		IScriptExecutor CreateExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext);
+		IScriptExecutor CreateExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext);
 
 		/// <summary>
 		/// Loads the script from the given text representation.

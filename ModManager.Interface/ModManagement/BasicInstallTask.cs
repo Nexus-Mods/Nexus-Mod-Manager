@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
@@ -44,6 +45,12 @@ namespace Nexus.Client.ModManagement
 		protected IPluginManager PluginManager { get; private set; }
 
 		/// <summary>
+		/// Gets the virtual mod activator to use.
+		/// </summary>
+		/// <value>The virtual mod activator to use.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
+		/// <summary>
 		/// Gets or sets whether the installer should skip readme files.
 		/// </summary>
 		/// <value>Whether the installer should skip readme files.</value>
@@ -64,12 +71,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_booSkipReadme">Whether to skip the installation of readme files.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
-		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			FileInstaller = p_mfiFileInstaller;
 			PluginManager = p_pmgPluginManager;
+			VirtualModActivator = p_ivaVirtualModActivator;
 			SkipReadme = p_booSkipReadme;
 			ActiveMods = p_rolActiveMods;
 		}
@@ -99,22 +107,20 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A return value.</returns>
 		protected override object DoWork(object[] p_objArgs)
 		{
+			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
-			bool booSecondaryInstall = false;
 			List<string> lstFiles = Mod.GetFileList();
 			OverallProgressMaximum = lstFiles.Count;
 
 			if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);
 
-			if (GameMode.HasSecondaryInstallPath)
-				booSecondaryInstall = GameMode.CheckSecondaryInstall(Mod);
-
 			foreach (string strFile in lstFiles)
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, Mod);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, true);
+				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), strFile);
 
 				if (!string.IsNullOrEmpty(strFixedPath))
 				{
@@ -122,14 +128,23 @@ namespace Nexus.Client.ModManagement
 					{
 						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
 						{
-							if (FileInstaller.InstallFileFromMod(strFile, strFixedPath, booSecondaryInstall))
-								if ((GameMode.UsesPlugins) && (PluginManager.IsActivatiblePluginFile(strFixedPath)))
-									PluginManager.ActivatePlugin(strFixedPath);
+							FileInstaller.InstallFileFromMod(strFile, strVirtualPath);
+							
+							if (!VirtualModActivator.DisableLinkCreation)
+							{
+								string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFile, false);
+
+								if (!string.IsNullOrEmpty(strFileLink))
+									if (FileInstaller.PluginCheck(strFileLink, false))
+										if (PluginManager.IsActivatiblePluginFile(strFileLink))
+											PluginManager.ActivatePlugin(strFileLink);
+							}
 						}
 					}
 				}
 				StepOverallProgress();
 			}
+			VirtualModActivator.SaveList();
 			return true;
 		}
 	}

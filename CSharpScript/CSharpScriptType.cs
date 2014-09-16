@@ -81,10 +81,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <returns>An executor that can run the script type.</returns>
-		public IScriptExecutor CreateExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
+		public IScriptExecutor CreateExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
 		{
-			CSharpScriptFunctionProxy csfFunctions = GetScriptFunctionProxy(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, p_scxUIContext);
-			return new CSharpScriptExecutor(p_gmdGameMode, p_eifEnvironmentInfo, csfFunctions, BaseScriptType);
+			CSharpScriptFunctionProxy csfFunctions = GetScriptFunctionProxy(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, p_scxUIContext);
+			return new CSharpScriptExecutor(p_gmdGameMode, p_eifEnvironmentInfo, csfFunctions, BaseScriptType, p_ivaVirtualModActivator.VirtualPath);
 		}
 
 		/// <summary>
@@ -148,9 +148,9 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <returns>A proxy that implements the functions available to C# scripts.</returns>
-		protected virtual CSharpScriptFunctionProxy GetScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
+		protected virtual CSharpScriptFunctionProxy GetScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
 		{
-			return new CSharpScriptFunctionProxy(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, new UIUtil(p_gmdGameMode, p_eifEnvironmentInfo, p_scxUIContext));
+			return new CSharpScriptFunctionProxy(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, new UIUtil(p_gmdGameMode, p_eifEnvironmentInfo, p_scxUIContext));
 		}
 	}
 }

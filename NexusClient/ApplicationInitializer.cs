@@ -744,7 +744,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Finding managed mods...");
 			Trace.Indent();
-			ModRegistry mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory);
+			ModRegistry mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER));
 			Trace.TraceInformation("Found {0} managed mods.", mrgModRegistry.RegisteredMods.Count);
 			Trace.Unindent();
 
@@ -776,7 +776,7 @@ namespace Nexus.Client
 					return null;
 				}
 			}
-			IInstallLog ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
+			IInstallLog ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Plugin Management Services...");

@@ -38,8 +38,8 @@ namespace Nexus.Client.Games.WorldOfTanks.Scripting.ModScript
         /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
         /// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
         /// <param name="p_uipUIProxy">The UI manager to use to interact with UI elements.</param>
-        public WoTModScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, InstallerGroup p_igpInstallers, ModScriptUIUtil p_uipUIProxy)
-            : base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_igpInstallers, p_uipUIProxy)
+		public WoTModScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, ModScriptUIUtil p_uipUIProxy)
+            : base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, p_uipUIProxy)
         {
         }
 

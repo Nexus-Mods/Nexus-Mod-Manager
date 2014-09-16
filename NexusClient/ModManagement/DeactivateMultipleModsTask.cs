@@ -77,7 +77,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] p_objArgs)
 		{
-			OverallMessage = "Deactivating all the active mods...";
+			OverallMessage = "Uninstalling all the active mods...";
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_rolModList.Count;

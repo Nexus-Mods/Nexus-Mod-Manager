@@ -81,11 +81,13 @@
 			this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsbAddMod,
-            this.tsbActivate,
-            this.tsbDeactivate,
-            this.tsbDeleteMod,
-            this.tsbTagMod,
+			this.tsbAddMod,
+			new System.Windows.Forms.ToolStripSeparator(),
+			this.tsbActivate,
+			this.tsbDeactivate,
+			this.tsbDeleteMod,
+			new System.Windows.Forms.ToolStripSeparator(),
+			this.tsbTagMod,
 			this.tsbCheckModVersions,
 			this.tsbToggleEndorse,
 			this.tsbResetCategories,
@@ -110,7 +112,7 @@
 			// 
 			// addModToolStripMenuItem
 			// 
-			this.addModToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod;
+			this.addModToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.edit_add_4;
 			this.addModToolStripMenuItem.Name = "addModToolStripMenuItem";
 			this.addModToolStripMenuItem.Size = new System.Drawing.Size(195, 38);
 			this.addModToolStripMenuItem.Text = "Add Mod from File";
@@ -118,7 +120,7 @@
 			// 
 			// addModFromURLToolStripMenuItem
 			// 
-			this.addModFromURLToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod_url;
+			this.addModFromURLToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.edit_add_4;
 			this.addModFromURLToolStripMenuItem.Name = "addModFromURLToolStripMenuItem";
 			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(195, 38);
 			this.addModFromURLToolStripMenuItem.Text = "Add Mod from URL";
@@ -136,7 +138,7 @@
             this.resetModsCategory,
 			this.removeAllCategories,
 			this.toggleHiddenCategories});
-			this.tsbResetCategories.Image = global::Nexus.Client.Properties.Resources.reset_categories;
+			this.tsbResetCategories.Image = global::Nexus.Client.Properties.Resources.format_line_spacing_triple;
 			this.tsbResetCategories.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbResetCategories.Name = "tsbResetCategories";
 			this.tsbResetCategories.Size = new System.Drawing.Size(46, 36);
@@ -144,7 +146,7 @@
 			// 
 			// addNewCategory
 			// 
-			this.addNewCategory.Image = global::Nexus.Client.Properties.Resources.reset_categories;
+			this.addNewCategory.Image = global::Nexus.Client.Properties.Resources.format_line_spacing_triple;
 			this.addNewCategory.Name = "addNewCategory";
 			this.addNewCategory.Size = new System.Drawing.Size(195, 38);
 			this.addNewCategory.Text = "Categories: add new category";
@@ -209,7 +211,7 @@
 			// tsbActivate
 			// 
 			this.tsbActivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbActivate.Image = global::Nexus.Client.Properties.Resources.activate_mod;
+			this.tsbActivate.Image = global::Nexus.Client.Properties.Resources.dialog_accept;
 			this.tsbActivate.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbActivate.Name = "tsbActivate";
 			this.tsbActivate.Size = new System.Drawing.Size(46, 36);
@@ -218,7 +220,7 @@
 			// tsbDeactivate
 			// 
 			this.tsbDeactivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbDeactivate.Image = global::Nexus.Client.Properties.Resources.deactivate_mod;
+			this.tsbDeactivate.Image = global::Nexus.Client.Properties.Resources.dialog_block;
 			this.tsbDeactivate.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbDeactivate.Name = "tsbDeactivate";
 			this.tsbDeactivate.Size = new System.Drawing.Size(46, 36);
@@ -236,7 +238,7 @@
 			// tsbTagMod
 			// 
 			this.tsbTagMod.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbTagMod.Image = global::Nexus.Client.Properties.Resources.info_add;
+			this.tsbTagMod.Image = global::Nexus.Client.Properties.Resources.edit_4;
 			this.tsbTagMod.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbTagMod.Name = "tsbTagMod";
 			this.tsbTagMod.Size = new System.Drawing.Size(46, 36);
@@ -245,7 +247,7 @@
 			// tsbCheckModVersions
 			// 
 			this.tsbCheckModVersions.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbCheckModVersions.Image = global::Nexus.Client.Properties.Resources.change_game_mode;
+			this.tsbCheckModVersions.Image = global::Nexus.Client.Properties.Resources.edit_find_and_replace;
 			this.tsbCheckModVersions.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbCheckModVersions.Name = "tsbCheckModVersions";
 			this.tsbCheckModVersions.Size = new System.Drawing.Size(46, 36);
@@ -254,7 +256,7 @@
 			// tsbToggleEndorse
 			// 
 			this.tsbToggleEndorse.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbToggleEndorse.Image = global::Nexus.Client.Properties.Resources.unendorsed;
+			this.tsbToggleEndorse.Image = global::Nexus.Client.Properties.Resources.thumbsup;
 			this.tsbToggleEndorse.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbToggleEndorse.Name = "tsbToggleEndorse";
 			this.tsbToggleEndorse.Size = new System.Drawing.Size(46, 36);
