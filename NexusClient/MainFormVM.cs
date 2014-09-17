@@ -236,6 +236,18 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Gets the SupportedTools launcher for the currently manage game.
+		/// </summary>
+		/// <value>The SupportedTools launcher for the currently manage game.</value>
+		public ISupportedToolsLauncher SupportedToolsLauncher
+		{
+			get
+			{
+				return GameMode.SupportedToolsLauncher;
+			}
+		}
+
+		/// <summary>
 		/// Gets the id of the selected game launch command.
 		/// </summary>
 		/// <value>The id of the selected game launch command.</value>
@@ -372,6 +384,9 @@ namespace Nexus.Client
 			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
 			DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
 			lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
+
+			if (p_gmdGameMode.SupportedToolsGroupViews != null)
+				lstSettingGroups.AddRange(p_gmdGameMode.SupportedToolsGroupViews);
 
 			if (p_gmdGameMode.SettingsGroupViews != null)
 				lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);

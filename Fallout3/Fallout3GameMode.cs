@@ -4,6 +4,9 @@ using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.Util;
 using System.Collections.Generic;
+using Nexus.Client.Games.Fallout3.Settings;
+using Nexus.Client.Games.Fallout3.Settings.UI;
+using Nexus.Client.Settings.UI;
 
 namespace Nexus.Client.Games.Fallout3
 {
@@ -16,6 +19,7 @@ namespace Nexus.Client.Games.Fallout3
 		private Fallout3GameModeDescriptor m_gmdGameModeInfo = null;
 		private Fallout3Launcher m_glnGameLauncher = null;
 		private Fallout3ToolLauncher m_gtlToolLauncher = null;
+		private Fallout3SupportedTools m_stlSupportedTools = null;
 
 		#region Properties
 
@@ -72,6 +76,20 @@ namespace Nexus.Client.Games.Fallout3
 		}
 
 		/// <summary>
+		/// Gets the supported tool launcher for the game mode.
+		/// </summary>
+		/// <value>The supported tool launcher for the game mode.</value>
+		public override ISupportedToolsLauncher SupportedToolsLauncher
+		{
+			get
+			{
+				if (m_stlSupportedTools == null)
+					m_stlSupportedTools = new Fallout3SupportedTools(this, EnvironmentInfo);
+				return m_stlSupportedTools;
+			}
+		}
+
+		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
 		/// <value>The default game categories stored in the resource file.</value>
@@ -95,6 +113,9 @@ namespace Nexus.Client.Games.Fallout3
 		public Fallout3GameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo, p_futFileUtility)
 		{
+			SupportedToolsGroupViews = new List<ISettingsGroupView>();
+			SupportedToolsSettingsGroup stsgSupported = new SupportedToolsSettingsGroup(p_eifEnvironmentInfo, this);
+			((List<ISettingsGroupView>)SupportedToolsGroupViews).Add(new SupportedToolsSettingsPage(stsgSupported));
 		}
 
 		#endregion

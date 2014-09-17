@@ -49,6 +49,11 @@
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Settings\SupportedToolsSettingsGroup.cs" />
+    <Compile Include="Settings\UI\SupportedToolsSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\SupportedToolsSettingsPage.designer.cs" />
     <Compile Include="SkyrimSettingsFiles.cs" />
     <Compile Include="SkyrimGameModeDescriptor.cs" />
     <Compile Include="SkyrimGameModeFactory.cs" />
@@ -60,6 +65,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="SkyrimSupportedTools.cs" />
     <Compile Include="Tools\AI\ArchiveInvalidation.cs" />
     <Compile Include="Tools\AI\UI\ArchiveInvalidationView.cs">
       <SubType>Form</SubType>
@@ -72,6 +78,7 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\SupportedToolsSettingsPage.resx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Commanding\Commanding.csproj">

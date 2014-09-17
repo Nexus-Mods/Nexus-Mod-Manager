@@ -214,5 +214,23 @@
      &lt;PerGameModeSettingsOfString /&gt;
     </Value>
     </Setting>
+    <Setting Name="BOSSFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="WryeBashFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="FNISFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="CheckForTipsOnStartup" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

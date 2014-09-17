@@ -449,6 +449,12 @@ namespace Nexus.Client.Games
 		public abstract IToolLauncher GameToolLauncher { get; }
 
 		/// <summary>
+		/// Gets the exported settings groups specific to the game mode.
+		/// </summary>
+		/// <returns>The exported settings groups specific to the game mode.</returns>
+		public IEnumerable<ISettingsGroupView> SupportedToolsGroupViews { get; protected set; }
+
+		/// <summary>
 		/// Gets whether the game mode uses plugins.
 		/// </summary>
 		/// <remarks>
@@ -545,6 +551,18 @@ namespace Nexus.Client.Games
 			get
 			{
 				return false;
+			}
+		}
+
+		/// <summary>
+		/// Gets the SupportedTools launcher.
+		/// </summary>
+		/// <value>The SupportedTools launcher.</value>
+		public virtual ISupportedToolsLauncher SupportedToolsLauncher
+		{
+			get
+			{
+				return null;
 			}
 		}
 

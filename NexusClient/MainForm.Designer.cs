@@ -52,6 +52,7 @@
 
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.spbLaunch = new System.Windows.Forms.ToolStripSplitButton();
+			this.spbSupportedTools = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbProfiles = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbHelp = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbChangeMode = new System.Windows.Forms.ToolStripSplitButton();
@@ -87,6 +88,7 @@
 			this.tsbSettings,
 			this.tsbTips,
 			this.tstFind,
+			this.spbSupportedTools,
 			this.tsbUpdate});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
@@ -172,6 +174,16 @@
 			this.tsbTips.Name = "tsbTips";
 			this.tsbTips.Size = new System.Drawing.Size(36, 36);
 			this.tsbTips.Text = "Tips";
+			// 
+			// spbSupportedTools
+			// 
+			this.spbSupportedTools.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.spbSupportedTools.Image = global::Nexus.Client.Properties.Resources.supported_tools;
+			this.spbSupportedTools.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.spbSupportedTools.Name = "spbSupportedTools";
+			this.spbSupportedTools.Size = new System.Drawing.Size(36, 36);
+			this.spbSupportedTools.Text = "Supported Tools";
+			this.spbSupportedTools.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbSupportedTools_DropDownItemClicked);
 			// 
 			// tsbUpdate
 			// 
@@ -325,6 +337,7 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripSplitButton spbLaunch;
+		private System.Windows.Forms.ToolStripSplitButton spbSupportedTools;
 		private System.Windows.Forms.ToolStripSplitButton spbProfiles;
 		private System.Windows.Forms.ToolStripButton tsbSettings;
 		public System.Windows.Forms.ToolStripSplitButton tsbTips;

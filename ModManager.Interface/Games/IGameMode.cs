@@ -64,6 +64,12 @@ namespace Nexus.Client.Games
 		IToolLauncher GameToolLauncher { get; }
 
 		/// <summary>
+		/// Gets the exported settings groups specific to the game mode.
+		/// </summary>
+		/// <returns>The exported settings groups specific to the game mode.</returns>
+		IEnumerable<ISettingsGroupView> SupportedToolsGroupViews { get; }
+
+		/// <summary>
 		/// Gets whether the game mode uses plugins.
 		/// </summary>
 		/// <remarks>
@@ -114,6 +120,12 @@ namespace Nexus.Client.Games
 		/// Whether the game requires the profile manager to save optional files.
 		/// </summary>
 		bool RequiresOptionalFilesCheckOnProfileSwitch { get; }
+
+		/// <summary>
+		/// Gets the tool launcher for the SupportedTools.
+		/// </summary>
+		/// <value>The tool launcher for the SupportedTools.</value>
+		ISupportedToolsLauncher SupportedToolsLauncher { get; }
 
 		#endregion
 

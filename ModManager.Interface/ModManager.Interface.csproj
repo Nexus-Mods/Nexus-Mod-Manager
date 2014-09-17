@@ -65,9 +65,13 @@
     <Compile Include="Games\IGameMode.cs" />
     <Compile Include="Games\IGameModeEnvironmentInfo.cs" />
     <Compile Include="Games\InstallationPathAutoDetector.cs" />
+    <Compile Include="Games\ISupportedToolsLauncher.cs" />
     <Compile Include="Games\SetupBaseVM.cs" />
     <Compile Include="Games\Steam\KeyValue.cs" />
     <Compile Include="Games\Steam\StreamHelpers.cs" />
+    <Compile Include="Games\SupportedToolsLauncherBase.cs" />
+    <Compile Include="Games\SupportedToolsLaunchEventArgs.cs" />
+    <Compile Include="Games\SupportedTools\SupportedToolsControlVM.cs" />
     <Compile Include="Games\Theme.cs" />
     <Compile Include="Games\Settings\RequiredDirectoriesControl.cs">
       <SubType>UserControl</SubType>

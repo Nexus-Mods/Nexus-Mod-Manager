@@ -592,6 +592,7 @@ namespace Nexus.Client
 
 			BindLaunchCommands();
 			BindProfileCommands();
+			BindSupportedToolsCommands();
 			BindToolCommands();
 			BindFolderCommands();
 			BindChangeModeCommands();
@@ -914,7 +915,11 @@ namespace Nexus.Client
 		{
 			SettingsForm frmSettings = new SettingsForm(ViewModel.SettingsFormVM);
 			if (frmSettings.ShowDialog(this) == DialogResult.OK)
+			{
 				mmgModManager.RefreshModList();
+				ViewModel.SupportedToolsLauncher.SetupCommands();
+				BindSupportedToolsCommands();
+			}
 		}
 
 		/// <summary>
@@ -1394,6 +1399,39 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Binds the SupportedTools launch commands to the UI.
+		/// </summary>
+		protected void BindSupportedToolsCommands()
+		{
+			spbSupportedTools.DropDownItems.Clear();
+			spbSupportedTools.DefaultItem = null;
+
+			if (ViewModel.SupportedToolsLauncher != null)
+			{
+				foreach (Command cmdLaunch in ViewModel.SupportedToolsLauncher.LaunchCommands)
+				{
+
+					ToolStripMenuItem tmiLaunch = new ToolStripMenuItem();
+					tmiLaunch.Tag = cmdLaunch;
+					new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
+					spbSupportedTools.DropDownItems.Add(tmiLaunch);
+				}
+
+				if (spbLaunch.DefaultItem == null)
+				{
+					if (spbLaunch.DropDownItems.Count > 0)
+					{
+						spbLaunch.DefaultItem = spbLaunch.DropDownItems[0];
+						spbLaunch.Text = spbLaunch.DefaultItem.Text;
+						spbLaunch.Image = spbLaunch.DefaultItem.Image;
+					}
+				}
+			}
+			else
+				spbSupportedTools.Visible = false;
+		}
+
+		/// <summary>
 		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
 		/// split button.
 		/// </summary>
@@ -1410,6 +1448,24 @@ namespace Nexus.Client
 			spbLaunch.Image = e.ClickedItem.Image;
 			toolStrip1.ResumeLayout();
 			m_vmlViewModel.SelectedGameLaunchCommandId = ((Command)e.ClickedItem.Tag).Id;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
+		/// split button.
+		/// </summary>
+		/// <remarks>
+		/// This makes the last selected function the new default for the button.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
+		private void spbSupportedTools_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		{
+			spbSupportedTools.DefaultItem = e.ClickedItem;
+			spbSupportedTools.Text = e.ClickedItem.Text;
+			toolStrip1.SuspendLayout();
+			spbSupportedTools.Image = e.ClickedItem.Image;
+			toolStrip1.ResumeLayout();
 		}
 
  		/// <summary>

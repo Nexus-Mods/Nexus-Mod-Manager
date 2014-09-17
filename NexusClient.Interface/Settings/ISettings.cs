@@ -158,6 +158,33 @@ namespace Nexus.Client.Settings
 		PerGameModeSettings<string> InstallInfoFolder { get; }
 
 		/// <summary>
+		/// Gets the path of the folder where BOSS is installed.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding BOSS folder paths.
+		/// </remarks>
+		/// <value>The path of the folder where BOSS is installed.</value>
+		PerGameModeSettings<string> BOSSFolder { get; }
+
+		/// <summary>
+		/// Gets the path of the folder where Wrye Bash is installed.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding Wrye Bash folder paths.
+		/// </remarks>
+		/// <value>The path of the folder where Wrye Bash is installed.</value>
+		PerGameModeSettings<string> WryeBashFolder { get; }
+
+		/// <summary>
+		/// Gets the path of the folder where FNIS is installed.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding FNIS folder paths.
+		/// </remarks>
+		/// <value>The path of the folder where FNIS is installed.</value>
+		PerGameModeSettings<string> FNISFolder { get; }
+
+		/// <summary>
 		/// Gets the path of the folder where a game mode's TraceLog is stored.
 		/// </summary>
 		/// <remarks>
