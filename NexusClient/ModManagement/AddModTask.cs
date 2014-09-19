@@ -563,13 +563,33 @@ namespace Nexus.Client.ModManagement
 				m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
 			KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 			AddModDescriptor amdDescriptor = null;
-			if (!dicQueuedMods.TryGetValue(p_uriPath.ToString(), out amdDescriptor))
+
+			if ((p_uriPath.Scheme.ToLowerInvariant()) == "file")
 			{
+				if (dicQueuedMods.TryGetValue(p_uriPath.ToString(), out amdDescriptor))
+					m_strFileserverCaptions = amdDescriptor.SourceName;
+				else
+				{
+					amdDescriptor = new AddModDescriptor(p_uriPath, p_uriPath.LocalPath, null, TaskStatus.Running, new List<string>());
+					dicQueuedMods[p_uriPath.ToString()] = amdDescriptor;
+					lock (m_eifEnvironmentInfo.Settings)
+						m_eifEnvironmentInfo.Settings.Save();
+				}
+			}
+			else if (m_mrpModRepository.IsOffline)
+			{
+				if (dicQueuedMods.TryGetValue(p_uriPath.ToString(), out amdDescriptor))
+					m_strFileserverCaptions = amdDescriptor.SourceName;
+			}
+			else
+			{
+				if (dicQueuedMods.ContainsKey(p_uriPath.ToString()))
+					dicQueuedMods.Remove(p_uriPath.ToString());
+				if (m_strFileserverCaptions.Count > 0)
+					m_strFileserverCaptions.Clear();
+
 				switch (p_uriPath.Scheme.ToLowerInvariant())
 				{
-					case "file":
-						amdDescriptor = new AddModDescriptor(p_uriPath, p_uriPath.LocalPath, null, TaskStatus.Running, new List<string>());
-						break;
 					case "nxm":
 						NexusUrl nxuModUrl = new NexusUrl(p_uriPath);
 
@@ -626,8 +646,7 @@ namespace Nexus.Client.ModManagement
 				lock (m_eifEnvironmentInfo.Settings)
 					m_eifEnvironmentInfo.Settings.Save();
 			}
-			else
-				m_strFileserverCaptions = amdDescriptor.SourceName;
+
 			return amdDescriptor;
 		}
 

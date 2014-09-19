@@ -484,15 +484,19 @@ namespace Nexus.Client
 
 		private void MainForm_ResizeBegin(object sender, EventArgs e)
 		{
-			if (bmBalloon.balloonHelp.Visible)
+			try
 			{
-				if (bmBalloon.CurrentTip != null)
-					bmBalloon.SetPreviousTip(true);
-				bmBalloon.balloonHelp.Close();
-				m_booShowLastBaloon = true;
+				if (bmBalloon.balloonHelp.Visible)
+				{
+					if (bmBalloon.CurrentTip != null)
+						bmBalloon.SetPreviousTip(true);
+					bmBalloon.balloonHelp.Close();
+					m_booShowLastBaloon = true;
+				}
+				else
+					m_booShowLastBaloon = false;
 			}
-			else
-				m_booShowLastBaloon = false;
+			catch { }
 		}
 
 		private void MainForm_Resize(object sender, EventArgs e)
