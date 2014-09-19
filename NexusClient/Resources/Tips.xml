@@ -1,14 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <tipsManager>
-  <tipsList>
-      <tips section="toolStrip1" object="tsbTips" ID="1" version="0.51.0">
-      <text>Click here to check the latest version tips.</text>
-    </tips>
-    <tips section="ModManager.toolStrip1" object="tsbToggleEndorse" ID="2" version="0.51.0">
-      <text>This version supports the new Abstain endorsement state (click once to Endorse and click again to Abstain).</text>
-    </tips>
-    <tips section="CLWCategoryListView" object="column" ID="3" version="0.51.0">
-      <text>Fixed an issue with the XML script compiler preventing scripts to properly compile for plugin-less games.</text>
-    </tips>
-  </tipsList>
+	<tipsList>
+		<tips section="toolStrip1" object="tsbTips" ID="1" version="0.52.0">
+			<text>This version fully supports the new CDN download system.</text>
+		</tips>
+		<tips section="toolStrip1" object="tsbTips" ID="1" version="0.51.0">
+			<text>Click here to check the latest version tips.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbToggleEndorse" ID="2" version="0.51.0">
+			<text>This version supports the new Abstain endorsement state (click once to Endorse and click again to Abstain).</text>
+		</tips>
+		<tips section="CLWCategoryListView" object="column" ID="3" version="0.51.0">
+			<text>Fixed an issue with the XML script compiler preventing scripts to properly compile for plugin-less games.</text>
+		</tips>
+	</tipsList>
 </tipsManager>
