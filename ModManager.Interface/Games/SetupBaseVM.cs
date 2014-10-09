@@ -42,16 +42,6 @@ namespace Nexus.Client.Games
 		/// <value>Whether the setup is complete.</value>
 		public bool IsSetupComplete { get; private set; }
 
-		/// <summary>
-		/// Gets the view model that encapsulates the data
-		/// and operations for diaplying a required directories
-		/// UI view.
-		/// </summary>
-		/// <value>The view model that encapsulates the data
-		/// and operations for diaplying a required directories
-		/// UI view.</value>
-		public SupportedToolsControlVM SupportedToolsControlVM { get; private set; }
-
 		#endregion
 
 		#region Constructors
@@ -66,7 +56,6 @@ namespace Nexus.Client.Games
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmdGameModeInfo;
 			RequiredDirectoriesControlVM = new RequiredDirectoriesControlVM(p_eifEnvironmentInfo, p_gmdGameModeInfo, true);
-			SupportedToolsControlVM = new SupportedToolsControlVM(p_eifEnvironmentInfo, p_gmdGameModeInfo);
 		}
 
 		#endregion

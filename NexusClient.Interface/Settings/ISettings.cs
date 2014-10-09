@@ -113,6 +113,12 @@ namespace Nexus.Client.Settings
 		bool ShowExpandedCategories { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the manager should force the creation of hardlinks.
+		/// </summary>
+		/// <value>Whether the manager should force the creation of hardlinks.</value>
+		bool ForceHardLinks { get; set; }
+
+		/// <summary>
 		/// Gets the installation path dictionary.
 		/// </summary>
 		/// <remarks>
@@ -158,31 +164,13 @@ namespace Nexus.Client.Settings
 		PerGameModeSettings<string> InstallInfoFolder { get; }
 
 		/// <summary>
-		/// Gets the path of the folder where BOSS is installed.
+		/// Gets the path of the supported tools.
 		/// </summary>
 		/// <remarks>
-		/// The dictionary maps game mode ids to their corresponding BOSS folder paths.
+		/// The dictionary maps game mode ids to their supported tools.
 		/// </remarks>
-		/// <value>The path of the folder where BOSS is installed.</value>
-		PerGameModeSettings<string> BOSSFolder { get; }
-
-		/// <summary>
-		/// Gets the path of the folder where Wrye Bash is installed.
-		/// </summary>
-		/// <remarks>
-		/// The dictionary maps game mode ids to their corresponding Wrye Bash folder paths.
-		/// </remarks>
-		/// <value>The path of the folder where Wrye Bash is installed.</value>
-		PerGameModeSettings<string> WryeBashFolder { get; }
-
-		/// <summary>
-		/// Gets the path of the folder where FNIS is installed.
-		/// </summary>
-		/// <remarks>
-		/// The dictionary maps game mode ids to their corresponding FNIS folder paths.
-		/// </remarks>
-		/// <value>The path of the folder where FNIS is installed.</value>
-		PerGameModeSettings<string> FNISFolder { get; }
+		/// <value>The path of the folder where supported tools are installed.</value>
+		PerGameModeSettings<KeyedSettings<string>> SupportedTools { get; }
 
 		/// <summary>
 		/// Gets the path of the folder where a game mode's TraceLog is stored.

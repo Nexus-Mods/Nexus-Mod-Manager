@@ -75,6 +75,7 @@
     <Compile Include="Collections\Set.cs" />
     <Compile Include="Collections\SortedList.cs" />
     <Compile Include="Collections\SortedObservableCollection.cs" />
+    <Compile Include="RegistryUtil.cs" />
     <Compile Include="TextUtil.cs" />
     <Compile Include="ThreadSafeSevenZipExtractor.cs" />
   </ItemGroup>

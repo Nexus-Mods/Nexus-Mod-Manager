@@ -101,6 +101,12 @@
     <Setting Name="ShowStartupMessage" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="CheckForTipsOnStartup" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="ForceHardLinks" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
     <Setting Name="HelpLinks" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="Application">
       <Value Profile="(Default)">
      &lt;KeyedSettingsOfString&gt;
@@ -214,23 +220,10 @@
      &lt;PerGameModeSettingsOfString /&gt;
     </Value>
     </Setting>
-    <Setting Name="BOSSFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+    <Setting Name="SupportedTools" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
       <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
+     &lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;
     </Value>
-    </Setting>
-    <Setting Name="WryeBashFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
-    </Setting>
-    <Setting Name="FNISFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
-    </Setting>
-    <Setting Name="CheckForTipsOnStartup" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
     </Setting>
   </Settings>
 </SettingsFile>

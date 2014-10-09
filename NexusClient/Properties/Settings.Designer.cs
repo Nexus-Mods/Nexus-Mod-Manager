@@ -416,6 +416,30 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool CheckForTipsOnStartup {
+            get {
+                return ((bool)(this["CheckForTipsOnStartup"]));
+            }
+            set {
+                this["CheckForTipsOnStartup"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ForceHardLinks {
+            get {
+                return ((bool)(this["ForceHardLinks"]));
+            }
+            set {
+                this["ForceHardLinks"] = value;
+            }
+        }
+        
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute(@"
@@ -671,49 +695,13 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> BOSSFolder {
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfKeyedSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>> SupportedTools {
             get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["BOSSFolder"]));
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["SupportedTools"]));
             }
             set {
-                this["BOSSFolder"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> WryeBashFolder {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["WryeBashFolder"]));
-            }
-            set {
-                this["WryeBashFolder"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> FNISFolder {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["FNISFolder"]));
-            }
-            set {
-                this["FNISFolder"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool CheckForTipsOnStartup {
-            get {
-                return ((bool)(this["CheckForTipsOnStartup"]));
-            }
-            set {
-                this["CheckForTipsOnStartup"] = value;
+                this["SupportedTools"] = value;
             }
         }
     }

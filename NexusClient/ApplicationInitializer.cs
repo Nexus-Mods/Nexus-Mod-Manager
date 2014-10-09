@@ -236,6 +236,9 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
 			if (EnvironmentInfo.Settings.DelayedSettings["ALL"] == null)
 				EnvironmentInfo.Settings.DelayedSettings["ALL"] = new KeyedSettings<string>();
+			if (EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
+				EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
+
 			StepOverallProgress();
 
 			if (!ApplyDelayedSettings(p_gmfGameModeFactory.GameModeDescriptor.ModeId, out p_vwmErrorMessage))

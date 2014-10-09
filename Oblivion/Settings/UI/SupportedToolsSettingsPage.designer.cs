@@ -63,7 +63,7 @@
 			this.lblBOSSPrompt.Name = "lblBOSSPrompt";
 			this.lblBOSSPrompt.Size = new System.Drawing.Size(222, 13);
 			this.lblBOSSPrompt.TabIndex = 14;
-			this.lblBOSSPrompt.Text = "Choose the directory where BOSS is installed.";
+			this.lblBOSSPrompt.Text = "Select the directory where BOSS is installed:";
 			// 
 			// tbxBOSS
 			// 
@@ -103,7 +103,7 @@
 			this.lblWryeBashPrompt.Name = "lblWryeBashPrompt";
 			this.lblWryeBashPrompt.Size = new System.Drawing.Size(245, 13);
 			this.lblWryeBashPrompt.TabIndex = 11;
-			this.lblWryeBashPrompt.Text = "Choose the directory where Wrye Bash is installed.";
+			this.lblWryeBashPrompt.Text = "Select the directory where Wrye Bash is installed:";
 			// 
 			// tbxWryeBashDirectory
 			// 
