@@ -17,8 +17,6 @@ namespace Nexus.Client.Games.FalloutNV
 	public class SupportedToolsSettingsGroup : SettingsGroup
 	{
 		private string m_strBOSSDirectory = null;
-		private string m_strWryeBashDirectory = null;
-		private string m_strFNISDirectory = null;
 
 		#region Properties
 
@@ -75,38 +73,6 @@ namespace Nexus.Client.Games.FalloutNV
 		}
 
 		/// <summary>
-		/// Gets or sets the path of the directory where Wrye Bash is installed.
-		/// </summary>
-		/// <value>The path of the directory where Wrye Bash is installed.</value>
-		public string WryeBashDirectory
-		{
-			get
-			{
-				return m_strWryeBashDirectory;
-			}
-			set
-			{
-				SetPropertyIfChanged(ref m_strWryeBashDirectory, value, () => WryeBashDirectory);
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the path of the directory where FNIS is installed.
-		/// </summary>
-		/// <value>The path of the directory where FNIS is installed.</value>
-		public string FNISDirectory
-		{
-			get
-			{
-				return m_strFNISDirectory;
-			}
-			set
-			{
-				SetPropertyIfChanged(ref m_strFNISDirectory, value, () => FNISDirectory);
-			}
-		}
-
-		/// <summary>
 		/// Gets the validation errors for the current values.
 		/// </summary>
 		/// <value>The validation errors for the current values.</value>
@@ -126,35 +92,6 @@ namespace Nexus.Client.Games.FalloutNV
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmGameMode;
 			Errors = new ErrorContainer();
-		}
-
-		/// <summary>
-		/// Checks if the specified directory are equals.
-		/// </summary>
-		/// <returns><c>true</c> if the specified directory are not equals;
-		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty)
-		{
-			Errors.Clear(p_strBOSSProperty);
-			if (String.IsNullOrEmpty(p_strBOSSPath))
-			{
-				Errors.SetError(p_strBOSSProperty, String.Format("You must select a {0}.", p_strBOSSPathName));
-				return false;
-			}
-			Errors.Clear(p_strWryeBashProperty);
-			if (String.IsNullOrEmpty(p_strWryeBashPath))
-			{
-				Errors.SetError(p_strWryeBashProperty, String.Format("You must select a {0}.", p_strWryeBashPathName));
-				return false;
-			}
-			Errors.Clear(p_strFNISProperty);
-			if (String.IsNullOrEmpty(p_strFNISPath))
-			{
-				Errors.SetError(p_strFNISProperty, String.Format("You must select a {0}.", p_strFNISPathName));
-				return false;
-			}
-
-			return true;
 		}
 
 		/// <summary>
@@ -199,66 +136,38 @@ namespace Nexus.Client.Games.FalloutNV
 		}
 
 		/// <summary>
-		/// Validates the selected Wrye Bash directory.
-		/// </summary>
-		/// <returns><c>true</c> if the selected Wrye Bash directory is valid;
-		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateWryeBashDirectory()
-		{
-			return ValidateDirectory(WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory));
-		}
-
-		/// <summary>
-		/// Validates the selected FNIS directory.
-		/// </summary>
-		/// <returns><c>true</c> if the selected FNIS directory is valid;
-		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateFNISDirectory()
-		{
-			return ValidateDirectory(FNISDirectory, "FNIS Directory", ObjectHelper.GetPropertyName(() => FNISDirectory));
-		}
-
-		/// <summary>
 		/// Validates the settings on this control.
 		/// </summary>
 		/// <returns><c>true</c> if the settings are valid;
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			if (ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory), WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory), FNISDirectory, "FNIS Directory", ObjectHelper.GetPropertyName(() => FNISDirectory)))
-				return ValidateBOSSDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory();
-			else
-				return false;
+			return ValidateBOSSDirectory();
 		}
 
 		#endregion
-		
+
 		/// <summary>
 		/// Loads the user's settings into the control.
 		/// </summary>
 		public override void Load()
 		{
-			string strBOSS = null;
+			string strBOSSPath = String.Empty;
+			string strBOSSReg = String.Empty;
+			if (IntPtr.Size == 8)
+				strBOSSReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
+			else
+				strBOSSReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\BOSS\";
 
-			strBOSS = EnvironmentInfo.Settings.BOSSFolder[GameModeDescriptor.ModeId];
-			if (strBOSS == null)
-			{
-				if (IntPtr.Size == 8)
-					strBOSS = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\", "Installed Path", null);
-				else
-					strBOSS = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\BOSS\", "Installed Path", null);
-			}
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BOSS"))
+				strBOSSPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"];
 
-			BOSSDirectory = strBOSS;
+			if (String.IsNullOrEmpty(strBOSSPath))
+				if (RegistryUtil.CanReadKey(strBOSSReg))
+					strBOSSPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
 
-			string strWryePath = EnvironmentInfo.Settings.WryeBashFolder[GameModeDescriptor.ModeId];
-			if (strWryePath != null)
-				WryeBashDirectory = strWryePath;
-
-			string strFNIS = EnvironmentInfo.Settings.FNISFolder[GameModeDescriptor.ModeId];
-			if (strFNIS != null)
-				FNISDirectory = strFNIS;
-
+			if (!String.IsNullOrEmpty(strBOSSPath))
+				BOSSDirectory = strBOSSPath;
 
 			ValidateSettings();
 		}
@@ -270,14 +179,8 @@ namespace Nexus.Client.Games.FalloutNV
 		/// <c>false</c> otherwise.</returns>
 		public override bool Save()
 		{
-			if (!String.Equals(EnvironmentInfo.Settings.BOSSFolder[GameModeDescriptor.ModeId], BOSSDirectory))
-				EnvironmentInfo.Settings.BOSSFolder[GameModeDescriptor.ModeId] = BOSSDirectory;
-
-			if (!String.Equals(EnvironmentInfo.Settings.WryeBashFolder[GameModeDescriptor.ModeId], WryeBashDirectory))
-				EnvironmentInfo.Settings.WryeBashFolder[GameModeDescriptor.ModeId] = WryeBashDirectory;
-
-			if (!String.Equals(EnvironmentInfo.Settings.FNISFolder[GameModeDescriptor.ModeId], FNISDirectory))
-				EnvironmentInfo.Settings.FNISFolder[GameModeDescriptor.ModeId] = FNISDirectory;
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BOSS") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], BOSSDirectory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"] = BOSSDirectory;
 
 			EnvironmentInfo.Settings.Save();
 			return true;

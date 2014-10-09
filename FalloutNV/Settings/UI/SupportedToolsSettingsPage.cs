@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-//using Nexus.Client.ModRepositories;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Nexus.Client.Settings;
@@ -41,7 +40,6 @@ namespace Nexus.Client.Games.FalloutNV.Settings.UI
 			BindingHelper.CreateFullBinding(tbxBOSS, () => tbxBOSS.Text, p_stsSettings, () => p_stsSettings.BOSSDirectory);
 			
 			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
-				
 		}
 
 		#endregion

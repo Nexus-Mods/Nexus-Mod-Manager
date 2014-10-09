@@ -14,7 +14,7 @@ namespace Nexus.Client.ModManagement
 		event EventHandler ModActivationChanged;
 
 		#region Properties
-		bool UseHardLinks { get; }
+		bool ForceHardLinks { get; }
 		bool Initialized { get; }
 		bool DisableLinkCreation { get; }
 		bool DisableIniLogging { get; }

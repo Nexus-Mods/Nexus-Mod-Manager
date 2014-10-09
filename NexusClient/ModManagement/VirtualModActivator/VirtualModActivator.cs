@@ -30,10 +30,12 @@ namespace Nexus.Client.ModManagement
 
 		#region Static Properties
 
-		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
+		private static readonly Version CURRENT_VERSION = new Version("0.2.0.0");
 		private static readonly string ACTIVATOR_FILE = "VirtualModConfig.xml";
 		private static readonly string ACTIVATOR_INIEDITS = "IniEdits.xml";
-		public static readonly string ACTIVATOR_FOLDER = "VirtualModActivator";
+		public static readonly string ACTIVATOR_FOLDER = "VirtualModInstall";
+		public static readonly string ACTIVATOR_BASE = "VirtualModBase";
+
 
 		/// <summary>
 		/// Reads the virtual mod activator version from the given config file.
@@ -85,7 +87,6 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		private ThreadSafeObservableList<IVirtualModLink> m_tslVirtualModList = new ThreadSafeObservableList<IVirtualModLink>();
-		private bool m_booUseHardLinks = false;
 		private bool m_booInitialized = false;
 		private bool m_booDisableLinkCreation = false;
 		private bool m_booDisableIniLogging = false;
@@ -95,6 +96,7 @@ namespace Nexus.Client.ModManagement
 		private string m_strVirtualActivatorIniEditsPath = String.Empty;
 
 		#region Properties
+
 		/// <summary>
 		/// Gets the mod manager to use to manage mods.
 		/// </summary>
@@ -139,11 +141,11 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		public bool UseHardLinks 
+		public bool ForceHardLinks 
 		{
 			get
 			{
-				return m_booUseHardLinks;
+				return EnvironmentInfo.Settings.ForceHardLinks;
 			}
 		}
 
@@ -210,6 +212,7 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		#region Constructors
+
 		public VirtualModActivator(ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, IGameMode p_gmdGameMode, IInstallLog p_ilgModInstallLog, IEnvironmentInfo p_eifEnvironmentInfo, string p_strModFolder)
 		{
 			ModManager = p_mmgModManager;
@@ -222,9 +225,12 @@ namespace Nexus.Client.ModManagement
 			m_strVirtualActivatorConfigPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_FILE);
 			m_strVirtualActivatorIniEditsPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_INIEDITS);
 		}
+
 		#endregion
 
 		#region Virtual Mod Activator
+
+		#region List Management
 
 		public void Initialize()
 		{
@@ -389,6 +395,10 @@ namespace Nexus.Client.ModManagement
 			return lstVirtualLinks;
 		}
 
+		#endregion
+
+		#region Link Management
+
 		public string CheckVirtualLink(string p_strFilePath)
 		{
 			string strPath = p_strFilePath;
@@ -419,9 +429,9 @@ namespace Nexus.Client.ModManagement
 
 			List<IVirtualModLink> lstVirtualModLink = new List<IVirtualModLink>();
 			if (p_intCurrentPriority >= 0)
-				lstVirtualModLink = VirtualLinks.Where(x => (x.VirtualModPath == p_strFilePath) && (x.Priority != p_intCurrentPriority)).ToList();
+				lstVirtualModLink = VirtualLinks.Where(x => (x.VirtualModPath.ToLowerInvariant() == p_strFilePath.ToLowerInvariant()) && (x.Priority != p_intCurrentPriority)).ToList();
 			else
-				lstVirtualModLink = VirtualLinks.Where(x => x.VirtualModPath == p_strFilePath).ToList();
+				lstVirtualModLink = VirtualLinks.Where(x => x.VirtualModPath.ToLowerInvariant() == p_strFilePath.ToLowerInvariant()).ToList();
 
 			if ((lstVirtualModLink != null) && (lstVirtualModLink.Count > 0))
 			{
@@ -430,7 +440,7 @@ namespace Nexus.Client.ModManagement
 					intPriority = ivlModLink.Priority;
 				ivlModLink = lstVirtualModLink.OrderBy(x => x.Priority).FirstOrDefault();
 				if (ivlModLink != null)
-					p_modMod = ModManager.ManagedMods.First(x => x.Filename == ivlModLink.ModFileName);
+					p_modMod = ModManager.ManagedMods.FirstOrDefault(x => x.Filename.ToLowerInvariant() == ivlModLink.ModFileName.ToLowerInvariant());
 			}
 			else if (File.Exists(p_strFilePath) && (p_intCurrentPriority >= 0))
 				intPriority = 0;
@@ -447,7 +457,7 @@ namespace Nexus.Client.ModManagement
 				List<string> lstMods = m_tslVirtualModList.Select(x => x.ModFileName).Distinct().ToList();
 				foreach (string modName in lstMods)
 				{
-					IMod modMod = ModManager.ManagedMods.First(x => x.Filename == modName);
+					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => x.Filename.ToLowerInvariant() == modName.ToLowerInvariant());
 					DisableMod(modMod, true);
 				}
 
@@ -483,7 +493,6 @@ namespace Nexus.Client.ModManagement
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
 
-			// Add XP compatibility path
 			if (File.Exists(strVirtualFileLink))
 				FileUtil.ForceDelete(strVirtualFileLink);
 
@@ -497,8 +506,7 @@ namespace Nexus.Client.ModManagement
 			}
 			else if (!DisableLinkCreation)
 			{
-				//if (EnvironmentInfo.Settings.ForceHardlinks && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
-				if (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero))
+				if (ForceHardLinks && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
 				{
 					if (!p_booIsRestoring)
 						m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_modMod.ModName, p_modMod.Filename, p_intPriority, true));
@@ -516,7 +524,7 @@ namespace Nexus.Client.ModManagement
 			else
 				strVirtualFileLink = String.Empty;
 
-			if (p_booIsSwitching && (PluginManager != null) && !String.IsNullOrEmpty(strVirtualFileLink) && !p_booIsRestoring)
+			if (!p_booIsSwitching && (PluginManager != null) && !String.IsNullOrEmpty(strVirtualFileLink) && !p_booIsRestoring)
 				if (PluginManager.IsActivatiblePluginFile(strVirtualFileLink))
 					PluginManager.AddPlugin(strVirtualFileLink);
 
@@ -582,6 +590,10 @@ namespace Nexus.Client.ModManagement
 				m_tslVirtualModList.Add(vml);
 			}
 		}
+
+		#endregion
+
+		#region Mod Management
 
 		public void DisableMod(IMod p_modMod)
 		{
@@ -738,6 +750,8 @@ namespace Nexus.Client.ModManagement
 				catch { }
 			}
 		}
+
+		#endregion
 
 		public Dictionary<string, string> CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks)
 		{

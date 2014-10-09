@@ -205,6 +205,12 @@ namespace Nexus.Client.Games
 			OnSupportedToolsLaunched(true, null);
 		}
 
+		/// <summary>
+		/// Launches the default command if any.
+		/// </summary>
+		public virtual void LaunchDefaultCommand()
+		{ }
+
 		#endregion
 	}
 }

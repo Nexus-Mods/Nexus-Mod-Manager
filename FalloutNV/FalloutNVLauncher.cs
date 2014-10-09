@@ -49,6 +49,14 @@ namespace Nexus.Client.Games.FalloutNV
 				AddLaunchCommand(new Command("NvseLaunch", "Launch NVSE", "Launches Fallout: New Vegas with NVSE.", imgIcon, LaunchFalloutNVNVSE, true));
 			}
 
+			strCommand = GetFNV4GbLaunchCommand();
+			Trace.TraceInformation("FNV4Gb Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if (File.Exists(strCommand))
+			{
+				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				AddLaunchCommand(new Command("FNV4GbLaunch", "Launch FNV4Gb", "Launches Fallout: New Vegas with FNV4Gb.", imgIcon, LaunchFalloutNVFNV4Gb, true));
+			}
+
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
@@ -132,6 +140,40 @@ namespace Nexus.Client.Games.FalloutNV
 		private string GetNvseLaunchCommand()
 		{
 			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "nvse_loader.exe");
+		}
+
+		#endregion
+
+		#region FNV4Gb
+
+		/// <summary>
+		/// Launches the game, with FNV4Gb.
+		/// </summary>
+		private void LaunchFalloutNVFNV4Gb()
+		{
+			Trace.TraceInformation("Launching Fallout: New Vegas (FNV4Gb)...");
+			Trace.Indent();
+
+			string strCommand = GetFNV4GbLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+
+			if (!File.Exists(strCommand))
+			{
+				Trace.TraceError("FNV4Gb does not appear to be installed.");
+				Trace.Unindent();
+				OnGameLaunched(false, "FNV4Gb does not appear to be installed.");
+				return;
+			}
+			Launch(strCommand, null);
+		}
+
+		/// <summary>
+		/// Gets the FNV4Gb launch command.
+		/// </summary>
+		/// <returns>The FNV4Gb launch command.</returns>
+		private string GetFNV4GbLaunchCommand()
+		{
+			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "fnv4gb.exe");
 		}
 
 		#endregion

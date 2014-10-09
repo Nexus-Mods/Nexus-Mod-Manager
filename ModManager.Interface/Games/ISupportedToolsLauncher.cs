@@ -44,5 +44,10 @@ namespace Nexus.Client.Games
 		/// Initializes the SupportedTools launch commands.
 		/// </summary>
 		void SetupCommands();
+
+		/// <summary>
+		/// Launches the default command if any.
+		/// </summary>
+		void LaunchDefaultCommand();
 	}
 }

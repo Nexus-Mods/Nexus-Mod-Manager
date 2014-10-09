@@ -59,7 +59,7 @@
 			this.lblBOSSPrompt.Name = "lblBOSSPrompt";
 			this.lblBOSSPrompt.Size = new System.Drawing.Size(222, 13);
 			this.lblBOSSPrompt.TabIndex = 14;
-			this.lblBOSSPrompt.Text = "Choose the directory where BOSS is installed.";
+			this.lblBOSSPrompt.Text = "Select the directory where BOSS is installed:";
 			// 
 			// tbxBOSS
 			// 

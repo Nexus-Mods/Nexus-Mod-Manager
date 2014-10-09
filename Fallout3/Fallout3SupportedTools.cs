@@ -58,7 +58,7 @@ namespace Nexus.Client.Games.Fallout3
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
-				
+
 
 		/// <summary>
 		/// Gets the BOSS launch command.
@@ -66,18 +66,33 @@ namespace Nexus.Client.Games.Fallout3
 		/// <returns>The BOSS launch command.</returns>
 		private string GetBOSSLaunchCommand()
 		{
-			string strBOSS = null;
+			bool booEmptySettings = true;
+			string strBOSS = String.Empty;
+			string strRegBoss = String.Empty;
+			if (IntPtr.Size == 8)
+				strRegBoss = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
+			else
+				strRegBoss = @"HKEY_LOCAL_MACHINE\SOFTWARE\BOSS\";
 
-			strBOSS = EnvironmentInfo.Settings.BOSSFolder[GameMode.ModeId];
-			if (strBOSS == null)
+			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BOSS"))
 			{
-				if (IntPtr.Size == 8)
-					strBOSS = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\", "Installed Path", null);
-				else
-					strBOSS = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\BOSS\", "Installed Path", null);
+				strBOSS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"];
+				booEmptySettings = false;
 			}
-			if (strBOSS != null)
+
+			if (String.IsNullOrEmpty(strBOSS))
+				if (RegistryUtil.CanReadKey(strRegBoss))
+						strBOSS = (string)Registry.GetValue(strRegBoss, "Installed Path", null);
+
+			if (!String.IsNullOrEmpty(strBOSS))
+			{
+				if (booEmptySettings)
+				{
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = strBOSS;
+					EnvironmentInfo.Settings.Save();
+				}
 				strBOSS = Path.Combine(strBOSS, "boss.exe");
+			}
 
 			return strBOSS;
 		}

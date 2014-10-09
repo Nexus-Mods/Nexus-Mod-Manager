@@ -142,7 +142,7 @@
 			this.tsbResetCategories.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbResetCategories.Name = "tsbResetCategories";
 			this.tsbResetCategories.Size = new System.Drawing.Size(46, 36);
-			this.tsbResetCategories.Text = "Categories: add new category";
+			this.tsbResetCategories.Text = "Categories: add new category - Click the small arrow for more options";
 			// 
 			// addNewCategory
 			// 
