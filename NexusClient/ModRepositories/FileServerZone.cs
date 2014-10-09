@@ -107,7 +107,7 @@ namespace Nexus.Client.ModRepositories
 		public FileServerZone()
 		{
 			m_strFileServerID = "default";
-			m_strFileServerName = "Default";
+			m_strFileServerName = "Default (CDN)";
 			m_intAffinityID = 0;
 			m_imgFileServerFlag = new Bitmap(16, 11);
 			m_booPremium = false;
