@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Runtime.Serialization;
 using Nexus.Client.Mods;
 
@@ -10,6 +11,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 	[DataContract]
 	public class NexusModInfo
 	{
+		private string m_strModName;
+
 		#region Properties
 
 		/// <summary>
@@ -52,7 +55,17 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <value>The name of the mod.</value>
 		[DataMember(Name = "name")]
-		public string Name { get; set; }
+		public string Name
+		{
+			get
+			{
+				return WebUtility.HtmlDecode(m_strModName);
+			}
+			private set
+			{
+				m_strModName = value;
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the author of the mod.

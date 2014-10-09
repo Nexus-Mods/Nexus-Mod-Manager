@@ -89,7 +89,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// Gets whether the repository supports unauthenticated downloads.
 		/// </summary>
 		/// <value>Whether the repository supports unauthenticated downloads.</value>
-		public bool SupportsUnauthenticatedDownload 
+		public bool SupportsUnauthenticatedDownload
 		{
 			get
 			{
@@ -107,7 +107,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// Gets whether the repository is in a forced offline mode.
 		/// </summary>
 		/// <value>Whether the repository is in a forced offline mode.</value>
-		public bool IsOffline 
+		public bool IsOffline
 		{
 			get
 			{
@@ -138,11 +138,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <value>The number of maximum allowed concurrent downloads.</value>
 		public Int32 MaxConcurrentDownloads
-		{ 
+		{
 			get
 			{
 				return m_intMaxConcurrentDownloads;
-			} 
+			}
 		}
 
 		#endregion
@@ -169,22 +169,22 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			FileServerZones = new List<FileServerZone>();
 			FileServerZones.Add(new FileServerZone());
-			FileServerZones.Add(new FileServerZone("us", "U.S.A.", 2, global::Nexus.Client.Properties.Resources.us, false));
-			FileServerZones.Add(new FileServerZone("us.p1", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-			FileServerZones.Add(new FileServerZone("us.p2", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
+			//FileServerZones.Add(new FileServerZone("us", "U.S.A.", 2, global::Nexus.Client.Properties.Resources.us, false));
+			FileServerZones.Add(new FileServerZone("us.p2", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
+			FileServerZones.Add(new FileServerZone("us.p1", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
 			FileServerZones.Add(new FileServerZone("eu.p1", "E.U. - Kent Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
-			FileServerZones.Add(new FileServerZone("eu", "European Union", 1, global::Nexus.Client.Properties.Resources.europeanunion, false));
+			//FileServerZones.Add(new FileServerZone("eu", "European Union", 1, global::Nexus.Client.Properties.Resources.europeanunion, false));
 
 			RepositoryFileServerZones = new List<FileServerZone>();
 			RepositoryFileServerZones.Add(new FileServerZone());
-			RepositoryFileServerZones.Add(new FileServerZone("en", "England", 1, global::Nexus.Client.Properties.Resources.en, false));
-			RepositoryFileServerZones.Add(new FileServerZone("us.w", "US West Coast", 2, global::Nexus.Client.Properties.Resources.us, false));
-			RepositoryFileServerZones.Add(new FileServerZone("us.e", "US East Coast", 2, global::Nexus.Client.Properties.Resources.us, false));
-			RepositoryFileServerZones.Add(new FileServerZone("us.c", "US Central", 2, global::Nexus.Client.Properties.Resources.us, false));
-			RepositoryFileServerZones.Add(new FileServerZone("nl", "Netherlands", 1, global::Nexus.Client.Properties.Resources.nl, false));
-			RepositoryFileServerZones.Add(new FileServerZone("cz", "Czech Republic", 1, global::Nexus.Client.Properties.Resources.cz, false));
-			RepositoryFileServerZones.Add(new FileServerZone("us.p1", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-			RepositoryFileServerZones.Add(new FileServerZone("us.p2", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
+			//RepositoryFileServerZones.Add(new FileServerZone("en", "England", 1, global::Nexus.Client.Properties.Resources.en, false));
+			//RepositoryFileServerZones.Add(new FileServerZone("us.w", "US West Coast", 2, global::Nexus.Client.Properties.Resources.us, false));
+			//RepositoryFileServerZones.Add(new FileServerZone("us.e", "US East Coast", 2, global::Nexus.Client.Properties.Resources.us, false));
+			//RepositoryFileServerZones.Add(new FileServerZone("us.c", "US Central", 2, global::Nexus.Client.Properties.Resources.us, false));
+			//RepositoryFileServerZones.Add(new FileServerZone("nl", "Netherlands", 1, global::Nexus.Client.Properties.Resources.nl, false));
+			//RepositoryFileServerZones.Add(new FileServerZone("cz", "Czech Republic", 1, global::Nexus.Client.Properties.Resources.cz, false));
+			RepositoryFileServerZones.Add(new FileServerZone("us.p2", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
+			RepositoryFileServerZones.Add(new FileServerZone("us.p1", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
 			RepositoryFileServerZones.Add(new FileServerZone("eu.p1", "E.U. - Kent Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
 		}
 
@@ -266,7 +266,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strWebsite = "xrebirth.nexusmods.com";
 					m_strEndpoint = "XRNexusREST";
 					m_intRemoteGameId = 154;
-                    break;
+					break;
 				case "Starbound":
 					m_strWebsite = "starbound.nexusmods.com";
 					m_strEndpoint = "STARBOUNDNexusREST";
@@ -988,15 +988,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			return fsiBestMatch;
 		}
 
-		/// <summary>
-		/// Gets the URLs of the file parts for the default download file of the specified mod.
-		/// </summary>
-		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
-		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
-		/// <param name="p_strUserLocation">The preferred user location.</param>
-		/// <param name="p_strRepositoryMessage">Custom repository message, if needed.</param>
-		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
-		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+
 		private List<FileserverInfo> GetBestFileserver(List<FileserverInfo> fsiList, string p_strUserLocation, out string p_strRepositoryMessage)
 		{
 			List<FileserverInfo> fsiBestMatch = new List<FileserverInfo>();
@@ -1064,7 +1056,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 						}
 					}
 				}
+			}
+			catch
+			{ }
 
+			try
+			{
 				if ((fsiBestMatch == null) || (fsiBestMatch.Count == 0))
 				{
 					fsiBestMatch = (from Url
@@ -1074,8 +1071,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 									select Url).ToList();
 				}
 			}
-			catch
-			{ }
+			catch { }
 
 			if (booPremium && booPremiumUnavailable && ((p_strUserLocation == "us.p1") || (p_strUserLocation == "us.p2") || (p_strUserLocation == "eu.p1")))
 				p_strRepositoryMessage = "Premium server unavailable, redirected: ";

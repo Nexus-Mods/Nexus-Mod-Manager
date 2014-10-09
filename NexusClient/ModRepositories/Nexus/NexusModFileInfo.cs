@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Runtime.Serialization;
 
 namespace Nexus.Client.ModRepositories.Nexus
@@ -9,6 +10,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 	[DataContract]
 	public class NexusModFileInfo : IModFileInfo
 	{
+		private string m_strModName;
+
 		#region Properties
 
 		/// <summary>
@@ -44,7 +47,17 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// </summary>
 		/// <value>The display name of the file.</value>
 		[DataMember(Name = "name")]
-		public string Name { get; set; }
+		public string Name
+		{
+			get
+			{
+				return WebUtility.HtmlDecode(m_strModName);
+			}
+			private set
+			{
+				m_strModName = value;
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the description of the file.

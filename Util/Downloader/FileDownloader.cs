@@ -308,6 +308,7 @@ namespace Nexus.Client.Util.Downloader
 			m_fmdInfo = GetMetadata();
 
 			string strFilename = p_booUseDefaultFileName ? m_fmdInfo.SuggestedFileName : Path.GetFileName(p_strSavePath);
+			strFilename = Uri.UnescapeDataString(strFilename);
 			foreach (char chrInvalid in Path.GetInvalidFileNameChars())
 				strFilename = strFilename.Replace(chrInvalid, '_');
 			p_strSavePath = Path.Combine(p_strSavePath, strFilename);
@@ -572,7 +573,7 @@ namespace Nexus.Client.Util.Downloader
 			if (fmiInfo == null)
 				fmiInfo = new FileMetadata();
 			if (String.IsNullOrEmpty(fmiInfo.SuggestedFileName))
-				fmiInfo.SuggestedFileName = m_uriURL.Segments[m_uriURL.Segments.Length - 1];
+				fmiInfo.SuggestedFileName = Uri.UnescapeDataString(m_uriURL.Segments[m_uriURL.Segments.Length - 1]);
 			return fmiInfo;
 		}
 	}
