@@ -921,8 +921,11 @@ namespace Nexus.Client
 			if (frmSettings.ShowDialog(this) == DialogResult.OK)
 			{
 				mmgModManager.RefreshModList();
-				ViewModel.SupportedToolsLauncher.SetupCommands();
-				BindSupportedToolsCommands();
+				if (ViewModel.SupportedToolsLauncher != null)
+				{
+					ViewModel.SupportedToolsLauncher.SetupCommands();
+					BindSupportedToolsCommands();
+				}
 			}
 		}
 
@@ -1271,7 +1274,7 @@ namespace Nexus.Client
 			string strOptionalToolPath = ViewModel.GameMode.PostProfileSwitchTool(out strMessage);
 			if ((!String.IsNullOrEmpty(strOptionalToolPath)) && (File.Exists(strOptionalToolPath)))
 				if (ExtendedMessageBox.Show(this, strMessage, "Optional tool detected", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-					System.Diagnostics.Process.Start(strOptionalToolPath);
+					ViewModel.GameMode.SupportedToolsLauncher.LaunchDefaultCommand();
 
 			m_booIsSwitching = false;
 			ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null);

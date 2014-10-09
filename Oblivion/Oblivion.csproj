@@ -61,7 +61,9 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Settings\SupportedToolsSettingsGroup.cs" />
-    <Compile Include="Settings\UI\SupportedToolsSettingsPage.cs" />
+    <Compile Include="Settings\UI\SupportedToolsSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Settings\UI\SupportedToolsSettingsPage.designer.cs" />
     <Compile Include="Tools\AI\ArchiveInvalidation.cs" />
     <Compile Include="Tools\OblivionToolLauncher.cs" />
