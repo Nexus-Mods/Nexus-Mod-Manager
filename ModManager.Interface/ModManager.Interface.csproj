@@ -71,7 +71,6 @@
     <Compile Include="Games\Steam\StreamHelpers.cs" />
     <Compile Include="Games\SupportedToolsLauncherBase.cs" />
     <Compile Include="Games\SupportedToolsLaunchEventArgs.cs" />
-    <Compile Include="Games\SupportedTools\SupportedToolsControlVM.cs" />
     <Compile Include="Games\Theme.cs" />
     <Compile Include="Games\Settings\RequiredDirectoriesControl.cs">
       <SubType>UserControl</SubType>

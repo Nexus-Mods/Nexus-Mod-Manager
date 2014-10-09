@@ -180,7 +180,7 @@ namespace Nexus.Client.Util
 				}
 				catch (Exception e)
 				{
-					if (!(e is IOException || e is UnauthorizedAccessException || e is DirectoryNotFoundException))
+					if (!(e is IOException || e is UnauthorizedAccessException || e is DirectoryNotFoundException || e is FileNotFoundException))
 						throw;
 					try
 					{
@@ -188,7 +188,7 @@ namespace Nexus.Client.Util
 					}
 					catch (Exception ex)
 					{
-						if (!(ex is ArgumentException || ex is DirectoryNotFoundException))
+						if (!(ex is IOException || ex is ArgumentException || ex is DirectoryNotFoundException || e is FileNotFoundException))
 							throw;
 						//we couldn't clear the attributes
 					}
@@ -207,14 +207,21 @@ namespace Nexus.Client.Util
 		/// <param name="p_booRecurse">Whether or not to clear the attributes on all children files and folers.</param>
 		public static void ClearAttributes(string p_strPath, bool p_booRecurse)
 		{
-			if (File.Exists(p_strPath))
+			try
 			{
-				FileInfo fifFile = new FileInfo(p_strPath);
-				fifFile.Attributes = FileAttributes.Normal;
+				if (File.Exists(p_strPath))
+				{
+					FileInfo fifFile = new FileInfo(p_strPath);
+					fifFile.Attributes = FileAttributes.Normal;
+				}
+				else if (Directory.Exists(p_strPath))
+					ClearAttributes(new DirectoryInfo(p_strPath), p_booRecurse);
 			}
-			else if (Directory.Exists(p_strPath))
-				ClearAttributes(new DirectoryInfo(p_strPath), p_booRecurse);
-
+			catch (Exception e)
+			{
+				if (!(e is IOException || e is UnauthorizedAccessException || e is DirectoryNotFoundException || e is FileNotFoundException))
+					throw;
+			}
 		}
 
 		/// <summary>
@@ -228,13 +235,21 @@ namespace Nexus.Client.Util
 		/// <param name="p_booRecurse">Whether or not to clear the attributes on all children files and folers.</param>
 		public static void ClearAttributes(DirectoryInfo p_difPath, bool p_booRecurse)
 		{
-			p_difPath.Attributes = FileAttributes.Normal;
-			if (p_booRecurse)
+			try
 			{
-				foreach (DirectoryInfo difDirectory in p_difPath.GetDirectories())
-					ClearAttributes(difDirectory, p_booRecurse);
-				foreach (FileInfo fifFile in p_difPath.GetFiles())
-					fifFile.Attributes = FileAttributes.Normal;
+				p_difPath.Attributes = FileAttributes.Normal;
+				if (p_booRecurse)
+				{
+					foreach (DirectoryInfo difDirectory in p_difPath.GetDirectories())
+						ClearAttributes(difDirectory, p_booRecurse);
+					foreach (FileInfo fifFile in p_difPath.GetFiles())
+						fifFile.Attributes = FileAttributes.Normal;
+				}
+			}
+			catch (Exception e)
+			{
+				if (!(e is IOException || e is UnauthorizedAccessException || e is DirectoryNotFoundException || e is FileNotFoundException))
+					throw;
 			}
 		}
 

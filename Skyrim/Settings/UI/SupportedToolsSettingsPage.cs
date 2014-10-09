@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-//using Nexus.Client.ModRepositories;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Nexus.Client.Settings;
@@ -37,39 +36,18 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			:this()
 		{
 			SettingsGroup = p_stsSettings;
-			//InitializeComponent();
 
 			BindingHelper.CreateFullBinding(tbxBOSS, () => tbxBOSS.Text, p_stsSettings, () => p_stsSettings.BOSSDirectory);
+			BindingHelper.CreateFullBinding(tbxLOOT, () => tbxLOOT.Text, p_stsSettings, () => p_stsSettings.LOOTDirectory);
 			BindingHelper.CreateFullBinding(tbxWryeBashDirectory, () => tbxWryeBashDirectory.Text, p_stsSettings, () => p_stsSettings.WryeBashDirectory);
 			BindingHelper.CreateFullBinding(tbxFNIS, () => tbxFNIS.Text, p_stsSettings, () => p_stsSettings.FNISDirectory);
+			BindingHelper.CreateFullBinding(tbxTES5Edit, () => tbxTES5Edit.Text, p_stsSettings, () => p_stsSettings.TES5EditDirectory);
 
 			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
+			lblLOOTPrompt.Text = String.Format(lblLOOTPrompt.Text, p_stsSettings.GameModeName);
 			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);
 			lblFNISPrompt.Text = String.Format(lblFNISPrompt.Text, p_stsSettings.GameModeName);
-									
-			if (p_stsSettings.GameModeName == "Oblivion") 
-			{
-				lblFNISPrompt.Enabled = false;
-				tbxFNIS.Enabled = false;
-				butSelectFNISDirectory.Enabled = false;
-				lblFNISLabel.Enabled = false;
-				this.label1.Text = "- The tools with disabled path are not supported on " + p_stsSettings.GameModeName;
-			}
-
-			if ((p_stsSettings.GameModeName == "Fallout: New Vegas") || (p_stsSettings.GameModeName == "FallOut3"))
-			{
-				lblFNISPrompt.Enabled = false;
-				tbxFNIS.Enabled = false;
-				butSelectFNISDirectory.Enabled = false;
-				lblFNISLabel.Enabled = false;
-				lblWryeBashPrompt.Enabled = false;
-				tbxWryeBashDirectory.Enabled = false;
-				butSelectWryeBashDirectory.Enabled = false;
-				lblWryeBashDirectoryLabel.Enabled = false;
-				this.label1.Text = "- The tools with disabled path are not supported on " + p_stsSettings.GameModeName;
-			}
-						
-				
+			lblTES5EditPrompt.Text = String.Format(lblTES5EditPrompt.Text, p_stsSettings.GameModeName);			
 		}
 
 		#endregion
@@ -98,6 +76,25 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
 			{
 				tbxBOSS.Text = fbdDirectory.SelectedPath;
+				//force the data binding on the textbox to push the value to the bound view model
+				ValidateChildren();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the select LOOT button.
+		/// </summary>
+		/// <remarks>
+		/// This opens the folder selection dialog for LOOT.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butSelectLOOTDirectory_Click(object sender, EventArgs e)
+		{
+			fbdDirectory.SelectedPath = tbxLOOT.Text;
+			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
+			{
+				tbxLOOT.Text = fbdDirectory.SelectedPath;
 				//force the data binding on the textbox to push the value to the bound view model
 				ValidateChildren();
 			}
@@ -136,6 +133,25 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
 			{
 				tbxFNIS.Text = fbdDirectory.SelectedPath;
+				//force the data binding on the textbox to push the value to the bound view model
+				ValidateChildren();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the select TES5Edit button.
+		/// </summary>
+		/// <remarks>
+		/// This opens the folder selection dialog for TES5Edit.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butSelectTES5EditDirectory_Click(object sender, EventArgs e)
+		{
+			fbdDirectory.SelectedPath = tbxTES5Edit.Text;
+			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
+			{
+				tbxTES5Edit.Text = fbdDirectory.SelectedPath;
 				//force the data binding on the textbox to push the value to the bound view model
 				ValidateChildren();
 			}
