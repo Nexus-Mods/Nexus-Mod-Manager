@@ -79,6 +79,8 @@ namespace Nexus.Client.Util.Downloader
 		private bool m_booIsClosing = false;
 		private TrackedThread m_thdWrite = null;
 
+		public event EventHandler UnableToWrite = delegate { };
+
 		#region Properties
 
 		/// <summary>
@@ -141,37 +143,68 @@ namespace Nexus.Client.Util.Downloader
 		/// </remarks>
 		protected void WaitForData()
 		{
+			int intRetries = 0;
 			string strFolder = Path.GetDirectoryName(m_strFilePath);
 			if (!Directory.Exists(strFolder))
 				Directory.CreateDirectory(strFolder);
-			using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
+			while (true)
 			{
-				while (true)
+				while (m_sltBlocksToWrite.Count > 0)
 				{
-					while (m_sltBlocksToWrite.Count > 0)
+					try
 					{
-						FileBlock fblData = null;
-						lock (m_sltBlocksToWrite)
+						using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
 						{
-							fblData = m_sltBlocksToWrite[0];
-							m_sltBlocksToWrite.RemoveAt(0);
-						}
-						if (fblData.StartPosition > (Int64)fsmFile.Length)
-							fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
-						fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
-						fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
+							FileBlock fblData = null;
+							lock (m_sltBlocksToWrite)
+							{
+								fblData = m_sltBlocksToWrite[0];
+								m_sltBlocksToWrite.RemoveAt(0);
+							}
+							if (fblData.StartPosition > (Int64)fsmFile.Length)
+								fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
+							fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
+							fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
 
-						m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
-						StringBuilder stbRanges = new StringBuilder();
-						foreach (Range rngWritten in m_rgsWrittenRanges)
-							stbRanges.AppendLine(rngWritten.ToString());
-						File.WriteAllText(m_strFileMetadataPath, stbRanges.ToString());
+							m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
+							StringBuilder stbRanges = new StringBuilder();
+							foreach (Range rngWritten in m_rgsWrittenRanges)
+								stbRanges.AppendLine(rngWritten.ToString());
+							File.WriteAllText(m_strFileMetadataPath, stbRanges.ToString());
+						}
+
+						intRetries = 0;
 					}
-					if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
-						return;
-					m_ewhProcessQueue.Reset();
-					m_ewhProcessQueue.WaitOne();
+					catch (IOException ex)
+					{
+						//See stackoverflow answer for determining if file is in use: http://stackoverflow.com/a/937558/1634249
+						var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
+
+						if (errorCode == 32 || errorCode == 33)
+						{
+							//Wait for file to be unlocked, hopefully soon
+							//XXX what else could be done?
+							if (intRetries > 600)
+							{
+								UnableToWrite(this, new EventArgs());
+								return;
+							}
+							else
+								intRetries++;
+
+							Thread.Sleep(100);
+						}
+						else
+						{
+							//Unknown exception, standard error handling (crash)
+							throw ex;
+						}
+					}
 				}
+				if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
+					return;
+				m_ewhProcessQueue.Reset();
+				m_ewhProcessQueue.WaitOne();
 			}
 		}
 
