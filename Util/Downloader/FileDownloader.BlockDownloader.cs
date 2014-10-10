@@ -45,7 +45,7 @@ namespace Nexus.Client.Util.Downloader
 			{
 				get
 				{
-						return m_intDownloadedByteCount;
+					return m_intDownloadedByteCount;
 				}
 			}
 
@@ -81,6 +81,7 @@ namespace Nexus.Client.Util.Downloader
 				m_fwrWriter = p_fwrWriter;
 				m_intBufferSize = p_intBufferSize;
 				m_strUserAgent = p_strUserAgent;
+				m_fwrWriter.UnableToWrite += new EventHandler(FileWriter_UnableToWrite);
 			}
 
 			#endregion
@@ -131,6 +132,24 @@ namespace Nexus.Client.Util.Downloader
 			{
 				m_booKeepRunning = false;
 				m_fwrWriter.Close();
+			}
+
+			/// <summary>
+			/// Handles the <see cref="FileWriter.UnableToWrite"/> events of the
+			/// <see cref="FileWriter"/>s being used.
+			/// </summary>
+			/// <remarks>
+			/// This stops the file download once all the <see cref="FileWriter"/>s have
+			/// finished.
+			/// </remarks>
+			/// <param name="sender">The object that raised the event.</param>
+			/// <param name="e">An <see cref="EventArgs"/> desciribing the event arguments.</param>
+			private void FileWriter_UnableToWrite(object sender, EventArgs e)
+			{
+				ErrorCode = "666";
+				ErrorInfo = "Unable to write, the file is being used by another process.";
+				Stop();
+				FinishedDownloading(this, new EventArgs());
 			}
 
 			/// <summary>
