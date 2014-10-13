@@ -120,8 +120,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
             }
 
             Image imgPicture = null;
-            if (pic != null)
-                imgPicture = Bitmap.FromStream(new MemoryStream(pic));
+			if (pic != null)
+			{
+				try
+				{
+					imgPicture = Bitmap.FromStream(new MemoryStream(pic));
+				}
+				catch { }
+			}
 
 
             Plugin pifInfo = new GamebryoPlugin(p_strPluginPath, stbDescription.ToString(), imgPicture, BossSorter.IsMaster(p_strPluginPath));
