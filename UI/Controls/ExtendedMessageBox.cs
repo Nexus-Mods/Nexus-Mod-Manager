@@ -471,7 +471,7 @@ namespace Nexus.UI.Controls
 				pnlDetails.MinimumSize = new Size(0, m_intMinimumDetailsHeight);
 				MaximumSize = new Size(Int32.MaxValue, Int32.MaxValue);
 				Size = new Size(Size.Width, Size.Height + LastDetailsHeight);
-				MinimumSize = new Size(MinimumSize.Width, MinimumSize.Height + m_intMinimumDetailsHeight);
+				MinimumSize = new Size(MinimumSize.Width, MinimumSize.Height + m_intMinimumDetailsHeight + 40);
 			}
 			pnlDetails.Visible = !pnlDetails.Visible;
 			this.PerformLayout();
