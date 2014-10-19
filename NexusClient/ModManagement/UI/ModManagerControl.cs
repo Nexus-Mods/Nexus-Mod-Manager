@@ -52,6 +52,7 @@ namespace Nexus.Client.ModManagement.UI
 			set
 			{
 				m_vmlViewModel = value;
+				
 				m_vmlViewModel.UpdatingCategory += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingCategory);
 				m_vmlViewModel.UpdatingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingMods);
 				m_vmlViewModel.TogglingAllWarning += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_TogglingAllWarning);
@@ -320,7 +321,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
 			{
 				if (clwCategoryView.Visible)
-					ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(GetSelectedMod().Filename);
+					ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(GetSelectedMod().Filename).ToLowerInvariant());
 
 				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DisableModCommand.CanExecute;
 
@@ -577,7 +578,7 @@ namespace Nexus.Client.ModManagement.UI
 								IMod modMod = (IMod)e.Item.RowObject;
 								if (modMod != null)
 								{
-									if (ViewModel.VirtualModActivator.ActiveModList.Contains(modMod.Filename))
+									if (ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(modMod.Filename).ToLowerInvariant()))
 										ViewModel.DisableModCommand.Execute(modMod);
 									else
 										ViewModel.ActivateModCommand.Execute(modMod);

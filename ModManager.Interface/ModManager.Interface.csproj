@@ -116,6 +116,7 @@
     </Compile>
     <Compile Include="ModManagement\VirtualModActivator\IModLinkInstaller.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModActivator.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\IVirtualModInfo.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModLink.cs" />
     <Compile Include="Mods\FilenameModComparer.cs" />
     <Compile Include="Mods\IModCategory.cs" />

@@ -41,6 +41,7 @@ namespace Nexus.Client
 		private ModManagerControl mmgModManager = null;
 		private PluginManagerControl pmcPluginManager = null;
 		private DownloadMonitorControl dmcDownloadMonitor = null;
+		private ProfileManagerControl pmcProfileManager = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
 		public string strOptionalPremiumMessage = string.Empty;
 		private bool m_booIsSwitching = false;
@@ -77,10 +78,10 @@ namespace Nexus.Client
 			{
 				m_vmlViewModel = value;
 
+				m_vmlViewModel.ProfileManager.ModProfiles.CollectionChanged += new NotifyCollectionChangedEventHandler(ModProfiles_CollectionChanged);
 				m_vmlViewModel.ProfileSwitching += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ProfileSwitching);
 				m_vmlViewModel.ModManager.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
 				m_vmlViewModel.ModManager.VirtualModActivator.ModActivationChanged += new EventHandler(VirtualModActivator_ModActivationChanged);
-				m_vmlViewModel.ProfileManager.ModProfiles.CollectionChanged += new NotifyCollectionChangedEventHandler(ModProfiles_CollectionChanged);
 				if (ViewModel.GameMode.UsesPlugins)
 					m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
 
@@ -91,6 +92,8 @@ namespace Nexus.Client
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.PropertyChanged += new System.ComponentModel.PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
+				pmcProfileManager.ViewModel = m_vmlViewModel.ProfileManagerVM;
+
 				this.ViewModel.ModRepository.UserStatusUpdate += new EventHandler(ModRepository_UserStatusUpdate);
 
 				ApplyTheme(m_vmlViewModel.ModeTheme);
@@ -141,6 +144,7 @@ namespace Nexus.Client
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
+			pmcProfileManager = new ProfileManagerControl();
 			dockPanel1.ActiveContentChanged += new EventHandler(dockPanel1_ActiveContentChanged);
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
@@ -227,12 +231,15 @@ namespace Nexus.Client
 				catch { }
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
+				if (!pmcProfileManager.Visible)
+					pmcProfileManager.Show(dockPanel1, DockState.Document);
 			}
 			else
 			{
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
+				pmcProfileManager.DockState = DockState.Unknown;
 				dmcDownloadMonitor.DockState = DockState.Unknown;
 				dmcDownloadMonitor.ShowHint = DockState.DockBottomAutoHide;
 				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
@@ -640,15 +647,6 @@ namespace Nexus.Client
 
 		#region Tasks
 
-		private void ModProfiles_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-		{
-			if (InvokeRequired)
-			{
-				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ModProfiles_CollectionChanged, sender, e);
-				return;
-			}
-		}
-
 		/// <summary>
 		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
 		/// active mod list.
@@ -883,6 +881,8 @@ namespace Nexus.Client
 				return mmgModManager;
 			else if (p_strContentId == typeof(DownloadMonitorControl).ToString())
 				return dmcDownloadMonitor;
+			else if (p_strContentId == typeof(ProfileManagerControl).ToString())
+				return pmcProfileManager;
 			else
 				return null;
 		}
@@ -1510,7 +1510,7 @@ namespace Nexus.Client
 							{
 								mopCurrentProfile.Name = strNewName;
 								ViewModel.ProfileManager.UpdateProfile(mopCurrentProfile, null, null);
-								BindProfileCommands();
+								//BindProfileCommands();
 							}
 						}
 						break;
@@ -1535,7 +1535,7 @@ namespace Nexus.Client
 							if (drResult == DialogResult.Yes)
 							{
 								ViewModel.ProfileManager.RemoveProfile(mopProfile);
-								BindProfileCommands();
+								//BindProfileCommands();
 							}
 						}
 						break;
@@ -1569,6 +1569,11 @@ namespace Nexus.Client
 					SwitchProfile(impProfile, false);
 				}
 			}
+		}
+
+		private void ModProfiles_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			BindProfileCommands();
 		}
 
 		private void AddNewProfile(byte[] p_bteLoadOrder)

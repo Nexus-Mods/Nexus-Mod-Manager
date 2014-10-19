@@ -64,6 +64,8 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		void UpdateProfileLoadOrder(IModProfile p_impModProfile, byte[] p_bteLoadOrder);
 
+		bool LoadProfileFileList(IModProfile p_impModProfile);
+
 		/// <summary>
 		/// Removes the profile from the profile manager.
 		/// </summary>
@@ -79,6 +81,11 @@ namespace Nexus.Client.ModManagement
 		/// Updates the profile file.
 		/// </summary>
 		void SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
+
+		void ExportProfile(IModProfile p_impModProfile, string p_strPath);
+
+		bool ImportProfile(string p_strPath);
+
 		#endregion
 
 		/// <summary>

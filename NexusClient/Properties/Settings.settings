@@ -225,5 +225,20 @@
      &lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;
     </Value>
     </Setting>
+    <Setting Name="VirtualFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="HDLinkFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfString /&gt;
+    </Value>
+    </Setting>
+    <Setting Name="MultiHDInstall" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
+      <Value Profile="(Default)">
+     &lt;PerGameModeSettingsOfBoolean /&gt;
+    </Value>
+    </Setting>
   </Settings>
 </SettingsFile>

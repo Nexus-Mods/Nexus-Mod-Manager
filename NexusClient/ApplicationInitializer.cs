@@ -252,7 +252,7 @@ namespace Nexus.Client
 			string strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
 			if (String.IsNullOrEmpty(strUacCheckPath) || (!String.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.InstallationPath)))
 				strUacCheckPath = p_gmfGameModeFactory.GameModeDescriptor.InstallationPath;
-			if (!String.IsNullOrEmpty(strUacCheckPath))
+			if (!String.IsNullOrEmpty(strUacCheckPath) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
 			{
 				try
 				{
@@ -286,6 +286,11 @@ namespace Nexus.Client
 			{
 				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
 				EnvironmentInfo.Settings.Save();
+
+				if (String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
+				{
+					ShowMessage(new ViewMessage("This new version requires you to revise your folder settings." + Environment.NewLine + "Click OK to continue to the setup screen." + Environment.NewLine, "New version", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information));
+				}
 			}
 			StepOverallProgress();
 
@@ -371,6 +376,15 @@ namespace Nexus.Client
 			StepOverallProgress();
 
 			StepOverallProgress();
+
+			if ((gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory == null) || (gmdGameMode.GameModeEnvironmentInfo.ModDirectory == null))
+			{
+				ShowMessage(new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", "Warning", MessageBoxIcon.Warning));
+				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
+				EnvironmentInfo.Settings.Save();
+				Status = TaskStatus.Retrying;
+				return false;
+			}
 
 			ServiceManager svmServices = InitializeServices(gmdGameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
 			if (svmServices == null)
@@ -747,7 +761,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Finding managed mods...");
 			Trace.Indent();
-			ModRegistry mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER));
+			ModRegistry mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_LINK_FOLDER));
 			Trace.TraceInformation("Found {0} managed mods.", mrgModRegistry.RegisteredMods.Count);
 			Trace.Unindent();
 

@@ -113,6 +113,30 @@ namespace Nexus.Client.Settings
 		bool ShowExpandedCategories { get; set; }
 
 		/// <summary>
+		/// Gets the path of the folder where a game mode's virtual folder is stored.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding install info folder paths.
+		/// </remarks>
+		/// <value>The path of the folder where a game mode's virtual folder is stored.</value>
+		PerGameModeSettings<string> VirtualFolder { get; }
+
+		/// <summary>
+		/// Gets the path of the folder where a game mode's install info is stored.
+		/// </summary>
+		/// <remarks>
+		/// The dictionary maps game mode ids to their corresponding HDLink folder paths.
+		/// </remarks>
+		/// <value>The path of the folder where a game mode's HDLink is stored.</value>
+		PerGameModeSettings<string> HDLinkFolder { get; }
+
+		/// <summary>
+		/// Gets whether or not to use the multi hd install.
+		/// </summary>
+		/// <value>Whether or not to use the multi hd install.</value>
+		PerGameModeSettings<bool> MultiHDInstall { get; }
+
+		/// <summary>
 		/// Gets or sets whether the manager should force the creation of hardlinks.
 		/// </summary>
 		/// <value>Whether the manager should force the creation of hardlinks.</value>

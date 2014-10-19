@@ -124,7 +124,8 @@ namespace Nexus.Client.Games.DragonAge
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(455, 345);
+			this.ClientSize = new System.Drawing.Size(800, 600);
+			this.MinimumSize = new System.Drawing.Size(800, 600);
 			this.Controls.Add(this.wizSetup);
 			this.Controls.Add(this.panel1);
 			this.Name = "SetupForm";

@@ -101,8 +101,8 @@ namespace Nexus.Client.ModManagement
 				if (m_booCancel)
 					break;
 				ItemProgress = 0;
-				ItemMessage = "Activating new profile: " + vmlModLink.ModName;
-				IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => x.Filename == vmlModLink.ModFileName);
+				ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
+				IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => x.Filename == vmlModLink.ModInfo.ModFileName);
 				if (modMod != null)
 				{
 					if (vmlModLink.Active)

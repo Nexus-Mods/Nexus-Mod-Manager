@@ -441,7 +441,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			string strFileName = Path.GetRandomFileName() + ".xml";
 			string strTempPath = Path.Combine(Path.GetTempPath(), strFileName);
 			XDocument docVirtual = new XDocument();
-			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", "0.1.0.0"));
+			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", VirtualModActivator.CurrentVersion.ToString()));
 			docVirtual.Add(xelRoot);
 
 			XElement xelLinkList = new XElement("linkList");

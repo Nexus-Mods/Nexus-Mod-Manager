@@ -20,6 +20,8 @@ namespace Nexus.Client.Games.Settings
 		private string m_strInstallInfoDirectory = null;
 		private string m_strModDirectory = null;
 		private string m_strToolDirectory = null;
+		private string m_strVirtualDirectory = null;
+		private string m_strLinkDirectory = null;
 		private bool m_booRequiredTool = false;
 		private List<string> lstModsAttempts = new List<string>();
 		private List<string> lstIIAttempts = new List<string>();
@@ -103,6 +105,38 @@ namespace Nexus.Client.Games.Settings
 		}
 
 		/// <summary>
+		/// Gets or sets the path of the directory where this Game Mode's Virtual mods are stored.
+		/// </summary>
+		/// <value>The path of the directory where this Game Mode's Virtual mods are stored.</value>
+		public string VirtualDirectory
+		{
+			get
+			{
+				return m_strVirtualDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strVirtualDirectory, value, () => VirtualDirectory);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the path of the directory where this Game Mode's Virtual mods are stored.
+		/// </summary>
+		/// <value>The path of the directory where this Game Mode's Virtual mods are stored.</value>
+		public string LinkDirectory
+		{
+			get
+			{
+				return m_strLinkDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strLinkDirectory, value, () => LinkDirectory);
+			}
+		}
+
+		/// <summary>
 		/// Gets whether the game mode is using a required tool for modding.
 		/// </summary>
 		/// <value>Whether the game mode is using a required tool for modding.</value>
@@ -113,6 +147,24 @@ namespace Nexus.Client.Games.Settings
 				return m_booRequiredTool;
 			}
 		}
+
+		/// <summary>
+		/// Gets whether to show additional settings.
+		/// </summary>
+		/// <value>Whether to show additional settings.</value>
+		public bool OptionalSettings
+		{
+			get
+			{
+				return m_booUseAdditionalChecks;
+			}
+		}
+
+		/// <summary>
+		/// Gets whether to use the multi HD mod install.
+		/// </summary>
+		/// <value>Whether to use the multi HD mod install.</value>
+		public bool MultiHDInstall { get; set; }
 
 		/// <summary>
 		/// Gets the name of the required tool (if any) for the current game mode.
@@ -161,8 +213,8 @@ namespace Nexus.Client.Games.Settings
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmdGameModeInfo;
 			m_booRequiredTool = GameModeDescriptor.OrderedRequiredToolFileNames != null;
-			Errors = new ErrorContainer();
 			m_booUseAdditionalChecks = p_booUseAdditionalChecks;
+			Errors = new ErrorContainer();
 		}
 
 		#endregion
@@ -290,7 +342,7 @@ namespace Nexus.Client.Games.Settings
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory is valid;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strPath, string p_strPathName, string p_strProperty)
+		protected bool ValidateDirectory(string p_strPath, string p_strPathName, string p_strProperty, bool p_booGameHDCheck)
 		{
 			Errors.Clear(p_strProperty);
 			if (String.IsNullOrEmpty(p_strPath))
@@ -300,14 +352,23 @@ namespace Nexus.Client.Games.Settings
 			}
 			else if (
 				(String.Equals(EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId], p_strPath)) ||
-				(p_strPath.Length <= 4)
+				((new DirectoryInfo(p_strPath).Parent) == null) ||
+				(String.Equals(GameModeDescriptor.InstallationPath, p_strPath))
 				)
 			{
 				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
 					"HD root - {2}" + Environment.NewLine +
-					"Game root folder - {1}" + Environment.NewLine,
+					"Game root folder - {1}" + Environment.NewLine +
+					"Mod install folder - {3}" + Environment.NewLine,
 					p_strPathName, EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId],
-					Path.GetPathRoot(p_strPath)));
+					Path.GetPathRoot(p_strPath), GameModeDescriptor.InstallationPath));
+				return false;
+			}
+			else if (p_booGameHDCheck && (!CheckOnGameHD(p_strPath)))
+			{
+				Errors.SetError(p_strProperty, string.Format("You MUST set the {0} on the same HD as the usual mod install folder:" + Environment.NewLine +
+					"HD - {1}" + Environment.NewLine,
+					p_strPathName, Path.GetPathRoot(p_strPath)));
 				return false;
 			}
 			else
@@ -336,7 +397,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateModDirectory()
 		{
-			return ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory));
+			return ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory), false);
 		}
 
 		/// <summary>
@@ -346,7 +407,27 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateInstallInfoDirectory()
 		{
-			return ValidateDirectory(InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory));
+			return ValidateDirectory(InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory), false);
+		}
+
+		/// <summary>
+		/// Validates the selected virtual directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected virtual directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateVirtualDirectory()
+		{
+			return ValidateDirectory(VirtualDirectory, "Virtual Directory", ObjectHelper.GetPropertyName(() => VirtualDirectory), !MultiHDInstall);
+		}
+
+		/// <summary>
+		/// Validates the selected HD Link directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected HD Link directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateLinkDirectory()
+		{
+			return ValidateDirectory(LinkDirectory, "Link Directory", ObjectHelper.GetPropertyName(() => LinkDirectory), true);
 		}
 
 		/// <summary>
@@ -357,6 +438,11 @@ namespace Nexus.Client.Games.Settings
 		public bool ValidateSettings()
 		{
 			if (ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory), InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory), ToolDirectory, "Required Tool Directory", ObjectHelper.GetPropertyName(() => ToolDirectory)))
+				if (m_booUseAdditionalChecks)
+				{
+					return ValidateModDirectory() && ValidateInstallInfoDirectory() && ValidateVirtualDirectory() && (!MultiHDInstall || ValidateLinkDirectory());
+				}
+			else
 				return ValidateModDirectory() && ValidateInstallInfoDirectory();
 			else
 				return false;
@@ -372,13 +458,13 @@ namespace Nexus.Client.Games.Settings
 		/// <param name="strGameMode">The selected game mode.</param>
 		/// <param name="strMods">The selected Mods path.</param>
 		/// <param name="strInstallInfo">The selected Install Info path.</param>
-		public void SaveRegistry(string strGameMode, string strMods, string strInstallInfo)
+		public void SaveRegistry(string p_strGameMode, string p_strMods, string p_strInstallInfo, string p_strVirtual, string p_strHDLink, bool p_booMultiHDInstall)
 		{
 			try
 			{
 				RegistryKey rkKey = null;
 				string strNMMKey = @"SOFTWARE\NexusModManager\";
-				string strGameKey = @"SOFTWARE\NexusModManager\" + strGameMode;
+				string strGameKey = @"SOFTWARE\NexusModManager\" + p_strGameMode;
 
 				if (RegistryUtil.CanReadKey(strNMMKey) && RegistryUtil.CanWriteKey(strNMMKey))
 				{
@@ -396,8 +482,11 @@ namespace Nexus.Client.Games.Settings
 					if (RegistryUtil.CanReadKey(strGameKey) && RegistryUtil.CanWriteKey(strGameKey))
 					{
 						rkKey = Registry.LocalMachine.OpenSubKey(strGameKey, true);
-						rkKey.SetValue("Mods", strMods);
-						rkKey.SetValue("InstallInfo", strInstallInfo);
+						rkKey.SetValue("Mods", p_strMods);
+						rkKey.SetValue("InstallInfo", p_strInstallInfo);
+						rkKey.SetValue("Virtual", p_strVirtual);
+						rkKey.SetValue("HDLink", p_strHDLink);
+						rkKey.SetValue("MultiHDInstall", p_booMultiHDInstall);
 					}
 				}
 			}
@@ -418,6 +507,9 @@ namespace Nexus.Client.Games.Settings
 			string strRegGameMode = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId;
 			string strRegMods = String.Empty;
 			string strRegInstallInfo = String.Empty;
+			string strRegVirtual = String.Empty;
+			string strRegHDLink = String.Empty;
+			bool? booRegMultiHDInstall = null;
 			if (RegistryUtil.CanReadKey(strRegGameMode))
 			{
 				RegistryKey rkKey = Registry.LocalMachine.OpenSubKey(strRegGameMode, false);
@@ -425,6 +517,9 @@ namespace Nexus.Client.Games.Settings
 				{
 					strRegMods = (string)rkKey.GetValue("Mods", null);
 					strRegInstallInfo = (string)rkKey.GetValue("InstallInfo", null);
+					strRegVirtual = (string)rkKey.GetValue("Virtual", null);
+					strRegHDLink = (string)rkKey.GetValue("HDLink", null);
+					booRegMultiHDInstall = (bool?)rkKey.GetValue("MultiHDInstall", null);
 				}
 			}
 
@@ -523,7 +618,71 @@ namespace Nexus.Client.Games.Settings
 				}
 			}
 
+			if (EnvironmentInfo.Settings.MultiHDInstall.ContainsKey(GameModeDescriptor.ModeId))
+				MultiHDInstall = EnvironmentInfo.Settings.MultiHDInstall[GameModeDescriptor.ModeId];
+			else if (booRegMultiHDInstall != null)
+				MultiHDInstall = (bool)booRegMultiHDInstall;
+			if (booRegMultiHDInstall == null)
+			{
+				if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
+					booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("MultiHDInstall~{0}", GameModeDescriptor.ModeId), out strDirectory);
+				if (booRetrieved)
+					booRegMultiHDInstall = Convert.ToBoolean(strDirectory);
+				if (booRegMultiHDInstall == null)
+					booRegMultiHDInstall = false;
+				MultiHDInstall = (bool)booRegMultiHDInstall;
+			}
+
+			if (EnvironmentInfo.Settings.VirtualFolder.ContainsKey(GameModeDescriptor.ModeId) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[GameModeDescriptor.ModeId]))
+				VirtualDirectory = EnvironmentInfo.Settings.VirtualFolder[GameModeDescriptor.ModeId];
+			else if (!String.IsNullOrEmpty(strRegVirtual))
+				VirtualDirectory = strRegVirtual;
+			if (string.IsNullOrEmpty(VirtualDirectory) || 
+				(!MultiHDInstall && (!CheckOnGameHD(VirtualDirectory))))
+			{
+				if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
+					booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("VirtualFolder~{0}", GameModeDescriptor.ModeId), out strDirectory);
+				if (!booRetrieved)
+					EnvironmentInfo.Settings.VirtualFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
+				if (String.IsNullOrEmpty(strDirectory))
+				{
+					string strDefault = String.Empty;
+					strDefault = ModDirectory;
+					if (!MultiHDInstall && (!CheckOnGameHD(strDefault)))
+						strDefault = Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId);
+
+					strDirectory = strDefault;
+				}
+				VirtualDirectory = strDirectory;
+			}
+
+			if (MultiHDInstall)
+			{
+				if (EnvironmentInfo.Settings.HDLinkFolder.ContainsKey(GameModeDescriptor.ModeId) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId]))
+					LinkDirectory = EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId];
+				else if (!String.IsNullOrEmpty(strRegHDLink))
+					LinkDirectory = strRegHDLink;
+				if (string.IsNullOrEmpty(LinkDirectory) ||
+					!CheckOnGameHD(LinkDirectory))
+				{
+					if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
+						booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("LinkFolder~{0}", GameModeDescriptor.ModeId), out strDirectory);
+					if (!booRetrieved)
+						EnvironmentInfo.Settings.HDLinkFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
+					if (String.IsNullOrEmpty(strDirectory) || !CheckOnGameHD(strDirectory))
+					{
+						strDirectory = Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId);
+					}
+					LinkDirectory = strDirectory;
+				}
+			}
+
 			ValidateSettings();
+		}
+
+		protected bool CheckOnGameHD(string p_strPath)
+		{
+			return String.Equals(Path.GetPathRoot(p_strPath), Path.GetPathRoot(GameModeDescriptor.InstallationPath), StringComparison.InvariantCultureIgnoreCase);
 		}
 
 		/// <summary>
@@ -546,6 +705,20 @@ namespace Nexus.Client.Games.Settings
 				else
 					EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId] = ModDirectory;
 			}
+			if (!String.Equals(EnvironmentInfo.Settings.VirtualFolder[GameModeDescriptor.ModeId], VirtualDirectory))
+			{
+				if (p_booDelaySettings)
+					EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].Add(String.Format("VirtualFolder~{0}", GameModeDescriptor.ModeId), VirtualDirectory);
+				else
+					EnvironmentInfo.Settings.VirtualFolder[GameModeDescriptor.ModeId] = VirtualDirectory;
+			}
+			if (!String.Equals(EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId], LinkDirectory))
+			{
+				if (p_booDelaySettings)
+					EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].Add(String.Format("HDLinkFolder~{0}", GameModeDescriptor.ModeId), LinkDirectory);
+				else
+					EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId] = LinkDirectory;
+			}
 			if (m_booRequiredTool)
 			{
 				if (!String.Equals(EnvironmentInfo.Settings.ToolFolder[GameModeDescriptor.ModeId], ToolDirectory))
@@ -553,8 +726,15 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.ToolFolder[GameModeDescriptor.ModeId] = ToolDirectory;
 				}
 			}
+			if (MultiHDInstall == !EnvironmentInfo.Settings.MultiHDInstall[GameModeDescriptor.ModeId])
+			{
+				if (p_booDelaySettings)
+					EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].Add(String.Format("MultiHDInstall~{0}", GameModeDescriptor.ModeId), MultiHDInstall.ToString());
+				else
+					EnvironmentInfo.Settings.MultiHDInstall[GameModeDescriptor.ModeId] = MultiHDInstall;
+			}
 
-			SaveRegistry(GameModeDescriptor.ModeId, ModDirectory, InstallInfoDirectory);
+			SaveRegistry(GameModeDescriptor.ModeId, ModDirectory, InstallInfoDirectory, VirtualDirectory, LinkDirectory, MultiHDInstall);
 
 			EnvironmentInfo.Settings.Save();
 		}

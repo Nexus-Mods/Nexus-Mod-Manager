@@ -31,7 +31,8 @@ namespace Nexus.Client.ModManagement
 		void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks);
 		List<IVirtualModLink> LoadList(string p_strXMLFilePath);
 		List<IVirtualModLink> LoadImportedList(string p_strXML);
-		void SaveModListAt(string p_strPath);
+		bool LoadListOnDemand(string p_strProfilePath, out List<IVirtualModLink> p_lstVirtualLinks, out List<IVirtualModInfo> p_lstVirtualMods);
+		void SaveModList(string p_strPath);
 		string CheckVirtualLink(string p_strFilePath);
 		Int32 CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> lstFileLinks);
 		bool PurgeLinks();

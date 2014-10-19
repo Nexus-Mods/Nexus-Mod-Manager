@@ -43,9 +43,9 @@ namespace Nexus.Client.ModManagement
 		{
 			get
 			{
-				if ((ModFileList != null) && (ModFileList.Count > 0))
+				if ((ModList != null) && (ModList.Count > 0))
 				{
-					return ModFileList.Select(x => x.ModFileName).Distinct().Count();
+					return ModList.Count();
 				}
 				else
 					return m_intModCount;
@@ -67,10 +67,18 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <value>The active mod list.</value>
 		public List<IVirtualModLink> ModFileList { get; private set; }
+
+		/// <summary>
+		/// Gets or sets active mod list.
+		/// </summary>
+		/// <value>The active mod list.</value>
+		public List<IVirtualModInfo> ModList { get; private set; }
+
 		#endregion
 
 		#region Constructors
-		public ModProfile(string p_strName, string p_strGameModeId, Dictionary<string, string> p_dicLoadOrder, List<IVirtualModLink> p_ivaVirtualModLink)
+
+		public ModProfile(string p_strName, string p_strGameModeId, Dictionary<string, string> p_dicLoadOrder, List<IVirtualModLink> p_ivaVirtualModLink, List<IVirtualModInfo> p_ivaVirtualModList)
 		{
 			Id = String.Format("{0}-{1}", Path.GetRandomFileName(), p_strName);
 			Name = p_strName;
@@ -79,6 +87,8 @@ namespace Nexus.Client.ModManagement
 				LoadOrder = p_dicLoadOrder;
 			if ((p_ivaVirtualModLink != null) && (p_ivaVirtualModLink.Count > 0))
 				ModFileList = p_ivaVirtualModLink;
+			if ((p_ivaVirtualModList != null) && (p_ivaVirtualModList.Count > 0))
+				ModList = p_ivaVirtualModList;
 		}
 
 		public ModProfile(string p_strProfileId, string p_strName, string p_strGameModeId, Int32 p_intModCount)
@@ -99,5 +109,13 @@ namespace Nexus.Client.ModManagement
 		}
 
 		#endregion
+
+		public void UpdateLists(List<IVirtualModLink> p_lstVirtualModLink, List<IVirtualModInfo> p_lstVirtualModList)
+		{
+			if ((p_lstVirtualModLink != null) && (p_lstVirtualModLink.Count > 0))
+				ModFileList = p_lstVirtualModLink;
+			if ((p_lstVirtualModList != null) && (p_lstVirtualModList.Count > 0))
+				ModList = p_lstVirtualModList;
+		}
 	}
 }
