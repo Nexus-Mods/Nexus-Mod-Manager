@@ -45,7 +45,7 @@ namespace Nexus.Client.UI
 		#region Constructors
 
 		/// <summary>
-		/// A siple constructor that initializes the object with the given values.
+		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_strTitle">The title of the message.</param>
@@ -55,7 +55,7 @@ namespace Nexus.Client.UI
 		}
 
 		/// <summary>
-		/// A siple constructor that initializes the object with the given values.
+		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_strDetails">The details to display.</param>
@@ -66,7 +66,7 @@ namespace Nexus.Client.UI
 		}
 
 		/// <summary>
-		/// A siple constructor that initializes the object with the given values.
+		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_strTitle">The title of the message.</param>
@@ -77,7 +77,7 @@ namespace Nexus.Client.UI
 		}
 
 		/// <summary>
-		/// A siple constructor that initializes the object with the given values.
+		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_strDetails">The details to display.</param>
@@ -89,7 +89,7 @@ namespace Nexus.Client.UI
 		}
 
 		/// <summary>
-		/// A siple constructor that initializes the object with the given values.
+		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_strTitle">The title of the message.</param>
@@ -101,7 +101,7 @@ namespace Nexus.Client.UI
 		}
 
 		/// <summary>
-		/// A siple constructor that initializes the object with the given values.
+		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <param name="p_strMessage">The message to display.</param>
 		/// <param name="p_strDetails">The details to display.</param>

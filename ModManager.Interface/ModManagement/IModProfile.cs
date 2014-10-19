@@ -48,10 +48,18 @@ namespace Nexus.Client.ModManagement
 		Dictionary<string, string> LoadOrder { get; }
 
 		/// <summary>
+		/// Gets or sets active mod link list.
+		/// </summary>
+		/// <value>The active mod link list.</value>
+		List<IVirtualModLink> ModFileList { get; }
+
+		/// <summary>
 		/// Gets or sets active mod list.
 		/// </summary>
 		/// <value>The active mod list.</value>
-		List<IVirtualModLink> ModFileList { get; }
+		List<IVirtualModInfo> ModList { get; }
+
+		void UpdateLists(List<IVirtualModLink> p_lstVirtualModLink, List<IVirtualModInfo> p_lstVirtualModList);
 		#endregion
 	}
 }

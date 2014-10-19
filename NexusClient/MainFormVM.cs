@@ -143,6 +143,14 @@ namespace Nexus.Client
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
+		/// and operations for diaplying the Profile manager.
+		/// </summary>
+		/// <value>The view model that encapsulates the data
+		/// and operations for diaplying the Profile manager.</value>
+		public ProfileManagerVM ProfileManagerVM { get; private set; }
+
+		/// <summary>
+		/// Gets the view model that encapsulates the data
 		/// and operations for diaplying the settings view.
 		/// </summary>
 		/// <value>The view model that encapsulates the data
@@ -371,6 +379,7 @@ namespace Nexus.Client
 			if (GameMode.UsesPlugins)
 				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode);
 			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository);
+			ProfileManagerVM = new ProfileManagerVM(ProfileManager, ModManager.ManagedMods, ModRepository, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);

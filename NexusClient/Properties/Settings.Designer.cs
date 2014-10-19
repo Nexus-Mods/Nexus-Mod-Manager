@@ -704,5 +704,41 @@ namespace Nexus.Client.Properties {
                 this["SupportedTools"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> VirtualFolder {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["VirtualFolder"]));
+            }
+            set {
+                this["VirtualFolder"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> HDLinkFolder {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["HDLinkFolder"]));
+            }
+            set {
+                this["HDLinkFolder"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfBoolean />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<bool> MultiHDInstall {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<bool>)(this["MultiHDInstall"]));
+            }
+            set {
+                this["MultiHDInstall"] = value;
+            }
+        }
     }
 }

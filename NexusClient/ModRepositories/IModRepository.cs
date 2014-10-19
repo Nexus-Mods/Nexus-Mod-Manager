@@ -74,6 +74,8 @@ namespace Nexus.Client.ModRepositories
 		/// <value>The number of maximum allowed concurrent downloads.</value>
 		Int32 MaxConcurrentDownloads { get; }
 
+		string GameModeWebsite { get; }
+
 		#endregion
 
 		#region Account Management

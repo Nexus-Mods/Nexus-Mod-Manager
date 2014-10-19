@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using Nexus.Client.ModManagement;
@@ -626,7 +627,8 @@ namespace Nexus.Client.UI.Controls
 				{
 					try
 					{
-						if ((m_tslEnabledMods.Select(x => x.ModFileName).Distinct().Contains(((IMod)rowObject).Filename)) && (m_rolActiveMods.Contains((IMod)rowObject)))
+						IVirtualModLink ivlModLink = m_tslEnabledMods.Where(x => x.ModInfo.ModFileName.ToLowerInvariant().Equals(Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant()))).FirstOrDefault();
+						if ((ivlModLink != null) && (m_rolActiveMods.Contains((IMod)rowObject)))
 							return new Bitmap(Properties.Resources.dialog_ok_4_16, 12, 12);
 						else
 							return new Bitmap(!m_rolActiveMods.Contains((IMod)rowObject) ? new Bitmap(12, 12) : Properties.Resources.dialog_block, 14, 14);

@@ -252,15 +252,15 @@ namespace Nexus.Client.ModManagement
 			docProfile.Save(m_strProfileManagerConfigPath);
 		}
 
-		public void SetConfig(IList<IModProfile> p_iplProfiles)
+		public void SetConfig(ThreadSafeObservableList<IModProfile> p_iplProfiles)
 		{
 			m_tslProfiles.Clear();
 			m_tslProfiles = new ThreadSafeObservableList<IModProfile>(p_iplProfiles);
 		}
 
-		public IList<IModProfile> LoadConfig(string p_strXMLFilePath)
+		public ThreadSafeObservableList<IModProfile> LoadConfig(string p_strXMLFilePath)
 		{
-			List<IModProfile> lstProfiles = new List<IModProfile>();
+			ThreadSafeObservableList<IModProfile> lstProfiles = new ThreadSafeObservableList<IModProfile>();
 
 			if (File.Exists(p_strXMLFilePath))
 			{
@@ -374,6 +374,19 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		public bool LoadProfileFileList(IModProfile p_impModProfile)
+		{
+			List<IVirtualModLink> lstModLinks;
+			List<IVirtualModInfo> lstModList;
+			string strPath = Path.Combine(m_strProfileManagerPath, Path.Combine(p_impModProfile.Id, "modlist.xml"));
+			bool booSuccess = VirtualModActivator.LoadListOnDemand(strPath, out lstModLinks, out lstModList);
+
+			if (booSuccess)
+				p_impModProfile.UpdateLists(lstModLinks, lstModList);
+
+			return booSuccess;
+		}
+
 		/// <summary>
 		/// Removes the profile from the profile manager.
 		/// </summary>
@@ -436,7 +449,7 @@ namespace Nexus.Client.ModManagement
 				else if (VirtualModActivator.VirtualLinks != null)
 				{
 					if (VirtualModActivator.ModCount > 0)
-						VirtualModActivator.SaveModListAt(Path.Combine(strProfilePath, "modlist.xml"));
+						VirtualModActivator.SaveModList(Path.Combine(strProfilePath, "modlist.xml"));
 					else
 						FileUtil.ForceDelete(Path.Combine(strProfilePath, "modlist.xml"));
 				}
@@ -549,6 +562,54 @@ namespace Nexus.Client.ModManagement
 
 			//szeExtractor.Dispose();
 			m_strCurrentProfileId = p_impModProfile.Id;
+		}
+
+		public void ExportProfile(IModProfile p_impModProfile, string p_strPath)
+		{
+			string strProfilePath = Path.Combine(m_strProfileManagerPath, p_impModProfile.Id);
+			ZipFile.CreateFromDirectory(strProfilePath, p_strPath);
+		}
+
+		public bool ImportProfile(string p_strPath)
+		{
+			string strId = GetNextId;
+			string strProfilePath = Path.Combine(m_strProfileManagerPath, strId);
+			int intNewProfile = 1;
+			if (m_tslProfiles.Count > 0)
+			{
+				List<IModProfile> lstNewProfile = m_tslProfiles.Where(x => x.Name.IndexOf("Imported") == 0).ToList();
+				if ((lstNewProfile != null) && (lstNewProfile.Count > 0))
+				{
+					List<Int32> lstID = new List<Int32>();
+					foreach (IModProfile imp in lstNewProfile)
+					{
+						string n = imp.Name.Substring(9);
+						int i = 0;
+						if (int.TryParse(n, out i))
+							lstID.Add(Convert.ToInt32(i));
+					}
+					if (lstID.Count > 0)
+					{
+						intNewProfile = Enumerable.Range(1, lstID.Max() + 1).Except(lstID).Min();
+					}
+				}
+			}
+
+			try
+			{
+				ZipFile.ExtractToDirectory(p_strPath, strProfilePath);
+
+				ModProfile mprModProfile = new ModProfile(strId, "Imported " + intNewProfile.ToString(), ModManager.GameMode.ModeId, 0);
+				m_tslProfiles.Add(mprModProfile);
+				LoadProfileFileList(mprModProfile);
+				SaveConfig();
+			}
+			catch
+			{
+				return false;
+			}
+
+			return true;
 		}
 
 		private void VirtualModActivator_ModActivationChanged(object sender, EventArgs e)

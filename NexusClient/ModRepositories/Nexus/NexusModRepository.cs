@@ -145,6 +145,14 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 		}
 
+		public string GameModeWebsite
+		{
+			get
+			{
+				return m_strWebsite;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -198,87 +206,87 @@ namespace Nexus.Client.ModRepositories.Nexus
 			switch (p_gmdGameMode.ModeId)
 			{
 				case "DragonAge":
-					m_strWebsite = "dragonage.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/dragonage";
 					m_strEndpoint = "DAONexusREST";
 					m_intRemoteGameId = 140;
 					break;
 				case "DragonAge2":
-					m_strWebsite = "dragonage2.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/dragonage2";
 					m_strEndpoint = "DA2NexusREST";
 					m_intRemoteGameId = 141;
 					break;
 				case "Fallout3":
-					m_strWebsite = "fallout3.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/fallout3";
 					m_strEndpoint = "FO3NexusREST";
 					m_intRemoteGameId = 120;
 					break;
 				case "FalloutNV":
-					m_strWebsite = "newvegas.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/newvegas";
 					m_strEndpoint = "FONVNexusREST";
 					m_intRemoteGameId = 130;
 					break;
 				case "Morrowind":
-					m_strWebsite = "morrowind.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/morrowind";
 					m_strEndpoint = "MWNexusREST";
 					m_intRemoteGameId = 100;
 					break;
 				case "Oblivion":
-					m_strWebsite = "oblivion.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/oblivion";
 					m_strEndpoint = "OBNexusREST";
 					m_intRemoteGameId = 101;
 					break;
 				case "Skyrim":
-					m_strWebsite = "skyrim.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/skyrim";
 					m_strEndpoint = "SKYRIMNexusREST";
 					m_intRemoteGameId = 110;
 					break;
 				case "WorldOfTanks":
-					m_strWebsite = "worldoftanks.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/worldoftanks";
 					m_strEndpoint = "WOTNexusREST";
 					m_intRemoteGameId = 160;
 					break;
 				case "DarkSouls":
-					m_strWebsite = "darksouls.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/darksouls";
 					m_strEndpoint = "DSNexusREST";
 					m_intRemoteGameId = 162;
 					break;
 				case "DarkSouls2":
-					m_strWebsite = "darksouls2.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/darksouls2";
 					m_strEndpoint = "DS2NexusREST";
 					m_intRemoteGameId = 482;
 					break;
 				case "TESO":
-					m_strWebsite = "elderscrollsonline.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/elderscrollsonline";
 					m_strEndpoint = "TESONexusREST";
 					m_intRemoteGameId = 419;
 					break;
 				case "Grimrock":
-					m_strWebsite = "grimrock.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/grimrock";
 					m_strEndpoint = "LOGNexusREST";
 					m_intRemoteGameId = 161;
 					break;
 				case "Witcher2":
-					m_strWebsite = "witcher2.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/witcher2";
 					m_strEndpoint = "W2NexusREST";
 					m_intRemoteGameId = 153;
 					break;
 				case "XRebirth":
-					m_strWebsite = "xrebirth.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/xrebirth";
 					m_strEndpoint = "XRNexusREST";
 					m_intRemoteGameId = 154;
 					break;
 				case "Starbound":
-					m_strWebsite = "starbound.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/starbound";
 					m_strEndpoint = "STARBOUNDNexusREST";
 					m_intRemoteGameId = 242;
 					break;
 				case "StateOfDecay":
-					m_strWebsite = "stateofdecay.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/stateofdecay";
 					m_strEndpoint = "SODNexusREST";
 					m_intRemoteGameId = 223;
 					break;
 				case "WarThunder":
-					m_strWebsite = "warthunder.nexusmods.com";
+					m_strWebsite = "www.nexusmods.com/warthunder";
 					m_strEndpoint = "WTNexusREST";
 					m_intRemoteGameId = 449;
 					break;
@@ -710,7 +718,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (SerializationException e)
 			{
-				string strMessage = "you might not have downloaded this mod from the Nexus or you have tried to endorse it within 3 hours of downloading the file.";
+				string strMessage = "you might not have downloaded this mod from the Nexus (or you downloaded it with another account)  or you have tried to endorse it within 15 minutes of downloading the file.";
 				throw new RepositoryUnavailableException(strMessage, e);
 			}
 
