@@ -35,7 +35,7 @@ namespace Nexus.Client.Games.StateOfDecay
                     throw new ArgumentException("The given view model must be a StateOfDecaySetupVM. Type found: " + value.GetType().FullName);
                 lblTitle.Text = String.Format(lblTitle.Text, m_vmlViewModel.GameModeDescriptor.Name);
                 Text = String.Format(Text, m_vmlViewModel.GameModeDescriptor.Name);
-                rdcDirectories.ViewModel = m_vmlViewModel.RequiredDirectoriesControlVM;
+                rdcDirectories.ViewModel = m_vmlViewModel.SetupDirectoriesControlVM;
                 ApplyTheme(m_vmlViewModel.GameModeDescriptor.ModeTheme);
             }
         }
@@ -87,7 +87,7 @@ namespace Nexus.Client.Games.StateOfDecay
         {
             if (e.TabPage == vtpDirectories)
             {
-                if (!ViewModel.RequiredDirectoriesControlVM.ValidateSettings())
+                if (!ViewModel.SetupDirectoriesControlVM.ValidateSettings())
                     wizSetup.SelectedTabPage = e.TabPage;
             }
         }

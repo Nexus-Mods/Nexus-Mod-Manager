@@ -27,7 +27,7 @@ namespace Nexus.Client.Games
 		/// <value>The view model that encapsulates the data
 		/// and operations for diaplying a required directories
 		/// UI view.</value>
-		RequiredDirectoriesControlVM RequiredDirectoriesControlVM { get; }
+		SetupDirectoriesControlVM SetupDirectoriesControlVM { get; }
 
 		/// <summary>
 		/// Gets whether the setup is complete.
