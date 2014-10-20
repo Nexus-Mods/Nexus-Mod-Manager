@@ -66,6 +66,13 @@
     <Compile Include="Games\IGameModeEnvironmentInfo.cs" />
     <Compile Include="Games\InstallationPathAutoDetector.cs" />
     <Compile Include="Games\ISupportedToolsLauncher.cs" />
+    <Compile Include="Games\Settings\SetupDirectoriesControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Games\Settings\SetupDirectoriesControl.Designer.cs">
+      <DependentUpon>SetupDirectoriesControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Games\Settings\SetupDirectoriesControlVM.cs" />
     <Compile Include="Games\SetupBaseVM.cs" />
     <Compile Include="Games\Steam\KeyValue.cs" />
     <Compile Include="Games\Steam\StreamHelpers.cs" />
@@ -167,6 +174,10 @@
     <None Include="Resources\DefaultNexusIcon.ico" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Games\Settings\SetupDirectoriesControl.resx">
+      <DependentUpon>SetupDirectoriesControl.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <EmbeddedResource Include="Games\Settings\RequiredDirectoriesControl.resx">
       <DependentUpon>RequiredDirectoriesControl.cs</DependentUpon>
       <SubType>Designer</SubType>

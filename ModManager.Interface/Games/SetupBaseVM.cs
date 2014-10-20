@@ -34,7 +34,7 @@ namespace Nexus.Client.Games
 		/// <value>The view model that encapsulates the data
 		/// and operations for diaplying a required directories
 		/// UI view.</value>
-		public RequiredDirectoriesControlVM RequiredDirectoriesControlVM { get; private set; }
+		public SetupDirectoriesControlVM SetupDirectoriesControlVM { get; private set; }
 
 		/// <summary>
 		/// Gets whether the setup is complete.
@@ -55,7 +55,7 @@ namespace Nexus.Client.Games
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmdGameModeInfo;
-			RequiredDirectoriesControlVM = new RequiredDirectoriesControlVM(p_eifEnvironmentInfo, p_gmdGameModeInfo, true);
+			SetupDirectoriesControlVM = new SetupDirectoriesControlVM(p_eifEnvironmentInfo, p_gmdGameModeInfo, true);
 		}
 
 		#endregion
@@ -67,9 +67,9 @@ namespace Nexus.Client.Games
 		/// <c>false</c> otherwise.</returns>
 		public bool Save()
 		{
-			if (RequiredDirectoriesControlVM.ValidateSettings())
+			if (SetupDirectoriesControlVM.ValidateSettings())
 			{
-				RequiredDirectoriesControlVM.SaveSettings(false);
+				SetupDirectoriesControlVM.SaveSettings(false);
 				EnvironmentInfo.Settings.Save();
 				IsSetupComplete = true;
 				return true;

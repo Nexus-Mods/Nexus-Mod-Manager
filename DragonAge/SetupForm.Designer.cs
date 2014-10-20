@@ -34,7 +34,7 @@ namespace Nexus.Client.Games.DragonAge
 			this.pnlLight = new System.Windows.Forms.Panel();
 			this.wizSetup = new Nexus.UI.Controls.WizardControl();
 			this.vtpDirectories = new Nexus.UI.Controls.VerticalTabPage();
-			this.rdcDirectories = new Nexus.Client.Games.Settings.RequiredDirectoriesControl();
+			this.rdcDirectories = new Nexus.Client.Games.Settings.SetupDirectoriesControl();
 			this.panel1.SuspendLayout();
 			this.wizSetup.SuspendLayout();
 			this.vtpDirectories.SuspendLayout();
@@ -147,6 +147,6 @@ namespace Nexus.Client.Games.DragonAge
 		private System.Windows.Forms.Label lblTitle;
 		private Nexus.UI.Controls.WizardControl wizSetup;
 		private Nexus.UI.Controls.VerticalTabPage vtpDirectories;
-		private Nexus.Client.Games.Settings.RequiredDirectoriesControl rdcDirectories;
+		private Nexus.Client.Games.Settings.SetupDirectoriesControl rdcDirectories;
 	}
 }
