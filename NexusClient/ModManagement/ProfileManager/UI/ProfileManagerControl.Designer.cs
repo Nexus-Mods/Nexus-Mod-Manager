@@ -83,7 +83,7 @@
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(200, 25);
 			this.toolStrip1.TabIndex = 2;
-			this.toolStrip1.Text = "toolStrip1";
+			this.toolStrip1.Text = "Import/Export";
 			// 
 			// tsbImport
 			// 
@@ -92,7 +92,7 @@
 			this.tsbImport.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbImport.Name = "tsbImport";
 			this.tsbImport.Size = new System.Drawing.Size(23, 22);
-			this.tsbImport.Text = "toolStripButton1";
+			this.tsbImport.Text = "Import a profile";
 			this.tsbImport.Click += new System.EventHandler(this.tsbImport_Click);
 			// 
 			// tsbExport
@@ -102,7 +102,7 @@
 			this.tsbExport.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbExport.Name = "tsbExport";
 			this.tsbExport.Size = new System.Drawing.Size(23, 22);
-			this.tsbExport.Text = "toolStripButton2";
+			this.tsbExport.Text = "Export the selected profile";
 			this.tsbExport.Click += new System.EventHandler(this.tsbExport_Click);
 			// 
 			// lsbProfiles
@@ -112,7 +112,7 @@
 			this.lsbProfiles.Name = "lsbProfiles";
 			this.lsbProfiles.Size = new System.Drawing.Size(177, 186);
 			this.lsbProfiles.TabIndex = 1;
-			this.lsbProfiles.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.lsbProfiles_MouseDoubleClick);
+			this.lsbProfiles.MouseClick += new System.Windows.Forms.MouseEventHandler(this.lsbProfiles_MouseClick);
 			this.lsbProfiles.MouseDown += new System.Windows.Forms.MouseEventHandler(this.lsbProfiles_MouseDown);
 			// 
 			// lbProfiles

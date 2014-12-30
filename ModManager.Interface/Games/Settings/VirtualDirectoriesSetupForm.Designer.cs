@@ -1,6 +1,6 @@
-namespace Nexus.Client.Games.Grimrock
+namespace Nexus.Client.Games.Settings
 {
-	partial class SetupForm
+	partial class VirtualDirectoriesSetupForm
 	{
 		/// <summary>
 		/// Required designer variable.
@@ -34,7 +34,7 @@ namespace Nexus.Client.Games.Grimrock
 			this.pnlLight = new System.Windows.Forms.Panel();
 			this.wizSetup = new Nexus.UI.Controls.WizardControl();
 			this.vtpDirectories = new Nexus.UI.Controls.VerticalTabPage();
-			this.rdcDirectories = new Nexus.Client.Games.Settings.SetupDirectoriesControl();
+			this.rdcDirectories = new Nexus.Client.Games.Settings.VirtualDirectoriesControl();
 			this.panel1.SuspendLayout();
 			this.wizSetup.SuspendLayout();
 			this.vtpDirectories.SuspendLayout();
@@ -62,7 +62,7 @@ namespace Nexus.Client.Games.Grimrock
 			this.lblTitle.Name = "lblTitle";
 			this.lblTitle.Size = new System.Drawing.Size(84, 20);
 			this.lblTitle.TabIndex = 2;
-			this.lblTitle.Text = "{0} Setup";
+			this.lblTitle.Text = "{0} Virtual folder Setup";
 			// 
 			// pnlShadow
 			// 
@@ -113,9 +113,7 @@ namespace Nexus.Client.Games.Grimrock
 			// rdcDirectories
 			// 
 			this.rdcDirectories.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.rdcDirectories.InstallInfoLabel = "Install Info:";
 			this.rdcDirectories.Location = new System.Drawing.Point(0, 0);
-			this.rdcDirectories.ModDirectoryLabel = "Mod Directory:";
 			this.rdcDirectories.Name = "rdcDirectories";
 			this.rdcDirectories.Size = new System.Drawing.Size(455, 307);
 			this.rdcDirectories.TabIndex = 0;
@@ -124,13 +122,13 @@ namespace Nexus.Client.Games.Grimrock
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(900, 600);
-			this.MinimumSize = new System.Drawing.Size(900, 600);
+			this.ClientSize = new System.Drawing.Size(900, 450);
+			this.MinimumSize = new System.Drawing.Size(900, 450);
 			this.Controls.Add(this.wizSetup);
 			this.Controls.Add(this.panel1);
 			this.Name = "SetupForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-			this.Text = "{0} Setup";
+			this.Text = "{0} Virtual folder Setup";
 			this.panel1.ResumeLayout(false);
 			this.panel1.PerformLayout();
 			this.wizSetup.ResumeLayout(false);
@@ -147,6 +145,6 @@ namespace Nexus.Client.Games.Grimrock
 		private System.Windows.Forms.Label lblTitle;
 		private Nexus.UI.Controls.WizardControl wizSetup;
 		private Nexus.UI.Controls.VerticalTabPage vtpDirectories;
-		private Nexus.Client.Games.Settings.SetupDirectoriesControl rdcDirectories;
+		private Nexus.Client.Games.Settings.VirtualDirectoriesControl rdcDirectories;
 	}
 }

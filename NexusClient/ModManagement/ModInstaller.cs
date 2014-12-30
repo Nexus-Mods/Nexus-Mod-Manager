@@ -155,6 +155,7 @@ namespace Nexus.Client.ModManagement
 						{
 							Mod.InstallDate = DateTime.Now.ToString();
 							tsTransaction.Complete();
+							VirtualModActivator.SaveList();
 							strMessage = "The mod was successfully activated.";
 							GC.GetTotalMemory(true);
 						}
@@ -183,6 +184,7 @@ namespace Nexus.Client.ModManagement
 			// happening, which lead to missed bugs
 			catch (Exception e)
 			{
+				booSuccess = false;
 				StringBuilder stbError = new StringBuilder(e.Message);
 				if (e is FileNotFoundException)
 					stbError.Append(" (" + ((FileNotFoundException)e).FileName + ")");

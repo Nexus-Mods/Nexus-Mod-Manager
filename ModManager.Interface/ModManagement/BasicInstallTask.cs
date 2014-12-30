@@ -121,6 +121,11 @@ namespace Nexus.Client.ModManagement
 					return false;
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, true);
 				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), strFile);
+				string strLinkPath = Path.Combine(Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename)), strFile);
+				string strFileType = Path.GetExtension(strFile);
+				if (!strFileType.StartsWith("."))
+					strFileType = "." + strFileType;
+				bool booHardLinkFile = (!VirtualModActivator.ForceHardLinks && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)));
 
 				if (!string.IsNullOrEmpty(strFixedPath))
 				{
@@ -128,7 +133,7 @@ namespace Nexus.Client.ModManagement
 					{
 						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
 						{
-							FileInstaller.InstallFileFromMod(strFile, strVirtualPath);
+							FileInstaller.InstallFileFromMod(strFile, ((booHardLinkFile) ? strLinkPath : strVirtualPath));
 							
 							if (!VirtualModActivator.DisableLinkCreation)
 							{

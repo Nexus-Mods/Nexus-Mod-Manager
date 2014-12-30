@@ -627,7 +627,7 @@ namespace Nexus.Client.UI.Controls
 				{
 					try
 					{
-						IVirtualModLink ivlModLink = m_tslEnabledMods.Where(x => x.ModInfo.ModFileName.ToLowerInvariant().Equals(Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant()))).FirstOrDefault();
+						IVirtualModLink ivlModLink = m_tslEnabledMods.Where(x => x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant())).FirstOrDefault();
 						if ((ivlModLink != null) && (m_rolActiveMods.Contains((IMod)rowObject)))
 							return new Bitmap(Properties.Resources.dialog_ok_4_16, 12, 12);
 						else

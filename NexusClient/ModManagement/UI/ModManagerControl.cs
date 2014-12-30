@@ -60,7 +60,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.AddingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AddingMod);
 				m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
 				m_vmlViewModel.ActivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMultipleMods);
-				m_vmlViewModel.DisablingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
+				m_vmlViewModel.DisablingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DisablingMultipleMods);
 				m_vmlViewModel.DeactivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
 				m_vmlViewModel.TaggingMod += new EventHandler<EventArgs<ModTaggerVM>>(ViewModel_TaggingMod);
@@ -508,7 +508,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void DisableAllMods()
 		{
-			List<IMod> lstEnabledMods = ViewModel.ActiveMods.Where(x => ViewModel.VirtualModActivator.ActiveModList.Contains(x.Filename)).ToList();
+			List<IMod> lstEnabledMods = ViewModel.ActiveMods.Where(x => ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(x.Filename).ToLowerInvariant())).ToList();
 			if ((lstEnabledMods != null) && (lstEnabledMods.Count > 0))
 				ViewModel.DisableMultipleMods(lstEnabledMods);
 		}
@@ -516,9 +516,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Uninstall all the currently installed mods.
 		/// </summary>
-		public void DeactivateAllMods(bool p_booForceUninstall)
+		public void DeactivateAllMods(bool p_booForceUninstall, bool p_booSilent)
 		{
-			ViewModel.DeactivateMultipleMods(ViewModel.ActiveMods, p_booForceUninstall);
+			ViewModel.DeactivateMultipleMods(ViewModel.ActiveMods, p_booForceUninstall, p_booSilent);
 		}
 
 		/// <summary>
@@ -1454,7 +1454,9 @@ namespace Nexus.Client.ModManagement.UI
 			ProgressDialog.ShowDialog(this, e.Argument);
 			m_booDisableSummary = false;
 
-			if (this.Visible == true)
+			bool booSilent = (bool)sender;
+
+			if (!booSilent && (this.Visible == true))
 			{
 				string strMessage = "All the active mods were uninstalled.";
 				MessageBox.Show(strMessage, "Mod uninstall complete", MessageBoxButtons.OK, MessageBoxIcon.Information);

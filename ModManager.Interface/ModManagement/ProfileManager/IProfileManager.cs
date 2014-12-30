@@ -52,12 +52,14 @@ namespace Nexus.Client.ModManagement
 		/// Adding a profile to the profile manager assigns it a unique key.
 		/// </remarks>
 		/// <param name="p_mctCategory">The <see cref="IModCategory"/> being added.</param>
-		IModProfile AddProfile(byte[] p_bteModList, byte[] p_bteLoadOrder, string p_strGameModeId, Int32 p_intModCount, string[] p_strOptionalFiles);
+		IModProfile AddProfile(byte[] p_bteModList, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string p_strGameModeId, Int32 p_intModCount, string[] p_strOptionalFiles);
+
+		bool BackupProfile(byte[] p_bteModList, byte[] p_bteIniList, byte[] p_bteLoadOrder, string p_strGameModeId, Int32 p_intModCount, string[] p_strOptionalFiles);
 
 		/// <summary>
 		/// Updates the category file.
 		/// </summary>
-		void UpdateProfile(IModProfile p_impModProfile, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
+		void UpdateProfile(IModProfile p_impModProfile, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
 
 		/// <summary>
 		/// Updates the profile file.
@@ -80,7 +82,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Updates the profile file.
 		/// </summary>
-		void SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
+		void SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
 
 		void ExportProfile(IModProfile p_impModProfile, string p_strPath);
 

@@ -436,6 +436,40 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		#endregion
 
 
+		public byte[] GetXMLIniList()
+		{
+			if (m_dicInstalledIniEdits.Count() > 0)
+			{
+				string strFileName = Path.GetRandomFileName() + ".xml";
+				string strTempPath = Path.Combine(Path.GetTempPath(), strFileName);
+				XDocument docVirtual = new XDocument();
+				XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", VirtualModActivator.CurrentVersion.ToString()));
+				docVirtual.Add(xelRoot);
+
+				XElement xelIniEdits = new XElement("iniEdits");
+				xelRoot.Add(xelIniEdits);
+				xelIniEdits.Add(from itm in m_dicInstalledIniEdits
+								select new XElement("iniEdit",
+									new XAttribute("modFile", m_amrModKeys.Registrations.Where(x => x.Value == itm.Installers.FirstOrDefault().InstallerKey).FirstOrDefault().Key.Filename),
+									new XElement("iniFile",
+										new XText(itm.Item.File)),
+									new XElement("iniSection",
+										new XText(itm.Item.Section)),
+									new XElement("iniKey",
+										new XText(itm.Item.Key)),
+									new XElement("iniValue",
+										new XText(itm.Installers.FirstOrDefault().Value))));
+				docVirtual.Save(strTempPath);
+
+				XmlDocument xmlDocument = new XmlDocument();
+				xmlDocument.Load(strTempPath);
+				FileUtil.ForceDelete(strTempPath);
+				return Encoding.UTF8.GetBytes(xmlDocument.OuterXml);
+			}
+			else
+				return null;
+		}
+
 		public byte[] GetXMLModList()
 		{
 			string strFileName = Path.GetRandomFileName() + ".xml";
@@ -444,26 +478,59 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", VirtualModActivator.CurrentVersion.ToString()));
 			docVirtual.Add(xelRoot);
 
-			XElement xelLinkList = new XElement("linkList");
-			xelRoot.Add(xelLinkList);
-			xelLinkList.Add(from itm in m_dicInstalledFiles
-							select new XElement("link",
-								new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(GetCurrentFileOwner(itm.Item).Filename), GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename == GetCurrentFileOwner(itm.Item).Filename).Format, itm.Item, true))),
-								new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename == GetCurrentFileOwner(itm.Item).Filename).Format, itm.Item, true)),
-								new XElement("modName",
-									new XText(GetCurrentFileOwner(itm.Item).ModName)),
-								new XElement("modFileName",
-									new XText(GetCurrentFileOwner(itm.Item).Filename)),
-								new XElement("linkPriority",
-									new XText("0")),
-								new XElement("isActive",
-									new XText("true"))));
+			XElement xelModList = new XElement("modList");
+			xelRoot.Add(xelModList);
+			xelModList.Add(from mod in m_amrModKeys.Registrations.Where(x => !(x.Key is DummyMod) && CheckModKvp(x))
+						   select new XElement("modInfo",
+							   new XAttribute("modId", mod.Key.Id ?? String.Empty),
+							   new XAttribute("modName", mod.Key.ModName),
+							   new XAttribute("modFileName", Path.GetFileName(mod.Key.Filename)),
+							   new XAttribute("modFilePath", Path.GetDirectoryName(mod.Key.Filename)),
+							   from itm in m_dicInstalledFiles.Where(x => (GetCurrentFileOwner(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant()) && CheckFileKvp(x))
+							   select new XElement("fileLink",
+								   new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(GetCurrentFileOwner(itm.Item).Filename), GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename.ToLowerInvariant() == GetCurrentFileOwner(itm.Item).Filename.ToLowerInvariant()).Format, itm.Item, true))),
+								   new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename.ToLowerInvariant() == GetCurrentFileOwner(itm.Item).Filename.ToLowerInvariant()).Format, itm.Item, true)),
+								   new XElement("linkPriority",
+									   new XText("0")),
+								   new XElement("isActive",
+									   new XText("true")))));
 			docVirtual.Save(strTempPath);
 
 			XmlDocument xmlDocument = new XmlDocument();
 			xmlDocument.Load(strTempPath);
 			FileUtil.ForceDelete(strTempPath);
 			return Encoding.UTF8.GetBytes(xmlDocument.OuterXml);
+		}
+
+		private bool CheckModKvp(KeyValuePair<IMod, string> p_kvp)
+		{
+			Trace.WriteLine("Mod kvp:");
+			try
+			{
+				Trace.WriteLine(p_kvp.Key.Id);
+				Trace.WriteLine(p_kvp.Key.ModName);
+				Trace.WriteLine(p_kvp.Key.Filename);
+			}
+			catch
+			{
+			}
+
+			return true;
+		}
+
+		private bool CheckFileKvp(InstalledItemDictionary<string, object>.ItemInstallers p_item)
+		{
+			Trace.WriteLine("File kvp:");
+			try
+			{
+				Trace.WriteLine(p_item.Item);
+				Trace.WriteLine(GetCurrentFileOwner(p_item.Item).Filename);
+			}
+			catch
+			{
+			}
+
+			return true;
 		}
 
 		#region Transaction Handling
@@ -585,7 +652,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			{
 				IMod modRegistered = GetMod(kvpMod.Key);
 				if ((modRegistered != null) && File.Exists(modRegistered.ModArchivePath) && !String.Equals(modRegistered.HumanReadableVersion ?? "", kvpMod.Value.HumanReadableVersion ?? ""))
-					yield return new KeyValuePair<IMod, IMod>(kvpMod.Value, modRegistered);
+					if (!(String.IsNullOrEmpty(modRegistered.HumanReadableVersion) || String.IsNullOrEmpty(kvpMod.Value.HumanReadableVersion)))
+						yield return new KeyValuePair<IMod, IMod>(kvpMod.Value, modRegistered);
 			}
 		}
 
