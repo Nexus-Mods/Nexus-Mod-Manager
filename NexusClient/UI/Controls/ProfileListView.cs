@@ -422,9 +422,14 @@ namespace Nexus.Client.UI.Controls
 				this.ClearObjects();
 			}
 
-			this.SetObjects(p_tslVirtualModInfo);
+			this.SetObjects(m_tslEnabledMods);
 
-			this.AutoResizeColumns(ColumnHeaderAutoResizeStyle.ColumnContent);
+			if ((m_tslEnabledMods != null) && (m_tslEnabledMods.Count > 0))
+				this.AutoResizeColumns(ColumnHeaderAutoResizeStyle.ColumnContent);
+			else
+				this.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+
+			this.Refresh();
 		}
 
 		/// <summary>

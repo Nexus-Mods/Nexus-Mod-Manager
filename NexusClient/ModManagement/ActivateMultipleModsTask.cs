@@ -92,9 +92,11 @@ namespace Nexus.Client.ModManagement
 
 			foreach (IMod modMod in m_lstModList)
 			{
+				OverallMessage = "Installing selected mods: " + modMod.ModName;
+
 				if (m_iilInstallLog.ActiveMods.Contains(modMod))
 					continue;
-				//LUCO81 aggiunto null come terzo parametro per ReadOnlyObservableList<IMod> dei mod attivi
+				
 				ModInstaller minInstaller = m_mifModInstallerFactory.CreateInstaller(modMod, m_dlgOverwriteConfirmationDelegate, null);
 				minInstaller.Install();
 

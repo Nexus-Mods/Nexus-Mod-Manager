@@ -443,6 +443,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void DeactivateMod(IMod p_modMod)
 		{
+			ModManager.VirtualModActivator.DisableMod(p_modMod);
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
 		}
@@ -465,7 +466,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// Deactivates all the mods.
 		/// </summary>
 		/// <param name="p_rolModList">The list of Active Mods.</param>
-		public void DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, bool p_booForceUninstall)
+		public void DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, bool p_booForceUninstall, bool p_booSilent)
 		{
 			DialogResult Result = DialogResult.None;
 
@@ -474,7 +475,7 @@ namespace Nexus.Client.ModManagement.UI
 			
 			if (p_booForceUninstall || (Result == DialogResult.Yes))
 			{
-				DeactivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DeactivateMultipleMods(p_rolModList, ConfirmUpdaterAction)));
+				DeactivatingMultipleMods(p_booSilent, new EventArgs<IBackgroundTask>(ModManager.DeactivateMultipleMods(p_rolModList, ConfirmUpdaterAction)));
 			}
 		}
 

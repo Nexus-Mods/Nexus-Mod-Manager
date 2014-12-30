@@ -19,20 +19,23 @@ namespace Nexus.Client.ModManagement
 {
 	public class DeactivateMultipleModsTask : ThreadedBackgroundTask
 	{
-		#region Fields
+		/// <summary>
+		/// Gets the current ModManager.
+		/// </summary>
+		/// <value>The current ModManager.</value>
+		protected VirtualModActivator VirtualModActivator { get; private set; }
 
 		private IInstallLog m_iilInstallLog = null;
 		private ModInstallerFactory m_mifModInstallerFactory = null;
 		private ReadOnlyObservableList<IMod> m_rolModList = null;
-
-		#endregion
+		bool m_booCancel = false;
 
 		#region Constructors
 
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory)
+		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, VirtualModActivator p_vmaVirtualModActivator)
 		{
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
@@ -68,6 +71,7 @@ namespace Nexus.Client.ModManagement
 		public override void Cancel()
 		{
 			base.Cancel();
+			m_booCancel = true;
 		}
 
 		/// <summary>
@@ -87,6 +91,11 @@ namespace Nexus.Client.ModManagement
 
 			foreach (IMod modMod in m_rolModList)
 			{
+				OverallMessage = "Uninstalling all the active mods: " + modMod.ModName;
+
+				if (VirtualModActivator != null)
+					VirtualModActivator.DisableMod(modMod);
+
 				modMod.InstallDate = null;
 				if (!m_iilInstallLog.ActiveMods.Contains(modMod))
 					return null;
@@ -97,6 +106,9 @@ namespace Nexus.Client.ModManagement
 				{ }
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
+
+				if (m_booCancel)
+					break;
 			}
 			return null;
 		}

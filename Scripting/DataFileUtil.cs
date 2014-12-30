@@ -107,7 +107,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		public byte[] GetExistingDataFile(string p_strPath)
 		{
 			AssertFilePathIsSafe(p_strPath);
-			string datapath = Path.Combine(GameInstallationPath, p_strPath);
+			string datapath = Path.GetFullPath(Path.Combine(GameInstallationPath, p_strPath));
 			if (!File.Exists(datapath))
 				throw new FileNotFoundException();
 			return File.ReadAllBytes(datapath);

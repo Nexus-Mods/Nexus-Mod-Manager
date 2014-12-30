@@ -19,6 +19,7 @@ namespace Nexus.Client.ModManagement
 		bool DisableLinkCreation { get; }
 		bool DisableIniLogging { get; }
 		string VirtualPath { get; }
+		string HDLinkFolder { get; }
 		ThreadSafeObservableList<IVirtualModLink> VirtualLinks { get; }
 		IEnumerable<string> ActiveModList { get; }
 		Int32 ModCount { get; }
@@ -27,6 +28,7 @@ namespace Nexus.Client.ModManagement
 		#region Virtual Mod Activator
 		void Initialize();
 		void Setup();
+		void Reset();
 		void SaveList();
 		void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks);
 		List<IVirtualModLink> LoadList(string p_strXMLFilePath);
@@ -44,6 +46,10 @@ namespace Nexus.Client.ModManagement
 		void DisableMod(IMod p_modMod);
 		void EnableMod(IMod p_modMod);
 		void LogIniEdits(IMod p_modMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue);
+		void RestoreIniEdits();
+		void PurgeIniEdits();
+		void ImportIniEdits(string p_strIniXML);
+		void SetNewFolders(string p_strVirtual, string p_strLink, bool? p_booMultiHD);
 		Dictionary<string, string> CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks);
 		IModLinkInstaller GetModLinkInstaller();
 		#endregion

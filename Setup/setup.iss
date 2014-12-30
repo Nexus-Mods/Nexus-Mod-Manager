@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.51.0'
+#define MyAppVersion '0.60.0'
 #define SetupScriptVersion '0.7.1.0'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
@@ -44,7 +44,8 @@ SolidCompression=true
 Compression=lzma2/Max
 ChangesAssociations=true
 LicenseFile=..\bin\Release\data\Licence.rtf
-InfoBeforeFile=..\bin\Release\data\releasenotes.rtf
+InfoBeforeFile=..\bin\Release\data\NewVersionDisclaimer.rtf
+InfoAfterFile=..\bin\Release\data\releasenotes.rtf
 MinVersion=0,6.0
 PrivilegesRequired=admin
 ArchitecturesAllowed=x86 x64 ia64

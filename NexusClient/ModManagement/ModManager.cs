@@ -582,7 +582,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
 		{
-			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory);
+			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator);
 			dmmDeactivateAllMods.Update(p_camConfirm);
 			return dmmDeactivateAllMods;
 		}

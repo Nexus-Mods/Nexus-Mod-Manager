@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Nexus.Client.BackgroundTasks;
@@ -85,35 +87,60 @@ namespace Nexus.Client.ModManagement
 		protected override object DoWork(object[] p_objArgs)
 		{
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
-
+			bool booLotsOfLinks = false;
+			int intProgress = 0;
+			double dblRatio = 0;
 			OverallMessage = "Switching Mod Profile...";
+			ItemMessage = "Disabling current profile...";
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
+			OverallProgressMaximum = 2;
 			ShowItemProgress = true;
 			ItemProgress = 0;
-			ItemProgressMaximum = 1;
-			OverallProgressMaximum = ModLinks.Count;
+
+			if (ModLinks.Count <= 1000)
+			{
+				ItemProgressMaximum = ModLinks.Count;
+				ItemProgressStepSize = 1;
+			}
+			else
+			{
+				ItemProgressMaximum = 1000;
+				booLotsOfLinks = true;
+				dblRatio = 1000 / ModLinks.Count;
+			}
 
 			ModManager.VirtualModActivator.PurgeLinks();
+			StepOverallProgress();
 
-			foreach (IVirtualModLink vmlModLink in ModLinks)
+			if (ModLinks.Count > 0)
 			{
-				if (m_booCancel)
-					break;
-				ItemProgress = 0;
-				ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
-				IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => x.Filename == vmlModLink.ModInfo.ModFileName);
-				if (modMod != null)
+				foreach (IVirtualModLink vmlModLink in ModLinks)
 				{
-					if (vmlModLink.Active)
-						ModManager.VirtualModActivator.AddFileLink(modMod, vmlModLink.VirtualModPath, true, false, vmlModLink.Priority);
-					else
-						ModManager.VirtualModActivator.AddInactiveLink(modMod, vmlModLink.VirtualModPath, vmlModLink.Priority);
+					if (m_booCancel)
+						break;
+					ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
+					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename) == vmlModLink.ModInfo.ModFileName);
+					if (modMod != null)
+					{
+						if (vmlModLink.Active)
+							ModManager.VirtualModActivator.AddFileLink(modMod, vmlModLink.VirtualModPath, true, false, vmlModLink.Priority);
+						else
+							ModManager.VirtualModActivator.AddInactiveLink(modMod, vmlModLink.VirtualModPath, vmlModLink.Priority);
+					}
+
+					if (ItemProgress < ItemProgressMaximum)
+					{
+						if (booLotsOfLinks)
+							ItemProgress = (int)Math.Floor(++intProgress * dblRatio);
+						else
+							StepItemProgress();
+					}
 				}
-				if (OverallProgress < OverallProgressMaximum)
-					StepOverallProgress();
-				StepItemProgress();
 			}
+
+			if (OverallProgress < OverallProgressMaximum)
+				StepOverallProgress();
 
 			ModManager.VirtualModActivator.SaveList();
 			return null;

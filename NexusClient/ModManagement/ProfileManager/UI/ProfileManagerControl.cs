@@ -50,50 +50,7 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				m_vmlViewModel = value;
 				m_vmlViewModel.ProfileManager.ModProfiles.CollectionChanged += new NotifyCollectionChangedEventHandler(ModProfiles_CollectionChanged);
-				//m_vmlViewModel.UpdatingCategory += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingCategory);
-				//m_vmlViewModel.UpdatingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingMods);
-				//m_vmlViewModel.TogglingAllWarning += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_TogglingAllWarning);
-				//m_vmlViewModel.ReadMeManagerSetup += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ReadMeManagerSetup);
-				//m_vmlViewModel.AddingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AddingMod);
-				//m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
-				//m_vmlViewModel.ActivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMultipleMods);
-				//m_vmlViewModel.DisablingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
-				//m_vmlViewModel.DeactivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
-				//m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
-				//m_vmlViewModel.TaggingMod += new EventHandler<EventArgs<ModTaggerVM>>(ViewModel_TaggingMod);
-				//m_vmlViewModel.ManagedMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedMods_CollectionChanged);
-				//m_vmlViewModel.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
-				//foreach (IMod modMod in m_vmlViewModel.ManagedMods)
-				//{
-				//	modMod.PropertyChanged -= new PropertyChangedEventHandler(Mod_PropertyChanged);
-				//	modMod.PropertyChanged += new PropertyChangedEventHandler(Mod_PropertyChanged);
-				//}
-
-
-				//LoadModFormatFilter();
-
-				//tsbAddMod.DefaultItem = tsbAddMod.DropDownItems[m_vmlViewModel.Settings.SelectedAddModCommandIndex];
-				//tsbAddMod.Text = tsbAddMod.DefaultItem.Text;
-				//tsbAddMod.Image = tsbAddMod.DefaultItem.Image;
-
-				//m_vmlViewModel.ConfirmModFileDeletion = ConfirmModFileDeletion;
-				//m_vmlViewModel.ConfirmModFileOverwrite = ConfirmModFileOverwrite;
-				//m_vmlViewModel.ConfirmItemOverwrite = ConfirmItemOverwrite;
-				//m_vmlViewModel.ConfirmModUpgrade = ConfirmModUpgrade;
-
-				//new ToolStripItemCommandBinding<IMod>(tsbDeleteMod, m_vmlViewModel.DeleteModCommand, GetSelectedMod);
-				//new ToolStripItemCommandBinding<IMod>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMod);
-				//new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DisableModCommand, GetSelectedMod);
-				//new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
-				//Command cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
-				//new ToolStripItemCommandBinding(tsbToggleEndorse, cmdToggleEndorsement);
-				//Command cmdCheckModVersions = new Command("Check Mod Versions", "Checks for new mod versions.", CheckModVersions);
-				//new ToolStripItemCommandBinding(tsbCheckModVersions, cmdCheckModVersions);
-				//ViewModel.DeleteModCommand.CanExecute = false;
-				//ViewModel.ActivateModCommand.CanExecute = false;
-				//ViewModel.DisableModCommand.CanExecute = false;
-				//ViewModel.TagModCommand.CanExecute = false;
-				//ViewModel.ParentForm = this;
+				m_vmlViewModel.ProfileManager.ModProfiles.PropertyChanged += new PropertyChangedEventHandler(ModProfiles_PropertyChanged);
 
 				LoadMetrics();
 			}
@@ -111,9 +68,7 @@ namespace Nexus.Client.ModManagement.UI
 			this.Load += new EventHandler(ProfileManagerControl_Load);
 			InitializeComponent();
 
-			//clwCategoryView.BeforeSorting += new EventHandler<BrightIdeasSoftware.BeforeSortingEventArgs>(clwCategoryView_BeforeSorting);
-			//clwCategoryView.ColumnClick += new ColumnClickEventHandler(clwCategoryView_ColumnClick);
-			ofdChooseProfile.Filter = "Profile Zip (*.zip)|*.zip";
+			ofdChooseProfile.Filter = "NMM Profile Zip (*.zip)|*.zip";
 
 			m_tmrColumnSizer.Interval = 100;
 			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
@@ -199,14 +154,18 @@ namespace Nexus.Client.ModManagement.UI
 			this.lsbProfiles.SelectionMode = SelectionMode.One;
 			this.lsbProfiles.DataSource = null;
 			bs.DataSource = null;
-			bs.DataSource = ViewModel.ProfileManager.ModProfiles;
-			this.lsbProfiles.DataSource = bs;
-			this.lsbProfiles.DisplayMember = "Name";
-
-			
-
 			ListBoxContextMenu.Items.Clear();
-			ListBoxContextMenu.Items.Add("Remove selected profile", new Bitmap(Properties.Resources.dialog_cancel_4_16, 16, 16), new EventHandler(ListBoxContextMenu_RemoveSelected));
+
+			if (ViewModel.ProfileManager.ModProfiles.Count > 0)
+			{
+				bs.DataSource = ViewModel.ProfileManager.ModProfiles;
+				this.lsbProfiles.DataSource = bs;
+				this.lsbProfiles.DisplayMember = "Name";
+				ListBoxContextMenu.Items.Add("Remove selected profile", new Bitmap(Properties.Resources.dialog_cancel_4_16, 16, 16), new EventHandler(ListBoxContextMenu_RemoveSelected));
+			}
+			else
+				plwProfiles.ClearObjects();
+		
 			//ListBoxContextMenu.Items.Add("Clone selected profile", new Bitmap(Properties.Resources.edit_copy_6, 16, 16), new EventHandler(ListBoxContextMenu_CloneSelected));
 
 			this.plwProfiles.Setup(ViewModel.ManagedMods, ViewModel.ModRepository, ViewModel.ProfileManager, ViewModel.Settings);
@@ -214,8 +173,8 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void LoadProfile(IModProfile p_impModProfile)
 		{
-			if ((p_impModProfile.ModList == null) || (p_impModProfile.ModFileList == null))
-				ViewModel.ProfileManager.LoadProfileFileList(p_impModProfile);
+			//if ((p_impModProfile.ModList == null) || (p_impModProfile.ModFileList == null))
+			ViewModel.ProfileManager.LoadProfileFileList(p_impModProfile);
 
 			this.plwProfiles.LoadData(p_impModProfile.ModList, p_impModProfile.ModFileList);
 		}
@@ -225,29 +184,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void SetCommandExecutableStatus()
 		{
-			//if (((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
-			//{
-			//	if (clwCategoryView.Visible)
-			//		ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(GetSelectedMod().Filename);
 
-			//	ViewModel.ActivateModCommand.CanExecute = !ViewModel.DisableModCommand.CanExecute;
-
-			//	ViewModel.DeleteModCommand.CanExecute = true;
-			//	ViewModel.TagModCommand.CanExecute = true;
-			//	tsbToggleEndorse.Enabled = true;
-			//	tsbToggleEndorse.Image = Properties.Resources.thumbsup;
-			//}
-			//else
-			//{
-			//	ViewModel.ActivateModCommand.CanExecute = false;
-			//	ViewModel.DisableModCommand.CanExecute = false;
-			//	ViewModel.TagModCommand.CanExecute = false;
-			//	tsbToggleEndorse.Enabled = false;
-			//	tsbToggleEndorse.Image = Properties.Resources.thumbsup;
-			//}
-
-			//this.tsbDeactivate.Visible = ViewModel.DisableModCommand.CanExecute;
-			//this.tsbActivate.Visible = ViewModel.ActivateModCommand.CanExecute;
 		}
 
 		#endregion
@@ -256,12 +193,14 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void ModProfiles_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (lsbProfiles.DataSource != null)
-			{
-				SetupProfiles();
-			}			
+			SetupProfiles();			
 		}
-		
+
+		private void ModProfiles_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		{
+			SetupProfiles();			
+		}
+
 		/// <summary>
 		/// Handles the ListBoxContextMenu.RemoveSelected event.
 		/// </summary>
@@ -280,8 +219,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
 		private void ListBoxContextMenu_CloneSelected(object sender, EventArgs e)
 		{
-			//if (lsbProfiles.SelectedItem.GetType() == typeof(IModProfile))
-			//	ViewModel.ProfileManager.
+
 		}
 
 		#endregion
@@ -342,17 +280,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="ColumnWidthChangingEventArgs"/> describing the event arguments.</param>
 		private void plwProfiles_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
 		{
-			//if (m_booResizing)
-			//	return;
-			//ColumnHeader clmThis = clwCategoryView.Columns[e.ColumnIndex];
-			//ColumnHeader clmOther = null;
-			//if (e.ColumnIndex == clwCategoryView.Columns.Count - 1)
-			//	clmOther = clwCategoryView.Columns[e.ColumnIndex - 1];
-			//else
-			//	clmOther = clwCategoryView.Columns[e.ColumnIndex + 1];
-			//m_booResizing = true;
-			//clmOther.Width += (clmThis.Width - e.NewWidth);
-			//m_booResizing = false;
+
 		}
 
 		/// <summary>
@@ -399,7 +327,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private void lsbProfiles_MouseDoubleClick(object sender, MouseEventArgs e)
+		private void lsbProfiles_MouseClick(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.Left)
 			{

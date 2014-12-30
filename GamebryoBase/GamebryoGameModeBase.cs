@@ -343,6 +343,7 @@ namespace Nexus.Client.Games.Gamebryo
 				else if (!p_booIgnoreIfPresent)
 					return Path.Combine("Data", p_strPath ?? "");
 			}
+
 			return p_strPath;
 		}
 
