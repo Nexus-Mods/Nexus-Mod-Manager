@@ -39,6 +39,11 @@ namespace Nexus.Client.ModManagement
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching)
 		{
+			return AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, false);
+		}
+
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booHandlePlugin)
+		{
 			Int32 intPriority = 0;
 			List<IVirtualModLink> lstFileLinks;
 			bool booLink = false;
@@ -52,7 +57,7 @@ namespace Nexus.Client.ModManagement
 					VirtualModActivator.UpdateLinkPriority(lstFileLinks);
 					p_booIsSwitching = false;
 				}
-				return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, false, 0);
+				return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, false, p_booHandlePlugin,  0);
 			}
 			else
 				VirtualModActivator.AddInactiveLink(p_modMod, p_strBaseFilePath, intPriority++);
@@ -128,10 +133,11 @@ namespace Nexus.Client.ModManagement
 							if (!m_lstOverwriteFolders.Contains(strLoweredPath))
 							{
 								m_lstDontOverwriteFolders.Add(strLoweredPath);
-								foreach (string s in Directory.GetDirectories(strLoweredPath))
-								{
-									folders.Enqueue(s.ToLowerInvariant());
-								}
+								if (Directory.Exists(strLoweredPath))
+									foreach (string s in Directory.GetDirectories(strLoweredPath))
+									{
+										folders.Enqueue(s.ToLowerInvariant());
+									}
 							}
 						}
 						return false;
@@ -144,10 +150,11 @@ namespace Nexus.Client.ModManagement
 							if (!m_lstDontOverwriteFolders.Contains(strLoweredPath))
 							{
 								m_lstOverwriteFolders.Add(strLoweredPath);
-								foreach (string s in Directory.GetDirectories(strLoweredPath))
-								{
-									folders.Enqueue(s.ToLowerInvariant());
-								}
+								if (Directory.Exists(strLoweredPath))
+									foreach (string s in Directory.GetDirectories(strLoweredPath))
+									{
+										folders.Enqueue(s.ToLowerInvariant());
+									}
 							}
 						}
 						return true;

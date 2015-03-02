@@ -203,7 +203,7 @@ namespace Nexus.Client
 		{
 			get
 			{
-				return String.Format("{0} ({1}) - {2}", EnvironmentInfo.Settings.ModManagerName, EnvironmentInfo.ApplicationVersion, GameMode.Name);
+				return String.Format("{0} ({1}) - {2}", EnvironmentInfo.Settings.ModManagerName, EnvironmentInfo.ApplicationVersion + "a", GameMode.Name);
 			}
 		}
 

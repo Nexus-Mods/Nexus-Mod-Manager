@@ -147,6 +147,7 @@ namespace Nexus.Client
 			dockPanel1.ActiveContentChanged += new EventHandler(dockPanel1_ActiveContentChanged);
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
+			mmgModManager.UninstallModFromProfiles += new EventHandler(mmgModManager_UninstallModFromProfiles);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
 			p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
@@ -603,6 +604,19 @@ namespace Nexus.Client
 			tstFind.Clear();
 		}
 
+		/// <summary>
+		/// Handles the <see cref="ModManagerControl.UninstallModFromProfiles"/> of the opening
+		/// of the ReaMe file.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void mmgModManager_UninstallModFromProfiles(object sender, EventArgs e)
+		{
+			List<IMod> lstMod = new List<IMod>();
+			lstMod.Add((IMod)sender);
+			ViewModel.ProfileManager.PurgeModsFromProfiles(lstMod);
+		}
+		
 		/// <summary>
 		/// Set the focus to the Search Textbox.
 		/// </summary>
@@ -1689,30 +1703,77 @@ namespace Nexus.Client
 			{
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
 				Dictionary<string, string> dicProfile = null;
-				Dictionary<string, string> dicNotFound = new Dictionary<string, string>();
+				Dictionary<string, string> dicNotInstalled = new Dictionary<string, string>();
+				Dictionary<string, string> dicMissing = new Dictionary<string, string>();
 
 				ViewModel.ProfileManager.LoadProfile(p_impProfile, out dicProfile);
 				if ((dicProfile != null) && (dicProfile.Count > 0) && dicProfile.ContainsKey("modlist"))
 				{
 					lstVirtualLinks = ViewModel.ModManager.VirtualModActivator.LoadImportedList(dicProfile["modlist"]);
-					dicNotFound = ViewModel.ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks);
+					ViewModel.ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks, out dicNotInstalled, out dicMissing);
 				}
 
 				m_booIsSwitching = true;
 
-				if ((dicNotFound != null) && (dicNotFound.Count > 0))
+				if (!p_booSilentInstall && ((dicMissing != null) && (dicMissing.Count > 0)))
+				{
+					System.Text.StringBuilder sbMissingMessage = new System.Text.StringBuilder();
+					string strMissingDetails;
+
+					sbMissingMessage.Append("The selected profile contains missing files from mods currently installed.");
+					sbMissingMessage.AppendLine("This usually happens when a mod with a scripted installer has been installed using different options.").AppendLine();
+					sbMissingMessage.Append("The best way to fix this is to CANCEL this window, right-click the mod(s) listed as containing missing files,");
+					sbMissingMessage.AppendLine(" uninstall the mod from ALL profiles, and then reinstall the mod with whatever options you wish.").AppendLine();
+					sbMissingMessage.AppendLine("Depending on the mod, using it in the current state could cause issues in your game.");
+					System.Text.StringBuilder sbMissingDetails = new System.Text.StringBuilder();
+
+					bool booFoundMissing = false;
+					List<IMod> lstFoundMissing = new List<IMod>();
+					List<IMod> lstManagedMods = new List<IMod>(ViewModel.ModManager.ManagedMods.ToList());
+					foreach (KeyValuePair<string, string> kvp in dicMissing)
+					{
+						IMod modMod = lstManagedMods.Find(x => Path.GetFileName(x.Filename).ToLowerInvariant() == kvp.Key.ToLowerInvariant());
+						if (modMod != null)
+						{
+							if (!booFoundMissing)
+								booFoundMissing = true;
+							lstFoundMissing.Add(modMod);
+						}
+						sbMissingDetails.AppendFormat("- Mod: {0} - filename: {1} - installed: {2}", kvp.Value, kvp.Key, (modMod != null) ? "Yes" : "No").AppendLine();
+					}
+
+					if (booFoundMissing)
+					{
+						if (sbMissingDetails.Length > 0)
+							strMissingDetails = sbMissingDetails.ToString();
+						else
+							strMissingDetails = null;
+
+						DialogResult drMissingResult = ExtendedMessageBox.Show(this, sbMissingMessage.ToString(), ViewModel.ModManagerVM.Settings.ModManagerName, strMissingDetails, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+
+						if (drMissingResult == DialogResult.Cancel)
+						{
+							m_booIsSwitching = false;
+							return;
+						}
+					}
+				}
+
+				if ((dicNotInstalled != null) && (dicNotInstalled.Count > 0))
 				{
 					System.Text.StringBuilder sbMessage = new System.Text.StringBuilder();
 					string strDetails;
 
 					sbMessage.Append("The selected profile contains files from mods not currently installed.");
-					sbMessage.AppendLine("Do you want the manager to try and install the files present in the folder that aren't currently installed?");
+					sbMessage.AppendLine("Do you want the manager to try and install the mods that aren't currently installed but present in your Mods folder?");
+					sbMessage.AppendLine();
+					sbMessage.AppendLine("Depending on the mod, leaving it uninstalled could cause issues in your game.");
 					System.Text.StringBuilder sbDetails = new System.Text.StringBuilder();
 
 					bool booFoundOne = false;
 					List<IMod> lstFoundMods = new List<IMod>();
 					List<IMod> lstManagedMods = new List<IMod>(ViewModel.ModManager.ManagedMods.ToList());
-					foreach (KeyValuePair<string, string> kvp in dicNotFound)
+					foreach (KeyValuePair<string, string> kvp in dicNotInstalled)
 					{
 						IMod modMod = lstManagedMods.Find(x => Path.GetFileName(x.Filename).ToLowerInvariant() == kvp.Key.ToLowerInvariant());
 						if (modMod != null)
@@ -1744,7 +1805,11 @@ namespace Nexus.Client
 									mmgModManager.MultiModInstall(lstFoundMods, false);
 							}
 							else if (drResult == DialogResult.Cancel)
+							{
+								ViewModel.ModManager.VirtualModActivator.DisableLinkCreation = false;
+								m_booIsSwitching = false;
 								return;
+							}
 						}
 					}
 				}
@@ -1889,17 +1954,19 @@ namespace Nexus.Client
 		/// </summary>
 		private void ShowStartupMessage()
 		{
-			if (ViewModel.EnvironmentInfo.Settings.ShowStartupMessage)
+			if (ViewModel.EnvironmentInfo.Settings.ShowAlphaDisclaimer)
 			{
 				StringBuilder stbWarning = new StringBuilder();
-				stbWarning.AppendLine("Recently some spam emails have been doing the rounds about a new version of the Nexus Mod Manager, telling you to upgrade to the latest version.");
-				stbWarning.AppendLine("We have never emailed anyone in regards to NMM (indeed, the last time we did a mass email was in 2007), and if we did,");
-				stbWarning.AppendLine("we would never send it as an attachment or send you a link that would go anywhere other than the nexusmods.com domain.").AppendLine();
-				stbWarning.AppendLine("Please remain vigilant while you browse the Nexus and indeed the internet in general. The only place you should download NMM from is the nexusmods.com website or through NMM's built in updater.").AppendLine();
-				stbWarning.AppendLine("For more details on this topic please see the latest site news updates.");
-				MessageBox.Show(stbWarning.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				stbWarning.AppendLine("Hello and thank you for downloading and installing this alpha version of NMM version 0.60.");
+				stbWarning.AppendLine("We're aware that you didn't have to do this and you knew full well that there might be issues with this version of NMM. So thanks!").AppendLine();
+				stbWarning.AppendLine("Please remember that your feedback and bug reports on this version of NMM are vital to us,");
+				stbWarning.AppendLine("and the sooner you report issues to us the sooner we can get them fixed and move on to a full release of 0.60 and other features!").AppendLine();
+				stbWarning.AppendLine("All feedback and bug reports are handled on our forums at http://forums.nexusmods.com/ so please, if you find anything, please let us know as soon as possible.");
+				stbWarning.AppendLine("Thanks again,");
+				stbWarning.AppendLine("Dark0ne");
+				ExtendedMessageBox.Show(this, stbWarning.ToString(), "Disclaimer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
-				ViewModel.EnvironmentInfo.Settings.ShowStartupMessage = false;
+				ViewModel.EnvironmentInfo.Settings.ShowAlphaDisclaimer = false;
 				ViewModel.EnvironmentInfo.Settings.Save();
 			}
 		}

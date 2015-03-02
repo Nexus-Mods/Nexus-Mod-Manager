@@ -40,6 +40,7 @@ namespace Nexus.Client.ModManagement
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
 			m_rolModList = p_rolModList;
+			VirtualModActivator = p_vmaVirtualModActivator;
 		}
 
 		#endregion
@@ -98,7 +99,7 @@ namespace Nexus.Client.ModManagement
 
 				modMod.InstallDate = null;
 				if (!m_iilInstallLog.ActiveMods.Contains(modMod))
-					return null;
+					continue;
 				ModUninstaller munUninstaller = m_mifModInstallerFactory.CreateUninstaller(modMod, m_rolModList);
 				munUninstaller.Install();
 

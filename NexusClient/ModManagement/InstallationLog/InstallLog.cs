@@ -486,7 +486,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 							   new XAttribute("modName", mod.Key.ModName),
 							   new XAttribute("modFileName", Path.GetFileName(mod.Key.Filename)),
 							   new XAttribute("modFilePath", Path.GetDirectoryName(mod.Key.Filename)),
-							   from itm in m_dicInstalledFiles.Where(x => (GetCurrentFileOwner(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant()) && CheckFileKvp(x))
+							   from itm in m_dicInstalledFiles.Where(x => CheckFileKvp(x) && (GetCurrentFileOwner(x.Item) != null) && (GetCurrentFileOwner(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant()))
 							   select new XElement("fileLink",
 								   new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(GetCurrentFileOwner(itm.Item).Filename), GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename.ToLowerInvariant() == GetCurrentFileOwner(itm.Item).Filename.ToLowerInvariant()).Format, itm.Item, true))),
 								   new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename.ToLowerInvariant() == GetCurrentFileOwner(itm.Item).Filename.ToLowerInvariant()).Format, itm.Item, true)),

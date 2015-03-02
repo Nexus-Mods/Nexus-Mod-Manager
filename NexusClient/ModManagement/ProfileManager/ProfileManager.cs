@@ -656,6 +656,18 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
+		public void PurgeModsFromProfiles(List<IMod> p_lstMods)
+		{
+			foreach (IModProfile Profile in ModProfiles)
+			{
+				if (Profile.Id != CurrentProfile.Id)
+				{
+					string strPath = Path.Combine(m_strProfileManagerPath, Profile.Id);
+					VirtualModActivator.PurgeMods(p_lstMods, strPath);
+				}
+			}
+		}
+
 		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>

@@ -91,7 +91,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <seealso cref="ICondition.GetIsFulfilled(ConditionStateManager)"/>
 		public bool GetIsFulfilled(ConditionStateManager p_csmStateManager)
 		{
-			string strPluginPath = p_csmStateManager.GameMode.GetModFormatAdjustedPath(p_csmStateManager.Mod.Format, m_strPluginPath, true);
+			string strPluginPath = p_csmStateManager.GameMode.GetModFormatAdjustedPath(p_csmStateManager.Mod.Format, m_strPluginPath, false);
 
 			if (p_csmStateManager.PluginManager != null)
 			{

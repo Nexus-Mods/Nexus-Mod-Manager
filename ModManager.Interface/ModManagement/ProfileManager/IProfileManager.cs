@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
+using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement
@@ -87,6 +88,8 @@ namespace Nexus.Client.ModManagement
 		void ExportProfile(IModProfile p_impModProfile, string p_strPath);
 
 		bool ImportProfile(string p_strPath);
+
+		void PurgeModsFromProfiles(List<IMod> p_lstMods);
 
 		#endregion
 

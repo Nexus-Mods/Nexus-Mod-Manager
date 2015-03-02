@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client</RootNamespace>
     <AssemblyName>NexusClient</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ApplicationIcon>Resources\tes_logo.ico</ApplicationIcon>
     <TargetZone>Internet</TargetZone>
@@ -124,6 +124,7 @@
     <Compile Include="ModManagement\ModManager.cs" />
     <Compile Include="ModManagement\ModProfile.cs" />
     <Compile Include="ModManagement\ModRegistry.cs" />
+    <Compile Include="ModManagement\LinkActivationTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />
     <Compile Include="ModManagement\ProfileManager\ProfileManager.cs" />
     <Compile Include="ModManagement\ProfileManager\UI\ProfileManagerControl.cs">
@@ -592,9 +593,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\ICSharpCode.TextEditor.dll</HintPath>
     </Reference>
-    <Reference Include="ObjectListView, Version=2.7.0.31736, Culture=neutral, PublicKeyToken=b1c5bf581481bcd4, processorArchitecture=MSIL">
+    <Reference Include="ObjectListView, Version=2.8.0.20711, Culture=neutral, PublicKeyToken=b1c5bf581481bcd4, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\ObjectListView 2.8\ObjectListViewDemo\ObjectListView\bin\Release\ObjectListView.dll</HintPath>
+      <HintPath>..\lib\ObjectListView.dll</HintPath>
     </Reference>
     <Reference Include="SevenZipSharp, Version=0.64.3890.29348, Culture=neutral, PublicKeyToken=20de82c62b055c88, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>

@@ -86,6 +86,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ActivatingMultipleMods = delegate { };
 
+		/// <summary>
+		/// Raised when activating a single mod.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ActivatingMod = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -404,6 +409,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (ConfirmModFileDeletion(p_modMod))
 			{
+				ModManager.VirtualModActivator.DisableMod(p_modMod);
 				IBackgroundTaskSet btsInstall = ModManager.DeleteMod(p_modMod, ModManager.ActiveMods);
 				DeletingMod(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
 			}
@@ -443,7 +449,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void DeactivateMod(IMod p_modMod)
 		{
-			ModManager.VirtualModActivator.DisableMod(p_modMod);
+			VirtualModActivator.DisableMod(p_modMod);
+
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
 		}
@@ -529,12 +536,16 @@ namespace Nexus.Client.ModManagement.UI
 		
 		public void EnableMod(IMod p_modMod)
 		{
-			VirtualModActivator.EnableMod(p_modMod);
+			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, false, ConfirmUpdaterAction)));
+
+			//VirtualModActivator.EnableMod(p_modMod);
 		}
 
 		public void DisableMod(IMod p_modMod)
 		{
-			VirtualModActivator.DisableMod(p_modMod);
+			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, true, ConfirmUpdaterAction)));
+
+			//VirtualModActivator.DisableMod(p_modMod);
 		}
 
 		#endregion
