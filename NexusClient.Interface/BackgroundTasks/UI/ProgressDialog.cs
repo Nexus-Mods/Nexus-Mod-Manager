@@ -12,7 +12,6 @@ namespace Nexus.Client.BackgroundTasks.UI
 	{
 		private Int32 m_intCreatedThreadId = -1;
 		private DialogResult m_drtLastDialogResult = DialogResult.None;
-		private bool m_booAllowCancel = true;
 
 		/// <summary>
 		/// Shows the progress dialog as a modal window.
@@ -192,6 +191,10 @@ namespace Nexus.Client.BackgroundTasks.UI
 			{
 				//this can happen if we try to update the form before its handle has been created
 				// we should never get here, but if we do, we don't need to care
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+				// we don't care if that happens
 			}
 		}
 

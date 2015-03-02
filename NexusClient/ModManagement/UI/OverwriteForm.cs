@@ -98,5 +98,19 @@ namespace Nexus.Client.ModManagement.UI
 			m_owrResult = (OverwriteResult)((Button)sender).Tag;
 			Close();
 		}
+
+		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+		{
+			if (keyData == (Keys.Control | Keys.C))
+			{
+				try
+				{
+					Clipboard.SetText(lblMessage.Text);
+					return true;
+				}
+				catch { }
+			}
+			return base.ProcessCmdKey(ref msg, keyData);
+		} 
 	}
 }

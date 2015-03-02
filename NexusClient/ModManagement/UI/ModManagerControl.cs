@@ -35,6 +35,7 @@ namespace Nexus.Client.ModManagement.UI
 
 		public event EventHandler SetTextBoxFocus;
 		public event EventHandler ResetSearchBox;
+		public event EventHandler UninstallModFromProfiles;
 
 		#region Properties
 
@@ -60,6 +61,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.AddingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AddingMod);
 				m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
 				m_vmlViewModel.ActivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMultipleMods);
+				m_vmlViewModel.ActivatingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMod);
 				m_vmlViewModel.DisablingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DisablingMultipleMods);
 				m_vmlViewModel.DeactivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
@@ -125,6 +127,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
 			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
 			clwCategoryView.UninstallMod += new EventHandler(CategoryListView_UninstallMod);
+			clwCategoryView.UninstallModFromProfiles += new EventHandler(CategoryListView_UninstallModFromProfiles);
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -367,14 +370,34 @@ namespace Nexus.Client.ModManagement.UI
 			((IBackgroundTaskSet)sender).TaskSetCompleted -= TaskSet_TaskSetCompleted;
 			if (!String.IsNullOrEmpty(e.Message))
 			{
-				if (e.Success)
+				IMod modMod = (IMod)e.ReturnValue;
+				bool booActiveLinksCheck = true;
+
+				if (sender.GetType() == typeof(ModInstaller) || sender.GetType() == typeof(ModUpgrader))
+					booActiveLinksCheck = ViewModel.VirtualModActivator.CheckHasActiveLinks(modMod);
+
+				if (e.Success && booActiveLinksCheck)
 					MessageBox.Show(this, e.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				else
 				{
-					IMod modMod = (IMod)e.ReturnValue;
-					if (modMod != null)
-						ViewModel.VirtualModActivator.DisableMod(modMod);
-					MessageBox.Show(this, e.Message, "Failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					string strMessage = String.Empty;
+
+					if ((booActiveLinksCheck == false) && e.Success)
+					{
+						StringBuilder stbMessage = new StringBuilder();
+						stbMessage.AppendLine("The mod you just tried to install didn't contain any files. If this is not correct, this usually occurs if the mod used a scripted installer.");
+						stbMessage.AppendLine("Verify that you have actually selected installation options within the installer.").AppendLine();
+						stbMessage.AppendLine("Right-click the mod from the mod list and select 'Uninstall from all profiles' and then attempt to install the mod again properly, ensuring you follow any guidelines in the scripted installer from the author.");
+						strMessage = stbMessage.ToString();
+					}
+					else
+					{
+						if (modMod != null)
+							ViewModel.VirtualModActivator.DisableMod(modMod);
+						strMessage = e.Message;
+					}
+
+					MessageBox.Show(this, strMessage, "Failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				}
 			}
 		}
@@ -544,7 +567,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (clwCategoryView.Tag == null)
 			{
-				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator.VirtualLinks, ViewModel.CategoryManager, ViewModel.Settings);
+				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator.VirtualMods, ViewModel.CategoryManager, ViewModel.Settings);
 
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
@@ -578,6 +601,8 @@ namespace Nexus.Client.ModManagement.UI
 								IMod modMod = (IMod)e.Item.RowObject;
 								if (modMod != null)
 								{
+									SetCommandExecutableStatus();
+
 									if (ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(modMod.Filename).ToLowerInvariant()))
 										ViewModel.DisableModCommand.Execute(modMod);
 									else
@@ -798,6 +823,19 @@ namespace Nexus.Client.ModManagement.UI
 		private void CategoryListView_UninstallMod(object sender, EventArgs e)
 		{
 			ViewModel.DeactivateMod((IMod)sender);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.UninstallModFromProfiles"/> of the opening
+		/// of the ReaMe file.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_UninstallModFromProfiles(object sender, EventArgs e)
+		{
+			ViewModel.DeactivateMod((IMod)sender);
+			if (UninstallModFromProfiles != null)
+				UninstallModFromProfiles(sender, e);
 		}
 
 		/// <summary>
@@ -1480,6 +1518,30 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			m_booDisableSummary = true;
 			ProgressDialog.ShowDialog(this, e.Argument);
+			m_booDisableSummary = false;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ModManagerVM.ActivatingMod"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_ActivatingMod(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ActivatingMod, sender, e);
+				return;
+			}
+			m_booDisableSummary = true;
+			ProgressDialog.ShowDialog(this, e.Argument);
+
+			IMod modMod = (IMod)sender;
+			if (sender != null)
+				clwCategoryView.RefreshObject(modMod);
 			m_booDisableSummary = false;
 		}
 

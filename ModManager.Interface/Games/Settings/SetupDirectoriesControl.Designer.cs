@@ -230,6 +230,7 @@
 			this.ckbUseMultiHDInstall.Size = new System.Drawing.Size(242, 17);
 			this.ckbUseMultiHDInstall.TabIndex = 18;
 			this.ckbUseMultiHDInstall.Text = "Check this to enable the multi HD install mode";
+			this.ckbUseMultiHDInstall.CheckedChanged += new System.EventHandler(this.ckbUseMultiHDInstall_CheckedChanged);
 			// 
 			// lblLinkDirectoryLabel
 			// 

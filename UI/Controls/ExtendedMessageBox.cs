@@ -489,5 +489,19 @@ namespace Nexus.UI.Controls
 		{
 			DialogResult = (DialogResult)((Button)sender).Tag;
 		}
+
+		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+		{
+			if (keyData == (Keys.Control | Keys.C))
+			{
+				try
+				{
+					Clipboard.SetText(albPrompt.Text + Environment.NewLine + Environment.NewLine + hlbDetails.Text);
+					return true;
+				}
+				catch { }
+			}
+			return base.ProcessCmdKey(ref msg, keyData);
+		} 
 	}
 }

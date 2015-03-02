@@ -23,7 +23,7 @@ AppPublisher={#MyPublisher}
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
-OutputBaseFilename={#MyAppSetupName}-{#MyAppVersion}
+OutputBaseFilename={#MyAppSetupName}-{#MyAppVersion}.5a
 DefaultGroupName={#MyAppSetupName}
 DefaultDirName={pf}\{#MyAppSetupName}
 UninstallDisplayName={#MyAppSetupName}
@@ -186,8 +186,8 @@ begin
 	msi31('3.1');
 #endif
 #ifdef use_dotnetfx45
-    //dotnetfx45(2); // min allowed version is .netfx 4.5.2
-    dotnetfx45(0); // min allowed version is .netfx 4.5.0
+    dotnetfx45(2); // min allowed version is .netfx 4.5.2
+    //dotnetfx45(0); // min allowed version is .netfx 4.5.0
 #endif
 
   Result := True; // in case when no previous version is found

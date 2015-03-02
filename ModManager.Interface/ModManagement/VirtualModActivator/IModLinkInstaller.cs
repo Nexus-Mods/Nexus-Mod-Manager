@@ -7,6 +7,7 @@ namespace Nexus.Client.ModManagement
 	{
 		#region Mod Link Installer
 		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching);
+		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booHandlePlugin);
 		#endregion
 	}
 }

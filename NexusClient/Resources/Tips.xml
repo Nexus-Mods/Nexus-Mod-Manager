@@ -1,17 +1,44 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <tipsManager>
 	<tipsList>
-		<tips section="toolStrip1" object="tsbTips" ID="1" version="0.52.0">
-			<text>This version fully supports the new CDN download system.</text>
+		<tips section="toolStrip1" object="spbProfiles" ID="1" version="0.60.0">
+			<text>This new NMM version supports mod profiles.</text>
 		</tips>
-		<tips section="toolStrip1" object="tsbTips" ID="1" version="0.51.0">
-			<text>Click here to check the latest version tips.</text>
+		<tips section="toolStrip1" object="spbProfiles" ID="2" version="0.60.0">
+			<text>Mod profiles allow you to quickly switch between completely different mod setups.</text>
 		</tips>
-		<tips section="ModManager.toolStrip1" object="tsbToggleEndorse" ID="2" version="0.51.0">
-			<text>This version supports the new Abstain endorsement state (click once to Endorse and click again to Abstain).</text>
+		<tips section="toolStrip1" object="spbProfiles" ID="3" version="0.60.0">
+			<text>Create, rename, delete or switch to other profiles using this drop-down.</text>
 		</tips>
-		<tips section="CLWCategoryListView" object="column" ID="3" version="0.51.0">
-			<text>Fixed an issue with the XML script compiler preventing scripts to properly compile for plugin-less games.</text>
+		<tips section="toolStrip1" object="spbProfiles" ID="4" version="0.60.0">
+			<text>You're not required to use the profile functionality if you don't want to.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="5" version="0.60.0">
+			<text>NMM now uses a new mod installation method.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="6" version="0.60.0">
+			<text>Mods have 3 different states: Uninstalled, Unactive and Active.
+Uninstalled mods are not active and aren't using up space on your hard-drive. They show as greyed out in the mod list with no icon next to them.
+Unactive mods are extracted on to your hard-drive but are not being used by the current profile, but are possibly being used by other profiles. They have a red symbol next to them.
+Active mods are installed and being used by the current profile. They have a green symbol next to them.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="7" version="0.60.0">
+			<text>To activate/disable a mod you can either double-click on it or use these buttons.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="8" version="0.60.0">
+			<text>To completely uninstall a mod, right-click on it and select "Uninstall mod" or "Uninstall from all profiles" if you wish to also remove this mod from other profiles where it's active.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbTools" ID="9" version="0.60.0">
+			<text>If you want to change the new install method settings use the "Change virtual Folder" button in the Tools menu.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbSupportedTools" ID="10" version="0.60.0">
+			<text>NMM will allow you to quickly launch the most common external tools for each game from this drop-down.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbSupportedTools" ID="11" version="0.60.0">
+			<text>NMM automatically detects most of these tools, but you can set the their paths in the options menu, in the Supported Tools tab.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbSupportedTools" ID="12" version="0.60.0">
+			<text>Warning: NONE of these tools are shipped or officially supported by NMM, the program is just creating a quick launch icon for them for your ease of use.</text>
 		</tips>
 	</tipsList>
 </tipsManager>

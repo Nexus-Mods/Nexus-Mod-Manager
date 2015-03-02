@@ -19,7 +19,7 @@ namespace Nexus.Client.UI.Controls
 	{
 		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
 		ReadOnlyObservableList<IMod> m_rolActiveMods = null;
-		ThreadSafeObservableList<IVirtualModLink> m_tslEnabledMods = null;
+		ThreadSafeObservableList<IVirtualModInfo> m_tsoEnabledMods = null;
 		IModCategory m_imcSelectedCategory = null;
 		IModRepository m_mmrModRepository = null;
 		bool m_booShowEmpty = false;
@@ -36,6 +36,7 @@ namespace Nexus.Client.UI.Controls
 		public event EventHandler OpenReadMeFile;
 		public event EventHandler ReadmeScan;
 		public event EventHandler UninstallMod;
+		public event EventHandler UninstallModFromProfiles;
 
 		#endregion
 
@@ -214,7 +215,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_lvwList">The source list view.</param>
 		/// <param name="p_cmgCategoryManager">The mod Category Manager.</param>
-		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, IModRepository p_mmrModRepository, ThreadSafeObservableList<IVirtualModLink> p_tslEnabledMods, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
+		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, IModRepository p_mmrModRepository, ThreadSafeObservableList<IVirtualModInfo> p_tsoEnabledMods, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
 		{
 			this.Tag = false;
 
@@ -227,7 +228,7 @@ namespace Nexus.Client.UI.Controls
 			m_mmrModRepository = p_mmrModRepository;
 			m_rolManagedMods = p_rolManagedMods;
 			m_rolActiveMods = p_rolActiveMods;
-			m_tslEnabledMods = p_tslEnabledMods;
+			m_tsoEnabledMods = p_tsoEnabledMods;
 			Settings = p_Settings;
 
 			// Setup menuStrip commands
@@ -563,6 +564,9 @@ namespace Nexus.Client.UI.Controls
 				this.cmsContextMenu.Items[2].Visible = true;
 				this.cmsContextMenu.Items[3].Visible = true;
 
+				if (cmsContextMenu.Items.Count > 6)
+					cmsContextMenu.Items.RemoveAt(6);
+
 				if (cmsContextMenu.Items.Count > 5)
 				cmsContextMenu.Items.RemoveAt(5);
 
@@ -585,6 +589,10 @@ namespace Nexus.Client.UI.Controls
 				cmsContextMenu.Items.Add("Uninstall Mod", new Bitmap(Properties.Resources.dialog_block, 16, 16), new EventHandler(cmsContextMenu_UninstallMod));
 				this.cmsContextMenu.Items[5].Enabled = ((m_rolActiveMods != null) && (m_rolActiveMods.Count > 0) && (m_rolActiveMods.Contains(GetSelectedMod)));
 				this.cmsContextMenu.Items[5].Visible = true;
+
+				cmsContextMenu.Items.Add("Uninstall from all Profiles", new Bitmap(Properties.Resources.dialog_block, 16, 16), new EventHandler(cmsContextMenu_UninstallModFromProfiles));
+				this.cmsContextMenu.Items[6].Enabled = ((m_rolActiveMods != null) && (m_rolActiveMods.Count > 0) && (m_rolActiveMods.Contains(GetSelectedMod)));
+				this.cmsContextMenu.Items[6].Visible = true;
 			}
 		}
 
@@ -627,8 +635,8 @@ namespace Nexus.Client.UI.Controls
 				{
 					try
 					{
-						IVirtualModLink ivlModLink = m_tslEnabledMods.Where(x => x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant())).FirstOrDefault();
-						if ((ivlModLink != null) && (m_rolActiveMods.Contains((IMod)rowObject)))
+						IVirtualModInfo vmiMod = m_tsoEnabledMods.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant())).FirstOrDefault();
+						if ((vmiMod != null) && (m_rolActiveMods.Contains((IMod)rowObject)))
 							return new Bitmap(Properties.Resources.dialog_ok_4_16, 12, 12);
 						else
 							return new Bitmap(!m_rolActiveMods.Contains((IMod)rowObject) ? new Bitmap(12, 12) : Properties.Resources.dialog_block, 14, 14);
@@ -923,6 +931,16 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.UninstallMod != null)
 				this.UninstallMod(GetSelectedMod, new EventArgs());
+		}
+
+		/// Handles the cmsContextMenu.UninstallMod event.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+		private void cmsContextMenu_UninstallModFromProfiles(object sender, EventArgs e)
+		{
+			if (this.UninstallModFromProfiles != null)
+				this.UninstallModFromProfiles(GetSelectedMod, new EventArgs());
 		}
 
 		/// <summary>

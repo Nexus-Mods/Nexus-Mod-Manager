@@ -108,137 +108,116 @@
       <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="HelpLinks" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="Application">
-      <Value Profile="(Default)">
-     &lt;KeyedSettingsOfString&gt;
-      &lt;item key="Beta Wiki"&gt;
-       &lt;string&gt;http://wiki.nexusmods.com/index.php/Category:NMM&lt;/string&gt;
-      &lt;/item&gt;
-      &lt;item key="Beta Forums"&gt;
-       &lt;string&gt;http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/&lt;/string&gt;
-      &lt;/item&gt;
-      &lt;item key="Bug Report How To"&gt;
-       &lt;string&gt;http://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/&lt;/string&gt;
-      &lt;/item&gt;
-      &lt;item key="Report a Bug"&gt;
-       &lt;string&gt;http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/&lt;/string&gt;
-      &lt;/item&gt;
-     &lt;/KeyedSettingsOfString&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;KeyedSettingsOfString&gt;
+  &lt;item key="Beta Wiki"&gt;
+    &lt;string&gt;http://wiki.nexusmods.com/index.php/Category:NMM&lt;/string&gt;
+  &lt;/item&gt;
+  &lt;item key="Beta Forums"&gt;
+    &lt;string&gt;http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/&lt;/string&gt;
+  &lt;/item&gt;
+  &lt;item key="Bug Report How To"&gt;
+    &lt;string&gt;http://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/&lt;/string&gt;
+  &lt;/item&gt;
+  &lt;item key="Report a Bug"&gt;
+    &lt;string&gt;http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/&lt;/string&gt;
+  &lt;/item&gt;
+&lt;/KeyedSettingsOfString&gt;</Value>
     </Setting>
     <Setting Name="ExecutablePaths" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="InstallationPaths" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="CompletedSetup" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfBoolean /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfBoolean /&gt;</Value>
     </Setting>
     <Setting Name="ModFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="CustomGameModeSettings" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.PerGameModeSettings`1[System.Object]]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfPerGameModeSettingsOfObject /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfPerGameModeSettingsOfObject /&gt;</Value>
     </Setting>
     <Setting Name="InstallInfoFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="DockPanelLayouts" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;KeyedSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;KeyedSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="CustomLaunchCommands" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="CustomLaunchCommandArguments" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="SelectedLaunchCommands" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="RepositoryUsernames" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;KeyedSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;KeyedSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="RepositoryAuthenticationTokens" Type="Nexus.Client.Settings.KeyedSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;KeyedSettingsOfKeyedSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;KeyedSettingsOfKeyedSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="DelayedSettings" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="InstalledGames" Type="Nexus.Client.Settings.SettingsList" Scope="User">
-      <Value Profile="(Default)">
-     &lt;ArrayOfString xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ArrayOfString xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" /&gt;</Value>
     </Setting>
     <Setting Name="QueuedModsToAdd" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[Nexus.Client.ModManagement.AddModDescriptor]]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfKeyedSettingsOfAddModDescriptor /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfKeyedSettingsOfAddModDescriptor /&gt;</Value>
     </Setting>
     <Setting Name="WindowPositions" Type="Nexus.Client.Settings.WindowPositions" Scope="User">
-      <Value Profile="(Default)">
-     &lt;WindowPositions /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;WindowPositions /&gt;</Value>
     </Setting>
     <Setting Name="ColumnWidths" Type="Nexus.Client.Settings.ColumnWidths" Scope="User">
-      <Value Profile="(Default)">
-     &lt;ColumnWidths /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ColumnWidths /&gt;</Value>
     </Setting>
     <Setting Name="SplitterSizes" Type="Nexus.Client.Settings.SplitterSizes" Scope="User">
-      <Value Profile="(Default)">
-     &lt;SplitterSizes /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;SplitterSizes /&gt;</Value>
     </Setting>
     <Setting Name="ToolFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="SupportedTools" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[System.String]]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfKeyedSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="VirtualFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="HDLinkFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfString /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfString /&gt;</Value>
     </Setting>
     <Setting Name="MultiHDInstall" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
-      <Value Profile="(Default)">
-     &lt;PerGameModeSettingsOfBoolean /&gt;
-    </Value>
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;PerGameModeSettingsOfBoolean /&gt;</Value>
+    </Setting>
+    <Setting Name="ShowAlphaDisclaimer" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
     </Setting>
   </Settings>
 </SettingsFile>

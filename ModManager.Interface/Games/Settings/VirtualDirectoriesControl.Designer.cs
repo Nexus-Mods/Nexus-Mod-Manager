@@ -90,6 +90,7 @@
 			this.ckbUseMultiHDInstall.Size = new System.Drawing.Size(242, 17);
 			this.ckbUseMultiHDInstall.TabIndex = 18;
 			this.ckbUseMultiHDInstall.Text = "Check this to enable the multi HD install mode";
+			this.ckbUseMultiHDInstall.CheckedChanged += new System.EventHandler(this.ckbUseMultiHDInstall_CheckedChanged);
 			// 
 			// lblLinkDirectoryLabel
 			// 
@@ -130,6 +131,7 @@
 			this.butSelectLinkDirectory.TabIndex = 17;
 			this.butSelectLinkDirectory.Text = "...";
 			this.butSelectLinkDirectory.UseVisualStyleBackColor = true;
+			this.butSelectLinkDirectory.Click += new System.EventHandler(this.butSelectLinkDirectory_Click);
 			// 
 			// butSelectVirtualDirectory
 			// 
@@ -142,6 +144,7 @@
 			this.butSelectVirtualDirectory.TabIndex = 24;
 			this.butSelectVirtualDirectory.Text = "...";
 			this.butSelectVirtualDirectory.UseVisualStyleBackColor = true;
+			this.butSelectVirtualDirectory.Click += new System.EventHandler(this.butSelectVirtualDirectory_Click);
 			// 
 			// lblVirtualPrompt
 			// 
