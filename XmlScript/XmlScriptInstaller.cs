@@ -158,9 +158,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					ItemMessage = "Activating " + (String.IsNullOrEmpty(strDest) ? strSource : strDest);
 					ItemProgress = 0;
 					ItemProgressMaximum = lstFiles.Count;
+					string strDirectorySeparatorChar = Path.DirectorySeparatorChar.ToString();
 
-					if (!strSource.EndsWith("/"))
-						strSource += "/";
+					if (!strSource.EndsWith(strDirectorySeparatorChar) && !strSource.EndsWith("/"))
+						strSource += strDirectorySeparatorChar;
 					foreach (string strFile in lstFiles)
 					{
 						string strNewFileName = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile.Substring(strSource.Length, strFile.Length - strSource.Length), false);

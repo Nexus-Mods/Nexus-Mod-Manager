@@ -725,18 +725,26 @@ namespace Nexus.Client.ModManagement
 				if (ForceHardLinks)
 				{
 					if (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero))
+					{
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
 							strVirtualFileLink = String.Empty;
+					}
+					else
+						strVirtualFileLink = String.Empty;
 				}
 				else
 				{
 					if (CreateHardLink(strVirtualFileLink, strLinkFilePath, IntPtr.Zero))
+					{
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
 							strVirtualFileLink = String.Empty;
+					}
+					else
+						strVirtualFileLink = String.Empty;
 				}
 			}
 			else if (!DisableLinkCreation)
@@ -755,6 +763,8 @@ namespace Nexus.Client.ModManagement
 					else
 						strVirtualFileLink = String.Empty;
 				}
+				else
+					strVirtualFileLink = String.Empty;
 			}
 			else
 				strVirtualFileLink = String.Empty;
@@ -795,7 +805,7 @@ namespace Nexus.Client.ModManagement
 			{
 				Int32 intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, p_ivlVirtualLink.Priority, out modCheck);
 
-				if ((PluginManager != null) && (intPriority < 0))
+				if ((PluginManager != null) && ((intPriority < 0) || (modCheck == null)))
 				{
 					string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
 					if (PluginManager.IsActivatiblePluginFile(strLinkPath))
@@ -819,7 +829,7 @@ namespace Nexus.Client.ModManagement
 					FileUtil.ForceDelete(strPath);
 				VirtualLinks.Remove(p_ivlVirtualLink);
 
-				if ((intPriority >= 0) && !p_booPurging)
+				if ((intPriority >= 0) && !p_booPurging && (modCheck != null))
 					AddFileLink(modCheck, p_ivlVirtualLink.VirtualModPath, false, true, p_ivlVirtualLink.Priority);
 
 				TrimEmptyDirectories(Path.GetDirectoryName(strPath), strStop);
