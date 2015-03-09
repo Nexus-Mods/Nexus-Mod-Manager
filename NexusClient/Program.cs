@@ -153,8 +153,43 @@ namespace Nexus.Client
 				stbStatus.AppendFormat("\t{0} SP {1}", strFrameworkVersion, strSP).AppendLine();
 			}
 
+			using (RegistryKey ndpKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32).OpenSubKey("SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full\\"))
+			{
+				int releaseKey = Convert.ToInt32(ndpKey.GetValue("Release"));
+				if (true)
+				{
+					stbStatus.AppendFormat("\tv4.5: {0}", CheckFor45DotVersion(releaseKey)).AppendLine();
+				}
+			}
+
 			stbStatus.AppendFormat("Tracing is forced: {0}", p_booForceTrace).AppendLine();
 			Trace.TraceInformation(stbStatus.ToString());
+		}
+
+		private static string CheckFor45DotVersion(int releaseKey)
+		{
+			if ((releaseKey >= 381029))
+			{
+				return "4.6 or later";
+			}
+			if ((releaseKey >= 379893))
+			{
+				return "4.5.2 or later";
+			}
+			if ((releaseKey >= 378758))
+			{
+				return "4.5.1 or later";
+			}
+			if ((releaseKey >= 378675))
+			{
+				return "4.5.1 with Windows 8.1";
+			}
+			if ((releaseKey >= 378389))
+			{
+				return "4.5 or later";
+			}
+
+			return "No 4.5 or later version detected";
 		}
 
 		/// <summary>

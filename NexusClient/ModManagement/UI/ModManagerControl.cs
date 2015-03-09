@@ -1114,7 +1114,7 @@ namespace Nexus.Client.ModManagement.UI
 		private void clwCategoryView_AfterLabelEdit(object sender, LabelEditEventArgs e)
 		{
 			string strValue = e.Label;
-			if (!String.IsNullOrEmpty(strValue))
+			if (!String.IsNullOrEmpty(strValue) && (clwCategoryView.SelectedItem != null))
 			{
 				if (clwCategoryView.SelectedItem.RowObject.GetType() == typeof(ModCategory))
 				{
