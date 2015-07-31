@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Nexus.Client.ModManagement
 {
-	public partial class VirtualModLink : IVirtualModLink
+	public partial class VirtualModLink : IVirtualModLink, IEquatable<VirtualModLink>
 	{
 		#region Properties
 		
@@ -23,6 +24,22 @@ namespace Nexus.Client.ModManagement
 			Priority = p_intPriority;
 			Active = p_booActive;
 			ModInfo = p_vmiVirtualModInfo;
+		}
+
+		#endregion
+
+		#region IEquatable<IVirtualModLink>
+
+		public bool Equals(IVirtualModLink other)
+		{
+			if (other == null) return false;
+			return (this.RealModPath.Equals(other.RealModPath, StringComparison.InvariantCultureIgnoreCase) && this.VirtualModPath.Equals(other.VirtualModPath, StringComparison.InvariantCultureIgnoreCase));
+		}
+
+		public bool Equals(VirtualModLink other)
+		{
+			if (other == null) return false;
+			return (this.RealModPath.Equals(other.RealModPath, StringComparison.InvariantCultureIgnoreCase) && this.VirtualModPath.Equals(other.VirtualModPath, StringComparison.InvariantCultureIgnoreCase));
 		}
 
 		#endregion

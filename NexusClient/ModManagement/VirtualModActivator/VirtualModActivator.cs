@@ -670,6 +670,21 @@ namespace Nexus.Client.ModManagement
 			return true;
 		}
 
+		public bool PurgeLinks(IList<IVirtualModLink> p_lstToPurge)
+		{
+			if (p_lstToPurge.Count > 0)
+			{
+				foreach (IVirtualModLink modLink in p_lstToPurge)
+				{
+					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename).ToLowerInvariant() == modLink.ModInfo.ModFileName.ToLowerInvariant());
+					RemoveFileLink(modLink, modMod, true);
+				}
+
+				SaveList();
+			}
+			return true;
+		}
+
 		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, Int32 p_intPriority)
 		{
 			IVirtualModInfo modInfo = m_tslVirtualModInfo.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant()).FirstOrDefault();

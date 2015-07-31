@@ -125,6 +125,7 @@
     <Compile Include="ModManagement\ModProfile.cs" />
     <Compile Include="ModManagement\ModRegistry.cs" />
     <Compile Include="ModManagement\LinkActivationTask.cs" />
+    <Compile Include="ModManagement\ModMigrationTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />
     <Compile Include="ModManagement\ProfileManager\ProfileManager.cs" />
     <Compile Include="ModManagement\ProfileManager\UI\ProfileManagerControl.cs">

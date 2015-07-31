@@ -19,10 +19,16 @@ namespace Nexus.Client.ModManagement
 		#region Properties
 
 		/// <summary>
-		/// Gets the list of mods to edit.
+		/// Gets the list of links to install.
 		/// </summary>
-		/// <value>The list of mods to edit.</value>
-		protected IList<IVirtualModLink> ModLinks { get; private set; }
+		/// <value>The list of links to install.</value>
+		protected IList<IVirtualModLink> InstallLinks { get; private set; }
+
+		/// <summary>
+		/// Gets the list of links to remove.
+		/// </summary>
+		/// <value>The list of links to remove.</value>
+		protected IList<IVirtualModLink> RemoveLinks { get; private set; }
 
 		/// <summary>
 		/// Gets the current ModManager.
@@ -41,10 +47,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModManager">The current ModManager.</param>
 		/// <param name="p_lstMods">The mod list.</param>
 		/// <param name="p_intNewValue">The new category id.</param>
-		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstModLinks)
+		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstLinkToInstall, IList<IVirtualModLink> p_lstLinkToPurge)
 		{
 			ModManager = p_mmgModManager;
-			ModLinks = p_lstModLinks;
+			InstallLinks = p_lstLinkToInstall;
+			RemoveLinks = p_lstLinkToPurge;
 		}
 
 		#endregion
@@ -98,24 +105,26 @@ namespace Nexus.Client.ModManagement
 			ShowItemProgress = true;
 			ItemProgress = 0;
 
-			if (ModLinks.Count <= 1000)
+			if (InstallLinks.Count <= 1000)
 			{
-				ItemProgressMaximum = ModLinks.Count;
+				ItemProgressMaximum = InstallLinks.Count;
 				ItemProgressStepSize = 1;
 			}
 			else
 			{
 				ItemProgressMaximum = 1000;
 				booLotsOfLinks = true;
-				dblRatio = 1000 / ModLinks.Count;
+				dblRatio = 1000 / InstallLinks.Count;
 			}
 
-			ModManager.VirtualModActivator.PurgeLinks();
+			if (RemoveLinks.Count > 0)
+				ModManager.VirtualModActivator.PurgeLinks(RemoveLinks);
+
 			StepOverallProgress();
 
-			if (ModLinks.Count > 0)
+			if (InstallLinks.Count > 0)
 			{
-				foreach (IVirtualModLink vmlModLink in ModLinks)
+				foreach (IVirtualModLink vmlModLink in InstallLinks)
 				{
 					if (m_booCancel)
 						break;

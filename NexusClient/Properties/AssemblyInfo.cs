@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Black Tree Gaming")]
 [assembly: AssemblyProduct("NexusModManager")]
-[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2014")]
+[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -32,6 +32,6 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".6")]
-[assembly: AssemblyFileVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".6a")]
-[assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".6a")]
+[assembly: AssemblyVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".7")]
+[assembly: AssemblyFileVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".7a")]
+[assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".7a")]
