@@ -106,6 +106,18 @@ namespace Nexus.Client
 		public ModManager ModManager { get; private set; }
 
 		/// <summary>
+		/// Gets the virtual mod activator.
+		/// </summary>
+		/// <value>The virtual mod activator.</value>
+		public IVirtualModActivator VirtualModActivator 
+		{ 
+			get
+			{
+				return ModManager.VirtualModActivator;
+			}
+		}
+
+		/// <summary>
 		/// Gets the plugin manager to use.
 		/// </summary>
 		/// <value>The plugin manager to use.</value>
@@ -480,9 +492,9 @@ namespace Nexus.Client
 		/// Updates the programme.
 		/// </summary>
 		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
-		public void ProfileSwitch(IModProfile p_impProfile, List<IVirtualModLink> p_lstVirtualLinks)
+		public void ProfileSwitch(IModProfile p_impProfile, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks)
 		{
-			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(p_impProfile, ModManager, p_lstVirtualLinks, ConfirmUpdaterAction)));
+			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(p_impProfile, ModManager, p_lstNewLinks, p_lstRemoveLinks, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>

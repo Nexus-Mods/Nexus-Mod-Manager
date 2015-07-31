@@ -2,7 +2,7 @@
 
 namespace Nexus.Client.ModManagement
 {
-	public interface IVirtualModLink
+	public interface IVirtualModLink : IEquatable<IVirtualModLink>
 	{
 		#region Properties
 

@@ -42,7 +42,7 @@ namespace Nexus.Client
 		private ModManagerControl mmgModManager = null;
 		private PluginManagerControl pmcPluginManager = null;
 		private DownloadMonitorControl dmcDownloadMonitor = null;
-		//private ProfileManagerControl pmcProfileManager = null;
+		private ProfileManagerControl pmcProfileManager = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
 		public string strOptionalPremiumMessage = string.Empty;
 		private bool m_booIsSwitching = false;
@@ -59,6 +59,8 @@ namespace Nexus.Client
 		private BalloonManager bmBalloon = null;
 
 		private string m_strSelectedTipsVersion = String.Empty;
+
+		private ModMigrationTask tskTask = new ModMigrationTask();
 
 		#region Properties
 
@@ -91,7 +93,7 @@ namespace Nexus.Client
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.PropertyChanged += new System.ComponentModel.PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
-				//pmcProfileManager.ViewModel = m_vmlViewModel.ProfileManagerVM;
+				pmcProfileManager.ViewModel = m_vmlViewModel.ProfileManagerVM;
 
 				this.ViewModel.ModRepository.UserStatusUpdate += new EventHandler(ModRepository_UserStatusUpdate);
 
@@ -139,11 +141,12 @@ namespace Nexus.Client
 			this.ResizeEnd += MainForm_ResizeEnd;
 			this.ResizeBegin += MainForm_ResizeBegin;
 			this.Resize += MainForm_Resize;
+			this.Shown += MainForm_Shown;
 
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
-			//pmcProfileManager = new ProfileManagerControl();
+			pmcProfileManager = new ProfileManagerControl();
 			dockPanel1.ActiveContentChanged += new EventHandler(dockPanel1_ActiveContentChanged);
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
@@ -151,6 +154,8 @@ namespace Nexus.Client
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
 			p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
+
+			tskTask.PropertyChanged += new PropertyChangedEventHandler(tskTask_PropertyChanged);
 
 			ViewModel = p_vmlViewModel;
 
@@ -166,6 +171,14 @@ namespace Nexus.Client
 			p_vmlViewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			m_fwsLastWindowState = WindowState;
 
+
+		}
+
+		/// <summary>
+		/// Checks whether we need to migrate from the old install method to the new one.
+		/// </summary>
+		private void ModMigrationCheck()
+		{
 			if (ViewModel.RequiresModMigration())
 			{
 				string strMigrationWarning = "This new version of NMM includes a major update to the way we store and install your mods which allows us to accommodate" + Environment.NewLine +
@@ -184,30 +197,59 @@ namespace Nexus.Client
 					Environment.Exit(0);
 				else
 				{
+					
 					byte[] bteLoadOrder = null;
 					byte[] bteModList = null;
 					byte[] bteIniList = null;
-					int intModCount = -1;
+					int intModCount = -1;	
+
 					if (drResult == DialogResult.Yes)
 					{
+						tskTask.SetStatus("Setup: Exporting Load Order (if available)", 1, TaskStatus.Running);
 						if (ViewModel.GameMode.UsesPlugins)
 							bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+						tskTask.SetStatus("Setup: Exporting Mod List", 2, TaskStatus.Running);
 						bteModList = ViewModel.ModManager.InstallationLog.GetXMLModList();
+						tskTask.SetStatus("Setup: Exporting IniEdits List", 3, TaskStatus.Running);
 						bteIniList = ViewModel.ModManager.InstallationLog.GetXMLIniList();
 						intModCount = ViewModel.ModManager.ActiveMods.Count;
+						tskTask.SetStatus("Setup: Backing Up Current Profile", 4, TaskStatus.Running);
 						AddNewProfile(bteModList, bteIniList, bteLoadOrder, intModCount, true);
 					}
 
+					tskTask.SetStatus("Setup: Uninstalling Active Mods", 5, TaskStatus.Running);
 					UninstallAllMods(true, true);
 
+					tskTask.SetStatus("Setup: Virtual Mod Setup", 6, TaskStatus.Running);
 					ViewModel.ModManager.VirtualModActivator.Setup();
 					if (drResult == DialogResult.Yes)
 					{
+						tskTask.SetStatus("Migration: Migrating Profile", 7, TaskStatus.Running);
 						AddNewProfile(bteModList, bteIniList, bteLoadOrder, intModCount, false);
+						tskTask.SetStatus("Migration: Activating Profile", 8, TaskStatus.Running);
 						SwitchProfile(ViewModel.ProfileManager.CurrentProfile, true);
 					}
+
+					tskTask.SetStatus("Migration: Complete", 8, TaskStatus.Complete);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Handles property changes for the migration task.
+		/// </summary>
+		private void tskTask_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		{
+
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, PropertyChangedEventArgs>)tskTask_PropertyChanged, sender, e);
+				return;
+			}
+
+			if (e.PropertyName == "Status")
+				if (tskTask.Status == TaskStatus.Running)
+					ProgressDialog.ShowDialog(this, tskTask);
 		}
 
 		#endregion
@@ -234,15 +276,15 @@ namespace Nexus.Client
 				catch { }
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
-				//if (!pmcProfileManager.Visible)
-				//	pmcProfileManager.Show(dockPanel1, DockState.Document);
+				if (!pmcProfileManager.Visible)
+					pmcProfileManager.Show(dockPanel1, DockState.Document);
 			}
 			else
 			{
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
-				//pmcProfileManager.DockState = DockState.Unknown;
+				pmcProfileManager.DockState = DockState.Unknown;
 				dmcDownloadMonitor.DockState = DockState.Unknown;
 				dmcDownloadMonitor.ShowHint = DockState.DockBottomAutoHide;
 				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
@@ -577,6 +619,11 @@ namespace Nexus.Client
 					}
 				}
 			}
+		}
+
+		private void MainForm_Shown(object sender, EventArgs e)
+		{
+			ModMigrationCheck();
 		}
 
 		/// <summary>
@@ -946,8 +993,8 @@ namespace Nexus.Client
 				return mmgModManager;
 			else if (p_strContentId == typeof(DownloadMonitorControl).ToString())
 				return dmcDownloadMonitor;
-			//else if (p_strContentId == typeof(ProfileManagerControl).ToString())
-			//	return pmcProfileManager;
+			else if (p_strContentId == typeof(ProfileManagerControl).ToString())
+				return pmcProfileManager;
 			else
 				return null;
 		}
@@ -1832,9 +1879,32 @@ namespace Nexus.Client
 							}
 					}
 
+				List<IVirtualModLink> lstMissingLinks = new List<IVirtualModLink>();
+				List<IVirtualModLink> lstUnneededLinks = new List<IVirtualModLink>();
+
+				lstMissingLinks = lstVirtualLinks.Except(ViewModel.VirtualModActivator.VirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
+				lstUnneededLinks = ViewModel.VirtualModActivator.VirtualLinks.Except(lstVirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
+
 				ViewModel.ProfileManager.SetCurrentProfile(p_impProfile);
 				ViewModel.ModManager.VirtualModActivator.DisableLinkCreation = false;
-				ViewModel.ProfileSwitch(p_impProfile, lstVirtualLinks);
+				ViewModel.ProfileSwitch(p_impProfile, lstMissingLinks, lstUnneededLinks);
+			}
+		}
+
+		private class VirtualModLinkEqualityComparer : IEqualityComparer<IVirtualModLink>
+		{
+			public bool Equals(IVirtualModLink x, IVirtualModLink y)
+			{
+				if (object.ReferenceEquals(x, y))
+					return true;
+				if (x == null || y == null)
+					return false;
+				return (x.RealModPath.Equals(y.RealModPath, StringComparison.InvariantCultureIgnoreCase) && x.VirtualModPath.Equals(y.VirtualModPath, StringComparison.InvariantCultureIgnoreCase));
+			}
+
+			public int GetHashCode(IVirtualModLink obj)
+			{
+				return obj.RealModPath.GetHashCode();
 			}
 		}
 

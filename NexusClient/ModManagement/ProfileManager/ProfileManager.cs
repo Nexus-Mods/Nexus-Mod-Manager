@@ -676,9 +676,9 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_intNewValue">The new category id value.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask SwitchProfile(IModProfile p_impProfile, ModManager p_ModManager, IList<IVirtualModLink> p_lstModLinks, ConfirmActionMethod p_camConfirm)
+		public IBackgroundTask SwitchProfile(IModProfile p_impProfile, ModManager p_ModManager, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks, ConfirmActionMethod p_camConfirm)
 		{
-			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstModLinks);
+			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstNewLinks, p_lstRemoveLinks);
 			patProfileSwitch.Update(p_camConfirm);
 			return patProfileSwitch;
 		}
