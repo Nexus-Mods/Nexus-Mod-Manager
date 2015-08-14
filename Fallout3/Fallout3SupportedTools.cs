@@ -43,7 +43,15 @@ namespace Nexus.Client.Games.Fallout3
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
 				AddLaunchCommand(new Command("BOSSLaunch", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
-			}		
+			}
+
+			strCommand = GetLOOTLaunchCommand();
+			Trace.TraceInformation("LOOT Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("LOOTLaunch", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
+			}
 			
 			Trace.Unindent();
 		}
@@ -59,6 +67,14 @@ namespace Nexus.Client.Games.Fallout3
 			Launch(strCommand, null);
 		}
 
+		private void LaunchLOOT()
+		{
+			Trace.TraceInformation("Launching LOOT");
+			Trace.Indent();
+			string strCommand = GetLOOTLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
 
 		/// <summary>
 		/// Gets the BOSS launch command.
@@ -95,6 +111,43 @@ namespace Nexus.Client.Games.Fallout3
 			}
 
 			return strBOSS;
+		}
+
+		/// <summary>
+		/// Gets the LOOT launch command.
+		/// </summary>
+		/// <returns>The LOOT launch command.</returns>
+		private string GetLOOTLaunchCommand()
+		{
+			bool booEmptySettings = true;
+			string strLOOT = String.Empty;
+			string strRegLOOT = String.Empty;
+			if (IntPtr.Size == 8)
+				strRegLOOT = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\LOOT\";
+			else
+				strRegLOOT = @"HKEY_LOCAL_MACHINE\SOFTWARE\LOOT\";
+
+			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("LOOT"))
+			{
+				strLOOT = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"];
+				booEmptySettings = false;
+			}
+
+			if (String.IsNullOrEmpty(strLOOT))
+				if (RegistryUtil.CanReadKey(strRegLOOT))
+					strLOOT = (string)Registry.GetValue(strRegLOOT, "Installed Path", null);
+
+			if (!String.IsNullOrEmpty(strLOOT))
+			{
+				if (booEmptySettings)
+				{
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = strLOOT;
+					EnvironmentInfo.Settings.Save();
+				}
+				strLOOT = Path.Combine(strLOOT, "LOOT.exe");
+			}
+
+			return strLOOT;
 		}
 		
 		#endregion
