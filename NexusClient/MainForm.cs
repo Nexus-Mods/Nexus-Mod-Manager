@@ -42,7 +42,7 @@ namespace Nexus.Client
 		private ModManagerControl mmgModManager = null;
 		private PluginManagerControl pmcPluginManager = null;
 		private DownloadMonitorControl dmcDownloadMonitor = null;
-		private ProfileManagerControl pmcProfileManager = null;
+		//private ProfileManagerControl pmcProfileManager = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
 		public string strOptionalPremiumMessage = string.Empty;
 		private bool m_booIsSwitching = false;
@@ -93,7 +93,7 @@ namespace Nexus.Client
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.PropertyChanged += new System.ComponentModel.PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
-				pmcProfileManager.ViewModel = m_vmlViewModel.ProfileManagerVM;
+				//pmcProfileManager.ViewModel = m_vmlViewModel.ProfileManagerVM;
 
 				this.ViewModel.ModRepository.UserStatusUpdate += new EventHandler(ModRepository_UserStatusUpdate);
 
@@ -146,7 +146,7 @@ namespace Nexus.Client
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
-			pmcProfileManager = new ProfileManagerControl();
+			//pmcProfileManager = new ProfileManagerControl();
 			dockPanel1.ActiveContentChanged += new EventHandler(dockPanel1_ActiveContentChanged);
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
@@ -276,15 +276,15 @@ namespace Nexus.Client
 				catch { }
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
-				if (!pmcProfileManager.Visible)
-					pmcProfileManager.Show(dockPanel1, DockState.Document);
+				//if (!pmcProfileManager.Visible)
+				//	pmcProfileManager.Show(dockPanel1, DockState.Document);
 			}
 			else
 			{
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
-				pmcProfileManager.DockState = DockState.Unknown;
+				//pmcProfileManager.DockState = DockState.Unknown;
 				dmcDownloadMonitor.DockState = DockState.Unknown;
 				dmcDownloadMonitor.ShowHint = DockState.DockBottomAutoHide;
 				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
@@ -993,8 +993,8 @@ namespace Nexus.Client
 				return mmgModManager;
 			else if (p_strContentId == typeof(DownloadMonitorControl).ToString())
 				return dmcDownloadMonitor;
-			else if (p_strContentId == typeof(ProfileManagerControl).ToString())
-				return pmcProfileManager;
+			//else if (p_strContentId == typeof(ProfileManagerControl).ToString())
+			//	return pmcProfileManager;
 			else
 				return null;
 		}

@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Nexus.Client.ModManagement
 {
-	public partial class VirtualModInfo : IVirtualModInfo, IEqualityComparer<IVirtualModInfo>
+	public partial class VirtualModInfo : IVirtualModInfo, IEquatable<IVirtualModInfo>, IEqualityComparer<IVirtualModInfo>
 	{
 		#region Properties
 
@@ -51,20 +51,31 @@ namespace Nexus.Client.ModManagement
 
 		public bool Equals(IVirtualModInfo a, IVirtualModInfo b)
 		{
-			if (a.ModFileName == b.ModFileName)
-			{
-				return true;
-			}
-			else
-			{
+			if (b == null)
 				return false;
-			}
+			return (a.ModFileName.Equals(b.ModFileName, StringComparison.InvariantCultureIgnoreCase));
 		}
 
 		public int GetHashCode(IVirtualModInfo a)
 		{
 			return a.GetHashCode();
 		}
+
+		#region IEquatable<IVirtualModLink>
+
+		public bool Equals(IVirtualModInfo other)
+		{
+			if (other == null) return false;
+			return (this.ModFileName.Equals(other.ModFileName, StringComparison.InvariantCultureIgnoreCase));
+		}
+
+		public bool Equals(VirtualModInfo other)
+		{
+			if (other == null) return false;
+			return (this.ModFileName.Equals(other.ModFileName, StringComparison.InvariantCultureIgnoreCase));
+		}
+
+		#endregion
 
 		#endregion
 	}
