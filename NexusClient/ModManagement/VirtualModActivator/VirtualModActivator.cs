@@ -679,7 +679,15 @@ namespace Nexus.Client.ModManagement
 					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename).ToLowerInvariant() == modLink.ModInfo.ModFileName.ToLowerInvariant());
 					RemoveFileLink(modLink, modMod, true);
 				}
-
+				
+				if (m_tslVirtualModList.Count > 0)
+				{
+					List<IVirtualModInfo> lstModInfo = m_tslVirtualModList.Select(x => x.ModInfo).Distinct().ToList();
+					List<IVirtualModInfo> lstMissing = m_tslVirtualModInfo.Except(lstModInfo, new VirtualModInfoEqualityComparer()).ToList();
+					if ((lstMissing != null) && (lstMissing.Count > 0))
+						m_tslVirtualModInfo.RemoveRange(lstMissing);
+				}
+				
 				SaveList();
 			}
 			return true;
@@ -1309,6 +1317,27 @@ namespace Nexus.Client.ModManagement
 			latActivatingMod.Update(p_camConfirm);
 			return latActivatingMod;
 		}
+
+		#endregion
+
+		#region VirtualModInfo EqualityComparer
+
+		private class VirtualModInfoEqualityComparer : IEqualityComparer<IVirtualModInfo>
+		{
+			public bool Equals(IVirtualModInfo x, IVirtualModInfo y)
+			{
+				if (object.ReferenceEquals(x, y))
+					return true;
+				if (x == null || y == null)
+					return false;
+				return (x.ModFileName.Equals(y.ModFileName, StringComparison.InvariantCultureIgnoreCase));
+			}
+
+			public int GetHashCode(IVirtualModInfo obj)
+			{
+				return obj.ModFileName.GetHashCode();
+ 			}
+ 		}
 
 		#endregion
 
