@@ -1630,12 +1630,6 @@ namespace Nexus.Client
 		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
 		private void spbProfiles_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
 		{
-			spbProfiles.DefaultItem = e.ClickedItem;
-			spbProfiles.Text = e.ClickedItem.Text;
-			toolStrip1.SuspendLayout();
-			spbProfiles.Image = e.ClickedItem.Image;
-			toolStrip1.ResumeLayout();
-
 			if (e.ClickedItem.Tag.GetType() == typeof(string))
 			{
 				string strCommand = e.ClickedItem.Tag.ToString();
@@ -1709,6 +1703,12 @@ namespace Nexus.Client
 			}
 			else
 			{
+				spbProfiles.DefaultItem = e.ClickedItem;
+				spbProfiles.Text = e.ClickedItem.Text;
+				toolStrip1.SuspendLayout();
+				spbProfiles.Image = e.ClickedItem.Image;
+				toolStrip1.ResumeLayout();
+
 				IModProfile impProfile = (IModProfile)e.ClickedItem.Tag;
 
 				if (impProfile != null)
