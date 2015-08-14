@@ -16,14 +16,14 @@ AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
-AppCopyright=Copyright © {#MyPublisher} 2011-2014
+AppCopyright=Copyright © {#MyPublisher} 2011-2015
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyPublisher}
 AppPublisher={#MyPublisher}
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
-OutputBaseFilename={#MyAppSetupName}-{#MyAppVersion}.6a
+OutputBaseFilename={#MyAppSetupName}-{#MyAppVersion}.7a
 DefaultGroupName={#MyAppSetupName}
 DefaultDirName={pf}\{#MyAppSetupName}
 UninstallDisplayName={#MyAppSetupName}
@@ -186,7 +186,7 @@ begin
 	msi31('3.1');
 #endif
 #ifdef use_dotnetfx45
-    dotnetfx45(2); // min allowed version is .netfx 4.5.2
+    //dotnetfx45(2); // min allowed version is .netfx 4.5.2
     //dotnetfx45(0); // min allowed version is .netfx 4.5.0
 #endif
 
