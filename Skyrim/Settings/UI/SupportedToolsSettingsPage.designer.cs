@@ -46,6 +46,10 @@
 			this.lblFNISPrompt = new System.Windows.Forms.Label();
 			this.tbxFNIS = new System.Windows.Forms.TextBox();
 			this.lblFNISLabel = new System.Windows.Forms.Label();
+			this.butSelectBS2Directory = new System.Windows.Forms.Button();
+			this.lblBS2Prompt = new System.Windows.Forms.Label();
+			this.tbxBS2 = new System.Windows.Forms.TextBox();
+			this.lblBS2Label = new System.Windows.Forms.Label();
 			this.butSelectTES5EditDirectory = new System.Windows.Forms.Button();
 			this.lblTES5EditPrompt = new System.Windows.Forms.Label();
 			this.tbxTES5Edit = new System.Windows.Forms.TextBox();
@@ -215,6 +219,46 @@
 			this.lblFNISLabel.TabIndex = 13;
 			this.lblFNISLabel.Text = "FNIS Directory:";
 			// 
+			// butSelectBS2Directory
+			// 
+			this.butSelectBS2Directory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+			this.butSelectBS2Directory.AutoSize = true;
+			this.butSelectBS2Directory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butSelectBS2Directory.Location = new System.Drawing.Point(394, 229);
+			this.butSelectBS2Directory.Name = "butSelectBS2Directory";
+			this.butSelectBS2Directory.Size = new System.Drawing.Size(26, 23);
+			this.butSelectBS2Directory.TabIndex = 12;
+			this.butSelectBS2Directory.Text = "...";
+			this.butSelectBS2Directory.UseVisualStyleBackColor = true;
+			this.butSelectBS2Directory.Click += new System.EventHandler(this.butSelectBS2Directory_Click);
+			// 
+			// lblBS2Prompt
+			// 
+			this.lblBS2Prompt.AutoSize = true;
+			this.lblBS2Prompt.Location = new System.Drawing.Point(3, 215);
+			this.lblBS2Prompt.Name = "lblBS2Prompt";
+			this.lblBS2Prompt.Size = new System.Drawing.Size(217, 13);
+			this.lblBS2Prompt.TabIndex = 14;
+			this.lblBS2Prompt.Text = "Select the directory where BodySlide 2 is installed:";
+			// 
+			// tbxBS2
+			// 
+			this.tbxBS2.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+						| System.Windows.Forms.AnchorStyles.Right)));
+			this.tbxBS2.Location = new System.Drawing.Point(130, 231);
+			this.tbxBS2.Name = "tbxBS2";
+			this.tbxBS2.Size = new System.Drawing.Size(250, 20);
+			this.tbxBS2.TabIndex = 10;
+			// 
+			// lblBS2Label
+			// 
+			this.lblBS2Label.AutoSize = true;
+			this.lblBS2Label.Location = new System.Drawing.Point(38, 234);
+			this.lblBS2Label.Name = "lblBS2Label";
+			this.lblBS2Label.Size = new System.Drawing.Size(79, 13);
+			this.lblBS2Label.TabIndex = 13;
+			this.lblBS2Label.Text = "BodySlide2 Directory:";
+			// 
 			// butSelectTES5EditDirectory
 			// 
 			this.butSelectTES5EditDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -320,6 +364,10 @@
 		private System.Windows.Forms.Label lblFNISPrompt;
 		private System.Windows.Forms.TextBox tbxFNIS;
 		private System.Windows.Forms.Label lblFNISLabel;
+		private System.Windows.Forms.Button butSelectBS2Directory;
+		private System.Windows.Forms.Label lblBS2Prompt;
+		private System.Windows.Forms.TextBox tbxBS2;
+		private System.Windows.Forms.Label lblBS2Label;
 		private System.Windows.Forms.Button butSelectTES5EditDirectory;
 		private System.Windows.Forms.Label lblTES5EditPrompt;
 		private System.Windows.Forms.TextBox tbxTES5Edit;

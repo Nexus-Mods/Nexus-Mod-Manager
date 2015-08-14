@@ -41,12 +41,14 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			BindingHelper.CreateFullBinding(tbxLOOT, () => tbxLOOT.Text, p_stsSettings, () => p_stsSettings.LOOTDirectory);
 			BindingHelper.CreateFullBinding(tbxWryeBashDirectory, () => tbxWryeBashDirectory.Text, p_stsSettings, () => p_stsSettings.WryeBashDirectory);
 			BindingHelper.CreateFullBinding(tbxFNIS, () => tbxFNIS.Text, p_stsSettings, () => p_stsSettings.FNISDirectory);
+			BindingHelper.CreateFullBinding(tbxBS2, () => tbxBS2.Text, p_stsSettings, () => p_stsSettings.BS2Directory);
 			BindingHelper.CreateFullBinding(tbxTES5Edit, () => tbxTES5Edit.Text, p_stsSettings, () => p_stsSettings.TES5EditDirectory);
 
 			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
 			lblLOOTPrompt.Text = String.Format(lblLOOTPrompt.Text, p_stsSettings.GameModeName);
 			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);
 			lblFNISPrompt.Text = String.Format(lblFNISPrompt.Text, p_stsSettings.GameModeName);
+			lblBS2Prompt.Text = String.Format(lblBS2Prompt.Text, p_stsSettings.GameModeName);
 			lblTES5EditPrompt.Text = String.Format(lblTES5EditPrompt.Text, p_stsSettings.GameModeName);			
 		}
 
@@ -133,6 +135,25 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
 			{
 				tbxFNIS.Text = fbdDirectory.SelectedPath;
+				//force the data binding on the textbox to push the value to the bound view model
+				ValidateChildren();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the selectBS2 button.
+		/// </summary>
+		/// <remarks>
+		/// This opens the folder selection dialog for BodySlide2.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butSelectBS2Directory_Click(object sender, EventArgs e)
+		{
+			fbdDirectory.SelectedPath = tbxBS2.Text;
+			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
+			{
+				tbxBS2.Text = fbdDirectory.SelectedPath;
 				//force the data binding on the textbox to push the value to the bound view model
 				ValidateChildren();
 			}

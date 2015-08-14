@@ -21,6 +21,7 @@ namespace Nexus.Client.Games.Skyrim
 		private string m_strWryeBashDirectory = null;
 		private string m_strFNISDirectory = null;
 		private string m_strTES5EditDirectory = null;
+		private string m_strBS2Directory = null;
 
 		#region Properties
 
@@ -125,6 +126,22 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
+		/// Gets or sets the path of the directory where BodySlide2 is installed.
+		/// </summary>
+		/// <value>The path of the directory where BodySlide2 is installed.</value>
+		public string BS2Directory
+		{
+			get
+			{
+				return m_strBS2Directory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strBS2Directory, value, () => BS2Directory);
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets the directory where TES5Edit is installed.
 		/// </summary>
 		/// <value>The directory where TES5Edit is installed.</value>
@@ -167,7 +184,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory are not equals;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty)
+		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBS2Path, string p_strBS2PathName, string p_strBS2Property, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty)
 		{
 			Errors.Clear(p_strBOSSProperty);
 			if (String.IsNullOrEmpty(p_strBOSSPath))
@@ -185,6 +202,12 @@ namespace Nexus.Client.Games.Skyrim
 			if (String.IsNullOrEmpty(p_strFNISPath))
 			{
 				Errors.SetError(p_strFNISProperty, String.Format("You must select a {0}.", p_strFNISPathName));
+				return false;
+			}
+			Errors.Clear(p_strBS2Property);
+			if (String.IsNullOrEmpty(p_strBS2Path))
+			{
+				Errors.SetError(p_strBS2Property, String.Format("You must select a {0}.", p_strBS2PathName));
 				return false;
 			}
 			Errors.Clear(p_strLOOTProperty);
@@ -275,6 +298,16 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
+		/// Validates the selected BodySlide2 directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected BodySlide2 directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateBS2Directory()
+		{
+			return ValidateDirectory(BS2Directory, "BodySlide2 Directory", ObjectHelper.GetPropertyName(() => BS2Directory));
+		}
+
+		/// <summary>
 		/// Validates the selected TES5Edit directory.
 		/// </summary>
 		/// <returns><c>true</c> if the selected TES5Edit directory is valid;
@@ -291,7 +324,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			if (ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory), WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory), FNISDirectory, "FNIS Directory", ObjectHelper.GetPropertyName(() => FNISDirectory), LOOTDirectory, "LOOT Directory", ObjectHelper.GetPropertyName(() => LOOTDirectory), TES5EditDirectory, "TES5Edit Directory", ObjectHelper.GetPropertyName(() => TES5EditDirectory)))
+			if (ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory), WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory), FNISDirectory, "FNIS Directory", ObjectHelper.GetPropertyName(() => FNISDirectory), BS2Directory, "BodySlide2 Directory", ObjectHelper.GetPropertyName(() => BS2Directory), LOOTDirectory, "LOOT Directory", ObjectHelper.GetPropertyName(() => LOOTDirectory), TES5EditDirectory, "TES5Edit Directory", ObjectHelper.GetPropertyName(() => TES5EditDirectory)))
 				return ValidateBOSSDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory();
 			else
 				return false;
@@ -310,6 +343,7 @@ namespace Nexus.Client.Games.Skyrim
 			string strLOOTReg = String.Empty;
 			string strWryePath = String.Empty;
 			string strFNISPath = String.Empty;
+			string strBS2Path = String.Empty;
 			string strTES5EditPath = String.Empty;
 
 			if (IntPtr.Size == 8)
@@ -364,6 +398,21 @@ namespace Nexus.Client.Games.Skyrim
 					FNISDirectory = strFNISPath;
 			}
 
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BS2"))
+			{
+				strBS2Path = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BS2"];
+
+				if (String.IsNullOrEmpty(strBS2Path))
+				{
+					string strBS2 = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\CalienteTools\BodySlide");
+					if (Directory.Exists(strBS2))
+						strBS2Path = strBS2;
+				}
+
+				if (!String.IsNullOrEmpty(strBS2Path))
+					BS2Directory = strBS2Path;
+			}
+
 			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit"))
 			{
 				strTES5EditPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"];
@@ -392,6 +441,9 @@ namespace Nexus.Client.Games.Skyrim
 
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("FNIS") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], FNISDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["FNIS"] = FNISDirectory;
+
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BS2") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], BS2Directory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BS2"] = BS2Directory;
 
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], TES5EditDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"] = TES5EditDirectory;

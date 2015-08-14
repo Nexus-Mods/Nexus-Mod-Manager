@@ -76,6 +76,14 @@ namespace Nexus.Client.Games.Skyrim
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
 				AddLaunchCommand(new Command("FNISLaunch", "Launch FNIS", "Launches FNIS.", imgIcon, LaunchFNIS, true));
 			}
+
+			strCommand = GetBS2LaunchCommand();
+			Trace.TraceInformation("BodySlide 2 Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("BS2Launch", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
+			}
 			
 			Trace.Unindent();
 		}
@@ -123,6 +131,15 @@ namespace Nexus.Client.Games.Skyrim
 			Trace.TraceInformation("Launching FNIS");
 			Trace.Indent();
 			string strCommand = GetFNISLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchBS2()
+		{
+			Trace.TraceInformation("Launching BodySlide 2");
+			Trace.Indent();
+			string strCommand = GetBS2LaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -252,7 +269,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// <summary>
 		/// Gets the FNIS launch command.
 		/// </summary>
-		/// <returns>The Wrye Bash launch command.</returns>
+		/// <returns>The FNIS launch command.</returns>
 		private string GetFNISLaunchCommand()
 		{
 			string strFNIS = String.Empty;
@@ -278,7 +295,37 @@ namespace Nexus.Client.Games.Skyrim
 
 			return strFNIS;
 		}
-		
+
+		/// <summary>
+		/// Gets the BodySlide 2 launch command.
+		/// </summary>
+		/// <returns>The BodySlide 2 launch command.</returns>
+		private string GetBS2LaunchCommand()
+		{
+			string strBS2 = String.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BS2"))
+			{
+				strBS2 = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
+				if (!String.IsNullOrEmpty(strBS2))
+					strBS2 = Path.Combine(strBS2, @"BodySlide.exe");
+			}
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BS2"))
+				strBS2 = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
+
+			if (String.IsNullOrEmpty(strBS2))
+			{
+				string strFNISPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
+				if (Directory.Exists(strFNISPath))
+					strBS2 = strFNISPath;
+			}
+			if (!String.IsNullOrEmpty(strBS2))
+				strBS2 = Path.Combine(strBS2, "BodySlide.exe");
+
+			return strBS2;
+		}
+
 		#endregion
 	}
 }
