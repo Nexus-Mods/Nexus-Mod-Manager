@@ -42,6 +42,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <value>Whether the task set has completed.</value>
 		public bool IsCompleted { get; private set; }
 
+		/// <summary>
+		/// Gets whether the executor is queued.
+		/// </summary>
+		/// <value>Whether the executor is queued.</value>
+		public bool IsQueued { get; set; }
+
 		#endregion
 
 		#region Event Raising

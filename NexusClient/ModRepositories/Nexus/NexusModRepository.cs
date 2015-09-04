@@ -432,6 +432,17 @@ namespace Nexus.Client.ModRepositories.Nexus
 					strCookie = nmrApi.Login(p_strUsername, p_strPassword);
 				}
 			}
+			catch (MessageHeaderException e)
+			{
+				//'NexusLoginErrorCode: 1' - 'Invalid username or password.'
+				//'NexusLoginErrorCode: 2' - 'Validation required in order to use the account.'
+				//'NexusLoginErrorCode: 3' - 'This account has been banned.'
+				//'NexusLoginErrorCode: 4' - 'Invalid login data.'
+
+				string strNexusLoginErrorCode = e.Message.Split('#')[0].Trim();
+				string strNexusLoginErrorMessage = e.Message.Split('#')[1].Trim();
+				throw new RepositoryUnavailableException(String.Format("{0}", strNexusLoginErrorMessage), e);
+			}
 			catch (TimeoutException e)
 			{
 				throw new RepositoryUnavailableException(String.Format("Timeout! Cannot reach the {0} login server.", Name), e);

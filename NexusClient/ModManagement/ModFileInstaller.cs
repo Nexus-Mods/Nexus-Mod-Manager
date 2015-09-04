@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using ChinhDo.Transactions;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -58,7 +59,7 @@ namespace Nexus.Client.ModManagement
 		protected IInstallLog InstallLog { get; set; }
 
 		/// <summary>
-		/// Gets manager to use to manage plugins.
+		/// Gets the manager to use to manage plugins.
 		/// </summary>
 		/// <value>The manager to use to manage plugins.</value>
 		protected IPluginManager PluginManager { get; private set; }
@@ -171,7 +172,7 @@ namespace Nexus.Client.ModManagement
 				strMessage = String.Format("Data file '{{0}}' has already been installed by '{0}'", modOld.ModName);
 				if (booFIDataPath)
 					strMessage += " and is ReadOnly.";
-				strMessage += Environment.NewLine + "Overwrite with this mod's file?";
+				strMessage += Environment.NewLine + String.Format("Overwrite with {0} mod's file?", Mod.ModName);
 			}
 			else
 			{
@@ -180,7 +181,7 @@ namespace Nexus.Client.ModManagement
 					strMessage += " and is ReadOnly.";
 				else
 					strMessage += ".";
-				strMessage += Environment.NewLine + "Overwrite with this mod's file?";
+				strMessage += Environment.NewLine + String.Format("Overwrite with {0} mod's file?", Mod.ModName);
 			}
 			if (booFIDataPath)
 			{
@@ -285,13 +286,19 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_strModFilePath">The path of the file in the Mod to install.</param>
 		/// <param name="p_strInstallPath">The path on the file system where the file is to be installed.</param>
-		/// <param name="p_booSecondaryInstallPath">Whether to use the secondary install path.</param>
 		/// <returns><c>true</c> if the file was written; <c>false</c> if the user chose
 		/// not to overwrite an existing file.</returns>
 		public bool InstallFileFromMod(string p_strModFilePath, string p_strInstallPath)
 		{
-			byte[] bteModFile = Mod.GetFile(p_strModFilePath);
-			return GenerateDataFile(p_strInstallPath, bteModFile);
+			try
+			{
+				byte[] bteModFile = Mod.GetFile(p_strModFilePath);
+				return GenerateDataFile(p_strInstallPath, bteModFile);
+			}
+			catch (FileNotFoundException)
+			{
+				return false;
+			}
 		}
 
 		/// <summary>

@@ -10,6 +10,8 @@ using Nexus.Client.DownloadMonitoring.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Tools;
+using Nexus.Client.ModActivationMonitoring;
+using Nexus.Client.ModActivationMonitoring.UI;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.ModRepositories;
@@ -131,42 +133,50 @@ namespace Nexus.Client
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
-		/// and operations for diaplying the mod manager.
+		/// and operations for displaying the mod manager.
 		/// </summary>
 		/// <value>The view model that encapsulates the data
-		/// and operations for diaplying the mod manager.</value>
+		/// and operations for displaying the mod manager.</value>
 		public ModManagerVM ModManagerVM { get; private set; }
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
-		/// and operations for diaplying the plugin manager.
+		/// and operations for displaying the plugin manager.
 		/// </summary>
 		/// <value>The view model that encapsulates the data
-		/// and operations for diaplying the plugin manager.</value>
+		/// and operations for displaying the plugin manager.</value>
 		public PluginManagerVM PluginManagerVM { get; private set; }
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
-		/// and operations for diaplying the download monitor.
+		/// and operations for displaying the download monitor.
 		/// </summary>
 		/// <value>The view model that encapsulates the data
-		/// and operations for diaplying the download monitor.</value>
+		/// and operations for displaying the download monitor.</value>
 		public DownloadMonitorVM DownloadMonitorVM { get; private set; }
+ 
+        /// <summary>
+ 		/// Gets the view model that encapsulates the data
+		/// and operations for displaying the mod activation monitor.
+		/// </summary>
+		/// <value>The view model that encapsulates the data
+		/// and operations for displaying the mod activation monitor.</value>
+		public ModActivationMonitorVM ModActivationMonitorVM { get; private set; }
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
-		/// and operations for diaplying the Profile manager.
+		/// and operations for displaying the Profile manager.
 		/// </summary>
 		/// <value>The view model that encapsulates the data
-		/// and operations for diaplying the Profile manager.</value>
+		/// and operations for displaying the Profile manager.</value>
 		public ProfileManagerVM ProfileManagerVM { get; private set; }
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data
-		/// and operations for diaplying the settings view.
+		/// and operations for displaying the settings view.
 		/// </summary>
 		/// <value>The view model that encapsulates the data
-		/// and operations for diaplying the settings view.</value>
+		/// and operations for displaying the settings view.</value>
 		public SettingsFormVM SettingsFormVM { get; private set; }
 
 		/// <summary>
@@ -377,7 +387,7 @@ namespace Nexus.Client
 		/// <param name="p_umgUpdateManager">The update manager to use to perform updates.</param>
 		/// <param name="p_mmgModManager">The <see cref="ModManager"/> to use to manage mods.</param>
 		/// <param name="p_pmgPluginManager">The <see cref="PluginManager"/> to use to manage plugins.</param>
-		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
+		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, ModActivationMonitor p_mamMonitor, UpdateManager p_umgUpdateManager, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
@@ -391,6 +401,7 @@ namespace Nexus.Client
 			if (GameMode.UsesPlugins)
 				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode);
 			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository);
+			ModActivationMonitorVM = new ModActivationMonitorVM(p_mamMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager);
 			ProfileManagerVM = new ProfileManagerVM(ProfileManager, ModManager.ManagedMods, ModRepository, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 

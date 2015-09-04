@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadMonitoring;
 using Nexus.Client.Games;
+using Nexus.Client.ModActivationMonitoring;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -44,6 +46,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_mrpModRepository">The mod repository from which to get mods and mod metadata.</param>
 		/// <param name="p_dmrMonitor">The download monitor to use to track task progress.</param>
+		/// <param name="p_mamMonitor">The mod activation monitor to use to track task progress.</param>
 		/// <param name="p_frgFormatRegistry">The <see cref="IModFormatRegistry"/> that contains the list
 		/// of supported <see cref="IModFormat"/>s.</param>
 		/// <param name="p_mrgModRegistry">The <see cref="ModRegistry"/> that contains the list
@@ -55,11 +58,11 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The initialized mod manager.</returns>
 		/// <exception cref="InvalidOperationException">Thrown if the mod manager has already
 		/// been initialized.</exception>
-		public static ModManager Initialize(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mrgModRegistry, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
+		public static ModManager Initialize(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, ModActivationMonitor p_mamMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mrgModRegistry, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
 		{
 			if (m_mmgCurrent != null)
 				throw new InvalidOperationException("The Mod Manager has already been initialized.");
-			m_mmgCurrent = new ModManager(p_gmdGameMode, p_eifEnvironmentInfo, p_mrpModRepository, p_dmrMonitor, p_frgFormatRegistry, p_mrgModRegistry, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager);
+			m_mmgCurrent = new ModManager(p_gmdGameMode, p_eifEnvironmentInfo, p_mrpModRepository, p_dmrMonitor, p_mamMonitor, p_frgFormatRegistry, p_mrgModRegistry, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager);
 			return m_mmgCurrent;
 		}
 
@@ -129,6 +132,12 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <value>The download monitor to use to display status.</value>
 		protected DownloadMonitor DownloadMonitor { get; private set; }
+
+        /// <summary>
+		/// Gets the mod activation monitor to use to display status.
+		/// </summary>
+		/// <value>The mod activation monitor to use to display status.</value>
+		public ModActivationMonitor ModActivationMonitor { get; private set; }
 
 		/// <summary>
 		/// Gets the <see cref="ModInstallerFactory"/> to use to create
@@ -302,6 +311,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_mrpModRepository">The mod repository from which to get mods and mod metadata.</param>
 		/// <param name="p_dmrMonitor">The download monitor to use to track task progress.</param>
+		/// <param name="p_mamMonitor">The mod activation monitor to use to track task progress.</param>
 		/// <param name="p_frgFormatRegistry">The <see cref="IModFormatRegistry"/> that contains the list
 		/// of supported <see cref="IModFormat"/>s.</param>
 		/// <param name="p_mdrManagedModRegistry">The <see cref="ModRegistry"/> that contains the list
@@ -310,7 +320,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <param name="p_ilgInstallLog">The install log tracking mod activations for the current game mode.</param>
 		/// <param name="p_pmgPluginManager">The plugin manager to use to work with plugins.</param>
-		private ModManager(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mdrManagedModRegistry, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
+		private ModManager(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, ModActivationMonitor p_mamMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mdrManagedModRegistry, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
 		{
 			GameMode = p_gmdGameMode;
 			EnvironmentInfo = p_eifEnvironmentInfo;
@@ -323,6 +333,7 @@ namespace Nexus.Client.ModManagement
 			m_vmaVirtualModActivator.Initialize();
 			InstallerFactory = new ModInstallerFactory(p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager, m_vmaVirtualModActivator);
 			DownloadMonitor = p_dmrMonitor;
+			ModActivationMonitor = p_mamMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
             LoginTask = new LoginFormTask(this);
@@ -410,6 +421,7 @@ namespace Nexus.Client.ModManagement
 			ModDeleter mddDeleter = InstallerFactory.CreateDelete(p_modMod, p_rolActiveMods);
 			mddDeleter.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(Deactivator_TaskSetCompleted);
 			mddDeleter.Install();
+			DeleteXMLInstalledFile(p_modMod);
 			return mddDeleter;
 		}
 
@@ -441,6 +453,7 @@ namespace Nexus.Client.ModManagement
 		{
 			if (InstallationLog.ActiveMods.Contains(p_modMod))
 				return null;
+			DeleteXMLInstalledFile(p_modMod);
 			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
 		}
 
@@ -490,6 +503,7 @@ namespace Nexus.Client.ModManagement
 				return null;
 			ModUninstaller munUninstaller = InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods);
 			munUninstaller.Install();
+			DeleteXMLInstalledFile(p_modMod);
 			return munUninstaller;
 		}
 
@@ -729,5 +743,15 @@ namespace Nexus.Client.ModManagement
 		}
 
 		#endregion
+
+		/// <summary>
+		/// If the mod is scripted, deletes the XMLInstalledFiles file inside the InstallInfo\Scripted folder.
+		/// </summary>
+		private void DeleteXMLInstalledFile(IMod p_modMod)
+		{
+			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
+			if (File.Exists(strInstallFilesPath))
+				FileUtil.ForceDelete(strInstallFilesPath);
+		}
 	}
 }

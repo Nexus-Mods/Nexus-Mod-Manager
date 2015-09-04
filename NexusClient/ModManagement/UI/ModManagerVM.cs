@@ -151,7 +151,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// The commands takes an argument describing the mod to be activated.
 		/// </remarks>
 		/// <value>The command to activate a mod.</value>
-		public Command<IMod> ActivateModCommand { get; private set; }
+		public Command<List<IMod>> ActivateModCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the command to deactivate a mod.
@@ -275,6 +275,10 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		/// <summary>
+		/// Gets the parent form.
+		/// </summary>
+		/// <value>The parent form.</value>
 		public Control ParentForm
 		{
 			get
@@ -314,7 +318,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
-			ActivateModCommand = new Command<IMod>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMod);
+			ActivateModCommand = new Command<List<IMod>>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMods);
 			DisableModCommand = new Command<IMod>("Disable Mod", "Disables the selected mod.", DisableMod);
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
 
@@ -423,7 +427,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// Activates the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to activate.</param>
-		protected void ActivateMod(IMod p_modMod)
+		public void ActivateMod(IMod p_modMod)
 		{
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (String.IsNullOrEmpty(strErrorMessage))
@@ -432,10 +436,37 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
 					if (btsInstall != null)
-						ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
+						ModManager.ModActivationMonitor.AddActivity(btsInstall);
 				}
 				else
 					EnableMod(p_modMod);
+			}
+			else
+			{
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+		}
+
+		/// <summary>
+		/// Activates the given mod.
+		/// </summary>
+		/// <param name="p_lstMod">The mods to activate.</param>
+		public void ActivateMods(List<IMod> p_lstMod)
+		{
+			string strErrorMessage = ModManager.RequiredToolErrorMessage;
+			if (String.IsNullOrEmpty(strErrorMessage))
+			{
+				foreach (IMod modMod in p_lstMod)
+				{
+					if (!ActiveMods.Contains(modMod))
+					{
+						IBackgroundTaskSet btsInstall = ModManager.ActivateMod(modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+						if (btsInstall != null)
+							ModManager.ModActivationMonitor.AddActivity(btsInstall);
+					}
+					else
+						EnableMod(modMod);
+				}
 			}
 			else
 			{
@@ -452,7 +483,30 @@ namespace Nexus.Client.ModManagement.UI
 			VirtualModActivator.DisableMod(p_modMod);
 
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
-			ChangingModActivation(this, new EventArgs<IBackgroundTaskSet>(btsUninstall));
+			if (btsUninstall != null)
+				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+		}
+
+		/// <summary>
+		/// Deactivates the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to deactivate.</param>
+		protected void DeactivateMods(List<IMod> p_lstMod)
+		{
+			string strErrorMessage = ModManager.RequiredToolErrorMessage;
+			if (String.IsNullOrEmpty(strErrorMessage))
+			{
+				foreach (IMod modMod in p_lstMod)
+				{
+					IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(modMod, ModManager.ActiveMods);
+					if (btsUninstall != null)
+						ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+				}
+			}
+			else
+			{
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
 		}
 
 		/// <summary>

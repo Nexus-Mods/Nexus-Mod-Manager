@@ -36,6 +36,7 @@ namespace Nexus.Client.ModManagement.UI
 		public event EventHandler SetTextBoxFocus;
 		public event EventHandler ResetSearchBox;
 		public event EventHandler UninstallModFromProfiles;
+		public event EventHandler UpdateModsCount;
 
 		#region Properties
 
@@ -87,7 +88,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ConfirmModUpgrade = ConfirmModUpgrade;
 
 				new ToolStripItemCommandBinding<IMod>(tsbDeleteMod, m_vmlViewModel.DeleteModCommand, GetSelectedMod);
-				new ToolStripItemCommandBinding<IMod>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMod);
+				new ToolStripItemCommandBinding<List<IMod>>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMods);
 				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DisableModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
 				Command cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
@@ -317,11 +318,24 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Retruns the mod that is currently selected in the view.
+		/// </summary>
+		/// <returns>The mod that is currently selected in the view, or
+		/// <c>null</c> if no mod is selected.</returns>
+		private List<IMod> GetSelectedMods()
+		{
+			if ((clwCategoryView.Visible && (clwCategoryView.SelectedIndices.Count == 0)) || (clwCategoryView.GetSelectedItem == null))
+				return null;
+			else
+				return clwCategoryView.GetSelectedItems.OfType<IMod>().ToList();
+		}
+
+		/// <summary>
 		/// Sets the executable status of the commands.
 		/// </summary>
 		public void SetCommandExecutableStatus()
 		{
-			if (((clwCategoryView.SelectedIndices.Count > 0) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
+			if ((((clwCategoryView.SelectedIndices.Count > 0) || (clwCategoryView.SelectedObjects.Count > 0)) && clwCategoryView.Visible && (clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))))
 			{
 				if (clwCategoryView.Visible)
 					ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(GetSelectedMod().Filename).ToLowerInvariant());
@@ -585,6 +599,7 @@ namespace Nexus.Client.ModManagement.UI
 				// Enables installing/uninstalling mods using the double click; if a category is clicked it will be expanded/collapsed
 				this.clwCategoryView.CellClick += delegate(object sender, BrightIdeasSoftware.CellClickEventArgs e)
 				{
+					clwCategoryView.RetrieveVirtualItem += new RetrieveVirtualItemEventHandler(clwCategoryView_RetrieveVirtualItem);
 					if ((e.ClickCount == 2) && (e.Item != null))
 					{
 						try
@@ -606,7 +621,7 @@ namespace Nexus.Client.ModManagement.UI
 									if (ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(modMod.Filename).ToLowerInvariant()))
 										ViewModel.DisableModCommand.Execute(modMod);
 									else
-										ViewModel.ActivateModCommand.Execute(modMod);
+										ViewModel.ActivateModCommand.Execute(new List<IMod>() { modMod });
 								}
 							}
 						}
@@ -684,6 +699,15 @@ namespace Nexus.Client.ModManagement.UI
 				if (ViewModel.Settings.ShowExpandedCategories)
 					clwCategoryView.ExpandAll();
 			}
+		}
+
+		/// <summary>
+		//The Shift Key + mouse click event 
+		/// </summary>
+		void clwCategoryView_RetrieveVirtualItem(object sender,RetrieveVirtualItemEventArgs e)
+		{
+			clwCategoryView.RetrieveVirtualItem -= new RetrieveVirtualItemEventHandler(clwCategoryView_RetrieveVirtualItem);
+			SetCommandExecutableStatus();
 		}
 
 		/// <summary>
@@ -1405,6 +1429,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 
 			clwCategoryView.ReloadList(false);
+			UpdateModsCount(this, e);
 			SetCommandExecutableStatus();
 		}
 
@@ -1428,6 +1453,10 @@ namespace Nexus.Client.ModManagement.UI
 				//clwCategoryView.RefreshObject((IMod)sender);
 				clwCategoryView.ReloadList(true);
 			}
+
+			if (clwCategoryView.CategoryModeEnabled)
+				clwCategoryView.RefreshObject((IMod)sender);
+
 			if (!m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 				UpdateSummary((IMod)sender);
 		}
@@ -1609,6 +1638,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (!clwCategoryView.CategoryModeEnabled)
 				clwCategoryView.ReloadList(true);
 
+			UpdateModsCount(this, e);
 			SetCommandExecutableStatus();
 		}
 

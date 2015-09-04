@@ -71,11 +71,9 @@ namespace Nexus.Client.ModManagement
 			{
 				case ConfirmUpgradeResult.Upgrade:
 					ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(modOldVersion, p_modMod, p_dlgOverwriteConfirmationDelegate);
-					muiUpgrader.Install();
 					return muiUpgrader;
 				case ConfirmUpgradeResult.NormalActivation:
 					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
-					minInstaller.Install();
 					return minInstaller;
 				case ConfirmUpgradeResult.Cancel:
 					return null;

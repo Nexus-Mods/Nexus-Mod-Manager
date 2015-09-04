@@ -38,6 +38,12 @@ namespace Nexus.Client.BackgroundTasks
 		/// <value>Whether the task set has completed.</value>
 		bool IsCompleted { get; }
 
+		/// <summary>
+		/// Gets whether the task set is queued.
+		/// </summary>
+		/// <value>Whether the task set is queued.</value>
+		bool IsQueued { get; set; }
+
 		#endregion
 
 		/// <summary>
