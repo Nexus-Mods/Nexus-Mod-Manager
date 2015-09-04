@@ -17,6 +17,8 @@ namespace Nexus.Client.ModManagement
 	/// </summary>
 	public class ModUninstaller : ModInstallerBase
 	{
+		private ModManager m_mmModManager = null;
+
 		#region Properties
 
 		/// <summary>
@@ -195,9 +197,12 @@ namespace Nexus.Client.ModManagement
 
 			if (mfiFileInstaller.InstallErrors.Count > 0)
 			{
-				p_strErrorMessage = Environment.NewLine + "The manager was unable to remove these files:" + Environment.NewLine;
+				p_strErrorMessage = Environment.NewLine + "There were issues while installing/uninstalling this mod:" + Environment.NewLine;
 				foreach (string strPath in mfiFileInstaller.InstallErrors)
-					p_strErrorMessage += strPath + Environment.NewLine;
+					DetailsErrorMessage += strPath + Environment.NewLine;
+
+				PopupErrorMessage = p_strErrorMessage;
+				PopupErrorMessageType = butTask.strPopupErrorMessageType;
 			}
 
 			mfiFileInstaller.FinalizeInstall();

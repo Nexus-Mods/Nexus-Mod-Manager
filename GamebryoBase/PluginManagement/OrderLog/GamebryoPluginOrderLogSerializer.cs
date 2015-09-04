@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
+using System.Linq;
+using Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder;
+using Nexus.Client.Games.Gamebryo.PluginManagement.Sorter;
+using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Plugins;
 
@@ -15,10 +18,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog
 		#region Properties
 
 		/// <summary>
-		/// Gets the BOSS plugin sorter.
+		/// Gets the LoadOrder plugin manager.
 		/// </summary>
-		/// <value>The BOSS plugin sorter.</value>
-		protected BossSorter BossSorter { get; private set; }
+		/// <value>The LoadOrder plugin manager.</value>
+		protected ILoadOrderManager LoadOrderManager { get; private set; }
+
+
+		/// <summary>
+		/// Gets the Plugin sorter.
+		/// </summary>
+		/// <value>The Plugin sorter.</value>
+		protected PluginSorter PluginSorter { get; private set; }
 
 		#endregion
 
@@ -27,10 +37,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog
 		/// <summary>
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
-		/// <param name="p_bstBoss">The BOSS instance to use to set plugin order.</param>
-		public GamebryoPluginOrderLogSerializer(BossSorter p_bstBoss)
+		/// <param name="p_bstPluginSorter">The PluginSorter instance to use to set plugin order.</param>
+		public GamebryoPluginOrderLogSerializer(ILoadOrderManager p_bstLoadOrder, PluginSorter p_bstPluginSorter)
 		{
-			BossSorter = p_bstBoss;
+			LoadOrderManager = p_bstLoadOrder;
+			PluginSorter = p_bstPluginSorter;
 		}
 
 		#endregion
@@ -43,8 +54,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog
 		/// <returns>The ordered list of plugins.</returns>
 		public IEnumerable<string> LoadPluginOrder()
 		{
-			Trace.TraceInformation("Getting Plugin Load Order from BOSS...");
-			return new List<string>(BossSorter.GetLoadOrder());
+			Trace.TraceInformation("Getting Plugin Load Order from the load order manager...");
+			return new List<string>(LoadOrderManager.GetLoadOrder());
 		}
 
 		/// <summary>
@@ -56,7 +67,26 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.OrderLog
 			string[] strPlugins = new string[p_lstOrderedPlugins.Count];
 			for (Int32 i = 0; i < p_lstOrderedPlugins.Count; i++)
 				strPlugins[i] = p_lstOrderedPlugins[i].Filename;
-			BossSorter.SetLoadOrder(strPlugins);
+			LoadOrderManager.SetLoadOrder(strPlugins);
+		}
+
+		/// <summary>
+		/// Sorts the plugins.
+		/// </summary>
+		/// <param name="p_lstOrderedPlugins">The list of ordered plugins.</param>
+		public string[] SortPlugins(IList<Plugin> p_lstOrderedPlugins)
+		{
+			string[] lstSortedPlugins = null;
+
+			if (PluginSorter != null)
+			{
+				string[] strPlugins = new string[p_lstOrderedPlugins.Count];
+				for (Int32 i = 0; i < p_lstOrderedPlugins.Count; i++)
+					strPlugins[i] = p_lstOrderedPlugins[i].Filename;
+				lstSortedPlugins = PluginSorter.SortPlugins(strPlugins);
+			}
+
+			return lstSortedPlugins;
 		}
 
 		#endregion

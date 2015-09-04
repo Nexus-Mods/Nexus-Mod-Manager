@@ -51,6 +51,24 @@ namespace Nexus.Client.ModManagement
 		#region Properties
 
 		/// <summary>
+		/// Gets the current error message.
+		/// </summary>
+		/// <value>The current error message.</value>
+		public string PopupErrorMessage { get; protected set; }
+
+		/// <summary>
+		/// Gets the current error message type.
+		/// </summary>
+		/// <value>The current error message type.</value>
+		public string PopupErrorMessageType { get; protected set; }
+
+		/// <summary>
+		/// Gets the current error message details.
+		/// </summary>
+		/// <value>The current error message details.</value>
+		public string DetailsErrorMessage { get; protected set; }
+
+		/// <summary>
 		/// Gets whether the task set has completed.
 		/// </summary>
 		/// <value>Whether the task set has completed.</value>

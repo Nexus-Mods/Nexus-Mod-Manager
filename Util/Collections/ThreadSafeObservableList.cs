@@ -432,7 +432,10 @@ namespace Nexus.Client.Util.Collections
 				m_rwlLock.EnterWriteLock();
 				tItem = m_lstItems[p_intFromIndex];
 				m_lstItems.RemoveAt(p_intFromIndex);
-				m_lstItems.Insert(p_intToIndex, tItem);
+				if (p_intToIndex >= m_lstItems.Count)
+					m_lstItems.Add(tItem);
+				else
+					m_lstItems.Insert(p_intToIndex, tItem);
 			}
 			finally
 			{

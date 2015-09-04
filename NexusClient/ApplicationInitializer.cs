@@ -603,7 +603,7 @@ namespace Nexus.Client
 			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = "Install Info";
 			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory)))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Categories";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Mods";
 			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath] = "Install Path";
 
@@ -624,6 +624,19 @@ namespace Nexus.Client
 
 				if (!UacCheck(kvpUacCheckPath.Key))
 				{
+					if (!Directory.Exists(Path.GetPathRoot(kvpUacCheckPath.Key)))
+					{
+						Trace.TraceError("Unable to access: " + kvpUacCheckPath.Key);
+						string strHDMessage = "Unable to access:" + Environment.NewLine + kvpUacCheckPath.Key;
+						string strHDDetails = String.Format("This error usually happens when you set one of the {0} folders on a hard drive that is no longer in your system:" +
+											 Environment.NewLine + Environment.NewLine + "Select this game mode again to go back to the folder setup screen and make sure the {1} path is correct.",
+											EnvironmentInfo.Settings.ModManagerName, kvpUacCheckPath.Value);
+						p_vwmErrorMessage = new ViewMessage(strHDMessage, strHDDetails, "Warning", MessageBoxIcon.Warning);
+						EnvironmentInfo.Settings.CompletedSetup[p_gmdGameMode.ModeId] = false;
+						EnvironmentInfo.Settings.Save();
+						return false;
+					}
+
 					Trace.TraceError("Unable to get write permissions for: " + kvpUacCheckPath.Key);
 					string strMessage = "Unable to get write permissions for:" + Environment.NewLine + kvpUacCheckPath.Key;
 					string strDetails = String.Format("This error happens when you are running Windows Vista or later, and have put {0}'s <b>{1}</b> folder in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
+namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 {
 	/// <summary>
 	/// Marshals strings to and from unmanaged code.

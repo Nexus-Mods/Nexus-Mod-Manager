@@ -475,6 +475,18 @@ namespace Nexus.Client.Games
 		public abstract bool UsesPlugins { get; }
 
 		/// <summary>
+		/// Gets whether the game mode supports the automatic sorting
+		/// functionality for plugins.
+		/// </summary>
+		public virtual bool SupportsPluginAutoSorting
+		{
+			get
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Gets the directory where the game plugins are installed.
 		/// </summary>
 		/// <value>The directory where the game plugins are installed.</value>
@@ -749,9 +761,19 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
-		/// Checks whether the system needs to uninstal secondary parameters.
+		/// Automatically sorts the given plugin list.
 		/// </summary>
-		/// <returns>Whether the system needs to uninstal secondary parameters.</returns>
+		/// <returns>The sorted list.</returns>
+		/// <param name="p_lstPlugins">The plugin list to sort.</param>
+		public virtual string[] SortPlugins(IList<Plugin> p_lstPlugins)
+		{
+			return null;
+		}
+
+		/// <summary>
+		/// Checks whether the system needs to uninstall secondary parameters.
+		/// </summary>
+		/// <returns>Whether the system needs to uninstall secondary parameters.</returns>
 		/// <param name="p_strFileName">The filename.</param>
 		public virtual bool CheckSecondaryUninstall(string p_strFileName)
 		{

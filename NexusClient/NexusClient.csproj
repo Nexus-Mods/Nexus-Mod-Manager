@@ -160,6 +160,7 @@
     <Compile Include="ModManagement\VirtualModLink.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
+    <Compile Include="PluginManagement\AutoPluginSortingTask.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="ActivityMonitoring\UI\ActivityMonitorControl.resx">
@@ -376,6 +377,7 @@
     <None Include="Resources\format-line-spacing-triple.png" />
     <None Include="Resources\supported_tools.png" />
     <None Include="Resources\round_loading.GIF" />
+    <None Include="Resources\edit_delete_16.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />

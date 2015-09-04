@@ -6,6 +6,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using Nexus.Client.BackgroundTasks;
+using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
@@ -58,6 +60,8 @@ namespace Nexus.Client.PluginManagement.UI
 				m_vmlViewModel.ImportFailed += new EventHandler<ImportFailedEventArgs>(ViewModel_ImportFailed);
 				m_vmlViewModel.ImportPartiallySucceeded += new EventHandler<ImportSucceededEventArgs>(ViewModel_ImportPartiallySucceeded);
 				m_vmlViewModel.ImportSucceeded += new EventHandler<ImportSucceededEventArgs>(ViewModel_ImportSucceeded);
+				m_vmlViewModel.SortingPlugins += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_SortingPlugins);
+				m_vmlViewModel.ManagingMultiplePlugins += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ManagingMultiplePlugins);
 
 				new ToolStripItemCommandBinding<IEnumerable<Plugin>>(tsbMoveUp, m_vmlViewModel.MoveUpCommand, GetSelectedPlugins);
 				new ToolStripItemCommandBinding<IList<Plugin>>(tsbMoveDown, m_vmlViewModel.MoveDownCommand, GetSelectedPlugins);
@@ -452,6 +456,49 @@ namespace Nexus.Client.PluginManagement.UI
 				return;
 			ListViewItem lviPlugin = rlvPlugins.Items[p_plgActivated.Filename.ToLowerInvariant()];
 			SetPluginActivationCheck(lviPlugin, p_booIsActive);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="PluginManagerVM.SortingPlugins"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_SortingPlugins(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_SortingPlugins, sender, e);
+				return;
+			}
+			ProgressDialog.ShowDialog(this, e.Argument);
+
+			if (e.Argument.ReturnValue == null)
+			{
+				MessageBox.Show("Nexus Mod Manager was unable to perform the automatic plugin sorting." +
+					Environment.NewLine + Environment.NewLine + "Restart the mod manager and retry.",
+					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="PluginManagerVM.ManagingMultiplePlugins"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_ManagingMultiplePlugins(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ManagingMultiplePlugins, sender, e);
+				return;
+			}
+			ProgressDialog.ShowDialog(this, e.Argument);
 		}
 
 		/// <summary>

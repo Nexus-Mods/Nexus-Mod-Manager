@@ -133,7 +133,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			    {
 				    Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(strPlugin);
 				    Trace.TraceInformation("Loading {0} (IsNull={1})", strPlugin, (plgPlugin == null));
-				    if (plgPlugin != null) 
+					if ((plgPlugin != null) && !m_oclOrderedPlugins.Contains(plgPlugin))
 						m_oclOrderedPlugins.Add(plgPlugin);
 			    }
 			Trace.Unindent();
@@ -201,7 +201,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 		}
 
 		/// <summary>
-		/// Sets the load order of the specifid plugin.
+		/// Sets the load order of the specified plugin.
 		/// </summary>
 		/// <param name="p_plgPlugin">The full path to the plugin file whose load order is to be set.</param>
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>

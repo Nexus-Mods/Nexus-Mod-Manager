@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
-using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
+using System.Linq;
+using Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder;
+using Nexus.Client.PluginManagement;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Plugins;
@@ -27,10 +29,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		protected IPluginOrderLog PluginOrderLog { get; private set; }
 
 		/// <summary>
-		/// Gets the BOSS plugin sorter.
+		/// Gets the LoadOrder plugin manager.
 		/// </summary>
-		/// <value>The BOSS plugin sorter.</value>
-		protected BossSorter BossSorter { get; private set; }
+		/// <value>The LoadOrder plugin manager.</value>
+		protected ILoadOrderManager LoadOrderManager { get; private set; }
 
 		#endregion
 
@@ -41,12 +43,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		/// </summary>
 		/// <param name="p_gmdGameMode">The current game mode.</param>
 		/// <param name="p_polPluginOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the current game mode.</param>
-		/// <param name="p_bstBoss">The BOSS instance to use to set plugin order.</param>
-		public GamebryoActivePluginLogSerializer(IGameMode p_gmdGameMode, IPluginOrderLog p_polPluginOrderLog, BossSorter p_bstBoss)
+		/// <param name="p_bstLoadOrder">The LoadOrder instance to use to set plugin order.</param>
+		public GamebryoActivePluginLogSerializer(IGameMode p_gmdGameMode, IPluginOrderLog p_polPluginOrderLog, ILoadOrderManager p_bstLoadOrder)
 		{
 			GameMode = p_gmdGameMode;
 			PluginOrderLog = p_polPluginOrderLog;
-			BossSorter = p_bstBoss;
+			LoadOrderManager = p_bstLoadOrder;
 		}
 
 		#endregion
@@ -57,7 +59,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		/// <returns>The list of active plugins.</returns>
 		public IEnumerable<string> LoadPluginLog()
 		{
-			return BossSorter.GetActivePlugins();
+			return LoadOrderManager.GetActivePlugins();
 		}
 
 		/// <summary>
@@ -68,10 +70,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 		{
 			if (p_lstActivePlugins.IsNullOrEmpty())
 			{
-				BossSorter.SetActivePlugins(GameMode.OrderedCriticalPluginNames);
+				LoadOrderManager.SetActivePlugins(GameMode.OrderedCriticalPluginNames);
 				return;
 			}
-			
+
 			List<string> lstPlugins = new List<string>();
 			foreach (Plugin plgPlugin in p_lstActivePlugins)
 				lstPlugins.Add(plgPlugin.Filename);
@@ -80,13 +82,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 			List<string> lstActivePlugins = new List<string>();
 			foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
 			{
-				lstPlugins.Remove(strPlugin);
-				lstActivePlugins.Add(strPlugin);
+				lstPlugins.RemoveAll(x => x.Equals(strPlugin, StringComparison.CurrentCultureIgnoreCase));
+				if (!lstActivePlugins.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+					lstActivePlugins.Add(strPlugin);
 			}
 			foreach (Plugin plgPlugin in PluginOrderLog.OrderedPlugins)
-				if (lstPlugins.Contains(plgPlugin.Filename))
-					lstActivePlugins.Add(plgPlugin.Filename);
-			BossSorter.SetActivePlugins(lstActivePlugins.ToArray());
+			{
+				if (lstPlugins.Contains(plgPlugin.Filename, StringComparer.CurrentCultureIgnoreCase))
+					if (!lstActivePlugins.Contains(plgPlugin.Filename, StringComparer.CurrentCultureIgnoreCase))
+						lstActivePlugins.Add(plgPlugin.Filename);
+			}
+			LoadOrderManager.SetActivePlugins(lstActivePlugins.ToArray());
 		}
 	}
 }

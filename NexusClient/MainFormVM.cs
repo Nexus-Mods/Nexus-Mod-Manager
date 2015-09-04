@@ -491,6 +491,15 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Automatically sorts the plugin list.
+		/// </summary>
+		public void SortPlugins()
+		{
+			if (GameMode.UsesPlugins)
+				PluginManagerVM.SortPlugins();
+		}
+
+		/// <summary>
 		/// Updates the programme.
 		/// </summary>
 		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>

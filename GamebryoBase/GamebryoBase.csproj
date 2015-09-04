@@ -46,6 +46,8 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.XML" />
     <Reference Include="WindowsBase">
@@ -61,18 +63,25 @@
     <Compile Include="ModManagement\GamebryoGameSpecificValueUpgradeInstaller.cs" />
     <Compile Include="ModManagement\GamebryoGameSpecificValueInstaller.cs" />
     <Compile Include="ModManagement\Scripting\BsaManager.cs" />
-    <Compile Include="PluginManagement\Boss\BossSorter.cs" />
-    <Compile Include="PluginManagement\Boss\BossException.cs" />
-    <Compile Include="PluginManagement\Boss\IBossSorter.cs" />
-    <Compile Include="PluginManagement\Boss\StringArrayManualMarshaler.cs" />
-    <Compile Include="PluginManagement\Boss\StringMarshaler.cs" />
     <Compile Include="PluginManagement\GamebryoPluginOrderValidator.cs" />
     <Compile Include="PluginManagement\GamebryoPluginDiscoverer.cs" />
     <Compile Include="PluginManagement\GamebryoPluginFactory.cs" />
     <Compile Include="PluginManagement\InstallationLog\GamebryoActivePluginLogSerializer.cs" />
+    <Compile Include="PluginManagement\LoadOrderManager\PluginOrderManager.cs" />
+    <Compile Include="PluginManagement\LoadOrderManager\WriteLoadOrderTask.cs" />
     <Compile Include="PluginManagement\OrderLog\GamebryoPluginOrderLogSerializer.cs" />
+    <Compile Include="PluginManagement\Sorter\IPluginSorter.cs" />
+    <Compile Include="PluginManagement\Sorter\PluginSorter.cs" />
+    <Compile Include="PluginManagement\Sorter\SorterException.cs" />
+    <Compile Include="PluginManagement\Sorter\StringArrayManualMarshaler.cs" />
+    <Compile Include="PluginManagement\Sorter\StringMarshaler.cs" />
     <Compile Include="Plugins\GamebryoPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="Settings\GeneralSettingsGroup.cs" />
     <Compile Include="Settings\UI\GeneralSettingsPage.cs">
       <SubType>UserControl</SubType>
@@ -112,7 +121,7 @@
     <Compile Include="Tools\TESsnip\ScriptCompiler\Tokenizer.cs" />
     <Compile Include="Tools\TESsnip\TESsnipParser.cs" />
     <Compile Include="Tools\TESsnip\TypeConverter.cs" />
-    <Compile Include="Updating\BossUpdater.cs" />
+    <Compile Include="Updating\PluginSorterUpdater.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
@@ -141,6 +150,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <EmbeddedResource Include="Tools\TESsnip\RecordStructure.xml" />
   </ItemGroup>
   <ItemGroup>
@@ -154,12 +167,16 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Tools\TESsnip\ScriptCompiler\ScriptFunctions.xml" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Content Include="data\boss32.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <None Include="Resources\masterlist.zip" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="data\loot32.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\boss64.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <Content Include="data\loot64.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
