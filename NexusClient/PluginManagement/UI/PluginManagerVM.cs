@@ -4,14 +4,16 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
+using Nexus.Client.ModActivationMonitoring;
 using Nexus.Client.Plugins;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
-using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.PluginManagement.UI
 {
@@ -52,6 +54,25 @@ namespace Nexus.Client.PluginManagement.UI
 		/// Raised when switching profiles.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> PluginControlResetting = delegate { };
+
+		/// <summary>
+		/// Raised when the mods list is being updated.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> SortingPlugins = delegate { };
+
+		/// <summary>
+		/// Managing multiple plugins.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ManagingMultiplePlugins = delegate { };
+
+		#endregion
+
+		#region Delegates
+
+		/// <summary>
+		/// Called when an updater's action needs to be confirmed.
+		/// </summary>
+		public ConfirmActionMethod ConfirmUpdaterAction = delegate { return true; };
 
 		#endregion
 
@@ -367,6 +388,30 @@ namespace Nexus.Client.PluginManagement.UI
 
 		#region Load Order IO
 
+		#region Automatic Sorting
+
+		/// <summary>
+		/// Automatically sorts the plugins.
+		/// </summary>
+		public void SortPlugins()
+		{
+			SortingPlugins(this, new EventArgs<IBackgroundTask>(PluginManager.AutoPluginSorting(ConfirmUpdaterAction)));
+		}
+
+		/// <summary>
+		/// Automatically sorts the plugins.
+		/// </summary>
+		public void RefreshPluginSorting(string[] p_strPluginList)
+		{
+			Dictionary<Plugin, string> kvpSortedPlugins;
+
+			GetRegisteredPlugins(p_strPluginList, out kvpSortedPlugins);
+			if ((kvpSortedPlugins != null) && (kvpSortedPlugins.Count > 0))
+				ApplyLoadOrder(kvpSortedPlugins, true);
+		}
+
+		#endregion
+
 		#region Export
 
 		/// <summary>
@@ -552,24 +597,28 @@ namespace Nexus.Client.PluginManagement.UI
 		/// Applies the load order specified by the given list of registered plugins
 		/// </summary>
 		/// <param name="p_lstRegisteredPlugins">The list of registered plugins.</param>
-		private void ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins)
+		/// <param name="p_booSortingOnly">Whether we just want to apply the sorting.</param>
+		public void ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly)
 		{
 			Transactions.TransactionScope tsTransaction = null;
 			try
 			{
 				tsTransaction = new Transactions.TransactionScope();
 
-				foreach (KeyValuePair<Plugin, string> kvp in p_kvpRegisteredPlugins)
+				if (!p_booSortingOnly)
 				{
-					if (kvp.Value == "1")
+					foreach (KeyValuePair<Plugin, string> kvp in p_kvpRegisteredPlugins)
 					{
-						if (PluginManager.CanChangeActiveState(kvp.Key))
-							PluginManager.ActivatePlugin(kvp.Key);
-					}
-					if (kvp.Value == "0")
-					{
-						if (PluginManager.CanChangeActiveState(kvp.Key))
-							PluginManager.DeactivatePlugin(kvp.Key);
+						if (kvp.Value == "1")
+						{
+							if (PluginManager.CanChangeActiveState(kvp.Key))
+								PluginManager.ActivatePlugin(kvp.Key);
+						}
+						if (kvp.Value == "0")
+						{
+							if (PluginManager.CanChangeActiveState(kvp.Key))
+								PluginManager.DeactivatePlugin(kvp.Key);
+						}
 					}
 				}
 
@@ -615,7 +664,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_lstRegisteredPlugins">The return list of registered plugins.</param>
 		/// <param name="p_lstUnregisteredPlugins">The return list of unregistered plugin filenames.</param>
 		/// <exception cref="InvalidImportSourceException">The value of PluginDirectory for the current game mode is empty.</exception>
-		private void GetRegisteredPlugins(Dictionary<string, string> p_dctPluginFilenames, out Dictionary<Plugin, string> p_kvpRegisteredPlugins, out List<string> p_lstUnregisteredPlugins)
+		public void GetRegisteredPlugins(Dictionary<string, string> p_dctPluginFilenames, out Dictionary<Plugin, string> p_kvpRegisteredPlugins, out List<string> p_lstUnregisteredPlugins)
 		{
 			string strPluginDirectory = CurrentGameMode.PluginDirectory;
 
@@ -633,6 +682,30 @@ namespace Nexus.Client.PluginManagement.UI
 					p_kvpRegisteredPlugins.Add(plgPlugin, kvp.Value);
 				else
 					p_lstUnregisteredPlugins.Add(kvp.Key);
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of registered plugins and unregistered plugin filenames for the specified game mode and list of plugin filenames.
+		/// </summary>
+		/// <param name="p_lstPluginFilenames">The dictionary of plugin filenames.</param>
+		/// <param name="p_kvpOrderedPlugins">The return list of registered plugins.</param>
+		/// <exception cref="InvalidImportSourceException">The value of PluginDirectory for the current game mode is empty.</exception>
+		public void GetRegisteredPlugins(string[] p_lstPluginFilenames, out Dictionary<Plugin, string> p_kvpOrderedPlugins)
+		{
+			string strPluginDirectory = CurrentGameMode.PluginDirectory;
+
+			if (string.IsNullOrEmpty(strPluginDirectory))
+				throw new InvalidImportSourceException(string.Format("The PluginDirectory path of the specified import source game mode, {0}, is empty.", CurrentGameMode));
+
+			p_kvpOrderedPlugins = new Dictionary<Plugin, string>();
+
+			foreach (string filename in p_lstPluginFilenames)
+			{
+				string strPluginPath = Path.Combine(strPluginDirectory, filename);
+				Plugin plgPlugin = PluginManager.GetRegisteredPlugin(strPluginPath);
+				if (plgPlugin != null)
+					p_kvpOrderedPlugins.Add(plgPlugin, "0");
 			}
 		}
 
@@ -669,7 +742,7 @@ namespace Nexus.Client.PluginManagement.UI
 				return;
 			}
 
-			ApplyLoadOrder(kvpRegisteredPlugins);
+			ApplyLoadOrder(kvpRegisteredPlugins, false);
 
 			p_intImportedCount = kvpRegisteredPlugins.Count;
 		}
@@ -703,7 +776,7 @@ namespace Nexus.Client.PluginManagement.UI
 				return;
 			}
 
-			ApplyLoadOrder(kvpRegisteredPlugins);
+			ApplyLoadOrder(kvpRegisteredPlugins, false);
 
 			p_intImportedCount = kvpRegisteredPlugins.Count;
 		}

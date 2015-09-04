@@ -83,10 +83,11 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				booSuccess = InstallFiles(p_xscScript, p_csmStateManager, p_colFilesToInstall, p_colPluginsToActivate);
 				Status = Status == TaskStatus.Cancelling ? TaskStatus.Cancelled : TaskStatus.Complete;
 			}
-			catch
+			catch (Exception ex)
 			{
 				booSuccess = false;
 				Status = TaskStatus.Error;
+				throw new Exception(ex.Message);
 			}
 			OnTaskEnded(booSuccess);
 			return booSuccess;

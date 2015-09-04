@@ -9,7 +9,7 @@ namespace Nexus.Client.Games.Skyrim
 	public class SkyrimGameModeDescriptor : GamebryoGameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "SkyrimLauncher.exe" };
-		private static string[] CRITICAL_PLUGINS = { "skyrim.esm" };
+		private static string[] CRITICAL_PLUGINS = { "Skyrim.esm", "Update.esm" };
 		private const string MODE_ID = "Skyrim";
 
 		#region Properties

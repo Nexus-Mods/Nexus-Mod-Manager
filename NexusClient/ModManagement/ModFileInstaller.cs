@@ -414,7 +414,11 @@ namespace Nexus.Client.ModManagement
 						string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
 
 						fiInfo = new FileInfo(strRestoreFromPath);
-						TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+						try
+						{
+							TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+						}
+						catch { }
 
 						if (fiInfo.IsReadOnly)
 							m_lstErrorMods.Add(strInstallFilePath);
@@ -599,7 +603,11 @@ namespace Nexus.Client.ModManagement
 						string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
 
 						fiInfo = new FileInfo(strRestoreFromPath);
-						TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+						try
+						{
+							TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
+						}
+						catch { }
 
 						if (fiInfo.IsReadOnly)
 							m_lstErrorMods.Add(strInstallFilePath);

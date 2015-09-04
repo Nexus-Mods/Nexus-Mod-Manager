@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Drawing;
 using System.IO;
 
@@ -29,6 +31,23 @@ namespace Nexus.Client.Plugins
 		/// <value>The filename of the plugin.</value>
 		public string Filename { get; private set; }
 
+		/// <summary>
+		/// Gets the list of the plugin's masters.
+		/// </summary>
+		/// <value>The list of the plugin's masters.</value>
+		public List<string> Masters { get; private set; }
+
+		/// Gets whether the plugin has masters.
+		/// </summary>
+		/// <value>Whether the plugin has masters.</value>
+		public bool HasMasters
+		{
+			get
+			{
+				return (Masters != null) && (Masters.Count > 0);
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -44,6 +63,7 @@ namespace Nexus.Client.Plugins
 			Filename = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			Description = p_strDescription;
 			Picture = p_imgPicture;
+			Masters = new List<string>();
 		}
 
 		#endregion
@@ -55,6 +75,14 @@ namespace Nexus.Client.Plugins
 		public override string ToString()
 		{
 			return String.Format("{0} ({1})", Path.GetFileName(Filename), Filename);
+		}
+
+		public void SetMasters(IList<string> p_lstMasters)
+		{
+			if ((p_lstMasters != null) && (p_lstMasters.Count > 0))
+				foreach (string plugin in p_lstMasters)
+					if (!String.IsNullOrEmpty(plugin) && !Masters.Contains(plugin, StringComparer.CurrentCultureIgnoreCase))
+						Masters.Add(plugin);
 		}
 	}
 }

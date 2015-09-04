@@ -59,6 +59,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 					return false;
 				booIsPreviousMaster = plgPlugin.IsMaster;
 			}
+			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
+				if (p_lstPlugins[i].HasMasters)
+					foreach (string pluginName in p_lstPlugins[i].Masters)
+					{
+						Int32 masterIndex = p_lstPlugins.IndexOf(p => Path.GetFileName(p.Filename).Equals(pluginName, StringComparison.OrdinalIgnoreCase));
+						if (i < masterIndex)
+							return false;
+					}
+
 			return true;
 		}
 
@@ -111,9 +120,41 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 						{
 							Plugin plgPlugin = p_lstPlugins[i];
 							p_lstPlugins.RemoveAt(i);
-							p_lstPlugins.Insert(intFirstNonMasterIndex, plgPlugin);
+							if (intFirstNonMasterIndex >= p_lstPlugins.Count)
+								p_lstPlugins.Add(plgPlugin);
+							else
+								p_lstPlugins.Insert(intFirstNonMasterIndex, plgPlugin);
 						}
 						intFirstNonMasterIndex--;
+					}
+				}
+			}
+
+			// Makes sure no plugin is loaded before his master.
+			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
+			{
+				if (p_lstPlugins[i].HasMasters)
+				{
+					Int32 highestMasterIndex = 0;
+					foreach (string pluginName in p_lstPlugins[i].Masters)
+					{
+						Int32 masterIndex = p_lstPlugins.IndexOf(p => Path.GetFileName(p.Filename).Equals(pluginName, StringComparison.OrdinalIgnoreCase));
+						highestMasterIndex = highestMasterIndex > masterIndex ? highestMasterIndex : masterIndex;
+					}
+
+					if (i < highestMasterIndex)
+					{
+						if (booHasMove)
+							((ThreadSafeObservableList<Plugin>)p_lstPlugins).Move(i, highestMasterIndex);
+						else
+						{
+							Plugin plgPlugin = p_lstPlugins[i];
+							p_lstPlugins.RemoveAt(i);
+							if (highestMasterIndex >= p_lstPlugins.Count)
+								p_lstPlugins.Add(plgPlugin);
+							else
+								p_lstPlugins.Insert(highestMasterIndex, plgPlugin);
+						}
 					}
 				}
 			}

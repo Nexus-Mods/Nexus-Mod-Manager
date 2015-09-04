@@ -1,15 +1,25 @@
 ﻿using System;
 
-namespace Nexus.Client.Games.Gamebryo.PluginManagement.Boss
+namespace Nexus.Client.PluginManagement
 {
 	/// <summary>
-	/// The interface for BOSS functionality.
+	/// The interface for the LoadOrder Manager.
 	/// </summary>
 	/// <remarks>
-	/// This use BAPI to expose BOSS's pluing sorting and activation abilities.
+	/// This exposes the LoadOrder Manager's plugin sorting and activation abilities.
 	/// </remarks>
-	public interface IBossSorter
+	public interface ILoadOrderManager
 	{
+
+		#region Events
+
+		event EventHandler LoadOrderUpdate;
+		event EventHandler ActivePluginUpdate;
+		event EventHandler ExternalPluginAdded;
+		event EventHandler ExternalPluginRemoved;
+
+		#endregion
+
 		#region Properties
 
 		/// <summary>

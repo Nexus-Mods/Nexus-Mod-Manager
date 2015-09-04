@@ -491,6 +491,20 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Automatically sorts the plugin list.
+		/// </summary>
+		protected void SortPlugins()
+		{
+			if (ViewModel.PluginSorterInitialized)
+				ViewModel.SortPlugins();
+			else
+				MessageBox.Show("Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
+					Environment.NewLine + Environment.NewLine + "This game is not supported or something is wrong with your loadorder.txt or plugins.txt files," +
+					Environment.NewLine + "or one or more plugins are corrupt/broken.",
+					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+		}
+
+		/// <summary>
 		/// Disable all active mods.
 		/// </summary>
 		protected void DisableAllMods()
@@ -1255,6 +1269,15 @@ namespace Nexus.Client
 			tmiConfigureVirtualFolders.Image = global::Nexus.Client.Properties.Resources.category_folder;
 			new ToolStripItemCommandBinding(tmiConfigureVirtualFolders, cmdConfigureVirtualFolders);
 			spbTools.DropDownItems.Add(tmiConfigureVirtualFolders);
+
+			if (ViewModel.UsesPlugins)
+			{
+				Command cmdSortPlugins = new Command("Automatic Plugin Sorting", "Automatically sorts the plugin list.", SortPlugins);
+				ToolStripMenuItem tmicmdSortPluginsTool = new ToolStripMenuItem();
+				tmicmdSortPluginsTool.ImageScaling = ToolStripItemImageScaling.None;
+				new ToolStripItemCommandBinding(tmicmdSortPluginsTool, cmdSortPlugins);
+				spbTools.DropDownItems.Add(tmicmdSortPluginsTool);
+			}
 
 			IEnumerable<string> enuVersions = bmBalloon.GetVersionList();
 			if (enuVersions != null)

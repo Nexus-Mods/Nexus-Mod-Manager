@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Plugins;
+using Nexus.Client.UI;
 using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.PluginManagement
@@ -166,6 +168,13 @@ namespace Nexus.Client.PluginManagement
 		bool ValidateOrder(IList<Plugin> p_lstPlugins);
 
 		#endregion
+
+		/// <summary>
+		/// Automatically sorts the managed plugins.
+		/// </summary>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the sorting.</returns>
+		IBackgroundTask AutoPluginSorting(ConfirmActionMethod p_camConfirm);
 
 		/// <summary>
 		/// Determines if the specified file is a plugin that can be activated for the game mode.

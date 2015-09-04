@@ -23,6 +23,7 @@ namespace Nexus.Client.ModManagement
 	public class ModInstaller : ModInstallerBase
 	{
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
+		private ModManager m_mmModManager = null;
 
 		#region Properties
 
@@ -227,6 +228,8 @@ namespace Nexus.Client.ModManagement
 					}
 				string strExceptionMessageFormat = "A problem occurred during install: " + Environment.NewLine + "{0}" + Environment.NewLine + "The mod was not installed."; ;
 				strMessage = String.Format(strExceptionMessageFormat, stbError.ToString());
+				PopupErrorMessage = strMessage;
+				PopupErrorMessageType = "Error";
 			}
 			finally
 			{
@@ -259,18 +262,28 @@ namespace Nexus.Client.ModManagement
 		{
 			IModFileInstaller mfiFileInstaller = CreateFileInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 			bool booResult = false;
+			IIniInstaller iniIniInstaller = null;
+			IGameSpecificValueInstaller gviGameSpecificValueInstaller = null;
 			if (Mod.HasInstallScript)
 			{
-				IDataFileUtil dfuDataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
+				try
+				{
+					IDataFileUtil dfuDataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
 
-				IIniInstaller iniIniInstaller = CreateIniInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
-				IGameSpecificValueInstaller gviGameSpecificValueInstaller = CreateGameSpecificValueInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
+					iniIniInstaller = CreateIniInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
+					gviGameSpecificValueInstaller = CreateGameSpecificValueInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 
-				InstallerGroup ipgInstallers = new InstallerGroup(dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager);
-				IScriptExecutor sexScript = Mod.InstallScript.Type.CreateExecutor(Mod, GameMode, EnvironmentInfo, VirtualModActivator, ipgInstallers, UIContext);
-				sexScript.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(ScriptExecutor_TaskStarted);
-				sexScript.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(ScriptExecutor_TaskSetCompleted);
-				booResult = sexScript.Execute(Mod.InstallScript);
+					InstallerGroup ipgInstallers = new InstallerGroup(dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager);
+					IScriptExecutor sexScript = Mod.InstallScript.Type.CreateExecutor(Mod, GameMode, EnvironmentInfo, VirtualModActivator, ipgInstallers, UIContext);
+					sexScript.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(ScriptExecutor_TaskStarted);
+					sexScript.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(ScriptExecutor_TaskSetCompleted);
+					booResult = sexScript.Execute(Mod.InstallScript);
+				}
+				catch (Exception ex)
+				{
+					PopupErrorMessage = ex.Message;
+					PopupErrorMessageType = "Error";
+				}
 
 				iniIniInstaller.FinalizeInstall();
 

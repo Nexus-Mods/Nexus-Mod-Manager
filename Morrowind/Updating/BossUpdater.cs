@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
-using Nexus.Client.Games.Gamebryo.PluginManagement.Boss;
+using Nexus.Client.Games.Morrowind.PluginManagement.Boss;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
 

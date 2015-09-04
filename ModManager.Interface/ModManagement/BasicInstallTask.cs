@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
@@ -140,9 +141,7 @@ namespace Nexus.Client.ModManagement
 								string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFile, false);
 
 								if (!string.IsNullOrEmpty(strFileLink))
-									if (FileInstaller.PluginCheck(strFileLink, false))
-										if (PluginManager.IsActivatiblePluginFile(strFileLink))
-											PluginManager.ActivatePlugin(strFileLink);
+										ActivatePlugin(strFileLink);
 							}
 						}
 					}
@@ -151,6 +150,13 @@ namespace Nexus.Client.ModManagement
 			}
 			VirtualModActivator.SaveList();
 			return true;
+		}
+
+		protected void ActivatePlugin(string p_strPlugin)
+		{
+			if (FileInstaller.PluginCheck(p_strPlugin, false))
+				if (PluginManager.IsActivatiblePluginFile(p_strPlugin))
+					PluginManager.ActivatePlugin(p_strPlugin);
 		}
 	}
 }

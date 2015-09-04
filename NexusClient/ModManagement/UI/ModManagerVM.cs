@@ -493,19 +493,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		protected void DeactivateMods(List<IMod> p_lstMod)
 		{
-			string strErrorMessage = ModManager.RequiredToolErrorMessage;
-			if (String.IsNullOrEmpty(strErrorMessage))
+			foreach (IMod modMod in p_lstMod)
 			{
-				foreach (IMod modMod in p_lstMod)
-				{
-					IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(modMod, ModManager.ActiveMods);
-					if (btsUninstall != null)
-						ModManager.ModActivationMonitor.AddActivity(btsUninstall);
-				}
-			}
-			else
-			{
-				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(modMod, ModManager.ActiveMods);
+				if (btsUninstall != null)
+					ModManager.ModActivationMonitor.AddActivity(btsUninstall);
 			}
 		}
 

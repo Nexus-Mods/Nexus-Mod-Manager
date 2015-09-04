@@ -318,8 +318,15 @@ namespace Nexus.Client.Games.Gamebryo.Tools.TESsnip
 			try
 			{
 				string s = ReadRecName(br);
-				if (s != "TES4") return false;
+				if ((s != "TES4") && (s != "TES3")) return false;
 				br.ReadInt32();
+
+				if (s == "TES3")
+				{
+					for (int i = 0; i < 5; i++)
+						br.ReadInt32();
+				}
+
 				return (br.ReadInt32() & 1) != 0;
 			}
 			catch
