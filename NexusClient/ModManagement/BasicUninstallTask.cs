@@ -2,6 +2,7 @@
 using System.IO;
 using System.Collections.Generic;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
@@ -18,6 +19,8 @@ namespace Nexus.Client.ModManagement
 	/// </remarks>
 	public class BasicUninstallTask : BackgroundTask
 	{
+		private bool boo_CheckUninstallError = false;
+
 		#region Properties
 
 		/// <summary>
@@ -138,6 +141,17 @@ namespace Nexus.Client.ModManagement
 										"Please add NMM and its folders to the antivirus' exception list.";
 					Installers.FileInstaller.InstallErrors.Add(strDetails);
 					return false;
+				}
+				catch (IllegalFilePathException)
+				{
+					string strDetails = Environment.NewLine +
+										"The mod has been deleted with success, but the manager was unable to remove one ore more files. " + Environment.NewLine +
+										"An IllegalFilePathException was thrown, a path is safe to be written to if it contains no charaters disallowed by the operating system and if it is in the Data directory or one of its sub-directories." + Environment.NewLine;
+					if (!boo_CheckUninstallError)
+					{
+						Installers.FileInstaller.InstallErrors.Add(strDetails);
+						boo_CheckUninstallError = true;
+					}
 				}
 				catch (NullReferenceException ex)
 				{

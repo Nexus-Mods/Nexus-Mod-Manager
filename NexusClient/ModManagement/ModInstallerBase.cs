@@ -20,6 +20,14 @@ namespace Nexus.Client.ModManagement
 		/// 
 		protected static readonly object objInstallLock = new object();
 
+		/// <summary>
+		/// We only want on uninstaller running at a time, so as not to mess up
+		/// the file system, of settings files. As such, all uninstaller lock
+		/// on this lock object.
+		/// </summary>
+		/// 
+		protected static readonly object objUninstallLock = new object();
+
 		#region Events
 
 		/// <summary>
@@ -47,6 +55,12 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <value>Whether the task set has completed.</value>
 		public bool IsCompleted { get; private set; }
+
+		/// <summary>
+		/// Gets whether the task set is queued.
+		/// </summary>
+		/// <value>Whether the task set is queued.</value>
+		public bool IsQueued { get;  set; }
 
 		#endregion
 

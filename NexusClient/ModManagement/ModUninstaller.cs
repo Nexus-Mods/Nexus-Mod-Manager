@@ -26,6 +26,36 @@ namespace Nexus.Client.ModManagement
 		protected IMod Mod { get; set; }
 
 		/// <summary>
+		/// Gets or sets the mod name.
+		/// </summary>
+		/// <value>The mod name.</value>
+		public string ModName
+		{
+			get
+			{
+				if (Mod != null)
+					return Mod.ModName;
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the mod file name.
+		/// </summary>
+		/// <value>The mod file name.</value>
+		public string ModFileName
+		{
+			get
+			{
+				if (Mod != null)
+					return Mod.Filename;
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
 		/// Gets the current game mode.
 		/// </summary>
 		/// <value>The the current game mode.</value>
@@ -117,7 +147,7 @@ namespace Nexus.Client.ModManagement
 			// hence the lock.
 			bool booSuccess = false;
 			string strErrorMessage = String.Empty;
-			lock (objInstallLock)
+			lock (objUninstallLock)
 			{
 				using (TransactionScope tsTransaction = new TransactionScope())
 				{
@@ -129,6 +159,7 @@ namespace Nexus.Client.ModManagement
 						Mod.InstallDate = null;
 						ModInstallLog.RemoveMod(Mod);
 						tsTransaction.Complete();
+						GC.GetTotalMemory(true);
 					}
 				}
 			}

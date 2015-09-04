@@ -33,6 +33,36 @@ namespace Nexus.Client.ModManagement
 		protected IMod Mod { get; set; }
 
 		/// <summary>
+		/// Gets or sets the mod name.
+		/// </summary>
+		/// <value>The mod name.</value>
+		public string ModName 
+		{ 
+			get
+			{
+				if(Mod != null)
+					return Mod.ModName;
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the mod file name.
+		/// </summary>
+		/// <value>The mod file name.</value>
+		public string ModFileName
+		{
+			get
+			{
+				if (Mod != null)
+					return Mod.Filename;
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets the application's envrionment info.
 		/// </summary>
 		/// <value>The application's envrionment info.</value>
@@ -137,11 +167,10 @@ namespace Nexus.Client.ModManagement
 			// hence the lock.
 			bool booSuccess = false;
 			string strMessage = "The mod was not activated.";
-			bool booGotLock = false;
+			
 			try
 			{
-				booGotLock = Monitor.TryEnter(objInstallLock);
-				if (booGotLock)
+				lock (objInstallLock)
 				{
 					using (TransactionScope tsTransaction = new TransactionScope())
 					{
@@ -160,10 +189,6 @@ namespace Nexus.Client.ModManagement
 							GC.GetTotalMemory(true);
 						}
 					}
-				}
-				else
-				{
-					strMessage = "Only one installation can be performed at a time.";
 				}
 			}
 			catch (TransactionException)
@@ -206,8 +231,6 @@ namespace Nexus.Client.ModManagement
 			finally
 			{
 				Mod.EndReadOnlyTransaction();
-				if (booGotLock)
-					Monitor.Exit(objInstallLock);
 			}
 			OnTaskSetCompleted(booSuccess, strMessage, Mod);
 		}

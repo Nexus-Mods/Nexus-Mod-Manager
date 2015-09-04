@@ -20,6 +20,7 @@ using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Settings;
 using Nexus.Client.Games.Tools;
+using Nexus.Client.ModActivationMonitoring.UI;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.Mods;
@@ -42,8 +43,10 @@ namespace Nexus.Client
 		private ModManagerControl mmgModManager = null;
 		private PluginManagerControl pmcPluginManager = null;
 		private DownloadMonitorControl dmcDownloadMonitor = null;
+		private ModActivationMonitorControl macModActivationMonitor = null;
 		//private ProfileManagerControl pmcProfileManager = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
+		private double m_dblDefaultActivationMonitorAutoHidePortion = 0;
 		public string strOptionalPremiumMessage = string.Empty;
 		private bool m_booIsSwitching = false;
 
@@ -89,6 +92,7 @@ namespace Nexus.Client
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
+				macModActivationMonitor.ViewModel = m_vmlViewModel.ModActivationMonitorVM;
 				dmcDownloadMonitor.ViewModel = m_vmlViewModel.DownloadMonitorVM;
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
 				dmcDownloadMonitor.ViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
@@ -146,12 +150,15 @@ namespace Nexus.Client
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
+			macModActivationMonitor = new ModActivationMonitorControl();
 			//pmcProfileManager = new ProfileManagerControl();
 			dockPanel1.ActiveContentChanged += new EventHandler(dockPanel1_ActiveContentChanged);
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
+			mmgModManager.UpdateModsCount += new EventHandler(mmgModManager_UpdateModsCount);
 			mmgModManager.UninstallModFromProfiles += new EventHandler(mmgModManager_UninstallModFromProfiles);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
+			macModActivationMonitor.UpdateBottomBarFeedback += new EventHandler(macModActivationMonitor_UpdateBottomBarFeedback);
 			p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
 
@@ -296,6 +303,18 @@ namespace Nexus.Client
 				}
 				catch { }
 
+				macModActivationMonitor.DockState = DockState.Unknown;
+				macModActivationMonitor.ShowHint = DockState.DockBottom;
+				macModActivationMonitor.Show(dockPanel1, DockState.DockBottom);
+                                                
+				if (m_dblDefaultActivationMonitorAutoHidePortion == 0)
+					m_dblDefaultActivationMonitorAutoHidePortion = macModActivationMonitor.Height;
+				try
+				{
+					macModActivationMonitor.AutoHidePortion = m_dblDefaultActivationMonitorAutoHidePortion;
+				}
+				catch { }
+
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.Show(dockPanel1);
 				mmgModManager.Show(dockPanel1);
@@ -313,7 +332,7 @@ namespace Nexus.Client
 
 			if ((dmcDownloadMonitor == null) || ((dmcDownloadMonitor.VisibleState == DockState.Unknown) || (dmcDownloadMonitor.VisibleState == DockState.Hidden)))
 			{
-				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
+				dmcDownloadMonitor.Show(dockPanel1, DockState.DockBottom);
 				if (m_dblDefaultActivityManagerAutoHidePortion == 0)
 					m_dblDefaultActivityManagerAutoHidePortion = dmcDownloadMonitor.Height;
 				try
@@ -322,6 +341,22 @@ namespace Nexus.Client
 				}
 				catch { }
 			}
+
+			if ((macModActivationMonitor == null) || ((macModActivationMonitor.VisibleState == DockState.Unknown) || (macModActivationMonitor.VisibleState == DockState.Hidden)))
+			{
+				macModActivationMonitor.Show(dockPanel1, DockState.DockBottom);
+				if (m_dblDefaultActivationMonitorAutoHidePortion == 0)
+					m_dblDefaultActivationMonitorAutoHidePortion = macModActivationMonitor.Height;
+				try
+				{
+					macModActivationMonitor.AutoHidePortion = m_dblDefaultActivationMonitorAutoHidePortion;
+				}
+				catch { }
+			}
+
+			macModActivationMonitor.DockTo(dmcDownloadMonitor.Pane, DockStyle.Right, 1);
+
+			tlbModsCounter.Text = "Total mods " + ViewModel.ModManagerVM.ManagedMods.Count + "  |   Active mods " + ViewModel.ModManager.ActiveMods.Count;
 
 			UserStatusFeedback();
 		}
@@ -384,13 +419,11 @@ namespace Nexus.Client
 			}
 		}
 
-
 		/// <summary>
 		/// Sets the UI elements providing feedback on the user online status.
 		/// </summary>
 		protected void UserStatusFeedback()
 		{
-
 			if (ViewModel.OfflineMode)
 			{
 				if (tpbDownloadSpeed != null)
@@ -560,8 +593,18 @@ namespace Nexus.Client
 				if (drFormClose != DialogResult.Yes)
 					e.Cancel = true;
 			}
+
+			if (macModActivationMonitor.IsInstalling)
+			{
+				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing mod installation, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+				if (drFormClose != DialogResult.Yes)
+					e.Cancel = true;
+			}
 		}
 
+		/// <summary>
+		/// The Main Form resizeEnd event.
+		/// </summary>
 		private void MainForm_ResizeEnd(object sender, EventArgs e)
 		{
 			if ((ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup) && (bmBalloon.balloonHelp != null))
@@ -579,9 +622,12 @@ namespace Nexus.Client
 			}
 		}
 
+		/// <summary>
+		/// The Main Form resizeBegin event.
+		/// </summary>
 		private void MainForm_ResizeBegin(object sender, EventArgs e)
 		{
-			try
+			if ((bmBalloon != null) && (bmBalloon.balloonHelp != null))
 			{
 				if (bmBalloon.balloonHelp.Visible)
 				{
@@ -593,9 +639,11 @@ namespace Nexus.Client
 				else
 					m_booShowLastBaloon = false;
 			}
-			catch { }
 		}
 
+		/// <summary>
+		/// The Main Form resize event.
+		/// </summary>
 		private void MainForm_Resize(object sender, EventArgs e)
 		{
 			if (WindowState != LastWindowState)
@@ -639,6 +687,14 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Updates the Mods Counter
+		/// </summary>
+		private void mmgModManager_UpdateModsCount(object sender, EventArgs e)
+		{
+			tlbModsCounter.Text = "Total mods " + ViewModel.ModManagerVM.ManagedMods.Count + "  |   Active mods " + ViewModel.ModManager.ActiveMods.Count;
+		}
+
+		/// <summary>
 		/// Set the focus to the Search Textbox.
 		/// </summary>
 		private void mmgModManager_SetTextBoxFocus(object sender, EventArgs e)
@@ -646,6 +702,9 @@ namespace Nexus.Client
 			tstFind.Focus();
 		}
 
+		/// <summary>
+		/// The Main Form resetSearchBox event.
+		/// </summary>
 		private void mmgModManager_ResetSearchBox(object sender, EventArgs e)
 		{
 			tstFind.Clear();
@@ -674,6 +733,79 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Updates the Bottom Bar Feedback
+		/// </summary>
+		private void macModActivationMonitor_UpdateBottomBarFeedback(object sender, EventArgs e)
+		{
+			UpgradeBottomBarFeedbackCounter();
+			if (sender != null)
+			{
+				if (((ModActivationMonitorListViewItem)sender).Task != null)
+				{
+					tsbLoader.Visible = true;
+
+					if (!((ModActivationMonitorListViewItem)sender).Task.IsQueued)
+					{
+						if (((ModActivationMonitorListViewItem)sender).Task.GetType() == typeof(ModInstaller))
+							tlbBottomBarFeedback.Text = "Mod Activation: Installing ";
+						else if (((ModActivationMonitorListViewItem)sender).Task.GetType() == typeof(ModUninstaller))
+							tlbBottomBarFeedback.Text = "Mod Activation: Uninstalling ";
+						else if (((ModActivationMonitorListViewItem)sender).Task.GetType() == typeof(ModUpgrader))
+							tlbBottomBarFeedback.Text = "Mod Activation: Upgrading ";
+						else
+							tlbBottomBarFeedback.Text = "";
+					}
+				}
+				else
+				{
+					tlbBottomBarFeedback.Text = "";
+					tsbLoader.Visible = false;
+				}
+
+				if (!macModActivationMonitor.IsInstalling)
+				{
+					tsbLoader.Visible = false;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Updates the Bottom Bar Feedback Counter
+		/// </summary>
+		private void UpgradeBottomBarFeedbackCounter()
+		{
+			int intPartialTasks = 0;
+
+			foreach (IBackgroundTaskSet ibt in macModActivationMonitor.ViewModel.Tasks)
+			{
+				if (ibt.GetType() == typeof(ModInstaller))
+				{
+					if (((ModInstaller)ibt).IsCompleted)
+						intPartialTasks++;
+				}
+				else if (ibt.GetType() == typeof(ModUninstaller))
+				{
+					if (((ModUninstaller)ibt).IsCompleted)
+						intPartialTasks++;
+				}
+				else if (ibt.GetType() == typeof(ModUpgrader))
+				{
+					if (((ModUpgrader)ibt).IsCompleted)
+						intPartialTasks++;
+				}
+			}
+
+			if (macModActivationMonitor.ViewModel.Tasks.Count == 0)
+			{
+				tlbBottomBarFeedbackCounter.Text = "";
+				tlbBottomBarFeedback.Text = "";
+				tsbLoader.Visible = false;
+			}
+			else
+				tlbBottomBarFeedbackCounter.Text = "(" + intPartialTasks + "/" + macModActivationMonitor.ViewModel.Tasks.Count + ")";
+		}
+
+		/// <summary>
 		/// Opens NMM's mods folder for the current game.
 		/// </summary>
 		protected void OpenModsFolder()
@@ -682,6 +814,9 @@ namespace Nexus.Client
 				System.Diagnostics.Process.Start(ViewModel.ModsPath);
 		}
 
+		/// <summary>
+		/// The Find KeyUp event.
+		/// </summary>
 		private void tstFind_KeyUp(object sender, KeyEventArgs e)
 		{
 			mmgModManager.FindItemWithText(this.tstFind.Text);
@@ -993,6 +1128,8 @@ namespace Nexus.Client
 				return mmgModManager;
 			else if (p_strContentId == typeof(DownloadMonitorControl).ToString())
 				return dmcDownloadMonitor;
+			else if (p_strContentId == typeof(ModActivationMonitorControl).ToString())
+				return macModActivationMonitor;
 			//else if (p_strContentId == typeof(ProfileManagerControl).ToString())
 			//	return pmcProfileManager;
 			else
@@ -1277,6 +1414,42 @@ namespace Nexus.Client
 					pCoords.X = mmgModManager.clwCategoryView.AccessibilityObject.Bounds.Location.X;
 					pCoords.Y = mmgModManager.clwCategoryView.AccessibilityObject.Bounds.Location.Y - 40;
 					break;
+					
+					case "ModActivationMonitorListView":
+						switch (macModActivationMonitor.DockState)
+						{
+							case DockState.DockBottomAutoHide:
+								macModActivationMonitor.DockState = DockState.DockBottom;
+								break;
+							case DockState.DockLeftAutoHide:
+								macModActivationMonitor.DockState = DockState.DockLeft;
+								break;
+							case DockState.DockRightAutoHide:
+								macModActivationMonitor.DockState = DockState.DockRight;
+								break;
+							case DockState.DockTopAutoHide:
+								macModActivationMonitor.DockState = DockState.DockTop;
+								break;
+						}
+
+						if (!macModActivationMonitor.Visible)
+							macModActivationMonitor.Show();
+
+						pCoords.X = macModActivationMonitor.AccessibilityObject.Bounds.Location.X + 20;
+						pCoords.Y = macModActivationMonitor.AccessibilityObject.Bounds.Location.Y - 70;
+						break;
+
+					case "ModActivationMonitorControl.toolStrip1":
+						p_section = "toolStrip1";
+						root = macModActivationMonitor.Controls.Find(p_section, true)[0];
+						rootItem = ((ToolStrip)root).Items.Find(p_object, true)[0];
+
+						if (rootItem.Visible)
+						{
+							pCoords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
+							pCoords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 40;
+						}
+						break;
 			}
 
 			return pCoords;

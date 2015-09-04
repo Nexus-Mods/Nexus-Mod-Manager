@@ -71,6 +71,12 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <value>Whether the task set has completed.</value>
 		public bool IsCompleted { get; private set; }
 
+		/// <summary>
+		/// Gets whether the task set is queued.
+		/// </summary>
+		/// <value>Whether the task set is queued.</value>
+		public bool IsQueued { get; set; }
+
 		#endregion
 
 		/// <summary>

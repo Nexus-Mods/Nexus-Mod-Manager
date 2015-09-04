@@ -75,6 +75,13 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="MainFormVM.cs" />
+    <Compile Include="ModActivationMonitor\ModActivationMonitor.cs" />
+    <Compile Include="ModActivationMonitor\UI\ModActivationMonitorControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModActivationMonitor\UI\ModActivationMonitorControl.Designer.cs" />
+    <Compile Include="ModActivationMonitor\UI\ModActivationMonitorListViewItem.cs" />
+    <Compile Include="ModActivationMonitor\UI\ModActivationMonitorVM.cs" />
     <Compile Include="ModAuthoring\ModBuilder.cs" />
     <Compile Include="ModAuthoring\ModPackager.cs" />
     <Compile Include="ModAuthoring\UI\Controls\ModInfoEditor.cs">
@@ -171,6 +178,7 @@
       <DependentUpon>GameDetectionForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="ModActivationMonitor\UI\ModActivationMonitorControl.resx" />
     <EmbeddedResource Include="ModManagement\ProfileManager\UI\ProfileManagerControl.resx">
       <DependentUpon>ProfileManagerControl.cs</DependentUpon>
       <SubType>Designer</SubType>
@@ -367,6 +375,7 @@
     <None Include="Resources\edit-find-and-replace.png" />
     <None Include="Resources\format-line-spacing-triple.png" />
     <None Include="Resources\supported_tools.png" />
+    <None Include="Resources\round_loading.GIF" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />

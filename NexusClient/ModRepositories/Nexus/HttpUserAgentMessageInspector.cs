@@ -37,7 +37,19 @@ namespace Nexus.Client.ModRepositories.Nexus
 		/// <param name="correlationState">The correlation state.</param>
 		public void AfterReceiveReply(ref Message reply, object correlationState)
 		{
-
+			string strNexusLoginErrorCode = null;
+			string strNexusLoginErrorMessage = null;
+			foreach(var a in reply.Properties.Values)
+			{
+				if (a.GetType() == typeof(System.ServiceModel.Channels.HttpResponseMessageProperty))
+				{
+					strNexusLoginErrorCode = ((System.ServiceModel.Channels.HttpResponseMessageProperty)a).Headers["NexusLoginErrorCode"];
+					strNexusLoginErrorMessage = ((System.ServiceModel.Channels.HttpResponseMessageProperty)a).Headers["NexusLoginErrorMessage"];
+				}
+			
+				if (strNexusLoginErrorCode != null)
+				throw new MessageHeaderException (strNexusLoginErrorCode + "#" + strNexusLoginErrorMessage);
+			}
 		}
 
 		/// <summary>

@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.DownloadMonitoring;
 using Nexus.UI.Controls;
+using Nexus.Client.ModActivationMonitoring;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -761,7 +762,16 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Finding managed mods...");
 			Trace.Indent();
-			ModRegistry mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_LINK_FOLDER));
+			ModRegistry mrgModRegistry = null;
+			try
+			{
+				mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_LINK_FOLDER));
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				p_vwmErrorMessage = new ViewMessage(String.Format("An error occured while retrieving managed mods: \n\n{0}", ex.Message), null, "Install Log", MessageBoxIcon.Error);
+				return null;
+			}
 			Trace.TraceInformation("Found {0} managed mods.", mrgModRegistry.RegisteredMods.Count);
 			Trace.Unindent();
 
@@ -834,9 +844,14 @@ namespace Nexus.Client
 			DownloadMonitor dmtMonitor = new DownloadMonitor();
 			Trace.Unindent();
 
+			Trace.TraceInformation("Initializing Mod Activation Monitor...");
+			Trace.Indent();
+			ModActivationMonitor mamMonitor = new ModActivationMonitor();
+			Trace.Unindent();
+
 			Trace.TraceInformation("Initializing Mod Manager...");
 			Trace.Indent();
-			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
+			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Update Manager...");
@@ -845,7 +860,7 @@ namespace Nexus.Client
 			Trace.Unindent();
 
 			p_vwmErrorMessage = null;
-			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, umgUpdateManager);
+			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor, umgUpdateManager);
 		}
 
 		/// <summary>
