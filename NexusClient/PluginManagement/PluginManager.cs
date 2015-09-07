@@ -384,6 +384,20 @@ namespace Nexus.Client.PluginManagement
 		#endregion
 
 		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_hashMods">The hash of mods.</param>
+		/// <param name="p_booEnable">Enable/Disable/Toggle.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask ManageMultiplePluginsTask(List<Plugin> p_lstPlugins, bool p_booEnable, ConfirmActionMethod p_camConfirm)
+		{
+			ManageMultiplePluginsTask mptManageMultiplePlugins = new ManageMultiplePluginsTask(p_lstPlugins, ActivePluginLog, p_booEnable);
+			mptManageMultiplePlugins.Update(p_camConfirm);
+			return mptManageMultiplePlugins;
+		}
+
+		/// <summary>
 		/// Determines if the specified file is a plugin that can be activated for the game mode.
 		/// </summary>
 		/// <param name="p_strPath">The path to the file for which it is to be determined if it is a plugin file.</param>
@@ -404,8 +418,8 @@ namespace Nexus.Client.PluginManagement
 		/// <returns><c>true</c> if it can;
 		/// <c>false</c> otherwise.</returns>
 		public bool CanActivatePlugins()
-		{ 
-			return !((GameMode.MaxAllowedActivePluginsCount > 0) && (ActivePlugins.Count >= GameMode.MaxAllowedActivePluginsCount));
+		{
+			return true;
 		}
 	}
 }

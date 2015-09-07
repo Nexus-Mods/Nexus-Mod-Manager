@@ -270,6 +270,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "W2NexusREST";
 					m_intRemoteGameId = 153;
 					break;
+				case "Witcher3":
+					m_strWebsite = "witcher3.nexusmods.com";
+					m_strEndpoint = "W3NexusREST";
+					m_intRemoteGameId = 952;
+					break;
 				case "XRebirth":
 					m_strWebsite = "www.nexusmods.com/xrebirth";
 					m_strEndpoint = "XRNexusREST";
@@ -440,7 +445,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 				//'NexusLoginErrorCode: 4' - 'Invalid login data.'
 
 				string strNexusLoginErrorCode = e.Message.Split('#')[0].Trim();
-				string strNexusLoginErrorMessage = e.Message.Split('#')[1].Trim();
+				string strNexusLoginErrorMessage = String.Empty;
+				if (strNexusLoginErrorCode.Equals("4"))
+					strNexusLoginErrorMessage = "Wrong username or password.";
+				else
+	                strNexusLoginErrorMessage = e.Message.Split('#')[1].Trim();
 				throw new RepositoryUnavailableException(String.Format("{0}", strNexusLoginErrorMessage), e);
 			}
 			catch (TimeoutException e)
@@ -478,14 +487,14 @@ namespace Nexus.Client.ModRepositories.Nexus
 				if (e.Message == "Internal Server Error")
 					throw new RepositoryUnavailableException(String.Format("{0} server error! This is a server issue, try again after a few minutes.", Name), e);
 				else
-					throw new RepositoryUnavailableException(String.Format("Error communicating with the server! Cannot reach the {0} login server.", Name), e);
+					throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server. Either your firewall is blocking NMM or the login server is down.", Name), e);
 			}
 			catch (SerializationException e)
 			{
 				Trace.WriteLine("Login error: " + e.Message);
 				if (e.InnerException != null)
 					Trace.WriteLine("Login inner exception: " + e.InnerException.Message);
-				throw new RepositoryUnavailableException(String.Format("Unexpected response! Cannot reach the {0} login server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Unexpected response from the {0} login server. Please try again later.", Name), e);
 			}
 			m_dicAuthenticationTokens = new Dictionary<string, string>();
 			if (!String.IsNullOrEmpty(strCookie))
@@ -549,7 +558,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 					}
 
 				}
-				throw new RepositoryUnavailableException(String.Format("Error communicating with the server! Cannot reach the {0} login server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} login server. Either your firewall is blocking NMM or the login server is down.", Name), e);
 			}
 			catch (SerializationException e)
 			{
@@ -558,6 +567,15 @@ namespace Nexus.Client.ModRepositories.Nexus
 					Trace.WriteLine("Login inner exception: " + e.InnerException.Message);
 				throw new RepositoryUnavailableException(String.Format("Unexpected response! Cannot reach the {0} login server.", Name), e);
 			}
+			catch (Exception e)
+			{
+				Trace.WriteLine("Login error: " + e.Message);
+				if (e.InnerException != null)
+					Trace.WriteLine("Login inner exception: " + e.InnerException.Message);
+				throw new RepositoryUnavailableException(String.Format("Unable to perform token authentication, retry using your credentials.", Name), e);
+			}
+
+
 			if (String.IsNullOrEmpty(strCookie))
 				m_dicAuthenticationTokens = null;
 

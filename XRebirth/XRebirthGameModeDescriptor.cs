@@ -9,7 +9,6 @@ namespace Nexus.Client.Games.XRebirth
 	public class XRebirthGameModeDescriptor : GameModeDescriptorBase
 	{
 		private static readonly string[] EXECUTABLES = { "XRebirth.exe" };
-		private static readonly string[] CRITICAL_PLUGINS = null;
 		private const string MODE_ID = "XRebirth";
 
 		#region Properties
@@ -59,18 +58,6 @@ namespace Nexus.Client.Games.XRebirth
 			get
 			{
 				return EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
 			}
 		}
 

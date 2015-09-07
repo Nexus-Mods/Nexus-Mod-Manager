@@ -106,7 +106,25 @@ namespace Nexus.Client.Games
 		/// Gets the list of critical plugin names, ordered by load order.
 		/// </summary>
 		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public abstract string[] OrderedCriticalPluginNames { get; }
+		public virtual string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		public virtual string[] OrderedOfficialPluginNames
+		{
+			get
+			{
+				return null;
+			}
+		}
 
 		/// <summary>
 		/// Gets the name of the required tool (if any) for the current game mode.

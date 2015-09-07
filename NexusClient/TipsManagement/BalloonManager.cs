@@ -74,9 +74,9 @@ namespace Nexus.Client.TipsManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public BalloonManager()
+		public BalloonManager(bool p_booSupportsPlugin)
 		{
-			m_lstTips = LoadTips();
+			m_lstTips = LoadTips(p_booSupportsPlugin);
 		}
 
 		#endregion
@@ -216,7 +216,7 @@ namespace Nexus.Client.TipsManagement
 		/// <summary>
 		/// Loads the data from the Tips XML file.
 		/// </summary>
-		public List<ITips> LoadTips()
+		public List<ITips> LoadTips(bool p_booSupportsPlugin)
 		{
 			XDocument p_docTips = XDocument.Parse(GetResourceTextFile("Tips.xml"));
 			List<ITips> m_tslTips = new List<ITips>();
@@ -225,10 +225,20 @@ namespace Nexus.Client.TipsManagement
 			{
 				foreach (XElement xelTip in xelTipsList.Elements("tips"))
 				{
+					bool booPluginOnly = false;
 					string strTipObject = xelTip.Attribute("object").Value;
 					string strTipSection = xelTip.Attribute("section").Value;
 					string strTipText = xelTip.Element("text").Value;
 					string strVersion = xelTip.Attribute("version").Value;
+					try
+					{
+						booPluginOnly = Convert.ToBoolean(xelTip.Attribute("pluginsonly").Value);
+					}
+					catch { }
+
+					if (booPluginOnly && !p_booSupportsPlugin)
+						continue;
+
 					m_tslTips.Add(new Tips(Convert.ToInt32(xelTip.Attribute("ID").Value), strTipText, strTipSection, strTipObject, strVersion));
 				}
 			}

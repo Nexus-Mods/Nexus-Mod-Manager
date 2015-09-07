@@ -341,6 +341,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		public string[] OrderedOfficialPluginNames
+		{
+			get
+			{
+				return m_gmdGameModeInfo.OrderedOfficialPluginNames;
+			}
+		}
+
+		/// <summary>
 		/// Gets the name of the required tool (if any) for the current game mode.
 		/// </summary>
 		/// <value>The name of the required tool (if any) for the current game mode.</value>
@@ -487,6 +499,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Gets the plugin loadorder manager.
+		/// </summary>
+		/// <value>The plugin loadorder manager.</value>
+		public virtual ILoadOrderManager LoadOrderManager 
+		{ 
+			get
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Gets the directory where the game plugins are installed.
 		/// </summary>
 		/// <value>The directory where the game plugins are installed.</value>
@@ -576,6 +600,17 @@ namespace Nexus.Client.Games
 			{
 				return null;
 			}
+		}
+
+		/// <summary>
+		/// Whether the plugin sorter is properly initialized.
+		/// </summary>
+		public virtual bool PluginSorterInitialized 
+		{ 
+			get
+			{
+				return false;
+			} 
 		}
 
 		#endregion
@@ -714,10 +749,11 @@ namespace Nexus.Client.Games
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust.</param>
 		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_booIgnoreIfPresent">Whether to ignore the path if the specific root is already present</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
+		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
-			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath, false);
+			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_booIgnoreIfPresent);
 		}
 
 		/// <summary>

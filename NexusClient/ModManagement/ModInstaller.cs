@@ -175,6 +175,9 @@ namespace Nexus.Client.ModManagement
 				{
 					using (TransactionScope tsTransaction = new TransactionScope())
 					{
+						if (!File.Exists(Mod.Filename))
+							throw new Exception("The selected file was not found: " + Mod.Filename);
+
 						TxFileManager tfmFileManager = new TxFileManager();
 
 						if (!BeginModReadOnlyTransaction())

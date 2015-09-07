@@ -394,7 +394,7 @@ namespace Balloon.NET
 			// closeButton
 			// 
 			this.closeButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.closeButton.FlatAppearance.BorderColor = System.Drawing.Color.Orange;
+			this.closeButton.FlatAppearance.BorderColor = System.Drawing.Color.LightYellow;
 			this.closeButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
 			this.closeButton.Image = global::Nexus.Client.Properties.Resources.tipsClose;
 			this.closeButton.Location = new System.Drawing.Point(198, 0);
@@ -406,7 +406,7 @@ namespace Balloon.NET
 			// nextButton
 			// 
 			this.nextButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.nextButton.FlatAppearance.BorderColor = System.Drawing.Color.Orange;
+			this.nextButton.FlatAppearance.BorderColor = System.Drawing.Color.LightYellow;
 			this.nextButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
 			this.nextButton.Image = global::Nexus.Client.Properties.Resources.arrow_state_blue_right;
 			this.nextButton.Location = new System.Drawing.Point(182, 2);
@@ -418,7 +418,7 @@ namespace Balloon.NET
 			// previousButton
 			// 
 			this.previousButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.previousButton.FlatAppearance.BorderColor = System.Drawing.Color.Orange;
+			this.previousButton.FlatAppearance.BorderColor = System.Drawing.Color.LightYellow;
 			this.previousButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
 			this.previousButton.Image = global::Nexus.Client.Properties.Resources.arrow_state_blue_left;
 			this.previousButton.Location = new System.Drawing.Point(164, 2);
@@ -430,7 +430,7 @@ namespace Balloon.NET
 			// BalloonHelp
 			// 
 			this.AutoScaleBaseSize = new System.Drawing.Size(5, 13);
-			this.BackColor = System.Drawing.Color.Orange;
+			this.BackColor = System.Drawing.Color.LightYellow;
 			this.ClientSize = new System.Drawing.Size(224, 190);
 			this.Controls.Add(this.closeButton);
 			this.Controls.Add(this.previousButton);

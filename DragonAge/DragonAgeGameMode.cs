@@ -356,8 +356,9 @@ namespace Nexus.Client.Games.DragonAge
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust.</param>
 		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_booIgnoreIfPresent">Whether to ignore the path if the specific root is already present</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod)
+		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
 			string strPath = String.Empty;
 			string strModFileName = Path.GetFileNameWithoutExtension(p_modMod.Filename);

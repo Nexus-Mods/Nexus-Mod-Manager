@@ -12,8 +12,8 @@ namespace Nexus.Client.Games.Morrowind
 	{
 		private static string[] EXECUTABLES = { "Morrowind.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Morrowind.esm" };
+		private static string[] OFFICIAL_PLUGINS = { "Tribunal.esm", "Bloodmoon.esm" };
 		private const string MODE_ID = "Morrowind";
-		//private string[] m_strCriticalPlugins = null;
 
 		#region Properties
 
@@ -77,6 +77,18 @@ namespace Nexus.Client.Games.Morrowind
 			get
 			{
 				return CRITICAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		protected override string[] OrderedOfficialPluginFilenames
+		{
+			get
+			{
+				return OFFICIAL_PLUGINS;
 			}
 		}
 

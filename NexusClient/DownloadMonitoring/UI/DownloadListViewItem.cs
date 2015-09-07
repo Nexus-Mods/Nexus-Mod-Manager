@@ -49,7 +49,12 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
 			lsiSubItem.Name = ObjectHelper.GetPropertyName(() => p_tskTask.Status);
 			if (p_tskTask.Status == TaskStatus.Running)
-				lsiSubItem.Text = "Downloading";
+			{
+				if (p_tskTask.IsRemote)
+					lsiSubItem.Text = "Downloading";
+				else
+					lsiSubItem.Text = "Moving";
+			}
 			else
 				lsiSubItem.Text = p_tskTask.Status.ToString();
 
@@ -174,7 +179,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			{
 				if (p_tskTask.Status == TaskStatus.Running)
 				{
-					SubItems[p_strPropertyName].Text = "Downloading";
+					if (p_tskTask.IsRemote)
+						SubItems[p_strPropertyName].Text = "Downloading";
+					else
+						SubItems[p_strPropertyName].Text = "Moving";
 				}
 				else
 				{
@@ -191,7 +199,12 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				if ((p_tskTask.InnerTaskStatus.ToString() == "Retrying") && ((p_tskTask.Status != TaskStatus.Paused) && (p_tskTask.Status != TaskStatus.Queued)))
 					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = p_tskTask.InnerTaskStatus.ToString();
 				else if (p_tskTask.InnerTaskStatus.ToString() == "Running")
-					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = "Downloading";
+				{
+					if (p_tskTask.IsRemote)
+						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = "Downloading";
+					else
+						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = "Moving";
+				}
 				else
 				{
 					SubItems["ETA"].Text = "";

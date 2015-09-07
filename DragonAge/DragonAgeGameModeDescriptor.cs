@@ -11,7 +11,6 @@ namespace Nexus.Client.Games.DragonAge
 	public class DragonAgeGameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "daorigins.exe" };
-		private static string[] CRITICAL_PLUGINS = { };
 		private const string MODE_ID = "DragonAge";
 
 		#region Properties
@@ -77,21 +76,6 @@ namespace Nexus.Client.Games.DragonAge
 			get
 			{
 				return EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				if (!String.IsNullOrEmpty(ExecutablePath))
-					for (int i = 0; i < CRITICAL_PLUGINS.Length; i++)
-						CRITICAL_PLUGINS[i] = Path.Combine(ExecutablePath, CRITICAL_PLUGINS[i]);
-				return CRITICAL_PLUGINS;
 			}
 		}
 

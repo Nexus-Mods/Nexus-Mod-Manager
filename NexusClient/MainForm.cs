@@ -118,7 +118,7 @@ namespace Nexus.Client
 					spbHelp.DropDownItems.Add(tmiHelp);
 				}
 
-				bmBalloon = new BalloonManager();
+				bmBalloon = new BalloonManager(ViewModel.UsesPlugins);
 				bmBalloon.ShowNextClick += bmBalloon_ShowNextClick;
 				bmBalloon.ShowPreviousClick += bmBalloon_ShowPreviousClick;
 				bmBalloon.CloseClick += bmBalloon_CloseClick;
@@ -158,6 +158,8 @@ namespace Nexus.Client
 			mmgModManager.UpdateModsCount += new EventHandler(mmgModManager_UpdateModsCount);
 			mmgModManager.UninstallModFromProfiles += new EventHandler(mmgModManager_UninstallModFromProfiles);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
+			pmcPluginManager.UpdatePluginsCount += new EventHandler(pmcPluginManager_UpdatePluginsCount);
+			macModActivationMonitor = new ModActivationMonitorControl();
 			macModActivationMonitor.UpdateBottomBarFeedback += new EventHandler(macModActivationMonitor_UpdateBottomBarFeedback);
 			p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
@@ -356,7 +358,46 @@ namespace Nexus.Client
 
 			macModActivationMonitor.DockTo(dmcDownloadMonitor.Pane, DockStyle.Right, 1);
 
-			tlbModsCounter.Text = "Total mods " + ViewModel.ModManagerVM.ManagedMods.Count + "  |   Active mods " + ViewModel.ModManager.ActiveMods.Count;
+			if (ViewModel.UsesPlugins)
+			{
+				tlbPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
+
+				FontFamily myFontFamily = new FontFamily(tlbActivePluginsCounter.Font.Name);
+
+				if (ViewModel.PluginManagerVM.ActivePlugins.Count > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
+				{
+					Icon icoIcon = new Icon(SystemIcons.Warning, 16, 16);
+					tlbActivePluginsCounter.Image = icoIcon.ToBitmap();
+					tlbActivePluginsCounter.ForeColor = Color.Red;
+
+					if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
+						tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Bold);
+					else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+						tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Regular);
+
+					tlbActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+					tlbActivePluginsCounter.ToolTipText = String.Format("Too many active plugins! {0} won't start!", ViewModel.CurrentGameModeName);
+				}
+				else
+				{
+					tlbActivePluginsCounter.Image = null;
+					tlbActivePluginsCounter.ForeColor = Color.Black;
+					if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+						tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Regular);
+					else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
+						tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Bold);
+
+					tlbActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+				}
+
+			}
+			else
+			{
+				tlbPluginSeparator.Visible = false;
+				tlbPluginsCounter.Visible = false;
+			}
+
+			tlbModsCounter.Text = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Active mods: " + ViewModel.ModManager.ActiveMods.Count;
 
 			UserStatusFeedback();
 		}
@@ -495,7 +536,7 @@ namespace Nexus.Client
 		/// </summary>
 		protected void SortPlugins()
 		{
-			if (ViewModel.PluginSorterInitialized)
+			if (ViewModel.SupportsPluginAutoSorting && ViewModel.PluginSorterInitialized)
 				ViewModel.SortPlugins();
 			else
 				MessageBox.Show("Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
@@ -608,7 +649,7 @@ namespace Nexus.Client
 					e.Cancel = true;
 			}
 
-			if (macModActivationMonitor.IsInstalling)
+			if (ViewModel.IsInstalling)
 			{
 				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing mod installation, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 				if (drFormClose != DialogResult.Yes)
@@ -705,7 +746,39 @@ namespace Nexus.Client
 		/// </summary>
 		private void mmgModManager_UpdateModsCount(object sender, EventArgs e)
 		{
-			tlbModsCounter.Text = "Total mods " + ViewModel.ModManagerVM.ManagedMods.Count + "  |   Active mods " + ViewModel.ModManager.ActiveMods.Count;
+			tlbModsCounter.Text = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Active mods: " + ViewModel.ModManager.ActiveMods.Count;
+		}
+
+		/// <summary>
+		/// Updates the Plugins Counter
+		/// </summary>
+		private void pmcPluginManager_UpdatePluginsCount(object sender, EventArgs e)
+		{
+			tlbPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
+			FontFamily myFontFamily = new FontFamily(tlbActivePluginsCounter.Font.Name);
+
+			if (ViewModel.PluginManagerVM.ActivePlugins.Count > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
+			{
+				Icon icoIcon = new Icon(SystemIcons.Warning, 16, 16);
+				tlbActivePluginsCounter.Image = icoIcon.ToBitmap();
+				tlbActivePluginsCounter.ForeColor = Color.Red;
+				if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
+					tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Bold);
+				else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+					tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Regular);
+				tlbActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+				tlbActivePluginsCounter.ToolTipText = String.Format("Too many active plugins! {0} won't start!", ViewModel.CurrentGameModeName); ;
+			}
+			else
+			{
+				tlbActivePluginsCounter.Image = null;
+				if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+					tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Regular);
+				else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
+					tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Bold);
+				tlbActivePluginsCounter.ForeColor = Color.Black;
+				tlbActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+			}
 		}
 
 		/// <summary>
@@ -747,67 +820,52 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
-		/// Updates the Bottom Bar Feedback
+		/// Updates the Bottom Bar Queue Feedback
 		/// </summary>
 		private void macModActivationMonitor_UpdateBottomBarFeedback(object sender, EventArgs e)
 		{
 			UpgradeBottomBarFeedbackCounter();
 			if (sender != null)
 			{
-				if (((ModActivationMonitorListViewItem)sender).Task != null)
+				if (ViewModel.IsInstalling)
 				{
-					tsbLoader.Visible = true;
-
-					if (!((ModActivationMonitorListViewItem)sender).Task.IsQueued)
+					ModActivationMonitorListViewItem lwiListViewItem = (ModActivationMonitorListViewItem)sender;
+					if (lwiListViewItem.Task != null)
 					{
-						if (((ModActivationMonitorListViewItem)sender).Task.GetType() == typeof(ModInstaller))
-							tlbBottomBarFeedback.Text = "Mod Activation: Installing ";
-						else if (((ModActivationMonitorListViewItem)sender).Task.GetType() == typeof(ModUninstaller))
-							tlbBottomBarFeedback.Text = "Mod Activation: Uninstalling ";
-						else if (((ModActivationMonitorListViewItem)sender).Task.GetType() == typeof(ModUpgrader))
-							tlbBottomBarFeedback.Text = "Mod Activation: Upgrading ";
-						else
-							tlbBottomBarFeedback.Text = "";
+						tsbLoader.Visible = true;
+						tlbBottomBarFeedbackCounter.Visible = true;
+
+						if (!lwiListViewItem.Task.IsQueued)
+						{
+							if (lwiListViewItem.Task.GetType() == typeof(ModInstaller))
+								tlbBottomBarFeedback.Text = "Mod Activation: Installing ";
+							else if (lwiListViewItem.Task.GetType() == typeof(ModUninstaller))
+								tlbBottomBarFeedback.Text = "Mod Activation: Uninstalling ";
+							else if (lwiListViewItem.Task.GetType() == typeof(ModUpgrader))
+								tlbBottomBarFeedback.Text = "Mod Activation: Upgrading ";
+						}
+					}
+					else
+					{
+						tlbBottomBarFeedback.Text = "Idle";
+						tsbLoader.Visible = false;
 					}
 				}
 				else
 				{
-					tlbBottomBarFeedback.Text = "";
 					tsbLoader.Visible = false;
-				}
-
-				if (!macModActivationMonitor.IsInstalling)
-				{
-					tsbLoader.Visible = false;
+					tlbBottomBarFeedbackCounter.Visible = false;
+					tlbBottomBarFeedback.Text = "Idle";
 				}
 			}
 		}
 
 		/// <summary>
-		/// Updates the Bottom Bar Feedback Counter
+		/// Updates the Bottom Bar Queue Counter
 		/// </summary>
 		private void UpgradeBottomBarFeedbackCounter()
 		{
-			int intPartialTasks = 0;
-
-			foreach (IBackgroundTaskSet ibt in macModActivationMonitor.ViewModel.Tasks)
-			{
-				if (ibt.GetType() == typeof(ModInstaller))
-				{
-					if (((ModInstaller)ibt).IsCompleted)
-						intPartialTasks++;
-				}
-				else if (ibt.GetType() == typeof(ModUninstaller))
-				{
-					if (((ModUninstaller)ibt).IsCompleted)
-						intPartialTasks++;
-				}
-				else if (ibt.GetType() == typeof(ModUpgrader))
-				{
-					if (((ModUpgrader)ibt).IsCompleted)
-						intPartialTasks++;
-				}
-			}
+			int intCompletedTasks = macModActivationMonitor.ViewModel.Tasks.Count(x => x.IsCompleted == true);
 
 			if (macModActivationMonitor.ViewModel.Tasks.Count == 0)
 			{
@@ -816,7 +874,7 @@ namespace Nexus.Client
 				tsbLoader.Visible = false;
 			}
 			else
-				tlbBottomBarFeedbackCounter.Text = "(" + intPartialTasks + "/" + macModActivationMonitor.ViewModel.Tasks.Count + ")";
+				tlbBottomBarFeedbackCounter.Text = "(" + intCompletedTasks + "/" + macModActivationMonitor.ViewModel.Tasks.Count + ")";
 		}
 
 		/// <summary>
@@ -1270,7 +1328,7 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tmiConfigureVirtualFolders, cmdConfigureVirtualFolders);
 			spbTools.DropDownItems.Add(tmiConfigureVirtualFolders);
 
-			if (ViewModel.UsesPlugins)
+			if (ViewModel.UsesPlugins && ViewModel.SupportsPluginAutoSorting)
 			{
 				Command cmdSortPlugins = new Command("Automatic Plugin Sorting", "Automatically sorts the plugin list.", SortPlugins);
 				ToolStripMenuItem tmicmdSortPluginsTool = new ToolStripMenuItem();
@@ -1394,8 +1452,11 @@ namespace Nexus.Client
 				case "tssDownload":
 					root = this.Controls.Find(p_section, true)[0];
 					rootItem = ((StatusStrip)root).Items.Find(p_object, true)[0];
-					pCoords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
-					pCoords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 60;
+					if (rootItem.Visible)
+					{
+						pCoords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
+						pCoords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 60;
+					}
 					break;
 
 				case "ModManager.toolStrip1":

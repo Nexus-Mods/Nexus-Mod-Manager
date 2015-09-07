@@ -64,6 +64,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private Int32 m_intReadOnlyInitFileBlockExtractionCurrentStage = 0;
 		private float m_fltReadOnlyInitCurrentBaseProgress = 0f;
 
+		private bool m_booAllowArchiveEdits = false;
+
 		#endregion
 
 		#region Properties
@@ -1006,7 +1008,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			//if this is a packed OMod, and the file is read-only, we want it to crash
 			// if it's no patcked, then we simply remove it from the cache, so we don't want
 			// a crash.
-			if (!m_arcFile.ReadOnly || IsPacked)
+			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly || IsPacked))
 				m_arcFile.DeleteFile(strPath);
 			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(strPath))
 				m_arcCacheFile.DeleteFile(strPath);
@@ -1020,7 +1022,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		protected void ReplaceSpecialFile(string p_strPath, byte[] p_bteData)
 		{
 			string strPath = GetRealPath(IsPacked ? p_strPath : Path.Combine(CONVERSION_FOLDER, p_strPath));
-			if (!m_arcFile.ReadOnly || IsPacked)
+			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly || IsPacked))
 				m_arcFile.ReplaceFile(p_strPath, p_bteData);
 			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(p_strPath) || m_arcFile.ReadOnly))
 				m_arcCacheFile.ReplaceFile(p_strPath, p_bteData);
@@ -1034,7 +1036,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		protected void ReplaceSpecialFile(string p_strPath, string p_strData)
 		{
 			string strPath = GetRealPath(IsPacked ? p_strPath : Path.Combine(CONVERSION_FOLDER, p_strPath));
-			if (!m_arcFile.ReadOnly || IsPacked)
+			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly || IsPacked))
 				m_arcFile.ReplaceFile(p_strPath, p_strData);
 			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(p_strPath) || m_arcFile.ReadOnly))
 				m_arcCacheFile.ReplaceFile(p_strPath, p_strData);

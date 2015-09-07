@@ -10,6 +10,7 @@ namespace Nexus.Client.Games.Skyrim
 	{
 		private static string[] EXECUTABLES = { "SkyrimLauncher.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Skyrim.esm", "Update.esm" };
+		private static string[] OFFICIAL_PLUGINS = { "Dawnguard.esm", "Dragonborn.esm", "HearthFires.esm", "HighResTexturePack01.esp", "HighResTexturePack02.esp", "HighResTexturePack03.esp" };
 		private const string MODE_ID = "Skyrim";
 
 		#region Properties
@@ -59,6 +60,18 @@ namespace Nexus.Client.Games.Skyrim
 			get
 			{
 				return CRITICAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		protected override string[] OrderedOfficialPluginFilenames
+		{
+			get
+			{
+				return OFFICIAL_PLUGINS;
 			}
 		}
 

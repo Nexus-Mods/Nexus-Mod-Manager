@@ -15,6 +15,7 @@ namespace Nexus.Client.Games.Gamebryo
 																					"facegen", "menus", "lodsettings", "lsdata",
 																					"sound" };
 		private string[] m_strCriticalPlugins = null;
+		private string[] m_strOfficialPlugins = null;
 
 		#region Properties
 
@@ -85,6 +86,30 @@ namespace Nexus.Client.Games.Gamebryo
 						m_strCriticalPlugins[i] = Path.Combine(PluginDirectory, OrderedCriticalPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				}
 				return m_strCriticalPlugins;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		protected abstract string[] OrderedOfficialPluginFilenames { get; }
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		public override string[] OrderedOfficialPluginNames
+		{
+			get
+			{
+				if (m_strOfficialPlugins == null)
+				{
+					m_strOfficialPlugins = new string[OrderedOfficialPluginFilenames.Length];
+					for (Int32 i = OrderedOfficialPluginFilenames.Length - 1; i >= 0; i--)
+						m_strOfficialPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				}
+				return m_strOfficialPlugins;
 			}
 		}
 

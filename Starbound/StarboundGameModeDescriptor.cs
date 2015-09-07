@@ -13,7 +13,6 @@ namespace Nexus.Client.Games.Starbound
 	{
 		private static string[] EXECUTABLES = { "win32\\starbound.exe", "win32\\starbound_opengl.exe" };
 		private static readonly List<string> STOP_FOLDERS = new List<string>() { "mods" };
-		private static string[] CRITICAL_PLUGINS = null;
 		private const string MODE_ID = "Starbound";
 
 		#region Properties
@@ -66,18 +65,6 @@ namespace Nexus.Client.Games.Starbound
 			get
 			{
 				return EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
 			}
 		}
 

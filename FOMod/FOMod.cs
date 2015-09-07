@@ -60,6 +60,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private bool m_booMovedArchiveInitialized = false;
 		private bool m_booAllowArchiveEdits = false;
 
+		protected List<string> IgnoreFolders = new List<string> { "__MACOSX" };
+
 		#endregion
 
 		#region Properties
@@ -430,6 +432,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			bool booCheckPrefix = true;
 			bool booCheckScript = true;
 			bool booUpdateCacheInfo = false;
+			bool booDirtyCache = false;
 			string strCheckPrefix = null;
 			string strCheckScriptPath = null;
 			string strCheckScriptType = null;
@@ -438,6 +441,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			m_arcFile = new Archive(p_strFilePath);
 
 			#region Check for cacheInfo.txt file
+
 			m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(m_strFilePath);
 			if (m_arcCacheFile != null)
 			{
@@ -453,20 +457,35 @@ namespace Nexus.Client.Mods.Formats.FOMod
 						if (strPref.Length > 1)
 						{
 							strCheckPrefix = strPref[1];
-							if (strCheckPrefix.Equals("-"))
-								strCheckPrefix = String.Empty;
-							booCheckPrefix = false;
-						}
+							foreach (string Folder in IgnoreFolders)
+							{
+								if (strCheckPrefix.IndexOf(Folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
+								{
+									booCheckNested = true;
+									strCheckPrefix = String.Empty;
+									booDirtyCache = true;
+									break;
+								}
+							}
 
-						if (strPref.Length > 2)
-						{
-							strCheckScriptPath = strPref[2];
-							if (strCheckScriptPath.Equals("-"))
-								strCheckScriptPath = String.Empty;
-							strCheckScriptType = strPref[3];
-							if (strCheckScriptType.Equals("-"))
-								strCheckScriptType = String.Empty;
-							booCheckScript = false;
+							if (!booDirtyCache)
+							{
+
+								if (strCheckPrefix.Equals("-"))
+									strCheckPrefix = String.Empty;
+								booCheckPrefix = false;
+
+								if (strPref.Length > 2)
+								{
+									strCheckScriptPath = strPref[2];
+									if (strCheckScriptPath.Equals("-"))
+										strCheckScriptPath = String.Empty;
+									strCheckScriptType = strPref[3];
+									if (strCheckScriptType.Equals("-"))
+										strCheckScriptType = String.Empty;
+									booCheckScript = false;
+								}
+							}
 						}
 					}
 				}
@@ -690,52 +709,62 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			Stack<string> stkPaths = new Stack<string>();
 			stkPaths.Push("/");
 
-			//if (m_booUsesPlugins)
+			while (stkPaths.Count > 0)
 			{
-				while (stkPaths.Count > 0)
+				string strSourcePath = stkPaths.Pop();
+				string[] directories = m_arcFile.GetDirectories(strSourcePath);
+				bool booFoundData = false;
+				bool booFoundPrefix = false;
+				foreach (string strDirectory in directories)
 				{
-					string strSourcePath = stkPaths.Pop();
-					string[] directories = m_arcFile.GetDirectories(strSourcePath);
-					bool booFoundData = false;
-					bool booFoundPrefix = false;
-					foreach (string strDirectory in directories)
-					{
-						stkPaths.Push(strDirectory);
-						if (StopFolders.Contains(Path.GetFileName(strDirectory).ToLowerInvariant()))
+					bool booSkipFolder = false;
+
+					foreach (string Folder in IgnoreFolders)
+						if (strDirectory.IndexOf(Folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
 						{
-							booFoundPrefix = true;
+							booSkipFolder = true;
 							break;
 						}
-						if (m_booUsesPlugins)
-							booFoundData |= Path.GetFileName(strDirectory).Equals(PluginsDirectoryName, StringComparison.OrdinalIgnoreCase);
+
+					if (booSkipFolder)
+						continue;
+
+					stkPaths.Push(strDirectory);
+					if (StopFolders.Contains(Path.GetFileName(strDirectory).ToLowerInvariant()))
+					{
+						booFoundPrefix = true;
+						break;
 					}
-					if (booFoundPrefix)
+					if (m_booUsesPlugins)
+						booFoundData |= Path.GetFileName(strDirectory).Equals(PluginsDirectoryName, StringComparison.OrdinalIgnoreCase);
+				}
+				if (booFoundPrefix)
+				{
+					strPrefixPath = strSourcePath;
+					break;
+				}
+				if (booFoundData)
+				{
+					strPrefixPath = Path.Combine(strSourcePath, PluginsDirectoryName);
+					break;
+				}
+				if (!booFoundData)
+				{
+					bool booFound = false;
+					foreach (string strExtension in PluginExtensions)
+						if (m_arcFile.GetFiles(strSourcePath, "*" + strExtension, false).Length > 0)
+						{
+							booFound = true;
+							break;
+						}
+					if (booFound)
 					{
 						strPrefixPath = strSourcePath;
 						break;
 					}
-					if (booFoundData)
-					{
-						strPrefixPath = Path.Combine(strSourcePath, PluginsDirectoryName);
-						break;
-					}
-					if (!booFoundData)
-					{
-						bool booFound = false;
-						foreach (string strExtension in PluginExtensions)
-							if (m_arcFile.GetFiles(strSourcePath, "*" + strExtension, false).Length > 0)
-							{
-								booFound = true;
-								break;
-							}
-						if (booFound)
-						{
-							strPrefixPath = strSourcePath;
-							break;
-						}
-					}
 				}
 			}
+
 			strPrefixPath = (strPrefixPath == null) ? "" : strPrefixPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			if (!String.IsNullOrEmpty(strPrefixPath))
 				strPrefixPath = InitializeMovedArchive(strPrefixPath);
@@ -1161,7 +1190,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			{
 				try
 				{
-					IsEndorsed = !String.IsNullOrEmpty(xndEndorsed.InnerText) ? (bool?)Convert.ToBoolean(xndEndorsed.InnerText) : null;
+					bool booEndorsed;
+					IsEndorsed = Boolean.TryParse(xndEndorsed.InnerText, out booEndorsed) ? (bool?)booEndorsed : null;
 				}
 				catch
 				{

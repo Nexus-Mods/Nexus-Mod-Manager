@@ -11,7 +11,6 @@ namespace Nexus.Client.Games.TESO
 	public class TESOGameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "eso.exe" };
-		private static string[] CRITICAL_PLUGINS = null;
 		private const string MODE_ID = "TESO";
 
 		#region Properties
@@ -69,18 +68,6 @@ namespace Nexus.Client.Games.TESO
 			get
 			{
 				return EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
 			}
 		}
 

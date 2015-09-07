@@ -10,6 +10,7 @@ namespace Nexus.Client.Games.Fallout3
 	{
 		private static string[] EXECUTABLES = { "fallout3.exe", "fallout3ng.exe" };
 		private static string[] CRITICAL_PLUGINS = { "fallout3.esm" };
+		private static string[] OFFICIAL_PLUGINS = { "Anchorage.esm", "ThePitt.esm", "BrokenSteel.esm", "PointLookout.esm", "Zeta.esm" };
 		private const string MODE_ID = "Fallout3";
 
 		#region Properties
@@ -59,6 +60,18 @@ namespace Nexus.Client.Games.Fallout3
 			get
 			{
 				return CRITICAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		protected override string[] OrderedOfficialPluginFilenames
+		{
+			get
+			{
+				return OFFICIAL_PLUGINS;
 			}
 		}
 

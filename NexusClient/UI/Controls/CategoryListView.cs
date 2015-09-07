@@ -193,6 +193,7 @@ namespace Nexus.Client.UI.Controls
 			InitializeComponent();
 			tlcModName.Name = "ModName";
 			tlcInstallDate.Name = "InstallDate";
+			tlcDownloadDate.Name = "DownloadDate";
 			tlcVersion.Name = "HumanReadableVersion";
 			tlcWebVersion.Name = "WebVersion";
 			tlcAuthor.Name = "Author";
@@ -200,6 +201,7 @@ namespace Nexus.Client.UI.Controls
 			tlcCategory.Name = "Category";
 			tlcModName.AspectName = "Text";
 			tlcInstallDate.AspectName = "Text";
+			tlcDownloadDate.AspectName = "Text";
 			tlcVersion.AspectName = "Text";
 			tlcWebVersion.AspectName = "Text";
 			tlcAuthor.AspectName = "Text";
@@ -372,6 +374,36 @@ namespace Nexus.Client.UI.Controls
 			};
 
 			tlcInstallDate.AspectToStringConverter = delegate(object x)
+			{
+				int intCheck;
+				if ((x != null) && (!Int32.TryParse(x.ToString(), out intCheck)))
+				{
+					return x.ToString();
+				}
+				else
+					return String.Empty;
+			};
+
+			tlcDownloadDate.AspectGetter = delegate(object rowObject)
+			{
+				string Val = String.Empty;
+
+				if (rowObject.GetType() != typeof(ModCategory))
+				{
+					string strFilePath = ((IMod)rowObject).Filename;
+					if (!String.IsNullOrWhiteSpace(strFilePath))
+						if (File.Exists(strFilePath))
+							Val = File.GetLastWriteTime(((IMod)rowObject).Filename).ToString();
+					if (CheckDate(Val))
+						return Convert.ToDateTime(Val);
+				}
+				else
+					return ((ModCategory)rowObject).NewMods.ToString();
+
+				return null;
+			};
+
+			tlcDownloadDate.AspectToStringConverter = delegate(object x)
 			{
 				int intCheck;
 				if ((x != null) && (!Int32.TryParse(x.ToString(), out intCheck)))
@@ -1016,10 +1048,13 @@ namespace Nexus.Client.UI.Controls
 		public void RemoveStringFilter()
 		{
 			TextMatchFilter tmfFilter = TextMatchFilter.Contains(this, String.Empty);
-			tmfFilter.Columns = new OLVColumn[] { (OLVColumn)this.Columns[0] };
-			HighlightTextRenderer highlightingRenderer = this.GetColumn(0).Renderer as HighlightTextRenderer;
-			if (highlightingRenderer != null)
-				highlightingRenderer.Filter = tmfFilter;
+			if (this.Columns.Count > 0)
+			{
+				tmfFilter.Columns = new OLVColumn[] { (OLVColumn)this.Columns[0] };
+				HighlightTextRenderer highlightingRenderer = this.GetColumn(0).Renderer as HighlightTextRenderer;
+				if (highlightingRenderer != null)
+					highlightingRenderer.Filter = tmfFilter;
+			}
 			m_strLastSearchFilter = String.Empty;
 		}
 
