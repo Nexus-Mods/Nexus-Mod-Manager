@@ -415,42 +415,46 @@ namespace Nexus.Client.Games.Settings
 		/// </summary>
 		public void LoadSettings()
 		{
-			string strRegGameMode = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId;
-			string strRegMods = String.Empty;
-			string strRegInstallInfo = String.Empty;
-			if (RegistryUtil.CanReadKey(strRegGameMode))
-			{
-				RegistryKey rkKey = Registry.LocalMachine.OpenSubKey(strRegGameMode, false);
-				if (rkKey != null)
-				{
-					strRegMods = (string)rkKey.GetValue("Mods", null);
-					strRegInstallInfo = (string)rkKey.GetValue("InstallInfo", null);
-				}
-			}
+			string strRegMod = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId + " ", "Mods", null);
+			string strRegInst = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId + " ", "InstallInfo", null);
+
+			if (!String.IsNullOrWhiteSpace(strRegMod))
+				if (Path.IsPathRooted(strRegMod) && !Directory.Exists(Path.GetPathRoot(strRegMod)))
+					strRegMod = null;
+
+			if (!String.IsNullOrWhiteSpace(strRegInst))
+				if (Path.IsPathRooted(strRegInst) && !Directory.Exists(Path.GetPathRoot(strRegInst)))
+					strRegInst = null;
 
 			string strInstallationPath = EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId];
 			string strDirectory = null;
 			string strRandomGameKey = String.Empty;
 			bool booRetrieved = false;
 
-			if (EnvironmentInfo.Settings.ModFolder.ContainsKey(GameModeDescriptor.ModeId) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId]))
+			if (!String.IsNullOrWhiteSpace(strRegMod))
+				ModDirectory = strRegMod;
+			else if (EnvironmentInfo.Settings.ModFolder.ContainsKey(GameModeDescriptor.ModeId))
 				ModDirectory = EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId];
-			else if (!String.IsNullOrEmpty(strRegMods))
-				ModDirectory = strRegMods;
 			else if (EnvironmentInfo.Settings.ModFolder.Keys.Count > 0)
 			{
 				strRandomGameKey = EnvironmentInfo.Settings.ModFolder.FirstOrDefault().Key;
-				if (!String.IsNullOrEmpty(strRandomGameKey))
-					strRegMods = EnvironmentInfo.Settings.ModFolder[strRandomGameKey];
-
-				if (!String.IsNullOrEmpty(strRegMods))
+				strRegMod = EnvironmentInfo.Settings.ModFolder[strRandomGameKey];
+				if (!String.IsNullOrEmpty(strRegMod))
 				{
-					if (strRegMods.IndexOf(strRandomGameKey) >= 0)
-						ModDirectory = strRegMods.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
-					else
-						ModDirectory = strRegMods.Replace(Path.GetFileName(strRegMods), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegMods));
+					if (!String.IsNullOrEmpty(strRandomGameKey))
+					{
+						if (strRegMod.IndexOf(strRandomGameKey) >= 0)
+							ModDirectory = strRegMod.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+						else
+							ModDirectory = strRegMod.Replace(Path.GetFileName(strRegMod), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegMod));
+					}
 				}
 			}
+
+			if (!String.IsNullOrWhiteSpace(ModDirectory))
+				if (Path.IsPathRooted(ModDirectory) && !Directory.Exists(Path.GetPathRoot(ModDirectory)))
+					ModDirectory = String.Empty;
+
 			if (string.IsNullOrEmpty(ModDirectory))
 			{
 				if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
@@ -465,24 +469,31 @@ namespace Nexus.Client.Games.Settings
 				ModDirectory = strDirectory;
 			}
 
-			if (EnvironmentInfo.Settings.InstallInfoFolder.ContainsKey(GameModeDescriptor.ModeId) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.InstallInfoFolder[GameModeDescriptor.ModeId]))
+			if (!String.IsNullOrWhiteSpace(strRegInst))
+				InstallInfoDirectory = strRegInst;
+			else if (EnvironmentInfo.Settings.InstallInfoFolder.ContainsKey(GameModeDescriptor.ModeId))
 				InstallInfoDirectory = EnvironmentInfo.Settings.InstallInfoFolder[GameModeDescriptor.ModeId];
-			else if (!String.IsNullOrEmpty(strRegInstallInfo))
-				InstallInfoDirectory = strRegInstallInfo;
 			else if (EnvironmentInfo.Settings.ModFolder.Keys.Count > 0)
 			{
-				strRandomGameKey = EnvironmentInfo.Settings.InstallInfoFolder.FirstOrDefault().Key;
 				if (String.IsNullOrEmpty(strRandomGameKey))
-					strRegInstallInfo = EnvironmentInfo.Settings.InstallInfoFolder[strRandomGameKey];
-
-				if (!String.IsNullOrEmpty(strRegInstallInfo))
+					strRandomGameKey = EnvironmentInfo.Settings.InstallInfoFolder.FirstOrDefault().Key;
+				strRegInst = EnvironmentInfo.Settings.InstallInfoFolder[strRandomGameKey];
+				if (!String.IsNullOrEmpty(strRegInst))
 				{
-					if (strRegInstallInfo.IndexOf(strRandomGameKey) >= 0)
-						InstallInfoDirectory = strRegInstallInfo.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
-					else
-						InstallInfoDirectory = strRegInstallInfo.Replace(Path.GetFileName(strRegInstallInfo), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegInstallInfo));
+					if (!String.IsNullOrEmpty(strRandomGameKey))
+					{
+						if (strRegInst.IndexOf(strRandomGameKey) >= 0)
+							InstallInfoDirectory = strRegInst.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+						else
+							InstallInfoDirectory = strRegInst.Replace(Path.GetFileName(strRegInst), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegInst));
+					}
 				}
 			}
+
+			if (!String.IsNullOrWhiteSpace(InstallInfoDirectory))
+				if (Path.IsPathRooted(InstallInfoDirectory) && !Directory.Exists(Path.GetPathRoot(InstallInfoDirectory)))
+					InstallInfoDirectory = String.Empty;
+
 			if (String.IsNullOrEmpty(InstallInfoDirectory))
 			{
 				strDirectory = null;

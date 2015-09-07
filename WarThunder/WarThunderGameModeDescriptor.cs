@@ -11,7 +11,6 @@ namespace Nexus.Client.Games.WarThunder
 	public class WarThunderGameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "aces.exe" };
-		private static string[] CRITICAL_PLUGINS = null;
 		private const string MODE_ID = "WarThunder";
 
 		#region Properties
@@ -61,18 +60,6 @@ namespace Nexus.Client.Games.WarThunder
 			get
 			{
 				return EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
 			}
 		}
 

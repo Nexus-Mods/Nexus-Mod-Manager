@@ -202,6 +202,13 @@ namespace Nexus.Client.Games.Morrowind
 			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Morrowind.ini");
 		}
 
+		/// <summary>
+		/// Setup for the plugin management libraries.
+		/// </summary>
+		protected override void SetupPluginManagement(FileUtil p_futFileUtility)
+		{
+		}
+
 		#endregion
 
 		/// <summary>

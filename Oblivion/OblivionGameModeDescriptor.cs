@@ -10,6 +10,7 @@ namespace Nexus.Client.Games.Oblivion
 	{
 		private static string[] EXECUTABLES = { "oblivion.exe" };
 		private static string[] CRITICAL_PLUGINS = { "oblivion.esm" };
+		private static string[] OFFICIAL_PLUGINS = { "DLCHorseArmor.esp", "DLCMehrunesRazor.esp", "Knights.esp", "DLCShiveringIsles.esp", "DLCVileLair.esp", "DLCFrostcrag.esp", "DLCBattlehornCastle.esp", "DLCSpellTomes.esp", "DLCThievesDen.esp", "DLCOrrery.esp" };
 		private const string MODE_ID = "Oblivion";
 
 		#region Properties
@@ -59,6 +60,18 @@ namespace Nexus.Client.Games.Oblivion
 			get
 			{
 				return CRITICAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		protected override string[] OrderedOfficialPluginFilenames
+		{
+			get
+			{
+				return OFFICIAL_PLUGINS;
 			}
 		}
 

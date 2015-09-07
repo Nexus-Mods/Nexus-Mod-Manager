@@ -13,7 +13,6 @@ namespace Nexus.Client.Games.DarkSouls2
 	public class DarkSouls2GameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "DarkSoulsII.exe" };
-		private static string[] CRITICAL_PLUGINS = null;
 		private static string[] REQUIRED_TOOL_FILES = { @"GeDoSaTo\GeDoSaToTool.exe", @"GeDoSaTo\GeDoSaTo.dll" };
 		private const string MODE_ID = "DarkSouls2";
 		private const string REQUIRED_TOOL = "GeDoSaTo";
@@ -80,18 +79,6 @@ namespace Nexus.Client.Games.DarkSouls2
 			get
 			{
 				return EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
 			}
 		}
 

@@ -156,7 +156,7 @@ namespace Nexus.Client
 			{
 				if (!ModRepository.Login(Username, Password, out dicAuthTokens))
 				{
-					ErrorMessage = "The given login information is invalid.";
+					ErrorMessage = "Invalid login. Either your firewall is blocking NMM or the login server is down.";
 					return false;
 				}
 			}

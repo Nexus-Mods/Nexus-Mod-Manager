@@ -105,7 +105,7 @@ namespace Nexus.Client
 			get
 			{
 				if (m_gmdGameMode == null)
-					throw new InvalidOperationException(String.Format("{0} cannot be accessed until the initializaer has completed it's work.", ObjectHelper.GetPropertyName(() => GameMode)));
+					throw new InvalidOperationException(String.Format("{0} cannot be accessed until the initializer has completed it's work.", ObjectHelper.GetPropertyName(() => GameMode)));
 				return m_gmdGameMode;
 			}
 			private set
@@ -390,7 +390,10 @@ namespace Nexus.Client
 			ServiceManager svmServices = InitializeServices(gmdGameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
 			if (svmServices == null)
 			{
-				p_vwmErrorMessage = p_vwmErrorMessage ?? new ViewMessage("Unable to initialize services.", null, "Error", MessageBoxIcon.Error);
+				ShowMessage(p_vwmErrorMessage);
+				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
+				EnvironmentInfo.Settings.Save();
+				Status = TaskStatus.Retrying;
 				return false;
 			}
 			StepOverallProgress();
@@ -792,7 +795,18 @@ namespace Nexus.Client
 			Trace.Indent();
 			Trace.TraceInformation("Checking if upgrade is required...");
 			InstallLogUpgrader iluUgrader = new InstallLogUpgrader();
-			string strLogPath = Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
+			string strLogPath = string.Empty;
+
+			try
+			{
+				strLogPath = Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
+			}
+			catch (ArgumentNullException)
+			{
+				p_vwmErrorMessage = new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", null, "Config error", MessageBoxIcon.Warning);
+				return null;
+			}
+
 			if (!InstallLog.IsLogValid(strLogPath))
 				InstallLog.Restore(strLogPath);
 			if (iluUgrader.NeedsUpgrade(strLogPath))
@@ -969,6 +983,8 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		private bool ConfirmMismatchedVersionModUpgrade(IMod p_modOld, IMod p_modNew)
 		{
+			if (String.IsNullOrWhiteSpace(p_modNew.HumanReadableVersion))
+				return false;
 			string strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will replace the mod in the mod list, but won't change any files.";
 			switch ((DialogResult)ShowMessage(new ViewMessage(String.Format(strUpgradeMessage, p_modNew.ModName, p_modOld.HumanReadableVersion, p_modNew.HumanReadableVersion), null, "Upgrade", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Question)))
 			{

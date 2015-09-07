@@ -11,7 +11,6 @@ namespace Nexus.Client.Games.WorldOfTanks
 	public class WoTGameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "WorldOfTanks.exe" };
-		private static string[] CRITICAL_PLUGINS = null;
 		private const string MODE_ID = "WorldOfTanks";
 
 		#region Properties
@@ -73,18 +72,6 @@ namespace Nexus.Client.Games.WorldOfTanks
 			get
 			{
 				return EXECUTABLES;
-			}
-		}
-
-		/// <summary>
-		/// Gets the list of critical plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of critical plugin names, ordered by load order.</value>
-		public override string[] OrderedCriticalPluginNames
-		{
-			get
-			{
-				return CRITICAL_PLUGINS;
 			}
 		}
 

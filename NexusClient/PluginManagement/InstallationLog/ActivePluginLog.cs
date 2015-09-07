@@ -115,10 +115,15 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 		/// </summary>
 		private void LoadPluginLog()
 		{
-			m_ostActivePlugins.Clear();
-            if (LogSerializer != null)
-			    foreach (string strPlugin in LogSerializer.LoadPluginLog())
-				    m_ostActivePlugins.Add(ManagedPluginRegistry.GetPlugin(strPlugin));
+			if (m_ostActivePlugins != null)
+				m_ostActivePlugins.Clear();
+			else
+				m_ostActivePlugins = new ObservableSet<Plugin>(PluginComparer.Filename);
+
+			if (LogSerializer != null)
+				foreach (string strPlugin in LogSerializer.LoadPluginLog())
+					if (!String.IsNullOrEmpty(strPlugin))
+						m_ostActivePlugins.Add(ManagedPluginRegistry.GetPlugin(strPlugin));
 		}
 
 		/// <summary>

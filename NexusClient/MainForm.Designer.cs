@@ -70,6 +70,10 @@
 			this.tsbOnlineStatus = new System.Windows.Forms.ToolStripButton();
 			this.tstFind = new System.Windows.Forms.ToolStripTextBox();
 			this.tlbModsCounter = new System.Windows.Forms.ToolStripLabel();
+			this.tlbPluginsCounter = new System.Windows.Forms.ToolStripLabel();
+			this.tlbActivePluginsCounter = new System.Windows.Forms.ToolStripLabel();
+			this.tlbModSeparator = new System.Windows.Forms.ToolStripSeparator();
+			this.tlbPluginSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.tlbBottomBarFeedbackCounter = new System.Windows.Forms.ToolStripLabel();
 			this.tlbBottomBarFeedback = new System.Windows.Forms.ToolStripLabel();
 			this.tsbLoader = new System.Windows.Forms.ToolStripButton();
@@ -260,6 +264,7 @@
 			// tssDownload
 			// 
 			this.tssDownload.AutoSize = false;
+			this.tssDownload.ShowItemToolTips = true;
 			this.tssDownload.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
 			this.tsbOnlineStatus,
 			this.tlbDownloads,
@@ -270,6 +275,10 @@
 			this.tlbBottomBarFeedback,
 			this.tlbBottomBarFeedbackCounter,
 			this.tsbLoader,
+			this.tlbModSeparator,
+			this.tlbPluginsCounter,
+			this.tlbActivePluginsCounter,
+			this.tlbPluginSeparator,
 			this.tlbModsCounter});
 			this.tssDownload.Location = new System.Drawing.Point(0, 497);
 			this.tssDownload.Name = "tssDownload";
@@ -337,6 +346,18 @@
 			this.tlbModsCounter.Text = " | Total mods / Active mods ";
 			this.tlbModsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			// 
+			// tlbPluginsCounter
+			// 
+			this.tlbPluginsCounter.Name = "tlbPluginsCounter";
+			this.tlbPluginsCounter.Text = " | Total plugins / Active plugins ";
+			this.tlbPluginsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			// 
+			// tlbActivePluginsCounter
+			// 
+			this.tlbActivePluginsCounter.Name = "tlbActivePluginsCounter";
+			this.tlbActivePluginsCounter.Text = "";
+			this.tlbActivePluginsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			// 
 			// tlbBottomBarFeedback
 			// 
 			this.tlbBottomBarFeedback.Name = "tlbBottomBarFeedback";
@@ -398,6 +419,10 @@
 		private System.Windows.Forms.ToolStripButton tsbGoPremium;
 		private System.Windows.Forms.ToolStripButton tsbOnlineStatus;
 		private System.Windows.Forms.ToolStripLabel tlbModsCounter;
+		private System.Windows.Forms.ToolStripLabel tlbPluginsCounter;
+		private System.Windows.Forms.ToolStripLabel tlbActivePluginsCounter;
+		private System.Windows.Forms.ToolStripSeparator tlbPluginSeparator;
+		private System.Windows.Forms.ToolStripSeparator tlbModSeparator;
 		private System.Windows.Forms.ToolStripLabel tlbBottomBarFeedback;
 		private System.Windows.Forms.ToolStripLabel tlbBottomBarFeedbackCounter;
 		private System.Windows.Forms.ToolStripButton tsbLoader;

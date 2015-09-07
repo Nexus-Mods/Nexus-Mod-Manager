@@ -139,7 +139,7 @@ namespace Nexus.Client.Util.Collections
 		{
 			get
 			{
-				return m_lstItems[index];
+				return (index >= m_lstItems.Count ? default(T) : m_lstItems[index]);
 			}
 			set
 			{
@@ -429,13 +429,17 @@ namespace Nexus.Client.Util.Collections
 			T tItem = default(T);
 			try
 			{
-				m_rwlLock.EnterWriteLock();
-				tItem = m_lstItems[p_intFromIndex];
-				m_lstItems.RemoveAt(p_intFromIndex);
-				if (p_intToIndex >= m_lstItems.Count)
-					m_lstItems.Add(tItem);
-				else
-					m_lstItems.Insert(p_intToIndex, tItem);
+				if (p_intFromIndex < m_lstItems.Count)
+				{
+					m_rwlLock.EnterWriteLock();
+					tItem = m_lstItems[p_intFromIndex];
+					m_lstItems.RemoveAt(p_intFromIndex);
+
+					if (p_intToIndex >= m_lstItems.Count)
+						m_lstItems.Add(tItem);
+					else
+						m_lstItems.Insert(p_intToIndex, tItem);
+				}
 			}
 			finally
 			{

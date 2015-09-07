@@ -392,7 +392,7 @@ namespace Nexus.Client.ModManagement
 					// when we installed the file
 					// if we didn't overwrite a file, then just delete the current file
 					fiInfo = new FileInfo(strInstallFilePath);
-					if (fiInfo.IsReadOnly)
+					if ((fiInfo.IsReadOnly) || (IsFileLocked(strInstallFilePath)))
 						m_lstErrorMods.Add(strInstallFilePath);
 					else
 						TransactionalFileManager.Delete(strInstallFilePath);
@@ -420,7 +420,7 @@ namespace Nexus.Client.ModManagement
 						}
 						catch { }
 
-						if (fiInfo.IsReadOnly)
+						if ((fiInfo.IsReadOnly) || (IsFileLocked(strInstallFilePath)))
 							m_lstErrorMods.Add(strInstallFilePath);
 						else
 							TransactionalFileManager.Delete(strRestoreFromPath);
@@ -438,7 +438,7 @@ namespace Nexus.Client.ModManagement
 			if (File.Exists(strOverwritePath))
 			{
 				fiInfo = new FileInfo(strOverwritePath);
-				if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
+				if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly) || IsFileLocked(strOverwritePath))
 					m_lstErrorMods.Add(strInstallFilePath);
 				else
 					TransactionalFileManager.Delete(strOverwritePath);
@@ -637,6 +637,22 @@ namespace Nexus.Client.ModManagement
 			TrimEmptyDirectories(strOverwritePath.Replace(strFileName, ""), strStopDirectory);
 
 			InstallLog.RemoveDataFile(Mod, p_strPath);
+		}
+
+		/// <summary>
+		/// Check if the file is in use.
+		/// </summary>
+		public bool IsFileLocked(string filePath)
+		{
+			try
+			{
+				using (File.Open(filePath, FileMode.Open)) { }
+				return false;
+			}
+			catch (IOException e)
+			{
+				return true;
+			}
 		}
 
 		/// <summary>

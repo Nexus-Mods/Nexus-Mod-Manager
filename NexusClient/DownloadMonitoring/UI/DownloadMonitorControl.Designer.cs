@@ -150,11 +150,12 @@
 			// clmOverallMessage
 			// 
 			this.clmOverallMessage.Text = "Name";
+			this.clmOverallProgress.Width = 200;
 			// 
 			// clmOverallProgress
 			// 
 			this.clmOverallProgress.Text = "Size";
-			this.clmOverallProgress.Width = 150;
+			this.clmOverallProgress.Width = 100;
 			// 
 			// clmItemMessage
 			// 
@@ -164,22 +165,22 @@
 			// clmItemProgress
 			// 
 			this.clmItemProgress.Text = "Threads";
-			this.clmItemProgress.Width = 60;
+			this.clmItemProgress.Width = 30;
 			// 
 			// clmFileserver
 			// 
 			this.clmFileserver.Text = "Fileserver";
-			this.clmFileserver.Width = 150;
+			this.clmFileserver.Width = 60;
 			// 
 			// clmStatus
 			// 
 			this.clmStatus.Text = "Status";
-			this.clmStatus.Width = 70;
+			this.clmStatus.Width = 60;
 			// 
 			// clmETA
 			// 
 			this.clmETA.Text = "ETA";
-			this.clmStatus.Width = 90;
+			this.clmStatus.Width = 50;
 			// 
 			// DownloadMonitorControl
 			// 

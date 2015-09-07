@@ -120,7 +120,7 @@ namespace Nexus.Client.ModManagement
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, true);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, Mod, true);
 				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), strFile);
 				string strLinkPath = Path.Combine(Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename)), strFile);
 				string strFileType = Path.GetExtension(strFile);

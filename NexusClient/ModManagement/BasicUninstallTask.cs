@@ -193,7 +193,8 @@ namespace Nexus.Client.ModManagement
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				Installers.IniInstaller.UneditIni(iniEdit.File, iniEdit.Section, iniEdit.Key);
+				if (File.Exists(iniEdit.File))
+					Installers.IniInstaller.UneditIni(iniEdit.File, iniEdit.Section, iniEdit.Key);
 				StepItemProgress();
 			}
 			StepOverallProgress();

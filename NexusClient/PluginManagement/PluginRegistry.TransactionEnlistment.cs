@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util.Collections;
@@ -174,9 +175,9 @@ namespace Nexus.Client.PluginManagement
 			{
 				if (m_setRemovedPlugins.Contains(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase)))
 					return null;
-				Plugin plgPlugin = m_setManagedPlugins.Find(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase));
+				Plugin plgPlugin = m_setManagedPlugins.FirstOrDefault(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase));
 				if (plgPlugin == null)
-					plgPlugin = EnlistedPluginRegistry.m_ostRegisteredPlugins.Find(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase));
+					plgPlugin = EnlistedPluginRegistry.m_ostRegisteredPlugins.FirstOrDefault(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase));
 				return plgPlugin;
 			}
 		}

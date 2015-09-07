@@ -108,6 +108,12 @@ namespace Nexus.Client
 		public ModManager ModManager { get; private set; }
 
 		/// <summary>
+		/// Gets the mod activation monitor.
+		/// </summary>
+		/// <value>The mod activation monitor.</value>
+		public ModActivationMonitor ModActivationMonitor { get; private set; }
+
+		/// <summary>
 		/// Gets the virtual mod activator.
 		/// </summary>
 		/// <value>The virtual mod activator.</value>
@@ -210,6 +216,18 @@ namespace Nexus.Client
 		/// </summary>
 		/// <value>The game mode currently being managed.</value>
 		public IGameMode GameMode { get; private set; }
+
+		/// <summary>
+		/// Gets the name of the currently managed game mode.
+		/// </summary>
+		/// <value>The name of the currently managed game mode.</value>
+		public string CurrentGameModeName 
+		{ 
+			get
+			{
+				return GameMode.Name;
+			}
+		}
 
 		/// <summary>
 		/// Gets the help information.
@@ -372,6 +390,40 @@ namespace Nexus.Client
 			}
 		}
 
+		/// <summary>
+		/// Gets whether the manager is currently installing/uninstalling a mod.
+		/// </summary>
+		/// <value>Whether  the manager is currently installing/uninstalling a mod.</value>
+		public bool IsInstalling
+		{
+			get
+			{
+				return ModActivationMonitor.IsInstalling;
+			}
+		}
+
+		/// <summary>
+		/// Whether the plugin sorter is properly initialized.
+		/// </summary>
+		public bool PluginSorterInitialized
+		{
+			get
+			{
+				return GameMode.PluginSorterInitialized;
+			}
+		}
+
+		/// <summary>
+		/// Whether the current game mode support the automatic plugin sorting.
+		/// </summary>
+		public bool SupportsPluginAutoSorting
+		{
+			get
+			{
+				return GameMode.SupportsPluginAutoSorting;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -398,10 +450,11 @@ namespace Nexus.Client
 			ModRepository = p_mrpModRepository;
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
-			if (GameMode.UsesPlugins)
-				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode);
 			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository);
+			ModActivationMonitor = p_mamMonitor;
 			ModActivationMonitorVM = new ModActivationMonitorVM(p_mamMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager);
+			if (GameMode.UsesPlugins)
+				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor);
 			ProfileManagerVM = new ProfileManagerVM(ProfileManager, ModManager.ManagedMods, ModRepository, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 

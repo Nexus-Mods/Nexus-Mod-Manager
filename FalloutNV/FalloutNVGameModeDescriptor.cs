@@ -10,6 +10,7 @@ namespace Nexus.Client.Games.FalloutNV
 	{
 		private static string[] EXECUTABLES = { "falloutNV.exe", "falloutNVng.exe" };
 		private static string[] CRITICAL_PLUGINS = { "falloutnv.esm" };
+		private static string[] OFFICIAL_PLUGINS = { "DeadMoney.esm", "HonestHearts.esm", "OldWorldBlues.esm", "LonesomeRoad.esm", "GunRunnersArsenal.esm", "CaravanPack.esm", "ClassicPack.esm", "MercenaryPack.esm", "TribalPack.esm" };
 		private const string MODE_ID = "FalloutNV";
 
 		#region Properties
@@ -59,6 +60,18 @@ namespace Nexus.Client.Games.FalloutNV
 			get
 			{
 				return CRITICAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		protected override string[] OrderedOfficialPluginFilenames
+		{
+			get
+			{
+				return OFFICIAL_PLUGINS;
 			}
 		}
 

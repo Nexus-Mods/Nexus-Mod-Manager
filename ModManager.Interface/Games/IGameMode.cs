@@ -96,6 +96,12 @@ namespace Nexus.Client.Games
 		bool SupportsPluginAutoSorting { get; }
 
 		/// <summary>
+		/// Gets the plugin loadorder manager.
+		/// </summary>
+		/// <value>The plugin loadorder manager.</value>
+		ILoadOrderManager LoadOrderManager { get; }
+
+		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
 		/// <value>The default game categories stored in the resource file.</value>
@@ -132,6 +138,11 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The tool launcher for the SupportedTools.</value>
 		ISupportedToolsLauncher SupportedToolsLauncher { get; }
+
+		/// <summary>
+		/// Whether the plugin sorter is properly initialized.
+		/// </summary>
+		bool PluginSorterInitialized { get; }
 
 		#endregion
 
@@ -255,8 +266,9 @@ namespace Nexus.Client.Games
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust.</param>
 		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_booIgnoreIfPresent">Whether to ignore the path if the specific root is already present</param>
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
-		string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod);
+		string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent);
 
 		/// <summary>
 		/// Merges the mod files if requested by the game.

@@ -179,28 +179,34 @@ namespace Nexus.Client
             Status = TaskStatus.Running;
             OverallMessage = "Sending login token...";
 
-            try
-            {
+			try
+			{
 				booCredentialsExpired = !ModManager.ModRepository.Login(dicAuthTokens);
-            }
-            catch (RepositoryUnavailableException e)
-            {
-                strError = e.Message;
-                dicAuthTokens.Clear();
-            }
+			}
+			catch (RepositoryUnavailableException e)
+			{
+				strError = e.Message;
+				dicAuthTokens.Clear();
+			}
 
-            if ((dicAuthTokens.Count == 0) || booCredentialsExpired)
-            {
-                Status = TaskStatus.Incomplete;
+			if (dicAuthTokens.Count == 0)
+			{
+				Status = TaskStatus.Incomplete;
+				OverallMessage = "Insert login credentials";
+				return false;
+			}
+			else if (booCredentialsExpired)
+			{
+				Status = TaskStatus.Incomplete;
 				OverallMessage = "Token expired: insert login credentials";
 				return false;
-            }
-            else
-            {
-                Status = TaskStatus.Complete;
+			}
+			else
+			{
+				Status = TaskStatus.Complete;
 				OverallMessage = "Logged in.";
-                return true;
-            }
+				return true;
+			}
         }
 	}
 }
