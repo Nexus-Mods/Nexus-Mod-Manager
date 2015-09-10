@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client.PluginManagement
 {
@@ -146,5 +147,11 @@ namespace Nexus.Client.PluginManagement
 		bool IsMaster(string p_strPlugin);
 
 		#endregion
+
+		/// <summary>
+		/// Sets an external task to monitor that could interact with the load order.
+		/// </summary>
+		/// <param name="p_tskTask">The task to monitor.</param>
+		void MonitorExternalTask(IBackgroundTask p_tskTask);
 	}
 }

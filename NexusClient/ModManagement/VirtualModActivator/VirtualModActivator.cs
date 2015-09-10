@@ -117,7 +117,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the current game mode.
 		/// </summary>
 		/// <value>The current game mode.</value>
-		protected IGameMode GameMode { get; private set; }
+		public IGameMode GameMode { get; private set; }
 
 		/// <summary>
 		/// Gets the install log that tracks mod install info
@@ -680,13 +680,10 @@ namespace Nexus.Client.ModManagement
 					RemoveFileLink(modLink, modMod, true);
 				}
 				
-				if (m_tslVirtualModList.Count > 0)
-				{
-					List<IVirtualModInfo> lstModInfo = m_tslVirtualModList.Select(x => x.ModInfo).Distinct().ToList();
-					List<IVirtualModInfo> lstMissing = m_tslVirtualModInfo.Except(lstModInfo, new VirtualModInfoEqualityComparer()).ToList();
-					if ((lstMissing != null) && (lstMissing.Count > 0))
-						m_tslVirtualModInfo.RemoveRange(lstMissing);
-				}
+				List<IVirtualModInfo> lstModInfo = m_tslVirtualModList.Select(x => x.ModInfo).Distinct().ToList();
+				List<IVirtualModInfo> lstMissing = m_tslVirtualModInfo.Except(lstModInfo, new VirtualModInfoEqualityComparer()).ToList();
+				if ((lstMissing != null) && (lstMissing.Count > 0))
+					m_tslVirtualModInfo.RemoveRange(lstMissing);
 				
 				SaveList();
 			}
@@ -714,13 +711,13 @@ namespace Nexus.Client.ModManagement
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority)
 		{
 			string strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
-			string strAdjustedFilePath = GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, false);
+			string strAdjustedFilePath = GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true);
 			string strVirtualFileLink = String.Empty;
 
 			if (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod))
 				strVirtualFileLink = Path.Combine(GameMode.SecondaryInstallationPath, strAdjustedFilePath);
 			else
-				strVirtualFileLink = Path.Combine(m_strGameDataPath, p_strBaseFilePath);
+				strVirtualFileLink = Path.Combine(m_strGameDataPath, strAdjustedFilePath);
 
 			string strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
 			string strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
@@ -842,7 +839,7 @@ namespace Nexus.Client.ModManagement
 				string strStop = m_strGameDataPath;
 				if ((p_modMod != null) && (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod)))
 				{
-					strPath = Path.Combine(GameMode.SecondaryInstallationPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, false));
+					strPath = Path.Combine(GameMode.SecondaryInstallationPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
 					strStop = GameMode.SecondaryInstallationPath;
 				}
 				else

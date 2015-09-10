@@ -30,6 +30,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private DateTime m_dtiMasterDate = DateTime.Now;
 		private ThreadSafeObservableList<WriteLoadOrderTask> TaskList = new ThreadSafeObservableList<WriteLoadOrderTask>();
 		private IBackgroundTask RunningTask = null;
+		private IBackgroundTask ExternalTask = null;
 
 		#region Events
 
@@ -124,7 +125,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			get
 			{
-				return (((RunningTask == null) || ((RunningTask != null) && (RunningTask.Status == BackgroundTasks.TaskStatus.Complete))) && (TaskList.Count == 0));
+				return ((((RunningTask == null) || ((RunningTask != null) && (RunningTask.Status == BackgroundTasks.TaskStatus.Complete))) && (TaskList.Count == 0)) && ((ExternalTask == null) || (ExternalTask.Status != BackgroundTasks.TaskStatus.Running)));
 			}
 		}
 
@@ -1071,6 +1072,55 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		}
 
 		#endregion
-				
+
+		/// <summary>
+		/// Sets an external task to monitor that could interact with the load order.
+		/// </summary>
+		/// <param name="p_tskTask">The task to monitor.</param>
+		public void MonitorExternalTask(IBackgroundTask p_tskTask)
+		{
+			int intRepeat = 0;
+			bool booLocked = false;
+
+			while ((ExternalTask != null) && (ExternalTask.Status == BackgroundTasks.TaskStatus.Running))
+			{
+				Thread.Sleep(500);
+				if (intRepeat++ > 20)
+				{
+					booLocked = true;
+					break;
+				}
+			}
+
+			if (!booLocked)
+			{
+				ExternalTask = p_tskTask;
+				ExternalTask.TaskEnded += ExternalTask_TaskEnded;
+				ExternalTask.Resume();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of a task set.
+		/// </summary>
+		/// <remarks>
+		/// This displays the confirmation message.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="TaskSetCompletedEventArgs"/> describing the event arguments.</param>
+		private void ExternalTask_TaskEnded(object sender, TaskEndedEventArgs e)
+		{
+			if (ExternalTask != null)
+			{
+				lock (m_objLock)
+				{
+					if (ExternalTask != null)
+					{
+						ExternalTask.TaskEnded -= RunningTask_TaskEnded;
+						RunningTask = null;
+					}
+				}
+			}
+		}
 	}
 }

@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
@@ -934,5 +935,12 @@ namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Sets an external task to monitor that could interact with the load order.
+		/// </summary>
+		/// <param name="p_tskTask">The task to monitor.</param>
+		public void MonitorExternalTask(IBackgroundTask p_tskTask)
+		{ }
 	}
 }

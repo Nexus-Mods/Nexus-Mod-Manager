@@ -59,6 +59,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private bool m_booUsesPlugins = false;
 		private bool m_booMovedArchiveInitialized = false;
 		private bool m_booAllowArchiveEdits = false;
+		private bool m_booNestedArchives = false;
 
 		protected List<string> IgnoreFolders = new List<string> { "__MACOSX" };
 
@@ -416,19 +417,20 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_strPluginsDirectoryName">The name of the folder that contains plugins.</param>
 		/// <param name="p_mcmModCacheManager">The manager for the current game mode's mod cache.</param>
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
-		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IEnumerable<string> p_enmStopFolders, string p_strPluginsDirectoryName, IEnumerable<string> p_enmPluginExtensions, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins)
+		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IEnumerable<string> p_enmStopFolders, string p_strPluginsDirectoryName, IEnumerable<string> p_enmPluginExtensions, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins, bool p_booNestedArchives)
 		{
 			StopFolders = new List<string>(p_enmStopFolders);
 			if (!StopFolders.Contains("fomod", StringComparer.OrdinalIgnoreCase))
 				StopFolders.Add("fomod");
 			PluginsDirectoryName = p_strPluginsDirectoryName;
 			PluginExtensions = new List<string>(p_enmPluginExtensions);
+			m_booNestedArchives = p_booNestedArchives;
 
 			Format = p_mftModFormat;
 			ScriptTypeRegistry = p_stgScriptTypeRegistry;
 			bool p_booUseCache = true;
 			m_booUsesPlugins = p_booUsePlugins;
-			bool booCheckNested = true;
+			bool booCheckNested = m_booNestedArchives;
 			bool booCheckPrefix = true;
 			bool booCheckScript = true;
 			bool booUpdateCacheInfo = false;
@@ -493,7 +495,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 			#endregion
 
-			if (booCheckNested)
+			if (booCheckNested && m_booNestedArchives)
 			{
 				#region Temporary fix for nested .dazip files
 				string[] strNested = m_arcFile.GetFiles("", "*.dazip", true);

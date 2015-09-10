@@ -36,6 +36,12 @@ namespace Nexus.Client.ModManagement
 		/// <value>The current ModManager.</value>
 		protected ModManager ModManager { get; private set; }
 
+		/// <summary>
+		/// Gets the delegate to call to confirm an action.
+		/// </summary>
+		/// <value>The delegate to call to confirm an action.</value>
+		protected ConfirmActionMethod ConfirmActionMethod { get; private set; }
+
 
 		#endregion
 
@@ -74,7 +80,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		public void Update(ConfirmActionMethod p_camConfirm)
 		{
-			Start(p_camConfirm);
+			ConfirmActionMethod = p_camConfirm;
+		}
+
+		/// <summary>
+		/// Cancels the update.
+		/// </summary>
+		public override void Resume()
+		{
+			Start(ConfirmActionMethod);
 		}
 
 		/// <summary>
