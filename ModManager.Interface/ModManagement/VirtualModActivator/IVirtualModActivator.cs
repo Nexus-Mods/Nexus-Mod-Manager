@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util.Collections;
@@ -25,6 +26,11 @@ namespace Nexus.Client.ModManagement
 		ThreadSafeObservableList<IVirtualModInfo> VirtualMods { get; }
 		IEnumerable<string> ActiveModList { get; }
 		Int32 ModCount { get; }
+		/// <summary>
+		/// Gets the current game mode.
+		/// </summary>
+		/// <value>The current game mode.</value>
+		IGameMode GameMode { get; }
 		#endregion
 
 		#region Virtual Mod Activator

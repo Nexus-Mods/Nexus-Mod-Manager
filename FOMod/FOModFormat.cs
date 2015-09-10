@@ -127,7 +127,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (CheckFormatCompliance(p_strPath) <= FormatConfidence.Convertible)
 				throw new ModFormatException(this);
 			
-			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins);
+			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins, (p_gmdGameMode.ModeId.StartsWith("DragonAge", StringComparison.InvariantCultureIgnoreCase)));
 		}
 
 		/// <summary>

@@ -680,6 +680,7 @@ namespace Nexus.Client.ModManagement
 		{
 			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstNewLinks, p_lstRemoveLinks);
 			patProfileSwitch.Update(p_camConfirm);
+			VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(patProfileSwitch);
 			return patProfileSwitch;
 		}
 
