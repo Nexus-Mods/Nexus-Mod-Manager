@@ -19,7 +19,6 @@ namespace Nexus.Client.UI.Controls
 	{
 		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
 		ReadOnlyObservableList<IMod> m_rolActiveMods = null;
-		ThreadSafeObservableList<IVirtualModInfo> m_tsoEnabledMods = null;
 		IModCategory m_imcSelectedCategory = null;
 		IModRepository m_mmrModRepository = null;
 		bool m_booShowEmpty = false;
@@ -151,6 +150,12 @@ namespace Nexus.Client.UI.Controls
 		protected CategoryManager CategoryManager { get; private set; }
 
 		/// <summary>
+		/// Gets the virtual mod activator.
+		/// </summary>
+		/// <value>The virtual mod activator.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
+		/// <summary>
 		/// Gets the list of categories being managed by the category manager.
 		/// </summary>
 		/// <value>The list of categories being managed by the category manager.</value>
@@ -159,6 +164,18 @@ namespace Nexus.Client.UI.Controls
 			get
 			{
 				return CategoryManager.Categories;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of currently enabled mods.
+		/// </summary>
+		/// <value>The list of currently enabled mod.</value>
+		protected ThreadSafeObservableList<IVirtualModInfo> VirtualMods
+		{
+			get
+			{
+				return VirtualModActivator.VirtualMods;
 			}
 		}
 
@@ -217,7 +234,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_lvwList">The source list view.</param>
 		/// <param name="p_cmgCategoryManager">The mod Category Manager.</param>
-		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, IModRepository p_mmrModRepository, ThreadSafeObservableList<IVirtualModInfo> p_tsoEnabledMods, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
+		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, IModRepository p_mmrModRepository, IVirtualModActivator p_ivaVirtualModActivator, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
 		{
 			this.Tag = false;
 
@@ -230,7 +247,7 @@ namespace Nexus.Client.UI.Controls
 			m_mmrModRepository = p_mmrModRepository;
 			m_rolManagedMods = p_rolManagedMods;
 			m_rolActiveMods = p_rolActiveMods;
-			m_tsoEnabledMods = p_tsoEnabledMods;
+			VirtualModActivator = p_ivaVirtualModActivator;
 			Settings = p_Settings;
 
 			// Setup menuStrip commands
@@ -667,7 +684,7 @@ namespace Nexus.Client.UI.Controls
 				{
 					try
 					{
-						IVirtualModInfo vmiMod = m_tsoEnabledMods.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant())).FirstOrDefault();
+						IVirtualModInfo vmiMod = VirtualMods.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant())).FirstOrDefault();
 						if ((vmiMod != null) && (m_rolActiveMods.Contains((IMod)rowObject)))
 							return new Bitmap(Properties.Resources.dialog_ok_4_16, 12, 12);
 						else

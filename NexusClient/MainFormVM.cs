@@ -49,6 +49,11 @@ namespace Nexus.Client
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ProfileSwitching = delegate { };
 
+		/// <summary>
+		/// Raised when switching profiles.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> MigratingMods = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -243,7 +248,7 @@ namespace Nexus.Client
 		{
 			get
 			{
-				return String.Format("{0} ({1}) - {2}", EnvironmentInfo.Settings.ModManagerName, EnvironmentInfo.ApplicationVersion + "a", GameMode.Name);
+				return String.Format("{0} ({1}) - {2}", EnvironmentInfo.Settings.ModManagerName, EnvironmentInfo.ApplicationVersion, GameMode.Name);
 			}
 		}
 
@@ -447,6 +452,7 @@ namespace Nexus.Client
 			ModManager = p_mmgModManager;
 			PluginManager = p_pmgPluginManager;
 			ProfileManager = new ProfileManager(ModManager.VirtualModActivator, ModManager, p_eifEnvironmentInfo.Settings.ModFolder[GameMode.ModeId], GameMode.UsesPlugins);
+			ModManager.SetProfileManager(ProfileManager);
 			ModRepository = p_mrpModRepository;
 			UpdateManager = p_umgUpdateManager;
 			ModManagerVM = new ModManagerVM(p_mmgModManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
@@ -562,12 +568,37 @@ namespace Nexus.Client
 		}
 
  		/// <summary>
-		/// Updates the programme.
+		/// Switches the active profile.
 		/// </summary>
-		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
-		public void ProfileSwitch(IModProfile p_impProfile, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks)
+		public void ProfileSwitch(IModProfile p_impProfile, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks, bool p_booStartupMigration)
 		{
-			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(p_impProfile, ModManager, p_lstNewLinks, p_lstRemoveLinks, ConfirmUpdaterAction)));
+			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(p_impProfile, ModManager, p_lstNewLinks, p_lstRemoveLinks, p_booStartupMigration, ConfirmUpdaterAction)));
+		}
+
+		///// <summary>
+		///// Performs the startup mod migration.
+		///// </summary>
+		//public void MigrateMods(ModManagerControl p_mmgModManagerControl, bool p_booMigrate)
+		//{
+		//	MigratingMods(this, new EventArgs<IBackgroundTask>(ProfileManager.ModMigration(this, p_mmgModManagerControl, p_booMigrate, ConfirmUpdaterAction)));
+		//}
+
+		/// <summary>
+		/// Performs the startup mod migration.
+		/// </summary>
+		public void MigrateMods(ModManagerControl p_mmgModManagerControl, bool p_booMigrate)
+		{
+			MigratingMods(this, new EventArgs<IBackgroundTask>(ModMigration(p_mmgModManagerControl, p_booMigrate)));
+		}
+
+		/// <summary>
+		/// Sets up the mod migration task.
+		/// </summary>
+		private IBackgroundTask ModMigration(ModManagerControl p_mmgModManagerControl, bool p_booMigrate)
+		{
+			ModMigrationTask mmtModMigrationTask = new ModMigrationTask(this, p_mmgModManagerControl, p_booMigrate, ConfirmUpdaterAction);
+			VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
+			return mmtModMigrationTask;
 		}
 
 		/// <summary>

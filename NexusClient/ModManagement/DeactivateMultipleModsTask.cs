@@ -28,6 +28,7 @@ namespace Nexus.Client.ModManagement
 		private IInstallLog m_iilInstallLog = null;
 		private ModInstallerFactory m_mifModInstallerFactory = null;
 		private ReadOnlyObservableList<IMod> m_rolModList = null;
+		private string m_strLogPath = String.Empty;
 		bool m_booCancel = false;
 
 		#region Constructors
@@ -35,12 +36,13 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, VirtualModActivator p_vmaVirtualModActivator)
+		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, VirtualModActivator p_vmaVirtualModActivator, string p_strScriptedLogPath)
 		{
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
 			m_rolModList = p_rolModList;
 			VirtualModActivator = p_vmaVirtualModActivator;
+			m_strLogPath = p_strScriptedLogPath;
 		}
 
 		#endregion
@@ -105,6 +107,8 @@ namespace Nexus.Client.ModManagement
 
 				while (!munUninstaller.IsCompleted)
 				{ }
+				DeleteXMLInstalledFile(modMod);
+
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 
@@ -112,6 +116,16 @@ namespace Nexus.Client.ModManagement
 					break;
 			}
 			return null;
+		}
+
+		/// <summary>
+		/// If the mod is scripted, deletes the XMLInstalledFiles file inside the InstallInfo\Scripted folder.
+		/// </summary>
+		private void DeleteXMLInstalledFile(IMod p_modMod)
+		{
+			string strInstallFilesPath = Path.Combine(m_strLogPath, "Scripted", Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
+			if (File.Exists(strInstallFilesPath))
+				FileUtil.ForceDelete(strInstallFilesPath);
 		}
 	}
 }

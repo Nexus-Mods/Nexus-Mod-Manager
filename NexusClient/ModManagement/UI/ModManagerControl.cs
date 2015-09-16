@@ -581,7 +581,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (clwCategoryView.Tag == null)
 			{
-				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator.VirtualMods, ViewModel.CategoryManager, ViewModel.Settings);
+				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator, ViewModel.CategoryManager, ViewModel.Settings);
 
 				// handles the selectedindexchanged event of the cateogry view
 				this.clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
@@ -1569,6 +1569,7 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ActivatingMod, sender, e);
 				return;
 			}
+
 			m_booDisableSummary = true;
 			ProgressDialog.ShowDialog(this, e.Argument);
 
@@ -1710,6 +1711,14 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		#endregion
+
+		/// <summary>
+		/// This will force the list view to refresh.
+		/// </summary>
+		public void ForceListRefresh()
+		{
+			clwCategoryView.Refresh();
+		}
 
 		/// <summary>
 		/// Updates the displayed summary information to reflect the

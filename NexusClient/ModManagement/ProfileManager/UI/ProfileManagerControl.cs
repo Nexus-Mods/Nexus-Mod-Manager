@@ -339,7 +339,7 @@ namespace Nexus.Client.ModManagement.UI
 		private void tsbImport_Click(object sender, EventArgs e)
 		{
 			if (ofdChooseProfile.ShowDialog() == DialogResult.OK)
-				if (!ViewModel.ProfileManager.ImportProfile(ofdChooseProfile.FileName))
+				if (ViewModel.ProfileManager.ImportProfile(ofdChooseProfile.FileName) == null)
 					MessageBox.Show("Profile import failed, please make sure this is a valid NMM profile!", "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 		}
 

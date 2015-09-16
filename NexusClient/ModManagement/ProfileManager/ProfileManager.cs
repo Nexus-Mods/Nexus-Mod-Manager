@@ -8,6 +8,7 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.ModManagement.UI;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
@@ -21,6 +22,7 @@ namespace Nexus.Client.ModManagement
 	{
 		#region Static Properties
 
+		private static readonly Object m_objLock = new Object();
 		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
 		public static readonly string PROFILE_FOLDER = "ModProfiles";
 		public static readonly string PROFILE_FILE = "ProfileManagerCfg.xml";
@@ -342,7 +344,54 @@ namespace Nexus.Client.ModManagement
 			m_strCurrentProfileId = mprModProfile.Id;
 			SetDefaultProfile(mprModProfile);
 			SaveConfig();
+			string strLogPath = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted");
+			if (Directory.Exists(strLogPath))
+				lock (m_objLock)
+					DirectoryCopy(strLogPath, Path.Combine(m_strProfileManagerPath, mprModProfile.Id, "Scripted"), true);
 			return mprModProfile;
+		}
+
+		private static void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
+		{
+			DirectoryInfo dir = new DirectoryInfo(sourceDirName);
+			DirectoryInfo[] dirs = dir.GetDirectories();
+
+			// If the source directory does not exist, throw an exception.
+			if (!dir.Exists)
+				return;
+
+			// If the destination directory does not exist, create it.
+			if (!Directory.Exists(destDirName))
+			{
+				Directory.CreateDirectory(destDirName);
+			}
+
+
+			// Get the file contents of the directory to copy.
+			FileInfo[] files = dir.GetFiles();
+
+			foreach (FileInfo file in files)
+			{
+				// Create the path to the new copy of the file.
+				string temppath = Path.Combine(destDirName, file.Name);
+
+				// Copy the file.
+				file.CopyTo(temppath, false);
+			}
+
+			// If copySubDirs is true, copy the subdirectories.
+			if (copySubDirs)
+			{
+
+				foreach (DirectoryInfo subdir in dirs)
+				{
+					// Create the subdirectory.
+					string temppath = Path.Combine(destDirName, subdir.Name);
+
+					// Copy the subdirectories.
+					DirectoryCopy(subdir.FullName, temppath, copySubDirs);
+				}
+			}
 		}
 
 		/// <summary>
@@ -378,6 +427,11 @@ namespace Nexus.Client.ModManagement
 			ModProfile mprModProfile = new ModProfile(strId, "Profile " + intNewProfile.ToString(), p_strGameModeId, (p_intModCount < 0 ? VirtualModActivator.ModCount : p_intModCount));
 			mprModProfile.IsDefault = true;
 			SaveProfile(mprModProfile, p_bteModList, p_bteIniList, p_bteLoadOrder, p_strOptionalFiles);
+			string strLogPath = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted");
+			if (Directory.Exists(strLogPath))
+				lock (m_objLock)
+					DirectoryCopy(strLogPath, Path.Combine(m_strProfileManagerPath, mprModProfile.Id, "Scripted"), true);
+
 			ExportProfile(mprModProfile, Path.Combine(VirtualModActivator.VirtualPath, "Backup_DONOTDELETE.zip"));
 
 			if (Directory.Exists(Path.Combine(m_strProfileManagerPath, mprModProfile.Id)))
@@ -588,10 +642,25 @@ namespace Nexus.Client.ModManagement
 		public void ExportProfile(IModProfile p_impModProfile, string p_strPath)
 		{
 			string strProfilePath = Path.Combine(m_strProfileManagerPath, p_impModProfile.Id);
+			if (File.Exists(p_strPath))
+				p_strPath += "_" + Path.GetRandomFileName();
 			ZipFile.CreateFromDirectory(strProfilePath, p_strPath);
 		}
 
-		public bool ImportProfile(string p_strPath)
+		public bool RestoreBackupProfile()
+		{
+			IModProfile impImported = ImportProfile(Path.Combine(VirtualModActivator.VirtualPath, "Backup_DONOTDELETE.zip"));
+			if (impImported != null)
+			{
+				m_strCurrentProfileId = impImported.Id;
+				SetDefaultProfile(impImported);
+				return true;
+			}
+			else
+				return false;
+		}
+
+		public IModProfile ImportProfile(string p_strPath)
 		{
 			string strId = GetNextId;
 			string strProfilePath = Path.Combine(m_strProfileManagerPath, strId);
@@ -624,13 +693,16 @@ namespace Nexus.Client.ModManagement
 				m_tslProfiles.Add(mprModProfile);
 				LoadProfileFileList(mprModProfile);
 				SaveConfig();
+				return mprModProfile;
 			}
-			catch
+			catch (Exception e)
 			{
-				return false;
+				string bog = "dsddjfd";
+				if (bog == e.Message)
+					return null;
 			}
 
-			return true;
+			return null;
 		}
 
 		private void VirtualModActivator_ModActivationChanged(object sender, EventArgs e)
@@ -640,11 +712,42 @@ namespace Nexus.Client.ModManagement
 					UpdateCurrentProfileModCount();
 		}
 
-		private void ActiveMods_CollectionChanged(object sender, EventArgs e)
+		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			if (!VirtualModActivator.DisableLinkCreation)
 				if (CurrentProfile != null)
+				{
+					string strLogPath = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted");
+					string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath();
+
+					switch (e.Action)
+					{
+						case NotifyCollectionChangedAction.Add:
+							if (!Directory.Exists(strLogPath))
+								break;
+							foreach (IMod modAdded in e.NewItems)
+							{
+								string strModLogPath = Path.Combine(strLogPath, Path.GetFileNameWithoutExtension(modAdded.Filename)) + ".xml";
+								string strProfileLogPath = Path.Combine(CurrentProfileScriptedLogPath, Path.GetFileNameWithoutExtension(modAdded.Filename)) + ".xml";
+								if (!Directory.Exists(CurrentProfileScriptedLogPath))
+									lock (m_objLock)
+										Directory.CreateDirectory(CurrentProfileScriptedLogPath);
+								if (File.Exists(strModLogPath))
+									lock (m_objLock)
+										File.Copy(strModLogPath, strProfileLogPath, true);
+							}
+							break;
+						case NotifyCollectionChangedAction.Remove:
+							foreach (IMod modRemoved in e.OldItems)
+							{
+								string strProfileModLogPath = Path.Combine(CurrentProfileScriptedLogPath, Path.GetFileNameWithoutExtension(modRemoved.Filename)) + ".xml";
+								if (File.Exists(strProfileModLogPath))
+									FileUtil.ForceDelete(strProfileModLogPath);
+							}
+							break;
+					}
 					UpdateCurrentProfileModCount();
+				}
 		}
 
 		private void UpdateCurrentProfileModCount()
@@ -664,8 +767,37 @@ namespace Nexus.Client.ModManagement
 				{
 					string strPath = Path.Combine(m_strProfileManagerPath, Profile.Id);
 					VirtualModActivator.PurgeMods(p_lstMods, strPath);
+
+					foreach (IMod modMod in p_lstMods)
+					{
+						string strProfileModLogPath = Path.Combine(strPath, "Scripted", Path.GetFileNameWithoutExtension(modMod.Filename)) + ".xml";
+						if (File.Exists(strProfileModLogPath))
+							FileUtil.ForceDelete(strProfileModLogPath);
+					}
 				}
 			}
+		}
+
+		public string IsScriptedLogPresent(string p_strModFile)
+		{
+			string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath();
+
+			if (Directory.Exists(CurrentProfileScriptedLogPath))
+			{
+				string strModLog = Path.GetFileNameWithoutExtension(p_strModFile);
+				strModLog += ".xml";
+				strModLog = Path.Combine(CurrentProfileScriptedLogPath, strModLog);
+
+				if (File.Exists(strModLog))
+					return strModLog;
+			}
+
+			return null;
+		}
+
+		private string GetCurrentProfileScriptedLogPath()
+		{
+			return Path.Combine(m_strProfileManagerPath, CurrentProfile.Id, "Scripted");
 		}
 
 		/// <summary>
@@ -676,12 +808,22 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_intNewValue">The new category id value.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask SwitchProfile(IModProfile p_impProfile, ModManager p_ModManager, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks, ConfirmActionMethod p_camConfirm)
+		public IBackgroundTask SwitchProfile(IModProfile p_impProfile, ModManager p_ModManager, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks, bool p_booStartupMigration, ConfirmActionMethod p_camConfirm)
 		{
-			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstNewLinks, p_lstRemoveLinks);
+			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstNewLinks, p_lstRemoveLinks, p_booStartupMigration);
 			patProfileSwitch.Update(p_camConfirm);
 			VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(patProfileSwitch);
 			return patProfileSwitch;
+		}
+
+		/// <summary>
+		/// Sets up the mod migration task.
+		/// </summary>
+		public IBackgroundTask ModMigration(MainFormVM p_vmlViewModel, ModManagerControl p_mmgModManagerControl, bool p_booMigrate, ConfirmActionMethod p_camConfirm)
+		{
+			ModMigrationTask mmtModMigrationTask = new ModMigrationTask(p_vmlViewModel, p_mmgModManagerControl, p_booMigrate, p_camConfirm);
+			VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
+			return mmtModMigrationTask;
 		}
 
 		/// <summary>

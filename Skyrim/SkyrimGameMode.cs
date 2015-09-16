@@ -1,4 +1,5 @@
-﻿﻿using System.Collections.Generic;
+﻿using System;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -176,12 +177,18 @@ namespace Nexus.Client.Games.Skyrim
 		public override string[] GetOptionalFilesList(string[] p_strList)
 		{
 			var regEx = new Regex("^bashed patch");
-			string[] strOptionalFiles = null;
+			List<string> strOptionalFiles = new List<string>();
 
 			if ((p_strList != null) && (p_strList.Length > 0))
-				strOptionalFiles = p_strList.Where(x => regEx.IsMatch(Path.GetFileName(x.ToLower()))).ToArray();
+				strOptionalFiles = p_strList.Where(x => regEx.IsMatch(Path.GetFileName(x.ToLower()))).ToList();
 
-			return strOptionalFiles;
+			if (p_strList.Contains("PatchusMaximus.esp", StringComparer.OrdinalIgnoreCase))
+				strOptionalFiles.Add("PatchusMaximus.esp");
+
+			if (p_strList.Contains("Dual Sheath Redux Patch.esp", StringComparer.OrdinalIgnoreCase))
+				strOptionalFiles.Add("Dual Sheath Redux Patch.esp");
+
+			return strOptionalFiles.ToArray();
 		}
 
 		/// <summary>

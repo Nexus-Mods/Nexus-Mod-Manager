@@ -109,7 +109,11 @@ namespace Nexus.Client.Games.FalloutNV
 				strBOSS = Path.Combine(strBOSS, "boss.exe");
 			}
 
-			return strBOSS;
+			if (!String.IsNullOrWhiteSpace(strBOSS))
+				if (File.Exists(strBOSS))
+					return strBOSS;
+
+			return null;
 		}
 
 		/// <summary>
@@ -146,7 +150,11 @@ namespace Nexus.Client.Games.FalloutNV
 				strLOOT = Path.Combine(strLOOT, "LOOT.exe");
 			}
 
-			return strLOOT;
+			if (!String.IsNullOrWhiteSpace(strLOOT))
+				if (File.Exists(strLOOT))
+					return strLOOT;
+
+			return null;
 		}
 
 		#endregion

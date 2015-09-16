@@ -63,8 +63,6 @@ namespace Nexus.Client
 
 		private string m_strSelectedTipsVersion = String.Empty;
 
-		private ModMigrationTask tskTask = new ModMigrationTask();
-
 		#region Properties
 
 		/// <summary>
@@ -84,6 +82,7 @@ namespace Nexus.Client
 
 				m_vmlViewModel.ProfileManager.ModProfiles.CollectionChanged += new NotifyCollectionChangedEventHandler(ModProfiles_CollectionChanged);
 				m_vmlViewModel.ProfileSwitching += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ProfileSwitching);
+				m_vmlViewModel.MigratingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_MigratingMods);
 				m_vmlViewModel.ModManager.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
 				m_vmlViewModel.ModManager.VirtualModActivator.ModActivationChanged += new EventHandler(VirtualModActivator_ModActivationChanged);
 				if (ViewModel.GameMode.UsesPlugins)
@@ -164,8 +163,6 @@ namespace Nexus.Client
 			p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
 
-			tskTask.PropertyChanged += new PropertyChangedEventHandler(tskTask_PropertyChanged);
-
 			ViewModel = p_vmlViewModel;
 
 			try
@@ -194,8 +191,8 @@ namespace Nexus.Client
 					"mod profiling (different profiles for different playthroughs of your game)." + Environment.NewLine +
 					"In order for it to work NMM needs to uninstall all your currently installed mods." + Environment.NewLine + Environment.NewLine +
 					"Choose option 'YES' if you would like NMM to attempt to try and reinstall all your currently installed mods using the new method. " + Environment.NewLine +
-					"The migration procedure is a lengthy process and it could require several minutes depending on your PC speed and quantity and size " + Environment.NewLine +
-					"of your currently installed mods." + Environment.NewLine + "You will also be required to interact with ALL the scripted installers during the reinstall process." + Environment.NewLine + Environment.NewLine +
+					"The migration procedure is a lengthy process and it could require several minutes or even hours depending on your PC speed and quantity and size " + Environment.NewLine +
+					"of your currently installed mods." + Environment.NewLine + "You may be required to interact with some scripted installers during the reinstall process." + Environment.NewLine + Environment.NewLine +
 					"Choose option 'NO' if you want NMM to uninstall all your mods and leave you to activate the ones you use again. " + Environment.NewLine +
 					"(this doesn't delete your mods, it simply deactivates them)" + Environment.NewLine + Environment.NewLine +
 					"Choose the 'CANCEL' option if you would like to cancel this setup and not proceed with this new version. You will not be upgraded to this version of NMM!" + Environment.NewLine;
@@ -206,59 +203,9 @@ namespace Nexus.Client
 					Environment.Exit(0);
 				else
 				{
-					
-					byte[] bteLoadOrder = null;
-					byte[] bteModList = null;
-					byte[] bteIniList = null;
-					int intModCount = -1;	
-
-					if (drResult == DialogResult.Yes)
-					{
-						tskTask.SetStatus("Setup: Exporting Load Order (if available)", 1, TaskStatus.Running);
-						if (ViewModel.GameMode.UsesPlugins)
-							bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-						tskTask.SetStatus("Setup: Exporting Mod List", 2, TaskStatus.Running);
-						bteModList = ViewModel.ModManager.InstallationLog.GetXMLModList();
-						tskTask.SetStatus("Setup: Exporting IniEdits List", 3, TaskStatus.Running);
-						bteIniList = ViewModel.ModManager.InstallationLog.GetXMLIniList();
-						intModCount = ViewModel.ModManager.ActiveMods.Count;
-						tskTask.SetStatus("Setup: Backing Up Current Profile", 4, TaskStatus.Running);
-						AddNewProfile(bteModList, bteIniList, bteLoadOrder, intModCount, true);
-					}
-
-					tskTask.SetStatus("Setup: Uninstalling Active Mods", 5, TaskStatus.Running);
-					UninstallAllMods(true, true);
-
-					tskTask.SetStatus("Setup: Virtual Mod Setup", 6, TaskStatus.Running);
-					ViewModel.ModManager.VirtualModActivator.Setup();
-					if (drResult == DialogResult.Yes)
-					{
-						tskTask.SetStatus("Migration: Migrating Profile", 7, TaskStatus.Running);
-						AddNewProfile(bteModList, bteIniList, bteLoadOrder, intModCount, false);
-						tskTask.SetStatus("Migration: Activating Profile", 8, TaskStatus.Running);
-						SwitchProfile(ViewModel.ProfileManager.CurrentProfile, true);
-					}
-
-					tskTask.SetStatus("Migration: Complete", 8, TaskStatus.Complete);
+					ViewModel.MigrateMods(mmgModManager, drResult == DialogResult.Yes);
 				}
 			}
-		}
-
-		/// <summary>
-		/// Handles property changes for the migration task.
-		/// </summary>
-		private void tskTask_PropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-
-			if (InvokeRequired)
-			{
-				Invoke((Action<object, PropertyChangedEventArgs>)tskTask_PropertyChanged, sender, e);
-				return;
-			}
-
-			if (e.PropertyName == "Status")
-				if (tskTask.Status == TaskStatus.Running)
-					ProgressDialog.ShowDialog(this, tskTask);
 		}
 
 		#endregion
@@ -1657,8 +1604,33 @@ namespace Nexus.Client
 			ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null, null);
 			ViewModel.ProfileManager.SetDefaultProfile(ViewModel.ProfileManager.CurrentProfile);	
 			ViewModel.ProfileManager.SaveConfig();
-			//mmgModManager.ForceListRefresh();
+			mmgModManager.ForceListRefresh();
 			BindProfileCommands();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="MainFormVM.MigratingMods"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_MigratingMods(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_MigratingMods, sender, e);
+				return;
+			}
+			ProgressDialog.ShowDialog(this, e.Argument, false);
+
+			if (ViewModel.ProfileManager.CurrentProfile != null)
+			{
+				SwitchProfile(ViewModel.ProfileManager.CurrentProfile, true);
+			}
+			else
+				BindProfileCommands();
 		}
 
 		private void VirtualModActivator_ModActivationChanged(object sender, EventArgs e)
@@ -1977,6 +1949,11 @@ namespace Nexus.Client
 
 		private void ModProfiles_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ModProfiles_CollectionChanged, sender, e);
+				return;
+			}
 			BindProfileCommands();
 		}
 
@@ -2144,7 +2121,7 @@ namespace Nexus.Client
 
 				ViewModel.ProfileManager.SetCurrentProfile(p_impProfile);
 				ViewModel.ModManager.VirtualModActivator.DisableLinkCreation = false;
-				ViewModel.ProfileSwitch(p_impProfile, lstMissingLinks, lstUnneededLinks);
+				ViewModel.ProfileSwitch(p_impProfile, lstMissingLinks, lstUnneededLinks, p_booSilentInstall);
 			}
 		}
 
@@ -2281,21 +2258,6 @@ namespace Nexus.Client
 		/// </summary>
 		private void ShowStartupMessage()
 		{
-			if (ViewModel.EnvironmentInfo.Settings.ShowAlphaDisclaimer)
-			{
-				StringBuilder stbWarning = new StringBuilder();
-				stbWarning.AppendLine("Hello and thank you for downloading and installing this alpha version of NMM version 0.60.");
-				stbWarning.AppendLine("We're aware that you didn't have to do this and you knew full well that there might be issues with this version of NMM. So thanks!").AppendLine();
-				stbWarning.AppendLine("Please remember that your feedback and bug reports on this version of NMM are vital to us,");
-				stbWarning.AppendLine("and the sooner you report issues to us the sooner we can get them fixed and move on to a full release of 0.60 and other features!").AppendLine();
-				stbWarning.AppendLine("All feedback and bug reports are handled on our forums at http://forums.nexusmods.com/ so please, if you find anything, please let us know as soon as possible.");
-				stbWarning.AppendLine("Thanks again,");
-				stbWarning.AppendLine("Dark0ne");
-				ExtendedMessageBox.Show(this, stbWarning.ToString(), "Disclaimer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-
-				ViewModel.EnvironmentInfo.Settings.ShowAlphaDisclaimer = false;
-				ViewModel.EnvironmentInfo.Settings.Save();
-			}
 		}
 
 		/// <summary>

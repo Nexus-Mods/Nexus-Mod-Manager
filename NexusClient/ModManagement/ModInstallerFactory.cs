@@ -20,6 +20,7 @@ namespace Nexus.Client.ModManagement
 		private IInstallLog m_ilgInstallLog = null;
 		private IPluginManager m_pmgPluginManager = null;
 		private IVirtualModActivator m_ivaVirtualModActivator = null;
+		private IProfileManager m_ipmProfileManager = null;
 		private FileUtil m_futFileUtility = null;
 		private SynchronizationContext m_scxUIContext = null;
 
@@ -57,7 +58,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod installer for the given mod.</returns>
 		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
+			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
 		}
 
 		/// <summary>
@@ -69,7 +70,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod upgrader for the given mod.</returns>
 		public ModInstaller CreateUpgradeInstaller(IMod p_modOldMod, IMod p_modNewMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			return new ModUpgrader(p_modOldMod, p_modNewMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, p_dlgOverwriteConfirmationDelegate);
+			return new ModUpgrader(p_modOldMod, p_modNewMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate);
 		}
 
 		/// <summary>
@@ -92,6 +93,14 @@ namespace Nexus.Client.ModManagement
 		public ModDeleter CreateDelete(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
+		}
+
+		/// <summary>
+		/// Sets the current profile manager.
+		/// </summary>
+		public void SetProfileManager(IProfileManager p_ipmProfileManager)
+		{
+			m_ipmProfileManager = p_ipmProfileManager;
 		}
 	}
 }

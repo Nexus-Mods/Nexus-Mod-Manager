@@ -596,7 +596,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
 		{
-			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator);
+			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator, GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
 			dmmDeactivateAllMods.Update(p_camConfirm);
 			return dmmDeactivateAllMods;
 		}
@@ -688,7 +688,6 @@ namespace Nexus.Client.ModManagement
 
        #endregion 
 
-
         #region asyncEndorse
 
 		/// <summary>
@@ -743,6 +742,14 @@ namespace Nexus.Client.ModManagement
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Sets the current profile manager.
+		/// </summary>
+		public void SetProfileManager(IProfileManager p_ipmProfileManager)
+		{
+			InstallerFactory.SetProfileManager(p_ipmProfileManager);
+		}
 
 		/// <summary>
 		/// If the mod is scripted, deletes the XMLInstalledFiles file inside the InstallInfo\Scripted folder.
