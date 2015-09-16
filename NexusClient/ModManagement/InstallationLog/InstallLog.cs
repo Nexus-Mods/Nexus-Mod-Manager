@@ -32,6 +32,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		private static readonly Version CURRENT_VERSION = new Version("0.5.0.0");
 		private static readonly object m_objEnlistmentLock = new object();
 		private static Dictionary<string, TransactionEnlistment> m_dicEnlistments = null;
+		private static Dictionary<string, IMod> m_dicFileOwner = null;
 
 		#region Static Properties
 
@@ -480,25 +481,38 @@ namespace Nexus.Client.ModManagement.InstallationLog
 
 			XElement xelModList = new XElement("modList");
 			xelRoot.Add(xelModList);
-			xelModList.Add(from mod in m_amrModKeys.Registrations.Where(x => !(x.Key is DummyMod) && CheckModKvp(x))
-						   select new XElement("modInfo",
-							   new XAttribute("modId", mod.Key.Id ?? String.Empty),
-							   new XAttribute("modName", mod.Key.ModName),
-							   new XAttribute("modFileName", Path.GetFileName(mod.Key.Filename)),
-							   new XAttribute("modFilePath", Path.GetDirectoryName(mod.Key.Filename)),
-							   from itm in m_dicInstalledFiles.Where(x => CheckFileKvp(x) && (GetCurrentFileOwner(x.Item) != null) && (GetCurrentFileOwner(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant()))
-							   select new XElement("fileLink",
-								   new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(GetCurrentFileOwner(itm.Item).Filename), GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename.ToLowerInvariant() == GetCurrentFileOwner(itm.Item).Filename.ToLowerInvariant()).Format, itm.Item, true))),
-								   new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(ActiveMods.Find(x => x.Filename.ToLowerInvariant() == GetCurrentFileOwner(itm.Item).Filename.ToLowerInvariant()).Format, itm.Item, true)),
-								   new XElement("linkPriority",
-									   new XText("0")),
-								   new XElement("isActive",
-									   new XText("true")))));
+			m_dicFileOwner = new Dictionary<string, IMod>();
+
+			foreach (KeyValuePair<IMod, string> mod in m_amrModKeys.Registrations.Where(x => !(x.Key is DummyMod) && CheckModKvp(x)))
+			{
+				//List<InstalledItemDictionary<string, object>.ItemInstallers> lstItems = m_dicInstalledFiles.Where(x => CheckFileKvp(x) && (GetCurrentFileOwnerLogged(x.Item) != null) && (GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant())).ToList();
+				List<InstalledItemDictionary<string, object>.ItemInstallers> lstItems = m_dicInstalledFiles.Where(x => (GetCurrentFileOwnerLogged(x.Item) != null) && (GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant())).ToList();
+				if ((lstItems != null) && (lstItems.Count > 0))
+				{
+					XElement xelMod = new XElement("modInfo", 
+						new XAttribute("modId", mod.Key.Id ?? String.Empty), 
+						new XAttribute("modName", mod.Key.ModName), 
+						new XAttribute("modFileName", Path.GetFileName(mod.Key.Filename)), 
+						new XAttribute("modFilePath", Path.GetDirectoryName(mod.Key.Filename)));
+					xelModList.Add(xelMod);
+					foreach (InstalledItemDictionary<string, object>.ItemInstallers item in lstItems)
+					{
+						XElement xelFile = new XElement("fileLink", 
+							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, true))), 
+							new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, true)),
+							new XElement("linkPriority", "0"),
+							new XElement("isActive", "true"));
+						xelMod.Add(xelFile);
+					}
+				}
+			}
+
 			docVirtual.Save(strTempPath);
 
 			XmlDocument xmlDocument = new XmlDocument();
 			xmlDocument.Load(strTempPath);
 			FileUtil.ForceDelete(strTempPath);
+			m_dicFileOwner = null;
 			return Encoding.UTF8.GetBytes(xmlDocument.OuterXml);
 		}
 
@@ -524,7 +538,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			try
 			{
 				Trace.WriteLine(p_item.Item);
-				Trace.WriteLine(GetCurrentFileOwner(p_item.Item).Filename);
+				Trace.WriteLine(GetCurrentFileOwnerLogged(p_item.Item).Filename);
 			}
 			catch
 			{
@@ -702,7 +716,26 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <returns>The mod that owns the specified file.</returns>
 		public IMod GetCurrentFileOwner(string p_strPath)
 		{
+
 			return GetEnlistment().GetCurrentFileOwner(p_strPath);
+		}
+
+		/// <summary>
+		/// Gets the mod that owns the specified file.
+		/// </summary>
+		/// <param name="p_strPath">The path of the file whose owner is to be retrieved.</param>
+		/// <returns>The mod that owns the specified file.</returns>
+		public IMod GetCurrentFileOwnerLogged(string p_strPath)
+		{
+			if (m_dicFileOwner.ContainsKey(p_strPath))
+				return m_dicFileOwner[p_strPath];
+
+			IMod modMod = GetEnlistment().GetCurrentFileOwner(p_strPath);
+			if (modMod != null)
+			{
+				m_dicFileOwner.Add(p_strPath, modMod);
+			}
+			return modMod;
 		}
 
 		/// <summary>

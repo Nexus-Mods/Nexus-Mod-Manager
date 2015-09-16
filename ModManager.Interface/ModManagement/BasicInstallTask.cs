@@ -57,7 +57,17 @@ namespace Nexus.Client.ModManagement
 		/// <value>Whether the installer should skip readme files.</value>
 		protected bool SkipReadme { get; set; }
 
+		/// <summary>
+		/// Gets the list of currently active mods.
+		/// </summary>
+		/// <value>The list of currently active mods.</value>
 		protected ReadOnlyObservableList<IMod> ActiveMods { get; private set; }
+
+		/// <summary>
+		/// Gets the optional list of files to install.
+		/// </summary>
+		/// <value>The optional list of files to install.</value>
+		protected Dictionary<string, string> FilesToInstall { get; private set; }
 
 		#endregion
 
@@ -72,7 +82,8 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_booSkipReadme">Whether to skip the installation of readme files.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
-		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		/// <param name="p_lstInstallFiles">The list of specific files to install, if null the mod will be installed as usual.</param>
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, Dictionary<string, string> p_dicInstallFiles)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -81,6 +92,7 @@ namespace Nexus.Client.ModManagement
 			VirtualModActivator = p_ivaVirtualModActivator;
 			SkipReadme = p_booSkipReadme;
 			ActiveMods = p_rolActiveMods;
+			FilesToInstall = p_dicInstallFiles;
 		}
 
 		#endregion
@@ -110,7 +122,7 @@ namespace Nexus.Client.ModManagement
 		{
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
-			List<string> lstFiles = Mod.GetFileList();
+			List<string> lstFiles = (FilesToInstall == null) ? Mod.GetFileList() : new List<string>(FilesToInstall.Keys);
 			OverallProgressMaximum = lstFiles.Count;
 
 			if (GameMode.RequiresModFileMerge)
@@ -118,11 +130,15 @@ namespace Nexus.Client.ModManagement
 
 			foreach (string strFile in lstFiles)
 			{
+				string strFileTo = null;
+				if ((FilesToInstall != null) && (FilesToInstall.Count > 0))
+					strFileTo = FilesToInstall[strFile] ?? null;
+
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile, Mod, true);
-				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), strFile);
-				string strLinkPath = Path.Combine(Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename)), strFile);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, Mod, true);
+				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), strFileTo ?? strFile);
+				string strLinkPath = Path.Combine(Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename)), strFileTo ?? strFile);
 				string strFileType = Path.GetExtension(strFile);
 				if (!strFileType.StartsWith("."))
 					strFileType = "." + strFileType;
@@ -138,7 +154,7 @@ namespace Nexus.Client.ModManagement
 							
 							if (!VirtualModActivator.DisableLinkCreation)
 							{
-								string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFile, false);
+								string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFileTo ?? strFile, false);
 
 								if (!string.IsNullOrEmpty(strFileLink))
 										ActivatePlugin(strFileLink);
@@ -152,6 +168,10 @@ namespace Nexus.Client.ModManagement
 			return true;
 		}
 
+
+		/// <summary>
+		/// If valid the current plugin file will be set as active.
+		/// </summary>
 		protected void ActivatePlugin(string p_strPlugin)
 		{
 			if (FileInstaller.PluginCheck(p_strPlugin, false))

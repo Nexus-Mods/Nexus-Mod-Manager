@@ -265,7 +265,6 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			catch { }
 
 			return booSuccess;
-
 		}
 
 		#endregion

@@ -265,16 +265,21 @@ namespace Nexus.Client.PluginManagement.UI
 			{
 				foreach (ListViewItem lviPlugin in rlvPlugins.Items)
 				{
-					if (ViewModel.ActivePlugins.Contains((Plugin)lviPlugin.Tag))
+					try
 					{
-						lviPlugin.SubItems[clmIndexHex.Name].Text = String.Format("{0:x2}", intIndex++).ToUpper();
-						lviPlugin.SubItems[clmIndex.Name].Text = intIndex.ToString();
+						if (ViewModel.ActivePlugins.Contains((Plugin)lviPlugin.Tag))
+						{
+							lviPlugin.SubItems[clmIndexHex.Name].Text = String.Format("{0:x2}", intIndex++).ToUpper();
+							lviPlugin.SubItems[clmIndex.Name].Text = intIndex.ToString();
+						}
+						else
+						{
+							lviPlugin.SubItems[clmIndexHex.Name].Text = null;
+							lviPlugin.SubItems[clmIndex.Name].Text = null;
+						}
 					}
-					else
-					{
-						lviPlugin.SubItems[clmIndexHex.Name].Text = null;
-						lviPlugin.SubItems[clmIndex.Name].Text = null;
-					}
+					catch
+					{ }
 				}
 			}
 		}
@@ -308,7 +313,7 @@ namespace Nexus.Client.PluginManagement.UI
 				case NotifyCollectionChangedAction.Remove:
 				case NotifyCollectionChangedAction.Reset:
 					foreach (Plugin plgRemoved in e.OldItems)
-						rlvPlugins.Items.RemoveByKey(plgRemoved.Filename.ToLowerInvariant());
+							rlvPlugins.Items.RemoveByKey(plgRemoved.Filename.ToLowerInvariant());
 					RefreshPluginIndices();
 					break;
 				case NotifyCollectionChangedAction.Move:
@@ -323,7 +328,7 @@ namespace Nexus.Client.PluginManagement.UI
 						if (intOldIndex >= rlvPlugins.Items.Count)
 							break;
 
-						if (!pcpComparer.Equals(plgMoved, (Plugin)rlvPlugins.Items[intNewIndex].Tag))
+						if ((intNewIndex >= rlvPlugins.Items.Count) || !pcpComparer.Equals(plgMoved, (Plugin)rlvPlugins.Items[intNewIndex].Tag))
 						{
 							//...otherwise, move the item
 							ListViewItem lviMoved = rlvPlugins.Items[intOldIndex];

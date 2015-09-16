@@ -15,6 +15,7 @@ namespace Nexus.Client.ModManagement
 	public class ProfileActivationTask : ThreadedBackgroundTask
 	{
 		bool m_booCancel = false;
+		bool m_booStartupMigration = false;
 
 		#region Properties
 
@@ -53,11 +54,12 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModManager">The current ModManager.</param>
 		/// <param name="p_lstMods">The mod list.</param>
 		/// <param name="p_intNewValue">The new category id.</param>
-		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstLinkToInstall, IList<IVirtualModLink> p_lstLinkToPurge)
+		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstLinkToInstall, IList<IVirtualModLink> p_lstLinkToPurge, bool p_booStartupMigration)
 		{
 			ModManager = p_mmgModManager;
 			InstallLinks = p_lstLinkToInstall;
 			RemoveLinks = p_lstLinkToPurge;
+			m_booStartupMigration = p_booStartupMigration;
 		}
 
 		#endregion
@@ -111,8 +113,17 @@ namespace Nexus.Client.ModManagement
 			bool booLotsOfLinks = false;
 			int intProgress = 0;
 			double dblRatio = 0;
-			OverallMessage = "Switching Mod Profile...";
-			ItemMessage = "Disabling current profile...";
+			if (m_booStartupMigration)
+			{
+				OverallMessage = "Restoring mod installation...";
+				ItemMessage = "Cleaning install folder...";
+			}
+			else
+			{
+				OverallMessage = "Switching Mod Profile...";
+				ItemMessage = "Disabling current profile...";
+			}
+
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = 2;
@@ -142,7 +153,11 @@ namespace Nexus.Client.ModManagement
 				{
 					if (m_booCancel)
 						break;
-					ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
+
+					if (m_booStartupMigration)
+						ItemMessage = "Restoring mods: " + vmlModLink.ModInfo.ModName;
+					else
+						ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
 					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename) == vmlModLink.ModInfo.ModFileName);
 					if (modMod != null)
 					{

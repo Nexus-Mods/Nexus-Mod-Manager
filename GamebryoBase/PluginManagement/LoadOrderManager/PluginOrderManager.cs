@@ -1082,7 +1082,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			int intRepeat = 0;
 			bool booLocked = false;
 
-			while ((ExternalTask != null) && (ExternalTask.Status == BackgroundTasks.TaskStatus.Running))
+			while ((ExternalTask != null) && (ExternalTask.Status != BackgroundTasks.TaskStatus.Running))
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ > 20)
@@ -1116,8 +1116,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					if (ExternalTask != null)
 					{
-						ExternalTask.TaskEnded -= RunningTask_TaskEnded;
-						RunningTask = null;
+						ExternalTask.TaskEnded -= ExternalTask_TaskEnded;
+						ExternalTask = null;
 					}
 				}
 			}

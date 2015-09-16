@@ -87,9 +87,13 @@ namespace Nexus.Client.ModManagement
 
 		void ExportProfile(IModProfile p_impModProfile, string p_strPath);
 
-		bool ImportProfile(string p_strPath);
+		bool RestoreBackupProfile();
+
+		IModProfile ImportProfile(string p_strPath);
 
 		void PurgeModsFromProfiles(List<IMod> p_lstMods);
+
+		string IsScriptedLogPresent(string p_strModFile);
 
 		#endregion
 

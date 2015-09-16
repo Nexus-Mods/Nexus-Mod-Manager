@@ -32,6 +32,6 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".9")]
-[assembly: AssemblyFileVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".9a")]
-[assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".9a")]
+[assembly: AssemblyVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".0")]
+[assembly: AssemblyFileVersion(Nexus.Client.ProgrammeMetadata.VersionString + ".0")]
+[assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString)]
