@@ -27,6 +27,7 @@ namespace Nexus.Client.ModManagement
 		private ModInstallerFactory m_mifModInstallerFactory = null;
 		private List<IMod> m_lstModList = null;
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
+		private ConfirmActionMethod m_camConfirm = null;
 
 		#endregion
 
@@ -35,11 +36,12 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public ActivateMultipleModsTask(List<IMod> p_lstModList, bool p_booAllowCancel, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		public ActivateMultipleModsTask(List<IMod> p_lstModList, bool p_booAllowCancel, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
 			m_lstModList = p_lstModList;
+			m_camConfirm = p_camConfirm;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate;
 		}
 
@@ -64,6 +66,15 @@ namespace Nexus.Client.ModManagement
 		public void Update(ConfirmActionMethod p_camConfirm)
 		{
 			Start(p_camConfirm);
+		}
+
+		/// <summary>
+		/// Resumes the task.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown if the task is not paused.</exception>
+		public override void Resume()
+		{
+			Update(m_camConfirm);
 		}
 
 		/// <summary>

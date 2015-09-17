@@ -82,7 +82,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		public void Update(ConfirmActionMethod p_camConfirm)
 		{
-			ConfirmActionMethod = p_camConfirm;
+			Start(p_camConfirm);
 		}
 
 		/// <summary>
