@@ -8,6 +8,7 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Extensions;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -395,12 +396,8 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Adds a profile to the profile manager.
+		/// Creates and archives the profile backup.
 		/// </summary>
-		/// <remarks>
-		/// Adding a profile to the profile manager assigns it a unique key.
-		/// </remarks>
-		/// <param name="p_mctCategory">The <see cref="IModCategory"/> being added.</param>
 		public bool BackupProfile(byte[] p_bteModList, byte[] p_bteIniList, byte[] p_bteLoadOrder, string p_strGameModeId, Int32 p_intModCount, string[] p_strOptionalFiles)
 		{
 			string strId = GetNextId;
@@ -436,6 +433,70 @@ namespace Nexus.Client.ModManagement
 
 			if (Directory.Exists(Path.Combine(m_strProfileManagerPath, mprModProfile.Id)))
 				FileUtil.ForceDelete(Path.Combine(m_strProfileManagerPath, mprModProfile.Id));
+
+			return true;
+		}
+
+		/// <summary>
+		/// Adds the backup profile to the profile manager.
+		/// </summary>
+		public bool RestoreBackupProfile(string p_strGameModeId, out string p_strErrMessage)
+		{
+			string strId = GetNextId;
+			int intNewProfile = 1;
+			p_strErrMessage = String.Empty;
+
+			if (m_tslProfiles.Count > 0)
+			{
+				List<IModProfile> lstNewProfile = m_tslProfiles.Where(x => x.Name.IndexOf("Backup Profile") == 0).ToList();
+				if ((lstNewProfile != null) && (lstNewProfile.Count > 0))
+				{
+					List<Int32> lstID = new List<Int32>();
+					foreach (IModProfile imp in lstNewProfile)
+					{
+						string n = imp.Name.Substring(8);
+						int i = 0;
+						if (int.TryParse(n, out i))
+							lstID.Add(Convert.ToInt32(i));
+					}
+					if (lstID.Count > 0)
+					{
+						intNewProfile = Enumerable.Range(1, lstID.Max() + 1).Except(lstID).Min();
+					}
+				}
+			}
+			ModProfile mprModProfile = new ModProfile(strId, "Backup Profile " + intNewProfile.ToString(), p_strGameModeId, 0);
+			SaveProfile(mprModProfile, null, null, null, null);
+			p_strErrMessage = mprModProfile.Name;
+			string strBackupProfileArchivePath = Path.Combine(VirtualModActivator.VirtualPath, "Backup_DONOTDELETE.zip");
+			string strBackupProfilePath = Path.Combine(m_strProfileManagerPath, mprModProfile.Id);
+			if (File.Exists(strBackupProfileArchivePath))
+			{
+				try
+				{
+					using (StreamReader srArchive = new StreamReader(strBackupProfileArchivePath))
+					{
+						using (ZipArchive zaArchive = new ZipArchive(srArchive.BaseStream))
+						{
+							zaArchive.ExtractToDirectory(strBackupProfilePath, true);
+						}
+					}
+					//ZipFile.ExtractToDirectory(strBackupProfileArchivePath, strBackupProfilePath);
+				}
+				catch (Exception e)
+				{
+					p_strErrMessage = e.Message;
+					return false;
+				}
+			}
+			else
+			{
+				p_strErrMessage = "The backup files does not exist: " + strBackupProfileArchivePath;
+				return false;
+			}
+
+			m_tslProfiles.Add(mprModProfile);
+			SaveConfig();
 
 			return true;
 		}

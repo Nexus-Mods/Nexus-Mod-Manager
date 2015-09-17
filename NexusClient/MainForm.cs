@@ -189,13 +189,15 @@ namespace Nexus.Client
 			{
 				string strMigrationWarning = "This new version of NMM includes a major update to the way we store and install your mods which allows us to accommodate" + Environment.NewLine +
 					"mod profiling (different profiles for different playthroughs of your game)." + Environment.NewLine +
-					"In order for it to work NMM needs to uninstall all your currently installed mods." + Environment.NewLine + Environment.NewLine +
-					"Choose option 'YES' if you would like NMM to attempt to try and reinstall all your currently installed mods using the new method. " + Environment.NewLine +
+					"In order for it to work NMM needs to REINSTALL or UNINSTALL all your currently installed mods." + Environment.NewLine + Environment.NewLine +
+					"Choose option 'YES' if you would like NMM to attempt to try and REINSTALL all your currently installed mods using the new method. " + Environment.NewLine +
 					"The migration procedure is a lengthy process and it could require several minutes or even hours depending on your PC speed and quantity and size " + Environment.NewLine +
-					"of your currently installed mods." + Environment.NewLine + "You may be required to interact with some scripted installers during the reinstall process." + Environment.NewLine + Environment.NewLine +
-					"Choose option 'NO' if you want NMM to uninstall all your mods and leave you to activate the ones you use again. " + Environment.NewLine +
+					"of your currently installed mods." + Environment.NewLine + "You may be required to interact with some scripted installers during the reinstall process." + Environment.NewLine +
+					"NMM will also backup the current Bashed/Perkus/DualSheat patches if presents, but you should rerun the various patchers should your game crash at startup." + Environment.NewLine + Environment.NewLine +
+					"Choose option 'NO' if you want NMM to UNINSTALL all your mods and leave you to activate the ones you use again. " + Environment.NewLine +
 					"(this doesn't delete your mods, it simply deactivates them)" + Environment.NewLine + Environment.NewLine +
-					"Choose the 'CANCEL' option if you would like to cancel this setup and not proceed with this new version. You will not be upgraded to this version of NMM!" + Environment.NewLine;
+					"Choose the 'CANCEL' option if you would like to cancel this setup and not proceed with this new version." + Environment.NewLine +
+					"and you will need to reinstall the previous version of NMM you were using to be able to use NMM again." + Environment.NewLine;
 
 				DialogResult drResult = ExtendedMessageBox.Show(this, strMigrationWarning, "New version setup", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
 
@@ -507,6 +509,26 @@ namespace Nexus.Client
 		{
 			UninstallAllMods(false, false);
 		}
+
+		/// <summary>
+		/// Adds the backup profile to the profile list.
+		/// </summary>
+		protected void RestoreBackupProfile()
+		{
+			string strError;
+			if (ViewModel.ProfileManager.RestoreBackupProfile(ViewModel.GameMode.ModeId, out strError) == false)
+			{
+				MessageBox.Show("Nexus Mod Manager was unable to restore your backup profile." +
+					Environment.NewLine + Environment.NewLine + strError,
+					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+			else
+			{
+				MessageBox.Show(String.Format("{0} has been successfully added to your profile list.", strError),
+					"Restored", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+		}
+		
 
  		/// <summary>
 		/// Uninstall all active mods.
@@ -1268,6 +1290,12 @@ namespace Nexus.Client
 			tmiUninstallAllMods.Image = global::Nexus.Client.Properties.Resources.edit_delete_6;
 			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
 			spbTools.DropDownItems.Add(tmiUninstallAllMods);
+
+			Command cmdRestoreBackupProfile = new Command("Restore the backup profile", "Adds the backup profile to the profile list.", RestoreBackupProfile);
+			ToolStripMenuItem tmiRestoreBackupProfile = new ToolStripMenuItem();
+			tmiRestoreBackupProfile.Image = global::Nexus.Client.Properties.Resources.change_game_mode;
+			new ToolStripItemCommandBinding(tmiRestoreBackupProfile, cmdRestoreBackupProfile);
+			spbTools.DropDownItems.Add(tmiRestoreBackupProfile);
 
 			Command cmdConfigureVirtualFolders = new Command("Change Virtual folders...", "Virtual folders setup menu.", ChangeVirtualFolders);
 			ToolStripMenuItem tmiConfigureVirtualFolders = new ToolStripMenuItem();
