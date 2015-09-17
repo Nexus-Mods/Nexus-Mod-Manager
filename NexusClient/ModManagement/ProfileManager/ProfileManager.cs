@@ -811,8 +811,10 @@ namespace Nexus.Client.ModManagement
 		public IBackgroundTask SwitchProfile(IModProfile p_impProfile, ModManager p_ModManager, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks, bool p_booStartupMigration, ConfirmActionMethod p_camConfirm)
 		{
 			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstNewLinks, p_lstRemoveLinks, p_booStartupMigration);
-			patProfileSwitch.Update(p_camConfirm);
-			VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(patProfileSwitch);
+			if (VirtualModActivator.GameMode.LoadOrderManager != null)
+				VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(patProfileSwitch);
+			else
+				patProfileSwitch.Update(p_camConfirm);
 			return patProfileSwitch;
 		}
 
@@ -822,7 +824,10 @@ namespace Nexus.Client.ModManagement
 		public IBackgroundTask ModMigration(MainFormVM p_vmlViewModel, ModManagerControl p_mmgModManagerControl, bool p_booMigrate, ConfirmActionMethod p_camConfirm)
 		{
 			ModMigrationTask mmtModMigrationTask = new ModMigrationTask(p_vmlViewModel, p_mmgModManagerControl, p_booMigrate, p_camConfirm);
-			VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
+			if (VirtualModActivator.GameMode.LoadOrderManager != null)
+				VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
+			else
+				mmtModMigrationTask.Update(p_camConfirm);
 			return mmtModMigrationTask;
 		}
 

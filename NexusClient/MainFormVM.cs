@@ -597,7 +597,10 @@ namespace Nexus.Client
 		private IBackgroundTask ModMigration(ModManagerControl p_mmgModManagerControl, bool p_booMigrate)
 		{
 			ModMigrationTask mmtModMigrationTask = new ModMigrationTask(this, p_mmgModManagerControl, p_booMigrate, ConfirmUpdaterAction);
-			VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
+			if (VirtualModActivator.GameMode.LoadOrderManager != null)
+				VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
+			else
+				mmtModMigrationTask.Update(ConfirmUpdaterAction);
 			return mmtModMigrationTask;
 		}
 
