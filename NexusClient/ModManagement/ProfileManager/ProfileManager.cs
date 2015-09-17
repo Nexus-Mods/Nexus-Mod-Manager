@@ -695,12 +695,7 @@ namespace Nexus.Client.ModManagement
 				SaveConfig();
 				return mprModProfile;
 			}
-			catch (Exception e)
-			{
-				string bog = "dsddjfd";
-				if (bog == e.Message)
-					return null;
-			}
+			catch {	}
 
 			return null;
 		}
@@ -780,6 +775,9 @@ namespace Nexus.Client.ModManagement
 
 		public string IsScriptedLogPresent(string p_strModFile)
 		{
+			if (CurrentProfile == null)
+				return null;
+
 			string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath();
 
 			if (Directory.Exists(CurrentProfileScriptedLogPath))
