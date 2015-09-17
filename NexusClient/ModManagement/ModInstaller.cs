@@ -429,7 +429,12 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected Dictionary<string, string> LoadXMLModFilesToInstall()
 		{
-			string strModFilesPath = ProfileManager.IsScriptedLogPresent(Mod.Filename) ?? Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
+			string strModFilesPath = String.Empty;
+			if (ProfileManager != null)
+				strModFilesPath =  ProfileManager.IsScriptedLogPresent(Mod.Filename) ?? Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
+			else
+				strModFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
+
 			if (File.Exists(strModFilesPath))
 			{
 				XDocument docScripted = XDocument.Load(strModFilesPath);
