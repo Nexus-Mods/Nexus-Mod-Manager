@@ -271,6 +271,7 @@
 			this.butSelectLinkDirectory.TabIndex = 17;
 			this.butSelectLinkDirectory.Text = "...";
 			this.butSelectLinkDirectory.UseVisualStyleBackColor = true;
+			this.butSelectLinkDirectory.Click += new System.EventHandler(this.butSelectLinkDirectory_Click);
 			// 
 			// butSelectVirtualDirectory
 			// 
@@ -283,6 +284,7 @@
 			this.butSelectVirtualDirectory.TabIndex = 24;
 			this.butSelectVirtualDirectory.Text = "...";
 			this.butSelectVirtualDirectory.UseVisualStyleBackColor = true;
+			this.butSelectVirtualDirectory.Click += new System.EventHandler(this.butSelectVirtualDirectory_Click);
 			// 
 			// lblVirtualPrompt
 			// 

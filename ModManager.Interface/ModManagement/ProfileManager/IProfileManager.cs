@@ -55,6 +55,14 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_mctCategory">The <see cref="IModCategory"/> being added.</param>
 		IModProfile AddProfile(byte[] p_bteModList, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string p_strGameModeId, Int32 p_intModCount, string[] p_strOptionalFiles);
 
+		/// <summary>
+		/// Adds the backup profile to the profile manager.
+		/// </summary>
+		bool RestoreBackupProfile(string p_strGameModeId, out string p_strErrMessage);
+
+		/// <summary>
+		/// Creates and archives the profile backup.
+		/// </summary>
 		bool BackupProfile(byte[] p_bteModList, byte[] p_bteIniList, byte[] p_bteLoadOrder, string p_strGameModeId, Int32 p_intModCount, string[] p_strOptionalFiles);
 
 		/// <summary>

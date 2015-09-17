@@ -59,6 +59,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="EnvironmentInfo.cs" />
+    <Compile Include="Extensions\ExtensionMethods.cs" />
     <Compile Include="GameModeSelectionForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -620,6 +621,7 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Runtime.Remoting" />
     <Reference Include="System.Runtime.Serialization">
