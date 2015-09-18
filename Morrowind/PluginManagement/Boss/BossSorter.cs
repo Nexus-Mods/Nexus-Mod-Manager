@@ -941,6 +941,8 @@ namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 		/// </summary>
 		/// <param name="p_tskTask">The task to monitor.</param>
 		public void MonitorExternalTask(IBackgroundTask p_tskTask)
-		{ }
+		{
+			p_tskTask.Resume();
+		}
 	}
 }

@@ -136,9 +136,9 @@ namespace Nexus.Client.ModManagement
 
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, Mod, true);
-				string strVirtualPath = Path.Combine(Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename)), strFileTo ?? strFile);
-				string strLinkPath = Path.Combine(Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename)), strFileTo ?? strFile);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, Mod, false);
+				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, true));
+				string strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, true));
 				string strFileType = Path.GetExtension(strFile);
 				if (!strFileType.StartsWith("."))
 					strFileType = "." + strFileType;
