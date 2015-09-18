@@ -101,7 +101,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					if (!String.IsNullOrWhiteSpace(strPluginFile) && (File.Exists(strPluginFile)))
 					{
 						int intRepeat = 0;
-						bool booLocked = true;
+						bool booLocked = false;
 
 						while (!IsFileReady(strPluginFile))
 						{

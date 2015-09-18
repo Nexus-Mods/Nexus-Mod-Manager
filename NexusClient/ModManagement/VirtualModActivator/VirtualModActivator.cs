@@ -720,6 +720,11 @@ namespace Nexus.Client.ModManagement
 				strVirtualFileLink = Path.Combine(m_strGameDataPath, strAdjustedFilePath);
 
 			string strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
+			if (!File.Exists(strActivatorFilePath))
+			{
+				strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
+				strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
+			}
 			string strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
 
 			if (!Directory.Exists(Path.GetDirectoryName(strVirtualFileLink)))
@@ -824,10 +829,13 @@ namespace Nexus.Client.ModManagement
 			if (p_ivlVirtualLink != null)
 			{
 				Int32 intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, p_ivlVirtualLink.Priority, out modCheck);
+				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
+				if (!File.Exists(strLinkPath))
+					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, true));
 
 				if ((PluginManager != null) && ((intPriority < 0) || (modCheck == null)))
 				{
-					string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
+					
 					if (PluginManager.IsActivatiblePluginFile(strLinkPath))
 					{
 						PluginManager.DeactivatePlugin(strLinkPath);
@@ -843,7 +851,7 @@ namespace Nexus.Client.ModManagement
 					strStop = GameMode.SecondaryInstallationPath;
 				}
 				else
-					strPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
+					strPath = strLinkPath;
 
 				if (File.Exists(strPath))
 					FileUtil.ForceDelete(strPath);

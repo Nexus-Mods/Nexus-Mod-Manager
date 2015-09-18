@@ -481,7 +481,6 @@ namespace Nexus.Client.ModManagement
 							zaArchive.ExtractToDirectory(strBackupProfilePath, true);
 						}
 					}
-					//ZipFile.ExtractToDirectory(strBackupProfileArchivePath, strBackupProfilePath);
 				}
 				catch (Exception e)
 				{
@@ -704,7 +703,10 @@ namespace Nexus.Client.ModManagement
 		{
 			string strProfilePath = Path.Combine(m_strProfileManagerPath, p_impModProfile.Id);
 			if (File.Exists(p_strPath))
-				p_strPath += "_" + Path.GetRandomFileName();
+			{
+				string strRandomPath = p_strPath + "_" + Path.GetRandomFileName();
+				FileUtil.Move(p_strPath, strRandomPath, true);
+			}
 			ZipFile.CreateFromDirectory(strProfilePath, p_strPath);
 		}
 

@@ -227,11 +227,18 @@ namespace Nexus.Client.Games.Morrowind
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
 		{
-			if (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod"))
+			if ((p_mftModFormat != null) && (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod")))
 			{
-				if (p_booIgnoreIfPresent && p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
+				if (p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
 					return p_strPath.Substring(11);
-				else
+				else if (!p_booIgnoreIfPresent && !p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
+					return Path.Combine("Data Files", p_strPath ?? "");
+			}
+			else if (p_mftModFormat == null)
+			{
+				if (p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
+					return p_strPath.Substring(11);
+				else if (!p_booIgnoreIfPresent && !p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
 					return Path.Combine("Data Files", p_strPath ?? "");
 			}
 

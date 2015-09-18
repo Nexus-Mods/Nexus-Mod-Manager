@@ -497,9 +497,11 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					xelModList.Add(xelMod);
 					foreach (InstalledItemDictionary<string, object>.ItemInstallers item in lstItems)
 					{
-						XElement xelFile = new XElement("fileLink", 
-							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, true))), 
+						XElement xelFile = new XElement("fileLink",
+							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, true))),
 							new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, true)),
+							//new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), item.Item)),
+							//new XAttribute("virtualPath", item.Item),
 							new XElement("linkPriority", "0"),
 							new XElement("isActive", "true"));
 						xelMod.Add(xelFile);
