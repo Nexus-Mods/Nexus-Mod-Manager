@@ -354,7 +354,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			if (IsExternalInput)
 			{
 				int intRepeat = 0;
-				bool? booReady = IsFileReady(e.FullPath);
+				bool? booReady = false;
 
 				while (booReady == false)
 				{

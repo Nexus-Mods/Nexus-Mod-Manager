@@ -31,6 +31,8 @@ namespace Nexus.Client.ModManagement
 		/// <value>The current ModManager.</value>
 		protected VirtualModActivator VirtualModActivator { get; private set; }
 
+		protected ConfirmActionMethod ConfirmActionMethod { get; private set; }
+
 		protected IMod Mod { get; private set; }
 
 		protected bool Disabling { get; private set; }
@@ -45,12 +47,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModManager">The current ModManager.</param>
 		/// <param name="p_lstMods">The mod list.</param>
 		/// <param name="p_intNewValue">The new category id.</param>
-		public LinkActivationTask(IPluginManager p_pmgPluginManager, VirtualModActivator p_vmaVirtualModActivator, IMod p_modMod, bool p_booDisable)
+		public LinkActivationTask(IPluginManager p_pmgPluginManager, VirtualModActivator p_vmaVirtualModActivator, IMod p_modMod, bool p_booDisable, ConfirmActionMethod p_camConfirm)
 		{
 			PluginManager = p_pmgPluginManager;
 			VirtualModActivator = p_vmaVirtualModActivator;
 			Mod = p_modMod;
 			Disabling = p_booDisable;
+			ConfirmActionMethod = p_camConfirm;
 		}
 
 		#endregion
@@ -74,6 +77,15 @@ namespace Nexus.Client.ModManagement
 		public void Update(ConfirmActionMethod p_camConfirm)
 		{
 			Start(p_camConfirm);
+		}
+
+		/// <summary>
+		/// Resumes the task.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown if the task is not paused.</exception>
+		public override void Resume()
+		{
+			Update(ConfirmActionMethod);
 		}
 
 		/// <summary>

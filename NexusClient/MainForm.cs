@@ -776,7 +776,8 @@ namespace Nexus.Client
 		{
 			List<IMod> lstMod = new List<IMod>();
 			lstMod.Add((IMod)sender);
-			ViewModel.ProfileManager.PurgeModsFromProfiles(lstMod);
+			if ((ViewModel.ProfileManager != null) && (ViewModel.ProfileManager.Initialized))
+				ViewModel.ProfileManager.PurgeModsFromProfiles(lstMod);
 		}
 		
 		/// <summary>
