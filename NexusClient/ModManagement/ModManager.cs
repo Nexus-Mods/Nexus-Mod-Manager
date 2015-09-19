@@ -552,10 +552,7 @@ namespace Nexus.Client.ModManagement
 		public IBackgroundTask ActivateMultipleMods(List<IMod> p_lstModList, bool p_booAllowCancel, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
 			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, p_booAllowCancel, this.InstallationLog, this.InstallerFactory, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
-			if (VirtualModActivator.GameMode.LoadOrderManager != null)
-				VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(ammActivateAllMods);
-			else
-				ammActivateAllMods.Update(p_camConfirm);
+			ammActivateAllMods.Update(p_camConfirm);
 			return ammActivateAllMods;
 		}
 

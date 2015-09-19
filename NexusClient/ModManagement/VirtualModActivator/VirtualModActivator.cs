@@ -745,7 +745,15 @@ namespace Nexus.Client.ModManagement
 				modInfo = vmiModInfo;
 			}
 
-			if (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase))
+			if (strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase))
+			{
+				File.Copy(strActivatorFilePath, strVirtualFileLink, true);
+				if (!p_booIsRestoring)
+					m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+				else
+					strVirtualFileLink = String.Empty;
+			}
+			else if (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase))
 			{
 				if (ForceHardLinks)
 				{
@@ -1318,8 +1326,11 @@ namespace Nexus.Client.ModManagement
 				if (!CheckIsModActive(p_modMod))
 					return null;
 				
-			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, p_modMod, p_booDisabling);
-			latActivatingMod.Update(p_camConfirm);
+			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, p_modMod, p_booDisabling, p_camConfirm);
+			if (GameMode.LoadOrderManager != null)
+				GameMode.LoadOrderManager.MonitorExternalTask(latActivatingMod);
+			else
+				latActivatingMod.Update(p_camConfirm);
 			return latActivatingMod;
 		}
 
