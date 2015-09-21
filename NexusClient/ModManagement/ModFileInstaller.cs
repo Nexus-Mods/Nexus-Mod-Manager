@@ -317,7 +317,6 @@ namespace Nexus.Client.ModManagement
 		public virtual bool GenerateDataFile(string p_strPath, byte[] p_bteData)
 		{ 
 			string strInstallFilePath = p_strPath;
-			FileInfo Info = new FileInfo(strInstallFilePath);
 			if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
 				TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
 			else
