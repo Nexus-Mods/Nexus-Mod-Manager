@@ -251,11 +251,11 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			string strFileType = Path.GetExtension(p_strTo);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
-			bool booHardLinkFile = (!m_ivaVirtualModActivator.ForceHardLinks && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)));
+			bool booHardLinkFile = (m_ivaVirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 			try
 			{
-				string strVirtualPath = Path.Combine(Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename)), p_strTo);
+				string strVirtualPath = Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), p_strTo);
 
 				Installers.FileInstaller.InstallFileFromMod(p_strFrom, strVirtualPath);
 				m_mliModLinkInstaller.AddFileLink(Mod, p_strTo, true);
