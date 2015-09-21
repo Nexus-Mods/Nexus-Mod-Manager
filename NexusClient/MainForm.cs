@@ -1961,6 +1961,12 @@ namespace Nexus.Client
 			}
 			else
 			{
+				if (ViewModel.ModManager.VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
+				{
+					MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
+				
 				spbProfiles.DefaultItem = e.ClickedItem;
 				spbProfiles.Text = e.ClickedItem.Text;
 				toolStrip1.SuspendLayout();

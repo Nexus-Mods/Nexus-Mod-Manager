@@ -33,5 +33,5 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 [assembly: AssemblyVersion("1.1")]
 // AssemblyFileVersionFormat("1.1.*")
-[assembly: AssemblyFileVersion("1.1.5742.17317")]
+[assembly: AssemblyFileVersion("1.1.5742.27147")]
 [assembly: AssemblyInformationalVersion(Nexus.Client.ProgrammeMetadata.VersionString)]

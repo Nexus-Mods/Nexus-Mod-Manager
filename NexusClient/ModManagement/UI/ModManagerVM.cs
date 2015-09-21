@@ -429,6 +429,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		public void ActivateMod(IMod p_modMod)
 		{
+			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
+			{
+				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+			
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (String.IsNullOrEmpty(strErrorMessage))
 			{
@@ -453,6 +459,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_lstMod">The mods to activate.</param>
 		public void ActivateMods(List<IMod> p_lstMod)
 		{
+			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
+			{
+				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+			
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (String.IsNullOrEmpty(strErrorMessage))
 			{
@@ -582,16 +594,18 @@ namespace Nexus.Client.ModManagement.UI
 		
 		public void EnableMod(IMod p_modMod)
 		{
+			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
+			{
+				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+			
 			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, false, ConfirmUpdaterAction)));
-
-			//VirtualModActivator.EnableMod(p_modMod);
 		}
 
 		public void DisableMod(IMod p_modMod)
 		{
 			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, true, ConfirmUpdaterAction)));
-
-			//VirtualModActivator.DisableMod(p_modMod);
 		}
 
 		#endregion
