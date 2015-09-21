@@ -111,7 +111,10 @@ namespace Nexus.Client.UI.Controls
 		{
 			get
 			{
-				return (IMod)this.GetSelectedItem;
+				if (GetSelectedItem.GetType() != typeof(ModCategory))
+					return (IMod)this.GetSelectedItem;
+				else
+					return null;
 			}
 		}
 
