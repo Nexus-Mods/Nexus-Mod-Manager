@@ -1,0 +1,53 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using Nexus.Client.Commands;
+
+namespace Nexus.Client.Games
+{
+	/// <summary>
+	/// Describes the properties and methods of a SupportedTools launcher.
+	/// </summary>
+	/// <remarks>
+	/// A game launcher exposes commands that the client can use to launch the SupportedTools whose mods are being managed.
+	/// </remarks>
+	public interface ISupportedToolsLauncher
+	{
+		/// <summary>
+		/// Raised when an attempt to launch the SupportedTools is about to be made.
+		/// </summary>
+		event CancelEventHandler SupportedToolsLaunching;
+
+		/// <summary>
+		/// Raised when an attempt to launch the SupportedTools has been made.
+		/// </summary>
+		/// <seealso cref="GameLaunchEventArgs"/>
+		event EventHandler<SupportedToolsLaunchEventArgs> SupportedToolsLaunched;
+
+		#region Properties
+
+		/// <summary>
+		/// Gets the launch commands that can launch the SupportedTools.
+		/// </summary>
+		/// <value>The launch commands that can launch the SupportedTools.</value>
+		IEnumerable<Command> LaunchCommands { get; }
+
+		/// <summary>
+		/// Gets the default launch command.
+		/// </summary>
+		/// <value>The default launch command.</value>
+		Command DefaultLaunchCommand { get; }
+
+		#endregion
+
+		/// <summary>
+		/// Initializes the SupportedTools launch commands.
+		/// </summary>
+		void SetupCommands();
+
+		/// <summary>
+		/// Launches the default command if any.
+		/// </summary>
+		void LaunchDefaultCommand();
+	}
+}
