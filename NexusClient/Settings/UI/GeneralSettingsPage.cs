@@ -68,11 +68,21 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(tbxTraceLogDirectory, () => tbxTraceLogDirectory.Text, p_gsgSettings, () => p_gsgSettings.TraceLogPath);
 			BindingHelper.CreateFullBinding(tbxTempPathDirectory, () => tbxTempPathDirectory.Text, p_gsgSettings, () => p_gsgSettings.TempPath);
 
-			if (!p_gsgSettings.CanAssociateFiles)
+			try
 			{
-				gbxAssociations.Enabled = false;
-				ttpTip.SetToolTip(gbxAssociations, String.Format("Run {0} as Administrator to change these settings.", p_gsgSettings.EnvironmentInfo.Settings.ModManagerName));
+				if (!p_gsgSettings.CanAssociateFiles)
+				{
+					gbxAssociations.Enabled = false;
+					ttpTip.SetToolTip(gbxAssociations, String.Format("Run {0} as Administrator to change these settings.", p_gsgSettings.EnvironmentInfo.Settings.ModManagerName));
+				}
 			}
+			catch(MissingMethodException ex)
+			{
+				string strErrorMessage = string.Format("Looks like you have a broken or incomplete .Net Framework!" + Environment.NewLine + "You need to install .NetFramework 4.5.2 or 4.6 . " + Environment.NewLine + Environment.NewLine + "{0} will be unable to run until you do that and will now close.", SettingsGroup.EnvironmentInfo.Settings.ModManagerName);
+				MessageBox.Show(strErrorMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				System.Environment.Exit(0);
+			}
+
 			ckbCloseManagerAfterGameLaunch.Text = String.Format(ckbCloseManagerAfterGameLaunch.Text, p_gsgSettings.EnvironmentInfo.Settings.ModManagerName);
 		}
 
