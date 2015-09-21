@@ -250,6 +250,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 
 			//add the specific permissions the script will need
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Write, m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory));
 
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Write, m_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory));
@@ -281,6 +282,15 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_strVirtualActivatorPath));
 				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Append, m_strVirtualActivatorPath));
 				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, m_strVirtualActivatorPath));
+
+				string strHDLink = m_eifEnvironmentInfo.Settings.HDLinkFolder[m_gmdGameMode.ModeId];
+				if (!String.IsNullOrWhiteSpace(strHDLink))
+				{
+					pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Write, strHDLink));
+					pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, strHDLink));
+					pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Append, strHDLink));
+					pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, strHDLink));
+				}
 			}
 
 			foreach (string strPath in m_gmdGameMode.WritablePaths)

@@ -163,7 +163,10 @@ namespace Nexus.Client.ModManagement
 							return String.Empty;
 					}
 
-				throw new ArgumentNullException("It seems the MultiHD mode is enabled but the program is unable to retrieve the Link folder.");
+				if (MultiHDMode == true)
+					throw new ArgumentNullException("It seems the MultiHD mode is enabled but the program is unable to retrieve the Link folder.");
+				else
+					return String.Empty;
 			}
 		}
 
@@ -767,7 +770,7 @@ namespace Nexus.Client.ModManagement
 
 			if (strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase))
 			{
-				File.Copy(strActivatorFilePath, strVirtualFileLink, true);
+				File.Copy(MultiHDMode ?  strLinkFilePath : strActivatorFilePath, strVirtualFileLink, true);
 				if (!p_booIsRestoring)
 					m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 				else
@@ -1227,7 +1230,7 @@ namespace Nexus.Client.ModManagement
 			foreach (IVirtualModLink ivlModLink in p_ivlVirtualLinks)
 			{
 				string strBaseFileCheck = Path.Combine(VirtualFoder, ivlModLink.RealModPath);
-				if (!File.Exists(strBaseFileCheck) && (MultiHDMode && (String.IsNullOrEmpty(HDLinkFolder) || (!File.Exists(Path.Combine(HDLinkFolder, ivlModLink.RealModPath))))))
+				if (!File.Exists(strBaseFileCheck) && !(MultiHDMode && (String.IsNullOrEmpty(HDLinkFolder) || (!File.Exists(Path.Combine(HDLinkFolder, ivlModLink.RealModPath))))))
 				{
 					List<IMod> lstMods = ModManager.ActiveMods.Where(x => Path.GetFileName(x.Filename).ToLowerInvariant() == ivlModLink.ModInfo.ModFileName.ToLowerInvariant()).ToList();
 					if (lstMods != null && lstMods.Count > 0)
