@@ -94,6 +94,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booInitialized = false;
 		private bool m_booDisableLinkCreation = false;
 		private bool m_booDisableIniLogging = false;
+		private bool m_booForceHardLinks = false;
 		private string m_strGameDataPath = String.Empty;
 		private string m_strVirtualActivatorPath = String.Empty;
 		private string m_strVirtualActivatorConfigPath = String.Empty;
@@ -153,13 +154,16 @@ namespace Nexus.Client.ModManagement
 			get
 			{
 				if (EnvironmentInfo != null)
-					if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId]))
+					if (!String.IsNullOrWhiteSpace(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId]))
 					{
 						string strLink = EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId];
-						return Path.Combine(Path.Combine(strLink, GameMode.ModeId), ACTIVATOR_LINK_FOLDER);
+						if (!String.IsNullOrWhiteSpace(strLink))
+							return Path.Combine(strLink, GameMode.ModeId, ACTIVATOR_LINK_FOLDER);
+						else
+							return String.Empty;
 					}
 
-				return String.Empty;
+				throw new ArgumentNullException("It seems the MultiHD mode is enabled but the program is unable to retrieve the Link folder.");
 			}
 		}
 
@@ -187,11 +191,11 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		public bool ForceHardLinks 
+		public bool MultiHDMode 
 		{
 			get
 			{
-				return EnvironmentInfo.Settings.ForceHardLinks;
+				return m_booForceHardLinks;
 			}
 		}
 
@@ -278,6 +282,7 @@ namespace Nexus.Client.ModManagement
 			GameMode = p_gmdGameMode;
 			ModInstallLog = p_ilgModInstallLog;
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			m_booForceHardLinks = EnvironmentInfo.Settings.MultiHDInstall[GameMode.ModeId];
 			string strVirtualFolder = EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId];
 			m_strVirtualActivatorPath = Path.Combine(strVirtualFolder, ACTIVATOR_FOLDER);
 			m_strGameDataPath = GameMode.PluginDirectory;
@@ -724,8 +729,23 @@ namespace Nexus.Client.ModManagement
 			{
 				strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
 				strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
+				if (!File.Exists(strActivatorFilePath))
+				{
+					strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true));
+					strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
+				}
 			}
-			string strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
+
+			string strLinkFilePath = String.Empty;
+			if (MultiHDMode)
+			{
+				strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
+				if (!File.Exists(strLinkFilePath))
+				{
+					strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true));
+					strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
+				}
+			}
 
 			if (!Directory.Exists(Path.GetDirectoryName(strVirtualFileLink)))
 				FileUtil.CreateDirectory(Path.GetDirectoryName(strVirtualFileLink));
@@ -753,11 +773,11 @@ namespace Nexus.Client.ModManagement
 				else
 					strVirtualFileLink = String.Empty;
 			}
-			else if (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase))
+			else if (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
 			{
-				if (ForceHardLinks)
+				if (MultiHDMode)
 				{
-					if (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero))
+					if (CreateHardLink(strVirtualFileLink, strLinkFilePath, IntPtr.Zero))
 					{
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
@@ -769,7 +789,7 @@ namespace Nexus.Client.ModManagement
 				}
 				else
 				{
-					if (CreateHardLink(strVirtualFileLink, strLinkFilePath, IntPtr.Zero))
+					if (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero))
 					{
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
@@ -782,7 +802,7 @@ namespace Nexus.Client.ModManagement
 			}
 			else if (!DisableLinkCreation)
 			{
-				if (ForceHardLinks && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
+				if (!MultiHDMode && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
 				{
 					if (!p_booIsRestoring)
 						m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
@@ -1207,7 +1227,7 @@ namespace Nexus.Client.ModManagement
 			foreach (IVirtualModLink ivlModLink in p_ivlVirtualLinks)
 			{
 				string strBaseFileCheck = Path.Combine(VirtualFoder, ivlModLink.RealModPath);
-				if (!File.Exists(strBaseFileCheck) && (String.IsNullOrEmpty(HDLinkFolder) || (!File.Exists(Path.Combine(HDLinkFolder, ivlModLink.RealModPath)))))
+				if (!File.Exists(strBaseFileCheck) && (MultiHDMode && (String.IsNullOrEmpty(HDLinkFolder) || (!File.Exists(Path.Combine(HDLinkFolder, ivlModLink.RealModPath))))))
 				{
 					List<IMod> lstMods = ModManager.ActiveMods.Where(x => Path.GetFileName(x.Filename).ToLowerInvariant() == ivlModLink.ModInfo.ModFileName.ToLowerInvariant()).ToList();
 					if (lstMods != null && lstMods.Count > 0)

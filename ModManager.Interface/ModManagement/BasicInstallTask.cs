@@ -138,11 +138,13 @@ namespace Nexus.Client.ModManagement
 					return false;
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, Mod, false);
 				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, true));
-				string strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, true));
+				string strLinkPath = String.Empty;
+				if (VirtualModActivator.MultiHDMode)
+					strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, true));
 				string strFileType = Path.GetExtension(strFile);
 				if (!strFileType.StartsWith("."))
 					strFileType = "." + strFileType;
-				bool booHardLinkFile = (!VirtualModActivator.ForceHardLinks && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)));
+				bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 				if (!string.IsNullOrEmpty(strFixedPath))
 				{
