@@ -214,12 +214,12 @@ namespace Nexus.Client.ModManagement.Scripting
 			string strFileType = Path.GetExtension(strTo);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
-			bool booHardLinkFile = (!VirtualModActivator.ForceHardLinks && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)));
+			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				string strVirtualPath = Path.Combine(Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename)), strTo);
+				string strVirtualPath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strTo);
 
 				Installers.FileInstaller.InstallFileFromMod(strFrom, strVirtualPath);
 				ModLinkInstaller.AddFileLink(Mod, strTo, true, true);
@@ -397,13 +397,12 @@ namespace Nexus.Client.ModManagement.Scripting
 			string strFileType = Path.GetExtension(strPath);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
-			bool booHardLinkFile = (!VirtualModActivator.ForceHardLinks && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)));
-
+			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				string strVirtualPath = Path.Combine(Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename)), strPath);
+				string strVirtualPath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strPath);
 
 				Installers.FileInstaller.GenerateDataFile(strVirtualPath, p_bteData);
 				ModLinkInstaller.AddFileLink(Mod, strPath, true);
