@@ -150,7 +150,7 @@ namespace Nexus.Client.ModManagement
 				{
 					if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(strFile) == GameMode.MergedFileName)))
 					{
-						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && (Path.GetDirectoryName(strFixedPath) == Path.GetFileName(GameMode.PluginDirectory))))
+						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && Path.GetDirectoryName(strFixedPath).Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)))
 						{
 							FileInstaller.InstallFileFromMod(strFile, ((booHardLinkFile) ? strLinkPath : strVirtualPath));
 							
