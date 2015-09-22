@@ -1,0 +1,98 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<tipsManager>
+	<tipsList>
+		<tips section="toolStrip1" object="spbProfiles" ID="1" version="0.60.0">
+			<text>This new NMM version supports mod profiles.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbProfiles" ID="2" version="0.60.0">
+			<text>Mod profiles allow you to quickly switch between completely different mod setups.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbProfiles" ID="3" version="0.60.0">
+			<text>Create, rename, delete or switch to other profiles using this drop-down.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbProfiles" ID="4" version="0.60.0">
+			<text>You're not required to use the profile functionality if you don't want to.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="5" version="0.60.0">
+			<text>NMM now uses a new mod installation method.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="6" version="0.60.0">
+			<text>Mods have 3 different states: Uninstalled, Unactive and Active.
+Uninstalled mods are not active and aren't using up space on your hard-drive. They show as greyed out in the mod list with no icon next to them.
+Unactive mods are extracted on to your hard-drive but are not being used by the current profile, but are possibly being used by other profiles. They have a red symbol next to them.
+Active mods are installed and being used by the current profile. They have a green symbol next to them.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="7" version="0.60.0">
+			<text>To activate/disable a mod you can either double-click on it or use these buttons.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="8" version="0.60.0">
+			<text>To completely uninstall a mod, right-click on it and select "Uninstall mod" or "Uninstall from all profiles" if you wish to also remove this mod from other profiles where it's active.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbTools" ID="9" version="0.60.0">
+			<text>If you want to change the new install method settings use the "Change virtual Folder" button in the Tools menu.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbSupportedTools" ID="10" version="0.60.0">
+			<text>NMM will allow you to quickly launch the most common external tools for each game from this drop-down.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbSupportedTools" ID="11" version="0.60.0">
+			<text>NMM automatically detects most of these tools, but you can set the their paths in the options menu, in the Supported Tools tab.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbSupportedTools" ID="12" version="0.60.0">
+			<text>Warning: NONE of these tools are shipped or officially supported by NMM, the program is just creating a quick launch icon for them for your ease of use.</text>
+		</tips>
+		<tips section="ModManagerControl" object="" ID="1" version="0.55.0">
+			<text>Added new "Download Date" column to the Mods tab.</text>
+		</tips>
+		<tips section="PluginManagerControl" object="" ID="2" version="0.55.0" pluginsonly="true">
+			<text>The plugin list will now automatically synchronize with external changes (manual or made by other tools).</text>
+		</tips>
+		<tips section="tssDownload" object="tlbPluginsCounter" ID="3" version="0.55.0" pluginsonly="true">
+			<text>Added Plugins Counter feedback to the bottom bar.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbTools" ID="1" version="0.54.0">
+			<text>Added a new sorting functionality with the "Auto Plugin Sorting" button, when clicked it will automatically sort your plugins \\ (LOOT is not required to be installed, an active internet connection is required to download the latest masterlist).</text>
+		</tips>
+		<tips section="ActivateMMListView" object="column" ID="2" version="0.54.0">
+			<text>Added "Error/Warning" column to the Mod Activation Queue monitor, in case of issues with the current operation you can click the icon in it to check the details.</text>
+		</tips>
+		<tips section="CLWCategoryListView" object="column" ID="1" version="0.53.3">
+			<text>NMM will keep track of options selected in scripted installers (this info will be used in the profile build).</text>
+		</tips>
+		<tips section="tssDownload" object="tlbModsCounter" ID="2" version="0.53.3">
+			<text>Added Mod Activation Queue feedback to the bottom bar.</text>
+		</tips>
+		<tips section="ActivateMMListView" object="column" ID="3" version="0.53.3">
+			<text>The Mod Activation Queue will now automatically focus on the currently active element.</text>
+		</tips>
+		<tips section="ActivateMMListView" object="column" ID="1" version="0.53.2">
+			<text>The progress meter has been added.</text>
+		</tips>
+		<tips section="toolStrip1" object="spbTools" ID="1" version="0.53.0">
+			<text>A "Restore backup" button has been added to this version of NMM that will allow you to revert future versions of NMM back to this version (0.53.0) should anything go wrong.</text>
+		</tips>
+		<tips section="ActivateMMListView" object="column" ID="2" version="0.53.0">
+			<text>A new "Mod Activation Queue" window has been added. You can now queue multiple mods to install one after another rather than waiting to install one mod at a time.</text>
+		</tips>
+		<tips section="ActivateModsMonitorControl.toolStrip1" object="tsbCancel" ID="3" version="0.53.0">
+			<text>Click here to remove a single Queued or Completed mod activation.</text>
+		</tips>
+		<tips section="ActivateModsMonitorControl.toolStrip1" object="tsbRemove" ID="4" version="0.53.0">
+			<text>Click here to remove all the Queued activations from the list.</text>
+		</tips>
+		<tips section="ActivateModsMonitorControl.toolStrip1" object="tsbRemoveAll" ID="5" version="0.53.0">
+			<text>Click here to purge all the Completed activations.</text>
+		</tips>
+		<tips section="toolStrip1" object="tsbTips" ID="1" version="0.52.0">
+			<text>This version fully supports the new CDN download system.</text>
+		</tips>
+		<tips section="toolStrip1" object="tsbTips" ID="1" version="0.51.0">
+			<text>Click here to check the latest version tips.</text>
+		</tips>
+		<tips section="ModManager.toolStrip1" object="tsbToggleEndorse" ID="2" version="0.51.0">
+			<text>This version supports the new Abstain endorsement state (click once to Endorse and click again to Abstain).</text>
+		</tips>
+		<tips section="CLWCategoryListView" object="column" ID="3" version="0.51.0">
+			<text>Fixed an issue with the XML script compiler preventing scripts to properly compile for plugin-less games.</text>
+		</tips>
+	</tipsList>
+</tipsManager>
