@@ -779,10 +779,10 @@ namespace Nexus.Client.Games
 		/// Merges the mod files if requested by the game.
 		/// </summary>
 		/// <returns>Merges the mod files if requested by the game.</returns>
-		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		/// <param name="p_lstActiveMods">The list of active mods.</param>
 		/// <param name="p_modMod">The current mod.</param>
 		/// <param name="p_booRemove">Whether we're adding or removing the mod.</param>
-		public virtual void ModFileMerge(ReadOnlyObservableList<IMod> p_rolActiveMods, IMod p_modMod, bool p_booRemove)
+		public virtual void ModFileMerge(IList<IMod> p_lstActiveMods, IMod p_modMod, bool p_booRemove)
 		{
 		}
 

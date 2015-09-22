@@ -796,11 +796,13 @@ namespace Nexus.Client.ModManagement
 							}
 							break;
 						case NotifyCollectionChangedAction.Remove:
+						case NotifyCollectionChangedAction.Reset:
 							foreach (IMod modRemoved in e.OldItems)
 							{
 								string strProfileModLogPath = Path.Combine(CurrentProfileScriptedLogPath, Path.GetFileNameWithoutExtension(modRemoved.Filename)) + ".xml";
 								if (File.Exists(strProfileModLogPath))
-									FileUtil.ForceDelete(strProfileModLogPath);
+									lock (m_objLock)
+										FileUtil.ForceDelete(strProfileModLogPath);
 							}
 							break;
 					}
