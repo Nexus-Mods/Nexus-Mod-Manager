@@ -57,6 +57,9 @@ namespace Nexus.Client.Games.Gamebryo
 				if (!String.IsNullOrEmpty(InstallationPath))
 				{
 					strPath = Path.Combine(InstallationPath, "Data");
+					if (!Directory.Exists(Path.GetPathRoot(strPath)))
+						throw new DirectoryNotFoundException("The selected drive is no longer present on the system.");
+
 					if (!Directory.Exists(strPath))
 						Directory.CreateDirectory(strPath);
 				}

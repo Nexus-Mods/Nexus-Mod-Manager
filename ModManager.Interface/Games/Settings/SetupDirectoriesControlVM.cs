@@ -385,6 +385,11 @@ namespace Nexus.Client.Games.Settings
 				{
 					// If the game doesn't supports plugins no need to check for it.
 				}
+				catch (DirectoryNotFoundException e)
+				{
+					Errors.SetError(p_strProperty, e.Message + Environment.NewLine + "If the drive no longer exists, uninstall NMM removing config files when asked and reinstall it.");
+					return false;
+				}
 			}
 
 			return true;

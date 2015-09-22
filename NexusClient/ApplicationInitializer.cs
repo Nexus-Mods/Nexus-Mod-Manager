@@ -918,7 +918,7 @@ namespace Nexus.Client
 					if (booMakeWritable)
 					{
 						Trace.TraceInformation("Made writable");
-						fifPlugin.Attributes &= ~FileAttributes.ReadOnly;
+						File.SetAttributes(strFile, File.GetAttributes(strFile) & ~FileAttributes.ReadOnly);
 					}
 					else
 						Trace.TraceInformation("NOT made writable");
