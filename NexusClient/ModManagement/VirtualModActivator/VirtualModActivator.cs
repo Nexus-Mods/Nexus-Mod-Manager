@@ -134,6 +134,10 @@ namespace Nexus.Client.ModManagement
 		/// <value>The application's envrionment info.</value>
 		protected IEnvironmentInfo EnvironmentInfo { get; private set; }
 
+		/// <summary>
+		/// Gets the current game mode's VirtualInstall folder.
+		/// </summary>
+		/// <value>The current game mode's VirtualInstall folder.</value>
 		public string VirtualFoder
 		{
 			get
@@ -149,6 +153,10 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the current game mode's NMMLink folder.
+		/// </summary>
+		/// <value>The current game mode's NMMLink folder.</value>
 		public string HDLinkFolder
 		{
 			get
@@ -170,18 +178,6 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		public string VirtualInstallFoder
-		{
-			get
-			{
-				if (EnvironmentInfo != null)
-					if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId]))
-						return Path.Combine(Path.Combine(EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId], ACTIVATOR_FOLDER), "VirtualInstall");
-
-				return String.Empty;
-			}
-		}
-
 		/// <summary>
 		/// Gets the current support version of the virtual mod activator.
 		/// </summary>
@@ -194,6 +190,10 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets whether the MultiHD mode is currently enabled.
+		/// </summary>
+		/// <value>Whether the MultiHD mode is currently enabled.</value>
 		public bool MultiHDMode 
 		{
 			get
@@ -202,6 +202,10 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets whether the VirtualModActivator is initialized.
+		/// </summary>
+		/// <value>Whether the VirtualModActivator is initialized.</value>
 		public bool Initialized
 		{
 			get
@@ -210,6 +214,10 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets whether link creation is disabled.
+		/// </summary>
+		/// <value>Whether link creation is disabled.</value>
 		public bool DisableLinkCreation
 		{
 			get
@@ -222,6 +230,10 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets whether ini logging is disabled.
+		/// </summary>
+		/// <value>Whether ini logging is disabled.</value>
 		public bool DisableIniLogging
 		{
 			get
@@ -288,7 +300,7 @@ namespace Nexus.Client.ModManagement
 			m_booForceHardLinks = EnvironmentInfo.Settings.MultiHDInstall[GameMode.ModeId];
 			string strVirtualFolder = EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId];
 			m_strVirtualActivatorPath = Path.Combine(strVirtualFolder, ACTIVATOR_FOLDER);
-			m_strGameDataPath = GameMode.PluginDirectory;
+			m_strGameDataPath = GameMode.UsesPlugins ? GameMode.PluginDirectory : GameMode.InstallationPath;
 			m_strVirtualActivatorConfigPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_FILE);
 			m_strVirtualActivatorIniEditsPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_INIEDITS);
 			if (!Directory.Exists(m_strVirtualActivatorPath))
@@ -771,8 +783,14 @@ namespace Nexus.Client.ModManagement
 			if (strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase))
 			{
 				File.Copy(MultiHDMode ?  strLinkFilePath : strActivatorFilePath, strVirtualFileLink, true);
-				if (!p_booIsRestoring)
-					m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+
+				if (File.Exists(strVirtualFileLink))
+				{
+					if (!p_booIsRestoring)
+						m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+					else
+						strVirtualFileLink = String.Empty;
+				}
 				else
 					strVirtualFileLink = String.Empty;
 			}
@@ -780,7 +798,11 @@ namespace Nexus.Client.ModManagement
 			{
 				if (MultiHDMode)
 				{
-					if (CreateHardLink(strVirtualFileLink, strLinkFilePath, IntPtr.Zero))
+					bool booSuccess = CreateHardLink(strVirtualFileLink, strLinkFilePath, IntPtr.Zero);
+					if (!booSuccess)
+						File.Copy(strLinkFilePath, strVirtualFileLink, true);
+
+					if (booSuccess || File.Exists(strVirtualFileLink))
 					{
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
@@ -792,7 +814,11 @@ namespace Nexus.Client.ModManagement
 				}
 				else
 				{
-					if (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero))
+					bool booSuccess = CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero);
+					if (!booSuccess)
+						File.Copy(strActivatorFilePath, strVirtualFileLink, true);
+
+					if (booSuccess || File.Exists(strVirtualFileLink))
 					{
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
@@ -833,7 +859,6 @@ namespace Nexus.Client.ModManagement
 						PluginManager.ActivatePlugin(strVirtualFileLink);
 				}
 			
-
 			return strVirtualFileLink;
 		}
 
@@ -863,6 +888,10 @@ namespace Nexus.Client.ModManagement
 				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
 				if (!File.Exists(strLinkPath))
 					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, true));
+
+				if (GameMode.HasSecondaryInstallPath)
+					if (GameMode.CheckSecondaryUninstall(strLinkPath))
+						return;
 
 				if ((PluginManager != null) && ((intPriority < 0) || (modCheck == null)))
 				{
@@ -942,6 +971,13 @@ namespace Nexus.Client.ModManagement
 					if (!p_booPurging)
 						SaveList();
 
+					if (GameMode.RequiresModFileMerge)
+					{
+						List<IMod> ActiveMods;
+						ActiveMods = ModManager.ActiveMods.Where(x => ActiveModList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
+						GameMode.ModFileMerge(ActiveMods, p_modMod, true);
+					}
+
 					if (!p_booPurging)
 						if (this.ModActivationChanged != null)
 							this.ModActivationChanged(this, new EventArgs());
@@ -962,6 +998,13 @@ namespace Nexus.Client.ModManagement
 			m_tslVirtualModInfo.RemoveAll(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant());
 
 			SaveList();
+
+			if (GameMode.RequiresModFileMerge)
+			{
+				List<IMod> ActiveMods;
+				ActiveMods = ModManager.ActiveMods.Where(x => ActiveModList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
+				GameMode.ModFileMerge(ActiveMods, p_modMod, true);
+			}
 
 			if (this.ModActivationChanged != null)
 				this.ModActivationChanged(this, new EventArgs());
@@ -1002,6 +1045,13 @@ namespace Nexus.Client.ModManagement
 
 		public void FinalizeModActivation(IMod p_modMod)
 		{
+			if (GameMode.RequiresModFileMerge)
+			{
+				List<IMod> ActiveMods;
+				ActiveMods = ModManager.ActiveMods.Where(x => !x.Filename.Equals(p_modMod.Filename, StringComparison.CurrentCultureIgnoreCase) && ActiveModList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
+				GameMode.ModFileMerge(ActiveMods, p_modMod, false);
+			}
+
 			LoadIniEdits(p_modMod);
 			SaveList();
 

@@ -342,7 +342,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				{
 					string strPath = xelFile.Attribute("path").Value;
 					foreach (XElement xelMod in xelFile.Descendants("mod"))
-						m_dicInstalledFiles[strPath].Push(xelMod.Attribute("key").Value, null);
+						m_dicInstalledFiles[strPath].Push(xelMod.Attribute("key") != null ? xelMod.Attribute("key").Value : string.Empty, null);
 				}
 			}
 

@@ -241,49 +241,64 @@ namespace Nexus.Client.PluginManagement.OrderLog
 				Dictionary<Plugin, Plugin> dicPredecessors = new Dictionary<Plugin, Plugin>();
 				ThreadSafeObservableList<Plugin> oclUnorderedList = m_oclOrderedPlugins;
 				IList<Plugin> lstOrderedList = p_lstOrderedPlugins;
+				string strError = String.Empty;
 
-				for (Int32 i = 0; i < oclUnorderedList.Count; i++)
-					if (!lstOrderedList.Contains(oclUnorderedList[i], pcpComparer))
-						dicPredecessors[oclUnorderedList[i]] = (i > 0) ? oclUnorderedList[i - 1] : null;
+				try
+				{
+					strError = "Setup";
+					for (Int32 i = 0; i < oclUnorderedList.Count; i++)
+						if (!lstOrderedList.Contains(oclUnorderedList[i], pcpComparer))
+							dicPredecessors[oclUnorderedList[i]] = (i > 0) ? oclUnorderedList[i - 1] : null;
 
-				//sort the items whose order has been specified
-				for (Int32 i = 0; i < lstOrderedList.Count; i++)
-				{
-					Int32 intOldIndex = 0;
-					for (intOldIndex = 0; intOldIndex < oclUnorderedList.Count; intOldIndex++)
-						if (pcpComparer.Equals(oclUnorderedList[intOldIndex], lstOrderedList[i]))
-							break;
-					if (intOldIndex == oclUnorderedList.Count)
+					strError = "Specified";
+					//sort the items whose order has been specified
+					for (Int32 i = 0; i < lstOrderedList.Count; i++)
 					{
-						oclUnorderedList.Insert(i, lstOrderedList[i]);
-						continue;
-					}
-					if (intOldIndex != i)
-						oclUnorderedList.Move(intOldIndex, i);
-				}
-				//sort the items whose order has not been specified
-				// if an item's order hasn't been specified, it is placed after the
-				// item it followed in the original, unordered, list
-				for (Int32 i = lstOrderedList.Count; i < oclUnorderedList.Count; i++)
-				{
-					Plugin plgPredecessor = dicPredecessors[oclUnorderedList[i]];
-					Int32 intNewIndex = -1;
-					//if the predecessor is null, then the item was at the beginning of the list
-					if (plgPredecessor != null)
-					{
-						for (intNewIndex = 0; intNewIndex < oclUnorderedList.Count; intNewIndex++)
-							if (pcpComparer.Equals(oclUnorderedList[intNewIndex], plgPredecessor))
+						Int32 intOldIndex = 0;
+						for (intOldIndex = 0; intOldIndex < oclUnorderedList.Count; intOldIndex++)
+							if (pcpComparer.Equals(oclUnorderedList[intOldIndex], lstOrderedList[i]))
 								break;
+						if (intOldIndex == oclUnorderedList.Count)
+						{
+							strError = "Insert";
+							oclUnorderedList.Insert(i, lstOrderedList[i]);
+							continue;
+						}
+						strError = "Move intOldIndex";
+						if (intOldIndex != i)
+							oclUnorderedList.Move(intOldIndex, i);
 					}
-					if (intNewIndex + 1 != i)
-						oclUnorderedList.Move(i, intNewIndex + 1);
-				}
-				EnlistedPluginOrderLog.OrderValidator.CorrectOrder(oclUnorderedList);
+					//sort the items whose order has not been specified
+					// if an item's order hasn't been specified, it is placed after the
+					// item it followed in the original, unordered, list
+					for (Int32 i = lstOrderedList.Count; i < oclUnorderedList.Count; i++)
+					{
+						strError = "Predecessor";
+						Plugin plgPredecessor = dicPredecessors[oclUnorderedList[i]];
+						Int32 intNewIndex = -1;
+						//if the predecessor is null, then the item was at the beginning of the list
+						if (plgPredecessor != null)
+						{
+							for (intNewIndex = 0; intNewIndex < oclUnorderedList.Count; intNewIndex++)
+								if (pcpComparer.Equals(oclUnorderedList[intNewIndex], plgPredecessor))
+									break;
+						}
 
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
+						strError = "intNewIndex + 1";
+						if (intNewIndex + 1 != i)
+							oclUnorderedList.Move(i, intNewIndex + 1);
+					}
+					EnlistedPluginOrderLog.OrderValidator.CorrectOrder(oclUnorderedList);
+
+					if (CurrentTransaction == null)
+						Commit();
+					else
+						Enlist();
+				}
+				catch (Exception e)
+				{
+					throw new Exception(strError, e);
+				}
 			}
 
 			/// <summary>

@@ -402,12 +402,11 @@ namespace Nexus.Client.Games.DragonAge2
         /// <summary>
         /// Merges the chargenmorphcfg.xml file of the Dragon Age mods.
         /// </summary>
-		/// <param name="p_rolActiveMods">The list of active mods.</param>
+		/// <param name="p_lstActiveMods">The list of active mods.</param>
 		/// <param name="p_modMod">The current mod.</param>
 		/// <param name="p_booRemove">Whether we're adding or removing the mod.</param>
-		public override void ModFileMerge(ReadOnlyObservableList<IMod> p_rolActiveMods, IMod p_modMod, bool p_booRemove)
-        {
-            
+		public override void ModFileMerge(IList<IMod> p_lstActiveMods, IMod p_modMod, bool p_booRemove)
+        {         
             List<string> lstFiles = null;
             XDocument XDoc = null;
             XDocument XDocMerge = null;
@@ -423,7 +422,7 @@ namespace Nexus.Client.Games.DragonAge2
 
 			if ((!File.Exists(Path.Combine(strXMLDirectory, "chargenmorphcfg.xml"))) || (p_booRemove))
             {
-				foreach (IMod modMod in p_rolActiveMods)
+				foreach (IMod modMod in p_lstActiveMods)
                 {
 					if (modMod.Filename != p_modMod.Filename)
                     {
@@ -470,7 +469,7 @@ namespace Nexus.Client.Games.DragonAge2
             #endregion
 
             #region currentMod
-			if ((p_modMod != null) && (!p_rolActiveMods.Contains(p_modMod)))
+			if ((p_modMod != null) && (!p_lstActiveMods.Contains(p_modMod)))
             {
 				lstFiles = p_modMod.GetFileList();
                 foreach (string strFile in lstFiles)
