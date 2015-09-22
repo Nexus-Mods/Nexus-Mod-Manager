@@ -526,6 +526,9 @@ namespace Nexus.Client.Games.Settings
 			}
 
 			string strInstallationPath = EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId];
+			if (string.IsNullOrWhiteSpace(strInstallationPath))
+				strInstallationPath = Application.ExecutablePath;
+
 			string strDirectory = null;
 			string strRandomGameKey = String.Empty;
 			bool booRetrieved = false;
@@ -556,7 +559,7 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.ModFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 				if (String.IsNullOrEmpty(strDirectory))
 				{
-					string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Mods");
+					string strDefault = Path.Combine(Path.GetPathRoot(strInstallationPath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId, "Mods");
 					strDirectory = strDefault;
 				}
 				ModDirectory = strDirectory;
@@ -590,7 +593,7 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.InstallInfoFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 				if (String.IsNullOrEmpty(strDirectory))
 				{
-					string strDefault = Path.Combine(Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(strInstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId), "Install Info");
+					string strDefault = Path.Combine(Path.GetPathRoot(strInstallationPath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId, "Install Info");
 					strDirectory = strDefault;
 				}
 				InstallInfoDirectory = strDirectory;
@@ -651,7 +654,7 @@ namespace Nexus.Client.Games.Settings
 					string strDefault = String.Empty;
 					strDefault = ModDirectory;
 					if (!MultiHDInstall && (!CheckOnGameHD(strDefault)))
-						strDefault = Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId);
+						strDefault = Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath ?? Application.ExecutablePath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
 
 					strDirectory = strDefault;
 				}
@@ -673,7 +676,7 @@ namespace Nexus.Client.Games.Settings
 						EnvironmentInfo.Settings.HDLinkFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 					if (String.IsNullOrEmpty(strDirectory) || !CheckOnGameHD(strDirectory))
 					{
-						strDirectory = Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId);
+						strDirectory = Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath ?? Application.ExecutablePath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
 					}
 					LinkDirectory = strDirectory;
 				}
