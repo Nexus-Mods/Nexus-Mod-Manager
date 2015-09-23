@@ -314,7 +314,7 @@ namespace Nexus.Client.ModManagement.UI
 			if ((clwCategoryView.Visible && (clwCategoryView.SelectedIndices.Count == 0)) || (clwCategoryView.GetSelectedItem == null))
 				return null;
 			else
-				return (IMod)clwCategoryView.GetSelectedItem;
+				return clwCategoryView.GetSelectedMod;
 		}
 
 		/// <summary>
