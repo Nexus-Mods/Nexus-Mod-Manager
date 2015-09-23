@@ -88,25 +88,53 @@ namespace Nexus.Client.ModManagement
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_rolModList.Count;
-			ShowItemProgress = false;
+			ShowItemProgress = true;
+			ItemProgressStepSize = 1;
+			ItemProgressMaximum = 4;
 
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
 
 			foreach (IMod modMod in m_rolModList)
 			{
-				OverallMessage = "Uninstalling all the active mods: " + modMod.ModName;
+				OverallMessage = "Uninstalling: " + modMod.ModName;
+				ItemProgress = 0;
 
-				if (VirtualModActivator != null)
+				if (ItemProgress < ItemProgressMaximum)
+				{
+					ItemMessage = "Disabling: " + modMod.ModName;
+					StepItemProgress();
+				}
+
+				if ((VirtualModActivator != null) && (VirtualModActivator.ModCount > 0))
 					VirtualModActivator.DisableMod(modMod);
 
+				if (ItemProgress < ItemProgressMaximum)
+				{
+					ItemMessage = "Setting up uninstall: " + modMod.ModName;
+					StepItemProgress();
+				}
+				
 				modMod.InstallDate = null;
 				if (!m_iilInstallLog.ActiveMods.Contains(modMod))
 					continue;
 				ModUninstaller munUninstaller = m_mifModInstallerFactory.CreateUninstaller(modMod, m_rolModList);
 				munUninstaller.Install();
 
+				if (ItemProgress < ItemProgressMaximum)
+				{
+					ItemMessage = "Uninstalling: " + modMod.ModName;
+					StepItemProgress();
+				}
+				
 				while (!munUninstaller.IsCompleted)
 				{ }
+
+				if (ItemProgress < ItemProgressMaximum)
+				{
+					ItemMessage = "Removing XML logs: " + modMod.ModName;
+					StepItemProgress();
+				}
+				
 				DeleteXMLInstalledFile(modMod);
 
 				if (OverallProgress < OverallProgressMaximum)
