@@ -951,11 +951,14 @@ namespace Nexus.Client.ModManagement
 			{
 				if (p_modMod != null)
 				{
-					List<IVirtualModLink> ivlLinks = m_tslVirtualModList.Where(x => (x.ModInfo != null) && (x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant())).ToList();
-					if ((ivlLinks != null) && (ivlLinks.Count > 0))
+					if (m_tslVirtualModList.Count > 0)
 					{
-						foreach (IVirtualModLink Link in ivlLinks)
-							RemoveFileLink(Link, p_modMod, p_booPurging);
+						List<IVirtualModLink> ivlLinks = m_tslVirtualModList.Where(x => (x.ModInfo != null) && (x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant())).ToList();
+						if ((ivlLinks != null) && (ivlLinks.Count > 0))
+						{
+							foreach (IVirtualModLink Link in ivlLinks)
+								RemoveFileLink(Link, p_modMod, p_booPurging);
+						}
 					}
 
 					TxFileManager tfmFileManager = new TxFileManager();
