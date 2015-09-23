@@ -176,8 +176,6 @@ namespace Nexus.Client
 
 			p_vmlViewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			m_fwsLastWindowState = WindowState;
-
-
 		}
 
 		/// <summary>
@@ -1906,7 +1904,6 @@ namespace Nexus.Client
 							{
 								mopCurrentProfile.Name = strNewName;
 								ViewModel.ProfileManager.UpdateProfile(mopCurrentProfile, null, null, null);
-								//BindProfileCommands();
 							}
 						}
 						break;
@@ -1929,10 +1926,7 @@ namespace Nexus.Client
 						{
 							DialogResult drResult = ExtendedMessageBox.Show(this, String.Format("Are you sure you want to remove the current profile: {0}", mopProfile.Name), "Remove Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 							if (drResult == DialogResult.Yes)
-							{
 								ViewModel.ProfileManager.RemoveProfile(mopProfile);
-								//BindProfileCommands();
-							}
 						}
 						break;
 					case "Save":
