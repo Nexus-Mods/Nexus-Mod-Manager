@@ -113,6 +113,17 @@ namespace Nexus.Client.Updating
 
 			if ((verNew > new Version(ProgrammeMetadata.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
 			{
+				string strCheckDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(strDownloadUri));
+
+				if (File.Exists(strCheckDownloadedInstaller))
+				{
+					SetMessage("Launching installer...");
+					ProcessStartInfo psiInfo = new ProcessStartInfo(strCheckDownloadedInstaller);
+					Process.Start(psiInfo);
+					Trace.Unindent();
+					return true;
+				}
+				
 				stbPromptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine).AppendLine();
 				stbPromptMessage.AppendLine();
 				stbPromptMessage.AppendLine();
