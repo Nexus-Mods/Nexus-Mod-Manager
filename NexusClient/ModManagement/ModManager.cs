@@ -562,12 +562,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_lstModList">The list of mods we need to update.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
+		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup)
+		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
 		{
 			if (ModRepository.UserStatus != null)
 			{
-				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup);
+				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId);
 				mutModUpdateCheck.Update(p_camConfirm);
 				return mutModUpdateCheck;
 			}
@@ -661,10 +662,11 @@ namespace Nexus.Client.ModManagement
         /// <param name="p_lstModList">The list of mods we need to update.</param>
         /// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
         /// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
+		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
         /// <returns>The background task that will run the updaters.</returns>
-        public void AsyncUpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup)
+		public void AsyncUpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
         {
-            ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup);
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId);
             AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
         }
         

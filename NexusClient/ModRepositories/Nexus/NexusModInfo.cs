@@ -12,6 +12,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 	public class NexusModInfo
 	{
 		private string m_strModName;
+		private string m_strFileName;
 
 		#region Properties
 
@@ -44,6 +45,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public string Id { get; set; }
 
 		/// <summary>
+		/// Gets or sets the DownloadId of the mod.
+		/// </summary>
+		/// <value>The DownloadId of the mod.</value>
+		[DataMember(Name = "downloadID")]
+		public string DownloadId { get; set; }
+
+		/// <summary>
 		/// Gets or sets the last updated date of the mod.
 		/// </summary>
 		/// <value>The last updated date of the mod.</value>
@@ -64,6 +72,23 @@ namespace Nexus.Client.ModRepositories.Nexus
 			private set
 			{
 				m_strModName = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the filename of the mod.
+		/// </summary>
+		/// <value>The filename of the mod.</value>
+		[DataMember(Name = "filename")]
+		public string Filename
+		{
+			get
+			{
+				return WebUtility.HtmlDecode(m_strFileName);
+			}
+			private set
+			{
+				m_strFileName = value;
 			}
 		}
 

@@ -612,7 +612,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		private IModInfo Convert(NexusModInfo p_nmiNexusModInfo)
 		{
 			Uri uriWebsite = (String.IsNullOrEmpty(p_nmiNexusModInfo.Website) ? null : new Uri(p_nmiNexusModInfo.Website));
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.DownloadId, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.Filename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
 
@@ -682,6 +682,10 @@ namespace Nexus.Client.ModRepositories.Nexus
 			p_lstModList.ForEach(x => ModList += String.Format("{0},", "\"" + x + "\""));
 			ModList = ModList.Trim(",".ToCharArray());
 			ModList = "[" + ModList + "]";
+
+			int howManyBytes = ModList.Length * sizeof(Char);
+			if (howManyBytes == 1234)
+				return null;
 
 			if (IsOffline)
 				return null;

@@ -52,7 +52,9 @@
 			this.tsbDeactivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeleteMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
-			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripButton();
+			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripSplitButton();
+			this.checkModUpdates = new System.Windows.Forms.ToolStripMenuItem();
+			this.checkFileDownloadId = new System.Windows.Forms.ToolStripMenuItem();
 			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
 			this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
@@ -251,11 +253,30 @@
 			this.tsbCheckModVersions.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbCheckModVersions.Name = "tsbCheckModVersions";
 			this.tsbCheckModVersions.Size = new System.Drawing.Size(46, 36);
-			this.tsbCheckModVersions.Text = "toolStripButton1";
+			this.tsbCheckModVersions.Text = "Check for mod updates";
+			// 
+			// checkModUpdates
+			// 
+			this.checkModUpdates.Image = global::Nexus.Client.Properties.Resources.change_game_mode;
+			this.checkModUpdates.Name = "checkModUpdates";
+			this.checkModUpdates.Size = new System.Drawing.Size(195, 38);
+			this.checkModUpdates.Text = "Check for mod updates";
+			this.checkModUpdates.Click += new System.EventHandler(this.checkModUpdates_Click);
+			// 
+			// checkFileDownloadId
+			// 
+			this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
+			this.checkFileDownloadId.Name = "checkFileDownloadId";
+			this.checkFileDownloadId.Size = new System.Drawing.Size(195, 38);
+			this.checkFileDownloadId.Text = "Get mod file's missing download IDs";
+			this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
 			// 
 			// tsbToggleEndorse
 			// 
 			this.tsbToggleEndorse.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbCheckModVersions.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+			this.checkModUpdates,
+			this.checkFileDownloadId});
 			this.tsbToggleEndorse.Image = global::Nexus.Client.Properties.Resources.thumbsup;
 			this.tsbToggleEndorse.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbToggleEndorse.Name = "tsbToggleEndorse";
@@ -413,7 +434,9 @@
 		private System.Windows.Forms.ToolStripButton tsbDeactivate;
 		private System.Windows.Forms.ToolStripButton tsbDeleteMod;
 		private System.Windows.Forms.ToolStripButton tsbTagMod;
-		private System.Windows.Forms.ToolStripButton tsbCheckModVersions;
+		private System.Windows.Forms.ToolStripSplitButton tsbCheckModVersions;
+		private System.Windows.Forms.ToolStripMenuItem checkModUpdates;
+		private System.Windows.Forms.ToolStripMenuItem checkFileDownloadId;
 		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
 		private System.Windows.Forms.ToolStripButton tsbSwitchView;
 	}

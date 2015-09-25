@@ -18,10 +18,22 @@ namespace Nexus.Client.Mods
 		string Id { get; set; }
 
 		/// <summary>
+		/// Gets or sets the DownloadId of the mod.
+		/// </summary>
+		/// <remarks>The DownloadId of the mod</remarks>
+		string DownloadId { get; set; }
+
+		/// <summary>
 		/// Gets or sets the name of the mod.
 		/// </summary>
 		/// <value>The name of the mod.</value>
 		string ModName { get; }
+
+		/// <summary>
+		/// Gets or sets the Filename of the mod.
+		/// </summary>
+		/// <value>The Filename of the mod.</value>
+		string FileName { get; }
 
 		/// <summary>
 		/// Gets or sets the human readable form of the mod's version.
@@ -105,6 +117,6 @@ namespace Nexus.Client.Mods
 		/// are to be used to update this object's properties.</param>
 		/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
 		/// or just the empty ones.</param>
-		void UpdateInfo(IModInfo p_mifInfo, bool p_booOverwriteAllValues);
+		void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues);
 	}
 }

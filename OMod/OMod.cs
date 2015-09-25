@@ -45,7 +45,9 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private IScriptType m_stpInstallScriptType = null;
 
 		private string m_strModId = null;
+		private string m_strDownloadId = null;
 		private string m_strModName = null;
+		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
 		private Int32 m_strCategoryId = 0;
@@ -89,6 +91,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 		}
 
 		/// <summary>
+		/// Gets or sets the DownloadId of the mod.
+		/// </summary>
+		/// <remarks>The DownloadId of the mod</remarks>
+		public string DownloadId
+		{
+			get
+			{
+				return m_strDownloadId;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strDownloadId, value, () => DownloadId);
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets the name of the mod.
 		/// </summary>
 		/// <value>The name of the mod.</value>
@@ -101,6 +119,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 			private set
 			{
 				SetPropertyIfChanged(ref m_strModName, value, () => ModName);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the filename of the mod.
+		/// </summary>
+		/// <value>The filename of the mod.</value>
+		public string FileName
+		{
+			get
+			{
+				return m_strFileName;
+			}
+			private set
+			{
+				SetPropertyIfChanged(ref m_strFileName, value, () => FileName);
 			}
 		}
 
@@ -1270,65 +1304,75 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// are to be used to update this object's properties.</param>
 		/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
 		/// or just the empty ones.</param>
-		public void UpdateInfo(IModInfo p_mifInfo, bool p_booOverwriteAllValues)
+		public void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues)
 		{
 			bool booChangedValue = false;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Id))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Id))
 			{
 				Id = p_mifInfo.Id;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(ModName))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(DownloadId) || (p_booOverwriteAllValues == null))
+			{
+				DownloadId = p_mifInfo.DownloadId;
+				booChangedValue = true;
+			}
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(ModName))
 			{
 				ModName = p_mifInfo.ModName;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(HumanReadableVersion))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(FileName))
+			{
+				FileName = p_mifInfo.FileName;
+				booChangedValue = true;
+			}
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(HumanReadableVersion))
 			{
 				HumanReadableVersion = p_mifInfo.HumanReadableVersion;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion) || (LastKnownVersion != p_mifInfo.LastKnownVersion))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(LastKnownVersion) || (LastKnownVersion != p_mifInfo.LastKnownVersion))
 			{
 				LastKnownVersion = p_mifInfo.LastKnownVersion;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues) || (IsEndorsed != p_mifInfo.IsEndorsed))
+			if ((p_booOverwriteAllValues == true) || (IsEndorsed != p_mifInfo.IsEndorsed))
 			{
 				IsEndorsed = p_mifInfo.IsEndorsed;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || (MachineVersion == null))
+			if ((p_booOverwriteAllValues == true) || (MachineVersion == null))
 			{
 				MachineVersion = p_mifInfo.MachineVersion;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Author) || (p_booOverwriteAllValues == null))
 			{
 				Author = p_mifInfo.Author;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || (CategoryId != p_mifInfo.CategoryId))
+			if ((p_booOverwriteAllValues == true) || (CategoryId != p_mifInfo.CategoryId) || (p_booOverwriteAllValues == null))
 			{
 				CategoryId = p_mifInfo.CategoryId;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || (CustomCategoryId != p_mifInfo.CustomCategoryId))
+			if ((p_booOverwriteAllValues == true) || (CustomCategoryId != p_mifInfo.CustomCategoryId))
 			{
 				CustomCategoryId = p_mifInfo.CustomCategoryId;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Description) || (p_booOverwriteAllValues == null))
 			{
 				Description = p_mifInfo.Description;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(InstallDate))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(InstallDate))
 			{
 				InstallDate = p_mifInfo.InstallDate;
 				booChangedValue = true;
 			}
-			if (p_booOverwriteAllValues || (Website == null))
+			if ((p_booOverwriteAllValues == true) || (Website == null) || (p_booOverwriteAllValues == null))
 			{
 				Website = p_mifInfo.Website;
 				booChangedValue = true;
@@ -1340,7 +1384,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				ReplaceSpecialFile("config", bteInfo);
 			}
 
-			if (p_booOverwriteAllValues || (Screenshot == null))
+			if ((p_booOverwriteAllValues == true) || (Screenshot == null))
 			{
 				if (p_mifInfo.Screenshot == null)
 				{
@@ -1407,8 +1451,9 @@ namespace Nexus.Client.Mods.Formats.OMod
 					}
 					if (OModBaseVersion >= 1)
 						bwrConfig.Write(intBuildVersion);
-					bwrConfig.Write(OModVersion >= 6 ? OModVersion : Convert.ToByte(6));
+					bwrConfig.Write(OModVersion >= 7 ? OModVersion : Convert.ToByte(7));
 					bwrConfig.Write(String.IsNullOrEmpty(Id) ? "" : Id);
+					bwrConfig.Write(String.IsNullOrEmpty(DownloadId) ? "" : DownloadId);
 					bwrConfig.Write(String.IsNullOrEmpty(LastKnownVersion) ? "" : LastKnownVersion);
 					bwrConfig.Write(IsEndorsed.ToString());
 					bwrConfig.Write(CategoryId);
@@ -1478,6 +1523,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 					if (OModVersion >= 5)
 					{
 						Id = brdConfig.ReadString();
+						if (OModVersion >= 7)
+							DownloadId = brdConfig.ReadString();
 						LastKnownVersion = brdConfig.ReadString();
 						try
 						{
@@ -1542,6 +1589,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 						if (bteOModVersion >= 5)
 						{
 							brdConfig.ReadString();
+							if (bteOModVersion >= 7)
+								brdConfig.ReadString();
 							brdConfig.ReadString();
 							brdConfig.ReadString();
 

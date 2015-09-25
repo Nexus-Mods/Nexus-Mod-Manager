@@ -543,6 +543,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap get_missing_info {
+            get {
+                object obj = ResourceManager.GetObject("get_missing_info", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap go_premium {
             get {
                 object obj = ResourceManager.GetObject("go_premium", resourceCulture);
