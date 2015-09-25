@@ -352,12 +352,7 @@ namespace Nexus.Client.ModManagement
 					Directory.CreateDirectory(m_strVirtualActivatorPath);
 			}
 
-			if (String.IsNullOrEmpty(NewLinkFolder) && !String.IsNullOrEmpty(HDLinkFolder))
-			{
-				if (Directory.Exists(HDLinkFolder))
-					FileUtil.ForceDelete(HDLinkFolder);
-			}
-			else if (!String.IsNullOrEmpty(NewLinkFolder))
+			if (!String.IsNullOrEmpty(NewLinkFolder))
 			{
 				if (!String.IsNullOrEmpty(HDLinkFolder))
 					FileUtil.ForceDelete(HDLinkFolder);
@@ -365,6 +360,13 @@ namespace Nexus.Client.ModManagement
 				if (!Directory.Exists(NewLinkFolder))
 					Directory.CreateDirectory(NewLinkFolder);
 			}
+			else if (String.IsNullOrEmpty(NewLinkFolder) && !String.IsNullOrEmpty(HDLinkFolder))
+			{
+				if (Directory.Exists(HDLinkFolder))
+					FileUtil.ForceDelete(HDLinkFolder);
+			}
+
+			m_booForceHardLinks = NewMultiHD;
 			
 			if (!String.Equals(EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId], NewVirtualFolder))
 			{
