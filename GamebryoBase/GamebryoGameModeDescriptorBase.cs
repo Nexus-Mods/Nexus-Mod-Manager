@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -16,6 +17,7 @@ namespace Nexus.Client.Games.Gamebryo
 																					"sound" };
 		private string[] m_strCriticalPlugins = null;
 		private string[] m_strOfficialPlugins = null;
+		private string m_strPluginPath = string.Empty;
 
 		#region Properties
 
@@ -53,17 +55,25 @@ namespace Nexus.Client.Games.Gamebryo
 		{
 			get
 			{
+				if (!string.IsNullOrEmpty(m_strPluginPath))
+					return m_strPluginPath;
+ 
 				string strPath = String.Empty;
 				if (!String.IsNullOrEmpty(InstallationPath))
 				{
 					strPath = Path.Combine(InstallationPath, "Data");
-					if (!Directory.Exists(Path.GetPathRoot(strPath)))
+
+					string strPathRoot = Path.GetPathRoot(strPath);
+					
+
+					if (DriveInfo.GetDrives().Where(x => x.Name.Equals(strPathRoot, StringComparison.CurrentCultureIgnoreCase)).ToList().Count <= 0)
 						throw new DirectoryNotFoundException("The selected drive is no longer present on the system.");
 
 					if (!Directory.Exists(strPath))
 						Directory.CreateDirectory(strPath);
 				}
 
+				m_strPluginPath = strPath;
 				return strPath;
 			}
 		}
