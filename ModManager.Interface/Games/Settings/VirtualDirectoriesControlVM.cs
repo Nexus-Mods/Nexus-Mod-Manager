@@ -301,7 +301,7 @@ namespace Nexus.Client.Games.Settings
 				MultiHDInstall = EnvironmentInfo.Settings.MultiHDInstall[GameModeDescriptor.ModeId];
 			else if (booRegMultiHDInstall != null)
 				MultiHDInstall = (bool)booRegMultiHDInstall;
-			if (booRegMultiHDInstall == null)
+			else if (booRegMultiHDInstall == null)
 			{
 				if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
 					booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("MultiHDInstall~{0}", GameModeDescriptor.ModeId), out strDirectory);
