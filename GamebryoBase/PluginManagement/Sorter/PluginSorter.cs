@@ -561,31 +561,34 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
 		/// </summary>
 		public void UpdateMasterlist()
 		{
-			bool booExist = File.Exists(MasterlistPath);
-			bool booUpdated = false;
-			UInt32 uintStatus = 0;
-			string strDirectory = Path.GetDirectoryName(MasterlistPath);
-			if (!Directory.Exists(strDirectory))
-				Directory.CreateDirectory(strDirectory);
-			try
+			if (MasterlistHasUpdate())
 			{
-				string remoteUrl = String.Format("http://github.com/loot/{0}.git", GameMode.ModeId);
-				string remoteBranch = "master";
-				
-				uintStatus = m_dlgUpdateMasterlist(m_ptrSorterDb, MasterlistPath, remoteUrl, remoteBranch, ref booUpdated);
-			}
-			catch(SorterException e)
-			{
-			}
-			catch(AccessViolationException)
-			{
-			}
-			HandleStatusCode(uintStatus);
+				bool booExist = File.Exists(MasterlistPath);
+				bool booUpdated = false;
+				UInt32 uintStatus = 0;
+				string strDirectory = Path.GetDirectoryName(MasterlistPath);
+				if (!Directory.Exists(strDirectory))
+					Directory.CreateDirectory(strDirectory);
+				try
+				{
+					string remoteUrl = String.Format("http://github.com/loot/{0}.git", GameMode.ModeId);
+					string remoteBranch = "master";
 
-			if (booExist && booUpdated)
-				EvaluateMasterlist();
-			else if (booUpdated)
-				Load(MasterlistPath, UserlistPath);
+					uintStatus = m_dlgUpdateMasterlist(m_ptrSorterDb, MasterlistPath, remoteUrl, remoteBranch, ref booUpdated);
+				}
+				catch (SorterException e)
+				{
+				}
+				catch (AccessViolationException)
+				{
+				}
+				HandleStatusCode(uintStatus);
+
+				if (booExist && booUpdated)
+					EvaluateMasterlist();
+				else if (booUpdated)
+					Load(MasterlistPath, UserlistPath);
+			}
 		}
 
 		/// <summary>
@@ -596,25 +599,22 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
 		public bool MasterlistHasUpdate()
 		{
 			UInt32 uintStatus = 0;
-			//string strTmpPath = Path.Combine(FileUtility.CreateTempDirectory(), Path.GetRandomFileName());
-			//if (File.Exists(MasterlistPath))
-			//	File.Copy(MasterlistPath, strTmpPath, true);
-			//try
-			//{
-			//	string remoteUrl = String.Format("http://github.com/loot/{0}.git", GameMode.ModeId);
-			//	string remoteBranch = "master";
-			//	bool booUpdated = false;
-			//	uintStatus = m_dlgUpdateMasterlist(m_ptrSorterDb, MasterlistPath, remoteUrl, remoteBranch, ref booUpdated);
-			//}
-			//catch (SorterException e)
-			//{
-			//}
-			//catch (AccessViolationException)
-			//{			
-			//}
-			//FileUtil.ForceDelete(strTmpPath);
-			//HandleStatusCode(uintStatus);
-			return (SORTER_API_OK_NO_UPDATE_NECESSARY != uintStatus);
+			bool booRequiresUpdate = false;
+			string remoteBranch = "master";
+
+			try
+			{
+				string remoteUrl = String.Format("http://github.com/loot/{0}.git", GameMode.ModeId);
+				uintStatus = m_dlgUpdateMasterlist(m_ptrSorterDb, MasterlistPath, remoteUrl, remoteBranch, ref booRequiresUpdate);
+			}
+			catch (SorterException e)
+			{
+			}
+			catch (AccessViolationException)
+			{
+			}
+
+			return booRequiresUpdate;
 		}
 		
 		#endregion
