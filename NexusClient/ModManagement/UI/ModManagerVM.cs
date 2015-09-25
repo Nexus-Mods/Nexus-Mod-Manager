@@ -653,7 +653,7 @@ namespace Nexus.Client.ModManagement.UI
 			List<IMod> lstModList = new List<IMod>();
 
 			lstModList.AddRange(from Mod in ManagedMods
-								where (String.IsNullOrWhiteSpace(Mod.DownloadId))
+								where (String.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId == "-1")
 								select Mod);
 
 			if (!ModRepository.IsOffline)
