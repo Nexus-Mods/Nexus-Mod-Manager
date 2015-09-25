@@ -52,6 +52,20 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public string DownloadId { get; set; }
 
 		/// <summary>
+		/// Gets or sets the NewDownloadId of the mod.
+		/// </summary>
+		/// <value>The NewDownloadId of the mod.</value>
+		[DataMember(Name = "new_downloadID")]
+		public string NewDownloadId { get; set; }
+
+		/// <summary>
+		/// Gets or sets the NewFilename of the mod.
+		/// </summary>
+		/// <value>The NewFilename of the mod.</value>
+		[DataMember(Name = "new_filename")]
+		public string NewFilename { get; set; }
+
+		/// <summary>
 		/// Gets or sets the last updated date of the mod.
 		/// </summary>
 		/// <value>The last updated date of the mod.</value>
