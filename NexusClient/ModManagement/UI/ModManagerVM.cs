@@ -634,14 +634,40 @@ namespace Nexus.Client.ModManagement.UI
             {
                 if (lstModList.Count > 0)
                 {
-                    UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup, false)));
                 }
             }
             else
             {
                 ModManager.Login();
-                ModManager.AsyncUpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup);
+				ModManager.AsyncUpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup, false);
             }
+		}
+
+		/// <summary>
+		/// Checks for mod file's missing download id.
+		/// </summary>
+		/// <returns>Message</returns>
+		public void CheckModFileDownloadId()
+		{
+			List<IMod> lstModList = new List<IMod>();
+
+			lstModList.AddRange(from Mod in ManagedMods
+								where (String.IsNullOrWhiteSpace(Mod.DownloadId))
+								select Mod);
+
+			if (!ModRepository.IsOffline)
+			{
+				if (ManagedMods.Count > 0)
+				{
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, false, true)));
+				}
+			}
+			else
+			{
+				ModManager.Login();
+				ModManager.AsyncUpdateMods(lstModList, ConfirmUpdaterAction, false, true);
+			}
 		}
 
 		/// <summary>

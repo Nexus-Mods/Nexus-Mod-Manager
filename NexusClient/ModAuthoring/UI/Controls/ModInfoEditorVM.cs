@@ -15,6 +15,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 	public class ModInfoVM : ObservableObject
 	{
 		private string m_strModName = null;
+		private string m_strDownloadId = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
 		private string m_strMachineVersion = null;
@@ -33,6 +34,22 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		/// </summary>
 		/// <value>The <see cref="IModInfo"/> being edited.</value>
 		protected IModInfo ModInfo { get; private set; }
+
+		/// <summary>
+		/// Gets or sets the download id of the mod file.
+		/// </summary>
+		/// <value>The download id of the mod file.</value>
+		public string DownloadId
+		{
+			get
+			{
+				return m_strDownloadId;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strDownloadId, value, () => DownloadId);
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the name of the mod.
@@ -248,6 +265,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 			if (Validate() && (ModInfo != null))
 			{
 				ModInfo midInfo = new ModInfo(ModInfo);
+				midInfo.DownloadId = DownloadId;
 				midInfo.Author = Author;
 				midInfo.Description = Description;
 				midInfo.HumanReadableVersion = HumanReadableVersion;
@@ -287,6 +305,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 			if (p_mifModInfo != null)
 			{
 				Author = p_mifModInfo.Author;
+				DownloadId = p_mifModInfo.DownloadId;
 				Description = p_mifModInfo.Description;
 				HumanReadableVersion = p_mifModInfo.HumanReadableVersion;
 				LastKnownVersion = p_mifModInfo.LastKnownVersion;
@@ -309,6 +328,8 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				return;
 			if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.Author)))
 				Author = ModInfo.Author;
+			if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.DownloadId)))
+				DownloadId = ModInfo.DownloadId;
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.Description)))
 				Description = ModInfo.Description;
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName(() => this.HumanReadableVersion)))

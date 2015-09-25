@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -19,6 +20,7 @@ namespace Nexus.Client.ModManagement
 	{
 		private bool m_booCancel = false;
 		private bool m_booOverrideCategorySetup = false;
+		private bool m_booMissingDownloadId = false;
 		private List<IMod> m_lstModList = new List<IMod>();
 		private int m_intRetries = 0;
 
@@ -47,12 +49,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModRepository">The current mod repository.</param>
 		/// <param name="p_lstModList">The list of mods we need to update.</param>
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup)
+		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
 		{
 			AutoUpdater = p_AutoUpdater;
 			ModRepository = p_ModRepository;
 			m_lstModList.AddRange(p_lstModList);
 			m_booOverrideCategorySetup = p_booOverrideCategorySetup;
+			m_booMissingDownloadId = p_booMissingDownloadId;
 		}
 
 		#endregion
@@ -94,6 +97,10 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] p_objArgs)
 		{
+			int intModLimit = 100;
+			if (m_booMissingDownloadId)
+				intModLimit = 100;
+
 			List<string> ModList = new List<string>();
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
 
@@ -107,7 +114,7 @@ namespace Nexus.Client.ModManagement
 			OverallProgressMaximum = 1;
 
 			OverallProgressMaximum = m_lstModList.Count * 2;
-			ItemProgressMaximum = (m_lstModList.Count > 250) ? 250 : m_lstModList.Count;
+			ItemProgressMaximum = (m_lstModList.Count > intModLimit) ? intModLimit : m_lstModList.Count;
 
 			for (int i = 0; i < m_lstModList.Count; i++)
 			{
@@ -124,7 +131,6 @@ namespace Nexus.Client.ModManagement
 					modID = m_lstModList[i].Id;
 					isEndorsed = m_lstModList[i].IsEndorsed == true ? 1 : (m_lstModList[i].IsEndorsed == false ? -1 : 0);
 					strLastVersion = m_lstModList[i].LastKnownVersion;
-
 				}
 				else
 				{
@@ -148,7 +154,9 @@ namespace Nexus.Client.ModManagement
 
 				if (!String.IsNullOrEmpty(modID))
 				{
-					if ((m_booOverrideCategorySetup) || (String.IsNullOrEmpty(strLastVersion)))
+					if (m_booMissingDownloadId)
+						ModList.Add(String.Format("{0}|{1}", modID, Path.GetFileName(m_lstModList[i].Filename)));
+					else if ((m_booOverrideCategorySetup) || (String.IsNullOrEmpty(strLastVersion)))
 						ModList.Add(String.Format("{0}", modID));
 					else
 						ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
@@ -163,13 +171,13 @@ namespace Nexus.Client.ModManagement
 					break;
 
 				// Prevents the repository request string from becoming too long.
-				if (ModList.Count == 250)
+				if (ModList.Count == intModLimit)
 				{
 					CheckForModListUpdate(ModList);
 					ModList.Clear();
 					OverallMessage = "Updating mods info: setup search...";
 					ItemProgress = 0;
-					ItemProgressMaximum = (m_lstModList.Count == 250) ? 1 : (m_lstModList.Count - (i + 1));
+					ItemProgressMaximum = (m_lstModList.Count == intModLimit) ? 1 : (m_lstModList.Count - (i + 1));
 				}
 			}
 
@@ -222,10 +230,20 @@ namespace Nexus.Client.ModManagement
 						{
 							if (ItemProgress < ItemProgressMaximum)
 								StepItemProgress();
+
+							if (m_booMissingDownloadId)
+							{
+								string Filename = Path.GetFileName(modMod.Filename);
+								if (!String.Equals(Filename, modUpdate.FileName, StringComparison.InvariantCultureIgnoreCase))
+									continue;
+							}
+							if (!String.IsNullOrEmpty(modMod.DownloadId) && String.IsNullOrWhiteSpace(modUpdate.DownloadId))
+								modUpdate.DownloadId = modMod.DownloadId;
+
 							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
 							modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
 							AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
-							modMod.UpdateInfo(modUpdate, false);
+							modMod.UpdateInfo(modUpdate, null);
 							ItemProgress = 0;
 						}
 					}

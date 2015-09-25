@@ -17,7 +17,9 @@ namespace Nexus.Client.ModAuthoring
 	public class Project : ObservableObject, IModInfo, IScriptedMod
 	{
 		private string m_strModId = null;
+		private string m_strDownloadId = null;
 		private string m_strModName = null;
+		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
 		private Int32 m_strCategoryId = 0;
@@ -52,6 +54,38 @@ namespace Nexus.Client.ModAuthoring
 			set
 			{
 				SetPropertyIfChanged(ref m_strModId, value, () => Id);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the DownloadId of the mod.
+		/// </summary>
+		/// <remarks>The DownloadId of the mod</remarks>
+		public string DownloadId
+		{
+			get
+			{
+				return m_strDownloadId;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strDownloadId, value, () => DownloadId);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the filename of the mod.
+		/// </summary>
+		/// <value>The filename of the mod.</value>
+		public string FileName
+		{
+			get
+			{
+				return m_strFileName;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strFileName, value, () => FileName);
 			}
 		}
 
@@ -530,33 +564,37 @@ namespace Nexus.Client.ModAuthoring
 		/// are to be used to update this object's properties.</param>
 		/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
 		/// or just the empty ones.</param>
-		public void UpdateInfo(IModInfo p_mifInfo, bool p_booOverwriteAllValues)
+		public void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues)
 		{
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Id))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Id))
 				Id = p_mifInfo.Id;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(ModName))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(DownloadId))
+				DownloadId = p_mifInfo.DownloadId;
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(ModName))
 				ModName = p_mifInfo.ModName;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(HumanReadableVersion))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(DownloadId))
+				FileName = p_mifInfo.FileName;
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(HumanReadableVersion))
 				HumanReadableVersion = p_mifInfo.HumanReadableVersion;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(LastKnownVersion))
 				LastKnownVersion = p_mifInfo.LastKnownVersion;
-			if (p_booOverwriteAllValues || (IsEndorsed != p_mifInfo.IsEndorsed))
+			if ((p_booOverwriteAllValues == true) || (IsEndorsed != p_mifInfo.IsEndorsed))
 				IsEndorsed = p_mifInfo.IsEndorsed;
-			if (p_booOverwriteAllValues || (MachineVersion == null))
+			if ((p_booOverwriteAllValues == true) || (MachineVersion == null))
 				MachineVersion = p_mifInfo.MachineVersion;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Author))
 				Author = p_mifInfo.Author;
-			if (p_booOverwriteAllValues || (CategoryId != p_mifInfo.CategoryId))
+			if ((p_booOverwriteAllValues == true) || (CategoryId != p_mifInfo.CategoryId))
 				CategoryId = p_mifInfo.CategoryId;
-			if (p_booOverwriteAllValues || (CustomCategoryId != p_mifInfo.CustomCategoryId))
+			if ((p_booOverwriteAllValues == true) || (CustomCategoryId != p_mifInfo.CustomCategoryId))
 				CustomCategoryId = p_mifInfo.CustomCategoryId;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Description))
 				Description = p_mifInfo.Description;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(InstallDate))
+			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(InstallDate))
 				InstallDate = p_mifInfo.InstallDate;
-			if (p_booOverwriteAllValues || (Website == null))
+			if ((p_booOverwriteAllValues == true) || (Website == null))
 				Website = p_mifInfo.Website;
-			if (p_booOverwriteAllValues || (Screenshot == null))
+			if ((p_booOverwriteAllValues == true) || (Screenshot == null))
 				Screenshot = p_mifInfo.Screenshot;
 		}
 

@@ -93,8 +93,6 @@ namespace Nexus.Client.ModManagement.UI
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
 				Command cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
 				new ToolStripItemCommandBinding(tsbToggleEndorse, cmdToggleEndorsement);
-				Command cmdCheckModVersions = new Command("Check Mod Versions", "Checks for new mod versions.", CheckModVersions);
-				new ToolStripItemCommandBinding(tsbCheckModVersions, cmdCheckModVersions);
 				ViewModel.DeleteModCommand.CanExecute = false;
 				ViewModel.ActivateModCommand.CanExecute = false;
 				ViewModel.DisableModCommand.CanExecute = false;
@@ -138,6 +136,7 @@ namespace Nexus.Client.ModManagement.UI
 			tsbAddMod.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbAddMod_DropDownItemClicked);
 
 			tsbResetCategories.DefaultItem = tsbResetCategories.DropDownItems[0];
+			tsbCheckModVersions.DefaultItem = tsbCheckModVersions.DropDownItems[0];
 
 			m_tmrColumnSizer.Interval = 100;
 			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
@@ -194,7 +193,13 @@ namespace Nexus.Client.ModManagement.UI
 
 		#endregion
 
-		private void CheckModVersions()
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
+		/// category button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void checkModUpdates_Click(object sender, EventArgs e)
 		{
 			try
 			{
@@ -202,12 +207,37 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.CheckForUpdates(false);
 				m_booDisableSummary = false;
 			}
-			catch (Exception e)
+			catch (Exception ex)
 			{
-				if (e.Message != "Login required")
+				if (ex.Message != "Login required")
 				{
 					string strMessage = "Couldn't perform the update check, retry later.";
-					strMessage += Environment.NewLine + Environment.NewLine + e.Message;
+					strMessage += Environment.NewLine + Environment.NewLine + ex.Message;
+					MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
+		/// category button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void checkFileDownloadId_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.CheckModFileDownloadId();
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					string strMessage = "Couldn't perform the update check, retry later.";
+					strMessage += Environment.NewLine + Environment.NewLine + ex.Message;
 					MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				}
 			}
