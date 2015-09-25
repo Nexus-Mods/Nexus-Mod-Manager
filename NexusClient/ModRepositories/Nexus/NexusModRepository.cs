@@ -612,7 +612,14 @@ namespace Nexus.Client.ModRepositories.Nexus
 		private IModInfo Convert(NexusModInfo p_nmiNexusModInfo)
 		{
 			Uri uriWebsite = (String.IsNullOrEmpty(p_nmiNexusModInfo.Website) ? null : new Uri(p_nmiNexusModInfo.Website));
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, p_nmiNexusModInfo.DownloadId, p_nmiNexusModInfo.Name, p_nmiNexusModInfo.Filename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
+			string strDownloadID = p_nmiNexusModInfo.DownloadId;
+			string strFilename = p_nmiNexusModInfo.Filename;
+			if (String.IsNullOrWhiteSpace(strDownloadID) || (strDownloadID == "-1"))
+			{
+				strDownloadID = p_nmiNexusModInfo.NewDownloadId ?? strDownloadID;
+				strFilename = p_nmiNexusModInfo.NewFilename ?? strFilename;
+			}
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, strDownloadID, p_nmiNexusModInfo.Name, strFilename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
 
