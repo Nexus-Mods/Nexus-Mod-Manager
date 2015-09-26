@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
@@ -67,7 +68,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the optional list of files to install.
 		/// </summary>
 		/// <value>The optional list of files to install.</value>
-		protected Dictionary<string, string> FilesToInstall { get; private set; }
+		protected List<KeyValuePair<string, string>> FilesToInstall { get; private set; }
 
 		#endregion
 
@@ -83,7 +84,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_booSkipReadme">Whether to skip the installation of readme files.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <param name="p_lstInstallFiles">The list of specific files to install, if null the mod will be installed as usual.</param>
-		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, Dictionary<string, string> p_dicInstallFiles)
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -122,50 +123,55 @@ namespace Nexus.Client.ModManagement
 		{
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
-			List<string> lstFiles = (FilesToInstall == null) ? Mod.GetFileList() : new List<string>(FilesToInstall.Keys);
-			OverallProgressMaximum = lstFiles.Count;
+			List<KeyValuePair<string, string>> lstFiles = (FilesToInstall == null) ? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList() : FilesToInstall;
+			List<string> lstFilesToLink = new List<string>();
+			OverallProgressMaximum = lstFiles.Count * 2;
 
 			if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);
 
-			foreach (string strFile in lstFiles)
+			foreach (KeyValuePair<string, string> File in lstFiles)
 			{
-				string strFileTo = null;
-				if ((FilesToInstall != null) && (FilesToInstall.Count > 0))
-					strFileTo = FilesToInstall[strFile] ?? null;
+				string strFileTo = File.Value;
 
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, Mod, false);
-				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, true));
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? File.Key, Mod, false);
+				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? File.Key, true));
 				string strLinkPath = String.Empty;
 				if (VirtualModActivator.MultiHDMode)
-					strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? strFile, true));
-				string strFileType = Path.GetExtension(strFile);
+					strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? File.Key, true));
+				string strFileType = Path.GetExtension(File.Key);
 				if (!strFileType.StartsWith("."))
 					strFileType = "." + strFileType;
 				bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 				if (!string.IsNullOrEmpty(strFixedPath))
 				{
-					if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(strFile) == GameMode.MergedFileName)))
+					if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(File.Key) == GameMode.MergedFileName)))
 					{
-						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(strFile).ToLower()) && Path.GetDirectoryName(strFixedPath).Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)))
+						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(File.Key).ToLower()) && Path.GetDirectoryName(strFixedPath).Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)))
 						{
-							FileInstaller.InstallFileFromMod(strFile, ((booHardLinkFile) ? strLinkPath : strVirtualPath));
-							
-							if (!VirtualModActivator.DisableLinkCreation)
-							{
-								string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFileTo ?? strFile, false);
-
-								if (!string.IsNullOrEmpty(strFileLink))
-										ActivatePlugin(strFileLink);
-							}
+							FileInstaller.InstallFileFromMod(File.Key, ((booHardLinkFile) ? strLinkPath : strVirtualPath));
+							lstFilesToLink.Add(strFileTo ?? File.Key);
 						}
 					}
 				}
 				StepOverallProgress();
 			}
+
+			foreach (string strLink in lstFilesToLink)
+			{
+				if (!VirtualModActivator.DisableLinkCreation)
+				{
+					string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink, false);
+
+					if (!string.IsNullOrEmpty(strFileLink))
+						ActivatePlugin(strFileLink);
+				}
+				StepOverallProgress();
+			}
+
 			VirtualModActivator.SaveList();
 			return true;
 		}

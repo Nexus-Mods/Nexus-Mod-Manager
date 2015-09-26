@@ -1277,7 +1277,7 @@ namespace Nexus.Client.ModManagement
 				NewMultiHD = (bool)p_booMultiHD;
 		}
 
-		public void CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks, out Dictionary<string, string> p_dicUninstalled, out Dictionary<string, string> p_dicMissing)
+		public void CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks, out Dictionary<string, string> p_dicUninstalled, out Dictionary<string, string> p_dicMissing, IList<string> p_lstForced)
 		{
 			p_dicUninstalled = new Dictionary<string, string>();
 			p_dicMissing = new Dictionary<string, string>();

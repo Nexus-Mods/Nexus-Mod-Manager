@@ -355,7 +355,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_dicInstallFiles">The list of specific files to install, if null the mod will be installed as usual.</param>
 		/// <returns><c>true</c> if the installation was successful;
 		/// <c>false</c> otherwise.</returns>
-		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller, ReadOnlyObservableList<IMod> p_rolActiveMods, Dictionary<string, string> p_dicInstallFiles)
+		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles)
 		{
 			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, p_rolActiveMods, p_dicInstallFiles);
 			OnTaskStarted(bitTask);
@@ -427,7 +427,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Checks if there's an XML with the list of files to install for the current mod, if present the list of files will be returned.
 		/// </summary>
-		protected Dictionary<string, string> LoadXMLModFilesToInstall()
+		protected List<KeyValuePair<string, string>> LoadXMLModFilesToInstall()
 		{
 			string strModFilesPath = String.Empty;
 			if (ProfileManager != null)
@@ -438,28 +438,32 @@ namespace Nexus.Client.ModManagement
 			if (File.Exists(strModFilesPath))
 			{
 				XDocument docScripted = XDocument.Load(strModFilesPath);
+				List<KeyValuePair<string, string>> dicFiles = new List<KeyValuePair<string, string>>();
 
 				try
 				{
 					XElement xelFileList = docScripted.Descendants("FileList").FirstOrDefault();
 					if ((xelFileList != null) && xelFileList.HasElements)
 					{
-						Dictionary<string, string> dicFiles = new Dictionary<string, string>();
-
 						foreach (XElement xelModFile in xelFileList.Elements("File"))
 						{
 							string strFileFrom = xelModFile.Attribute("FileFrom").Value;
 							string strFileTo = xelModFile.Attribute("FileTo").Value;
 							if (!String.IsNullOrWhiteSpace(strFileFrom))
-								dicFiles.Add(strFileFrom, strFileTo);
+								dicFiles.Add(new KeyValuePair<string, string>(strFileFrom, strFileTo));
 						}
 
 						if (dicFiles.Count > 0)
 							return dicFiles;
 					}
 				}
-				catch
-				{ }
+				catch (Exception e)
+				{
+					string prova = e.Message;
+					if (String.IsNullOrEmpty(prova))
+						if (dicFiles.Count > 0)
+							return dicFiles;
+				}
 			}
 
 			return null;
