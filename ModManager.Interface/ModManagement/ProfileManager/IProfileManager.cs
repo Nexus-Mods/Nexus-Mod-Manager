@@ -103,6 +103,10 @@ namespace Nexus.Client.ModManagement
 
 		string IsScriptedLogPresent(string p_strModFile);
 
+		string IsScriptedLogPresent(string p_strModFile, IModProfile p_impProfile);
+
+		List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo);
+
 		#endregion
 
 		/// <summary>

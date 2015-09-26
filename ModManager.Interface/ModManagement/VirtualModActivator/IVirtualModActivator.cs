@@ -61,7 +61,7 @@ namespace Nexus.Client.ModManagement
 		void PurgeIniEdits();
 		void ImportIniEdits(string p_strIniXML);
 		void SetNewFolders(string p_strVirtual, string p_strLink, bool? p_booMultiHD);
-		void CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks, out Dictionary<string, string> p_dicUninstalled, out Dictionary<string, string> p_dicMissing);
+		void CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks, out Dictionary<string, string> p_dicUninstalled, out Dictionary<string, string> p_dicMissing, IList<string> p_lstForced);
 		IModLinkInstaller GetModLinkInstaller();
 		void PurgeMods(List<IMod> p_lstMods, string p_strPath);
 		bool CheckHasActiveLinks(IMod p_modMod);

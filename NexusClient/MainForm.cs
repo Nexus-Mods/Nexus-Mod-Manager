@@ -2015,12 +2015,18 @@ namespace Nexus.Client
 				Dictionary<string, string> dicProfile = null;
 				Dictionary<string, string> dicNotInstalled = new Dictionary<string, string>();
 				Dictionary<string, string> dicMissing = new Dictionary<string, string>();
+				List<string> lstScriptedMismatch = new List<string>();
+
+				if (!p_booSilentInstall || !(ViewModel.ProfileManager.CurrentProfile == null))
+				{
+					lstScriptedMismatch = ViewModel.ProfileManager.CheckScriptedInstallersIntegrity(ViewModel.ProfileManager.CurrentProfile, p_impProfile);
+				}
 
 				ViewModel.ProfileManager.LoadProfile(p_impProfile, out dicProfile);
 				if ((dicProfile != null) && (dicProfile.Count > 0) && dicProfile.ContainsKey("modlist"))
 				{
 					lstVirtualLinks = ViewModel.ModManager.VirtualModActivator.LoadImportedList(dicProfile["modlist"]);
-					ViewModel.ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks, out dicNotInstalled, out dicMissing);
+					ViewModel.ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks, out dicNotInstalled, out dicMissing, lstScriptedMismatch);
 				}
 
 				m_booIsSwitching = true;
@@ -2032,9 +2038,7 @@ namespace Nexus.Client
 
 					sbMissingMessage.Append("The selected profile contains missing files from mods currently installed.");
 					sbMissingMessage.AppendLine("This usually happens when a mod with a scripted installer has been installed using different options.").AppendLine();
-					sbMissingMessage.Append("The best way to fix this is to CANCEL this window, right-click the mod(s) listed as containing missing files,");
-					sbMissingMessage.AppendLine(" uninstall the mod from ALL profiles, and then reinstall the mod with whatever options you wish.").AppendLine();
-					sbMissingMessage.AppendLine("Depending on the mod, using it in the current state could cause issues in your game.");
+					sbMissingMessage.AppendLine("NMM will automatically retrieve your previous choices and proceed with the profile switch.").AppendLine();
 					System.Text.StringBuilder sbMissingDetails = new System.Text.StringBuilder();
 
 					bool booFoundMissing = false;
@@ -2059,29 +2063,24 @@ namespace Nexus.Client
 						else
 							strMissingDetails = null;
 
-						DialogResult drMissingResult = ExtendedMessageBox.Show(this, sbMissingMessage.ToString(), ViewModel.ModManagerVM.Settings.ModManagerName, strMissingDetails, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
-
-						if (drMissingResult == DialogResult.Cancel)
-						{
-							m_booIsSwitching = false;
-							return;
-						}
+						DialogResult drMissingResult = ExtendedMessageBox.Show(this, sbMissingMessage.ToString(), ViewModel.ModManagerVM.Settings.ModManagerName, strMissingDetails, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 				}
 
-				if ((dicNotInstalled != null) && (dicNotInstalled.Count > 0))
+				if (((lstScriptedMismatch != null) && (lstScriptedMismatch.Count > 0)) || ((dicNotInstalled != null) && (dicNotInstalled.Count > 0)))
 				{
 					System.Text.StringBuilder sbMessage = new System.Text.StringBuilder();
 					string strDetails;
 
-					sbMessage.Append("The selected profile contains files from mods not currently installed.");
-					sbMessage.AppendLine("Do you want the manager to try and install the mods that aren't currently installed but present in your Mods folder?");
+					sbMessage.Append("The selected profile contains files from mods not currently installed");
+					sbMessage.AppendLine("The manager will automatically reinstall the needed files. Click CANCEL if you want to skip this step.");
 					sbMessage.AppendLine();
-					sbMessage.AppendLine("Depending on the mod, leaving it uninstalled could cause issues in your game.");
+					sbMessage.AppendLine("Depending on the mod, leaving it uninstalled could cause in game crashes.");
 					System.Text.StringBuilder sbDetails = new System.Text.StringBuilder();
 
 					bool booFoundOne = false;
 					List<IMod> lstFoundMods = new List<IMod>();
+					List<IMod> lstScriptedMods = new List<IMod>();
 					List<IMod> lstManagedMods = new List<IMod>(ViewModel.ModManager.ManagedMods.ToList());
 					foreach (KeyValuePair<string, string> kvp in dicNotInstalled)
 					{
@@ -2094,15 +2093,24 @@ namespace Nexus.Client
 						}
 						sbDetails.AppendFormat("- Mod: {0} - filename: {1} - present: {2}", kvp.Value, kvp.Key, (modMod != null) ? "Yes" : "No").AppendLine();
 					}
-					
+
+					if ((lstScriptedMismatch != null) && (lstScriptedMismatch.Count > 0))
+						lstScriptedMods = lstManagedMods.Where(x => lstScriptedMismatch.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
+
+					ViewModel.ModManager.VirtualModActivator.DisableLinkCreation = true;
+
+					if ((lstScriptedMods != null) && (lstScriptedMods.Count > 0))
+					{
+						mmgModManager.DeactivateAllMods(lstScriptedMods, true, true);
+						mmgModManager.MultiModInstall(lstScriptedMods, false);
+					}
+
 					if (booFoundOne)
 					{
 						if (sbDetails.Length > 0)
 							strDetails = sbDetails.ToString();
 						else
 							strDetails = null;
-
-						ViewModel.ModManager.VirtualModActivator.DisableLinkCreation = true;
 
 						if (p_booSilentInstall)
 							mmgModManager.MultiModInstall(lstFoundMods, false);

@@ -589,6 +589,16 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Uninstall all the currently installed mods.
+		/// </summary>
+		public void DeactivateAllMods(IList<IMod> p_lstMods, bool p_booForceUninstall, bool p_booSilent)
+		{
+			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(p_lstMods);
+
+			ViewModel.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), p_booForceUninstall, p_booSilent);
+		}
+
+		/// <summary>
 		/// Installs multiple mods.
 		/// </summary>
 		public void MultiModInstall(List<IMod> p_lstMods, bool p_booAllowCancel)

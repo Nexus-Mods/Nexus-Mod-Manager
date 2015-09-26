@@ -776,7 +776,7 @@ namespace Nexus.Client.ModManagement
 				if (CurrentProfile != null)
 				{
 					string strLogPath = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted");
-					string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath();
+					string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath(CurrentProfile);
 
 					switch (e.Action)
 					{
@@ -841,12 +841,12 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		public string IsScriptedLogPresent(string p_strModFile)
+		public string IsScriptedLogPresent(string p_strModFile, IModProfile p_impProfile)
 		{
-			if (CurrentProfile == null)
+			if (p_impProfile == null)
 				return null;
 
-			string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath();
+			string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath(p_impProfile);
 
 			if (Directory.Exists(CurrentProfileScriptedLogPath))
 			{
@@ -861,9 +861,101 @@ namespace Nexus.Client.ModManagement
 			return null;
 		}
 
-		private string GetCurrentProfileScriptedLogPath()
+		public List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo)
 		{
-			return Path.Combine(m_strProfileManagerPath, CurrentProfile.Id, "Scripted");
+			string strFromPath = GetCurrentProfileScriptedLogPath(p_impFrom);
+			string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
+			List<string> lstFrom = new List<string>();
+			List<string> lstTo = new List<string>();
+			List<string> lstCommon = new List<string>();
+			List<string> lstConflicts = new List<string>();
+			Int32 intConflicts = 0;
+
+			try
+			{
+				lstFrom = Directory.GetFiles(strFromPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
+				lstTo = Directory.GetFiles(strToPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
+
+				if ((lstFrom != null) && (lstFrom.Count > 0))
+					lstFrom = lstFrom.Select(x => Path.GetFileName(x)).ToList();
+				else
+					return lstConflicts;
+
+				if ((lstTo != null) && (lstTo.Count > 0))
+					lstTo = lstTo.Select(x => Path.GetFileName(x)).ToList();
+				else
+					return lstConflicts;
+
+				lstCommon = lstFrom.Intersect(lstTo, StringComparer.CurrentCultureIgnoreCase).ToList();
+
+				foreach (string File in lstCommon)
+				{
+					List<KeyValuePair<string, string>> dicFrom = LoadXMLModFilesToInstall(Path.Combine(strFromPath, File));
+					List<KeyValuePair<string, string>> dicTo = LoadXMLModFilesToInstall(Path.Combine(strToPath, File));
+
+					intConflicts += dicFrom.Where(x => !dicTo.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
+					if (intConflicts <= 0)
+						intConflicts += dicTo.Where(x => !dicFrom.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
+
+					if (intConflicts > 0)
+					{
+						IVirtualModInfo modMod = VirtualModActivator.VirtualMods.Find(x => Path.GetFileNameWithoutExtension(x.ModFileName).Equals(Path.GetFileNameWithoutExtension(File), StringComparison.CurrentCultureIgnoreCase));
+						if (modMod != null)
+							lstConflicts.Add(Path.GetFileName(modMod.ModFileName));
+					}
+				}
+			}
+			catch
+			{ }
+
+			return lstConflicts;
+		}
+
+		public string IsScriptedLogPresent(string p_strModFile)
+		{
+			return IsScriptedLogPresent(p_strModFile, CurrentProfile);
+		}
+
+		private string GetCurrentProfileScriptedLogPath(IModProfile p_impProfile)
+		{
+			return Path.Combine(m_strProfileManagerPath, p_impProfile.Id, "Scripted");
+		}
+
+		/// <summary>
+		/// Checks if there's an XML with the list of files to install for the current mod, if present the list of files will be returned.
+		/// </summary>
+		protected List<KeyValuePair<string, string>> LoadXMLModFilesToInstall(string p_strPath)
+		{
+			string strModFilesPath = p_strPath;
+
+			if (File.Exists(strModFilesPath))
+			{
+				XDocument docScripted = XDocument.Load(strModFilesPath);
+
+				try
+				{
+					XElement xelFileList = docScripted.Descendants("FileList").FirstOrDefault();
+					if ((xelFileList != null) && xelFileList.HasElements)
+					{
+						List<KeyValuePair<string, string>> dicFiles = new List<KeyValuePair<string, string>>();
+
+						foreach (XElement xelModFile in xelFileList.Elements("File"))
+						{
+							string strFileFrom = xelModFile.Attribute("FileFrom").Value;
+							string strFileTo = xelModFile.Attribute("FileTo").Value;
+							if (!String.IsNullOrWhiteSpace(strFileFrom))
+								dicFiles.Add(new KeyValuePair<string, string>(strFileFrom, strFileTo));
+						}
+
+						if (dicFiles.Count > 0)
+							return dicFiles;
+					}
+				}
+				catch
+				{ }
+			}
+
+			return null;
 		}
 
 		/// <summary>
