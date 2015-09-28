@@ -33,6 +33,10 @@
 			this.lblBOSSPrompt = new System.Windows.Forms.Label();
 			this.tbxBOSS = new System.Windows.Forms.TextBox();
 			this.lblBOSSLabel = new System.Windows.Forms.Label();
+			this.butSelectLOOTDirectory = new System.Windows.Forms.Button();
+			this.lblLOOTPrompt = new System.Windows.Forms.Label();
+			this.tbxLOOT = new System.Windows.Forms.TextBox();
+			this.lblLOOTLabel = new System.Windows.Forms.Label();
 			this.label1 = new System.Windows.Forms.Label();
 			this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
 			this.fbdDirectory = new System.Windows.Forms.FolderBrowserDialog();
@@ -79,6 +83,46 @@
 			this.lblBOSSLabel.TabIndex = 13;
 			this.lblBOSSLabel.Text = "BOSS directory:";
 			// 
+			// butSelectLOOTDirectory
+			// 
+			this.butSelectLOOTDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Right));
+			this.butSelectLOOTDirectory.AutoSize = true;
+			this.butSelectLOOTDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butSelectLOOTDirectory.Location = new System.Drawing.Point(394, 57);
+			this.butSelectLOOTDirectory.Name = "butSelectLOOTDirectory";
+			this.butSelectLOOTDirectory.Size = new System.Drawing.Size(26, 23);
+			this.butSelectLOOTDirectory.TabIndex = 12;
+			this.butSelectLOOTDirectory.Text = "...";
+			this.butSelectLOOTDirectory.UseVisualStyleBackColor = true;
+			this.butSelectLOOTDirectory.Click += new System.EventHandler(this.butSelectLOOTDirectory_Click);
+			// 
+			// lblLOOTPrompt
+			// 
+			this.lblLOOTPrompt.AutoSize = true;
+			this.lblLOOTPrompt.Location = new System.Drawing.Point(3, 43);
+			this.lblLOOTPrompt.Name = "lblLOOTPrompt";
+			this.lblLOOTPrompt.Size = new System.Drawing.Size(222, 13);
+			this.lblLOOTPrompt.TabIndex = 14;
+			this.lblLOOTPrompt.Text = "Select the directory where LOOT is installed:";
+			// 
+			// tbxLOOT
+			// 
+			this.tbxLOOT.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+						| System.Windows.Forms.AnchorStyles.Right)));
+			this.tbxLOOT.Location = new System.Drawing.Point(130, 59);
+			this.tbxLOOT.Name = "tbxLOOT";
+			this.tbxLOOT.Size = new System.Drawing.Size(250, 20);
+			this.tbxLOOT.TabIndex = 10;
+			// 
+			// lblLOOTLabel
+			// 
+			this.lblLOOTLabel.AutoSize = true;
+			this.lblLOOTLabel.Location = new System.Drawing.Point(20, 62);
+			this.lblLOOTLabel.Name = "lblLOOTLabel";
+			this.lblLOOTLabel.Size = new System.Drawing.Size(82, 13);
+			this.lblLOOTLabel.TabIndex = 13;
+			this.lblLOOTLabel.Text = "LOOT directory:";
+			// 
 			// erpErrors
 			// 
 			this.erpErrors.ContainerControl = this;
@@ -102,6 +146,10 @@
 			this.Controls.Add(this.lblBOSSPrompt);
 			this.Controls.Add(this.tbxBOSS);
 			this.Controls.Add(this.lblBOSSLabel);
+			this.Controls.Add(this.butSelectLOOTDirectory);
+			this.Controls.Add(this.lblLOOTPrompt);
+			this.Controls.Add(this.tbxLOOT);
+			this.Controls.Add(this.lblLOOTLabel);
 			this.Name = "SupportedToolsSettingsPage";
 			this.Size = new System.Drawing.Size(443, 405);
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).EndInit();
@@ -116,6 +164,10 @@
 		private System.Windows.Forms.Label lblBOSSPrompt;
 		private System.Windows.Forms.TextBox tbxBOSS;
 		private System.Windows.Forms.Label lblBOSSLabel;
+		private System.Windows.Forms.Button butSelectLOOTDirectory;
+		private System.Windows.Forms.Label lblLOOTPrompt;
+		private System.Windows.Forms.TextBox tbxLOOT;
+		private System.Windows.Forms.Label lblLOOTLabel;
 		private System.Windows.Forms.ErrorProvider erpErrors;
 		private System.Windows.Forms.FolderBrowserDialog fbdDirectory;
 		private System.Windows.Forms.Label label1;

@@ -338,6 +338,10 @@
 			this.Controls.Add(this.lblTES5EditPrompt);
 			this.Controls.Add(this.tbxTES5Edit);
 			this.Controls.Add(this.lblTES5EditLabel);
+			this.Controls.Add(this.butSelectBS2Directory);
+			this.Controls.Add(this.lblBS2Prompt);
+			this.Controls.Add(this.tbxBS2);
+			this.Controls.Add(this.lblBS2Label);
 			this.Name = "SupportedToolsSettingsPage";
 			this.Size = new System.Drawing.Size(443, 405);
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).EndInit();

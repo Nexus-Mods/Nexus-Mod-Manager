@@ -84,6 +84,22 @@ namespace Nexus.Client.Games.Skyrim
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
 				AddLaunchCommand(new Command("BS2Launch", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
 			}
+
+			strCommand = GetDSRPLaunchCommand();
+			Trace.TraceInformation("Dual Sheat Redux Patch Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("DSRPLaunch", "Launch Dual Sheat Redux Patch", "Launches Dual Sheat Redux Patch.", imgIcon, LaunchDSRP, true));
+			}
+
+			strCommand = GetPMLaunchCommand();
+			Trace.TraceInformation("Patchus Maximus Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("PMLaunch", "Launch Patchus Maximus", "Launches Patchus Maximus.", imgIcon, LaunchPM, true));
+			}
 			
 			Trace.Unindent();
 		}
@@ -140,6 +156,24 @@ namespace Nexus.Client.Games.Skyrim
 			Trace.TraceInformation("Launching BodySlide 2");
 			Trace.Indent();
 			string strCommand = GetBS2LaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchDSRP()
+		{
+			Trace.TraceInformation("Launching Dual Sheat Redux Patch");
+			Trace.Indent();
+			string strCommand = GetDSRPLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchPM()
+		{
+			Trace.TraceInformation("Launching Patchus Maximus");
+			Trace.Indent();
+			string strCommand = GetPMLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -324,9 +358,9 @@ namespace Nexus.Client.Games.Skyrim
 
 			if (String.IsNullOrEmpty(strBS2))
 			{
-				string strFNISPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
-				if (Directory.Exists(strFNISPath))
-					strBS2 = strFNISPath;
+				string strBS2Path = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
+				if (Directory.Exists(strBS2Path))
+					strBS2 = strBS2Path;
 			}
 			if (!String.IsNullOrEmpty(strBS2))
 				strBS2 = Path.Combine(strBS2, "BodySlide.exe");
@@ -334,6 +368,65 @@ namespace Nexus.Client.Games.Skyrim
 			return strBS2;
 		}
 
+		/// <summary>
+		/// Gets the Dual Sheat Redux Patch launch command.
+		/// </summary>
+		/// <returns>The Dual Sheat Redux Patch launch command.</returns>
+		private string GetDSRPLaunchCommand()
+		{
+			string strDSRP = String.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("DSRP"))
+			{
+				strDSRP = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"];
+				if (!String.IsNullOrEmpty(strDSRP))
+					strDSRP = Path.Combine(strDSRP, @"Dual Sheath Redux Patch.jar");
+			}
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("DSRP"))
+				strDSRP = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"];
+
+			if (String.IsNullOrEmpty(strDSRP))
+			{
+				string strDSRPPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\SkyProc Patchers\Dual Sheath Redux Patch");
+				if (Directory.Exists(strDSRPPath))
+					strDSRP = strDSRPPath;
+			}
+			if (!String.IsNullOrEmpty(strDSRP))
+				strDSRP = Path.Combine(strDSRP, "Dual Sheath Redux Patch.jar");
+
+			return strDSRP;
+		}
+
+		/// <summary>
+		/// Gets the Patchus Maximus launch command.
+		/// </summary>
+		/// <returns>The Patchus Maximus launch command.</returns>
+		private string GetPMLaunchCommand()
+		{
+			string strPM = String.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("PM"))
+			{
+				strPM = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"];
+				if (!String.IsNullOrEmpty(strPM))
+					strPM = Path.Combine(strPM, @"PatchusMaximus.jar");
+			}
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("PM"))
+				strPM = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"];
+
+			if (String.IsNullOrEmpty(strPM))
+			{
+				string strPMPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\SkyProc Patchers\T3nd0_PatchusMaximus");
+				if (Directory.Exists(strPMPath))
+					strPM = strPMPath;
+			}
+			if (!String.IsNullOrEmpty(strPM))
+				strPM = Path.Combine(strPM, "PatchusMaximus.jar");
+
+			return strPM;
+		}
 		#endregion
 	}
 }

@@ -17,6 +17,7 @@ namespace Nexus.Client.Games.FalloutNV
 	public class SupportedToolsSettingsGroup : SettingsGroup
 	{
 		private string m_strBOSSDirectory = null;
+		private string m_strLOOTDirectory = null;
 
 		#region Properties
 
@@ -69,6 +70,22 @@ namespace Nexus.Client.Games.FalloutNV
 			set
 			{
 				SetPropertyIfChanged(ref m_strBOSSDirectory, value, () => BOSSDirectory);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the directory where LOOT is installed.
+		/// </summary>
+		/// <value>The directory where LOOT is installed.</value>
+		public string LOOTDirectory
+		{
+			get
+			{
+				return m_strLOOTDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strLOOTDirectory, value, () => LOOTDirectory);
 			}
 		}
 
@@ -136,13 +153,23 @@ namespace Nexus.Client.Games.FalloutNV
 		}
 
 		/// <summary>
+		/// Validates the selected LOOT directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected LOOT directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateLOOTDirectory()
+		{
+			return ValidateDirectory(LOOTDirectory, "LOOT Directory", ObjectHelper.GetPropertyName(() => LOOTDirectory));
+		}
+
+		/// <summary>
 		/// Validates the settings on this control.
 		/// </summary>
 		/// <returns><c>true</c> if the settings are valid;
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			return ValidateBOSSDirectory();
+			return ValidateBOSSDirectory() && ValidateLOOTDirectory();
 		}
 
 		#endregion
@@ -169,6 +196,24 @@ namespace Nexus.Client.Games.FalloutNV
 			if (!String.IsNullOrEmpty(strBOSSPath))
 				BOSSDirectory = strBOSSPath;
 
+			string strLOOTPath = String.Empty;
+			string strLOOTReg = String.Empty;
+			if (IntPtr.Size == 8)
+				strLOOTReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\LOOT\";
+			else
+				strLOOTReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\LOOT\";
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("LOOT"))
+				strLOOTPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["LOOT"];
+
+			if (String.IsNullOrEmpty(strLOOTPath))
+				if (RegistryUtil.CanReadKey(strLOOTReg))
+					strLOOTPath = (string)Registry.GetValue(strLOOTReg, "Installed Path", null);
+
+			if (!String.IsNullOrEmpty(strLOOTPath))
+				LOOTDirectory = strLOOTPath;
+
+
 			ValidateSettings();
 		}
 
@@ -181,6 +226,9 @@ namespace Nexus.Client.Games.FalloutNV
 		{
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BOSS") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], BOSSDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"] = BOSSDirectory;
+
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("LOOT") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], LOOTDirectory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["LOOT"] = LOOTDirectory;
 
 			EnvironmentInfo.Settings.Save();
 			return true;
