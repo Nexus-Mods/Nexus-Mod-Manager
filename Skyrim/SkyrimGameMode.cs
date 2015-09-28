@@ -180,13 +180,15 @@ namespace Nexus.Client.Games.Skyrim
 			List<string> strOptionalFiles = new List<string>();
 
 			if ((p_strList != null) && (p_strList.Length > 0))
-				strOptionalFiles = p_strList.Where(x => regEx.IsMatch(Path.GetFileName(x.ToLower()))).ToList();
+			{
+				strOptionalFiles.AddRange(p_strList.Where(x => regEx.IsMatch(Path.GetFileName(x.ToLower()))).ToList());
 
-			if (p_strList.Contains("PatchusMaximus.esp", StringComparer.OrdinalIgnoreCase))
-				strOptionalFiles.Add("PatchusMaximus.esp");
+				regEx = new Regex("^patchusmaximus");
+				strOptionalFiles.AddRange(p_strList.Where(x => regEx.IsMatch(Path.GetFileName(x.ToLower()))).ToList());
 
-			if (p_strList.Contains("Dual Sheath Redux Patch.esp", StringComparer.OrdinalIgnoreCase))
-				strOptionalFiles.Add("Dual Sheath Redux Patch.esp");
+				regEx = new Regex("^dual sheath redux patch");
+				strOptionalFiles.AddRange(p_strList.Where(x => regEx.IsMatch(Path.GetFileName(x.ToLower()))).ToList());
+			}
 
 			return strOptionalFiles.ToArray();
 		}
