@@ -29,6 +29,7 @@ namespace Nexus.Client.ModManagement
 		private ModInstallerFactory m_mifModInstallerFactory = null;
 		private ReadOnlyObservableList<IMod> m_rolModList = null;
 		private string m_strLogPath = String.Empty;
+		private bool m_booFilesOnly = false;
 		bool m_booCancel = false;
 
 		#region Constructors
@@ -36,13 +37,14 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, VirtualModActivator p_vmaVirtualModActivator, string p_strScriptedLogPath)
+		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, VirtualModActivator p_vmaVirtualModActivator, string p_strScriptedLogPath, bool p_booFilesOnly)
 		{
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
 			m_rolModList = p_rolModList;
 			VirtualModActivator = p_vmaVirtualModActivator;
 			m_strLogPath = p_strScriptedLogPath;
+			m_booFilesOnly = p_booFilesOnly;
 		}
 
 		#endregion
@@ -106,7 +108,12 @@ namespace Nexus.Client.ModManagement
 				}
 
 				if ((VirtualModActivator != null) && (VirtualModActivator.ModCount > 0))
-					VirtualModActivator.DisableMod(modMod);
+				{
+					if (m_booFilesOnly)
+						VirtualModActivator.DisableModFiles(modMod);
+					else
+						VirtualModActivator.DisableMod(modMod);
+				}
 
 				if (ItemProgress < ItemProgressMaximum)
 				{

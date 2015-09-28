@@ -947,6 +947,11 @@ namespace Nexus.Client.ModManagement
 			DisableMod(p_modMod, false);
 		}
 
+		public void DisableModFiles(IMod p_modMod)
+		{
+			DisableMod(p_modMod, true);
+		}
+
 		private void DisableMod(IMod p_modMod, bool p_booPurging)
 		{
 			if (CheckIsModActive(p_modMod))

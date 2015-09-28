@@ -2011,6 +2011,7 @@ namespace Nexus.Client
 		{
 			if (p_booSilentInstall || (ViewModel.ProfileManager.CurrentProfile == null) || (p_impProfile.Id != ViewModel.ProfileManager.CurrentProfile.Id))			
 			{
+				IModProfile impCurrentProfile = ViewModel.ProfileManager.CurrentProfile;
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
 				Dictionary<string, string> dicProfile = null;
 				Dictionary<string, string> dicNotInstalled = new Dictionary<string, string>();
@@ -2101,8 +2102,10 @@ namespace Nexus.Client
 
 					if ((lstScriptedMods != null) && (lstScriptedMods.Count > 0))
 					{
-						mmgModManager.DeactivateAllMods(lstScriptedMods, true, true);
+						ViewModel.ProfileManager.SetCurrentProfile(p_impProfile);
+						mmgModManager.DeactivateAllMods(lstScriptedMods, true, true, true);
 						mmgModManager.MultiModInstall(lstScriptedMods, false);
+						ViewModel.ProfileManager.SetCurrentProfile(impCurrentProfile);
 					}
 
 					if (booFoundOne)
