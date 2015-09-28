@@ -603,15 +603,32 @@ namespace Nexus.Client.ModManagement
 
 				File.WriteAllBytes(Path.Combine(strProfilePath, "profile.xml"), GetProfileBytes(p_impModProfile));
 
-				FileUtil.ForceDelete(Path.Combine(strProfilePath, "Optional"));
-				if ((p_strOptionalFiles != null) && (p_strOptionalFiles.Length > 0))
-				{
-					string strOptionalFolder = Path.Combine(strProfilePath, "Optional");
-					if (!Directory.Exists(strOptionalFolder))
-						Directory.CreateDirectory(strOptionalFolder);
+				string strOptionalFolder = Path.Combine(strProfilePath, "Optional");
 
-					foreach (string strFile in p_strOptionalFiles)
-						File.Copy(strFile, Path.Combine(strOptionalFolder, Path.GetFileName(strFile)), true);
+				if (!(p_strOptionalFiles == null))
+				{
+					if (Directory.Exists(strOptionalFolder))
+					{
+						string[] strFiles = Directory.GetFiles(strOptionalFolder);
+
+						foreach (string file in strFiles)
+							lock (m_objLock)
+								FileUtil.ForceDelete(file);
+					}
+
+					if ((p_strOptionalFiles != null) && (p_strOptionalFiles.Length > 0))
+					{
+						lock (m_objLock)
+							if (!Directory.Exists(strOptionalFolder))
+								Directory.CreateDirectory(strOptionalFolder);
+
+						foreach (string strFile in p_strOptionalFiles)
+						{
+							lock (m_objLock)
+								if (File.Exists(strFile))
+									File.Copy(strFile, Path.Combine(strOptionalFolder, Path.GetFileName(strFile)), true);
+						}
+					}
 				}
 			}
 		}

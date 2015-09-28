@@ -956,15 +956,10 @@ namespace Nexus.Client
 			
 			if ((ViewModel.ProfileManager.CurrentProfile != null) && !m_booIsSwitching)
 			{
-				string[] strOptionalFiles = null;
-				if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-					if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
-						strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
-
 				byte[] bteIniEdits = null;
 				bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
 
-				ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, strOptionalFiles);
+				ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, null);
 				BindProfileCommands();
 			}
 		}
@@ -988,11 +983,16 @@ namespace Nexus.Client
 
 			if ((ViewModel.ProfileManager.CurrentProfile != null) && !m_booIsSwitching)
 			{
+				string[] strOptionalFiles = null;
 				byte[] bteLoadOrder = null;
 				if (ViewModel.GameMode.UsesPlugins)
 				{
+					if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+						if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
+							strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+					
 					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-					ViewModel.ProfileManager.UpdateProfileLoadOrder(ViewModel.ProfileManager.CurrentProfile, bteLoadOrder);
+					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null, strOptionalFiles);
 				}
 			}
 		}
@@ -1682,15 +1682,10 @@ namespace Nexus.Client
 
 				if (ViewModel.ProfileManager.CurrentProfile != null)
 				{
-					string[] strOptionalFiles = null;
-					if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-						if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
-							strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
-
 					byte[] bteIniEdits = null;
 					bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
 
-					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, strOptionalFiles);
+					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, null);
 					mmgModManager.SetCommandExecutableStatus();
 					BindProfileCommands();
 				}
