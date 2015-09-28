@@ -222,10 +222,11 @@ namespace Nexus.Client.ModManagement.Scripting
 				string strVirtualPath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strTo);
 
 				Installers.FileInstaller.InstallFileFromMod(strFrom, strVirtualPath);
-				ModLinkInstaller.AddFileLink(Mod, strTo, true, true);
+				string strCheck = ModLinkInstaller.AddFileLink(Mod, strTo, true, true);
 
 				booSuccess = true;
-				SaveXMLInstalledFiles(p_strFrom, p_strTo);
+				if (!String.IsNullOrEmpty(strCheck))
+					SaveXMLInstalledFiles(p_strFrom, p_strTo);
 			}
 			finally
 			{

@@ -53,6 +53,7 @@ namespace Nexus.Client.ModManagement
 		void RemoveFileLink(IVirtualModLink p_ivlVirtualLink, IMod p_modMod);
 		void UpdateLinkPriority(List<IVirtualModLink> lstFileLinks);
 		void DisableMod(IMod p_modMod);
+		void DisableModFiles(IMod p_modMod);
 		void FinalizeModDeactivation(IMod p_modMod);
 		void EnableMod(IMod p_modMod);
 		void FinalizeModActivation(IMod p_modMod);

@@ -595,9 +595,9 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_rolModList">The mod list.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
+		public IBackgroundTask DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, bool p_booFilesOnly, ConfirmActionMethod p_camConfirm)
 		{
-			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator, GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
+			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator, GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, p_booFilesOnly);
 			dmmDeactivateAllMods.Update(p_camConfirm);
 			return dmmDeactivateAllMods;
 		}

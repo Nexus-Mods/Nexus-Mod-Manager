@@ -841,26 +841,6 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		public string IsScriptedLogPresent(string p_strModFile, IModProfile p_impProfile)
-		{
-			if (p_impProfile == null)
-				return null;
-
-			string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath(p_impProfile);
-
-			if (Directory.Exists(CurrentProfileScriptedLogPath))
-			{
-				string strModLog = Path.GetFileNameWithoutExtension(p_strModFile);
-				strModLog += ".xml";
-				strModLog = Path.Combine(CurrentProfileScriptedLogPath, strModLog);
-
-				if (File.Exists(strModLog))
-					return strModLog;
-			}
-
-			return null;
-		}
-
 		public List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo)
 		{
 			string strFromPath = GetCurrentProfileScriptedLogPath(p_impFrom);
@@ -890,6 +870,7 @@ namespace Nexus.Client.ModManagement
 
 				foreach (string File in lstCommon)
 				{
+					intConflicts = 0;
 					List<KeyValuePair<string, string>> dicFrom = LoadXMLModFilesToInstall(Path.Combine(strFromPath, File));
 					List<KeyValuePair<string, string>> dicTo = LoadXMLModFilesToInstall(Path.Combine(strToPath, File));
 
@@ -914,6 +895,26 @@ namespace Nexus.Client.ModManagement
 		public string IsScriptedLogPresent(string p_strModFile)
 		{
 			return IsScriptedLogPresent(p_strModFile, CurrentProfile);
+		}
+
+		public string IsScriptedLogPresent(string p_strModFile, IModProfile p_impProfile)
+		{
+			if (p_impProfile == null)
+				return null;
+
+			string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath(p_impProfile);
+
+			if (Directory.Exists(CurrentProfileScriptedLogPath))
+			{
+				string strModLog = Path.GetFileNameWithoutExtension(p_strModFile);
+				strModLog += ".xml";
+				strModLog = Path.Combine(CurrentProfileScriptedLogPath, strModLog);
+
+				if (File.Exists(strModLog))
+					return strModLog;
+			}
+
+			return null;
 		}
 
 		private string GetCurrentProfileScriptedLogPath(IModProfile p_impProfile)

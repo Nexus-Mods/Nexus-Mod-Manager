@@ -46,26 +46,29 @@ namespace Nexus.Client.ModManagement
 		{
 			Int32 intPriority = 0;
 			List<IVirtualModLink> lstFileLinks;
-			bool booLink = false;
+			bool? booLink = false;
 
 			booLink = (TestOverwriteFileLink(p_modMod, p_strBaseFilePath, out intPriority, out lstFileLinks));
 
-			if (booLink)
+			if (booLink != null)
 			{
-				if ((intPriority >= 0) && (lstFileLinks != null) && (lstFileLinks.Count > 0))
+				if (booLink == true)
 				{
-					VirtualModActivator.UpdateLinkPriority(lstFileLinks);
-					p_booIsSwitching = false;
+					if ((intPriority >= 0) && (lstFileLinks != null) && (lstFileLinks.Count > 0))
+					{
+						VirtualModActivator.UpdateLinkPriority(lstFileLinks);
+						p_booIsSwitching = false;
+					}
+					return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, false, p_booHandlePlugin, 0);
 				}
-				return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, false, p_booHandlePlugin,  0);
+				else
+					VirtualModActivator.AddInactiveLink(p_modMod, p_strBaseFilePath, intPriority++);
 			}
-			else
-				VirtualModActivator.AddInactiveLink(p_modMod, p_strBaseFilePath, intPriority++);
 
 			return String.Empty;
 		}
 
-		private bool TestOverwriteFileLink(IMod p_modMod, string p_strBaseFilePath, out Int32 p_intPriority, out List<IVirtualModLink> p_lstFileLinks)
+		private bool? TestOverwriteFileLink(IMod p_modMod, string p_strBaseFilePath, out Int32 p_intPriority, out List<IVirtualModLink> p_lstFileLinks)
 		{
 			IMod modCheck;
 			Int32 intPriority = VirtualModActivator.CheckFileLink(p_strBaseFilePath, out modCheck, out p_lstFileLinks);
@@ -85,7 +88,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			if (modCheck == p_modMod)
-				return true;
+				return null;
 
 			string strModFile = String.Empty;
 			string strModFileID = String.Empty;
