@@ -38,8 +38,10 @@ namespace Nexus.Client.Games.FalloutNV.Settings.UI
 			SettingsGroup = p_stsSettings;
 			
 			BindingHelper.CreateFullBinding(tbxBOSS, () => tbxBOSS.Text, p_stsSettings, () => p_stsSettings.BOSSDirectory);
+			BindingHelper.CreateFullBinding(tbxLOOT, () => tbxLOOT.Text, p_stsSettings, () => p_stsSettings.LOOTDirectory);
 			
 			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
+			lblLOOTPrompt.Text = String.Format(lblLOOTPrompt.Text, p_stsSettings.GameModeName);
 		}
 
 		#endregion
@@ -73,6 +75,24 @@ namespace Nexus.Client.Games.FalloutNV.Settings.UI
 			}
 		}
 
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the select LOOT button.
+		/// </summary>
+		/// <remarks>
+		/// This opens the folder selection dialog for LOOT.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void butSelectLOOTDirectory_Click(object sender, EventArgs e)
+		{
+			fbdDirectory.SelectedPath = tbxLOOT.Text;
+			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
+			{
+				tbxLOOT.Text = fbdDirectory.SelectedPath;
+				//force the data binding on the textbox to push the value to the bound view model
+				ValidateChildren();
+			}
+		}
 
 		/// <summary>
 		/// This checks if the passed font is present.

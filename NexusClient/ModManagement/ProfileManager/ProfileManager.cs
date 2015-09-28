@@ -825,16 +825,19 @@ namespace Nexus.Client.ModManagement
 			{
 				foreach (IModProfile Profile in ModProfiles)
 				{
-					if (Profile.Id != CurrentProfile.Id)
+					if ((Profile != null) && (Profile.Id != CurrentProfile.Id))
 					{
 						string strPath = Path.Combine(m_strProfileManagerPath, Profile.Id);
 						VirtualModActivator.PurgeMods(p_lstMods, strPath);
 
 						foreach (IMod modMod in p_lstMods)
 						{
-							string strProfileModLogPath = Path.Combine(strPath, "Scripted", Path.GetFileNameWithoutExtension(modMod.Filename)) + ".xml";
-							if (File.Exists(strProfileModLogPath))
-								FileUtil.ForceDelete(strProfileModLogPath);
+							if (modMod != null)
+							{
+								string strProfileModLogPath = Path.Combine(strPath, "Scripted", Path.GetFileNameWithoutExtension(modMod.Filename)) + ".xml";
+								if (File.Exists(strProfileModLogPath))
+									FileUtil.ForceDelete(strProfileModLogPath);
+							}
 						}
 					}
 				}

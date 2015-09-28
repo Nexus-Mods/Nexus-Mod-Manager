@@ -22,6 +22,8 @@ namespace Nexus.Client.Games.Skyrim
 		private string m_strFNISDirectory = null;
 		private string m_strTES5EditDirectory = null;
 		private string m_strBS2Directory = null;
+		private string m_strDSRPDirectory = null;
+		private string m_strPMDirectory = null;
 
 		#region Properties
 
@@ -42,12 +44,6 @@ namespace Nexus.Client.Games.Skyrim
 		/// </summary>
 		/// <value>The descriptor of the current game mode.</value>
 		public IGameModeDescriptor GameModeDescriptor { get; private set; }
-
-		/// <summary>
-		/// Gets the application's envrionment info.
-		/// </summary>
-		/// <value>The application's envrionment info.</value>
-		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
 		/// <summary>
 		/// Gets the name of the games mode currently being managed.
@@ -142,6 +138,38 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
+		/// Gets or sets the path of the directory where Dual Sheat Redux Patch is installed.
+		/// </summary>
+		/// <value>The path of the directory where Dual Sheat Redux Patch is installed.</value>
+		public string DSRPDirectory
+		{
+			get
+			{
+				return m_strDSRPDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strDSRPDirectory, value, () => DSRPDirectory);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the path of the directory where Patchus Maximus is installed.
+		/// </summary>
+		/// <value>The path of the directory where Patchus Maximus is installed.</value>
+		public string PMDirectory
+		{
+			get
+			{
+				return m_strPMDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strPMDirectory, value, () => PMDirectory);
+			}
+		}
+
+		/// <summary>
 		/// Gets or sets the directory where TES5Edit is installed.
 		/// </summary>
 		/// <value>The directory where TES5Edit is installed.</value>
@@ -174,7 +202,6 @@ namespace Nexus.Client.Games.Skyrim
 		public SupportedToolsSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IGameMode p_gmGameMode)
 			: base(p_eifEnvironmentInfo)
 		{
-			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmGameMode;
 			Errors = new ErrorContainer();
 		}
@@ -184,7 +211,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory are not equals;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBS2Path, string p_strBS2PathName, string p_strBS2Property, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty)
+		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBS2Path, string p_strBS2PathName, string p_strBS2Property, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty, string p_strDSRPPath, string p_strDSRPPathName, string p_strDSRPProperty, string p_strPMPath, string p_strPMPathName, string p_strPMProperty)
 		{
 			Errors.Clear(p_strBOSSProperty);
 			if (String.IsNullOrEmpty(p_strBOSSPath))
@@ -208,6 +235,18 @@ namespace Nexus.Client.Games.Skyrim
 			if (String.IsNullOrEmpty(p_strBS2Path))
 			{
 				Errors.SetError(p_strBS2Property, String.Format("You must select a {0}.", p_strBS2PathName));
+				return false;
+			}
+			Errors.Clear(p_strDSRPProperty);
+			if (String.IsNullOrEmpty(p_strDSRPPath))
+			{
+				Errors.SetError(p_strDSRPProperty, String.Format("You must select a {0}.", p_strDSRPPathName));
+				return false;
+			}
+			Errors.Clear(p_strPMProperty);
+			if (String.IsNullOrEmpty(p_strPMPath))
+			{
+				Errors.SetError(p_strPMProperty, String.Format("You must select a {0}.", p_strPMPathName));
 				return false;
 			}
 			Errors.Clear(p_strLOOTProperty);
@@ -308,6 +347,26 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
+		/// Validates the selected Dual Sheat Redux Patch directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected Dual Sheat Redux Patch directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateDSRPDirectory()
+		{
+			return ValidateDirectory(DSRPDirectory, "Dual Sheat Redux Patch Directory", ObjectHelper.GetPropertyName(() => DSRPDirectory));
+		}
+
+		/// <summary>
+		/// Validates the selected Patchus Maximus directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected Patchus Maximus directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidatePMDirectory()
+		{
+			return ValidateDirectory(PMDirectory, "Patchus Maximus Directory", ObjectHelper.GetPropertyName(() => PMDirectory));
+		}
+
+		/// <summary>
 		/// Validates the selected TES5Edit directory.
 		/// </summary>
 		/// <returns><c>true</c> if the selected TES5Edit directory is valid;
@@ -324,7 +383,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			if (ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory), WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory), FNISDirectory, "FNIS Directory", ObjectHelper.GetPropertyName(() => FNISDirectory), BS2Directory, "BodySlide2 Directory", ObjectHelper.GetPropertyName(() => BS2Directory), LOOTDirectory, "LOOT Directory", ObjectHelper.GetPropertyName(() => LOOTDirectory), TES5EditDirectory, "TES5Edit Directory", ObjectHelper.GetPropertyName(() => TES5EditDirectory)))
+			if (ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory), WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory), FNISDirectory, "FNIS Directory", ObjectHelper.GetPropertyName(() => FNISDirectory), BS2Directory, "BodySlide2 Directory", ObjectHelper.GetPropertyName(() => BS2Directory), LOOTDirectory, "LOOT Directory", ObjectHelper.GetPropertyName(() => LOOTDirectory), TES5EditDirectory, "TES5Edit Directory", ObjectHelper.GetPropertyName(() => TES5EditDirectory), DSRPDirectory, "Dual Sheat Redux Patch Directory", ObjectHelper.GetPropertyName(() => DSRPDirectory), PMDirectory, "Patchus Maximus Directory", ObjectHelper.GetPropertyName(() => PMDirectory)))
 				return ValidateBOSSDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory();
 			else
 				return false;
@@ -344,6 +403,8 @@ namespace Nexus.Client.Games.Skyrim
 			string strWryePath = String.Empty;
 			string strFNISPath = String.Empty;
 			string strBS2Path = String.Empty;
+			string strDSRPPath = String.Empty;
+			string strPMPath = String.Empty;
 			string strTES5EditPath = String.Empty;
 
 			if (IntPtr.Size == 8)
@@ -413,6 +474,36 @@ namespace Nexus.Client.Games.Skyrim
 					BS2Directory = strBS2Path;
 			}
 
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("DSRP"))
+			{
+				strDSRPPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["DSRP"];
+
+				if (String.IsNullOrEmpty(strDSRPPath))
+				{
+					string strDSRP = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\SkyProc Patchers\T3nd0_PatchusMaximus");
+					if (Directory.Exists(strDSRP))
+						strDSRPPath = strDSRP;
+				}
+
+				if (!String.IsNullOrEmpty(strDSRPPath))
+					DSRPDirectory = strDSRPPath;
+			}
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("PM"))
+			{
+				strPMPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["PM"];
+
+				if (String.IsNullOrEmpty(strPMPath))
+				{
+					string strPM = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\SkyProc Patchers\Dual Sheath Redux Patchs");
+					if (Directory.Exists(strPM))
+						strPMPath = strPM;
+				}
+
+				if (!String.IsNullOrEmpty(strPMPath))
+					PMDirectory = strPMPath;
+			}
+
 			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit"))
 			{
 				strTES5EditPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"];
@@ -444,6 +535,12 @@ namespace Nexus.Client.Games.Skyrim
 
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BS2") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], BS2Directory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BS2"] = BS2Directory;
+
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("DSRP") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], DSRPDirectory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["DSRP"] = DSRPDirectory;
+
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("PM") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], PMDirectory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["PM"] = PMDirectory;
 
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], TES5EditDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"] = TES5EditDirectory;
