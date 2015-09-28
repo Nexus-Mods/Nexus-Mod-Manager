@@ -344,8 +344,7 @@ namespace Nexus.Client
 				tlbPluginsCounter.Visible = false;
 			}
 
-			tlbModsCounter.Text = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Active mods: " + ViewModel.ModManager.ActiveMods.Count;
-
+			UpdateModsFeedback();
 			UserStatusFeedback();
 		}
 
@@ -713,8 +712,16 @@ namespace Nexus.Client
 		/// </summary>
 		private void mmgModManager_UpdateModsCount(object sender, EventArgs e)
 		{
-			tlbModsCounter.Text = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Active mods: " + ViewModel.ModManager.ActiveMods.Count;
+			UpdateModsFeedback();
 		}
+
+		/// <summary>
+		/// Updates the Mods Counter
+		/// </summary>
+		private void UpdateModsFeedback()
+		{
+			tlbModsCounter.Text = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Installed mods: " + ViewModel.ModManager.ActiveMods.Count + "   |   Active mods: " + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
+ 		}
 
 		/// <summary>
 		/// Updates the Plugins Counter
@@ -1670,6 +1677,9 @@ namespace Nexus.Client
 
 			if (!m_booIsSwitching)
 			{
+
+				UpdateModsFeedback();
+
 				if (ViewModel.ProfileManager.CurrentProfile != null)
 				{
 					string[] strOptionalFiles = null;
