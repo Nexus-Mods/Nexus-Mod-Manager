@@ -796,7 +796,7 @@ namespace Nexus.Client.ModManagement
 				else
 					strVirtualFileLink = String.Empty;
 			}
-			else if (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
+			else if (GameMode.HardlinkRequiredFilesType(strVirtualFileLink))
 			{
 				if (MultiHDMode)
 				{

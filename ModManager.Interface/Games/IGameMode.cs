@@ -294,6 +294,13 @@ namespace Nexus.Client.Games
 		bool CheckSecondaryUninstall(string p_strFileName);
 
 		/// <summary>
+		/// Checks whether the file's type requires a hardlink for the current game mode.
+		/// </summary>
+		/// <returns>Whether the file's type requires a hardlink for the current game mode.</returns>
+		/// <param name="p_strFileName">The filename.</param>
+		bool HardlinkRequiredFilesType(string p_strFileName);
+
+		/// <summary>
 		/// Whether to run a secondary tools if present.
 		/// </summary>
 		/// <returns>The path to the optional tool to run.</returns>
