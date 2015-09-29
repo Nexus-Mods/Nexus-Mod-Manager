@@ -601,14 +601,14 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			//check for readme
 			string strBaseName = Path.GetFileNameWithoutExtension(p_strFilePath);
 			for (int i = 0; i < Readme.ValidExtensions.Length; i++)
-				if (ContainsFile("readme - " + strBaseName + Readme.ValidExtensions[i]))
+				if (ContainsFile("readme - " + strBaseName + Readme.ValidExtensions[i], true))
 				{
 					m_strReadmePath = "Readme - " + strBaseName + Readme.ValidExtensions[i];
 					break;
 				}
 			if (String.IsNullOrEmpty(m_strReadmePath))
 				for (int i = 0; i < Readme.ValidExtensions.Length; i++)
-					if (ContainsFile("docs/readme - " + strBaseName + Readme.ValidExtensions[i]))
+					if (ContainsFile("docs/readme - " + strBaseName + Readme.ValidExtensions[i], true))
 					{
 						m_strReadmePath = "docs/Readme - " + strBaseName + Readme.ValidExtensions[i];
 						break;
@@ -860,13 +860,30 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <returns><c>true</c> if the specified file is in the FOMod; <c>false</c> otherwise.</returns>
 		public bool ContainsFile(string p_strPath)
 		{
+			return ContainsFile(p_strPath, false);
+		}
+
+		/// <summary>
+		/// Determines if the FOMod contains the given file.
+		/// </summary>
+		/// <param name="p_strPath">The filename whose existence in the FOMod is to be determined.</param>
+		/// <returns><c>true</c> if the specified file is in the FOMod; <c>false</c> otherwise.</returns>
+		private bool ContainsFile(string p_strPath, bool p_booCacheOnly)
+		{
 			string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			strPath = strPath.Trim(Path.DirectorySeparatorChar);
+
+			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)))
+				return true;
+
+			if (p_booCacheOnly)
+				return false;
+
 			if (m_dicMovedArchiveFiles.ContainsKey(strPath))
 				return true;
 			if (m_arcFile.ContainsFile(GetRealPath(strPath)))
 				return true;
-			return ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)));
+			return false;
 		}
 
 		/// <summary>
