@@ -251,7 +251,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			string strFileType = Path.GetExtension(p_strTo);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
-			bool booHardLinkFile = (m_ivaVirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
+			bool booHardLinkFile = (m_ivaVirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(p_strTo) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 			try
 			{

@@ -144,7 +144,7 @@ namespace Nexus.Client.ModManagement
 				string strFileType = Path.GetExtension(File.Key);
 				if (!strFileType.StartsWith("."))
 					strFileType = "." + strFileType;
-				bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
+				bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(File.Key) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 				if (!string.IsNullOrEmpty(strFixedPath))
 				{

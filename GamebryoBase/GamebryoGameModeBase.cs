@@ -439,6 +439,17 @@ namespace Nexus.Client.Games.Gamebryo
 		}
 
 		/// <summary>
+		/// Checks whether the file's type requires a hardlink for the current game mode.
+		/// </summary>
+		/// <returns>Whether the file's type requires a hardlink for the current game mode.</returns>
+		/// <param name="p_strFileName">The filename.</param>
+		public override bool HardlinkRequiredFilesType(string p_strFileName)
+		{
+			string strFileType = Path.GetExtension(p_strFileName);
+			return (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".bsa", StringComparison.InvariantCultureIgnoreCase));
+		}
+
+		/// <summary>
 		/// Disposes of the unamanged resources.
 		/// </summary>
 		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="IDisposable.Dispose()"/> method.</param>

@@ -214,7 +214,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			string strFileType = Path.GetExtension(strTo);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
-			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
+			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(strTo) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 			try
 			{
@@ -398,7 +398,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			string strFileType = Path.GetExtension(strPath);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
-			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
+			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(strPath) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 			try
 			{
