@@ -460,7 +460,7 @@ namespace Nexus.Client
 			ModActivationMonitor = p_mamMonitor;
 			ModActivationMonitorVM = new ModActivationMonitorVM(p_mamMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager);
 			if (GameMode.UsesPlugins)
-				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor);
+				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor, ModManager.VirtualModActivator);
 			ProfileManagerVM = new ProfileManagerVM(ProfileManager, ModManager.ManagedMods, ModRepository, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 

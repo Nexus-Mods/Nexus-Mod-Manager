@@ -9,6 +9,7 @@ using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
 using Nexus.Client.ModActivationMonitoring;
+using Nexus.Client.ModManagement;
 using Nexus.Client.Plugins;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
@@ -205,6 +206,12 @@ namespace Nexus.Client.PluginManagement.UI
 		public ModActivationMonitor ModActivationMonitor { get; private set; }
 
 		/// <summary>
+		/// Gets the current virtual mod activator.
+		/// </summary>
+		/// <value>The current virtual mod activator.</value>
+		protected IVirtualModActivator VirtualModActivator { get; private set; }
+
+		/// <summary>
 		/// Gets the max allowed number of active plugins.
 		/// </summary>
 		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
@@ -239,12 +246,13 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_setSettings">The application and user settings.</param>
 		/// <param name="p_gmdGameMode">The game mode that is currently being managed.</param>
 		/// <param name="p_mamMonitor">The mod activation monitor.</param>
-		public PluginManagerVM(IPluginManager p_pmgPluginManager, ISettings p_setSettings, IGameMode p_gmdGameMode, ModActivationMonitor p_mamMonitor)
+		public PluginManagerVM(IPluginManager p_pmgPluginManager, ISettings p_setSettings, IGameMode p_gmdGameMode, ModActivationMonitor p_mamMonitor, IVirtualModActivator p_ivaVirtualModActivator)
 		{
 			PluginManager = p_pmgPluginManager;
 			Settings = p_setSettings;
 			CurrentGameMode = p_gmdGameMode;
 			ModActivationMonitor = p_mamMonitor;
+			VirtualModActivator = p_ivaVirtualModActivator;
 
 			CurrentGameMode.LoadOrderManager.ActivePluginUpdate += new EventHandler(LoadOrderManager_ActivePluginUpdate);
 			CurrentGameMode.LoadOrderManager.LoadOrderUpdate += new EventHandler(LoadOrderManager_LoadOrderUpdate);
@@ -1204,5 +1212,10 @@ namespace Nexus.Client.PluginManagement.UI
 		#endregion
 
 		#endregion
+
+		public string GetPluginOwner(Plugin p_plgPlugin)
+		{
+			return VirtualModActivator.GetCurrentFileOwner(p_plgPlugin.Filename);
+		}
 	}
 }
