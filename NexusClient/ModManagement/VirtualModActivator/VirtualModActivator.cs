@@ -761,6 +761,11 @@ namespace Nexus.Client.ModManagement
 				{
 					strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true));
 					strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
+					if (!File.Exists(strLinkFilePath))
+					{
+						strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
+						strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
+					}
 				}
 			}
 
