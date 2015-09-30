@@ -382,6 +382,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.ActivateModCommand.CanExecute = false;
 				ViewModel.DisableModCommand.CanExecute = false;
 				ViewModel.TagModCommand.CanExecute = false;
+				ViewModel.DeleteModCommand.CanExecute = false;
 				tsbToggleEndorse.Enabled = false;
 				tsbToggleEndorse.Image = Properties.Resources.thumbsup;
 			}

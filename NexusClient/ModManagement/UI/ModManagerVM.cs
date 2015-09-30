@@ -411,11 +411,14 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		public void DeleteMod(IMod p_modMod)
 		{
-			if (ConfirmModFileDeletion(p_modMod))
+			if (p_modMod != null)
 			{
-				ModManager.VirtualModActivator.DisableMod(p_modMod);
-				IBackgroundTaskSet btsInstall = ModManager.DeleteMod(p_modMod, ModManager.ActiveMods);
-				DeletingMod(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
+				if (ConfirmModFileDeletion(p_modMod))
+				{
+					ModManager.VirtualModActivator.DisableMod(p_modMod);
+					IBackgroundTaskSet btsInstall = ModManager.DeleteMod(p_modMod, ModManager.ActiveMods);
+					DeletingMod(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
+				}
 			}
 		}
 
