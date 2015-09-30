@@ -71,8 +71,8 @@
             this.tsbMoveDown,
 			this.tsbDisableAll,
 			this.tsbEnableAll,
-      this.tsbExport,
-      this.tsbImport});
+			this.tsbExport,
+			this.tsbImport});
 			this.toolStrip2.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip2.Name = "toolStrip2";
 			this.toolStrip2.Size = new System.Drawing.Size(37, 453);

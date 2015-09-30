@@ -589,7 +589,8 @@ namespace Nexus.Client.PluginManagement.UI
 			if (plgPlugin != null)
 			{
 				ipbImage.Image = plgPlugin.Picture;
-				hlbPluginInfo.Text = plgPlugin.Description;
+				string strOwner = ViewModel.GetPluginOwner(plgPlugin);
+				hlbPluginInfo.Text = (String.IsNullOrWhiteSpace(strOwner) ? String.Empty : String.Format(@"<b>Mod: </b>{0}</br></br>", strOwner)) + plgPlugin.Description;
 			}
 			else
 			{

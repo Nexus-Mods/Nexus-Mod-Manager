@@ -66,6 +66,7 @@ namespace Nexus.Client.ModManagement
 		IModLinkInstaller GetModLinkInstaller();
 		void PurgeMods(List<IMod> p_lstMods, string p_strPath);
 		bool CheckHasActiveLinks(IMod p_modMod);
+		string GetCurrentFileOwner(string p_strPath);
 		IBackgroundTask ActivatingMod(IMod p_modMod, bool p_booDisabling, ConfirmActionMethod p_camConfirm);
 		#endregion
 	}

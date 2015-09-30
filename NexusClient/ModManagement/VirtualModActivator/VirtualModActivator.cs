@@ -1402,6 +1402,21 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		public string GetCurrentFileOwner(string p_strPath)
+		{
+			string strOwner = String.Empty;
+
+			if ((VirtualLinks != null) && (VirtualLinks.Count > 0))
+			{
+				string strFile = Path.GetFileName(p_strPath);
+				IVirtualModLink vmlLink = VirtualLinks.Find(x => Path.GetFileName(x.VirtualModPath).Equals(strFile, StringComparison.CurrentCultureIgnoreCase) && (x.Active == true));
+				if (vmlLink != null)
+					strOwner = vmlLink.ModInfo.ModName;
+			}
+
+			return strOwner;
+		}
+
 		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>
