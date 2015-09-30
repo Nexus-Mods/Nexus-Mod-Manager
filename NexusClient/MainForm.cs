@@ -1423,6 +1423,29 @@ namespace Nexus.Client
 
 			switch (p_section)
 			{
+				case "PluginManagerControl":
+				case "ModManagerControl":
+					root = this.Controls.Find(p_section, true)[0];
+					if (root.TabIndex == 2)
+					{
+						if (root.ContainsFocus)
+							pCoords.X = root.AccessibilityObject.Bounds.Location.X;
+						else
+							pCoords.X = root.Width + root.AccessibilityObject.Bounds.Location.X;
+					}
+					else
+					{
+						if (root.ContainsFocus)
+							pCoords.X = root.AccessibilityObject.Bounds.Location.X + 60;
+
+						else
+							pCoords.X = root.Width + root.AccessibilityObject.Bounds.Location.X + 60;
+					}
+
+					pCoords.Y = root.AccessibilityObject.Bounds.Location.Y - 60;
+
+					break;
+
 				case "toolStrip1":
 					root = this.Controls.Find(p_section, true)[0];
 					rootItem = ((ToolStrip)root).Items.Find(p_object, true)[0];
