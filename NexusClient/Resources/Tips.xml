@@ -1,6 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <tipsManager>
 	<tipsList>
+		<tips section="CLWCategoryListView" object="column" ID="1" version="0.60.10">
+			<text>Right-clicking on a mod name will now also show the mod’s filename.</text>
+		</tips>
+		<tips section="PluginManagerControl" object="" ID="2" version="0.60.10" pluginsonly="true">
+			<text>Added a "Mod" field in the plugin description that will tell you what mod that plugin belongs to.</text>
+		</tips>
 		<tips section="toolStrip1" object="spbProfiles" ID="1" version="0.60.0">
 			<text>This new NMM version supports mod profiles.</text>
 		</tips>

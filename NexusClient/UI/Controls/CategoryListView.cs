@@ -606,8 +606,12 @@ namespace Nexus.Client.UI.Controls
 				this.cmsContextMenu.Items[1].Visible = true;
 				this.cmsContextMenu.Items[2].Visible = true;
 				this.cmsContextMenu.Items[3].Visible = true;
-				if (cmsContextMenu.Items.Count > 4)
+
+				while (cmsContextMenu.Items.Count > 4)
+				{
 					cmsContextMenu.Items.RemoveAt(4);
+				}
+
 			}
 			else
 			{
@@ -616,14 +620,11 @@ namespace Nexus.Client.UI.Controls
 				this.cmsContextMenu.Items[2].Visible = true;
 				this.cmsContextMenu.Items[3].Visible = true;
 
-				if (cmsContextMenu.Items.Count > 6)
-					cmsContextMenu.Items.RemoveAt(6);
-
-				if (cmsContextMenu.Items.Count > 5)
-				cmsContextMenu.Items.RemoveAt(5);
-
-				if (cmsContextMenu.Items.Count > 4)
+				while (cmsContextMenu.Items.Count > 4)
+				{
 					cmsContextMenu.Items.RemoveAt(4);
+				}
+
 				if (p_strReadMeFiles != null)
 				{
 					cmsContextMenu.Items.Add("Open ReadMe file:", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
@@ -645,6 +646,11 @@ namespace Nexus.Client.UI.Controls
 				cmsContextMenu.Items.Add("Uninstall from all Profiles", new Bitmap(Properties.Resources.dialog_block, 16, 16), new EventHandler(cmsContextMenu_UninstallModFromProfiles));
 				this.cmsContextMenu.Items[6].Enabled = ((m_rolActiveMods != null) && (m_rolActiveMods.Count > 0) && (m_rolActiveMods.Contains(GetSelectedMod)));
 				this.cmsContextMenu.Items[6].Visible = true;
+
+				cmsContextMenu.Items.Add(new ToolStripSeparator());
+				cmsContextMenu.Items.Add("Filename: " + ((GetSelectedMod != null) ? Path.GetFileName(GetSelectedMod.Filename) : "Unable to retrieve"), new Bitmap(Properties.Resources.document_save, 16, 16));
+				this.cmsContextMenu.Items[8].Enabled = false;
+				this.cmsContextMenu.Items[8].Visible = true;
 			}
 		}
 
