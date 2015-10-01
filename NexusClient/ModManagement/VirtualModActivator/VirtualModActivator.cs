@@ -357,8 +357,10 @@ namespace Nexus.Client.ModManagement
 				if (!String.IsNullOrEmpty(HDLinkFolder))
 					FileUtil.ForceDelete(HDLinkFolder);
 
-				if (!Directory.Exists(NewLinkFolder))
-					Directory.CreateDirectory(NewLinkFolder);
+				string strHDLink = Path.Combine(NewLinkFolder, GameMode.ModeId, ACTIVATOR_LINK_FOLDER);
+
+				if (!Directory.Exists(strHDLink))
+					Directory.CreateDirectory(strHDLink);
 			}
 			else if (String.IsNullOrEmpty(NewLinkFolder) && !String.IsNullOrEmpty(HDLinkFolder))
 			{

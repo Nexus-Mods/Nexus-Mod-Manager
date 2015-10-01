@@ -863,42 +863,18 @@ namespace Nexus.Client.ModManagement
 
 		public List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo)
 		{
-			string strFromPath = GetCurrentProfileScriptedLogPath(p_impFrom);
-			string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
-			List<string> lstFrom = new List<string>();
-			List<string> lstTo = new List<string>();
-			List<string> lstCommon = new List<string>();
 			List<string> lstConflicts = new List<string>();
-			Int32 intConflicts = 0;
 
-			try
+			if (p_impFrom == null)
 			{
-				lstFrom = Directory.GetFiles(strFromPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
+				string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
+				List<string> lstTo = new List<string>();
 				lstTo = Directory.GetFiles(strToPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
-
-				if ((lstFrom != null) && (lstFrom.Count > 0))
-					lstFrom = lstFrom.Select(x => Path.GetFileName(x)).ToList();
-				else
-					return lstConflicts;
-
 				if ((lstTo != null) && (lstTo.Count > 0))
-					lstTo = lstTo.Select(x => Path.GetFileName(x)).ToList();
-				else
-					return lstConflicts;
-
-				lstCommon = lstFrom.Intersect(lstTo, StringComparer.CurrentCultureIgnoreCase).ToList();
-
-				foreach (string File in lstCommon)
 				{
-					intConflicts = 0;
-					List<KeyValuePair<string, string>> dicFrom = LoadXMLModFilesToInstall(Path.Combine(strFromPath, File));
-					List<KeyValuePair<string, string>> dicTo = LoadXMLModFilesToInstall(Path.Combine(strToPath, File));
+					lstTo = lstTo.Select(x => Path.GetFileName(x)).ToList();
 
-					intConflicts += dicFrom.Where(x => !dicTo.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
-					if (intConflicts <= 0)
-						intConflicts += dicTo.Where(x => !dicFrom.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
-
-					if (intConflicts > 0)
+					foreach (string File in lstTo)
 					{
 						IVirtualModInfo modMod = VirtualModActivator.VirtualMods.Find(x => Path.GetFileNameWithoutExtension(x.ModFileName).Equals(Path.GetFileNameWithoutExtension(File), StringComparison.CurrentCultureIgnoreCase));
 						if (modMod != null)
@@ -906,8 +882,53 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 			}
-			catch
-			{ }
+			else
+			{
+				string strFromPath = GetCurrentProfileScriptedLogPath(p_impFrom);
+				string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
+				List<string> lstFrom = new List<string>();
+				List<string> lstTo = new List<string>();
+				List<string> lstCommon = new List<string>();
+				Int32 intConflicts = 0;
+
+				try
+				{
+					lstFrom = Directory.GetFiles(strFromPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
+					lstTo = Directory.GetFiles(strToPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
+
+					if ((lstFrom != null) && (lstFrom.Count > 0))
+						lstFrom = lstFrom.Select(x => Path.GetFileName(x)).ToList();
+					else
+						return lstConflicts;
+
+					if ((lstTo != null) && (lstTo.Count > 0))
+						lstTo = lstTo.Select(x => Path.GetFileName(x)).ToList();
+					else
+						return lstConflicts;
+
+					lstCommon = lstFrom.Intersect(lstTo, StringComparer.CurrentCultureIgnoreCase).ToList();
+
+					foreach (string File in lstCommon)
+					{
+						intConflicts = 0;
+						List<KeyValuePair<string, string>> dicFrom = LoadXMLModFilesToInstall(Path.Combine(strFromPath, File));
+						List<KeyValuePair<string, string>> dicTo = LoadXMLModFilesToInstall(Path.Combine(strToPath, File));
+
+						intConflicts += dicFrom.Where(x => !dicTo.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
+						if (intConflicts <= 0)
+							intConflicts += dicTo.Where(x => !dicFrom.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
+
+						if (intConflicts > 0)
+						{
+							IVirtualModInfo modMod = VirtualModActivator.VirtualMods.Find(x => Path.GetFileNameWithoutExtension(x.ModFileName).Equals(Path.GetFileNameWithoutExtension(File), StringComparison.CurrentCultureIgnoreCase));
+							if (modMod != null)
+								lstConflicts.Add(Path.GetFileName(modMod.ModFileName));
+						}
+					}
+				}
+				catch
+				{ }
+			}
 
 			return lstConflicts;
 		}
