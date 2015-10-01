@@ -342,9 +342,6 @@ namespace Nexus.Client.ModManagement
 		{
 			if (!String.IsNullOrEmpty(NewVirtualFolder))
 			{
-				if (Directory.Exists(m_strVirtualActivatorPath))
-					FileUtil.ForceDelete(m_strVirtualActivatorPath);
-
 				m_strVirtualActivatorPath = Path.Combine(NewVirtualFolder, ACTIVATOR_FOLDER);
 				m_strVirtualActivatorConfigPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_FILE);
 				m_strVirtualActivatorIniEditsPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_INIEDITS);
