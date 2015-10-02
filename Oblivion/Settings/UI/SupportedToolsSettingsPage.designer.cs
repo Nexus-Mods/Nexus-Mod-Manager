@@ -81,7 +81,7 @@
 			this.lblBOSSLabel.Name = "lblBOSSLabel";
 			this.lblBOSSLabel.Size = new System.Drawing.Size(82, 13);
 			this.lblBOSSLabel.TabIndex = 13;
-			this.lblBOSSLabel.Text = "BOSS directory:";
+			this.lblBOSSLabel.Text = "BOSS path:";
 			// 
 			// butSelectWryeBashDirectory
 			// 
@@ -121,7 +121,7 @@
 			this.lblWryeBashDirectoryLabel.Name = "lblWryeBashDirectoryLabel";
 			this.lblWryeBashDirectoryLabel.Size = new System.Drawing.Size(107, 13);
 			this.lblWryeBashDirectoryLabel.TabIndex = 8;
-			this.lblWryeBashDirectoryLabel.Text = "Wrye Bash Directory:";
+			this.lblWryeBashDirectoryLabel.Text = "Wrye Bash path:";
 			// 
 			// erpErrors
 			// 

@@ -97,7 +97,7 @@
 			this.lblBOSSLabel.Name = "lblBOSSLabel";
 			this.lblBOSSLabel.Size = new System.Drawing.Size(82, 13);
 			this.lblBOSSLabel.TabIndex = 13;
-			this.lblBOSSLabel.Text = "BOSS directory:";
+			this.lblBOSSLabel.Text = "BOSS path:";
 			// 
 			// butSelectLOOTDirectory
 			// 
@@ -137,7 +137,7 @@
 			this.lblLOOTLabel.Name = "lblLOOTLabel";
 			this.lblLOOTLabel.Size = new System.Drawing.Size(82, 13);
 			this.lblLOOTLabel.TabIndex = 13;
-			this.lblLOOTLabel.Text = "LOOT directory:";
+			this.lblLOOTLabel.Text = "LOOT path:";
 			// 
 			// butSelectWryeBashDirectory
 			// 
@@ -177,7 +177,7 @@
 			this.lblWryeBashDirectoryLabel.Name = "lblWryeBashDirectoryLabel";
 			this.lblWryeBashDirectoryLabel.Size = new System.Drawing.Size(107, 13);
 			this.lblWryeBashDirectoryLabel.TabIndex = 8;
-			this.lblWryeBashDirectoryLabel.Text = "Wrye Bash Directory:";
+			this.lblWryeBashDirectoryLabel.Text = "Wrye Bash path:";
 			// 
 			// butSelectFNISDirectory
 			// 
@@ -217,7 +217,7 @@
 			this.lblFNISLabel.Name = "lblFNISLabel";
 			this.lblFNISLabel.Size = new System.Drawing.Size(79, 13);
 			this.lblFNISLabel.TabIndex = 13;
-			this.lblFNISLabel.Text = "FNIS Directory:";
+			this.lblFNISLabel.Text = "FNIS path:";
 			// 
 			// butSelectBS2Directory
 			// 
@@ -257,7 +257,7 @@
 			this.lblBS2Label.Name = "lblBS2Label";
 			this.lblBS2Label.Size = new System.Drawing.Size(79, 13);
 			this.lblBS2Label.TabIndex = 13;
-			this.lblBS2Label.Text = "BodySlide2 Directory:";
+			this.lblBS2Label.Text = "BodySlide2 path:";
 			// 
 			// butSelectTES5EditDirectory
 			// 
@@ -297,7 +297,7 @@
 			this.lblTES5EditLabel.Name = "lblTES5EditLabel";
 			this.lblTES5EditLabel.Size = new System.Drawing.Size(82, 13);
 			this.lblTES5EditLabel.TabIndex = 13;
-			this.lblTES5EditLabel.Text = "TES5Edit directory:";
+			this.lblTES5EditLabel.Text = "TES5Edit path:";
 			// 
 			// erpErrors
 			// 
