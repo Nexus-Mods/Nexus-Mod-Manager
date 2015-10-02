@@ -344,6 +344,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateDirectory(string p_strPath, string p_strPathName, string p_strProperty, bool p_booGameHDCheck)
 		{
+			string strExpected;
 			Errors.Clear(p_strProperty);
 			if (String.IsNullOrEmpty(p_strPath))
 			{
@@ -364,11 +365,11 @@ namespace Nexus.Client.Games.Settings
 					Path.GetPathRoot(p_strPath), GameModeDescriptor.InstallationPath));
 				return false;
 			}
-			else if (p_booGameHDCheck && (!CheckOnGameHD(p_strPath)))
+			else if (p_booGameHDCheck && (!CheckOnGameHD(p_strPath, out strExpected)))
 			{
 				Errors.SetError(p_strProperty, string.Format("You MUST set the {0} on the same HD as the usual mod install folder:" + Environment.NewLine +
-					"HD - {1}" + Environment.NewLine,
-					p_strPathName, Path.GetPathRoot(p_strPath)));
+					"Selected HD: {1} - Expected HD: {2}" + Environment.NewLine,
+					p_strPathName, Path.GetPathRoot(p_strPath), strExpected ?? String.Empty));
 				return false;
 			}
 			else
@@ -470,8 +471,8 @@ namespace Nexus.Client.Games.Settings
 			try
 			{
 				RegistryKey rkKey = null;
-				string strNMMKey = @"SOFTWARE\NexusModManager\";
-				string strGameKey = @"SOFTWARE\NexusModManager\" + p_strGameMode;
+				string strNMMKey = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\";
+				string strGameKey = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + p_strGameMode;
 
 				if (RegistryUtil.CanReadKey(strNMMKey) && RegistryUtil.CanWriteKey(strNMMKey))
 				{
@@ -504,8 +505,23 @@ namespace Nexus.Client.Games.Settings
 		}
 
 		#endregion
-		
 
+		protected bool CheckOnGameHD(string p_strPath)
+		{
+			return String.Equals(Path.GetPathRoot(p_strPath), (RequiredTool ? Path.GetPathRoot(ToolDirectory) : (Path.GetPathRoot(GameModeDescriptor.InstallationPath) ?? Application.ExecutablePath)), StringComparison.InvariantCultureIgnoreCase);
+		}
+
+		protected bool CheckOnGameHD(string p_strPath, out string p_strExpected)
+		{
+			string strExpectedPath = GameModeDescriptor.InstallationPath;
+			if (!String.IsNullOrWhiteSpace(strExpectedPath))
+				p_strExpected = Path.GetPathRoot(strExpectedPath);
+			else
+				p_strExpected = String.Empty;
+			return String.Equals(Path.GetPathRoot(p_strPath), Path.GetPathRoot(GameModeDescriptor.InstallationPath), StringComparison.InvariantCultureIgnoreCase);
+		}
+
+		#region Settings
 		/// <summary>
 		/// Loads the user's settings into the control.
 		/// </summary>
@@ -690,11 +706,6 @@ namespace Nexus.Client.Games.Settings
 			ValidateSettings();
 		}
 
-		protected bool CheckOnGameHD(string p_strPath)
-		{
-			return String.Equals(Path.GetPathRoot(p_strPath), (RequiredTool ? Path.GetPathRoot(ToolDirectory) : (Path.GetPathRoot(GameModeDescriptor.InstallationPath) ?? Application.ExecutablePath)), StringComparison.InvariantCultureIgnoreCase);
-		}
-
 		/// <summary>
 		/// Persists the settings on this control.
 		/// </summary>
@@ -748,5 +759,6 @@ namespace Nexus.Client.Games.Settings
 
 			EnvironmentInfo.Settings.Save();
 		}
+		#endregion
 	}
 }
