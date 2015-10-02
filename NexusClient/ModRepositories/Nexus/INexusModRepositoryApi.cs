@@ -76,6 +76,18 @@ namespace Nexus.Client.ModRepositories.Nexus
 		NexusModInfo[] GetModListInfo(string p_strModList, int p_intGameId);
 
 		/// <summary>
+		/// Gets the info about the specified file list from the repository.
+		/// </summary>
+		/// <param name="p_strFileList">The file list for which to retrieved the metadata.</param>
+		/// <returns>The info about the specified file list from the repository.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "Files/GetUpdates?FileList={p_strFileList}&game_id={p_intGameId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		NexusModInfo[] GetFileListInfo(string p_strFileList, int p_intGameId);
+
+		/// <summary>
 		/// Gets the files associated with the specified mod from the repository.
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod for which to retrieved the associated files.</param>

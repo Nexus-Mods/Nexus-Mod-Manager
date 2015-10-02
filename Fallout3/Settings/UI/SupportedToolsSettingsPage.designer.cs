@@ -77,7 +77,7 @@
 			this.lblBOSSLabel.Name = "lblBOSSLabel";
 			this.lblBOSSLabel.Size = new System.Drawing.Size(82, 13);
 			this.lblBOSSLabel.TabIndex = 13;
-			this.lblBOSSLabel.Text = "BOSS directory:";
+			this.lblBOSSLabel.Text = "BOSS path:";
 			// 
 			// erpErrors
 			// 

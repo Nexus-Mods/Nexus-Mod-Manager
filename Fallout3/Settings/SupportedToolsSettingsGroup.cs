@@ -102,9 +102,13 @@ namespace Nexus.Client.Games.Fallout3
 		protected bool ValidateDirectory(string p_strPath, string p_strPathName, string p_strProperty)
 		{
 			Errors.Clear(p_strProperty);
-			if (String.IsNullOrEmpty(p_strPath))
+			if (String.IsNullOrWhiteSpace(p_strPath))
 			{
-				Errors.SetError(p_strProperty, String.Format("You must select a {0}.", p_strPathName));
+				return true;
+			}
+			if (p_strPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+			{
+				Errors.SetError(p_strProperty, String.Format("The selected path is not valid: {0}.", p_strPathName));
 				return false;
 			}
 			else if (
@@ -179,6 +183,9 @@ namespace Nexus.Client.Games.Fallout3
 		/// <c>false</c> otherwise.</returns>
 		public override bool Save()
 		{
+			if (!ValidateSettings())
+				return false;
+
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BOSS") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], BOSSDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"] = BOSSDirectory;
 

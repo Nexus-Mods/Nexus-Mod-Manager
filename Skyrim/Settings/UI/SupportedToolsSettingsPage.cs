@@ -44,6 +44,9 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			BindingHelper.CreateFullBinding(tbxBS2, () => tbxBS2.Text, p_stsSettings, () => p_stsSettings.BS2Directory);
 			BindingHelper.CreateFullBinding(tbxTES5Edit, () => tbxTES5Edit.Text, p_stsSettings, () => p_stsSettings.TES5EditDirectory);
 
+			p_stsSettings.Errors.ErrorChanged -= new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
+			p_stsSettings.Errors.ErrorChanged += new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
+
 			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
 			lblLOOTPrompt.Text = String.Format(lblLOOTPrompt.Text, p_stsSettings.GameModeName);
 			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);
@@ -53,6 +56,33 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 		}
 
 		#endregion
+
+		#region Validation
+
+		/// <summary>
+		/// Handles the <see cref="ErrorContainer.ErrorChanged"/> event of the validation
+		/// errors object.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="ErrorEventArguments"/> describing the event arguments.</param>
+		private void Errors_ErrorChanged(object sender, ErrorEventArguments e)
+		{
+			if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.BOSSDirectory)))
+				erpErrors.SetError(butSelectBOSSDirectory, e.Error);
+			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.WryeBashDirectory)))
+				erpErrors.SetError(butSelectWryeBashDirectory, e.Error);
+			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.LOOTDirectory)))
+				erpErrors.SetError(butSelectLOOTDirectory, e.Error);
+			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.BS2Directory)))
+				erpErrors.SetError(butSelectBS2Directory, e.Error);
+			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.FNISDirectory)))
+				erpErrors.SetError(butSelectFNISDirectory, e.Error);
+			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.TES5EditDirectory)))
+				erpErrors.SetError(butSelectTES5EditDirectory, e.Error);
+		}
+
+		#endregion
+
 
 		#region ISettingsGroupView Members
 

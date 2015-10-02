@@ -81,11 +81,11 @@
 			this.lblBOSSLabel.Name = "lblBOSSLabel";
 			this.lblBOSSLabel.Size = new System.Drawing.Size(82, 13);
 			this.lblBOSSLabel.TabIndex = 13;
-			this.lblBOSSLabel.Text = "BOSS directory:";
+			this.lblBOSSLabel.Text = "BOSS path:";
 			// 
 			// butSelectLOOTDirectory
 			// 
-			this.butSelectLOOTDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Right));
+			this.butSelectLOOTDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.butSelectLOOTDirectory.AutoSize = true;
 			this.butSelectLOOTDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
 			this.butSelectLOOTDirectory.Location = new System.Drawing.Point(394, 57);
@@ -121,7 +121,7 @@
 			this.lblLOOTLabel.Name = "lblLOOTLabel";
 			this.lblLOOTLabel.Size = new System.Drawing.Size(82, 13);
 			this.lblLOOTLabel.TabIndex = 13;
-			this.lblLOOTLabel.Text = "LOOT directory:";
+			this.lblLOOTLabel.Text = "LOOT path:";
 			// 
 			// erpErrors
 			// 
