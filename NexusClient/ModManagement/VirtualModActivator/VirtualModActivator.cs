@@ -1294,7 +1294,7 @@ namespace Nexus.Client.ModManagement
 			foreach (IVirtualModLink ivlModLink in p_ivlVirtualLinks)
 			{
 				string strBaseFileCheck = Path.Combine(VirtualFoder, ivlModLink.RealModPath);
-				if (!File.Exists(strBaseFileCheck) && !(MultiHDMode && (String.IsNullOrEmpty(HDLinkFolder) || (!File.Exists(Path.Combine(HDLinkFolder, ivlModLink.RealModPath))))))
+				if (!File.Exists(strBaseFileCheck) && (MultiHDMode && (String.IsNullOrEmpty(HDLinkFolder) || (!File.Exists(Path.Combine(HDLinkFolder, ivlModLink.RealModPath))))))
 				{
 					List<IMod> lstMods = ModManager.ActiveMods.Where(x => Path.GetFileName(x.Filename).ToLowerInvariant() == ivlModLink.ModInfo.ModFileName.ToLowerInvariant()).ToList();
 					if (lstMods != null && lstMods.Count > 0)
