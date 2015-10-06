@@ -274,6 +274,9 @@ namespace Nexus.Client.PluginManagement.OrderLog
 					for (Int32 i = lstOrderedList.Count; i < oclUnorderedList.Count; i++)
 					{
 						strError = "Predecessor";
+						if (!dicPredecessors.ContainsKey(oclUnorderedList[i]))
+							continue;
+
 						Plugin plgPredecessor = dicPredecessors[oclUnorderedList[i]];
 						Int32 intNewIndex = -1;
 						//if the predecessor is null, then the item was at the beginning of the list
