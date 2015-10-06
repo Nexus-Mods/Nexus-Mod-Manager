@@ -273,12 +273,11 @@ namespace Nexus.Client.PluginManagement.OrderLog
 					// item it followed in the original, unordered, list
 					for (Int32 i = lstOrderedList.Count; i < oclUnorderedList.Count; i++)
 					{
-						strError = "Predecessor";
-						if (!dicPredecessors.ContainsKey(oclUnorderedList[i]))
-							continue;
-
-						Plugin plgPredecessor = dicPredecessors[oclUnorderedList[i]];
+						Plugin plgPredecessor = null;
 						Int32 intNewIndex = -1;
+						if (dicPredecessors.ContainsKey(oclUnorderedList[i]))
+							plgPredecessor = dicPredecessors[oclUnorderedList[i]];
+
 						//if the predecessor is null, then the item was at the beginning of the list
 						if (plgPredecessor != null)
 						{
