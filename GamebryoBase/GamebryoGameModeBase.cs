@@ -254,24 +254,41 @@ namespace Nexus.Client.Games.Gamebryo
 
 			if (SupportsPluginAutoSorting)
 			{
-				if (!File.Exists(strPath))
+				ManageMasterlistFile(strPath, false);
+
+				try
 				{
-					if (!Directory.Exists(strPath))
-						Directory.CreateDirectory(Path.GetDirectoryName(strPath));
-
-					using (Stream masterlist = new MemoryStream(Properties.Resources.masterlist))
-					{
-						using (ZipArchive archive = new ZipArchive(masterlist, ZipArchiveMode.Read))
-						{
-							archive.GetEntry(String.Format("{0}.yaml", ModeId.ToLower())).ExtractToFile(strPath);
-						}
-					}
+					PluginSorter = new PluginSorter(EnvironmentInfo, this, p_futFileUtility, strPath);
 				}
-
-				PluginSorter = new PluginSorter(EnvironmentInfo, this, p_futFileUtility, strPath);
+				catch (NotSupportedException)
+				{
+					ManageMasterlistFile(strPath, true);
+					PluginSorter = new PluginSorter(EnvironmentInfo, this, p_futFileUtility, strPath);
+				}
 			}
 
 			PluginOrderManager = new PluginOrderManager(EnvironmentInfo, this, p_futFileUtility);
+		}
+
+		private void ManageMasterlistFile(string p_strPath, bool p_booOverwrite)
+		{
+			if (p_booOverwrite)
+				if (File.Exists(p_strPath))
+					FileUtil.ForceDelete(p_strPath);
+
+			if (!File.Exists(p_strPath))
+			{
+				if (!Directory.Exists(p_strPath))
+					Directory.CreateDirectory(Path.GetDirectoryName(p_strPath));
+
+				using (Stream masterlist = new MemoryStream(Properties.Resources.masterlist))
+				{
+					using (ZipArchive archive = new ZipArchive(masterlist, ZipArchiveMode.Read))
+					{
+						archive.GetEntry(String.Format("{0}.yaml", ModeId.ToLower())).ExtractToFile(p_strPath);
+					}
+				}
+			}
 		}
 
 		#endregion

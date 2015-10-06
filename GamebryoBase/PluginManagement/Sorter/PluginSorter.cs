@@ -532,6 +532,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
 			if (uintStatus == 3)
 				uintStatus = m_dlgLoadLists(m_ptrSorterDb, p_strMasterlistPath, null);
 
+			if (uintStatus == 3)
+				throw new NotSupportedException("The current masterlist is not supported by this version.");
+
 			HandleStatusCode(uintStatus);
 		}
 
