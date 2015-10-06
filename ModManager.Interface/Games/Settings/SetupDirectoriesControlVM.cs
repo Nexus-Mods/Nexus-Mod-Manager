@@ -508,17 +508,17 @@ namespace Nexus.Client.Games.Settings
 
 		protected bool CheckOnGameHD(string p_strPath)
 		{
-			return String.Equals(Path.GetPathRoot(p_strPath), (RequiredTool ? Path.GetPathRoot(ToolDirectory) : (Path.GetPathRoot(GameModeDescriptor.InstallationPath) ?? Application.ExecutablePath)), StringComparison.InvariantCultureIgnoreCase);
+			return String.Equals(Path.GetPathRoot(p_strPath), (RequiredTool ? Path.GetPathRoot(ToolDirectory) : (Path.GetPathRoot(GameModeDescriptor.InstallationPath) ?? Path.GetPathRoot(Application.ExecutablePath))), StringComparison.InvariantCultureIgnoreCase);
 		}
 
 		protected bool CheckOnGameHD(string p_strPath, out string p_strExpected)
 		{
-			string strExpectedPath = GameModeDescriptor.InstallationPath;
+			string strExpectedPath = RequiredTool ? ToolDirectory : GameModeDescriptor.InstallationPath;
 			if (!String.IsNullOrWhiteSpace(strExpectedPath))
 				p_strExpected = Path.GetPathRoot(strExpectedPath);
 			else
 				p_strExpected = String.Empty;
-			return String.Equals(Path.GetPathRoot(p_strPath), Path.GetPathRoot(GameModeDescriptor.InstallationPath), StringComparison.InvariantCultureIgnoreCase);
+			return String.Equals(Path.GetPathRoot(p_strPath), RequiredTool ? Path.GetPathRoot(ToolDirectory) : Path.GetPathRoot(GameModeDescriptor.InstallationPath), StringComparison.InvariantCultureIgnoreCase);
 		}
 
 		#region Settings
@@ -675,7 +675,7 @@ namespace Nexus.Client.Games.Settings
 					string strDefault = String.Empty;
 					strDefault = ModDirectory;
 					if (!MultiHDInstall && (!CheckOnGameHD(strDefault)))
-						strDefault = Path.Combine(((m_booRequiredTool ? Path.GetPathRoot(ToolDirectory) : Path.GetPathRoot(GameModeDescriptor.InstallationPath)) ?? Application.ExecutablePath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
+						strDefault = Path.Combine(((m_booRequiredTool ? Path.GetPathRoot(ToolDirectory) : Path.GetPathRoot(GameModeDescriptor.InstallationPath)) ?? Path.GetPathRoot(Application.ExecutablePath)), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
 
 					strDirectory = strDefault;
 				}
@@ -697,7 +697,7 @@ namespace Nexus.Client.Games.Settings
 						EnvironmentInfo.Settings.HDLinkFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 					if (String.IsNullOrEmpty(strDirectory) || !CheckOnGameHD(strDirectory))
 					{
-						strDirectory = Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath ?? Application.ExecutablePath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
+						strDirectory = Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath ?? Path.GetPathRoot(Application.ExecutablePath)), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
 					}
 					LinkDirectory = strDirectory;
 				}
