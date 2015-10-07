@@ -113,9 +113,9 @@ namespace Nexus.Client.Updating
 
 			m_lstUpdaters.Clear();
 			m_lstUpdaters.Add(new ProgrammeUpdater(EnvironmentInfo, m_booIsAutoCheck));
-			IEnumerable<IUpdater> enmUpdaters = GameMode.GetUpdaters();
-			if (enmUpdaters != null)
-				m_lstUpdaters.AddRange(GameMode.GetUpdaters());
+			//IEnumerable<IUpdater> enmUpdaters = GameMode.GetUpdaters();
+			//if (enmUpdaters != null)
+			//	m_lstUpdaters.AddRange(GameMode.GetUpdaters());
 			OverallProgressMaximum = m_lstUpdaters.Count;
 
 			foreach (IUpdater updUpdater in m_lstUpdaters)
