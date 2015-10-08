@@ -290,7 +290,8 @@ namespace Nexus.Client
 
 				if (String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
 				{
-					ShowMessage(new ViewMessage("This new version requires you to revise your folder settings." + Environment.NewLine + "Click OK to continue to the setup screen." + Environment.NewLine, "New version", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information));
+					ShowMessage(new ViewMessage("You need to setup the paths where Nexus Mod Manager will store mod archives, the mod installation registry and where the mod files are installed." + Environment.NewLine + Environment.NewLine +
+						"If you used previous versions of NMM, this new version requires you to revise your folder settings." + Environment.NewLine + Environment.NewLine + "Click OK to continue to the setup screen." + Environment.NewLine, "Setup", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information));
 				}
 			}
 			StepOverallProgress();
