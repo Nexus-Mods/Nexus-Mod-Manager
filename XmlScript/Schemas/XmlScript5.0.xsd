@@ -279,7 +279,7 @@
 					<xs:documentation>The optional image associated with a plugin.</xs:documentation>
 				</xs:annotation>
 			</xs:element>
-			<xs:choice>
+			<xs:choice minOccurs="0">
 				<xs:sequence>
 					<xs:element name="files" type="fileList">
 						<xs:annotation>
