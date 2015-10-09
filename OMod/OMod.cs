@@ -34,7 +34,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 		private string m_strFilePath = null;
 		private Archive m_arcFile = null;
-		private Archive m_arcCacheFile;
+		private string m_strCachePath = null;
 		private string m_strPrefixPath = null;
 		private Dictionary<string, string> m_dicMovedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private string m_strReadOnlyTempDirectory = null;
@@ -501,6 +501,10 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 			FindPathPrefix();
 			IsPacked = !m_arcFile.ContainsFile(GetRealPath(Path.Combine(CONVERSION_FOLDER, "config")));
+
+			string strCachePath = Path.Combine(p_mcmModCacheManager.ModCacheDirectory, Path.GetFileNameWithoutExtension(this.ModArchivePath));
+			m_strCachePath = strCachePath;
+
 			if (!IsPacked)
 				InitializeUnpackedOmod(p_booUseCache, p_mcmModCacheManager, p_stgScriptTypeRegistry);
 			else
@@ -520,17 +524,18 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
 		private void InitializeUnpackedOmod(bool p_booUseCache, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry)
 		{
-			if (p_booUseCache)
-			{
-				m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(this);
-				//check to make sure the cache isn't bad
-				if ((m_arcCacheFile != null) && (!m_arcCacheFile.ContainsFile(GetRealPath(Path.Combine(CONVERSION_FOLDER, "config"))) || !ValidateConfig(GetSpecialFile("config"))))
-				{
-					//bad cache - clear it
-					m_arcCacheFile.Dispose();
-					m_arcCacheFile = null;
-				}
-			}
+			//if (p_booUseCache)
+			//{
+			//	m_arcCacheFile = p_mcmModCacheManager.GetCacheFile(this);
+			//	//check to make sure the cache isn't bad
+			//	if ((m_arcCacheFile != null) && (!m_arcCacheFile.ContainsFile(GetRealPath(Path.Combine(CONVERSION_FOLDER, "config"))) || !ValidateConfig(GetSpecialFile("config"))))
+			//	{
+			//		//bad cache - clear it
+			//		m_arcCacheFile.Dispose();
+			//		m_arcCacheFile = null;
+			//	}
+			//}
+				
 
 			//check for script
 			m_booHasInstallScript = false;
@@ -573,7 +578,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			//check for screenshot
 			m_booHasScreenshot = ContainsFile(Path.Combine(CONVERSION_FOLDER, "screenshot"));
 
-			if (p_booUseCache && (m_arcCacheFile == null))
+			if (p_booUseCache && (!Directory.Exists(m_strCachePath)))
 			{
 				string strTmpInfo = p_mcmModCacheManager.FileUtility.CreateTempDirectory();
 				try
@@ -586,7 +591,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 					if (m_booHasScreenshot)
 						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(Path.Combine(CONVERSION_FOLDER, ScreenshotPath))), GetSpecialFile(ScreenshotPath));
 
-					m_arcCacheFile = p_mcmModCacheManager.CreateCacheFile(this, strTmpInfo);
+					p_mcmModCacheManager.CreateCacheFile(this, strTmpInfo);
 				}
 				finally
 				{
@@ -1025,7 +1030,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 					return true;
 				if (m_arcFile.ContainsFile(GetRealPath(strPath)))
 					return true;
-				return ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)));
+				return ((Directory.Exists(m_strCachePath)) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(strPath)))));
 			}
 			if (PluginList.Contains(x => x.Name.Equals(strPath, StringComparison.OrdinalIgnoreCase)))
 				return true;
@@ -1044,8 +1049,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 			// a crash.
 			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly || IsPacked))
 				m_arcFile.DeleteFile(strPath);
-			if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(strPath))
-				m_arcCacheFile.DeleteFile(strPath);
+			if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strPath))))))
+				FileUtil.ForceDelete(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
 		}
 
 		/// <summary>
@@ -1058,8 +1063,14 @@ namespace Nexus.Client.Mods.Formats.OMod
 			string strPath = GetRealPath(IsPacked ? p_strPath : Path.Combine(CONVERSION_FOLDER, p_strPath));
 			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly || IsPacked))
 				m_arcFile.ReplaceFile(p_strPath, p_bteData);
-			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(p_strPath) || m_arcFile.ReadOnly))
-				m_arcCacheFile.ReplaceFile(p_strPath, p_bteData);
+
+			System.IO.FileInfo fiFile = new System.IO.FileInfo(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
+
+			if ((Directory.Exists(m_strCachePath) && ((File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strPath)))) || (fiFile.IsReadOnly))))
+			{
+				FileUtil.ForceDelete(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
+				File.WriteAllBytes(Path.Combine(m_strCachePath, GetRealPath(p_strPath)), p_bteData);
+			}
 		}
 
 		/// <summary>
@@ -1072,8 +1083,14 @@ namespace Nexus.Client.Mods.Formats.OMod
 			string strPath = GetRealPath(IsPacked ? p_strPath : Path.Combine(CONVERSION_FOLDER, p_strPath));
 			if (m_booAllowArchiveEdits && (!m_arcFile.ReadOnly || IsPacked))
 				m_arcFile.ReplaceFile(p_strPath, p_strData);
-			if ((m_arcCacheFile != null) && (m_arcCacheFile.ContainsFile(p_strPath) || m_arcFile.ReadOnly))
-				m_arcCacheFile.ReplaceFile(p_strPath, p_strData);
+
+			System.IO.FileInfo fiFile = new System.IO.FileInfo(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
+						
+			if ((Directory.Exists(m_strCachePath) && ((File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strPath)))) || (fiFile.IsReadOnly))))
+			{
+				FileUtil.ForceDelete(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
+				File.WriteAllText(Path.Combine(m_strCachePath, GetRealPath(p_strPath)), p_strData);
+			}
 		}
 
 		#endregion
@@ -1118,8 +1135,10 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if (!IsPacked)
 			{
 				string strPath = Path.Combine(CONVERSION_FOLDER, p_strFile);
-				if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(strPath)))
-					return m_arcCacheFile.GetFileContents(GetRealPath(strPath));
+
+				if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(strPath))))))
+					return (File.ReadAllBytes(Path.Combine(m_strCachePath, GetRealPath(strPath))));
+												
 				bteFile = m_arcFile.GetFileContents(GetRealPath(strPath));
 				if (!booIsBinary)
 					bteFile = System.Text.Encoding.Default.GetBytes(TextUtil.ByteToString(bteFile).Trim('\0'));
@@ -1161,8 +1180,9 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 			if (!IsPacked)
 			{
-				if ((m_arcCacheFile != null) && m_arcCacheFile.ContainsFile(GetRealPath(p_strFile)))
-					return m_arcCacheFile.GetFileContents(GetRealPath(p_strFile));
+				if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strFile))))))
+					return (File.ReadAllBytes(Path.Combine(m_strCachePath, GetRealPath(p_strFile))));
+
 				return m_arcFile.GetFileContents(GetRealPath(p_strFile));
 			}
 

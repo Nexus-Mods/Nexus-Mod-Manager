@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Nexus.Client.ModManagement.Scripting;
 
@@ -24,7 +25,7 @@ namespace Nexus.Client.Mods
 		/// <param name="p_stgScriptTypeRegistry">The registry listing the supported script types.</param>
 		/// <param name="p_strSearchPath">The path in which to search for mod format assemblies.</param>
 		/// <returns>A registry containing all of the discovered mod formats.</returns>
-		public static IModFormatRegistry DiscoverFormats(IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, string p_strSearchPath)
+		public static IModFormatRegistry DiscoverFormats(IModCacheManager p_mcmModCacheManager, List<string> p_lstSupportedFormats, IScriptTypeRegistry p_stgScriptTypeRegistry, string p_strSearchPath)
 		{
 			Trace.TraceInformation("Discovering Mod Formats...");
 			Trace.Indent();
@@ -42,6 +43,9 @@ namespace Nexus.Client.Mods
 			string[] strAssemblies = Directory.GetFiles(p_strSearchPath, "*.dll");
 			foreach (string strAssembly in strAssemblies)
 			{
+				if (!p_lstSupportedFormats.Contains(Path.GetFileNameWithoutExtension(strAssembly), StringComparer.CurrentCultureIgnoreCase))
+					continue;
+				
 				Trace.TraceInformation("Checking: {0}", Path.GetFileName(strAssembly));
 				Trace.Indent();
 

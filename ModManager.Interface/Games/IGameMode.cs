@@ -320,5 +320,10 @@ namespace Nexus.Client.Games
 		/// <returns>The list of optional files to load (if present) in a profile.</returns>
 		/// <param name="p_strMessage">The list of files/plugins/mods to load.</param>
 		void SetOptionalFilesList(string[] p_strList);
+
+		/// <summary>
+		/// The supported formats list.
+		/// </summary>
+		List<string> SupportedFormats { get; }
 	}
 }
