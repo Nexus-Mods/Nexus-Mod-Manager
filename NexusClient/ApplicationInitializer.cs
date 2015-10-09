@@ -366,6 +366,8 @@ namespace Nexus.Client
 			Trace.TraceInformation(String.Format("Mod Cache Path: {0}", gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory));
 			Trace.TraceInformation(String.Format("Mod Download Cache: {0}", gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory));
 			Trace.TraceInformation(String.Format("Overwrite Path: {0}", gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
+			Trace.TraceInformation(String.Format("Virtual Install Path: {0}", EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]));
+			Trace.TraceInformation(String.Format("NMM Link Path: {0}", EnvironmentInfo.Settings.HDLinkFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]));
 			Trace.Unindent();
 
 			ScanForReadonlyFiles(gmdGameMode);
