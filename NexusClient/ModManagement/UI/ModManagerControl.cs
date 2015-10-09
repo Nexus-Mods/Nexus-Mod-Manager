@@ -775,7 +775,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="BrightIdeasSoftware.ToolTipShowingEventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_CellToolTipShowing(object sender, BrightIdeasSoftware.ToolTipShowingEventArgs e)
 		{
-			if (e.Column.Text == "Latest Version")
+			if (e.Column.Text == "Mod Version")
 			{
 				if (e.Item.RowObject.GetType() != typeof(ModCategory))
 				{
@@ -783,9 +783,9 @@ namespace Nexus.Client.ModManagement.UI
 					if (!modMod.IsMatchingVersion())
 					{
 						e.AutoPopDelay = 10000;
-						e.Title = "New Version Available Online";
-						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Warning;
-						e.Text = "There's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.";
+						e.Title = String.Format("Online Version: {0}", modMod.LastKnownVersion);
+						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
+						e.Text = "It seems there's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.";
 						e.IsBalloon = true;
 					}
 				}

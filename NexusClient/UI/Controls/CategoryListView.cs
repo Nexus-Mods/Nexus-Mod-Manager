@@ -214,7 +214,6 @@ namespace Nexus.Client.UI.Controls
 			tlcModName.Name = "ModName";
 			tlcInstallDate.Name = "InstallDate";
 			tlcDownloadDate.Name = "DownloadDate";
-			tlcVersion.Name = "HumanReadableVersion";
 			tlcWebVersion.Name = "WebVersion";
 			tlcAuthor.Name = "Author";
 			tlcEndorsement.Name = "Endorsement";
@@ -222,7 +221,6 @@ namespace Nexus.Client.UI.Controls
 			tlcModName.AspectName = "Text";
 			tlcInstallDate.AspectName = "Text";
 			tlcDownloadDate.AspectName = "Text";
-			tlcVersion.AspectName = "Text";
 			tlcWebVersion.AspectName = "Text";
 			tlcAuthor.AspectName = "Text";
 			tlcCategory.AspectName = "Text";
@@ -455,28 +453,14 @@ namespace Nexus.Client.UI.Controls
 				return String.Empty;
 			};
 
-			tlcVersion.AspectGetter = delegate(object rowObject)
-			{
-				string Val = string.Empty;
-
-				if (rowObject.GetType() != typeof(ModCategory))
-				{
-					if (!String.IsNullOrEmpty(((IMod)rowObject).HumanReadableVersion))
-						Val = ((IMod)rowObject).HumanReadableVersion;
-					return Val;
-				}
-				else
-					return String.Empty;
-			};
-
 			tlcWebVersion.AspectGetter = delegate(object rowObject)
 			{
 				string Val = String.Empty;
 
 				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					if (!String.IsNullOrEmpty(((IMod)rowObject).LastKnownVersion))
-						Val = ((IMod)rowObject).LastKnownVersion;
+					if (!String.IsNullOrEmpty(((IMod)rowObject).HumanReadableVersion))
+						Val = ((IMod)rowObject).HumanReadableVersion;
 					return Val;
 				}
 				else
@@ -1093,7 +1077,6 @@ namespace Nexus.Client.UI.Controls
 			tlcCategory.Width = 100;
 			tlcInstallDate.Width = 100;
 			tlcEndorsement.Width = 100;
-			tlcVersion.Width = 100;
 			tlcWebVersion.Width = 100;
 			tlcAuthor.Width = 100;
 			SizeColumnsToFit();
