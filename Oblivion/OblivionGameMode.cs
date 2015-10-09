@@ -20,6 +20,7 @@ namespace Nexus.Client.Games.Oblivion
 		private OblivionLauncher m_glnGameLauncher = null;
 		private OblivionToolLauncher m_gtlToolLauncher = null;
 		private OblivionSupportedTools m_stlSupportedTools = null;
+		private string[] m_strSupportedFormats = { "fomod", "omod" };
 
 		#region Properties
 
@@ -98,6 +99,17 @@ namespace Nexus.Client.Games.Oblivion
 			get
 			{
 				return Properties.Resources.Categories;
+			}
+		}
+
+		/// <summary>
+		/// Gets the Supported Formats list.
+		/// </summary>
+		public override List<string> SupportedFormats
+		{
+			get
+			{
+				return new List<string>(m_strSupportedFormats);
 			}
 		}
 

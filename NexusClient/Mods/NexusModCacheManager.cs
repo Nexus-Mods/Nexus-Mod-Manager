@@ -1,5 +1,7 @@
 ﻿using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 using System.IO;
+using System.Linq;
 using System.Collections.Generic;
 using SevenZip;
 using System;
@@ -20,7 +22,7 @@ namespace Nexus.Client.Mods
 		/// Gets the path of the directory where the current Game Mode's mods' cache files are stored.
 		/// </summary>
 		/// <value>The path of the directory where the current Game Mode's mods' cache files are stored.</value>
-		protected string ModCacheDirectory { get; private set; }
+		public string ModCacheDirectory { get; private set; }
 
 		/// <summary>
 		/// Gets the path of the directory where the current Game Mode's mod files are stored.
@@ -85,7 +87,7 @@ namespace Nexus.Client.Mods
 		/// <returns>The path to the specified mod's cache file.</returns>
 		public string GetCacheFilePath(string p_strPath)
 		{
-			return Path.Combine(ModCacheDirectory, Path.GetFileName(p_strPath) + ".zip");
+			return Path.Combine(ModCacheDirectory, Path.GetFileNameWithoutExtension(p_strPath));
 		}
 
 		/// <summary>
@@ -156,22 +158,60 @@ namespace Nexus.Client.Mods
 		/// <param name="p_strFilesToCacheFolder">The folder containing the files to put into the cache.</param>
 		/// <returns>The cache file for the specified mod, or <c>null</c>
 		/// if there were no files to cache.</returns>
-		public Archive CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder)
+		public void CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder)
 		{
 			if (!String.IsNullOrEmpty(p_strFilesToCacheFolder))
 			{
-				string[] strFilesToCompress = Directory.GetFiles(p_strFilesToCacheFolder, "*.*", SearchOption.AllDirectories);
-				if (strFilesToCompress.Length > 0)
+				var strFilesToCompress = Directory.EnumerateFiles(p_strFilesToCacheFolder, "*.*", SearchOption.AllDirectories);
+				if (strFilesToCompress.Count() > 0)
 				{
-					string strCachePath = GetCacheFilePath(p_modMod);
-					SevenZipCompressor szcCompressor = new SevenZipCompressor();
-					szcCompressor.ArchiveFormat = OutArchiveFormat.Zip;
-					szcCompressor.CompressionLevel = CompressionLevel.Ultra;
-					szcCompressor.CompressDirectory(p_strFilesToCacheFolder, strCachePath);
-					return new Archive(strCachePath);
+					string strCachePath = Path.Combine(ModCacheDirectory, Path.GetFileNameWithoutExtension(p_modMod.Filename));
+					string strArcCacheFile = Path.Combine(ModCacheDirectory, Path.GetFileName(p_modMod.Filename) + ".zip");
+					try
+					{
+						if (!Directory.Exists(strCachePath))
+						{
+							Directory.CreateDirectory(strCachePath);
+							
+							if(File.Exists(strArcCacheFile))
+							{
+								using (SevenZipExtractor szeExtractor = Archive.GetExtractor(strArcCacheFile))
+								{
+									szeExtractor.ExtractArchive(strCachePath);
+								}
+
+								FileUtil.ForceDelete(strArcCacheFile);
+							}
+							else
+								copyDirectory(p_strFilesToCacheFolder, strCachePath);
+							
+						}
+					}
+					catch (FileNotFoundException ex)
+					{
+
+					}
 				}
 			}
-			return null;
+		}
+
+		public static void copyDirectory(string strSource, string strDestination)
+		{
+			String[] Files;
+
+			if (strDestination[strDestination.Length - 1] != Path.DirectorySeparatorChar)
+				strDestination += Path.DirectorySeparatorChar;
+			if (!Directory.Exists(strDestination)) Directory.CreateDirectory(strDestination);
+			Files = Directory.GetFileSystemEntries(strSource);
+			foreach (string Element in Files)
+			{
+				// Sub directories
+				if (Directory.Exists(Element))
+					copyDirectory(Element, strDestination + Path.GetFileName(Element));
+				// Files in directory
+				else
+					File.Copy(Element, strDestination + Path.GetFileName(Element), true);
+			}
 		}
 	}
 }

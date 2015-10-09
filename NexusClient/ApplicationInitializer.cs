@@ -770,7 +770,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Registering supported mod formats...");
 			Trace.Indent();
-			IModFormatRegistry mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
+			IModFormatRegistry mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, p_gmdGameMode.SupportedFormats, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
 			if (mfrModFormatRegistry.Formats.Count == 0)
 			{
 				p_vwmErrorMessage = new ViewMessage("No mod formats were found.", null, "No Mod Formats", MessageBoxIcon.Error);
