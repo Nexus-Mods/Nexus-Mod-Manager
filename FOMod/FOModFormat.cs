@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using Nexus.Client.Util;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Scripting;
@@ -104,13 +105,25 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// to the current format.</returns>
 		public FormatConfidence CheckFormatCompliance(string p_strPath)
 		{
-			if (String.IsNullOrEmpty(p_strPath) || !File.Exists(p_strPath) || !Archive.IsArchive(p_strPath))
-				return FormatConfidence.Incompatible;
-			using (Archive arcMod = new Archive(p_strPath))
+			if (Directory.Exists(p_strPath))
 			{
-				if (arcMod.GetFiles("fomod", true).Length > 0)
+				var fileList = Directory.EnumerateFiles(p_strPath, "info.xml", SearchOption.AllDirectories);
+				
+				if (fileList.Count() > 0)
 					return FormatConfidence.Match;
 			}
+			else
+			{
+				if (String.IsNullOrEmpty(p_strPath) || !File.Exists(p_strPath) || !Archive.IsArchive(p_strPath))
+					return FormatConfidence.Incompatible;
+
+				using (Archive arcMod = new Archive(p_strPath))
+				{
+					if (arcMod.GetFiles("fomod", true).Length > 0)
+						return FormatConfidence.Match;
+				}
+			}
+
 			return FormatConfidence.Compatible;
 		}
 

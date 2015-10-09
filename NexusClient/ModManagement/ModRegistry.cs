@@ -141,7 +141,7 @@ namespace Nexus.Client.ModManagement
 		/// can be determined; <c>null</c> otherwise.</returns>
 		protected IMod CreateMod(string p_strModPath, string p_strCachePath, IGameMode p_gmdGameMode)
 		{
-			if ((String.IsNullOrEmpty(p_strCachePath)) || (!File.Exists(p_strCachePath)))
+			if ((String.IsNullOrEmpty(p_strCachePath)) || (!Directory.Exists(p_strCachePath)))
 				p_strCachePath = p_strModPath;
 
 			List<KeyValuePair<FormatConfidence, IModFormat>> lstFormats = new List<KeyValuePair<FormatConfidence, IModFormat>>();
