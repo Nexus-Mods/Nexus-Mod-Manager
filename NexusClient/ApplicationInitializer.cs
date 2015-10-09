@@ -366,6 +366,8 @@ namespace Nexus.Client
 			Trace.TraceInformation(String.Format("Mod Cache Path: {0}", gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory));
 			Trace.TraceInformation(String.Format("Mod Download Cache: {0}", gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory));
 			Trace.TraceInformation(String.Format("Overwrite Path: {0}", gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
+			Trace.TraceInformation(String.Format("Virtual Install Path: {0}", EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]));
+			Trace.TraceInformation(String.Format("NMM Link Path: {0}", EnvironmentInfo.Settings.HDLinkFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]));
 			Trace.Unindent();
 
 			ScanForReadonlyFiles(gmdGameMode);
@@ -768,7 +770,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Registering supported mod formats...");
 			Trace.Indent();
-			IModFormatRegistry mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
+			IModFormatRegistry mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, p_gmdGameMode.SupportedFormats, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
 			if (mfrModFormatRegistry.Formats.Count == 0)
 			{
 				p_vwmErrorMessage = new ViewMessage("No mod formats were found.", null, "No Mod Formats", MessageBoxIcon.Error);

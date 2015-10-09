@@ -209,6 +209,7 @@ namespace Nexus.Client.Games
 		private IEnvironmentInfo m_eifEnvironmentInfo = null;
 		private IGameModeDescriptor m_gmdGameModeInfo = null;
 		private const Int32 m_intMaxAllowedPlugins = 0;
+		private string[] m_strSupportedFormats = { "fomod" };
 
 		#region Properties
 
@@ -611,6 +612,14 @@ namespace Nexus.Client.Games
 			{
 				return false;
 			} 
+		}
+
+		public virtual List<string> SupportedFormats
+		{
+			get
+			{
+				return new List<string>(m_strSupportedFormats);
+			}
 		}
 
 		#endregion
