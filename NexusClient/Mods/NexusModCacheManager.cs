@@ -191,6 +191,30 @@ namespace Nexus.Client.Mods
 			}
 		}
 
+		/// <summary>
+		/// Migrates the cache zip file for the given mod to the cache folder.
+		/// </summary>
+		/// <param name="p_modMod">The mod for which to create the cache file.</param>
+		public void MigrateCacheFile(IMod p_modMod)
+		{
+			string strArcCacheFile = Path.Combine(ModCacheDirectory, Path.GetFileName(p_modMod.Filename) + ".zip");
+			string strCachePath = Path.Combine(ModCacheDirectory, Path.GetFileNameWithoutExtension(p_modMod.Filename));
+
+			try
+			{
+				if (!Directory.Exists(strCachePath))
+				{
+					if (File.Exists(strArcCacheFile))
+					{
+						ExportCacheArchive(strArcCacheFile, strCachePath);
+					}
+				}
+			}
+			catch (FileNotFoundException)
+			{
+			}
+		}
+
 		private void ExportCacheArchive(string p_strCacheSource, string p_strDestinationFolder)
 		{
 			ZipFile.ExtractToDirectory(p_strCacheSource, p_strDestinationFolder);

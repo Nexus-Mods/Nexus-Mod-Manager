@@ -476,6 +476,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
 
+			p_mcmModCacheManager.MigrateCacheFile(this);
+
 			#region Check for cacheInfo.txt file
 
 			string strCachePath = Path.Combine(p_mcmModCacheManager.ModCacheDirectory, Path.GetFileNameWithoutExtension(p_strFilePath));

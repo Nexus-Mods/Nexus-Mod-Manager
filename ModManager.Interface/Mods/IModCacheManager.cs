@@ -53,5 +53,10 @@ namespace Nexus.Client.Mods
 		/// if there were no files to cache.</returns>
 		void CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder);
 
+		/// <summary>
+		/// Migrates the cache zip file for the given mod to the cache folder.
+		/// </summary>
+		/// <param name="p_modMod">The mod for which to create the cache file.</param>
+		void MigrateCacheFile(IMod p_modMod);
 	}
 }
