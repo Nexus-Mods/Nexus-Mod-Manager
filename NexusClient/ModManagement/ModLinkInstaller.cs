@@ -37,12 +37,12 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
-		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching)
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching)
 		{
-			return AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, false);
+			return AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, false);
 		}
 
-		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booHandlePlugin)
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booHandlePlugin)
 		{
 			Int32 intPriority = 0;
 			List<IVirtualModLink> lstFileLinks;
@@ -59,7 +59,7 @@ namespace Nexus.Client.ModManagement
 						VirtualModActivator.UpdateLinkPriority(lstFileLinks);
 						p_booIsSwitching = false;
 					}
-					return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, false, p_booHandlePlugin, 0);
+					return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, false, p_booHandlePlugin, 0);
 				}
 				else
 					VirtualModActivator.AddInactiveLink(p_modMod, p_strBaseFilePath, intPriority++);

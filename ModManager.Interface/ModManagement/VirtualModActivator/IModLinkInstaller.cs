@@ -6,8 +6,8 @@ namespace Nexus.Client.ModManagement
 	public interface IModLinkInstaller
 	{
 		#region Mod Link Installer
-		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching);
-		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booHandlePlugin);
+		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching);
+		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booHandlePlugin);
 		#endregion
 	}
 }

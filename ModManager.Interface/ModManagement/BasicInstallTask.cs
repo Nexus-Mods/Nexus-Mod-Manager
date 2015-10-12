@@ -124,7 +124,7 @@ namespace Nexus.Client.ModManagement
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
 			List<KeyValuePair<string, string>> lstFiles = (FilesToInstall == null) ? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList() : FilesToInstall;
-			List<string> lstFilesToLink = new List<string>();
+			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>();
 			OverallProgressMaximum = lstFiles.Count * 2;
 
 			if (GameMode.RequiresModFileMerge)
@@ -133,14 +133,17 @@ namespace Nexus.Client.ModManagement
 			foreach (KeyValuePair<string, string> File in lstFiles)
 			{
 				string strFileTo = File.Value;
+				if (String.IsNullOrWhiteSpace(strFileTo))
+					strFileTo = File.Key;
+
 
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? File.Key, Mod, false);
-				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? File.Key, true));
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, Mod, false);
+				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
 				string strLinkPath = String.Empty;
 				if (VirtualModActivator.MultiHDMode)
-					strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo ?? File.Key, true));
+					strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
 				string strFileType = Path.GetExtension(File.Key);
 				if (!strFileType.StartsWith("."))
 					strFileType = "." + strFileType;
@@ -153,18 +156,18 @@ namespace Nexus.Client.ModManagement
 						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(File.Key).ToLower()) && Path.GetDirectoryName(strFixedPath).Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)))
 						{
 							FileInstaller.InstallFileFromMod(File.Key, ((booHardLinkFile) ? strLinkPath : strVirtualPath));
-							lstFilesToLink.Add(strFileTo ?? File.Key);
+							lstFilesToLink.Add(new KeyValuePair<string, string>(strFileTo, (booHardLinkFile) ? strLinkPath : strVirtualPath));
 						}
 					}
 				}
 				StepOverallProgress();
 			}
 
-			foreach (string strLink in lstFilesToLink)
+			foreach (KeyValuePair<string, string> strLink in lstFilesToLink)
 			{
 				if (!VirtualModActivator.DisableLinkCreation)
 				{
-					string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink, false);
+					string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink.Key, strLink.Value, false);
 
 					if (!string.IsNullOrEmpty(strFileLink))
 						ActivatePlugin(strFileLink);

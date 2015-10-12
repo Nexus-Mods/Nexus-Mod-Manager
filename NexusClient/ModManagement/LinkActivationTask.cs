@@ -149,7 +149,7 @@ namespace Nexus.Client.ModManagement
 
 							string strFile = File.Replace((strModFolderPath + Path.DirectorySeparatorChar), String.Empty);
 
-							string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFile, false);
+							string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFile, null, false);
 
 							if (!string.IsNullOrEmpty(strFileLink))
 								if (PluginManager != null)
