@@ -1035,17 +1035,28 @@ namespace Nexus.Client.ModManagement
 
 		public void EnableMod(IMod p_modMod)
 		{
-			string strModFolderPath = Path.Combine(m_strVirtualActivatorPath, Path.GetFileNameWithoutExtension(p_modMod.Filename));
+			string strVirtualFolderPath = Path.Combine(m_strVirtualActivatorPath, Path.GetFileNameWithoutExtension(p_modMod.Filename));
+			string strLinkFolderPath = String.Empty;
+
+			if (MultiHDMode)
+				strLinkFolderPath = Path.Combine(HDLinkFolder, Path.GetFileNameWithoutExtension(p_modMod.Filename));
+
 			m_booDisableIniLogging = true;
 
-			if (Directory.Exists(strModFolderPath))
+			if (Directory.Exists(strVirtualFolderPath) || (MultiHDMode && Directory.Exists(strLinkFolderPath)))
 			{
-				string[] strFiles = Directory.GetFiles(strModFolderPath, "*", SearchOption.AllDirectories);
+				List<string> lstFiles = Directory.GetFiles(strVirtualFolderPath, "*", SearchOption.AllDirectories).ToList();
+				if (MultiHDMode)
+					lstFiles.AddRange(Directory.GetFiles(strLinkFolderPath, "*", SearchOption.AllDirectories));
+
+
 				IModLinkInstaller ModLinkInstaller = GetModLinkInstaller();
 
-				foreach (string File in strFiles)
+				foreach (string File in lstFiles)
 				{
-					string strFile = File.Replace((strModFolderPath + Path.DirectorySeparatorChar), String.Empty);
+					string strFile = File.Replace((strVirtualFolderPath + Path.DirectorySeparatorChar), String.Empty);
+					if (Path.IsPathRooted(strFile))
+						strFile = File.Replace((strLinkFolderPath + Path.DirectorySeparatorChar), String.Empty);
 
 					string strFileLink = ModLinkInstaller.AddFileLink(p_modMod, strFile, File, false);
 					
