@@ -535,7 +535,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			//		m_arcCacheFile = null;
 			//	}
 			//}
-				
+			p_mcmModCacheManager.MigrateCacheFile(this);	
 
 			//check for script
 			m_booHasInstallScript = false;
