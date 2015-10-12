@@ -1,10 +1,12 @@
-﻿using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
+﻿using System;
+using System.Collections.Generic;
+using System.IO.Compression;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
+using System.Threading.Tasks;
+using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 using SevenZip;
-using System;
 
 namespace Nexus.Client.Mods
 {
@@ -171,28 +173,29 @@ namespace Nexus.Client.Mods
 					{
 						if (!Directory.Exists(strCachePath))
 						{
-							Directory.CreateDirectory(strCachePath);
-							
-							if(File.Exists(strArcCacheFile))
+							if (File.Exists(strArcCacheFile))
 							{
-								using (SevenZipExtractor szeExtractor = Archive.GetExtractor(strArcCacheFile))
-								{
-									szeExtractor.ExtractArchive(strCachePath);
-								}
-
-								FileUtil.ForceDelete(strArcCacheFile);
+								ExportCacheArchive(strArcCacheFile, strCachePath);
 							}
 							else
+							{
+								Directory.CreateDirectory(strCachePath);
 								copyDirectory(p_strFilesToCacheFolder, strCachePath);
-							
+							}
 						}
 					}
 					catch (FileNotFoundException ex)
 					{
-
 					}
 				}
 			}
+		}
+
+		private void ExportCacheArchive(string p_strCacheSource, string p_strDestinationFolder)
+		{
+			ZipFile.ExtractToDirectory(p_strCacheSource, p_strDestinationFolder);
+
+			FileUtil.ForceDelete(p_strCacheSource);
 		}
 
 		public static void copyDirectory(string strSource, string strDestination)
