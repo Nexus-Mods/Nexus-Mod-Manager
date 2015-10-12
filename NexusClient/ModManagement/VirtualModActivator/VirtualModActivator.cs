@@ -726,11 +726,12 @@ namespace Nexus.Client.ModManagement
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, Int32 p_intPriority)
 		{
-			return AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, p_booIsRestoring, false, p_intPriority);
+			return AddFileLink(p_modMod, p_strBaseFilePath, null, p_booIsSwitching, p_booIsRestoring, false, p_intPriority);
 		}
 
-		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority)
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority)
 		{
+			string strSourceFile = p_strSourceFile;
 			string strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
 			string strAdjustedFilePath = GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true);
 			string strVirtualFileLink = String.Empty;
@@ -740,7 +741,7 @@ namespace Nexus.Client.ModManagement
 			else
 				strVirtualFileLink = Path.Combine(m_strGameDataPath, strAdjustedFilePath);
 
-			string strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
+			string strActivatorFilePath = String.IsNullOrWhiteSpace(strSourceFile) ? Path.Combine(m_strVirtualActivatorPath, strRealFilePath) : strSourceFile;
 			if (!File.Exists(strActivatorFilePath))
 			{
 				strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
@@ -751,11 +752,15 @@ namespace Nexus.Client.ModManagement
 					strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
 				}
 			}
+			else
+			{
+				strActivatorFilePath = strSourceFile;
+			}
 
 			string strLinkFilePath = String.Empty;
 			if (MultiHDMode)
 			{
-				strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
+				strLinkFilePath = String.IsNullOrWhiteSpace(strSourceFile) ? Path.Combine(HDLinkFolder, strRealFilePath) : strSourceFile;
 				if (!File.Exists(strLinkFilePath))
 				{
 					strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true));
@@ -765,6 +770,10 @@ namespace Nexus.Client.ModManagement
 						strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
 						strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
 					}
+				}
+				else
+				{
+					strLinkFilePath = strSourceFile;
 				}
 			}
 
@@ -1038,7 +1047,7 @@ namespace Nexus.Client.ModManagement
 				{
 					string strFile = File.Replace((strModFolderPath + Path.DirectorySeparatorChar), String.Empty);
 
-					string strFileLink = ModLinkInstaller.AddFileLink(p_modMod, strFile, false);
+					string strFileLink = ModLinkInstaller.AddFileLink(p_modMod, strFile, File, false);
 					
 					if (!string.IsNullOrEmpty(strFileLink))
 						if (PluginManager != null)

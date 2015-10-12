@@ -48,7 +48,7 @@ namespace Nexus.Client.ModManagement
 		bool PurgeLinks();
 		void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, Int32 p_intPriority);
 		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, Int32 p_intPriority);
-		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority);
+		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority);
 		void RemoveFileLink(string p_strFilePath, IMod p_modMod);
 		void RemoveFileLink(IVirtualModLink p_ivlVirtualLink, IMod p_modMod);
 		void UpdateLinkPriority(List<IVirtualModLink> lstFileLinks);

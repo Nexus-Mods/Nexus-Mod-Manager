@@ -258,7 +258,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				string strVirtualPath = Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), p_strTo);
 
 				Installers.FileInstaller.InstallFileFromMod(p_strFrom, strVirtualPath);
-				m_mliModLinkInstaller.AddFileLink(Mod, p_strTo, true);
+				m_mliModLinkInstaller.AddFileLink(Mod, p_strTo, strVirtualPath, true);
 
 				booSuccess = true;
 			}

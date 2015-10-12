@@ -222,7 +222,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				string strVirtualPath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strTo);
 
 				Installers.FileInstaller.InstallFileFromMod(strFrom, strVirtualPath);
-				string strCheck = ModLinkInstaller.AddFileLink(Mod, strTo, true, true);
+				string strCheck = ModLinkInstaller.AddFileLink(Mod, strTo, strVirtualPath, true, true);
 
 				booSuccess = true;
 				if (!String.IsNullOrEmpty(strCheck))
@@ -406,7 +406,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				string strVirtualPath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strPath);
 
 				Installers.FileInstaller.GenerateDataFile(strVirtualPath, p_bteData);
-				ModLinkInstaller.AddFileLink(Mod, strPath, true);
+				ModLinkInstaller.AddFileLink(Mod, strPath, strVirtualPath, true);
 
 				booSuccess = true;
 			}
