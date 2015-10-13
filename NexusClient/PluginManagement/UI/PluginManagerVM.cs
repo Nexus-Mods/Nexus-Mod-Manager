@@ -764,41 +764,11 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_booSortingOnly">Whether we just want to apply the sorting.</param>
 		public void ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly)
 		{
-			Transactions.TransactionScope tsTransaction = null;
-			try
-			{
-				tsTransaction = new Transactions.TransactionScope();
-
-				if (!p_booSortingOnly)
-				{
-					foreach (KeyValuePair<Plugin, string> kvp in p_kvpRegisteredPlugins)
-					{
-						if (kvp.Value == "1")
-						{
-							if (PluginManager.CanChangeActiveState(kvp.Key))
-								PluginManager.ActivatePlugin(kvp.Key);
-						}
-						if (kvp.Value == "0")
-						{
-							if (PluginManager.CanChangeActiveState(kvp.Key))
-								PluginManager.DeactivatePlugin(kvp.Key);
-						}
-					}
-				}
-
-				PluginManager.SetPluginOrder(p_kvpRegisteredPlugins.Keys.ToList());
-
-				tsTransaction.Complete();
-			}
-			catch
-			{
-				throw;
-			}
-			finally
-			{
-				if (tsTransaction != null)
-					tsTransaction.Dispose();
-			}
+			ApplyLoadOrderTask altApplyLoadOrder = new ApplyLoadOrderTask(PluginManager, p_kvpRegisteredPlugins, p_booSortingOnly);
+			if (CurrentGameMode.LoadOrderManager != null)
+				CurrentGameMode.LoadOrderManager.MonitorExternalTask(altApplyLoadOrder);
+			else
+				altApplyLoadOrder.Update();
 		}
 
 		/// <summary>

@@ -162,6 +162,7 @@
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
     <Compile Include="PluginManagement\AutoPluginSortingTask.cs" />
+    <Compile Include="PluginManagement\ApplyLoadOrderTask.cs" />
     <Compile Include="PluginManagement\ManageMultiplePluginsTask.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -93,7 +93,7 @@ namespace Nexus.Client.Games.Fallout3
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BOSS"))
 			{
 				strBOSS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"];
-				if (strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+				if (!String.IsNullOrWhiteSpace(strBOSS) && (strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 				{
 					strBOSS = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = String.Empty;
@@ -137,7 +137,7 @@ namespace Nexus.Client.Games.Fallout3
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("LOOT"))
 			{
 				strLOOT = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"];
-				if (strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+				if (!String.IsNullOrWhiteSpace(strLOOT) && (strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 				{
 					strLOOT = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = String.Empty;

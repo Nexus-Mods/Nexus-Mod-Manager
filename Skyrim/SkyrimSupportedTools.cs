@@ -207,7 +207,7 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BOSS"))
 			{
 				strBOSS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"];
-				if (strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+				if (!String.IsNullOrWhiteSpace(strBOSS) && (strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 				{
 					strBOSS = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = String.Empty;
@@ -255,7 +255,7 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("LOOT"))
 			{
 				strLOOT = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"];
-				if (strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+				if (!String.IsNullOrWhiteSpace(strLOOT) && (strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 				{
 					strLOOT = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = String.Empty;
@@ -334,7 +334,7 @@ namespace Nexus.Client.Games.Skyrim
 			{
 				strFNIS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"];
 				if (!String.IsNullOrEmpty(strFNIS))
-					if (strFNIS.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+					if (!String.IsNullOrWhiteSpace(strFNIS) && (strFNIS.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 					{
 						strFNIS = String.Empty;
 						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"] = String.Empty;
@@ -372,7 +372,7 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BS2"))
 			{
 				strBS2 = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
-				if (!String.IsNullOrEmpty(strBS2))
+				if (!String.IsNullOrWhiteSpace(strBS2) && (strBS2.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 					if (strBS2.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
 					{
 						strBS2 = String.Empty;
@@ -410,7 +410,7 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("DSRP"))
 			{
 				strDSRP = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"];
-				if (!String.IsNullOrEmpty(strDSRP))
+				if (!String.IsNullOrWhiteSpace(strDSRP) && (strDSRP.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 					if (strDSRP.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
 					{
 						strDSRP = String.Empty;
@@ -448,7 +448,7 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("PM"))
 			{
 				strPM = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"];
-				if (!String.IsNullOrEmpty(strPM))
+				if (!String.IsNullOrWhiteSpace(strPM) && (strPM.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
 					if (strPM.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
 					{
 						strPM = String.Empty;

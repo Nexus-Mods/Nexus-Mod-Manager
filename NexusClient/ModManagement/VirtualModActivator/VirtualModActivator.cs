@@ -752,10 +752,6 @@ namespace Nexus.Client.ModManagement
 					strActivatorFilePath = Path.Combine(m_strVirtualActivatorPath, strRealFilePath);
 				}
 			}
-			else
-			{
-				strActivatorFilePath = strSourceFile;
-			}
 
 			string strLinkFilePath = String.Empty;
 			if (MultiHDMode)
@@ -770,10 +766,6 @@ namespace Nexus.Client.ModManagement
 						strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
 						strLinkFilePath = Path.Combine(HDLinkFolder, strRealFilePath);
 					}
-				}
-				else
-				{
-					strLinkFilePath = strSourceFile;
 				}
 			}
 
