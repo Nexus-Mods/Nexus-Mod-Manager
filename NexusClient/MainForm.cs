@@ -992,7 +992,7 @@ namespace Nexus.Client
 							strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
 					
 					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null, strOptionalFiles);
+					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, strOptionalFiles);
 				}
 			}
 		}

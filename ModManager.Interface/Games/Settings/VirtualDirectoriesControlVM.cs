@@ -378,12 +378,12 @@ namespace Nexus.Client.Games.Settings
 			bool? booMulti = null;
 			bool booChanged = false;
 
-			if (!String.Equals(EnvironmentInfo.Settings.VirtualFolder[GameModeDescriptor.ModeId], VirtualDirectory))
+			if (!String.Equals(EnvironmentInfo.Settings.VirtualFolder[GameModeDescriptor.ModeId], VirtualDirectory, StringComparison.OrdinalIgnoreCase))
 			{
 				strVirtual = VirtualDirectory;
 				booChanged = true;
 			}
-			if (!String.Equals(EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId], LinkDirectory))
+			if (!String.Equals(EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId], LinkDirectory, StringComparison.OrdinalIgnoreCase))
 			{
 				strLink = LinkDirectory;
 				booChanged = true;
@@ -391,6 +391,8 @@ namespace Nexus.Client.Games.Settings
 			if (MultiHDInstall == !EnvironmentInfo.Settings.MultiHDInstall[GameModeDescriptor.ModeId])
 			{
 				booMulti = MultiHDInstall;
+				if (MultiHDInstall == false)
+					strLink = String.Empty;
 				booChanged = true;
 			}
 
