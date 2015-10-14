@@ -755,7 +755,7 @@ namespace Nexus.Client
 		/// services didn't initialize properly.</returns>
 		protected ServiceManager InitializeServices(IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, NexusFileUtil p_nfuFileUtility, SynchronizationContext p_scxUIContext, out ViewMessage p_vwmErrorMessage)
 		{
-			IModCacheManager mcmModCacheManager = new NexusModCacheManager(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, p_nfuFileUtility);
+			IModCacheManager mcmModCacheManager = new NexusModCacheManager(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, p_nfuFileUtility, EnvironmentInfo);
 
 			Trace.TraceInformation("Registering supported Script Types...");
 			Trace.Indent();

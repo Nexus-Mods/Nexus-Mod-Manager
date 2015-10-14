@@ -451,7 +451,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_strPluginsDirectoryName">The name of the folder that contains plugins.</param>
 		/// <param name="p_mcmModCacheManager">The manager for the current game mode's mod cache.</param>
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
-		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IEnumerable<string> p_enmStopFolders, string p_strPluginsDirectoryName, IEnumerable<string> p_enmPluginExtensions, IEnvironmentInfo p_eiEnvironmentInfo, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins, bool p_booNestedArchives)
+		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IEnumerable<string> p_enmStopFolders, string p_strPluginsDirectoryName, IEnumerable<string> p_enmPluginExtensions, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins, bool p_booNestedArchives)
 		{
 			StopFolders = new List<string>(p_enmStopFolders);
 			if (!StopFolders.Contains("fomod", StringComparer.OrdinalIgnoreCase))
@@ -476,7 +476,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
 
-			p_mcmModCacheManager.MigrateCacheFile(this, p_eiEnvironmentInfo);
+			p_mcmModCacheManager.MigrateCacheFile(this);
 
 			#region Check for cacheInfo.txt file
 
@@ -630,7 +630,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					if (!String.IsNullOrEmpty(m_strScreenshotPath))
 						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(m_strScreenshotPath)), GetFile(m_strScreenshotPath));
 
-					p_mcmModCacheManager.CreateCacheFile(this, strTmpInfo, p_eiEnvironmentInfo);
+					p_mcmModCacheManager.CreateCacheFile(this, strTmpInfo);
 				}
 				finally
 				{

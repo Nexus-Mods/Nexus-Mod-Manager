@@ -39,6 +39,12 @@ namespace Nexus.Client.Mods
 		/// <value>The file utility class.</value>
 		public FileUtil FileUtility { get; private set; }
 
+		/// <summary>
+		/// Gets the application's envrionment info.
+		/// </summary>
+		/// <value>The application's envrionment info.</value>
+		public IEnvironmentInfo EnvironmentInfo { get; private set; }
+
 		protected bool m_booCacheOverhaulSetup = false;
 
 		#endregion
@@ -51,11 +57,12 @@ namespace Nexus.Client.Mods
 		/// <param name="p_strModCacheDirectory">The path of the directory where the current Game Mode's mods' cache files are stored.</param>
 		/// <param name="p_strModDirectory">The path of the directory where the current Game Mode's mod files are stored.</param>
 		/// <param name="p_futFileUtility">The file utility class.</param>
-		public NexusModCacheManager(string p_strModCacheDirectory, string p_strModDirectory, FileUtil p_futFileUtility)
+		public NexusModCacheManager(string p_strModCacheDirectory, string p_strModDirectory, FileUtil p_futFileUtility, IEnvironmentInfo p_eifEnvironmentInfo)
 		{
 			ModCacheDirectory = p_strModCacheDirectory;
 			ModDirectory = p_strModDirectory;
 			FileUtility = p_futFileUtility;
+			EnvironmentInfo = p_eifEnvironmentInfo;
 			CheckModCache();
 		}
 
@@ -163,7 +170,7 @@ namespace Nexus.Client.Mods
 		/// <param name="p_strFilesToCacheFolder">The folder containing the files to put into the cache.</param>
 		/// <returns>The cache file for the specified mod, or <c>null</c>
 		/// if there were no files to cache.</returns>
-		public void CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder, IEnvironmentInfo p_eiEnvironmentInfo)
+		public void CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder)
 		{
 			if (!String.IsNullOrEmpty(p_strFilesToCacheFolder))
 			{
@@ -178,7 +185,7 @@ namespace Nexus.Client.Mods
 						{
 							if (File.Exists(strArcCacheFile))
 							{
-								ExportCacheArchive(strArcCacheFile, strCachePath, p_eiEnvironmentInfo.Settings.CacheOverhaulSetup);
+								ExportCacheArchive(strArcCacheFile, strCachePath, EnvironmentInfo.Settings.CacheOverhaulSetup);
 							}
 							else
 							{
@@ -198,7 +205,7 @@ namespace Nexus.Client.Mods
 		/// Migrates the cache zip file for the given mod to the cache folder.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to create the cache file.</param>
-		public void MigrateCacheFile(IMod p_modMod, IEnvironmentInfo p_eiEnvironmentInfo)
+		public void MigrateCacheFile(IMod p_modMod)
 		{
 			string strArcCacheFile = Path.Combine(ModCacheDirectory, Path.GetFileName(p_modMod.Filename) + ".zip");
 			string strCachePath = Path.Combine(ModCacheDirectory, Path.GetFileNameWithoutExtension(p_modMod.Filename));
@@ -209,7 +216,7 @@ namespace Nexus.Client.Mods
 				{
 					if (File.Exists(strArcCacheFile))
 					{
-						if (!p_eiEnvironmentInfo.Settings.CacheOverhaulSetup)
+						if (!EnvironmentInfo.Settings.CacheOverhaulSetup)
 						{
 							string strMessage = "This new version changes the way NMM handles its cache. This update is designed to make NMM load faster. As a result the old caching system is no longer necessary. " + Environment.NewLine + Environment.NewLine +
 							"This prompt is here to ask you what you would like to do with the files on your hard-drive used by NMM for the old caching system. We estimate this system used around 1MB - 100MB of space on your hard-drive, depending on how many mods you have installed in NMM. " + Environment.NewLine + Environment.NewLine +
@@ -222,8 +229,8 @@ namespace Nexus.Client.Mods
 								m_booCacheOverhaulSetup = true;
 							}
 
-							p_eiEnvironmentInfo.Settings.CacheOverhaulSetup = true;
-							p_eiEnvironmentInfo.Settings.Save();
+							EnvironmentInfo.Settings.CacheOverhaulSetup = true;
+							EnvironmentInfo.Settings.Save();
 						}
 
 						ExportCacheArchive(strArcCacheFile, strCachePath, m_booCacheOverhaulSetup);
@@ -237,7 +244,11 @@ namespace Nexus.Client.Mods
 
 		private void ExportCacheArchive(string p_strCacheSource, string p_strDestinationFolder, bool p_booCacheOverhaulSetup)
 		{
-			ZipFile.ExtractToDirectory(p_strCacheSource, p_strDestinationFolder);
+			try
+			{
+				ZipFile.ExtractToDirectory(p_strCacheSource, p_strDestinationFolder);
+			}
+			catch { }
 
 			if (p_booCacheOverhaulSetup)
 				FileUtil.ForceDelete(p_strCacheSource);
