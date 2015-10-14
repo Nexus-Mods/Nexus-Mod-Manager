@@ -35,6 +35,12 @@ namespace Nexus.Client.Settings
 		bool InstalledGamesDetected { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether or not the client should manage the new Cache System.
+		/// </summary>
+		/// <value>The id of the remembered game mode.</value>
+		bool CacheOverhaulSetup { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the selected game mode should be rememberd the next time the client is started.
 		/// </summary>
 		/// <value>Whether the selected game mode should be rememberd the next time the client is started.</value>

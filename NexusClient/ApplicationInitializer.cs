@@ -784,7 +784,7 @@ namespace Nexus.Client
 			ModRegistry mrgModRegistry = null;
 			try
 			{
-				mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_LINK_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, ProfileManager.PROFILE_FOLDER));
+				mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, EnvironmentInfo, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_LINK_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, ProfileManager.PROFILE_FOLDER));
 			}
 			catch (UnauthorizedAccessException ex)
 			{
