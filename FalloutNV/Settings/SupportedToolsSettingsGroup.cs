@@ -185,6 +185,9 @@ namespace Nexus.Client.Games.FalloutNV
 		{
 			string strBOSSPath = String.Empty;
 			string strBOSSReg = String.Empty;
+			string strLOOTPath = String.Empty;
+			string strLOOTReg = String.Empty;
+
 			if (IntPtr.Size == 8)
 				strBOSSReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
 			else
@@ -195,13 +198,21 @@ namespace Nexus.Client.Games.FalloutNV
 
 			if (String.IsNullOrEmpty(strBOSSPath))
 				if (RegistryUtil.CanReadKey(strBOSSReg))
-					strBOSSPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+				{
+					string strRegPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strBOSSPath = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"] = strBOSSPath;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strBOSSPath = strRegPath;
+				}
 
 			if (!String.IsNullOrEmpty(strBOSSPath))
 				BOSSDirectory = strBOSSPath;
 
-			string strLOOTPath = String.Empty;
-			string strLOOTReg = String.Empty;
 			if (IntPtr.Size == 8)
 				strLOOTReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\LOOT\";
 			else
@@ -212,7 +223,17 @@ namespace Nexus.Client.Games.FalloutNV
 
 			if (String.IsNullOrEmpty(strLOOTPath))
 				if (RegistryUtil.CanReadKey(strLOOTReg))
-					strLOOTPath = (string)Registry.GetValue(strLOOTReg, "Installed Path", null);
+				{
+					string strRegPath = (string)Registry.GetValue(strLOOTReg, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strLOOTPath = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["LOOT"] = strLOOTPath;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strLOOTPath = strRegPath;
+				}
 
 			if (!String.IsNullOrEmpty(strLOOTPath))
 				LOOTDirectory = strLOOTPath;

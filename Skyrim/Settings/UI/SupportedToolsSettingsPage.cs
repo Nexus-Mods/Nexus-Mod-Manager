@@ -52,7 +52,7 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);
 			lblFNISPrompt.Text = String.Format(lblFNISPrompt.Text, p_stsSettings.GameModeName);
 			lblBS2Prompt.Text = String.Format(lblBS2Prompt.Text, p_stsSettings.GameModeName);
-			lblTES5EditPrompt.Text = String.Format(lblTES5EditPrompt.Text, p_stsSettings.GameModeName);			
+			lblTES5EditPrompt.Text = String.Format(lblTES5EditPrompt.Text, p_stsSettings.GameModeName);
 		}
 
 		#endregion

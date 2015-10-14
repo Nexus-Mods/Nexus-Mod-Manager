@@ -196,7 +196,6 @@ namespace Nexus.Client.Games.Skyrim
 		/// <returns>The BOSS launch command.</returns>
 		private string GetBOSSLaunchCommand()
 		{
-			bool booEmptySettings = true;
 			string strBOSS = String.Empty;
 			string strRegBoss = String.Empty;
 			if (IntPtr.Size == 8)
@@ -207,35 +206,32 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BOSS"))
 			{
 				strBOSS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"];
-				if (!String.IsNullOrWhiteSpace(strBOSS) && (strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
+				if (!String.IsNullOrWhiteSpace(strBOSS) && ((strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBOSS)))
 				{
 					strBOSS = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = String.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
-				else
-					booEmptySettings = false;
 			}
 
 			if (String.IsNullOrEmpty(strBOSS))
 				if (RegistryUtil.CanReadKey(strRegBoss))
-					strBOSS = (string)Registry.GetValue(strRegBoss, "Installed Path", null);
-
-			if (!String.IsNullOrEmpty(strBOSS))
-			{
-				if (booEmptySettings)
 				{
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = strBOSS;
-					EnvironmentInfo.Settings.Save();
+					string strRegPath = (string)Registry.GetValue(strRegBoss, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strBOSS = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = strBOSS;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strBOSS = strRegPath;
 				}
-				strBOSS = Path.Combine(strBOSS, "boss.exe");
-			}
 
 			if (!String.IsNullOrWhiteSpace(strBOSS))
-				if (File.Exists(strBOSS))
-					return strBOSS;
+				strBOSS = Path.Combine(strBOSS, "boss.exe");
 
-			return null;
+			return strBOSS;
 		}
 
 		/// <summary>
@@ -244,7 +240,6 @@ namespace Nexus.Client.Games.Skyrim
 		/// <returns>The LOOT launch command.</returns>
 		private string GetLOOTLaunchCommand()
 		{
-			bool booEmptySettings = true;
 			string strLOOT = String.Empty;
 			string strRegLOOT = String.Empty;
 			if (IntPtr.Size == 8)
@@ -255,35 +250,32 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("LOOT"))
 			{
 				strLOOT = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"];
-				if (!String.IsNullOrWhiteSpace(strLOOT) && (strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
+				if (!String.IsNullOrWhiteSpace(strLOOT) && ((strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strLOOT)))
 				{
 					strLOOT = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = String.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
-				else
-					booEmptySettings = false;
 			}
 
 			if (String.IsNullOrEmpty(strLOOT))
 				if (RegistryUtil.CanReadKey(strRegLOOT))
-					strLOOT = (string)Registry.GetValue(strRegLOOT, "Installed Path", null);
-
-			if (!String.IsNullOrEmpty(strLOOT))
-			{
-				if (booEmptySettings)
 				{
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = strLOOT;
-					EnvironmentInfo.Settings.Save();
+					string strRegPath = (string)Registry.GetValue(strRegLOOT, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strLOOT = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = strLOOT;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strLOOT = strRegPath;
 				}
-				strLOOT = Path.Combine(strLOOT, "LOOT.exe");
-			}
 
 			if (!String.IsNullOrWhiteSpace(strLOOT))
-				if (File.Exists(strLOOT))
-					return strLOOT;
-
-			return null;
+				strLOOT = Path.Combine(strLOOT, "LOOT.exe");
+		
+			return strLOOT;
 		}
 
 		/// <summary>
@@ -333,30 +325,27 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("FNIS"))
 			{
 				strFNIS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"];
-				if (!String.IsNullOrEmpty(strFNIS))
-					if (!String.IsNullOrWhiteSpace(strFNIS) && (strFNIS.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
-					{
-						strFNIS = String.Empty;
-						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"] = String.Empty;
-						EnvironmentInfo.Settings.Save();
-					}
-					else
-						strFNIS = Path.Combine(strFNIS, @"GenerateFNISforUsers.exe");
+				if (!String.IsNullOrWhiteSpace(strFNIS) && ((strFNIS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strFNIS)))
+				{
+					strFNIS = String.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"] = String.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
 
 			if (String.IsNullOrEmpty(strFNIS))
 			{
 				string strFNISPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\tools\GenerateFNIS_for_Users");
 				if (Directory.Exists(strFNISPath))
+				{
 					strFNIS = strFNISPath;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"] = strFNIS;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
 
 			if (!String.IsNullOrEmpty(strFNIS))
-			{
-				EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"] = strFNIS;
-				EnvironmentInfo.Settings.Save();
 				strFNIS = Path.Combine(strFNIS, "GenerateFNISforUsers.exe");
-			}
 
 			return strFNIS;
 		}
@@ -372,29 +361,27 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BS2"))
 			{
 				strBS2 = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
-				if (!String.IsNullOrWhiteSpace(strBS2) && (strBS2.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
-					if (strBS2.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
-					{
-						strBS2 = String.Empty;
-						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = String.Empty;
-						EnvironmentInfo.Settings.Save();
-					}
-					else
-						strBS2 = Path.Combine(strBS2, @"BodySlide.exe");
+				if (!String.IsNullOrWhiteSpace(strBS2) && ((strBS2.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBS2)))
+				{
+					strBS2 = String.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = String.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
 
 			if (String.IsNullOrEmpty(strBS2))
 			{
 				string strBS2Path = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
 				if (Directory.Exists(strBS2Path))
+				{
 					strBS2 = strBS2Path;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = strBS2;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
+
 			if (!String.IsNullOrEmpty(strBS2))
-			{
-				EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = strBS2;
-				EnvironmentInfo.Settings.Save();
 				strBS2 = Path.Combine(strBS2, "BodySlide.exe");
-			}
 
 			return strBS2;
 		}
@@ -410,29 +397,27 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("DSRP"))
 			{
 				strDSRP = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"];
-				if (!String.IsNullOrWhiteSpace(strDSRP) && (strDSRP.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
-					if (strDSRP.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
-					{
-						strDSRP = String.Empty;
-						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"] = String.Empty;
-						EnvironmentInfo.Settings.Save();
-					}
-					else
-						strDSRP = Path.Combine(strDSRP, @"Dual Sheath Redux Patch.jar");
+				if (!String.IsNullOrWhiteSpace(strDSRP) && ((strDSRP.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strDSRP)))
+				{
+					strDSRP = String.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"] = String.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
 
 			if (String.IsNullOrEmpty(strDSRP))
 			{
 				string strDSRPPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\SkyProc Patchers\Dual Sheath Redux Patch");
 				if (Directory.Exists(strDSRPPath))
+				{
 					strDSRP = strDSRPPath;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"] = strDSRP;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
+
 			if (!String.IsNullOrEmpty(strDSRP))
-			{
-				EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"] = strDSRP;
-				EnvironmentInfo.Settings.Save();
 				strDSRP = Path.Combine(strDSRP, "Dual Sheath Redux Patch.jar");
-			}
 
 			return strDSRP;
 		}
@@ -448,32 +433,31 @@ namespace Nexus.Client.Games.Skyrim
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("PM"))
 			{
 				strPM = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"];
-				if (!String.IsNullOrWhiteSpace(strPM) && (strPM.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
-					if (strPM.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
-					{
-						strPM = String.Empty;
-						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"] = String.Empty;
-						EnvironmentInfo.Settings.Save();
-					}
-					else
-						strPM = Path.Combine(strPM, @"PatchusMaximus.jar");
+				if (!String.IsNullOrWhiteSpace(strPM) && ((strPM.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strPM)))
+				{
+					strPM = String.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"] = String.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
 
 			if (String.IsNullOrEmpty(strPM))
 			{
 				string strPMPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\SkyProc Patchers\T3nd0_PatchusMaximus");
 				if (Directory.Exists(strPMPath))
+				{
 					strPM = strPMPath;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"] = strPM;
+					EnvironmentInfo.Settings.Save();
+				}
 			}
+
 			if (!String.IsNullOrEmpty(strPM))
-			{
-				EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"] = strPM;
-				EnvironmentInfo.Settings.Save();
 				strPM = Path.Combine(strPM, "PatchusMaximus.jar");
-			}
 
 			return strPM;
 		}
+
 		#endregion
 	}
 }
