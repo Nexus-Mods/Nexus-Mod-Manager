@@ -79,7 +79,7 @@ namespace Nexus.Client.Mods
 		/// <param name="p_strPath">The path of the file from which to create an <see cref="IMod"/>.</param>
 		/// <param name="p_gmdGameMode">The game mode for which to create the plugin.</param>
 		/// <returns>A mod from the specified file.</returns>
-		IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode, IEnvironmentInfo p_eiEnvironmentInfo);
+		IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode);
 
 		/// <summary>
 		/// Gets a <see cref="IModCompressor"/> that can compress a source folder into

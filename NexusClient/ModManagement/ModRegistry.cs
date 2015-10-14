@@ -153,7 +153,7 @@ namespace Nexus.Client.ModManagement
 			lstFormats.Sort((x, y) => -x.Key.CompareTo(y.Key));
 			if (lstFormats[0].Key <= FormatConfidence.Convertible)
 				return null;
-			return lstFormats[0].Value.CreateMod(p_strModPath, p_gmdGameMode, p_eiEnvironmentInfo);
+			return lstFormats[0].Value.CreateMod(p_strModPath, p_gmdGameMode);
 		}
 
 		/// <summary>
