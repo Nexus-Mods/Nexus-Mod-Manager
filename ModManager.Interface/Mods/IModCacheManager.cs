@@ -51,12 +51,12 @@ namespace Nexus.Client.Mods
 		/// <param name="p_strFilesToCacheFolder">The folder containing the files to put into the cache.</param>
 		/// <returns>The cache file for the specified mod, or <c>null</c>
 		/// if there were no files to cache.</returns>
-		void CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder);
+		void CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder, IEnvironmentInfo p_ieEnvironmentInfo);
 
 		/// <summary>
 		/// Migrates the cache zip file for the given mod to the cache folder.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to create the cache file.</param>
-		void MigrateCacheFile(IMod p_modMod);
+		void MigrateCacheFile(IMod p_modMod, IEnvironmentInfo p_eiEnvironmentInfo);
 	}
 }

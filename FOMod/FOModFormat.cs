@@ -135,12 +135,12 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// </remarks>
 		/// <param name="p_strPath">The path of the file from which to create an <see cref="IMod"/>.</param>
 		/// <returns>A mod from the specified file.</returns>
-		public IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode)
+		public IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode, IEnvironmentInfo p_eiEnvironmentInfo)
 		{
 			if (CheckFormatCompliance(p_strPath) <= FormatConfidence.Convertible)
 				throw new ModFormatException(this);
-			
-			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins, (p_gmdGameMode.ModeId.StartsWith("DragonAge", StringComparison.InvariantCultureIgnoreCase)));
+
+			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, p_eiEnvironmentInfo, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins, (p_gmdGameMode.ModeId.StartsWith("DragonAge", StringComparison.InvariantCultureIgnoreCase)));
 		}
 
 		/// <summary>

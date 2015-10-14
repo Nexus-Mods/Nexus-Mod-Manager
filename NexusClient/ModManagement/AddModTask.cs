@@ -985,7 +985,7 @@ namespace Nexus.Client.ModManagement
 						if (m_mrgModRegistry.RegisteredMods.SingleOrDefault(x => x.Filename == strMod) == null)
 						{
 							if (m_eifEnvironmentInfo.Settings.AddMissingInfoToMods)
-								m_mrgModRegistry.RegisterMod(strMod, ModInfo);
+								m_mrgModRegistry.RegisterMod(strMod, ModInfo, m_eifEnvironmentInfo);
 							else
 								m_mrgModRegistry.RegisterMod(strMod);
 						}

@@ -397,6 +397,7 @@ namespace Nexus.Client
 					j++;
 				}
 				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
+				m_eifEnvironmentInfo.Settings.CacheOverhaulSetup = false;
 				m_eifEnvironmentInfo.Settings.Save();
 			}
 			GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(p_gmrSupportedGameModes, m_eifEnvironmentInfo);

@@ -8,6 +8,9 @@
     <Setting Name="InstalledGamesDetected" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+	<Setting Name="CacheOverhaulSetup" Type="System.Boolean" Scope="User">
+	 <Value Profile="(Default)">False</Value>
+	</Setting>
     <Setting Name="RememberedGameMode" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>

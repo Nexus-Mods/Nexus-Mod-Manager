@@ -488,7 +488,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_mftModFormat">The format of the mod.</param>
 		/// <param name="p_mcmModCacheManager">The manager for the current game mode's mod cache.</param>
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
-		public OMod(string p_strFilePath, OModFormat p_mftModFormat, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry)
+		public OMod(string p_strFilePath, OModFormat p_mftModFormat, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, IEnvironmentInfo p_eiEnvironmentInfo)
 		{
 			Format = p_mftModFormat;
 			m_strFilePath = p_strFilePath;
@@ -506,7 +506,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			m_strCachePath = strCachePath;
 
 			if (!IsPacked)
-				InitializeUnpackedOmod(p_booUseCache, p_mcmModCacheManager, p_stgScriptTypeRegistry);
+				InitializeUnpackedOmod(p_booUseCache, p_mcmModCacheManager, p_stgScriptTypeRegistry, p_eiEnvironmentInfo);
 			else
 				InitializePackedOmod(p_stgScriptTypeRegistry);
 			m_arcFile.FilesChanged += new EventHandler(Archive_FilesChanged);
@@ -522,7 +522,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_booUseCache">Whether to use the mod cache.</param>
 		/// <param name="p_mcmModCacheManager">The manager for the current game mode's mod cache.</param>
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
-		private void InitializeUnpackedOmod(bool p_booUseCache, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry)
+		private void InitializeUnpackedOmod(bool p_booUseCache, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, IEnvironmentInfo p_eiEnvironmentInfo)
 		{
 			//if (p_booUseCache)
 			//{
@@ -535,7 +535,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			//		m_arcCacheFile = null;
 			//	}
 			//}
-			p_mcmModCacheManager.MigrateCacheFile(this);	
+			p_mcmModCacheManager.MigrateCacheFile(this, p_eiEnvironmentInfo);		
 
 			//check for script
 			m_booHasInstallScript = false;
@@ -591,7 +591,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 					if (m_booHasScreenshot)
 						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(Path.Combine(CONVERSION_FOLDER, ScreenshotPath))), GetSpecialFile(ScreenshotPath));
 
-					p_mcmModCacheManager.CreateCacheFile(this, strTmpInfo);
+					p_mcmModCacheManager.CreateCacheFile(this, strTmpInfo, p_eiEnvironmentInfo);
 				}
 				finally
 				{
