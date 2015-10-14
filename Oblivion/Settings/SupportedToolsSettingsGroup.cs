@@ -220,7 +220,17 @@ namespace Nexus.Client.Games.Oblivion
 
 			if (String.IsNullOrEmpty(strBOSSPath))
 				if (RegistryUtil.CanReadKey(strBOSSReg))
-					strBOSSPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+				{
+					string strRegPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strBOSSPath = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"] = strBOSSPath;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strBOSSPath = strRegPath;
+				}
 
 			if (!String.IsNullOrEmpty(strBOSSPath))
 				BOSSDirectory = strBOSSPath;

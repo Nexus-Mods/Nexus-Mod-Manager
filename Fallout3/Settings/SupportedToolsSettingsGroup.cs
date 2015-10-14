@@ -158,17 +158,28 @@ namespace Nexus.Client.Games.Fallout3
 		{
 			string strBOSSPath = String.Empty;
 			string strBOSSReg = String.Empty;
+
 			if (IntPtr.Size == 8)
 				strBOSSReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
 			else
 				strBOSSReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\BOSS\";
 
-			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BOSS"))
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BOSS"))
 				strBOSSPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"];
 
 			if (String.IsNullOrEmpty(strBOSSPath))
 				if (RegistryUtil.CanReadKey(strBOSSReg))
-					strBOSSPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+				{
+					string strRegPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strBOSSPath = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"] = strBOSSPath;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strBOSSPath = strRegPath;
+				}
 
 			if (!String.IsNullOrEmpty(strBOSSPath))
 				BOSSDirectory = strBOSSPath;

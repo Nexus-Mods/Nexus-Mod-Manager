@@ -277,6 +277,15 @@ namespace Nexus.Client.Games.Skyrim
 			{
 				return true;
 			}
+			if (Directory.Exists(p_strPath) || File.Exists(p_strPath))
+			{
+				FileAttributes attr = File.GetAttributes(p_strPath);
+				if (!attr.HasFlag(FileAttributes.Directory))
+				{
+					Errors.SetError(p_strProperty, String.Format("You need to select the FOLDER not the FILE: {0}.", p_strPathName));
+					return false;
+				}
+			}
 			if (p_strPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
 			{
 				Errors.SetError(p_strProperty, String.Format("The selected path is not valid: {0}.", p_strPathName));
@@ -407,6 +416,7 @@ namespace Nexus.Client.Games.Skyrim
 			string strDSRPPath = String.Empty;
 			string strPMPath = String.Empty;
 			string strTES5EditPath = String.Empty;
+			bool booReset = false;
 
 			if (IntPtr.Size == 8)
 				strBOSSReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
@@ -418,7 +428,17 @@ namespace Nexus.Client.Games.Skyrim
 
 			if (String.IsNullOrEmpty(strBOSSPath))
 				if (RegistryUtil.CanReadKey(strBOSSReg))
-					strBOSSPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+				{
+					string strRegPath = (string)Registry.GetValue(strBOSSReg, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strBOSSPath = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BOSS"] = strBOSSPath;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strBOSSPath = strRegPath;
+				}
 
 			if (!String.IsNullOrEmpty(strBOSSPath))
 				BOSSDirectory = strBOSSPath;
@@ -433,7 +453,17 @@ namespace Nexus.Client.Games.Skyrim
 
 			if (String.IsNullOrEmpty(strLOOTPath))
 				if (RegistryUtil.CanReadKey(strLOOTReg))
-					strLOOTPath = (string)Registry.GetValue(strLOOTReg, "Installed Path", null);
+				{
+					string strRegPath = (string)Registry.GetValue(strLOOTReg, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strLOOTPath = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["LOOT"] = strLOOTPath;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strLOOTPath = strRegPath;
+				}
 
 			if (!String.IsNullOrEmpty(strLOOTPath))
 				LOOTDirectory = strLOOTPath;
@@ -451,9 +481,25 @@ namespace Nexus.Client.Games.Skyrim
 
 				if (String.IsNullOrEmpty(strFNISPath))
 				{
+					booReset = true;
+				}
+				else if (Directory.Exists(strFNISPath) || File.Exists(strFNISPath))
+				{
+					FileAttributes attr = File.GetAttributes(strFNISPath);
+					booReset = !attr.HasFlag(FileAttributes.Directory);
+				}
+				else
+					booReset = true;
+
+				if (booReset)
+				{
 					string strFNIS = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\tools\GenerateFNIS_for_Users");
 					if (Directory.Exists(strFNIS))
 						strFNISPath = strFNIS;
+					else
+						strFNISPath = String.Empty;
+
+					booReset = false;
 				}
 
 				if (!String.IsNullOrEmpty(strFNISPath))
@@ -466,9 +512,25 @@ namespace Nexus.Client.Games.Skyrim
 
 				if (String.IsNullOrEmpty(strBS2Path))
 				{
+					booReset = true;
+				}
+				else if (Directory.Exists(strBS2Path) || File.Exists(strBS2Path))
+				{
+					FileAttributes attr = File.GetAttributes(strBS2Path);
+					booReset = !attr.HasFlag(FileAttributes.Directory);
+				}
+				else
+					booReset = true;
+
+				if (booReset)
+				{
 					string strBS2 = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\CalienteTools\BodySlide");
 					if (Directory.Exists(strBS2))
 						strBS2Path = strBS2;
+					else
+						strBS2Path = String.Empty;
+
+					booReset = false;
 				}
 
 				if (!String.IsNullOrEmpty(strBS2Path))
@@ -481,9 +543,25 @@ namespace Nexus.Client.Games.Skyrim
 
 				if (String.IsNullOrEmpty(strDSRPPath))
 				{
+					booReset = true;
+				}
+				else if (Directory.Exists(strDSRPPath) || File.Exists(strDSRPPath))
+				{
+					FileAttributes attr = File.GetAttributes(strDSRPPath);
+					booReset = !attr.HasFlag(FileAttributes.Directory);
+				}
+				else
+					booReset = true;
+
+				if (booReset)
+				{
 					string strDSRP = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\SkyProc Patchers\T3nd0_PatchusMaximus");
 					if (Directory.Exists(strDSRP))
 						strDSRPPath = strDSRP;
+					else
+						strDSRPPath = String.Empty;
+
+					booReset = false;
 				}
 
 				if (!String.IsNullOrEmpty(strDSRPPath))
@@ -496,9 +574,25 @@ namespace Nexus.Client.Games.Skyrim
 
 				if (String.IsNullOrEmpty(strPMPath))
 				{
-					string strPM = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\SkyProc Patchers\Dual Sheath Redux Patchs");
+					booReset = true;
+				}
+				else if (Directory.Exists(strPMPath) || File.Exists(strPMPath))
+				{
+					FileAttributes attr = File.GetAttributes(strPMPath);
+					booReset = !attr.HasFlag(FileAttributes.Directory);
+				}
+				else
+					booReset = true;
+
+				if (booReset)
+				{
+					string strPM = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\SkyProc Patchers\Dual Sheath Redux Patch");
 					if (Directory.Exists(strPM))
 						strPMPath = strPM;
+					else
+						strPMPath = String.Empty;
+
+					booReset = false;
 				}
 
 				if (!String.IsNullOrEmpty(strPMPath))

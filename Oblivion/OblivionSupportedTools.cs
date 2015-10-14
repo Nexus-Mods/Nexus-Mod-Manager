@@ -99,7 +99,6 @@ namespace Nexus.Client.Games.Oblivion
 		/// <returns>The BOSS launch command.</returns>
 		private string GetBOSSLaunchCommand()
 		{
-			bool booEmptySettings = true;
 			string strBOSS = String.Empty;
 			string strRegBoss = String.Empty;
 			if (IntPtr.Size == 8)
@@ -110,29 +109,30 @@ namespace Nexus.Client.Games.Oblivion
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BOSS"))
 			{
 				strBOSS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"];
-				if (!String.IsNullOrWhiteSpace(strBOSS) && (strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
+				if (!String.IsNullOrWhiteSpace(strBOSS) && ((strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBOSS)))
 				{
 					strBOSS = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = String.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
-				else
-					booEmptySettings = false;
 			}
 
 			if (String.IsNullOrEmpty(strBOSS))
 				if (RegistryUtil.CanReadKey(strRegBoss))
-					strBOSS = (string)Registry.GetValue(strRegBoss, "Installed Path", null);
-
-			if (!String.IsNullOrEmpty(strBOSS))
-			{
-				if (booEmptySettings)
 				{
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = strBOSS;
-					EnvironmentInfo.Settings.Save();
+					string strRegPath = (string)Registry.GetValue(strRegBoss, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strBOSS = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = strBOSS;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strBOSS = strRegPath;
 				}
+
+			if (!String.IsNullOrWhiteSpace(strBOSS))
 				strBOSS = Path.Combine(strBOSS, "boss.exe");
-			}
 
 			return strBOSS;
 		}
@@ -161,7 +161,6 @@ namespace Nexus.Client.Games.Oblivion
 		/// <returns>The LOOT launch command.</returns>
 		private string GetLOOTLaunchCommand()
 		{
-			bool booEmptySettings = true;
 			string strLOOT = String.Empty;
 			string strRegLOOT = String.Empty;
 			if (IntPtr.Size == 8)
@@ -172,29 +171,30 @@ namespace Nexus.Client.Games.Oblivion
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("LOOT"))
 			{
 				strLOOT = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"];
-				if (!String.IsNullOrWhiteSpace(strLOOT) && (strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0))
+				if (!String.IsNullOrWhiteSpace(strLOOT) && ((strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strLOOT)))
 				{
 					strLOOT = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = String.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
-				else
-					booEmptySettings = false;
 			}
 
 			if (String.IsNullOrEmpty(strLOOT))
 				if (RegistryUtil.CanReadKey(strRegLOOT))
-					strLOOT = (string)Registry.GetValue(strRegLOOT, "Installed Path", null);
-
-			if (!String.IsNullOrEmpty(strLOOT))
-			{
-				if (booEmptySettings)
 				{
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = strLOOT;
-					EnvironmentInfo.Settings.Save();
+					string strRegPath = (string)Registry.GetValue(strRegLOOT, "Installed Path", null);
+					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					{
+						strLOOT = String.Empty;
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = strLOOT;
+						EnvironmentInfo.Settings.Save();
+					}
+					else
+						strLOOT = strRegPath;
 				}
+
+			if (!String.IsNullOrWhiteSpace(strLOOT))
 				strLOOT = Path.Combine(strLOOT, "LOOT.exe");
-			}
 
 			return strLOOT;
 		}
