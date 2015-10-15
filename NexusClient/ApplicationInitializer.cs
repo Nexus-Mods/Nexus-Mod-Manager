@@ -105,7 +105,7 @@ namespace Nexus.Client
 			get
 			{
 				if (m_gmdGameMode == null)
-					throw new InvalidOperationException(String.Format("{0} cannot be accessed until the initializer has completed it's work.", ObjectHelper.GetPropertyName(() => GameMode)));
+					throw new InvalidOperationException(String.Format("{0} cannot be accessed until the initializer has completed its work.", ObjectHelper.GetPropertyName(() => GameMode)));
 				return m_gmdGameMode;
 			}
 			private set
