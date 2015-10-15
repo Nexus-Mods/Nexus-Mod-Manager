@@ -483,7 +483,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			xelRoot.Add(xelModList);
 			m_dicFileOwner = new Dictionary<string, IMod>();
 
-			foreach (KeyValuePair<IMod, string> mod in m_amrModKeys.Registrations.Where(x => !(x.Key is DummyMod) && CheckModKvp(x)))
+			foreach (KeyValuePair<IMod, string> mod in m_amrModKeys.Registrations.Where(x => !(x.Key is DummyMod)))
 			{
 				//List<InstalledItemDictionary<string, object>.ItemInstallers> lstItems = m_dicInstalledFiles.Where(x => CheckFileKvp(x) && (GetCurrentFileOwnerLogged(x.Item) != null) && (GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant())).ToList();
 				List<InstalledItemDictionary<string, object>.ItemInstallers> lstItems = m_dicInstalledFiles.Where(x => (GetCurrentFileOwnerLogged(x.Item) != null) && (GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant())).ToList();
