@@ -65,6 +65,7 @@ namespace Nexus.Client.ModManagement
 		protected void DeleteModFile(IMod p_modMod)
 		{
 			FileUtil.ForceDelete(p_modMod.Filename);
+			FileUtil.ForceDelete(Path.Combine(Path.GetDirectoryName(p_modMod.Filename), "cache", Path.GetFileNameWithoutExtension(p_modMod.Filename)));
 			FileUtil.ForceDelete(Path.Combine(Path.Combine(Path.GetDirectoryName(p_modMod.Filename), "cache"), Path.GetFileName(p_modMod.Filename) + ".zip"));
 		}
 	}
