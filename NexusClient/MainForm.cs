@@ -86,14 +86,14 @@ namespace Nexus.Client
 				m_vmlViewModel.MigratingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_MigratingMods);
 				m_vmlViewModel.ModManager.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
 				m_vmlViewModel.ModManager.VirtualModActivator.ModActivationChanged += new EventHandler(VirtualModActivator_ModActivationChanged);
-
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
-				pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
 				if (ViewModel.UsesPlugins)
 				{
-						m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
-						pmcPluginManager.ViewModel.PluginMoved += new EventHandler(pmcPluginManager_PluginMoved);
+					pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
+					m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
+					pmcPluginManager.ViewModel.PluginMoved += new EventHandler(pmcPluginManager_PluginMoved);
 				}
+
 				macModActivationMonitor.ViewModel = m_vmlViewModel.ModActivationMonitorVM;
 				dmcDownloadMonitor.ViewModel = m_vmlViewModel.DownloadMonitorVM;
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
