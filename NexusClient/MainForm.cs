@@ -86,12 +86,14 @@ namespace Nexus.Client
 				m_vmlViewModel.MigratingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_MigratingMods);
 				m_vmlViewModel.ModManager.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
 				m_vmlViewModel.ModManager.VirtualModActivator.ModActivationChanged += new EventHandler(VirtualModActivator_ModActivationChanged);
-				if (ViewModel.GameMode.UsesPlugins)
-					m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
 
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
+				pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
 				if (ViewModel.UsesPlugins)
-					pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
+				{
+						m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
+						pmcPluginManager.ViewModel.PluginMoved += new EventHandler(pmcPluginManager_PluginMoved);
+				}
 				macModActivationMonitor.ViewModel = m_vmlViewModel.ModActivationMonitorVM;
 				dmcDownloadMonitor.ViewModel = m_vmlViewModel.DownloadMonitorVM;
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
@@ -753,6 +755,22 @@ namespace Nexus.Client
 					tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Bold);
 				tlbActivePluginsCounter.ForeColor = Color.Black;
 				tlbActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+			}
+		}
+
+		/// <summary>
+		/// Updates the Plugins Counter
+		/// </summary>
+		private void pmcPluginManager_PluginMoved(object sender, EventArgs e)
+		{
+			if ((ViewModel.ProfileManager.CurrentProfile != null) && !m_booIsSwitching)
+			{
+				byte[] bteLoadOrder = null;
+				if (ViewModel.GameMode.UsesPlugins)
+				{
+					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, null);
+				}
 			}
 		}
 
