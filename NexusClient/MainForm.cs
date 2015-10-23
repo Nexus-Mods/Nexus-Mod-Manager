@@ -1831,7 +1831,7 @@ namespace Nexus.Client
 						spbProfiles.Image = spbProfiles.Image;
 					}
 
-					tmiProfile.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(tmiItem_DropDownItemClicked);
+					tmiProfile.DropDownItemClicked += (o, e) => { tmiItem_DropDownItemClicked(impProfile, e); };
 				}
 
 				if (spbProfiles.DefaultItem == null)
@@ -1934,8 +1934,7 @@ namespace Nexus.Client
 			{
 				string strCommand = e.ClickedItem.Tag.ToString();
 
-				ThreadSafeObservableList<IModProfile> tslProfiles = ViewModel.ProfileManager.ModProfiles;
-				ModProfile mopProfile = (ModProfile)tslProfiles.Find(x => x.Name == e.ClickedItem.Name);
+				ModProfile mopProfile = (ModProfile)sender;
 				
 				switch (strCommand)
 				{
