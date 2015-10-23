@@ -210,7 +210,7 @@ namespace Nexus.Client.Games.FalloutNV
 						strBOSSPath = strRegPath;
 				}
 
-			if (!String.IsNullOrEmpty(strBOSSPath))
+			if (!String.IsNullOrEmpty(strBOSSPath) && Directory.Exists(strBOSSPath))
 				BOSSDirectory = strBOSSPath;
 
 			if (IntPtr.Size == 8)
@@ -235,7 +235,7 @@ namespace Nexus.Client.Games.FalloutNV
 						strLOOTPath = strRegPath;
 				}
 
-			if (!String.IsNullOrEmpty(strLOOTPath))
+			if (!String.IsNullOrEmpty(strLOOTPath) && Directory.Exists(strLOOTPath))
 				LOOTDirectory = strLOOTPath;
 
 

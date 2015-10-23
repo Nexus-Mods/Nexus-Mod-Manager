@@ -232,13 +232,13 @@ namespace Nexus.Client.Games.Oblivion
 						strBOSSPath = strRegPath;
 				}
 
-			if (!String.IsNullOrEmpty(strBOSSPath))
+			if (!String.IsNullOrEmpty(strBOSSPath) && Directory.Exists(strBOSSPath))
 				BOSSDirectory = strBOSSPath;
 
 			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("WryeBash"))
 			{
 				strWryePath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["WryeBash"];
-				if (!String.IsNullOrEmpty(strWryePath))
+				if (!String.IsNullOrEmpty(strWryePath) && Directory.Exists(strWryePath))
 					WryeBashDirectory = strWryePath;
 			}
 

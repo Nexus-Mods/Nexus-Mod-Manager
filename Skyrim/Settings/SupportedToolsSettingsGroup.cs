@@ -440,7 +440,7 @@ namespace Nexus.Client.Games.Skyrim
 						strBOSSPath = strRegPath;
 				}
 
-			if (!String.IsNullOrEmpty(strBOSSPath))
+			if (!String.IsNullOrEmpty(strBOSSPath) && Directory.Exists(strBOSSPath))
 				BOSSDirectory = strBOSSPath;
 
 			if (IntPtr.Size == 8)
@@ -465,13 +465,13 @@ namespace Nexus.Client.Games.Skyrim
 						strLOOTPath = strRegPath;
 				}
 
-			if (!String.IsNullOrEmpty(strLOOTPath))
+			if (!String.IsNullOrEmpty(strLOOTPath) && Directory.Exists(strLOOTPath))
 				LOOTDirectory = strLOOTPath;
 
 			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("WryeBash"))
 			{
 				strWryePath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["WryeBash"];
-				if (!String.IsNullOrEmpty(strWryePath))
+				if (!String.IsNullOrEmpty(strWryePath) && Directory.Exists(strWryePath))
 					WryeBashDirectory = strWryePath;
 			}
 
@@ -502,7 +502,7 @@ namespace Nexus.Client.Games.Skyrim
 					booReset = false;
 				}
 
-				if (!String.IsNullOrEmpty(strFNISPath))
+				if (!String.IsNullOrEmpty(strFNISPath) && Directory.Exists(strFNISPath))
 					FNISDirectory = strFNISPath;
 			}
 
@@ -533,7 +533,7 @@ namespace Nexus.Client.Games.Skyrim
 					booReset = false;
 				}
 
-				if (!String.IsNullOrEmpty(strBS2Path))
+				if (!String.IsNullOrEmpty(strBS2Path) && Directory.Exists(strBS2Path))
 					BS2Directory = strBS2Path;
 			}
 
@@ -564,7 +564,7 @@ namespace Nexus.Client.Games.Skyrim
 					booReset = false;
 				}
 
-				if (!String.IsNullOrEmpty(strDSRPPath))
+				if (!String.IsNullOrEmpty(strDSRPPath) && Directory.Exists(strDSRPPath))
 					DSRPDirectory = strDSRPPath;
 			}
 
@@ -595,14 +595,14 @@ namespace Nexus.Client.Games.Skyrim
 					booReset = false;
 				}
 
-				if (!String.IsNullOrEmpty(strPMPath))
+				if (!String.IsNullOrEmpty(strPMPath) && Directory.Exists(strPMPath))
 					PMDirectory = strPMPath;
 			}
 
 			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit"))
 			{
 				strTES5EditPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"];
-				if (!String.IsNullOrEmpty(strTES5EditPath))
+				if (!String.IsNullOrEmpty(strTES5EditPath) && Directory.Exists(strTES5EditPath))
 					TES5EditDirectory = strTES5EditPath;
 			}
 								

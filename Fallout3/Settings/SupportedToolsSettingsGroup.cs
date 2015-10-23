@@ -181,7 +181,7 @@ namespace Nexus.Client.Games.Fallout3
 						strBOSSPath = strRegPath;
 				}
 
-			if (!String.IsNullOrEmpty(strBOSSPath))
+			if (!String.IsNullOrEmpty(strBOSSPath) && Directory.Exists(strBOSSPath))
 				BOSSDirectory = strBOSSPath;
 
 			ValidateSettings();
