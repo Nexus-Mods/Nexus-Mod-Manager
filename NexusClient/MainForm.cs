@@ -28,6 +28,7 @@ using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 using WeifenLuo.WinFormsUI.Docking;
 using System.Diagnostics;
 
@@ -1810,12 +1811,27 @@ namespace Nexus.Client
 					tmiProfile.Text = impProfile.Name + " (" + impProfile.ModCount.ToString() + ")";
 					spbProfiles.DropDownItems.Add(tmiProfile);
 
+					ToolStripMenuItem tmiItem = new ToolStripMenuItem();
+					tmiItem.Tag = "RenameProfile";
+					tmiItem.Text = "Rename Profile";
+					tmiItem.Name = impProfile.Name;
+					tmiProfile.DropDownItems.Add(tmiItem);
+					
+					tmiItem = new ToolStripMenuItem();
+					tmiItem.Tag = "RemoveProfile";
+					tmiItem.Text = "Remove Profile";
+					tmiItem.Name = impProfile.Name;
+					tmiProfile.DropDownItems.Add(tmiItem);
+					
+
 					if (impProfile.IsDefault)
 					{
 						spbProfiles.DefaultItem = tmiProfile;
 						spbProfiles.Text = impProfile.Name;
 						spbProfiles.Image = spbProfiles.Image;
 					}
+
+					tmiProfile.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(tmiItem_DropDownItemClicked);
 				}
 
 				if (spbProfiles.DefaultItem == null)
@@ -1901,6 +1917,52 @@ namespace Nexus.Client
 			toolStrip1.SuspendLayout();
 			spbSupportedTools.Image = e.ClickedItem.Image;
 			toolStrip1.ResumeLayout();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
+		/// split button.
+		/// </summary>
+		/// <remarks>
+		/// This makes the last selected function the new default for the button.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
+		private void tmiItem_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		{
+			if (e.ClickedItem.Tag.GetType() == typeof(string))
+			{
+				string strCommand = e.ClickedItem.Tag.ToString();
+
+				ThreadSafeObservableList<IModProfile> tslProfiles = ViewModel.ProfileManager.ModProfiles;
+				ModProfile mopProfile = (ModProfile)tslProfiles.Find(x => x.Name == e.ClickedItem.Name);
+				
+				switch (strCommand)
+				{
+					case "RenameProfile":
+						if (mopProfile != null)
+						{
+							string strNewName = PromptDialog.ShowDialog(this, "Type the new name:", "Rename Profile", mopProfile.Name);
+							if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopProfile.Name, StringComparison.InvariantCulture))
+							{
+								mopProfile.Name = strNewName;
+								ViewModel.ProfileManager.RenameProfile(mopProfile, mopProfile.Name);
+								BindProfileCommands();
+							}
+						}
+						break;
+					case "RemoveProfile":
+						if (mopProfile != null)
+						{
+							DialogResult drResult = ExtendedMessageBox.Show(this, String.Format("Are you sure you want to remove the selected profile: {0}", mopProfile.Name), "Remove Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+							if (drResult == DialogResult.Yes)
+								ViewModel.ProfileManager.RemoveProfile(mopProfile);
+						}
+						break;
+					default:
+						break;
+				}
+			}
 		}
 
  		/// <summary>
