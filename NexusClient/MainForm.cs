@@ -28,6 +28,7 @@ using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
 using WeifenLuo.WinFormsUI.Docking;
 using System.Diagnostics;
 
@@ -85,12 +86,14 @@ namespace Nexus.Client
 				m_vmlViewModel.MigratingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_MigratingMods);
 				m_vmlViewModel.ModManager.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
 				m_vmlViewModel.ModManager.VirtualModActivator.ModActivationChanged += new EventHandler(VirtualModActivator_ModActivationChanged);
-				if (ViewModel.GameMode.UsesPlugins)
-					m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
 
 				mmgModManager.ViewModel = m_vmlViewModel.ModManagerVM;
+				pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
 				if (ViewModel.UsesPlugins)
-					pmcPluginManager.ViewModel = m_vmlViewModel.PluginManagerVM;
+				{
+						m_vmlViewModel.PluginManager.ActivePlugins.CollectionChanged += new NotifyCollectionChangedEventHandler(ActivePlugins_CollectionChanged);
+						pmcPluginManager.ViewModel.PluginMoved += new EventHandler(pmcPluginManager_PluginMoved);
+				}
 				macModActivationMonitor.ViewModel = m_vmlViewModel.ModActivationMonitorVM;
 				dmcDownloadMonitor.ViewModel = m_vmlViewModel.DownloadMonitorVM;
 				dmcDownloadMonitor.ViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
@@ -752,6 +755,22 @@ namespace Nexus.Client
 					tlbActivePluginsCounter.Font = new Font(tlbActivePluginsCounter.Font, FontStyle.Bold);
 				tlbActivePluginsCounter.ForeColor = Color.Black;
 				tlbActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+			}
+		}
+
+		/// <summary>
+		/// Updates the Plugins Counter
+		/// </summary>
+		private void pmcPluginManager_PluginMoved(object sender, EventArgs e)
+		{
+			if ((ViewModel.ProfileManager.CurrentProfile != null) && !m_booIsSwitching)
+			{
+				byte[] bteLoadOrder = null;
+				if (ViewModel.GameMode.UsesPlugins)
+				{
+					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, null);
+				}
 			}
 		}
 
@@ -1810,12 +1829,27 @@ namespace Nexus.Client
 					tmiProfile.Text = impProfile.Name + " (" + impProfile.ModCount.ToString() + ")";
 					spbProfiles.DropDownItems.Add(tmiProfile);
 
+					ToolStripMenuItem tmiItem = new ToolStripMenuItem();
+					tmiItem.Tag = "RenameProfile";
+					tmiItem.Text = "Rename Profile";
+					tmiItem.Name = impProfile.Name;
+					tmiProfile.DropDownItems.Add(tmiItem);
+					
+					tmiItem = new ToolStripMenuItem();
+					tmiItem.Tag = "RemoveProfile";
+					tmiItem.Text = "Remove Profile";
+					tmiItem.Name = impProfile.Name;
+					tmiProfile.DropDownItems.Add(tmiItem);
+					
+
 					if (impProfile.IsDefault)
 					{
 						spbProfiles.DefaultItem = tmiProfile;
 						spbProfiles.Text = impProfile.Name;
 						spbProfiles.Image = spbProfiles.Image;
 					}
+
+					tmiProfile.DropDownItemClicked += (o, e) => { tmiItem_DropDownItemClicked(impProfile, e); };
 				}
 
 				if (spbProfiles.DefaultItem == null)
@@ -1901,6 +1935,51 @@ namespace Nexus.Client
 			toolStrip1.SuspendLayout();
 			spbSupportedTools.Image = e.ClickedItem.Image;
 			toolStrip1.ResumeLayout();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
+		/// split button.
+		/// </summary>
+		/// <remarks>
+		/// This makes the last selected function the new default for the button.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
+		private void tmiItem_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		{
+			if (e.ClickedItem.Tag.GetType() == typeof(string))
+			{
+				string strCommand = e.ClickedItem.Tag.ToString();
+
+				ModProfile mopProfile = (ModProfile)sender;
+				
+				switch (strCommand)
+				{
+					case "RenameProfile":
+						if (mopProfile != null)
+						{
+							string strNewName = PromptDialog.ShowDialog(this, "Type the new name:", "Rename Profile", mopProfile.Name);
+							if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopProfile.Name, StringComparison.InvariantCulture))
+							{
+								mopProfile.Name = strNewName;
+								ViewModel.ProfileManager.RenameProfile(mopProfile, mopProfile.Name);
+								BindProfileCommands();
+							}
+						}
+						break;
+					case "RemoveProfile":
+						if (mopProfile != null)
+						{
+							DialogResult drResult = ExtendedMessageBox.Show(this, String.Format("Are you sure you want to remove the selected profile: {0}", mopProfile.Name), "Remove Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+							if (drResult == DialogResult.Yes)
+								ViewModel.ProfileManager.RemoveProfile(mopProfile);
+						}
+						break;
+					default:
+						break;
+				}
+			}
 		}
 
  		/// <summary>
