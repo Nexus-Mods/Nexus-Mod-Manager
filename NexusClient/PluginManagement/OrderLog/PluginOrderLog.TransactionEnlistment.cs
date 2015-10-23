@@ -254,20 +254,26 @@ namespace Nexus.Client.PluginManagement.OrderLog
 					//sort the items whose order has been specified
 					for (Int32 i = 0; i < lstOrderedList.Count; i++)
 					{
+						strError = "intOldIndex";
 						Int32 intOldIndex = 0;
 						for (intOldIndex = 0; intOldIndex < oclUnorderedList.Count; intOldIndex++)
 							if (pcpComparer.Equals(oclUnorderedList[intOldIndex], lstOrderedList[i]))
 								break;
-						if (intOldIndex == oclUnorderedList.Count)
+						if (intOldIndex >= oclUnorderedList.Count)
 						{
 							strError = "Insert";
 							oclUnorderedList.Insert(i, lstOrderedList[i]);
 							continue;
 						}
-						strError = "Move intOldIndex";
+
 						if (intOldIndex != i)
+						{
+							strError = "Move intOldIndex";
 							oclUnorderedList.Move(intOldIndex, i);
+						}
 					}
+
+					strError = "Predecessor";
 					//sort the items whose order has not been specified
 					// if an item's order hasn't been specified, it is placed after the
 					// item it followed in the original, unordered, list
