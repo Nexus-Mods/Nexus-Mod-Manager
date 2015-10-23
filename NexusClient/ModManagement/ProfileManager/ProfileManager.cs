@@ -834,6 +834,18 @@ namespace Nexus.Client.ModManagement
 				mopCurrentProfile.ModCount = VirtualModActivator.ModCount;
 		}
 
+		/// <summary>
+		/// Renames the profile.
+		/// </summary>
+		public void RenameProfile(IModProfile p_impModProfile, string p_strName)
+		{
+			m_tslProfiles.Remove(p_impModProfile);
+			p_impModProfile.Name = p_strName;
+			SaveProfile(p_impModProfile, null, null, null, null);
+			m_tslProfiles.Add(p_impModProfile);
+			SaveConfig();
+		}
+
 		#endregion
 
 		public void PurgeModsFromProfiles(List<IMod> p_lstMods)

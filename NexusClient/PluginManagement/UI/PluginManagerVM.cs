@@ -62,6 +62,11 @@ namespace Nexus.Client.PluginManagement.UI
 		public event EventHandler<EventArgs<IBackgroundTask>> SortingPlugins = delegate { };
 
 		/// <summary>
+		/// Raised when a plugin is manually moved in the loadorder.
+		/// </summary>
+		public event EventHandler PluginMoved = delegate { };
+
+		/// <summary>
 		/// Managing multiple plugins.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ManagingMultiplePlugins = delegate { };
@@ -446,6 +451,8 @@ namespace Nexus.Client.PluginManagement.UI
 		public void SetPluginOrderIndex(Plugin p_plgPlugin, int p_intNewIndex)
 		{
 			PluginManager.SetPluginOrderIndex(p_plgPlugin, p_intNewIndex);
+			if (PluginMoved != null)
+				this.PluginMoved(p_plgPlugin, new EventArgs());
 		}
 
 		/// <summary>
@@ -476,6 +483,8 @@ namespace Nexus.Client.PluginManagement.UI
 				if (intIndex < 0)
 					intIndex++;
 				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex++);
+				if (PluginMoved != null)
+					this.PluginMoved(plgPlugin, new EventArgs());
 			}
 		}
 
@@ -500,6 +509,8 @@ namespace Nexus.Client.PluginManagement.UI
 				if (intIndex >= PluginManager.ManagedPlugins.Count)
 					intIndex--;
 				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex);
+				if (PluginMoved != null)
+					this.PluginMoved(plgPlugin, new EventArgs());
 			}
 		}
 
