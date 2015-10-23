@@ -997,7 +997,7 @@ namespace Nexus.Client.ModManagement
 						{
 							string strFileFrom = xelModFile.Attribute("FileFrom").Value;
 							string strFileTo = xelModFile.Attribute("FileTo").Value;
-							if (!String.IsNullOrWhiteSpace(strFileFrom))
+							if (!String.IsNullOrWhiteSpace(strFileFrom)  && !Readme.IsValidExtension(Path.GetExtension(strFileFrom)))
 								dicFiles.Add(new KeyValuePair<string, string>(strFileFrom, strFileTo));
 						}
 
