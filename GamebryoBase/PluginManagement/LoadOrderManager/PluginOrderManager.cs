@@ -202,6 +202,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				case "Skyrim":
 					TimestampOrder = false;
 					break;
+				case "Fallout4":
+					TimestampOrder = false;
+					break;
 				default:
 					throw new NotImplementedException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
