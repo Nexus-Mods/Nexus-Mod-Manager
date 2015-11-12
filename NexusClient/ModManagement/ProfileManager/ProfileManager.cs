@@ -876,10 +876,13 @@ namespace Nexus.Client.ModManagement
 		public List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo)
 		{
 			List<string> lstConflicts = new List<string>();
+			string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
+
+			if (!Directory.Exists(strToPath))
+				return null;
 
 			if (p_impFrom == null)
 			{
-				string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
 				List<string> lstTo = new List<string>();
 				lstTo = Directory.GetFiles(strToPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
 				if ((lstTo != null) && (lstTo.Count > 0))
@@ -897,7 +900,9 @@ namespace Nexus.Client.ModManagement
 			else
 			{
 				string strFromPath = GetCurrentProfileScriptedLogPath(p_impFrom);
-				string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
+				if (!Directory.Exists(strFromPath))
+					return null;
+
 				List<string> lstFrom = new List<string>();
 				List<string> lstTo = new List<string>();
 				List<string> lstCommon = new List<string>();
