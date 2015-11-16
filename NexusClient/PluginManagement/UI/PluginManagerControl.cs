@@ -169,7 +169,12 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		protected void DisableAllPlugins()
 		{
-			ViewModel.PluginsDisableAll();
+			DialogResult Result = DialogResult.None;
+
+			Result = MessageBox.Show("Do you want to disable all the active plugins?", "Disable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+			if (Result == System.Windows.Forms.DialogResult.Yes)
+				ViewModel.PluginsDisableAll();
 		}
 
 		/// <summary>
@@ -177,7 +182,12 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		protected void EnableAllPlugins()
 		{
-			ViewModel.PluginsEnableAll();
+			DialogResult Result = DialogResult.None;
+
+			Result = MessageBox.Show("Do you want to enable all the managed plugins?", "Enable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+			if (Result == System.Windows.Forms.DialogResult.Yes)
+				ViewModel.PluginsEnableAll();
 		}
 
 		#region Binding
