@@ -56,7 +56,7 @@ namespace Nexus.Client.PluginManagement
 		/// Gets the factory to use to create plugins.
 		/// </summary>
 		/// <value>The factory to use to create plugins.</value>
-		protected IPluginFactory PluginFactory { get; private set; }
+		public IPluginFactory PluginFactory { get; private set; }
 
 		#endregion
 
