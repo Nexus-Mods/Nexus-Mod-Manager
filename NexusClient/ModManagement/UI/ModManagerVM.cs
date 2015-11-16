@@ -437,7 +437,16 @@ namespace Nexus.Client.ModManagement.UI
 				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
-			
+
+			string strMessage;
+			bool booRequiresConfig = ModManager.GameMode.RequiresExternalConfig(out strMessage);
+
+			if (booRequiresConfig)
+			{
+				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (String.IsNullOrEmpty(strErrorMessage))
 			{
@@ -465,6 +474,15 @@ namespace Nexus.Client.ModManagement.UI
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
 				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			string strMessage;
+			bool booRequiresConfig = ModManager.GameMode.RequiresExternalConfig(out strMessage);
+
+			if (booRequiresConfig)
+			{
+				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 			

@@ -24,6 +24,11 @@ namespace Nexus.Client.Games.Fallout4
 		private Fallout4Launcher m_glnGameLauncher = null;
 		private Fallout4ToolLauncher m_gtlToolLauncher = null;
 		private Fallout4SupportedTools m_stlSupportedTools = null;
+		private string m_strFallout4Ini = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4.ini");
+		private string m_strFallout4Prefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Prefs.ini");
+		private string m_strLooseDefaultValue = @"STRINGS\";
+		private string m_strPluginsDefaultValue = @"0";
+		private string m_strGuideLink = @"https://www.youtube.com/watch?v=kq-VZAumD-o";
 
 		#region Properties
 
@@ -214,6 +219,40 @@ namespace Nexus.Client.Games.Fallout4
 			if ((p_strList != null) && (p_strList.Length > 0))
 				foreach (string strFile in p_strList)
 					File.Copy(strFile, Path.Combine(PluginDirectory, Path.GetFileName(strFile)), true);
+		}
+
+		/// <summary>
+		/// Checks whether the current game mode requires external config steps to be taken before installing mods.
+		/// </summary>
+		/// <returns>Whether the current game mode requires external config steps to be taken before installing mods.</returns>
+		/// <param name="p_strMessage">The message to show to the user.</param>
+		public override bool RequiresExternalConfig(out string p_strMessage)
+		{
+			bool booLoose = false;
+			bool booPlugins = false;
+			p_strMessage = String.Empty;
+
+			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strFallout4Ini);
+			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal");
+
+			girIniReader = new GamebryoIniReader(m_strFallout4Prefs);
+			string strPlugins = girIniReader.GetValue("Launcher", "bEnableFileSelection");
+
+			if (!String.IsNullOrEmpty(strLoose))
+				if (strLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
+					booLoose = true;
+
+			if (String.IsNullOrEmpty(strPlugins))
+				booPlugins = true;
+			else if (strPlugins.Equals(m_strPluginsDefaultValue, StringComparison.OrdinalIgnoreCase))
+				booPlugins = true;
+
+			if (booPlugins || booLoose)
+			{
+				p_strMessage = String.Format("To install Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this video guide:" + Environment.NewLine + Environment.NewLine + "{3}", booLoose ? "Fallout4.ini" : "", (booLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
+			}
+
+			return (booLoose || booPlugins);
 		}
 
 		/// <summary>

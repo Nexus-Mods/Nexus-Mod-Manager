@@ -71,6 +71,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Tools\Fallout4ToolLauncher.cs" />
+    <Compile Include="Tools\GamebryoIniReader.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
