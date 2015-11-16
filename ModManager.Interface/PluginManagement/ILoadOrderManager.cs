@@ -35,7 +35,6 @@ namespace Nexus.Client.PluginManagement
 		/// <value>The path to the userlist.</value>
 		string UserlistPath { get; }
 
-
 		#endregion
 
 		#region Masterlist Updating

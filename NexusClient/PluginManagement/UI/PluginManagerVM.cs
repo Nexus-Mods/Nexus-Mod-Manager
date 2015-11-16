@@ -1194,9 +1194,32 @@ namespace Nexus.Client.PluginManagement.UI
 
 		#endregion
 
+		/// <summary>
+		/// Gets the plugin description.
+		/// </summary>
+		public string GetPluginDescription(string p_strPlugin)
+		{
+			return PluginManager.GetPluginDescription(p_strPlugin);
+		}
+
+		public List<Plugin> GetOrphanedPlugins(string p_strMasterName)
+		{
+			return PluginManager.GetOrphanedPlugins(p_strMasterName);
+		}
+
 		public string GetPluginOwner(Plugin p_plgPlugin)
 		{
 			return VirtualModActivator.GetCurrentFileOwner(p_plgPlugin.Filename);
+		}
+
+		public bool PluginExists(string p_strPlugin)
+		{
+			return PluginManager.IsPluginRegistered(p_strPlugin);
+		}
+
+		public bool PluginIsActive(string p_strPlugin)
+		{
+			return PluginManager.IsPluginActive(p_strPlugin);
 		}
 	}
 }

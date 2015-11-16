@@ -313,7 +313,19 @@ namespace Nexus.Client.PluginManagement.UI
 				case NotifyCollectionChangedAction.Remove:
 				case NotifyCollectionChangedAction.Reset:
 					foreach (Plugin plgRemoved in e.OldItems)
-							rlvPlugins.Items.RemoveByKey(plgRemoved.Filename.ToLowerInvariant());
+					{
+						rlvPlugins.Items.RemoveByKey(plgRemoved.Filename.ToLowerInvariant());
+
+						List<Plugin> lstOrphanedPlugins = ViewModel.GetOrphanedPlugins(plgRemoved.Filename);
+						if ((lstOrphanedPlugins != null) && (lstOrphanedPlugins.Count > 0))
+						{
+							foreach (Plugin plugin in lstOrphanedPlugins)
+							{
+								ListViewItem lviItem = rlvPlugins.Items[plugin.Filename.ToLowerInvariant()];
+								lviItem.ForeColor = Color.DarkRed;
+							}
+						}
+					}
 					RefreshPluginIndices();
 					break;
 				case NotifyCollectionChangedAction.Move:
@@ -423,9 +435,47 @@ namespace Nexus.Client.PluginManagement.UI
 				intLineTracker = 19;
 				lviPlugin.Text = Path.GetFileName(p_plgAdded.Filename);
 				intLineTracker = 20;
-				SetPluginActivationCheck(lviPlugin, ViewModel.ActivePlugins.Contains(p_plgAdded));
+				bool booIsActive = ViewModel.ActivePlugins.Contains(p_plgAdded);
+				SetPluginActivationCheck(lviPlugin, booIsActive);
 				if (!ViewModel.CanChangeActiveState(p_plgAdded))
 					lviPlugin.ForeColor = SystemColors.GrayText;
+				else
+				{
+					bool booMissing = false;
+					bool booDisabled = false;
+
+					foreach (string master in p_plgAdded.Masters)
+					{
+						if (!ViewModel.PluginExists(master))
+						{
+							booMissing = true;
+							break;
+						}
+						if (!booMissing)
+							if (!ViewModel.PluginIsActive(master))
+								booDisabled = true;
+					}
+					if (booMissing)
+						lviPlugin.ForeColor = Color.DarkRed;
+					else if (booDisabled)
+						lviPlugin.ForeColor = Color.DarkOrange;
+				}
+				List<Plugin> lstOrphanedPlugins = ViewModel.GetOrphanedPlugins(p_plgAdded.Filename);
+
+				if ((lstOrphanedPlugins != null) && (lstOrphanedPlugins.Count > 0))
+				{
+					foreach (Plugin plugin in lstOrphanedPlugins)
+					{
+						ListViewItem lviItem = rlvPlugins.Items[plugin.Filename.ToLowerInvariant()];
+						if (lviItem != null)
+						{
+							if (booIsActive)
+								lviItem.ForeColor = Color.Black;
+							else
+								lviItem.ForeColor = Color.DarkOrange;
+						}
+					}
+				}
 				intLineTracker = 21;
 				RefreshPluginIndices();
 				intLineTracker = 22;
@@ -469,6 +519,22 @@ namespace Nexus.Client.PluginManagement.UI
 				return;
 			ListViewItem lviPlugin = rlvPlugins.Items[p_plgActivated.Filename.ToLowerInvariant()];
 			SetPluginActivationCheck(lviPlugin, p_booIsActive);
+			List<Plugin> lstOrphanedPlugins = ViewModel.GetOrphanedPlugins(p_plgActivated.Filename);
+
+			if ((lstOrphanedPlugins != null) && (lstOrphanedPlugins.Count > 0))
+			{
+				foreach (Plugin plugin in lstOrphanedPlugins)
+				{
+					ListViewItem lviItem = rlvPlugins.Items[plugin.Filename.ToLowerInvariant()];
+					if (lviItem != null)
+					{
+						if (p_booIsActive)
+							lviItem.ForeColor = Color.Black;
+						else
+							lviItem.ForeColor = Color.DarkOrange;
+					}
+				}
+			}
 		}
 
 		/// <summary>
@@ -539,7 +605,9 @@ namespace Nexus.Client.PluginManagement.UI
 				case NotifyCollectionChangedAction.Remove:
 				case NotifyCollectionChangedAction.Reset:
 					foreach (Plugin plgAdded in e.OldItems)
+					{
 						SetPluginActive(plgAdded, false);
+					}
 					break;
 			}
 			SetCommandExecutableStatus();
@@ -590,7 +658,7 @@ namespace Nexus.Client.PluginManagement.UI
 			{
 				ipbImage.Image = plgPlugin.Picture;
 				string strOwner = ViewModel.GetPluginOwner(plgPlugin);
-				hlbPluginInfo.Text = (String.IsNullOrWhiteSpace(strOwner) ? String.Empty : String.Format(@"<b>Mod: </b>{0}</br></br>", strOwner)) + plgPlugin.Description;
+				hlbPluginInfo.Text = (String.IsNullOrWhiteSpace(strOwner) ? String.Empty : String.Format(@"<b>Mod: </b>{0}</br></br>", strOwner)) + ViewModel.GetPluginDescription(plgPlugin.Filename);
 			}
 			else
 			{

@@ -302,7 +302,7 @@ namespace Nexus.Client.Games.Gamebryo
 		public override IPluginFactory GetPluginFactory()
 		{
 			if (m_pgfPluginFactory == null)
-				m_pgfPluginFactory = new GamebryoPluginFactory(PluginDirectory, PluginOrderManager);
+				m_pgfPluginFactory = new GamebryoPluginFactory(PluginDirectory, LoadOrderManager);
 			return m_pgfPluginFactory;
 		}
 

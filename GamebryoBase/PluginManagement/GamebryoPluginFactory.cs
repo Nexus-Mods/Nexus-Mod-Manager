@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder;
 using Nexus.Client.Games.Gamebryo.Plugins;
@@ -128,7 +129,19 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				stbDescription.Append(@"<b>Masters:</b><ul>");
 				for (int i = 0; i < masters.Count; i++)
 				{
-					stbDescription.AppendFormat("<li>{0}</li>", masters[i]);
+					if (File.Exists(Path.Combine(m_strPluginDirectory, masters[i])))
+					{
+						if (LoadOrderManager.IsPluginActive(masters[i]))
+							stbDescription.AppendFormat("<li>{0}</li>", masters[i]);
+						else
+						{
+							stbDescription.AppendFormat("<span style='color:#ffa500;'><li>{0} - DISABLED</li></span>", masters[i]);
+						}
+					}
+					else
+					{
+						stbDescription.AppendFormat("<span style='color:#ff1100;'><li>{0} - MISSING</li></span>", masters[i]);
+					}
 				}
 				stbDescription.Append(@"</ul>");
 			}
@@ -147,6 +160,100 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			pifInfo.SetMasters(masters);
 
 			return pifInfo;
+		}
+
+		/// <summary>
+		/// Gets the updated plugin info.
+		/// </summary>
+		/// <param name="p_strPluginPath">The path to the plugin file.</param>
+		/// <returns>A plugin of the appropriate type from the specified file, if the type of the plugin
+		/// can be determined; <c>null</c> otherwise.</returns>
+		public string GetUpdatedPluginInfo(string p_strPluginPath)
+		{
+			if (!File.Exists(p_strPluginPath))
+				return null;
+
+			string strPluginName = Path.GetFileName(p_strPluginPath);
+			TesPlugin tpgPlugin;
+			try
+			{
+				tpgPlugin = new TesPlugin(p_strPluginPath, true);
+			}
+			catch
+			{
+				tpgPlugin = null;
+			}
+			if (tpgPlugin == null || tpgPlugin.Records.Count == 0 || (tpgPlugin.Records[0].Name != "TES4" && tpgPlugin.Records[0].Name != "TES3"))
+			{
+				string strDescription =  strPluginName + Environment.NewLine + "Warning: Plugin appears corrupt";
+				return strDescription;
+			}
+
+			StringBuilder stbDescription = new StringBuilder();
+			string name = null;
+			string desc = null;
+			List<string> masters = new List<string>();
+
+			foreach (SubRecord sr in ((Record)tpgPlugin.Records[0]).SubRecords)
+			{
+				switch (sr.Name)
+				{
+					case "CNAM":
+						name = sr.GetStrData();
+						break;
+					case "SNAM":
+						desc = sr.GetStrData();
+						break;
+					case "MAST":
+						masters.Add(sr.GetStrData());
+						break;
+				}
+			}
+
+			uint intIsMaster = 0;
+			if (tpgPlugin.Records[0].Name == "TES4")
+				intIsMaster = ((Record)tpgPlugin.Records[0]).Flags1 & 1;
+			else if (tpgPlugin.Records[0].Name == "TES3")
+				intIsMaster = Convert.ToUInt32(TesPlugin.GetIsEsm(p_strPluginPath));
+			if (tpgPlugin.Records[0].Name == "TES4" && ((Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0) != (intIsMaster == 0)))
+			{
+				if (intIsMaster == 0)
+					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header marks it as an esp!</b></span><br/><br/>");
+				else
+					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+			}
+
+			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br/>", strPluginName);
+			if ((name != null) && (name != string.Empty))
+				stbDescription.AppendFormat(@"<b>Author:</b> {0}<br/>", name);
+			if ((desc != null) && (desc != string.Empty))
+			{
+				desc = desc.Replace("\r\n", "\n").Replace("\n\r", "\n").Replace("\n", "<br/>");
+				stbDescription.AppendFormat(@"<b>Description:</b><br/>{0}<br/>", desc);
+			}
+			if (masters.Count > 0)
+			{
+				stbDescription.Append(@"<b>Masters:</b><ul>");
+				for (int i = 0; i < masters.Count; i++)
+				{
+					if (File.Exists(Path.Combine(m_strPluginDirectory, masters[i])))
+					{
+						if (LoadOrderManager.IsPluginActive(masters[i]))
+							stbDescription.AppendFormat("<li>{0}</li>", masters[i]);
+						else
+						{
+							stbDescription.AppendFormat("<span style='color:#ffa500;'><li>{0} - DISABLED</li></span>", masters[i]);
+						}
+					}
+					else
+					{
+						stbDescription.AppendFormat("<span style='color:#ff1100;'><li>{0} - MISSING</li></span>", masters[i]);
+					}
+				}
+				stbDescription.Append(@"</ul>");
+			}
+
+			return stbDescription.ToString();
 		}
 
 		/// <summary>

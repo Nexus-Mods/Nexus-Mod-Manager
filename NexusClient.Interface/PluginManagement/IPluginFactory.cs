@@ -19,6 +19,13 @@ namespace Nexus.Client.PluginManagement
 		Plugin CreatePlugin(string p_strPluginPath);
 
 		/// <summary>
+		/// Gets the updated plugin info.
+		/// </summary>
+		/// <param name="p_strPluginPath">The path to the plugin file.</param>
+		/// <returns>The plugin description.</returns>
+		string GetUpdatedPluginInfo(string p_strPluginPath);
+
+		/// <summary>
 		/// Determines if the specified file is a plugin that can be activated for the game mode.
 		/// </summary>
 		/// <param name="p_strPath">The path to the file for which it is to be determined if it is a plugin file.</param>

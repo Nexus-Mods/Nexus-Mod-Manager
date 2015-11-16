@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.PluginManagement.InstallationLog;
@@ -233,7 +234,7 @@ namespace Nexus.Client.PluginManagement
 		/// <returns>The specified plugin, or <c>null</c> if the plugin is not registered.</returns>
 		public Plugin GetRegisteredPlugin(string p_strPath)
 		{
-			//TODO this check doesn't work for Gamegryo based games
+			//TODO this check doesn't work for Gamebryo based games
 			// GetFormatSpecificInstallPath() (or whatever it is called) should be
 			// used instead of InstallationPath
 			// but we can't use it because asking for the mod format here makes no
@@ -245,7 +246,7 @@ namespace Nexus.Client.PluginManagement
 			// current mod format
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
+				strPath = Path.Combine(GameMode.PluginDirectory, p_strPath);
 			return ManagedPluginRegistry.GetPlugin(strPath);
 		}
 
@@ -318,7 +319,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
+				strPath = Path.Combine(GameMode.PluginDirectory, p_strPath);
 			return ActivePlugins.Contains(ManagedPluginRegistry.GetPlugin(strPath));
 		}
 
@@ -420,6 +421,30 @@ namespace Nexus.Client.PluginManagement
 		public bool CanActivatePlugins()
 		{
 			return true;
+		}
+
+		public List<Plugin> GetOrphanedPlugins(string p_strMasterName)
+		{
+			List<Plugin> lstPlugins = new List<Plugin>();
+			string strMasterName = Path.GetFileName(p_strMasterName);
+
+			foreach (Plugin plugin in ManagedPlugins)
+			{
+				if (plugin.Masters.Contains(strMasterName, StringComparer.OrdinalIgnoreCase))
+				{
+					lstPlugins.Add(plugin);
+				}
+			}
+
+			return lstPlugins;
+		}
+
+		/// <summary>
+		/// Gets the plugin description.
+		/// </summary>
+		public string GetPluginDescription(string p_strPlugin)
+		{
+			return ManagedPluginRegistry.PluginFactory.GetUpdatedPluginInfo(p_strPlugin);
 		}
 	}
 }
