@@ -199,5 +199,12 @@ namespace Nexus.Client.PluginManagement
 		/// <returns><c>true</c> if it can;
 		/// <c>false</c> otherwise.</returns>
 		bool CanActivatePlugins();
+
+		List<Plugin> GetOrphanedPlugins(string p_strMasterName);
+
+		/// <summary>
+		/// Gets the plugin description.
+		/// </summary>
+		string GetPluginDescription(string p_strPlugin);
 	}
 }

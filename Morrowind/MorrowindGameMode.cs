@@ -211,6 +211,21 @@ namespace Nexus.Client.Games.Morrowind
 
 		#endregion
 
+		#region Plugin Management
+
+		///// <summary>
+		///// Gets the factory that builds plugins for this game mode.
+		///// </summary>
+		///// <returns>The factory that builds plugins for this game mode.</returns>
+		//public override IPluginFactory GetPluginFactory()
+		//{
+		//	if (m_pgfPluginFactory == null)
+		//		m_pgfPluginFactory = new GamebryoPluginFactory(PluginDirectory, BossSorter);
+		//	return m_pgfPluginFactory;
+		//}
+
+		#endregion
+
 		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.
 		/// </summary>
