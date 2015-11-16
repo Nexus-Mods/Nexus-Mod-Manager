@@ -816,6 +816,17 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Checks whether the current game mode requires external config steps to be taken before installing mods.
+		/// </summary>
+		/// <returns>Whether the current game mode requires external config steps to be taken before installing mods.</returns>
+		/// <param name="p_strMessage">The message to show to the user.</param>
+		public virtual bool RequiresExternalConfig(out string p_strMessage)
+		{
+			p_strMessage = String.Empty;
+			return false;
+		}
+
+		/// <summary>
 		/// Checks whether the system needs to uninstall secondary parameters.
 		/// </summary>
 		/// <returns>Whether the system needs to uninstall secondary parameters.</returns>

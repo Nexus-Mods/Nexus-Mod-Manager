@@ -280,6 +280,13 @@ namespace Nexus.Client.Games
 		void ModFileMerge(IList<IMod> p_lstActiveMods, IMod p_modMod, bool p_booRemove);
 
 		/// <summary>
+		/// Checks whether the current game mode requires external config steps to be taken before installing mods.
+		/// </summary>
+		/// <returns>Whether the current game mode requires external config steps to be taken before installing mods.</returns>
+		/// <param name="p_strMessage">The message to show to the user.</param>
+		bool RequiresExternalConfig(out string p_strMessage);
+
+		/// <summary>
 		/// Checks whether to use the secondary mod install method.
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
