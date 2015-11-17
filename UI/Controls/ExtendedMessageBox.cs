@@ -129,7 +129,7 @@ namespace Nexus.UI.Controls
 			ExtendedMessageBox mbxBox = new ExtendedMessageBox();
 			mbxBox.MinimumSize = new Size(p_intMinWidth, mbxBox.MinimumSize.Height);
 			mbxBox.LastDetailsHeight = p_intDetailHeight;
-			mbxBox.Init(p_strMessage, p_strCaption, p_strDetails, p_mbbButtons, p_mbiIcon, false);
+			mbxBox.Init(p_strMessage, p_strCaption, p_strDetails, p_mbbButtons, p_mbiIcon, false, true);
 			return Show(mbxBox, p_ctlParent);
 		}
 
@@ -141,6 +141,7 @@ namespace Nexus.UI.Controls
 		protected static DialogResult Show(ExtendedMessageBox p_mbxBox, Control p_ctlParent)
 		{
 			DialogResult drsResult = DialogResult.OK;
+
 			if (p_ctlParent == null)
 				drsResult = p_mbxBox.ShowDialog();
 			else
@@ -151,6 +152,7 @@ namespace Nexus.UI.Controls
 		#endregion
 
 		private Int32 m_intMinimumDetailsHeight = -1;
+		private bool m_booForceDetails = false;
 
 		#region Properties
 
@@ -183,6 +185,7 @@ namespace Nexus.UI.Controls
 		{
 			InitializeComponent();
 			LastDetailsHeight = -1;
+			this.Shown += new EventHandler(Form_Shown);
 		}
 
 		#endregion
@@ -196,7 +199,7 @@ namespace Nexus.UI.Controls
 		/// <param name="p_mbbButtons">The buttons to display.</param>
 		/// <param name="p_mbiIcon">The icon to display.</param>
 		/// <param name="p_booShowRemember">Whether to display the remember selection checkbox.</param>
-		protected void Init(string p_strMessage, string p_strCaption, string p_strDetails, MessageBoxButtons p_mbbButtons, MessageBoxIcon p_mbiIcon, bool p_booShowRemember)
+		protected void Init(string p_strMessage, string p_strCaption, string p_strDetails, MessageBoxButtons p_mbbButtons, MessageBoxIcon p_mbiIcon, bool p_booShowRemember, bool p_booForceDetails = false)
 		{
 			ExtendedMessageBoxButtons ebbButtons = ExtendedMessageBoxButtons.None;
 			switch (p_mbbButtons)
@@ -220,6 +223,9 @@ namespace Nexus.UI.Controls
 					ebbButtons = ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No | ExtendedMessageBoxButtons.Cancel;
 					break;
 			}
+
+			m_booForceDetails = p_booForceDetails;
+
 			Init(p_strMessage, p_strCaption, p_strDetails, ebbButtons, p_mbiIcon, p_booShowRemember);
 		}
 
@@ -308,7 +314,7 @@ namespace Nexus.UI.Controls
 			Int32 intMinimumWidth = 6;
 
 			//details button
-			if (p_booShowDetails)
+			if (p_booShowDetails && !m_booForceDetails)
 			{
 				DetailsButton butDetails = new DetailsButton();
 				butDetails.AutoSize = true;
@@ -440,14 +446,9 @@ namespace Nexus.UI.Controls
 		}
 
 		/// <summary>
-		/// Handles the <see cref="Control.Click"/> event of the show details button.
+		/// Hides or unhides the details panel.
 		/// </summary>
-		/// <remarks>
-		/// This shows or hides the details pane as appropriate.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event properties.</param>
-		private void Details_Click(object sender, EventArgs e)
+		private void ToggleDetails()
 		{
 			if (pnlDetails.Visible)
 			{
@@ -475,6 +476,35 @@ namespace Nexus.UI.Controls
 			}
 			pnlDetails.Visible = !pnlDetails.Visible;
 			this.PerformLayout();
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the show details button.
+		/// </summary>
+		/// <remarks>
+		/// This shows or hides the details pane as appropriate.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event properties.</param>
+		private void Form_Shown(object sender, EventArgs e)
+		{
+			if (m_booForceDetails)
+			{
+				ToggleDetails();
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="Control.Click"/> event of the show details button.
+		/// </summary>
+		/// <remarks>
+		/// This shows or hides the details pane as appropriate.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event properties.</param>
+		private void Details_Click(object sender, EventArgs e)
+		{
+			ToggleDetails();
 		}
 
 		/// <summary>

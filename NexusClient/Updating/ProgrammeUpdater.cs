@@ -47,6 +47,7 @@ namespace Nexus.Client.Updating
 			}
 		}
 
+		protected const string m_strURI = "http://staticdelivery.nexusmods.com/NMM/releasenotes.html";
 		private bool m_booIsAutoCheck = false;
 
 		#region Properties
@@ -111,6 +112,8 @@ namespace Nexus.Client.Updating
 			StringBuilder stbPromptMessage = new StringBuilder();
 			DialogResult drResult = DialogResult.No;
 
+			string strReleaseNotes = String.Empty;
+
 			if ((verNew > new Version(ProgrammeMetadata.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
 			{
 				string strCheckDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(strDownloadUri));
@@ -118,14 +121,44 @@ namespace Nexus.Client.Updating
 				stbPromptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine).AppendLine();
 				stbPromptMessage.AppendLine();
 				stbPromptMessage.AppendLine();
-				stbPromptMessage.AppendLine("NOTE: You can find the change log for the new release here:");
-				stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/896029-nexus-mod-manager-release-notes/");
+				stbPromptMessage.AppendLine("Below you can find the change log for the new release:");
+
+				try
+				{
+					HttpWebRequest request = (HttpWebRequest)WebRequest.Create(m_strURI);
+					HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+
+					if (response.StatusCode == HttpStatusCode.OK)
+					{
+						Stream receiveStream = response.GetResponseStream();
+						StreamReader readStream = null;
+
+						if (response.CharacterSet == null)
+						{
+							readStream = new StreamReader(receiveStream);
+						}
+						else
+						{
+							readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
+						}
+
+						strReleaseNotes = readStream.ReadToEnd();
+
+						response.Close();
+						readStream.Close();
+					}
+
+				}
+				catch
+				{
+					strReleaseNotes = "Unable to retrieve the Release Notes.";
+				}
 
 				try
 				{
 					//the extended message box contains an activex control wich must be run in an STA thread,
 					// we can't control what thread this gets called on, so create one if we need to
-					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", strReleaseNotes, 700, 450, MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
 					ApartmentState astState = ApartmentState.Unknown;
 					Thread.CurrentThread.TrySetApartmentState(astState);
 					if (astState == ApartmentState.STA)
