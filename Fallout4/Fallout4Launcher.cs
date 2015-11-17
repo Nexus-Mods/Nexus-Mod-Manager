@@ -156,7 +156,7 @@ namespace Nexus.Client.Games.Fallout4
 		/// <returns>The plain launch command.</returns>
 		private string GetPlainLaunchCommand()
 		{
-			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "Fallout4Launcher.exe");
+			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "Fallout4.exe");
 			return strCommand;
 		}
 

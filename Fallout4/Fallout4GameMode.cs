@@ -28,7 +28,7 @@ namespace Nexus.Client.Games.Fallout4
 		private string m_strFallout4Prefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Prefs.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
 		private string m_strPluginsDefaultValue = @"0";
-		private string m_strGuideLink = @"https://www.youtube.com/watch?v=kq-VZAumD-o";
+		private string m_strGuideLink = @"http://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation";
 
 		#region Properties
 
