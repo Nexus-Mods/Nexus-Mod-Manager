@@ -246,7 +246,7 @@ namespace Nexus.Client.PluginManagement
 			// current mod format
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameMode.PluginDirectory, p_strPath);
+				strPath = Path.Combine(GameMode.PluginDirectory, GameMode.GetModFormatAdjustedPath(null, p_strPath, true));
 			return ManagedPluginRegistry.GetPlugin(strPath);
 		}
 
@@ -319,7 +319,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			string strPath = p_strPath;
 			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameMode.PluginDirectory, p_strPath);
+				strPath = Path.Combine(GameMode.PluginDirectory, GameMode.GetModFormatAdjustedPath(null, p_strPath, true));
 			return ActivePlugins.Contains(ManagedPluginRegistry.GetPlugin(strPath));
 		}
 

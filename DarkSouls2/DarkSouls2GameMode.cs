@@ -302,7 +302,7 @@ namespace Nexus.Client.Games.DarkSouls2
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
 		{
-			if (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod"))
+			if ((p_mftModFormat != null) || (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod")))
 				if (p_strPath.StartsWith("DarkSoulsII"))
 					p_strPath = p_strPath.Substring(12);
 				else if (p_strPath.StartsWith("textures"))
