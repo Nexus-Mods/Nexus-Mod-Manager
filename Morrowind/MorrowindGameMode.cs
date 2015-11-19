@@ -244,18 +244,18 @@ namespace Nexus.Client.Games.Morrowind
 		{
 			if ((p_mftModFormat != null) && (p_mftModFormat.Id.Equals("FOMod") || p_mftModFormat.Id.Equals("OMod")))
 			{
-				if (p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
+				if (p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && (p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase) || p_strPath.StartsWith("Data Files" + Path.AltDirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase)))
 					return p_strPath.Substring(11);
-				else if (!p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && !p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
+				else if (!p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && !p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase) && !p_strPath.StartsWith("Data Files" + Path.AltDirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
 					return Path.Combine("Data Files", p_strPath ?? "");
 				else if (!p_booIgnoreIfPresent && String.IsNullOrEmpty(p_strPath))
 					return Path.Combine("Data Files", p_strPath ?? "");
 			}
 			else if (p_mftModFormat == null)
 			{
-				if (p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
+				if (p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && (p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase) || p_strPath.StartsWith("Data Files" + Path.AltDirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase)))
 					return p_strPath.Substring(11);
-				else if (!p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && !p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
+				else if (!p_booIgnoreIfPresent && !String.IsNullOrEmpty(p_strPath) && !p_strPath.StartsWith("Data Files" + Path.DirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase) && !p_strPath.StartsWith("Data Files" + Path.AltDirectorySeparatorChar, System.StringComparison.InvariantCultureIgnoreCase))
 					return Path.Combine("Data Files", p_strPath ?? "");
 				else if (!p_booIgnoreIfPresent && String.IsNullOrEmpty(p_strPath))
 					return Path.Combine("Data Files", p_strPath ?? "");
