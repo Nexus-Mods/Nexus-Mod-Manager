@@ -15,7 +15,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <summary>
 		/// A dummy mod that can be used as a placeholder.
 		/// </summary>
-		private class DummyMod : ObservableObject, IMod
+		public class DummyMod : ObservableObject, IMod
 		{
 			#region Constructors
 

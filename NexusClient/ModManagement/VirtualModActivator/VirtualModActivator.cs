@@ -36,9 +36,10 @@ namespace Nexus.Client.ModManagement
 		private static readonly Version CURRENT_VERSION = new Version("0.2.0.0");
 		private static readonly string ACTIVATOR_FILE = "VirtualModConfig.xml";
 		private static readonly string ACTIVATOR_INIEDITS = "IniEdits.xml";
+		private static readonly string ACTIVATOR_OVERWRITE = "_overwrites";
 		public static readonly string ACTIVATOR_FOLDER = "VirtualInstall";
 		public static readonly string ACTIVATOR_LINK_FOLDER = "NMMLink";
-
+		public static readonly IMod DummyMod = new InstallLog.DummyMod("ORIGINAL_VALUE", String.Format("Dummy Mod: {0}", "ORIGINAL_VALUE"));
 
 		/// <summary>
 		/// Reads the virtual mod activator version from the given config file.
@@ -99,6 +100,7 @@ namespace Nexus.Client.ModManagement
 		private string m_strVirtualActivatorPath = String.Empty;
 		private string m_strVirtualActivatorConfigPath = String.Empty;
 		private string m_strVirtualActivatorIniEditsPath = String.Empty;
+		private string m_strVirtualActivatorOverwritePath = String.Empty;
 
 		#region Properties
 
@@ -303,6 +305,7 @@ namespace Nexus.Client.ModManagement
 			m_strGameDataPath = GameMode.UsesPlugins ? GameMode.PluginDirectory : GameMode.InstallationPath;
 			m_strVirtualActivatorConfigPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_FILE);
 			m_strVirtualActivatorIniEditsPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_INIEDITS);
+			m_strVirtualActivatorOverwritePath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_OVERWRITE);
 			if (!Directory.Exists(m_strVirtualActivatorPath))
 				Directory.CreateDirectory(m_strVirtualActivatorPath);
 
@@ -313,6 +316,9 @@ namespace Nexus.Client.ModManagement
 				if (!Directory.Exists(strHDLink))
 					Directory.CreateDirectory(strHDLink);
 			}
+
+			if (!Directory.Exists(m_strVirtualActivatorOverwritePath))
+				Directory.CreateDirectory(m_strVirtualActivatorOverwritePath);
 		}
 
 		#endregion
@@ -672,6 +678,12 @@ namespace Nexus.Client.ModManagement
 			}
 			else if (File.Exists(p_strFilePath) && (p_intCurrentPriority >= 0))
 				intPriority = 0;
+			else if (p_intCurrentPriority == -1)
+			{
+				string strLoosePath = Path.Combine(m_strGameDataPath, p_strFilePath);
+				if (File.Exists(strLoosePath))
+					p_modMod = DummyMod;
+			}
 
 			p_lstFileLinks = lstVirtualModLink;
 
@@ -929,6 +941,22 @@ namespace Nexus.Client.ModManagement
 
 				if ((intPriority >= 0) && !p_booPurging && (modCheck != null))
 					AddFileLink(modCheck, p_ivlVirtualLink.VirtualModPath, false, true, p_ivlVirtualLink.Priority);
+				else
+				{
+					if (Directory.Exists(m_strVirtualActivatorOverwritePath))
+					{
+						string strOverwrite = Path.Combine(m_strVirtualActivatorOverwritePath, p_ivlVirtualLink.VirtualModPath);
+						if (File.Exists(strOverwrite))
+						{
+							try
+							{
+								File.Move(strOverwrite, strPath);
+								TrimEmptyDirectories(Path.GetDirectoryName(strOverwrite), m_strVirtualActivatorOverwritePath);
+							}
+							catch { }
+						}
+					}
+				}
 
 				TrimEmptyDirectories(Path.GetDirectoryName(strPath), strStop);
 			}
@@ -1430,6 +1458,33 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return strOwner;
+		}
+
+		public bool OverwriteLooseFile(string p_strFilePath)
+		{
+			try
+			{
+				string strSource = Path.Combine(m_strGameDataPath, p_strFilePath);
+				string strDest = Path.Combine(m_strVirtualActivatorOverwritePath, p_strFilePath);
+
+				if (File.Exists(strSource))
+				{
+					string strDestFolder = Path.GetDirectoryName(strDest);
+					if (!Directory.Exists(strDestFolder))
+					{
+						Directory.CreateDirectory(strDestFolder);
+					}
+
+					if (Directory.Exists(strDestFolder))
+						File.Move(strSource, strDest);
+				}
+
+				return true;
+			}
+			catch 
+			{ 
+				return false;
+			}
 		}
 
 		/// <summary>

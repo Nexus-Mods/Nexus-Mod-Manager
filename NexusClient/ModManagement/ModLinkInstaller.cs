@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Nexus.Client.Mods;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement
 {
@@ -94,7 +95,12 @@ namespace Nexus.Client.ModManagement
 			string strModFileID = String.Empty;
 			string strMessage = null;
 
-			if (modCheck != null)
+			if (modCheck == VirtualModActivator.DummyMod)
+			{
+				VirtualModActivator.OverwriteLooseFile(p_strBaseFilePath);
+				return true;
+			}
+			else if (modCheck != null)
 			{
 				strModFile = modCheck.Filename;
 				strModFileID = modCheck.Id;
