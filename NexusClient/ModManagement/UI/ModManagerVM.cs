@@ -444,7 +444,6 @@ namespace Nexus.Client.ModManagement.UI
 			if (booRequiresConfig)
 			{
 				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
 			}
 
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
@@ -483,7 +482,6 @@ namespace Nexus.Client.ModManagement.UI
 			if (booRequiresConfig)
 			{
 				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
 			}
 			
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;

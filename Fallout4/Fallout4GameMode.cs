@@ -233,10 +233,10 @@ namespace Nexus.Client.Games.Fallout4
 			p_strMessage = String.Empty;
 
 			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strFallout4Ini);
-			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal");
+			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", null);
 
 			girIniReader = new GamebryoIniReader(m_strFallout4Prefs);
-			string strPlugins = girIniReader.GetValue("Launcher", "bEnableFileSelection");
+			string strPlugins = girIniReader.GetValue("Launcher", "bEnableFileSelection", null);
 
 			if (!String.IsNullOrEmpty(strLoose))
 				if (strLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
@@ -247,9 +247,13 @@ namespace Nexus.Client.Games.Fallout4
 			else if (strPlugins.Equals(m_strPluginsDefaultValue, StringComparison.OrdinalIgnoreCase))
 				booPlugins = true;
 
-			if (booPlugins || booLoose)
+			if ((strPlugins == null) || (strLoose == null))
 			{
-				p_strMessage = String.Format("To install Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this video guide:" + Environment.NewLine + Environment.NewLine + "{3}", booLoose ? "Fallout4.ini" : "", (booLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
+				p_strMessage = String.Format("Unable to retrieve data from ini files, please report this issue on the NMM forums. To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this video guide if you didn't yet:" + Environment.NewLine + Environment.NewLine + "{3}", booLoose ? "Fallout4.ini" : "", (booLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
+			}
+			else if (booPlugins || booLoose)
+			{
+				p_strMessage = String.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this video guide:" + Environment.NewLine + Environment.NewLine + "{3}", booLoose ? "Fallout4.ini" : "", (booLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
 			}
 
 			return (booLoose || booPlugins);
