@@ -935,8 +935,10 @@ namespace Nexus.Client.ModManagement
 				else
 					strPath = strLinkPath;
 
-				if (File.Exists(strPath))
-					FileUtil.ForceDelete(strPath);
+				if (p_ivlVirtualLink.Active)
+					if (File.Exists(strPath))
+						FileUtil.ForceDelete(strPath);
+
 				VirtualLinks.Remove(p_ivlVirtualLink);
 
 				if ((intPriority >= 0) && !p_booPurging && (modCheck != null))

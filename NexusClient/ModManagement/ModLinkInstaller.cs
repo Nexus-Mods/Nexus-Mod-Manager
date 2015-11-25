@@ -63,7 +63,7 @@ namespace Nexus.Client.ModManagement
 					return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, false, p_booHandlePlugin, 0);
 				}
 				else
-					VirtualModActivator.AddInactiveLink(p_modMod, p_strBaseFilePath, intPriority++);
+					VirtualModActivator.AddInactiveLink(p_modMod, p_strBaseFilePath, ++intPriority);
 			}
 
 			return String.Empty;
