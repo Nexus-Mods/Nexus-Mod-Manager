@@ -866,13 +866,30 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			if (File.Exists(PluginsFilePath))
 			{
-				foreach (string line in File.ReadLines(PluginsFilePath))
+				int intRepeat = 0;
+				bool? booReady = IsFileReady(PluginsFilePath, true);
+
+				while (booReady == false)
 				{
-					if (!string.IsNullOrWhiteSpace(line))
-						if (m_rgxPluginFile.IsMatch(line))
-							if (line.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
-								return true;
+					Thread.Sleep(500);
+					if (intRepeat++ >= 20)
+						break;
+					booReady = IsFileReady(PluginsFilePath, true);
 				}
+
+				if (booReady == true)
+				{
+
+					foreach (string line in File.ReadLines(PluginsFilePath))
+					{
+						if (!string.IsNullOrWhiteSpace(line))
+							if (m_rgxPluginFile.IsMatch(line))
+								if (line.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
+									return true;
+					}
+				}
+				else
+					return true;
 			}
 
 			return false;
@@ -1045,11 +1062,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Checks whether the file to write to is currently free for use.
 		/// </summary>
-		private static bool? IsFileReady(String p_strFilePath)
+		private static bool? IsFileReady(String p_strFilePath, bool p_booReadOnly = false)
 		{
 			try
 			{
-				using (FileStream inputStream = File.Open(p_strFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+				using (FileStream inputStream = File.Open(p_strFilePath, FileMode.Open, p_booReadOnly ? FileAccess.Read : FileAccess.ReadWrite, p_booReadOnly ? FileShare.ReadWrite : FileShare.None))
 				{
 					if (inputStream.Length > 0)
 						return true;
