@@ -843,7 +843,8 @@ namespace Nexus.Client.Games
 		/// <param name="p_strFileName">The filename.</param>
 		public virtual bool HardlinkRequiredFilesType(string p_strFileName)
 		{
-			return false;
+			string strFileType = Path.GetExtension(p_strFileName);
+			return strFileType.Equals(".mp3", StringComparison.InvariantCultureIgnoreCase);
 		}
 
 		/// <summary>
