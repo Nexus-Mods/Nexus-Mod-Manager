@@ -215,16 +215,5 @@ namespace Nexus.Client.Games.Skyrim
 				foreach (string strFile in p_strList)
 					File.Copy(strFile, Path.Combine(PluginDirectory, Path.GetFileName(strFile)), true);
 		}
-
-		/// <summary>
-		/// Checks whether the file's type requires a hardlink for the current game mode.
-		/// </summary>
-		/// <returns>Whether the file's type requires a hardlink for the current game mode.</returns>
-		/// <param name="p_strFileName">The filename.</param>
-		public override bool HardlinkRequiredFilesType(string p_strFileName)
-		{
-			string strFileType = Path.GetExtension(p_strFileName);
-			return (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase));
-		}
 	}
 }
