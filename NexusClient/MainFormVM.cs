@@ -679,8 +679,6 @@ namespace Nexus.Client
 			}
 		}
 
-
-
 		/// <summary>
 		/// Logs out of all mod repositories.
 		/// </summary>

@@ -762,5 +762,21 @@ namespace Nexus.Client.ModManagement
 			if (File.Exists(strInstallFilesPath))
 				FileUtil.ForceDelete(strInstallFilesPath);
 		}
+
+		/// <summary>
+		/// Purges all the scripted installers log files inside the InstallInfo\Scripted folder.
+		/// </summary>
+		public void PurgeXMLInstalledFile()
+		{
+			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"));
+			if (Directory.Exists(strInstallFilesPath))
+			{
+				foreach (string file in Directory.EnumerateDirectories(strInstallFilesPath, "*.xml", SearchOption.TopDirectoryOnly))
+				{
+					if (File.Exists(file))
+						FileUtil.ForceDelete(file);
+				}
+			}
+		}
 	}
 }

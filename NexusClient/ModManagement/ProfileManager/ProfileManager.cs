@@ -873,6 +873,27 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Purges all the scripted installers log files inside the InstallInfo\Scripted folder.
+		/// </summary>
+		public void PurgeProfileXMLInstalledFile()
+		{
+			if (CurrentProfile != null)
+			{
+				string CurrentProfileScriptedLogPath = GetCurrentProfileScriptedLogPath(CurrentProfile);
+
+				if (Directory.Exists(CurrentProfileScriptedLogPath))
+				{
+					foreach (string file in Directory.EnumerateDirectories(CurrentProfileScriptedLogPath, "*.xml", SearchOption.TopDirectoryOnly))
+					{
+						if (File.Exists(file))
+							FileUtil.ForceDelete(file);
+					}
+				}
+			}
+		}
+
+
 		public List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo)
 		{
 			List<string> lstConflicts = new List<string>();

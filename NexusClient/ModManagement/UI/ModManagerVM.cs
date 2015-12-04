@@ -884,6 +884,14 @@ namespace Nexus.Client.ModManagement.UI
 		#endregion
 
 		/// <summary>
+		/// Purges all the scripted installers log files inside the InstallInfo\Scripted folder.
+		/// </summary>
+		public void PurgeXMLInstalledFile()
+		{
+			ModManager.PurgeXMLInstalledFile();
+		}
+
+		/// <summary>
 		/// Gets the list of extensions commonly used for mod files.
 		/// </summary>
 		/// <returns>The list of extensions commonly used for mod files.</returns>
