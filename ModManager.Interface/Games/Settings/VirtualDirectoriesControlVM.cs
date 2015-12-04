@@ -160,7 +160,7 @@ namespace Nexus.Client.Games.Settings
 		{
 			string strExpected;
 			Errors.Clear(p_strProperty);
-			if (String.IsNullOrEmpty(p_strPath))
+			if (String.IsNullOrWhiteSpace(p_strPath))
 			{
 				Errors.SetError(p_strProperty, String.Format("You must select a {0}.", p_strPathName));
 				return false;
@@ -183,7 +183,7 @@ namespace Nexus.Client.Games.Settings
 			{
 				Errors.SetError(p_strProperty, string.Format("You MUST set the {0} on the same HD as the usual mod install folder:" + Environment.NewLine +
 					"Selected HD: {1} - Expected HD: {2}" + Environment.NewLine,
-					p_strPathName, Path.GetPathRoot(p_strPath), strExpected ?? String.Empty));
+					p_strPathName, Path.GetPathRoot(p_strPath), strExpected ?? "You need to set the RequiredTool folder first"));
 				return false;
 			}
 			else

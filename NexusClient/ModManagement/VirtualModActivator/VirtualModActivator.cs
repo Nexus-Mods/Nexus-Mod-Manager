@@ -355,6 +355,8 @@ namespace Nexus.Client.ModManagement
 					Directory.CreateDirectory(m_strVirtualActivatorPath);
 			}
 
+			m_booForceHardLinks = NewMultiHD;
+
 			if (!String.IsNullOrEmpty(NewLinkFolder))
 			{
 				if (!String.IsNullOrEmpty(HDLinkFolder))
@@ -370,8 +372,6 @@ namespace Nexus.Client.ModManagement
 				if (Directory.Exists(HDLinkFolder))
 					FileUtil.ForceDelete(HDLinkFolder);
 			}
-
-			m_booForceHardLinks = NewMultiHD;
 
 			if (!String.IsNullOrWhiteSpace(NewVirtualFolder))
 			{
@@ -1325,10 +1325,10 @@ namespace Nexus.Client.ModManagement
 
 		public void SetNewFolders(string p_strVirtual, string p_strLink, bool? p_booMultiHD)
 		{
-			NewVirtualFolder = p_strVirtual;
-			NewLinkFolder = p_strLink;
 			if (p_booMultiHD != null)
 				NewMultiHD = (bool)p_booMultiHD;
+			NewVirtualFolder = p_strVirtual;
+			NewLinkFolder = p_strLink;
 		}
 
 		public void CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks, out Dictionary<string, string> p_dicUninstalled, out Dictionary<string, string> p_dicMissing, IList<string> p_lstForced)
