@@ -159,6 +159,7 @@ namespace Nexus.Client
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
 			mmgModManager.UpdateModsCount += new EventHandler(mmgModManager_UpdateModsCount);
 			mmgModManager.UninstallModFromProfiles += new EventHandler(mmgModManager_UninstallModFromProfiles);
+			mmgModManager.UninstalledAllMods += new EventHandler(mmgModManager_UninstalledAllMods);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
 			pmcPluginManager.UpdatePluginsCount += new EventHandler(pmcPluginManager_UpdatePluginsCount);
 			macModActivationMonitor = new ModActivationMonitorControl();
@@ -803,7 +804,19 @@ namespace Nexus.Client
 			if ((ViewModel.ProfileManager != null) && (ViewModel.ProfileManager.Initialized))
 				ViewModel.ProfileManager.PurgeModsFromProfiles(lstMod);
 		}
-		
+
+		/// <summary>
+		/// Handles the <see cref="ModManagerControl.UninstalledAllMods"/> of the opening
+		/// of the ReaMe file.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void mmgModManager_UninstalledAllMods(object sender, EventArgs e)
+		{
+			if ((ViewModel.ProfileManager != null) && (ViewModel.ProfileManager.CurrentProfile != null))
+				ViewModel.ProfileManager.PurgeProfileXMLInstalledFile();
+		}
+
 		/// <summary>
 		/// Set the focus to the Search Textbox.
 		/// </summary>

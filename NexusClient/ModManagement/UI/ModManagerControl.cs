@@ -37,6 +37,7 @@ namespace Nexus.Client.ModManagement.UI
 		public event EventHandler ResetSearchBox;
 		public event EventHandler UninstallModFromProfiles;
 		public event EventHandler UpdateModsCount;
+		public event EventHandler UninstalledAllMods;
 
 		#region Properties
 
@@ -1573,6 +1574,13 @@ namespace Nexus.Client.ModManagement.UI
 				string strMessage = "All the active mods were uninstalled.";
 				MessageBox.Show(strMessage, "Mod uninstall complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
+
+			if (e.Argument.ReturnValue == null)
+			{
+				ViewModel.PurgeXMLInstalledFile();
+				if (UninstalledAllMods != null)
+					UninstalledAllMods(this, new EventArgs());
+            }
 		}
 
 		/// <summary>

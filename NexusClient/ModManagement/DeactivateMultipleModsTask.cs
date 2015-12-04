@@ -148,7 +148,7 @@ namespace Nexus.Client.ModManagement
 					StepOverallProgress();
 
 				if (m_booCancel)
-					break;
+					return false;
 			}
 			return null;
 		}
