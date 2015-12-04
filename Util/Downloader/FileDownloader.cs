@@ -468,9 +468,15 @@ namespace Nexus.Client.Util.Downloader
 				if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))
 					FileUtil.ForceDelete(m_strFileMetadataPath);
 				string strNewPath = Path.ChangeExtension(m_strSavePath, null);
-				if (File.Exists(strNewPath))
-					FileUtil.ForceDelete(strNewPath);
-				File.Move(m_strSavePath, strNewPath);
+				try
+				{
+					if (File.Exists(strNewPath))
+						FileUtil.ForceDelete(strNewPath);
+				}
+				finally
+				{
+					File.Move(m_strSavePath, strNewPath);
+				}
 			}
 			OnDownloadComplete(booGetEntireFile, Path.ChangeExtension(m_strSavePath, null));
 		}
