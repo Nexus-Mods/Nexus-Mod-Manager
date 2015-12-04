@@ -1,133 +1,145 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <categoryManager fileVersion="0.1.0.0">
   <categoryList>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Ammo" ID="3">
+    <category path="Ammo" ID="3">
       <name>Ammo</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Animation" ID="4">
+    <category path="Animation" ID="4">
       <name>Animation</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Armour" ID="5">
+    <category path="Armour" ID="5">
       <name>Armour</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Audio - Misc" ID="35">
+    <category path="Audio - Misc" ID="35">
       <name>Audio - Misc</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Audio - Music" ID="34">
+    <category path="Audio - Music" ID="34">
       <name>Audio - Music</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Audio - SFX" ID="33">
+    <category path="Audio - SFX" ID="33">
       <name>Audio - SFX</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Audio - Voice" ID="36">
+    <category path="Audio - Voice" ID="36">
       <name>Audio - Voice</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Bug Fixes" ID="6">
+    <category path="Bug Fixes" ID="6">
       <name>Bug Fixes</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Cheats and God items" ID="8">
+	<category path="Buildings" ID="7">
+		<name>Buildings</name>
+	</category>
+    <category path="Cheats and God items" ID="8">
       <name>Cheats and God items</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Clothing" ID="9">
+    <category path="Clothing" ID="9">
       <name>Clothing</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Collectibles, Treasure Hunts, and Puzzles" ID="10">
+    <category path="Collectibles, Treasure Hunts, and Puzzles" ID="10">
       <name>Collectibles, Treasure Hunts, and Puzzles</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Companions" ID="11">
+    <category path="Companions" ID="11">
       <name>Companions</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Crafting - Equipment" ID="44">
+    <category path="Crafting - Equipment" ID="44">
       <name>Crafting - Equipment</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Crafting - Home" ID="45">
+    <category path="Crafting - Home" ID="45">
       <name>Crafting - Home</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Creatures" ID="12">
+    <category path="Creatures" ID="12">
       <name>Creatures</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\ENB Presets" ID="13">
+    <category path="ENB Presets" ID="13">
       <name>ENB Presets</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Environment" ID="14">
+    <category path="Environment" ID="14">
       <name>Environment</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Factions" ID="16">
+    <category path="Factions" ID="16">
       <name>Factions</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Gameplay Effects and Changes" ID="15">
+    <category path="Gameplay Effects and Changes" ID="15">
       <name>Gameplay Effects and Changes</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Hair and Face Models" ID="17">
+    <category path="Hair and Face Models" ID="17">
       <name>Hair and Face Models</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Items - Food/Drinks/Chems/etc" ID="43">
+    <category path="Items - Food/Drinks/Chems/etc" ID="43">
       <name>Items - Food/Drinks/Chems/etc</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Locations - New" ID="21">
+    <category path="Locations - New" ID="21">
       <name>Locations - New</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Locations - Vanilla" ID="47">
+    <category path="Locations - Vanilla" ID="47">
       <name>Locations - Vanilla</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Miscellaneous" ID="2">
+    <category path="Miscellaneous" ID="2">
       <name>Miscellaneous</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Modders Resources and Tutorials" ID="18">
+    <category path="Modders Resources and Tutorials" ID="18">
       <name>Modders Resources and Tutorials</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Models and Textures" ID="19">
+    <category path="Models and Textures" ID="19">
       <name>Models and Textures</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\New Lands" ID="20">
+    <category path="New Lands" ID="20">
       <name>New Lands</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\NPC" ID="22">
+    <category path="NPC" ID="22">
       <name>NPC</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\NPC - Vendors" ID="23">
+    <category path="NPC - Vendors" ID="23">
       <name>NPC - Vendors</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Performances" ID="26">
+	<category path="Overhauls" ID="24">
+		<name>Overhauls</name>
+	</category>
+	<category path="Patches" ID="25">
+		<name>Patches</name>
+	</category>
+    <category path="Performances" ID="26">
       <name>Performances</name>
     </category>
-	<category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Perks" ID="27">
+	<category path="Perks" ID="27">
       <name>Perks</name>
     </category>
-	<category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Player Homes" ID="28">
+	<category path="Player Homes" ID="28">
       <name>Player Homes</name>
     </category>
-	<category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Poses" ID="29">
+	<category path="Player Settlement" ID="48">
+		<name>Player Homes</name>
+	</category>
+	<category path="Poses" ID="29">
       <name>Poses</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Quests and Adventures" ID="30">
+    <category path="Quests and Adventures" ID="30">
       <name>Quests and Adventures</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Radio" ID="31">
+    <category path="Radio" ID="31">
       <name>Radio</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Saved Games/Characters" ID="32">
+    <category path="Saved Games/Characters" ID="32">
       <name>Saved Games/Characters</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Skills and Leveling" ID="46">
+    <category path="Skills and Leveling" ID="46">
       <name>Skills and Leveling</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\User Interface" ID="37">
+    <category path="User Interface" ID="37">
       <name>User Interface</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Utilities" ID="38">
+    <category path="Utilities" ID="38">
       <name>Utilities</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Vehicles" ID="39">
+    <category path="Vehicles" ID="39">
       <name>Vehicles</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Visuals and Graphics" ID="40">
+    <category path="Visuals and Graphics" ID="40">
       <name>Visuals and Graphics</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Weapons" ID="41">
+    <category path="Weapons" ID="41">
       <name>Weapons</name>
     </category>
-    <category path="e:\Games\Nexus Mod Manager\Fallout4\Mods\Weapons and Armour" ID="42">
+    <category path="Weapons and Armour" ID="42">
       <name>Weapons and Armour</name>
     </category>
   </categoryList>
