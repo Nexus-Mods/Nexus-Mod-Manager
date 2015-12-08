@@ -18,6 +18,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		protected string FilePath { get; private set; }
 		protected string[] Plugins { get; private set; }
 		protected bool TimestampLoadOrder { get; private set; }
+		protected bool ForcedReadOnly { get; private set; }
 		protected DateTime MasterDate { get; private set; }
 
 		#endregion
@@ -27,11 +28,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public WriteLoadOrderTask(string p_strFilePath, string[] p_strPlugins, bool p_booTimestamp, DateTime p_dtiMasterDate)
+		public WriteLoadOrderTask(string p_strFilePath, string[] p_strPlugins, bool p_booTimestamp, bool p_booReadOnly, DateTime p_dtiMasterDate)
 		{
 			FilePath = p_strFilePath;
 			Plugins = p_strPlugins;
 			TimestampLoadOrder = p_booTimestamp;
+			ForcedReadOnly = p_booReadOnly;
 			MasterDate = p_dtiMasterDate;
 		}
 
@@ -103,7 +105,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						int intRepeat = 0;
 						bool booLocked = false;
 
-						while (!IsFileReady(strPluginFile))
+						while (!IsFileReady(strPluginFile, false))
 						{
 							Thread.Sleep(100);
 							if (intRepeat++ > 10)
@@ -128,7 +130,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			int intRepeat = 0;
 			bool booLocked = false;
 
-			while (!IsFileReady(p_strFilePath))
+			while (!IsFileReady(p_strFilePath, ForcedReadOnly))
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ > 20)
@@ -148,6 +150,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					{
 						lock (m_objLock)
 						{
+							if (ForcedReadOnly)
+							{
+								SetFileReadAccess(p_strFilePath, false);
+							}
+
 							using (StreamWriter swFile = new StreamWriter(p_strFilePath))
 							{
 								foreach (string plugin in p_strPlugins)
@@ -177,6 +184,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						else
 							throw e;
 					}
+					finally
+					{
+						if (ForcedReadOnly)
+							SetFileReadAccess(p_strFilePath, true);
+					}
 				}
 			}
 		}
@@ -184,7 +196,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Checks whether the file to write to is currently free for use.
 		/// </summary>
-		private static bool IsFileReady(String p_strFilePath)
+		private static bool IsFileReady(string p_strFilePath, bool p_booReadOnly)
 		{
 			try
 			{
@@ -195,8 +207,39 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 			catch (Exception)
 			{
+				if (p_booReadOnly)
+					SetFileReadAccess(p_strFilePath, false);
+
 				return false;
 			}
+		}
+
+		/// <summary>
+		/// Returns whether a file is read-only.
+		/// </summary>
+		private static bool IsFileReadOnly(string p_strFileName)
+		{
+			// Create a new FileInfo object.
+			FileInfo fiInfo = new FileInfo(p_strFileName);
+
+			// Return the IsReadOnly property value.
+			return fiInfo.IsReadOnly;
+		}
+
+		/// <summary>
+		/// Sets the read-only value of a file.
+		/// </summary>
+		private static void SetFileReadAccess(string p_strFileName, bool p_booSetReadOnly)
+		{
+			try
+			{
+				// Create a new FileInfo object.
+				FileInfo fInfo = new FileInfo(p_strFileName);
+
+				// Set the IsReadOnly property.
+				fInfo.IsReadOnly = p_booSetReadOnly;
+			}
+			catch { }
 		}
 	}
 }

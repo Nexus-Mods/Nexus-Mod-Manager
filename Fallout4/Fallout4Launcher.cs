@@ -68,7 +68,8 @@ namespace Nexus.Client.Games.Fallout4
 		/// </summary>
 		private void LaunchFallout4Custom()
 		{
-			Trace.TraceInformation("Launching Fallout4 (Custom)...");
+			ForceReadOnlyPluginsFile();
+            Trace.TraceInformation("Launching Fallout4 (Custom)...");
 			Trace.Indent();
 
 			string strCommand = GetCustomLaunchCommand();
@@ -143,7 +144,8 @@ namespace Nexus.Client.Games.Fallout4
 		/// </summary>
 		private void LaunchFallout4Plain()
 		{
-			Trace.TraceInformation("Launching Fallout4 (Plain)...");
+			ForceReadOnlyPluginsFile();
+            Trace.TraceInformation("Launching Fallout4 (Plain)...");
 			Trace.Indent();
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
@@ -167,7 +169,9 @@ namespace Nexus.Client.Games.Fallout4
 		/// </summary>
 		private void LaunchGame()
 		{
-			if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
+			ForceReadOnlyPluginsFile();
+
+			if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
 				LaunchFallout4Custom();
 			else if (File.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse_loader.exe")))
 				LaunchFallout4SKSE();
@@ -176,5 +180,30 @@ namespace Nexus.Client.Games.Fallout4
 		}
 
 		#endregion
+
+		private void ForceReadOnlyPluginsFile()
+		{
+			Trace.TraceInformation("Setting plugins.txt to read-only");
+			Trace.Indent();
+			string strLocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+			string strPluginsFilePath = Path.Combine(strLocalAppData, GameMode.ModeId, "plugins.txt");
+			SetFileReadAccess(strPluginsFilePath, true);
+		}
+
+		/// <summary>
+		/// Sets the read-only value of a file.
+		/// </summary>
+		private static void SetFileReadAccess(string p_strFileName, bool p_booSetReadOnly)
+		{
+			try
+			{
+				// Create a new FileInfo object.
+				FileInfo fInfo = new FileInfo(p_strFileName);
+
+				// Set the IsReadOnly property.
+				fInfo.IsReadOnly = p_booSetReadOnly;
+			}
+			catch { }
+		}
 	}
 }
