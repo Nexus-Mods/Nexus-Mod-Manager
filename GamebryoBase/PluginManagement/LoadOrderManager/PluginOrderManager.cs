@@ -86,6 +86,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		protected bool TimestampOrder { get; private set; }
 
 		/// <summary>
+		/// Gets whether the load order is based on the plugin modified date.
+		/// </summary>
+		/// <value>Whether the load order is based on the plugin modified date.</value>
+		protected bool ForcedReadOnly { get; private set; }
+
+		/// <summary>
 		/// Gets the path to the file containing the list of active plugins.
 		/// </summary>
 		/// <value>The path to the file containing the list of active plugins.</value>
@@ -192,18 +198,23 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				case "Oblivion":
 					TimestampOrder = true;
+					ForcedReadOnly = false;
 					break;
 				case "Fallout3":
 					TimestampOrder = true;
+					ForcedReadOnly = false;
 					break;
 				case "FalloutNV":
 					TimestampOrder = true;
+					ForcedReadOnly = false;
 					break;
 				case "Skyrim":
 					TimestampOrder = false;
+					ForcedReadOnly = false;
 					break;
 				case "Fallout4":
 					TimestampOrder = false;
+					ForcedReadOnly = true;
 					break;
 				default:
 					throw new NotImplementedException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
@@ -304,7 +315,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Thread.Sleep(100);
 					if (intRepeat++ >= 20)
 						break;
-					booReady = IsFileReady(strFile);
+					booReady = IsFileReady(strFile, ForcedReadOnly);
 				}
 
 				if (strFile.Equals("plugins.txt", StringComparison.InvariantCultureIgnoreCase))
@@ -338,7 +349,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Thread.Sleep(100);
 					if (intRepeat++ >= 20)
 						break;
-					booReady = IsFileReady(e.FullPath);
+					booReady = IsFileReady(e.FullPath, ForcedReadOnly);
 				}
 
 				if (LoadOrderUpdate != null)
@@ -364,7 +375,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Thread.Sleep(100);
 					if (intRepeat++ >= 20)
 						break;
-					booReady = IsFileReady(e.FullPath);
+					booReady = IsFileReady(e.FullPath, ForcedReadOnly);
 				}
 
 				if (ExternalPluginAdded != null)
@@ -383,7 +394,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			if (IsExternalInput)
 			{
 				int intRepeat = 0;
-				bool? booReady = IsFileReady(e.FullPath);
+				bool? booReady = IsFileReady(e.FullPath, ForcedReadOnly);
 
 				while (intRepeat++ < 10)
 				{
@@ -490,14 +501,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public string[] GetActivePlugins()
 		{
 			int intRepeat = 0;
-			bool? booReady = IsFileReady(PluginsFilePath);
+			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
 
 			while (booReady == false)
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
 						break;
-				booReady = IsFileReady(PluginsFilePath);
+				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
 			}
 
 			if (booReady == true)
@@ -554,14 +565,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private List<string> GetActiveList()
 		{
 			int intRepeat = 0;
-			bool? booReady = IsFileReady(PluginsFilePath);
+			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
 
 			while (booReady == false)
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
 					break;
-				booReady = IsFileReady(PluginsFilePath);
+				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
 			}
 
 			if (booReady == true)
@@ -614,7 +625,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			else
 				strActivePluginNames = StripPluginDirectory(p_strActivePlugins);
 
-			WriteLoadOrder(PluginsFilePath, strActivePluginNames);
+			WriteLoadOrder(PluginsFilePath, strActivePluginNames, ForcedReadOnly);
 			m_lstActivePlugins = strActivePluginNames.ToList<string>();
 		}
 
@@ -673,14 +684,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private string[] GetSortedListLoadOrder()
 		{
 			int intRepeat = 0;
-			bool? booReady = IsFileReady(PluginsFilePath);
+			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
 
 			while (booReady == false)
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
 					break;
-				booReady = IsFileReady(PluginsFilePath);
+				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
 			}
 
 			if (booReady != false)
@@ -810,7 +821,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				try
 				{
-					WriteLoadOrderTask wltTask = new WriteLoadOrderTask(String.Empty, strOrderedPluginNames, TimestampOrder, m_dtiMasterDate);
+					WriteLoadOrderTask wltTask = new WriteLoadOrderTask(String.Empty, strOrderedPluginNames, TimestampOrder, false, m_dtiMasterDate);
 					TaskList.Add(wltTask);
 				}
 				catch { }
@@ -851,7 +862,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <param name="p_strPlugins">The list of plugins in the desired order.</param>
 		private void SetSortedListLoadOrder(string[] p_strPlugins)
 		{
-			WriteLoadOrder(LoadOrderFilePath, p_strPlugins);
+			WriteLoadOrder(LoadOrderFilePath, p_strPlugins, false);
 		}
 
 		/// <summary>
@@ -867,14 +878,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			if (File.Exists(PluginsFilePath))
 			{
 				int intRepeat = 0;
-				bool? booReady = IsFileReady(PluginsFilePath, true);
+				bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 
 				while (booReady == false)
 				{
 					Thread.Sleep(500);
 					if (intRepeat++ >= 20)
 						break;
-					booReady = IsFileReady(PluginsFilePath, true);
+					booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 				}
 
 				if (booReady == true)
@@ -1053,16 +1064,16 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Handles write operations to the load order file.
 		/// </summary>
-		private void WriteLoadOrder(string p_strFilePath, string[] p_strPlugins)
+		private void WriteLoadOrder(string p_strFilePath, string[] p_strPlugins, bool p_booReadOnly)
 		{
-			WriteLoadOrderTask wltTask = new WriteLoadOrderTask(p_strFilePath, p_strPlugins, false, m_dtiMasterDate);
+			WriteLoadOrderTask wltTask = new WriteLoadOrderTask(p_strFilePath, p_strPlugins, false, p_booReadOnly, m_dtiMasterDate);
 			TaskList.Add(wltTask);
 		}
 
 		/// <summary>
 		/// Checks whether the file to write to is currently free for use.
 		/// </summary>
-		private static bool? IsFileReady(String p_strFilePath, bool p_booReadOnly = false)
+		private static bool? IsFileReady(string p_strFilePath, bool p_booRemoveReadOnlyFlag, bool p_booReadOnly = false)
 		{
 			try
 			{
@@ -1074,9 +1085,45 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						return null;
 				}
 			}
-			catch { }
+			catch
+			{
+				if (p_booRemoveReadOnlyFlag)
+					if (IsFileReadOnly(p_strFilePath))
+						SetFileReadAccess(p_strFilePath, false);
+			}
+			finally
+			{
+			}
 
 			return false;
+		}
+
+		/// <summary>
+		/// Returns whether a file is read-only.
+		/// </summary>
+		private static bool IsFileReadOnly(string p_strFileName)
+		{
+			// Create a new FileInfo object.
+			FileInfo fiInfo = new FileInfo(p_strFileName);
+
+			// Return the IsReadOnly property value.
+			return fiInfo.IsReadOnly;
+		}
+
+		/// <summary>
+		/// Sets the read-only value of a file.
+		/// </summary>
+		private static void SetFileReadAccess(string p_strFileName, bool p_booSetReadOnly)
+		{
+			try
+			{
+				// Create a new FileInfo object.
+				FileInfo fInfo = new FileInfo(p_strFileName);
+
+				// Set the IsReadOnly property.
+				fInfo.IsReadOnly = p_booSetReadOnly;
+			}
+			catch { }
 		}
 
 		/// <summary>
