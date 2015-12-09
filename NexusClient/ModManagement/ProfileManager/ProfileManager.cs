@@ -854,7 +854,7 @@ namespace Nexus.Client.ModManagement
 			{
 				foreach (IModProfile Profile in ModProfiles)
 				{
-					if ((Profile != null) && (Profile.Id != CurrentProfile.Id))
+					if ((Profile != null) && ((CurrentProfile == null) || (Profile.Id != CurrentProfile.Id)))
 					{
 						string strPath = Path.Combine(m_strProfileManagerPath, Profile.Id);
 						VirtualModActivator.PurgeMods(p_lstMods, strPath);
