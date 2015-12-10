@@ -19,30 +19,33 @@ namespace Nexus.Client.Games.Fallout4
 	/// </summary>
 	public class Fallout4GameMode : Fallout3GameMode
 	{
-		//private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "f4se_loader.exe" };
+		private static bool m_booOldEditsWarning = false;
 		private Fallout4GameModeDescriptor m_gmdGameModeInfo = null;
 		private Fallout4Launcher m_glnGameLauncher = null;
 		private Fallout4ToolLauncher m_gtlToolLauncher = null;
 		private Fallout4SupportedTools m_stlSupportedTools = null;
 		private string m_strFallout4Ini = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4.ini");
 		private string m_strFallout4Prefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Prefs.ini");
+		private string m_strFallout4Custom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Custom.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
 		private string m_strPluginsDefaultValue = @"0";
+		private string m_strInvalidateRequiredValue = @"1";
 		private string m_strGuideLink = @"http://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation";
 
 		#region Properties
 
-		///// <summary>
-		///// Gets the list of possible script extender executable files for the game.
-		///// </summary>
-		///// <value>The list of possible script extender executable files for the game.</value>
-		//protected override string[] ScriptExtenderExecutables
-		//{
-		//	get
-		//	{
-		//		return SCRIPT_EXTENDER_EXECUTABLES;
-		//	}
-		//}
+		/// <summary>
+		/// Gets the list of possible script extender executable files for the game.
+		/// </summary>
+		/// <value>The list of possible script extender executable files for the game.</value>
+		protected override string[] ScriptExtenderExecutables
+		{
+			get
+			{
+				return SCRIPT_EXTENDER_EXECUTABLES;
+			}
+		}
 
 		/// <summary>
 		/// Gets the path to the per user Fallout4 data.
@@ -230,33 +233,57 @@ namespace Nexus.Client.Games.Fallout4
 		{
 			bool booLoose = false;
 			bool booPlugins = false;
-			p_strMessage = String.Empty;
+			bool booNewLoose = false;
+			p_strMessage = string.Empty;
+
+			if (m_booOldEditsWarning)
+				return false;
 
 			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strFallout4Ini);
-			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", null);
+			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
 
 			girIniReader = new GamebryoIniReader(m_strFallout4Prefs);
 			string strPlugins = girIniReader.GetValue("Launcher", "bEnableFileSelection", null);
 
-			if (!String.IsNullOrEmpty(strLoose))
-				if (strLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
+			girIniReader = new GamebryoIniReader(m_strFallout4Custom);
+			string strCustomLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
+			string strCustomInvalidate = girIniReader.GetValue("Archive", "bInvalidateOlderFiles", null);
+
+			if (!string.IsNullOrEmpty(strLoose))
+				if (!strLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
 					booLoose = true;
 
-			if (String.IsNullOrEmpty(strPlugins))
+			if (string.IsNullOrEmpty(strPlugins))
 				booPlugins = true;
 			else if (strPlugins.Equals(m_strPluginsDefaultValue, StringComparison.OrdinalIgnoreCase))
 				booPlugins = true;
 
-			if ((strPlugins == null) || (strLoose == null))
+			if (string.IsNullOrEmpty(strCustomInvalidate))
+				booNewLoose = true;
+			else if (!strCustomInvalidate.Equals(m_strInvalidateRequiredValue, StringComparison.OrdinalIgnoreCase))
+				booNewLoose = true;
+			else if (strCustomLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
+				booNewLoose = true;
+
+			if (booNewLoose)
 			{
-				p_strMessage = String.Format("Unable to retrieve data from ini files, please report this issue on the NMM forums. To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this video guide if you didn't yet:" + Environment.NewLine + Environment.NewLine + "{3}", booLoose ? "Fallout4.ini" : "", (booLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
+				if (booLoose)
+					p_strMessage = string.Format("The old Fallout 4 ini edits are deprecated (the long string in the Fallout4.ini caused long loading times). Please remove the old edits and follow this updated guide:" + Environment.NewLine + Environment.NewLine + "{0}", m_strGuideLink);
+				else
+					p_strMessage = string.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this guide:" + Environment.NewLine + Environment.NewLine + "{3}", booNewLoose ? "Fallout4Custom.ini" : "", (booNewLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
 			}
-			else if (booPlugins || booLoose)
+			else
 			{
-				p_strMessage = String.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this video guide:" + Environment.NewLine + Environment.NewLine + "{3}", booLoose ? "Fallout4.ini" : "", (booLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
+				if (booLoose)
+				{
+					p_strMessage = string.Format("The old Fallout4.ini edit is causing long loading times, please remove it from your .ini file, set it as:" + Environment.NewLine + "sResourceDataDirsFinal=" + Environment.NewLine + "(nothing after the '=')");
+					m_booOldEditsWarning = true;
+					return true;
+				}
 			}
 
-			return (booLoose || booPlugins);
+			m_booOldEditsWarning = true;
+			return (booNewLoose);
 		}
 
 		/// <summary>
