@@ -40,15 +40,15 @@ namespace Nexus.Client.Games.Fallout4
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Fallout4", "Launches plain Fallout4.", imgIcon, LaunchFallout4Plain, true));
-		
-			//strCommand = GetSkseLaunchCommand();
-			//Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			//if (File.Exists(strCommand))
-			//{
-			//	imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
-			//	AddLaunchCommand(new Command("SkseLaunch", "Launch SKSE", "Launches Fallout4 with SKSE.", imgIcon, LaunchFallout4SKSE, true));
-			//}
-			
+
+			strCommand = GetSkseLaunchCommand();
+			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if (File.Exists(strCommand))
+			{
+				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				AddLaunchCommand(new Command("F4seLaunch", "Launch F4SE", "Launches Fallout4 with F4SE.", imgIcon, LaunchFallout4SKSE, true));
+			}
+
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
@@ -110,7 +110,8 @@ namespace Nexus.Client.Games.Fallout4
 		/// </summary>
 		private void LaunchFallout4SKSE()
 		{
-			Trace.TraceInformation("Launching Fallout4 (SKSE)...");
+			ForceReadOnlyPluginsFile();
+			Trace.TraceInformation("Launching Fallout4 (F4SE)...");
 			Trace.Indent();
 
 			string strCommand = GetSkseLaunchCommand();
@@ -118,9 +119,9 @@ namespace Nexus.Client.Games.Fallout4
 
 			if (!File.Exists(strCommand))
 			{
-				Trace.TraceError("SKSE does not appear to be installed.");
+				Trace.TraceError("F4SE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "SKSE does not appear to be installed.");
+				OnGameLaunched(false, "F4SE does not appear to be installed.");
 				return;
 			}
 			Launch(strCommand, null);
@@ -132,7 +133,7 @@ namespace Nexus.Client.Games.Fallout4
 		/// <returns>The SKSE launch command.</returns>
 		private string GetSkseLaunchCommand()
 		{
-			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse_loader.exe");
+			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "f4se_loader.exe");
 		}
 
 		#endregion
@@ -173,7 +174,7 @@ namespace Nexus.Client.Games.Fallout4
 
 			if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
 				LaunchFallout4Custom();
-			else if (File.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse_loader.exe")))
+			else if (File.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "f4se_loader.exe")))
 				LaunchFallout4SKSE();
 			else
 				LaunchFallout4Plain();
