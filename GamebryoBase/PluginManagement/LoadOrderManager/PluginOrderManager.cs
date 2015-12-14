@@ -501,14 +501,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public string[] GetActivePlugins()
 		{
 			int intRepeat = 0;
-			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
+			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 
 			while (booReady == false)
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
 						break;
-				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
+				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 			}
 
 			if (booReady == true)
@@ -565,14 +565,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private List<string> GetActiveList()
 		{
 			int intRepeat = 0;
-			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
+			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 
 			while (booReady == false)
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
 					break;
-				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
+				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 			}
 
 			if (booReady == true)
@@ -684,14 +684,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private string[] GetSortedListLoadOrder()
 		{
 			int intRepeat = 0;
-			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
+			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 
 			while (booReady == false)
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
 					break;
-				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly);
+				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 			}
 
 			if (booReady != false)
@@ -1077,7 +1077,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			try
 			{
-				using (FileStream inputStream = File.Open(p_strFilePath, FileMode.Open, p_booReadOnly ? FileAccess.Read : FileAccess.ReadWrite, p_booReadOnly ? FileShare.ReadWrite : FileShare.None))
+				using (FileStream inputStream = File.Open(p_strFilePath, FileMode.Open, p_booReadOnly ? FileAccess.Read : FileAccess.ReadWrite, p_booReadOnly ? FileShare.Read : FileShare.ReadWrite))
 				{
 					if (inputStream.Length > 0)
 						return true;
