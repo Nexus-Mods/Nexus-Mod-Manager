@@ -894,7 +894,7 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
-		/// This chaecks for any files that are readonly.
+		/// This checks for any files that are readonly.
 		/// </summary>
 		protected void ScanForReadonlyFiles(IGameMode p_gmdGameMode)
 		{
