@@ -60,6 +60,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\AssemblyInformationalVersion.cs">
+      <Link>Properties\AssemblyInformationalVersion.cs</Link>
+    </Compile>
+    <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
+      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    </Compile>
     <Compile Include="CPL\Controls\FONVCplHighlightingStrategy.cs" />
     <Compile Include="CPL\FONVCplParserFactory.cs" />
     <Compile Include="CPL\FONVCplConverter.cs" />
@@ -125,7 +131,7 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />
+  
   <PropertyGroup>
     <!-- Folder containing AntlrBuildTask.dll -->
     <AntlrBuildTaskPath>$(SolutionDir)\lib\Antlr</AntlrBuildTaskPath>

@@ -54,6 +54,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\AssemblyInformationalVersion.cs">
+      <Link>Properties\AssemblyInformationalVersion.cs</Link>
+    </Compile>
+    <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
+      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    </Compile>
     <Compile Include="FalloutCSharpBaseScript.cs" />
     <Compile Include="FalloutCSharpScriptFunctionProxy.cs" />
     <Compile Include="Fallout3CSharpBaseScript.cs" />
@@ -88,7 +94,7 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />
+  
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

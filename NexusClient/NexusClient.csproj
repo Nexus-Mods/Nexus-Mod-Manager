@@ -58,6 +58,12 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\AssemblyInformationalVersion.cs">
+      <Link>Properties\AssemblyInformationalVersion.cs</Link>
+    </Compile>
+    <Compile Include="..\SharedSolutionVersionInfo.Product.cs">
+      <Link>Properties\SharedSolutionVersionInfo.Product.cs</Link>
+    </Compile>
     <Compile Include="EnvironmentInfo.cs" />
     <Compile Include="Extensions\ExtensionMethods.cs" />
     <Compile Include="GameModeSelectionForm.cs">
