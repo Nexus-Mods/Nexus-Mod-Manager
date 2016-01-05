@@ -56,6 +56,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
+      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    </Compile>
     <Compile Include="Controls\AutosizeLabel.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -87,7 +90,9 @@
     <Compile Include="Controls\FileSelectionDialog.Designer.cs">
       <DependentUpon>FileSelectionDialog.cs</DependentUpon>
     </Compile>
-    <Compile Include="Controls\FileSystemTreeViewBase.cs" />
+    <Compile Include="Controls\FileSystemTreeViewBase.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\FileSystemTreeNode.cs" />
     <Compile Include="Controls\FileSystemTreeView.cs">
       <SubType>Component</SubType>
@@ -160,7 +165,9 @@
     <Compile Include="Controls\ExtendedMessageBox.Designer.cs">
       <DependentUpon>ExtendedMessageBox.cs</DependentUpon>
     </Compile>
-    <Compile Include="Controls\ReorderableListView.cs" />
+    <Compile Include="Controls\ReorderableListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\RichTextEditor.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -194,7 +201,9 @@
     <Compile Include="Controls\WizardControlDesigner.cs" />
     <Compile Include="Controls\XmlCompletionData.cs" />
     <Compile Include="Controls\XmlCompletionProvider.cs" />
-    <Compile Include="Controls\XmlEditor.cs" />
+    <Compile Include="Controls\XmlEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Controls\XmlFoldingStrategy.cs" />
     <Compile Include="Controls\XmlFormattingStrategy.cs" />
     <Compile Include="Controls\XmlParser.cs" />
@@ -313,7 +322,7 @@
     <None Include="Resources\zoom-fit-best-2.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="$(SolutionDir)\lib\AutoIncrementVersion.targets" />
+  
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
