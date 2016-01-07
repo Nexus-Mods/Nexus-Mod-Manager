@@ -16,6 +16,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.DownloadMonitoring.UI;
+using Nexus.Client.UI.Controls;
 using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Games.Settings;
@@ -158,7 +159,7 @@ namespace Nexus.Client
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
 			mmgModManager.ResetSearchBox += new EventHandler(mmgModManager_ResetSearchBox);
 			mmgModManager.UpdateModsCount += new EventHandler(mmgModManager_UpdateModsCount);
-			mmgModManager.UninstallModFromProfiles += new EventHandler(mmgModManager_UninstallModFromProfiles);
+			mmgModManager.UninstallModFromProfiles += mmgModManager_UninstallModFromProfiles;
 			mmgModManager.UninstalledAllMods += new EventHandler(mmgModManager_UninstalledAllMods);
 			dmcDownloadMonitor.SetTextBoxFocus += new EventHandler(dmcDownloadMonitor_SetTextBoxFocus);
 			pmcPluginManager.UpdatePluginsCount += new EventHandler(pmcPluginManager_UpdatePluginsCount);
@@ -796,11 +797,11 @@ namespace Nexus.Client
 		/// of the ReaMe file.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void mmgModManager_UninstallModFromProfiles(object sender, EventArgs e)
+		/// <param name="e">A <see cref="ModEventArgs"/> describing the event arguments.</param>
+		private void mmgModManager_UninstallModFromProfiles(object sender, ModEventArgs e)
 		{
 			List<IMod> lstMod = new List<IMod>();
-			lstMod.Add((IMod)sender);
+			lstMod.Add(e.Mod);
 			if ((ViewModel.ProfileManager != null) && (ViewModel.ProfileManager.Initialized))
 				ViewModel.ProfileManager.PurgeModsFromProfiles(lstMod);
 		}

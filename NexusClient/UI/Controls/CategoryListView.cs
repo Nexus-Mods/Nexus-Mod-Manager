@@ -17,45 +17,83 @@ namespace Nexus.Client.UI.Controls
 {
 	public partial class CategoryListView : BrightIdeasSoftware.TreeListView
 	{
-		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
-		ReadOnlyObservableList<IMod> m_rolActiveMods = null;
-		IModCategory m_imcSelectedCategory = null;
-		IModRepository m_mmrModRepository = null;
-		bool m_booShowEmpty = false;
-		bool m_booCategoryMode = true;
-		string m_strLastSearchFilter = String.Empty;
+		private ReadOnlyObservableList<IMod> m_rolManagedMods;
+		private ReadOnlyObservableList<IMod> m_rolActiveMods;
+		private IModRepository m_mmrModRepository;
+		private bool m_booCategoryMode = true;
+		private string m_strLastSearchFilter = String.Empty;
+		private ToolStripMenuItem m_mniCategories;
+		private ToolStripMenuItem m_mniCategoryMoveTo;
+		private ToolStripMenuItem m_mniModActivate;
+		private ToolStripMenuItem m_mniModDeactivate;
+		private ToolStripMenuItem m_mniModUninstall;
+		private ToolStripMenuItem m_mniModReadme;
+		private ToolStripMenuItem m_mniModWarnings;
+
 
 		#region Custom Events
 
+		/// <summary>
+		/// Occurs whenever all mods "warning update" status toggled.
+		/// </summary>
+		public event EventHandler<ModUpdateWarningEventArgs> AllUpdateWarningsToggled;
 		public event EventHandler CategorySwitch;
 		public event EventHandler CategoryRemoved;
+		/// <summary>
+		/// Occurs whenever "show empty categories" status toggled.
+		/// </summary>
+		public event EventHandler CategoryShowEmptyToggled;
 		public event EventHandler FileDropped;
-		public event EventHandler UpdateWarningToggle;
-		public event EventHandler ToggleAllWarnings;
-		public event EventHandler OpenReadMeFile;
+		/// <summary>
+		/// Occurs whenever the user performs an action on the selected mod.
+		/// </summary>
+		public event EventHandler<ModActionEventArgs> ModActionRequested;
+		/// <summary>
+		/// Occurs whenever the selected mod's information is requested.
+		/// </summary>
+		public event EventHandler<ModInfoRequestEventArgs> ModInfoRequested;
+		/// <summary>
+		/// Occurs whenever the selected mod's readme file is being opened.
+		/// </summary>
+		public event EventHandler<ModReadmeRequestEventArgs> ModReadmeFileRequested;
 		public event EventHandler ReadmeScan;
-		public event EventHandler UninstallMod;
-		public event EventHandler UninstallModFromProfiles;
+		/// <summary>
+		/// Occurs whenever selected mod's "warning update" status toggled.
+		/// </summary>
+		public event EventHandler<ModUpdateWarningEventArgs> UpdateWarningToggled;
 
 		#endregion
 
 		#region Properties
 
 		/// <summary>
-		/// Gets or sets whether to show the hidden categories (no mods assigned).
+		/// Indicates whether all categories are collapsed.
 		/// </summary>
-		/// <value>Whether to show the hidden categories (no mods assigned).</value>
-		public bool ShowHiddenCategories
+		public bool AllCategoriesCollapsed
 		{
 			get
 			{
-				return m_booShowEmpty;
-			}
-			set
-			{
-				m_booShowEmpty = value;
+				return !this.TreeModel.TreeView.ExpandedObjects.Cast<object>().Any();
 			}
 		}
+
+		/// <summary>
+		/// Indicates whether all categories are expanded.
+		/// </summary>
+		public bool AllCategoriesExpanded
+		{
+			get
+			{
+				var total = this.TreeModel.RootObjects.Cast<object>().Count();
+				return this.TreeModel.TreeView.ExpandedObjects.Cast<object>().Count() == total;
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to show the hidden categories (no mods assigned).
+		/// </summary>
+		/// <value>Whether to show the hidden categories (no mods assigned).</value>
+		public bool ShowHiddenCategories { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether to enable the category mode.
@@ -107,7 +145,7 @@ namespace Nexus.Client.UI.Controls
 		/// Gets the currently selected mod.
 		/// </summary>
 		/// <value>The currently selected mod.</value>
-		public IMod GetSelectedMod
+		public IMod SelectedMod
 		{
 			get
 			{
@@ -126,11 +164,11 @@ namespace Nexus.Client.UI.Controls
 		{
 			get
 			{
-				return m_imcSelectedCategory;
-			}
-			set
-			{
-				m_imcSelectedCategory = value;
+				if (this.SelectedObjects.Count != 1)
+				{
+					return null;
+				}
+				return this.SelectedObjects[0] as ModCategory;
 			}
 		}
 
@@ -210,6 +248,7 @@ namespace Nexus.Client.UI.Controls
 		public CategoryListView()
 			: base()
 		{
+			ShowHiddenCategories = false;
 			InitializeComponent();
 			tlcModName.Name = "ModName";
 			tlcInstallDate.Name = "InstallDate";
@@ -224,6 +263,9 @@ namespace Nexus.Client.UI.Controls
 			tlcWebVersion.AspectName = "Text";
 			tlcAuthor.AspectName = "Text";
 			tlcCategory.AspectName = "Text";
+
+			this.cmsContextMenu.Opening += cmsContextMenu_Opening;
+			SetupContextMenu();
 		}
 
 		#endregion
@@ -252,7 +294,7 @@ namespace Nexus.Client.UI.Controls
 			Settings = p_Settings;
 
 			// Setup menuStrip commands
-			SetupContextMenu();
+			RefreshContextMenuCategoryList();
 
 			// Setup category validator
 			SetupCategoryValidator();
@@ -295,26 +337,6 @@ namespace Nexus.Client.UI.Controls
 
 			// Set control initialized
 			this.Tag = true;
-		}
-
-		/// <summary>
-		/// Setup the CategoryView context menu
-		/// </summary>
-		public void SetupContextMenu()
-		{
-			cmsContextMenu.Items.Clear();
-			cmsContextMenu.Items.Add("Move to Category:");
-			cmsContextMenu.Items.Add("Categories:");
-			cmsContextMenu.Items.Add("Mod update warnings", new Bitmap(Properties.Resources.update_warning, 16, 16));
-			cmsContextMenu.Items.Add("Scan selected mods for Readme files", new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_ReadmeScan));
-			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("New", null, new EventHandler(cmsContextMenu_CategoryNew));
-			(cmsContextMenu.Items[1] as ToolStripMenuItem).DropDownItems.Add("Remove selected", null, new EventHandler(cmsContextMenu_CategoryRemove));
-			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Toggle mod update warning on selected file/s", null, new EventHandler(cmsContextMenu_ToggleUpdateWarning));
-			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Enable mod update warnings for all files", null, new EventHandler(cmsContextMenu_EnableAllWarnings));
-			(cmsContextMenu.Items[2] as ToolStripMenuItem).DropDownItems.Add("Disable mod update warnings for all files", null, new EventHandler(cmsContextMenu_DisableAllWarnings));
-
-			foreach (IModCategory imcCategory in Categories.OrderBy(x => x.CategoryName))
-				(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Add(imcCategory.CategoryName, null, new EventHandler(cmsContextMenu_CategoryClicked));
 		}
 
 		/// <summary>
@@ -578,67 +600,6 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
-		/// Setup the context menu items visibility
-		/// </summary>
-		/// <param name="p_booCategorySetup">Whether to setup the visibility for a category or a mod</param>
-		/// <param name="p_strReadMeFiles">The readme files</param>
-		public void SetupContextMenuFor(bool p_booCategorySetup, string[] p_strReadMeFiles)
-		{
-			if (p_booCategorySetup)
-			{
-				this.cmsContextMenu.Items[0].Visible = false;
-				this.cmsContextMenu.Items[1].Visible = true;
-				this.cmsContextMenu.Items[2].Visible = true;
-				this.cmsContextMenu.Items[3].Visible = true;
-
-				while (cmsContextMenu.Items.Count > 4)
-				{
-					cmsContextMenu.Items.RemoveAt(4);
-				}
-
-			}
-			else
-			{
-				this.cmsContextMenu.Items[0].Visible = true;
-				this.cmsContextMenu.Items[1].Visible = false;
-				this.cmsContextMenu.Items[2].Visible = true;
-				this.cmsContextMenu.Items[3].Visible = true;
-
-				while (cmsContextMenu.Items.Count > 4)
-				{
-					cmsContextMenu.Items.RemoveAt(4);
-				}
-
-				if (p_strReadMeFiles != null)
-				{
-					cmsContextMenu.Items.Add("Open ReadMe file:", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
-					foreach (string strFile in p_strReadMeFiles)
-						(cmsContextMenu.Items[4] as ToolStripMenuItem).DropDownItems.Add(strFile, new Bitmap(Properties.Resources.text_x_generic, 16, 16), new EventHandler(cmsContextMenu_OpenReadMeFile));
-					this.cmsContextMenu.Items[4].Enabled = true;
-				}
-				else
-				{
-					cmsContextMenu.Items.Add("No ReadMe for this mod", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
-					this.cmsContextMenu.Items[4].Enabled = false;
-				}
-				this.cmsContextMenu.Items[4].Visible = true;
-
-				cmsContextMenu.Items.Add("Uninstall Mod", new Bitmap(Properties.Resources.dialog_block, 16, 16), new EventHandler(cmsContextMenu_UninstallMod));
-				this.cmsContextMenu.Items[5].Enabled = ((m_rolActiveMods != null) && (m_rolActiveMods.Count > 0) && (m_rolActiveMods.Contains(GetSelectedMod)));
-				this.cmsContextMenu.Items[5].Visible = true;
-
-				cmsContextMenu.Items.Add("Uninstall from all Profiles", new Bitmap(Properties.Resources.dialog_block, 16, 16), new EventHandler(cmsContextMenu_UninstallModFromProfiles));
-				this.cmsContextMenu.Items[6].Enabled = ((m_rolActiveMods != null) && (m_rolActiveMods.Count > 0) && (m_rolActiveMods.Contains(GetSelectedMod)));
-				this.cmsContextMenu.Items[6].Visible = true;
-
-				cmsContextMenu.Items.Add(new ToolStripSeparator());
-				cmsContextMenu.Items.Add("Filename: " + ((GetSelectedMod != null) ? Path.GetFileName(GetSelectedMod.Filename) : "Unable to retrieve"), new Bitmap(Properties.Resources.document_save, 16, 16));
-				this.cmsContextMenu.Items[8].Enabled = false;
-				this.cmsContextMenu.Items[8].Visible = true;
-			}
-		}
-
-		/// <summary>
 		/// Setup the Image Getters
 		/// </summary>
 		public void SetupImageGetters()
@@ -722,6 +683,26 @@ namespace Nexus.Client.UI.Controls
 		#region Category Management
 
 		/// <summary>
+		/// Collapses all categories.
+		/// </summary>
+		public void CollapseAllCategories()
+		{
+			this.CollapseAll();
+			Settings.ShowExpandedCategories = false;
+			Settings.Save();
+		}
+
+		/// <summary>
+		/// Expands all categories.
+		/// </summary>
+		public void ExpandAllCategories()
+		{
+			this.ExpandAll();
+			Settings.ShowExpandedCategories = true;
+			Settings.Save();
+		}
+
+		/// <summary>
 		/// Loads the TreeListView categories.
 		/// </summary>
 		public void LoadData()
@@ -798,6 +779,21 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
+		/// Shows or hides empty categories.
+		/// </summary>
+		public void ToggleShowEmptyCategories()
+		{
+			Settings.ShowEmptyCategory = !Settings.ShowEmptyCategory;
+			Settings.Save();
+
+			// update UI
+			this.ShowHiddenCategories = Settings.ShowEmptyCategory;
+			this.ReloadList(false);
+
+			this.OnCategoryShowEmptyToggled(EventArgs.Empty);
+		}
+
+		/// <summary>
 		/// Update the category in the TreeListView.
 		/// </summary>
 		/// <param name="p_mctCategory">The category to update.</param>
@@ -806,7 +802,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			if (this.Items.Count > 0)
 			{
-				SetupContextMenu();
+				RefreshContextMenuCategoryList();
 				//RefreshObject(p_mctCategory);
 			}
 		}
@@ -815,27 +811,26 @@ namespace Nexus.Client.UI.Controls
 		/// Gets the mod count for the current category.
 		/// </summary>
 		/// <param name="p_imcCategory">The category to count.</param>
-		public Int32 GetCategoryModCount(IModCategory p_imcCategory)
+		private Int32 GetCategoryModCount(IModCategory p_imcCategory)
 		{
-			var CategoryMods = from Mod in m_rolManagedMods
-							   where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_imcCategory.Id)
-							   select Mod;
-
-			return CategoryMods.Count();
+			if (p_imcCategory == null)
+			{
+				return 0;
+			}
+			return GetCategoryMods(p_imcCategory).Count;
 		}
 
 		/// <summary>
-		/// Gets the mod count for the current category.
+		/// Gets the list of mods in the current category.
 		/// </summary>
-		/// <param name="p_imcCategory">The category to count.</param>
-		/// <param name="p_modItems">The Mod List containing the categories.</param>
-		public Int32 GetCategoryModCount(IModCategory p_imcCategory, IEnumerable<IMod> p_modItems)
+		/// <param name="p_imcCategory">The category.</param>
+		private List<IMod> GetCategoryMods(IModCategory p_imcCategory)
 		{
-			var CategoryMods = from Mod in p_modItems
-							   where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_imcCategory.Id)
-							   select Mod;
-
-			return CategoryMods.Count();
+			if (p_imcCategory == null)
+			{
+				return new List<IMod>();
+			}
+			return m_rolManagedMods.Where(mod => mod != null && (mod.CustomCategoryId >= 0 ? mod.CustomCategoryId : mod.CategoryId) == p_imcCategory.Id).ToList();
 		}
 
 		/// <summary>
@@ -848,13 +843,6 @@ namespace Nexus.Client.UI.Controls
 			{
 				CategoryManager.RemoveCategory(p_imcCategory);
 
-				foreach (ToolStripDropDownItem Item in (cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems)
-					if (Item.Text == p_imcCategory.CategoryName)
-					{
-						(cmsContextMenu.Items[0] as ToolStripMenuItem).DropDownItems.Remove(Item);
-						break;
-					}
-
 				if (this.CategoryRemoved != null)
 					this.CategoryRemoved(p_imcCategory, new EventArgs());
 			}
@@ -866,7 +854,7 @@ namespace Nexus.Client.UI.Controls
 		public void AddNewCategory()
 		{
 			this.AddData(CategoryManager.AddCategory(), true);
-			this.SetupContextMenu();
+			this.RefreshContextMenuCategoryList();
 		}
 
 		/// <summary>
@@ -887,6 +875,300 @@ namespace Nexus.Client.UI.Controls
 
 		#endregion
 
+		#region Context Menu Management
+
+		/// <summary>
+		/// Setup the CategoryView context menu
+		/// </summary>
+		public void RefreshContextMenuCategoryList()
+		{
+			m_mniCategoryMoveTo.DropDownItems.Clear();
+			foreach (IModCategory imcCategory in Categories.OrderBy(x => x.CategoryName))
+			{
+				var item = new ToolStripMenuItem(imcCategory.CategoryName, null, cmsContextMenu_CategoryClicked) { Tag = imcCategory.Id };
+				m_mniCategoryMoveTo.DropDownItems.Add(item);
+			}
+		}
+
+		/// <summary>
+		/// Populates "Category -> expand/collapse" sub-items as appropriate.
+		/// </summary>
+		private void RenderContextMenuCategoryExpandCollapse()
+		{
+			var hasExpanded = !this.AllCategoriesCollapsed;
+			var hasCollpased = !this.AllCategoriesExpanded;
+
+			if (hasCollpased || hasExpanded)
+			{
+				m_mniCategories.DropDownItems.Add("-");
+			}
+			if (hasCollpased)
+			{
+				m_mniCategories.DropDownItems.Add("Expand all", null, (s, e) => this.ExpandAllCategories());
+			}
+			if (hasExpanded)
+			{
+				m_mniCategories.DropDownItems.Add("Collapse all", null, (s, e) => this.CollapseAllCategories());
+			}
+
+			if (hasCollpased || hasExpanded)
+			{
+				m_mniCategories.DropDownItems.Add("-");
+			}
+			m_mniCategories.DropDownItems.Add(this.ShowHiddenCategories ? "Hide empty" : "Show empty",
+				this.ShowHiddenCategories ? new Bitmap(Properties.Resources.eye_open2_24x24, 16, 16) : new Bitmap(Properties.Resources.eye_open_24x24, 16, 16), 
+				(s, e) => this.ToggleShowEmptyCategories());
+		}
+
+		/// <summary>
+		/// Populates "Deactivate -> ..." sub-items as appropriate.
+		/// </summary>
+		private void RenderContextMenuModUninstall()
+		{
+			m_mniModUninstall.DropDownItems.Add("From active profile", null,
+				(s, e) => this.OnModActionRequested(ModAction.Uninstall));
+			m_mniModUninstall.DropDownItems.Add("From all profiles", null,
+				(s, e) => this.OnModActionRequested(ModAction.UninstallAll));
+			m_mniModUninstall.DropDownItems.Add("-");
+			m_mniModUninstall.DropDownItems.Add("Uninstall and delete mod archive (permanent)", new Bitmap(Properties.Resources.dialog_cancel_4_16, 16, 16),
+				(s, e) => this.OnModActionRequested(ModAction.Delete));
+		}
+
+		/// <summary>
+		/// Populates "Open readme" sub-items as appropriate.
+		/// </summary>
+		private void RenderContextMenuModReadme()
+		{
+			m_mniModReadme.DropDownItems.Clear();
+			m_mniModReadme.Click -= cmsContextMenu_OpenReadMeFile;
+			m_mniModReadme.Tag = null;
+
+			var args = new ModInfoRequestEventArgs(this.SelectedMod);
+			this.OnModInfoRequested(args);
+
+			// if there is only one readme file then allow the user to click on the context menu instead of showing a dropdown
+			// else put all readme's in a dropdown list
+			if (args.ReadmeFiles.Count == 1)
+			{
+				m_mniModReadme.Tag = args.ReadmeFiles[0];
+				m_mniModReadme.Click += cmsContextMenu_OpenReadMeFile;
+			}
+			else if (args.ReadmeFiles.Count > 1)
+			{
+				args.ReadmeFiles.ForEach(f =>
+				{
+					var item = m_mniModReadme.DropDownItems.Add(f, new Bitmap(Properties.Resources.text_x_generic, 16, 16), cmsContextMenu_OpenReadMeFile);
+					item.Tag = f;
+				});
+			}
+			m_mniModReadme.Enabled = args.ReadmeFiles.Count > 0;
+		}
+
+		/// <summary>
+		/// Populates "Mod update warnings -> ..." sub-items as appropriate.
+		/// </summary>
+		private void RenderContextMenuModWarningsToggle(List<IMod> p_lstMods)
+		{
+			if (p_lstMods == null || !p_lstMods.Any())
+			{
+				return;
+			}
+
+			if (p_lstMods.Count == 1)
+			{
+				m_mniModWarnings.DropDownItems.Add(p_lstMods[0].UpdateWarningEnabled ? "Disable update warning" : "Enable update warning",
+					null,
+					(s, e) => this.OnUpdateWarningToggled(new ModUpdateWarningEventArgs(!p_lstMods[0].UpdateWarningEnabled)));
+			}
+			else
+			{
+				// for some reason linq over mods yield incorrect results, so use the conventional foreach loop...
+				bool hasEnabledWarnings = false;
+				bool hasDisabledWarnings = false;
+				foreach (var mod in p_lstMods)
+				{
+					if (mod.UpdateWarningEnabled)
+					{
+						hasEnabledWarnings = true;
+					}
+					else
+					{
+						hasDisabledWarnings = true;
+					}
+				}
+
+				if ((hasEnabledWarnings || hasDisabledWarnings) && m_mniModWarnings.DropDownItems.Count > 0)
+				{
+					m_mniModWarnings.DropDownItems.Add("-");
+				}
+				if (hasDisabledWarnings)
+				{
+					m_mniModWarnings.DropDownItems.Add("Enable for selected files", null,
+						(s, e) => this.OnUpdateWarningToggled(new ModUpdateWarningEventArgs(true)));
+				}
+				if (hasEnabledWarnings)
+				{
+					m_mniModWarnings.DropDownItems.Add("Disable for selected files", null,
+						(s, e) => this.OnUpdateWarningToggled(new ModUpdateWarningEventArgs(false)));
+				}
+			}
+
+			if (m_mniModWarnings.DropDownItems.Count > 0)
+			{
+				m_mniModWarnings.DropDownItems.Add("-");
+			}
+			m_mniModWarnings.DropDownItems.Add("Enable for all files", null,
+				(s, e) => this.OnAllUpdateWarningsToggled(new ModUpdateWarningEventArgs(true)));
+			m_mniModWarnings.DropDownItems.Add("Disable for all files", null,
+				(s, e) => this.OnAllUpdateWarningsToggled(new ModUpdateWarningEventArgs(false)));
+		}
+
+		/// <summary>
+		/// Prepares the context menu for the currently selected categories.
+		/// </summary>
+		private void SetupCategoryContextMenu()
+		{
+			// validate
+			if (!this.SelectedObjects.OfType<object>().All(o => o is ModCategory))
+			{
+				return;
+			}
+
+			cmsContextMenu.Items.Add(m_mniCategories);
+
+			if (this.SelectedObjects.Count == 1)
+			{
+				// single category management
+				// can:
+				// - add
+				// - remove
+				// - toggle update warnings
+				// - toggle collapse/expand all
+
+				m_mniCategories.DropDownItems.Add("Add new", new Bitmap(Properties.Resources.edit_add_4, 16, 16), cmsContextMenu_CategoryNew);
+				m_mniCategories.DropDownItems.Add("Delete", new Bitmap(Properties.Resources.edit_delete_6, 16, 16), cmsContextMenu_CategoryRemove);
+
+				if (GetCategoryModCount(this.SelectedCategory) > 0)
+				{
+					cmsContextMenu.Items.Add("-");
+					cmsContextMenu.Items.Add(m_mniModWarnings);
+				}
+			}
+			else
+			{
+				// multi-category management
+				// can:
+				// - delete
+				// - toggle update warnings
+				// - toggle collapse/expand all
+
+				m_mniCategories.DropDownItems.Add("Delete", new Bitmap(Properties.Resources.edit_delete_6, 16, 16), cmsContextMenu_CategoryRemove);
+			}
+
+			// shared - toggle update warnings
+			var mods = new List<IMod>();
+			this.SelectedObjects.OfType<ModCategory>().ToList().ForEach(modCategory => mods.AddRange(GetCategoryMods(modCategory)));
+			this.RenderContextMenuModWarningsToggle(mods);
+
+			// shared - facilitate expand/collapse all categories
+			RenderContextMenuCategoryExpandCollapse();
+		}
+
+		/// <summary>
+		/// Setup the CategoryView context menu
+		/// </summary>
+		private void SetupContextMenu()
+		{
+			// menu items with sub-items, sub-items will be populated at the run-time
+			m_mniCategoryMoveTo = new ToolStripMenuItem("Move to");
+			m_mniCategoryMoveTo.DropDownOpening += m_mniCategoryMoveTo_DropDownOpening;
+			m_mniCategories = new ToolStripMenuItem("Category", new Bitmap(Properties.Resources.format_line_spacing_triple, 16, 16));
+			m_mniModWarnings = new ToolStripMenuItem("Mod update warnings", new Bitmap(Properties.Resources.update_warning, 16, 16));
+			m_mniModUninstall = new ToolStripMenuItem("Uninstall", new Bitmap(Properties.Resources.dialog_block, 16, 16));
+
+			// menu items without any sub-items
+			m_mniModActivate = new ToolStripMenuItem("Activate", new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16),
+				(s, e) => this.OnModActionRequested(ModAction.Activate));
+			m_mniModDeactivate = new ToolStripMenuItem("Deactivate", ToolStripRenderer.CreateDisabledImage(new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16)),
+				(s, e) => this.OnModActionRequested(ModAction.Deactivate));
+			m_mniModReadme = new ToolStripMenuItem("Open readme", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
+		}
+
+		/// <summary>
+		/// Prepares the context menu for the currently selected mods.
+		/// </summary>
+		private void SetupModContextMenu()
+		{
+			// validate
+			if (!this.SelectedObjects.OfType<object>().All(o => o is IMod))
+			{
+				return;
+			}
+
+			if (this.SelectedObjects.Count == 1)
+			{
+				// single mod management
+				// can:
+				// - display mod's filename
+				// - display mod's readme(s), if any
+				// - activate or deactivate 
+				// - uninstall (from active profile, all profiles or permanently delete the archive)
+				// - move to another category
+
+				var menuItem = cmsContextMenu.Items.Add(SelectedMod != null ? Path.GetFileName(SelectedMod.Filename) : "Unable to retrieve the mod's filename",
+					new Bitmap(Properties.Resources.document_save, 16, 16));
+				menuItem.Enabled = false;
+				cmsContextMenu.Items.Add("-");
+
+				cmsContextMenu.Items.Add(m_mniModReadme);
+				RenderContextMenuModReadme();
+
+				// if mod is active - then allow its deactivation, else - activation
+				if (!IsModInstalled(this.SelectedMod))
+				{
+					m_mniModActivate.Text = @"Install and activate";
+					cmsContextMenu.Items.Add(m_mniModActivate);
+				}
+				else if (!IsModActive(this.SelectedMod))
+				{
+					m_mniModActivate.Text = @"Activate";
+					cmsContextMenu.Items.Add(m_mniModActivate);
+				}
+				else
+				{
+					cmsContextMenu.Items.Add(m_mniModDeactivate);
+				}
+
+				RenderContextMenuModUninstall();
+				if (m_mniModUninstall.DropDownItems.Count > 0)
+				{
+					cmsContextMenu.Items.Add(m_mniModUninstall);
+				}
+			}
+			else
+			{
+				// multi-mod management
+				// can:
+				// - move to another category
+			}
+
+			// for both single and multi-mod management can:
+			// - manage "update warnings"
+			this.RenderContextMenuModWarningsToggle(this.SelectedObjects.OfType<IMod>().ToList());
+			if (m_mniModWarnings.DropDownItems.Count > 0)
+			{
+				cmsContextMenu.Items.Add(m_mniModWarnings);
+			}
+
+			if (m_mniCategoryMoveTo.DropDownItems.Count > 0)
+			{
+				cmsContextMenu.Items.Add("-");
+				cmsContextMenu.Items.Add(m_mniCategoryMoveTo);
+			}
+		}
+
+		#endregion
+
 		#region EventHandler
 
 		/// <summary>
@@ -896,7 +1178,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
 		private void cmsContextMenu_CategoryRemove(object sender, EventArgs e)
 		{
-			RemoveCategory(m_imcSelectedCategory);
+			this.RemoveCategory(this.SelectedCategory);
 		}
 
 		/// <summary>
@@ -910,47 +1192,38 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
-		/// Handles the cmsContextMenu.ToggleUpdateWarning event.
+		/// Handles the cmsContextMenu.Opening event.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_ToggleUpdateWarning(object sender, EventArgs e)
+		private void cmsContextMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
 		{
-			if (this.UpdateWarningToggle != null)
-				this.UpdateWarningToggle(this, new EventArgs());
-		}
+			cmsContextMenu.Items.Clear();
+			m_mniCategories.DropDownItems.Clear();
+			m_mniModWarnings.DropDownItems.Clear();
+			m_mniModUninstall.DropDownItems.Clear();
 
-		/// <summary>
-		/// Handles the cmsContextMenu.EnableAllWarnings event.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_EnableAllWarnings(object sender, EventArgs e)
-		{
-			if (this.ToggleAllWarnings != null)
-				this.ToggleAllWarnings(true, new EventArgs());
-		}
+			if (this.SelectedObjects.Count < 1)
+			{
+				e.Cancel = true;
+				return;
+			}
 
-		/// <summary>
-		/// Handles the cmsContextMenu.DisableAllWarnings event.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_DisableAllWarnings(object sender, EventArgs e)
-		{
-			if (this.ToggleAllWarnings != null)
-				this.ToggleAllWarnings(false, new EventArgs());
-		}
+			// we can also tailor context menu for homogeneous selections - i.e. for multiple selected categories or mods
+			if (this.SelectedObjects.OfType<object>().All(o => o is ModCategory))
+			{
+				this.SetupCategoryContextMenu();
+				return;
+			}
 
-		/// <summary>
-		/// Handles the cmsContextMenu.ReadmeScan event.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_ReadmeScan(object sender, EventArgs e)
-		{
-			if (this.ReadmeScan != null)
-				this.ReadmeScan(this, new EventArgs());
+			if (this.SelectedObjects.OfType<object>().All(o => o is IMod))
+			{
+				this.SetupModContextMenu();
+				return;
+			}
+
+			// heterogeneous selection - show no context menu
+			e.Cancel = true;
 		}
 
 		/// <summary>
@@ -960,29 +1233,20 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
 		private void cmsContextMenu_OpenReadMeFile(object sender, EventArgs e)
 		{
-			if (this.OpenReadMeFile != null)
-				this.OpenReadMeFile(sender, new EventArgs());
-		}
+			if (this.SelectedMod == null || 
+				!(sender is ToolStripMenuItem) || 
+				(sender != m_mniModReadme && ((ToolStripMenuItem)sender).OwnerItem != m_mniModReadme))
+			{
+				return;
+			}
 
-		/// <summary>
-		/// Handles the cmsContextMenu.UninstallMod event.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_UninstallMod(object sender, EventArgs e)
-		{
-			if (this.UninstallMod != null)
-				this.UninstallMod(GetSelectedMod, new EventArgs());
-		}
+			var fileName = ((ToolStripMenuItem)sender).Tag as string;
+			if (string.IsNullOrWhiteSpace(fileName))
+			{
+				return;
+			}
 
-		/// Handles the cmsContextMenu.UninstallMod event.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_UninstallModFromProfiles(object sender, EventArgs e)
-		{
-			if (this.UninstallModFromProfiles != null)
-				this.UninstallModFromProfiles(GetSelectedMod, new EventArgs());
+			this.OnModReadmeFileRequested(new ModReadmeRequestEventArgs(this.SelectedMod, fileName));
 		}
 
 		/// <summary>
@@ -1001,7 +1265,39 @@ namespace Nexus.Client.UI.Controls
 			}
 		}
 
+		/// <summary>
+		/// Intercepts opening of the mods category context menu drop down list and disables the current mods category.
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		private void m_mniCategoryMoveTo_DropDownOpening(object sender, EventArgs e)
+		{
+			var selectedMod = this.SelectedMod;
+			if (selectedMod == null)
+			{
+				return;
+			}
+
+			var selectedModCategoryId = selectedMod.CustomCategoryId > 0 ? selectedMod.CustomCategoryId : selectedMod.CategoryId;
+
+			foreach (ToolStripItem item in this.m_mniCategoryMoveTo.DropDownItems)
+			{
+				var categoryId = item.Tag as int?;
+				if (!categoryId.HasValue)
+				{
+					continue;
+				}
+
+				item.Enabled = categoryId != selectedModCategoryId;
+				if (categoryId == selectedMod.CategoryId)
+				{
+					item.Image = Properties.Resources.home_16x16;
+				}
+			}
+		}
+
 		#endregion
+
 
 		/// <summary>
 		/// Applies the default list filters
@@ -1010,12 +1306,18 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.ModelFilter = new ModelFilter(delegate(object x)
 			{
-				if ((x.GetType() == typeof(ModCategory)) && !ShowHiddenCategories)
-					if ((p_mctModCategory != null) && ((ModCategory)x == p_mctModCategory))
+				var modCategory = x as ModCategory;
+				if (modCategory != null && !ShowHiddenCategories)
+				{
+					if (modCategory.Equals(p_mctModCategory))
+					{
 						return true;
-					else if ((Categories.Count > 1) && (GetCategoryModCount((ModCategory)x) <= 0))
+					}
+					if (Categories.Count > 1 && GetCategoryModCount(modCategory) < 1)
+					{
 						return false;
-
+					}
+				}
 				return true;
 			});
 		}
@@ -1028,9 +1330,14 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.RebuildAll(true);
 			if (CategoryModeEnabled)
+			{
 				ApplyFilters(null);
+			}
+
 			if (p_booApplySearchFilter)
+			{
 				AddStringFilter(m_strLastSearchFilter);
+			}
 			else
 			{
 				RemoveStringFilter();
@@ -1069,7 +1376,7 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
-		//Resets the Columns to the original width
+		/// Resets the Columns to the original width
 		/// </summary>
 		public void ResetColumns()
 		{
@@ -1100,6 +1407,10 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_strDate">The date string to check.</param>
 		protected bool CheckDate(String p_strDate)
 		{
+			if (string.IsNullOrWhiteSpace(p_strDate))
+			{
+				return false;
+			}
 			try
 			{
 				DateTime dt = DateTime.Parse(p_strDate);
@@ -1162,6 +1473,118 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
+		/// Checks if the specified mod is active.
+		/// </summary>
+		/// <param name="p_modMod">The mod to check.</param>
+		/// <returns><see langword="true"/> if the mod is present in the collection of active mods.</returns>
+		private bool IsModActive(IMod p_modMod)
+		{
+			if (p_modMod == null)
+			{
+				return false;
+			}
+			return VirtualModActivator.ActiveModList.Contains(Path.GetFileName(p_modMod.Filename).ToLowerInvariant());
+		}
+
+		/// <summary>
+		/// Checks if the specified mod is installed (i.e. the acrhive has been unpacked into a Virtual Install folder).
+		/// </summary>
+		/// <param name="p_modMod">The mod to check.</param>
+		/// <returns><see langword="true"/> if the mod is present in the collection of active mods.</returns>
+		private bool IsModInstalled(IMod p_modMod)
+		{
+			if (p_modMod == null)
+			{
+				return false;
+			}
+			return m_rolActiveMods != null &&
+				m_rolActiveMods.Count > 0 &&
+				m_rolActiveMods.Contains(p_modMod);
+		}
+
+		/// <summary>
+		/// Raises <see cref="AllUpdateWarningsToggled"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="e"></param>
+		private void OnAllUpdateWarningsToggled(ModUpdateWarningEventArgs e)
+		{
+			var handler = this.AllUpdateWarningsToggled;
+			if (handler != null)
+			{
+				handler(this, e);
+			}
+		}
+
+		/// <summary>
+		/// Raises <see cref="CategoryShowEmptyToggled"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="e"></param>
+		private void OnCategoryShowEmptyToggled(EventArgs e)
+		{
+			var handler = this.CategoryShowEmptyToggled;
+			if (handler != null)
+			{
+				handler(this, e);
+			}
+		}
+
+		/// <summary>
+		/// Raises <see cref="ModActionRequested"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="p_action">Action to perform on selected mod.</param>
+		private void OnModActionRequested(ModAction p_action)
+		{
+			if (this.SelectedMod == null)
+			{
+				return;
+			}
+			var handler = this.ModActionRequested;
+			if (handler != null)
+			{
+				handler(this, new ModActionEventArgs(this.SelectedMod, p_action));
+			}
+		}
+
+		/// <summary>
+		/// Raises <see cref="ModInfoRequested"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="e"></param>
+		private void OnModInfoRequested(ModInfoRequestEventArgs e)
+		{
+			var handler = this.ModInfoRequested;
+			if (handler != null)
+			{
+				handler(this, e);
+			}
+		}
+
+		/// <summary>
+		/// Raises <see cref="ModReadmeFileRequested"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="e"></param>
+		private void OnModReadmeFileRequested(ModReadmeRequestEventArgs e)
+		{
+			var handler = this.ModReadmeFileRequested;
+			if (handler != null)
+			{
+				handler(this, e);
+			}
+		}
+
+		/// <summary>
+		/// Raises <see cref="UpdateWarningToggled"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="e"></param>
+		private void OnUpdateWarningToggled(ModUpdateWarningEventArgs e)
+		{
+			var handler = this.UpdateWarningToggled;
+			if (handler != null)
+			{
+				handler(this, e);
+			}
+		}
+		
+		/// <summary>
 		/// This checks if the passed font support Bold.
 		/// </summary>
 		private bool SupportBold(Font font)
@@ -1208,5 +1631,6 @@ namespace Nexus.Client.UI.Controls
 			this.SecondarySortColumn = tlcModName;
 			this.SecondarySortOrder = SortOrder.Ascending;
 		}
+
 	}
 }

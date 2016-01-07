@@ -334,6 +334,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod.</param>
 		public void DeleteReadMe(IMod p_modMod)
 		{
+			if (p_modMod == null)
+			{
+				return;
+			}
 			ModManager.ReadMeManager.DeleteReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
 			ModManager.ReadMeManager.SaveReadMeConfig();
 		}
@@ -344,6 +348,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod.</param>
 		public string[] GetModReadMe(IMod p_modMod)
 		{
+			if (p_modMod == null)
+			{
+				return null;
+			}
 			return ModManager.ReadMeManager.CheckModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename));
 		}
 
@@ -354,6 +362,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_strFileName">The file to open.</param>
 		public bool OpenReadMe(IMod p_modMod, string p_strFileName)
 		{
+			if (p_modMod == null)
+			{
+				return false;
+			}
 			bool booResult = false;
 			string strReadMe = ModManager.ReadMeManager.GetModReadMe(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strFileName);
 			if (!String.IsNullOrEmpty(strReadMe))
