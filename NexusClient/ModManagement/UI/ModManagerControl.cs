@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -15,10 +13,10 @@ using Nexus.Client.Commands.Generic;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
+using Nexus.Client.UI.Controls;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.UI.Controls;
-using Nexus.Client.Settings;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -35,7 +33,7 @@ namespace Nexus.Client.ModManagement.UI
 
 		public event EventHandler SetTextBoxFocus;
 		public event EventHandler ResetSearchBox;
-		public event EventHandler UninstallModFromProfiles;
+		public event EventHandler<ModEventArgs> UninstallModFromProfiles;
 		public event EventHandler UpdateModsCount;
 		public event EventHandler UninstalledAllMods;
 
@@ -121,13 +119,13 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.ColumnClick += new ColumnClickEventHandler(clwCategoryView_ColumnClick);
 			clwCategoryView.CategorySwitch += new EventHandler(CategoryListView_CategorySwitch);
 			clwCategoryView.CategoryRemoved += new EventHandler(CategoryListView_CategoryRemoved);
+			clwCategoryView.CategoryShowEmptyToggled += clwCategoryView_CategoryShowEmptyToggled;
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
-			clwCategoryView.UpdateWarningToggle += new EventHandler(CategoryListView_ToggleUpdateWarning);
-			clwCategoryView.ToggleAllWarnings += new EventHandler(CategoryListView_ToggleAllWarnings);
+			clwCategoryView.UpdateWarningToggled += CategoryListView_ToggleUpdateWarning;
+			clwCategoryView.AllUpdateWarningsToggled += CategoryListViewAllUpdateWarningsToggled;
+			clwCategoryView.ModActionRequested += CategoryListView_ModActionRequested;
 			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
-			clwCategoryView.OpenReadMeFile += new EventHandler(CategoryListView_OpenReadMeFile);
-			clwCategoryView.UninstallMod += new EventHandler(CategoryListView_UninstallMod);
-			clwCategoryView.UninstallModFromProfiles += new EventHandler(CategoryListView_UninstallModFromProfiles);
+			clwCategoryView.ModReadmeFileRequested += CategoryListView_OpenReadMeFile;
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
 
@@ -169,7 +167,7 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					ViewModel.CheckCategoryManager();
 					clwCategoryView.LoadData();
-					clwCategoryView.SetupContextMenu();
+					clwCategoryView.RefreshContextMenuCategoryList();
 					clwCategoryView.ReloadList(false);
 					ResetSearchBox(this, e);
 				}
@@ -251,10 +249,10 @@ namespace Nexus.Client.ModManagement.UI
 
 			try
 			{
-                HashSet<IMod> hashMods = GetSelectedModsHashset();
-                IMod modMod = GetSelectedMod();
+				HashSet<IMod> hashMods = GetSelectedModsHashset();
+				IMod modMod = GetSelectedMod();
 				booCurrentState = modMod.IsEndorsed;
-                ViewModel.ToggleModEndorsement(modMod, hashMods, null);
+				ViewModel.ToggleModEndorsement(modMod, hashMods, null);
 				tsbToggleEndorse.Enabled = true;
 			}
 			catch (Exception e)
@@ -345,7 +343,7 @@ namespace Nexus.Client.ModManagement.UI
 			if ((clwCategoryView.Visible && (clwCategoryView.SelectedIndices.Count == 0)) || (clwCategoryView.GetSelectedItem == null))
 				return null;
 			else
-				return clwCategoryView.GetSelectedMod;
+				return clwCategoryView.SelectedMod;
 		}
 
 		/// <summary>
@@ -606,7 +604,7 @@ namespace Nexus.Client.ModManagement.UI
 		public void MultiModInstall(List<IMod> p_lstMods, bool p_booAllowCancel)
 		{
 			ViewModel.MultiModInstall(p_lstMods, p_booAllowCancel);
- 		}
+		}
 
 		#region Category Management
 
@@ -682,6 +680,16 @@ namespace Nexus.Client.ModManagement.UI
 					}
 				};
 
+				this.clwCategoryView.ModInfoRequested += (s, e) =>
+				{
+					var files = ViewModel.GetModReadMe(e.Mod);
+					if (files == null || files.Length < 1)
+					{
+						return;
+					}
+					e.ReadmeFiles.AddRange(files);
+				};
+
 				// Enables removing categories or mods using the DEL key
 				this.clwCategoryView.KeyUp += delegate(object sender, KeyEventArgs e)
 				{
@@ -714,26 +722,7 @@ namespace Nexus.Client.ModManagement.UI
 				// populates the context menu for the selected item
 				this.clwCategoryView.CellRightClick += delegate(object sender, BrightIdeasSoftware.CellRightClickEventArgs e)
 				{
-					if (e.Item != null)
-					{
-						if (e.Item.RowObject.GetType() == typeof(ModCategory))
-						{
-							clwCategoryView.SetupContextMenuFor(true, null);
-							clwCategoryView.SelectedCategory = (ModCategory)e.Item.RowObject;
-						}
-						else
-						{
-							string[] strReadmeFiles = null;
-							IMod modMod = (IMod)e.Item.RowObject;
-							if (modMod != null)
-								strReadmeFiles = ViewModel.GetModReadMe(modMod);
-							clwCategoryView.SetupContextMenuFor(false, strReadmeFiles);
-						}
-
-						e.MenuStrip = clwCategoryView.CategoryViewContextMenu;
-					}
-					else
-						e.MenuStrip = null;
+					e.MenuStrip = e.Item != null ? clwCategoryView.CategoryViewContextMenu : null;
 				};
 
 				clwCategoryView.LoadData();
@@ -866,93 +855,122 @@ namespace Nexus.Client.ModManagement.UI
 
 				ViewModel.SwitchModsToCategory(lstSelectedMods, imcNewCategory.Id);
 				clwCategoryView.ReloadList(true);
+
+				// for some reason reloading the list once ignores Settings.ShowEmptyCategory value
+				// calling it twice works correctly
+				clwCategoryView.ReloadList(false);
 			}
 		}
 
 		/// <summary>
-		/// Handles the <see cref="CategoryListView.OpenReadMeFile"/> of the opening
+		/// Handles the <see cref="CategoryListView.ModActionRequested"/> event.
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		private void CategoryListView_ModActionRequested(object sender, ModActionEventArgs e)
+		{
+			switch (e.Action)
+			{
+				case ModAction.Activate:
+					{
+						if (ViewModel.ActivateModCommand.CanExecute)
+						{
+							ViewModel.ActivateModCommand.Execute(new List<IMod> { e.Mod });
+						}
+					}
+					break;
+
+				case ModAction.Deactivate:
+					{
+						if (ViewModel.DisableModCommand.CanExecute)
+						{
+							ViewModel.DisableModCommand.Execute(e.Mod);
+						}
+					}
+					break;
+
+				case ModAction.Uninstall:
+					{
+						ViewModel.DeactivateMod(e.Mod);
+					}
+					break;
+
+				case ModAction.UninstallAll:
+					{
+						UninstallModGlobally(e.Mod);
+					}
+					break;
+
+				case ModAction.Delete:
+					{
+						if (ViewModel.DeleteModCommand.CanExecute)
+						{
+							UninstallModGlobally(e.Mod);
+							ViewModel.DeleteModCommand.Execute(e.Mod);
+						}
+					}
+					break;
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.ModReadmeFileRequested"/> of the opening
 		/// of the ReaMe file.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void CategoryListView_OpenReadMeFile(object sender, EventArgs e)
+		private void CategoryListView_OpenReadMeFile(object sender, ModReadmeRequestEventArgs e)
 		{
-			ViewModel.OpenReadMe(clwCategoryView.GetSelectedMod, sender.ToString());
+			ViewModel.OpenReadMe(e.Mod, e.ReadmeFileName);
 		}
 
 		/// <summary>
-		/// Handles the <see cref="CategoryListView.DisableMod"/> of the opening
-		/// of the ReaMe file.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void CategoryListView_UninstallMod(object sender, EventArgs e)
-		{
-			ViewModel.DeactivateMod((IMod)sender);
-		}
-
-		/// <summary>
-		/// Handles the <see cref="CategoryListView.UninstallModFromProfiles"/> of the opening
-		/// of the ReaMe file.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void CategoryListView_UninstallModFromProfiles(object sender, EventArgs e)
-		{
-			ViewModel.DeactivateMod((IMod)sender);
-			if (UninstallModFromProfiles != null)
-				UninstallModFromProfiles(sender, e);
-		}
-
-		/// <summary>
-		/// Handles the <see cref="CategoryListView.EnableMod"/> of the opening
-		/// of the ReaMe file.
+		/// Handles the <see cref="CategoryListView.EnableMod"/> event.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_EnableMod(object sender, EventArgs e)
 		{
-			ViewModel.EnableMod(clwCategoryView.GetSelectedMod);
+			ViewModel.EnableMod(clwCategoryView.SelectedMod);
 		}
 
 		/// <summary>
-		/// Handles the <see cref="CategoryListView.UpdateWarningToggle"/> of the toggle
+		/// Handles the <see cref="CategoryListView.UpdateWarningToggled"/> of the toggle
 		/// mod update warning context menu.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void CategoryListView_ToggleUpdateWarning(object sender, EventArgs e)
+		/// <param name="e">A <see cref="ModUpdateWarningEventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_ToggleUpdateWarning(object sender, ModUpdateWarningEventArgs e)
 		{
 			HashSet<IMod> hashMods = GetSelectedModsHashset();
 
 			if ((hashMods != null) && (hashMods.Count > 0))
 			{
-				ViewModel.ToggleModUpdateWarning(hashMods, null);
+				ViewModel.ToggleModUpdateWarning(hashMods, e.EnableWarning);
 				clwCategoryView.ReloadList(true);
 			}
 		}
 
 		/// <summary>
-		/// Handles the <see cref="CategoryListView.ToggleAllWarnings"/> of the toggle
+		/// Handles the <see cref="CategoryListView.AllUpdateWarningsToggled"/> of the toggle
 		/// mod update warning context menu.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void CategoryListView_ToggleAllWarnings(object sender, EventArgs e)
+		/// <param name="e">A <see cref="ModUpdateWarningEventArgs"/> describing the event arguments.</param>
+		private void CategoryListViewAllUpdateWarningsToggled(object sender, ModUpdateWarningEventArgs e)
 		{
-			HashSet<IMod> hashMods;
 			if (ViewModel.ManagedMods.Count > 0)
 			{
-				hashMods = new HashSet<IMod>(ViewModel.ManagedMods);
-				if ((hashMods != null) && (hashMods.Count > 0))
+				var hashMods = new HashSet<IMod>(ViewModel.ManagedMods);
+				if (hashMods.Count > 0)
 				{
-					ViewModel.ToggleModUpdateWarning(hashMods, (bool?)sender);
+					ViewModel.ToggleModUpdateWarning(hashMods, e.EnableWarning);
 				}
 			}
 		}
 
 		/// <summary>
-		/// Handles the <see cref="CategoryListView.UpdateWarningToggle"/> of the toggle
+		/// Handles the <see cref="CategoryListView.UpdateWarningToggled"/> of the toggle
 		/// mod update warning context menu.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
@@ -1013,6 +1031,20 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles change of visibility of empty categories.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void clwCategoryView_CategoryShowEmptyToggled(object sender, EventArgs e)
+		{
+			var handler = this.ResetSearchBox;
+			if (handler != null)
+			{
+				handler(this, e);
+			}
+		}
+		
+		/// <summary>
 		/// Handles the <see cref="CategoryListView.FileDropped"/> of the switch
 		/// mod category context menu.
 		/// </summary>
@@ -1035,7 +1067,7 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				clwCategoryView.Visible = false;
 				clwCategoryView.LoadData();
-				clwCategoryView.SetupContextMenu();
+				clwCategoryView.RefreshContextMenuCategoryList();
 				clwCategoryView.ReloadList(false);
 				ResetSearchBox(this, e);
 				clwCategoryView.Visible = true;
@@ -1061,7 +1093,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
-			clwCategoryView.SetupContextMenu();
+			clwCategoryView.RefreshContextMenuCategoryList();
 			clwCategoryView.ReloadList(false);
 			ResetSearchBox(this, e);
 			clwCategoryView.Visible = true;
@@ -1105,9 +1137,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void collapseAllCategories_Click(object sender, EventArgs e)
 		{
-			clwCategoryView.CollapseAll();
-			ViewModel.Settings.ShowExpandedCategories = false;
-			ViewModel.Settings.Save();
+			clwCategoryView.CollapseAllCategories();
 		}
 
 		/// <summary>
@@ -1118,24 +1148,17 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void expandAllCategories_Click(object sender, EventArgs e)
 		{
-			clwCategoryView.ExpandAll();
-			ViewModel.Settings.ShowExpandedCategories = true;
-			ViewModel.Settings.Save();
+			clwCategoryView.ExpandAllCategories();
 		}
 
-
 		/// <summary>
-		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
-		/// category button.
+		/// Toggles display of empty categories.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void toggleHiddenCategories_Click(object sender, EventArgs e)
 		{
-			ViewModel.Settings.ShowEmptyCategory = !clwCategoryView.ShowHiddenCategories;
-			clwCategoryView.ShowHiddenCategories = !clwCategoryView.ShowHiddenCategories;
-			clwCategoryView.ReloadList(false);
-			ResetSearchBox(this, e);
+			clwCategoryView.ToggleShowEmptyCategories();
 		}
 
 		/// <summary>
@@ -1268,7 +1291,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (ViewModel.RemoveAllCategories())
 			{
 				clwCategoryView.LoadData();
-				clwCategoryView.SetupContextMenu();
+				clwCategoryView.RefreshContextMenuCategoryList();
 				clwCategoryView.ReloadList(false);
 				ResetSearchBox(this, e);
 			}
@@ -1403,7 +1426,12 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((MethodInvoker)(() => booResult = ConfirmModFileDeletion(p_modMod)));
 				return booResult;
 			}
-			return MessageBox.Show(this, String.Format("Are you sure you want to delete {0}?", p_modMod.ModName), "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+			return MessageBox.Show(this,
+				String.Format("\"{0}\" mod will be uninstalled and all its files and its archive will be permanently deleted from you hard drive.\r\nAre you sure?\r\n\r\nThis operation can not be undone.", p_modMod.ModName), 
+				"Confirm", 
+				MessageBoxButtons.YesNo,
+				MessageBoxIcon.Question, 
+				MessageBoxDefaultButton.Button2) == DialogResult.Yes;
 		}
 
 		#endregion
@@ -1580,7 +1608,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.PurgeXMLInstalledFile();
 				if (UninstalledAllMods != null)
 					UninstalledAllMods(this, new EventArgs());
-            }
+			}
 		}
 
 		/// <summary>
@@ -1755,8 +1783,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs{ModTaggerVM}"/> describing the event arguments.</param>
 		private void ViewModel_TaggingMod(object sender, EventArgs<ModTaggerVM> e)
 		{
-            if (!ViewModel.ModRepository.IsOffline)
-                new ModTaggerForm(e.Argument).ShowDialog(this);
+			if (!ViewModel.ModRepository.IsOffline)
+				new ModTaggerForm(e.Argument).ShowDialog(this);
 		}
 
 		#endregion
@@ -1793,6 +1821,17 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				sptSummaryInfo.Panel1Collapsed = booCollapseImage;
 				sptSummaryInfo.Panel2Collapsed = booCollapseDescription;
+			}
+		}
+
+		private void UninstallModGlobally(IMod p_modMod)
+		{
+			ViewModel.DeactivateMod(p_modMod);
+
+			var handler = this.UninstallModFromProfiles;
+			if (handler != null)
+			{
+				handler(this, new ModEventArgs(p_modMod));
 			}
 		}
 

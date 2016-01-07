@@ -301,6 +301,11 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="TipsManagement\Tips.cs" />
+    <Compile Include="UI\Controls\ModEventArgs.cs" />
+    <Compile Include="UI\Controls\ModActionEventArgs.cs" />
+    <Compile Include="UI\Controls\ModReadmeRequestEventArgs.cs" />
+    <Compile Include="UI\Controls\ModInfoRequestEventArgs.cs" />
+    <Compile Include="UI\Controls\ModUpdateWarningEventArgs.cs" />
     <Compile Include="UI\Controls\ProfileListView.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -388,6 +393,9 @@
     <None Include="Resources\round_loading.GIF" />
     <None Include="Resources\edit_delete_16.png" />
     <None Include="Resources\get_missing_info.png" />
+    <None Include="Resources\eye_open2_24x24.png" />
+    <None Include="Resources\eye_open_24x24.png" />
+    <None Include="Resources\home-16x16.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
