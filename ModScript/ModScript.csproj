@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client.ModManagement.Scripting.ModScript</RootNamespace>
     <AssemblyName>ModScript</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -137,7 +137,6 @@
     <None Include="Resources\document-save-5.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  
   <PropertyGroup>
     <!-- Folder containing AntlrBuildTask.dll -->
     <AntlrBuildTaskPath>$(SolutionDir)\lib\Antlr</AntlrBuildTaskPath>

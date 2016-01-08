@@ -79,7 +79,7 @@ namespace Nexus.Client.Settings.UI
 			catch(MissingMethodException ex)
 			{
 				string strErrorMessage = string.Format("Looks like you have a broken or incomplete .Net Framework!" + Environment.NewLine + 
-					"You need to install .NetFramework 4.5.2 or 4.6 . " + Environment.NewLine + 
+					"You need to install .NetFramework 4.6 . " + Environment.NewLine + 
 					"You could alse be required to download the latest Windows updates" +Environment.NewLine + Environment.NewLine +
 					"{0} will be unable to run until you do that and will now close.", SettingsGroup.EnvironmentInfo.Settings.ModManagerName);
 				MessageBox.Show(strErrorMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);

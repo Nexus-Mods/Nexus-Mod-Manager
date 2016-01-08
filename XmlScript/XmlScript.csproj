@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client.ModManagement.Scripting.XmlScript</RootNamespace>
     <AssemblyName>XmlScript</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -438,7 +438,6 @@
     <None Include="Resources\notFoundJPG.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  
   <PropertyGroup>
     <!-- Folder containing AntlrBuildTask.dll -->
     <AntlrBuildTaskPath>$(SolutionDir)\lib\Antlr</AntlrBuildTaskPath>
