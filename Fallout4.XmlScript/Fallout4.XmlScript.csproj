@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client.Games.Fallout4.Scripting.XmlScript</RootNamespace>
     <AssemblyName>Fallout4.XmlScript</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -131,7 +131,6 @@
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  
   <PropertyGroup>
     <!-- Folder containing AntlrBuildTask.dll -->
     <AntlrBuildTaskPath>$(SolutionDir)\lib\Antlr</AntlrBuildTaskPath>
