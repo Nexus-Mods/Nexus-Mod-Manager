@@ -23,7 +23,7 @@ namespace Nexus.Client.Games.Fallout4
 		{
 			get
 			{
-				return "Fallout4";
+				return "Fallout 4";
 			}
 		}
 
