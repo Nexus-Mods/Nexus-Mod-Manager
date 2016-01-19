@@ -141,10 +141,6 @@ namespace Nexus.Client.Games.Witcher3
 			Trace.TraceInformation("Found {0}", strValue);
             Trace.Unindent();
 
-			if (string.IsNullOrEmpty(strValue))
-				strValue = base.GetInstallationPath();
-
-
 			return strValue;
         }
 
