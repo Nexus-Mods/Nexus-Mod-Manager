@@ -330,7 +330,7 @@ namespace Nexus.Client.Games.Witcher3
 				if (strPath.StartsWith("content", StringComparison.InvariantCultureIgnoreCase))
 				{
 					string strModName = CleanInput(p_modMod.ModName);
-					if (String.IsNullOrEmpty(strModName))
+					if (string.IsNullOrEmpty(strModName))
 						strModName = CleanInput(Path.GetFileNameWithoutExtension(p_modMod.Filename));
 
 					strModName = "mod" + strModName;
@@ -338,8 +338,7 @@ namespace Nexus.Client.Games.Witcher3
 					strPath = Path.Combine(strModName, strPath);
 				}
 				else
-					throw new InvalidDataException("This mod file was not created with the Witcher 3 Modding tools or " +
-						"does not have the correct file structure for a Witcher 3 mod that NMM can use. It will not work with NMM.");
+					return null;
 			}
 
 			return strPath;			
