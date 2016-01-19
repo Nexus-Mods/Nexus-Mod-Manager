@@ -127,6 +127,21 @@ namespace Nexus.Client.Games.Fallout4
 				//if we can't read the registry or config.vdf, just return null
 			}
 
+			try
+			{
+				if (string.IsNullOrWhiteSpace(strValue))
+				{
+					Trace.TraceInformation("Getting install folder from Uninstall.");
+
+					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 377160", "InstallLocation", null).ToString();
+
+					if (Directory.Exists(uniPath))
+						strValue = uniPath;
+				}
+			}
+			catch
+			{ }
+
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();
 
