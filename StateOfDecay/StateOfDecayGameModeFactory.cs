@@ -134,9 +134,6 @@ namespace Nexus.Client.Games.StateOfDecay
 			Trace.TraceInformation("Found {0}", strValue);
             Trace.Unindent();
 
-			if (string.IsNullOrEmpty(strValue))
-				strValue = base.GetInstallationPath();
-
 			return strValue;
         }
 
