@@ -116,10 +116,28 @@ namespace Nexus.Client.Games.StateOfDecay
                 //if we can't read the registry or config.vdf, just return null
             }
 
-            Trace.TraceInformation("Found {0}", strValue);
+			try
+			{
+				if (string.IsNullOrWhiteSpace(strValue))
+				{
+					Trace.TraceInformation("Getting install folder from Uninstall.");
+
+					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 241540", "InstallLocation", null).ToString();
+
+					if (Directory.Exists(uniPath))
+						strValue = uniPath;
+				}
+			}
+			catch
+			{ }
+
+			Trace.TraceInformation("Found {0}", strValue);
             Trace.Unindent();
 
-            return strValue;
+			if (string.IsNullOrEmpty(strValue))
+				strValue = base.GetInstallationPath();
+
+			return strValue;
         }
 
         /// <summary>

@@ -115,9 +115,6 @@ namespace Nexus.Client.Games.Witcher2
 				//if we can't read the registry or config.vdf, just return null
 			}
 
-			Trace.TraceInformation("Found {0}", strValue);
-			Trace.Unindent();
-
 			if (strValue == null)
 			{
 				string strRegistryKey = null;
@@ -141,6 +138,25 @@ namespace Nexus.Client.Games.Witcher2
 				Trace.TraceInformation(String.Format("Found {0}", strValue));
 				Trace.Unindent();
 			}
+
+			try
+			{
+				if (string.IsNullOrWhiteSpace(strValue))
+				{
+					Trace.TraceInformation("Getting install folder from Uninstall.");
+
+					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 20920", "InstallLocation", null).ToString();
+
+					if (Directory.Exists(uniPath))
+						strValue = uniPath;
+				}
+			}
+			catch
+			{ }
+
+			Trace.TraceInformation("Found {0}", strValue);
+			Trace.Unindent();
+
 			return strValue;
 		}
 
