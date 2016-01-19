@@ -140,6 +140,8 @@ namespace Nexus.Client.ModManagement
 				if (Status == TaskStatus.Cancelling)
 					return false;
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, Mod, false);
+				if (string.IsNullOrEmpty(strFixedPath))
+					continue;
 				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
 				string strLinkPath = String.Empty;
 				if (VirtualModActivator.MultiHDMode)
@@ -162,6 +164,10 @@ namespace Nexus.Client.ModManagement
 				}
 				StepOverallProgress();
 			}
+
+			if ((lstFiles.Count > 0) && (lstFilesToLink.Count <= 0))
+				throw new InvalidDataException("This mod file was not properly packaged: the 'nativePC' folder (or one of its direct subfolders) is missing." +
+					"This mod does not have the correct file structure for a Dragon's Dogma mod that NMM can use. It will not work with NMM.");
 
 			foreach (KeyValuePair<string, string> strLink in lstFilesToLink)
 			{

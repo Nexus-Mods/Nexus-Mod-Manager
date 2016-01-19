@@ -215,6 +215,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "DA2NexusREST";
 					m_intRemoteGameId = 141;
 					break;
+				case "DragonsDogma":
+					m_strWebsite = "www.nexusmods.com/dragonsdogma";
+					m_strEndpoint = "DDDANexusREST";
+					m_intRemoteGameId = 1249;
+					break;
 				case "Fallout3":
 					m_strWebsite = "www.nexusmods.com/fallout3";
 					m_strEndpoint = "FO3NexusREST";
