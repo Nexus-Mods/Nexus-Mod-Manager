@@ -741,6 +741,12 @@ namespace Nexus.Client.ModManagement
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, Int32 p_intPriority)
 		{
+			if (p_booIsSwitching)
+			{
+				string strLoosePath = Path.Combine(m_strGameDataPath, p_strBaseFilePath);
+				if (File.Exists(strLoosePath))
+					OverwriteLooseFile(p_strBaseFilePath, Path.GetFileName(p_modMod.Filename));
+			}
 			return AddFileLink(p_modMod, p_strBaseFilePath, null, p_booIsSwitching, p_booIsRestoring, false, p_intPriority);
 		}
 
@@ -947,7 +953,7 @@ namespace Nexus.Client.ModManagement
 				{
 					if (Directory.Exists(m_strVirtualActivatorOverwritePath))
 					{
-						string strOverwrite = Path.Combine(m_strVirtualActivatorOverwritePath, p_ivlVirtualLink.VirtualModPath);
+						string strOverwrite = Path.Combine(m_strVirtualActivatorOverwritePath, Path.GetFileNameWithoutExtension(p_ivlVirtualLink.ModInfo.ModFileName), p_ivlVirtualLink.VirtualModPath);
 						if (File.Exists(strOverwrite))
 						{
 							try
@@ -1462,12 +1468,12 @@ namespace Nexus.Client.ModManagement
 			return strOwner;
 		}
 
-		public bool OverwriteLooseFile(string p_strFilePath)
+		public bool OverwriteLooseFile(string p_strFilePath, string p_strModFileName)
 		{
 			try
 			{
 				string strSource = Path.Combine(m_strGameDataPath, p_strFilePath);
-				string strDest = Path.Combine(m_strVirtualActivatorOverwritePath, p_strFilePath);
+				string strDest = Path.Combine(m_strVirtualActivatorOverwritePath, Path.GetFileNameWithoutExtension(p_strModFileName), p_strFilePath);
 
 				if (File.Exists(strSource))
 				{

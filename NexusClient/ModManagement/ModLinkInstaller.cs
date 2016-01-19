@@ -97,7 +97,7 @@ namespace Nexus.Client.ModManagement
 
 			if (modCheck == VirtualModActivator.DummyMod)
 			{
-				VirtualModActivator.OverwriteLooseFile(p_strBaseFilePath);
+				VirtualModActivator.OverwriteLooseFile(p_strBaseFilePath, Path.GetFileName(p_modMod.Filename));
 				return true;
 			}
 			else if (modCheck != null)
