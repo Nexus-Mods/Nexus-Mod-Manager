@@ -471,7 +471,11 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			UpdateBottomBarFeedback(lviActivation, new EventArgs());
 			lvwActiveTasks.Items.Add(lviActivation);
 
-			lviActivation.EnsureVisible();
+			try
+			{
+				lviActivation.EnsureVisible();
+			}
+			catch { }
 
 			if ((ViewModel.RunningTask == null) || (ViewModel.RunningTask.IsCompleted))
 			{
