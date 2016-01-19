@@ -69,6 +69,20 @@ namespace Nexus.Client.Games.Starbound
 		}
 
 		/// <summary>
+		/// Gets a list of possible folders that should be looked for in mod archives to determine
+		/// file structure.
+		/// </summary>
+		/// <value>A list of possible folders that should be looked for in mod archives to determine
+		/// file structure.</value>
+		public override IEnumerable<string> StopFolders
+		{
+			get
+			{
+				return STOP_FOLDERS;
+			}
+		}
+
+		/// <summary>
 		/// Gets the theme to use for this game mode.
 		/// </summary>
 		/// <value>The theme to use for this game mode.</value>
