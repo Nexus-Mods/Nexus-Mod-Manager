@@ -2007,97 +2007,97 @@ namespace Nexus.Client
 		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
 		private void spbProfiles_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
 		{
-            if (e.ClickedItem.Tag != null)
-            {
-                if (e.ClickedItem.Tag.GetType() == typeof(string))
-                {
-                    string strCommand = e.ClickedItem.Tag.ToString();
-                    switch (strCommand)
-                    {
-                        case "New":
-                            byte[] bteLoadOrder = null;
-                            if (ViewModel.GameMode.UsesPlugins)
-                                bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-                            AddNewProfile(bteLoadOrder);
-                            ModProfile mopCurrentProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
-                            if (mopCurrentProfile != null)
-                            {
-                                string strNewName = PromptDialog.ShowDialog(this, "Type the profile name:", "Set the Profile name", mopCurrentProfile.Name);
-                                if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopCurrentProfile.Name, StringComparison.InvariantCulture))
-                                {
-                                    mopCurrentProfile.Name = strNewName;
-                                    ViewModel.ProfileManager.UpdateProfile(mopCurrentProfile, null, null, null);
-                                }
-                            }
-                            break;
-                        case "Rename":
-                            ModProfile mopCurrent = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
-                            if (mopCurrent != null)
-                            {
-                                string strNewName = PromptDialog.ShowDialog(this, "Type the new name:", "Rename Profile", mopCurrent.Name);
-                                if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopCurrent.Name, StringComparison.InvariantCulture))
-                                {
-                                    mopCurrent.Name = strNewName;
-                                    ViewModel.ProfileManager.UpdateProfile(mopCurrent, null, null, null);
-                                    BindProfileCommands();
-                                }
-                            }
-                            break;
-                        case "Remove":
-                            ModProfile mopProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
-                            if (mopProfile != null)
-                            {
-                                DialogResult drResult = ExtendedMessageBox.Show(this, String.Format("Are you sure you want to remove the current profile: {0}", mopProfile.Name), "Remove Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                                if (drResult == DialogResult.Yes)
-                                    ViewModel.ProfileManager.RemoveProfile(mopProfile);
-                            }
-                            break;
-                        case "Save":
-                            ModProfile mopUpdate = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
-                            if (mopUpdate != null)
-                            {
-                                byte[] bteNewLoadOrder = null;
-                                if (ViewModel.GameMode.UsesPlugins)
-                                    bteNewLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+			if (e.ClickedItem.Tag != null)
+			{
+				if (e.ClickedItem.Tag.GetType() == typeof(string))
+				{
+					string strCommand = e.ClickedItem.Tag.ToString();
+					switch (strCommand)
+					{
+						case "New":
+							byte[] bteLoadOrder = null;
+							if (ViewModel.GameMode.UsesPlugins)
+								bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+							AddNewProfile(bteLoadOrder);
+							ModProfile mopCurrentProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+							if (mopCurrentProfile != null)
+							{
+								string strNewName = PromptDialog.ShowDialog(this, "Type the profile name:", "Set the Profile name", mopCurrentProfile.Name);
+								if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopCurrentProfile.Name, StringComparison.InvariantCulture))
+								{
+									mopCurrentProfile.Name = strNewName;
+									ViewModel.ProfileManager.UpdateProfile(mopCurrentProfile, null, null, null);
+								}
+							}
+							break;
+						case "Rename":
+							ModProfile mopCurrent = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+							if (mopCurrent != null)
+							{
+								string strNewName = PromptDialog.ShowDialog(this, "Type the new name:", "Rename Profile", mopCurrent.Name);
+								if (!String.IsNullOrEmpty(strNewName) && !strNewName.Equals(mopCurrent.Name, StringComparison.InvariantCulture))
+								{
+									mopCurrent.Name = strNewName;
+									ViewModel.ProfileManager.UpdateProfile(mopCurrent, null, null, null);
+									BindProfileCommands();
+								}
+							}
+							break;
+						case "Remove":
+							ModProfile mopProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+							if (mopProfile != null)
+							{
+								DialogResult drResult = ExtendedMessageBox.Show(this, String.Format("Are you sure you want to remove the current profile: {0}", mopProfile.Name), "Remove Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+								if (drResult == DialogResult.Yes)
+									ViewModel.ProfileManager.RemoveProfile(mopProfile);
+							}
+							break;
+						case "Save":
+							ModProfile mopUpdate = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
+							if (mopUpdate != null)
+							{
+								byte[] bteNewLoadOrder = null;
+								if (ViewModel.GameMode.UsesPlugins)
+									bteNewLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
 
-                                byte[] bteIniEdits = null;
-                                bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
+								byte[] bteIniEdits = null;
+								bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
 
-                                string[] strOptionalFiles = null;
-                                if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-                                    if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
-                                        strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+								string[] strOptionalFiles = null;
+								if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+									if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
+										strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
 
-                                ViewModel.ProfileManager.UpdateProfile(mopUpdate, bteIniEdits, bteNewLoadOrder, strOptionalFiles);
-                                BindProfileCommands();
-                            }
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                else
-                {
-                    if (ViewModel.ModManager.VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
-                    {
-                        MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
+								ViewModel.ProfileManager.UpdateProfile(mopUpdate, bteIniEdits, bteNewLoadOrder, strOptionalFiles);
+								BindProfileCommands();
+							}
+							break;
+						default:
+							break;
+					}
+				}
+				else
+				{
+					if (ViewModel.ModManager.VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
+					{
+						MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						return;
+					}
 
-                    spbProfiles.DefaultItem = e.ClickedItem;
-                    spbProfiles.Text = e.ClickedItem.Text;
-                    toolStrip1.SuspendLayout();
-                    spbProfiles.Image = e.ClickedItem.Image;
-                    toolStrip1.ResumeLayout();
+					spbProfiles.DefaultItem = e.ClickedItem;
+					spbProfiles.Text = e.ClickedItem.Text;
+					toolStrip1.SuspendLayout();
+					spbProfiles.Image = e.ClickedItem.Image;
+					toolStrip1.ResumeLayout();
 
-                    IModProfile impProfile = (IModProfile)e.ClickedItem.Tag;
+					IModProfile impProfile = (IModProfile)e.ClickedItem.Tag;
 
-                    if (impProfile != null)
-                    {
-                        SwitchProfile(impProfile, false);
-                    }
-                }
-            }
+					if (impProfile != null)
+					{
+						SwitchProfile(impProfile, false);
+					}
+				}
+			}
 		}
 
 		private void ModProfiles_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
