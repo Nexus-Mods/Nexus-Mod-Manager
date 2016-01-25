@@ -133,7 +133,7 @@ namespace Nexus.Client.ModManagement
 			foreach (KeyValuePair<string, string> File in lstFiles)
 			{
 				string strFileTo = File.Value;
-				if (String.IsNullOrWhiteSpace(strFileTo))
+				if (string.IsNullOrWhiteSpace(strFileTo))
 					strFileTo = File.Key;
 
 
@@ -143,7 +143,7 @@ namespace Nexus.Client.ModManagement
 				if (string.IsNullOrEmpty(strFixedPath))
 					continue;
 				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
-				string strLinkPath = String.Empty;
+				string strLinkPath = string.Empty;
 				if (VirtualModActivator.MultiHDMode)
 					strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
 				string strFileType = Path.GetExtension(File.Key);
