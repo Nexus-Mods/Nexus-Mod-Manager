@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 
 
@@ -22,6 +21,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		protected DateTime MasterDate { get; private set; }
 
 		#endregion
+		TxFileManager txFileManager = new TxFileManager();
 
 		#region Constructors
 
@@ -34,7 +34,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			Plugins = p_strPlugins;
 			TimestampLoadOrder = p_booTimestamp;
 			ForcedReadOnly = p_booReadOnly;
-			MasterDate = p_dtiMasterDate;
+			MasterDate = p_dtiMasterDate;	
 		}
 
 		#endregion
@@ -54,7 +54,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Starts the update.
 		/// </summary>
-		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		public void Update()
 		{
 			Start();
@@ -91,7 +90,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Sets the load order of the plugins.
 		/// </summary>
-		/// <remarks>
 		/// <param name="p_strPlugins">The list of plugins in the desired order.</param>
 		private void SetTimestampLoadOrder(string[] p_strPlugins)
 		{
@@ -155,11 +153,18 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								SetFileReadAccess(p_strFilePath, false);
 							}
 
-							using (StreamWriter swFile = new StreamWriter(p_strFilePath))
-							{
-								foreach (string plugin in p_strPlugins)
-									swFile.WriteLine(plugin);
-							}
+							StringBuilder sbPlugins = new StringBuilder();
+
+							foreach (string plugin in p_strPlugins)
+								sbPlugins.AppendLine(plugin);
+
+							txFileManager.WriteAllText(p_strFilePath, sbPlugins.ToString());
+
+							//using (StreamWriter swFile = new StreamWriter(p_strFilePath))
+							//{
+							//	foreach (string plugin in p_strPlugins)
+							//		swFile.WriteLine(plugin);
+							//}
 						}
 						break;
 					}

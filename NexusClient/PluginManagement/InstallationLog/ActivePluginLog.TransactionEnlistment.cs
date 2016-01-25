@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util.Collections;
@@ -203,12 +204,38 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 			}
 
 			/// <summary>
+			/// Activates the given plugin.
+			/// </summary>
+			/// <param name="p_lstPlugins">The list of plugin to activate.</param>
+			public void ActivatePlugins(IList<Plugin> p_lstPlugins)
+			{
+				m_ostActivePlugins.AddRange(p_lstPlugins);
+				if (CurrentTransaction == null)
+					Commit();
+				else
+					Enlist();
+			}
+
+			/// <summary>
 			/// Deactivates the given plugin.
 			/// </summary>
 			/// <param name="p_plgPlugin">The plugin to deactivate.</param>
 			public void DeactivatePlugin(Plugin p_plgPlugin)
 			{
 				m_ostActivePlugins.Remove(p_plgPlugin);
+				if (CurrentTransaction == null)
+					Commit();
+				else
+					Enlist();
+			}
+
+			/// <summary>
+			/// Deactivates the given plugin.
+			/// </summary>
+			/// <param name="p_lstPlugins">The list of plugin to deactivate.</param>
+			public void DeactivatePlugins(IList<Plugin> p_lstPlugins)
+			{
+				m_ostActivePlugins.RemoveRange(p_lstPlugins);
 				if (CurrentTransaction == null)
 					Commit();
 				else

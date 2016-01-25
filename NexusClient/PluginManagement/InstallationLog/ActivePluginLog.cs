@@ -185,6 +185,15 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 		}
 
 		/// <summary>
+		/// Activates the given plugin.
+		/// </summary>
+		/// <param name="p_lstPlugins">The list of plugin to activate.</param>
+		public void ActivatePlugins(IList<Plugin> p_lstPlugins)
+		{
+			GetEnlistment().ActivatePlugins(p_lstPlugins);
+		}
+
+		/// <summary>
 		/// Activates the specified plugin.
 		/// </summary>
 		/// <param name="p_strPath">The path to the plugin to activate.</param>
@@ -200,6 +209,15 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 		public void DeactivatePlugin(Plugin p_plgPlugin)
 		{
 			GetEnlistment().DeactivatePlugin(p_plgPlugin);
+		}
+
+		/// <summary>
+		/// Deactivates the given plugin.
+		/// </summary>
+		/// <param name="p_lstPlugins">The list of plugin to deactivate.</param>
+		public void DeactivatePlugins(IList<Plugin> p_lstPlugins)
+		{
+			GetEnlistment().DeactivatePlugins(p_lstPlugins);
 		}
 
 		/// <summary>

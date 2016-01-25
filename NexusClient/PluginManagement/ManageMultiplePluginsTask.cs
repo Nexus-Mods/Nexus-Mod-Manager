@@ -1,17 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Games;
 using Nexus.Client.Plugins;
 using Nexus.Client.PluginManagement.InstallationLog;
+using Nexus.Transactions;
 using Nexus.Client.UI;
-using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.PluginManagement
 {
@@ -81,18 +74,32 @@ namespace Nexus.Client.PluginManagement
 			OverallProgressMaximum = PluginList.Count;
 			ShowItemProgress = false;
 
+			List<Plugin> lstPlugins = new List<Plugin>();
+
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
 
 			foreach (Plugin plugin in PluginList)
 			{
 				if (EnablePlugins)
-					APL.ActivatePlugin(plugin);
+				{
+					if (!APL.IsPluginActive(plugin))
+						lstPlugins.Add(plugin);
+				}
 				else
-					APL.DeactivatePlugin(plugin);
+				{
+					if (APL.IsPluginActive(plugin))
+						lstPlugins.Add(plugin);
+				}
 
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 			}
+
+			if (EnablePlugins)
+				APL.ActivatePlugins(lstPlugins);
+			else
+				APL.DeactivatePlugins(lstPlugins);
+
 			return null;
 		}
 	}
