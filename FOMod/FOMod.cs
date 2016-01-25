@@ -504,9 +504,19 @@ namespace Nexus.Client.Mods.Formats.FOMod
 								if (strCheckPrefix.IndexOf(Folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
 								{
 									booCheckNested = true;
-									strCheckPrefix = String.Empty;
+									strCheckPrefix = string.Empty;
 									booDirtyCache = true;
 									break;
+								}
+							}
+
+							if (string.IsNullOrEmpty(strCheckPrefix) || !strCheckPrefix.Equals("-"))
+							{
+								if (((p_enmStopFolders == null) || (p_enmStopFolders.Count() <= 0)) && !p_booUsePlugins)
+								{
+									booCheckNested = true;
+									strCheckPrefix = string.Empty;
+									booDirtyCache = true;
 								}
 							}
 

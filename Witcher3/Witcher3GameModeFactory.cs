@@ -155,7 +155,7 @@ namespace Nexus.Client.Games.Witcher3
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
-            string strPath = Path.Combine(p_strGameInstallPath, "Mods");
+            string strPath = Path.Combine(p_strGameInstallPath, "");
 			return strPath;
 		}
 

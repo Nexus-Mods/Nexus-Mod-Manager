@@ -12,7 +12,7 @@ namespace Nexus.Client.Games.Witcher3
 	public class Witcher3GameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { @"bin\x64\Witcher3.exe" };
-		private static readonly List<string> STOP_FOLDERS = new List<string>() { "content" };
+		private static readonly List<string> STOP_FOLDERS = new List<string>() {};
 		private const string MODE_ID = "Witcher3";
 
 		#region Properties
@@ -29,6 +29,32 @@ namespace Nexus.Client.Games.Witcher3
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
+			}
+		}
+
+		/// <summary>
+		/// Gets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		public override string InstallationPath
+		{
+			get
+			{
+				string strPath = null;
+				if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(ModeId))
+				{
+					strPath = (string)EnvironmentInfo.Settings.InstallationPaths[ModeId];
+					if (!strPath.Equals(ExecutablePath, StringComparison.InvariantCultureIgnoreCase))
+					{
+						strPath = ExecutablePath;
+						EnvironmentInfo.Settings.InstallationPaths[ModeId] = strPath;
+						EnvironmentInfo.Settings.Save();
+					}
+
+					return strPath;
+				}
+
+				return null;
 			}
 		}
 

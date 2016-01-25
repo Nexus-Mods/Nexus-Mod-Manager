@@ -29,6 +29,7 @@ namespace Nexus.Client.Games.Witcher3
 		private Witcher3GameModeDescriptor m_gmdGameModeInfo = null;
         private Witcher3Launcher m_glnGameLauncher = null;
         private Witcher3ToolLauncher m_gtlToolLauncher = null;
+		private IMod m_modLastMod = null;
 
 		#region Properties
 
@@ -303,7 +304,7 @@ namespace Nexus.Client.Games.Witcher3
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
 		{
-			return p_strPath;
+			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath, m_modLastMod, p_booIgnoreIfPresent);
 		}
 
 		/// <summary>
@@ -323,11 +324,23 @@ namespace Nexus.Client.Games.Witcher3
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
-			string strPath = p_strPath;
+			string strPath = null;
+			string strCheck = p_strPath;
 
-			if (!strPath.StartsWith("mod", StringComparison.CurrentCulture))
+			if (m_modLastMod != p_modMod)
+				m_modLastMod = p_modMod;
+
+			for (int i = 0; i <= 1; i++)
 			{
-				if (strPath.StartsWith("content", StringComparison.InvariantCultureIgnoreCase))
+				if (i == 1)
+				{
+					string strRoot = GetRootFolder(strCheck);
+
+					int intIndex = strCheck.IndexOf(strRoot);
+					strCheck = (intIndex < 0) ? strCheck : strCheck.Remove(intIndex, strRoot.Length + 1);
+				}
+
+				if (strCheck.StartsWith("content", StringComparison.InvariantCultureIgnoreCase) && (p_modMod != null))
 				{
 					string strModName = CleanInput(p_modMod.ModName);
 					if (string.IsNullOrEmpty(strModName))
@@ -335,13 +348,33 @@ namespace Nexus.Client.Games.Witcher3
 
 					strModName = "mod" + strModName;
 
-					strPath = Path.Combine(strModName, strPath);
+					return Path.Combine(strModName, strCheck);
 				}
 				else
-					return null;
+				{
+					if (strCheck.StartsWith("mod", StringComparison.CurrentCulture))
+					{
+						return Path.Combine("Mods", strCheck);
+					}
+					else if (strCheck.StartsWith("DLC", StringComparison.CurrentCulture))
+					{
+						return Path.Combine("DLC", strCheck);
+					}
+				}
 			}
 
 			return strPath;			
+		}
+
+		static string GetRootFolder(string p_strPath)
+		{
+			string temp = Path.GetDirectoryName(p_strPath);
+			while (!string.IsNullOrEmpty(temp))
+			{
+				p_strPath = temp;
+				temp = Path.GetDirectoryName(p_strPath);
+			}
+			return p_strPath;
 		}
 
 		static string CleanInput(string p_strIn)
