@@ -166,8 +166,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			if ((lstFiles.Count > 0) && (lstFilesToLink.Count <= 0))
-				throw new InvalidDataException("This mod file was not properly packaged: the 'nativePC' folder (or one of its direct subfolders) is missing." +
-					"This mod does not have the correct file structure for a Dragon's Dogma mod that NMM can use. It will not work with NMM.");
+				throw new InvalidDataException(string.Format("This mod does not have the correct file structure for a {0} mod that NMM can use. It will not work with NMM.", GameMode.Name));
 
 			foreach (KeyValuePair<string, string> strLink in lstFilesToLink)
 			{
