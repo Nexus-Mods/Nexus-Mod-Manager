@@ -1,6 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <tipsManager>
 	<tipsList>
+		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="1" version="0.61.8">
+			<text>To completely UNINSTALL or DELETE a mod, right-click on it and select the desired uninstall option from the context menu.</text>
+		</tips>
 		<tips section="CLWCategoryListView" object="column" ID="1" version="0.60.10">
 			<text>Right-clicking on a mod name will now also show the mod’s filename.</text>
 		</tips>

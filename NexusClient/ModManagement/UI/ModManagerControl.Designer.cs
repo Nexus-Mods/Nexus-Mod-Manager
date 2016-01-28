@@ -50,7 +50,6 @@
 			this.toggleHiddenCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.tsbActivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeactivate = new System.Windows.Forms.ToolStripButton();
-			this.tsbDeleteMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
 			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripSplitButton();
 			this.checkModUpdates = new System.Windows.Forms.ToolStripMenuItem();
@@ -87,7 +86,6 @@
 			new System.Windows.Forms.ToolStripSeparator(),
 			this.tsbActivate,
 			this.tsbDeactivate,
-			this.tsbDeleteMod,
 			new System.Windows.Forms.ToolStripSeparator(),
 			this.tsbTagMod,
 			this.tsbCheckModVersions,
@@ -227,15 +225,6 @@
 			this.tsbDeactivate.Name = "tsbDeactivate";
 			this.tsbDeactivate.Size = new System.Drawing.Size(46, 36);
 			this.tsbDeactivate.Text = "toolStripButton1";
-			// 
-			// tsbDeleteMod
-			// 
-			this.tsbDeleteMod.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbDeleteMod.Image = global::Nexus.Client.Properties.Resources.edit_delete_6;
-			this.tsbDeleteMod.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbDeleteMod.Name = "tsbDeleteMod";
-			this.tsbDeleteMod.Size = new System.Drawing.Size(46, 36);
-			this.tsbDeleteMod.Text = "toolStripButton1";
 			// 
 			// tsbTagMod
 			// 
@@ -432,7 +421,6 @@
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;
 		private System.Windows.Forms.ToolStripButton tsbActivate;
 		private System.Windows.Forms.ToolStripButton tsbDeactivate;
-		private System.Windows.Forms.ToolStripButton tsbDeleteMod;
 		private System.Windows.Forms.ToolStripButton tsbTagMod;
 		private System.Windows.Forms.ToolStripSplitButton tsbCheckModVersions;
 		private System.Windows.Forms.ToolStripMenuItem checkModUpdates;

@@ -930,7 +930,7 @@ namespace Nexus.Client.UI.Controls
 			m_mniModUninstall.DropDownItems.Add("From all profiles", null,
 				(s, e) => this.OnModActionRequested(ModAction.UninstallAll));
 			m_mniModUninstall.DropDownItems.Add("-");
-			m_mniModUninstall.DropDownItems.Add("Uninstall and delete mod archive (permanent)", new Bitmap(Properties.Resources.dialog_cancel_4_16, 16, 16),
+			m_mniModUninstall.DropDownItems.Add("Delete mod (permanently) and uninstall.", new Bitmap(Properties.Resources.dialog_cancel_4_16, 16, 16),
 				(s, e) => this.OnModActionRequested(ModAction.Delete));
 		}
 
@@ -1084,7 +1084,7 @@ namespace Nexus.Client.UI.Controls
 			m_mniCategoryMoveTo.DropDownOpening += m_mniCategoryMoveTo_DropDownOpening;
 			m_mniCategories = new ToolStripMenuItem("Category", new Bitmap(Properties.Resources.format_line_spacing_triple, 16, 16));
 			m_mniModWarnings = new ToolStripMenuItem("Mod update warnings", new Bitmap(Properties.Resources.update_warning, 16, 16));
-			m_mniModUninstall = new ToolStripMenuItem("Uninstall", new Bitmap(Properties.Resources.dialog_block, 16, 16));
+			m_mniModUninstall = new ToolStripMenuItem("Uninstall or Delete", new Bitmap(Properties.Resources.dialog_block, 16, 16));
 
 			// menu items without any sub-items
 			m_mniModActivate = new ToolStripMenuItem("Activate", new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16),
