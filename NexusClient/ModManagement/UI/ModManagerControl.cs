@@ -86,7 +86,6 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ConfirmItemOverwrite = ConfirmItemOverwrite;
 				m_vmlViewModel.ConfirmModUpgrade = ConfirmModUpgrade;
 
-				new ToolStripItemCommandBinding<IMod>(tsbDeleteMod, m_vmlViewModel.DeleteModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<List<IMod>>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMods);
 				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DisableModCommand, GetSelectedMod);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
@@ -1826,12 +1825,15 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void UninstallModGlobally(IMod p_modMod)
 		{
-			ViewModel.DeactivateMod(p_modMod);
-
-			var handler = this.UninstallModFromProfiles;
-			if (handler != null)
+			if (ConfirmModFileDeletion(p_modMod))
 			{
-				handler(this, new ModEventArgs(p_modMod));
+				ViewModel.DeactivateMod(p_modMod);
+
+				var handler = this.UninstallModFromProfiles;
+				if (handler != null)
+				{
+					handler(this, new ModEventArgs(p_modMod));
+				}
 			}
 		}
 

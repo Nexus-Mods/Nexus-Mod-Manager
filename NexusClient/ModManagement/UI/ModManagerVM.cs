@@ -425,12 +425,8 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (p_modMod != null)
 			{
-				if (ConfirmModFileDeletion(p_modMod))
-				{
-					ModManager.VirtualModActivator.DisableMod(p_modMod);
-					IBackgroundTaskSet btsInstall = ModManager.DeleteMod(p_modMod, ModManager.ActiveMods);
-					DeletingMod(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
-				}
+				IBackgroundTaskSet btsInstall = ModManager.DeleteMod(p_modMod, ModManager.ActiveMods);
+				DeletingMod(this, new EventArgs<IBackgroundTaskSet>(btsInstall));
 			}
 		}
 
