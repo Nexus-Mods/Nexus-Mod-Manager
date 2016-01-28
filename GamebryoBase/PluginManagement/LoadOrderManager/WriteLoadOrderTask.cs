@@ -148,10 +148,18 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					{
 						lock (m_objLock)
 						{
-							if (ForcedReadOnly)
+							int intReadOnly = 0;
+
+							while (IsFileReadOnly(p_strFilePath) && (intRetries < 10))
 							{
+								
 								SetFileReadAccess(p_strFilePath, false);
+								intReadOnly++;
+								Thread.Sleep(100);
 							}
+
+							if (IsFileReadOnly(p_strFilePath) && (intRetries >= 10))
+								throw new Exception(string.Format("Unable to remove read-only flag from the {0} file.", p_strFilePath));
 
 							StringBuilder sbPlugins = new StringBuilder();
 
