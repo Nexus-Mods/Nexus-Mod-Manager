@@ -514,6 +514,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 							{
 								if (((p_enmStopFolders == null) || (p_enmStopFolders.Count() <= 0)) && !p_booUsePlugins)
 								{
+									FileUtil.ForceDelete(m_strCachePath);
 									booCheckNested = true;
 									strCheckPrefix = string.Empty;
 									booDirtyCache = true;
