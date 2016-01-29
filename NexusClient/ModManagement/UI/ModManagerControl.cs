@@ -904,8 +904,11 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						if (ViewModel.DeleteModCommand.CanExecute)
 						{
-							UninstallModGlobally(e.Mod);
-							ViewModel.DeleteModCommand.Execute(e.Mod);
+							if (ConfirmModFileDeletion(e.Mod))
+							{
+								UninstallModGlobally(e.Mod);
+								ViewModel.DeleteModCommand.Execute(e.Mod);
+							}
 						}
 					}
 					break;
@@ -1825,15 +1828,12 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void UninstallModGlobally(IMod p_modMod)
 		{
-			if (ConfirmModFileDeletion(p_modMod))
-			{
-				ViewModel.DeactivateMod(p_modMod);
+			ViewModel.DeactivateMod(p_modMod);
 
-				var handler = this.UninstallModFromProfiles;
-				if (handler != null)
-				{
-					handler(this, new ModEventArgs(p_modMod));
-				}
+			var handler = this.UninstallModFromProfiles;
+			if (handler != null)
+			{
+				handler(this, new ModEventArgs(p_modMod));
 			}
 		}
 
