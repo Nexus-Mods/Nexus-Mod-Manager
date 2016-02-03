@@ -598,20 +598,22 @@ namespace Nexus.Client
 		protected bool UacCheckEnvironment(IGameMode p_gmdGameMode, out ViewMessage p_vwmErrorMessage)
 		{
 			Dictionary<string, string> dicPaths = new Dictionary<string, string>();
-			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = "Install Info";
-			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory] = "Mods";
-			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory] = "Mods";
-			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory] = "Mods";
-			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = "Install Info";
-			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Mods";
-			if (!String.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath] = "Install Path";
+			if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId]) && (!dicPaths.ContainsKey(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER))))
+				dicPaths[Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER)] = "Virtual Install";
 
 			foreach (KeyValuePair<string, string> kvpUacCheckPath in dicPaths)
 			{
@@ -621,9 +623,9 @@ namespace Nexus.Client
 				}
 				catch (Exception ex)
 				{
-					Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
-					string strPathMessage = (String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
-					string strPathDetails = String.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
+					Trace.TraceError(string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
+					string strPathMessage = (string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
+					string strPathDetails = string.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
 					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, "Error", MessageBoxIcon.Error);
 					return false;
 				}
