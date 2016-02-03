@@ -324,7 +324,7 @@ namespace Nexus.Client.Games.Witcher3
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
-			string strPath = null;
+			string strPath = string.Empty;
 			string strCheck = p_strPath;
 
 			if (m_modLastMod != p_modMod)
