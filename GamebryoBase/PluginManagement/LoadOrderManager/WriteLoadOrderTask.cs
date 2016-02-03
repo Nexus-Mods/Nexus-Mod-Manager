@@ -166,13 +166,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 							foreach (string plugin in p_strPlugins)
 								sbPlugins.AppendLine(plugin);
 
-							txFileManager.WriteAllText(p_strFilePath, sbPlugins.ToString());
+							//txFileManager.WriteAllText(p_strFilePath, sbPlugins.ToString());
 
-							//using (StreamWriter swFile = new StreamWriter(p_strFilePath))
-							//{
-							//	foreach (string plugin in p_strPlugins)
-							//		swFile.WriteLine(plugin);
-							//}
+							using (StreamWriter swFile = new StreamWriter(p_strFilePath))
+							{
+								swFile.Write(sbPlugins.ToString());
+								//foreach (string plugin in p_strPlugins)
+								//	swFile.WriteLine(plugin);
+							}
 						}
 						break;
 					}
@@ -184,10 +185,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						{
 							if (intRetries >= 100)
 							{
+								StringBuilder sbPlugins = new StringBuilder();
+
+								foreach (string plugin in p_strPlugins)
+									sbPlugins.AppendLine(plugin);
+
 								using (StreamWriter swFile = new StreamWriter(p_strFilePath + ".failed"))
 								{
-									foreach (string plugin in p_strPlugins)
-										swFile.WriteLine(plugin);
+									swFile.Write(sbPlugins.ToString());
 								}
 								throw e;
 							}
