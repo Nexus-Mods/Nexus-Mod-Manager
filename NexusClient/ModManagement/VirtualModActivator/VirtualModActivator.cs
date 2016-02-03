@@ -712,7 +712,7 @@ namespace Nexus.Client.ModManagement
 			{
 				foreach (IVirtualModLink modLink in p_lstToPurge)
 				{
-					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename).ToLowerInvariant() == modLink.ModInfo.ModFileName.ToLowerInvariant());
+					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => modLink.ModInfo.ModFileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.InvariantCultureIgnoreCase));
 					RemoveFileLink(modLink, modMod, true);
 				}
 				
@@ -914,7 +914,7 @@ namespace Nexus.Client.ModManagement
 			{
 				Int32 intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, p_ivlVirtualLink.Priority, out modCheck);
 				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
-				if (!File.Exists(strLinkPath))
+				if ((!File.Exists(strLinkPath)) && (p_modMod != null))
 					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, true));
 
 				if (GameMode.HasSecondaryInstallPath)
@@ -923,7 +923,6 @@ namespace Nexus.Client.ModManagement
 
 				if ((PluginManager != null) && ((intPriority < 0) || (modCheck == null)))
 				{
-					
 					if (PluginManager.IsActivatiblePluginFile(strLinkPath))
 					{
 						PluginManager.DeactivatePlugin(strLinkPath);

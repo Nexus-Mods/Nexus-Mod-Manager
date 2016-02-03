@@ -321,7 +321,9 @@
     <None Include="Resources\thumbsup.png" />
     <None Include="Resources\thumb_up.png" />
     <None Include="Resources\thumb_no.png" />
-    <EmbeddedResource Include="Resources\Tips.xml" />
+    <EmbeddedResource Include="Resources\Tips.xml">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <None Include="Resources\tipsClose.png" />
     <None Include="Resources\tips.png" />
     <None Include="Resources\uac-icon.png" />
