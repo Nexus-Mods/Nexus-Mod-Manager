@@ -101,7 +101,7 @@ namespace Nexus.Client.Games
 			Regex[] rgxPatterns = new Regex[strSearchFiles.Length];
 			string strSeparatorChar = Path.DirectorySeparatorChar.Equals('\\') ? @"\\" : Path.DirectorySeparatorChar.ToString();
 			for (Int32 i = 0; i < strSearchFiles.Length; i++)
-				rgxPatterns[i] = new Regex(strSearchFiles[i].Replace(".", "\\.").Replace("*", ".*").Replace(Path.AltDirectorySeparatorChar.ToString(), strSeparatorChar), RegexOptions.IgnoreCase);
+				rgxPatterns[i] = new Regex(strSearchFiles[i].Replace(@"\", @"\\").Replace(".", "\\.").Replace("*", ".*").Replace(Path.AltDirectorySeparatorChar.ToString(), strSeparatorChar), RegexOptions.IgnoreCase);
 			DriveInfo[] difDrives = DriveInfo.GetDrives();
 
 			Queue<string> queSearchPaths = new Queue<string>();
