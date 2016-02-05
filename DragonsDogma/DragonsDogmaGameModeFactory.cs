@@ -76,7 +76,7 @@ namespace Nexus.Client.Games.DragonsDogma
 
                 // convert path to windows path. (steam uses C:/x/y we want C:\\x\\y
                 steamPath = Path.GetFullPath(steamPath);
-                var appPath = Path.Combine(steamPath, @"steamapps\common\The Witcher 3");
+                var appPath = Path.Combine(steamPath, @"steamapps\common\DDDA");
 
                 // check if game is installed in the default directory
                 if (!Directory.Exists(appPath))

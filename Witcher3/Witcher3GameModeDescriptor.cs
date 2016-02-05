@@ -11,8 +11,8 @@ namespace Nexus.Client.Games.Witcher3
 	/// </summary>
 	public class Witcher3GameModeDescriptor : GameModeDescriptorBase
 	{
-		private static string[] EXECUTABLES = { @"bin\x64\Witcher3.exe" };
-		private static readonly List<string> STOP_FOLDERS = new List<string>() {};
+		private static string[] EXECUTABLES = { "bin\\x64\\Witcher3.exe" };
+		private static readonly List<string> STOP_FOLDERS = new List<string>() { };
 		private const string MODE_ID = "Witcher3";
 
 		#region Properties
