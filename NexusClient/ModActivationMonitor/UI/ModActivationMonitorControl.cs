@@ -341,15 +341,15 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 							return;
 						}
 					}
-					else if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
-					{
-						if ((((ModUninstaller)ViewModel.RunningTask).ModFileName == ((ModInstaller)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTask(((ModInstaller)p_tskTask));
-							return;
-						}
-					}
+					//else if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
+					//{
+					//	if ((((ModUninstaller)ViewModel.RunningTask).ModFileName == ((ModInstaller)p_tskTask).ModFileName) || booQueued)
+					//	{
+					//		booQueued = false;
+					//		m_vmlViewModel.RemoveUselessTask(((ModInstaller)p_tskTask));
+					//		return;
+					//	}
+					//}
 					else if (ViewModel.RunningTask.GetType() == typeof(ModUpgrader))
 					{
 						if ((((ModUpgrader)ViewModel.RunningTask).ModFileName == ((ModInstaller)p_tskTask).ModFileName) || booQueued)
@@ -384,16 +384,17 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 						}
 					}
 
-					if (ViewModel.RunningTask.GetType() == typeof(ModInstaller))
-					{
-						if ((((ModInstaller)ViewModel.RunningTask).ModFileName == ((ModUninstaller)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTaskUn(((ModUninstaller)p_tskTask));
-							return;
-						}
-					}
-					else if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
+					//if (ViewModel.RunningTask.GetType() == typeof(ModInstaller))
+					//{
+					//	if ((((ModInstaller)ViewModel.RunningTask).ModFileName == ((ModUninstaller)p_tskTask).ModFileName) || booQueued)
+					//	{
+					//		booQueued = false;
+					//		m_vmlViewModel.RemoveUselessTaskUn(((ModUninstaller)p_tskTask));
+					//		return;
+					//	}
+					//}
+					//else 
+					if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
 					{
 						if ((((ModUninstaller)ViewModel.RunningTask).ModFileName == ((ModUninstaller)p_tskTask).ModFileName) || booQueued)
 						{
