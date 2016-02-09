@@ -457,6 +457,12 @@ namespace Nexus.Client.ModManagement
 			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
 		}
 
+		public IBackgroundTaskSet ReinstallMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		{
+			DeleteXMLInstalledFile(p_modMod);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
+		}
+
 		/// <summary>
 		/// Forces an upgrade from one mod to another.
 		/// </summary>

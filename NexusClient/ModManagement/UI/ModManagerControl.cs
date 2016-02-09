@@ -888,6 +888,12 @@ namespace Nexus.Client.ModManagement.UI
 					}
 					break;
 
+				case ModAction.Reinstall:
+					{
+						ViewModel.ReinstallMod(e.Mod);
+					}
+					break;
+
 				case ModAction.Uninstall:
 					{
 						ViewModel.DeactivateMod(e.Mod);

@@ -73,6 +73,8 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			lsiSubItem.Name = "?";
 
 			m_booRemovable = true;
+
+			Control.CheckForIllegalCrossThreadCalls = false;
 			p_btsTask.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(TaskSet_TaskSetStarted);
 
 			p_btsTask.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(TaskSet_TaskSetCompleted);
