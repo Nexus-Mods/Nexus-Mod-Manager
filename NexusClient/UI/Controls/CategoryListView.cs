@@ -25,6 +25,7 @@ namespace Nexus.Client.UI.Controls
 		private ToolStripMenuItem m_mniCategories;
 		private ToolStripMenuItem m_mniCategoryMoveTo;
 		private ToolStripMenuItem m_mniModActivate;
+		private ToolStripMenuItem m_mniModReinstall;
 		private ToolStripMenuItem m_mniModDeactivate;
 		private ToolStripMenuItem m_mniModUninstall;
 		private ToolStripMenuItem m_mniModReadme;
@@ -1091,7 +1092,7 @@ namespace Nexus.Client.UI.Controls
 				(s, e) => this.OnModActionRequested(ModAction.Activate));
 			m_mniModDeactivate = new ToolStripMenuItem("Deactivate", ToolStripRenderer.CreateDisabledImage(new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16)),
 				(s, e) => this.OnModActionRequested(ModAction.Deactivate));
-			m_mniModDeactivate = new ToolStripMenuItem("Reinstall Mod", new Bitmap(Properties.Resources.change_game_mode, 16, 16),
+			m_mniModReinstall = new ToolStripMenuItem("Reinstall Mod", new Bitmap(Properties.Resources.change_game_mode, 16, 16),
 				(s, e) => this.OnModActionRequested(ModAction.Reinstall));
 			m_mniModReadme = new ToolStripMenuItem("Open readme", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
 		}
@@ -1139,6 +1140,7 @@ namespace Nexus.Client.UI.Controls
 				else
 				{
 					cmsContextMenu.Items.Add(m_mniModDeactivate);
+					cmsContextMenu.Items.Add(m_mniModReinstall);
 				}
 
 				RenderContextMenuModUninstall();
