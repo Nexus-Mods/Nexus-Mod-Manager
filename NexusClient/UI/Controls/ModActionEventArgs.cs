@@ -42,6 +42,10 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		Deactivate,
 		/// <summary>
+		/// Mod requires reinstall.
+		/// </summary>
+		Reinstall,
+		/// <summary>
 		/// Mod requires deactivation and uninstallation from the current profile 
 		/// and its files are to be removed from the Virtual Install folder.
 		/// </summary>

@@ -91,6 +91,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ActivatingMod = delegate { };
 
+		/// <summary>
+		/// Raised when reinstalling a single mod.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ReinstallingMod = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -524,6 +529,45 @@ namespace Nexus.Client.ModManagement.UI
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			if (btsUninstall != null)
 				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+		}
+
+		/// <summary>
+		/// Reinstalls the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to deactivate.</param>
+		public void ReinstallMod(IMod p_modMod)
+		{
+			VirtualModActivator.DisableMod(p_modMod);
+
+			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
+			if (btsUninstall != null)
+				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+			
+			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
+			{
+				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			string strMessage;
+			bool booRequiresConfig = ModManager.GameMode.RequiresExternalConfig(out strMessage);
+
+			if (booRequiresConfig)
+			{
+				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+
+			string strErrorMessage = ModManager.RequiredToolErrorMessage;
+			if (String.IsNullOrEmpty(strErrorMessage))
+			{
+				IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+				if (btsReinstall != null)
+					ModManager.ModActivationMonitor.AddActivity(btsReinstall);
+			}
+			else
+			{
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
 		}
 
 		/// <summary>

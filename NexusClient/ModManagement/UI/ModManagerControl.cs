@@ -62,6 +62,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.DeletingMod += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_DeletingMod);
 				m_vmlViewModel.ActivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMultipleMods);
 				m_vmlViewModel.ActivatingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMod);
+				m_vmlViewModel.ReinstallingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ReinstallingMod);
 				m_vmlViewModel.DisablingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DisablingMultipleMods);
 				m_vmlViewModel.DeactivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
@@ -707,7 +708,14 @@ namespace Nexus.Client.ModManagement.UI
 								try
 								{
 									IMod modMod = (IMod)objSelectedItem;
-									ViewModel.DeleteMod(modMod);
+									if (ViewModel.DeleteModCommand.CanExecute)
+									{
+										if (ConfirmModFileDeletion(modMod))
+										{
+											UninstallModGlobally(modMod);
+											ViewModel.DeleteModCommand.Execute(modMod);
+										}
+									}
 								}
 								catch
 								{
@@ -885,6 +893,12 @@ namespace Nexus.Client.ModManagement.UI
 						{
 							ViewModel.DisableModCommand.Execute(e.Mod);
 						}
+					}
+					break;
+
+				case ModAction.Reinstall:
+					{
+						ViewModel.ReinstallMod(e.Mod);
 					}
 					break;
 
@@ -1579,14 +1593,33 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ModManagerVM.DeactivatingMultipleMods"/> event of the view model.
+		/// Handles the <see cref="ModManagerVM.ReinstallingMod"/> event of the view model.
 		/// </summary>
 		/// <remarks>
 		/// This displays the progress dialog.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
-		private void ViewModel_DeactivatingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
+		private void ViewModel_ReinstallingMod(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ReinstallingMod, sender, e);
+				return;
+			}
+			
+			ProgressDialog.ShowDialog(this, e.Argument);
+		}
+
+	/// <summary>
+	/// Handles the <see cref="ModManagerVM.DeactivatingMultipleMods"/> event of the view model.
+	/// </summary>
+	/// <remarks>
+	/// This displays the progress dialog.
+	/// </remarks>
+	/// <param name="sender">The object that raised the event.</param>
+	/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+	private void ViewModel_DeactivatingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
 		{
 			if (InvokeRequired)
 			{
