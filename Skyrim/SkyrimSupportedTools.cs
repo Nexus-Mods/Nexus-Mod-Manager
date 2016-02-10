@@ -381,7 +381,14 @@ namespace Nexus.Client.Games.Skyrim
 			}
 
 			if (!String.IsNullOrEmpty(strBS2))
-				strBS2 = Path.Combine(strBS2, "BodySlide.exe");
+			{
+				string str64bit = Path.Combine(strBS2, "BodySlide x64.exe");
+
+				if (Environment.Is64BitProcess && File.Exists(str64bit))
+					strBS2 = str64bit;
+				else
+					strBS2 = Path.Combine(strBS2, "BodySlide.exe");
+			}
 
 			return strBS2;
 		}
