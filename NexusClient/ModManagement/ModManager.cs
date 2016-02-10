@@ -458,6 +458,20 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Reinstalls the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to reinstall.</param>
+		/// <param name="p_dlgUpgradeConfirmationDelegate">The delegate that is called to confirm whether an upgrade install should be performed.</param>
+		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
+		/// <param name="p_rolActiveMods">The list or Active mods.</param>
+		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
+		public IBackgroundTaskSet ReinstallMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		{
+			DeleteXMLInstalledFile(p_modMod);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
+		}
+
+		/// <summary>
 		/// Forces an upgrade from one mod to another.
 		/// </summary>
 		/// <remarks>
