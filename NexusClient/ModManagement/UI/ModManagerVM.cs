@@ -91,6 +91,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ActivatingMod = delegate { };
 
+		/// <summary>
+		/// Raised when reinstalling a single mod.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ReinstallingMod = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -526,6 +531,10 @@ namespace Nexus.Client.ModManagement.UI
 				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
 		}
 
+		/// <summary>
+		/// Reinstalls the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void ReinstallMod(IMod p_modMod)
 		{
 			VirtualModActivator.DisableMod(p_modMod);
