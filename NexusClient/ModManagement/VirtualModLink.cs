@@ -26,6 +26,14 @@ namespace Nexus.Client.ModManagement
 			ModInfo = p_vmiVirtualModInfo;
 		}
 
+		public VirtualModLink(IVirtualModLink p_vmlLink)
+		{
+			VirtualModPath = p_vmlLink.VirtualModPath;
+			RealModPath = p_vmlLink.RealModPath;
+			Priority = p_vmlLink.Priority;
+			Active = p_vmlLink.Active;
+			ModInfo = p_vmlLink.ModInfo;
+		}
 		#endregion
 
 		#region IEquatable<IVirtualModLink>

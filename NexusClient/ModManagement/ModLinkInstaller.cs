@@ -57,7 +57,7 @@ namespace Nexus.Client.ModManagement
 				{
 					if ((intPriority >= 0) && (lstFileLinks != null) && (lstFileLinks.Count > 0))
 					{
-						VirtualModActivator.UpdateLinkPriority(lstFileLinks);
+						VirtualModActivator.UpdateLinkListPriority(lstFileLinks);
 						p_booIsSwitching = false;
 					}
 					return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, false, p_booHandlePlugin, 0);
