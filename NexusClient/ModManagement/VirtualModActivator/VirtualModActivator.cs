@@ -912,7 +912,10 @@ namespace Nexus.Client.ModManagement
 			
 			if (p_ivlVirtualLink != null)
 			{
-				Int32 intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, p_ivlVirtualLink.Priority, out modCheck);
+				bool booActive = p_ivlVirtualLink.Active;
+				int intCurrentPriority = p_ivlVirtualLink.Priority;
+				List<IVirtualModLink> lstOverwrites = null;
+				Int32 intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, intCurrentPriority, out modCheck, out lstOverwrites);
 				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
 				if ((!File.Exists(strLinkPath)) && (p_modMod != null))
 					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, true));
@@ -947,7 +950,10 @@ namespace Nexus.Client.ModManagement
 				VirtualLinks.Remove(p_ivlVirtualLink);
 
 				if ((intPriority >= 0) && !p_booPurging && (modCheck != null))
-					AddFileLink(modCheck, p_ivlVirtualLink.VirtualModPath, false, true, p_ivlVirtualLink.Priority);
+				{
+					if (booActive)
+						UpdateLinkListPriority(lstOverwrites, false, true);
+				}
 				else
 				{
 					if (Directory.Exists(m_strVirtualActivatorOverwritePath))
@@ -969,16 +975,50 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		public void UpdateLinkPriority(List<IVirtualModLink> lstFileLinks)
+		public void UpdateLinkPriority(IVirtualModLink p_ivlFileLink)
 		{
-			m_tslVirtualModList.RemoveRange(lstFileLinks);
+			VirtualModLink vmlUpdated = new VirtualModLink(p_ivlFileLink);
+			m_tslVirtualModList.Remove(p_ivlFileLink);
 
-			foreach (VirtualModLink vml in lstFileLinks)
+			vmlUpdated.Priority = 0;
+			vmlUpdated.Active = true;
+			m_tslVirtualModList.Add(vmlUpdated);
+		}
+
+		private void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks, bool p_booIncrement, bool p_booActivateFirst)
+		{
+			m_tslVirtualModList.RemoveRange(p_lstFileLinks);
+
+			if (p_booActivateFirst)
 			{
-				vml.Priority++;
-				vml.Active = false;
-				m_tslVirtualModList.Add(vml);
+				VirtualModLink vmlFirst = new VirtualModLink(p_lstFileLinks.OrderBy(x => x.Priority).First());
+				p_lstFileLinks.Remove(vmlFirst);
+
+				if (vmlFirst.Priority > 0)
+					vmlFirst.Priority--;
+				vmlFirst.Active = true;
+				m_tslVirtualModList.Add(vmlFirst);
 			}
+
+			if (p_lstFileLinks.Count > 0)
+			{
+				foreach (VirtualModLink vml in p_lstFileLinks.OrderBy(x => x.Priority))
+				{
+					if (p_booIncrement)
+						vml.Priority++;
+					else
+						if (vml.Priority > 0)
+							vml.Priority--;
+
+					vml.Active = false;
+					m_tslVirtualModList.Add(vml);
+				}
+			}
+		}
+
+		public void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks)
+		{
+			UpdateLinkListPriority(p_lstFileLinks, true, false);
 		}
 
 		#endregion
