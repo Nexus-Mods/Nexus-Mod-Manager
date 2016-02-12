@@ -952,7 +952,7 @@ namespace Nexus.Client.ModManagement
 				if ((intPriority >= 0) && !p_booPurging && (modCheck != null))
 				{
 					if (booActive)
-						UpdateLinkListPriority(lstOverwrites, false, true);
+						UpdateLinkListPriority(lstOverwrites, modCheck, false, true);
 				}
 				else
 				{
@@ -985,7 +985,7 @@ namespace Nexus.Client.ModManagement
 			m_tslVirtualModList.Add(vmlUpdated);
 		}
 
-		private void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks, bool p_booIncrement, bool p_booActivateFirst)
+		private void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks, IMod p_modMod, bool p_booIncrement, bool p_booActivateFirst)
 		{
 			m_tslVirtualModList.RemoveRange(p_lstFileLinks);
 
@@ -998,6 +998,7 @@ namespace Nexus.Client.ModManagement
 					vmlFirst.Priority--;
 				vmlFirst.Active = true;
 				m_tslVirtualModList.Add(vmlFirst);
+				AddFileLink(p_modMod, vmlFirst.VirtualModPath, false, true, vmlFirst.Priority);
 			}
 
 			if (p_lstFileLinks.Count > 0)
@@ -1018,7 +1019,7 @@ namespace Nexus.Client.ModManagement
 
 		public void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks)
 		{
-			UpdateLinkListPriority(p_lstFileLinks, true, false);
+			UpdateLinkListPriority(p_lstFileLinks, null, true, false);
 		}
 
 		#endregion
