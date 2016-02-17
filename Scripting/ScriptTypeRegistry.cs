@@ -23,7 +23,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_strSearchPath">The path in which to search for script type assemblies.</param>
 		/// <param name="p_gmdGameMode">The current game mode.</param>
 		/// <returns>A registry containing all of the discovered script types.</returns>
-		public static IScriptTypeRegistry DiscoverScriptTypes(string p_strSearchPath, IGameMode p_gmdGameMode)
+		public static IScriptTypeRegistry DiscoverScriptTypes(string p_strSearchPath, IGameMode p_gmdGameMode, List<string> p_lstDeletedDLL)
 		{
 			Trace.TraceInformation("Discovering Script Types...");
 			Trace.Indent();
@@ -40,7 +40,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				return stgRegistry;
 			}
 			string[] strAssemblies = Directory.GetFiles(p_strSearchPath, "*.dll");
-			RegisterScriptTypes(stgRegistry, strAssemblies);
+			RegisterScriptTypes(stgRegistry, strAssemblies, p_lstDeletedDLL);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Discovering Game Mode Specific Script Types...");
@@ -57,7 +57,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			List<string> lstAssemblies = new List<string>();
 			foreach (IScriptType stpType in stgRegistry.Types)
 				lstAssemblies.AddRange(Directory.GetFiles(strGameModeSearchPath, String.Format("{0}.{1}.dll", p_gmdGameMode.ModeId, stpType.TypeId)));
-			RegisterScriptTypes(stgRegistry, lstAssemblies);
+			RegisterScriptTypes(stgRegistry, lstAssemblies, p_lstDeletedDLL);
 			Trace.Unindent();
 
 			Trace.Unindent();
@@ -69,7 +69,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// </summary>
 		/// <param name="p_stgScriptTypeRegistry">The registry with which to register any found script types.</param>
 		/// <param name="p_enmAssemblies">The assemblies to search for script types.</param>
-		private static void RegisterScriptTypes(IScriptTypeRegistry p_stgScriptTypeRegistry, IEnumerable<string> p_enmAssemblies)
+		private static void RegisterScriptTypes(IScriptTypeRegistry p_stgScriptTypeRegistry, IEnumerable<string> p_enmAssemblies, List<string> p_lstRemovedDLL)
 		{
 			AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
 			try
@@ -79,23 +79,26 @@ namespace Nexus.Client.ModManagement.Scripting
 					Trace.TraceInformation("Checking: {0}", Path.GetFileName(strAssembly));
 					Trace.Indent();
 
-					Assembly asmGameMode = Assembly.LoadFrom(strAssembly);
-					Type[] tpeTypes = asmGameMode.GetExportedTypes();
-					foreach (Type tpeType in tpeTypes)
+					if (!p_lstRemovedDLL.Contains(Path.GetFileName(strAssembly)))
 					{
-						if (typeof(IScriptType).IsAssignableFrom(tpeType) && !tpeType.IsAbstract)
+						Assembly asmGameMode = Assembly.LoadFrom(strAssembly);
+						Type[] tpeTypes = asmGameMode.GetExportedTypes();
+						foreach (Type tpeType in tpeTypes)
 						{
-							Trace.TraceInformation("Initializing: {0}", tpeType.FullName);
-							Trace.Indent();
+							if (typeof(IScriptType).IsAssignableFrom(tpeType) && !tpeType.IsAbstract)
+							{
+								Trace.TraceInformation("Initializing: {0}", tpeType.FullName);
+								Trace.Indent();
 
-							IScriptType sctScriptType = null;
-							ConstructorInfo cifConstructor = tpeType.GetConstructor(new Type[] { });
-							if (cifConstructor != null)
-								sctScriptType = (IScriptType)cifConstructor.Invoke(null);
-							if (sctScriptType != null)
-								p_stgScriptTypeRegistry.RegisterType(sctScriptType);
+								IScriptType sctScriptType = null;
+								ConstructorInfo cifConstructor = tpeType.GetConstructor(new Type[] { });
+								if (cifConstructor != null)
+									sctScriptType = (IScriptType)cifConstructor.Invoke(null);
+								if (sctScriptType != null)
+									p_stgScriptTypeRegistry.RegisterType(sctScriptType);
 
-							Trace.Unindent();
+								Trace.Unindent();
+							}
 						}
 					}
 					Trace.Unindent();

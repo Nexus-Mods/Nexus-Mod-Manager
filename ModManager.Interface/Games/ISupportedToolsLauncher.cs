@@ -24,6 +24,11 @@ namespace Nexus.Client.Games
 		/// <seealso cref="GameLaunchEventArgs"/>
 		event EventHandler<SupportedToolsLaunchEventArgs> SupportedToolsLaunched;
 
+		/// <summary>
+		/// Raised when an attempt to change the SupportedTools path has been made.
+		/// </summary>
+		event EventHandler ChangedToolPath;
+
 		#region Properties
 
 		/// <summary>

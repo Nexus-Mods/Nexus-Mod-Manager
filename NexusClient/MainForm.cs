@@ -140,7 +140,6 @@ namespace Nexus.Client
 		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
 		public MainForm(MainFormVM p_vmlViewModel)
 		{
-
 			InitializeComponent();
 
 			this.FormClosing += new FormClosingEventHandler(this.CheckDownloadsOnClosing);
@@ -167,6 +166,9 @@ namespace Nexus.Client
 			macModActivationMonitor.UpdateBottomBarFeedback += new EventHandler(macModActivationMonitor_UpdateBottomBarFeedback);
 			p_vmlViewModel.ModManager.LoginTask.PropertyChanged += new PropertyChangedEventHandler(LoginTask_PropertyChanged);
 			tsbTips.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbTips_DropDownItemClicked);
+
+			if (p_vmlViewModel.GameMode.SupportedToolsLauncher != null)
+				p_vmlViewModel.GameMode.SupportedToolsLauncher.ChangedToolPath += new EventHandler(SupportedTools_ChangedToolPath);
 
 			ViewModel = p_vmlViewModel;
 
@@ -1383,7 +1385,13 @@ namespace Nexus.Client
 			m_strSelectedTipsVersion = e.ClickedItem.Text;
 		}
 
-		private string GetSelectedVersion()
+		private void SupportedTools_ChangedToolPath(object sender, EventArgs e)
+		{
+			ViewModel.SupportedToolsLauncher.SetupCommands();
+			BindSupportedToolsCommands();
+		}
+
+	private string GetSelectedVersion()
 		{
 			return m_strSelectedTipsVersion;
 		}
@@ -1893,20 +1901,23 @@ namespace Nexus.Client
 			{
 				foreach (Command cmdLaunch in ViewModel.SupportedToolsLauncher.LaunchCommands)
 				{
-
 					ToolStripMenuItem tmiLaunch = new ToolStripMenuItem();
 					tmiLaunch.Tag = cmdLaunch;
+
+					if (tmiLaunch.Image == null)
+						tmiLaunch.Image = ToolStripRenderer.CreateDisabledImage(global::Nexus.Client.Properties.Resources.supported_tools);
+
 					new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
 					spbSupportedTools.DropDownItems.Add(tmiLaunch);
 				}
 
-				if (spbLaunch.DefaultItem == null)
+				if (spbSupportedTools.DefaultItem == null)
 				{
-					if (spbLaunch.DropDownItems.Count > 0)
+					if (spbSupportedTools.DropDownItems.Count > 0)
 					{
-						spbLaunch.DefaultItem = spbLaunch.DropDownItems[0];
-						spbLaunch.Text = spbLaunch.DefaultItem.Text;
-						spbLaunch.Image = spbLaunch.DefaultItem.Image;
+						spbSupportedTools.DefaultItem = spbSupportedTools.DropDownItems[0];
+						spbSupportedTools.Text = spbSupportedTools.DefaultItem.Text;
+						spbSupportedTools.Image = spbSupportedTools.Image != null ? spbSupportedTools.DefaultItem.Image : ToolStripRenderer.CreateDisabledImage(global::Nexus.Client.Properties.Resources.supported_tools);
 					}
 				}
 			}
@@ -2416,7 +2427,7 @@ namespace Nexus.Client
 		}
 
 		#endregion
-
+		
 		/// <summary>
 		/// Shows a startup message if needed.
 		/// </summary>

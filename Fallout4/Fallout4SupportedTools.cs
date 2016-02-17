@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Windows.Forms;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
 using Microsoft.Win32;
@@ -36,47 +37,33 @@ namespace Nexus.Client.Games.Fallout4
 			Image imgIcon = null;
 
 			ClearLaunchCommands();
-
-			string strCommand = GetBOSSLaunchCommand();
-			Trace.TraceInformation("BOSS Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			if ((strCommand != null) && (File.Exists(strCommand)))
-			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("BOSSLaunch", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
-			}
-
-			strCommand = GetLOOTLaunchCommand();
+						
+			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("LOOT Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
 				AddLaunchCommand(new Command("LOOTLaunch", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
 			}
-
-			strCommand = GetWryeBashLaunchCommand();
-			Trace.TraceInformation("Wrye Bash Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			else
+			{
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
+			}
+			
+			strCommand = GetF4EditLaunchCommand();
+			Trace.TraceInformation("F4Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("WryeBashLaunch", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
+				AddLaunchCommand(new Command("F4EditLaunch", "Launch F4Edit", "Launches F4Edit.", imgIcon, LaunchF4Edit, true));
 			}
-
-			strCommand = GetTES5EditLaunchCommand();
-			Trace.TraceInformation("TES5Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			if ((strCommand != null) && (File.Exists(strCommand)))
+			else
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("TES5EditLaunch", "Launch TES5Edit", "Launches TES5Edit.", imgIcon, LaunchTES5Edit, true));
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#F4Edit", "Config F4Edit", "Configures F4Edit.", imgIcon, ConfigF4Edit, true));
 			}
-
-			strCommand = GetFNISLaunchCommand();
-			Trace.TraceInformation("FNIS Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			if ((strCommand != null) && (File.Exists(strCommand)))
-			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("FNISLaunch", "Launch FNIS", "Launches FNIS.", imgIcon, LaunchFNIS, true));
-			}
-
+						
 			strCommand = GetBS2LaunchCommand();
 			Trace.TraceInformation("BodySlide 2 Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
@@ -84,36 +71,16 @@ namespace Nexus.Client.Games.Fallout4
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
 				AddLaunchCommand(new Command("BS2Launch", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
 			}
-
-			strCommand = GetDSRPLaunchCommand();
-			Trace.TraceInformation("Dual Sheat Redux Patch Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			if ((strCommand != null) && (File.Exists(strCommand)))
+			else
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("DSRPLaunch", "Launch Dual Sheat Redux Patch", "Launches Dual Sheat Redux Patch.", imgIcon, LaunchDSRP, true));
-			}
-
-			strCommand = GetPMLaunchCommand();
-			Trace.TraceInformation("Patchus Maximus Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			if ((strCommand != null) && (File.Exists(strCommand)))
-			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("PMLaunch", "Launch Patchus Maximus", "Launches Patchus Maximus.", imgIcon, LaunchPM, true));
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#BodySlide 2", "Config BodySlide 2", "Configures BodySlide 2.", imgIcon, ConfigBS2, true));
 			}
 			
 			Trace.Unindent();
 		}
 
 		#region Launch Commands
-
-		private void LaunchBOSS()
-		{
-			Trace.TraceInformation("Launching BOSS");
-			Trace.Indent();
-			string strCommand = GetBOSSLaunchCommand();
-			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
-		}
 
 		private void LaunchLOOT()
 		{
@@ -123,34 +90,16 @@ namespace Nexus.Client.Games.Fallout4
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
-
-		private void LaunchWryeBash()
+				
+		private void LaunchF4Edit()
 		{
-			Trace.TraceInformation("Launching Wrye Bash");
+			Trace.TraceInformation("Launching F4Edit");
 			Trace.Indent();
-			string strCommand = GetWryeBashLaunchCommand();
+			string strCommand = GetF4EditLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
-
-		private void LaunchTES5Edit()
-		{
-			Trace.TraceInformation("Launching TES5Edit");
-			Trace.Indent();
-			string strCommand = GetTES5EditLaunchCommand();
-			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
-		}
-
-		private void LaunchFNIS()
-		{
-			Trace.TraceInformation("Launching FNIS");
-			Trace.Indent();
-			string strCommand = GetFNISLaunchCommand();
-			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
-		}
-
+		
 		private void LaunchBS2()
 		{
 			Trace.TraceInformation("Launching BodySlide 2");
@@ -159,25 +108,7 @@ namespace Nexus.Client.Games.Fallout4
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
-
-		private void LaunchDSRP()
-		{
-			Trace.TraceInformation("Launching Dual Sheat Redux Patch");
-			Trace.Indent();
-			string strCommand = GetDSRPLaunchCommand();
-			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
-		}
-
-		private void LaunchPM()
-		{
-			Trace.TraceInformation("Launching Patchus Maximus");
-			Trace.Indent();
-			string strCommand = GetPMLaunchCommand();
-			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
-		}
-
+		
 		/// <summary>
 		/// Launches the default command if any.
 		/// </summary>
@@ -185,55 +116,11 @@ namespace Nexus.Client.Games.Fallout4
 		{
 			Trace.TraceInformation("Launching FNIS");
 			Trace.Indent();
-			string strCommand = GetFNISLaunchCommand();
+			string strCommand = GetF4EditLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
-
-		/// <summary>
-		/// Gets the BOSS launch command.
-		/// </summary>
-		/// <returns>The BOSS launch command.</returns>
-		private string GetBOSSLaunchCommand()
-		{
-			string strBOSS = String.Empty;
-			string strRegBoss = String.Empty;
-			if (IntPtr.Size == 8)
-				strRegBoss = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
-			else
-				strRegBoss = @"HKEY_LOCAL_MACHINE\SOFTWARE\BOSS\";
-
-			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BOSS"))
-			{
-				strBOSS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"];
-				if (!String.IsNullOrWhiteSpace(strBOSS) && ((strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBOSS)))
-				{
-					strBOSS = String.Empty;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = String.Empty;
-					EnvironmentInfo.Settings.Save();
-				}
-			}
-
-			if (String.IsNullOrEmpty(strBOSS))
-				if (RegistryUtil.CanReadKey(strRegBoss))
-				{
-					string strRegPath = (string)Registry.GetValue(strRegBoss, "Installed Path", null);
-					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
-					{
-						strBOSS = String.Empty;
-						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = strBOSS;
-						EnvironmentInfo.Settings.Save();
-					}
-					else
-						strBOSS = strRegPath;
-				}
-
-			if (!String.IsNullOrWhiteSpace(strBOSS))
-				strBOSS = Path.Combine(strBOSS, "boss.exe");
-
-			return strBOSS;
-		}
-
+				
 		/// <summary>
 		/// Gets the LOOT launch command.
 		/// </summary>
@@ -277,77 +164,23 @@ namespace Nexus.Client.Games.Fallout4
 		
 			return strLOOT;
 		}
-
+		
 		/// <summary>
-		/// Gets the Wrye Bash launch command.
+		/// Gets the F4Edit launch command.
 		/// </summary>
-		/// <returns>The Wrye Bash launch command.</returns>
-		private string GetWryeBashLaunchCommand()
+		/// <returns>The F4Edit launch command.</returns>
+		private string GetF4EditLaunchCommand()
 		{
-			string strWryePath = String.Empty;
+			string strF4Edit = String.Empty;
 
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("WryeBash"))
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("F4Edit"))
 			{
-				strWryePath = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["WryeBash"];
-				if(!String.IsNullOrEmpty(strWryePath))
-					strWryePath = Path.Combine(strWryePath, @"Wrye Bash.exe");
-			}
-	
-			return strWryePath;
-		}
-
-		/// <summary>
-		/// Gets the TES5Edit launch command.
-		/// </summary>
-		/// <returns>The TES5Edit launch command.</returns>
-		private string GetTES5EditLaunchCommand()
-		{
-			string strTES5Edit = String.Empty;
-
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("TES5Edit"))
-			{
-				strTES5Edit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["TES5Edit"];
-				if (!String.IsNullOrEmpty(strTES5Edit))
-					strTES5Edit = Path.Combine(strTES5Edit, @"TES5Edit.exe");
+				strF4Edit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["F4Edit"];
+				if (!String.IsNullOrEmpty(strF4Edit))
+					strF4Edit = Path.Combine(strF4Edit, @"F4Edit.exe");
 			}
 
-			return strTES5Edit;
-		}
-
-		/// <summary>
-		/// Gets the FNIS launch command.
-		/// </summary>
-		/// <returns>The FNIS launch command.</returns>
-		private string GetFNISLaunchCommand()
-		{
-			string strFNIS = String.Empty;
-
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("FNIS"))
-			{
-				strFNIS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"];
-				if (!String.IsNullOrWhiteSpace(strFNIS) && ((strFNIS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strFNIS)))
-				{
-					strFNIS = String.Empty;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"] = String.Empty;
-					EnvironmentInfo.Settings.Save();
-				}
-			}
-
-			if (String.IsNullOrEmpty(strFNIS))
-			{
-				string strFNISPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\tools\GenerateFNIS_for_Users");
-				if (Directory.Exists(strFNISPath))
-				{
-					strFNIS = strFNISPath;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNIS"] = strFNIS;
-					EnvironmentInfo.Settings.Save();
-				}
-			}
-
-			if (!String.IsNullOrEmpty(strFNIS))
-				strFNIS = Path.Combine(strFNIS, "GenerateFNISforUsers.exe");
-
-			return strFNIS;
+			return strF4Edit;
 		}
 
 		/// <summary>
@@ -392,79 +225,101 @@ namespace Nexus.Client.Games.Fallout4
 
 			return strBS2;
 		}
+				
+		#endregion
 
-		/// <summary>
-		/// Gets the Dual Sheat Redux Patch launch command.
-		/// </summary>
-		/// <returns>The Dual Sheat Redux Patch launch command.</returns>
-		private string GetDSRPLaunchCommand()
+		#region Config Commands
+				
+		private void ConfigF4Edit()
 		{
-			string strDSRP = String.Empty;
+			string p_strToolName = "F4Edit";
+			string p_strExecutableName = "F4Edit.exe";
+			string p_strToolID = "F4Edit";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
 
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("DSRP"))
-			{
-				strDSRP = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"];
-				if (!String.IsNullOrWhiteSpace(strDSRP) && ((strDSRP.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strDSRP)))
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!String.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
 				{
-					strDSRP = String.Empty;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"] = String.Empty;
-					EnvironmentInfo.Settings.Save();
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
 				}
-			}
-
-			if (String.IsNullOrEmpty(strDSRP))
-			{
-				string strDSRPPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\SkyProc Patchers\Dual Sheath Redux Patch");
-				if (Directory.Exists(strDSRPPath))
-				{
-					strDSRP = strDSRPPath;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["DSRP"] = strDSRP;
-					EnvironmentInfo.Settings.Save();
-				}
-			}
-
-			if (!String.IsNullOrEmpty(strDSRP))
-				strDSRP = Path.Combine(strDSRP, "Dual Sheath Redux Patch.jar");
-
-			return strDSRP;
 		}
 
-		/// <summary>
-		/// Gets the Patchus Maximus launch command.
-		/// </summary>
-		/// <returns>The Patchus Maximus launch command.</returns>
-		private string GetPMLaunchCommand()
+		private void ConfigLOOT()
 		{
-			string strPM = String.Empty;
+			string p_strToolName = "LOOT";
+			string p_strExecutableName = "LOOT.exe";
+			string p_strToolID = "LOOT";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
 
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("PM"))
-			{
-				strPM = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"];
-				if (!String.IsNullOrWhiteSpace(strPM) && ((strPM.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strPM)))
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!String.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
 				{
-					strPM = String.Empty;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"] = String.Empty;
-					EnvironmentInfo.Settings.Save();
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
 				}
-			}
-
-			if (String.IsNullOrEmpty(strPM))
-			{
-				string strPMPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\SkyProc Patchers\T3nd0_PatchusMaximus");
-				if (Directory.Exists(strPMPath))
-				{
-					strPM = strPMPath;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["PM"] = strPM;
-					EnvironmentInfo.Settings.Save();
-				}
-			}
-
-			if (!String.IsNullOrEmpty(strPM))
-				strPM = Path.Combine(strPM, "PatchusMaximus.jar");
-
-			return strPM;
 		}
 
+		private void ConfigBS2()
+		{
+			string p_strToolName = "BS2";
+			string p_strExecutableName = "BodySlide.exe";
+			string p_strToolID = "BS2";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
+
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!String.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
+				{
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
+				}
+		}
+		
 		#endregion
 	}
 }

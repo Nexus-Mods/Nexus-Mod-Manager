@@ -114,9 +114,7 @@ namespace Nexus.Client.Games.FalloutNV
 		public FalloutNVGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo, p_futFileUtility)
 		{
-			SupportedToolsGroupViews = new List<ISettingsGroupView>();
-			SupportedToolsSettingsGroup stsgSupported = new SupportedToolsSettingsGroup(p_eifEnvironmentInfo, this);
-			((List<ISettingsGroupView>)SupportedToolsGroupViews).Add(new SupportedToolsSettingsPage(stsgSupported));
+		
 		}
 
 		#endregion
