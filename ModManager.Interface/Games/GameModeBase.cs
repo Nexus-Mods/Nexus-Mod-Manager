@@ -460,13 +460,7 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The tool launcher for the game mode.</value>
 		public abstract IToolLauncher GameToolLauncher { get; }
-
-		/// <summary>
-		/// Gets the exported settings groups specific to the game mode.
-		/// </summary>
-		/// <returns>The exported settings groups specific to the game mode.</returns>
-		//public IEnumerable<ISettingsGroupView> SupportedToolsGroupViews { get; protected set; }
-
+		
 		/// <summary>
 		/// Gets whether the game mode uses plugins.
 		/// </summary>
