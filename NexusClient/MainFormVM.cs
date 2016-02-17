@@ -476,8 +476,8 @@ namespace Nexus.Client
 			DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
 			lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
 
-			if (p_gmdGameMode.SupportedToolsGroupViews != null)
-				lstSettingGroups.AddRange(p_gmdGameMode.SupportedToolsGroupViews);
+			//if (p_gmdGameMode.SupportedToolsGroupViews != null)
+			//	lstSettingGroups.AddRange(p_gmdGameMode.SupportedToolsGroupViews);
 
 			if (p_gmdGameMode.SettingsGroupViews != null)
 				lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);

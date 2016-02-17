@@ -59,6 +59,7 @@ namespace Nexus.Client
 		private AutoResetEvent m_areTaskWait = new AutoResetEvent(false);
 		private IGameMode m_gmdGameMode = null;
 		private ServiceManager m_svmServiceManager = null;
+		private List<string> DeletedDLL = null;
 
 		#region Properties
 
@@ -151,10 +152,11 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_nfrFontSetResolver">The <see cref="NexusFontSetResolver"/> to use.</param>
-		public ApplicationInitializer(EnvironmentInfo p_eifEnvironmentInfo, NexusFontSetResolver p_nfrFontSetResolver)
+		public ApplicationInitializer(EnvironmentInfo p_eifEnvironmentInfo, NexusFontSetResolver p_nfrFontSetResolver, List<string> p_lstDeletedDLL)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			FontSetResolver = p_nfrFontSetResolver;
+			DeletedDLL = p_lstDeletedDLL;
 			LoginUser = delegate { return false; };
 			ShowMessage = delegate { return DialogResult.Cancel; };
 			ConfirmMakeWritable = delegate(IEnvironmentInfo eif, string file, out bool remember) { remember = false; return false; };
@@ -239,7 +241,7 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.DelayedSettings["ALL"] = new KeyedSettings<string>();
 			if (EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
 				EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
-
+			
 			StepOverallProgress();
 
 			if (!ApplyDelayedSettings(p_gmfGameModeFactory.GameModeDescriptor.ModeId, out p_vwmErrorMessage))
@@ -761,7 +763,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Registering supported Script Types...");
 			Trace.Indent();
-			IScriptTypeRegistry stgScriptTypeRegistry = ScriptTypeRegistry.DiscoverScriptTypes(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ScriptTypes"), p_gmdGameMode);
+			IScriptTypeRegistry stgScriptTypeRegistry = ScriptTypeRegistry.DiscoverScriptTypes(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ScriptTypes"), p_gmdGameMode, DeletedDLL);
 			if (stgScriptTypeRegistry.Types.Count == 0)
 			{
 				p_vwmErrorMessage = new ViewMessage("No script types were found.", null, "No Script Types", MessageBoxIcon.Error);
@@ -894,7 +896,7 @@ namespace Nexus.Client
 			p_vwmErrorMessage = null;
 			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor, umgUpdateManager);
 		}
-
+					
 		/// <summary>
 		/// This checks for any files that are readonly.
 		/// </summary>

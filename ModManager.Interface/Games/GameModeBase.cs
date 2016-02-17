@@ -465,7 +465,7 @@ namespace Nexus.Client.Games
 		/// Gets the exported settings groups specific to the game mode.
 		/// </summary>
 		/// <returns>The exported settings groups specific to the game mode.</returns>
-		public IEnumerable<ISettingsGroupView> SupportedToolsGroupViews { get; protected set; }
+		//public IEnumerable<ISettingsGroupView> SupportedToolsGroupViews { get; protected set; }
 
 		/// <summary>
 		/// Gets whether the game mode uses plugins.

@@ -31,6 +31,11 @@ namespace Nexus.Client.Games
 		public event EventHandler<SupportedToolsLaunchEventArgs> SupportedToolsLaunched = delegate { };
 
 		/// <summary>
+		/// Raised when an attempt to change the SupportedTools path has been made.
+		/// </summary>
+		public event EventHandler ChangedToolPath = delegate { };
+
+		/// <summary>
 		/// Gets the list of available commands that can launch the SupportedTools.
 		/// </summary>
 		/// <value>The list of available commands that can launch the SupportedTools.</value>
@@ -148,10 +153,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
-		/// Adds the given launch command.
+		/// Raised when an attempt to change the SupportedTools path has been made.
 		/// </summary>
-		/// <param name="p_cmdLaunch">The launch command to add.</param>
-		protected void AddLaunchCommand(Command p_cmdLaunch)
+		protected virtual void OnChangedToolPath(EventArgs e)
+		{
+			ChangedToolPath(this, e);
+		}
+
+	/// <summary>
+	/// Adds the given launch command.
+	/// </summary>
+	/// <param name="p_cmdLaunch">The launch command to add.</param>
+	protected void AddLaunchCommand(Command p_cmdLaunch)
 		{
 			m_lstLaunchCommands.Add(p_cmdLaunch);
 		}
