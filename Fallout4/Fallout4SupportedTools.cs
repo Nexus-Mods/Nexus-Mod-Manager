@@ -51,17 +51,17 @@ namespace Nexus.Client.Games.Fallout4
 				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
 			}
 			
-			strCommand = GetF4EditLaunchCommand();
-			Trace.TraceInformation("F4Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			strCommand = GetFO4EditLaunchCommand();
+			Trace.TraceInformation("FO4Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("F4EditLaunch", "Launch F4Edit", "Launches F4Edit.", imgIcon, LaunchF4Edit, true));
+				AddLaunchCommand(new Command("FO4EditLaunch", "Launch FO4Edit", "Launches FO4Edit.", imgIcon, LaunchFO4Edit, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#F4Edit", "Config F4Edit", "Configures F4Edit.", imgIcon, ConfigF4Edit, true));
+				AddLaunchCommand(new Command("Config#FO4Edit", "Config FO4Edit", "Configures FO4Edit.", imgIcon, ConfigFO4Edit, true));
 			}
 						
 			strCommand = GetBS2LaunchCommand();
@@ -91,11 +91,11 @@ namespace Nexus.Client.Games.Fallout4
 			Launch(strCommand, null);
 		}
 				
-		private void LaunchF4Edit()
+		private void LaunchFO4Edit()
 		{
-			Trace.TraceInformation("Launching F4Edit");
+			Trace.TraceInformation("Launching FO4Edit");
 			Trace.Indent();
-			string strCommand = GetF4EditLaunchCommand();
+			string strCommand = GetFO4EditLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -116,7 +116,7 @@ namespace Nexus.Client.Games.Fallout4
 		{
 			Trace.TraceInformation("Launching FNIS");
 			Trace.Indent();
-			string strCommand = GetF4EditLaunchCommand();
+			string strCommand = GetFO4EditLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -166,21 +166,21 @@ namespace Nexus.Client.Games.Fallout4
 		}
 		
 		/// <summary>
-		/// Gets the F4Edit launch command.
+		/// Gets the FO4Edit launch command.
 		/// </summary>
-		/// <returns>The F4Edit launch command.</returns>
-		private string GetF4EditLaunchCommand()
+		/// <returns>The FO4Edit launch command.</returns>
+		private string GetFO4EditLaunchCommand()
 		{
-			string strF4Edit = String.Empty;
+			string strFO4Edit = String.Empty;
 
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("F4Edit"))
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("FO4Edit"))
 			{
-				strF4Edit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["F4Edit"];
-				if (!String.IsNullOrEmpty(strF4Edit))
-					strF4Edit = Path.Combine(strF4Edit, @"F4Edit.exe");
+				strFO4Edit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FO4Edit"];
+				if (!String.IsNullOrEmpty(strFO4Edit))
+					strFO4Edit = Path.Combine(strFO4Edit, @"FO4Edit.exe");
 			}
 
-			return strF4Edit;
+			return strFO4Edit;
 		}
 
 		/// <summary>
@@ -230,11 +230,11 @@ namespace Nexus.Client.Games.Fallout4
 
 		#region Config Commands
 				
-		private void ConfigF4Edit()
+		private void ConfigFO4Edit()
 		{
-			string p_strToolName = "F4Edit";
-			string p_strExecutableName = "F4Edit.exe";
-			string p_strToolID = "F4Edit";
+			string p_strToolName = "FO4Edit";
+			string p_strExecutableName = "FO4Edit.exe";
+			string p_strToolID = "FO4Edit";
 			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
 			Trace.Indent();
 
