@@ -1915,9 +1915,8 @@ namespace Nexus.Client
 				{
 					if (spbSupportedTools.DropDownItems.Count > 0)
 					{
-						spbSupportedTools.DefaultItem = spbSupportedTools.DropDownItems[0];
-						spbSupportedTools.Text = spbSupportedTools.DefaultItem.Text;
-						spbSupportedTools.Image = spbSupportedTools.Image != null ? spbSupportedTools.DefaultItem.Image : ToolStripRenderer.CreateDisabledImage(global::Nexus.Client.Properties.Resources.supported_tools);
+						spbSupportedTools.Text = "Supported Tools";
+						spbSupportedTools.Image = global::Nexus.Client.Properties.Resources.supported_tools;
 					}
 				}
 			}
@@ -1945,21 +1944,17 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
+		/// Handles the <see cref="ToolStripSplitButton.ButtonClick"/> of the launch game
 		/// split button.
 		/// </summary>
 		/// <remarks>
 		/// This makes the last selected function the new default for the button.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
-		private void spbSupportedTools_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
+		private void spbSupportedTools_ButtonClick(object sender, EventArgs e)
 		{
-			spbSupportedTools.DefaultItem = e.ClickedItem;
-			spbSupportedTools.Text = e.ClickedItem.Text;
-			toolStrip1.SuspendLayout();
-			spbSupportedTools.Image = e.ClickedItem.Image;
-			toolStrip1.ResumeLayout();
+			spbSupportedTools.DropDown.Show();
 		}
 
 		/// <summary>

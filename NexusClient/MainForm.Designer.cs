@@ -192,7 +192,7 @@
 			this.spbSupportedTools.Name = "spbSupportedTools";
 			this.spbSupportedTools.Size = new System.Drawing.Size(36, 36);
 			this.spbSupportedTools.Text = "Supported Tools";
-			this.spbSupportedTools.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbSupportedTools_DropDownItemClicked);
+			this.spbSupportedTools.ButtonClick += new System.EventHandler(this.spbSupportedTools_ButtonClick);
 			// 
 			// tsbUpdate
 			// 
