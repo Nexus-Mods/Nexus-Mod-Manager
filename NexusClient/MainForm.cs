@@ -1908,6 +1908,7 @@ namespace Nexus.Client
 						tmiLaunch.Image = ToolStripRenderer.CreateDisabledImage(global::Nexus.Client.Properties.Resources.supported_tools);
 
 					new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
+					tmiLaunch.MouseUp += new MouseEventHandler(TmiLaunch_Click);
 					spbSupportedTools.DropDownItems.Add(tmiLaunch);
 				}
 
@@ -1922,6 +1923,20 @@ namespace Nexus.Client
 			}
 			else
 				spbSupportedTools.Visible = false;
+		}
+
+		private void TmiLaunch_Click(object sender, MouseEventArgs e)
+		{
+			if (e.Button == MouseButtons.Right)
+			{
+				if (sender != null)
+				{
+					ToolStripMenuItem tmiClicked = (ToolStripMenuItem)sender;
+					if (tmiClicked.Tag != null)
+						if (tmiClicked.Tag.GetType() == typeof(Command))
+							ViewModel.SupportedToolsLauncher.ConfigCommand(((Command)tmiClicked.Tag).Id);
+				}
+			}
 		}
 
 		/// <summary>

@@ -74,7 +74,7 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The game mode currently being managed.</value>
 		protected IGameMode GameMode { get; private set; }
-		
+
 		#endregion
 
 		#region Constructors
@@ -160,11 +160,11 @@ namespace Nexus.Client.Games
 			ChangedToolPath(this, e);
 		}
 
-	/// <summary>
-	/// Adds the given launch command.
-	/// </summary>
-	/// <param name="p_cmdLaunch">The launch command to add.</param>
-	protected void AddLaunchCommand(Command p_cmdLaunch)
+		/// <summary>
+		/// Adds the given launch command.
+		/// </summary>
+		/// <param name="p_cmdLaunch">The launch command to add.</param>
+		protected void AddLaunchCommand(Command p_cmdLaunch)
 		{
 			m_lstLaunchCommands.Add(p_cmdLaunch);
 		}
@@ -224,6 +224,13 @@ namespace Nexus.Client.Games
 		public virtual void LaunchDefaultCommand()
 		{ }
 
+		#endregion
+
+		#region Config Commands
+		/// <summary>
+		/// Configures the selected command.
+		/// </summary>
+		public abstract void ConfigCommand(string p_strCommandID);
 		#endregion
 	}
 }

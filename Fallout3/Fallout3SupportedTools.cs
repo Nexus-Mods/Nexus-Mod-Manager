@@ -43,7 +43,7 @@ namespace Nexus.Client.Games.Fallout3
 			if (strCommand != null)
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("BOSSLaunch", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
+				AddLaunchCommand(new Command("BOSS", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
 			}
 			else
 			{
@@ -56,7 +56,7 @@ namespace Nexus.Client.Games.Fallout3
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("LOOTLaunch", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
+				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
 			}
 			else
 			{
@@ -178,6 +178,29 @@ namespace Nexus.Client.Games.Fallout3
 		#endregion
 
 		#region Config Commands
+
+		/// <summary>
+		/// Configures the selected command.
+		/// </summary>
+		public override void ConfigCommand(string p_strCommandID)
+		{
+			if (string.IsNullOrWhiteSpace(p_strCommandID))
+				return;
+
+			switch (p_strCommandID)
+			{
+				case "LOOT":
+					ConfigLOOT();
+					break;
+
+				case "BOSS":
+					ConfigBOSS();
+					break;
+
+				default:
+					break;
+			}
+		}
 
 		private void ConfigBOSS()
 		{

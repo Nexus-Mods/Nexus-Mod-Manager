@@ -54,5 +54,12 @@ namespace Nexus.Client.Games
 		/// Launches the default command if any.
 		/// </summary>
 		void LaunchDefaultCommand();
+
+		#region Config Commands
+		/// <summary>
+		/// Configures the selected command.
+		/// </summary>
+		void ConfigCommand(string p_strCommandID);
+		#endregion
 	}
 }

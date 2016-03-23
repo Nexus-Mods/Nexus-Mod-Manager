@@ -43,7 +43,7 @@ namespace Nexus.Client.Games.Fallout4
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("LOOTLaunch", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
+				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
 			}
 			else
 			{
@@ -56,7 +56,7 @@ namespace Nexus.Client.Games.Fallout4
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("FO4EditLaunch", "Launch FO4Edit", "Launches FO4Edit.", imgIcon, LaunchFO4Edit, true));
+				AddLaunchCommand(new Command("FO4Edit", "Launch FO4Edit", "Launches FO4Edit.", imgIcon, LaunchFO4Edit, true));
 			}
 			else
 			{
@@ -69,7 +69,7 @@ namespace Nexus.Client.Games.Fallout4
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("BS2Launch", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
+				AddLaunchCommand(new Command("BS2", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
 			}
 			else
 			{
@@ -225,11 +225,38 @@ namespace Nexus.Client.Games.Fallout4
 
 			return strBS2;
 		}
-				
+
 		#endregion
 
 		#region Config Commands
-				
+
+		/// <summary>
+		/// Configures the selected command.
+		/// </summary>
+		public override void ConfigCommand(string p_strCommandID)
+		{
+			if (string.IsNullOrWhiteSpace(p_strCommandID))
+				return;
+
+			switch (p_strCommandID)
+			{
+				case "LOOT":
+					ConfigLOOT();
+					break;
+
+				case "BS2":
+					ConfigBS2();
+					break;
+
+				case "FO4Edit":
+					ConfigFO4Edit();
+					break;
+
+				default:
+					break;
+			}
+		}
+
 		private void ConfigFO4Edit()
 		{
 			string p_strToolName = "FO4Edit";

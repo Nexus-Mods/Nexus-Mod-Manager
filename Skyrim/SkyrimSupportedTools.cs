@@ -43,7 +43,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("BOSSLaunch", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
+				AddLaunchCommand(new Command("BOSS", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
 			}
 			else
 			{
@@ -56,7 +56,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("LOOTLaunch", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
+				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
 			}
 			else
 			{
@@ -69,7 +69,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("WryeBashLaunch", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
+				AddLaunchCommand(new Command("WryeBash", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
 			}
 			else
 			{
@@ -82,7 +82,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("TES5EditLaunch", "Launch TES5Edit", "Launches TES5Edit.", imgIcon, LaunchTES5Edit, true));
+				AddLaunchCommand(new Command("TES5Edit", "Launch TES5Edit", "Launches TES5Edit.", imgIcon, LaunchTES5Edit, true));
 			}
 			else
 			{
@@ -95,7 +95,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("FNISLaunch", "Launch FNIS", "Launches FNIS.", imgIcon, LaunchFNIS, true));
+				AddLaunchCommand(new Command("FNIS", "Launch FNIS", "Launches FNIS.", imgIcon, LaunchFNIS, true));
 			}
 			else
 			{
@@ -108,7 +108,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("BS2Launch", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
+				AddLaunchCommand(new Command("BS2", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
 			}
 			else
 			{
@@ -121,7 +121,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("DSRPLaunch", "Launch Dual Sheat Redux Patch", "Launches Dual Sheat Redux Patch.", imgIcon, LaunchDSRP, true));
+				AddLaunchCommand(new Command("DSRP", "Launch Dual Sheat Redux Patch", "Launches Dual Sheat Redux Patch.", imgIcon, LaunchDSRP, true));
 			}
 			else
 			{
@@ -134,7 +134,7 @@ namespace Nexus.Client.Games.Skyrim
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("PMLaunch", "Launch Patchus Maximus", "Launches Patchus Maximus.", imgIcon, LaunchPM, true));
+				AddLaunchCommand(new Command("PM", "Launch Patchus Maximus", "Launches Patchus Maximus.", imgIcon, LaunchPM, true));
 			}
 			else
 			{
@@ -509,6 +509,49 @@ namespace Nexus.Client.Games.Skyrim
 		#endregion
 
 		#region Config Commands
+
+		/// <summary>
+		/// Configures the selected command.
+		/// </summary>
+		public override void ConfigCommand(string p_strCommandID)
+		{
+			if (string.IsNullOrWhiteSpace(p_strCommandID))
+				return;
+
+			switch (p_strCommandID)
+			{
+				case "LOOT":
+					ConfigLOOT();
+					break;
+
+				case "BS2":
+					ConfigBS2();
+					break;
+
+				case "TES5Edit":
+					ConfigTES5Edit();
+					break;
+
+				case "WryeBash":
+					ConfigWryeBash();
+					break;
+
+				case "PM":
+					ConfigPM();
+					break;
+
+				case "DSRP":
+					ConfigDSRP();
+					break;
+
+				case "FNIS":
+					ConfigFNIS();
+					break;
+
+				default:
+					break;
+			}
+		}
 
 		private void ConfigBOSS()
 		{
