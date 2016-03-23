@@ -130,7 +130,9 @@
   <Target Name="AfterBuild">
     <ItemGroup>
       <FilesToCopy Include="$(TargetDir)$(TargetName)*.dll" />
+	  <DataFilesToCopy Include="$(TargetDir)data\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(SolutionDir)$(OutDir)GameModes\" SkipUnchangedFiles="true" />
+	<Copy SourceFiles="@(DataFilesToCopy)" DestinationFolder="$(SolutionDir)$(OutDir)GameModes\data\" SkipUnchangedFiles="true" />
   </Target>
 </Project>
