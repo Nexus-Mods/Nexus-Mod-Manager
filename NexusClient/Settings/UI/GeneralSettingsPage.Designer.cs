@@ -271,7 +271,7 @@
 			this.lblTempPathDirectory.Name = "lblTempPathDirectory";
 			this.lblTempPathDirectory.Size = new System.Drawing.Size(73, 13);
 			this.lblTempPathDirectory.TabIndex = 3;
-			this.lblTempPathDirectory.Text = "Temporary Path Directory:";
+			this.lblTempPathDirectory.Text = "Temporary Path Directory: (Folder must be named \"Temp\")";
 			// 
 			// lblTempPathWarning
 			// 
@@ -280,7 +280,7 @@
 			this.lblTempPathWarning.Name = "lblTempPathDirectory";
 			this.lblTempPathWarning.Size = new System.Drawing.Size(73, 13);
 			this.lblTempPathWarning.TabIndex = 4;
-			this.lblTempPathWarning.Text = "(For safety reasons this folder must be called \"Temp\")";
+			this.lblTempPathWarning.Text = "* Requires a restart to be applied!";
 			// 
 			// tbxTempPathDirectory
 			// 
@@ -289,6 +289,7 @@
 			this.tbxTempPathDirectory.Size = new System.Drawing.Size(290, 20);
 			this.tbxTempPathDirectory.TabIndex = 1;
 			this.tbxTempPathDirectory.LostFocus += new System.EventHandler(tbxTempPathDirectory_LostFocus);
+			this.tbxTempPathDirectory.Enabled = false;
 			// 
 			// GeneralSettingsPage
 			// 
