@@ -71,13 +71,13 @@ namespace Nexus.Client.BackgroundTasks.UI
 
 			pbrItemProgress.Value = (Int32)Task.ItemProgress;
 			lblItemMessage.Text = Task.ItemMessage;
-			pbrTotalProgress.Value = (Int32)Task.OverallProgress;
 			lblTotalMessage.Text = Task.OverallMessage;
 			pbrItemProgress.Maximum = (Int32)Task.ItemProgressMaximum;
 			pbrItemProgress.Minimum = (Int32)Task.ItemProgressMinimum;
 			pbrItemProgress.Step = Task.ItemProgressStepSize;
 			pbrTotalProgress.Maximum = (Int32)Task.OverallProgressMaximum;
 			pbrTotalProgress.Minimum = (Int32)Task.OverallProgressMinimum;
+			pbrTotalProgress.Value = (Int32)Task.OverallProgress;
 			pbrTotalProgress.Step = Task.OverallProgressStepSize;
 			pnlItemProgress.Visible = Task.ShowItemProgress;
 			pbrTotalProgress.Style = Task.ShowOverallProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
