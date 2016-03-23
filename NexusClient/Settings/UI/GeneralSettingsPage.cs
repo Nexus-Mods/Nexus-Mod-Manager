@@ -172,10 +172,10 @@ namespace Nexus.Client.Settings.UI
 			if (fbdTempPathDirectory.ShowDialog(this.FindForm()) == DialogResult.OK)
 			{
 				string strPath = Path.GetFileName(fbdTempPathDirectory.SelectedPath);
-				if (String.IsNullOrEmpty(strPath))
+				if (string.IsNullOrEmpty(strPath))
 					strPath = Path.GetDirectoryName(fbdTempPathDirectory.SelectedPath);
 
-				if (!(strPath.ToLower().Contains("temp")))
+				if (string.IsNullOrWhiteSpace(strPath) || (!(strPath.ToLower().Contains("temp"))))
 					tbxTempPathDirectory.Text = Path.Combine(fbdTempPathDirectory.SelectedPath, "Temp");
 				else
 					tbxTempPathDirectory.Text = fbdTempPathDirectory.SelectedPath;
