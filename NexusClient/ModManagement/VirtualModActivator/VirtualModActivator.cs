@@ -928,8 +928,13 @@ namespace Nexus.Client.ModManagement
 				{
 					if (PluginManager.IsActivatiblePluginFile(strLinkPath))
 					{
-						PluginManager.DeactivatePlugin(strLinkPath);
-						PluginManager.RemovePlugin(strLinkPath);
+						var plugin = PluginManager.ActivePlugins.Where(x => x.Filename == strLinkPath);
+
+						if (plugin != null)
+						{
+							PluginManager.DeactivatePlugin(strLinkPath);
+							PluginManager.RemovePlugin(strLinkPath);
+						}
 					}
 				}
 

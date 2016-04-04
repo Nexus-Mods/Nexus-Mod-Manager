@@ -50,7 +50,7 @@ namespace Nexus.Client.ModManagement
 			if (e.Success)
 				DeleteModFile((IMod)e.ReturnValue);
 			else
-				strMessage = "Could not delete mod.";
+				strMessage = "Could not delete mod." + e.Message;
 			base.OnTaskSetCompleted(new TaskSetCompletedEventArgs(e.Success, strMessage, e.ReturnValue));
 
 		}
