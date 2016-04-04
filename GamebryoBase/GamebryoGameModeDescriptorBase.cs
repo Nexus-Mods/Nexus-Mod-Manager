@@ -12,7 +12,7 @@ namespace Nexus.Client.Games.Gamebryo
 	{
 		private static readonly List<string> PLUGIN_EXTENSIONS = new List<string>() { ".esm", ".esp", ".bsa" };
 		private static readonly List<string> STOP_FOLDERS = new List<string>() { "textures",
-																					"meshes", "music", "shaders", "video",
+																					"meshes", "music", "shaders", "video", "interface", 
 																					"facegen", "menus", "lodsettings", "lsdata",
 																					"sound" };
 		private string[] m_strCriticalPlugins = null;
