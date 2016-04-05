@@ -181,7 +181,7 @@ namespace Nexus.Client.Games.Fallout4
 		protected override void SetupSettingsFiles()
 		{	
 			base.SetupSettingsFiles();
-			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Fallout4.ini");
+			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Fallout4Custom.ini");
 			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "Fallout4Prefs.ini");
 		}
 
