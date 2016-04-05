@@ -478,12 +478,24 @@ namespace Nexus.Client.UI.Controls
 
 			tlcWebVersion.AspectGetter = delegate(object rowObject)
 			{
-				string Val = String.Empty;
+				string Val = "?";
+				string Local = "?";
+				string Online = "?";
 
 				if (rowObject.GetType() != typeof(ModCategory))
 				{
-					if (!String.IsNullOrEmpty(((IMod)rowObject).HumanReadableVersion))
-						Val = ((IMod)rowObject).HumanReadableVersion;
+					IMod modMod = ((IMod)rowObject);
+					if (!string.IsNullOrEmpty(modMod.HumanReadableVersion))
+						Local = modMod.HumanReadableVersion;
+
+					if (!string.IsNullOrEmpty(modMod.LastKnownVersion))
+						Online = modMod.LastKnownVersion;
+
+					if (!(Local.Equals(Online) && Local.Equals("?")))
+					{
+						Val = string.Format("{0} / {1}", Local, Online);
+					}
+
 					return Val;
 				}
 				else
