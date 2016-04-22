@@ -215,6 +215,27 @@ namespace Nexus.Client
 			}
 		}
 
+		/// <summary>
+		/// Checks whether to show a game specific disclaimer.
+		/// </summary>
+		private void ShowGameSpecificDisclaimer()
+		{
+			if (ViewModel.RequiresStartupWarning())
+			{
+				string strWarning = "We've detected that you are using Fallout 4 version 1.5 (or later) for the first time with NMM. In version 1.5, " + Environment.NewLine +
+					"Bethesda changed the way in which plugins were handled." + Environment.NewLine + Environment.NewLine +
+					"Because of this, any plugin you previously had enabled will be disabled in NMM and you will need to reactivate " + Environment.NewLine +
+					"them in order for your setup to work again." + Environment.NewLine + Environment.NewLine +
+					"Unfortunately this is a side-effect of Bethesda's patching of Fallout 4 and nothing to do with us. Unless " + Environment.NewLine +
+					"Bethesda change the modding method again in future patches you will only need to do this reactivation once " + Environment.NewLine + "(e.g. this won't happen every time you start NMM in the future!)." + Environment.NewLine + Environment.NewLine +
+					"NOTE: If you are making use of NMM's profile system, simply go to the profile menu and select 'Import Load Order' " + Environment.NewLine +
+					"from your profile, NMM will automatically reactivate all your plugins in the correct order for you." + Environment.NewLine + Environment.NewLine +
+					"If you are not using the profiling system, you will need to activate all your plugins again manually.";
+
+				ExtendedMessageBox.Show(this, strWarning, "New game version disclaimer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+		}
+
 		#endregion
 
 		/// <summary>
@@ -700,6 +721,7 @@ namespace Nexus.Client
 		private void MainForm_Shown(object sender, EventArgs e)
 		{
 			ModMigrationCheck();
+			ShowGameSpecificDisclaimer(); 
 		}
 
 		/// <summary>
@@ -1862,7 +1884,15 @@ namespace Nexus.Client
 					tmiItem.Text = "Remove Profile";
 					tmiItem.Name = impProfile.Name;
 					tmiProfile.DropDownItems.Add(tmiItem);
-					
+
+					if (ViewModel.GameMode.UsesPlugins)
+					{
+						tmiItem = new ToolStripMenuItem();
+						tmiItem.Tag = "ImportLoadorder";
+						tmiItem.Text = "Import Profile's Load Order";
+						tmiItem.Name = impProfile.Id;
+						tmiProfile.DropDownItems.Add(tmiItem);
+					}
 
 					if (impProfile.IsDefault)
 					{
@@ -2009,6 +2039,26 @@ namespace Nexus.Client
 							DialogResult drResult = ExtendedMessageBox.Show(this, String.Format("Are you sure you want to remove the selected profile: {0}", mopProfile.Name), "Remove Profile", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 							if (drResult == DialogResult.Yes)
 								ViewModel.ProfileManager.RemoveProfile(mopProfile);
+						}
+						break;
+					case "ImportLoadorder":
+						if (!string.IsNullOrEmpty(e.ClickedItem.Name))
+						{
+							DialogResult drResult = ExtendedMessageBox.Show(this, string.Format("Are you sure you want to import this profile's loadorder? '{0}'", mopProfile.Name), "Import Loadorder", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+							if (drResult == DialogResult.Yes)
+							{
+								if (mopProfile.LoadOrder == null)
+								{
+									Dictionary<string, string> dicProfile;
+									ViewModel.ProfileManager.LoadProfile(mopProfile, out dicProfile);
+									if ((dicProfile != null) && (dicProfile.Count > 0) && (dicProfile.ContainsKey("loadorder")))
+									{
+										ViewModel.PluginManagerVM.ImportLoadOrderFromString(dicProfile["loadorder"]);
+									}
+								}
+								else
+									ViewModel.PluginManagerVM.ImportLoadOrderFromDictionary(mopProfile.LoadOrder);
+							}
 						}
 						break;
 					default:

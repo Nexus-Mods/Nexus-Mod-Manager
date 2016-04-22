@@ -338,6 +338,18 @@ namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 		#region Properties
 
 		/// <summary>
+		/// Gets whether the current config files may be obsolete.
+		/// </summary>
+		/// <value>Whether the current config files config files may be obsolete.</value>
+		public bool ObsoleteConfigFiles
+		{
+			get
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Gets the application's envrionment info.
 		/// </summary>
 		/// <value>The application's envrionment info.</value>

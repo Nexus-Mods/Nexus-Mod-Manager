@@ -517,6 +517,28 @@ namespace Nexus.Client
 
 		#endregion
 
+		#region Settings
+
+		public bool RequiresStartupWarning()
+		{
+			if (GameMode.ModeId.Equals("Fallout4", StringComparison.InvariantCultureIgnoreCase))
+			{
+				if (EnvironmentInfo.Settings.ShowFallout4UpgradeDisclaimer)
+				{ 
+					if (GameMode.GameVersion > new Version(1, 5, 0, 0))
+					{
+						EnvironmentInfo.Settings.ShowFallout4UpgradeDisclaimer = false;
+						EnvironmentInfo.Settings.Save();
+
+						return GameMode.LoadOrderManager.ObsoleteConfigFiles;
+					}
+				}
+			}
+			return false;
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Requests a game mode change.
 		/// </summary>

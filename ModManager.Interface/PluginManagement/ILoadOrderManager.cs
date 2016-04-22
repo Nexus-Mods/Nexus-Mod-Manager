@@ -35,6 +35,12 @@ namespace Nexus.Client.PluginManagement
 		/// <value>The path to the userlist.</value>
 		string UserlistPath { get; }
 
+		/// <summary>
+		/// Gets whether the current config files may be obsolete.
+		/// </summary>
+		/// <value>Whether the current config files config files may be obsolete.</value>
+		bool ObsoleteConfigFiles { get; }
+
 		#endregion
 
 		#region Masterlist Updating

@@ -36,6 +36,23 @@ namespace Nexus.Client.Games.Fallout4
 		#region Properties
 
 		/// <summary>
+		/// Gets the version of the installed game.
+		/// </summary>
+		/// <value>The version of the installed game.</value>
+		public override Version GameVersion
+		{
+			get
+			{
+				string strFullPath = null;
+				strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Fallout4.exe");
+				if (File.Exists(strFullPath))
+					return new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
 		/// Gets the list of possible script extender executable files for the game.
 		/// </summary>
 		/// <value>The list of possible script extender executable files for the game.</value>
