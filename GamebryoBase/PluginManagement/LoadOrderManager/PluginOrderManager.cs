@@ -3,12 +3,8 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Runtime.InteropServices;
-using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
@@ -68,6 +64,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		}
 
 		/// <summary>
+		/// Gets whether the current config files may be obsolete.
+		/// </summary>
+		/// <value>Whether the current config files config files may be obsolete.</value>
+		public bool ObsoleteConfigFiles { get; private set; }
+
+		/// <summary>
 		/// Gets the application's envrionment info.
 		/// </summary>
 		/// <value>The application's envrionment info.</value>
@@ -90,6 +92,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		/// <value>Whether the load order is based on the plugin modified date.</value>
 		protected bool ForcedReadOnly { get; private set; }
+
+		/// <summary>
+		/// Gets whether the load order and activation state are handled in the same file.
+		/// </summary>
+		/// <value>Whether the load order and activation state are handled in the same file.</value>
+		protected bool SingleFileManagement { get; private set; }
 
 		/// <summary>
 		/// Gets the path to the file containing the list of active plugins.
@@ -199,22 +207,36 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				case "Oblivion":
 					TimestampOrder = true;
 					ForcedReadOnly = false;
+					SingleFileManagement = false;
 					break;
 				case "Fallout3":
 					TimestampOrder = true;
 					ForcedReadOnly = false;
+					SingleFileManagement = false;
 					break;
 				case "FalloutNV":
 					TimestampOrder = true;
 					ForcedReadOnly = false;
+					SingleFileManagement = false;
 					break;
 				case "Skyrim":
 					TimestampOrder = false;
 					ForcedReadOnly = false;
+					SingleFileManagement = false;
 					break;
 				case "Fallout4":
-					TimestampOrder = false;
-					ForcedReadOnly = true;
+					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
+					{
+						TimestampOrder = false;
+						ForcedReadOnly = true;
+						SingleFileManagement = true;
+					}
+					else
+					{
+						TimestampOrder = false;
+						ForcedReadOnly = true;
+						SingleFileManagement = false;
+					}
 					break;
 				default:
 					throw new NotImplementedException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
@@ -226,7 +248,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			LastValidLoadOrder = RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()).ToList();
 			TaskList.CollectionChanged += new NotifyCollectionChangedEventHandler(TaskList_CollectionChanged);
 
-			if (!TimestampOrder)
+			if (!TimestampOrder && !SingleFileManagement)
 			{
 				LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "loadorder.txt");
 				if (!File.Exists(LoadOrderFilePath))
@@ -237,6 +259,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					}
 					catch { }
 				}
+			}
+			else if (SingleFileManagement)
+			{
+				LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
 			}
 			else
 			{
@@ -325,8 +351,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				}
 				else if (strFile.Equals("loadorder.txt", StringComparison.InvariantCultureIgnoreCase))
 				{
-					if (LoadOrderUpdate != null)
-						LoadOrderUpdate(GetLoadOrder(), new EventArgs());
+					if (!TimestampOrder && !SingleFileManagement)
+						if (LoadOrderUpdate != null)
+							LoadOrderUpdate(GetLoadOrder(), new EventArgs());
 				}
 			}
 		}
@@ -415,7 +442,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void Backup(string p_strDataFolder)
 		{
-			if (File.Exists(LoadOrderFilePath))
+			if (File.Exists(LoadOrderFilePath) && !SingleFileManagement)
 			{
 				string strBakFilePath = Path.Combine(p_strDataFolder, "loadorder.nmm.bak");
 				if (!File.Exists(strBakFilePath))
@@ -502,6 +529,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			int intRepeat = 0;
 			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
+			int intPlugins = 0;
+			int intDisabled = 0;
 
 			while (booReady == false)
 			{
@@ -522,10 +551,29 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						foreach (string line in File.ReadLines(PluginsFilePath))
 						{
 							if (!string.IsNullOrWhiteSpace(line))
-								if (m_rgxPluginFile.IsMatch(line))
-									lstActivePlugins.Add(AddPluginDirectory(line));
+							{
+								if (SingleFileManagement)
+								{
+									intPlugins++;
+									if (line.StartsWith("*"))
+									{
+										string strPlugin = line.Substring(1);
+										if (m_rgxPluginFile.IsMatch(strPlugin))
+											lstActivePlugins.Add(AddPluginDirectory(strPlugin));
+									}
+									else if (m_rgxPluginFile.IsMatch(line))
+										intDisabled++;
+								}
+								else
+									if (m_rgxPluginFile.IsMatch(line))
+										lstActivePlugins.Add(AddPluginDirectory(line));
+							}
 						}
 					}
+
+					if (SingleFileManagement)
+						if (intPlugins == intDisabled)
+							ObsoleteConfigFiles = true;
 
 					m_lstActivePlugins = lstActivePlugins;
 					LastValidActiveList = lstActivePlugins;
@@ -586,8 +634,20 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						foreach (string line in File.ReadLines(PluginsFilePath))
 						{
 							if (!string.IsNullOrWhiteSpace(line))
-								if (m_rgxPluginFile.IsMatch(line))
+							{
+								if (SingleFileManagement)
+								{
+									if (line.StartsWith("*"))
+									{
+										string strPlugin = line.Substring(1);
+										if (m_rgxPluginFile.IsMatch(strPlugin))
+											lstActivePlugins.Add(AddPluginDirectory(strPlugin));
+									}
+								}
+								else
+									if (m_rgxPluginFile.IsMatch(line))
 									lstActivePlugins.Add(AddPluginDirectory(line));
+							}
 						}
 					}
 
@@ -624,6 +684,19 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				return;
 			else
 				strActivePluginNames = StripPluginDirectory(p_strActivePlugins);
+
+			if (SingleFileManagement)
+			{
+				string[] strOrderedPluginNames = StripPluginDirectory(LastValidLoadOrder.ToArray());
+				for (int i = 0; i < strOrderedPluginNames.Count(); i++)
+				{
+					string strPlugin = strOrderedPluginNames[i];
+					if (strActivePluginNames.Contains(strPlugin))
+						strOrderedPluginNames[i] = "*" + strPlugin;
+				}
+
+				strActivePluginNames = strOrderedPluginNames;
+			}
 
 			WriteLoadOrder(PluginsFilePath, strActivePluginNames, ForcedReadOnly);
 			m_lstActivePlugins = strActivePluginNames.ToList<string>();
@@ -705,8 +778,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						foreach (string line in File.ReadLines(LoadOrderFilePath))
 						{
 							if (!string.IsNullOrWhiteSpace(line))
-								if (m_rgxPluginFile.IsMatch(line))
-									lstOrderedPlugins.Add(AddPluginDirectory(line));
+							{ 
+								if (SingleFileManagement)
+								{
+									string strPlugin = line.StartsWith("*") ? line.Substring(1) : line;
+									if (m_rgxPluginFile.IsMatch(strPlugin))
+										lstOrderedPlugins.Add(AddPluginDirectory(strPlugin));
+								}
+								else
+									if (m_rgxPluginFile.IsMatch(line))
+										lstOrderedPlugins.Add(AddPluginDirectory(line));
+							}
 						}
 					}
 				}
@@ -826,13 +908,24 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				}
 				catch { }
 			}
+			else if (SingleFileManagement)
+			{
+				strOrderedPluginNames = StripPluginDirectory(strOrderedPluginNames);
+				for (int i = 0; i < strOrderedPluginNames.Count(); i++)
+				{
+					string strPlugin = strOrderedPluginNames[i];
+					if (LastValidActiveList.Contains(strPlugin))
+						strOrderedPluginNames[i] = "*" + strPlugin;
+				}
+				SetSortedListLoadOrder(strOrderedPluginNames);
+			}
 			else
 			{
 				strOrderedPluginNames = StripPluginDirectory(strOrderedPluginNames);
 				SetSortedListLoadOrder(strOrderedPluginNames);
 			}
 
-			if (!TimestampOrder && ((m_lstActivePlugins != null) && (m_lstActivePlugins.Count > 0)))
+			if (!TimestampOrder && !SingleFileManagement && ((m_lstActivePlugins != null) && (m_lstActivePlugins.Count > 0)))
 			{
 				string[] strOrderedActivePluginNames = strOrderedPluginNames.Intersect(StripPluginDirectory(m_lstActivePlugins.ToArray()), StringComparer.InvariantCultureIgnoreCase).ToArray();
 				if ((strOrderedActivePluginNames != null) && (strOrderedActivePluginNames.Length > 0))
@@ -894,9 +987,23 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					foreach (string line in File.ReadLines(PluginsFilePath))
 					{
 						if (!string.IsNullOrWhiteSpace(line))
-							if (m_rgxPluginFile.IsMatch(line))
-								if (line.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
-									return true;
+						{
+							if (SingleFileManagement)
+							{
+								string strCurrent = line;
+								if (strCurrent.StartsWith("*"))
+								{
+									strCurrent = strCurrent.Substring(1);
+									if (m_rgxPluginFile.IsMatch(strCurrent))
+										if (strCurrent.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
+											return true;
+								}
+							}
+							else
+								if (m_rgxPluginFile.IsMatch(line))
+									if (line.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
+										return true;
+						}
 					}
 				}
 				else

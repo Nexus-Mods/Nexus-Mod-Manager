@@ -768,5 +768,17 @@ namespace Nexus.Client.Properties {
                 this["ShowAlphaDisclaimer"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowFallout4UpgradeDisclaimer {
+            get {
+                return ((bool)(this["ShowFallout4UpgradeDisclaimer"]));
+            }
+            set {
+                this["ShowFallout4UpgradeDisclaimer"] = value;
+            }
+        }
     }
 }

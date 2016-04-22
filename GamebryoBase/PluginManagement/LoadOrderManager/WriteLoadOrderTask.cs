@@ -21,6 +21,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		protected DateTime MasterDate { get; private set; }
 
 		#endregion
+
 		TxFileManager txFileManager = new TxFileManager();
 
 		#region Constructors

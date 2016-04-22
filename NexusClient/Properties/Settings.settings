@@ -8,9 +8,9 @@
     <Setting Name="InstalledGamesDetected" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
-	<Setting Name="CacheOverhaulSetup" Type="System.Boolean" Scope="User">
-	 <Value Profile="(Default)">False</Value>
-	</Setting>
+    <Setting Name="CacheOverhaulSetup" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
     <Setting Name="RememberedGameMode" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
@@ -220,6 +220,9 @@
 &lt;PerGameModeSettingsOfBoolean /&gt;</Value>
     </Setting>
     <Setting Name="ShowAlphaDisclaimer" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="ShowFallout4UpgradeDisclaimer" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
   </Settings>
