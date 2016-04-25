@@ -64,17 +64,17 @@ namespace Nexus.Client.Games.Fallout4
 				AddLaunchCommand(new Command("Config#FO4Edit", "Config FO4Edit", "Configures FO4Edit.", imgIcon, ConfigFO4Edit, true));
 			}
 						
-			strCommand = GetBS2LaunchCommand();
-			Trace.TraceInformation("BodySlide 2 Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			strCommand = GetBSLaunchCommand();
+			Trace.TraceInformation("BodySlide Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("BS2", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
+				AddLaunchCommand(new Command("BS2", "Launch BodySlide", "Launches BodySlide.", imgIcon, LaunchBS, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#BodySlide 2", "Config BodySlide 2", "Configures BodySlide 2.", imgIcon, ConfigBS2, true));
+				AddLaunchCommand(new Command("Config#BodySlide", "Config BodySlide", "Configures BodySlide.", imgIcon, ConfigBS, true));
 			}
 			
 			Trace.Unindent();
@@ -100,11 +100,11 @@ namespace Nexus.Client.Games.Fallout4
 			Launch(strCommand, null);
 		}
 		
-		private void LaunchBS2()
+		private void LaunchBS()
 		{
-			Trace.TraceInformation("Launching BodySlide 2");
+			Trace.TraceInformation("Launching BodySlide");
 			Trace.Indent();
-			string strCommand = GetBS2LaunchCommand();
+			string strCommand = GetBSLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -184,46 +184,46 @@ namespace Nexus.Client.Games.Fallout4
 		}
 
 		/// <summary>
-		/// Gets the BodySlide 2 launch command.
+		/// Gets the BodySlide launch command.
 		/// </summary>
-		/// <returns>The BodySlide 2 launch command.</returns>
-		private string GetBS2LaunchCommand()
+		/// <returns>The BodySlide launch command.</returns>
+		private string GetBSLaunchCommand()
 		{
-			string strBS2 = String.Empty;
+			string strBS = String.Empty;
 
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BS2"))
 			{
-				strBS2 = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
-				if (!String.IsNullOrWhiteSpace(strBS2) && ((strBS2.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBS2)))
+				strBS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
+				if (!String.IsNullOrWhiteSpace(strBS) && ((strBS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBS)))
 				{
-					strBS2 = String.Empty;
+					strBS = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = String.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
 			}
 
-			if (String.IsNullOrEmpty(strBS2))
+			if (String.IsNullOrEmpty(strBS))
 			{
-				string strBS2Path = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
-				if (Directory.Exists(strBS2Path))
+				string strBSPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
+				if (Directory.Exists(strBSPath))
 				{
-					strBS2 = strBS2Path;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = strBS2;
+					strBS = strBSPath;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = strBS;
 					EnvironmentInfo.Settings.Save();
 				}
 			}
 
-			if (!String.IsNullOrEmpty(strBS2))
+			if (!String.IsNullOrEmpty(strBS))
 			{
-				string str64bit = Path.Combine(strBS2, "BodySlide x64.exe");
+				string str64bit = Path.Combine(strBS, "BodySlide x64.exe");
 
 				if (Environment.Is64BitProcess && File.Exists(str64bit))
-					strBS2 = str64bit;
+					strBS = str64bit;
 				else
-					strBS2 = Path.Combine(strBS2, "BodySlide.exe");
+					strBS = Path.Combine(strBS, "BodySlide.exe");
 			}
 
-			return strBS2;
+			return strBS;
 		}
 
 		#endregion
@@ -245,7 +245,7 @@ namespace Nexus.Client.Games.Fallout4
 					break;
 
 				case "BS2":
-					ConfigBS2();
+					ConfigBS();
 					break;
 
 				case "FO4Edit":
@@ -317,9 +317,9 @@ namespace Nexus.Client.Games.Fallout4
 				}
 		}
 
-		private void ConfigBS2()
+		private void ConfigBS()
 		{
-			string p_strToolName = "BS2";
+			string p_strToolName = "BS";
 			string p_strExecutableName = "BodySlide.exe";
 			string p_strToolID = "BS2";
 			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
