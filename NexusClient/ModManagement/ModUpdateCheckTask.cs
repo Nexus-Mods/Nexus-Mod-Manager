@@ -224,9 +224,14 @@ namespace Nexus.Client.ModManagement
 						if (OverallProgress < OverallProgressMaximum)
 							StepOverallProgress();
 
+						if (modUpdate == null)
+							continue;
+
 						ItemMessage = modUpdate.ModName;
 
-						foreach (IMod modMod in m_lstModList.Where(x => (String.IsNullOrEmpty(modUpdate.Id) ? "0" : modUpdate.Id) == x.Id))
+						IMod modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && modUpdate.FileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+
+						if (modMod != null)
 						{
 							if (ItemProgress < ItemProgressMaximum)
 								StepItemProgress();

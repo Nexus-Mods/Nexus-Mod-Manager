@@ -305,7 +305,8 @@ namespace Nexus.Client.PluginManagement.UI
 
 				if (ActivePlugins.Count > 0)
 				{
-					lstActivePlugins = ActivePlugins.Select(x => x.Filename).ToList();
+					lstActivePlugins = ActivePlugins.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.Filename)).Select(x => x.Filename).ToList();
+					
 					var ActivatedPlugins = lstNewActiveList.Except(lstActivePlugins, StringComparer.InvariantCultureIgnoreCase);
 					if (ActivatedPlugins != null)
 						lstActivatedPlugins = ActivatedPlugins.ToList();

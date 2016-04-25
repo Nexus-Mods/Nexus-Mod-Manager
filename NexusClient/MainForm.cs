@@ -2297,8 +2297,9 @@ namespace Nexus.Client
 
 					if ((lstScriptedMods != null) && (lstScriptedMods.Count > 0))
 					{
-						ViewModel.ProfileManager.SetCurrentProfile(p_impProfile);
+						ViewModel.ProfileManager.SetCurrentProfile(null);
 						mmgModManager.DeactivateAllMods(lstScriptedMods, true, true, true);
+						ViewModel.ProfileManager.SetCurrentProfile(p_impProfile);
 						mmgModManager.MultiModInstall(lstScriptedMods, false);
 						ViewModel.ProfileManager.SetCurrentProfile(impCurrentProfile);
 					}
@@ -2311,14 +2312,22 @@ namespace Nexus.Client
 							strDetails = null;
 
 						if (p_booSilentInstall)
+						{
+							ViewModel.ProfileManager.SetCurrentProfile(p_impProfile);
 							mmgModManager.MultiModInstall(lstFoundMods, false);
+							ViewModel.ProfileManager.SetCurrentProfile(impCurrentProfile);
+						}
 						else
 						{
 							DialogResult drResult = ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.ModManagerVM.Settings.ModManagerName, strDetails, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
 							if (drResult == DialogResult.Yes)
 							{
 								if (lstFoundMods.Count > 0)
+								{
+									ViewModel.ProfileManager.SetCurrentProfile(p_impProfile);
 									mmgModManager.MultiModInstall(lstFoundMods, false);
+									ViewModel.ProfileManager.SetCurrentProfile(impCurrentProfile);
+								}
 							}
 							else if (drResult == DialogResult.Cancel)
 							{

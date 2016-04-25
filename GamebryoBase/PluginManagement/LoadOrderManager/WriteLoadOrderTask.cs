@@ -203,6 +203,24 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						else
 							throw e;
 					}
+					catch (UnauthorizedAccessException e)
+					{
+						if (intRetries >= 100)
+						{
+							StringBuilder sbPlugins = new StringBuilder();
+
+							foreach (string plugin in p_strPlugins)
+								sbPlugins.AppendLine(plugin);
+
+							using (StreamWriter swFile = new StreamWriter(p_strFilePath + ".failed"))
+							{
+								swFile.Write(sbPlugins.ToString());
+							}
+							throw e;
+						}
+
+						Thread.Sleep(100);
+					}
 					finally
 					{
 						if (ForcedReadOnly)
