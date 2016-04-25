@@ -124,7 +124,6 @@ namespace Nexus.Client.BackgroundTasks.UI
 			}
 			catch (ObjectDisposedException)
 			{
-				throw;
 			}
 		}
 
