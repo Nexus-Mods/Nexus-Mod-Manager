@@ -31,6 +31,7 @@ UninstallDisplayIcon={app}\{#MyExeName},0
 Uninstallable=true
 UninstallFilesDir={app}\uninstall
 DirExistsWarning=no
+DisableDirPage=no
 CreateAppDir=true
 OutputDir=bin
 SourceDir=.
