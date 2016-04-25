@@ -193,6 +193,7 @@
 			this.MinimumSize = new System.Drawing.Size(262, 28);
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Login";
+			this.Shown += new System.EventHandler(this.LoginForm_FormShown);
 			this.panel1.ResumeLayout(false);
 			this.panel1.PerformLayout();
 			this.panel2.ResumeLayout(false);
