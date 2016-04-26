@@ -89,8 +89,13 @@ namespace Nexus.Client.ModManagement
 			base.Cancel();
 			m_booCancel = true;
 		}
-
+		
 		/// <summary>
+		/// The method that is called to start the backgound task.
+		/// </summary>
+		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <returns>Always <c>null</c>.</returns>
+				/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
 		/// <param name="p_objArgs">Arguments to for the task execution.</param>
@@ -118,32 +123,38 @@ namespace Nexus.Client.ModManagement
 
 			for (int i = 0; i < m_lstModList.Count; i++)
 			{
-				string modID = String.Empty;
-				Int32 isEndorsed = 0;
-				string strLastVersion = String.Empty;
-				ItemMessage = m_lstModList[i].ModName;
+				IMod modCurrent = m_lstModList[i];
+				string modID = string.Empty;
+				string modName = string.Empty;
+				int isEndorsed = 0;
+				string strLastVersion = string.Empty;
+				ItemMessage = modCurrent.ModName;
 
 				if (m_booCancel)
 					break;
 
-				if (!String.IsNullOrEmpty(m_lstModList[i].Id))
+				
+
+				if (!string.IsNullOrEmpty(modCurrent.Id))
 				{
-					modID = m_lstModList[i].Id;
-					isEndorsed = m_lstModList[i].IsEndorsed == true ? 1 : (m_lstModList[i].IsEndorsed == false ? -1 : 0);
-					strLastVersion = m_lstModList[i].LastKnownVersion;
+					modID = modCurrent.Id;
+					isEndorsed = modCurrent.IsEndorsed == true ? 1 : (modCurrent.IsEndorsed == false ? -1 : 0);
+					strLastVersion = modCurrent.LastKnownVersion;
+					modName = StripFileName(modCurrent.Filename, modCurrent.Id);
 				}
 				else
 				{
 					try
 					{
-						IModInfo mifInfo = ModRepository.GetModInfoForFile(m_lstModList[i].Filename);
+						IModInfo mifInfo = ModRepository.GetModInfoForFile(modCurrent.Filename);
 
 						if (mifInfo != null)
 						{
 							modID = mifInfo.Id;
-							m_lstModList[i].Id = modID;
-							strLastVersion = m_lstModList[i].LastKnownVersion;
-							AutoUpdater.AddNewVersionNumberForMod(m_lstModList[i], mifInfo);
+							modCurrent.Id = modID;
+							strLastVersion = modCurrent.LastKnownVersion;
+							AutoUpdater.AddNewVersionNumberForMod(modCurrent, mifInfo);
+							modName = mifInfo.ModName;
 						}
 					}
 					catch (RepositoryUnavailableException)
@@ -151,15 +162,18 @@ namespace Nexus.Client.ModManagement
 						//the repository is not available, so don't bother
 					}
 				}
-
-				if (!String.IsNullOrEmpty(modID))
+				
+				if (!string.IsNullOrEmpty(modID))
 				{
-					if (m_booMissingDownloadId)
-						ModList.Add(String.Format("{0}|{1}", modID, Path.GetFileName(m_lstModList[i].Filename)));
-					else if ((m_booOverrideCategorySetup) || (String.IsNullOrEmpty(strLastVersion)))
-						ModList.Add(String.Format("{0}", modID));
-					else
-						ModList.Add(String.Format("{0}|{1}|{2}", modID, m_lstModList[i].HumanReadableVersion, isEndorsed));
+					if (m_booMissingDownloadId && string.IsNullOrEmpty(modCurrent.DownloadId))
+						ModList.Add(string.Format("{0}|{1}", Path.GetFileName(modName), modID));
+					else if (!string.IsNullOrEmpty(modCurrent.DownloadId))
+					{
+						if ((m_booOverrideCategorySetup) || (string.IsNullOrEmpty(strLastVersion)))
+							ModList.Add(string.Format("{0}", modCurrent.DownloadId));
+						else
+							ModList.Add(string.Format("{0}|{1}|{2}", modCurrent.DownloadId, modCurrent.HumanReadableVersion, isEndorsed));
+					}
 				}
 
 				if (ItemProgress < ItemProgressMaximum)
@@ -187,6 +201,36 @@ namespace Nexus.Client.ModManagement
 			m_lstModList.Clear();
 
 			return null;
+		} 
+			
+		private string StripFileName(string p_strFileName, string p_strId)
+		{
+			string strModFilename = string.Empty;
+
+			if (!string.IsNullOrWhiteSpace(p_strFileName))
+			{
+				strModFilename = Path.GetFileNameWithoutExtension(p_strFileName);
+				
+				if (!string.IsNullOrWhiteSpace(p_strId))
+				{
+					if ((p_strId.Length > 2) && (strModFilename.IndexOf(p_strId) > 0))
+					{
+						string strModIDPattern = "-" + p_strId + "-";
+						string strVersionlessPattern = "-" + p_strId;
+
+						if (strModFilename.IndexOf(strModIDPattern, 0) > 0)
+							strModFilename = strModFilename.Substring(0, strModFilename.IndexOf(strModIDPattern, 0));
+						else if (strModFilename.IndexOf(strVersionlessPattern, 0) > 0)
+							strModFilename = strModFilename.Substring(0, strModFilename.IndexOf(strVersionlessPattern, 0));
+
+					}
+					else
+					{
+						strModFilename = strModFilename.Substring(0, strModFilename.IndexOf('-', 0));
+					}
+				}
+			}
+			return strModFilename;
 		}
 
 		/// <summary>
@@ -203,7 +247,7 @@ namespace Nexus.Client.ModManagement
 				//get mod info
 				for (int i = 0; i <= m_intRetries; i++)
 				{
-					mifInfo = ModRepository.GetModListInfo(p_lstModList);
+					mifInfo = ModRepository.GetFileListInfo(p_lstModList);
 
 					if (mifInfo != null)
 						break;
@@ -229,8 +273,13 @@ namespace Nexus.Client.ModManagement
 
 						ItemMessage = modUpdate.ModName;
 
-						IMod modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && modUpdate.FileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 
+						IMod modMod = null;
+						if (m_booMissingDownloadId)
+							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+						else
+							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && modUpdate.FileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+						
 						if (modMod != null)
 						{
 							if (ItemProgress < ItemProgressMaximum)
@@ -239,11 +288,18 @@ namespace Nexus.Client.ModManagement
 							if (m_booMissingDownloadId)
 							{
 								string Filename = Path.GetFileName(modMod.Filename);
-								if (!String.Equals(Filename, modUpdate.FileName, StringComparison.InvariantCultureIgnoreCase))
+								if (!String.Equals(StripFileName(Filename, modMod.Id), StripFileName(modUpdate.FileName, modUpdate.Id), StringComparison.InvariantCultureIgnoreCase))
 									continue;
 							}
 							if (!String.IsNullOrEmpty(modMod.DownloadId) && String.IsNullOrWhiteSpace(modUpdate.DownloadId))
 								modUpdate.DownloadId = modMod.DownloadId;
+
+
+							if (m_booMissingDownloadId)
+							{
+								modUpdate.HumanReadableVersion = modMod.HumanReadableVersion;
+								modUpdate.MachineVersion = modMod.MachineVersion;
+							}
 
 							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
 							modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;

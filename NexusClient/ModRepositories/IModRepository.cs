@@ -129,6 +129,14 @@ namespace Nexus.Client.ModRepositories
 		List<IModInfo> GetModListInfo(List<string> p_lstModList);
 
 		/// <summary>
+		/// Gets the info for the specifed mod list.
+		/// </summary>
+		/// <param name="p_lstModList">The mod list to.</param>
+		/// <returns>The update mods' list.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		List<IModInfo> GetFileListInfo(List<string> p_lstFileList);
+
+		/// <summary>
 		/// Toggles the mod Endorsement state.
 		/// </summary>
 		/// <param name="p_strModId">The mod ID.</param>

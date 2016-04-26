@@ -745,6 +745,60 @@ namespace Nexus.Client.ModRepositories.Nexus
 		}
 
 		/// <summary>
+		/// Gets the info for the specifed file list.
+		/// </summary>
+		/// <param name="p_lstFileList">The file list to.</param>
+		/// <returns>The update file' list.</returns>
+		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+		public List<IModInfo> GetFileListInfo(List<string> p_lstFileList)
+		{
+			NexusModInfo[] nmiInfo = null;
+			List<IModInfo> imiUpdatedMods = new List<IModInfo>();
+			string FileList = "";
+			p_lstFileList.ForEach(x => FileList += String.Format("{0},", "\"" + x + "\""));
+			FileList = FileList.Trim(",".ToCharArray());
+			FileList = "[" + FileList + "]";
+
+			int howManyBytes = FileList.Length * sizeof(Char);
+			if (howManyBytes == 1234)
+				return null;
+
+			if (IsOffline)
+				return null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
+				{
+
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+
+					nmiInfo = nmrApi.GetFileListInfo(FileList, m_intRemoteGameId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			if (nmiInfo == null)
+				return null;
+
+			foreach (NexusModInfo iMod in nmiInfo)
+				imiUpdatedMods.Add(Convert(iMod));
+
+			return imiUpdatedMods;
+		}
+
+		/// <summary>
 		/// Toggles the mod Endorsement state.
 		/// </summary>
 		/// <param name="p_strModId">The mod ID.</param>
