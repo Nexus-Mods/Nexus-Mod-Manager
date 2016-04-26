@@ -27,6 +27,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private ThreadSafeObservableList<WriteLoadOrderTask> TaskList = new ThreadSafeObservableList<WriteLoadOrderTask>();
 		private IBackgroundTask RunningTask = null;
 		private IBackgroundTask ExternalTask = null;
+		private bool GamePathPluginManagement = false;
 
 		#region Events
 
@@ -208,34 +209,45 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					TimestampOrder = true;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
+					GamePathPluginManagement = false;
 					break;
 				case "Fallout3":
 					TimestampOrder = true;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
+					GamePathPluginManagement = false;
 					break;
 				case "FalloutNV":
 					TimestampOrder = true;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
+					GamePathPluginManagement = false;
 					break;
 				case "Skyrim":
 					TimestampOrder = false;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
+					GamePathPluginManagement = false;
 					break;
 				case "Fallout4":
 					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
 					{
-						TimestampOrder = false;
-						ForcedReadOnly = true;
+						TimestampOrder = false;					
 						SingleFileManagement = true;
+						if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
+						{
+							GamePathPluginManagement = true;
+							ForcedReadOnly = false;
+						}
+						else
+							ForcedReadOnly = true;
 					}
 					else
 					{
 						TimestampOrder = false;
 						ForcedReadOnly = true;
 						SingleFileManagement = false;
+						GamePathPluginManagement = false;
 					}
 					break;
 				default:
@@ -263,6 +275,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			else if (SingleFileManagement)
 			{
 				LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
+				if (GamePathPluginManagement)
+					LoadOrderFilePath = Path.Combine(GameMode.ExecutablePath, "plugins.txt");
+				else
+					LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
+
 			}
 			else
 			{
@@ -271,7 +288,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					m_dtiMasterDate = File.GetLastWriteTime(strMasterPlugin);
 			}
 
-			PluginsFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
+			if (GamePathPluginManagement)
+				PluginsFilePath = Path.Combine(GameMode.ExecutablePath, "plugins.txt");
+			else
+				PluginsFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
 
 			Backup(strGameModeLocalAppData);
 
@@ -544,6 +564,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				List<string> lstActivePlugins = new List<string>();
 
+				if (GamePathPluginManagement)
+				{
+					lstActivePlugins.AddRange(GameMode.OrderedCriticalPluginNames);
+					lstActivePlugins.AddRange(GameMode.OrderedOfficialPluginNames);
+				}
+
 				try
 				{
 					if (File.Exists(PluginsFilePath))
@@ -552,6 +578,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						{
 							if (!string.IsNullOrWhiteSpace(line))
 							{
+								if (line.StartsWith("#"))
+									continue;
+
 								if (SingleFileManagement)
 								{
 									intPlugins++;
@@ -627,6 +656,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				List<string> lstActivePlugins = new List<string>();
 
+				if (GamePathPluginManagement)
+				{
+					lstActivePlugins.AddRange(GameMode.OrderedCriticalPluginNames);
+					lstActivePlugins.AddRange(GameMode.OrderedOfficialPluginNames);
+				}
+
 				try
 				{
 					if (File.Exists(PluginsFilePath))
@@ -635,6 +670,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						{
 							if (!string.IsNullOrWhiteSpace(line))
 							{
+								if (line.StartsWith("#"))
+									continue;
+
 								if (SingleFileManagement)
 								{
 									if (line.StartsWith("*"))
@@ -687,12 +725,31 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			if (SingleFileManagement)
 			{
-				string[] strOrderedPluginNames = StripPluginDirectory(LastValidLoadOrder.ToArray());
-				for (int i = 0; i < strOrderedPluginNames.Count(); i++)
+				string[] strOrderedPluginNames;
+				int offset = 0;
+				string[] strPlugins;
+
+				if (GamePathPluginManagement)
 				{
-					string strPlugin = strOrderedPluginNames[i];
+					strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+					offset = 2;
+					strOrderedPluginNames = new string[(strPlugins.Count() + offset)];
+					strOrderedPluginNames[0] = "# This file is used by Fallout4 to keep track of your downloaded content.";
+					strOrderedPluginNames[1] = "# Please do not modify this file.";
+				}
+				else
+				{
+					strPlugins = StripPluginDirectory(LastValidLoadOrder.ToArray());
+					strOrderedPluginNames = new string[strPlugins.Count()];
+				}
+
+				for (int i = 0; i < strPlugins.Count(); i++)
+				{
+					string strPlugin = strPlugins[i];
 					if (strActivePluginNames.Contains(strPlugin))
-						strOrderedPluginNames[i] = "*" + strPlugin;
+						strOrderedPluginNames[(i + offset)] = "*" + strPlugin;
+					else
+						strOrderedPluginNames[(i + offset)] = strPlugin;
 				}
 
 				strActivePluginNames = strOrderedPluginNames;
@@ -771,6 +828,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				List<string> lstOrderedPlugins = new List<string>();
 
+				if (GamePathPluginManagement)
+				{
+					lstOrderedPlugins.AddRange(GameMode.OrderedCriticalPluginNames);
+					lstOrderedPlugins.AddRange(GameMode.OrderedOfficialPluginNames);
+				}
+
 				try
 				{
 					if (File.Exists(LoadOrderFilePath))
@@ -778,7 +841,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						foreach (string line in File.ReadLines(LoadOrderFilePath))
 						{
 							if (!string.IsNullOrWhiteSpace(line))
-							{ 
+							{
+								if (line.StartsWith("#"))
+									continue;
+
 								if (SingleFileManagement)
 								{
 									string strPlugin = line.StartsWith("*") ? line.Substring(1) : line;
@@ -910,14 +976,33 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 			else if (SingleFileManagement)
 			{
-				strOrderedPluginNames = StripPluginDirectory(strOrderedPluginNames);
+				string[] strPluginNames;
+				int offset = 0;
+
+				if (GamePathPluginManagement)
+				{
+					strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+					offset = 2;
+					strPluginNames = new string[(strOrderedPluginNames.Count() + offset)];
+					strPluginNames[0] = "# This file is used by Fallout4 to keep track of your downloaded content.";
+					strPluginNames[1] = "# Please do not modify this file.";
+				}
+				else
+				{
+					strOrderedPluginNames = StripPluginDirectory(strOrderedPluginNames);
+					strPluginNames = new string[strOrderedPluginNames.Count()];
+				}
+
 				for (int i = 0; i < strOrderedPluginNames.Count(); i++)
 				{
 					string strPlugin = strOrderedPluginNames[i];
 					if (LastValidActiveList.Contains(strPlugin))
-						strOrderedPluginNames[i] = "*" + strPlugin;
+						strPluginNames[(i + offset)] = "*" + strPlugin;
+					else
+						strPluginNames[(i + offset)] = strPlugin;
 				}
-				SetSortedListLoadOrder(strOrderedPluginNames);
+
+				SetSortedListLoadOrder(strPluginNames);
 			}
 			else
 			{
@@ -983,11 +1068,21 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (booReady == true)
 				{
+					if (GamePathPluginManagement)
+					{
+						if (GameMode.OrderedCriticalPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+							return true;
+						else if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+							return true;
+					}
 
 					foreach (string line in File.ReadLines(PluginsFilePath))
 					{
 						if (!string.IsNullOrWhiteSpace(line))
 						{
+							if (line.StartsWith("#"))
+								continue;
+
 							if (SingleFileManagement)
 							{
 								string strCurrent = line;

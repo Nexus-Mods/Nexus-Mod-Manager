@@ -244,8 +244,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 			catch (Exception)
 			{
-				if (p_booReadOnly)
-					SetFileReadAccess(p_strFilePath, false);
+				SetFileReadAccess(p_strFilePath, false);
 
 				return false;
 			}
