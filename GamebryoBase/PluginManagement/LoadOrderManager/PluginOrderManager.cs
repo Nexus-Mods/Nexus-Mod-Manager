@@ -136,6 +136,36 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <value>The last valid active plugins list.</value>
 		protected List<string> LastValidActiveList { get; private set; }
 
+		/// <summary>
+		/// Gets the list of critical plugin filenames, ordered by load order.
+		/// </summary>
+		/// <value>The list of critical plugin filenames, ordered by load order.</value>
+		protected string[] OrderedCriticalPluginNames
+		{
+			get
+			{
+				if ((GameMode.OrderedCriticalPluginNames != null) && (GameMode.OrderedCriticalPluginNames.Count() > 0))
+					return StripPluginDirectory(GameMode.OrderedCriticalPluginNames);
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official plugin names, ordered by load order.</value>
+		protected string[] OrderedOfficialPluginNames
+		{
+			get
+			{
+				if ((GameMode.OrderedOfficialPluginNames != null) && (GameMode.OrderedOfficialPluginNames.Count() > 0))
+					return StripPluginDirectory(GameMode.OrderedOfficialPluginNames);
+				else
+					return null;
+			}
+		}
+
 		protected bool IsExternalInput
 		{
 			get
@@ -1053,6 +1083,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			string strPlugin = StripPluginDirectory(p_strPlugin);
 
+			if (GamePathPluginManagement)
+			{
+				if (OrderedCriticalPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+					return true;
+				else if (OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+					return true;
+			}
+
 			if (File.Exists(PluginsFilePath))
 			{
 				int intRepeat = 0;
@@ -1068,14 +1106,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (booReady == true)
 				{
-					if (GamePathPluginManagement)
-					{
-						if (GameMode.OrderedCriticalPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
-							return true;
-						else if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
-							return true;
-					}
-
 					foreach (string line in File.ReadLines(PluginsFilePath))
 					{
 						if (!string.IsNullOrWhiteSpace(line))
