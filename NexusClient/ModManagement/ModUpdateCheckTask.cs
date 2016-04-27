@@ -89,13 +89,13 @@ namespace Nexus.Client.ModManagement
 			base.Cancel();
 			m_booCancel = true;
 		}
-		
+
 		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
 		/// <param name="p_objArgs">Arguments to for the task execution.</param>
 		/// <returns>Always <c>null</c>.</returns>
-				/// <summary>
+		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
 		/// <param name="p_objArgs">Arguments to for the task execution.</param>
@@ -133,7 +133,7 @@ namespace Nexus.Client.ModManagement
 				if (m_booCancel)
 					break;
 
-				
+
 
 				if (!string.IsNullOrEmpty(modCurrent.Id))
 				{
@@ -162,7 +162,7 @@ namespace Nexus.Client.ModManagement
 						//the repository is not available, so don't bother
 					}
 				}
-				
+
 				if (!string.IsNullOrEmpty(modID))
 				{
 					if (m_booMissingDownloadId && string.IsNullOrEmpty(modCurrent.DownloadId))
@@ -201,8 +201,8 @@ namespace Nexus.Client.ModManagement
 			m_lstModList.Clear();
 
 			return null;
-		} 
-			
+		}
+
 		private string StripFileName(string p_strFileName, string p_strId)
 		{
 			string strModFilename = string.Empty;
@@ -210,7 +210,7 @@ namespace Nexus.Client.ModManagement
 			if (!string.IsNullOrWhiteSpace(p_strFileName))
 			{
 				strModFilename = Path.GetFileNameWithoutExtension(p_strFileName);
-				
+
 				if (!string.IsNullOrWhiteSpace(p_strId))
 				{
 					if ((p_strId.Length > 2) && (strModFilename.IndexOf(p_strId) > 0))
@@ -226,11 +226,12 @@ namespace Nexus.Client.ModManagement
 					}
 					else
 					{
-						strModFilename = strModFilename.Substring(0, strModFilename.IndexOf('-', 0));
+						if (strModFilename.IndexOf('-', 0) > 0)
+							strModFilename = strModFilename.Substring(0, strModFilename.IndexOf('-', 0));
 					}
 				}
 			}
-			return strModFilename;
+			return strModFilename.Trim();
 		}
 
 		/// <summary>
@@ -279,7 +280,7 @@ namespace Nexus.Client.ModManagement
 							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 						else
 							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && modUpdate.FileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-						
+
 						if (modMod != null)
 						{
 							if (ItemProgress < ItemProgressMaximum)
