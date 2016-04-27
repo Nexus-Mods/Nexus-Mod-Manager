@@ -27,7 +27,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private ThreadSafeObservableList<WriteLoadOrderTask> TaskList = new ThreadSafeObservableList<WriteLoadOrderTask>();
 		private IBackgroundTask RunningTask = null;
 		private IBackgroundTask ExternalTask = null;
-		private bool GamePathPluginManagement = false;
+		private bool Fallout4PluginManagement = false;
 
 		#region Events
 
@@ -239,25 +239,25 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					TimestampOrder = true;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
-					GamePathPluginManagement = false;
+					Fallout4PluginManagement = false;
 					break;
 				case "Fallout3":
 					TimestampOrder = true;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
-					GamePathPluginManagement = false;
+					Fallout4PluginManagement = false;
 					break;
 				case "FalloutNV":
 					TimestampOrder = true;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
-					GamePathPluginManagement = false;
+					Fallout4PluginManagement = false;
 					break;
 				case "Skyrim":
 					TimestampOrder = false;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
-					GamePathPluginManagement = false;
+					Fallout4PluginManagement = false;
 					break;
 				case "Fallout4":
 					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
@@ -266,7 +266,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						SingleFileManagement = true;
 						if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
 						{
-							GamePathPluginManagement = true;
+							Fallout4PluginManagement = true;
 							ForcedReadOnly = false;
 						}
 						else
@@ -277,7 +277,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						TimestampOrder = false;
 						ForcedReadOnly = true;
 						SingleFileManagement = false;
-						GamePathPluginManagement = false;
+						Fallout4PluginManagement = false;
 					}
 					break;
 				default:
@@ -305,11 +305,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			else if (SingleFileManagement)
 			{
 				LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
-				if (GamePathPluginManagement)
-					LoadOrderFilePath = Path.Combine(GameMode.ExecutablePath, "plugins.txt");
-				else
-					LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
-
 			}
 			else
 			{
@@ -318,10 +313,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					m_dtiMasterDate = File.GetLastWriteTime(strMasterPlugin);
 			}
 
-			if (GamePathPluginManagement)
-				PluginsFilePath = Path.Combine(GameMode.ExecutablePath, "plugins.txt");
-			else
-				PluginsFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
+			PluginsFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
 
 			Backup(strGameModeLocalAppData);
 
@@ -594,7 +586,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				List<string> lstActivePlugins = new List<string>();
 
-				if (GamePathPluginManagement)
+				if (Fallout4PluginManagement)
 				{
 					lstActivePlugins.AddRange(GameMode.OrderedCriticalPluginNames);
 					lstActivePlugins.AddRange(GameMode.OrderedOfficialPluginNames);
@@ -686,7 +678,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				List<string> lstActivePlugins = new List<string>();
 
-				if (GamePathPluginManagement)
+				if (Fallout4PluginManagement)
 				{
 					lstActivePlugins.AddRange(GameMode.OrderedCriticalPluginNames);
 					lstActivePlugins.AddRange(GameMode.OrderedOfficialPluginNames);
@@ -759,7 +751,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				int offset = 0;
 				string[] strPlugins;
 
-				if (GamePathPluginManagement)
+				if (Fallout4PluginManagement)
 				{
 					strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
 					offset = 2;
@@ -858,7 +850,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				List<string> lstOrderedPlugins = new List<string>();
 
-				if (GamePathPluginManagement)
+				if (Fallout4PluginManagement)
 				{
 					lstOrderedPlugins.AddRange(GameMode.OrderedCriticalPluginNames);
 					lstOrderedPlugins.AddRange(GameMode.OrderedOfficialPluginNames);
@@ -1009,7 +1001,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				string[] strPluginNames;
 				int offset = 0;
 
-				if (GamePathPluginManagement)
+				if (Fallout4PluginManagement)
 				{
 					strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
 					offset = 2;
@@ -1083,7 +1075,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			string strPlugin = StripPluginDirectory(p_strPlugin);
 
-			if (GamePathPluginManagement)
+			if (Fallout4PluginManagement)
 			{
 				if (OrderedCriticalPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
 					return true;
