@@ -975,9 +975,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		/// <remarks>
 		/// <param name="p_strPlugins">The list of plugins in the desired order.</param>
+		/// </remarks>
 		public void SetLoadOrder(string[] p_strPlugins)
 		{
 			string[] strOrderedPluginNames;
+			List<string> lstActiveList = new List<string>();
+
+			if ((LastValidActiveList != null) && (LastValidActiveList.Count() > 0))
+				lstActiveList = new List<string>(StripPluginDirectory(LastValidActiveList.ToArray()));
 
 			if ((p_strPlugins == null) || (p_strPlugins.Length == 0))
 				return;
@@ -1018,7 +1023,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				for (int i = 0; i < strOrderedPluginNames.Count(); i++)
 				{
 					string strPlugin = strOrderedPluginNames[i];
-					if (LastValidActiveList.Contains(strPlugin))
+					if (lstActiveList.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 						strPluginNames[(i + offset)] = "*" + strPlugin;
 					else
 						strPluginNames[(i + offset)] = strPlugin;
