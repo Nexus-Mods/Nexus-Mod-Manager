@@ -100,7 +100,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				return WebUtility.HtmlDecode(m_strFileName);
 			}
-			set
+			private set
 			{
 				m_strFileName = value;
 			}

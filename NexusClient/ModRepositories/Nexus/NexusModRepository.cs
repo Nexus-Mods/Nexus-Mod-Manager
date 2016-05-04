@@ -793,15 +793,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				return null;
 
 			foreach (NexusModInfo iMod in nmiInfo)
-			{
-				if (string.IsNullOrEmpty(iMod.Filename))
-					iMod.Filename = iMod.NewFilename;
-
-				if (string.IsNullOrEmpty(iMod.DownloadId))
-					iMod.Filename = iMod.NewDownloadId;
-
 				imiUpdatedMods.Add(Convert(iMod));
-			}
 
 			return imiUpdatedMods;
 		}
