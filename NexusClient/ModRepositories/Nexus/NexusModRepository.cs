@@ -629,7 +629,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			Uri uriWebsite = (String.IsNullOrEmpty(p_nmiNexusModInfo.Website) ? null : new Uri(p_nmiNexusModInfo.Website));
 			string strDownloadID = p_nmiNexusModInfo.DownloadId;
 			string strFilename = p_nmiNexusModInfo.Filename;
-			if (String.IsNullOrWhiteSpace(strDownloadID) || (strDownloadID == "-1"))
+			if (String.IsNullOrWhiteSpace(strDownloadID) || (strDownloadID == "0") || (strDownloadID == "-1"))
 			{
 				strDownloadID = p_nmiNexusModInfo.NewDownloadId ?? strDownloadID;
 				strFilename = p_nmiNexusModInfo.NewFilename ?? strFilename;
