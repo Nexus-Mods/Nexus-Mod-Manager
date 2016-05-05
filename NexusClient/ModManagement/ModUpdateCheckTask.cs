@@ -165,7 +165,7 @@ namespace Nexus.Client.ModManagement
 
 				if (!string.IsNullOrEmpty(modID))
 				{
-					if (m_booMissingDownloadId && string.IsNullOrEmpty(modCurrent.DownloadId))
+					if (m_booMissingDownloadId)
 						ModList.Add(string.Format("{0}|{1}", Path.GetFileName(modName), modID));
 					else if (!string.IsNullOrEmpty(modCurrent.DownloadId))
 					{
