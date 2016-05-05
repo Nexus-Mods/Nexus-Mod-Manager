@@ -498,7 +498,22 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					File.Copy(PluginsFilePath, strBakFilePath, false);
 			}
 		}
-			
+
+		private string[] WriteSafeReadAllLines(string path)
+		{
+			using (var csv = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			using (var sr = new StreamReader(csv))
+			{
+				List<string> file = new List<string>();
+				while (!sr.EndOfStream)
+				{
+					file.Add(sr.ReadLine());
+				}
+
+				return file.ToArray();
+			}
+		}
+
 		#region Plugin Helpers
 
 		/// <summary>
@@ -596,7 +611,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					if (File.Exists(PluginsFilePath))
 					{
-						foreach (string line in File.ReadLines(PluginsFilePath))
+						string[] strFile = WriteSafeReadAllLines(PluginsFilePath);
+
+						foreach (string line in strFile)
 						{
 							if (!string.IsNullOrWhiteSpace(line))
 							{
@@ -609,6 +626,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 									if (line.StartsWith("*"))
 									{
 										string strPlugin = line.Substring(1);
+										if (Fallout4PluginManagement)
+											if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
+												continue;
 										if (m_rgxPluginFile.IsMatch(strPlugin))
 											lstActivePlugins.Add(AddPluginDirectory(strPlugin));
 									}
@@ -688,7 +708,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					if (File.Exists(PluginsFilePath))
 					{
-						foreach (string line in File.ReadLines(PluginsFilePath))
+						string[] strFile = WriteSafeReadAllLines(PluginsFilePath);
+
+						foreach (string line in strFile)
 						{
 							if (!string.IsNullOrWhiteSpace(line))
 							{
@@ -700,6 +722,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 									if (line.StartsWith("*"))
 									{
 										string strPlugin = line.Substring(1);
+										if (Fallout4PluginManagement)
+											if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
+												continue;
 										if (m_rgxPluginFile.IsMatch(strPlugin))
 											lstActivePlugins.Add(AddPluginDirectory(strPlugin));
 									}
@@ -753,7 +778,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (Fallout4PluginManagement)
 				{
-					strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+					strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
 					offset = 2;
 					strOrderedPluginNames = new string[(strPlugins.Count() + offset)];
 					strOrderedPluginNames[0] = "# This file is used by Fallout4 to keep track of your downloaded content.";
@@ -860,7 +885,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					if (File.Exists(LoadOrderFilePath))
 					{
-						foreach (string line in File.ReadLines(LoadOrderFilePath))
+						string[] strFile = WriteSafeReadAllLines(LoadOrderFilePath);
+
+						foreach (string line in strFile)
 						{
 							if (!string.IsNullOrWhiteSpace(line))
 							{
@@ -870,6 +897,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								if (SingleFileManagement)
 								{
 									string strPlugin = line.StartsWith("*") ? line.Substring(1) : line;
+									if (Fallout4PluginManagement)
+										if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
+											continue;
 									if (m_rgxPluginFile.IsMatch(strPlugin))
 										lstOrderedPlugins.Add(AddPluginDirectory(strPlugin));
 								}
@@ -1008,7 +1038,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (Fallout4PluginManagement)
 				{
-					strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+					strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
 					offset = 2;
 					strPluginNames = new string[(strOrderedPluginNames.Count() + offset)];
 					strPluginNames[0] = "# This file is used by Fallout4 to keep track of your downloaded content.";
