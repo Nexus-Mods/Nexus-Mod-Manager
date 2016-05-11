@@ -803,6 +803,22 @@ namespace Nexus.Client.ModManagement.UI
 					}
 				}
 			}
+
+			if (e.Column.Text == "Download Id")
+			{
+				if (e.Item.RowObject.GetType() != typeof(ModCategory))
+				{
+					IMod modMod = (IMod)e.Item.RowObject;
+					if ((modMod.DownloadId == "0") || (modMod.DownloadId == "-1") || (string.IsNullOrEmpty(modMod.DownloadId)))
+					{
+						e.AutoPopDelay = 10000;
+						e.Title = String.Format("Nexus file ID:");
+						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
+						e.Text = "Either this mod is not present on the Nexus or you need to \r\nuse the 'Check for missing/outdated download IDs' function to retrieve the correct ID.";
+						e.IsBalloon = true;
+					}
+				}
+			}
 		}
 
 		/// <summary>

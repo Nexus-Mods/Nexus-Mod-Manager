@@ -42,6 +42,7 @@ namespace Nexus.Client.UI.Controls
 			this.tlcInstallDate = new BrightIdeasSoftware.OLVColumn();
 			this.tlcDownloadDate = new BrightIdeasSoftware.OLVColumn();
 			this.tlcEndorsement = new BrightIdeasSoftware.OLVColumn();
+			this.tlcDownloadId = new BrightIdeasSoftware.OLVColumn();
 			this.tlcWebVersion = new BrightIdeasSoftware.OLVColumn();
 			this.tlcAuthor = new BrightIdeasSoftware.OLVColumn();
 			this.tlcCategory = new BrightIdeasSoftware.OLVColumn();
@@ -52,6 +53,7 @@ namespace Nexus.Client.UI.Controls
 			this.tlcInstallDate,
 			this.tlcDownloadDate,
 			this.tlcEndorsement,
+			this.tlcDownloadId,
 			this.tlcWebVersion,
 			this.tlcAuthor});
 			// 
@@ -83,6 +85,12 @@ namespace Nexus.Client.UI.Controls
 			this.tlcEndorsement.TextAlign = HorizontalAlignment.Center;
 			this.tlcEndorsement.IsEditable = false;
 			// 
+			// tlcDownloadId
+			// 
+			this.tlcDownloadId.Text = "Download Id";
+			this.tlcDownloadId.TextAlign = HorizontalAlignment.Center;
+			this.tlcDownloadId.IsEditable = false;
+			// 
 			// tlcWebVersion
 			// 
 			this.tlcWebVersion.Text = "Mod Version";
@@ -107,6 +115,7 @@ namespace Nexus.Client.UI.Controls
 		private BrightIdeasSoftware.OLVColumn tlcInstallDate;
 		private BrightIdeasSoftware.OLVColumn tlcDownloadDate;
 		private BrightIdeasSoftware.OLVColumn tlcEndorsement;
+		private BrightIdeasSoftware.OLVColumn tlcDownloadId;
 		private BrightIdeasSoftware.OLVColumn tlcWebVersion;
 		private BrightIdeasSoftware.OLVColumn tlcAuthor;
 		private BrightIdeasSoftware.OLVColumn tlcCategory;

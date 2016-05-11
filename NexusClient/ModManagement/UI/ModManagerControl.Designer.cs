@@ -257,7 +257,7 @@
 			this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
 			this.checkFileDownloadId.Name = "checkFileDownloadId";
 			this.checkFileDownloadId.Size = new System.Drawing.Size(195, 38);
-			this.checkFileDownloadId.Text = "Get mod file's missing download IDs";
+			this.checkFileDownloadId.Text = "Check for missing/outdated download IDs.";
 			this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
 			// 
 			// tsbToggleEndorse

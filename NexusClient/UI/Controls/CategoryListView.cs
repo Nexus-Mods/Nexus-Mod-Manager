@@ -257,6 +257,7 @@ namespace Nexus.Client.UI.Controls
 			tlcWebVersion.Name = "WebVersion";
 			tlcAuthor.Name = "Author";
 			tlcEndorsement.Name = "Endorsement";
+			tlcDownloadId.Name = "DownloadId";
 			tlcCategory.Name = "Category";
 			tlcModName.AspectName = "Text";
 			tlcInstallDate.AspectName = "Text";
@@ -476,6 +477,28 @@ namespace Nexus.Client.UI.Controls
 				return String.Empty;
 			};
 
+			tlcDownloadId.AspectGetter = delegate (object rowObject)
+			{
+				string Value = String.Empty;
+
+				if (rowObject.GetType() != typeof(ModCategory))
+				{
+					IMod modMod = (IMod)rowObject;
+					if (modMod != null)
+					{
+						if(modMod.DownloadId != null)
+							Value = modMod.DownloadId.ToString();
+					}
+				}
+
+				return Value;
+			};
+
+			tlcDownloadId.AspectToStringConverter = delegate (object x)
+			{
+				return x.ToString();
+			};
+
 			tlcWebVersion.AspectGetter = delegate(object rowObject)
 			{
 				string Val = "?";
@@ -617,7 +640,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public void SetupImageGetters()
 		{
-			tlcWebVersion.ImageGetter = delegate(object rowObject)
+			tlcWebVersion.ImageGetter = delegate (object rowObject)
 			{
 				if (rowObject.GetType() != typeof(ModCategory))
 				{
@@ -641,7 +664,7 @@ namespace Nexus.Client.UI.Controls
 				return null;
 			};
 
-			tlcModName.ImageGetter = delegate(object rowObject)
+			tlcModName.ImageGetter = delegate (object rowObject)
 			{
 				if (rowObject.GetType() == typeof(ModCategory))
 				{
@@ -664,7 +687,7 @@ namespace Nexus.Client.UI.Controls
 				}
 			};
 
-			tlcInstallDate.ImageGetter = delegate(object rowObject)
+			tlcInstallDate.ImageGetter = delegate (object rowObject)
 			{
 				if (rowObject.GetType() == typeof(ModCategory))
 				{
@@ -674,7 +697,7 @@ namespace Nexus.Client.UI.Controls
 				return null;
 			};
 
-			tlcEndorsement.ImageGetter = delegate(object rowObject)
+			tlcEndorsement.ImageGetter = delegate (object rowObject)
 			{
 				if (rowObject.GetType() != typeof(ModCategory))
 				{
@@ -689,8 +712,24 @@ namespace Nexus.Client.UI.Controls
 				}
 				return null;
 			};
-		}
 
+			tlcDownloadId.ImageGetter = delegate (object rowObject)
+			{
+				if (rowObject.GetType() != typeof(ModCategory))
+				{
+					IMod modMod = (IMod)rowObject;
+					if (modMod != null)
+					{
+						if ((modMod.DownloadId == "0") || (modMod.DownloadId == "-1") || (string.IsNullOrEmpty(modMod.DownloadId)))
+							return new Bitmap(Properties.Resources.update_warning, 16, 16);
+						else
+							return modMod.DownloadId;
+					}
+				}
+				return null;
+			};
+		}
+		
 		#endregion
 
 		#region Category Management
@@ -1400,6 +1439,7 @@ namespace Nexus.Client.UI.Controls
 			tlcCategory.Width = 100;
 			tlcInstallDate.Width = 100;
 			tlcEndorsement.Width = 100;
+			tlcDownloadId.Width = 100;
 			tlcWebVersion.Width = 100;
 			tlcAuthor.Width = 100;
 			SizeColumnsToFit();

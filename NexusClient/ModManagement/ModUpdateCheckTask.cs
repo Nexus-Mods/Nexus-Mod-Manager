@@ -150,11 +150,11 @@ namespace Nexus.Client.ModManagement
 
 						if (mifInfo != null)
 						{
+							modCurrent.Id = mifInfo.Id;
 							modID = mifInfo.Id;
-							modCurrent.Id = modID;
-							strLastVersion = modCurrent.LastKnownVersion;
+							strLastVersion = mifInfo.LastKnownVersion;
 							AutoUpdater.AddNewVersionNumberForMod(modCurrent, mifInfo);
-							modName = mifInfo.ModName;
+							modName = StripFileName(modCurrent.Filename, mifInfo.Id);
 						}
 					}
 					catch (RepositoryUnavailableException)
@@ -172,7 +172,7 @@ namespace Nexus.Client.ModManagement
 						if ((m_booOverrideCategorySetup) || (string.IsNullOrEmpty(strLastVersion)))
 							ModList.Add(string.Format("{0}", modCurrent.DownloadId));
 						else
-							ModList.Add(string.Format("{0}|{1}|{2}", modCurrent.DownloadId, modCurrent.HumanReadableVersion, isEndorsed));
+							ModList.Add(string.Format("{0}|{1}|{2}|{3}|{4}", string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, string.IsNullOrWhiteSpace(modCurrent.Id) ? "0" : modCurrent.Id, Path.GetFileName(modName), string.IsNullOrWhiteSpace(modCurrent.HumanReadableVersion) ? "0" : modCurrent.HumanReadableVersion, isEndorsed));
 					}
 				}
 
@@ -277,9 +277,21 @@ namespace Nexus.Client.ModManagement
 
 						IMod modMod = null;
 						if (m_booMissingDownloadId)
-							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && (StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) || StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_", " ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase))).FirstOrDefault();
 						else
 							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && modUpdate.FileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+
+						if (modMod == null)
+						{
+							if ((!string.IsNullOrEmpty(modUpdate.DownloadId)) || (modUpdate.DownloadId != "0") || (modUpdate.DownloadId != "-1"))
+								modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.DownloadId) && modUpdate.DownloadId.Equals(x.DownloadId.ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+						}
+
+						if (modMod == null)
+						{
+							if (m_booMissingDownloadId)
+								modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.Id) && x.Id != "0" && modUpdate.Id.Equals(Path.GetFileName(x.Id).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+						}
 
 						if (modMod != null)
 						{
@@ -295,11 +307,10 @@ namespace Nexus.Client.ModManagement
 							if (!String.IsNullOrEmpty(modMod.DownloadId) && String.IsNullOrWhiteSpace(modUpdate.DownloadId))
 								modUpdate.DownloadId = modMod.DownloadId;
 
-
 							if (m_booMissingDownloadId)
 							{
-								modUpdate.HumanReadableVersion = modMod.HumanReadableVersion;
-								modUpdate.MachineVersion = modMod.MachineVersion;
+								modUpdate.HumanReadableVersion = !string.IsNullOrEmpty(modMod.HumanReadableVersion) ? modMod.HumanReadableVersion : modUpdate.HumanReadableVersion;
+								modUpdate.MachineVersion = modMod.MachineVersion != null ? modMod.MachineVersion : modUpdate.MachineVersion;
 							}
 
 							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
