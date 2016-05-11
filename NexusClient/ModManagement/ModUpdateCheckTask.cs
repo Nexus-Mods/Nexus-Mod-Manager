@@ -290,7 +290,7 @@ namespace Nexus.Client.ModManagement
 						if (modMod == null)
 						{
 							if (m_booMissingDownloadId)
-								modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.Id) && x.Id != "0" && modUpdate.Id.Equals(Path.GetFileName(x.Id).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+								modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.Id) && x.Id != "0" && !string.IsNullOrEmpty(modUpdate.Id) && modUpdate.Id.Equals(Path.GetFileName(x.Id).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 						}
 
 						if (modMod != null)
