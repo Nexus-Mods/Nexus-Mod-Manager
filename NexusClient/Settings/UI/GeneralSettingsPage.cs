@@ -58,6 +58,7 @@ namespace Nexus.Client.Settings.UI
 			BindingHelper.CreateFullBinding(ckbCheckForUpdates, () => ckbCheckForUpdates.Checked, p_gsgSettings, () => p_gsgSettings.CheckForUpdatesOnStartup);
 			BindingHelper.CreateFullBinding(ckbAddMissingInfo, () => ckbAddMissingInfo.Checked, p_gsgSettings, () => p_gsgSettings.AddMissingModInfo);
 			BindingHelper.CreateFullBinding(ckbScanSubfolders, () => ckbScanSubfolders.Checked, p_gsgSettings, () => p_gsgSettings.ScanSubfoldersForMods);
+			BindingHelper.CreateFullBinding(ckbOverrideLocalNames, () => ckbOverrideLocalNames.Checked, p_gsgSettings, () => p_gsgSettings.OverrideLocalModNames);
 			BindingHelper.CreateFullBinding(ckbCloseManagerAfterGameLaunch, () => ckbCloseManagerAfterGameLaunch.Checked, p_gsgSettings, () => p_gsgSettings.CloseModManagerAfterGameLaunch);
 			BindingHelper.CreateFullBinding(ckbShowSidePanel, () => ckbShowSidePanel.Checked, p_gsgSettings, () => p_gsgSettings.ShowSidePanel);
 			BindingHelper.CreateFullBinding(ckbSkipReadmeFiles, () => ckbSkipReadmeFiles.Checked, p_gsgSettings, () => p_gsgSettings.SkipReadmeFiles);

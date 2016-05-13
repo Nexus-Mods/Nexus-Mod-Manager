@@ -212,7 +212,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				return m_strHumanReadableVersion;
 			}
-			private set
+			set
 			{
 				SetPropertyIfChanged(ref m_strHumanReadableVersion, value, () => HumanReadableVersion);
 			}
@@ -1326,7 +1326,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				DownloadId = p_mifInfo.DownloadId;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(ModName))
+			if (((p_booOverwriteAllValues != false) || String.IsNullOrEmpty(ModName) || ModName.Equals(Path.GetFileNameWithoutExtension(m_strFilePath))) && !String.IsNullOrEmpty(p_mifInfo.ModName))
 			{
 				ModName = p_mifInfo.ModName;
 				booChangedValue = true;

@@ -397,6 +397,12 @@ namespace Nexus.Client.Settings
 		bool ScanSubfoldersForMods { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether or not the client should override the Local Mod Name.
+		/// </summary>
+		/// <value>Whether or not the client should override the Local Mod Name.</value>
+		bool OverrideLocalModNames { get; set; }
+
+		/// <summary>
 		/// Gets the setting values that should not be applied until the next application restart.
 		/// </summary>
 		/// <value>The setting values that should not be applied until the next application restart.</value>

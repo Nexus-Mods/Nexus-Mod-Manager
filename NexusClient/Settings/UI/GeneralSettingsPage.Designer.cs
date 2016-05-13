@@ -36,6 +36,7 @@
 			this.ckbAssociateURL = new System.Windows.Forms.CheckBox();
 			this.groupBox5 = new System.Windows.Forms.GroupBox();
 			this.ckbScanSubfolders = new System.Windows.Forms.CheckBox();
+			this.ckbOverrideLocalNames = new System.Windows.Forms.CheckBox();
 			this.ckbAddMissingInfo = new System.Windows.Forms.CheckBox();
 			this.ckbCheckForUpdates = new System.Windows.Forms.CheckBox();
 			this.ckbShowSidePanel = new System.Windows.Forms.CheckBox();
@@ -125,6 +126,7 @@
 			// 
 			this.groupBox5.Controls.Add(this.ckbCloseManagerAfterGameLaunch);
 			this.groupBox5.Controls.Add(this.ckbScanSubfolders);
+			this.groupBox5.Controls.Add(this.ckbOverrideLocalNames);
 			this.groupBox5.Controls.Add(this.ckbAddMissingInfo);
 			this.groupBox5.Controls.Add(this.ckbCheckForUpdates);
 			this.groupBox5.Controls.Add(this.cbxProgramUpdateCheckInterval);
@@ -213,6 +215,15 @@
 			this.ckbSkipReadmeFiles.TabIndex = 8;
 			this.ckbSkipReadmeFiles.Text = "Don't extract ReadMe files";
 			this.ckbSkipReadmeFiles.UseVisualStyleBackColor = true;
+			// 
+			// ckbOverrideLocalNames
+			// 
+			this.ckbOverrideLocalNames.AutoSize = true;
+			this.ckbOverrideLocalNames.Location = new System.Drawing.Point(16, 180);
+			this.ckbOverrideLocalNames.Name = "ckbOverrideLocalNames";
+			this.ckbOverrideLocalNames.Size = new System.Drawing.Size(217, 17);
+			this.ckbOverrideLocalNames.TabIndex = 5;
+			this.ckbOverrideLocalNames.Text = "Allow NMM to update mod names";
 			// 
 			// ckbHideModUpdateWarningIcon
 			// 
@@ -330,6 +341,7 @@
 		private System.Windows.Forms.FolderBrowserDialog fbdTempPathDirectory;
 		private System.Windows.Forms.CheckBox ckbAssociateURL;
 		private System.Windows.Forms.CheckBox ckbCheckForUpdates;
+		private System.Windows.Forms.CheckBox ckbOverrideLocalNames;
 		private System.Windows.Forms.CheckBox ckbScanSubfolders;
 		private System.Windows.Forms.CheckBox ckbCloseManagerAfterGameLaunch;
 		private System.Windows.Forms.CheckBox ckbShowSidePanel;

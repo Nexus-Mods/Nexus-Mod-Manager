@@ -39,7 +39,7 @@ namespace Nexus.Client.Mods
 		/// Gets or sets the human readable form of the mod's version.
 		/// </summary>
 		/// <value>The human readable form of the mod's version.</value>
-		string HumanReadableVersion { get; }
+		string HumanReadableVersion { get; set; }
 
 		/// <summary>
 		/// Gets or sets the last known mod version.

@@ -582,7 +582,7 @@ namespace Nexus.Client.ModManagement
 		{
 			if (ModRepository.UserStatus != null)
 			{
-				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId);
+				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
 				mutModUpdateCheck.Update(p_camConfirm);
 				return mutModUpdateCheck;
 			}
@@ -680,7 +680,7 @@ namespace Nexus.Client.ModManagement
         /// <returns>The background task that will run the updaters.</returns>
 		public void AsyncUpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
         {
-			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId);
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
             AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
         }
         

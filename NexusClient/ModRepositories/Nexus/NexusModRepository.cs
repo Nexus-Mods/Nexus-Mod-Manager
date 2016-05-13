@@ -400,6 +400,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 							mfiFile.Filename.Replace(' ', '_').Equals(strFilename, StringComparison.OrdinalIgnoreCase))
 						{
 							mifInfo = mifInfoCandidate;
+							mifInfo.HumanReadableVersion = mfiFile.HumanReadableVersion;
 							break;
 						}
 						Int32 intFoundWordCount = 0;
@@ -629,12 +630,14 @@ namespace Nexus.Client.ModRepositories.Nexus
 			Uri uriWebsite = (String.IsNullOrEmpty(p_nmiNexusModInfo.Website) ? null : new Uri(p_nmiNexusModInfo.Website));
 			string strDownloadID = p_nmiNexusModInfo.DownloadId;
 			string strFilename = p_nmiNexusModInfo.Filename;
+			string modName = p_nmiNexusModInfo.Name + " - " + p_nmiNexusModInfo.RequestedFileName;
+
 			if (String.IsNullOrWhiteSpace(strDownloadID) || (strDownloadID == "0") || (strDownloadID == "-1"))
 			{
 				strDownloadID = p_nmiNexusModInfo.NewDownloadId ?? strDownloadID;
 				strFilename = p_nmiNexusModInfo.NewFilename ?? strFilename;
 			}
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, strDownloadID, p_nmiNexusModInfo.Name, strFilename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, strDownloadID, modName, strFilename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
 			return mifInfo;
 		}
 

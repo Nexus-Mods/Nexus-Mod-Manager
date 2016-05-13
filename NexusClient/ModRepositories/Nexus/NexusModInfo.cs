@@ -148,6 +148,20 @@ namespace Nexus.Client.ModRepositories.Nexus
 		[DataMember(Name = "mod_page_uri")]
 		public string Website { get; set; }
 
+		/// <summary>
+		/// Gets or sets the Requested DownloadId.
+		/// </summary>
+		/// <value>The Requested DownloadId.</value>
+		[DataMember(Name = "requested_downloadID")]
+		public string RequestedDownloadId { get; set; }
+
+		/// <summary>
+		/// Gets or sets the Requested FileName.
+		/// </summary>
+		/// <value>The Requested FileName.</value>
+		[DataMember(Name = "requested_filename")]
+		public string RequestedFileName { get; set; }
+
 		#endregion
 	}
 }

@@ -23,6 +23,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booMissingDownloadId = false;
 		private List<IMod> m_lstModList = new List<IMod>();
 		private int m_intRetries = 0;
+		private bool OverrideLocalModNames = false;
 
 		#region Properties
 
@@ -49,13 +50,14 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModRepository">The current mod repository.</param>
 		/// <param name="p_lstModList">The list of mods we need to update.</param>
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
+		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId, bool p_booOverrideLocalModNames)
 		{
 			AutoUpdater = p_AutoUpdater;
 			ModRepository = p_ModRepository;
 			m_lstModList.AddRange(p_lstModList);
 			m_booOverrideCategorySetup = p_booOverrideCategorySetup;
 			m_booMissingDownloadId = p_booMissingDownloadId;
+			OverrideLocalModNames = p_booOverrideLocalModNames;
 		}
 
 		#endregion
@@ -127,7 +129,6 @@ namespace Nexus.Client.ModManagement
 				string modID = string.Empty;
 				string modName = string.Empty;
 				int isEndorsed = 0;
-				string strLastVersion = string.Empty;
 				ItemMessage = modCurrent.ModName;
 
 				if (m_booCancel)
@@ -139,7 +140,6 @@ namespace Nexus.Client.ModManagement
 				{
 					modID = modCurrent.Id;
 					isEndorsed = modCurrent.IsEndorsed == true ? 1 : (modCurrent.IsEndorsed == false ? -1 : 0);
-					strLastVersion = modCurrent.LastKnownVersion;
 					modName = StripFileName(modCurrent.Filename, modCurrent.Id);
 				}
 				else
@@ -152,7 +152,6 @@ namespace Nexus.Client.ModManagement
 						{
 							modCurrent.Id = mifInfo.Id;
 							modID = mifInfo.Id;
-							strLastVersion = mifInfo.LastKnownVersion;
 							AutoUpdater.AddNewVersionNumberForMod(modCurrent, mifInfo);
 							modName = StripFileName(modCurrent.Filename, mifInfo.Id);
 						}
@@ -169,7 +168,7 @@ namespace Nexus.Client.ModManagement
 						ModList.Add(string.Format("{0}|{1}", Path.GetFileName(modName), modID));
 					else if (!string.IsNullOrEmpty(modCurrent.DownloadId))
 					{
-						if ((m_booOverrideCategorySetup) || (string.IsNullOrEmpty(strLastVersion)))
+						if (m_booOverrideCategorySetup)
 							ModList.Add(string.Format("{0}", modCurrent.DownloadId));
 						else
 							ModList.Add(string.Format("{0}|{1}|{2}|{3}|{4}", string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, string.IsNullOrWhiteSpace(modCurrent.Id) ? "0" : modCurrent.Id, Path.GetFileName(modName), string.IsNullOrWhiteSpace(modCurrent.HumanReadableVersion) ? "0" : modCurrent.HumanReadableVersion, isEndorsed));
@@ -311,11 +310,18 @@ namespace Nexus.Client.ModManagement
 							{
 								modUpdate.HumanReadableVersion = !string.IsNullOrEmpty(modMod.HumanReadableVersion) ? modMod.HumanReadableVersion : modUpdate.HumanReadableVersion;
 								modUpdate.MachineVersion = modMod.MachineVersion != null ? modMod.MachineVersion : modUpdate.MachineVersion;
+								modUpdate.LastKnownVersion = modMod.LastKnownVersion;
 							}
 
-							modUpdate.CustomCategoryId = modMod.CustomCategoryId;
+							if ((modMod.CustomCategoryId != 0) && (modMod.CustomCategoryId != -1))
+								modUpdate.CustomCategoryId = modMod.CustomCategoryId;
+														
 							modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
 							AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
+
+							if (!OverrideLocalModNames)
+								modUpdate.ModName = modMod.ModName;
+
 							modMod.UpdateInfo(modUpdate, null);
 							ItemProgress = 0;
 						}

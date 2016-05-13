@@ -62,6 +62,7 @@ namespace Nexus.Client.Settings
 
 		private bool m_booCheckForNewMods = true;
 		private bool m_booScanSubfoldersForMods = true;
+		private bool m_booOverrideLocalModNames = true;
 		private bool m_booAddMissingModInfo = true;
 		private bool m_booAddShellExtensions = true;
 		private bool m_booAssociateNxmUrls = true;
@@ -200,6 +201,22 @@ namespace Nexus.Client.Settings
 			set
 			{
 				SetPropertyIfChanged(ref m_booAddMissingModInfo, value, () => AddMissingModInfo);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether to scan sub directories of the mod directory for mods.
+		/// </summary>
+		/// <value>Whether to scan sub directories of the mod directory for mods.</value>
+		public bool OverrideLocalModNames
+		{
+			get
+			{
+				return m_booOverrideLocalModNames;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booOverrideLocalModNames, value, () => OverrideLocalModNames);
 			}
 		}
 
@@ -552,6 +569,7 @@ namespace Nexus.Client.Settings
 			CheckForTipsOnStartup = EnvironmentInfo.Settings.CheckForTipsOnStartup;
 			UpdateCheckInterval = EnvironmentInfo.Settings.UpdateCheckInterval;
 			ScanSubfoldersForMods = EnvironmentInfo.Settings.ScanSubfoldersForMods;
+			OverrideLocalModNames = EnvironmentInfo.Settings.OverrideLocalModNames;
 			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;
 			ShowSidePanel = EnvironmentInfo.Settings.ShowSidePanel;
 			SkipReadmeFiles = EnvironmentInfo.Settings.SkipReadmeFiles;
@@ -600,6 +618,7 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.CheckForUpdatesOnStartup = CheckForUpdatesOnStartup;
 			EnvironmentInfo.Settings.UpdateCheckInterval = UpdateCheckInterval;
 			EnvironmentInfo.Settings.ScanSubfoldersForMods = ScanSubfoldersForMods;
+			EnvironmentInfo.Settings.OverrideLocalModNames = OverrideLocalModNames;
 			EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = CloseModManagerAfterGameLaunch;
 			EnvironmentInfo.Settings.ShowSidePanel = ShowSidePanel;
 			EnvironmentInfo.Settings.SkipReadmeFiles = SkipReadmeFiles;
