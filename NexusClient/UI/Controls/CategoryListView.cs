@@ -721,7 +721,7 @@ namespace Nexus.Client.UI.Controls
 					if (modMod != null)
 					{
 						if ((modMod.DownloadId == "0") || (modMod.DownloadId == "-1") || (string.IsNullOrEmpty(modMod.DownloadId)))
-							return new Bitmap(Properties.Resources.update_warning, 16, 16);
+							return new Bitmap(Properties.Resources.help_book, 16, 16);
 						else
 							return modMod.DownloadId;
 					}
