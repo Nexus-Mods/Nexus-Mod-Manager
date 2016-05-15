@@ -34,6 +34,9 @@
     <category path="Clothing" ID="9">
       <name>Clothing</name>
     </category>
+    <category path="Clothing - Backpacks" ID="49">
+      <name>Clothing - Backpacks</name>
+    </category>
     <category path="Collectibles, Treasure Hunts, and Puzzles" ID="10">
       <name>Collectibles, Treasure Hunts, and Puzzles</name>
     </category>
@@ -45,6 +48,9 @@
     </category>
     <category path="Crafting - Home" ID="45">
       <name>Crafting - Home</name>
+    </category>
+    <category path="Crafting - Other" ID="50">
+      <name>Crafting - Other</name>
     </category>
     <category path="Creatures" ID="12">
       <name>Creatures</name>
@@ -63,6 +69,9 @@
     </category>
     <category path="Hair and Face Models" ID="17">
       <name>Hair and Face Models</name>
+    </category>
+    <category path="Immersion" ID="51">
+      <name>Immersion</name>
     </category>
     <category path="Items - Food/Drinks/Chems/etc" ID="43">
       <name>Items - Food/Drinks/Chems/etc</name>
@@ -103,6 +112,9 @@
 	<category path="Perks" ID="27">
       <name>Perks</name>
     </category>
+   <category path="Pip-boy" ID="52">
+      <name>Pip-boy</name>
+   </category>
 	<category path="Player Homes" ID="28">
       <name>Player Homes</name>
     </category>
@@ -112,17 +124,26 @@
 	<category path="Poses" ID="29">
       <name>Poses</name>
     </category>
+    <category path="Power Armour" ID="53">
+      <name>Power Armour</name>
+    </category>
     <category path="Quests and Adventures" ID="30">
       <name>Quests and Adventures</name>
     </category>
     <category path="Radio" ID="31">
       <name>Radio</name>
     </category>
+    <category path="ReShade Presets" ID="55">
+      <name>ReShade Presets</name>
+    </category>
     <category path="Saved Games/Characters" ID="32">
       <name>Saved Games/Characters</name>
     </category>
     <category path="Skills and Leveling" ID="46">
       <name>Skills and Leveling</name>
+    </category>
+    <category path="Tattoos" ID="57">
+      <name>Tattoos</name>
     </category>
     <category path="User Interface" ID="37">
       <name>User Interface</name>
@@ -141,6 +162,9 @@
     </category>
     <category path="Weapons and Armour" ID="42">
       <name>Weapons and Armour</name>
+    </category>
+    <category path="Weather" ID="56">
+      <name>Weather</name>
     </category>
   </categoryList>
 </categoryManager>
