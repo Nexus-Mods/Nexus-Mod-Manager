@@ -8,9 +8,13 @@ namespace Nexus.Client.ModManagement
 
 		string ModId { get; }
 		string ModName { get; }
+		string DownloadId { get; }
+		string UpdatedDownloadId { get; }
 		string ModFileName { get; }
+		string NewFileName { get; }
 		string ModFilePath { get; }
 		string ModFileFullPath { get; }
+		string FileVersion { get; }
 
 		#endregion
 	}

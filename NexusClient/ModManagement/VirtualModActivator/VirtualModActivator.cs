@@ -408,18 +408,37 @@ namespace Nexus.Client.ModManagement
 
 		public void SaveModList(string p_strPath)
 		{
+			List<VirtualModInfo> lstVirtualModInfo = new List<VirtualModInfo>();
+
+			foreach (VirtualModInfo mod in m_tslVirtualModInfo)
+			{
+				if (string.IsNullOrEmpty(mod.DownloadId))
+				{
+					IMod modMod = ModManager.ActiveMods.FirstOrDefault(x => x.Filename.Equals(mod.ModFileFullPath, StringComparison.OrdinalIgnoreCase));
+					if (modMod != null)
+						mod.DownloadId = modMod.DownloadId;
+
+				}
+
+				lstVirtualModInfo.Add(mod);
+			}
+
 			XDocument docVirtual = new XDocument();
 			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", CURRENT_VERSION));
 			docVirtual.Add(xelRoot);
-			
+
 			XElement xelModList = new XElement("modList");
 			xelRoot.Add(xelModList);
-			xelModList.Add(from mod in m_tslVirtualModInfo
+			xelModList.Add(from mod in lstVirtualModInfo
 						   select new XElement("modInfo",
 							   new XAttribute("modId", mod.ModId ?? String.Empty),
+							   new XAttribute("downloadId", mod.DownloadId ?? String.Empty),
+							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? String.Empty),
 							   new XAttribute("modName", mod.ModName),
 							   new XAttribute("modFileName", mod.ModFileName),
+							   new XAttribute("modNewFileName", mod.NewFileName ?? String.Empty),
 							   new XAttribute("modFilePath", mod.ModFilePath),
+							   new XAttribute("FileVersion", mod.FileVersion ?? String.Empty),
 							   from link in m_tslVirtualModList.Where(x => x.ModInfo == mod)
 							   select new XElement("fileLink",
 								   new XAttribute("realPath", link.RealModPath),
@@ -432,7 +451,13 @@ namespace Nexus.Client.ModManagement
 			docVirtual.Save(p_strPath);
 		}
 
-		private void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModList)
+		/// <summary>
+		/// Save the mod list into the XML file.
+		/// </summary>
+		/// <param name="p_strPath">The Virtual Activator path.</param>
+		/// <param name="p_lstVirtualModInfo">The IVirtualModInfo object list.</param>
+		/// <param name="p_lstVirtualModList">The IVirtualModLink object list.</param>
+		public void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModList)
 		{
 			XDocument docVirtual = new XDocument();
 			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", CURRENT_VERSION));
@@ -443,17 +468,21 @@ namespace Nexus.Client.ModManagement
 			xelModList.Add(from mod in p_lstVirtualModInfo
 						   select new XElement("modInfo",
 							   new XAttribute("modId", mod.ModId ?? String.Empty),
+							   new XAttribute("downloadId", mod.DownloadId ?? String.Empty),
+							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? String.Empty),
 							   new XAttribute("modName", mod.ModName),
 							   new XAttribute("modFileName", mod.ModFileName),
+							   new XAttribute("modNewFileName", mod.NewFileName ?? String.Empty),
 							   new XAttribute("modFilePath", mod.ModFilePath),
-							   from link in p_lstVirtualModList.Where(x => x.ModInfo == mod)
+							   new XAttribute("FileVersion", mod.FileVersion ?? String.Empty),
+							   from link in p_lstVirtualModList.Where(x => CheckModInfo(x.ModInfo, mod) == true)
 							   select new XElement("fileLink",
-								   new XAttribute("realPath", link.RealModPath),
-								   new XAttribute("virtualPath", link.VirtualModPath),
-								   new XElement("linkPriority",
-									   new XText(link.Priority.ToString())),
-								   new XElement("isActive",
-									   new XText(link.Active.ToString())))));
+									new XAttribute("realPath", link.RealModPath),
+									new XAttribute("virtualPath", link.VirtualModPath),
+									new XElement("linkPriority",
+									new XText(link.Priority.ToString())),
+									new XElement("isActive",
+									new XText(link.Active.ToString())))));
 
 			docVirtual.Save(p_strPath);
 		}
@@ -573,6 +602,24 @@ namespace Nexus.Client.ModManagement
 				}
 				catch { }
 			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Compare 2 IVirtualModInfo objects using the DownloadId or the ModFileName.
+		/// </summary>
+		/// <param name="p_vmiA">The first IVirtualModInfo.</param>
+		/// <param name="p_vmiB">The second IVirtualModInfo.</param>
+		private bool CheckModInfo(IVirtualModInfo p_vmiA, IVirtualModInfo p_vmiB)
+		{
+			if (!string.IsNullOrEmpty(p_vmiA.DownloadId) && !string.IsNullOrEmpty(p_vmiB.DownloadId))
+				if (p_vmiA.DownloadId.Equals(p_vmiB.DownloadId, StringComparison.OrdinalIgnoreCase))
+					return true;
+
+			if (!string.IsNullOrEmpty(p_vmiA.ModFileName) && !string.IsNullOrEmpty(p_vmiB.ModFileName))
+				if (p_vmiA.ModFileName.Equals(p_vmiB.ModFileName, StringComparison.OrdinalIgnoreCase))
+					return true;
 
 			return false;
 		}

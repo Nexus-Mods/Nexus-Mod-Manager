@@ -578,11 +578,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
 		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
+		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
 		{
 			if (ModRepository.UserStatus != null)
 			{
-				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, 0, EnvironmentInfo.Settings.OverrideLocalModNames);
 				mutModUpdateCheck.Update(p_camConfirm);
 				return mutModUpdateCheck;
 			}
@@ -666,22 +666,22 @@ namespace Nexus.Client.ModManagement
             }
         }
 
-        #endregion
+		#endregion
 
-        #region asyncUpdate
+		#region asyncUpdate
 
-        /// <summary>
-        /// Runs the managed updaters.
-        /// </summary>
-        /// <param name="p_lstModList">The list of mods we need to update.</param>
-        /// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
-        /// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_lstModList">The list of mods we need to update.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
 		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
-        /// <returns>The background task that will run the updaters.</returns>
-		public void AsyncUpdateMods(List<IMod> p_lstModList, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
-        {
-			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
-            AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
+		/// <returns>The background task that will run the updaters.</returns>
+		public void AsyncUpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
+		{
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, 0, EnvironmentInfo.Settings.OverrideLocalModNames);
+			AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
         }
         
         public async Task AsyncUpdateModsTask(ModUpdateCheckTask p_mutModUpdateCheck, ConfirmActionMethod p_camConfirm)

@@ -19,6 +19,12 @@ namespace Nexus.Client.ModManagement
 		ThreadSafeObservableList<IModProfile> ModProfiles { get; }
 
 		/// <summary>
+		/// Gets the list of active mods.
+		/// </summary>
+		/// <value>The list of active mods.</value>
+		IModProfile CurrentProfile { get; }
+
+		/// <summary>
 		/// Gets the list of profiles.
 		/// </summary>
 		/// <value>The list of profiles.</value>
@@ -106,6 +112,8 @@ namespace Nexus.Client.ModManagement
 		string IsScriptedLogPresent(string p_strModFile, IModProfile p_impProfile);
 
 		List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo);
+
+		void UpdateProfileDownloadId(IModProfile p_impProfile, Dictionary<string, string> p_dicMissingMods);
 
 		#endregion
 

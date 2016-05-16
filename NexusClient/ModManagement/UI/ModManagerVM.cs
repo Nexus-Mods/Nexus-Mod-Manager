@@ -191,6 +191,12 @@ namespace Nexus.Client.ModManagement.UI
 		public IModRepository ModRepository { get; private set; }
 
 		/// <summary>
+		/// Gets the current profile manager.
+		/// </summary>
+		/// <value>The current profile manager.</value>
+		public IProfileManager ProfileManager { get; private set; }
+
+		/// <summary>
 		/// Gets the category manager to use to manage categories.
 		/// </summary>
 		/// <value>The category manager to use to manage categories.</value>
@@ -306,9 +312,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_mmdModManager">The mod manager to use to manage mods.</param>
 		/// <param name="p_setSettings">The application and user settings.</param>
 		/// <param name="p_thmTheme">The current theme to use for the views.</param>
-		public ModManagerVM(ModManager p_mmdModManager, ISettings p_setSettings, Theme p_thmTheme)
+		public ModManagerVM(ModManager p_mmdModManager, IProfileManager p_prmProfileManager, ISettings p_setSettings, Theme p_thmTheme)
 		{
 			ModManager = p_mmdModManager;
+			ProfileManager = p_prmProfileManager;
 			ModRepository = p_mmdModManager.ModRepository;
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
@@ -705,14 +712,14 @@ namespace Nexus.Client.ModManagement.UI
             {
                 if (lstModList.Count > 0)
                 {
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup, false)));
-                }
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, null, ConfirmUpdaterAction, p_booOverrideCategorySetup, false)));
+				}
             }
             else
             {
                 ModManager.Login();
-				ModManager.AsyncUpdateMods(lstModList, ConfirmUpdaterAction, p_booOverrideCategorySetup, false);
-            }
+				ModManager.AsyncUpdateMods(lstModList, null, ConfirmUpdaterAction, p_booOverrideCategorySetup, false);
+			}
 		}
 
 		/// <summary>
@@ -731,13 +738,13 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if (ManagedMods.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ConfirmUpdaterAction, false, true)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, true)));
 				}
 			}
 			else
 			{
 				ModManager.Login();
-				ModManager.AsyncUpdateMods(lstModList, ConfirmUpdaterAction, false, true);
+				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, true);
 			}
 		}
 

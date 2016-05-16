@@ -512,6 +512,45 @@ namespace Nexus.Client.ModManagement
 			SaveConfig();
 		}
 
+		public void UpdateProfileDownloadId(IModProfile p_impProfile, Dictionary<string, string> p_dctNewDownloadID)
+		{
+
+			bool booEdited = false;
+			if (p_impProfile == null)
+				return;
+
+			if (p_impProfile.ModList == null)
+				LoadProfileFileList(p_impProfile);
+
+
+			foreach (KeyValuePair<string, string> kvp in p_dctNewDownloadID)
+			{
+				IVirtualModInfo ModInfo = p_impProfile.ModList.Where(x => x.ModFileName.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+				if (ModInfo != null)
+				{
+					VirtualModInfo vmiModInfo = new VirtualModInfo(ModInfo);
+					vmiModInfo.UpdatedDownloadId = kvp.Value;
+
+					p_impProfile.ModList.Remove(ModInfo);
+					p_impProfile.ModList.Add(vmiModInfo);
+
+					if (!booEdited)
+						booEdited = true;
+				}
+			}
+
+			if (booEdited)
+			{
+				string strProfilePath = Path.Combine(m_strProfileManagerPath, p_impProfile.Id);
+				VirtualModActivator.SaveModList(Path.Combine(strProfilePath, "modlist.xml"), p_impProfile.ModList, p_impProfile.ModFileList);
+			}
+
+
+			//prendere la modlist di questo profilo e cerca in tutti i nodi ModInfo
+			// per modFileName. Se c'è uno dei modfilename presenti nel dictionary
+			// andiamo a scrivere l'updateddownloadid
+		}
+
 		/// <summary>
 		/// Updates the profile file.
 		/// </summary>
