@@ -302,7 +302,21 @@ namespace Nexus.Client.Games.NoMansSky
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
 		{
-			return p_strPath;
+			string strPath = p_strPath;
+			string strFileType = Path.GetExtension(strPath);
+
+			if (strPath.StartsWith("GAMEDATA", StringComparison.InvariantCultureIgnoreCase))
+				strPath = strPath.Substring(9);
+
+			if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+			{
+				if (strPath.IndexOf("PCBANKS", StringComparison.InvariantCultureIgnoreCase) >= 0)
+					return strPath;
+				else
+					strPath = Path.Combine("PCBANKS", Path.GetFileName(strPath));
+			}
+
+			return strPath;
 		}
 
 		/// <summary>
@@ -333,7 +347,7 @@ namespace Nexus.Client.Games.NoMansSky
 				if (strPath.IndexOf("PCBANKS", StringComparison.InvariantCultureIgnoreCase) >= 0)
 					return strPath;
 				else
-					strPath = Path.Combine("PCBANKS", strPath);
+					strPath = Path.Combine("PCBANKS", Path.GetFileName(strPath));
 			}
 
 			return strPath;			
