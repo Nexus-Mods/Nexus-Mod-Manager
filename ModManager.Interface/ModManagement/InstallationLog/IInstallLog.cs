@@ -55,6 +55,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <param name="p_modMod">The <see cref="IMod"/> being added.</param>
 		void AddActiveMod(IMod p_modMod);
 
+		IInstallLog ReInitialize(string p_strLogPath);
+
 		/// <summary>
 		/// Replaces a mod in the install log, in a transaction.
 		/// </summary>

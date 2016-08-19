@@ -64,6 +64,24 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the id of the file encoded in the url.
+		/// </summary>
+		/// <remarks>
+		/// This returns <c>null</c> if there is no file id in the url.
+		/// </remarks>
+		/// <value>The id of the file encoded in the url.</value>
+		public string ProfileId
+		{
+			get
+			{
+				string[] strUriParts = TrimmedSegments;
+				if ((strUriParts.Length > 2) && strUriParts[1].Equals("profiles", StringComparison.OrdinalIgnoreCase))
+					return strUriParts[2];
+				return null;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

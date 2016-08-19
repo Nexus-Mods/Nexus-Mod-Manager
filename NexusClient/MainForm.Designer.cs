@@ -66,12 +66,14 @@
 			this.tlbDownloads = new System.Windows.Forms.ToolStripLabel();
 			this.tpbDownloadSpeed = new Nexus.Client.UI.Controls.CustomizableToolStripProgressBar();
 			this.tsbGoPremium = new System.Windows.Forms.ToolStripButton();
-            this.tlbLoginMessage = new System.Windows.Forms.ToolStripLabel();
+			this.tlbLoginMessage = new System.Windows.Forms.ToolStripLabel();
 			this.tsbOnlineStatus = new System.Windows.Forms.ToolStripButton();
 			this.tstFind = new System.Windows.Forms.ToolStripTextBox();
 			this.tlbModsCounter = new System.Windows.Forms.ToolStripLabel();
+			this.tlbProfilesCounter = new System.Windows.Forms.ToolStripLabel();
 			this.tlbPluginsCounter = new System.Windows.Forms.ToolStripLabel();
 			this.tlbActivePluginsCounter = new System.Windows.Forms.ToolStripLabel();
+			this.tlbProfilesSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.tlbModSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.tlbPluginSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.tlbBottomBarFeedbackCounter = new System.Windows.Forms.ToolStripLabel();
@@ -279,7 +281,9 @@
 			this.tlbPluginsCounter,
 			this.tlbActivePluginsCounter,
 			this.tlbPluginSeparator,
-			this.tlbModsCounter});
+			this.tlbModsCounter,
+			this.tlbProfilesSeparator,
+			this.tlbProfilesCounter});
 			this.tssDownload.Location = new System.Drawing.Point(0, 497);
 			this.tssDownload.Name = "tssDownload";
 			this.tssDownload.Size = new System.Drawing.Size(804, 36);
@@ -329,10 +333,10 @@
 			this.tsbOnlineStatus.Name = "tsbOnlineStatus";
 			this.tsbOnlineStatus.Size = new System.Drawing.Size(36, 34);
 			// 
-            // tlbLoginMessage
+			// tlbLoginMessage
 			// 
-            this.tlbLoginMessage.Name = "tlbLoginMessage";
-            this.tlbLoginMessage.Size = new System.Drawing.Size(0, 34);
+			this.tlbLoginMessage.Name = "tlbLoginMessage";
+			this.tlbLoginMessage.Size = new System.Drawing.Size(0, 34);
 			// 
 			// tlbStatusFiller
 			// 			
@@ -345,6 +349,12 @@
 			this.tlbModsCounter.Name = "tlbModsCounter";
 			this.tlbModsCounter.Text = " | Total mods / Active mods ";
 			this.tlbModsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			// 
+			// tlbProfilesCounter
+			// 
+			this.tlbProfilesCounter.Name = "tlbProfilesCounter";
+			this.tlbProfilesCounter.Text = " | Local Profiles / Online Profiles ";
+			this.tlbProfilesCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			// 
 			// tlbPluginsCounter
 			// 
@@ -415,13 +425,15 @@
 		private System.Windows.Forms.StatusStrip tssDownload;
 		private Nexus.Client.UI.Controls.CustomizableToolStripProgressBar tpbDownloadSpeed;
 		private System.Windows.Forms.ToolStripLabel tlbDownloads;
-        private System.Windows.Forms.ToolStripLabel tlbLoginMessage;
+		private System.Windows.Forms.ToolStripLabel tlbLoginMessage;
 		private System.Windows.Forms.ToolStripButton tsbGoPremium;
 		private System.Windows.Forms.ToolStripButton tsbOnlineStatus;
 		private System.Windows.Forms.ToolStripLabel tlbModsCounter;
 		private System.Windows.Forms.ToolStripLabel tlbPluginsCounter;
+		private System.Windows.Forms.ToolStripLabel tlbProfilesCounter;
 		private System.Windows.Forms.ToolStripLabel tlbActivePluginsCounter;
 		private System.Windows.Forms.ToolStripSeparator tlbPluginSeparator;
+		private System.Windows.Forms.ToolStripSeparator tlbProfilesSeparator;
 		private System.Windows.Forms.ToolStripSeparator tlbModSeparator;
 		private System.Windows.Forms.ToolStripLabel tlbBottomBarFeedback;
 		private System.Windows.Forms.ToolStripLabel tlbBottomBarFeedbackCounter;

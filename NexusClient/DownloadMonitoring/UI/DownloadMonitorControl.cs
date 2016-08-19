@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.ModManagement;
@@ -55,6 +56,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				new ToolStripItemCommandBinding(tsbRemoveAll, cmdRemoveAll);
 				Command cmdResumeAll = new Command("Resume all", "Resumes all paused/queued downloads.", ViewModel.ResumeAllTasks);
 				new ToolStripItemCommandBinding(tsbResumeAll, cmdResumeAll);
+				Command cmdPurgeDownloads = new Command("Purge Downloads", "Purges the paused/queued downloads from the list.", ViewModel.PurgeDownloads);
+				new ToolStripItemCommandBinding(tsbPurgeDownloads, cmdPurgeDownloads);
+
+				m_vmlViewModel.PurgingDownloads += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_PurgingDownloads);
 
 				ViewModel.CancelTaskCommand.CanExecute = false;
 				ViewModel.RemoveTaskCommand.CanExecute = false;
@@ -342,6 +347,24 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Handles the <see cref="DownloadMonitor.PurgingDownloads"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_PurgingDownloads(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_PurgingDownloads, sender, e);
+				return;
+			}
+			ProgressDialog.ShowDialog(this, e.Argument, true);
+		}
 
 		/// <summary>
 		/// Handles the <see cref="INotifyPropertyChanged.PropertyChanged"/> of the tasks being monitored.

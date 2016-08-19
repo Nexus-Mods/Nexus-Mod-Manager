@@ -149,6 +149,13 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public string Website { get; set; }
 
 		/// <summary>
+		/// Gets or sets the Guess state.
+		/// </summary>
+		/// <value>The mod page URI.</value>
+		[DataMember(Name = "is_guess")]
+		public int IsGuess { get; set; }
+
+		/// <summary>
 		/// Gets or sets the Requested DownloadId.
 		/// </summary>
 		/// <value>The Requested DownloadId.</value>

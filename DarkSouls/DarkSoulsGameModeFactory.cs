@@ -127,7 +127,8 @@ namespace Nexus.Client.Games.DarkSouls
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();

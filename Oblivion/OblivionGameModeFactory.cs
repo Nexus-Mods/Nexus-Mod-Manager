@@ -139,7 +139,8 @@ namespace Nexus.Client.Games.Oblivion
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();

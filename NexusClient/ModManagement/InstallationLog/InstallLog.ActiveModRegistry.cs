@@ -167,8 +167,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public IMod GetMod(string p_strKey)
 			{
 				IMod modMod = (from kvp in m_dicModKeys
-							   where kvp.Value.Equals(p_strKey)
-							   select kvp.Key).FirstOrDefault();
+							where kvp.Value.Equals(p_strKey)
+							select kvp.Key).FirstOrDefault();
 				return modMod;
 			}
 		}

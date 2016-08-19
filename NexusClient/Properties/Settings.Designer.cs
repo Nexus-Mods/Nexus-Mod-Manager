@@ -262,6 +262,18 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5")]
+        public int MaxConcurrentDownloads {
+            get {
+                return ((int)(this["MaxConcurrentDownloads"]));
+            }
+            set {
+                this["MaxConcurrentDownloads"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string LastModVersionsCheckDate {
             get {
@@ -466,6 +478,17 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        public global::System.DateTime LastCheckedMissingDownloadID {
+            get {
+                return ((global::System.DateTime)(this["LastCheckedMissingDownloadID"]));
+            }
+            set {
+                this["LastCheckedMissingDownloadID"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool ShowFallout4UpgradeDisclaimer {
             get {
@@ -473,6 +496,18 @@ namespace Nexus.Client.Properties {
             }
             set {
                 this["ShowFallout4UpgradeDisclaimer"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool OverrideLocalModNames {
+            get {
+                return ((bool)(this["OverrideLocalModNames"]));
+            }
+            set {
+                this["OverrideLocalModNames"] = value;
             }
         }
         
@@ -774,18 +809,6 @@ namespace Nexus.Client.Properties {
             }
             set {
                 this["MultiHDInstall"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool OverrideLocalModNames {
-            get {
-                return ((bool)(this["OverrideLocalModNames"]));
-            }
-            set {
-                this["OverrideLocalModNames"] = value;
             }
         }
     }

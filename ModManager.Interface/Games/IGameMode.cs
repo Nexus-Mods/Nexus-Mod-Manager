@@ -102,6 +102,12 @@ namespace Nexus.Client.Games
 		string GameDefaultCategories { get; }
 
 		/// <summary>
+		/// Gets the default game files.
+		/// </summary>
+		/// <value>The default game files stored in the resource file.</value>
+		string BaseGameFiles { get; }
+
+		/// <summary>
 		/// Gets the max allowed number of active plugins.
 		/// </summary>
 		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>

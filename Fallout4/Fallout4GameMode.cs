@@ -1,5 +1,5 @@
 ﻿using System;
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -129,6 +129,18 @@ namespace Nexus.Client.Games.Fallout4
 				return Properties.Resources.Categories;
 			}
 		}
+		
+		/// <summary>
+		/// Gets the game Base files.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public override string BaseGameFiles
+		{
+			get
+			{
+				return Properties.Resources.fallout4_base;
+			}
+		}
 
 		/// <summary>
 		/// Whether the game requires the profile manager to save optional files.
@@ -176,7 +188,7 @@ namespace Nexus.Client.Games.Fallout4
 		public Fallout4GameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo, p_futFileUtility)
 		{
-			
+
 		}
 
 		#endregion
@@ -196,7 +208,7 @@ namespace Nexus.Client.Games.Fallout4
 		/// Adds the settings files to the game mode's list.
 		/// </summary>
 		protected override void SetupSettingsFiles()
-		{	
+		{
 			base.SetupSettingsFiles();
 			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Fallout4Custom.ini");
 			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "Fallout4Prefs.ini");

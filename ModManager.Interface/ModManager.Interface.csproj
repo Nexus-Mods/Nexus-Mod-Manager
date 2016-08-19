@@ -46,6 +46,7 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
@@ -60,6 +61,7 @@
     <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
       <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
     </Compile>
+    <Compile Include="CategoriesInfo.cs" />
     <Compile Include="Games\GameLauncherBase.cs" />
     <Compile Include="Games\GameModeDescriptorBase.cs" />
     <Compile Include="Games\ISetupVM.cs" />
@@ -111,6 +113,8 @@
     <Compile Include="Games\Tools\ITool.cs" />
     <Compile Include="Games\Tools\IToolLauncher.cs" />
     <Compile Include="Games\Tools\IToolView.cs" />
+    <Compile Include="IModProfileInfo.cs" />
+    <Compile Include="ModManagement\BackupManager\IBackupInfo.cs" />
     <Compile Include="ModManagement\BasicInstallTask.cs" />
     <Compile Include="ModManagement\CategoryManager\ICategoryManager.cs" />
     <Compile Include="ModManagement\ConfirmUpgradeResult.cs" />
@@ -161,6 +165,7 @@
     <Compile Include="Mods\Readme.cs" />
     <Compile Include="PluginManagement\ILoadOrderManager.cs" />
     <Compile Include="PluginManagement\IPluginManager.cs" />
+    <Compile Include="ProfileMissingModInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <DependentUpon>Resources.resx</DependentUpon>

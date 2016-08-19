@@ -128,14 +128,14 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			Trace.TraceInformation("Loading Plugin Order...");
 			Trace.Indent();
 			m_oclOrderedPlugins = new ThreadSafeObservableList<Plugin>();
-            if (LogSerializer != null)
-			    foreach (string strPlugin in LogSerializer.LoadPluginOrder())
-			    {
-				    Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(strPlugin);
-				    Trace.TraceInformation("Loading {0} (IsNull={1})", strPlugin, (plgPlugin == null));
+			if (LogSerializer != null)
+				foreach (string strPlugin in LogSerializer.LoadPluginOrder())
+				{
+					Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(strPlugin);
+					Trace.TraceInformation("Loading {0} (IsNull={1})", strPlugin, (plgPlugin == null));
 					if ((plgPlugin != null) && !m_oclOrderedPlugins.Contains(plgPlugin))
 						m_oclOrderedPlugins.Add(plgPlugin);
-			    }
+				}
 			Trace.Unindent();
 		}
 

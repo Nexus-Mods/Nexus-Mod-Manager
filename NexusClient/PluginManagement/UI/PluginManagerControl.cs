@@ -324,15 +324,19 @@ namespace Nexus.Client.PluginManagement.UI
 				case NotifyCollectionChangedAction.Reset:
 					foreach (Plugin plgRemoved in e.OldItems)
 					{
-						rlvPlugins.Items.RemoveByKey(plgRemoved.Filename.ToLowerInvariant());
-
-						List<Plugin> lstOrphanedPlugins = ViewModel.GetOrphanedPlugins(plgRemoved.Filename);
-						if ((lstOrphanedPlugins != null) && (lstOrphanedPlugins.Count > 0))
+						if ((plgRemoved != null) && (rlvPlugins != null) && (rlvPlugins.Items != null) && (rlvPlugins.Items.Count > 0))
 						{
-							foreach (Plugin plugin in lstOrphanedPlugins)
+							rlvPlugins.Items.RemoveByKey(plgRemoved.Filename.ToLowerInvariant());
+
+							List<Plugin> lstOrphanedPlugins = ViewModel.GetOrphanedPlugins(plgRemoved.Filename);
+							if ((lstOrphanedPlugins != null) && (lstOrphanedPlugins.Count > 0))
 							{
-								ListViewItem lviItem = rlvPlugins.Items[plugin.Filename.ToLowerInvariant()];
-								lviItem.ForeColor = Color.DarkRed;
+								foreach (Plugin plugin in lstOrphanedPlugins)
+								{
+									ListViewItem lviItem = rlvPlugins.Items[plugin.Filename.ToLowerInvariant()];
+									if (lviItem != null)
+										lviItem.ForeColor = Color.DarkRed;
+								}
 							}
 						}
 					}

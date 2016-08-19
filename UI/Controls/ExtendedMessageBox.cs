@@ -133,6 +133,27 @@ namespace Nexus.UI.Controls
 			return Show(mbxBox, p_ctlParent);
 		}
 
+
+		/// <summary>
+		/// Shows the message box.
+		/// </summary>
+		/// <param name="p_ctlParent">The parent of the message box.</param>
+		/// <param name="p_strMessage">The message to display.</param>
+		/// <param name="p_strCaption">The windows title.</param>
+		/// <param name="p_strDetails">The HTML-formatted details to display.</param>
+		/// <param name="p_intMinWidth">The minimum width of the message box.</param>
+		/// <param name="p_intDetailHeight">The initial height of the details section.</param>
+		/// <param name="p_mbbButtons">The buttons to display.</param>
+		/// <param name="p_mbiIcon">The icon to display.</param>
+		public static DialogResult Show(Control p_ctlParent, string p_strMessage, string p_strCaption, string p_strDetails, Int32 p_intMinWidth, Int32 p_intDetailHeight, ExtendedMessageBoxButtons p_mbbButtons, MessageBoxIcon p_mbiIcon)
+		{
+			ExtendedMessageBox mbxBox = new ExtendedMessageBox();
+			mbxBox.MinimumSize = new Size(p_intMinWidth, mbxBox.MinimumSize.Height);
+			mbxBox.LastDetailsHeight = p_intDetailHeight;
+			mbxBox.Init(p_strMessage, p_strCaption, p_strDetails, p_mbbButtons, p_mbiIcon, false, true);
+			return Show(mbxBox, p_ctlParent);
+		}
+
 		/// <summary>
 		/// Shows the message box.
 		/// </summary>
@@ -224,6 +245,17 @@ namespace Nexus.UI.Controls
 					break;
 			}
 
+			m_booForceDetails = p_booForceDetails;
+
+			Init(p_strMessage, p_strCaption, p_strDetails, ebbButtons, p_mbiIcon, p_booShowRemember);
+		}
+
+		protected void Init(string p_strMessage, string p_strCaption, string p_strDetails, ExtendedMessageBoxButtons p_mbbButtons, MessageBoxIcon p_mbiIcon, bool p_booShowRemember, bool p_booForceDetails = false)
+		{
+			ExtendedMessageBoxButtons ebbButtons = ExtendedMessageBoxButtons.None;
+			
+			ebbButtons = ExtendedMessageBoxButtons.Update | ExtendedMessageBoxButtons.Backup;
+			
 			m_booForceDetails = p_booForceDetails;
 
 			Init(p_strMessage, p_strCaption, p_strDetails, ebbButtons, p_mbiIcon, p_booShowRemember);
@@ -440,6 +472,36 @@ namespace Nexus.UI.Controls
 				pnlButtons.Controls.Add(butAbort);
 				this.AcceptButton = butAbort;
 				intMinimumWidth += butAbort.Width + 6;
+			}
+
+			if ((p_ebbButtons & ExtendedMessageBoxButtons.Backup) == ExtendedMessageBoxButtons.Backup)
+			{
+				Button butBackup = new Button();
+				butBackup.Text = "Backup";
+				butBackup.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+				butBackup.Location = new Point(intLastButtonLeft - butBackup.Width - 6, 12);
+				butBackup.Click += new EventHandler(Button_Click);
+				butBackup.Tag = DialogResult.Yes;
+				butBackup.TabIndex = 1;
+				intLastButtonLeft = butBackup.Left;
+				pnlButtons.Controls.Add(butBackup);
+				this.AcceptButton = butBackup;
+				intMinimumWidth += butBackup.Width + 6;
+			}
+
+			if ((p_ebbButtons & ExtendedMessageBoxButtons.Update) == ExtendedMessageBoxButtons.Update)
+			{
+				Button butUpdate = new Button();
+				butUpdate.Text = "Update";
+				butUpdate.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+				butUpdate.Location = new Point(intLastButtonLeft - butUpdate.Width - 6, 12);
+				butUpdate.Click += new EventHandler(Button_Click);
+				butUpdate.Tag = DialogResult.No;
+				butUpdate.TabIndex = 1;
+				intLastButtonLeft = butUpdate.Left;
+				pnlButtons.Controls.Add(butUpdate);
+				this.AcceptButton = butUpdate;
+				intMinimumWidth += butUpdate.Width + 6;
 			}
 
 			return intMinimumWidth;

@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using ChinhDo.Transactions;
@@ -35,7 +37,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			Plugins = p_strPlugins;
 			TimestampLoadOrder = p_booTimestamp;
 			ForcedReadOnly = p_booReadOnly;
-			MasterDate = p_dtiMasterDate;	
+			MasterDate = p_dtiMasterDate;
 		}
 
 		#endregion
@@ -79,13 +81,26 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = Plugins.Count();
 			ShowItemProgress = false;
+			KeyValuePair<string, string> kvpMD5 = new KeyValuePair<string, string>(null, null);
 
 			if (TimestampLoadOrder)
 				SetTimestampLoadOrder(Plugins);
 			else
-				WriteLoadOrderFile(FilePath, Plugins);
+			{
+				if (WriteLoadOrderFile(FilePath, Plugins))
+				{
+					using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+					{
+						SHA256CryptoServiceProvider sha = new SHA256CryptoServiceProvider();
+						byte[] hash = sha.ComputeHash(fs);
+						string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
 
-			return null;
+						kvpMD5 = new KeyValuePair<string, string>(Path.GetFileName(FilePath), strSHA);
+					}
+				}
+			}
+
+			return kvpMD5;
 		}
 
 		/// <summary>
@@ -114,7 +129,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 							}
 						}
 
-						if(!booLocked)
+						if (!booLocked)
 							File.SetLastWriteTime(strPluginFile, MasterDate.AddMinutes(i));
 					}
 				}
@@ -124,9 +139,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Writes the plugin load order to the text file.
 		/// </summary>
-		private void WriteLoadOrderFile(string p_strFilePath, string[] p_strPlugins)
+		private bool WriteLoadOrderFile(string p_strFilePath, string[] p_strPlugins)
 		{
 			int intRepeat = 0;
+			bool booWritten = false;
 			bool booLocked = false;
 
 			while (!IsFileReady(p_strFilePath, ForcedReadOnly))
@@ -153,7 +169,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 							while (IsFileReadOnly(p_strFilePath) && (intRetries < 10))
 							{
-								
+
 								SetFileReadAccess(p_strFilePath, false);
 								intReadOnly++;
 								Thread.Sleep(100);
@@ -175,6 +191,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								//foreach (string plugin in p_strPlugins)
 								//	swFile.WriteLine(plugin);
 							}
+
+							booWritten = true;
 						}
 						break;
 					}
@@ -228,6 +246,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					}
 				}
 			}
+
+			return booWritten;
 		}
 
 		/// <summary>

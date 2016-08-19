@@ -75,7 +75,7 @@ namespace Nexus.Client.ModActivationMonitoring
 		{
 			get
 			{
-				return (m_btsRunningTask != null);
+				return ((m_btsRunningTask != null) && (!m_btsRunningTask.IsCompleted) && (!m_btsRunningTask.IsQueued));
 			}
 		}
 

@@ -56,7 +56,7 @@ namespace Nexus.Client
 				return false;
 			SetCompressorPath(m_eifEnvironmentInfo);
 
-			List<string> lstDeletedDLL =  CheckModScriptDLL();
+			List<string> lstDeletedDLL = CheckModScriptDLL();
 
 			string strRequestedGameMode = null;
 			string[] strArgs = p_strArgs;
@@ -205,9 +205,9 @@ namespace Nexus.Client
 					IGameMode gmdGameMode = ainInitializer.GameMode;
 					ServiceManager svmServices = ainInitializer.Services;
 
-					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.DownloadMonitor, svmServices.ModActivationMonitor, svmServices.UpdateManager, svmServices.ModManager, svmServices.PluginManager);
+					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.DownloadMonitor, svmServices.ModActivationMonitor, svmServices.ModManager, svmServices.PluginManager);
 					MainForm frmMain = new MainForm(vmlMainForm);
-					
+
 					using (IMessager msgMessager = MessagerServer.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
 					{
 						if (uriModToAdd != null)
@@ -241,46 +241,12 @@ namespace Nexus.Client
 						mtxGameModeMutex.Close();
 					}
 					FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);
-					
+
 					//Clean up created font's.
 					FontManager.Dispose();
 				}
 			} while (!String.IsNullOrEmpty(strRequestedGameMode) || booChangeDefaultGameMode);
 			return true;
-		}
-
-		/// <summary>
-		/// This checks and deletes all the ModScript.dll in the NMM GameModes folder.
-		/// </summary>
-		private List<string> CheckModScriptDLL()
-		{
-			List<string> lstDeletedDLL = new List<string>();
-			lstDeletedDLL.Add("DarkSouls.ModScript.dll");
-			lstDeletedDLL.Add("DarkSouls2.ModScript.dll");
-			lstDeletedDLL.Add("DragonAge.ModScript.dll");
-			lstDeletedDLL.Add("DragonAge2.ModScript.dll");
-			lstDeletedDLL.Add("Grimrock.ModScript.dll");
-			lstDeletedDLL.Add("Morrowind.ModScript.dll");
-			lstDeletedDLL.Add("Oblivion.ModScript.dll");
-			lstDeletedDLL.Add("Starbound.ModScript.dll");
-			lstDeletedDLL.Add("StateOfDecay.ModScript.dll");
-			lstDeletedDLL.Add("Witcher2.ModScript.dll");
-			lstDeletedDLL.Add("WorldOfTanks.ModScript.dll");
-
-			foreach (string DLL in lstDeletedDLL)
-			{
-				string DLLFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "GameModes", DLL);
-
-				try
-				{
-					if (File.Exists(DLLFile))
-						FileUtil.ForceDelete(DLLFile);
-				}
-				catch {	}
-			}
-
-			return lstDeletedDLL;
-
 		}
 
 		#region Pre Game Mode Selection
@@ -442,5 +408,39 @@ namespace Nexus.Client
 		}
 
 		#endregion
+
+		/// <summary>
+		/// This checks and deletes all the ModScript.dll in the NMM GameModes folder.
+		/// </summary>
+		private List<string> CheckModScriptDLL()
+		{
+			List<string> lstDeletedDLL = new List<string>();
+			lstDeletedDLL.Add("DarkSouls.ModScript.dll");
+			lstDeletedDLL.Add("DarkSouls2.ModScript.dll");
+			lstDeletedDLL.Add("DragonAge.ModScript.dll");
+			lstDeletedDLL.Add("DragonAge2.ModScript.dll");
+			lstDeletedDLL.Add("Grimrock.ModScript.dll");
+			lstDeletedDLL.Add("Morrowind.ModScript.dll");
+			lstDeletedDLL.Add("Oblivion.ModScript.dll");
+			lstDeletedDLL.Add("Starbound.ModScript.dll");
+			lstDeletedDLL.Add("StateOfDecay.ModScript.dll");
+			lstDeletedDLL.Add("Witcher2.ModScript.dll");
+			lstDeletedDLL.Add("WorldOfTanks.ModScript.dll");
+
+			foreach (string DLL in lstDeletedDLL)
+			{
+				string DLLFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "GameModes", DLL);
+
+				try
+				{
+					if (File.Exists(DLLFile))
+						FileUtil.ForceDelete(DLLFile);
+				}
+				catch {	}
+			}
+
+			return lstDeletedDLL;
+
+		}
 	}
 }

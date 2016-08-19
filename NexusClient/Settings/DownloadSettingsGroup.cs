@@ -16,6 +16,7 @@ namespace Nexus.Client.Settings
 
 		private bool m_booUseMultithreadedDownloads = false;
 		private bool m_booPremiumEnabled = false;
+		private int m_intMaxConcurrentDownloads = 10;
 		private string m_strUserLocation = "default";
 		private IModRepository m_mmrModRepository = null;
 
@@ -52,6 +53,22 @@ namespace Nexus.Client.Settings
 			set
 			{
 				SetPropertyIfChanged(ref m_booUseMultithreadedDownloads, value, () => UseMultithreadedDownloads);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the interval (in days) to wait before checking for a program update.
+		/// </summary>
+		/// <value>The interval (in days) to wait before checking for a program update.</value>
+		public Int32 MaxConcurrentDownloads
+		{
+			get
+			{
+				return m_intMaxConcurrentDownloads;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_intMaxConcurrentDownloads, value, () => MaxConcurrentDownloads);
 			}
 		}
 
@@ -153,6 +170,8 @@ namespace Nexus.Client.Settings
 					EnvironmentInfo.Settings.UserLocation = "default";
 			}
 
+			MaxConcurrentDownloads = m_mmrModRepository.MaxConcurrentDownloads;
+
 			return MemberCheck;
 		}
 
@@ -162,11 +181,15 @@ namespace Nexus.Client.Settings
 		public override void Load()
 		{
 			UseMultithreadedDownloads = EnvironmentInfo.Settings.UseMultithreadedDownloads;
+
 			FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
 			if (fszUser != null)
 				UserLocation = fszUser.FileServerID;
 			else
 				UserLocation = "default";
+
+			if(MaxConcurrentDownloads == 0)
+				MaxConcurrentDownloads = EnvironmentInfo.Settings.MaxConcurrentDownloads;
 		}
 
 		/// <summary>
@@ -178,6 +201,7 @@ namespace Nexus.Client.Settings
 		{
 			EnvironmentInfo.Settings.UseMultithreadedDownloads = UseMultithreadedDownloads;
 			EnvironmentInfo.Settings.UserLocation = UserLocation;
+			EnvironmentInfo.Settings.MaxConcurrentDownloads = MaxConcurrentDownloads;
 			lock (EnvironmentInfo.Settings)
 				EnvironmentInfo.Settings.Save();
 			return true;

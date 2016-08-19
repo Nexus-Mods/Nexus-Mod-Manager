@@ -339,6 +339,36 @@ namespace Nexus.Client.ModManagement
 		/// <value>The current error info, if anything wrong happened.</value>
 		public string ErrorInfo { get; private set; }
 
+		/// <summary>
+		/// Gets the current Descriptor source path.
+		/// </summary>
+		/// <value>The current Descriptor source path.</value>
+		public string DescriptorSourcePath
+		{
+			get
+			{
+				if (Descriptor != null)
+					return Descriptor.DefaultSourcePath;
+				else
+					return null;
+			}
+		}
+
+		/// <summary>
+		/// Gets the current source Uri.
+		/// </summary>
+		/// <value>The current source Uri.</value>
+		public string SourceUri
+		{
+			get
+			{
+				if (m_uriPath != null)
+					return m_uriPath.AbsoluteUri;
+				else
+					return string.Empty;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -411,7 +441,7 @@ namespace Nexus.Client.ModManagement
 			{
 				if (m_mrpModRepository.IsOffline)
 				{
-                    Pause();
+					Pause();
 					return;
 				}
 				else
@@ -746,7 +776,7 @@ namespace Nexus.Client.ModManagement
 					swtSpeed.Start();
 				}
 
-				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.TotalMinutes;
+				double dblMinutes = (intSpeed == 0) ? 99 : tspTimeRemaining.Minutes;
 				Int32 intSeconds = (intSpeed == 0) ? 99 : tspTimeRemaining.Seconds;
 				if ((ItemProgress == 0) && (intSpeed == 0))
 					ItemMessage = "Starting the download...";
@@ -1042,9 +1072,9 @@ namespace Nexus.Client.ModManagement
 
 			if (Descriptor == null)
 			{
-                Descriptor = new AddModDescriptor(m_uriPath, String.Empty, null, Status, null);
-                OverallMessage = String.Format("Cancelled: {0}", m_uriPath.ToString());
-                OnTaskEnded(String.Format("Cancelled: {0}", m_uriPath.ToString()), null);
+				Descriptor = new AddModDescriptor(m_uriPath, String.Empty, null, Status, null);
+				OverallMessage = String.Format("Cancelled: {0}", m_uriPath.ToString());
+				OnTaskEnded(String.Format("Cancelled: {0}", m_uriPath.ToString()), null);
 				return;
 			}
 
@@ -1145,6 +1175,8 @@ namespace Nexus.Client.ModManagement
 					lock (m_dctSourceUri)
 						if (m_dctSourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && (m_dctSourceUri[Descriptor.SourceUri.ToString()] == m_intLocalID))
 							m_dctSourceUri.Remove(Descriptor.SourceUri.ToString());
+
+				Thread.Sleep(1000);
 
 				foreach (string strFile in Descriptor.DownloadedFiles)
 					if (strFile.StartsWith(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, StringComparison.OrdinalIgnoreCase))

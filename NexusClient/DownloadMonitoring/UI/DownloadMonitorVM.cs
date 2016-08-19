@@ -3,12 +3,14 @@ using Nexus.Client.Commands.Generic;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Settings;
+using Nexus.Client.UI;
+using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using System;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
+using System.Threading;
 
 namespace Nexus.Client.DownloadMonitoring.UI
 {
@@ -19,6 +21,16 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	public class DownloadMonitorVM : INotifyPropertyChanged
 	{
 		ModManager m_mmgModManager = null;
+		private static readonly Object m_objLock = new Object();
+
+		#region  events
+
+		/// <summary>
+		/// Raised when purging Downloads.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> PurgingDownloads = delegate { };
+
+		#endregion
 
 		#region Properties
 
@@ -26,6 +38,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Raised whenever a property of the class changes.
 		/// </summary>
 		public event PropertyChangedEventHandler PropertyChanged;
+
+		/// <summary>
+		/// Called when an updater's action needs to be confirmed.
+		/// </summary>
+		public ConfirmActionMethod ConfirmUpdaterAction = delegate { return true; };
 
 		#region Commands
 
@@ -242,7 +259,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">The task to cancel.</param>
 		public void CancelTask(IBackgroundTask p_tskTask)
 		{
-			p_tskTask.Cancel();
+			lock (m_objLock)
+				p_tskTask.Cancel();
 		}
 
 		/// <summary>
@@ -267,8 +285,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">IBackgroundTask task to remove.</param>
 		public void RemoveTask(AddModTask p_tskTask)
 		{
-			if (DownloadMonitor.CanRemove(p_tskTask))
-				DownloadMonitor.RemoveDownload(p_tskTask);
+			lock (m_objLock)
+			{
+				if (DownloadMonitor.CanRemove(p_tskTask))
+					DownloadMonitor.RemoveDownload(p_tskTask);
+			}
 		}
 
 		/// <summary>
@@ -277,16 +298,37 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public void RemoveAllTasks()
 		{
 			List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
+
 			lock (Tasks)
 			{
 				foreach (IBackgroundTask btTask in Tasks)
 					lstTasks.Add(btTask);
 			}
+
 			if (lstTasks.Count > 0)
 				foreach (IBackgroundTask btRemovable in lstTasks)
-					RemoveTask((AddModTask)btRemovable);
+				{
+					lock (m_objLock)
+						RemoveTask((AddModTask)btRemovable);
+				}
 		}
 
+		/// <summary>
+		/// Removes all the paused/queued tasks.
+		/// </summary>
+		public void PurgeDownloads()
+		{
+			List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
+
+			lock (Tasks)
+			{
+				foreach (IBackgroundTask btTask in Tasks)
+					lstTasks.Add(btTask);
+			}
+
+			PurgingDownloads(this, new EventArgs<IBackgroundTask>(DownloadMonitor.PurgeDownloads(lstTasks, ConfirmUpdaterAction)));
+		}
+		
 		/// <summary>
 		/// Determines if the given <see cref="IBackgroundTask"/> can be removed.
 		/// </summary>
@@ -309,8 +351,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">The task to pause.</param>
 		public void PauseTask(IBackgroundTask p_tskTask)
 		{
-			if (DownloadMonitor.CanPause(p_tskTask))
-				DownloadMonitor.PauseDownload(p_tskTask);
+			lock (m_objLock)
+			{
+				if (DownloadMonitor.CanPause(p_tskTask))
+					DownloadMonitor.PauseDownload(p_tskTask);
+			}
 		}
 
 		/// <summary>
@@ -335,8 +380,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">The task to pause.</param>
 		public void QueueTask(IBackgroundTask p_tskTask)
 		{
-			if (DownloadMonitor.CanQueue(p_tskTask))
-				DownloadMonitor.QueueDownload(p_tskTask);
+			lock (m_objLock)
+			{
+				if (DownloadMonitor.CanQueue(p_tskTask))
+					DownloadMonitor.QueueDownload(p_tskTask);
+			}
 		}
 
 		/// <summary>
@@ -375,12 +423,23 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			}
 
 			lock (RunningTasks)
-				if (RunningTasks.Count >= MaxConcurrentDownloads)
+			{
+				int MaxDownloads = 0;
+				if (Settings.MaxConcurrentDownloads > MaxConcurrentDownloads)
+					MaxDownloads = MaxConcurrentDownloads;
+				else
+					MaxDownloads = Settings.MaxConcurrentDownloads;
+
+
+				if (RunningTasks.Count >= MaxDownloads)
 				{
 					if ((p_tskTask.SupportsQueue) && (p_tskTask.IsRemote))
-						p_tskTask.Queue();
+						lock (m_objLock)
+							p_tskTask.Queue();
+
 					booCanResume = false;
 				}
+			}
 
 			if (booCanResume)
 				if (DownloadMonitor.CanResume(p_tskTask))
@@ -396,24 +455,47 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <summary>
 		/// Resumes all paused tasks.
 		/// </summary>
-        public void ResumeAllTasks()
-        {
-            if (ModRepository.IsOffline)
-                m_mmgModManager.Login();
-            else
-            {
-                List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
-                lock (Tasks)
-                {
-                    foreach (IBackgroundTask btTask in Tasks)
-                        if ((btTask.Status == TaskStatus.Paused) || (btTask.Status == TaskStatus.Incomplete))
-                            lstTasks.Add(btTask);
-                }
-                if (lstTasks.Count > 0)
-                    foreach (IBackgroundTask btPaused in lstTasks)
-                        ResumeTask(btPaused);
-            }
-        }
+		public void ResumeAllTasks(List<AddModTask> p_lstAddModTask)
+		{
+			int TaskCounter = 0;
+
+			if (ModRepository.IsOffline)
+				m_mmgModManager.Login();
+			else
+			{
+				List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
+
+				lock (Tasks)
+				{
+					foreach (IBackgroundTask btTask in Tasks)
+						if ((btTask.Status == TaskStatus.Paused) || (btTask.Status == TaskStatus.Incomplete))
+							if(p_lstAddModTask == null || p_lstAddModTask.Contains(btTask))
+								lstTasks.Add(btTask);
+				}
+
+				if (lstTasks.Count > 0)
+					foreach (IBackgroundTask btPaused in lstTasks)
+					{
+						if (TaskCounter < Settings.MaxConcurrentDownloads)
+						{
+							lock (m_objLock)
+								ResumeTask(btPaused);
+							TaskCounter++;
+						}
+						else
+							QueueTask(btPaused);
+					}
+			}
+		}
+
+		/// <summary>
+		/// Resumes all paused tasks.
+		/// </summary>
+		public void ResumeAllTasks()
+		{
+			ResumeAllTasks(null);
+		}
+
 
 		void bgwWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
@@ -436,6 +518,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		private void ModRepository_UserStatusUpdate(object sender, System.EventArgs e)
 		{
 			List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
+
 			lock (ModRepository)
 				if (ModRepository.IsOffline)
 				{
@@ -446,7 +529,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 					}
 					if (lstTasks.Count > 0)
 						foreach (IBackgroundTask btActive in lstTasks)
-							PauseTask(btActive);
+							lock (m_objLock)
+								PauseTask(btActive);
 				}
 		}
 

@@ -102,6 +102,18 @@ namespace Nexus.Client.Games.FalloutNV
 			}
 		}
 
+		/// <summary>
+		/// Gets the game Base files.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public override string BaseGameFiles
+		{
+			get
+			{
+				return Properties.Resources.falloutNV_base;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

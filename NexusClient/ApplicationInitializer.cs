@@ -241,7 +241,7 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.DelayedSettings["ALL"] = new KeyedSettings<string>();
 			if (EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
 				EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
-			
+
 			StepOverallProgress();
 
 			if (!ApplyDelayedSettings(p_gmfGameModeFactory.GameModeDescriptor.ModeId, out p_vwmErrorMessage))
@@ -614,7 +614,7 @@ namespace Nexus.Client
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Mods";
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath)))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath] = "Install Path";
-			if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId]) && (!dicPaths.ContainsKey(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER))))
+			if(!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId]) && (!dicPaths.ContainsKey(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER))))
 				dicPaths[Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER)] = "Virtual Install";
 
 			foreach (KeyValuePair<string, string> kvpUacCheckPath in dicPaths)
@@ -887,18 +887,13 @@ namespace Nexus.Client
 			Trace.Indent();
 			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
 			Trace.Unindent();
-
-			Trace.TraceInformation("Initializing Update Manager...");
-			Trace.Indent();
-			UpdateManager umgUpdateManager = new UpdateManager(p_gmdGameMode, EnvironmentInfo);
-			Trace.Unindent();
-
+			
 			p_vwmErrorMessage = null;
-			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor, umgUpdateManager);
+			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor);
 		}
-					
+
 		/// <summary>
-		/// This checks for any files that are readonly.
+		/// This chaecks for any files that are readonly.
 		/// </summary>
 		protected void ScanForReadonlyFiles(IGameMode p_gmdGameMode)
 		{

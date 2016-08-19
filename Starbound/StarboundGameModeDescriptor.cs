@@ -82,11 +82,11 @@ namespace Nexus.Client.Games.Starbound
 			}
 		}
 
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override Theme ModeTheme
+/// <summary>
+/// Gets the theme to use for this game mode.
+/// </summary>
+/// <value>The theme to use for this game mode.</value>
+public override Theme ModeTheme
 		{
 			get
 			{

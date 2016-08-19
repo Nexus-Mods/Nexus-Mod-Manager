@@ -127,12 +127,13 @@ namespace Nexus.Client.Games.Starbound
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
             Trace.Unindent();
 
-			return strValue;
+            return strValue;
         }
 
 		/// <summary>

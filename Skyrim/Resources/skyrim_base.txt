@@ -1,0 +1,31 @@
+Dawnguard.bsa
+Dawnguard.esm
+Dragonborn.bsa
+Dragonborn.esm
+HearthFires.bsa
+HearthFires.esm
+HighResTexturePack01.bsa
+HighResTexturePack01.esp
+HighResTexturePack02.bsa
+HighResTexturePack02.esp
+HighResTexturePack03.bsa
+HighResTexturePack03.esp
+Interface\Translate_English.txt
+Skyrim - Animations.bsa
+Skyrim - Interface.bsa
+Skyrim - Meshes.bsa
+Skyrim - Misc.bsa
+Skyrim - Shaders.bsa
+Skyrim - Sounds.bsa
+Skyrim - Textures.bsa
+Skyrim - Voices.bsa
+Skyrim.esm
+Strings\Skyrim_English.DLStrings
+Strings\Skyrim_English.ILStrings
+Strings\Skyrim_English.strings
+Strings\Update_English.DLSTRINGS
+Strings\Update_English.ILSTRINGS
+Strings\Update_English.STRINGS
+Update.bsa
+Update.esm
+Video\BGS_Logo.bik

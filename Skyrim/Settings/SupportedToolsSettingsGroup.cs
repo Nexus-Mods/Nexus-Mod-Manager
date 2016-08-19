@@ -21,7 +21,7 @@ namespace Nexus.Client.Games.Skyrim
 		private string m_strWryeBashDirectory = null;
 		private string m_strFNISDirectory = null;
 		private string m_strTES5EditDirectory = null;
-		private string m_strBSDirectory = null;
+		private string m_strBS2Directory = null;
 		private string m_strDSRPDirectory = null;
 		private string m_strPMDirectory = null;
 
@@ -122,18 +122,18 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
-		/// Gets or sets the path of the directory where BodySlide is installed.
+		/// Gets or sets the path of the directory where BodySlide2 is installed.
 		/// </summary>
-		/// <value>The path of the directory where BodySlide is installed.</value>
-		public string BSDirectory
+		/// <value>The path of the directory where BodySlide2 is installed.</value>
+		public string BS2Directory
 		{
 			get
 			{
-				return m_strBSDirectory;
+				return m_strBS2Directory;
 			}
 			set
 			{
-				SetPropertyIfChanged(ref m_strBSDirectory, value, () => BSDirectory);
+				SetPropertyIfChanged(ref m_strBS2Directory, value, () => BS2Directory);
 			}
 		}
 
@@ -211,7 +211,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory are not equals;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBSPath, string p_strBSPathName, string p_strBSProperty, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty, string p_strDSRPPath, string p_strDSRPPathName, string p_strDSRPProperty, string p_strPMPath, string p_strPMPathName, string p_strPMProperty)
+		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBS2Path, string p_strBS2PathName, string p_strBS2Property, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty, string p_strDSRPPath, string p_strDSRPPathName, string p_strDSRPProperty, string p_strPMPath, string p_strPMPathName, string p_strPMProperty)
 		{
 			Errors.Clear(p_strBOSSProperty);
 			if (String.IsNullOrEmpty(p_strBOSSPath))
@@ -231,10 +231,10 @@ namespace Nexus.Client.Games.Skyrim
 				Errors.SetError(p_strFNISProperty, String.Format("You must select a {0}.", p_strFNISPathName));
 				return false;
 			}
-			Errors.Clear(p_strBSProperty);
-			if (String.IsNullOrEmpty(p_strBSPath))
+			Errors.Clear(p_strBS2Property);
+			if (String.IsNullOrEmpty(p_strBS2Path))
 			{
-				Errors.SetError(p_strBSProperty, String.Format("You must select a {0}.", p_strBSPathName));
+				Errors.SetError(p_strBS2Property, String.Format("You must select a {0}.", p_strBS2PathName));
 				return false;
 			}
 			Errors.Clear(p_strDSRPProperty);
@@ -350,13 +350,13 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
-		/// Validates the selected BodySlide directory.
+		/// Validates the selected BodySlide2 directory.
 		/// </summary>
-		/// <returns><c>true</c> if the selected BodySlide directory is valid;
+		/// <returns><c>true</c> if the selected BodySlide2 directory is valid;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateBSDirectory()
+		protected bool ValidateBS2Directory()
 		{
-			return ValidateDirectory(BSDirectory, "BodySlide Directory", ObjectHelper.GetPropertyName(() => BSDirectory));
+			return ValidateDirectory(BS2Directory, "BodySlide2 Directory", ObjectHelper.GetPropertyName(() => BS2Directory));
 		}
 
 		/// <summary>
@@ -396,7 +396,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			return ValidateBOSSDirectory() && ValidateLOOTDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory() && ValidateTES5EditDirectory() && ValidatePMDirectory() && ValidateDSRPDirectory() && ValidateBSDirectory();
+			return ValidateBOSSDirectory() && ValidateLOOTDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory() && ValidateTES5EditDirectory() && ValidatePMDirectory() && ValidateDSRPDirectory() && ValidateBS2Directory();
 		}
 
 		#endregion
@@ -412,7 +412,7 @@ namespace Nexus.Client.Games.Skyrim
 			string strLOOTReg = String.Empty;
 			string strWryePath = String.Empty;
 			string strFNISPath = String.Empty;
-			string strBSPath = String.Empty;
+			string strBS2Path = String.Empty;
 			string strDSRPPath = String.Empty;
 			string strPMPath = String.Empty;
 			string strTES5EditPath = String.Empty;
@@ -508,15 +508,15 @@ namespace Nexus.Client.Games.Skyrim
 
 			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BS2"))
 			{
-				strBSPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BS2"];
+				strBS2Path = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BS2"];
 
-				if (String.IsNullOrEmpty(strBSPath))
+				if (String.IsNullOrEmpty(strBS2Path))
 				{
 					booReset = true;
 				}
-				else if (Directory.Exists(strBSPath) || File.Exists(strBSPath))
+				else if (Directory.Exists(strBS2Path) || File.Exists(strBS2Path))
 				{
-					FileAttributes attr = File.GetAttributes(strBSPath);
+					FileAttributes attr = File.GetAttributes(strBS2Path);
 					booReset = !attr.HasFlag(FileAttributes.Directory);
 				}
 				else
@@ -524,17 +524,17 @@ namespace Nexus.Client.Games.Skyrim
 
 				if (booReset)
 				{
-					string strBS = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\CalienteTools\BodySlide");
-					if (Directory.Exists(strBS))
-						strBSPath = strBS;
+					string strBS2 = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\CalienteTools\BodySlide");
+					if (Directory.Exists(strBS2))
+						strBS2Path = strBS2;
 					else
-						strBSPath = String.Empty;
+						strBS2Path = String.Empty;
 
 					booReset = false;
 				}
 
-				if (!String.IsNullOrEmpty(strBSPath) && Directory.Exists(strBSPath))
-					BSDirectory = strBSPath;
+				if (!String.IsNullOrEmpty(strBS2Path) && Directory.Exists(strBS2Path))
+					BS2Directory = strBS2Path;
 			}
 
 			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("DSRP"))
@@ -631,8 +631,8 @@ namespace Nexus.Client.Games.Skyrim
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("FNIS") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], FNISDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["FNIS"] = FNISDirectory;
 
-			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BS2") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], BSDirectory))
-				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BS2"] = BSDirectory;
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("BS2") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], BS2Directory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["BS2"] = BS2Directory;
 
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("DSRP") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], DSRPDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["DSRP"] = DSRPDirectory;

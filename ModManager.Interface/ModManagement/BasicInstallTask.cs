@@ -142,10 +142,25 @@ namespace Nexus.Client.ModManagement
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, Mod, false);
 				if (string.IsNullOrEmpty(strFixedPath))
 					continue;
-				string strVirtualPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+
+				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+				string strVirtualPath = strModFilenamePath;
+
+				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
+					strVirtualPath = strModDownloadIDPath;
+
 				string strLinkPath = string.Empty;
 				if (VirtualModActivator.MultiHDMode)
-					strLinkPath = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+				{
+					string strModFilenameLink = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+					string strModDownloadIDLink = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+					 strLinkPath = strModFilenameLink;
+
+					if (!string.IsNullOrWhiteSpace(strModDownloadIDLink))
+						strLinkPath = strModDownloadIDLink;
+				}
+
 				string strFileType = Path.GetExtension(File.Key);
 				if (!strFileType.StartsWith("."))
 					strFileType = "." + strFileType;

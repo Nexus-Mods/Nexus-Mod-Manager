@@ -313,16 +313,34 @@ namespace Nexus.Client.Settings
 		bool CheckForNewModVersions { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether or not the client should override the Local Mod Name.
+		/// </summary>
+		/// <value>Whether or not the client should override the Local Mod Name.</value>
+		bool OverrideLocalModNames { get; set; }
+		
+		/// <summary>
 		/// Gets or sets the last time the program checked for mod updates.
 		/// </summary>
 		/// <value>The last time the program checked for mod updates.</value>
 		string LastModVersionsCheckDate { get; set; }
 
 		/// <summary>
+		/// Gets or sets the last time the program checked for missing download IDs.
+		/// </summary>
+		/// <value>The last time the program checked for missing download IDs.</value>
+		DateTime LastCheckedMissingDownloadID { get; set; }
+
+		/// <summary>
 		/// Gets or sets the interval (in days) to wait before checking for mod updates.
 		/// </summary>
 		/// <value>The interval (in days) to wait before checking for a mod updates.</value>
 		Int32 ModVersionsCheckInterval { get; set; }
+
+		/// <summary>
+		/// Gets or sets the Max currenta downloads limit.
+		/// </summary>
+		/// <value>The max current downloads limit.</value>
+		Int32 MaxConcurrentDownloads { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether the client should add missing info to managed mods.
@@ -395,12 +413,6 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <value>Whether to scan sub directories of the mod directory for mods.</value>
 		bool ScanSubfoldersForMods { get; set; }
-
-		/// <summary>
-		/// Gets or sets whether or not the client should override the Local Mod Name.
-		/// </summary>
-		/// <value>Whether or not the client should override the Local Mod Name.</value>
-		bool OverrideLocalModNames { get; set; }
 
 		/// <summary>
 		/// Gets the setting values that should not be applied until the next application restart.

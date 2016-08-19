@@ -40,7 +40,7 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		/// <value>Whether the current config files config files may be obsolete.</value>
 		bool ObsoleteConfigFiles { get; }
-		
+
 		#endregion
 
 		#region Masterlist Updating

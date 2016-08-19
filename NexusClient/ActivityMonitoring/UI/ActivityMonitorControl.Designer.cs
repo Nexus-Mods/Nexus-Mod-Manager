@@ -50,10 +50,10 @@
 			this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsbCancel,
-            this.tsbRemove,
-            this.tsbPause,
-            this.tsbResume});
+			this.tsbCancel,
+			this.tsbRemove,
+			this.tsbPause,
+			this.tsbResume});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(37, 163);
@@ -100,11 +100,11 @@
 			// lvwTasks
 			// 
 			this.lvwTasks.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.clmOverallMessage,
-            this.clmOverallProgress,
-            this.clmItemMessage,
-            this.clmItemProgress,
-            this.clmStatus});
+			this.clmOverallMessage,
+			this.clmOverallProgress,
+			this.clmItemMessage,
+			this.clmItemProgress,
+			this.clmStatus});
 			this.lvwTasks.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.lvwTasks.FullRowSelect = true;
 			this.lvwTasks.HideSelection = false;

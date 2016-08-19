@@ -129,12 +129,13 @@ namespace Nexus.Client.Games.StateOfDecay
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
             Trace.Unindent();
 
-			return strValue;
+            return strValue;
         }
 
         /// <summary>

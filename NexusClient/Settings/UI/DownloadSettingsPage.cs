@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Security;
 using System.Security.Permissions;
 using System.Windows.Forms;
@@ -19,6 +20,14 @@ namespace Nexus.Client.Settings.UI
 	{
 		private IList<FileServerZone> m_fszFileServerZone;
 
+		private enum MaxDownloadsInterval
+		{
+			One = 1,
+			Three = 3,
+			Five = 5,
+			Ten = 10
+		}
+
 		#region Constructors
 
 		/// <summary>
@@ -30,7 +39,7 @@ namespace Nexus.Client.Settings.UI
 			SettingsGroup = p_dsgSettings;
 			p_dsgSettings.UpdatedSettings += new EventHandler(dsgSettings_UpdatedSettings);
 			InitializeComponent();
-
+			
 			butChromeFix.Image = new Bitmap(Properties.Resources.uac_icon, 20, 20);
 
 			SetBindings(p_dsgSettings);
@@ -61,6 +70,13 @@ namespace Nexus.Client.Settings.UI
 			cbxServerLocation.DisplayMember = "FileServerName";
 			cbxServerLocation.ValueMember = "FileServerID";
 
+			cbxMaxConcurrentDownloads.DataSource = Enum.GetValues(typeof(MaxDownloadsInterval))
+				.Cast<MaxDownloadsInterval>()
+				.Select(p => new { Value = (int)p, Key = p.ToString() })
+				.ToList();
+			cbxMaxConcurrentDownloads.DisplayMember = "Key";
+			cbxMaxConcurrentDownloads.ValueMember = "Value";
+
 			if (cbxServerLocation.DataBindings != null)
 				cbxServerLocation.DataBindings.Clear();
 			BindingHelper.CreateFullBinding(cbxServerLocation, () => cbxServerLocation.SelectedValue, p_dsgSettings, () => p_dsgSettings.UserLocation);
@@ -68,6 +84,10 @@ namespace Nexus.Client.Settings.UI
 				ckbPremiumOnly.DataBindings.Clear();
 			BindingHelper.CreateFullBinding(ckbPremiumOnly, () => ckbPremiumOnly.Checked, p_dsgSettings, () => p_dsgSettings.UseMultithreadedDownloads);
 			ckbPremiumOnly.Enabled = p_dsgSettings.PremiumEnabled;
+
+			if (cbxMaxConcurrentDownloads.DataBindings != null)
+				cbxMaxConcurrentDownloads.DataBindings.Clear();
+			BindingHelper.CreateFullBinding(cbxMaxConcurrentDownloads, () => cbxMaxConcurrentDownloads.SelectedValue, p_dsgSettings, () => p_dsgSettings.MaxConcurrentDownloads);
 		}
 
 		private void cbxServerLocation_DrawItem(object sender, DrawItemEventArgs e)

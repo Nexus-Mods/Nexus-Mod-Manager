@@ -50,6 +50,7 @@ namespace Nexus.Client.ModManagement
 			IEnumerable<IMod> lstMatches = from m in Candidates
 										   where !String.IsNullOrEmpty(m.Id)
 												&& m.Id.Equals(p_modMod.Id)
+												&& m.DownloadId.Equals(p_modMod.DownloadId)
 												&& !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
 												&& (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
 										   select m;

@@ -927,11 +927,11 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				if (String.IsNullOrEmpty(strInstallerKey) || m_setRemovedModKeys.Contains(strInstallerKey))
 					return setGameSpecificValues;
 				setGameSpecificValues.AddRange(from itm in m_dicInstalledGameSpecificValueEdits
-											   where itm.Installers.Contains(strInstallerKey)
-											   select itm.Item);
+												where itm.Installers.Contains(strInstallerKey)
+												select itm.Item);
 				setGameSpecificValues.AddRange(from itm in EnlistedInstallLog.m_dicInstalledGameSpecificValueEdits
-											   where itm.Installers.Contains(strInstallerKey)
-											   select itm.Item);
+												where itm.Installers.Contains(strInstallerKey)
+												select itm.Item);
 				setGameSpecificValues.RemoveRange(from itm in m_dicUninstalledGameSpecificValueEdits
 												  where itm.Installers.Contains(strInstallerKey)
 												  select itm.Item);

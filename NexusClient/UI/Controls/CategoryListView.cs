@@ -365,8 +365,8 @@ namespace Nexus.Client.UI.Controls
 				if (x.GetType() == typeof(ModCategory))
 				{
 					var CategoryMods = from Mod in m_rolManagedMods
-									   where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == ((IModCategory)x).Id)
-									   select Mod;
+										where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == ((IModCategory)x).Id)
+										select Mod;
 					return CategoryMods;
 				}
 				else
@@ -486,7 +486,7 @@ namespace Nexus.Client.UI.Controls
 					IMod modMod = (IMod)rowObject;
 					if (modMod != null)
 					{
-						if(modMod.DownloadId != null)
+						if (modMod.DownloadId != null)
 							Value = modMod.DownloadId.ToString();
 					}
 				}
@@ -499,7 +499,7 @@ namespace Nexus.Client.UI.Controls
 				return x.ToString();
 			};
 
-			tlcWebVersion.AspectGetter = delegate(object rowObject)
+			tlcWebVersion.AspectGetter = delegate (object rowObject)
 			{
 				string Val = "?";
 				string Local = "?";
@@ -640,7 +640,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public void SetupImageGetters()
 		{
-			tlcWebVersion.ImageGetter = delegate (object rowObject)
+			tlcWebVersion.ImageGetter = delegate(object rowObject)
 			{
 				if (rowObject.GetType() != typeof(ModCategory))
 				{
@@ -664,7 +664,7 @@ namespace Nexus.Client.UI.Controls
 				return null;
 			};
 
-			tlcModName.ImageGetter = delegate (object rowObject)
+			tlcModName.ImageGetter = delegate(object rowObject)
 			{
 				if (rowObject.GetType() == typeof(ModCategory))
 				{
@@ -687,7 +687,7 @@ namespace Nexus.Client.UI.Controls
 				}
 			};
 
-			tlcInstallDate.ImageGetter = delegate (object rowObject)
+			tlcInstallDate.ImageGetter = delegate(object rowObject)
 			{
 				if (rowObject.GetType() == typeof(ModCategory))
 				{
@@ -697,7 +697,7 @@ namespace Nexus.Client.UI.Controls
 				return null;
 			};
 
-			tlcEndorsement.ImageGetter = delegate (object rowObject)
+			tlcEndorsement.ImageGetter = delegate(object rowObject)
 			{
 				if (rowObject.GetType() != typeof(ModCategory))
 				{
@@ -729,7 +729,7 @@ namespace Nexus.Client.UI.Controls
 				return null;
 			};
 		}
-		
+
 		#endregion
 
 		#region Category Management
@@ -916,11 +916,11 @@ namespace Nexus.Client.UI.Controls
 		public List<IMod> GetOutdatedModList(Int32 p_intCategoryID)
 		{
 			var CategoryMods = from Mod in m_rolManagedMods
-							   where (Mod != null)
-							   && Mod.UpdateWarningEnabled
-							   && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_intCategoryID)
-							   && !Mod.IsMatchingVersion()
-							   select Mod;
+								where (Mod != null)
+								&& Mod.UpdateWarningEnabled
+								&& ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == p_intCategoryID)
+								&& !Mod.IsMatchingVersion()
+								select Mod;
 
 			return new List<IMod>(CategoryMods);
 		}
@@ -1517,9 +1517,9 @@ namespace Nexus.Client.UI.Controls
 				using (var testFont = new Font(fontName, 8))
 				{
 					return 0 == string.Compare(
-					  fontName,
-					  testFont.Name,
-					  StringComparison.InvariantCultureIgnoreCase);
+						fontName,
+						testFont.Name,
+						StringComparison.InvariantCultureIgnoreCase);
 				}
 			}
 			catch

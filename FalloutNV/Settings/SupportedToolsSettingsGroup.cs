@@ -40,12 +40,6 @@ namespace Nexus.Client.Games.FalloutNV
 		public IGameModeDescriptor GameModeDescriptor { get; private set; }
 
 		/// <summary>
-		/// Gets the application's envrionment info.
-		/// </summary>
-		/// <value>The application's envrionment info.</value>
-		public IEnvironmentInfo EnvironmentInfo { get; private set; }
-
-		/// <summary>
 		/// Gets the name of the games mode currently being managed.
 		/// </summary>
 		/// <value>The name of the games mode currently being managed.</value>
@@ -106,7 +100,6 @@ namespace Nexus.Client.Games.FalloutNV
 		public SupportedToolsSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IGameMode p_gmGameMode)
 			: base(p_eifEnvironmentInfo)
 		{
-			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmGameMode;
 			Errors = new ErrorContainer();
 		}

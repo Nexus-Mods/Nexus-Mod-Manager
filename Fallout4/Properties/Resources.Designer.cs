@@ -86,6 +86,35 @@ namespace Nexus.Client.Games.Fallout4.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Fallout4 - Animations.ba2
+        ///Fallout4 - Geometry.csg
+        ///Fallout4 - Interface.ba2
+        ///Fallout4 - Materials.ba2
+        ///Fallout4 - Meshes.ba2
+        ///Fallout4 - MeshesExtra.ba2
+        ///Fallout4 - Misc.ba2
+        ///Fallout4 - Nvflex.ba2
+        ///Fallout4 - Shaders.ba2
+        ///Fallout4 - Sounds.ba2
+        ///Fallout4 - Startup.ba2
+        ///Fallout4 - Textures1.ba2
+        ///Fallout4 - Textures2.ba2
+        ///Fallout4 - Textures3.ba2
+        ///Fallout4 - Textures4.ba2
+        ///Fallout4 - Textures5.ba2
+        ///Fallout4 - Textures6.ba2
+        ///Fallout4 - Textures7.ba2
+        ///Fallout4 - Textures8.ba2
+        ///Fallout4 - Textures9.ba2
+        ///Fallout4 [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string fallout4_base {
+            get {
+                return ResourceManager.GetString("fallout4_base", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon Fallout4_logo {

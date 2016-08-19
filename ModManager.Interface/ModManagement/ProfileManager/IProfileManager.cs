@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Xml;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
+
 
 namespace Nexus.Client.ModManagement
 {
@@ -17,6 +15,12 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <value>The list of profiles.</value>
 		ThreadSafeObservableList<IModProfile> ModProfiles { get; }
+
+		/// <summary>
+		/// Gets the list of profiles.
+		/// </summary>
+		/// <value>The list of profiles.</value>
+		ThreadSafeObservableList<IModProfile> ModBackedProfiles { get; }
 
 		/// <summary>
 		/// Gets the list of active mods.
@@ -105,6 +109,8 @@ namespace Nexus.Client.ModManagement
 
 		IModProfile ImportProfile(string p_strPath);
 
+		IModProfile ImportProfile(string p_strPath, string p_strLabel, int p_intProfileId, out string p_strErrorMessage);
+		
 		void PurgeModsFromProfiles(List<IMod> p_lstMods);
 
 		string IsScriptedLogPresent(string p_strModFile);
@@ -116,6 +122,14 @@ namespace Nexus.Client.ModManagement
 		void UpdateProfileDownloadId(IModProfile p_impProfile, Dictionary<string, string> p_dicMissingMods);
 
 		#endregion
+
+		string GetProfilePath(IModProfile p_impProfile);
+
+		/// <summary>
+		/// Get the Profile's mod list path.
+		/// </summary>
+		/// /// <param name="p_impProfile">The Profile.</param>
+		string GetProfileModListPath(IModProfile p_impProfile);
 
 		/// <summary>
 		/// This backsup the profile manager.

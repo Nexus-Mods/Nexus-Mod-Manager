@@ -132,7 +132,8 @@ namespace Nexus.Client.Games.Morrowind
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();

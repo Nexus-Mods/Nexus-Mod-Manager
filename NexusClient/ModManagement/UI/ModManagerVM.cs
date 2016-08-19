@@ -61,6 +61,11 @@ namespace Nexus.Client.ModManagement.UI
 		public event EventHandler<EventArgs<IBackgroundTask>> UpdatingMods = delegate { };
 
 		/// <summary>
+		/// Raised when the categories list is being updated.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> UpdatingCategories = delegate { };
+
+		/// <summary>
 		/// Raised when the readme manager is being set up.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ReadMeManagerSetup = delegate { };
@@ -82,6 +87,11 @@ namespace Nexus.Client.ModManagement.UI
 		public event EventHandler<EventArgs<IBackgroundTask>> DeactivatingMultipleMods = delegate { };
 
 		/// <summary>
+		/// Raised when uninstalling multiple mods.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> DeletingMultipleMods = delegate { };
+		
+		/// <summary>
 		/// Raised when installing multiple mods.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ActivatingMultipleMods = delegate { };
@@ -90,6 +100,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// Raised when activating a single mod.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ActivatingMod = delegate { };
+
+		/// <summary>
+		/// Raised when adding Automatic Downloads.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> AutomaticDownloading = delegate { };
 
 		/// <summary>
 		/// Raised when reinstalling a single mod.
@@ -110,7 +125,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Raised when the deletion of a mod file needs to be confirmed.
 		/// </summary>
-		public Func<IMod, bool> ConfirmModFileDeletion = delegate { return false; };
+		public Func<List<IMod>, bool> ConfirmModFileDeletion = delegate { return false; };
 
 		/// <summary>
 		/// Raised when the overwriting of a mod file needs to be confirmed.
@@ -315,8 +330,8 @@ namespace Nexus.Client.ModManagement.UI
 		public ModManagerVM(ModManager p_mmdModManager, IProfileManager p_prmProfileManager, ISettings p_setSettings, Theme p_thmTheme)
 		{
 			ModManager = p_mmdModManager;
-			ProfileManager = p_prmProfileManager;
 			ModRepository = p_mmdModManager.ModRepository;
+			ProfileManager = p_prmProfileManager;
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
 			CategoryManager = new CategoryManager(ModManager.CurrentGameModeModDirectory, "categories");
@@ -335,6 +350,8 @@ namespace Nexus.Client.ModManagement.UI
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
 
 			ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
+			ModManager.UpdateCategoriesCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCategoriesCheckStarted);
+			ModManager.AutomaticDownloadStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_AutomaticDownloadStarted);
 		}
 
 		#endregion
@@ -539,9 +556,23 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Reinstalls the given mod.
+		/// Deactivates the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to deactivate.</param>
+		protected void DeactivateMods(List<IMod> p_lstMod)
+		{
+			foreach (IMod modMod in p_lstMod)
+			{
+				IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(modMod, ModManager.ActiveMods);
+				if (btsUninstall != null)
+					ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+			}
+		}
+
+		/// <summary>
+		/// Reinstalls the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod to reinstall.</param>
 		public void ReinstallMod(IMod p_modMod)
 		{
 			VirtualModActivator.DisableMod(p_modMod);
@@ -578,20 +609,6 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Deactivates the given mod.
-		/// </summary>
-		/// <param name="p_modMod">The mod to deactivate.</param>
-		protected void DeactivateMods(List<IMod> p_lstMod)
-		{
-			foreach (IMod modMod in p_lstMod)
-			{
-				IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(modMod, ModManager.ActiveMods);
-				if (btsUninstall != null)
-					ModManager.ModActivationMonitor.AddActivity(btsUninstall);
-			}
-		}
-
-		/// <summary>
 		/// Disables all the mods.
 		/// </summary>
 		/// <param name="p_rolModList">The list of mods to disable.</param>
@@ -603,6 +620,15 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				DisablingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DisableMultipleMods(p_rolModList, ConfirmUpdaterAction)));
 			}
+		}
+
+		/// <summary>
+		/// Deletes all the mods.
+		/// </summary>
+		/// <param name="p_rolModList">The list of mods to disable.</param>
+		public void DeleteMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, bool p_booForceUninstall, bool p_booSilent, bool p_booFilesOnly)
+		{
+			DeletingMultipleMods(p_booSilent, new EventArgs<IBackgroundTask>(ModManager.DeleteMultipleMods(p_rolModList, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>
@@ -642,16 +668,16 @@ namespace Nexus.Client.ModManagement.UI
 		protected void TagMod(IMod p_modMod)
 		{
 			if (!ModManager.ModRepository.IsOffline)
-            {
-                ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
-                TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
-            }
-            else
-            {
-                ModManager.Login();
-                ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
-                ModManager.AsyncTagMod(this, mtgTagger, TaggingMod);
-            }
+			{
+				ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
+				TaggingMod(this, new EventArgs<ModTaggerVM>(mtgTagger));
+			}
+			else
+			{
+				ModManager.Login();
+				ModTaggerVM mtgTagger = new ModTaggerVM(ModManager.GetModTagger(), p_modMod, Settings, CurrentTheme);
+				ModManager.AsyncTagMod(this, mtgTagger, TaggingMod);
+			}
 		}
 
 		/// <summary>
@@ -697,28 +723,50 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
 		public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
-            List < IMod > lstModList = new List<IMod>();
+			List<IMod> lstModList = new List<IMod>();
 
-            if (p_booOverrideCategorySetup)
-            {
-                lstModList.AddRange(from Mod in ManagedMods
-                                    where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
-                                    select Mod);
-            }
-            else
-                lstModList.AddRange(ManagedMods);
-            
-            if (!ModRepository.IsOffline)
-            {
-                if (lstModList.Count > 0)
-                {
+			if (p_booOverrideCategorySetup)
+			{
+				lstModList.AddRange(from Mod in ManagedMods
+									where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
+									select Mod);
+			}
+			else
+				lstModList.AddRange(ManagedMods);
+
+			if (!ModRepository.IsOffline)
+			{
+				if (lstModList.Count > 0)
+				{
 					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, null, ConfirmUpdaterAction, p_booOverrideCategorySetup, false)));
 				}
-            }
-            else
-            {
-                ModManager.Login();
+			}
+			else
+			{
+				ModManager.Login();
 				ModManager.AsyncUpdateMods(lstModList, null, ConfirmUpdaterAction, p_booOverrideCategorySetup, false);
+			}
+		}
+
+		/// <summary>
+		/// Checks for mod updates.
+		/// </summary>
+		/// <returns>Message</returns>
+		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+		public void CheckCategoriesUpdates()
+		{
+			string strMessage = "Are you sure you want to reset to the Nexus site default categories?";
+			strMessage += Environment.NewLine + Environment.NewLine + "Note: The category list will be updated from the Nexus and your downloaded mods will be automatically reassigned to the Nexus categories.";
+			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (Result == DialogResult.Yes)
+			{
+				if (!ModRepository.IsOffline)
+					UpdatingCategories(this, new EventArgs<IBackgroundTask>(ModManager.UpdateCategories(CategoryManager, ProfileManager, ConfirmUpdaterAction)));
+				else
+				{
+					ModManager.Login();
+					ModManager.AsyncUpdateCategories(CategoryManager, ProfileManager, ConfirmUpdaterAction);
+				}
 			}
 		}
 
@@ -726,25 +774,23 @@ namespace Nexus.Client.ModManagement.UI
 		/// Checks for mod file's missing download id.
 		/// </summary>
 		/// <returns>Message</returns>
-		public void CheckModFileDownloadId()
+		public void CheckModFileDownloadId(bool? p_booOnlyMissing)
 		{
 			List<IMod> lstModList = new List<IMod>();
 
-			lstModList.AddRange(from Mod in ManagedMods
-								where (String.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId == "-1")
-								select Mod);
+			lstModList.AddRange(from Mod in ManagedMods select Mod);
 
 			if (!ModRepository.IsOffline)
 			{
 				if (ManagedMods.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, true)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, p_booOnlyMissing)));
 				}
 			}
 			else
 			{
 				ModManager.Login();
-				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, true);
+				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, p_booOnlyMissing);
 			}
 		}
 
@@ -752,8 +798,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-        public void ToggleModEndorsement(IMod p_modMod, HashSet<IMod> p_hashMods, bool? p_booEnable)
-        {
+		public void ToggleModEndorsement(IMod p_modMod, HashSet<IMod> p_hashMods, bool? p_booEnable)
+		{
 
 			string strResult = string.Empty;
 			if (String.IsNullOrEmpty(p_modMod.Id))
@@ -797,20 +843,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public bool ResetDefaultCategories()
 		{
-			string strMessage = "Are you sure you want to reset to the Nexus site default categories?";
-			strMessage += Environment.NewLine + Environment.NewLine + "Note: The category list will revert to the Nexus default and your downloaded mods will be automatically reassigned to the Nexus categories.";
-			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			if (Result == DialogResult.Yes)
-			{
-				this.CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
-
-				SwitchModsToCategory(-1);
-				CheckForUpdates(true);
-
-				return true;
-			}
-
-			return false;
+			this.CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
+			SwitchModsToCategory(-1);
+			CheckForUpdates(true);
+			return true;
 		}
 
 		/// <summary>
@@ -973,6 +1009,37 @@ namespace Nexus.Client.ModManagement.UI
 		private void ModManager_UpdateCheckStarted(object sender, EventArgs<IBackgroundTask> e)
 		{
 			UpdatingMods(sender, e);
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ModManager.UpdateCategoriesCheckStarted"/> event of the ModManager.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ModManager_UpdateCategoriesCheckStarted(object sender, EventArgs<IBackgroundTask> e)
+		{
+			UpdatingCategories(sender, e);
+		}
+
+		
+
+		/// <summary>
+		/// The Automatic Download.
+		/// </summary>
+		public void AutomaticDownload(List<string> p_lstMissingMods, ProfileManager p_pmProfileManager)
+		{
+			if (!ModRepository.IsOffline)
+				AutomaticDownloading(this, new EventArgs<IBackgroundTask>(ModManager.AutomaticDownload(p_lstMissingMods, p_pmProfileManager, ConfirmUpdaterAction, ConfirmFileOverwrite)));
+			else
+			{
+				ModManager.Login();
+				ModManager.AsyncAutomaticDownload(p_lstMissingMods, p_pmProfileManager, ConfirmUpdaterAction, ConfirmFileOverwrite);
+			}
+		}
+
+		private void ModManager_AutomaticDownloadStarted(object sender, EventArgs<IBackgroundTask> e)
+		{
+			AutomaticDownloading(sender, e);
 		}
 	}
 }

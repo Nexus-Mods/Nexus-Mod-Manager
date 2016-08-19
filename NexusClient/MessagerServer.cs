@@ -114,14 +114,20 @@ namespace Nexus.Client
 		#region Mod Addition
 
 		/// <summary>
-		/// Adds the specified mod to the mod manager.
+		/// Adds the specified mod or profile to the mod manager.
 		/// </summary>
 		/// <param name="p_strFilePath">The path or URL of the mod to add to the mod manager.</param>
 		public void AddMod(string p_strFilePath)
 		{
-			Trace.TraceInformation("Adding Mod to running instance of client: " + p_strFilePath);
-			ModManager.AddMod(p_strFilePath, ConfirmFileOverwrite);
-			BringToFront();
+			if (p_strFilePath.Contains("profiles"))
+			{
+			}
+			else
+			{
+				Trace.TraceInformation("Adding Mod to running instance of client: " + p_strFilePath);
+				ModManager.AddMod(p_strFilePath, ConfirmFileOverwrite);
+				BringToFront();
+			}
 		}
 
 		/// <summary>
@@ -160,6 +166,7 @@ namespace Nexus.Client
 				MainForm.Invoke((MethodInvoker)(() => strResult = ConfirmModFileOverwrite(p_strFileName, p_strNewFileName)));
 				return strResult;
 			}
+			return p_strFileName;
 			if (!p_strFileName.Equals(p_strNewFileName))
 			{
 				switch (MessageBox.Show(MainForm, "File '" + p_strFileName + "' already exists. The old file can be replaced, or the new file can be named '" + p_strNewFileName + "'." + Environment.NewLine + "Do you want to overwrite the old file?", "Warning", MessageBoxButtons.YesNoCancel))

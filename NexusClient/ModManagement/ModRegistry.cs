@@ -214,5 +214,49 @@ namespace Nexus.Client.ModManagement
 					where m.ModArchivePath.Equals(p_strModPath, StringComparison.OrdinalIgnoreCase)
 					select m).FirstOrDefault();
 		}
+
+		/// <summary>
+		/// Returns the mod registered with the given file name.
+		/// </summary>
+		/// <param name="p_strFilename">The path of the mod to return</param>
+		/// <returns>The mod registered with the given file name, or
+		/// <c>null</c> if there is no registered mod with the given file name.</returns>
+		public IMod GetModByFilename(string p_strFilename)
+		{
+			string strFilename = string.Empty;
+
+			if (!string.IsNullOrEmpty(p_strFilename))
+			{
+				strFilename = Path.GetFileName(p_strFilename);
+
+				return (from m in m_oclRegisteredMods
+						where Path.GetFileName(m.Filename).Equals(strFilename, StringComparison.OrdinalIgnoreCase)
+						select m).FirstOrDefault();
+			}
+			else
+				return null;
+		}
+
+		/// <summary>
+		/// Returns the mod registered with the given downloadId.
+		/// </summary>
+		/// <param name="p_strDownloadID">The path of the mod to return</param>
+		/// <returns>The mod registered with the given downloadId, or
+		/// <c>null</c> if there is no registered mod with the given downloadId.</returns>
+		public IMod GetModByDownloadID(string p_strDownloadID)
+		{
+			if (!string.IsNullOrEmpty(p_strDownloadID))
+			{
+				try
+				{
+					return (from m in m_oclRegisteredMods
+							where m.DownloadId.Equals(p_strDownloadID, StringComparison.OrdinalIgnoreCase)
+							select m).FirstOrDefault();
+				}
+				catch { }
+			}
+
+			return null;
+		}
 	}
 }

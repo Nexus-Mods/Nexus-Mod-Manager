@@ -1,0 +1,133 @@
+Anchorage - Main.bsa
+Anchorage - Sounds.bsa
+Anchorage.esm
+BrokenSteel - Main.bsa
+BrokenSteel - Sounds.bsa
+BrokenSteel.esm
+Credits.txt
+DLCList.txt
+Fallout - MenuVoices.bsa
+Fallout - Meshes.bsa
+Fallout - Misc.bsa
+Fallout - Sound.bsa
+Fallout - Textures.bsa
+Fallout - Voices.bsa
+Fallout3.esm
+Music\Base\Base_01.mp3
+Music\Base\Base_02.mp3
+Music\Base\Base_03.mp3
+Music\Base\Base_04.mp3
+Music\Battle\Battle_01.mp3
+Music\Battle\Battle_02.mp3
+Music\Battle\Battle_03.mp3
+Music\Battle\Battle_04.mp3
+Music\Battle\Battle_05.mp3
+Music\Battle\Battle_06.mp3
+Music\Battle\Battle_07.mp3
+Music\Battle\Finale\Battle_01.mp3
+Music\Battle\Finale\Battle_02.mp3
+Music\Battle\Finale\Battle_03.mp3
+Music\Battle\Finale\Battle_04.mp3
+Music\Battle\Finale\Battle_05.mp3
+Music\Battle\Finale\Battle_06.mp3
+Music\Battle\Finale\Battle_07.mp3
+Music\Dungeon\Dungeon_01.mp3
+Music\Dungeon\Dungeon_02.mp3
+Music\Dungeon\Dungeon_03.mp3
+Music\Dungeon\Dungeon_04.mp3
+Music\Dungeon\Dungeon_05.mp3
+Music\Endgame\Endgame_01.mp3
+Music\Endgame\Endgame_02.mp3
+Music\Endgame\Endgame_03.mp3
+Music\Endgame\Endgame_04.mp3
+Music\Endgame\Endgame_05.mp3
+Music\Endgame\Endgame_06.mp3
+Music\Endgame\Endgame_07.mp3
+Music\Endgame\Endgame_08.mp3
+Music\Endgame\Endgame_09.mp3
+Music\Endgame\Endgame_11.mp3
+Music\Endgame\Endgame_12.mp3
+Music\Endgame\Endgame_14.mp3
+Music\Endgame\Endgame_15.mp3
+Music\Endgame\Endgame_17.mp3
+Music\Endgame\Endgame_18.mp3
+Music\Endgame\Endgame_19.mp3
+Music\Explore\Explore_01.mp3
+Music\Explore\Explore_02.mp3
+Music\Explore\Explore_03.mp3
+Music\Explore\Explore_04.mp3
+Music\Explore\Explore_05.mp3
+Music\Explore\Explore_06.mp3
+Music\Explore\Explore_07.mp3
+Music\Public\Public_01.mp3
+Music\Public\Public_02.mp3
+Music\Public\Public_03.mp3
+Music\Public\Public_04.mp3
+Music\Public\Public_05.mp3
+Music\Special\Death.mp3
+Music\Special\ExitTheVault.mp3
+Music\Special\MainTitle.mp3
+Music\Special\Success.mp3
+Music\Tension\Tension_01.mp3
+Music\TranquilityLane\MUS_TranquilityLane_01_LP.mp3
+Music\TranquilityLane\MUS_TranquilityLane_02_LP.mp3
+PointLookout - Main.bsa
+PointLookout - Sounds.bsa
+PointLookout.esm
+Shaders\shaderpackage002.sdp
+Shaders\shaderpackage003.sdp
+Shaders\shaderpackage004.sdp
+Shaders\shaderpackage006.sdp
+Shaders\shaderpackage007.sdp
+Shaders\shaderpackage009.sdp
+Shaders\shaderpackage010.sdp
+Shaders\shaderpackage011.sdp
+Shaders\shaderpackage012.sdp
+Shaders\shaderpackage013.sdp
+Shaders\shaderpackage014.sdp
+Shaders\shaderpackage015.sdp
+Shaders\shaderpackage016.sdp
+Shaders\shaderpackage017.sdp
+Shaders\shaderpackage018.sdp
+Shaders\shaderpackage019.sdp
+ThePitt - Main.bsa
+ThePitt - Sounds.bsa
+ThePitt.esm
+Video\1 year later.bik
+Video\2 weeks later.bik
+Video\3 years later.bik
+Video\6 years later.bik
+Video\9 years later.bik
+Video\B01.bik
+Video\B02.bik
+Video\B03.bik
+Video\B04.bik
+Video\B05.bik
+Video\B06.bik
+Video\B07.bik
+Video\B08.bik
+Video\B09.bik
+Video\B10.bik
+Video\B11.bik
+Video\B12.bik
+Video\B13.bik
+Video\B14.bik
+Video\B15.bik
+Video\B16.bik
+Video\B17.bik
+Video\B18.bik
+Video\B19.bik
+Video\B20.bik
+Video\B21.bik
+Video\B22.bik
+Video\B23.bik
+Video\B24.bik
+Video\B25.bik
+Video\B26.bik
+Video\B27.bik
+Video\B28.bik
+Video\B29.bik
+Video\Fallout INTRO Vsk.bik
+Zeta - Main.bsa
+Zeta - Sounds.bsa
+Zeta.esm

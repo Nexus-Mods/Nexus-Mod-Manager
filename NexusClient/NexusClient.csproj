@@ -64,6 +64,7 @@
     <Compile Include="..\SharedSolutionVersionInfo.Product.cs">
       <Link>Properties\SharedSolutionVersionInfo.Product.cs</Link>
     </Compile>
+    <Compile Include="DownloadMonitoring\PurgeDownloadsTask.cs" />
     <Compile Include="EnvironmentInfo.cs" />
     <Compile Include="Extensions\ExtensionMethods.cs" />
     <Compile Include="GameModeSelectionForm.cs">
@@ -127,6 +128,10 @@
     <Compile Include="ModAuthoring\Project.cs" />
     <Compile Include="ModAuthoring\UI\ModPackagingFormVM.cs" />
     <Compile Include="ModManagement\ActivateMultipleModsTask.cs" />
+    <Compile Include="ModManagement\AddProfileTask.cs" />
+    <Compile Include="ModManagement\AutomaticDownloadTask.cs" />
+    <Compile Include="ModManagement\CheckOnlineProfileIntegrityTask.cs" />
+    <Compile Include="ModManagement\DeleteMultipleModsTask.cs" />
     <Compile Include="ModManagement\DisableMultipleModsTask.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.DummyMod.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.TransactionEnlistment.cs" />
@@ -140,15 +145,13 @@
     <Compile Include="ModManagement\ModRegistry.cs" />
     <Compile Include="ModManagement\LinkActivationTask.cs" />
     <Compile Include="ModManagement\ModMigrationTask.cs" />
+    <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />
     <Compile Include="ModManagement\ProfileManager\ProfileManager.cs" />
-    <Compile Include="ModManagement\ProfileManager\UI\ProfileManagerControl.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="ModManagement\ProfileManager\UI\ProfileManagerControl.Designer.cs">
-      <DependentUpon>ProfileManagerControl.cs</DependentUpon>
-    </Compile>
-    <Compile Include="ModManagement\ProfileManager\UI\ProfileManagerVM.cs" />
+    <Compile Include="ModManagement\ProfileManager\RefreshBackedProfilesTask.cs" />
+    <Compile Include="ModManagement\ProfileManager\RemoveBackedProfileTask.cs" />
+    <Compile Include="ModManagement\ProfileManager\RenameBackedProfileTask.cs" />
+    <Compile Include="ModManagement\ProfileManager\ToggleSharingProfileTask.cs" />
     <Compile Include="ModManagement\UI\ModManagerControl.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -162,9 +165,11 @@
     <Compile Include="ModManagement\UI\OverwriteForm.Designer.cs">
       <DependentUpon>OverwriteForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="ModManagement\VirtualModActivator\VirtualConfigFixTask.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
     <Compile Include="ModManagement\VirtualModInfo.cs" />
     <Compile Include="ModManagement\VirtualModLink.cs" />
+    <Compile Include="ModRepositories\Nexus\NexusToken.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
     <Compile Include="PluginManagement\AutoPluginSortingTask.cs" />
@@ -189,10 +194,6 @@
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModActivationMonitor\UI\ModActivationMonitorControl.resx" />
-    <EmbeddedResource Include="ModManagement\ProfileManager\UI\ProfileManagerControl.resx">
-      <DependentUpon>ProfileManagerControl.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
     <EmbeddedResource Include="Settings\UI\DownloadSettingsPage.resx">
       <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
       <SubType>Designer</SubType>
@@ -301,10 +302,20 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="TipsManagement\Tips.cs" />
+    <Compile Include="UI\Controls\BackedProfilesListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\BackedProfilesListView.designer.cs" />
     <Compile Include="UI\Controls\ModEventArgs.cs" />
     <Compile Include="UI\Controls\ModActionEventArgs.cs" />
     <Compile Include="UI\Controls\ModReadmeRequestEventArgs.cs" />
     <Compile Include="UI\Controls\ModInfoRequestEventArgs.cs" />
+    <Compile Include="UI\Controls\ProfileModsListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\ProfileModsListView.designer.cs">
+      <DependentUpon>ProfileModsListView.cs</DependentUpon>
+    </Compile>
     <Compile Include="UI\Controls\ModUpdateWarningEventArgs.cs" />
     <Compile Include="UI\Controls\ProfileListView.cs">
       <SubType>Component</SubType>
@@ -312,18 +323,22 @@
     <Compile Include="UI\Controls\ProfileListView.designer.cs">
       <DependentUpon>ProfileListView.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\Controls\ProfilesListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\ProfilesListView.designer.cs" />
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\text168.png" />
+    <None Include="Resources\View Profile.png" />
     <None Include="data\NewVersionDisclaimer.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Resources\thumbsup.png" />
     <None Include="Resources\thumb_up.png" />
     <None Include="Resources\thumb_no.png" />
-    <EmbeddedResource Include="Resources\Tips.xml">
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\Tips.xml" />
     <None Include="Resources\tipsClose.png" />
     <None Include="Resources\tips.png" />
     <None Include="Resources\uac-icon.png" />
@@ -395,9 +410,24 @@
     <None Include="Resources\round_loading.GIF" />
     <None Include="Resources\edit_delete_16.png" />
     <None Include="Resources\get_missing_info.png" />
+    <None Include="Resources\cloud305.png" />
+    <None Include="Resources\database.png" />
+    <None Include="Resources\delete96.png" />
+    <None Include="Resources\DeleteProfilePage.png" />
+    <None Include="Resources\EditProfilePage.png" />
+    <None Include="Resources\refreshOnlineProfiles.png" />
+    <None Include="Resources\RestoreProfile.png" />
+    <None Include="Resources\StartStopSharing.png" />
     <None Include="Resources\eye_open2_24x24.png" />
     <None Include="Resources\eye_open_24x24.png" />
     <None Include="Resources\home-16x16.png" />
+    <None Include="Resources\Actions-edit-clear-list-icon.png" />
+    <None Include="Resources\backup.png" />
+    <None Include="Resources\share.png" />
+    <None Include="Resources\renameProfile.png" />
+    <None Include="Resources\deleteProfile.png" />
+    <None Include="Resources\createBackup.png" />
+    <None Include="Resources\restoreBackup.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
@@ -608,6 +638,7 @@
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </None>
     <None Include="Resources\edit-delete-6.png" />
     <None Include="Resources\compilebasic.png" />
@@ -628,6 +659,9 @@
     <Reference Include="ObjectListView, Version=2.8.0.20711, Culture=neutral, PublicKeyToken=b1c5bf581481bcd4, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\ObjectListView.dll</HintPath>
+    </Reference>
+    <Reference Include="RestSharp">
+      <HintPath>..\RestSharp.dll</HintPath>
     </Reference>
     <Reference Include="SevenZipSharp, Version=0.64.3890.29348, Culture=neutral, PublicKeyToken=20de82c62b055c88, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -734,7 +768,9 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="ModManagement\ProfileManager\UI\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

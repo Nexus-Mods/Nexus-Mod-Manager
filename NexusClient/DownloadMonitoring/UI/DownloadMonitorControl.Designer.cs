@@ -30,6 +30,7 @@
 		{
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.tsbCancel = new System.Windows.Forms.ToolStripButton();
+			this.tsbPurgeDownloads = new System.Windows.Forms.ToolStripButton();
 			this.tsbRemove = new System.Windows.Forms.ToolStripButton();
 			this.tsbRemoveAll = new System.Windows.Forms.ToolStripButton();
 			this.tsbPause = new System.Windows.Forms.ToolStripButton();
@@ -59,7 +60,8 @@
             this.tsbPause,
             this.tsbRemove,
 			this.tsbResumeAll,
-			this.tsbRemoveAll});
+			this.tsbRemoveAll,
+			this.tsbPurgeDownloads});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(37, 183);
@@ -75,6 +77,16 @@
 			this.tsbCancel.Size = new System.Drawing.Size(34, 36);
 			this.tsbCancel.Text = "Cancel";
 			this.tsbCancel.ToolTipText = "Cancel";
+			// 
+			// tsbPurgeDownloads
+			// 
+			this.tsbPurgeDownloads.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbPurgeDownloads.Image = global::Nexus.Client.Properties.Resources.Actions_edit_clear_list_icon;
+			this.tsbPurgeDownloads.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbPurgeDownloads.Name = "tsbPurgeDownloads";
+			this.tsbPurgeDownloads.Size = new System.Drawing.Size(34, 36);
+			this.tsbPurgeDownloads.Text = "Purge Downloads";
+			this.tsbPurgeDownloads.ToolTipText = "Purge Downloads";
 			// 
 			// tsbRemove
 			// 
@@ -202,6 +214,7 @@
 
 		private System.Windows.Forms.ToolStrip toolStrip1;
 		private System.Windows.Forms.ToolStripButton tsbCancel;
+		private System.Windows.Forms.ToolStripButton tsbPurgeDownloads;
 		private Nexus.UI.Controls.DoubleBufferedListView lvwTasks;
 		private System.Windows.Forms.ColumnHeader clmOverallMessage;
 		private System.Windows.Forms.ColumnHeader clmOverallProgress;

@@ -86,6 +86,38 @@ namespace Nexus.Client.Games.Fallout3.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Anchorage - Main.bsa
+        ///Anchorage - Sounds.bsa
+        ///Anchorage.esm
+        ///BrokenSteel - Main.bsa
+        ///BrokenSteel - Sounds.bsa
+        ///BrokenSteel.esm
+        ///Credits.txt
+        ///DLCList.txt
+        ///Fallout - MenuVoices.bsa
+        ///Fallout - Meshes.bsa
+        ///Fallout - Misc.bsa
+        ///Fallout - Sound.bsa
+        ///Fallout - Textures.bsa
+        ///Fallout - Voices.bsa
+        ///Fallout3.esm
+        ///Music\Base\Base_01.mp3
+        ///Music\Base\Base_02.mp3
+        ///Music\Base\Base_03.mp3
+        ///Music\Base\Base_04.mp3
+        ///Music\Battle\Battle_01.mp3
+        ///Music\Battle\Battle_02.mp3
+        ///Music\Battle\Battle_03.mp3
+        ///Music\Battle\Battle_04.mp3
+        ///M [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string fallout3_base {
+            get {
+                return ResourceManager.GetString("fallout3_base", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon fo3_logo {

@@ -140,7 +140,8 @@ namespace Nexus.Client.Games.Fallout4
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();

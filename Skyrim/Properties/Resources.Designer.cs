@@ -84,6 +84,39 @@ namespace Nexus.Client.Games.Skyrim.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Dawnguard.bsa
+        ///Dawnguard.esm
+        ///Dragonborn.bsa
+        ///Dragonborn.esm
+        ///HearthFires.bsa
+        ///HearthFires.esm
+        ///HighResTexturePack01.bsa
+        ///HighResTexturePack01.esp
+        ///HighResTexturePack02.bsa
+        ///HighResTexturePack02.esp
+        ///HighResTexturePack03.bsa
+        ///HighResTexturePack03.esp
+        ///Interface
+        ///Interface\Translate_ENGLISH.txt
+        ///Skyrim - Animations.bsa
+        ///Skyrim - Interface.bsa
+        ///Skyrim - Meshes.bsa
+        ///Skyrim - Misc.bsa
+        ///Skyrim - Shaders.bsa
+        ///Skyrim - Sounds.bsa
+        ///Skyrim - Textures.bsa
+        ///Skyrim - Voices.bsa
+        ///Skyrim.esm
+        ///Strings
+        ///Strings\Skyrim_Engl [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string skyrim_base {
+            get {
+                return ResourceManager.GetString("skyrim_base", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon skyrim_logo {

@@ -205,22 +205,6 @@ namespace Nexus.Client.Settings
 		}
 
 		/// <summary>
-		/// Gets or sets whether to scan sub directories of the mod directory for mods.
-		/// </summary>
-		/// <value>Whether to scan sub directories of the mod directory for mods.</value>
-		public bool OverrideLocalModNames
-		{
-			get
-			{
-				return m_booOverrideLocalModNames;
-			}
-			set
-			{
-				SetPropertyIfChanged(ref m_booOverrideLocalModNames, value, () => OverrideLocalModNames);
-			}
-		}
-
-		/// <summary>
 		/// Gets or sets whether the client should integrate with the explorer shell (right-click menu).
 		/// </summary>
 		/// <value>Whether the client should integrate with the explorer shell (right-click menu).</value>
@@ -299,6 +283,23 @@ namespace Nexus.Client.Settings
 				SetPropertyIfChanged(ref m_booScanSubfoldersForMods, value, () => ScanSubfoldersForMods);
 			}
 		}
+
+		/// <summary>
+		/// Gets or sets whether to scan sub directories of the mod directory for mods.
+		/// </summary>
+		/// <value>Whether to scan sub directories of the mod directory for mods.</value>
+		public bool OverrideLocalModNames
+		{
+			get
+			{
+				return m_booOverrideLocalModNames;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booOverrideLocalModNames, value, () => OverrideLocalModNames);
+			}
+		}
+
 
 		/// <summary>
 		/// Gets or sets whether the mod manager should be closed after a game is launched.

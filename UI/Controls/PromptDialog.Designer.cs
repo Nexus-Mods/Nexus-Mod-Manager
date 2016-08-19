@@ -34,13 +34,15 @@
 			this.butOK = new System.Windows.Forms.Button();
 			this.butCancel = new System.Windows.Forms.Button();
 			this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
+			this.cbShared = new System.Windows.Forms.CheckBox();
+			this.lbShared = new System.Windows.Forms.Label();
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// tbxPath
 			// 
-			this.tbxPath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
-						| System.Windows.Forms.AnchorStyles.Right)));
+			this.tbxPath.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.tbxPath.Location = new System.Drawing.Point(12, 25);
 			this.tbxPath.Name = "tbxPath";
 			this.tbxPath.Size = new System.Drawing.Size(318, 20);
@@ -81,13 +83,37 @@
 			// 
 			this.erpErrors.ContainerControl = this;
 			// 
+			// cbShared
+			// 
+			this.cbShared.AutoSize = true;
+			this.cbShared.Checked = false;
+			this.cbShared.CheckState = System.Windows.Forms.CheckState.Checked;
+			this.cbShared.Location = new System.Drawing.Point(15, 52);
+			this.cbShared.Name = "cbShared";
+			this.cbShared.Size = new System.Drawing.Size(15, 14);
+			this.cbShared.TabIndex = 4;
+			this.cbShared.UseVisualStyleBackColor = true;
+			// 
+			// lbShared
+			// 
+			this.lbShared.AutoSize = true;
+			this.lbShared.Location = new System.Drawing.Point(37, 52);
+			this.lbShared.Name = "lbShared";
+			this.lbShared.Size = new System.Drawing.Size(41, 13);
+			this.lbShared.TabIndex = 5;
+			this.lbShared.Text = "";
+			// 
 			// PromptDialog
 			// 
 			this.AcceptButton = this.butOK;
+			this.AutoSize = true;
+			this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowOnly;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.butCancel;
 			this.ClientSize = new System.Drawing.Size(351, 86);
+			this.Controls.Add(this.lbShared);
+			this.Controls.Add(this.cbShared);
 			this.Controls.Add(this.butCancel);
 			this.Controls.Add(this.butOK);
 			this.Controls.Add(this.label1);
@@ -105,10 +131,12 @@
 
 		#endregion
 
-		private System.Windows.Forms.TextBox tbxPath;
+		public System.Windows.Forms.TextBox tbxPath;
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Button butOK;
 		private System.Windows.Forms.Button butCancel;
 		private System.Windows.Forms.ErrorProvider erpErrors;
+		public System.Windows.Forms.Label lbShared;
+		public System.Windows.Forms.CheckBox cbShared;
 	}
 }

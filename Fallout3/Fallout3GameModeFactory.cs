@@ -152,7 +152,8 @@ namespace Nexus.Client.Games.Fallout3
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();

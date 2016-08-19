@@ -20,16 +20,66 @@ namespace Nexus.UI.Controls
 		/// <param name="p_strErrorMessage">The error message to display if the entered text fails validation.</param>
 		/// <returns>The entered prompted text, or <c>null</c> if the user
 		/// cancelled the dialog.</returns>
-		public static string ShowDialog(IWin32Window p_wndOwner, string p_strPrompt, string p_strCaption, string p_strDefault, string p_strValidationPattern, string p_strErrorMessage)
+		public static PromptDialog ShowDialog(string p_strSharedLabel, IWin32Window p_wndOwner, string p_strPrompt, string p_strCaption, string p_strDefault, string p_strValidationPattern, string p_strErrorMessage)
 		{
 			PromptDialog dlgPrompt = new PromptDialog();
 			dlgPrompt.Text = p_strCaption;
 			dlgPrompt.EnteredText = p_strDefault;
+
+			dlgPrompt.cbShared.Checked = false;
+
+			if (p_strCaption == "Set the Profile name")
+			{
+				dlgPrompt.cbShared.Visible = false;
+				dlgPrompt.tbxPath.Visible = true;
+			}
+
+			if (p_strCaption == "Rename Local")
+			{
+				dlgPrompt.cbShared.Visible = true;
+				dlgPrompt.cbShared.Enabled = false;
+				dlgPrompt.tbxPath.Visible = true;
+				p_strSharedLabel = "Rename Online";
+			}
+
+			if (p_strCaption == "Rename Online")
+			{
+				dlgPrompt.cbShared.Visible = true;
+				dlgPrompt.cbShared.Enabled = true;
+				dlgPrompt.tbxPath.Visible = true;
+				p_strSharedLabel = "Rename Online";
+			}
+
+			if (p_strCaption == "Remove Local")
+			{
+				dlgPrompt.cbShared.Visible = true;
+				dlgPrompt.cbShared.Enabled = false;
+				dlgPrompt.tbxPath.Visible = false;
+				p_strSharedLabel = "Remove Online";
+			}
+
+			if (p_strCaption == "Remove Online")
+			{
+				dlgPrompt.cbShared.Visible = true;
+				dlgPrompt.cbShared.Enabled = true;
+				dlgPrompt.tbxPath.Visible = false;
+				p_strSharedLabel = "Remove Online";
+			}
+
+			if (p_strCaption == "Remove Backedup Profile")
+			{
+				dlgPrompt.cbShared.Visible = false;
+				dlgPrompt.cbShared.Enabled = true;
+				dlgPrompt.tbxPath.Visible = false;
+				p_strSharedLabel = "";
+			}
+
+			dlgPrompt.lbShared.Text = p_strSharedLabel;
 			dlgPrompt.Prompt = p_strPrompt;
 			dlgPrompt.ValidationPattern = p_strValidationPattern;
 			dlgPrompt.ValidationErrorMessage = p_strErrorMessage;
 			if (dlgPrompt.ShowDialog(p_wndOwner) == DialogResult.OK)
-				return dlgPrompt.EnteredText;
+				return dlgPrompt;
 			return null;
 		}
 
@@ -42,9 +92,9 @@ namespace Nexus.UI.Controls
 		/// <param name="p_strDefault">The default prompted text.</param>
 		/// <returns>The entered prompted text, or <c>null</c> if the user
 		/// cancelled the dialog.</returns>
-		public static string ShowDialog(IWin32Window p_wndOwner, string p_strPrompt, string p_strCaption, string p_strDefault)
+		public static PromptDialog ShowDialog(IWin32Window p_wndOwner, string p_strPrompt, string p_strCaption, string p_strDefault)
 		{
-			return ShowDialog(p_wndOwner, p_strPrompt, p_strCaption, p_strDefault, null, null);
+			return ShowDialog(null, p_wndOwner, p_strPrompt, p_strCaption, p_strDefault, null, null);
 		}
 
 		private string m_strValidationPattern = null;

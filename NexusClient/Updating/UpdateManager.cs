@@ -1,6 +1,7 @@
 ﻿using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
+using System;
 
 namespace Nexus.Client.Updating
 {
@@ -22,6 +23,12 @@ namespace Nexus.Client.Updating
 		/// </summary>
 		/// <value>The current game mode.</value>
 		protected IGameMode GameMode { get; private set; }
+
+		#endregion
+
+		#region event
+
+		public event EventHandler BackupRequest = delegate { };
 
 		#endregion
 
@@ -48,9 +55,14 @@ namespace Nexus.Client.Updating
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask Update(ConfirmActionMethod p_camConfirm, bool p_booIsAutoCheck)
 		{
-			UpdateTask utkUpdaters = new UpdateTask(GameMode, EnvironmentInfo, p_booIsAutoCheck);
+			UpdateTask utkUpdaters = new UpdateTask(this, GameMode, EnvironmentInfo, p_booIsAutoCheck);
 			utkUpdaters.Update(p_camConfirm);
 			return utkUpdaters;
+		}
+
+		public void CreateBackup()
+		{
+			BackupRequest(this, new EventArgs());
 		}
 	}
 }

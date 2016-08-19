@@ -56,6 +56,7 @@ namespace Nexus.Client.ModManagement.UI
 				
 				m_vmlViewModel.UpdatingCategory += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingCategory);
 				m_vmlViewModel.UpdatingMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingMods);
+				m_vmlViewModel.UpdatingCategories += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_UpdatingCategories);
 				m_vmlViewModel.TogglingAllWarning += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_TogglingAllWarning);
 				m_vmlViewModel.ReadMeManagerSetup += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ReadMeManagerSetup);
 				m_vmlViewModel.AddingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AddingMod);
@@ -64,7 +65,9 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ActivatingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ActivatingMod);
 				m_vmlViewModel.ReinstallingMod += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_ReinstallingMod);
 				m_vmlViewModel.DisablingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DisablingMultipleMods);
+				m_vmlViewModel.DeletingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeletingMultipleMods);
 				m_vmlViewModel.DeactivatingMultipleMods += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_DeactivatingMultipleMods);
+				m_vmlViewModel.AutomaticDownloading += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_AutomaticDownloading);
 				m_vmlViewModel.ChangingModActivation += new EventHandler<EventArgs<IBackgroundTaskSet>>(ViewModel_ChangingModActivation);
 				m_vmlViewModel.TaggingMod += new EventHandler<EventArgs<ModTaggerVM>>(ViewModel_TaggingMod);
 				m_vmlViewModel.ManagedMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ManagedMods_CollectionChanged);
@@ -135,7 +138,6 @@ namespace Nexus.Client.ModManagement.UI
 			tsbAddMod.DropDownItemClicked += new ToolStripItemClickedEventHandler(tsbAddMod_DropDownItemClicked);
 
 			tsbResetCategories.DefaultItem = tsbResetCategories.DropDownItems[0];
-			tsbCheckModVersions.DefaultItem = tsbCheckModVersions.DropDownItems[0];
 
 			m_tmrColumnSizer.Interval = 100;
 			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
@@ -218,6 +220,19 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the tools button.
+		/// </summary>
+		/// <remarks>
+		/// This displays the list of tools when the button is clicked.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void tsbModOnlineChecks_ButtonClick(object sender, EventArgs e)
+		{
+			tsbModOnlineChecks.DropDown.Show(new System.Drawing.Point(1,1));
+		}
+
+		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
 		/// category button.
 		/// </summary>
@@ -228,7 +243,32 @@ namespace Nexus.Client.ModManagement.UI
 			try
 			{
 				m_booDisableSummary = true;
-				ViewModel.CheckModFileDownloadId();
+				ViewModel.CheckModFileDownloadId(null);
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					string strMessage = "Couldn't perform the update check, retry later.";
+					strMessage += Environment.NewLine + Environment.NewLine + ex.Message;
+					MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
+		/// category button.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+		private void checkMissingDownloadId_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.CheckModFileDownloadId(true);
 				m_booDisableSummary = false;
 			}
 			catch (Exception ex)
@@ -481,7 +521,18 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			m_booDisableSummary = true;
 			ProgressDialog.ShowDialog(this, e.Argument);
+			ViewModel.VirtualModActivator.SaveList();
 			m_booDisableSummary = false;
+		}
+
+		private void ViewModel_AutomaticDownloading(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_AutomaticDownloading, sender, e);
+				return;
+			}
+			ProgressDialog.ShowDialog(this, e.Argument, false);
 		}
 
 		/// <summary>
@@ -502,6 +553,38 @@ namespace Nexus.Client.ModManagement.UI
 			m_booDisableSummary = true;
 			ProgressDialog.ShowDialog(this, e.Argument);
 			m_booDisableSummary = false;
+
+			if (e.Argument.ReturnValue != null)
+			{
+				string strResult = e.Argument.ReturnValue.ToString();
+				if (strResult.Length > 2)
+					ExtendedMessageBox.Show(this, strResult, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+		}
+
+		private void ViewModel_UpdatingCategories(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_UpdatingCategories, sender, e);
+				return;
+			}
+			m_booDisableSummary = true;
+			ProgressDialog.ShowDialog(this, e.Argument);
+			m_booDisableSummary = false;
+
+			if (e.Argument.ReturnValue != null)
+				ExtendedMessageBox.Show(this, "An error occurred during the Update: " + Environment.NewLine + e.Argument.ReturnValue.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			else
+			{
+				ViewModel.ResetDefaultCategories();
+				clwCategoryView.Visible = false;
+				clwCategoryView.LoadData();
+				clwCategoryView.RefreshContextMenuCategoryList();
+				clwCategoryView.ReloadList(false);
+				ResetSearchBox(this, e);
+				clwCategoryView.Visible = true;
+			}
 		}
 
 		/// <summary>
@@ -596,6 +679,16 @@ namespace Nexus.Client.ModManagement.UI
 			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(p_lstMods);
 
 			ViewModel.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), p_booForceUninstall, p_booSilent, p_booFilesOnly);
+		}
+
+		/// <summary>
+		/// Deletes the selected mods.
+		/// </summary>
+		public void DeleteAllMods(IList<IMod> p_lstMods, bool p_booForceUninstall, bool p_booSilent, bool p_booFilesOnly)
+		{
+			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(p_lstMods);
+
+			ViewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), p_booForceUninstall, p_booSilent, p_booFilesOnly);
 		}
 
 		/// <summary>
@@ -707,13 +800,16 @@ namespace Nexus.Client.ModManagement.UI
 							{
 								try
 								{
-									IMod modMod = (IMod)objSelectedItem;
+									List<IMod> modList = GetSelectedMods();
 									if (ViewModel.DeleteModCommand.CanExecute)
 									{
-										if (ConfirmModFileDeletion(modMod))
+										if (modList.Count > 0)
 										{
-											UninstallModGlobally(modMod);
-											ViewModel.DeleteModCommand.Execute(modMod);
+											if (ConfirmModFileDeletion(modList))
+											{
+												DeactivateAllMods(modList, true, true, false);
+												DeleteAllMods(modList, true, true, false);
+											}
 										}
 									}
 								}
@@ -809,6 +905,7 @@ namespace Nexus.Client.ModManagement.UI
 				if (e.Item.RowObject.GetType() != typeof(ModCategory))
 				{
 					IMod modMod = (IMod)e.Item.RowObject;
+
 					if ((modMod.DownloadId == "0") || (modMod.DownloadId == "-1") || (string.IsNullOrEmpty(modMod.DownloadId)))
 					{
 						e.AutoPopDelay = 10000;
@@ -912,15 +1009,15 @@ namespace Nexus.Client.ModManagement.UI
 					}
 					break;
 
-				case ModAction.Reinstall:
-					{
-						ViewModel.ReinstallMod(e.Mod);
-					}
-					break;
-
 				case ModAction.Uninstall:
 					{
 						ViewModel.DeactivateMod(e.Mod);
+					}
+					break;
+
+				case ModAction.Reinstall:
+					{
+						ViewModel.ReinstallMod(e.Mod);
 					}
 					break;
 
@@ -932,12 +1029,17 @@ namespace Nexus.Client.ModManagement.UI
 
 				case ModAction.Delete:
 					{
+						List<IMod> modList = GetSelectedMods();
 						if (ViewModel.DeleteModCommand.CanExecute)
 						{
-							if (ConfirmModFileDeletion(e.Mod))
+							if (modList.Count > 0)
 							{
-								UninstallModGlobally(e.Mod);
-								ViewModel.DeleteModCommand.Execute(e.Mod);
+								if (ConfirmModFileDeletion(modList))
+								{
+									DeactivateAllMods(modList, true, true, false);
+									DeleteAllMods(modList, true, true, false);
+
+								}
 							}
 						}
 					}
@@ -1095,14 +1197,20 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void resetDefaultCategories_Click(object sender, EventArgs e)
 		{
-			if (ViewModel.ResetDefaultCategories())
+			try
 			{
-				clwCategoryView.Visible = false;
-				clwCategoryView.LoadData();
-				clwCategoryView.RefreshContextMenuCategoryList();
-				clwCategoryView.ReloadList(false);
-				ResetSearchBox(this, e);
-				clwCategoryView.Visible = true;
+				m_booDisableSummary = true;
+				ViewModel.CheckCategoriesUpdates();
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					string strMessage = "Couldn't perform the update check, retry later.";
+					strMessage += Environment.NewLine + Environment.NewLine + ex.Message;
+					MessageBox.Show(this, strMessage, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
 			}
 		}
 
@@ -1370,9 +1478,12 @@ namespace Nexus.Client.ModManagement.UI
 				if (!String.IsNullOrEmpty(strClipboard) && strClipboard.StartsWith("nxm://", StringComparison.OrdinalIgnoreCase))
 					strDefault = strClipboard;
 			}
-			string strURL = PromptDialog.ShowDialog(this, "NMM URL: (eg. nxm://Skyrim/mods/193/files/8998)", "Choose URL", strDefault, @"nxm://\w+/mods/\d+/files/\d+", "Must be a Nexus Mod URL.");
-			if (!String.IsNullOrEmpty(strURL))
-				ViewModel.AddModCommand.Execute(strURL);
+			PromptDialog ptDialog = PromptDialog.ShowDialog(null, this, "NMM URL: (eg. nxm://Skyrim/mods/193/files/8998)", "Choose URL", strDefault, @"nxm://\w+/mods/\d+/files/\d+", "Must be a Nexus Mod URL.");
+			if (ptDialog != null)
+			{
+				if (!String.IsNullOrEmpty(ptDialog.EnteredText))
+					ViewModel.AddModCommand.Execute(ptDialog.EnteredText);
+			}
 		}
 
 		/// <summary>
@@ -1409,6 +1520,7 @@ namespace Nexus.Client.ModManagement.UI
 				return strResult;
 			}
 
+			return p_strFileName;
 			if (!p_strFileName.Equals(p_strNewFileName))
 			{
 				switch (MessageBox.Show(this, "File '" + p_strFileName + "' already exists. The old file can be replaced, or the new file can be named '" + p_strNewFileName + "'." + Environment.NewLine + "Do you want to overwrite the old file?", "Warning", MessageBoxButtons.YesNoCancel))
@@ -1450,20 +1562,25 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod whose deletion is to be confirmed.</param>
 		/// <returns><c>true</c> if the mod should be deleted;
 		/// <c>false</c> otherwise.</returns>
-		private bool ConfirmModFileDeletion(IMod p_modMod)
+		private bool ConfirmModFileDeletion(List<IMod> p_lstMod)
 		{
 			if (InvokeRequired)
 			{
 				bool booResult = false;
-				Invoke((MethodInvoker)(() => booResult = ConfirmModFileDeletion(p_modMod)));
+				Invoke((MethodInvoker)(() => booResult = ConfirmModFileDeletion(p_lstMod)));
 				return booResult;
 			}
-			return MessageBox.Show(this,
-				String.Format("\"{0}\" mod will be uninstalled and all its files and its archive will be permanently deleted from you hard drive.\r\nAre you sure?\r\n\r\nThis operation can not be undone.", p_modMod.ModName), 
-				"Confirm", 
-				MessageBoxButtons.YesNo,
-				MessageBoxIcon.Question, 
-				MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+
+			string WarningMessage = string.Empty;
+
+			foreach(IMod mod in p_lstMod)
+			{
+				WarningMessage = WarningMessage + String.Format("- {0}", mod.ModName + "\r\n");
+			}
+
+			WarningMessage = WarningMessage + "\r\nThese mods will be uninstalled and all their files and their archives will be permanently deleted from your hard drive.\r\nAre you sure?\r\n\r\nThis operation cannot be undone.";
+
+			return ExtendedMessageBox.Show(this, WarningMessage, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
 		}
 
 		#endregion
@@ -1609,33 +1726,32 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ModManagerVM.ReinstallingMod"/> event of the view model.
+		/// Handles the <see cref="ModManagerVM.DeletingMultipleMods"/> event of the view model.
 		/// </summary>
 		/// <remarks>
 		/// This displays the progress dialog.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
-		private void ViewModel_ReinstallingMod(object sender, EventArgs<IBackgroundTask> e)
+		private void ViewModel_DeletingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
 		{
 			if (InvokeRequired)
 			{
-				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ReinstallingMod, sender, e);
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_DeletingMultipleMods, sender, e);
 				return;
 			}
-			
 			ProgressDialog.ShowDialog(this, e.Argument);
 		}
 
-	/// <summary>
-	/// Handles the <see cref="ModManagerVM.DeactivatingMultipleMods"/> event of the view model.
-	/// </summary>
-	/// <remarks>
-	/// This displays the progress dialog.
-	/// </remarks>
-	/// <param name="sender">The object that raised the event.</param>
-	/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
-	private void ViewModel_DeactivatingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
+		/// <summary>
+		/// Handles the <see cref="ModManagerVM.DeactivatingMultipleMods"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_DeactivatingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
 		{
 			if (InvokeRequired)
 			{
@@ -1708,16 +1824,35 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Sets the checked state of the given list view item.
-		/// </summary>
-		/// <remarks>
-		/// This sets the flag indicating we are changing the checked state of the
-		/// list view item (as opposed to the user making the change),
-		/// thus preventing the execution of commands as a result.
-		/// </remarks>
-		/// <param name="p_lviPlugin">The list view item whose checked state is to be changed.</param>
-		/// <param name="p_booIsActive">Whether the item should be active.</param>
-		protected void SetModActivationCheck(ListViewItem p_lviPlugin, bool p_booIsActive)
+		/// Handles the <see cref="ModManagerVM.ReinstallingMod"/> event of the view model.
+ 		/// </summary>
+ 		/// <remarks>
+ 		/// This displays the progress dialog.
+ 		/// </remarks>
+ 		/// <param name="sender">The object that raised the event.</param>
+ 		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		private void ViewModel_ReinstallingMod(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ReinstallingMod, sender, e);
+				return;
+			}
+			
+			ProgressDialog.ShowDialog(this, e.Argument);
+		}
+
+	/// <summary>
+	/// Sets the checked state of the given list view item.
+	/// </summary>
+	/// <remarks>
+	/// This sets the flag indicating we are changing the checked state of the
+	/// list view item (as opposed to the user making the change),
+	/// thus preventing the execution of commands as a result.
+	/// </remarks>
+	/// <param name="p_lviPlugin">The list view item whose checked state is to be changed.</param>
+	/// <param name="p_booIsActive">Whether the item should be active.</param>
+	protected void SetModActivationCheck(ListViewItem p_lviPlugin, bool p_booIsActive)
 		{
 			p_lviPlugin.Checked = p_booIsActive;
 		}
@@ -1878,14 +2013,14 @@ namespace Nexus.Client.ModManagement.UI
 		private void UninstallModGlobally(IMod p_modMod)
 		{
 			ViewModel.DeactivateMod(p_modMod);
-
+			
 			var handler = this.UninstallModFromProfiles;
 			if (handler != null)
 			{
 				handler(this, new ModEventArgs(p_modMod));
 			}
 		}
-
+		
 		#region Column Resizing
 
 		/// <summary>

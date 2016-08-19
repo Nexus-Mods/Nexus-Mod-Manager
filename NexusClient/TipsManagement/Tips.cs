@@ -21,23 +21,23 @@ namespace Nexus.Client.TipsManagement
 		/// <value>The text of the tip.</value>
 		public string TipText { get; set; }
 
-        /// <summary>
-        /// Gets or sets the section of the UI.
-        /// </summary>
-        /// <value>The section of the UI.</value>
-        public string TipSection { get; set; }
-        		
+		/// <summary>
+		/// Gets or sets the section of the UI.
+		/// </summary>
+		/// <value>The section of the UI.</value>
+		public string TipSection { get; set; }
+
 		/// <summary>
 		/// Gets or sets the object of the UI.
 		/// </summary>
 		/// <value>The object of the UI.</value>
 		public string TipObject { get; set; }
 
-        /// <summary>
-        /// Gets or sets the NMM version.
-        /// </summary>
-        /// <value>The object of the UI.</value>
-        public string TipVersion { get; set; }
+		/// <summary>
+		/// Gets or sets the NMM version.
+		/// </summary>
+		/// <value>The object of the UI.</value>
+		public string TipVersion { get; set; }
 		
 		#endregion
 
@@ -48,8 +48,8 @@ namespace Nexus.Client.TipsManagement
 			TipId = p_intTipId;
 			TipText = p_strTipText;
 			TipObject = p_strTipObject;
-            TipSection = p_strTipSection;
-            TipVersion = p_strTipVersion;
+			TipSection = p_strTipSection;
+			TipVersion = p_strTipVersion;
 		}
 
 		#endregion

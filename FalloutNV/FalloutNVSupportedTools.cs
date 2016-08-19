@@ -201,7 +201,7 @@ namespace Nexus.Client.Games.FalloutNV
 			}
 		}
 
-		private void ConfigBOSS()
+private void ConfigBOSS()
 		{
 			string p_strToolName = "BOSS";
 			string p_strExecutableName = "BOSS.exe";

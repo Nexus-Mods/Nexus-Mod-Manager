@@ -73,7 +73,21 @@ namespace Nexus.Client
 				{
 #endif
 					Bootstrapper btsInitializer = new Bootstrapper(EnvironmentInfo);
-					btsInitializer.RunMainForm(p_strArgs);
+					try
+					{
+						btsInitializer.RunMainForm(p_strArgs);
+					}
+					catch (MissingMethodException e)
+					{
+						if (MessageBox.Show("You're running an older version of the .Net Framework!" + Environment.NewLine + "Please download .Net Framework 4.6 from the Microsoft website or using Windows Update." +
+								Environment.NewLine + Environment.NewLine + "Click YES if you want Nexus Mod Manager to automatically take you to the download page on your default browser." + Environment.NewLine +
+								"Click NO if you want to close the program and download it later.", "Warning!", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+						{
+							Process.Start("https://www.microsoft.com/en-us/download/details.aspx?id=48137");
+						}
+
+						Application.Exit();
+					}
 #if !DEBUG
 				}
 				catch (Exception e)

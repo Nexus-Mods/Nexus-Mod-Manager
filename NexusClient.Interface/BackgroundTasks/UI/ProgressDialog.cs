@@ -69,11 +69,13 @@ namespace Nexus.Client.BackgroundTasks.UI
 			Task.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
 			InitializeComponent();
 
+			pbrItemProgress.Maximum = (Int32)Task.ItemProgressMaximum;
+			pbrItemProgress.Minimum = (Int32)Task.ItemProgressMinimum;
+			
 			pbrItemProgress.Value = (Int32)Task.ItemProgress;
 			lblItemMessage.Text = Task.ItemMessage;
 			lblTotalMessage.Text = Task.OverallMessage;
-			pbrItemProgress.Maximum = (Int32)Task.ItemProgressMaximum;
-			pbrItemProgress.Minimum = (Int32)Task.ItemProgressMinimum;
+			
 			pbrItemProgress.Step = Task.ItemProgressStepSize;
 			pbrTotalProgress.Maximum = (Int32)Task.OverallProgressMaximum;
 			pbrTotalProgress.Minimum = (Int32)Task.OverallProgressMinimum;

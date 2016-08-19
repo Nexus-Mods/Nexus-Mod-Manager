@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Games;
 using Nexus.Client.ModManagement.UI;
-using Nexus.Client.Mods;
 using Nexus.Client.UI;
 
 namespace Nexus.Client.ModManagement

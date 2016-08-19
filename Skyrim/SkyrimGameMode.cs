@@ -106,6 +106,18 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
+		/// Gets the game Base files.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public override string BaseGameFiles
+		{
+			get
+			{
+				return Properties.Resources.skyrim_base;
+			}
+		}
+
+		/// <summary>
 		/// Whether the game requires the profile manager to save optional files.
 		/// </summary>
 		public override bool RequiresOptionalFilesCheckOnProfileSwitch

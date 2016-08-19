@@ -5,6 +5,7 @@ using System.Threading;
 using ChinhDo.Transactions;
 using Nexus.Client.Util.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace Nexus.Client.Util
 {
@@ -13,6 +14,77 @@ namespace Nexus.Client.Util
 	/// </summary>
 	public class FileUtil
 	{
+		// Copies, moves, renames, or deletes a file system object. 
+		[DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+		public static extern Int32 SHFileOperation(
+			ref SHFILEOPSTRUCT lpFileOp);       // Address of an SHFILEOPSTRUCT 
+												// structure that contains information this function needs 
+												// to carry out the specified operation. This parameter must 
+												// contain a valid value that is not NULL. You are 
+												// responsible for validating the value. If you do not 
+												// validate it, you will experience unexpected results.
+
+		// Contains information that the SHFileOperation function uses to perform 
+		// file operations. 
+		[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+		public struct SHFILEOPSTRUCT
+		{
+			public IntPtr hwnd;   // Window handle to the dialog box to display 
+								  // information about the status of the file 
+								  // operation. 
+			public UInt32 wFunc;   // Value that indicates which operation to 
+								   // perform.
+			public IntPtr pFrom;   // Address of a buffer to specify one or more 
+								   // source file names. These names must be
+								   // fully qualified paths. Standard Microsoft®   
+								   // MS-DOS® wild cards, such as "*", are 
+								   // permitted in the file-name position. 
+								   // Although this member is declared as a 
+								   // null-terminated string, it is used as a 
+								   // buffer to hold multiple file names. Each 
+								   // file name must be terminated by a single 
+								   // NULL character. An additional NULL 
+								   // character must be appended to the end of 
+								   // the final name to indicate the end of pFrom. 
+			public IntPtr pTo;   // Address of a buffer to contain the name of 
+								 // the destination file or directory. This 
+								 // parameter must be set to NULL if it is not 
+								 // used. Like pFrom, the pTo member is also a 
+								 // double-null terminated string and is handled 
+								 // in much the same way. 
+			public UInt16 fFlags;   // Flags that control the file operation. 
+
+			public Int32 fAnyOperationsAborted;
+
+			// Value that receives TRUE if the user aborted 
+			// any file operations before they were 
+			// completed, or FALSE otherwise. 
+
+			public IntPtr hNameMappings;
+
+			// A handle to a name mapping object containing 
+			// the old and new names of the renamed files. 
+			// This member is used only if the 
+			// fFlags member includes the 
+			// FOF_WANTMAPPINGHANDLE flag.
+
+			[MarshalAs(UnmanagedType.LPWStr)]
+			public String lpszProgressTitle;
+
+			// Address of a string to use as the title of 
+			// a progress dialog box. This member is used 
+			// only if fFlags includes the 
+			// FOF_SIMPLEPROGRESS flag.
+		}
+		private enum Operation : uint
+		{
+			FO_MOVE = 0x0001,
+			FO_COPY = 0x0002,
+			FO_DELETE = 0x0003,
+			FO_RENAME = 0x0004,
+		}
+
+
 		private static readonly Regex m_rgxCleanPath = new Regex("[" + Path.DirectorySeparatorChar + Path.AltDirectorySeparatorChar + "]{2,}");
 
 		/// <summary>
@@ -41,6 +113,25 @@ namespace Nexus.Client.Util
 				}
 			}
 			throw new Exception("Could not create temporary folder because directory is full.");
+		}
+
+		public static bool RenameDirectory(string p_strSource, string p_strDest)
+		{
+			SHFILEOPSTRUCT struc = new SHFILEOPSTRUCT();
+
+			struc.hNameMappings = IntPtr.Zero;
+			struc.hwnd = IntPtr.Zero;
+			struc.lpszProgressTitle = "Rename Release directory";
+			struc.pFrom = Marshal.StringToHGlobalUni(p_strSource);
+			struc.pTo = Marshal.StringToHGlobalUni(p_strDest);
+			struc.wFunc = (uint)Operation.FO_RENAME;
+
+			int ret = SHFileOperation(ref struc);
+
+			if (ret != 0)
+				return false;
+			else
+				return true;
 		}
 
 		/// <summary>

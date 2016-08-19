@@ -71,6 +71,11 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ManagingMultiplePlugins = delegate { };
 
+		/// <summary>
+		/// Raised when applying an imported loadorder.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ApplyingImportedLoadOrder = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -306,7 +311,7 @@ namespace Nexus.Client.PluginManagement.UI
 				if (ActivePlugins.Count > 0)
 				{
 					lstActivePlugins = ActivePlugins.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.Filename)).Select(x => x.Filename).ToList();
-					
+
 					var ActivatedPlugins = lstNewActiveList.Except(lstActivePlugins, StringComparer.InvariantCultureIgnoreCase);
 					if (ActivatedPlugins != null)
 						lstActivatedPlugins = ActivatedPlugins.ToList();
@@ -772,15 +777,11 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <summary>
 		/// Applies the load order specified by the given list of registered plugins
 		/// </summary>
-		/// <param name="p_lstRegisteredPlugins">The list of registered plugins.</param>
+		/// <param name="p_kvpRegisteredPlugins">The list of registered plugins.</param>
 		/// <param name="p_booSortingOnly">Whether we just want to apply the sorting.</param>
 		public void ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly)
 		{
-			ApplyLoadOrderTask altApplyLoadOrder = new ApplyLoadOrderTask(PluginManager, p_kvpRegisteredPlugins, p_booSortingOnly);
-			if (CurrentGameMode.LoadOrderManager != null)
-				CurrentGameMode.LoadOrderManager.MonitorExternalTask(altApplyLoadOrder);
-			else
-				altApplyLoadOrder.Update();
+			ApplyingImportedLoadOrder(this, new EventArgs<IBackgroundTask>(PluginManager.ApplyLoadOrder(p_kvpRegisteredPlugins, p_booSortingOnly)));
 		}
 
 		/// <summary>
@@ -894,6 +895,45 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Read the load order from the specified <see cref="TextReader"/> and returns the number of
+		/// plugins imported as well as the number of plugins not found.
+		/// </summary>
+		/// <param name="p_trReader">The TextReader to read the load order from.</param>
+		/// <param name="p_intTotalPluginCount">The total number of plugins that were found in the specified import source.</param>
+		/// <param name="p_intImportedCount">The number of plugins imported.</param>
+		/// <param name="p_lstUnregisteredPlugins">The list of plugins that are not registered with the current <see cref="T:PluginManager"/>.</param>
+		private Dictionary<Plugin, string> ParseLoadOrder(TextReader p_trReader, out int p_intTotalPluginCount, out int p_intImportedCount, out List<string> p_lstUnregisteredPlugins)
+		{
+			if (p_trReader == null)
+				throw new ArgumentNullException("p_trReader");
+
+			p_lstUnregisteredPlugins = null;
+			p_intImportedCount = 0;
+
+			Dictionary<string, string> kvpPluginFilenames = ReadImportSource(p_trReader);
+			p_intTotalPluginCount = kvpPluginFilenames.Count;
+
+			if (p_intTotalPluginCount == 0)
+			{
+				p_intImportedCount = 0;
+				p_lstUnregisteredPlugins = null;
+				return null;
+			}
+
+			Dictionary<Plugin, string> kvpRegisteredPlugins;
+
+			GetRegisteredPlugins(kvpPluginFilenames, out kvpRegisteredPlugins, out p_lstUnregisteredPlugins);
+
+			if (kvpRegisteredPlugins.Count == 0)
+			{
+				p_intImportedCount = 0;
+				return null;
+			}
+
+			return kvpRegisteredPlugins;
+		}
+
+		/// <summary>
 		/// Read the load order from the specified <see cref="Dictionary<string, string>"/> and returns the number of
 		/// plugins imported as well as the number of plugins not found.
 		/// </summary>
@@ -986,6 +1026,34 @@ namespace Nexus.Client.PluginManagement.UI
 					OnImportFailed("Profile Manager", ex);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Imports a load order from the specified stream.
+		/// </summary>
+		/// <param name="p_strStream">The stream to import a load order from.</param>
+		public Dictionary<Plugin, string> ParseLoadOrderFromString(string p_strLoadOrder)
+		{
+			if (String.IsNullOrEmpty(p_strLoadOrder) || !CurrentGameMode.UsesPlugins)
+				return null;
+
+			using (StringReader strReader = new StringReader(p_strLoadOrder))
+			{
+				try
+				{
+					int intTotalPluginCount;
+					int intImportedPluginCount;
+					List<string> lstPluginsNotImported;
+
+					return ParseLoadOrder(strReader, out intTotalPluginCount, out intImportedPluginCount, out lstPluginsNotImported);
+				}
+				catch (Exception ex)
+				{
+					OnImportFailed("Profile Manager", ex);
+				}
+			}
+
+			return null;
 		}
 
 		/// <summary>

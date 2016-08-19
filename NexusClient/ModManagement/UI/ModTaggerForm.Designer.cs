@@ -49,8 +49,8 @@
 						| System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.lvwTagCandidates.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.clmName,
-            this.clmVersion});
+			this.clmName,
+			this.clmVersion});
 			this.lvwTagCandidates.FullRowSelect = true;
 			this.lvwTagCandidates.HideSelection = false;
 			this.lvwTagCandidates.Location = new System.Drawing.Point(12, 25);

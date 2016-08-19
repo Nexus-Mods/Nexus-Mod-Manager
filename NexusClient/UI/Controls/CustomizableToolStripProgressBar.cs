@@ -75,10 +75,10 @@ namespace Nexus.Client.UI.Controls
 		/// <value>The FillType.</value>
 		public ProgressLabel.FillType ColorFillMode
 		{
-		    get
-		    {
+			get
+			{
 				return ProgressBarControl.ColorFillMode;
-		    }
+			}
 			set
 			{
 				ProgressBarControl.ColorFillMode = value;

@@ -460,14 +460,14 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The tool launcher for the game mode.</value>
 		public abstract IToolLauncher GameToolLauncher { get; }
-		
+
 		/// <summary>
 		/// Gets whether the game mode uses plugins.
 		/// </summary>
 		/// <remarks>
 		/// This indicates whether the game mode used plugins that are
 		/// installed by mods, or simply used mods, without
-		/// plugins.
+		/// plugins.IEnumerable<ISettingsGroupView> SupportedToolsGroupViews { get; }
 		/// 
 		/// In games that use mods only, the installation of a mods package
 		/// is sufficient to add the functionality to the game. The game
@@ -522,6 +522,14 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The default game categories stored in the resource file.</value>
 		public virtual string GameDefaultCategories
+		{
+			get
+			{
+				return String.Empty;
+			}
+		}
+
+		public virtual string BaseGameFiles
 		{
 			get
 			{

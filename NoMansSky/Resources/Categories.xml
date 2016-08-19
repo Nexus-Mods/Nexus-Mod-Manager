@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="ReShade Presets" ID="3">
+      <name>ReShade Presets</name>
+    </category>
+    <category path="Utilities" ID="5">
+      <name>Utilities</name>
+    </category>
+    <category path="User Interface" ID="4">
+      <name>User Interface</name>
+    </category>
+  </categoryList>
+</categoryManager>

@@ -27,7 +27,7 @@ namespace Nexus.Client.Games.DragonsDogma
 		{
 			get
 			{
-                string strPath = Path.Combine(InstallationPath, "");
+				string strPath = Path.Combine(InstallationPath, "");
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
@@ -59,7 +59,7 @@ namespace Nexus.Client.Games.DragonsDogma
 		{
 			get
 			{
-                return "Dragon's Dogma";
+				return "Dragon's Dogma";
 			}
 		}
 

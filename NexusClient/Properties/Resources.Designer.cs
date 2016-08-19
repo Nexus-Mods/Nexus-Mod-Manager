@@ -63,6 +63,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Actions_edit_clear_list_icon {
+            get {
+                object obj = ResourceManager.GetObject("Actions_edit_clear_list_icon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap activate_mod {
             get {
                 object obj = ResourceManager.GetObject("activate_mod", resourceCulture);
@@ -153,6 +163,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap backup {
+            get {
+                object obj = ResourceManager.GetObject("backup", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap category_folder {
             get {
                 object obj = ResourceManager.GetObject("category_folder", resourceCulture);
@@ -193,6 +213,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap createBackup {
+            get {
+                object obj = ResourceManager.GetObject("createBackup", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap cz {
             get {
                 object obj = ResourceManager.GetObject("cz", resourceCulture);
@@ -217,6 +247,26 @@ namespace Nexus.Client.Properties {
             get {
                 object obj = ResourceManager.GetObject("DefaultIcon", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap deleteProfile {
+            get {
+                object obj = ResourceManager.GetObject("deleteProfile", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap DeleteProfilePage {
+            get {
+                object obj = ResourceManager.GetObject("DeleteProfilePage", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
         
@@ -473,6 +523,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap EditProfilePage {
+            get {
+                object obj = ResourceManager.GetObject("EditProfilePage", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap en {
             get {
                 object obj = ResourceManager.GetObject("en", resourceCulture);
@@ -703,9 +763,29 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap refreshOnlineProfiles {
+            get {
+                object obj = ResourceManager.GetObject("refreshOnlineProfiles", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap remove_all_categories {
             get {
                 object obj = ResourceManager.GetObject("remove_all_categories", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap renameProfile {
+            get {
+                object obj = ResourceManager.GetObject("renameProfile", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -743,6 +823,26 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap restoreBackup {
+            get {
+                object obj = ResourceManager.GetObject("restoreBackup", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap RestoreProfile {
+            get {
+                object obj = ResourceManager.GetObject("RestoreProfile", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap round_loading {
             get {
                 object obj = ResourceManager.GetObject("round_loading", resourceCulture);
@@ -753,9 +853,29 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap share {
+            get {
+                object obj = ResourceManager.GetObject("share", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap side_panel {
             get {
                 object obj = ResourceManager.GetObject("side_panel", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap StartStopSharing {
+            get {
+                object obj = ResourceManager.GetObject("StartStopSharing", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -874,13 +994,13 @@ namespace Nexus.Client.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;tipsManager&gt;
         ///	&lt;tipsList&gt;
+        ///		&lt;tips section=&quot;ModManager.toolStrip1&quot; object=&quot;tsbActivate&quot; ID=&quot;1&quot; version=&quot;0.61.8&quot;&gt;
+        ///			&lt;text&gt;To completely UNINSTALL or DELETE a mod, right-click on it and select the desired uninstall option from the context menu.&lt;/text&gt;
+        ///		&lt;/tips&gt;
         ///		&lt;tips section=&quot;CLWCategoryListView&quot; object=&quot;column&quot; ID=&quot;1&quot; version=&quot;0.60.10&quot;&gt;
         ///			&lt;text&gt;Right-clicking on a mod name will now also show the mod’s filename.&lt;/text&gt;
         ///		&lt;/tips&gt;
-        ///		&lt;tips section=&quot;PluginManagerControl&quot; object=&quot;rlvPlugins&quot; ID=&quot;2&quot; version=&quot;0.60.10&quot; pluginsonly=&quot;true&quot;&gt;
-        ///			&lt;text&gt;Added a &quot;Mod&quot; field in the plugin description that will tell you what mod that plugin belongs to.&lt;/text&gt;
-        ///		&lt;/tips&gt;
-        ///		&lt;tips section=&quot;toolStrip1&quot; object= [rest of string was truncated]&quot;;.
+        ///		&lt;tips section=&quot;PluginManager [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TipsXML {
             get {
@@ -954,6 +1074,16 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap us {
             get {
                 object obj = ResourceManager.GetObject("us", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap View_Profile {
+            get {
+                object obj = ResourceManager.GetObject("View_Profile", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

@@ -96,6 +96,18 @@ namespace Nexus.Client.Games.Morrowind
 		}
 
 		/// <summary>
+		/// Gets the game Base files.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public override string BaseGameFiles
+		{
+			get
+			{
+				return Properties.Resources.morrowind_base;
+			}
+		}
+
+		/// <summary>
 		/// Gets whether the game mode supports the automatic sorting
 		/// functionality for plugins.
 		/// </summary>

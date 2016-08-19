@@ -103,17 +103,17 @@ namespace Nexus.Client.Games.Skyrim
 				AddLaunchCommand(new Command("Config#FNIS", "Config FNIS", "Configures FNIS.", imgIcon, ConfigFNIS, true));
 			}
 
-			strCommand = GetBSLaunchCommand();
-			Trace.TraceInformation("BodySlide Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			strCommand = GetBS2LaunchCommand();
+			Trace.TraceInformation("BodySlide 2 Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("BS2", "Launch BodySlide", "Launches BodySlide.", imgIcon, LaunchBS, true));
+				AddLaunchCommand(new Command("BS2", "Launch BodySlide 2", "Launches BodySlide 2.", imgIcon, LaunchBS2, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#BodySlide", "Config BodySlide", "Configures BodySlide.", imgIcon, ConfigBS, true));
+				AddLaunchCommand(new Command("Config#BodySlide 2", "Config BodySlide 2", "Configures BodySlide 2.", imgIcon, ConfigBS2, true));
 			}
 
 			strCommand = GetDSRPLaunchCommand();
@@ -192,11 +192,11 @@ namespace Nexus.Client.Games.Skyrim
 			Launch(strCommand, null);
 		}
 
-		private void LaunchBS()
+		private void LaunchBS2()
 		{
-			Trace.TraceInformation("Launching BodySlide");
+			Trace.TraceInformation("Launching BodySlide 2");
 			Trace.Indent();
-			string strCommand = GetBSLaunchCommand();
+			string strCommand = GetBS2LaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -392,46 +392,46 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
-		/// Gets the BodySlide launch command.
+		/// Gets the BodySlide 2 launch command.
 		/// </summary>
-		/// <returns>The BodySlide launch command.</returns>
-		private string GetBSLaunchCommand()
+		/// <returns>The BodySlide 2 launch command.</returns>
+		private string GetBS2LaunchCommand()
 		{
-			string strBS = String.Empty;
+			string strBS2 = String.Empty;
 
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BS2"))
 			{
-				strBS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
-				if (!String.IsNullOrWhiteSpace(strBS) && ((strBS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBS)))
+				strBS2 = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"];
+				if (!String.IsNullOrWhiteSpace(strBS2) && ((strBS2.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBS2)))
 				{
-					strBS = String.Empty;
+					strBS2 = String.Empty;
 					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = String.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
 			}
 
-			if (String.IsNullOrEmpty(strBS))
+			if (String.IsNullOrEmpty(strBS2))
 			{
-				string strBSPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
-				if (Directory.Exists(strBSPath))
+				string strBS2Path = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
+				if (Directory.Exists(strBS2Path))
 				{
-					strBS = strBSPath;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = strBS;
+					strBS2 = strBS2Path;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BS2"] = strBS2;
 					EnvironmentInfo.Settings.Save();
 				}
 			}
 
-			if (!String.IsNullOrEmpty(strBS))
+			if (!String.IsNullOrEmpty(strBS2))
 			{
-				string str64bit = Path.Combine(strBS, "BodySlide x64.exe");
+				string str64bit = Path.Combine(strBS2, "BodySlide x64.exe");
 
 				if (Environment.Is64BitProcess && File.Exists(str64bit))
-					strBS = str64bit;
+					strBS2 = str64bit;
 				else
-					strBS = Path.Combine(strBS, "BodySlide.exe");
+					strBS2 = Path.Combine(strBS2, "BodySlide.exe");
 			}
 
-			return strBS;
+			return strBS2;
 		}
 
 		/// <summary>
@@ -525,7 +525,7 @@ namespace Nexus.Client.Games.Skyrim
 					break;
 
 				case "BS2":
-					ConfigBS();
+					ConfigBS2();
 					break;
 
 				case "TES5Edit":
@@ -703,9 +703,9 @@ namespace Nexus.Client.Games.Skyrim
 				}
 		}
 
-		private void ConfigBS()
+		private void ConfigBS2()
 		{
-			string p_strToolName = "BS";
+			string p_strToolName = "BS2";
 			string p_strExecutableName = "BodySlide.exe";
 			string p_strToolID = "BS2";
 			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));

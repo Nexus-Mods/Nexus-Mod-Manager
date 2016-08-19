@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModManagement;
+using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 
@@ -191,6 +193,31 @@ namespace Nexus.Client.DownloadMonitoring
 		}
 
 		/// <summary>
+		/// Removes a task from the monitor.
+		/// </summary>
+		/// <remarks>
+		/// Tasks can only be removed if they are not running.
+		/// </remarks>
+		/// <param name="p_tskTask">The task to remove.</param>
+		public void PurgeDownload(AddModTask p_tskTask)
+		{
+			if (CanPurge(p_tskTask))
+			{
+				p_tskTask.PropertyChanged -= new System.ComponentModel.PropertyChangedEventHandler(Task_PropertyChanged);
+				p_tskTask.Cancel();
+				m_oclTasks.Remove(p_tskTask);
+				m_setActiveTasks.Remove(p_tskTask);
+			}
+		}
+
+		public IBackgroundTask PurgeDownloads(List<IBackgroundTask> p_tskPurgeDownloads, ConfirmActionMethod p_camConfirm)
+		{
+			PurgeDownloadsTask amtProfileAdder = new PurgeDownloadsTask(p_tskPurgeDownloads, this);
+			amtProfileAdder.Update(p_camConfirm);
+			return amtProfileAdder;
+		}
+
+		/// <summary>
 		/// Determines if the given <see cref="IBackgroundTask"/> can be removed from
 		/// the monitor.
 		/// </summary>
@@ -201,6 +228,19 @@ namespace Nexus.Client.DownloadMonitoring
 		public bool CanRemove(IBackgroundTask p_tskTask)
 		{
 			return !p_tskTask.IsActive && !CanResume(p_tskTask) && !(p_tskTask.InnerTaskStatus == TaskStatus.Retrying);
+		}
+
+		/// <summary>
+		/// Determines if the given <see cref="IBackgroundTask"/> can be removed from
+		/// the monitor.
+		/// </summary>
+		/// <param name="p_tskTask">The task for which it is to be determined
+		/// if it can be removed from the monitor.</param>
+		/// <returns><c>true</c> if the p_tskTask can be removed;
+		/// <c>false</c> otherwise.</returns>
+		public bool CanPurge(IBackgroundTask p_tskTask)
+		{
+			return !(p_tskTask.Status == TaskStatus.Running) || !(p_tskTask.Status == TaskStatus.Complete);
 		}
 
 		#endregion

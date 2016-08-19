@@ -1,0 +1,73 @@
+Credits.txt
+DLCList.txt
+DLCShiveringIsles - Meshes.bsa
+DLCShiveringIsles - Sounds.bsa
+DLCShiveringIsles - Textures.bsa
+DLCShiveringIsles - Voices.bsa
+DLCShiveringIsles.esp
+Knights.bsa
+Knights.esp
+Music\Battle\battle_01.mp3
+Music\Battle\battle_02.mp3
+Music\Battle\battle_03.mp3
+Music\Battle\battle_04.mp3
+Music\Battle\battle_05.mp3
+Music\Battle\battle_06.mp3
+Music\Battle\battle_07.mp3
+Music\Battle\battle_08.mp3
+Music\Dungeon\Dungeon_01_v2.mp3
+Music\Dungeon\dungeon_02.mp3
+Music\Dungeon\dungeon_03.mp3
+Music\Dungeon\dungeon_04.mp3
+Music\Dungeon\dungeon_05.mp3
+Music\Explore\atmosphere_01.mp3
+Music\Explore\atmosphere_03.mp3
+Music\Explore\atmosphere_04.mp3
+Music\Explore\atmosphere_06.mp3
+Music\Explore\atmosphere_07.mp3
+Music\Explore\atmosphere_08.mp3
+Music\Explore\atmosphere_09.mp3
+Music\Public\town_01.mp3
+Music\Public\town_02.mp3
+Music\Public\town_03.mp3
+Music\Public\town_04.mp3
+Music\Public\town_05.mp3
+Music\Special\death.mp3
+Music\Special\success.mp3
+Music\Special\tes4title.mp3
+Oblivion - Meshes.bsa
+Oblivion - Misc.bsa
+Oblivion - Sounds.bsa
+Oblivion - Textures - Compressed.bsa
+Oblivion - Voices1.bsa
+Oblivion - Voices2.bsa
+Oblivion.esm
+Shaders\shaderpackage001.sdp
+Shaders\shaderpackage002.sdp
+Shaders\shaderpackage003.sdp
+Shaders\shaderpackage004.sdp
+Shaders\shaderpackage005.sdp
+Shaders\shaderpackage006.sdp
+Shaders\shaderpackage007.sdp
+Shaders\shaderpackage008.sdp
+Shaders\shaderpackage009.sdp
+Shaders\shaderpackage010.sdp
+Shaders\shaderpackage011.sdp
+Shaders\shaderpackage012.sdp
+Shaders\shaderpackage013.sdp
+Shaders\shaderpackage014.sdp
+Shaders\shaderpackage015.sdp
+Shaders\shaderpackage016.sdp
+Shaders\shaderpackage017.sdp
+Shaders\shaderpackage018.sdp
+Shaders\shaderpackage019.sdp
+Textures\Effects\TerrainNoise.dds
+Video\2k games.bik
+Video\bethesda softworks HD720p.bik
+Video\CreditsMenu.bik
+Video\game studios.bik
+Video\Map loop.bik
+Video\Oblivion iv logo.bik
+Video\Oblivion Legal.bik
+Video\OblivionIntro.bik
+Video\OblivionOutro.bik

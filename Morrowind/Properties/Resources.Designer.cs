@@ -83,6 +83,32 @@ namespace Nexus.Client.Games.Morrowind.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Bloodmoon.bsa
+        ///Bloodmoon.esm
+        ///Fonts\century_gothic_big.fnt
+        ///Fonts\century_gothic_big_0_Lod_A.tex
+        ///Fonts\century_gothic_font_regular.fnt
+        ///Fonts\century_gothic_font_regular_0_Lod_A.tex
+        ///Fonts\daedric_font.fnt
+        ///Fonts\daedric_font_0_Lod_A.tex
+        ///Fonts\Magic_Cards_Regular.fnt
+        ///Fonts\Magic_Cards_Regular_0_Lod_A.tex
+        ///Morrowind.bsa
+        ///Morrowind.esm
+        ///Music\Battle\MW battle 4.mp3
+        ///Music\Battle\MW battle 7.mp3
+        ///Music\Battle\MW battle 8.mp3
+        ///Music\Battle\MW battle1.mp3
+        ///Music\Battle\MW battle2.mp3
+        ///Music\Battle\MW battle3. [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string morrowind_base {
+            get {
+                return ResourceManager.GetString("morrowind_base", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon morrowind_logo {

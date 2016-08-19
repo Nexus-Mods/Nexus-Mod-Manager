@@ -101,6 +101,18 @@ namespace Nexus.Client.Games.Fallout3
 			}
 		}
 
+		/// <summary>
+		/// Gets the game Base files.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public override string BaseGameFiles
+		{
+			get
+			{
+				return Properties.Resources.fallout3_base;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

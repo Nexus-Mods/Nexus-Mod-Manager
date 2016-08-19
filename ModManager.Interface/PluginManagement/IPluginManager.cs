@@ -206,5 +206,12 @@ namespace Nexus.Client.PluginManagement
 		/// Gets the plugin description.
 		/// </summary>
 		string GetPluginDescription(string p_strPlugin);
+
+		/// <summary>
+		/// Applies the load order specified by the given list of registered plugins
+		/// </summary>
+		/// <param name="p_kvpRegisteredPlugins">The list of registered plugins.</param>
+		/// <param name="p_booSortingOnly">Whether we just want to apply the sorting.</param>
+		IBackgroundTask ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly);
 	}
 }

@@ -106,8 +106,8 @@ namespace Nexus.Client
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] p_objArgs)
 		{
-            Status = TaskStatus.Queued;
-            OverallMessage = "Attempting to login...";
+			Status = TaskStatus.Queued;
+			OverallMessage = "Attempting to login...";
 			if (!TokenLogin())
 				return LoginUser();
 			else
@@ -134,17 +134,17 @@ namespace Nexus.Client
 			}
 		}
 
-        /// <summary>
-        /// Logins the user into the current mod repository.
-        /// </summary>
-        /// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
-        /// <returns><c>true</c> if the user was successfully logged in;
-        /// <c>false</c> otherwise</returns>
-        protected bool LoginUser()
-        {
+		/// <summary>
+		/// Logins the user into the current mod repository.
+		/// </summary>
+		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
+		/// <returns><c>true</c> if the user was successfully logged in;
+		/// <c>false</c> otherwise</returns>
+		protected bool LoginUser()
+		{
 			string strMessage = String.Format("You must log into the {0} website.", ModManager.ModRepository.Name);
 			string strCancelWarning = String.Format("If you do not login {0} will close.", ModManager.EnvironmentInfo.Settings.ModManagerName);
-            strError = booCredentialsExpired ? "You need to login using your Nexus username and password." : strError;
+			strError = booCredentialsExpired ? "You need to login using your Nexus username and password." : strError;
 
 			LoginFormVM = new LoginFormVM(ModManager.EnvironmentInfo, ModManager.ModRepository, ModManager.GameMode.ModeTheme, strMessage, strError, strCancelWarning);
 
@@ -159,25 +159,25 @@ namespace Nexus.Client
 					OverallMessage = "You are not logged in.";
 				return false;
 			}
-        }
+		}
 
 
-        /// <summary>
-        /// Logins the user into the current mod repository.
-        /// </summary>
-        /// <param name="p_gmdGameMode">The current game mode.</param>
-        /// <param name="p_mrpModRepository">The mod repository to use to retrieve mods and mod metadata.</param>
-        /// <returns><c>true</c> if the user was successfully logged in;
-        /// <c>false</c> otherwise</returns>
-        public bool TokenLogin()
-        {
+		/// <summary>
+		/// Logins the user into the current mod repository.
+		/// </summary>
+		/// <param name="p_gmdGameMode">The current game mode.</param>
+		/// <param name="p_mrpModRepository">The mod repository to use to retrieve mods and mod metadata.</param>
+		/// <returns><c>true</c> if the user was successfully logged in;
+		/// <c>false</c> otherwise</returns>
+		public bool TokenLogin()
+		{
 			if (ModManager.EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModManager.ModRepository.Id] == null)
 				ModManager.EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModManager.ModRepository.Id] = new KeyedSettings<string>();
 
 			Dictionary<string, string> dicAuthTokens = new Dictionary<string, string>(ModManager.EnvironmentInfo.Settings.RepositoryAuthenticationTokens[ModManager.ModRepository.Id]);
-                        
-            Status = TaskStatus.Running;
-            OverallMessage = "Sending login token...";
+
+			Status = TaskStatus.Running;
+			OverallMessage = "Sending login token...";
 
 			try
 			{
@@ -207,6 +207,6 @@ namespace Nexus.Client
 				OverallMessage = "Logged in.";
 				return true;
 			}
-        }
+		}
 	}
 }

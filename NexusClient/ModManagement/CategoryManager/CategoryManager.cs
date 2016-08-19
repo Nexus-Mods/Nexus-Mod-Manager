@@ -238,7 +238,7 @@ namespace Nexus.Client.ModManagement
 			XElement xelCategoryList = new XElement("categoryList");
 			xelRoot.Add(xelCategoryList);
 			xelCategoryList.Add(from mct in m_tslCategories
-						   select new XElement("category",
+						select new XElement("category",
 									new XAttribute("path", mct.CategoryPath),
 									new XAttribute("ID", mct.Id),
 									new XElement("name",
@@ -248,7 +248,7 @@ namespace Nexus.Client.ModManagement
 				Directory.CreateDirectory(Path.GetDirectoryName(CategoryPath));
 			docCategories.Save(CategoryFilePath);
 		}
-
+		
 		#endregion
 
 		#region Category Management
@@ -272,13 +272,21 @@ namespace Nexus.Client.ModManagement
 			SaveCategories();
 			return p_mctCategory;
 		}
-
+		
 		/// <summary>
 		/// Updates the category file.
 		/// </summary>
 		public void UpdateCategoryFile()
 		{
 			SaveCategories();
+		}
+
+		public void RenameCategory(int p_intCategoryId, string p_strNewName)
+		{
+			IModCategory imcCategory = m_tslCategories.Find(Item => Item.Id == p_intCategoryId);
+			imcCategory.CategoryName = p_strNewName;
+			imcCategory.CategoryPath = Path.Combine(ModInstallDirectory, p_strNewName);
+			UpdateCategoryFile();
 		}
 
 		/// <summary>

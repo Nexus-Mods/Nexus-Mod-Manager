@@ -33,6 +33,14 @@ namespace Nexus.Client.ModManagement
 
 		protected ConfirmActionMethod ConfirmActionMethod { get; private set; }
 
+		protected bool MultiHDMode
+		{
+			get
+			{
+				return VirtualModActivator.MultiHDMode;
+			}
+		}
+
 		protected IMod Mod { get; private set; }
 
 		protected bool Disabling { get; private set; }
@@ -119,11 +127,32 @@ namespace Nexus.Client.ModManagement
 
 			if (!Disabling)
 			{
-				string strModFolderPath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename));
+				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename));
+				string strLinkFilenamePath = MultiHDMode ? Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename)) : string.Empty;
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId);
+				string strLinkDownloadIDPath = MultiHDMode ? ((string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId)) : string.Empty;
+				string strModFolderPath = strModFilenamePath;
+				string strLinkFolderPath = strLinkFilenamePath;
 
-				if (Directory.Exists(strModFolderPath))
+				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath) && Directory.Exists(strModDownloadIDPath))
+					strModFolderPath = strModDownloadIDPath;
+
+				if (MultiHDMode && (!string.IsNullOrWhiteSpace(strLinkDownloadIDPath) && Directory.Exists(strLinkDownloadIDPath)))
+					strLinkFolderPath = strLinkDownloadIDPath;
+
+				if (Directory.Exists(strModFolderPath) || (MultiHDMode && Directory.Exists(strLinkFolderPath)))
 				{
-					string[] strFiles = Directory.GetFiles(strModFolderPath, "*", SearchOption.AllDirectories);
+					string[] strFiles = null;
+					
+					if (MultiHDMode && Directory.Exists(strLinkFolderPath))
+					{
+						if (Directory.Exists(strModFolderPath))
+							strFiles = Directory.GetFiles(strLinkFolderPath, "*", SearchOption.AllDirectories).Concat(Directory.GetFiles(strModFolderPath, "*", SearchOption.AllDirectories)).ToArray();
+						else
+							strFiles = Directory.GetFiles(strLinkFolderPath, "*", SearchOption.AllDirectories);
+					}
+					else
+						strFiles = Directory.GetFiles(strModFolderPath, "*", SearchOption.AllDirectories);
 
 					if (strFiles.Length <= 1000)
 					{
@@ -145,9 +174,14 @@ namespace Nexus.Client.ModManagement
 						{
 							//if (m_booCancel)
 							//	break;
-							ItemMessage = String.Format("{0}: {1}", Disabling ? "Disabling" : "Activating", File);
+							ItemMessage = string.Format("{0}: {1}", Disabling ? "Disabling" : "Activating", File);
 
-							string strFile = File.Replace((strModFolderPath + Path.DirectorySeparatorChar), String.Empty);
+							string strFile = string.Empty;
+
+							if (MultiHDMode && File.Contains(strLinkFolderPath))
+								strFile = File.Replace((strLinkFolderPath + Path.DirectorySeparatorChar), string.Empty);
+							else
+								strFile = File.Replace((strModFolderPath + Path.DirectorySeparatorChar), string.Empty);
 
 							string strFileLink = ModLinkInstaller.AddFileLink(Mod, strFile, null, false);
 
@@ -194,7 +228,7 @@ namespace Nexus.Client.ModManagement
 
 						foreach (IVirtualModLink Link in ivlLinks)
 						{
-							ItemMessage = String.Format("{0}: {1}", Disabling ? "Disabling" : "Activating", Link.VirtualModPath);
+							ItemMessage = string.Format("{0}: {1}", Disabling ? "Disabling" : "Activating", Link.VirtualModPath);
 							VirtualModActivator.RemoveFileLink(Link, Mod);
 
 							if (ItemProgress < ItemProgressMaximum)

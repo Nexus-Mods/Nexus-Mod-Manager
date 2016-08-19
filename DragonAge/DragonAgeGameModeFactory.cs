@@ -127,7 +127,8 @@ namespace Nexus.Client.Games.DragonAge
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();

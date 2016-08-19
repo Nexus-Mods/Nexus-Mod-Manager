@@ -67,8 +67,8 @@
 			this.toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			this.toolStrip2.ImageScalingSize = new System.Drawing.Size(32, 32);
 			this.toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsbMoveUp,
-            this.tsbMoveDown,
+			this.tsbMoveUp,
+			this.tsbMoveDown,
 			this.tsbDisableAll,
 			this.tsbEnableAll,
 			this.tsbExport,
@@ -137,9 +137,9 @@
 			// 
 			this.rlvPlugins.CheckBoxes = true;
 			this.rlvPlugins.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.clmName,
-            this.clmIndexHex,
-            this.clmIndex});
+			this.clmName,
+			this.clmIndexHex,
+			this.clmIndex});
 			this.rlvPlugins.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.rlvPlugins.Location = new System.Drawing.Point(0, 0);
 			this.rlvPlugins.Name = "rlvPlugins";
@@ -222,8 +222,8 @@
 			// 
 			this.tsbExport.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
 			this.tsbExport.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiExportToTextFile,
-            this.tsmiExportToClipboard});
+			this.tsmiExportToTextFile,
+			this.tsmiExportToClipboard});
 			this.tsbExport.Image = global::Nexus.Client.Properties.Resources.document_export_4;
 			this.tsbExport.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbExport.Name = "tsbExport";
@@ -255,7 +255,7 @@
 			// 
 			this.tsbImport.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
 			this.tsbImport.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiImportFromTextFile,
+			this.tsmiImportFromTextFile,
 			this.tsmiImportFromClipboard});
 			this.tsbImport.Image = global::Nexus.Client.Properties.Resources.document_import_2;
 			this.tsbImport.ImageTransparentColor = System.Drawing.Color.Magenta;

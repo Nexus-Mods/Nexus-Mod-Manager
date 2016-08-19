@@ -16,6 +16,7 @@ namespace Nexus.Client.ModManagement
 	{
 		bool m_booCancel = false;
 		bool m_booStartupMigration = false;
+		bool m_booRestoring = false;
 
 		#region Properties
 
@@ -54,12 +55,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModManager">The current ModManager.</param>
 		/// <param name="p_lstMods">The mod list.</param>
 		/// <param name="p_intNewValue">The new category id.</param>
-		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstLinkToInstall, IList<IVirtualModLink> p_lstLinkToPurge, bool p_booStartupMigration)
+		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstLinkToInstall, IList<IVirtualModLink> p_lstLinkToPurge, bool p_booStartupMigration, bool p_booRestoring)
 		{
 			ModManager = p_mmgModManager;
 			InstallLinks = p_lstLinkToInstall;
 			RemoveLinks = p_lstLinkToPurge;
 			m_booStartupMigration = p_booStartupMigration;
+			m_booRestoring = p_booRestoring;
 		}
 
 		#endregion
@@ -121,7 +123,7 @@ namespace Nexus.Client.ModManagement
 			else
 			{
 				OverallMessage = "Switching Mod Profile...";
-				ItemMessage = "Disabling current profile...";
+				ItemMessage = "Disabling current profile (please wait, this step could take a while)";
 			}
 
 			OverallProgress = 0;
@@ -130,10 +132,52 @@ namespace Nexus.Client.ModManagement
 			ShowItemProgress = true;
 			ItemProgress = 0;
 
+
+			if (RemoveLinks.Count <= 1000)
+			{
+				ItemProgressMaximum = RemoveLinks.Count;
+				booLotsOfLinks = false;
+				ItemProgressStepSize = 1;
+				dblRatio = 0;
+			}
+			else
+			{
+				ItemProgressMaximum = 1000;
+				booLotsOfLinks = true;
+				dblRatio = 1000 / RemoveLinks.Count;
+			}
+
+			if (RemoveLinks.Count > 0)
+			{
+				foreach (IVirtualModLink modLink in RemoveLinks)
+				{
+					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => modLink.ModInfo.ModFileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.InvariantCultureIgnoreCase)
+						|| (!string.IsNullOrEmpty(modLink.ModInfo.DownloadId) && !string.IsNullOrEmpty(x.DownloadId) && modLink.ModInfo.DownloadId.Equals(x.DownloadId)));
+					ModManager.VirtualModActivator.PurgeFileLink(modLink, modMod);
+
+					if (ItemProgress < ItemProgressMaximum)
+					{
+						if (booLotsOfLinks)
+							ItemProgress = (int)Math.Floor(++intProgress * dblRatio);
+						else
+							StepItemProgress();
+					}
+				}
+
+				ModManager.VirtualModActivator.PurgeLinkList();
+			}
+
+			StepOverallProgress();
+
+			ItemProgress = 0;
+			intProgress = 0;
+
 			if (InstallLinks.Count <= 1000)
 			{
 				ItemProgressMaximum = InstallLinks.Count;
+				booLotsOfLinks = false;
 				ItemProgressStepSize = 1;
+				dblRatio = 0;
 			}
 			else
 			{
@@ -141,11 +185,6 @@ namespace Nexus.Client.ModManagement
 				booLotsOfLinks = true;
 				dblRatio = 1000 / InstallLinks.Count;
 			}
-
-			if (RemoveLinks.Count > 0)
-				ModManager.VirtualModActivator.PurgeLinks(RemoveLinks);
-
-			StepOverallProgress();
 
 			if (InstallLinks.Count > 0)
 			{
@@ -181,7 +220,8 @@ namespace Nexus.Client.ModManagement
 				StepOverallProgress();
 
 			ModManager.VirtualModActivator.SaveList();
-			return null;
+
+			return m_booRestoring;
 		}
 	}
 }

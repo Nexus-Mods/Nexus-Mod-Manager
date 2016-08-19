@@ -103,6 +103,18 @@ namespace Nexus.Client.Games.Oblivion
 		}
 
 		/// <summary>
+		/// Gets the game Base files.
+		/// </summary>
+		/// <value>The default game categories stored in the resource file.</value>
+		public override string BaseGameFiles
+		{
+			get
+			{
+				return Properties.Resources.oblivion_base;
+			}
+		}
+
+		/// <summary>
 		/// Gets the Supported Formats list.
 		/// </summary>
 		public override List<string> SupportedFormats

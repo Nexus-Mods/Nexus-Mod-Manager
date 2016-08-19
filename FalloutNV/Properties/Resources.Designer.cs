@@ -87,6 +87,39 @@ namespace Nexus.Client.Games.FalloutNV.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to CaravanPack - Main.bsa
+        ///CaravanPack.esm
+        ///CARAVANPACK.NAM
+        ///ClassicPack - Main.bsa
+        ///ClassicPack.esm
+        ///CLASSICPACK.NAM
+        ///credits.txt
+        ///CreditsWacky.txt
+        ///DeadMoney - Main.bsa
+        ///DeadMoney - Sounds.bsa
+        ///DeadMoney.esm
+        ///DEADMONEY.NAM
+        ///Fallout - AI!.bsa
+        ///Fallout - Meshes.bsa
+        ///Fallout - Misc.bsa
+        ///Fallout - Sound.bsa
+        ///Fallout - Textures.bsa
+        ///Fallout - Textures2.bsa
+        ///Fallout - Voices1.bsa
+        ///FalloutNV.esm
+        ///GunRunnersArsenal - Main.bsa
+        ///GunRunnersArsenal - Sounds.bsa
+        ///GunRunnersArsenal.esm
+        ///GUNRUNNERSARSENAL.NAM
+        ///HonestHearts [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string falloutNV_base {
+            get {
+                return ResourceManager.GetString("falloutNV_base", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon fonv_logo {

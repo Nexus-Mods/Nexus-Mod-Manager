@@ -140,7 +140,8 @@ namespace Nexus.Client.Games.Skyrim
 				}
 			}
 			catch
-			{ }
+			{
+			}
 
 			Trace.TraceInformation("Found {0}", strValue);
 			Trace.Unindent();

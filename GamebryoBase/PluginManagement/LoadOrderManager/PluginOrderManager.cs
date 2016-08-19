@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
@@ -20,7 +21,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 	/// </remarks>
 	public class PluginOrderManager : ILoadOrderManager, IDisposable
 	{
-		private static readonly Object m_objLock = new Object();
+		private static readonly object m_objLock = new object();
+		private static Dictionary<string, string> dctFileHashes = new Dictionary<string, string>();
 		private Regex m_rgxPluginFile = new Regex(@"(?i)^.+\.es[mp]$");
 		private List<string> m_lstActivePlugins = new List<string>();
 		private DateTime m_dtiMasterDate = DateTime.Now;
@@ -44,8 +46,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// Gets the path to the masterlist.
 		/// </summary>
 		/// <value>The path to the masterlist.</value>
-		public string MasterlistPath 
-		{ 
+		public string MasterlistPath
+		{
 			get
 			{
 				return String.Empty;
@@ -57,7 +59,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		/// <value>The path to the userlist.</value>
 		public string UserlistPath
-		{ 
+		{
 			get
 			{
 				return String.Empty;
@@ -191,6 +193,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			GameMode = p_gmdGameMode;
 			FileUtility = p_futFileUtility;
 
+			if (dctFileHashes != null)
+				dctFileHashes.Clear();
+			dctFileHashes.Add("plugins.txt", null);
+			dctFileHashes.Add("loadorder.txt", null);
+
 			InitializeManager();
 		}
 
@@ -262,7 +269,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				case "Fallout4":
 					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
 					{
-						TimestampOrder = false;					
+						TimestampOrder = false;
 						SingleFileManagement = true;
 						if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
 						{
@@ -281,7 +288,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					}
 					break;
 				default:
-					throw new NotImplementedException(String.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
+					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
 
 			string strLocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -371,9 +378,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			if ((source == null) || (e == null))
 				return;
 
-			string strFile = e.Name ?? String.Empty;
+			string strFile = e.Name ?? string.Empty;
+			string strPath = e.FullPath ?? string.Empty;
 
-			if (IsExternalInput && !String.IsNullOrWhiteSpace(strFile))
+			if (IsExternalInput && !string.IsNullOrWhiteSpace(strFile))
 			{
 				int intRepeat = 0;
 				bool? booReady = false;
@@ -386,16 +394,19 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					booReady = IsFileReady(strFile, ForcedReadOnly);
 				}
 
-				if (strFile.Equals("plugins.txt", StringComparison.InvariantCultureIgnoreCase))
+				if (!CheckSameFileHash(strFile, strPath))
 				{
-					if (ActivePluginUpdate != null)
-						ActivePluginUpdate(GetActivePlugins(), new EventArgs());
-				}
-				else if (strFile.Equals("loadorder.txt", StringComparison.InvariantCultureIgnoreCase))
-				{
-					if (!TimestampOrder && !SingleFileManagement)
-						if (LoadOrderUpdate != null)
-							LoadOrderUpdate(GetLoadOrder(), new EventArgs());
+					if (strFile.Equals("plugins.txt", StringComparison.InvariantCultureIgnoreCase))
+					{
+						if (ActivePluginUpdate != null)
+							ActivePluginUpdate(GetActivePlugins(), new EventArgs());
+					}
+					else if (strFile.Equals("loadorder.txt", StringComparison.InvariantCultureIgnoreCase))
+					{
+						if (!TimestampOrder && !SingleFileManagement)
+							if (LoadOrderUpdate != null)
+								LoadOrderUpdate(GetLoadOrder(), new EventArgs());
+					}
 				}
 			}
 		}
@@ -477,6 +488,31 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 		}
 
+		private bool CheckSameFileHash(string p_strName, string p_strFilePath)
+		{
+			string strHash = string.Empty;
+
+			if (!dctFileHashes.ContainsKey(p_strName.ToLowerInvariant()))
+				return true;
+
+			using (var fs = new FileStream(p_strFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			{
+				SHA256CryptoServiceProvider sha = new SHA256CryptoServiceProvider();
+				byte[] hash = sha.ComputeHash(fs);
+				string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
+
+				strHash = strSHA;
+			}
+
+			if (string.Equals(strHash, dctFileHashes[p_strName.ToLowerInvariant()]))
+				return true;
+			else
+			{
+				dctFileHashes[p_strName.ToLowerInvariant()] = strHash;
+				return false;
+			}
+		}
+
 		#endregion
 
 		/// <summary>
@@ -496,21 +532,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				string strBakFilePath = Path.Combine(p_strDataFolder, "plugins.nmm.bak");
 				if (!File.Exists(strBakFilePath))
 					File.Copy(PluginsFilePath, strBakFilePath, false);
-			}
-		}
-
-		private string[] WriteSafeReadAllLines(string path)
-		{
-			using (var csv = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-			using (var sr = new StreamReader(csv))
-			{
-				List<string> file = new List<string>();
-				while (!sr.EndOfStream)
-				{
-					file.Add(sr.ReadLine());
-				}
-
-				return file.ToArray();
 			}
 		}
 
@@ -558,7 +579,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		}
 
 		#endregion
-		
+
 		#region Plugin Management
 
 		/// <summary>
@@ -593,7 +614,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
-						break;
+					break;
 				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 			}
 
@@ -637,7 +658,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								}
 								else
 									if (m_rgxPluginFile.IsMatch(line))
-										lstActivePlugins.Add(AddPluginDirectory(line));
+									lstActivePlugins.Add(AddPluginDirectory(line));
 							}
 						}
 					}
@@ -905,7 +926,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								}
 								else
 									if (m_rgxPluginFile.IsMatch(line))
-										lstOrderedPlugins.Add(AddPluginDirectory(line));
+									lstOrderedPlugins.Add(AddPluginDirectory(line));
 							}
 						}
 					}
@@ -976,7 +997,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			List<string> lstLoosePlugins = new List<string>();
 			DirectoryInfo diPluginFolder = new DirectoryInfo(GameMode.PluginDirectory);
-			
+
 			try
 			{
 				if ((diPluginFolder.Exists) && !p_booPluginFileOnly)
@@ -997,7 +1018,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					}
 				}
 			}
-			catch{}
+			catch { }
 		}
 
 		/// <summary>
@@ -1133,7 +1154,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (booReady == true)
 				{
-					foreach (string line in File.ReadLines(PluginsFilePath))
+					foreach (string line in WriteSafeReadAllLines(PluginsFilePath))
 					{
 						if (!string.IsNullOrWhiteSpace(line))
 						{
@@ -1163,6 +1184,21 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 
 			return false;
+		}
+
+		private string[] WriteSafeReadAllLines(string path)
+		{
+			using (var csv = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			using (var sr = new StreamReader(csv))
+			{
+				List<string> file = new List<string>();
+				while (!sr.EndOfStream)
+				{
+					file.Add(sr.ReadLine());
+				}
+
+				return file.ToArray();
+			}
 		}
 
 		/// <summary>
@@ -1254,7 +1290,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				case NotifyCollectionChangedAction.Remove:
 					lock (m_objLock)
 					{
-						if ((RunningTask == null) || ((RunningTask.Status != BackgroundTasks.TaskStatus.Queued) && (RunningTask.Status != BackgroundTasks.TaskStatus.Running) && (RunningTask.Status != BackgroundTasks.TaskStatus.Retrying)))
+						if ((RunningTask == null) || ((RunningTask.Status != TaskStatus.Queued) && (RunningTask.Status != TaskStatus.Running) && (RunningTask.Status != TaskStatus.Retrying)))
 						{
 							if ((TaskList != null) && (TaskList.Count > 0))
 							{
@@ -1288,6 +1324,16 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					if (RunningTask != null)
 					{
+
+						if ((e.ReturnValue != null)  && (e.ReturnValue.GetType() == typeof (KeyValuePair<string, string>)))
+						{
+							KeyValuePair<string, string> kvpSHA = (KeyValuePair<string, string>)e.ReturnValue;
+
+							if (kvpSHA.Key != null)
+								if (dctFileHashes.ContainsKey(kvpSHA.Key.ToLowerInvariant()))
+									dctFileHashes[kvpSHA.Key.ToLowerInvariant()] = kvpSHA.Value;
+						}
+
 						RunningTask.TaskEnded -= RunningTask_TaskEnded;
 						int intPosition = TaskList.IndexOf((WriteLoadOrderTask)RunningTask);
 						RunningTask = null;
@@ -1408,7 +1454,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			int intRepeat = 0;
 			bool booLocked = false;
 
-			while ((ExternalTask != null) && (ExternalTask.Status != BackgroundTasks.TaskStatus.Running))
+			while ((ExternalTask != null) && (ExternalTask.Status != TaskStatus.Running))
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ > 20)

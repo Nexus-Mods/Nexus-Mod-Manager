@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using Nexus.Client.Mods;
+using Nexus.Client.ModManagement;
+using Nexus.Client.ModRepositories.Nexus;
 
 namespace Nexus.Client.ModRepositories
 {
@@ -76,6 +79,12 @@ namespace Nexus.Client.ModRepositories
 
 		string GameModeWebsite { get; }
 
+		/// <summary>
+		/// Gets the remote id of the mod repository.
+		/// </summary>
+		/// <value>The id of the mod repository.</value>
+		int RemoteGameId { get; }
+
 		#endregion
 
 		#region Account Management
@@ -123,15 +132,15 @@ namespace Nexus.Client.ModRepositories
 		/// <summary>
 		/// Gets the info for the specifed mod list.
 		/// </summary>
-		/// <param name="p_lstModList">The mod list to.</param>
+		/// <param name="p_lstModList">The mod list to submit.</param>
 		/// <returns>The update mods' list.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		List<IModInfo> GetModListInfo(List<string> p_lstModList);
 
 		/// <summary>
-		/// Gets the info for the specifed mod list.
+		/// Gets the info for the specifed file list.
 		/// </summary>
-		/// <param name="p_lstModList">The mod list to.</param>
+		/// <param name="p_lstFileList">The file list to submit.</param>
 		/// <returns>The update mods' list.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		List<IModInfo> GetFileListInfo(List<string> p_lstFileList);
@@ -202,13 +211,13 @@ namespace Nexus.Client.ModRepositories
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
 		IList<IModInfo> FindMods(string p_strModNameSearchString, bool p_booIncludeAllTerms);
 
-        /// <summary>
-        /// Finds the mods by Author name.
-        /// </summary>
-        /// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-        /// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
-        /// <returns>The mod info for the mods matching the given search criteria.</returns>
-        IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString);
+		/// <summary>
+		/// Finds the mods by Author name.
+		/// </summary>
+		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
+		/// <returns>The mod info for the mods matching the given search criteria.</returns>
+		IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString);
 
 		/// <summary>
 		/// Finds the mods containing the given search terms.
@@ -220,5 +229,81 @@ namespace Nexus.Client.ModRepositories
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms);
+
+		/// <summary>
+		/// Gets the Upload Request array.
+		/// </summary>
+		/// <returns>The Upload Request array.</returns>
+		NexusToken GetUploadRequest(int p_intGameId);
+
+		/// <summary>
+		/// Gets the Update Request array.
+		/// </summary>
+		/// <returns>The Update Request array.</returns>
+		NexusToken UpdateRequest(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// Gets the Download Request array.
+		/// </summary>
+		/// <returns>The Download Request array.</returns>
+		NexusToken DownloadRequest(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// Gets the Missing Files array.
+		/// </summary>
+		/// <returns>The Download Request array.</returns>
+		List<ProfileMissingModInfo> GetMissingFiles(int p_intGameId, int p_intProfileId);
+
+
+		/// <summary>
+		/// Gets the Categories array.
+		/// </summary>
+		/// <returns>The Categories array..</returns>
+		List<CategoriesInfo> GetCategories(int p_intGameId);
+
+		/// <summary>
+		/// The Profile Upload Request.
+		/// </summary>
+		/// <returns>The Profile Upload Request.</returns>
+		string UploadProfile(int p_intGameId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare);
+
+		/// <summary>
+		/// The Profile Upload Request.
+		/// </summary>
+		/// <returns>The Profile Upload Request.</returns>
+		string UpdateProfile(int p_intGameId, int p_intProfileId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare);
+
+		/// <summary>
+		/// The Profile Download Request.
+		/// </summary>
+		/// <returns>The Profile Download Request.</returns>
+		Stream DownloadProfile(int p_intGameId, int p_intProfileId, string p_strReqId, string p_strRes);
+
+		/// <summary>
+		/// The Online Profile list.
+		/// </summary>
+		/// <returns>The Profile Download Request.</returns>
+		List<int> GetUserProfiles(int p_intGameId);
+
+		/// <summary>
+		/// The Profile data.
+		/// </summary>
+		/// <returns>The Profile Download Request.</returns>
+		IModProfileInfo GetProfileData(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// Rename the Profile.
+		/// </summary>
+		string RenameProfile(int p_intGameId, int p_intProfileId, string p_strName);
+
+		/// <summary>
+		/// Remove the Profile.
+		/// </summary>
+		string RemoveProfile(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// Remove the Profile.
+		/// </summary>
+		string ToggleSharing(int p_intGameId, int p_intProfileId, int p_intShare);
 	}
 }

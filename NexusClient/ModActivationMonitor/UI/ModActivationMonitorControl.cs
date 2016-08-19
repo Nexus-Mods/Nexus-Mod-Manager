@@ -374,7 +374,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 									booQueued = true;
 						}
 					}
-										
+
 					if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
 					{
 						if ((((ModUninstaller)ViewModel.RunningTask).ModFileName == ((ModUninstaller)p_tskTask).ModFileName) || booQueued)

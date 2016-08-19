@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -9,7 +10,6 @@ using Nexus.Client.DownloadMonitoring;
 using Nexus.Client.Games;
 using Nexus.Client.ModActivationMonitoring;
 using Nexus.Client.ModAuthoring;
-using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -17,8 +17,6 @@ using Nexus.Client.PluginManagement;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
-using Nexus.Client.Settings;
-using System.ComponentModel;
 
 namespace Nexus.Client.ModManagement
 {
@@ -82,11 +80,17 @@ namespace Nexus.Client.ModManagement
 		private VirtualModActivator m_vmaVirtualModActivator = null;
 		private ReadMeManager m_rmmReadMeManager = null;
 
+		#region events
+
+		public event EventHandler<EventArgs<IBackgroundTask>> UpdateCheckStarted = delegate { };
+		public event EventHandler<EventArgs<IBackgroundTask>> UpdateCategoriesCheckStarted = delegate { };
+		public event EventHandler<EventArgs<IBackgroundTask>> AutomaticDownloadStarted = delegate { };
+
+		#endregion
+
 		#region Properties
 
-        public event EventHandler<EventArgs<IBackgroundTask>> UpdateCheckStarted = delegate { };
-
-        /// <summary>
+		/// <summary>
 		/// The loginform Task.
 		/// </summary>
 		public LoginFormTask LoginTask;
@@ -113,7 +117,7 @@ namespace Nexus.Client.ModManagement
 		/// Gets the mod auto updater.
 		/// </summary>
 		/// <value>The mod auto updater.</value>
-		protected AutoUpdater AutoUpdater { get; private set; }
+		public AutoUpdater AutoUpdater { get; private set; }
 
 		/// <summary>
 		/// Gets the mod auto updater.
@@ -133,7 +137,7 @@ namespace Nexus.Client.ModManagement
 		/// <value>The download monitor to use to display status.</value>
 		protected DownloadMonitor DownloadMonitor { get; private set; }
 
-        /// <summary>
+		/// <summary>
 		/// Gets the mod activation monitor to use to display status.
 		/// </summary>
 		/// <value>The mod activation monitor to use to display status.</value>
@@ -336,7 +340,7 @@ namespace Nexus.Client.ModManagement
 			ModActivationMonitor = p_mamMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
-            LoginTask = new LoginFormTask(this);
+			LoginTask = new LoginFormTask(this);
 		}
 
 		#endregion
@@ -350,18 +354,18 @@ namespace Nexus.Client.ModManagement
 		/// <returns><c>true</c> if the user was successfully logged in;
 		/// <c>false</c> otherwise</returns>
 		public bool Login()
-        {
+		{
 			if (LoginTask.LoggedOut)
 				LoginTask.Update();
 			else if (LoginTask.LoggingIn)
-				MessageBox.Show("Wait for the login attempt.", "Login in progress...",MessageBoxButtons.OK, MessageBoxIcon.Information);
+				MessageBox.Show("Wait for the login attempt.", "Login in progress...", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			return LoginTask.LoggedIn;
- 		}
+		}
 
 		public void Logout()
-        {
-            LoginTask.Reset();
- 		}
+		{
+			LoginTask.Reset();
+		}
 
 		#endregion
 
@@ -385,7 +389,7 @@ namespace Nexus.Client.ModManagement
 				else
 				{
 					Login();
-                    return AsyncAddMod(uriPath, p_cocConfirmOverwrite);
+					return AsyncAddMod(uriPath, p_cocConfirmOverwrite);
 				}
 			}
 			else
@@ -439,6 +443,11 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
+		public void ReinitializeInstallLog(string p_strInstallLogPath)
+		{
+			InstallationLog = InstallationLog.ReInitialize(p_strInstallLogPath);
+		}
+
 		#region Mod Activation/Deactivation
 
 		/// <summary>
@@ -454,7 +463,7 @@ namespace Nexus.Client.ModManagement
 			if (InstallationLog.ActiveMods.Contains(p_modMod))
 				return null;
 			DeleteXMLInstalledFile(p_modMod);
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, false);
 		}
 
 		/// <summary>
@@ -468,21 +477,21 @@ namespace Nexus.Client.ModManagement
 		public IBackgroundTaskSet ReinstallMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			DeleteXMLInstalledFile(p_modMod);
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, false);
 		}
 
-		/// <summary>
-		/// Forces an upgrade from one mod to another.
-		/// </summary>
-		/// <remarks>
-		/// No checks as to whether the two mods are actually related are performed. The new mod is reactivated
-		/// as if it were the old mod, and the old mod is replaced by the new mod.
-		/// </remarks>
-		/// <param name="p_modOldMod">The mod from which to upgrade.</param>
-		/// <param name="p_modNewMod">The mod to which to upgrade.</param>
-		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
-		public IBackgroundTaskSet ForceUpgrade(IMod p_modOldMod, IMod p_modNewMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+	/// <summary>
+	/// Forces an upgrade from one mod to another.
+	/// </summary>
+	/// <remarks>
+	/// No checks as to whether the two mods are actually related are performed. The new mod is reactivated
+	/// as if it were the old mod, and the old mod is replaced by the new mod.
+	/// </remarks>
+	/// <param name="p_modOldMod">The mod from which to upgrade.</param>
+	/// <param name="p_modNewMod">The mod to which to upgrade.</param>
+	/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
+	/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
+	public IBackgroundTaskSet ForceUpgrade(IMod p_modOldMod, IMod p_modNewMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
 			return Activator.ForceUpgrade(p_modOldMod, p_modNewMod, p_dlgOverwriteConfirmationDelegate);
 		}
@@ -542,7 +551,7 @@ namespace Nexus.Client.ModManagement
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-        public void ToggleModEndorsement(IMod p_modMod)
+		public void ToggleModEndorsement(IMod p_modMod)
 		{
 			AutoUpdater.ToggleModEndorsement(p_modMod);
 		}
@@ -557,9 +566,57 @@ namespace Nexus.Client.ModManagement
 			AutoUpdater.SwitchModCategory(p_modMod, p_intCategoryId);
 		}
 
+		public IBackgroundTask UpdateCategories(CategoryManager p_cmCategoryManager, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm)
+		{
+			if (ModRepository.UserStatus != null)
+			{
+				CategoriesUpdateCheckTask cutCategoriesUpdateCheck = new CategoriesUpdateCheckTask(p_cmCategoryManager, p_pmProfileManager, ModRepository, CurrentGameModeModDirectory);
+				cutCategoriesUpdateCheck.Update(p_camConfirm);
+				return cutCategoriesUpdateCheck;
+			}
+			else
+				throw new Exception("Login required");
+		}
+
+		#region asyncUpdateCategories
+
 		/// <summary>
- 		/// Runs the managed updaters.
- 		/// </summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_lstModList">The list of mods we need to update.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
+		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public void AsyncUpdateCategories(CategoryManager p_cmCategoryManager, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm)
+		{
+			CategoriesUpdateCheckTask cutCategoriesUpdateCheck = new CategoriesUpdateCheckTask(p_cmCategoryManager, p_pmProfileManager, ModRepository, CurrentGameModeModDirectory);
+			AsyncUpdateCategoriesTask(cutCategoriesUpdateCheck, p_camConfirm);
+		}
+
+		public async Task AsyncUpdateCategoriesTask(CategoriesUpdateCheckTask p_cutCategoriesUpdateCheck, ConfirmActionMethod p_camConfirm)
+		{
+			int intRetry = 0;
+
+			while (intRetry < 5)
+			{
+				await Task.Delay(3000);
+				if (LoginTask.LoggedIn)
+				{
+					p_cutCategoriesUpdateCheck.Update(p_camConfirm);
+					UpdateCategoriesCheckStarted(this, new EventArgs<IBackgroundTask>(p_cutCategoriesUpdateCheck));
+					break;
+				}
+				else
+					intRetry++;
+			}
+		}
+
+		#endregion
+
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
 		/// <param name="p_rolModList">The mod list.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
@@ -578,7 +635,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
 		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
+		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId)
 		{
 			if (ModRepository.UserStatus != null)
 			{
@@ -604,6 +661,19 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Disables multiple mods.
+		/// </summary>
+		/// <param name="p_rolModList">The mod list.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask DeleteMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
+		{
+			DeleteMultipleModsTask dmmDeleteAllMods = new DeleteMultipleModsTask(p_rolModList, VirtualModActivator, ManagedModRegistry, this, InstallationLog.ActiveMods, InstallerFactory);
+			dmmDeleteAllMods.Update(p_camConfirm);
+			return dmmDeleteAllMods;
+		}
+
+		/// <summary>
 		/// Uninstalls multiple mods.
 		/// </summary>
 		/// <param name="p_rolModList">The mod list.</param>
@@ -616,56 +686,55 @@ namespace Nexus.Client.ModManagement
 			return dmmDeactivateAllMods;
 		}
 
-        #region asyncTag
+		#region asyncTag
 
-        public async void AsyncTagMod(ModManagement.UI.ModManagerVM p_ModManagerVM,  ModManagement.UI.ModTaggerVM p_ModTaggerVM, EventHandler<EventArgs<ModManagement.UI.ModTaggerVM>> p_TaggingMod)
-        {
-            int intRetry = 0;
+		public async void AsyncTagMod(ModManagement.UI.ModManagerVM p_ModManagerVM, ModManagement.UI.ModTaggerVM p_ModTaggerVM, EventHandler<EventArgs<ModManagement.UI.ModTaggerVM>> p_TaggingMod)
+		{
+			int intRetry = 0;
 
-            while (intRetry < 5)
-            {
-                await Task.Delay(3000);
-                if (LoginTask.LoggedIn)
-                {
-                    p_TaggingMod(p_ModManagerVM, new EventArgs<ModManagement.UI.ModTaggerVM>(p_ModTaggerVM));
-                    break;
-                }
-                else
-                    intRetry++;
-            }
-        }
+			while (intRetry < 5)
+			{
+				await Task.Delay(3000);
+				if (LoginTask.LoggedIn)
+				{
+					p_TaggingMod(p_ModManagerVM, new EventArgs<ModManagement.UI.ModTaggerVM>(p_ModTaggerVM));
+					break;
+				}
+				else
+					intRetry++;
+			}
+		}
 
-        #endregion
+		#endregion
 
-        #region asyncAddMod
+		#region asyncAddMod
 
-        public IBackgroundTask AsyncAddMod(Uri p_uriPath,ConfirmOverwriteCallback p_cocConfirmOverwrite)
-        {
-            IBackgroundTask tskAddModTask = ModAdditionQueue.AddMod(p_uriPath, p_cocConfirmOverwrite);
-            AsyncAddModTask(tskAddModTask);
-            return tskAddModTask;
-        }
+		public IBackgroundTask AsyncAddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
+		{
+			IBackgroundTask tskAddModTask = ModAdditionQueue.AddMod(p_uriPath, p_cocConfirmOverwrite);
+			AsyncAddModTask(tskAddModTask);
+			return tskAddModTask;
+		}
 
-        public async void AsyncAddModTask(IBackgroundTask p_tskAddModTask)
-        {
-            int intRetry = 0;
+		public async void AsyncAddModTask(IBackgroundTask p_tskAddModTask)
+		{
+			int intRetry = 0;
 
-            while (intRetry < 5)
-            {
-                await Task.Delay(3000);
-                if (LoginTask.LoggedIn)
-                {
-                    if (p_tskAddModTask.Status == BackgroundTasks.TaskStatus.Paused)
-                        p_tskAddModTask.Resume();
-                    break;
-                }
-                else
-                {
-                    intRetry++;
-                }              
-            }
-        }
-
+			while (intRetry < 5)
+			{
+				await Task.Delay(3000);
+				if (LoginTask.LoggedIn)
+				{
+					if (p_tskAddModTask.Status == BackgroundTasks.TaskStatus.Paused)
+						p_tskAddModTask.Resume();
+					break;
+				}
+				else
+				{
+					intRetry++;
+				}
+			}
+		} 
 		#endregion
 
 		#region asyncUpdate
@@ -678,40 +747,40 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
 		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public void AsyncUpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId)
+		public void AsyncUpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId)
 		{
-			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, 0, EnvironmentInfo.Settings.OverrideLocalModNames);
-			AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
-        }
-        
-        public async Task AsyncUpdateModsTask(ModUpdateCheckTask p_mutModUpdateCheck, ConfirmActionMethod p_camConfirm)
-        {
-            int intRetry = 0;
+		ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, 0, EnvironmentInfo.Settings.OverrideLocalModNames);
+		AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
+		}
 
-            while (intRetry < 5)
-            {
-                await Task.Delay(3000);
-                if (LoginTask.LoggedIn)
-                {
-                    p_mutModUpdateCheck.Update(p_camConfirm);
-                    UpdateCheckStarted(this, new EventArgs<IBackgroundTask>(p_mutModUpdateCheck));
-                    break;
-                }
-                else
-                    intRetry++;
-            }
-        }
+		public async Task AsyncUpdateModsTask(ModUpdateCheckTask p_mutModUpdateCheck, ConfirmActionMethod p_camConfirm)
+		{
+			int intRetry = 0;
 
-       #endregion 
+			while (intRetry < 5)
+			{
+				await Task.Delay(3000);
+				if (LoginTask.LoggedIn)
+				{
+					p_mutModUpdateCheck.Update(p_camConfirm);
+					UpdateCheckStarted(this, new EventArgs<IBackgroundTask>(p_mutModUpdateCheck));
+					break;
+				}
+				else
+					intRetry++;
+			}
+		}
 
-        #region asyncEndorse
+		#endregion
+
+		#region asyncEndorse
 
 		/// <summary>
 		/// Async toggle of the endorsement for the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
 		public async void AsyncEndorseMod(IMod p_modMod)
-        {
+		{
 			int intRetry = 0;
 
 			while (intRetry < 5)
@@ -725,10 +794,59 @@ namespace Nexus.Client.ModManagement
 				else
 					intRetry++;
 			}
-        }
+		}
 
-        #endregion
+		#endregion
 
+
+		#region Automatic Download
+
+		/// <summary>
+		/// Starts the Automatic Download.
+		/// </summary>
+		/// <param name="p_strPath">The path to the mod to install.</param>
+		/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
+		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
+		public IBackgroundTask AutomaticDownload(List<string> p_strMissingMods, ProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, ConfirmOverwriteCallback p_cocConfirmOverwrite)
+		{
+			AutomaticDownloadTask amtProfileAdder = new AutomaticDownloadTask(p_strMissingMods, this, p_pmProfileManager, p_cocConfirmOverwrite);
+			amtProfileAdder.Update(p_camConfirm);
+			return amtProfileAdder;
+		}
+
+		/// <summary>
+		/// Starts the Automatic Download.
+		/// </summary>
+		/// <param name="p_strPath">The path to the mod to install.</param>
+		/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
+		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
+		public void AsyncAutomaticDownload(List<string> p_strMissingMods, ProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, ConfirmOverwriteCallback p_cocConfirmOverwrite)
+		{
+			AutomaticDownloadTask adtAutomaticDownload = new AutomaticDownloadTask(p_strMissingMods, this, p_pmProfileManager, p_cocConfirmOverwrite);
+			AsyncAutomaticDownloadTask(adtAutomaticDownload, p_camConfirm);
+		}
+
+		public async void AsyncAutomaticDownloadTask(AutomaticDownloadTask p_pstAutomaticDownloadTask, ConfirmActionMethod p_camConfirm)
+		{
+			int intRetry = 0;
+
+			while (intRetry < 5)
+			{
+				await Task.Delay(3000);
+				if (LoginTask.LoggedIn)
+				{
+					p_pstAutomaticDownloadTask.Update(p_camConfirm);
+					AutomaticDownloadStarted(this, new EventArgs<IBackgroundTask>(p_pstAutomaticDownloadTask));
+					break;
+				}
+				else
+				{
+					intRetry++;
+				}
+			}
+		}
+
+		#endregion
 
 		/// <summary>
 		/// Runs the managed updaters.
@@ -755,6 +873,32 @@ namespace Nexus.Client.ModManagement
 			ToggleUpdateWarningTask tuwToggleWarning = new ToggleUpdateWarningTask(p_hashMods, p_booEnable, p_camConfirm);
 			tuwToggleWarning.Update(p_camConfirm);
 			return tuwToggleWarning;
+		}
+
+		#endregion
+
+		#region Mod Search
+		
+		/// <summary>
+		/// Returns the mod registered with the given file name.
+		/// </summary>
+		/// <param name="p_strFilename">The path of the mod to return</param>
+		/// <returns>The mod registered with the given file name, or
+		/// <c>null</c> if there is no registered mod with the given file name.</returns>
+		public IMod GetModByFilename(string p_strFilename)
+		{
+			return ManagedModRegistry.GetModByFilename(p_strFilename);
+		}
+
+		/// <summary>
+		/// Returns the mod registered with the given downloadId.
+		/// </summary>
+		/// <param name="p_strDownloadID">The path of the mod to return</param>
+		/// <returns>The mod registered with the given downloadId, or
+		/// <c>null</c> if there is no registered mod with the given downloadId.</returns>
+		public IMod GetModByDownloadID(string p_strDownloadID)
+		{
+			return ManagedModRegistry.GetModByDownloadID(p_strDownloadID);
 		}
 
 		#endregion
@@ -791,6 +935,17 @@ namespace Nexus.Client.ModManagement
 						FileUtil.ForceDelete(file);
 				}
 			}
+		}
+
+		public bool IsMatchingVersion(string p_strLocalVersion, string p_strProfileVersion)
+		{
+			Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
+			string strThisVersion = rgxClean.Replace(p_strProfileVersion ?? "", "");
+			string strThatVersion = rgxClean.Replace(p_strLocalVersion ?? "", "");
+			if (String.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
+				return true;
+			else
+				return String.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
 		}
 	}
 }

@@ -74,7 +74,7 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The game mode currently being managed.</value>
 		protected IGameMode GameMode { get; private set; }
-
+		
 		#endregion
 
 		#region Constructors
@@ -153,14 +153,6 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
-		/// Raised when an attempt to change the SupportedTools path has been made.
-		/// </summary>
-		protected virtual void OnChangedToolPath(EventArgs e)
-		{
-			ChangedToolPath(this, e);
-		}
-
-		/// <summary>
 		/// Adds the given launch command.
 		/// </summary>
 		/// <param name="p_cmdLaunch">The launch command to add.</param>
@@ -169,18 +161,26 @@ namespace Nexus.Client.Games
 			m_lstLaunchCommands.Add(p_cmdLaunch);
 		}
 
-		#region Launch Commands
-
 		/// <summary>
-		/// Launches the SupportedTools.
-		/// </summary>
-		/// <remarks>
-		/// This is the root launch method that all the other launch methods call. This method
-		/// actually spawns the new process to launch the SupportedTools, using the given information.
-		/// </remarks>
-		/// <param name="p_strCommand">The command to execute to launch the game.</param>
-		/// <param name="p_strCommandArgs">The command argumetns to pass to the launch command.</param>
-		protected void Launch(string p_strCommand, string p_strCommandArgs)
+		/// Raised when an attempt to change the SupportedTools path has been made.
+ 		/// </summary>
+		protected virtual void OnChangedToolPath(EventArgs e)
+		{
+			ChangedToolPath(this, e);
+		}
+
+	#region Launch Commands
+
+	/// <summary>
+	/// Launches the SupportedTools.
+	/// </summary>
+	/// <remarks>
+	/// This is the root launch method that all the other launch methods call. This method
+	/// actually spawns the new process to launch the SupportedTools, using the given information.
+	/// </remarks>
+	/// <param name="p_strCommand">The command to execute to launch the game.</param>
+	/// <param name="p_strCommandArgs">The command argumetns to pass to the launch command.</param>
+	protected void Launch(string p_strCommand, string p_strCommandArgs)
 		{
 			if (OnSupportedToolsLaunching())
 			{
@@ -224,13 +224,13 @@ namespace Nexus.Client.Games
 		public virtual void LaunchDefaultCommand()
 		{ }
 
-		#endregion
-
 		#region Config Commands
 		/// <summary>
 		/// Configures the selected command.
 		/// </summary>
 		public abstract void ConfigCommand(string p_strCommandID);
+		#endregion
+
 		#endregion
 	}
 }

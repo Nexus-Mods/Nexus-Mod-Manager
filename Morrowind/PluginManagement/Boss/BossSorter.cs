@@ -341,7 +341,13 @@ namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 		/// Gets whether the current config files may be obsolete.
 		/// </summary>
 		/// <value>Whether the current config files config files may be obsolete.</value>
-		public bool ObsoleteConfigFiles { get; private set; }
+		public bool ObsoleteConfigFiles
+		{
+			get
+			{
+				return false;
+			}
+		}
 
 		/// <summary>
 		/// Gets the application's envrionment info.

@@ -219,7 +219,13 @@ namespace Nexus.Client.ModManagement.Scripting
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				string strVirtualPath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strTo);
+
+				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strTo);
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1)) ? string.Empty : Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Mod.DownloadId, strTo);
+				string strVirtualPath = strModFilenamePath;
+
+				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
+					strVirtualPath = strModDownloadIDPath;
 
 				Installers.FileInstaller.InstallFileFromMod(strFrom, strVirtualPath);
 				string strCheck = ModLinkInstaller.AddFileLink(Mod, strTo, strVirtualPath, true, true);
@@ -403,7 +409,13 @@ namespace Nexus.Client.ModManagement.Scripting
 			try
 			{
 				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
-				string strVirtualPath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strPath);
+
+				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strPath);
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Mod.DownloadId, strPath);
+				string strVirtualPath = strModFilenamePath;
+
+				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
+					strVirtualPath = strModDownloadIDPath;
 
 				Installers.FileInstaller.GenerateDataFile(strVirtualPath, p_bteData);
 				ModLinkInstaller.AddFileLink(Mod, strPath, strVirtualPath, true);

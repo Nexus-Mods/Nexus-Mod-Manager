@@ -34,11 +34,12 @@ namespace Nexus.Client.ModManagement
 			Active = p_vmlLink.Active;
 			ModInfo = p_vmlLink.ModInfo;
 		}
-		#endregion
 
-		#region IEquatable<IVirtualModLink>
+	#endregion
 
-		public bool Equals(IVirtualModLink other)
+	#region IEquatable<IVirtualModLink>
+
+	public bool Equals(IVirtualModLink other)
 		{
 			if (other == null) return false;
 			return (this.RealModPath.Equals(other.RealModPath, StringComparison.InvariantCultureIgnoreCase) && this.VirtualModPath.Equals(other.VirtualModPath, StringComparison.InvariantCultureIgnoreCase));

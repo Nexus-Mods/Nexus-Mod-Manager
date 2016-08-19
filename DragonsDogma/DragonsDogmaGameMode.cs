@@ -23,11 +23,11 @@ namespace Nexus.Client.Games.DragonsDogma
 	/// <summary>
 	/// Provides information required for the program to manage DragonsDogma game's plugins and mods.
 	/// </summary>
-    public class DragonsDogmaGameMode : GameModeBase
+	public class DragonsDogmaGameMode : GameModeBase
 	{
 		private DragonsDogmaGameModeDescriptor m_gmdGameModeInfo = null;
-        private DragonsDogmaLauncher m_glnGameLauncher = null;
-        private DragonsDogmaToolLauncher m_gtlToolLauncher = null;
+		private DragonsDogmaLauncher m_glnGameLauncher = null;
+		private DragonsDogmaToolLauncher m_gtlToolLauncher = null;
 
 		#region Properties
 
@@ -78,9 +78,9 @@ namespace Nexus.Client.Games.DragonsDogma
 		}
 
 		/// <summary>
-        /// Gets the path to the per user DragonsDogma data.
+		/// Gets the path to the per user DragonsDogma data.
 		/// </summary>
-        /// <value>The path to the per user DragonsDogma data.</value>
+		/// <value>The path to the per user DragonsDogma data.</value>
 		public string UserGameDataPath
 		{
 			get
@@ -98,7 +98,7 @@ namespace Nexus.Client.Games.DragonsDogma
 			get
 			{
 				if (m_glnGameLauncher == null)
-                    m_glnGameLauncher = new DragonsDogmaLauncher(this, EnvironmentInfo);
+					m_glnGameLauncher = new DragonsDogmaLauncher(this, EnvironmentInfo);
 				return m_glnGameLauncher;
 			}
 		}
@@ -112,7 +112,7 @@ namespace Nexus.Client.Games.DragonsDogma
 			get
 			{
 				if (m_gtlToolLauncher == null)
-                    m_gtlToolLauncher = new DragonsDogmaToolLauncher(this, EnvironmentInfo);
+					m_gtlToolLauncher = new DragonsDogmaToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
 			}
 		}
@@ -142,7 +142,7 @@ namespace Nexus.Client.Games.DragonsDogma
 				return false;
 			}
 		}
-        	
+	
 		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
@@ -338,7 +338,7 @@ namespace Nexus.Client.Games.DragonsDogma
 				return Regex.Replace(p_strIn, @"[^\w\.-]", "",
 									 RegexOptions.None, TimeSpan.FromSeconds(1.5));
 			}
-			// If we timeout when replacing invalid characters,  
+			// If we timeout when replacing invalid characters,
 			// we should return Empty. 
 			catch (RegexMatchTimeoutException)
 			{

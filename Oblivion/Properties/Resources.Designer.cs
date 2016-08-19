@@ -84,6 +84,34 @@ namespace Nexus.Client.Games.Oblivion.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Credits.txt
+        ///DLCList.txt
+        ///DLCShiveringIsles - Meshes.bsa
+        ///DLCShiveringIsles - Sounds.bsa
+        ///DLCShiveringIsles - Textures.bsa
+        ///DLCShiveringIsles - Voices.bsa
+        ///DLCShiveringIsles.esp
+        ///Knights.bsa
+        ///Knights.esp
+        ///Music\Battle\battle_01.mp3
+        ///Music\Battle\battle_02.mp3
+        ///Music\Battle\battle_03.mp3
+        ///Music\Battle\battle_04.mp3
+        ///Music\Battle\battle_05.mp3
+        ///Music\Battle\battle_06.mp3
+        ///Music\Battle\battle_07.mp3
+        ///Music\Battle\battle_08.mp3
+        ///Music\Dungeon\Dungeon_01_v2.mp3
+        ///Music\Dungeon\dungeon_02.mp3
+        ///Music\Dungeon\dungeo [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string oblivion_base {
+            get {
+                return ResourceManager.GetString("oblivion_base", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon oblivion_logo {

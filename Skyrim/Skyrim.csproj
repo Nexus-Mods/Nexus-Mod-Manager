@@ -118,6 +118,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\Categories.xml" />
+    <None Include="Resources\skyrim_base.txt" />
     <Content Include="Resources\skyrim_logo.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

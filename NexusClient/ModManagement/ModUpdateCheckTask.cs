@@ -15,7 +15,7 @@ namespace Nexus.Client.ModManagement
 	{
 		private bool m_booCancel = false;
 		private bool m_booOverrideCategorySetup = false;
-		private bool m_booMissingDownloadId = false;
+		private bool? m_booMissingDownloadId = false;
 		private List<IMod> m_lstModList = new List<IMod>();
 		private int m_intRetries = 0;
 		private int FlagShare = 0;
@@ -52,7 +52,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModRepository">The current mod repository.</param>
 		/// <param name="p_lstModList">The list of mods we need to update.</param>
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IProfileManager p_prmProfileManager, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup, bool p_booMissingDownloadId, int p_intFlagShare, bool p_booOverrideLocalModNames)
+		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IProfileManager p_prmProfileManager, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId, int p_intFlagShare, bool p_booOverrideLocalModNames)
 		{
 			AutoUpdater = p_AutoUpdater;
 			ModRepository = p_ModRepository;
@@ -104,14 +104,14 @@ namespace Nexus.Client.ModManagement
 		protected override object DoWork(object[] p_objArgs)
 		{
 			int intModLimit = 75;
-			if (m_booMissingDownloadId)
+			if (m_booMissingDownloadId != false)
 				intModLimit = 75;
 
 			List<string> ModList = new List<string>();
 			List<IMod> ModCheck = new List<IMod>();
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
 
-			OverallMessage = "Updating mods info: setup search...";
+			OverallMessage = "Updating mods info: setup search..";
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;
@@ -134,11 +134,12 @@ namespace Nexus.Client.ModManagement
 				if (m_booCancel)
 					break;
 
+				modName = StripFileName(modCurrent.Filename, modCurrent.Id);
+
 				if (!string.IsNullOrEmpty(modCurrent.Id))
 				{
 					modID = modCurrent.Id;
 					isEndorsed = modCurrent.IsEndorsed == true ? 1 : (modCurrent.IsEndorsed == false ? -1 : 0);
-					modName = StripFileName(modCurrent.Filename, modCurrent.Id);
 				}
 				else
 				{
@@ -160,21 +161,19 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				if (!string.IsNullOrEmpty(modID))
+				//if (m_booMissingDownloadId)
+				if ((m_booMissingDownloadId == null) || ((m_booMissingDownloadId == true) && (string.IsNullOrEmpty(modCurrent.DownloadId) || (modCurrent.DownloadId == "0") || (modCurrent.DownloadId == "-1"))))
 				{
-					if (m_booMissingDownloadId)
-					{
-						ModList.Add(string.Format("{0}|{1}|{2}", modName, modID, Path.GetFileName(modCurrent.Filename)));
-						ModCheck.Add(modCurrent);
-					}
-					else if (!string.IsNullOrEmpty(modCurrent.DownloadId))
-					{
-						if (m_booOverrideCategorySetup)
-							ModList.Add(string.Format("{0}", modCurrent.DownloadId));
-						else
-							ModList.Add(string.Format("{0}|{1}|{2}|{3}|{4}", string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, string.IsNullOrWhiteSpace(modCurrent.Id) ? "0" : modCurrent.Id, Path.GetFileName(modName), string.IsNullOrWhiteSpace(modCurrent.HumanReadableVersion) ? "0" : modCurrent.HumanReadableVersion, isEndorsed));
-						ModCheck.Add(modCurrent);
-					}
+					ModList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modID) ? "0" : modID, Path.GetFileName(modCurrent.Filename)));
+					ModCheck.Add(modCurrent);
+				}
+				else if ((m_booMissingDownloadId == false) && !string.IsNullOrEmpty(modCurrent.DownloadId))
+				{
+					if (m_booOverrideCategorySetup)
+						ModList.Add(string.Format("{0}", modCurrent.DownloadId));
+					else
+						ModList.Add(string.Format("{0}|{1}|{2}|{3}|{4}", string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, string.IsNullOrWhiteSpace(modID) ? "0" : modID, Path.GetFileName(modName), string.IsNullOrWhiteSpace(modCurrent.HumanReadableVersion) ? "0" : modCurrent.HumanReadableVersion, isEndorsed));
+					ModCheck.Add(modCurrent);
 				}
 
 				if (ItemProgress < ItemProgressMaximum)
@@ -188,16 +187,31 @@ namespace Nexus.Client.ModManagement
 				// Prevents the repository request string from becoming too long.
 				if (ModList.Count == intModLimit)
 				{
-					CheckForModListUpdate(ModList, ModCheck);
+					string strResult = CheckForModListUpdate(ModList, ModCheck);
+
+					if (!string.IsNullOrEmpty(strResult))
+					{
+						ModList.Clear();
+						return strResult;
+					}
+
 					ModList.Clear();
-					OverallMessage = "Updating mods info: setup search...";
+					OverallMessage = "Updating mods info: setup search..";
 					ItemProgress = 0;
 					ItemProgressMaximum = (m_lstModList.Count == intModLimit) ? 1 : (m_lstModList.Count - (i + 1));
 				}
 			}
 
 			if (!m_booCancel && (ModList.Count > 0))
-				CheckForModListUpdate(ModList, ModCheck);
+			{
+				string strResult = CheckForModListUpdate(ModList, ModCheck);
+
+				if (!string.IsNullOrEmpty(strResult))
+				{
+					m_lstModList.Clear();
+					return strResult;
+				}
+			}
 
 			m_lstModList.Clear();
 
@@ -238,9 +252,13 @@ namespace Nexus.Client.ModManagement
 		/// Checks for the updated information for the given mods.
 		/// </summary>
 		/// <param name="p_lstModList">The mods for which to check for updates.</param>
-		private void CheckForModListUpdate(List<string> p_lstModList, List<IMod> p_lstModCheck)
+		private string CheckForModListUpdate(List<string> p_lstModList, List<IMod> p_lstModCheck)
 		{
-			OverallMessage = "Updating mods info: getting online updates...";
+			string strResult = null;
+			if (m_booMissingDownloadId != false)
+				OverallMessage = "Updating mods info: retrieving download ids..";
+			else
+				OverallMessage = "Updating mods info: getting online updates..";
 			List<IModInfo> mifInfo = new List<IModInfo>();
 			Dictionary<string, string> dctNewDownloadID = new Dictionary<string, string>();
 			IMod[] ModCheckList = p_lstModCheck.ToArray();
@@ -278,11 +296,11 @@ namespace Nexus.Client.ModManagement
 						ItemMessage = modUpdate.ModName;
 
 						IMod modMod = null;
-						if (m_booMissingDownloadId)
-							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && (StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) || StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_", " ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase))).FirstOrDefault();
+						if (m_booMissingDownloadId != false)
+							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && (StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) || StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_"," ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase))).FirstOrDefault();
 						else
 							modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(modUpdate.FileName) && modUpdate.FileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-
+						
 						if (modMod == null)
 						{
 							if ((!string.IsNullOrEmpty(modUpdate.DownloadId)) || (modUpdate.DownloadId != "0") || (modUpdate.DownloadId != "-1"))
@@ -290,9 +308,9 @@ namespace Nexus.Client.ModManagement
 
 						}
 
-						if (modMod == null)
+						if(modMod == null)
 						{
-							if (m_booMissingDownloadId)
+							if (m_booMissingDownloadId != false)
 							{
 								if (ModCheckList.Count() == mifModUpdates.Count())
 								{
@@ -313,7 +331,7 @@ namespace Nexus.Client.ModManagement
 
 							if (modUpdate.DownloadId == "-1")
 							{
-								if (m_booMissingDownloadId)
+								if (m_booMissingDownloadId != false)
 								{
 									string Filename = Path.GetFileName(modMod.Filename);
 									if (!string.Equals(StripFileName(Filename, modMod.Id), StripFileName(modUpdate.FileName, modUpdate.Id), StringComparison.InvariantCultureIgnoreCase))
@@ -322,7 +340,7 @@ namespace Nexus.Client.ModManagement
 							}
 							else if (!string.IsNullOrWhiteSpace(modUpdate.DownloadId) && !modUpdate.DownloadId.Equals(modMod.DownloadId))
 							{
-								if (m_booMissingDownloadId)
+								if (m_booMissingDownloadId != false)
 								{
 									string Filename = Path.GetFileName(modMod.Filename);
 									if (string.Equals(Filename, modUpdate.FileName, StringComparison.InvariantCultureIgnoreCase))
@@ -344,7 +362,7 @@ namespace Nexus.Client.ModManagement
 							if (!string.IsNullOrEmpty(modMod.DownloadId) && string.IsNullOrWhiteSpace(modUpdate.DownloadId))
 								modUpdate.DownloadId = modMod.DownloadId;
 
-							if (m_booMissingDownloadId)
+							if (m_booMissingDownloadId != false)
 							{
 								modUpdate.HumanReadableVersion = !string.IsNullOrEmpty(modMod.HumanReadableVersion) ? modMod.HumanReadableVersion : modUpdate.HumanReadableVersion;
 								modUpdate.MachineVersion = modMod.MachineVersion != null ? modMod.MachineVersion : modUpdate.MachineVersion;
@@ -352,7 +370,7 @@ namespace Nexus.Client.ModManagement
 
 							if ((modMod.CustomCategoryId != 0) && (modMod.CustomCategoryId != -1))
 								modUpdate.CustomCategoryId = modMod.CustomCategoryId;
-
+							
 							modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
 							AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
 
@@ -364,7 +382,7 @@ namespace Nexus.Client.ModManagement
 						}
 					}
 
-					if ((m_booMissingDownloadId) && (ProfileManager != null) && (dctNewDownloadID.Count > 0))
+					if ((m_booMissingDownloadId != false) && (ProfileManager != null) && (dctNewDownloadID.Count > 0))
 					{
 						ProfileManager.UpdateProfileDownloadId(ProfileManager.CurrentProfile, dctNewDownloadID);
 					}
@@ -372,8 +390,10 @@ namespace Nexus.Client.ModManagement
 			}
 			catch (RepositoryUnavailableException e)
 			{
-				Trace.WriteLine(String.Format("ModUpdateCheck FAILED: {0}", e.Message));
+				strResult = "The check failed for a server-side issue:" + Environment.NewLine + Environment.NewLine + e.Message;
 			}
+
+			return strResult;
 		}
 	}
 }

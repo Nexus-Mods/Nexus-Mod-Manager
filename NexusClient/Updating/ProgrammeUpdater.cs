@@ -49,7 +49,7 @@ namespace Nexus.Client.Updating
 
 		protected const string m_strURI = "http://staticdelivery.nexusmods.com/NMM/releasenotes.html";
 		private bool m_booIsAutoCheck = false;
-
+		
 		#region Properties
 
 		/// <summary>
@@ -64,6 +64,8 @@ namespace Nexus.Client.Updating
 			}
 		}
 
+		private UpdateManager UpdateManager = null;
+
 		#endregion
 
 		#region Constructors
@@ -73,11 +75,12 @@ namespace Nexus.Client.Updating
 		/// </summary>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
-		public ProgrammeUpdater(IEnvironmentInfo p_eifEnvironmentInfo, bool p_booIsAutoCheck)
+		public ProgrammeUpdater(UpdateManager p_umUpdateManager, IEnvironmentInfo p_eifEnvironmentInfo, bool p_booIsAutoCheck)
 			: base(p_eifEnvironmentInfo)
 		{
 			m_booIsAutoCheck = p_booIsAutoCheck;
 			SetRequiresRestart(true);
+			UpdateManager = p_umUpdateManager;
 		}
 
 		#endregion
@@ -158,7 +161,7 @@ namespace Nexus.Client.Updating
 				{
 					//the extended message box contains an activex control wich must be run in an STA thread,
 					// we can't control what thread this gets called on, so create one if we need to
-					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", strReleaseNotes, 700, 450, MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", strReleaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question);
 					ApartmentState astState = ApartmentState.Unknown;
 					Thread.CurrentThread.TrySetApartmentState(astState);
 					if (astState == ApartmentState.STA)
@@ -180,6 +183,11 @@ namespace Nexus.Client.Updating
 				{
 					Trace.Unindent();
 					return CancelUpdate();
+				}
+
+				if (drResult == DialogResult.Yes)
+				{
+					UpdateManager.CreateBackup();
 				}
 
 				if (File.Exists(strCheckDownloadedInstaller))

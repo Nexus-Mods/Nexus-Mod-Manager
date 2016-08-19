@@ -17,6 +17,7 @@ namespace Nexus.Client.Updating
 		private List<IUpdater> m_lstUpdaters = new List<IUpdater>();
 		private List<IUpdater> m_lstFailedUpdaters = new List<IUpdater>();
 		private bool m_booIsAutoCheck = false;
+		private UpdateManager UpdateManager = null;
 
 		#region Properties
 
@@ -42,11 +43,12 @@ namespace Nexus.Client.Updating
 		/// <param name="p_gmdGameMode">The current game mode.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
-		public UpdateTask(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, bool p_booIsAutoCheck)
+		public UpdateTask(UpdateManager p_umUpdateManager, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, bool p_booIsAutoCheck)
 		{
 			m_booIsAutoCheck = p_booIsAutoCheck;
 			GameMode = p_gmdGameMode;
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			UpdateManager = p_umUpdateManager;
 		}
 
 		#endregion
@@ -112,7 +114,7 @@ namespace Nexus.Client.Updating
 			ShowItemProgress = true;
 
 			m_lstUpdaters.Clear();
-			m_lstUpdaters.Add(new ProgrammeUpdater(EnvironmentInfo, m_booIsAutoCheck));
+			m_lstUpdaters.Add(new ProgrammeUpdater(UpdateManager, EnvironmentInfo, m_booIsAutoCheck));
 			//IEnumerable<IUpdater> enmUpdaters = GameMode.GetUpdaters();
 			//if (enmUpdaters != null)
 			//	m_lstUpdaters.AddRange(GameMode.GetUpdaters());

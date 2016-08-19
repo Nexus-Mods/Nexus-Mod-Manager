@@ -153,17 +153,17 @@ namespace Nexus.Client.PluginManagement
 			PluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
 
-            if (GameMode.OrderedCriticalPluginNames != null)
-            {
-                foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
-                    ActivePluginLog.ActivatePlugin(strPlugin);
-                List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
-                if (!OrderValidator.ValidateOrder(lstPlugins))
-                {
-                    OrderValidator.CorrectOrder(lstPlugins);
-                    PluginOrderLog.SetPluginOrder(lstPlugins);
-                }
-            }		
+			if (GameMode.OrderedCriticalPluginNames != null)
+			{
+				foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
+					ActivePluginLog.ActivatePlugin(strPlugin);
+				List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
+				if (!OrderValidator.ValidateOrder(lstPlugins))
+				{
+					OrderValidator.CorrectOrder(lstPlugins);
+					PluginOrderLog.SetPluginOrder(lstPlugins);
+				}
+			}		
 		}
 
 		#endregion
@@ -445,6 +445,22 @@ namespace Nexus.Client.PluginManagement
 		public string GetPluginDescription(string p_strPlugin)
 		{
 			return ManagedPluginRegistry.PluginFactory.GetUpdatedPluginInfo(p_strPlugin);
+		}
+
+		/// <summary>
+		/// Applies the load order specified by the given list of registered plugins
+		/// </summary>
+		/// <param name="p_kvpRegisteredPlugins">The list of registered plugins.</param>
+		/// <param name="p_booSortingOnly">Whether we just want to apply the sorting.</param>
+		public IBackgroundTask ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly)
+		{
+			ApplyLoadOrderTask altApplyLoadOrder = new ApplyLoadOrderTask(this, p_kvpRegisteredPlugins, p_booSortingOnly);
+			if (GameMode.LoadOrderManager != null)
+				GameMode.LoadOrderManager.MonitorExternalTask(altApplyLoadOrder);
+			else
+				altApplyLoadOrder.Update();
+
+			return altApplyLoadOrder;
 		}
 	}
 }

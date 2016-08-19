@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.ServiceModel;
 using System.ServiceModel.Web;
 using Nexus.Client.Mods;
+using Nexus.Client.ModManagement;
 
 namespace Nexus.Client.ModRepositories.Nexus
 {
@@ -162,5 +164,151 @@ namespace Nexus.Client.ModRepositories.Nexus
 			UriTemplate = "Mods/Find/?name={p_strModNameSearchString}&author={p_strAuthorSearchString}&type={p_strType}&game_id={p_intGameId}",
 			ResponseFormat = WebMessageFormat.Json)]
 		List<NexusModInfo> FindModsAuthor(string p_strModNameSearchString, string p_strType, string p_strAuthorSearchString, int p_intGameId);
+
+		/// <summary>
+		/// Gets the Upload Request array.
+		/// </summary>
+		/// <returns>The Upload Request array.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/UploadRequest/?game_id={p_intGameId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		NexusToken GetUploadRequest(int p_intGameId);
+
+		/// <summary>
+		/// Gets the Update Request array.
+		/// </summary>
+		/// <returns>The Update Request array.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/UpdateRequest/?game_id={p_intGameId}&profile_id={p_intProfileId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		NexusToken UpdateRequest(int p_intGameId, int p_intProfileId);
+		
+		/// <summary>
+		/// The Profile Upload Request.
+		/// </summary>
+		/// <returns>The Profile Upload Request.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			RequestFormat = WebMessageFormat.Json,
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/UploadProfile/?game_id={p_intGameId}&r={p_strReqId}&res={p_strRes}&share={p_intShare}",
+			ResponseFormat = WebMessageFormat.Json)]
+		string UploadProfile(int p_intGameId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare);
+
+		/// <summary>
+		/// The Profile Upload Request.
+		/// </summary>
+		/// <returns>The Profile Upload Request.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			RequestFormat = WebMessageFormat.Json,
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/UpdateProfile/?game_id={p_intGameId}&profile_id={p_intProfileId}&r={p_strReqId}&res={p_strRes}&share={p_intShare}",
+			ResponseFormat = WebMessageFormat.Json)]
+		string UpdateProfile(int p_intGameId, int p_intProfileId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare);
+
+		/// <summary>
+		/// Gets the Download Request array.
+		/// </summary>
+		/// <returns>The Download Request array.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/DownloadRequest/?game_id={p_intGameId}&profile_id={p_intProfileId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		NexusToken DownloadRequest(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// The Profile Download Request.
+		/// </summary>
+		/// <returns>The Profile Download Request.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			RequestFormat = WebMessageFormat.Json,
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/DownloadProfile/?game_id={p_intGameId}&profile_id={p_intProfileId}&r={p_strReqId}&res={p_strRes}",
+			ResponseFormat = WebMessageFormat.Json)]
+		Stream DownloadProfile(int p_intGameId, int p_intProfileId, string p_strReqId, string p_strRes);
+
+		/// <summary>
+		/// Gets the Online Profile Id list.
+		/// </summary>
+		/// <returns>The Download Request array.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/GetUserProfiles/?game_id={p_intGameId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		List<int> GetUserProfiles(int p_intGameId);
+
+		/// <summary>
+		/// Gets the Profile Data.
+		/// </summary>
+		/// <returns>The Download Request array.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/GetProfileData/?game_id={p_intGameId}&profile_id={p_intProfileId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		IModProfileInfo GetProfileData(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// Gets the Profile Data.
+		/// </summary>
+		/// <returns>The Download Request array.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/ChangeStatus/?game_id={p_intGameId}&profile_id={p_intProfileId}&share={p_intShare}",
+			ResponseFormat = WebMessageFormat.Json)]
+		string ToggleSharing(int p_intGameId, int p_intProfileId, int p_intShare);
+
+		/// <summary>
+		/// Rename the Profile.
+		/// </summary>
+		/// <returns>Rename the Profile.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/RenameProfile/?game_id={p_intGameId}&profile_id={p_intProfileId}&name={p_strName}",
+			ResponseFormat = WebMessageFormat.Json)]
+		string RenameProfile(int p_intGameId, int p_intProfileId, string p_strName);
+		
+		/// <summary>
+		/// Remove the Profile.
+		/// </summary>
+		/// <returns>Remove the Profile.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/RemoveProfile/?game_id={p_intGameId}&profile_id={p_intProfileId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		string RemoveProfile(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// Gets the Missing Files.
+		/// </summary>
+		/// <returns>The Missing files.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "profiles/GetMissingFiles/?game_id={p_intGameId}&profile_id={p_intProfileId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		List<ProfileMissingModInfo> GetMissingFiles(int p_intGameId, int p_intProfileId);
+
+		/// <summary>
+		/// Gets the Missing Files.
+		/// </summary>
+		/// <returns>The Missing files.</returns>
+		[OperationContract]
+		[WebInvoke(Method = "POST",
+			BodyStyle = WebMessageBodyStyle.Bare,
+			UriTemplate = "Mods/GetCategories/?game_id={p_intGameId}",
+			ResponseFormat = WebMessageFormat.Json)]
+		List<CategoriesInfo> GetCategories(int p_intGameId);
 	}
 }

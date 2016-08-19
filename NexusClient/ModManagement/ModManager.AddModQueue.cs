@@ -60,21 +60,25 @@ namespace Nexus.Client.ModManagement
 			/// </summary>
 			public void LoadQueuedMods()
 			{
-				Trace.TraceInformation("Loading mods that are queued to be added.");
-				if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
-					return;
-				if (m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] == null)
-				{
-					m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
-					m_eifEnvironmentInfo.Settings.Save();
-					return;
+				try
+				{ 
+					Trace.TraceInformation("Loading mods that are queued to be added.");
+					if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
+						return;
+					if (m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] == null)
+					{
+						m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
+						m_eifEnvironmentInfo.Settings.Save();
+						return;
+					}
+					foreach (KeyValuePair<string, AddModDescriptor> kvpMod in new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]))
+					{
+						Trace.TraceInformation(String.Format("[{0}] Adding from serialized queue", kvpMod.Key.ToString()));
+						kvpMod.Value.Status = TaskStatus.Paused;
+						AddMod(new Uri(kvpMod.Key), ConfirmFileOverwrite);
+					}
 				}
-				foreach (KeyValuePair<string, AddModDescriptor> kvpMod in new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]))
-				{
-					Trace.TraceInformation(String.Format("[{0}] Adding from serialized queue", kvpMod.Key.ToString()));
-					kvpMod.Value.Status = TaskStatus.Paused;
-					AddMod(new Uri(kvpMod.Key), ConfirmFileOverwrite);
-				}
+				catch {	}
 			}
 
 			/// <summary>
@@ -99,7 +103,7 @@ namespace Nexus.Client.ModManagement
 					amtModAdder.IsRemote = true;
 					m_dicActiveTasks[p_uriPath] = amtModAdder;
 					m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
-					amtModAdder.AddMod(false);
+					amtModAdder.AddMod(true);
 				}
 				else
 				{

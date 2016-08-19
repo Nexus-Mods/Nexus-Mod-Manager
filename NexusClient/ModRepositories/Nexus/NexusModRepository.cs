@@ -10,6 +10,7 @@ using System.ServiceModel;
 using System.Text.RegularExpressions;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
+using Nexus.Client.ModManagement;
 using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModRepositories.Nexus
@@ -153,6 +154,18 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 		}
 
+		/// <summary>
+		/// Gets the remote id of the mod repository.
+		/// </summary>
+		/// <value>The id of the mod repository.</value>
+		public int RemoteGameId
+		{
+			get
+			{
+				return m_intRemoteGameId;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -239,6 +252,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strWebsite = "www.nexusmods.com/morrowind";
 					m_strEndpoint = "MWNexusREST";
 					m_intRemoteGameId = 100;
+					break;
+				case "NoMansSky":
+					m_strWebsite = "www.nexusmods.com/nomanssky";
+					m_strEndpoint = "NMSNexusREST";
+					m_intRemoteGameId = 1634;
 					break;
 				case "Oblivion":
 					m_strWebsite = "www.nexusmods.com/oblivion";
@@ -365,6 +383,23 @@ namespace Nexus.Client.ModRepositories.Nexus
 			return cftProxyFactory;
 		}
 
+		protected int GetNthIndex(string s, char t, int n)
+		{
+			int count = 0;
+			for (int i = 0; i < s.Length; i++)
+			{
+				if (s[i] == t)
+				{
+					count++;
+					if (count == n)
+					{
+						return i;
+					}
+				}
+			}
+			return -1;
+		}
+
 		/// <summary>
 		/// Parses out the mod id from the given mod file name.
 		/// </summary>
@@ -374,13 +409,35 @@ namespace Nexus.Client.ModRepositories.Nexus
 		protected string ParseModIdFromFilename(string p_strFilename, out IModInfo p_mifInfo)
 		{
 			Regex rgxModId = new Regex(@"-((\d+)[-\.])+");
+
+			int intCount = 0;
+			foreach (char c in p_strFilename)
+				if (c == '-') intCount++;
+
 			string strFilename = Path.GetFileName(p_strFilename);
-			Match mchModId = rgxModId.Match(strFilename);
-			if (!mchModId.Success)
+			Match mchModId = null;
+
+			if (intCount > 3)
 			{
-				p_mifInfo = null;
-				return null;
+				string strCheckName = Path.GetFileName(p_strFilename);
+				strCheckName = strCheckName.Substring(GetNthIndex(strCheckName, '-', intCount - 3));
+				mchModId = rgxModId.Match(strCheckName);
+				if (!mchModId.Success)
+				{
+					p_mifInfo = null;
+					return null;
+				}
 			}
+			else
+			{
+				mchModId = rgxModId.Match(strFilename);
+				if (!mchModId.Success)
+				{
+					p_mifInfo = null;
+					return null;
+				}
+			}
+
 			IModInfo mifInfo = null;
 			string[] strFilenameWords = strFilename.Split(new char[] { ' ', '_', '-' }, StringSplitOptions.RemoveEmptyEntries);
 			List<KeyValuePair<Int32, IModInfo>> lstCandidates = new List<KeyValuePair<Int32, IModInfo>>();
@@ -465,7 +522,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				if (strNexusLoginErrorCode.Equals("4"))
 					strNexusLoginErrorMessage = "Wrong username or password.";
 				else
-	                strNexusLoginErrorMessage = e.Message.Split('#')[1].Trim();
+					strNexusLoginErrorMessage = e.Message.Split('#')[1].Trim();
 				throw new RepositoryUnavailableException(String.Format("{0}", strNexusLoginErrorMessage), e);
 			}
 			catch (TimeoutException e)
@@ -630,8 +687,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			Uri uriWebsite = (String.IsNullOrEmpty(p_nmiNexusModInfo.Website) ? null : new Uri(p_nmiNexusModInfo.Website));
 			string strDownloadID = p_nmiNexusModInfo.DownloadId;
 			string strFilename = p_nmiNexusModInfo.Filename;
-			string modName = p_nmiNexusModInfo.Name + " - " + p_nmiNexusModInfo.RequestedFileName;
-
+			string modName = string.IsNullOrWhiteSpace(p_nmiNexusModInfo.RequestedFileName) ? p_nmiNexusModInfo.Name : p_nmiNexusModInfo.Name + " - " + p_nmiNexusModInfo.RequestedFileName;
 			if (String.IsNullOrWhiteSpace(strDownloadID) || (strDownloadID == "0") || (strDownloadID == "-1"))
 			{
 				strDownloadID = p_nmiNexusModInfo.NewDownloadId ?? strDownloadID;
@@ -771,7 +827,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 
 			try
 			{
-				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(20).CreateChannel())
 				{
 
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
@@ -781,15 +837,37 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 			catch (TimeoutException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Timeout: Cannot reach the {0} metadata server.", Name), e);
 			}
 			catch (CommunicationException e)
 			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo, e);
+
+				}
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
 			catch (SerializationException e)
 			{
-				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+				throw new RepositoryUnavailableException(String.Format("Serialization: Cannot reach the {0} metadata server.", Name), e);
 			}
 
 			if (nmiInfo == null)
@@ -1373,9 +1451,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(p_strModId, m_intRemoteGameId);
 					NexusModFileInfo mfiDefault = (from f in mfiFiles
-												   where f.Category == ModFileCategory.MainFiles
-												   orderby f.Date descending
-												   select f).FirstOrDefault();
+													where f.Category == ModFileCategory.MainFiles
+													orderby f.Date descending
+													select f).FirstOrDefault();
 					if (mfiDefault == null)
 						mfiDefault = (from f in mfiFiles
 									  orderby f.Date descending
@@ -1395,6 +1473,681 @@ namespace Nexus.Client.ModRepositories.Nexus
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
+		}
+
+		#endregion
+
+		#region ProfileSharing
+
+		#region UploadProfile
+
+		public NexusToken GetUploadRequest(int p_intGameId)
+		{
+			NexusToken nst = null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					nst = nmrApi.GetUploadRequest(m_intRemoteGameId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return nst;
+		}
+
+		public string UploadProfile(int p_intGameId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare)
+		{
+			string response;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					response = nmrApi.UploadProfile(m_intRemoteGameId, p_FileStream, p_strReqId, p_strRes, p_intShare);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return response;
+		}
+
+		#endregion
+		
+		#region UpdateProfile
+
+		public NexusToken UpdateRequest(int p_intGameId, int p_intProfileId)
+		{
+			NexusToken nst = null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					nst = nmrApi.UpdateRequest(m_intRemoteGameId, p_intProfileId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return nst;
+		}
+
+		public string UpdateProfile(int p_intGameId, int p_intProfileId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare)
+		{
+			string response;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					response = nmrApi.UpdateProfile(m_intRemoteGameId, p_intProfileId, p_FileStream, p_strReqId, p_strRes, p_intShare);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return response;
+		}
+
+		#endregion
+		
+		#region GetUserProfiles
+
+		public List<int> GetUserProfiles(int p_intGameId)
+		{
+			List<int> lstProfiles = null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					lstProfiles = nmrApi.GetUserProfiles(m_intRemoteGameId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return lstProfiles;
+		}
+
+		#endregion
+
+		#region GetProfileData
+
+		public IModProfileInfo GetProfileData(int p_intGameId, int p_intProfileId)
+		{
+			IModProfileInfo impProfileData;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					impProfileData = nmrApi.GetProfileData(p_intGameId, p_intProfileId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return impProfileData;
+		}
+
+		#endregion
+
+		public List<ProfileMissingModInfo> GetMissingFiles(int p_intGameId, int p_intProfileId)
+		{
+			List<ProfileMissingModInfo> nst = null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					nst = nmrApi.GetMissingFiles(p_intGameId, p_intProfileId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return nst;
+		}
+
+		public List<CategoriesInfo> GetCategories(int p_intGameId)
+		{
+			List<CategoriesInfo> nst = null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					nst = nmrApi.GetCategories(p_intGameId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return nst;
+		}
+
+		#region DownloadProfile
+
+		public NexusToken DownloadRequest(int p_intGameId, int p_intProfileId)
+		{
+			NexusToken nst = null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					nst = nmrApi.DownloadRequest(p_intGameId, p_intProfileId); 
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return nst;
+		}
+
+		public Stream DownloadProfile(int p_intGameId, int p_intProfileId, string p_strReqId, string p_strRes)
+		{
+			Stream downFile = null;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					downFile = nmrApi.DownloadProfile(m_intRemoteGameId, p_intProfileId, p_strReqId, p_strRes);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return downFile;
+		}
+
+		#endregion
+
+		public string ToggleSharing(int p_intGameId, int p_intProfileId, int p_intShare)
+		{
+			string strResult = string.Empty;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					strResult = nmrApi.ToggleSharing(p_intGameId, p_intProfileId,p_intShare);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return strResult;
+		}
+
+
+		public string RenameProfile(int p_intGameId, int p_intProfileId, string p_strName)
+		{
+			string strResult = string.Empty;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					strResult = nmrApi.RenameProfile(p_intGameId, p_intProfileId, p_strName);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return strResult;
+		}
+
+		public string RemoveProfile(int p_intGameId, int p_intProfileId)
+		{
+			string strResult = string.Empty;
+
+			try
+			{
+				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
+				{
+					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
+					strResult = nmrApi.RemoveProfile(p_intGameId, p_intProfileId);
+				}
+			}
+			catch (TimeoutException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (CommunicationException e)
+			{
+				if ((((System.Exception)(e)).InnerException != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response != null) && (((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers != null))
+				{
+					WebHeaderCollection whcHeaders = ((System.Net.WebException)(((System.Exception)(e)).InnerException)).Response.Headers;
+					string strNexusError = String.Empty;
+					string strNexusErrorInfo = String.Empty;
+					foreach (string Header in whcHeaders.Keys)
+					{
+						switch (Header)
+						{
+							case "NexusError":
+								strNexusError = whcHeaders.GetValues(Header)[0];
+								break;
+							case "NexusErrorInfo":
+								strNexusErrorInfo = whcHeaders.GetValues(Header)[0];
+								break;
+						}
+					}
+
+					if (!string.IsNullOrEmpty(strNexusError) && (strNexusError == "666"))
+						throw new RepositoryUnavailableException(strNexusErrorInfo + Environment.NewLine + "You can keep using Nexus Mod Manager in OFFLINE MODE by clicking the Stay Offline button.", e);
+
+				}
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+			catch (SerializationException e)
+			{
+				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
+			}
+
+			return strResult;
 		}
 
 		#endregion

@@ -51,11 +51,12 @@
 			this.tsbActivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDeactivate = new System.Windows.Forms.ToolStripButton();
 			this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
-			this.tsbCheckModVersions = new System.Windows.Forms.ToolStripSplitButton();
 			this.checkModUpdates = new System.Windows.Forms.ToolStripMenuItem();
 			this.checkFileDownloadId = new System.Windows.Forms.ToolStripMenuItem();
-			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
+			this.checkMissingDownloadId = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsbModOnlineChecks = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
+			this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.sptSummaryInfo = new System.Windows.Forms.SplitContainer();
 			this.ipbScreenShot = new Nexus.UI.Controls.ImagePreviewBox();
@@ -88,7 +89,7 @@
 			this.tsbDeactivate,
 			new System.Windows.Forms.ToolStripSeparator(),
 			this.tsbTagMod,
-			this.tsbCheckModVersions,
+			this.tsbModOnlineChecks,
 			this.tsbToggleEndorse,
 			this.tsbResetCategories,
 			this.tsbSwitchView});
@@ -102,8 +103,8 @@
 			// 
 			this.tsbAddMod.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
 			this.tsbAddMod.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.addModToolStripMenuItem,
-            this.addModFromURLToolStripMenuItem});
+			this.addModToolStripMenuItem,
+			this.addModFromURLToolStripMenuItem});
 			this.tsbAddMod.Image = ((System.Drawing.Image)(resources.GetObject("tsbAddMod.Image")));
 			this.tsbAddMod.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbAddMod.Name = "tsbAddMod";
@@ -130,12 +131,12 @@
 			// 
 			this.tsbResetCategories.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
 			this.tsbResetCategories.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.addNewCategory,
+			this.addNewCategory,
 			this.collapseAllCategories,
 			this.expandAllCategories,
 			this.resetDefaultCategories,
 			this.resetUnassignedToDefaultCategories,
-            this.resetModsCategory,
+			this.resetModsCategory,
 			this.removeAllCategories,
 			this.toggleHiddenCategories});
 			this.tsbResetCategories.Image = global::Nexus.Client.Properties.Resources.format_line_spacing_triple;
@@ -157,7 +158,7 @@
 			this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
 			this.resetDefaultCategories.Name = "resetDefaultCategories";
 			this.resetDefaultCategories.Size = new System.Drawing.Size(195, 38);
-			this.resetDefaultCategories.Text = "Categories: reset to Nexus site defaults";
+			this.resetDefaultCategories.Text = "Categories: Update and reset to Nexus site defaults";
 			this.resetDefaultCategories.Click += new System.EventHandler(this.resetDefaultCategories_Click);
 			// 
 			// resetUnassignedToDefaultCategories
@@ -235,14 +236,19 @@
 			this.tsbTagMod.Size = new System.Drawing.Size(46, 36);
 			this.tsbTagMod.Text = "toolStripButton1";
 			// 
-			// tsbCheckModVersions
+			// tsbModOnlineChecks
 			// 
-			this.tsbCheckModVersions.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbCheckModVersions.Image = global::Nexus.Client.Properties.Resources.edit_find_and_replace;
-			this.tsbCheckModVersions.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbCheckModVersions.Name = "tsbCheckModVersions";
-			this.tsbCheckModVersions.Size = new System.Drawing.Size(46, 36);
-			this.tsbCheckModVersions.Text = "Check for mod updates";
+			this.tsbModOnlineChecks.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbModOnlineChecks.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+			this.checkModUpdates,
+			this.checkFileDownloadId,
+			this.checkMissingDownloadId});
+			this.tsbModOnlineChecks.Image = global::Nexus.Client.Properties.Resources.edit_find_and_replace;
+			this.tsbModOnlineChecks.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbModOnlineChecks.Name = "tsbModOnlineChecks";
+			this.tsbModOnlineChecks.Size = new System.Drawing.Size(46, 36);
+			this.tsbModOnlineChecks.Text = "Check for mod updates";
+			this.tsbModOnlineChecks.ButtonClick += new System.EventHandler(tsbModOnlineChecks_ButtonClick);
 			// 
 			// checkModUpdates
 			// 
@@ -257,21 +263,25 @@
 			this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
 			this.checkFileDownloadId.Name = "checkFileDownloadId";
 			this.checkFileDownloadId.Size = new System.Drawing.Size(195, 38);
-			this.checkFileDownloadId.Text = "Check for missing/outdated download IDs.";
-			this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
+			this.checkFileDownloadId.Text = "Fix missing or outdated download IDs";
+			this.checkFileDownloadId.Click += new System.EventHandler(checkFileDownloadId_Click);
+			// 
+			// checkMissingDownloadId
+			// 
+			this.checkMissingDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
+			this.checkMissingDownloadId.Name = "checkMissingDownloadId";
+			this.checkMissingDownloadId.Size = new System.Drawing.Size(195, 38);
+			this.checkMissingDownloadId.Text = "Just check for missing download IDs";
+			this.checkMissingDownloadId.Click += new System.EventHandler(checkMissingDownloadId_Click);
 			// 
 			// tsbToggleEndorse
 			// 
 			this.tsbToggleEndorse.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbCheckModVersions.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-			this.checkModUpdates,
-			this.checkFileDownloadId});
 			this.tsbToggleEndorse.Image = global::Nexus.Client.Properties.Resources.thumbsup;
 			this.tsbToggleEndorse.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbToggleEndorse.Name = "tsbToggleEndorse";
 			this.tsbToggleEndorse.Size = new System.Drawing.Size(46, 36);
 			this.tsbToggleEndorse.Text = "toolStripButton1";
-			this.tsbToggleEndorse.Enabled = false;
 			// 
 			// tsbSwitchView
 			// 
@@ -422,10 +432,11 @@
 		private System.Windows.Forms.ToolStripButton tsbActivate;
 		private System.Windows.Forms.ToolStripButton tsbDeactivate;
 		private System.Windows.Forms.ToolStripButton tsbTagMod;
-		private System.Windows.Forms.ToolStripSplitButton tsbCheckModVersions;
 		private System.Windows.Forms.ToolStripMenuItem checkModUpdates;
 		private System.Windows.Forms.ToolStripMenuItem checkFileDownloadId;
-		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
+		private System.Windows.Forms.ToolStripMenuItem checkMissingDownloadId;
+		private System.Windows.Forms.ToolStripSplitButton tsbModOnlineChecks;
 		private System.Windows.Forms.ToolStripButton tsbSwitchView;
+		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
 	}
 }

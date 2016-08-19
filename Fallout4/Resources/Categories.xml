@@ -67,8 +67,8 @@
     <category path="Gameplay Effects and Changes" ID="15">
       <name>Gameplay Effects and Changes</name>
     </category>
-    <category path="Hair and Face Models" ID="17">
-      <name>Hair and Face Models</name>
+    <category path="Hair, Face, and Body" ID="17">
+      <name>Hair, Face, and Body</name>
     </category>
     <category path="Immersion" ID="51">
       <name>Immersion</name>
@@ -106,8 +106,8 @@
 	<category path="Patches" ID="25">
 		<name>Patches</name>
 	</category>
-    <category path="Performances" ID="26">
-      <name>Performances</name>
+    <category path="Performance" ID="26">
+      <name>Performance</name>
     </category>
 	<category path="Perks" ID="27">
       <name>Perks</name>
@@ -136,8 +136,8 @@
     <category path="ReShade Presets" ID="55">
       <name>ReShade Presets</name>
     </category>
-    <category path="Saved Games/Characters" ID="32">
-      <name>Saved Games/Characters</name>
+    <category path="Save Games" ID="32">
+      <name>Save Games</name>
     </category>
     <category path="Skills and Leveling" ID="46">
       <name>Skills and Leveling</name>

@@ -288,6 +288,11 @@ namespace Nexus.Client.ModAuthoring
 				}
 				StepOverallProgress();
 			}
+			catch (FileNotFoundException ex)
+			{
+				MessageBox.Show("An error has occured with the following archive: " + p_strArchivePath + "\n\n ERROR: " + ex.Message);
+				return lstFoundMods;
+			}
 			finally
 			{
 				if (!String.IsNullOrEmpty(strTmpPath))

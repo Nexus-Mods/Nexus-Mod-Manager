@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using Nexus.Client.Mods;
@@ -97,6 +96,12 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			if (m_ilgCurrent != null)
 				throw new InvalidOperationException("The Install Log has already been initialized.");
 			m_ilgCurrent = new InstallLog(p_mdrManagedModRegistry, p_gmdGameMode, p_strModInstallDirectory, p_strLogPath);
+			return m_ilgCurrent;
+		}
+
+		public IInstallLog ReInitialize(string p_strLogPath)
+		{
+			m_ilgCurrent = new InstallLog(ManagedModRegistry, GameMode, ModInstallDirectory, p_strLogPath);
 			return m_ilgCurrent;
 		}
 
@@ -384,7 +389,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			XElement xelModList = new XElement("modList");
 			xelRoot.Add(xelModList);
 			xelModList.Add(from kvp in m_amrModKeys.Registrations
-						   select new XElement("mod",
+						select new XElement("mod",
 									new XAttribute("path", (kvp.Key is DummyMod) ? kvp.Key.ModArchivePath : kvp.Key.ModArchivePath.Substring(ModInstallDirectory.Length)),
 									new XAttribute("key", kvp.Value),
 									new XElement("version",
@@ -409,14 +414,14 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			xelRoot.Add(xelIniEdits);
 			xelIniEdits.Add(from itm in m_dicInstalledIniEdits
 							select new XElement("ini",
-								   new XAttribute("file", itm.Item.File),
-								   new XAttribute("section", itm.Item.Section),
-								   new XAttribute("key", itm.Item.Key),
-								   new XElement("installingMods",
-									   from m in itm.Installers
-									   select new XElement("mod",
-										   new XAttribute("key", m.InstallerKey),
-										   new XText(m.Value)))));
+									new XAttribute("file", itm.Item.File),
+									new XAttribute("section", itm.Item.Section),
+									new XAttribute("key", itm.Item.Key),
+									new XElement("installingMods",
+									from m in itm.Installers
+										select new XElement("mod",
+											new XAttribute("key", m.InstallerKey),
+											new XText(m.Value)))));
 
 			XElement xelGameSpecificValueEdits = new XElement("gameSpecificEdits");
 			xelRoot.Add(xelGameSpecificValueEdits);

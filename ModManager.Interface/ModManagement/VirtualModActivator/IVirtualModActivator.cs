@@ -35,14 +35,17 @@ namespace Nexus.Client.ModManagement
 
 		#region Virtual Mod Activator
 		void Initialize();
+		string RequiresFixing();
+		string RequiresFixing(string p_strFilePath);
 		void Setup();
 		void Reset();
 		void SaveList();
 		void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks);
 		List<IVirtualModLink> LoadList(string p_strXMLFilePath);
-		List<IVirtualModLink> LoadImportedList(string p_strXML);
+		List<IVirtualModLink> LoadImportedList(string p_strXML, string p_strSavePath);
 		bool LoadListOnDemand(string p_strProfilePath, out List<IVirtualModLink> p_lstVirtualLinks, out List<IVirtualModInfo> p_lstVirtualMods);
 		void SaveModList(string p_strPath);
+		void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModList);
 		string CheckVirtualLink(string p_strFilePath);
 		Int32 CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> lstFileLinks);
 		bool PurgeLinks();
@@ -61,15 +64,15 @@ namespace Nexus.Client.ModManagement
 		void LogIniEdits(IMod p_modMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue);
 		void RestoreIniEdits();
 		void PurgeIniEdits();
-		void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModList);
 		void ImportIniEdits(string p_strIniXML);
 		void SetNewFolders(string p_strVirtual, string p_strLink, bool? p_booMultiHD);
-		void CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks, out Dictionary<string, string> p_dicUninstalled, out Dictionary<string, string> p_dicMissing, IList<string> p_lstForced);
+		void CheckLinkListIntegrity(IList<IVirtualModLink> p_ivlVirtualLinks, out List<IVirtualModInfo> p_lstMissingModInfo, IList<string> p_lstForced);
 		IModLinkInstaller GetModLinkInstaller();
 		void PurgeMods(List<IMod> p_lstMods, string p_strPath);
 		bool CheckHasActiveLinks(IMod p_modMod);
 		string GetCurrentFileOwner(string p_strPath);
 		IBackgroundTask ActivatingMod(IMod p_modMod, bool p_booDisabling, ConfirmActionMethod p_camConfirm);
+		IBackgroundTask FixConfigFiles(List<string> p_lstFiles, IModProfile p_mprProfile, ConfirmActionMethod p_camConfirm);
 		#endregion
 	}
 }

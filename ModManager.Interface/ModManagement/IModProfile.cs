@@ -59,6 +59,66 @@ namespace Nexus.Client.ModManagement
 		/// <value>The active mod list.</value>
 		List<IVirtualModInfo> ModList { get; }
 
+		/// <summary>
+		/// Gets or sets the Online Id of the profile.
+		/// </summary>
+		/// <remarks>The Online Id of the profile</remarks>
+		string OnlineID { get; }
+
+		/// <summary>
+		/// Gets or sets the Online Name of the profile.
+		/// </summary>
+		/// <remarks>The Online Name of the profile</remarks>
+		string OnlineName { get; }
+
+		/// <summary>
+		/// Gets or sets the Backup Date.
+		/// </summary>
+		/// <remarks>The BackupDate of the profile</remarks>
+		string BackupDate { get; }
+
+		/// <summary>
+		/// Gets or sets the Version of the profile.
+		/// </summary>
+		/// <remarks>The Version of the profile</remarks>
+		int Version { get; }
+
+		/// <summary>
+		/// Gets or sets the Author of the profile.
+		/// </summary>
+		/// <remarks>The Author of the profile</remarks>
+		string Author { get; }
+
+		/// <summary>
+		/// Gets or sets the Works With Saves flag of the profile.
+		/// </summary>
+		/// <remarks>The Works With Saves flag of the profile</remarks>
+		int WorksWithSaves { get; }
+
+		/// <summary>
+		/// Gets or sets the Screenshot of the profile.
+		/// </summary>
+		/// <remarks>The Screenshot of the profile</remarks>
+		string Screenshot { get; }
+
+		/// <summary>
+		/// Gets whether the profile is online (backed or shared).
+		/// </summary>
+		/// <remarks>Whether the profile is online (backed or shared)</remarks>
+		bool IsOnline { get; }
+
+		/// <summary>
+		/// Gets or sets the Shared flag of the profile.
+		/// </summary>
+		/// <remarks>The Shared flag of the profile</remarks>
+		bool IsShared { get; }
+
+		/// <summary>
+		/// Gets or sets the Edited flag of the profile.
+		/// </summary>
+		/// <remarks>The Shared flag of the profile</remarks>
+		bool IsEdited { get; set; }
+
 		void UpdateLists(List<IVirtualModLink> p_lstVirtualModLink, List<IVirtualModInfo> p_lstVirtualModList);
 		#endregion
 	}

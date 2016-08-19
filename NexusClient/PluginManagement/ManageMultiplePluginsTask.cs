@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Plugins;
 using Nexus.Client.PluginManagement.InstallationLog;
-using Nexus.Transactions;
 using Nexus.Client.UI;
 
 namespace Nexus.Client.PluginManagement
