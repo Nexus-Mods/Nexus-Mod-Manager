@@ -83,6 +83,7 @@
     <Compile Include="NoMansSkyGameModeDescriptor.cs" />
     <Compile Include="NoMansSkyGameMode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tools\PlayStationArchive\psarc.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">

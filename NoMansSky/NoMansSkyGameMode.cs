@@ -376,5 +376,27 @@ namespace Nexus.Client.Games.NoMansSky
 		protected override void Dispose(bool p_booDisposing)
 		{
 		}
-	}
+
+        /// <summary>
+        /// Checks whether the current game mode requires external config steps to be taken before installing mods.
+        /// </summary>
+        /// <param name="p_strMessage">The message to show to the user</param>
+        /// <returns>Whether the current game mode requires external config steps to be taken before installing mods.</returns>
+        public override bool RequiresExternalConfig(out string p_strMessage)
+        {
+            bool booPacked = true;
+            p_strMessage = string.Empty;
+
+            if(Directory.Exists(Path.Combine(InstallationPath, "PCBANKS")))
+            {
+                p_strMessage = "Nexus Mod Manager discovered a PCBANKS folder. Mods require all game data to be unpacked to work properly.";
+            }
+            else
+            {
+                booPacked = false;
+            }
+
+            return booPacked;
+        }
+    }
 }
