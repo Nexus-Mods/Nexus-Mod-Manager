@@ -1,6 +1,10 @@
 ﻿using Nexus.Client.Commands;
 using Nexus.Client.Games.Tools;
 using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Games.NoMansSky.Tools.PlayStationArchive
 {
@@ -45,12 +49,46 @@ namespace Nexus.Client.Games.NoMansSky.Tools.PlayStationArchive
 
         public void UnpackGameData()
         {
-            
-        }
+            String[] staPakFiles = null;
+            String strPakFilePath = Path.Combine(GameMode.InstallationPath, "PCBANKS_BAK");
 
-        private void SortUnpackedData()
-        {
+            if (!Directory.Exists(strPakFilePath))
+            {
+                FolderBrowserDialog fbdBankSelectDialog = new FolderBrowserDialog();
+                fbdBankSelectDialog.Description = "Select the location of your PCBANKS folder";
+                fbdBankSelectDialog.ShowNewFolderButton = false;
+                DialogResult drResult = fbdBankSelectDialog.ShowDialog();
 
+                if(drResult == DialogResult.OK)
+                {
+                    strPakFilePath = fbdBankSelectDialog.SelectedPath;
+                }
+                else
+                {
+                    MessageBox.Show("Couldn't find any pak files to extract.");
+                    return;
+                }
+            }
+
+            staPakFiles = Directory.GetFiles(strPakFilePath);
+
+            if(!staPakFiles.Any(s => s.Contains("NMSARC")))
+                MessageBox.Show("Couldn't find any No Man's Sky pak files to extract.");
+
+            foreach(String strPakFile in staPakFiles)
+            {
+                Process prsExtractProcess = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = Path.Combine(Environment.CurrentDirectory, "data", "psarc.exe"),
+                        Arguments = "extract --to=\"" + GameMode.InstallationPath + "\" \"" + strPakFile + "\"",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+            }
         }
     }
 }

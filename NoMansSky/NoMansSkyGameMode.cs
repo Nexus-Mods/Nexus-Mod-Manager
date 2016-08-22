@@ -387,9 +387,9 @@ namespace Nexus.Client.Games.NoMansSky
             bool booPacked = true;
             p_strMessage = string.Empty;
 
-            if(Directory.Exists(Path.Combine(InstallationPath, "PCBANKS")))
+            if(Directory.GetDirectories(InstallationPath).Except(new[] {Path.Combine(InstallationPath, "SHADERCACHE"), Path.Combine(InstallationPath, "PCBANKS_BAK"), Path.Combine(InstallationPath, "PCBANKS")}).Count() != 0)
             {
-                p_strMessage = "Nexus Mod Manager discovered a PCBANKS folder. Mods require all game data to be unpacked to work properly.";
+                p_strMessage = "Mods require all game data to be unpacked to work properly.";
             }
             else
             {
