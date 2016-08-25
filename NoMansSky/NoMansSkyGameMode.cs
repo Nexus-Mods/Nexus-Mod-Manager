@@ -380,6 +380,8 @@ namespace Nexus.Client.Games.NoMansSky
 		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="IDisposable.Dispose()"/> method.</param>
 		protected override void Dispose(bool p_booDisposing)
 		{
+            if(Directory.Exists(Path.Combine(InstallationPath, "PCBANKS_BAK")))
+                Directory.Move(Path.Combine(InstallationPath, "PCBANKS_BAK"), Path.Combine(InstallationPath, "PCBANKS"));
 		}
 
         /// <summary>
@@ -406,7 +408,7 @@ namespace Nexus.Client.Games.NoMansSky
 
         public bool IsExtracted()
         {
-            return Directory.GetFiles(InstallationPath).Except(new[] { "PCBANKS", "SHADERCACHE" }).Count() != 0;
+            return Directory.GetDirectories(InstallationPath).Except(new[] { Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "SHADERCACHE") }).Count() != 0;
         }
     }
 }
