@@ -84,6 +84,7 @@
     <Compile Include="NoMansSkyGameMode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tools\PlayStationArchive\psarc.cs" />
+    <Compile Include="Tools\ShaderCache\Cleaner.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
@@ -93,6 +94,10 @@
     <ProjectReference Include="..\Commanding\Commanding.csproj">
       <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
       <Name>Commanding</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NexusClient\NexusClient.csproj">
+      <Project>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</Project>
+      <Name>NexusClient</Name>
     </ProjectReference>
     <ProjectReference Include="..\UI\UI.csproj">
       <Project>{5EDD4E37-B8F3-403D-A2E9-AFF31B21A236}</Project>

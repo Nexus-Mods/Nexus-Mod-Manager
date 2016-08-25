@@ -52,6 +52,12 @@ namespace Nexus.Client.Games.NoMansSky.Tools.PlayStationArchive
             String[] staPakFiles = null;
             String strPakFilePath = Path.Combine(GameMode.InstallationPath, "PCBANKS_BAK");
 
+            foreach (string strDirectory in Directory.GetDirectories(GameMode.InstallationPath).Except(new[] { "PCBANKS", "PCBANKS_BAK" }))
+                Directory.Delete(strDirectory, true);
+
+            foreach (string strFile in Directory.GetFiles(GameMode.InstallationPath))
+                File.Delete(strFile);
+
             if (!Directory.Exists(strPakFilePath))
             {
                 FolderBrowserDialog fbdBankSelectDialog = new FolderBrowserDialog();
@@ -72,8 +78,12 @@ namespace Nexus.Client.Games.NoMansSky.Tools.PlayStationArchive
 
             staPakFiles = Directory.GetFiles(strPakFilePath);
 
-            if(!staPakFiles.Any(s => s.Contains("NMSARC")))
+            if (!staPakFiles.Any(s => s.Contains("NMSARC")))
+            {
                 MessageBox.Show("Couldn't find any No Man's Sky pak files to extract.");
+                return;
+            }
+            
 
             foreach(String strPakFile in staPakFiles)
             {
@@ -83,12 +93,17 @@ namespace Nexus.Client.Games.NoMansSky.Tools.PlayStationArchive
                     {
                         FileName = Path.Combine(Environment.CurrentDirectory, "data", "psarc.exe"),
                         Arguments = "extract --to=\"" + GameMode.InstallationPath + "\" \"" + strPakFile + "\"",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        CreateNoWindow = true
+                        UseShellExecute = true,
+                        RedirectStandardOutput = false,
+                        CreateNoWindow = false
                     }
                 };
+                prsExtractProcess.Start();
+                prsExtractProcess.WaitForExit();
             }
+
+            if(Directory.Exists(Path.Combine(GameMode.InstallationPath, "PCBANKS")))
+                Directory.Move(Path.Combine(GameMode.InstallationPath, "PCBANKS"), Path.Combine(GameMode.InstallationPath, "PCBANKS_BAK"));
         }
     }
 }

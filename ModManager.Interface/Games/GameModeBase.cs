@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Windows.Forms;
 using ChinhDo.Transactions;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;

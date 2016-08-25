@@ -169,7 +169,12 @@ namespace Nexus.Client.Games.NoMansSky
 		{
 			SettingsGroupViews = new List<ISettingsGroupView>();
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
-			((List<ISettingsGroupView>)SettingsGroupViews).Add(new GeneralSettingsPage(gsgGeneralSettings));
+			((List<ISettingsGroupView>)SettingsGroupViews).Add(new Settings.UI.GeneralSettingsPage(gsgGeneralSettings));
+
+            if(IsExtracted())
+            {
+                Directory.Move(Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "PCBANKS_BAK"));
+            }
 		}
 
 		#endregion
@@ -397,6 +402,11 @@ namespace Nexus.Client.Games.NoMansSky
             }
 
             return booPacked;
+        }
+
+        public bool IsExtracted()
+        {
+            return Directory.GetFiles(InstallationPath).Except(new[] { "PCBANKS", "SHADERCACHE" }).Count() != 0;
         }
     }
 }
