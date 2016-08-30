@@ -333,5 +333,25 @@ namespace Nexus.Client.Games
 		/// The supported formats list.
 		/// </summary>
 		List<string> SupportedFormats { get; }
+
+        /// <summary>
+        /// Defines whether or not files require special installation instructions
+        /// </summary>
+        /// <returns>Whether or not files require special installation instructions</returns>
+        bool RequiresSpecialFileInstallation { get; }
+
+        /// <summary>
+        /// Handles special file installation
+        /// </summary>
+        /// <param name="p_strFiles">List of files to handle</param>
+        /// <returns>The list of new files to install</returns>
+        IEnumerable<string> SpecialFileInstall(IEnumerable<string> p_strFiles);
+
+        /// <summary>
+        /// Checks whether any of the files require SpecialFileInstall
+        /// </summary>
+        /// <param name="p_strFiles">List of files to check</param>
+        /// <returns>Whether any of the files need special installation</returns>
+        bool IsSpecialFile(IEnumerable<string> p_strFiles);
 	}
 }

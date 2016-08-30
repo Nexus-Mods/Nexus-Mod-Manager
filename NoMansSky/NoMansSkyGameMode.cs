@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using ChinhDo.Transactions;
-using Nexus.Client.Games.NoMansSky.Settings.UI;
 using Nexus.Client.Games.NoMansSky.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -20,10 +19,10 @@ using System.Diagnostics;
 
 namespace Nexus.Client.Games.NoMansSky
 {
-	/// <summary>
-	/// Provides information required for the program to manage NoMansSky game's plugins and mods.
-	/// </summary>
-	public class NoMansSkyGameMode : GameModeBase
+    /// <summary>
+    /// Provides information required for the program to manage NoMansSky game's plugins and mods.
+    /// </summary>
+    public class NoMansSkyGameMode : GameModeBase
 	{
 		private NoMansSkyGameModeDescriptor m_gmdGameModeInfo = null;
 		private NoMansSkyLauncher m_glnGameLauncher = null;
@@ -155,16 +154,34 @@ namespace Nexus.Client.Games.NoMansSky
 			}
 		}
 
-		#endregion
+        private Boolean NeedsSpecialFileCleanup { get; set; }
 
-		#region Constructors
+        public override Boolean RequiresSpecialFileInstallation
+        {
+            get
+            {
+                return true;
+            }
+        }
 
-		/// <summary>
-		/// A simple constructor that initializes the object with the given values.
-		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
-		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
-		public NoMansSkyGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
+        #endregion
+
+        public string SpecialFileLocation
+        {
+            get
+            {
+                return Path.Combine(Environment.CurrentDirectory + "temp" + Name);
+            }
+        }
+
+        #region Constructors
+
+        /// <summary>
+        /// A simple constructor that initializes the object with the given values.
+        /// </summary>
+        /// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
+        /// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
+        public NoMansSkyGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
 			SettingsGroupViews = new List<ISettingsGroupView>();
@@ -382,6 +399,9 @@ namespace Nexus.Client.Games.NoMansSky
 		{
             if(Directory.Exists(Path.Combine(InstallationPath, "PCBANKS_BAK")))
                 Directory.Move(Path.Combine(InstallationPath, "PCBANKS_BAK"), Path.Combine(InstallationPath, "PCBANKS"));
+
+            if (NeedsSpecialFileCleanup)
+                PerformSpecialFileCleanup();
 		}
 
         /// <summary>
@@ -406,9 +426,47 @@ namespace Nexus.Client.Games.NoMansSky
             return booPacked;
         }
 
+        /// <summary>
+        /// Checks whether No Man's Sky has had its data extracted
+        /// </summary>
+        /// <returns>Whether the game's data has been extracted</returns>
         public bool IsExtracted()
         {
             return Directory.GetDirectories(InstallationPath).Except(new[] { Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "SHADERCACHE") }).Count() != 0;
+        }
+
+        protected void PerformSpecialFileCleanup()
+        {
+            if (Directory.Exists(Path.Combine(Environment.CurrentDirectory, "tmp")))
+                Directory.Delete(Path.Combine(Environment.CurrentDirectory, "tmp"));
+        }
+
+        public override IEnumerable<String> SpecialFileInstall(IEnumerable<String> p_strFiles)
+        {
+            if (!Directory.Exists(SpecialFileLocation))
+                Directory.CreateDirectory(SpecialFileLocation);
+
+            foreach (string strPak in p_strFiles)
+            {
+                Process prcModExtract = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = Path.Combine(Environment.CurrentDirectory + "data" + "psarc.exe"),
+                        Arguments = "extract --to=\"" + SpecialFileLocation + "\" \"" + strPak + "\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = false,
+                        RedirectStandardOutput = false
+                    }
+                };
+            }
+
+            return Directory.GetFiles(SpecialFileLocation, "*.*", SearchOption.AllDirectories);
+        }
+
+        public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
+        {
+            return p_strFiles.Any(s => Path.GetExtension(s) == ".pak");
         }
     }
 }

@@ -887,5 +887,37 @@ namespace Nexus.Client.Games
 		protected virtual void Dispose(bool p_booDisposing)
 		{
 		}
-	}
+
+        /// <summary>
+        /// Defines whether or not files require special installation instructions
+        /// </summary>
+        /// <returns>Whether or not files require special installation instructions</returns>
+        public virtual bool RequiresSpecialFileInstallation
+        {
+            get
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Handles special file installation
+        /// </summary>
+        /// <param name="p_strFiles">List of files to handle</param>
+        /// <returns>The list of new files to install</returns>
+        public virtual IEnumerable<string> SpecialFileInstall(IEnumerable<string> p_strFiles)
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// Checks whether any of the files require SpecialFileInstall
+        /// </summary>
+        /// <param name="p_strFiles">List of files to check</param>
+        /// <returns>Whether any of the files need special installation</returns>
+        public virtual bool IsSpecialFile(IEnumerable<string> p_strFiles)
+        {
+            return false;
+        }
+    }
 }
