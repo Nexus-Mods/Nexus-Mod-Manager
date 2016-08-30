@@ -170,7 +170,7 @@ namespace Nexus.Client.Games.NoMansSky
         {
             get
             {
-                return Path.Combine(Environment.CurrentDirectory + "temp" + Name);
+                return Path.Combine(Environment.CurrentDirectory, "temp", Name);
             }
         }
 
