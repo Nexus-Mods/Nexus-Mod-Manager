@@ -52,7 +52,7 @@ namespace Nexus.Client.Games.NoMansSky.Tools.PlayStationArchive
             String[] staPakFiles = null;
             String strPakFilePath = Path.Combine(GameMode.InstallationPath, "PCBANKS_BAK");
 
-            foreach (string strDirectory in Directory.GetDirectories(GameMode.InstallationPath).Except(new[] { "PCBANKS", "PCBANKS_BAK" }))
+            foreach (string strDirectory in Directory.GetDirectories(GameMode.InstallationPath).Except(new[] { Path.Combine(GameMode.InstallationPath, "PCBANKS"), Path.Combine(GameMode.InstallationPath, "PCBANKS_BAK") }))
                 Directory.Delete(strDirectory, true);
 
             foreach (string strFile in Directory.GetFiles(GameMode.InstallationPath))

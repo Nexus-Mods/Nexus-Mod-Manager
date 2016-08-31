@@ -432,7 +432,7 @@ namespace Nexus.Client.Games.NoMansSky
         /// <returns>Whether the game's data has been extracted</returns>
         public bool IsExtracted()
         {
-            return Directory.GetDirectories(InstallationPath).Except(new[] { Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "SHADERCACHE") }).Count() != 0;
+           return Directory.GetDirectories(InstallationPath).Except(new[] { Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "SHADERCACHE") }).Count() != 0;
         }
 
         protected void PerformSpecialFileCleanup()
