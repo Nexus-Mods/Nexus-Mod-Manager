@@ -464,7 +464,7 @@ namespace Nexus.Client.Games.NoMansSky
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = Path.Combine(Environment.CurrentDirectory, "data", "psarc.exe"),
-                        Arguments = "extract --to=\"" + Path.Combine(SpecialFileLocation, p_modSelectedMod.ModName, "temp") + "\\\" \"" + SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + strPak + "\"",
+                        Arguments = "extract --to=\"" + Path.Combine(SpecialFileLocation, p_modSelectedMod.ModName, "temp") + "\" \"" + SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + strPak + "\"",
                         UseShellExecute = false,
                         CreateNoWindow = false,
                         RedirectStandardOutput = false
