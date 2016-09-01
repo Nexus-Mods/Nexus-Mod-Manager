@@ -16,6 +16,7 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
+using System.IO.Compression;
 
 namespace Nexus.Client.Games.NoMansSky
 {
@@ -190,7 +191,11 @@ namespace Nexus.Client.Games.NoMansSky
 
             if(IsExtracted())
             {
-                Directory.Move(Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "PCBANKS_BAK"));
+                try
+                {
+                    Directory.Move(Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "PCBANKS_BAK"));
+                }
+                catch(DirectoryNotFoundException) { }
             }
 		}
 
@@ -441,27 +446,36 @@ namespace Nexus.Client.Games.NoMansSky
                 Directory.Delete(Path.Combine(Environment.CurrentDirectory, "tmp"));
         }
 
-        public override IEnumerable<String> SpecialFileInstall(IEnumerable<String> p_strFiles)
+        public override IEnumerable<String> SpecialFileInstall(IMod p_modSelectedMod)
         {
             if (!Directory.Exists(SpecialFileLocation))
                 Directory.CreateDirectory(SpecialFileLocation);
 
-            foreach (string strPak in p_strFiles)
+            NeedsSpecialFileCleanup = true;
+
+            Directory.CreateDirectory(SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName);
+            Directory.CreateDirectory(SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + "temp");
+            ZipFile.ExtractToDirectory(p_modSelectedMod.ModArchivePath, SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName);
+
+            foreach (string strPak in p_modSelectedMod.GetFileList())
             {
                 Process prcModExtract = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = Path.Combine(Environment.CurrentDirectory + "data" + "psarc.exe"),
-                        Arguments = "extract --to=\"" + SpecialFileLocation + "\" \"" + strPak + "\"",
+                        FileName = Path.Combine(Environment.CurrentDirectory, "data", "psarc.exe"),
+                        Arguments = "extract --to=\"" + Path.Combine(SpecialFileLocation, p_modSelectedMod.ModName, "temp") + "\\\" \"" + SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + strPak + "\"",
                         UseShellExecute = false,
                         CreateNoWindow = false,
                         RedirectStandardOutput = false
                     }
                 };
+
+                prcModExtract.Start();
+                prcModExtract.WaitForExit();
             }
 
-            return Directory.GetFiles(SpecialFileLocation, "*.*", SearchOption.AllDirectories);
+            return Directory.GetFiles(SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + "temp", "*.*", SearchOption.AllDirectories);
         }
 
         public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)

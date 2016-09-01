@@ -905,7 +905,7 @@ namespace Nexus.Client.Games
         /// </summary>
         /// <param name="p_strFiles">List of files to handle</param>
         /// <returns>The list of new files to install</returns>
-        public virtual IEnumerable<string> SpecialFileInstall(IEnumerable<string> p_strFiles)
+        public virtual IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)
         {
             return null;
         }
