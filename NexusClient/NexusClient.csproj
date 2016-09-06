@@ -428,9 +428,6 @@
     <None Include="Resources\deleteProfile.png" />
     <None Include="Resources\createBackup.png" />
     <None Include="Resources\restoreBackup.png" />
-    <Content Include="data\psarc.exe">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />

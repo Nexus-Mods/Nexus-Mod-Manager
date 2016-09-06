@@ -16,7 +16,7 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
-using System.IO.Compression;
+using SevenZip;
 
 namespace Nexus.Client.Games.NoMansSky
 {
@@ -155,8 +155,6 @@ namespace Nexus.Client.Games.NoMansSky
 			}
 		}
 
-        private Boolean NeedsSpecialFileCleanup { get; set; }
-
         public override Boolean RequiresSpecialFileInstallation
         {
             get
@@ -166,14 +164,6 @@ namespace Nexus.Client.Games.NoMansSky
         }
 
         #endregion
-
-        public string SpecialFileLocation
-        {
-            get
-            {
-                return Path.Combine(Environment.CurrentDirectory, "temp", Name);
-            }
-        }
 
         #region Constructors
 
@@ -188,15 +178,6 @@ namespace Nexus.Client.Games.NoMansSky
 			SettingsGroupViews = new List<ISettingsGroupView>();
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
 			((List<ISettingsGroupView>)SettingsGroupViews).Add(new Settings.UI.GeneralSettingsPage(gsgGeneralSettings));
-
-            if(IsExtracted())
-            {
-                try
-                {
-                    Directory.Move(Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "PCBANKS_BAK"));
-                }
-                catch(DirectoryNotFoundException) { }
-            }
 		}
 
 		#endregion
@@ -404,9 +385,6 @@ namespace Nexus.Client.Games.NoMansSky
 		{
             if(Directory.Exists(Path.Combine(InstallationPath, "PCBANKS_BAK")))
                 Directory.Move(Path.Combine(InstallationPath, "PCBANKS_BAK"), Path.Combine(InstallationPath, "PCBANKS"));
-
-            if (NeedsSpecialFileCleanup)
-                PerformSpecialFileCleanup();
 		}
 
         /// <summary>
@@ -416,71 +394,47 @@ namespace Nexus.Client.Games.NoMansSky
         /// <returns>Whether the current game mode requires external config steps to be taken before installing mods.</returns>
         public override bool RequiresExternalConfig(out string p_strMessage)
         {
-            bool booPacked = true;
             p_strMessage = string.Empty;
+            Trace.TraceInformation("Checking for PCBANKS...");
 
-            if(!IsExtracted())
+            bool booBanksExist = Directory.Exists(Path.Combine(InstallationPath, "PCBANKS"));
+
+            if(!booBanksExist)
             {
-                p_strMessage = "Mods require all game data to be unpacked to work properly.";
-            }
-            else
-            {
-                booPacked = false;
+                Trace.TraceWarning("PCBANKS doesn't exist!");
+                p_strMessage = "Could not find PCBANKS folder. PCBANKS is required for mods to run.";
             }
 
-            return booPacked;
-        }
-
-        /// <summary>
-        /// Checks whether No Man's Sky has had its data extracted
-        /// </summary>
-        /// <returns>Whether the game's data has been extracted</returns>
-        public bool IsExtracted()
-        {
-           return Directory.GetDirectories(InstallationPath).Except(new[] { Path.Combine(InstallationPath, "PCBANKS"), Path.Combine(InstallationPath, "SHADERCACHE") }).Count() != 0;
-        }
-
-        protected void PerformSpecialFileCleanup()
-        {
-            if (Directory.Exists(Path.Combine(Environment.CurrentDirectory, "tmp")))
-                Directory.Delete(Path.Combine(Environment.CurrentDirectory, "tmp"));
+            return !booBanksExist;
         }
 
         public override IEnumerable<String> SpecialFileInstall(IMod p_modSelectedMod)
         {
-            if (!Directory.Exists(SpecialFileLocation))
-                Directory.CreateDirectory(SpecialFileLocation);
-
-            NeedsSpecialFileCleanup = true;
-
-            Directory.CreateDirectory(SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName);
-            Directory.CreateDirectory(SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + "temp");
-            ZipFile.ExtractToDirectory(p_modSelectedMod.ModArchivePath, SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName);
-
-            foreach (string strPak in p_modSelectedMod.GetFileList())
+            if (p_modSelectedMod.GetFileList().Any(s => Path.GetExtension(s) == ".dll"))
             {
-                Process prcModExtract = new Process
+                List<string> strFiles = p_modSelectedMod.GetFileList().FindAll(s => Path.GetExtension(s) == ".dll");
+                foreach(string file in strFiles)
                 {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = Path.Combine(Environment.CurrentDirectory, "data", "psarc.exe"),
-                        Arguments = "extract --to=\"" + Path.Combine(SpecialFileLocation, p_modSelectedMod.ModName, "temp") + "\" \"" + SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + strPak + "\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = false,
-                        RedirectStandardOutput = false
-                    }
-                };
+                    byte[] bytFile = p_modSelectedMod.GetFile(file);
+                    File.WriteAllBytes(Path.Combine(Directory.GetParent(InstallationPath).FullName, "Binaries", "NMSE"), bytFile);
+                }
 
-                prcModExtract.Start();
-                prcModExtract.WaitForExit();
+                return new List<string>(); // we installed it for them so the basic install task doesn't need anything
             }
-
-            return Directory.GetFiles(SpecialFileLocation + Path.DirectorySeparatorChar + p_modSelectedMod.ModName + Path.DirectorySeparatorChar + "temp", "*.*", SearchOption.AllDirectories);
+            else
+            {
+                return new List<string>();
+            }
         }
 
+        /// <summary>
+        /// Checks if 
+        /// </summary>
+        /// <param name="p_strFiles">The list of files that need to be checked</param>
+        /// <returns><see cref="true"/> if there are special special files</returns>
         public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
         {
-            return p_strFiles.Any(s => Path.GetExtension(s) == ".pak");
+            return p_strFiles.Any(s => Path.GetExtension(s) == ".dll");
         }
     }
 }

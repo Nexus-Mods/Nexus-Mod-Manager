@@ -41,6 +41,14 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
 			AddLaunchCommand(new Command("PlainLaunch", "Launch No Man's Sky", "Launches default No Man's Sky.", imgIcon, LaunchNoMansSkyPlain, true));
 
+            strCommand = GetNmseLaunchCommand();
+            Trace.TraceInformation("NMSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+            if (File.Exists(strCommand))
+            {
+                imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+                AddLaunchCommand(new Command("NMSELaunch", "Launch No Man's Sky using NMSE", "Launches No Man's Sky using the Extender", imgIcon, LaunchNoMansSkyExtender, true));
+            }
+
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
@@ -51,14 +59,37 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 			Trace.Unindent();
 		}
 
-		#region Launch Commands
+        #region Launch Commands
 
-		#region Custom Command
+        #region Custom Command
 
-		/// <summary>
-		/// Launches the game with a custom command.
-		/// </summary>
-		private void LaunchNoMansSkyCustom()
+        /// <summary>
+        /// Launches the game using No Man's Sky Extender
+        /// </summary>
+        private void LaunchNoMansSkyExtender()
+        {
+            Trace.TraceInformation("Launching No Man's Sky (extender)...");
+            Trace.Indent();
+
+            string strCommand = GetNmseLaunchCommand();
+            string[] strRequiredDlls = new[] { "NMSE_Core_1_0", "NMSE_steam" };
+            string strBinariesFolder = Directory.GetParent(GetNmseLaunchCommand()).FullName;
+
+            if(!File.Exists(Path.Combine(strBinariesFolder, strRequiredDlls[0])) || !File.Exists(Path.Combine(strBinariesFolder, strRequiredDlls[1])) || !File.Exists(strCommand))
+            {
+                
+            }
+        }
+
+        private string GetNmseLaunchCommand()
+        {
+            return Path.Combine(Directory.GetParent(GameMode.GameModeEnvironmentInfo.InstallationPath).FullName, "Binaries", "NMSELauncher.exe");
+        }
+
+        /// <summary>
+        /// Launches the game with a custom command.
+        /// </summary>
+        private void LaunchNoMansSkyCustom()
 		{
 			Trace.TraceInformation("Launching No Man's Sky (Custom)...");
 			Trace.Indent();
@@ -92,6 +123,7 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 			return strCommand;
 		}
 
+
 		#endregion
 
 		#region Vanilla Launch
@@ -108,6 +140,7 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 			Launch(strCommand, null);
 		}
 
+
 		/// <summary>
 		/// Gets the default launch command.
 		/// </summary>
@@ -119,17 +152,17 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 			if (strCommand.IndexOf("steam", StringComparison.InvariantCultureIgnoreCase) >= 0)
 				strCommand = @"steam://run/275850";
 			else
-				strCommand = Path.Combine(strCommand, "Binaries", "NoMansSky.exe");
+				strCommand = Path.Combine(strCommand, "Binaries", "NMS.exe");
 
 			return strCommand;
 		}
 
-		#endregion
+        #endregion
 
-		/// <summary>
-		/// Launches the game
-		/// </summary>
-		private void LaunchGame()
+        /// <summary>
+        /// Launches the game
+        /// </summary>
+        private void LaunchGame()
 		{
 			if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
 				LaunchNoMansSkyCustom();
