@@ -42,7 +42,7 @@ namespace Nexus.Client.Games.NoMansSky
 			{
 				string strPath = null;
 				if (!string.IsNullOrEmpty(base.InstallationPath))
-					strPath = Path.Combine(base.InstallationPath, "GAMEDATA");
+					strPath = base.InstallationPath;
 
 				return strPath;
 			}

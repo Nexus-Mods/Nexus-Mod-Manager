@@ -302,7 +302,7 @@ namespace Nexus.Client.Games.NoMansSky
 		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
 		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
 		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
-		/// to be relative to the new instaalation path to make things work.
+		/// to be relative to the new installation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust</param>
@@ -312,17 +312,22 @@ namespace Nexus.Client.Games.NoMansSky
 		{
 			string strPath = p_strPath;
 			string strFileType = Path.GetExtension(strPath);
+            string[] strSpecialFiles = new[] { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
 
-			if (strPath.StartsWith("GAMEDATA", StringComparison.InvariantCultureIgnoreCase))
-				strPath = strPath.Substring(9);
-
-			if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
-			{
-				if (strPath.IndexOf("PCBANKS", StringComparison.InvariantCultureIgnoreCase) >= 0)
-					return strPath;
-				else
-					strPath = Path.Combine("PCBANKS", Path.GetFileName(strPath));
-			}
+			if(strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
+                    strPath = Path.Combine("GAMEDATA", strPath);
+                else
+                    strPath = Path.Combine("GAMEDATA", "PCBANKS", Path.GetFileName(strPath));
+            }
+            else if(strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                    strPath = Path.Combine("Binaries", strPath);
+            }
+            
+            // the other mods should be handled by special mod install, this just handles the major ones
 
 			return strPath;
 		}
@@ -335,7 +340,7 @@ namespace Nexus.Client.Games.NoMansSky
 		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
 		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
 		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
-		/// to be relative to the new instaalation path to make things work.
+		/// to be relative to the new installation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust.</param>
@@ -347,16 +352,7 @@ namespace Nexus.Client.Games.NoMansSky
 			string strPath = p_strPath;
 			string strFileType = Path.GetExtension(strPath);
 
-			if (strPath.StartsWith("GAMEDATA", StringComparison.InvariantCultureIgnoreCase))
-				strPath = strPath.Substring(9);
-
-			if(strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
-			{
-				if (strPath.IndexOf("PCBANKS", StringComparison.InvariantCultureIgnoreCase) >= 0)
-					return strPath;
-				else
-					strPath = Path.Combine("PCBANKS", Path.GetFileName(strPath));
-			}
+			
 
 			return strPath;			
 		}
@@ -383,8 +379,6 @@ namespace Nexus.Client.Games.NoMansSky
 		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="IDisposable.Dispose()"/> method.</param>
 		protected override void Dispose(bool p_booDisposing)
 		{
-            if(Directory.Exists(Path.Combine(InstallationPath, "PCBANKS_BAK")))
-                Directory.Move(Path.Combine(InstallationPath, "PCBANKS_BAK"), Path.Combine(InstallationPath, "PCBANKS"));
 		}
 
         /// <summary>
@@ -410,21 +404,7 @@ namespace Nexus.Client.Games.NoMansSky
 
         public override IEnumerable<String> SpecialFileInstall(IMod p_modSelectedMod)
         {
-            if (p_modSelectedMod.GetFileList().Any(s => Path.GetExtension(s) == ".dll"))
-            {
-                List<string> strFiles = p_modSelectedMod.GetFileList().FindAll(s => Path.GetExtension(s) == ".dll");
-                foreach(string file in strFiles)
-                {
-                    byte[] bytFile = p_modSelectedMod.GetFile(file);
-                    File.WriteAllBytes(Path.Combine(Directory.GetParent(InstallationPath).FullName, "Binaries", "NMSE"), bytFile);
-                }
-
-                return new List<string>(); // we installed it for them so the basic install task doesn't need anything
-            }
-            else
-            {
-                return new List<string>();
-            }
+            return new List<string>();
         }
 
         /// <summary>
@@ -434,7 +414,7 @@ namespace Nexus.Client.Games.NoMansSky
         /// <returns><see cref="true"/> if there are special special files</returns>
         public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
         {
-            return p_strFiles.Any(s => Path.GetExtension(s) == ".dll");
+            return true;
         }
     }
 }
