@@ -130,6 +130,19 @@
     <Compile Include="ModManagement\ActivateMultipleModsTask.cs" />
     <Compile Include="ModManagement\AddProfileTask.cs" />
     <Compile Include="ModManagement\AutomaticDownloadTask.cs" />
+    <Compile Include="ModManagement\BackupManager\BackupInfo.cs" />
+    <Compile Include="ModManagement\BackupManager\BackupManager.cs" />
+    <Compile Include="ModManagement\BackupManager\BackupManagerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\BackupManager\BackupManagerForm.Designer.cs" />
+    <Compile Include="ModManagement\BackupManager\CreateBackupTask.cs" />
+    <Compile Include="ModManagement\BackupManager\PurgeLooseFilesTask.cs" />
+    <Compile Include="ModManagement\BackupManager\RestoreBackupForm .cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\BackupManager\RestoreBackupForm .Designer.cs" />
+    <Compile Include="ModManagement\BackupManager\RestoreBackupTask.cs" />
     <Compile Include="ModManagement\CheckOnlineProfileIntegrityTask.cs" />
     <Compile Include="ModManagement\DeleteMultipleModsTask.cs" />
     <Compile Include="ModManagement\DisableMultipleModsTask.cs" />
@@ -194,6 +207,8 @@
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModActivationMonitor\UI\ModActivationMonitorControl.resx" />
+    <EmbeddedResource Include="ModManagement\BackupManager\BackupManagerForm.resx" />
+    <EmbeddedResource Include="ModManagement\BackupManager\RestoreBackupForm .resx" />
     <EmbeddedResource Include="Settings\UI\DownloadSettingsPage.resx">
       <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
       <SubType>Designer</SubType>
