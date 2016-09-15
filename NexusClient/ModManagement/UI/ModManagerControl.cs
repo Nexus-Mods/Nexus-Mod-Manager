@@ -2013,13 +2013,9 @@ namespace Nexus.Client.ModManagement.UI
 		private void UninstallModGlobally(IMod p_modMod)
 		{
 			ViewModel.DeactivateMod(p_modMod);
-			
-			var handler = this.UninstallModFromProfiles;
-			if (handler != null)
-			{
-				handler(this, new ModEventArgs(p_modMod));
-			}
-		}
+
+            this.UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
+        }
 		
 		#region Column Resizing
 

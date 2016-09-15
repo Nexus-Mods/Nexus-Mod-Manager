@@ -145,6 +145,11 @@ namespace Nexus.Client.Games
 		/// </summary>
 		bool PluginSorterInitialized { get; }
 
+        /// <summary>
+        /// Gets whether the gamemode requires mod sorting
+        /// </summary>
+        bool RequiresModSorting { get; }
+
 		#endregion
 
 		#region Plugin Management
@@ -341,9 +346,16 @@ namespace Nexus.Client.Games
         bool RequiresSpecialFileInstallation { get; }
 
         /// <summary>
+        /// Defines whether or not files use a special load order
+        /// </summary>
+        bool UsesModLoadOrder { get; }
+
+        void SortMods(IEnumerable<IMod> ModList);
+
+        /// <summary>
         /// Handles special file installation
         /// </summary>
-        /// <param name="p_strFiles">List of files to handle</param>
+        /// <param name="p_modSelectedMod">The mod with special files to handle</param>
         /// <returns>The list of new files to install</returns>
         IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod);
 

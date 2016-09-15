@@ -67,7 +67,7 @@ namespace Nexus.Client.Games.NoMansSky.Tools
 		{
 			m_lstTools.Clear();
 
-            PSARC ExtractTool = new PSARC((NoMansSkyGameMode)GameMode);
+            PSARCTool ExtractTool = new PSARCTool((NoMansSkyGameMode)GameMode);
             Cleaner ShaderCleaner = new Cleaner((NoMansSkyGameMode)GameMode);
 
             m_lstTools.Add(ExtractTool);

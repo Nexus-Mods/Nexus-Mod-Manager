@@ -152,6 +152,13 @@
     <Compile Include="ModManagement\ProfileManager\RemoveBackedProfileTask.cs" />
     <Compile Include="ModManagement\ProfileManager\RenameBackedProfileTask.cs" />
     <Compile Include="ModManagement\ProfileManager\ToggleSharingProfileTask.cs" />
+    <Compile Include="ModManagement\UI\ModLoadOrderControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModLoadOrderControl.Designer.cs">
+      <DependentUpon>ModLoadOrderControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModLoadOrderVM.cs" />
     <Compile Include="ModManagement\UI\ModManagerControl.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -194,6 +201,9 @@
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ModActivationMonitor\UI\ModActivationMonitorControl.resx" />
+    <EmbeddedResource Include="ModManagement\UI\ModLoadOrderControl.resx">
+      <DependentUpon>ModLoadOrderControl.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Settings\UI\DownloadSettingsPage.resx">
       <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
       <SubType>Designer</SubType>

@@ -163,6 +163,14 @@ namespace Nexus.Client.Games.NoMansSky
             }
         }
 
+        public override bool UsesModLoadOrder
+        {
+            get
+            {
+                return true;
+            }
+        }
+
         #endregion
 
         #region Constructors
@@ -349,13 +357,27 @@ namespace Nexus.Client.Games.NoMansSky
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
-			string strPath = p_strPath;
-			string strFileType = Path.GetExtension(strPath);
+            string strPath = p_strPath;
+            string strFileType = Path.GetExtension(strPath);
+            string[] strSpecialFiles = new[] { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
 
-			
+            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
+                    strPath = Path.Combine("GAMEDATA", strPath);
+                else
+                    strPath = Path.Combine("GAMEDATA", "PCBANKS", Path.GetFileName(strPath));
+            }
+            else if (strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                    strPath = Path.Combine("Binaries", strPath);
+            }
 
-			return strPath;			
-		}
+            // the other mods should be handled by special mod install, this just handles the major ones
+
+            return strPath;
+        }
 
 		static string CleanInput(string p_strIn)
 		{
@@ -391,7 +413,7 @@ namespace Nexus.Client.Games.NoMansSky
             p_strMessage = string.Empty;
             Trace.TraceInformation("Checking for PCBANKS...");
 
-            bool booBanksExist = Directory.Exists(Path.Combine(InstallationPath, "PCBANKS"));
+            bool booBanksExist = Directory.Exists(Path.Combine(InstallationPath, "GAMEDATA", "PCBANKS"));
 
             if(!booBanksExist)
             {
@@ -414,7 +436,12 @@ namespace Nexus.Client.Games.NoMansSky
         /// <returns><see cref="true"/> if there are special special files</returns>
         public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
         {
-            return true;
+            return false;
+        }
+
+        public override void SortMods(IEnumerable<IMod> ModList)
+        {
+            
         }
     }
 }
