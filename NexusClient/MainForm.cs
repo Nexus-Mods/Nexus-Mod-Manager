@@ -42,7 +42,6 @@ namespace Nexus.Client
 		private FormWindowState m_fwsLastWindowState = FormWindowState.Normal;
 		private ModManagerControl mmgModManager = null;
 		private PluginManagerControl pmcPluginManager = null;
-        private ModLoadOrderControl mloModLoadOrderManager = null;
 		private DownloadMonitorControl dmcDownloadMonitor = null;
 		private ModActivationMonitorControl macModActivationMonitor = null;
 		private double m_dblDefaultActivityManagerAutoHidePortion = 0;
@@ -160,7 +159,6 @@ namespace Nexus.Client
 			pmcPluginManager = new PluginManagerControl();
 			mmgModManager = new ModManagerControl();
 			dmcDownloadMonitor = new DownloadMonitorControl();
-            mloModLoadOrderManager = new ModLoadOrderControl();
 			macModActivationMonitor = new ModActivationMonitorControl();
 			dockPanel1.ActiveContentChanged += new EventHandler(dockPanel1_ActiveContentChanged);
 			mmgModManager.SetTextBoxFocus += new EventHandler(mmgModManager_SetTextBoxFocus);
@@ -300,14 +298,15 @@ namespace Nexus.Client
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
                 if (!ViewModel.UsesModLoadOrder)
-                    mloModLoadOrderManager.Hide();
+                {
+                    mmgModManager.clwCategoryView.Columns.RemoveAt(2); // TODO Make something more substantial
+                    mmgModManager.toolStrip1.Items.RemoveByKey("tsb_SaveModLoadOrder");
+                }
 			}
 			else
 			{
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.DockState = DockState.Unknown;
-                if (ViewModel.UsesModLoadOrder)
-                    mloModLoadOrderManager.DockState = DockState.Unknown;
 				mmgModManager.DockState = DockState.Unknown;
 				dmcDownloadMonitor.DockState = DockState.Unknown;
 				dmcDownloadMonitor.ShowHint = DockState.DockBottomAutoHide;
@@ -334,8 +333,6 @@ namespace Nexus.Client
 
 				if (ViewModel.UsesPlugins)
 					pmcPluginManager.Show(dockPanel1);
-                if (ViewModel.UsesModLoadOrder)
-                    mloModLoadOrderManager.Show(dockPanel1);
 				mmgModManager.Show(dockPanel1);
 			}
 
@@ -344,13 +341,8 @@ namespace Nexus.Client
 			if (ViewModel.PluginManagerVM != null)
 				pmcPluginManager.Show(dockPanel1);
 
-            if (ViewModel.ModLoadOrderVM != null)
-                mloModLoadOrderManager.Show(dockPanel1);
-
 			if ((ViewModel.UsesPlugins) && (strTab == "Plugins"))
 				pmcPluginManager.Show(dockPanel1);
-            else if ((ViewModel.UsesModLoadOrder) && (strTab == "Mod Load Order"))
-                mloModLoadOrderManager.Show(dockPanel1);
             else
 				mmgModManager.Show(dockPanel1);
 

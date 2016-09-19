@@ -275,8 +275,6 @@ namespace Nexus.Client
 		/// <value>The repository we are logging in to.</value>
 		public IModRepository ModRepository { get; private set; }
 
-        public ModLoadOrderControl ModLoadOrderManager { get; private set; }
-
 		/// <summary>
 		/// Gets the view model that encapsulates the data
 		/// and operations for displaying the mod manager.
@@ -316,8 +314,6 @@ namespace Nexus.Client
 		/// <value>The view model that encapsulates the data
 		/// and operations for displaying the settings view.</value>
 		public SettingsFormVM SettingsFormVM { get; private set; }
-
-        public ModLoadOrderVM ModLoadOrderVM { get; private set; }
 
 		/// <summary>
 		/// Gets the command to show the tip.
@@ -632,11 +628,6 @@ namespace Nexus.Client
 			ModActivationMonitorVM = new ModActivationMonitorVM(p_mamMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager);
 			if (GameMode.UsesPlugins)
 				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor, ModManager.VirtualModActivator);
-            if(GameMode.UsesModLoadOrder)
-            {
-                ModLoadOrderManager = new ModLoadOrderControl();
-                ModLoadOrderVM = new ModLoadOrderVM(ModManager, ModLoadOrderManager, GameMode, VirtualModActivator);
-            }
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);

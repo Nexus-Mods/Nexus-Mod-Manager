@@ -2115,7 +2115,11 @@ namespace Nexus.Client.ModManagement.UI
 			m_booResizing = false;
 		}
 
-		#endregion
+        #endregion
 
-	}
+        private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
+        {
+            
+        }
+    }
 }

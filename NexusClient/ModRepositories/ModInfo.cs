@@ -109,6 +109,12 @@ namespace Nexus.Client.ModRepositories
 		/// <value>Whether the user wants to be warned about new versions</value>
 		public bool UpdateWarningEnabled { get; set; }
 
+        /// <summary>
+        /// Gets or sets the mod's current place in the mod load order
+        /// </summary>
+        /// <value>The mod's place in the load order</value>
+        public int PlaceInLoadOrder { get; set; }
+
 		#endregion
 
 		#endregion

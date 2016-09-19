@@ -651,7 +651,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Install all the mods.
 		/// </summary>
-		/// <param name="p_rolModList">The list of Active Mods.</param>
+		/// <param name="p_lstModList">The list of Active Mods.</param>
+        /// <param name="p_booAllowCancel">Defines if the user is allowed to cancel</param>
 		public void MultiModInstall(List<IMod> p_lstModList, bool p_booAllowCancel)
 		{
 			ActivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.ActivateMultipleMods(p_lstModList, p_booAllowCancel, ConfirmUpdaterAction, ConfirmItemOverwrite)));

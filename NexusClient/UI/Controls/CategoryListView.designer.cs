@@ -46,10 +46,12 @@ namespace Nexus.Client.UI.Controls
 			this.tlcWebVersion = new BrightIdeasSoftware.OLVColumn();
 			this.tlcAuthor = new BrightIdeasSoftware.OLVColumn();
 			this.tlcCategory = new BrightIdeasSoftware.OLVColumn();
+            this.tlcLoadOrder = new BrightIdeasSoftware.OLVColumn();
 
 			this.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
 			this.tlcModName,
 			this.tlcCategory,
+            this.tlcLoadOrder,
 			this.tlcInstallDate,
 			this.tlcDownloadDate,
 			this.tlcEndorsement,
@@ -66,6 +68,12 @@ namespace Nexus.Client.UI.Controls
 			// 
 			this.tlcModName.Text = "Name";
 			this.tlcModName.IsEditable = false;
+            //
+            // tlcLoadOrder
+            //
+            this.tlcLoadOrder.Text = "Load Order";
+            this.tlcLoadOrder.IsEditable = true;
+            this.tlcLoadOrder.TextAlign = HorizontalAlignment.Center;
 			// 
 			// tlcInstallDate
 			// 
@@ -119,5 +127,6 @@ namespace Nexus.Client.UI.Controls
 		private BrightIdeasSoftware.OLVColumn tlcWebVersion;
 		private BrightIdeasSoftware.OLVColumn tlcAuthor;
 		private BrightIdeasSoftware.OLVColumn tlcCategory;
+        private BrightIdeasSoftware.OLVColumn tlcLoadOrder;
 	}
 }
