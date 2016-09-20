@@ -370,7 +370,6 @@ namespace Nexus.Client
 			if (ViewModel.UsesPlugins)
 			{
 				tlbPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
-				tlbProfilesCounter.Text = "Local Profiles: " + ViewModel.ProfileManager.ModProfiles.Count + "    |   Online Profiles: " + ViewModel.ProfileManager.ModBackedProfiles.Count;
 
 				FontFamily myFontFamily = new FontFamily(tlbActivePluginsCounter.Font.Name);
 
@@ -810,11 +809,6 @@ namespace Nexus.Client
 			{
 				ViewModel.DownloadProfileMissingMods(this, ModProfile);
 			}
-		}
-
-		private void pmcProfileManager_UpdateProfilesCount(object sender, EventArgs e)
-		{
-			tlbProfilesCounter.Text = "Local Profiles: " + ViewModel.ProfileManager.ModProfiles.Count + "    |   Online Profiles: " + ViewModel.ProfileManager.ModBackedProfiles.Count;
 		}
 
 		/// <summary>
