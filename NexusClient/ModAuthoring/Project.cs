@@ -29,6 +29,7 @@ namespace Nexus.Client.ModAuthoring
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
 		private string m_strInstallDate = null;
+        private int m_intPlaceInModLoadOrder = 0;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
@@ -297,6 +298,18 @@ namespace Nexus.Client.ModAuthoring
 			}
 		}
 
+        public int PlaceInModLoadOrder
+        {
+            get
+            {
+                return m_intPlaceInModLoadOrder;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_intPlaceInModLoadOrder, value, () => PlaceInModLoadOrder);
+            }
+        }
+
 		#endregion
 
 		/// <summary>
@@ -428,15 +441,15 @@ namespace Nexus.Client.ModAuthoring
 		/// <value>The <see cref="IScriptTypeRegistry"/> contianing the list of available script types.</value>
 		protected IScriptTypeRegistry ScriptTypeRegistry { get; set; }
 
-		#endregion
+        #endregion
 
-		#region Constructors
+        #region Constructors
 
-		/// <summary>
-		/// A simple constructor that initializes the object with the required dependencies.
-		/// </summary>
-		/// <param name="p_strScriptTypeRegistry">The <see cref="IScriptTypeRegistry"/> contianing the list of available script types.</param>
-		public Project(IScriptTypeRegistry p_strScriptTypeRegistry)
+        /// <summary>
+        /// A simple constructor that initializes the object with the required dependencies.
+        /// </summary>
+        /// <param name="p_strScriptTypeRegistry">The <see cref="IScriptTypeRegistry"/> contianing the list of available script types.</param>
+        public Project(IScriptTypeRegistry p_strScriptTypeRegistry)
 		{
 			m_setFiles = new ThreadSafeObservableList<VirtualFileSystemItem>();
 			ModReadme = new Readme(ReadmeFormat.PlainText, null);

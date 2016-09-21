@@ -1171,12 +1171,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void clwCategoryView_CategoryShowEmptyToggled(object sender, EventArgs e)
 		{
-			var handler = this.ResetSearchBox;
-			if (handler != null)
-			{
-				handler(this, e);
-			}
-		}
+            this.ResetSearchBox?.Invoke(this, e);
+        }
 		
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.FileDropped"/> of the switch
@@ -2119,7 +2115,35 @@ namespace Nexus.Client.ModManagement.UI
 
         private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
         {
-            
+            ViewModel.SaveModLoadOrder(clwCategoryView.Objects);
+        }
+
+        private void tsb_ModUpLoadOrder_Click(Object sender, EventArgs e)
+        {
+            if(clwCategoryView.SelectedMod != null)
+                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.PlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.PlaceInModLoadOrder);
+            else if (clwCategoryView.GetSelectedItems != null)
+            {
+                IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
+                foreach (IMod mod in cast)
+                    ViewModel.UpdateModLoadOrder(mod, mod.PlaceInModLoadOrder == -1 ? -1 : --mod.PlaceInModLoadOrder);
+            }
+
+            Refresh();
+        }
+
+        private void tsb_ModDownLoadOrder_Click(Object sender, EventArgs e)
+        {
+            if(clwCategoryView.SelectedMod != null)
+                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.PlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.PlaceInModLoadOrder);
+            else if(clwCategoryView.GetSelectedItems != null)
+            {
+                IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
+                foreach (IMod mod in cast)
+                    ViewModel.UpdateModLoadOrder(mod, mod.PlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.PlaceInModLoadOrder);
+            }
+
+            Refresh();
         }
     }
 }

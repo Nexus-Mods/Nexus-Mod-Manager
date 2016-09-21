@@ -61,5 +61,5 @@ namespace Nexus.Client.UI.Controls
 		/// (including the archive) are to be deleted from the hard drive.
 		/// </summary>
 		Delete
-	}
+    }
 }

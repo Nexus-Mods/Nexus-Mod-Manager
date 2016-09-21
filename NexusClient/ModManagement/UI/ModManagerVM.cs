@@ -2,28 +2,26 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
 using Nexus.UI.Controls;
-using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using System.Collections;
 
 namespace Nexus.Client.ModManagement.UI
 {
-	/// <summary>
-	/// This class encapsulates the data and the operations presented by UI
-	/// elements that display mod management.
-	/// </summary>
-	public class ModManagerVM
+    /// <summary>
+    /// This class encapsulates the data and the operations presented by UI
+    /// elements that display mod management.
+    /// </summary>
+    public class ModManagerVM
 	{
 		private bool m_booIsCategoryInitialized = false;
 		private Control m_ctlParentForm = null;
@@ -693,6 +691,13 @@ namespace Nexus.Client.ModManagement.UI
 			p_modMod.UpdateInfo(mifNewInfo, true);
 		}
 
+        public void UpdateModLoadOrder(IMod p_modMod, int p_intNewPosition)
+        {
+            ModInfo mifNewInfo = new ModInfo(p_modMod);
+            mifNewInfo.PlaceInModLoadOrder = p_intNewPosition;
+            p_modMod.UpdateInfo(mifNewInfo, true);
+        }
+
 		#endregion
 
 		#region Virtual Mod Activation
@@ -1042,5 +1047,10 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			AutomaticDownloading(sender, e);
 		}
+
+        public void SaveModLoadOrder(IEnumerable p_ienList)
+        {
+            ModManager.GameMode.SortMods(p_ienList.Cast<IModInfo>());
+        }
 	}
 }

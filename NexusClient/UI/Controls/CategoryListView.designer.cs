@@ -72,7 +72,7 @@ namespace Nexus.Client.UI.Controls
             // tlcLoadOrder
             //
             this.tlcLoadOrder.Text = "Load Order";
-            this.tlcLoadOrder.IsEditable = true;
+            this.tlcLoadOrder.IsEditable = false;
             this.tlcLoadOrder.TextAlign = HorizontalAlignment.Center;
 			// 
 			// tlcInstallDate

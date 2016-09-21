@@ -101,6 +101,10 @@
       <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
       <Name>Commanding</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FOMod\FOMod.csproj">
+      <Project>{34B04F6B-0D64-455F-B20F-1C3E080AE601}</Project>
+      <Name>FOMod</Name>
+    </ProjectReference>
     <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
       <Project>{0055fb79-3587-486e-a87e-70304a61d7a4}</Project>
       <Name>GamebryoBase</Name>

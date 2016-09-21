@@ -301,6 +301,8 @@ namespace Nexus.Client
                 {
                     mmgModManager.clwCategoryView.Columns.RemoveAt(2); // TODO Make something more substantial
                     mmgModManager.toolStrip1.Items.RemoveByKey("tsb_SaveModLoadOrder");
+                    mmgModManager.toolStrip1.Items.RemoveByKey("tsb_ModUpLoadOrder");
+                    mmgModManager.toolStrip1.Items.RemoveByKey("tsb_ModDownLoadOrder");
                 }
 			}
 			else

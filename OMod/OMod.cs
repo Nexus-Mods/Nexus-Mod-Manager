@@ -58,6 +58,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private string m_strDescription = null;
 		private string m_strInstallDate = null;
 		private Uri m_uriWebsite = null;
+        private Int32 m_intPlaceInModLoadOrder = 0;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
 		private IScript m_scpInstallScript = null;
@@ -297,6 +298,18 @@ namespace Nexus.Client.Mods.Formats.OMod
 				SetPropertyIfChanged(ref m_uriWebsite, value, () => Website);
 			}
 		}
+
+        public int PlaceInModLoadOrder
+        {
+            get
+            {
+                return m_intPlaceInModLoadOrder;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_intPlaceInModLoadOrder, value, () => PlaceInModLoadOrder);
+            }
+        }
 
 		/// <summary>
 		/// Gets or sets the mod's screenshot.

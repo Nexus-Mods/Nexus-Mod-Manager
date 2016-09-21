@@ -65,6 +65,8 @@
             this.ipbScreenShot = new Nexus.UI.Controls.ImagePreviewBox();
             this.flbInfo = new Nexus.UI.Controls.FormattedLabel();
             this.ofdChooseMod = new System.Windows.Forms.OpenFileDialog();
+            this.tsb_ModUpLoadOrder = new System.Windows.Forms.ToolStripButton();
+            this.tsb_ModDownLoadOrder = new System.Windows.Forms.ToolStripButton();
             this.toolStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.sptMods)).BeginInit();
             this.sptMods.Panel1.SuspendLayout();
@@ -90,6 +92,8 @@
             this.tsbActivate,
             this.tsbDeactivate,
             this.tsb_SaveModLoadOrder,
+            this.tsb_ModUpLoadOrder,
+            this.tsb_ModDownLoadOrder,
             this.tsbTagMod,
             this.tsbModOnlineChecks,
             this.tsbToggleEndorse,
@@ -396,6 +400,27 @@
             this.flbInfo.TabIndex = 0;
             this.flbInfo.Text = null;
             // 
+            // tsb_ModUpLoadOrder
+            // 
+            this.tsb_ModUpLoadOrder.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.tsb_ModUpLoadOrder.Image = global::Nexus.Client.Properties.Resources.up;
+            this.tsb_ModUpLoadOrder.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.tsb_ModUpLoadOrder.Name = "tsb_ModUpLoadOrder";
+            this.tsb_ModUpLoadOrder.Size = new System.Drawing.Size(46, 36);
+            this.tsb_ModUpLoadOrder.Text = "toolStripButton1";
+            this.tsb_ModUpLoadOrder.ToolTipText = "Moves mod up in the load order";
+            this.tsb_ModUpLoadOrder.Click += new System.EventHandler(this.tsb_ModUpLoadOrder_Click);
+            // 
+            // tsb_ModDownLoadOrder
+            // 
+            this.tsb_ModDownLoadOrder.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.tsb_ModDownLoadOrder.Image = global::Nexus.Client.Properties.Resources.down;
+            this.tsb_ModDownLoadOrder.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.tsb_ModDownLoadOrder.Name = "tsb_ModDownLoadOrder";
+            this.tsb_ModDownLoadOrder.Size = new System.Drawing.Size(46, 36);
+            this.tsb_ModDownLoadOrder.Text = "toolStripButton2";
+            this.tsb_ModDownLoadOrder.Click += new System.EventHandler(this.tsb_ModDownLoadOrder_Click);
+            // 
             // ModManagerControl
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -456,5 +481,7 @@
 		private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
         private System.Windows.Forms.ToolStripButton tsb_SaveModLoadOrder;
         public Client.UI.Controls.CategoryListView clwCategoryView;
+        private System.Windows.Forms.ToolStripButton tsb_ModUpLoadOrder;
+        private System.Windows.Forms.ToolStripButton tsb_ModDownLoadOrder;
     }
 }

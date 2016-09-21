@@ -491,7 +491,7 @@ namespace Nexus.Client.Games
         /// Provides a method to sort mods in their own way
         /// </summary>
         /// <param name="ModList"></param>
-        public virtual void SortMods(IEnumerable<IMod> ModList)
+        public virtual void SortMods(IEnumerable<IModInfo> ModList)
         {
         }
 

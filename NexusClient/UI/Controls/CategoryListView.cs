@@ -15,8 +15,8 @@ using BrightIdeasSoftware;
 
 namespace Nexus.Client.UI.Controls
 {
-	public partial class CategoryListView : BrightIdeasSoftware.TreeListView
-	{
+	public partial class CategoryListView : TreeListView
+    {
 		private ReadOnlyObservableList<IMod> m_rolManagedMods;
 		private ReadOnlyObservableList<IMod> m_rolActiveMods;
 		private IModRepository m_mmrModRepository;
@@ -256,6 +256,7 @@ namespace Nexus.Client.UI.Controls
 			tlcDownloadDate.Name = "DownloadDate";
 			tlcWebVersion.Name = "WebVersion";
 			tlcAuthor.Name = "Author";
+            tlcLoadOrder.Name = "LoadOrder";
 			tlcEndorsement.Name = "Endorsement";
 			tlcDownloadId.Name = "DownloadId";
 			tlcCategory.Name = "Category";
@@ -551,6 +552,22 @@ namespace Nexus.Client.UI.Controls
 
 				return Val;
 			};
+
+            tlcLoadOrder.AspectGetter = delegate (object rowObject)
+            {
+                if(rowObject.GetType() != typeof(ModCategory))
+                {
+                    IMod modMod = (IMod)rowObject;
+                    return modMod.PlaceInModLoadOrder;
+                }
+
+                return -1;
+            };
+
+            tlcLoadOrder.AspectToStringConverter = delegate (object x)
+            {
+                return x.ToString() == "-1" ? "None" : x.ToString();
+            };
 		}
 
 		/// <summary>
@@ -895,9 +912,8 @@ namespace Nexus.Client.UI.Controls
 			{
 				CategoryManager.RemoveCategory(p_imcCategory);
 
-				if (this.CategoryRemoved != null)
-					this.CategoryRemoved(p_imcCategory, new EventArgs());
-			}
+                this.CategoryRemoved?.Invoke(p_imcCategory, new EventArgs());
+            }
 		}
 
 		/// <summary>
@@ -1192,7 +1208,7 @@ namespace Nexus.Client.UI.Controls
 				{
 					cmsContextMenu.Items.Add(m_mniModDeactivate);
 					cmsContextMenu.Items.Add(m_mniModReinstall);
-				}
+                }
 
 				RenderContextMenuModUninstall();
 				if (m_mniModUninstall.DropDownItems.Count > 0)
@@ -1315,9 +1331,8 @@ namespace Nexus.Client.UI.Controls
 
 			if (this.SelectedObjects.Count > 0)
 			{
-				if (this.CategorySwitch != null)
-					this.CategorySwitch((IModCategory)Categories.Find(Item => Item.CategoryName == item.Text), new EventArgs());
-			}
+                this.CategorySwitch?.Invoke(Categories.Find(Item => Item.CategoryName == item.Text), new EventArgs());
+            }
 		}
 
 		/// <summary>
@@ -1564,12 +1579,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnAllUpdateWarningsToggled(ModUpdateWarningEventArgs e)
 		{
-			var handler = this.AllUpdateWarningsToggled;
-			if (handler != null)
-			{
-				handler(this, e);
-			}
-		}
+            this.AllUpdateWarningsToggled?.Invoke(this, e);
+        }
 
 		/// <summary>
 		/// Raises <see cref="CategoryShowEmptyToggled"/> event with supplied arguments.
@@ -1577,12 +1588,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnCategoryShowEmptyToggled(EventArgs e)
 		{
-			var handler = this.CategoryShowEmptyToggled;
-			if (handler != null)
-			{
-				handler(this, e);
-			}
-		}
+            this.CategoryShowEmptyToggled?.Invoke(this, e);
+        }
 
 		/// <summary>
 		/// Raises <see cref="ModActionRequested"/> event with supplied arguments.
@@ -1594,12 +1601,8 @@ namespace Nexus.Client.UI.Controls
 			{
 				return;
 			}
-			var handler = this.ModActionRequested;
-			if (handler != null)
-			{
-				handler(this, new ModActionEventArgs(this.SelectedMod, p_action));
-			}
-		}
+            this.ModActionRequested?.Invoke(this, new ModActionEventArgs(this.SelectedMod, p_action));
+        }
 
 		/// <summary>
 		/// Raises <see cref="ModInfoRequested"/> event with supplied arguments.
@@ -1607,12 +1610,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnModInfoRequested(ModInfoRequestEventArgs e)
 		{
-			var handler = this.ModInfoRequested;
-			if (handler != null)
-			{
-				handler(this, e);
-			}
-		}
+            this.ModInfoRequested?.Invoke(this, e);
+        }
 
 		/// <summary>
 		/// Raises <see cref="ModReadmeFileRequested"/> event with supplied arguments.
@@ -1620,12 +1619,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnModReadmeFileRequested(ModReadmeRequestEventArgs e)
 		{
-			var handler = this.ModReadmeFileRequested;
-			if (handler != null)
-			{
-				handler(this, e);
-			}
-		}
+            this.ModReadmeFileRequested?.Invoke(this, e);
+        }
 
 		/// <summary>
 		/// Raises <see cref="UpdateWarningToggled"/> event with supplied arguments.
@@ -1633,12 +1628,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnUpdateWarningToggled(ModUpdateWarningEventArgs e)
 		{
-			var handler = this.UpdateWarningToggled;
-			if (handler != null)
-			{
-				handler(this, e);
-			}
-		}
+            this.UpdateWarningToggled?.Invoke(this, e);
+        }
 		
 		/// <summary>
 		/// This checks if the passed font support Bold.

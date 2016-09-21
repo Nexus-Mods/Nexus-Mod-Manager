@@ -17,6 +17,7 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
 using SevenZip;
+using Nexus.Client.Mods.Formats.FOMod;
 
 namespace Nexus.Client.Games.NoMansSky
 {
@@ -439,7 +440,7 @@ namespace Nexus.Client.Games.NoMansSky
             return false;
         }
 
-        public override void SortMods(IEnumerable<IMod> ModList)
+        public override void SortMods(IEnumerable<IModInfo> ModList)
         {
             
         }

@@ -107,16 +107,18 @@ namespace Nexus.Client.Mods
 		/// <value>Whether the user wants to be warned about new versions</value>
 		bool UpdateWarningEnabled { get; }
 
-		#endregion
+        int PlaceInModLoadOrder { get; set; }
 
-		/// <summary>
-		/// Updates the object's proerties to the values of the
-		/// given <see cref="IModInfo"/>.
-		/// </summary>
-		/// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
-		/// are to be used to update this object's properties.</param>
-		/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
-		/// or just the empty ones.</param>
-		void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues);
+        #endregion
+
+        /// <summary>
+        /// Updates the object's proerties to the values of the
+        /// given <see cref="IModInfo"/>.
+        /// </summary>
+        /// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
+        /// are to be used to update this object's properties.</param>
+        /// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
+        /// or just the empty ones.</param>
+        void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues);
 	}
 }
