@@ -350,7 +350,7 @@ namespace Nexus.Client.Games
         /// </summary>
         bool UsesModLoadOrder { get; }
 
-        void SortMods(IEnumerable<IModInfo> ModList);
+        void SortMods(IEnumerable<IMod> ModList);
 
         /// <summary>
         /// Handles special file installation

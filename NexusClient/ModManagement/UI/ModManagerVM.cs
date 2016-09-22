@@ -1050,7 +1050,7 @@ namespace Nexus.Client.ModManagement.UI
 
         public void SaveModLoadOrder(IEnumerable p_ienList)
         {
-            ModManager.GameMode.SortMods(p_ienList.Cast<IModInfo>());
+            ModManager.GameMode.SortMods(p_ienList.Cast<IMod>());
         }
 	}
 }

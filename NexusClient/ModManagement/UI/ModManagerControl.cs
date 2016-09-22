@@ -2122,7 +2122,7 @@ namespace Nexus.Client.ModManagement.UI
         {
             if(clwCategoryView.SelectedMod != null)
                 ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.PlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.PlaceInModLoadOrder);
-            else if (clwCategoryView.GetSelectedItems != null)
+            else if (clwCategoryView.GetSelectedItems.Count > 0)
             {
                 IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
                 foreach (IMod mod in cast)
@@ -2136,7 +2136,7 @@ namespace Nexus.Client.ModManagement.UI
         {
             if(clwCategoryView.SelectedMod != null)
                 ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.PlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.PlaceInModLoadOrder);
-            else if(clwCategoryView.GetSelectedItems != null)
+            else if(clwCategoryView.GetSelectedItems.Count > 0)
             {
                 IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
                 foreach (IMod mod in cast)
