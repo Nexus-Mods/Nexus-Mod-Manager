@@ -558,7 +558,7 @@ namespace Nexus.Client.UI.Controls
                 if(rowObject.GetType() != typeof(ModCategory))
                 {
                     IMod modMod = (IMod)rowObject;
-                    return modMod.PlaceInModLoadOrder;
+                    return modMod.NewPlaceInModLoadOrder;
                 }
 
                 return -1;

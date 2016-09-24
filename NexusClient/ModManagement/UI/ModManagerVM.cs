@@ -13,7 +13,6 @@ using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
-using System.Collections;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -694,7 +693,7 @@ namespace Nexus.Client.ModManagement.UI
         public void UpdateModLoadOrder(IMod p_modMod, int p_intNewPosition)
         {
             ModInfo mifNewInfo = new ModInfo(p_modMod);
-            mifNewInfo.PlaceInModLoadOrder = p_intNewPosition;
+            mifNewInfo.NewPlaceInModLoadOrder = p_intNewPosition;
             p_modMod.UpdateInfo(mifNewInfo, true);
         }
 
@@ -1048,9 +1047,9 @@ namespace Nexus.Client.ModManagement.UI
 			AutomaticDownloading(sender, e);
 		}
 
-        public void SaveModLoadOrder(IEnumerable p_ienList)
+        public void SaveModLoadOrder()
         {
-            ModManager.GameMode.SortMods(p_ienList.Cast<IMod>());
+            ModManager.GameMode.SortMods(ReinstallMod, ActiveMods);
         }
 	}
 }

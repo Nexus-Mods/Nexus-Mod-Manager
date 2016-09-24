@@ -29,7 +29,8 @@ namespace Nexus.Client.ModAuthoring
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
 		private string m_strInstallDate = null;
-        private int m_intPlaceInModLoadOrder = 0;
+        private int m_intPlaceInModLoadOrder = -1;
+        private int m_intNewPlaceInModLoadOrder = -1;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
@@ -310,13 +311,25 @@ namespace Nexus.Client.ModAuthoring
             }
         }
 
-		#endregion
+        public int NewPlaceInModLoadOrder
+        {
+            get
+            {
+                return m_intNewPlaceInModLoadOrder;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_intNewPlaceInModLoadOrder, value, () => NewPlaceInModLoadOrder);
+            }
+        }
 
-		/// <summary>
-		/// Gets whether the mod has a custom install script.
-		/// </summary>
-		/// <value>Whether the mod has a custom install script.</value>
-		public bool HasInstallScript
+        #endregion
+
+        /// <summary>
+        /// Gets whether the mod has a custom install script.
+        /// </summary>
+        /// <value>Whether the mod has a custom install script.</value>
+        public bool HasInstallScript
 		{
 			get
 			{

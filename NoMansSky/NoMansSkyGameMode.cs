@@ -17,6 +17,9 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
 using Nexus.Client.Mods.Formats.FOMod;
+using Nexus.Client.ModManagement.UI;
+using System.Collections.ObjectModel;
+using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.NoMansSky
 {
@@ -321,8 +324,8 @@ namespace Nexus.Client.Games.NoMansSky
 			string strPath = p_strPath;
 			string strFileType = Path.GetExtension(strPath);
             string[] strSpecialFiles = new[] { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
-
-			if(strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            
+            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
             {
                 if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
                     strPath = Path.Combine("GAMEDATA", strPath);
@@ -361,6 +364,20 @@ namespace Nexus.Client.Games.NoMansSky
             string strFileType = Path.GetExtension(strPath);
             string[] strSpecialFiles = new[] { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
 
+            // edit files for load order
+
+            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            {
+                string strFileName = Path.GetFileName(strPath);
+
+                if (!strFileName.Contains("_MOD"))
+                    strFileName = strFileName.Insert(0, "_MOD");
+
+                strFileName = strFileName.Insert(1, p_modMod.NewPlaceInModLoadOrder.ToString());
+                strPath = Path.Combine(Path.GetDirectoryName(strPath), strFileName);
+            }
+
+            // do normal stuff to the files
             if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
             {
                 if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
@@ -439,9 +456,9 @@ namespace Nexus.Client.Games.NoMansSky
             return false;
         }
 
-        public override void SortMods(IEnumerable<IMod> ModList)
+        public override void SortMods(Action<IMod> p_ReinstallMod, ReadOnlyObservableList<IMod> p_lstActiveMods)
         {
-            
+            foreach (IMod modMod in p_lstActiveMods) p_ReinstallMod(modMod);
         }
     }
 }

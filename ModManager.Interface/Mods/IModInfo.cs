@@ -109,6 +109,8 @@ namespace Nexus.Client.Mods
 
         int PlaceInModLoadOrder { get; set; }
 
+        int NewPlaceInModLoadOrder { get; set; }
+
         #endregion
 
         /// <summary>

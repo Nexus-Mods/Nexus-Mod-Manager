@@ -115,6 +115,8 @@ namespace Nexus.Client.ModRepositories
         /// <value>The mod's place in the load order</value>
         public int PlaceInModLoadOrder { get; set; }
 
+        public int NewPlaceInModLoadOrder { get; set; }
+
 		#endregion
 
 		#endregion

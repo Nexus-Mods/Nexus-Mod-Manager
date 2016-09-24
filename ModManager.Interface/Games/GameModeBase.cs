@@ -488,10 +488,9 @@ namespace Nexus.Client.Games
         public virtual bool UsesModLoadOrder { get { return false; } }
 
         /// <summary>
-        /// Provides a method to sort mods in their own way
+        /// Provides a method to sort mods in your own way
         /// </summary>
-        /// <param name="ModList"></param>
-        public virtual void SortMods(IEnumerable<IMod> ModList)
+        public virtual void SortMods(Action<IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods)
         {
         }
 

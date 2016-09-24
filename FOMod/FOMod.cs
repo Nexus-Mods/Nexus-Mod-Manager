@@ -54,7 +54,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
 		private string m_strInstallDate = null;
-        private Int32 m_intPlaceInModLoadOrder = 0;
+        private Int32 m_intPlaceInModLoadOrder = -1;
+        private Int32 m_intNewPlaceInMoadLoadOrder = -1;
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
@@ -432,6 +433,18 @@ namespace Nexus.Client.Mods.Formats.FOMod
             set
             {
                 SetPropertyIfChanged(ref m_intPlaceInModLoadOrder, value, () => PlaceInModLoadOrder);
+            }
+        }
+
+        public int NewPlaceInModLoadOrder
+        {
+            get
+            {
+                return m_intNewPlaceInMoadLoadOrder;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_intNewPlaceInMoadLoadOrder, value, () => NewPlaceInModLoadOrder);
             }
         }
 
@@ -1222,7 +1235,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("IsEndorsed")).InnerText = IsEndorsed.ToString();
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("UpdateWarningEnabled")).InnerText = UpdateWarningEnabled.ToString();
-            xndInfo.AppendChild(p_xmlDocument.CreateElement("PlaceInLoadOrder")).InnerText = PlaceInModLoadOrder.ToString();
+            xndInfo.AppendChild(p_xmlDocument.CreateElement("PlaceInLoadOrder")).InnerText = NewPlaceInModLoadOrder.ToString();
 			if (Website != null)
 				xndInfo.AppendChild(p_xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
 			return xndInfo;
@@ -1334,7 +1347,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
             XmlNode xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
             if (xndPlaceInLoadOrder != null && !String.IsNullOrEmpty(xndPlaceInLoadOrder.InnerText) && (!p_booFillOnlyEmptyValues || PlaceInModLoadOrder == -1))
+            {
                 PlaceInModLoadOrder = Int32.Parse(xndPlaceInLoadOrder.InnerText);
+                NewPlaceInModLoadOrder = PlaceInModLoadOrder;
+            }
 		}
 
 		#endregion

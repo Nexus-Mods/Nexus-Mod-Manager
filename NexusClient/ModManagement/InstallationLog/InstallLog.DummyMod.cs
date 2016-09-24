@@ -295,6 +295,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 
             public int PlaceInModLoadOrder { get; set; }
 
+            public int NewPlaceInModLoadOrder { get; set; }
+
 			#endregion
 
 			/// <summary>

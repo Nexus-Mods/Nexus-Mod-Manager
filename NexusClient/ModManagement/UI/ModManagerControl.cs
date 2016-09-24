@@ -2115,18 +2115,18 @@ namespace Nexus.Client.ModManagement.UI
 
         private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
         {
-            ViewModel.SaveModLoadOrder(clwCategoryView.Objects);
+            ViewModel.SaveModLoadOrder();
         }
 
         private void tsb_ModUpLoadOrder_Click(Object sender, EventArgs e)
         {
             if(clwCategoryView.SelectedMod != null)
-                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.PlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.PlaceInModLoadOrder);
+                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
             else if (clwCategoryView.GetSelectedItems.Count > 0)
             {
                 IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
                 foreach (IMod mod in cast)
-                    ViewModel.UpdateModLoadOrder(mod, mod.PlaceInModLoadOrder == -1 ? -1 : --mod.PlaceInModLoadOrder);
+                    ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == -1 ? -1 : --mod.NewPlaceInModLoadOrder);
             }
 
             Refresh();
@@ -2135,12 +2135,12 @@ namespace Nexus.Client.ModManagement.UI
         private void tsb_ModDownLoadOrder_Click(Object sender, EventArgs e)
         {
             if(clwCategoryView.SelectedMod != null)
-                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.PlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.PlaceInModLoadOrder);
+                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
             else if(clwCategoryView.GetSelectedItems.Count > 0)
             {
                 IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
                 foreach (IMod mod in cast)
-                    ViewModel.UpdateModLoadOrder(mod, mod.PlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.PlaceInModLoadOrder);
+                    ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.NewPlaceInModLoadOrder);
             }
 
             Refresh();
