@@ -1283,7 +1283,9 @@ namespace Nexus.Client.ModManagement
 					if (p_booHandlePlugin)
 						PluginManager.ActivatePlugin(strVirtualFileLink);
 				}
-
+            
+            p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder; // just adding it in, shhhh
+            p_modMod.UpdateInfo(p_modMod, true);
 			return strVirtualFileLink;
 		}
 
@@ -1320,7 +1322,7 @@ namespace Nexus.Client.ModManagement
 				Int32 intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, intCurrentPriority, out modCheck, out lstOverwrites);
 				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
 				if ((!File.Exists(strLinkPath)) && (p_modMod != null))
-					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, true));
+					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
 
 				if (GameMode.HasSecondaryInstallPath)
 					if (GameMode.CheckSecondaryUninstall(strLinkPath))
@@ -1420,6 +1422,8 @@ namespace Nexus.Client.ModManagement
 					m_tslVirtualModList.Add(vml);
 				}
 			}
+            p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder;
+            p_modMod.UpdateInfo(p_modMod, true);
 		}
 
 		public void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks)

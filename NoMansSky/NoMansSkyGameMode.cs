@@ -373,8 +373,23 @@ namespace Nexus.Client.Games.NoMansSky
                 if (!strFileName.Contains("_MOD"))
                     strFileName = strFileName.Insert(0, "_MOD");
 
-                strFileName = strFileName.Insert(1, p_modMod.NewPlaceInModLoadOrder.ToString());
-                strPath = Path.Combine(Path.GetDirectoryName(strPath), strFileName);
+                bool booIsUninstall = false;
+                // check if this is an uninstall
+                {
+                    string strPossibleOldFile = Path.Combine(Path.GetDirectoryName(strPath), strFileName.Insert(1, p_modMod.PlaceInModLoadOrder.ToString()));
+                    if (File.Exists(Path.Combine(InstallationPath, strPossibleOldFile)))
+                    {
+                        strPath = strPossibleOldFile;
+                        booIsUninstall = true;
+                    }
+                }
+
+                if (!booIsUninstall)
+                {
+                    if(p_modMod.NewPlaceInModLoadOrder != -1)
+                        strFileName = strFileName.Insert(1, p_modMod.NewPlaceInModLoadOrder.ToString());
+                    strPath = Path.Combine(Path.GetDirectoryName(strPath), strFileName);
+                }
             }
 
             // do normal stuff to the files
