@@ -376,7 +376,12 @@ namespace Nexus.Client.Games.NoMansSky
                 bool booIsUninstall = false;
                 // check if this is an uninstall
                 {
-                    string strPossibleOldFile = Path.Combine(Path.GetDirectoryName(strPath), strFileName.Insert(1, p_modMod.PlaceInModLoadOrder.ToString()));
+                    string strPossibleOldFile;
+                    if (p_modMod.PlaceInModLoadOrder != -1)
+                        strPossibleOldFile = Path.Combine(Path.GetDirectoryName(strPath), strFileName.Insert(1, p_modMod.PlaceInModLoadOrder.ToString()));
+                    else
+                        strPossibleOldFile = Path.Combine(Path.GetDirectoryName(strPath), strFileName);
+
                     if (File.Exists(Path.Combine(InstallationPath, strPossibleOldFile)))
                     {
                         strPath = strPossibleOldFile;
@@ -404,6 +409,16 @@ namespace Nexus.Client.Games.NoMansSky
             {
                 if (!strPath.StartsWith("Binaries"))
                     strPath = Path.Combine("Binaries", strPath);
+            }
+            else if (strFileType.Equals(".dll", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                {
+                    if (!strPath.StartsWith("NMSE"))
+                        strPath = Path.Combine("Binaries", "NMSE", strPath);
+                    else
+                        strPath = Path.Combine("Binaries", strPath);
+                }
             }
 
             // the other mods should be handled by special mod install, this just handles the major ones
