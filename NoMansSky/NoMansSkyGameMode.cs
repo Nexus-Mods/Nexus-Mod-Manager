@@ -16,9 +16,6 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
-using Nexus.Client.Mods.Formats.FOMod;
-using Nexus.Client.ModManagement.UI;
-using System.Collections.ObjectModel;
 using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.NoMansSky
@@ -477,13 +474,15 @@ namespace Nexus.Client.Games.NoMansSky
         }
 
         /// <summary>
-        /// Checks if 
+        /// Checks if any files in the list require special installation
         /// </summary>
         /// <param name="p_strFiles">The list of files that need to be checked</param>
-        /// <returns><see cref="true"/> if there are special special files</returns>
+        /// <returns><c>true</c> if there are special files</returns>
         public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
         {
-            return false;
+            return p_strFiles.Select(s => Path.GetExtension(s))
+                             .Intersect(new[] { ".wem", ".bnk", ".txt", ".xml", ".fnt", ".dds", ".mbin", ".pc", ".bin", ".h", ".glsl", ".TTC", ".TTF" }, StringComparer.InvariantCultureIgnoreCase)
+                             .Any();
         }
 
         public override void SortMods(Action<IMod> p_ReinstallMod, ReadOnlyObservableList<IMod> p_lstActiveMods)
