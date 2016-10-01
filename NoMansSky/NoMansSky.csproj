@@ -89,7 +89,6 @@
     <Compile Include="NoMansSkyGameModeDescriptor.cs" />
     <Compile Include="NoMansSkyGameMode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Tools\PlayStationArchive\Tool.cs" />
     <Compile Include="Tools\ShaderCache\Cleaner.cs" />
   </ItemGroup>
   <ItemGroup>
