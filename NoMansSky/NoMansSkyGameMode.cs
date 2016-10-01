@@ -17,6 +17,7 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
 using Nexus.Client.Util.Collections;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Games.NoMansSky
 {
@@ -361,6 +362,30 @@ namespace Nexus.Client.Games.NoMansSky
             string strFileType = Path.GetExtension(strPath);
             string[] strSpecialFiles = new[] { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
 
+            // do normal stuff to the files
+            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
+                    strPath = Path.Combine("GAMEDATA", strPath);
+                else
+                    strPath = Path.Combine("GAMEDATA", "PCBANKS", Path.GetFileName(strPath));
+            }
+            else if (strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                    strPath = Path.Combine("Binaries", strPath);
+            }
+            else if (strFileType.Equals(".dll", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                {
+                    if (!strPath.StartsWith("NMSE"))
+                        strPath = Path.Combine("Binaries", "NMSE", strPath);
+                    else
+                        strPath = Path.Combine("Binaries", strPath);
+                }
+            }
+
             // edit files for load order
 
             if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
@@ -388,33 +413,9 @@ namespace Nexus.Client.Games.NoMansSky
 
                 if (!booIsUninstall)
                 {
-                    if(p_modMod.NewPlaceInModLoadOrder != -1)
+                    if (p_modMod.NewPlaceInModLoadOrder != -1)
                         strFileName = strFileName.Insert(1, p_modMod.NewPlaceInModLoadOrder.ToString());
                     strPath = Path.Combine(Path.GetDirectoryName(strPath), strFileName);
-                }
-            }
-
-            // do normal stuff to the files
-            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
-            {
-                if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
-                    strPath = Path.Combine("GAMEDATA", strPath);
-                else
-                    strPath = Path.Combine("GAMEDATA", "PCBANKS", Path.GetFileName(strPath));
-            }
-            else if (strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
-            {
-                if (!strPath.StartsWith("Binaries"))
-                    strPath = Path.Combine("Binaries", strPath);
-            }
-            else if (strFileType.Equals(".dll", StringComparison.InvariantCultureIgnoreCase))
-            {
-                if (!strPath.StartsWith("Binaries"))
-                {
-                    if (!strPath.StartsWith("NMSE"))
-                        strPath = Path.Combine("Binaries", "NMSE", strPath);
-                    else
-                        strPath = Path.Combine("Binaries", strPath);
                 }
             }
 
@@ -455,7 +456,6 @@ namespace Nexus.Client.Games.NoMansSky
         public override bool RequiresExternalConfig(out string p_strMessage)
         {
             p_strMessage = string.Empty;
-            Trace.TraceInformation("Checking for PCBANKS...");
 
             bool booBanksExist = Directory.Exists(Path.Combine(InstallationPath, "GAMEDATA", "PCBANKS"));
 
@@ -470,7 +470,8 @@ namespace Nexus.Client.Games.NoMansSky
 
         public override IEnumerable<String> SpecialFileInstall(IMod p_modSelectedMod)
         {
-            return new List<string>();
+            MessageBox.Show("The following mod is in an invalid state and can't be installed properly. The mod manager will attempt to install it anyway.");
+            return p_modSelectedMod.GetFileList();
         }
 
         /// <summary>
@@ -480,14 +481,17 @@ namespace Nexus.Client.Games.NoMansSky
         /// <returns><c>true</c> if there are special files</returns>
         public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
         {
+            if (p_strFiles.Select(s => Path.GetExtension(s)).Any(s => s.Equals(".pak", StringComparison.InvariantCultureIgnoreCase)))
+                return false;
+
             return p_strFiles.Select(s => Path.GetExtension(s))
-                             .Intersect(new[] { ".wem", ".bnk", ".txt", ".xml", ".fnt", ".dds", ".mbin", ".pc", ".bin", ".h", ".glsl", ".TTC", ".TTF" }, StringComparer.InvariantCultureIgnoreCase)
+                             .Intersect(new[] { ".wem", ".bnk", ".xml", ".txt", ".fnt", ".dds", ".mbin", ".pc", ".bin", ".h", ".glsl", ".TTC", ".TTF" }, StringComparer.InvariantCultureIgnoreCase)
                              .Any();
         }
 
-        public override void SortMods(Action<IMod> p_ReinstallMod, ReadOnlyObservableList<IMod> p_lstActiveMods)
+        public override void SortMods(Action<IMod> p_actReinstallMod, ReadOnlyObservableList<IMod> p_lstActiveMods)
         {
-            foreach (IMod modMod in p_lstActiveMods) p_ReinstallMod(modMod);
+            foreach (IMod modMod in p_lstActiveMods) p_actReinstallMod(modMod);
         }
     }
 }
