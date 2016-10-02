@@ -100,7 +100,7 @@ namespace Nexus.Client.ModManagement.UI
 			this.lblYes.Name = "lblYes";
 			this.lblYes.Size = new System.Drawing.Size(684, 32);
 			this.lblYes.TabIndex = 3;
-			this.lblYes.Text = resources.GetString("lblYes.Text");
+			this.lblYes.Text = "";
 			// 
 			// lblNo
 			// 
