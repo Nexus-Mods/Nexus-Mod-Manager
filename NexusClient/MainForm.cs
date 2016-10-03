@@ -377,7 +377,6 @@ namespace Nexus.Client
 			if (ViewModel.UsesPlugins)
 			{
 				tlbPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
-				tlbProfilesCounter.Text = "Local Profiles: " + ViewModel.ProfileManager.ModProfiles.Count + "    |   Online Profiles: " + ViewModel.ProfileManager.ModBackedProfiles.Count;
 
 				FontFamily myFontFamily = new FontFamily(tlbActivePluginsCounter.Font.Name);
 
@@ -578,6 +577,19 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Purge Loose Files.
+		/// </summary>
+		protected void PurgeLooseFiles()
+		{
+			if (ViewModel.UsesPlugins)
+			{
+				DialogResult drPurgeLooseFiles = ExtendedMessageBox.Show(this, "USE THIS FUNCTION AT YOUR OWN RISK: Would you like to clean your game folder from loose files? Legit files may be lost if the mod manager doesn't recognize them as default game files.", "Purge Loose Files", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				if (drPurgeLooseFiles == DialogResult.Yes)
+					ViewModel.PurgeLooseFiles();
+			}
+		}
+
+		/// <summary>
 		/// Adds the backup profile to the profile list.
 		/// </summary>
 		protected void RestoreBackupProfile()
@@ -594,6 +606,16 @@ namespace Nexus.Client
 				MessageBox.Show(String.Format("{0} has been successfully added to your profile list.", strError),
 					"Restored", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
+		}
+
+		protected void CreateBackup()
+		{
+			ViewModel.CreateBackup(this);
+		}
+
+		protected void RestoreBackup()
+		{
+			ViewModel.RestoreBackup(mmgModManager);
 		}
 
 		/// <summary>
@@ -794,11 +816,6 @@ namespace Nexus.Client
 			{
 				ViewModel.DownloadProfileMissingMods(this, ModProfile);
 			}
-		}
-
-		private void pmcProfileManager_UpdateProfilesCount(object sender, EventArgs e)
-		{
-			tlbProfilesCounter.Text = "Local Profiles: " + ViewModel.ProfileManager.ModProfiles.Count + "    |   Online Profiles: " + ViewModel.ProfileManager.ModBackedProfiles.Count;
 		}
 
 		/// <summary>
@@ -1409,11 +1426,29 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
 			spbTools.DropDownItems.Add(tmiUninstallAllMods);
 
+			Command cmdPurgeLooseFiles = new Command("Purge Loose Files", "Purge Loose Files.", PurgeLooseFiles);
+			ToolStripMenuItem tmiPurgeLooseFiles = new ToolStripMenuItem();
+			tmiPurgeLooseFiles.Image = global::Nexus.Client.Properties.Resources.deleteProfile;
+			new ToolStripItemCommandBinding(tmiPurgeLooseFiles, cmdPurgeLooseFiles);
+			spbTools.DropDownItems.Add(tmiPurgeLooseFiles);
+
+			Command cmdCreateBackup = new Command("Create Mod Installation backup.", "Create Mod Installation backup.", CreateBackup);
+			Command cmdRestoreBackup = new Command("Restore Mod Installation backup", "Restore Mod Installation backup.", RestoreBackup);
 			Command cmdRestoreBackupProfile = new Command("Restore the backup profile", "Adds the backup profile to the profile list.", RestoreBackupProfile);
 
 			ToolStripMenuItem tmiBackup = new ToolStripMenuItem();
 			tmiBackup.Text = "Backup and Restore";
 			tmiBackup.Image = global::Nexus.Client.Properties.Resources.backup;
+
+			ToolStripMenuItem tmiCreateBackup = new ToolStripMenuItem();
+			tmiCreateBackup.Image = global::Nexus.Client.Properties.Resources.createBackup;
+			new ToolStripItemCommandBinding(tmiCreateBackup, cmdCreateBackup);
+			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiCreateBackup });
+
+			ToolStripMenuItem tmiRestoreBackup = new ToolStripMenuItem();
+			tmiRestoreBackup.Image = global::Nexus.Client.Properties.Resources.restoreBackup;
+			new ToolStripItemCommandBinding(tmiRestoreBackup, cmdRestoreBackup);
+			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiRestoreBackup });
 
 			ToolStripMenuItem tmiRestoreBackupProfile = new ToolStripMenuItem();
 			tmiRestoreBackupProfile.Image = global::Nexus.Client.Properties.Resources.change_game_mode;

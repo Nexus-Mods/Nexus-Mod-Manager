@@ -264,6 +264,12 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Gets the backup manager.
+		/// </summary>
+		/// <value>The backup manager.</value>
+		public BackupManager BackupManager { get; private set; }
+
+		/// <summary>
 		/// Gets the plugin manager to use.
 		/// </summary>
 		/// <value>The plugin manager to use.</value>
@@ -622,6 +628,7 @@ namespace Nexus.Client
 			ModManager.SetProfileManager(ProfileManager);
 			ModRepository = p_mrpModRepository;
 			UpdateManager = new UpdateManager(GameMode, EnvironmentInfo);
+			BackupManager = new BackupManager(ModManager, ProfileManager);
 			ModManagerVM = new ModManagerVM(p_mmgModManager, ProfileManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
 			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository);
 			ModActivationMonitor = p_mamMonitor;
@@ -777,7 +784,123 @@ namespace Nexus.Client
 		{
 			RequestedGameMode = p_strGameModeID;
 		}
-		
+
+		#region Backup Management
+
+		/// <summary>
+		/// Opens the create backup form.
+		/// </summary>
+		public void CreateBackup(MainForm p_mfMainForm)
+		{
+			BackupManager.Initialize();
+			BackupManagerForm bnfBackupForm = new BackupManagerForm(BackupManager);
+			bnfBackupForm.ShowDialog();
+
+			if (bnfBackupForm.DialogResult == DialogResult.OK)
+			{
+				bnfBackupForm.Close();
+				CreateBackup(p_mfMainForm, BackupManager);
+			}
+			else
+				bnfBackupForm.Close();
+		}
+
+		/// <summary>
+		/// Performs the destination folder selection.
+		/// </summary>
+		public void CreateBackup(MainForm p_mfMainForm, BackupManager p_bmBackupManager)
+		{
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where {0} will save the Backup Archive.", EnvironmentInfo.Settings.ModManagerName);
+			fbd.ShowNewFolderButton = true;
+
+			fbd.ShowDialog(p_mfMainForm);
+
+			if (!string.IsNullOrWhiteSpace(fbd.SelectedPath))
+			{
+				DirectoryInfo directoryInfo = new DirectoryInfo(fbd.SelectedPath);
+				foreach (Environment.SpecialFolder folder in Enum.GetValues(typeof(Environment.SpecialFolder)))
+				{
+					if (string.Equals(directoryInfo.FullName, Environment.GetFolderPath(folder), StringComparison.OrdinalIgnoreCase))
+					{
+						DialogResult drResult = ExtendedMessageBox.Show(null, "You cannot select a system folder!", "Wrong folder.", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						CreateBackup(p_mfMainForm, p_bmBackupManager);
+						break;
+					}
+				}
+				CreatingBackup(this, new EventArgs<IBackgroundTask>(CreateBackup(fbd.SelectedPath, p_bmBackupManager)));
+			}
+		}
+
+		/// <summary>
+		/// Sets up the create backup task.
+		/// </summary>
+		private IBackgroundTask CreateBackup(string p_strSelectedPath, BackupManager p_bmBackupManager)
+		{
+			CreateBackupTask bmtBackupManagerTask = new CreateBackupTask(ModManager.VirtualModActivator, ModManager, EnvironmentInfo, PluginManagerVM, PluginManager, ProfileManager, p_strSelectedPath, p_bmBackupManager, ConfirmUpdaterAction);
+			bmtBackupManagerTask.Update(ConfirmUpdaterAction);
+			return bmtBackupManagerTask;
+		}
+
+		/// <summary>
+		/// Performs the restore backup form.
+		/// </summary>
+		public void RestoreBackup(ModManagerControl p_mmgModManager)
+		{
+			RestoreBackupForm rbfRestoreForm = new RestoreBackupForm(ModManager, ProfileManager);
+			rbfRestoreForm.ShowDialog();
+
+			if (rbfRestoreForm.DialogResult == DialogResult.Cancel)
+				rbfRestoreForm.Close();
+			else if (!string.IsNullOrEmpty(rbfRestoreForm.Text))
+			{
+				rbfRestoreForm.Close();
+
+				if (rbfRestoreForm.DialogResult == DialogResult.Yes)
+					if (ProfileManager.CurrentProfile != null)
+						ProfileManager.RemoveProfile(ProfileManager.CurrentProfile);
+					else
+						ProfileManager.SetCurrentProfile(null);
+
+
+				ProfileManager.SetCurrentProfile(null);
+				p_mmgModManager.DeactivateAllMods(true, true);
+				RestoreBackup(rbfRestoreForm, (rbfRestoreForm.DialogResult == DialogResult.Yes));
+			}
+		}
+
+		public void RestoreBackup(RestoreBackupForm p_rbfRestoreForm, bool p_booPurgeFolders)
+		{
+			RestoringBackup(this, new EventArgs<IBackgroundTask>(RestoreBackup(p_rbfRestoreForm.strText, p_booPurgeFolders)));
+		}
+
+		/// <summary>
+		/// Sets up the restore backup task.
+		/// </summary>
+		private IBackgroundTask RestoreBackup(string p_strFileName, bool p_booPurgeFolders)
+		{
+			RestoreBackupTask bmtBackupManagerTask = new RestoreBackupTask(ModManager.VirtualModActivator, ModManager, ProfileManager, EnvironmentInfo, p_strFileName, p_booPurgeFolders, ConfirmUpdaterAction);
+			bmtBackupManagerTask.Update(ConfirmUpdaterAction);
+			return bmtBackupManagerTask;
+		}
+
+		public void PurgeLooseFiles()
+		{
+			PurgingLooseFiles(this, new EventArgs<IBackgroundTask>(PurgeLooseFiles(BackupManager)));
+		}
+
+		/// <summary>
+		/// Sets up the restore backup task.
+		/// </summary>
+		private IBackgroundTask PurgeLooseFiles(BackupManager p_BackupManager)
+		{
+			PurgeLooseFilesTask plfPurgeLooseFilesTask = new PurgeLooseFilesTask(p_BackupManager, ConfirmUpdaterAction);
+			plfPurgeLooseFilesTask.Update(ConfirmUpdaterAction);
+			return plfPurgeLooseFilesTask;
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Sets up the mod migration task.
 		/// </summary>

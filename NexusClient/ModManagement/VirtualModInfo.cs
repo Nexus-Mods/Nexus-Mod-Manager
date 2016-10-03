@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement
 {
@@ -58,7 +59,10 @@ namespace Nexus.Client.ModManagement
 		{
 			get
 			{
-				return Path.Combine(ModFilePath, ModFileName);
+				if (FileUtil.IsValidPath(ModFilePath) && FileUtil.IsValidPath(ModFileName))
+					return Path.Combine(ModFilePath, ModFileName);
+				else
+					return null;
 			}
 		}
 		public string FileVersion { get; }
