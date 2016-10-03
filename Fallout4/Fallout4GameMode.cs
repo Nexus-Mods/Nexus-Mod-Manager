@@ -43,12 +43,22 @@ namespace Nexus.Client.Games.Fallout4
 		{
 			get
 			{
-				string strFullPath = null;
-				strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Fallout4.exe");
-				if (File.Exists(strFullPath))
-					return new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
-				else
-					return null;
+				Version FO4Version = new Version("0.0.0.0");
+				try
+				{
+					string strFullPath = null;
+					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Fallout4.exe");
+					if (File.Exists(strFullPath))
+					{
+						FO4Version = new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+						return FO4Version;
+					}
+					else
+						return null;
+				}
+				catch { }
+				
+				return FO4Version;
 			}
 		}
 
