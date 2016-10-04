@@ -280,9 +280,9 @@ namespace Nexus.Client.ModAuthoring
 						strDest = ConfirmOverwrite(p_dlgConfirmOverwrite, strDest);
 						if (!String.IsNullOrEmpty(strDest))
 						{
-                            // Make sure we aren't copying mod to itself.
-                            if (!string.Equals(strMod, strDest, StringComparison.OrdinalIgnoreCase))
-							    File.Copy(strMod, strDest, true);
+							// Make sure we aren't copying mod to itself.
+							if (!string.Equals(strMod, strDest, StringComparison.OrdinalIgnoreCase))
+								File.Copy(strMod, strDest, true);
 							lstFoundMods.Add(strDest);
 						}
 						StepItemProgress();
