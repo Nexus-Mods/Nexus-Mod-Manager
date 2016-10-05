@@ -481,7 +481,7 @@ namespace Nexus.Client.Games.NoMansSky
         /// <returns><c>true</c> if there are special files</returns>
         public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
         {
-            if (p_strFiles.Select(s => Path.GetExtension(s)).Any(s => s.Equals(".pak", StringComparison.InvariantCultureIgnoreCase)))
+            if (p_strFiles.Select(s => Path.GetExtension(s)).Any(s => s.Equals(".pak", StringComparison.InvariantCultureIgnoreCase) || s.Equals(".dll", StringComparison.InvariantCultureIgnoreCase)))
                 return false;
 
             return p_strFiles.Select(s => Path.GetExtension(s))
