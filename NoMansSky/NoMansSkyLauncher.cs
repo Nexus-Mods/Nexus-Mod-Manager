@@ -72,10 +72,9 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
             Trace.Indent();
 
             string strCommand = GetNmseLaunchCommand();
-            string[] strRequiredDlls = new[] { "NMSE_Core_1_0", "NMSE_steam" };
             string strBinariesFolder = Directory.GetParent(GetNmseLaunchCommand()).FullName;
 
-            if(File.Exists(Path.Combine(strBinariesFolder, strRequiredDlls[0])) && File.Exists(Path.Combine(strBinariesFolder, strRequiredDlls[1])) && File.Exists(strCommand))
+            if(File.Exists(strCommand))
             {
                 Launch(strCommand, null);
             }
