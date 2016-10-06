@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using ChinhDo.Transactions;
-using Nexus.Client.Games.NoMansSky.Settings.UI;
 using Nexus.Client.Games.NoMansSky.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -17,13 +16,15 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
+using Nexus.Client.Util.Collections;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Games.NoMansSky
 {
-	/// <summary>
-	/// Provides information required for the program to manage NoMansSky game's plugins and mods.
-	/// </summary>
-	public class NoMansSkyGameMode : GameModeBase
+    /// <summary>
+    /// Provides information required for the program to manage NoMansSky game's plugins and mods.
+    /// </summary>
+    public class NoMansSkyGameMode : GameModeBase
 	{
 		private NoMansSkyGameModeDescriptor m_gmdGameModeInfo = null;
 		private NoMansSkyLauncher m_glnGameLauncher = null;
@@ -155,21 +156,37 @@ namespace Nexus.Client.Games.NoMansSky
 			}
 		}
 
-		#endregion
+        public override Boolean RequiresSpecialFileInstallation
+        {
+            get
+            {
+                return true;
+            }
+        }
 
-		#region Constructors
+        public override bool UsesModLoadOrder
+        {
+            get
+            {
+                return true;
+            }
+        }
 
-		/// <summary>
-		/// A simple constructor that initializes the object with the given values.
-		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
-		/// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
-		public NoMansSkyGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
+        #endregion
+
+        #region Constructors
+
+        /// <summary>
+        /// A simple constructor that initializes the object with the given values.
+        /// </summary>
+        /// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
+        /// <param name="p_futFileUtility">The file utility class to be used by the game mode.</param>
+        public NoMansSkyGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo)
 		{
 			SettingsGroupViews = new List<ISettingsGroupView>();
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo, this);
-			((List<ISettingsGroupView>)SettingsGroupViews).Add(new GeneralSettingsPage(gsgGeneralSettings));
+			((List<ISettingsGroupView>)SettingsGroupViews).Add(new Settings.UI.GeneralSettingsPage(gsgGeneralSettings));
 		}
 
 		#endregion
@@ -294,7 +311,7 @@ namespace Nexus.Client.Games.NoMansSky
 		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
 		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
 		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
-		/// to be relative to the new instaalation path to make things work.
+		/// to be relative to the new installation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust</param>
@@ -304,17 +321,22 @@ namespace Nexus.Client.Games.NoMansSky
 		{
 			string strPath = p_strPath;
 			string strFileType = Path.GetExtension(strPath);
-
-			if (strPath.StartsWith("GAMEDATA", StringComparison.InvariantCultureIgnoreCase))
-				strPath = strPath.Substring(9);
-
-			if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
-			{
-				if (strPath.IndexOf("PCBANKS", StringComparison.InvariantCultureIgnoreCase) >= 0)
-					return strPath;
-				else
-					strPath = Path.Combine("PCBANKS", Path.GetFileName(strPath));
-			}
+            string[] strSpecialFiles = new[] { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
+            
+            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
+                    strPath = Path.Combine("GAMEDATA", strPath);
+                else
+                    strPath = Path.Combine("GAMEDATA", "PCBANKS", Path.GetFileName(strPath));
+            }
+            else if(strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                    strPath = Path.Combine("Binaries", strPath);
+            }
+            
+            // the other mods should be handled by special mod install, this just handles the major ones
 
 			return strPath;
 		}
@@ -327,7 +349,7 @@ namespace Nexus.Client.Games.NoMansSky
 		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
 		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
 		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
-		/// to be relative to the new instaalation path to make things work.
+		/// to be relative to the new installation path to make things work.
 		/// </remarks>
 		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
 		/// <param name="p_strPath">The path to adjust.</param>
@@ -336,22 +358,71 @@ namespace Nexus.Client.Games.NoMansSky
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
-			string strPath = p_strPath;
-			string strFileType = Path.GetExtension(strPath);
+            string strPath = p_strPath;
+            string strFileType = Path.GetExtension(strPath);
+            string[] strSpecialFiles = new[] { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
 
-			if (strPath.StartsWith("GAMEDATA", StringComparison.InvariantCultureIgnoreCase))
-				strPath = strPath.Substring(9);
+            // do normal stuff to the files
+            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
+                    strPath = Path.Combine("GAMEDATA", strPath);
+                else
+                    strPath = Path.Combine("GAMEDATA", "PCBANKS", Path.GetFileName(strPath));
+            }
+            else if (strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                    strPath = Path.Combine("Binaries", strPath);
+            }
+            else if (strFileType.Equals(".dll", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!strPath.StartsWith("Binaries"))
+                {
+                    if (!strPath.StartsWith("NMSE"))
+                        strPath = Path.Combine("Binaries", "NMSE", strPath);
+                    else
+                        strPath = Path.Combine("Binaries", strPath);
+                }
+            }
 
-			if(strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
-			{
-				if (strPath.IndexOf("PCBANKS", StringComparison.InvariantCultureIgnoreCase) >= 0)
-					return strPath;
-				else
-					strPath = Path.Combine("PCBANKS", Path.GetFileName(strPath));
-			}
+            // edit files for load order
 
-			return strPath;			
-		}
+            if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+            {
+                string strFileName = Path.GetFileName(strPath);
+
+                if (!strFileName.Contains("_MOD"))
+                    strFileName = strFileName.Insert(0, "_MOD");
+
+                bool booIsUninstall = false;
+                // check if this is an uninstall
+                {
+                    string strPossibleOldFile;
+                    if (p_modMod.PlaceInModLoadOrder != -1)
+                        strPossibleOldFile = Path.Combine(Path.GetDirectoryName(strPath), strFileName.Insert(1, p_modMod.PlaceInModLoadOrder.ToString()));
+                    else
+                        strPossibleOldFile = Path.Combine(Path.GetDirectoryName(strPath), strFileName);
+
+                    if (File.Exists(Path.Combine(InstallationPath, strPossibleOldFile)))
+                    {
+                        strPath = strPossibleOldFile;
+                        booIsUninstall = true;
+                    }
+                }
+
+                if (!booIsUninstall)
+                {
+                    if (p_modMod.NewPlaceInModLoadOrder != -1)
+                        strFileName = strFileName.Insert(1, p_modMod.NewPlaceInModLoadOrder.ToString());
+                    strPath = Path.Combine(Path.GetDirectoryName(strPath), strFileName);
+                }
+            }
+
+            // the other mods should be handled by special mod install, this just handles the major ones
+
+            return strPath;
+        }
 
 		static string CleanInput(string p_strIn)
 		{
@@ -376,5 +447,51 @@ namespace Nexus.Client.Games.NoMansSky
 		protected override void Dispose(bool p_booDisposing)
 		{
 		}
-	}
+
+        /// <summary>
+        /// Checks whether the current game mode requires external config steps to be taken before installing mods.
+        /// </summary>
+        /// <param name="p_strMessage">The message to show to the user</param>
+        /// <returns>Whether the current game mode requires external config steps to be taken before installing mods.</returns>
+        public override bool RequiresExternalConfig(out string p_strMessage)
+        {
+            p_strMessage = string.Empty;
+
+            bool booBanksExist = Directory.Exists(Path.Combine(InstallationPath, "GAMEDATA", "PCBANKS"));
+
+            if(!booBanksExist)
+            {
+                Trace.TraceWarning("PCBANKS doesn't exist!");
+                p_strMessage = "Could not find PCBANKS folder. PCBANKS is required for mods to run.";
+            }
+
+            return !booBanksExist;
+        }
+
+        public override IEnumerable<String> SpecialFileInstall(IMod p_modSelectedMod)
+        {
+            MessageBox.Show("The following mod is in an invalid state and can't be installed properly. The mod manager will attempt to install it anyway.");
+            return p_modSelectedMod.GetFileList();
+        }
+
+        /// <summary>
+        /// Checks if any files in the list require special installation
+        /// </summary>
+        /// <param name="p_strFiles">The list of files that need to be checked</param>
+        /// <returns><c>true</c> if there are special files</returns>
+        public override Boolean IsSpecialFile(IEnumerable<String> p_strFiles)
+        {
+            if (p_strFiles.Select(s => Path.GetExtension(s)).Any(s => s.Equals(".pak", StringComparison.InvariantCultureIgnoreCase) || s.Equals(".dll", StringComparison.InvariantCultureIgnoreCase)))
+                return false;
+
+            return p_strFiles.Select(s => Path.GetExtension(s))
+                             .Intersect(new[] { ".wem", ".bnk", ".xml", ".txt", ".fnt", ".dds", ".mbin", ".pc", ".bin", ".h", ".glsl", ".TTC", ".TTF" }, StringComparer.InvariantCultureIgnoreCase)
+                             .Any();
+        }
+
+        public override void SortMods(Action<IMod> p_actReinstallMod, ReadOnlyObservableList<IMod> p_lstActiveMods)
+        {
+            foreach (IMod modMod in p_lstActiveMods) p_actReinstallMod(modMod);
+        }
+    }
 }

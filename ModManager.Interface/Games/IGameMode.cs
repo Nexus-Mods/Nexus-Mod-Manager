@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Windows.Forms;
 using ChinhDo.Transactions;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
@@ -143,6 +144,11 @@ namespace Nexus.Client.Games
 		/// Whether the plugin sorter is properly initialized.
 		/// </summary>
 		bool PluginSorterInitialized { get; }
+
+        /// <summary>
+        /// Gets whether the gamemode requires mod sorting
+        /// </summary>
+        bool RequiresModSorting { get; }
 
 		#endregion
 
@@ -332,5 +338,32 @@ namespace Nexus.Client.Games
 		/// The supported formats list.
 		/// </summary>
 		List<string> SupportedFormats { get; }
+
+        /// <summary>
+        /// Defines whether or not files require special installation instructions
+        /// </summary>
+        /// <returns>Whether or not files require special installation instructions</returns>
+        bool RequiresSpecialFileInstallation { get; }
+
+        /// <summary>
+        /// Defines whether or not files use a special load order
+        /// </summary>
+        bool UsesModLoadOrder { get; }
+
+        void SortMods(Action<IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods);
+
+        /// <summary>
+        /// Handles special file installation
+        /// </summary>
+        /// <param name="p_modSelectedMod">The mod with special files to handle</param>
+        /// <returns>The list of new files to install</returns>
+        IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod);
+
+        /// <summary>
+        /// Checks whether any of the files require SpecialFileInstall
+        /// </summary>
+        /// <param name="p_strFiles">List of files to check</param>
+        /// <returns>Whether any of the files need special installation</returns>
+        bool IsSpecialFile(IEnumerable<string> p_strFiles);
 	}
 }

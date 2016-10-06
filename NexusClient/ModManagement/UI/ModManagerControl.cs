@@ -1171,12 +1171,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void clwCategoryView_CategoryShowEmptyToggled(object sender, EventArgs e)
 		{
-			var handler = this.ResetSearchBox;
-			if (handler != null)
-			{
-				handler(this, e);
-			}
-		}
+            this.ResetSearchBox?.Invoke(this, e);
+        }
 		
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.FileDropped"/> of the switch
@@ -2013,13 +2009,9 @@ namespace Nexus.Client.ModManagement.UI
 		private void UninstallModGlobally(IMod p_modMod)
 		{
 			ViewModel.DeactivateMod(p_modMod);
-			
-			var handler = this.UninstallModFromProfiles;
-			if (handler != null)
-			{
-				handler(this, new ModEventArgs(p_modMod));
-			}
-		}
+
+            this.UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
+        }
 		
 		#region Column Resizing
 
@@ -2119,7 +2111,39 @@ namespace Nexus.Client.ModManagement.UI
 			m_booResizing = false;
 		}
 
-		#endregion
+        #endregion
 
-	}
+        private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
+        {
+            ViewModel.SaveModLoadOrder();
+        }
+
+        private void tsb_ModUpLoadOrder_Click(Object sender, EventArgs e)
+        {
+            if(clwCategoryView.SelectedMod != null)
+                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
+            else if (clwCategoryView.GetSelectedItems.Count > 0)
+            {
+                IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
+                foreach (IMod mod in cast)
+                    ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == -1 ? -1 : --mod.NewPlaceInModLoadOrder);
+            }
+
+            Refresh();
+        }
+
+        private void tsb_ModDownLoadOrder_Click(Object sender, EventArgs e)
+        {
+            if(clwCategoryView.SelectedMod != null)
+                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
+            else if(clwCategoryView.GetSelectedItems.Count > 0)
+            {
+                IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
+                foreach (IMod mod in cast)
+                    ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.NewPlaceInModLoadOrder);
+            }
+
+            Refresh();
+        }
+    }
 }

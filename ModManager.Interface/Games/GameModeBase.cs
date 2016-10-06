@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Windows.Forms;
 using ChinhDo.Transactions;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
@@ -194,12 +195,12 @@ namespace Nexus.Client.Games
 				}
 			}
 
-			/// <summary>
-			/// A simple constructor that initializes the object with the required dependencies.
-			/// </summary>
-			/// <param name="p_gmdGameMode">The game mode to which this info belongs.</param>
-			/// <param name="p_eifEnvironmentInfo">The application's environement info.</param>
-			public GameModeInfo(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
+            /// <summary>
+            /// A simple constructor that initializes the object with the required dependencies.
+            /// </summary>
+            /// <param name="p_gmdGameMode">The game mode to which this info belongs.</param>
+            /// <param name="p_eifEnvironmentInfo">The application's environement info.</param>
+            public GameModeInfo(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
 			{
 				GameMode = p_gmdGameMode;
 				EnvironmentInfo = p_eifEnvironmentInfo;
@@ -448,7 +449,7 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>The exported settings groups specific to the game mode.</returns>
 		public IEnumerable<ISettingsGroupView> SettingsGroupViews { get; protected set; }
-
+        
 		/// <summary>
 		/// Gets the game launcher for the game mode.
 		/// </summary>
@@ -480,6 +481,18 @@ namespace Nexus.Client.Games
 		/// </remarks>
 		/// <value>Whether the game mode uses plugins.</value>
 		public abstract bool UsesPlugins { get; }
+
+        /// <summary>
+        /// Defines whether or not files use a special load order
+        /// </summary>
+        public virtual bool UsesModLoadOrder { get { return false; } }
+
+        /// <summary>
+        /// Provides a method to sort mods in your own way
+        /// </summary>
+        public virtual void SortMods(Action<IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods)
+        {
+        }
 
 		/// <summary>
 		/// Gets whether the game mode supports the automatic sorting
@@ -624,15 +637,23 @@ namespace Nexus.Client.Games
 			}
 		}
 
-		#endregion
+        public bool RequiresModSorting
+        {
+            get
+            {
+                return false;
+            }
+        }
 
-		#region Constructors
+        #endregion
 
-		/// <summary>
-		/// A simple constructor that initializes the object with the given values.
-		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
-		public GameModeBase(IEnvironmentInfo p_eifEnvironmentInfo)
+        #region Constructors
+
+        /// <summary>
+        /// A simple constructor that initializes the object with the given values.
+        /// </summary>
+        /// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
+        public GameModeBase(IEnvironmentInfo p_eifEnvironmentInfo)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			m_gmdGameModeInfo = CreateGameModeDescriptor();
@@ -886,5 +907,37 @@ namespace Nexus.Client.Games
 		protected virtual void Dispose(bool p_booDisposing)
 		{
 		}
-	}
+
+        /// <summary>
+        /// Defines whether or not files require special installation instructions
+        /// </summary>
+        /// <returns>Whether or not files require special installation instructions</returns>
+        public virtual bool RequiresSpecialFileInstallation
+        {
+            get
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Handles special file installation
+        /// </summary>
+        /// <param name="p_strFiles">List of files to handle</param>
+        /// <returns>The list of new files to install</returns>
+        public virtual IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// Checks whether any of the files require SpecialFileInstall
+        /// </summary>
+        /// <param name="p_strFiles">List of files to check</param>
+        /// <returns>Whether any of the files need special installation</returns>
+        public virtual bool IsSpecialFile(IEnumerable<string> p_strFiles)
+        {
+            return false;
+        }
+    }
 }

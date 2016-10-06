@@ -183,7 +183,7 @@ namespace Nexus.Client.Games.Skyrim
 		/// Whether the profile manager should save extra files for the current game mode.
 		/// </summary>
 		/// <returns>The list of optional files to save (if present) in a profile.</returns>
-		/// <param name="p_strMessage">The list of files/plugins/mods to check.</param>
+		/// <param name="p_strList">The list of files/plugins/mods to check.</param>
 		public override string[] GetOptionalFilesList(string[] p_strList)
 		{
 			var regEx = new Regex("^bashed patch");

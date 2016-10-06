@@ -13,5 +13,8 @@
     <category path="User Interface" ID="4">
       <name>User Interface</name>
     </category>
+    <category path="Extension" ID="6">
+      <name>Extension</name>
+    </category>
   </categoryList>
 </categoryManager>

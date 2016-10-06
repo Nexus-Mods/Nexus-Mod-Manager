@@ -293,6 +293,10 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <value>Whether the user wants to be warned about new versions</value>
 			public bool UpdateWarningEnabled { get; set; }
 
+            public int PlaceInModLoadOrder { get; set; }
+
+            public int NewPlaceInModLoadOrder { get; set; }
+
 			#endregion
 
 			/// <summary>

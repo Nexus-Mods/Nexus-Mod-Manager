@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Nexus.Client.Games.Tools;
+using Nexus.Client.Games.NoMansSky.Tools.ShaderCache;
 
 namespace Nexus.Client.Games.NoMansSky.Tools
 {
@@ -64,6 +65,10 @@ namespace Nexus.Client.Games.NoMansSky.Tools
 		protected void SetupTools()
 		{
 			m_lstTools.Clear();
+            
+            Cleaner ShaderCleaner = new Cleaner((NoMansSkyGameMode)GameMode);
+            
+            m_lstTools.Add(ShaderCleaner);
 		}
 	}
 }

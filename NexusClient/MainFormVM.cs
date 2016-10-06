@@ -572,6 +572,14 @@ namespace Nexus.Client
 			}
 		}
 
+        public bool UsesModLoadOrder
+        {
+            get
+            {
+                return GameMode.UsesModLoadOrder;
+            }
+        }
+
 		#endregion
 
 		#region Settings
@@ -630,7 +638,7 @@ namespace Nexus.Client
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
-			foreach (IModFormat mftFormat in p_mmgModManager.ModFormats)
+			foreach (IModFormat mftFormat in  p_mmgModManager.ModFormats)
 				gsgGeneralSettings.AddFileAssociation(mftFormat.Extension, mftFormat.Name);
 
 			ModOptionsSettingsGroup mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);

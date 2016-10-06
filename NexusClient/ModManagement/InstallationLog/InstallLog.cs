@@ -503,8 +503,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					foreach (InstalledItemDictionary<string, object>.ItemInstallers item in lstItems)
 					{
 						XElement xelFile = new XElement("fileLink",
-							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, true))),
-							new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, true)),
+							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, true))),
+							new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, true)),
 							//new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), item.Item)),
 							//new XAttribute("virtualPath", item.Item),
 							new XElement("linkPriority", "0"),

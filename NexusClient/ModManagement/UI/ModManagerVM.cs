@@ -2,14 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
 using Nexus.UI.Controls;
-using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.Settings;
@@ -19,11 +16,11 @@ using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.UI
 {
-	/// <summary>
-	/// This class encapsulates the data and the operations presented by UI
-	/// elements that display mod management.
-	/// </summary>
-	public class ModManagerVM
+    /// <summary>
+    /// This class encapsulates the data and the operations presented by UI
+    /// elements that display mod management.
+    /// </summary>
+    public class ModManagerVM
 	{
 		private bool m_booIsCategoryInitialized = false;
 		private Control m_ctlParentForm = null;
@@ -651,7 +648,8 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Install all the mods.
 		/// </summary>
-		/// <param name="p_rolModList">The list of Active Mods.</param>
+		/// <param name="p_lstModList">The list of Active Mods.</param>
+        /// <param name="p_booAllowCancel">Defines if the user is allowed to cancel</param>
 		public void MultiModInstall(List<IMod> p_lstModList, bool p_booAllowCancel)
 		{
 			ActivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.ActivateMultipleMods(p_lstModList, p_booAllowCancel, ConfirmUpdaterAction, ConfirmItemOverwrite)));
@@ -691,6 +689,13 @@ namespace Nexus.Client.ModManagement.UI
 			mifNewInfo.ModName = p_strNewModName;
 			p_modMod.UpdateInfo(mifNewInfo, true);
 		}
+
+        public void UpdateModLoadOrder(IMod p_modMod, int p_intNewPosition)
+        {
+            ModInfo mifNewInfo = new ModInfo(p_modMod);
+            mifNewInfo.NewPlaceInModLoadOrder = p_intNewPosition;
+            p_modMod.UpdateInfo(mifNewInfo, true);
+        }
 
 		#endregion
 
@@ -1041,5 +1046,10 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			AutomaticDownloading(sender, e);
 		}
+
+        public void SaveModLoadOrder()
+        {
+            ModManager.GameMode.SortMods(ReinstallMod, ActiveMods);
+        }
 	}
 }

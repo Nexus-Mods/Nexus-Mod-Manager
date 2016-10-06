@@ -297,6 +297,13 @@ namespace Nexus.Client
 				catch { }
 				if (!ViewModel.UsesPlugins)
 					pmcPluginManager.Hide();
+                if (!ViewModel.UsesModLoadOrder)
+                {
+                    mmgModManager.clwCategoryView.Columns.RemoveAt(2); // TODO Make something more substantial
+                    mmgModManager.toolStrip1.Items.RemoveByKey("tsb_SaveModLoadOrder");
+                    mmgModManager.toolStrip1.Items.RemoveByKey("tsb_ModUpLoadOrder");
+                    mmgModManager.toolStrip1.Items.RemoveByKey("tsb_ModDownLoadOrder");
+                }
 			}
 			else
 			{
@@ -338,7 +345,7 @@ namespace Nexus.Client
 
 			if ((ViewModel.UsesPlugins) && (strTab == "Plugins"))
 				pmcPluginManager.Show(dockPanel1);
-			else
+            else
 				mmgModManager.Show(dockPanel1);
 
 			if ((dmcDownloadMonitor == null) || ((dmcDownloadMonitor.VisibleState == DockState.Unknown) || (dmcDownloadMonitor.VisibleState == DockState.Hidden)))
