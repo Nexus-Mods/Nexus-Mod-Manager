@@ -1,12 +1,21 @@
 {\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang2057\deflangfe1041{\fonttbl{\f0\fswiss\fprq2\fcharset0 Verdana;}{\f1\fswiss\fprq2\fcharset0 Calibri;}{\f2\fnil\fcharset2 Symbol;}}
-{\colortbl ;\red0\green0\blue255;\red0\green0\blue0;\red255\green0\blue0;}
+{\colortbl ;\red255\green0\blue0;\red0\green0\blue0;\red0\green0\blue255;}
 {\*\generator Riched20 10.0.14393}{\*\mmathPr\mdispDef1\mwrapIndent1440 }\viewkind4\uc1 
-\pard\widctlpar\qj\b\f0\fs16 Version 0.63.0\par
+\pard\widctlpar\qj\b\f0\fs16 Version 0.63.1\par
 \par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  Added No Man's Sky mod installation and sorting support.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed issue that could cause NMM to crash during mod upgrades or file overwrites.\par
+
+\pard\widctlpar\qj\cf0\b\par
+\par
+Version 0.63.0\par
+\par
+
+\pard 
+{\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  Added No Man's Sky mod installation and sorting support.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -15,9 +24,9 @@ Version 0.62.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed a crash issue when unable to retrieve the Fallout 4 executable version.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a crash when parsing a null or corrupt path during the mod activation.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue that could cause a crash when retrieving alternate mod versions and the downloadId was null.\cf0\b\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed a crash issue when unable to retrieve the Fallout 4 executable version.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a crash when parsing a null or corrupt path during the mod activation.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue that could cause a crash when retrieving alternate mod versions and the downloadId was null.\cf0\b\par
 
 \pard\widctlpar\qj\par
 \par
@@ -26,7 +35,7 @@ Version 0.62.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed issue that could prevent users from opening the restore backup ui.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed issue that could prevent users from opening the restore backup ui.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -35,53 +44,53 @@ Version 0.62.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  Added the Backup Manager: \par
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  Added the Backup Manager: \par
 
 \pard{\pntext\f2\'B7\tab}{\*\pn\pnlvlblt\pnf2\pnindent0{\pntxtb\'B7}}\fi-360\li1080\sl240\slmult1\qj users will now be able to backup and restore their mod installation, base game files and the NMM Mods folder (new submenu under Tools). \par
 {\pntext\f2\'B7\tab}a backup button has also been added to the program update prompt.\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added new setting to the General settings tab where the user can set whether NMM should manage the mod name or leave it as the user set it.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  NMM now supports the multi mod selection when using the mod delete function.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  NMM will now be able to retrieve mod categories from the web server (a new button has been added to the Categories submenu).\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a bug causing virtual install and profile config files to become bloated, an automatic file fixing procedure will take care analyze your config files and fix them when you start NMM (This can be a lenghty but necessary process).\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed several crashes when trying to save the profile config. \par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed confirmation prompt when exiting the program.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash caused by some special characters in the profile name.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Various fixes and tweaks to the "Check for mod updates" and "Get missing download ID" functions.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Fixed mod installation when the mod's downloadID was invalid.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where NMM was unable to retrieve the mod version when loading the profile's mod list (also randomly causing a crash).\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Added more feedback to the profile switching process when disabling links from the previous profile, previously NMM seemed to hang.\par
-{\pntext\f0 12.\tab}\cf3\b Bugfix:\cf2\b0  Fixed long profile names breaking the UI, NMM will now also prevent users to set names longer than 64 chars.\par
-{\pntext\f0 13.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when NMM tries to read the plugins.txt or loadorder.txt files that are locked for access by another program.\par
-{\pntext\f0 14.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where right-clicking on a profile in the profile tab didn't select the profile.\par
-{\pntext\f0 15.\tab}\cf3\b Bugfix\b0 :\cf2  Fixed renaming issue with some special characters causing empty profile names. \par
-{\pntext\f0 16.\tab}\cf3\b Bugfix:\cf2  \b0 Fixed the progress bar popup randomly starting to blink after changing the loadorder.\par
-{\pntext\f0 17.\tab}\cf3\b Bugfix:\cf2  \b0 Fixed profile switch related crash when removing old plugins.\par
-{\pntext\f0 18.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when switching game modes.\par
-{\pntext\f0 19.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when saving or loading a profile.\par
-{\pntext\f0 20.\tab}\cf3\b Bugfix:\cf2\b0  Fixed mod migration crash.\par
-{\pntext\f0 21.\tab}\cf3\b Bugfix:\cf2\b0  Updated 7zip libraries to address security issues.\par
-{\pntext\f0 22.\tab}\cf3\b Bugfix:\cf2\b0  Updated Fallout 4 categories.\par
-{\pntext\f0 23.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where NMM was unable to retrieve the mod ID from some filenames.\par
-{\pntext\f0 24.\tab}\cf3\b Bugfix:\cf2\b0  Fixed startup crash issue when Windows 8 users were missing the latest .Net Framework.\par
-{\pntext\f0 25.\tab}\cf3\b Bugfix:\cf2\b0  Fixed stuck queue issue with invalid mod or download IDs.\par
-{\pntext\f0 26.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issues when updating a mod IDs in the current profile.\par
-{\pntext\f0 27.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked connection issues feedback.\par
-{\pntext\f0 28.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing the mod migration procedure from properly importing the backup file.\par
-{\pntext\f0 29.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing mod reinstalls to fail while using the multi-HD mode.\par
-{\pntext\f0 30.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where dash characters were added to a downloaded mod name.\par
-{\pntext\f0 31.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Supported Tools config window popping under its dropdown menu.\par
-{\pntext\f0 32.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked and re-enabled the mod upgrade functionality, \i if it doesn't work for a mod file it means the mod author didn't properly set it as a new version of the previous file\i0 .\par
-{\pntext\f0 33.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issues when saving or updating the profile's modlist xml file.\par
-{\pntext\f0 34.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now provide feedback when the 'Check for mod updates' or 'DownloadID' related functions fails.\par
-{\pntext\f0 35.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where a downloaded mod may not show up in the Mods list when using custom categories.\par
-{\pntext\f0 36.\tab}\cf3\b Bugfix:\cf2\b0  Fixed wrong popup menu location when clicking the 'Check for mod updates' button.\par
-{\pntext\f0 37.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now properly recognize newer FO4 DLCs as such.\par
-{\pntext\f0 38.\tab}\cf3\b Bugfix:\cf2\b0  Fixed another issue that could cause broken records to be added to the profile NMM is switching to and preventing NMM to remove linked files.\par
-{\pntext\f0 39.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when the profile id is null.\par
-{\pntext\f0 40.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where activating a new mod wasn't saving the mod entries in the virtual install config files, thus showing the mod as disabled when restarting NMM.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added new setting to the General settings tab where the user can set whether NMM should manage the mod name or leave it as the user set it.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  NMM now supports the multi mod selection when using the mod delete function.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  NMM will now be able to retrieve mod categories from the web server (a new button has been added to the Categories submenu).\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a bug causing virtual install and profile config files to become bloated, an automatic file fixing procedure will take care analyze your config files and fix them when you start NMM (This can be a lenghty but necessary process).\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed several crashes when trying to save the profile config. \par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed confirmation prompt when exiting the program.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash caused by some special characters in the profile name.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Various fixes and tweaks to the "Check for mod updates" and "Get missing download ID" functions.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Fixed mod installation when the mod's downloadID was invalid.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where NMM was unable to retrieve the mod version when loading the profile's mod list (also randomly causing a crash).\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Added more feedback to the profile switching process when disabling links from the previous profile, previously NMM seemed to hang.\par
+{\pntext\f0 12.\tab}\cf1\b Bugfix:\cf2\b0  Fixed long profile names breaking the UI, NMM will now also prevent users to set names longer than 64 chars.\par
+{\pntext\f0 13.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when NMM tries to read the plugins.txt or loadorder.txt files that are locked for access by another program.\par
+{\pntext\f0 14.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where right-clicking on a profile in the profile tab didn't select the profile.\par
+{\pntext\f0 15.\tab}\cf1\b Bugfix\b0 :\cf2  Fixed renaming issue with some special characters causing empty profile names. \par
+{\pntext\f0 16.\tab}\cf1\b Bugfix:\cf2  \b0 Fixed the progress bar popup randomly starting to blink after changing the loadorder.\par
+{\pntext\f0 17.\tab}\cf1\b Bugfix:\cf2  \b0 Fixed profile switch related crash when removing old plugins.\par
+{\pntext\f0 18.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when switching game modes.\par
+{\pntext\f0 19.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when saving or loading a profile.\par
+{\pntext\f0 20.\tab}\cf1\b Bugfix:\cf2\b0  Fixed mod migration crash.\par
+{\pntext\f0 21.\tab}\cf1\b Bugfix:\cf2\b0  Updated 7zip libraries to address security issues.\par
+{\pntext\f0 22.\tab}\cf1\b Bugfix:\cf2\b0  Updated Fallout 4 categories.\par
+{\pntext\f0 23.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where NMM was unable to retrieve the mod ID from some filenames.\par
+{\pntext\f0 24.\tab}\cf1\b Bugfix:\cf2\b0  Fixed startup crash issue when Windows 8 users were missing the latest .Net Framework.\par
+{\pntext\f0 25.\tab}\cf1\b Bugfix:\cf2\b0  Fixed stuck queue issue with invalid mod or download IDs.\par
+{\pntext\f0 26.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issues when updating a mod IDs in the current profile.\par
+{\pntext\f0 27.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked connection issues feedback.\par
+{\pntext\f0 28.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing the mod migration procedure from properly importing the backup file.\par
+{\pntext\f0 29.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing mod reinstalls to fail while using the multi-HD mode.\par
+{\pntext\f0 30.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where dash characters were added to a downloaded mod name.\par
+{\pntext\f0 31.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Supported Tools config window popping under its dropdown menu.\par
+{\pntext\f0 32.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked and re-enabled the mod upgrade functionality, \i if it doesn't work for a mod file it means the mod author didn't properly set it as a new version of the previous file\i0 .\par
+{\pntext\f0 33.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issues when saving or updating the profile's modlist xml file.\par
+{\pntext\f0 34.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now provide feedback when the 'Check for mod updates' or 'DownloadID' related functions fails.\par
+{\pntext\f0 35.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where a downloaded mod may not show up in the Mods list when using custom categories.\par
+{\pntext\f0 36.\tab}\cf1\b Bugfix:\cf2\b0  Fixed wrong popup menu location when clicking the 'Check for mod updates' button.\par
+{\pntext\f0 37.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now properly recognize newer FO4 DLCs as such.\par
+{\pntext\f0 38.\tab}\cf1\b Bugfix:\cf2\b0  Fixed another issue that could cause broken records to be added to the profile NMM is switching to and preventing NMM to remove linked files.\par
+{\pntext\f0 39.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when the profile id is null.\par
+{\pntext\f0 40.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where activating a new mod wasn't saving the mod entries in the virtual install config files, thus showing the mod as disabled when restarting NMM.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -91,8 +100,8 @@ Version 0.61.23\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Tweaked and fixed the "Check for mod updates" function.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue with the "Get Missing Download ID" function preventing NMM from retrieving the correct info for some mods.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Tweaked and fixed the "Check for mod updates" function.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue with the "Get Missing Download ID" function preventing NMM from retrieving the correct info for some mods.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -101,9 +110,9 @@ Version 0.61.22\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed mod update check and get missing downloadid functions.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a few loadorder and plugins file interaction related crashes.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now add Fallout 4 DLCs to the Plugins.txt file.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed mod update check and get missing downloadid functions.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a few loadorder and plugins file interaction related crashes.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now add Fallout 4 DLCs to the Plugins.txt file.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -112,7 +121,7 @@ Version 0.61.21\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed Fallout 4 1.5 issue that could cause plugins to become disabled when changing a plugin load order.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed Fallout 4 1.5 issue that could cause plugins to become disabled when changing a plugin load order.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -121,7 +130,7 @@ Version 0.61.20\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Again, added support for the latest Fallout 4 beta version.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Again, added support for the latest Fallout 4 beta version.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -130,8 +139,8 @@ Version 0.61.19\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed support for the latest Fallout 4 beta version.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing the Get Mod Updates and Get Missing Download IDs from properly working.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed support for the latest Fallout 4 beta version.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing the Get Mod Updates and Get Missing Download IDs from properly working.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -140,9 +149,9 @@ Version 0.61.18\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed NMM installer not prompting for the install folder when the program was already present on the system.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when intercepting external changes made to the loadorder file.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a forced random crash issue with the progress bar.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed NMM installer not prompting for the install folder when the program was already present on the system.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when intercepting external changes made to the loadorder file.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a forced random crash issue with the progress bar.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -151,17 +160,17 @@ Version 0.61.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added support for Fallout 4 version 1.5 beta or higher.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added new "Import profile's Load Order' button to the profile's submenu.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now properly recognize the official Fallout 4 DLCs as such.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a few crash issues where NMM was unable to link a mod file.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when purging mod links.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  The login form will now always show on top of the main NMM window.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when the system prevents NMM from interacting with the plugins and loadorder files.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where switching to a profile didn't load the saved scripted installer options.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where NMM could randomly add files to the profile it was switching from.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where NMM was assigning the same DownloadID to mod files sharing the same ModID.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Supported tool Bodyslide will now be referred as such (instead of "Bodyslide [version]).\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added support for Fallout 4 version 1.5 beta or higher.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added new "Import profile's Load Order' button to the profile's submenu.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now properly recognize the official Fallout 4 DLCs as such.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a few crash issues where NMM was unable to link a mod file.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when purging mod links.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  The login form will now always show on top of the main NMM window.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when the system prevents NMM from interacting with the plugins and loadorder files.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where switching to a profile didn't load the saved scripted installer options.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where NMM could randomly add files to the profile it was switching from.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where NMM was assigning the same DownloadID to mod files sharing the same ModID.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Supported tool Bodyslide will now be referred as such (instead of "Bodyslide [version]).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -170,11 +179,11 @@ Version 0.61.16\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  NMM will now properly install mod files where the root folder is "interface".\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a crash when trying to uninstall a plugin that's no longer present.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now provide better feedback when a "Delete Mod" fails.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fallout4 game mode will now interact with the Fallout4Custom.ini instead of the default one.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  The version column will now properly show both the local and the online version, separated by a "/".\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  NMM will now properly install mod files where the root folder is "interface".\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a crash when trying to uninstall a plugin that's no longer present.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now provide better feedback when a "Delete Mod" fails.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fallout4 game mode will now interact with the Fallout4Custom.ini instead of the default one.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  The version column will now properly show both the local and the online version, separated by a "/".\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -183,13 +192,13 @@ Version 0.61.15\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed and tweaked the Supported Tools dropdown menu.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing users from re-configuring a supported tool's path, users can now right-click on the supported tool in the menu to set a new path for it.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed scripting issue for Oblivion and Morrowind caused by missing dll files.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly installing the BOSS dll for Morrowind.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when setting the Temp path to a root folder.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue allowing users to enforce an invalid and unsafe path for the Temp folder.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed random "Value of 'xxx' is not valid for 'Value'." exception preventing some functions using the modal progress bar to complete.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed and tweaked the Supported Tools dropdown menu.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing users from re-configuring a supported tool's path, users can now right-click on the supported tool in the menu to set a new path for it.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed scripting issue for Oblivion and Morrowind caused by missing dll files.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly installing the BOSS dll for Morrowind.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when setting the Temp path to a root folder.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue allowing users to enforce an invalid and unsafe path for the Temp folder.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed random "Value of 'xxx' is not valid for 'Value'." exception preventing some functions using the modal progress bar to complete.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -198,9 +207,9 @@ Version 0.61.14\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Overhauled and fixed the Supported Tools setup and functionality, there's no longer a settings tab, to set the tool's path just go in the Tools submenu and click on the desired tool.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added FO4Edit to Fallout 4 supported tools.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Removed unused dll files causing false alerts in the tracelog file.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Overhauled and fixed the Supported Tools setup and functionality, there's no longer a settings tab, to set the tool's path just go in the Tools submenu and click on the desired tool.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added FO4Edit to Fallout 4 supported tools.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Removed unused dll files causing false alerts in the tracelog file.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -209,7 +218,7 @@ Version 0.61.13 Hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from restoring overridden links when uninstalling a mod.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from restoring overridden links when uninstalling a mod.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -218,10 +227,10 @@ Version 0.61.12\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added a "Reinstall Mod" option to the right-click context menu.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing mod files from being removed from the game folder when uninstalling a mod that was previously overwritten.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed mod deletion prompt not showing up when using the DEL key.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now properly run the 64bit version of Bodyslide2 when available.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added a "Reinstall Mod" option to the right-click context menu.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing mod files from being removed from the game folder when uninstalling a mod that was previously overwritten.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed mod deletion prompt not showing up when using the DEL key.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now properly run the 64bit version of Bodyslide2 when available.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -230,9 +239,9 @@ Version 0.61.11\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added XCOM 2 modding support.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Updated Dragon's Dogma categories (you need to click on the "categories"->"reset to nexus defaults" button to update your local list).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a few issues with automatic game scan for Dragon's Dogma and Witcher 3.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added XCOM 2 modding support.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Updated Dragon's Dogma categories (you need to click on the "categories"->"reset to nexus defaults" button to update your local list).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a few issues with automatic game scan for Dragon's Dogma and Witcher 3.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -241,10 +250,10 @@ Version 0.61.10\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed null reference crash when disabling mods in Witcher3 mode.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when UAC is preventing NMM from interacting with its VirtualInstall folder.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed another "failed rollback" crash when interacting with the plugin load order or activation state.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when purging file links and the user had manually removed mod files.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed null reference crash when disabling mods in Witcher3 mode.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when UAC is preventing NMM from interacting with its VirtualInstall folder.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed another "failed rollback" crash when interacting with the plugin load order or activation state.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when purging file links and the user had manually removed mod files.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -253,8 +262,8 @@ Version 0.61.9\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed mod deletion prompt appearing when clicking on "Uninstall from all profiles".\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed mod delete removing the mod archive when clicking NO at the prompt.\cf0\b\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed mod deletion prompt appearing when clicking on "Uninstall from all profiles".\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed mod delete removing the mod archive when clicking NO at the prompt.\cf0\b\par
 
 \pard\widctlpar\qj\par
 \par
@@ -263,10 +272,10 @@ Version 0.61.8\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue preventing Witcher 3 cache from properly updating (causing missing mod entries in the list).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where NMM was reporting a "Failed rollback" crash when trying to write on a read-only plugins.txt file.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Removed misleading "Delete Mod" button from the left bar, all the uninstall and delete commands are in the right-click context menu.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked and fixed mod delete functionality.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue preventing Witcher 3 cache from properly updating (causing missing mod entries in the list).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where NMM was reporting a "Failed rollback" crash when trying to write on a read-only plugins.txt file.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Removed misleading "Delete Mod" button from the left bar, all the uninstall and delete commands are in the right-click context menu.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked and fixed mod delete functionality.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -275,11 +284,11 @@ Version 0.61.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue causing the plugins.txt file to be updated very slowly when enabling/disabling multiple plugins.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now properly install Witcher 3 mods meant to be  installed in the DLC folder.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Witcher 3 mods installation/uninstallation issues (installing in the wrong folder or leaving files behind).\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing NMM to rename a Witcher 3 mod folder's name.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed unsupported mod structure warning to always reference Dragon's Dogma.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue causing the plugins.txt file to be updated very slowly when enabling/disabling multiple plugins.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now properly install Witcher 3 mods meant to be  installed in the DLC folder.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Witcher 3 mods installation/uninstallation issues (installing in the wrong folder or leaving files behind).\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing NMM to rename a Witcher 3 mod folder's name.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed unsupported mod structure warning to always reference Dragon's Dogma.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -288,14 +297,14 @@ Version 0.61.6\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added Dragon's Dogma modding support.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing loose mod files or game files overwritten by mods to be lost while switching profiles.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when clicking on empty elements of the Profiles menu.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when adding elements to the mod install queue.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Fallout 4 displayed name.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing some mods from properly installing on Witcher 3 and Starbound.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing some properly packaged Witcher 3 mods to be flagged as not supported.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Added new check to try and quickly retrieve game paths from Steam.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added Dragon's Dogma modding support.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing loose mod files or game files overwritten by mods to be lost while switching profiles.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when clicking on empty elements of the Profiles menu.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when adding elements to the mod install queue.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Fallout 4 displayed name.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing some mods from properly installing on Witcher 3 and Starbound.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing some properly packaged Witcher 3 mods to be flagged as not supported.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Added new check to try and quickly retrieve game paths from Steam.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -304,9 +313,9 @@ Version 0.61.5\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue with Fallout 4 categories.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Reworked contextual menu for the Mods control.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked source code and updated to .Net Framework 4.6.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue with Fallout 4 categories.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Reworked contextual menu for the Mods control.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked source code and updated to .Net Framework 4.6.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -315,11 +324,11 @@ Version 0.61.4\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Added F4SE launcher.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked F4 ini editing warning.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing NMM to clean the plugins.txt readonly flag at startup.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Fallout 4 .mp3 and .bgsm file installation while using MultiHD mode.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when using the "Uninstall from all profiles" function.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Added F4SE launcher.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked F4 ini editing warning.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing NMM to clean the plugins.txt readonly flag at startup.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Fallout 4 .mp3 and .bgsm file installation while using MultiHD mode.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when using the "Uninstall from all profiles" function.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -328,12 +337,12 @@ Version 0.61.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  NMM will now prevent the Fallout 4 launcher from resetting the plugins.txt file.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Fallout 4 categories.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from removing scripted installer config files when using "Uninstall all active mods".\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed rare crash when switching mod install mode in the Tools menu.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed rare issue where NMM suggests a non-existent drive as Virtual folder.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a rare crash in the file downloader.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  NMM will now prevent the Fallout 4 launcher from resetting the plugins.txt file.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Fallout 4 categories.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from removing scripted installer config files when using "Uninstall all active mods".\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed rare crash when switching mod install mode in the Tools menu.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed rare issue where NMM suggests a non-existent drive as Virtual folder.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a rare crash in the file downloader.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -342,11 +351,11 @@ Version 0.61.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  NMM will now provide better feedback when unable to check for Fallout4 ini edits, it also no longer prevents mod installation.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly installing .bsa file for Skyrim when using multiHD mode.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly installing .mp3 files.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue to preserve file links when disabling a mod that shares a file with another still enabled mod.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed profile switch crash issue when checking for a plugin\rquote s masters activation state.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  NMM will now provide better feedback when unable to check for Fallout4 ini edits, it also no longer prevents mod installation.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly installing .bsa file for Skyrim when using multiHD mode.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly installing .mp3 files.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue to preserve file links when disabling a mod that shares a file with another still enabled mod.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed profile switch crash issue when checking for a plugin\rquote s masters activation state.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -355,8 +364,8 @@ Version 0.61.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from restoring overwritten loose files.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue with some scripted installers being unable to check for dependencies and being unable to install.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from restoring overwritten loose files.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue with some scripted installers being unable to check for dependencies and being unable to install.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -365,11 +374,11 @@ Version 0.61.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added Fallout 4 modding support.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Plugins that are missing their masters will show as red in the Plugins tab. Plugins whose masters are disabled will be shown as orange (the plugin description will also provide feedback about these issues).\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  Release notes will be shown in the update popup.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue and profile switch issues caused when enabling scripted mods during a profile switch.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now prompt the user whether he really wants to enable or disable all the plugins when clicking the buttons in the Plugins tab.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added Fallout 4 modding support.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Plugins that are missing their masters will show as red in the Plugins tab. Plugins whose masters are disabled will be shown as orange (the plugin description will also provide feedback about these issues).\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  Release notes will be shown in the update popup.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue and profile switch issues caused when enabling scripted mods during a profile switch.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now prompt the user whether he really wants to enable or disable all the plugins when clicking the buttons in the Plugins tab.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -379,14 +388,14 @@ Version 0.60.16 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added context menu to each profile to rename/delete it (you\rquote re no longer limited to interact with the current profile).\par
-{\pntext\f0 2.\tab}\cf3\b Hotfix: \cf2\b0 Fixed issue crashing on Witcher3 game mode.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from saving the load order when moving plugins in the Plugins tab.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  NMM no longer loads non-existent paths into the Supported Tools settings menu.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from removing cache files when a mod archive is deleted.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing readme files to trigger the \ldblquote Missing files\rdblquote  warning during a profile switch.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed rare crash when something outside NMM changes the load order.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Removed old debug related messages from the tracelog.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added context menu to each profile to rename/delete it (you\rquote re no longer limited to interact with the current profile).\par
+{\pntext\f0 2.\tab}\cf1\b Hotfix: \cf2\b0 Fixed issue crashing on Witcher3 game mode.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from saving the load order when moving plugins in the Plugins tab.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  NMM no longer loads non-existent paths into the Supported Tools settings menu.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from removing cache files when a mod archive is deleted.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing readme files to trigger the \ldblquote Missing files\rdblquote  warning during a profile switch.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed rare crash when something outside NMM changes the load order.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Removed old debug related messages from the tracelog.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -395,17 +404,17 @@ Version 0.60.14\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Changed the way NMM handles the mod cache, NMM will now load 4x faster than before (It needs to migrate your cache files, so add a few seconds the first time you run this new version).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Merged the mod Version and Latest Version columns to reduce UI cluttering (you will still be able to click on the version number to reach the mod page, if you have update warnings enabled hovering the mouse on the warning icon will show you the latest version available online).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly enabling disabled mods while using the MultiHD mode.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from saving the activation state of plugins.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed \ldblquote Could not find part of the path\rdblquote  crash issue when migrating or switching installation mode.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when loading broken or null paths from the Supported Tools settings.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing NMM to ask users to configure their install settings when they were already set.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM being unable to parse XML scripts with fake choices (like S.W.I.F.T for Skyrim).\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issues with the cache manager.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issues where NMM wasn\rquote t prompting to install the new version when the installer was already present in the temp folder.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM being randomly unable to import the load order.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Changed the way NMM handles the mod cache, NMM will now load 4x faster than before (It needs to migrate your cache files, so add a few seconds the first time you run this new version).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Merged the mod Version and Latest Version columns to reduce UI cluttering (you will still be able to click on the version number to reach the mod page, if you have update warnings enabled hovering the mouse on the warning icon will show you the latest version available online).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly enabling disabled mods while using the MultiHD mode.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from saving the activation state of plugins.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed \ldblquote Could not find part of the path\rdblquote  crash issue when migrating or switching installation mode.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when loading broken or null paths from the Supported Tools settings.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing NMM to ask users to configure their install settings when they were already set.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM being unable to parse XML scripts with fake choices (like S.W.I.F.T for Skyrim).\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issues with the cache manager.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issues where NMM wasn\rquote t prompting to install the new version when the installer was already present in the temp folder.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM being randomly unable to import the load order.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -414,7 +423,7 @@ Version 0.60.13\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Disabled the masterlist.yaml update check until we can properly fix it (it seems to get stuck for some users).\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Disabled the masterlist.yaml update check until we can properly fix it (it seems to get stuck for some users).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -423,10 +432,10 @@ Version 0.60.12\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Updated LOOT library to version 0.8.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing users from completing the Dark Souls 2 setup.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed mod discoverer looking for mods in the profiles folder.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue while sorting the plugins.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Updated LOOT library to version 0.8.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing users from completing the Dark Souls 2 setup.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed mod discoverer looking for mods in the profiles folder.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue while sorting the plugins.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -435,15 +444,15 @@ Version 0.60.11\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed crash issue when switching to MultiHD mode.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when deleting the current profile and then switching to another one.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue that could cause NMM to remove backup files when changing install mode.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue in MultiHD mode where NMM wasn\rquote t reinstalling missing mods required by the profile.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM saving registry values in the wrong place.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed misleading folder suggestion on the setup screen.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM crashing when setting invalid paths for Supported Tools.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Supported Tools settings tab not showing error warnings.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Minor tweaks to the Supported Tools settings tab.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed crash issue when switching to MultiHD mode.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when deleting the current profile and then switching to another one.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue that could cause NMM to remove backup files when changing install mode.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue in MultiHD mode where NMM wasn\rquote t reinstalling missing mods required by the profile.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM saving registry values in the wrong place.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed misleading folder suggestion on the setup screen.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM crashing when setting invalid paths for Supported Tools.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Supported Tools settings tab not showing error warnings.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Minor tweaks to the Supported Tools settings tab.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -452,13 +461,13 @@ Version 0.60.10\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added a "Mod" field in the plugin description that will tell you what mod that plugin belongs to.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Right-clicking on a mod name will now also show the mod\rquote s filename.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed linked .bsa files not working with Fallout/Oblivion.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Small tweak to improve startup loading with lots of mods (more improvements will come).\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing a crash for some mods when forcing a file copy in multiHD mode.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing Delete mod to be enabled when clicking on categories.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue with the Delete mod function.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added a "Mod" field in the plugin description that will tell you what mod that plugin belongs to.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Right-clicking on a mod name will now also show the mod\rquote s filename.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed linked .bsa files not working with Fallout/Oblivion.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Small tweak to improve startup loading with lots of mods (more improvements will come).\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing a crash for some mods when forcing a file copy in multiHD mode.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing Delete mod to be enabled when clicking on categories.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue with the Delete mod function.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -467,18 +476,18 @@ Version 0.60.9\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  NMM will now be able to keep track of the real ID for mod files.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added \ldblquote Dual Sheat Redux\rdblquote  and \ldblquote Patchus Maximus\rdblquote  to the supported tools (those are just shortcuts, you need to install them).\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  Added \ldblquote Installed Mods\rdblquote  counter to the bottom bar.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where a profile was unable to restore scripted installers choices.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where scripted installers couldn\rquote t reinstall their files (if a file was present twice).\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed several issues with the Change Virtual Folder functionality and the multiHD mode setup.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when searching for program updates while the new installer is already installing.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  The program will now check whether there\rquote s actually an update to download before starting the masterlist update.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when retrieving the plugin directory.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM to store \ldblquote Dual Sheat Redux Patch.esp\rdblquote  and \ldblquote PatchusMaximus.esp\rdblquote  in a profile.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue where NMM wasn\rquote t updating supported patches files (DSR, PM, Bashed). Make sure to click on Save profile or disable/enable the plugin if you edit them when NMM is not running.\par
-{\pntext\f0 12.\tab}\cf3\b Bugfix:\cf2\b0  Fixed LOOT settings missing for New Vegas.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  NMM will now be able to keep track of the real ID for mod files.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added \ldblquote Dual Sheat Redux\rdblquote  and \ldblquote Patchus Maximus\rdblquote  to the supported tools (those are just shortcuts, you need to install them).\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  Added \ldblquote Installed Mods\rdblquote  counter to the bottom bar.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where a profile was unable to restore scripted installers choices.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where scripted installers couldn\rquote t reinstall their files (if a file was present twice).\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed several issues with the Change Virtual Folder functionality and the multiHD mode setup.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when searching for program updates while the new installer is already installing.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  The program will now check whether there\rquote s actually an update to download before starting the masterlist update.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when retrieving the plugin directory.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM to store \ldblquote Dual Sheat Redux Patch.esp\rdblquote  and \ldblquote PatchusMaximus.esp\rdblquote  in a profile.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue where NMM wasn\rquote t updating supported patches files (DSR, PM, Bashed). Make sure to click on Save profile or disable/enable the plugin if you edit them when NMM is not running.\par
+{\pntext\f0 12.\tab}\cf1\b Bugfix:\cf2\b0  Fixed LOOT settings missing for New Vegas.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -487,11 +496,11 @@ Version 0.60.8\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Tentative fix for the uninstall progress getting stuck during the mod migration.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing NMM to crash while loading the path configuration form (also preventing the Dark Souls 2 game mode from being initialized).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed random crash while trying to change the read-only flag of a plugin file.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when the config file references to an unplugged drive.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed random crash while deleting a newly created category.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Tentative fix for the uninstall progress getting stuck during the mod migration.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing NMM to crash while loading the path configuration form (also preventing the Dark Souls 2 game mode from being initialized).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed random crash while trying to change the read-only flag of a plugin file.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when the config file references to an unplugged drive.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed random crash while deleting a newly created category.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -500,10 +509,10 @@ Version 0.60.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed bug preventing NMM from properly working with some games (Dragon Age, State of Decay, etc.)\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Tentative fix for the bug preventing .xml files from being removed from the \ldblquote Scripted\rdblquote  folder.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Implemented additional log entries to help with a rare bug crashing NMM while sorting the plugins. \par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing plugin files from being installed on ReFS drives.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed bug preventing NMM from properly working with some games (Dragon Age, State of Decay, etc.)\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Tentative fix for the bug preventing .xml files from being removed from the \ldblquote Scripted\rdblquote  folder.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Implemented additional log entries to help with a rare bug crashing NMM while sorting the plugins. \par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing plugin files from being installed on ReFS drives.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -512,12 +521,12 @@ Version 0.60.6\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed many issues with the MultiHD install mode (missing files, mods unable to install, etc..).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when the user is using a broken/incomplete .Net Framework.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed rare crash while right-clicking on a mod in the mods list.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  When the MultiHD mode is active NMM will prevent the user from installing/activating mods or switching profiles if the program is not run as Administrator (and will warn the user about it).\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue preventing some fomods from installing (like FCO for New Vegas).\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing some mods from installing txt files.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed many issues with the MultiHD install mode (missing files, mods unable to install, etc..).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when the user is using a broken/incomplete .Net Framework.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed rare crash while right-clicking on a mod in the mods list.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  When the MultiHD mode is active NMM will prevent the user from installing/activating mods or switching profiles if the program is not run as Administrator (and will warn the user about it).\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue preventing some fomods from installing (like FCO for New Vegas).\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing some mods from installing txt files.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -526,9 +535,9 @@ Version 0.60.5\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue causing some plugins to randomly show as corrupt.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing .jar and .exe files from properly working (FNIS, BodySlide2, DualSheat\rquote s .jar, etc.).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing the \ldblquote Uninstall from all profiles\rdblquote  command to crash under some specific circumstances.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue causing some plugins to randomly show as corrupt.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing .jar and .exe files from properly working (FNIS, BodySlide2, DualSheat\rquote s .jar, etc.).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing the \ldblquote Uninstall from all profiles\rdblquote  command to crash under some specific circumstances.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -537,13 +546,13 @@ Version 0.60.4\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue causing the migration process to be unable to reinstall some mods.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly handling the load order for Fallout and Oblivion.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing the Morrowind game mode to hang while performing the mod migration.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing the Morrowind game mode to install files in the wrong folder.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from automatically retrieve the Morrowind game path during the startup scan.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing the ReadMe Manager from properly catching readme files.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue with the Backup file management.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue causing the migration process to be unable to reinstall some mods.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from properly handling the load order for Fallout and Oblivion.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing the Morrowind game mode to hang while performing the mod migration.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing the Morrowind game mode to install files in the wrong folder.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from automatically retrieve the Morrowind game path during the startup scan.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing the ReadMe Manager from properly catching readme files.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue with the Backup file management.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -552,9 +561,9 @@ Version 0.60.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added new \ldblquote Restore Backup Profile\rdblquote  functionality to the Tools menu.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing the folder selection dialog to appear in the setup menu.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked the startup disclaimer.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added new \ldblquote Restore Backup Profile\rdblquote  functionality to the Tools menu.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing the folder selection dialog to appear in the setup menu.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked the startup disclaimer.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -563,7 +572,7 @@ Version 0.60.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue causing scripted installers to fail when there was no active mod profile.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue causing scripted installers to fail when there was no active mod profile.\par
 
 \pard\widctlpar\li720\qj\par
 
@@ -573,8 +582,8 @@ Version 0.60.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed issue that could cause NMM to crash when starting the migration process.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue that could hang the program while switching profile.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed issue that could cause NMM to crash when starting the migration process.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue that could hang the program while switching profile.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -583,19 +592,19 @@ Version 0.60.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Profile Manager.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  New mod installation method.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  Added a few new icons for a clearer interface.\par
-{\pntext\f0 4.\tab}\cf1\b New Feature:\cf2\b0  Added a new button to launch external tools.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash caused by custom fonts.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed automatic plugin sorting being enabled for unsupported games.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a crash issue caused by a broken config file. \par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash while refreshing plugin indices in the plugin\rquote s tab.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash while trying to change a plugin timestamp and the file is locked by another process.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when the program could not find the new installer file on the server.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Fixed local mod addition when the source folder contains illegal characters.\par
-{\pntext\f0 12.\tab}\cf3\b Bugfix:\cf2\b0  Fixed automatic plugin sorting being enabled and crashing on Morrowind.\par
-{\pntext\f0 13.\tab}\cf3\b Bugfix:\cf2\b0  Fixed rare occurrence of files being linked in the wrong folder.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Profile Manager.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  New mod installation method.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  Added a few new icons for a clearer interface.\par
+{\pntext\f0 4.\tab}\cf3\b New Feature:\cf2\b0  Added a new button to launch external tools.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash caused by custom fonts.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed automatic plugin sorting being enabled for unsupported games.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a crash issue caused by a broken config file. \par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash while refreshing plugin indices in the plugin\rquote s tab.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash while trying to change a plugin timestamp and the file is locked by another process.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when the program could not find the new installer file on the server.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Fixed local mod addition when the source folder contains illegal characters.\par
+{\pntext\f0 12.\tab}\cf1\b Bugfix:\cf2\b0  Fixed automatic plugin sorting being enabled and crashing on Morrowind.\par
+{\pntext\f0 13.\tab}\cf1\b Bugfix:\cf2\b0  Fixed rare occurrence of files being linked in the wrong folder.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -604,7 +613,7 @@ Version 0.56.1 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed Witcher 3 automatic detection when installed through Steam.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed Witcher 3 automatic detection when installed through Steam.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -613,10 +622,10 @@ Version 0.56.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  Added Witcher 3 support (only for mods made through the official Modding Toolkit).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue with the install queue feedback on the bottom bar.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing many Oblivion omod to fail to install or to crash the program.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  The installer should no longer ask Windows 10 \b FINAL\b0  users to install .Net Framework 4.5.2.\par
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  Added Witcher 3 support (only for mods made through the official Modding Toolkit).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue with the install queue feedback on the bottom bar.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing many Oblivion omod to fail to install or to crash the program.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  The installer should no longer ask Windows 10 \b FINAL\b0  users to install .Net Framework 4.5.2.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -625,10 +634,10 @@ Version 0.55.8\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Added forced timeout to the program version check (15 seconds).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked feedback when a mod archive is being locally moved to the program\rquote s Mods folder.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Updated LOOT API to version 0.7.1.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed load order not always synching with games using file timestamps to manage it.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Added forced timeout to the program version check (15 seconds).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked feedback when a mod archive is being locally moved to the program\rquote s Mods folder.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Updated LOOT API to version 0.7.1.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed load order not always synching with games using file timestamps to manage it.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -637,13 +646,13 @@ Version 0.55.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed crash issue with invalid plugin file edit events.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue while uninstalling a mod and the game\rquote s ini file is no longer present at the expected location.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked failed login messages to be more informative.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when in category view and moving a mod to another category when a search filter is active.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when in category view and renaming a mod while a search filter is active.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash during the program update check when the server is returning an unexpected value.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed DownloadDate column showing 0s while in category view.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed crash issue with invalid plugin file edit events.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue while uninstalling a mod and the game\rquote s ini file is no longer present at the expected location.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked failed login messages to be more informative.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when in category view and moving a mod to another category when a search filter is active.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when in category view and renaming a mod while a search filter is active.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash during the program update check when the server is returning an unexpected value.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed DownloadDate column showing 0s while in category view.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -652,10 +661,10 @@ Version 0.55.6\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  The manager no longer prevents you from activating more than 255 plugins for Gamebryo games, but it will warn you on the status bar when the limit is exceeded and inform you that the game won\rquote t be able to start.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed startup crash when the manager was unable to retrieve the plugin list activation state.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue when retrieving a plugin from his file path.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing a plugin to disappear from the list when the program used to edit it will recreate it from scratch (eg. Construction Kit).\par
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  The manager no longer prevents you from activating more than 255 plugins for Gamebryo games, but it will warn you on the status bar when the limit is exceeded and inform you that the game won\rquote t be able to start.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed startup crash when the manager was unable to retrieve the plugin list activation state.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue when retrieving a plugin from his file path.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing a plugin to disappear from the list when the program used to edit it will recreate it from scratch (eg. Construction Kit).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -664,7 +673,7 @@ Version 0.55.5\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed issue causing an infinite loop in the file watcher while monitoring the plugins/loadorder files.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed issue causing an infinite loop in the file watcher while monitoring the plugins/loadorder files.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -673,10 +682,10 @@ Version 0.55.4\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Various tweaks to the plugin load order and activation management.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM trying to react to external events before a file was fully created/written to.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM from saving loadorder.txt and plugins.txt files if they already existed but 0 bytes in size.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM crashing while trying to uninstall a file being used by another process.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Various tweaks to the plugin load order and activation management.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM trying to react to external events before a file was fully created/written to.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM from saving loadorder.txt and plugins.txt files if they already existed but 0 bytes in size.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM crashing while trying to uninstall a file being used by another process.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -685,10 +694,10 @@ Version 0.55.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  NMM will more consistently create the loadorder when the loadorder.txt file is missing or unreadable.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue causing missing/deactived plugins in both Fallout games and Oblivion.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed \ldblquote HearthFires.esp\rdblquote  and added hd texture packs entries to the base plugins list (this will fix them missing when NMM creates a new loadorder.txt file).\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a few \ldblquote index out of range\rdblquote  crashes when interacting with the plugin list.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  NMM will more consistently create the loadorder when the loadorder.txt file is missing or unreadable.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue causing missing/deactived plugins in both Fallout games and Oblivion.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed \ldblquote HearthFires.esp\rdblquote  and added hd texture packs entries to the base plugins list (this will fix them missing when NMM creates a new loadorder.txt file).\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a few \ldblquote index out of range\rdblquote  crashes when interacting with the plugin list.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -697,8 +706,8 @@ Version 0.55.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed NMM crashing when uninstalling a mod and the mod archive is no longer present in the Mods folder.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash during mod deactivation for plugin-less game modes.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed NMM crashing when uninstalling a mod and the mod archive is no longer present in the Mods folder.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash during mod deactivation for plugin-less game modes.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -707,13 +716,13 @@ Version 0.55.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Additional checks to prevent the program from crashing when something is locking a file.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when the program is unable to perform a token login.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed threading related null object reference crash.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing NMM to manage single character name plugins.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing missing plugins in the NMM Plugins tab.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing the Automatic Sorting functionality to delete the loadorder file.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when the Automatic Sorting fails, NMM will now warn the user with a message box.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Additional checks to prevent the program from crashing when something is locking a file.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when the program is unable to perform a token login.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed threading related null object reference crash.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing NMM to manage single character name plugins.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing missing plugins in the NMM Plugins tab.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing the Automatic Sorting functionality to delete the loadorder file.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when the Automatic Sorting fails, NMM will now warn the user with a message box.\par
 
 \pard\widctlpar\li360\qj\par
 
@@ -723,24 +732,24 @@ Version 0.55.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  New plugin loadorder/activation management.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  NMM will now synch in realtime with external plugin loadorder/activation changes.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  Added the plugin count to the status bar (present/active).\par
-{\pntext\f0 4.\tab}\cf1\b New Feature:\cf2\b0  Added new \ldblquote Download Date\rdblquote  column to the Mods tab.\par
-{\pntext\f0 5.\tab}\cf1\b New Feature:\cf2\b0  Added new FNV4GB launcher option for New Vegas (you still need to manually install it).\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed many issues when there were too many active plugins.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash issue with broken mod packages.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Fixed broken column auto-resize on the Download Monitor.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Fixed rare crash when resetting the search filter.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Mod Installation Queue crash issue when many different operations were queued.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  NMM will properly show \ldblquote Idle\rdblquote  when the mod install queue is empty.\par
-{\pntext\f0 12.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when parsing the endorsement state from the cached file.\par
-{\pntext\f0 13.\tab}\cf3\b Bugfix:\cf2\b0  Fixed startup issue where NMM was asking to upgrade a mod when the local version couldn\rquote t be retrieved.\par
-{\pntext\f0 14.\tab}\cf3\b Bugfix:\cf2\b0  Fixed mod addition status showing as \ldblquote Downloading\rdblquote  when locally adding a file.\par
-{\pntext\f0 15.\tab}\cf3\b Bugfix:\cf2\b0  Fixed Morrowind plugin sorting/activation management.\par
-{\pntext\f0 16.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue in the Mod Activation Queue Monitor causing increasing lag after each completed task.\par
-{\pntext\f0 17.\tab}\cf3\b Bugfix:\cf2\b0  Enable and Disable all plugins buttons will now properly show a progress bar.\par
-{\pntext\f0 18.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM suggesting paths on drives that are no longer present on the system.\par
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  New plugin loadorder/activation management.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  NMM will now synch in realtime with external plugin loadorder/activation changes.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  Added the plugin count to the status bar (present/active).\par
+{\pntext\f0 4.\tab}\cf3\b New Feature:\cf2\b0  Added new \ldblquote Download Date\rdblquote  column to the Mods tab.\par
+{\pntext\f0 5.\tab}\cf3\b New Feature:\cf2\b0  Added new FNV4GB launcher option for New Vegas (you still need to manually install it).\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed many issues when there were too many active plugins.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash issue with broken mod packages.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Fixed broken column auto-resize on the Download Monitor.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Fixed rare crash when resetting the search filter.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Mod Installation Queue crash issue when many different operations were queued.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  NMM will properly show \ldblquote Idle\rdblquote  when the mod install queue is empty.\par
+{\pntext\f0 12.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when parsing the endorsement state from the cached file.\par
+{\pntext\f0 13.\tab}\cf1\b Bugfix:\cf2\b0  Fixed startup issue where NMM was asking to upgrade a mod when the local version couldn\rquote t be retrieved.\par
+{\pntext\f0 14.\tab}\cf1\b Bugfix:\cf2\b0  Fixed mod addition status showing as \ldblquote Downloading\rdblquote  when locally adding a file.\par
+{\pntext\f0 15.\tab}\cf1\b Bugfix:\cf2\b0  Fixed Morrowind plugin sorting/activation management.\par
+{\pntext\f0 16.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue in the Mod Activation Queue Monitor causing increasing lag after each completed task.\par
+{\pntext\f0 17.\tab}\cf1\b Bugfix:\cf2\b0  Enable and Disable all plugins buttons will now properly show a progress bar.\par
+{\pntext\f0 18.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM suggesting paths on drives that are no longer present on the system.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -749,9 +758,9 @@ Version 0.54.10 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed libloadorder issue causing blank plugins.txt files (broken plugins will be ignored).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed loadorder/plugins backup procedure being unable to retrieve the AppData path on some systems.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue caused by invalid userlist.yaml files.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed libloadorder issue causing blank plugins.txt files (broken plugins will be ignored).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed loadorder/plugins backup procedure being unable to retrieve the AppData path on some systems.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue caused by invalid userlist.yaml files.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -760,10 +769,10 @@ Version 0.54.9 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  You will now be able to provide custom user lists to NMM for the automatic sorting (name your file as \b userlist.yaml\b0  and put it in the Documents/Nexus Mod Manager/loot/\{GameName\} folder).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  NMM will now make a safety backup of your plugins.txt and loadorder.txt files.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an \ldblquote index out of range\rdblquote  crash.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed some forced plugins.txt deletions in the libloadorder library.\par
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  You will now be able to provide custom user lists to NMM for the automatic sorting (name your file as \b userlist.yaml\b0  and put it in the Documents/Nexus Mod Manager/loot/\{GameName\} folder).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  NMM will now make a safety backup of your plugins.txt and loadorder.txt files.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an \ldblquote index out of range\rdblquote  crash.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed some forced plugins.txt deletions in the libloadorder library.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -772,8 +781,8 @@ Version 0.54.8 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed a startup crash when a plugin loaded before its master and that master plugin where the last 2 elements of the plugin list.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  The \ldblquote Uninstall all active mods\rdblquote  function will now properly make use of the activation queue.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed a startup crash when a plugin loaded before its master and that master plugin where the last 2 elements of the plugin list.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  The \ldblquote Uninstall all active mods\rdblquote  function will now properly make use of the activation queue.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -782,10 +791,10 @@ Version 0.54.7 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  NMM will now prevent you from moving a plugin above one of its master files.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed load order issue causing NMM to be unable to properly save the plugins.txt (causing blank plugins.txt files).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing NMM to crash when there were invalid entries in the loadorder file.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue preventing some plugins to activate after being installed.\par
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  NMM will now prevent you from moving a plugin above one of its master files.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed load order issue causing NMM to be unable to properly save the plugins.txt (causing blank plugins.txt files).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing NMM to crash when there were invalid entries in the loadorder file.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue preventing some plugins to activate after being installed.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -794,7 +803,7 @@ Version 0.54.6 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed another issue causing disabled plugins.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed another issue causing disabled plugins.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -803,7 +812,7 @@ Version 0.54.5 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed threading issue causing all sorts of bugs with the plugins.txt file interaction (eg. Disabled plugins).\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed threading issue causing all sorts of bugs with the plugins.txt file interaction (eg. Disabled plugins).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -812,9 +821,9 @@ Version 0.54.4 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed issue preventing the plugin list from properly updating after the Automatic Sorting.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed issue causing NMM to crash when there were duplicate entries in the loadorder file.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed another rare instance of plugin entry duplication in the loadorder file.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed issue preventing the plugin list from properly updating after the Automatic Sorting.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed issue causing NMM to crash when there were duplicate entries in the loadorder file.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed another rare instance of plugin entry duplication in the loadorder file.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -823,7 +832,7 @@ Version 0.54.3 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed issue where NMM is unable to validate new directories for the Install Info and Mods.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed issue where NMM is unable to validate new directories for the Install Info and Mods.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -832,7 +841,7 @@ Version 0.54.2 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed NMM crashing because of faulty loadorder/plugins file.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed NMM crashing because of faulty loadorder/plugins file.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -841,12 +850,12 @@ Version 0.54.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added support for libloadorder and LOOT APIs (replacing the BOSS API).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added new \ldblquote Automatic Plugin Sorting\rdblquote  functionality to the Tools menu (for supported games).\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  Added new info column to the \ldblquote Mod Activation Queue\rdblquote  monitor.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed long-standing issue causing NMM to rarely mishandle critical plugin entries in the loadorder.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM crashing when an invalid loadorder.txt file is present in the game\rquote s AppData folder.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a crash loop issue caused by setting NMM paths to hard-drives no longer present on the system.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added support for libloadorder and LOOT APIs (replacing the BOSS API).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added new \ldblquote Automatic Plugin Sorting\rdblquote  functionality to the Tools menu (for supported games).\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  Added new info column to the \ldblquote Mod Activation Queue\rdblquote  monitor.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed long-standing issue causing NMM to rarely mishandle critical plugin entries in the loadorder.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM crashing when an invalid loadorder.txt file is present in the game\rquote s AppData folder.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a crash loop issue caused by setting NMM paths to hard-drives no longer present on the system.\par
 
 \pard\widctlpar\qj\par
 \cf0\b\par
@@ -855,8 +864,8 @@ Version 0.53.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3 Bugfix:\cf2\b0  Fixed issue causing the program to crash while editing a mod name.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a long-standing issue preventing some XML scripted installers (like the one for WARZONES 2015) from properly installing.\par
+\fi-360\li720\qj\cf1 Bugfix:\cf2\b0  Fixed issue causing the program to crash while editing a mod name.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a long-standing issue preventing some XML scripted installers (like the one for WARZONES 2015) from properly installing.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -865,9 +874,9 @@ Version 0.53.6\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed NMM crashing when an invalid image parameter was present in a plugin file.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed local mod addition queue getting stuck on incomplete mod additions.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a tracelog UI issue where the details panel made it impossible to click the buttons.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed NMM crashing when an invalid image parameter was present in a plugin file.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed local mod addition queue getting stuck on incomplete mod additions.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a tracelog UI issue where the details panel made it impossible to click the buttons.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -876,8 +885,8 @@ Version 0.53.5 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  This should fix an issue causing scripted installers to fail after choosing the desired options.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue causing the mod activation state to not update while in category view.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  This should fix an issue causing scripted installers to fail after choosing the desired options.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue causing the mod activation state to not update while in category view.\par
 
 \pard\widctlpar\li720\qj\par
 
@@ -887,7 +896,7 @@ Version 0.53.4 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed NMM randomly crashing when installing/uninstalling mods.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed NMM randomly crashing when installing/uninstalling mods.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -896,15 +905,15 @@ Version 0.53.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  NMM will keep track of options selected in scripted installers (this info will be used in the profile build).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added Mod Activation Queue feedback to the bottom bar.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  The Mod Activation Queue will now automatically focus on the currently active element.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed crash when trying to filter the Install Date column in category view.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed IllegalFilePath exception crash during a mod uninstall.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed UnauthorizedAccess exception crash during the game scan.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed startup crash when NMM was unable to retrieve critical paths in the config file.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Failed logins will now provide more useful feedback.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Overwrite prompts will now show which mod is trying to overwrite a file (users were left clueless if many mods were in the queue and the monitor was minimized).\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  NMM will keep track of options selected in scripted installers (this info will be used in the profile build).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added Mod Activation Queue feedback to the bottom bar.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  The Mod Activation Queue will now automatically focus on the currently active element.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed crash when trying to filter the Install Date column in category view.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed IllegalFilePath exception crash during a mod uninstall.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed UnauthorizedAccess exception crash during the game scan.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed startup crash when NMM was unable to retrieve critical paths in the config file.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Failed logins will now provide more useful feedback.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Overwrite prompts will now show which mod is trying to overwrite a file (users were left clueless if many mods were in the queue and the monitor was minimized).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -913,11 +922,11 @@ Version 0.53.2 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Mod counter (present/active) added to the bottom bar.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed missing progress column on the mod activation monitor.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed cancelled installs reporting as 100%.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed CTRL+C not copying all fields on the mod activation monitor.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed many instances of UI lag and/or getting stuck.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Mod counter (present/active) added to the bottom bar.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed missing progress column on the mod activation monitor.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed cancelled installs reporting as 100%.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed CTRL+C not copying all fields on the mod activation monitor.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed many instances of UI lag and/or getting stuck.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -926,7 +935,7 @@ Version 0.53.1 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed mod upgrades getting stuck and blocking the activation queue.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed mod upgrades getting stuck and blocking the activation queue.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -935,11 +944,11 @@ Version 0.53.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Mod Activation Queue added.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Backup restore functionality added.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed many instances of NMM crashing when a file is locked by another process.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a progress bar \ldblquote ArgumentOutOfRange\rdblquote  crash.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed shift+click multiselection on the mods control.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Mod Activation Queue added.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Backup restore functionality added.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed many instances of NMM crashing when a file is locked by another process.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a progress bar \ldblquote ArgumentOutOfRange\rdblquote  crash.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed shift+click multiselection on the mods control.\par
 
 \pard\widctlpar\li360\qj\par
 
@@ -949,7 +958,7 @@ Version 0.52.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed NMM saving html encoded mod names.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed NMM saving html encoded mod names.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -958,9 +967,9 @@ Version 0.52.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Removed unnecessary entries in the server selection list.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue preventing the CDN to be chosen if the selected Premium server is unavailable.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue causing NMM to save mod files with url encoded names.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Removed unnecessary entries in the server selection list.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue preventing the CDN to be chosen if the selected Premium server is unavailable.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue causing NMM to save mod files with url encoded names.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -969,7 +978,7 @@ Version 0.52.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  NMM will ignore the fileserver selection when CDN downloads are provided.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  NMM will ignore the fileserver selection when CDN downloads are provided.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -978,8 +987,8 @@ Version 0.52.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Full support for the new CDN download system.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a tips related startup crash.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Full support for the new CDN download system.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a tips related startup crash.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -988,13 +997,13 @@ Version 0.51.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added the Tips Manager, it will provide feedback for new version\rquote s fixes and tweaks.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  NMM will warn the user if there\rquote s something wrong with the selected InstallInfo/Mods folders.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  NMM will prompt the user to go back to the folder setup instead of just automatically removing installed mods if they're missing from the proper mod folder.\par
-{\pntext\f0 4.\tab}\cf1\b New Feature:\cf2\b0  Added support for the new endorse/abstain management (to update the local status you\rquote re required to perform a \ldblquote mod update check\rdblquote , no icon in the endorsement column means you never endorsed the mod).\par
-{\pntext\f0 5.\tab}\cf1\b New Feature:\cf2\b0  Added new \ldblquote Stop Searching\rdblquote  button to the game scan UI: clicking this will stop the search process for all game modes.\par
-{\pntext\f0 6.\tab}\cf1\b New Feature:\cf2\b0  Added new \ldblquote Quick Startup\rdblquote  button to the game scan UI: clicking this (after confirming at least one game path) will immediately switch to the game selection with just the games you\rquote ve already verified. \par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue with the XML script compiler preventing scripts to properly compile for plugin-less games.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added the Tips Manager, it will provide feedback for new version\rquote s fixes and tweaks.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  NMM will warn the user if there\rquote s something wrong with the selected InstallInfo/Mods folders.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  NMM will prompt the user to go back to the folder setup instead of just automatically removing installed mods if they're missing from the proper mod folder.\par
+{\pntext\f0 4.\tab}\cf3\b New Feature:\cf2\b0  Added support for the new endorse/abstain management (to update the local status you\rquote re required to perform a \ldblquote mod update check\rdblquote , no icon in the endorsement column means you never endorsed the mod).\par
+{\pntext\f0 5.\tab}\cf3\b New Feature:\cf2\b0  Added new \ldblquote Stop Searching\rdblquote  button to the game scan UI: clicking this will stop the search process for all game modes.\par
+{\pntext\f0 6.\tab}\cf3\b New Feature:\cf2\b0  Added new \ldblquote Quick Startup\rdblquote  button to the game scan UI: clicking this (after confirming at least one game path) will immediately switch to the game selection with just the games you\rquote ve already verified. \par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue with the XML script compiler preventing scripts to properly compile for plugin-less games.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1003,9 +1012,9 @@ Version 0.50.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added mod script support for State of Decay installers.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  The program installer will now force uninstall only for versions older than 0.50.0.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed the Dark Souls 2 support with new versions of the GeDoSaTo Tool.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added mod script support for State of Decay installers.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  The program installer will now force uninstall only for versions older than 0.50.0.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed the Dark Souls 2 support with new versions of the GeDoSaTo Tool.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1014,9 +1023,9 @@ Version 0.50.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed an issue preventing UI elements to be reorganized by the user.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  The Reset UI button in the Tools menu will now properly reset the column size in the mod control.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  The \lquote Check for mod update\rquote  and \lquote Endorsement toggle\rquote  requests will now properly resume after a successful login (pending requests will be discarded after 15 seconds).\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed an issue preventing UI elements to be reorganized by the user.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  The Reset UI button in the Tools menu will now properly reset the column size in the mod control.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  The \lquote Check for mod update\rquote  and \lquote Endorsement toggle\rquote  requests will now properly resume after a successful login (pending requests will be discarded after 15 seconds).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1025,8 +1034,8 @@ Version 0.50.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed an issue with 32bit systems and the new SevenSharpZip library.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue while installing scripted New Vegas mods.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed an issue with 32bit systems and the new SevenSharpZip library.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue while installing scripted New Vegas mods.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1035,11 +1044,11 @@ Version 0.50.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Source code upgraded to the .Net Framework 4.5.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added a new button in the Download settings menu that will fix the Chrome/Windows 8.x download bug.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  The seamless login functionality will try to restore the task that requested the login.\par
-{\pntext\f0 4.\tab}\cf1\b New Feature:\cf2\b0  Updated the library handling mod archives (this should also fix some long-standing bugs).\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a download startup bug while being offline.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Source code upgraded to the .Net Framework 4.5.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added a new button in the Download settings menu that will fix the Chrome/Windows 8.x download bug.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  The seamless login functionality will try to restore the task that requested the login.\par
+{\pntext\f0 4.\tab}\cf3\b New Feature:\cf2\b0  Updated the library handling mod archives (this should also fix some long-standing bugs).\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a download startup bug while being offline.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1048,9 +1057,9 @@ Version 0.49.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  New seamless login functionality.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a \ldblquote value cannot be null" startup crash.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a startup crash while trying to create environment folders.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  New seamless login functionality.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a \ldblquote value cannot be null" startup crash.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a startup crash while trying to create environment folders.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1059,7 +1068,7 @@ Version 0.49.6\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Fixed startup crash in Dark Souls 2 mode.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Fixed startup crash in Dark Souls 2 mode.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1068,12 +1077,12 @@ Version 0.49.5\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added support for Dark Souls 2.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added support for War Thunder.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an infinite loop during the startup phase.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a startup crash caused by missing or corrupt Mods/InstallInfo folder settings (the program will send the user to the required folders setup screen).\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a crash during the mod uninstallation process caused by broken install paths.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed checkboxes randomly disappearing from the plugin list.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added support for Dark Souls 2.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added support for War Thunder.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an infinite loop during the startup phase.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a startup crash caused by missing or corrupt Mods/InstallInfo folder settings (the program will send the user to the required folders setup screen).\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a crash during the mod uninstallation process caused by broken install paths.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed checkboxes randomly disappearing from the plugin list.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1082,11 +1091,11 @@ Version 0.49.4\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li644\qj\cf3\b Bugfix:\cf2\b0  Fixed some instances of the \ldblquote file is being used by another process\rdblquote  crash (mainly on local mod addition via \ldblquote Add mod from file\rdblquote  button or drag&drop).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Program update check failing if the user is not logged in.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Crash when the category file is corrupt and the user selects No/Cancel at the category setup prompt.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Crash while trying to change file associations and the antivirus prevents NMM from interacting with the Windows\rquote  registry.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Crash during the initial UAC check when the Install Info folder is not set.\par
+\fi-360\li644\qj\cf1\b Bugfix:\cf2\b0  Fixed some instances of the \ldblquote file is being used by another process\rdblquote  crash (mainly on local mod addition via \ldblquote Add mod from file\rdblquote  button or drag&drop).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Program update check failing if the user is not logged in.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Crash when the category file is corrupt and the user selects No/Cancel at the category setup prompt.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Crash while trying to change file associations and the antivirus prevents NMM from interacting with the Windows\rquote  registry.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Crash during the initial UAC check when the Install Info folder is not set.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1095,9 +1104,9 @@ Version 0.49.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li644\qj\cf3\b Bugfix:\cf2\b0  Program failing to perform a mod \ldblquote upgrade install\rdblquote  for game modes not using plugins.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Game scan crashing because of unexpected values for TESO install path in the registry.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Crash during the UAC check caused by uninitialized folders.\par
+\fi-360\li644\qj\cf1\b Bugfix:\cf2\b0  Program failing to perform a mod \ldblquote upgrade install\rdblquote  for game modes not using plugins.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Game scan crashing because of unexpected values for TESO install path in the registry.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Crash during the UAC check caused by uninitialized folders.\par
 
 \pard\widctlpar\qj\par
 \cf0\b\par
@@ -1106,11 +1115,11 @@ Version 0.49.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  32bit variables used to work with file/download size resulting in corrupt archives for huge mod files.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Max download chunk size was too small (this *could* also improve the download speed on bigger files).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Tweaked Min download chunk size for small files and threaded downloads.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  IO issues causing crashes on multiple local mod additions.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Local mod addition messing up the download queue.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  32bit variables used to work with file/download size resulting in corrupt archives for huge mod files.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Max download chunk size was too small (this *could* also improve the download speed on bigger files).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Tweaked Min download chunk size for small files and threaded downloads.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  IO issues causing crashes on multiple local mod additions.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Local mod addition messing up the download queue.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1119,21 +1128,21 @@ Version 0.49.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  NMM crashing while using the Reset UI button.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Crash when reading a corrupt UI section from the config file.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Resized UI elements on the Game Selection screen.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  NMM crashing while using the Reset UI button.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Crash when reading a corrupt UI section from the config file.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Resized UI elements on the Game Selection screen.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
 Version 0.49.0\par
 \cf2\b0\par
 
-\pard\widctlpar\fi-360\li720\qj\cf1\b 7.\tab New Feature:\cf2\b0  Added support for State of Decay.\par
-\cf1\b 8.\tab New Feature:\cf2\b0  Added support for Starbound.\par
-\cf1\b 9.\tab New Feature:\cf2\b0  Improved the \ldblquote The Elder Scrolls Online\rdblquote  game detection.\par
-\cf3\b 10.\tab Bugfix:\cf2\b0  Fixes the installation of ESO addons on the EU version of the game.\par
-\cf3\b 11.\tab Bugfix:\cf2\b0  Some instances of visual category duplication while in category view.\par
-\cf3\b 12.\tab Bugfix:\cf2\b0  Clicking on add new category while in plain view was adding the category to the mod list.\par
+\pard\widctlpar\fi-360\li720\qj\cf3\b 7.\tab New Feature:\cf2\b0  Added support for State of Decay.\par
+\cf3\b 8.\tab New Feature:\cf2\b0  Added support for Starbound.\par
+\cf3\b 9.\tab New Feature:\cf2\b0  Improved the \ldblquote The Elder Scrolls Online\rdblquote  game detection.\par
+\cf1\b 10.\tab Bugfix:\cf2\b0  Fixes the installation of ESO addons on the EU version of the game.\par
+\cf1\b 11.\tab Bugfix:\cf2\b0  Some instances of visual category duplication while in category view.\par
+\cf1\b 12.\tab Bugfix:\cf2\b0  Clicking on add new category while in plain view was adding the category to the mod list.\par
 
 \pard\widctlpar\qj\par
 \par
@@ -1142,13 +1151,13 @@ Version 0.49.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Mod categories for TESO (if you were using one of the previous 0.48 versions you\rquote ll need to click the small arrow besides the Category button on the left bar and select \ldblquote Reset to Nexus defaults\rdblquote )\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  The program will now get mod page links from the repository instead of guessing them.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Offline warning message showing when there are no mods to check for updates.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Category duplication while adding a mod in category view.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Some mod entries duplicating when the search filter was active and any mod property was changed.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Categories automatically un-hiding when a download completed.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Added missing category to the Skyrim game mode (you\rquote ll need to click the small arrow besides the Category button on the left bar and select \ldblquote Reset to Nexus defaults\rdblquote  to locally update the category list).\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Mod categories for TESO (if you were using one of the previous 0.48 versions you\rquote ll need to click the small arrow besides the Category button on the left bar and select \ldblquote Reset to Nexus defaults\rdblquote )\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  The program will now get mod page links from the repository instead of guessing them.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Offline warning message showing when there are no mods to check for updates.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Category duplication while adding a mod in category view.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Some mod entries duplicating when the search filter was active and any mod property was changed.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Categories automatically un-hiding when a download completed.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Added missing category to the Skyrim game mode (you\rquote ll need to click the small arrow besides the Category button on the left bar and select \ldblquote Reset to Nexus defaults\rdblquote  to locally update the category list).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1157,16 +1166,16 @@ Version 0.48.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Search box for the Mods panel! (CTRL+F will set focus to the search box)\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  The Elder Scrolls Online game support.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  Witcher 2 mode will also handle mods created without the REDkit.\par
-{\pntext\f0 4.\tab}\cf1\b New Feature:\cf2\b0  Game scan greatly improved for many games.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  HTML detection for the mod description mishandling some tags.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed some mod install issues for non-gamebryo games.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  The login screen will provide better feedback for login issues caused by the server.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  RAZUMOVSKY EGOR (sadgb) on Sourceforge fixed a crash on the filesearcher when encountering Linux paths.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Fixed some cases of failed mod update checks.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Added tracelog feedback for failed mod update checks (requires NMM to run in trace mode).\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Search box for the Mods panel! (CTRL+F will set focus to the search box)\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  The Elder Scrolls Online game support.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  Witcher 2 mode will also handle mods created without the REDkit.\par
+{\pntext\f0 4.\tab}\cf3\b New Feature:\cf2\b0  Game scan greatly improved for many games.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  HTML detection for the mod description mishandling some tags.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed some mod install issues for non-gamebryo games.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  The login screen will provide better feedback for login issues caused by the server.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  RAZUMOVSKY EGOR (sadgb) on Sourceforge fixed a crash on the filesearcher when encountering Linux paths.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Fixed some cases of failed mod update checks.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Added tracelog feedback for failed mod update checks (requires NMM to run in trace mode).\par
 
 \pard\widctlpar\qj\par
 \cf0\b\par
@@ -1175,10 +1184,10 @@ Version 0.47.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Add mod from file asking the user to login (this time, for real).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Mod update check cancel button not working during the startup phase.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Unused options in the settings menu.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Old tesnexus domain calls in some functions.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Add mod from file asking the user to login (this time, for real).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Mod update check cancel button not working during the startup phase.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Unused options in the settings menu.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Old tesnexus domain calls in some functions.\par
 
 \pard\widctlpar\qj\par
 \cf0\b\par
@@ -1187,11 +1196,11 @@ Version 0.47.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Better feedback on login issues.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Add mod from file asking the user to login.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Download speed messing up after a resume.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Download from URL button disabled while offline.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Cancelling a paused download after a program restart didn\rquote t remove partial files.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Better feedback on login issues.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Add mod from file asking the user to login.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Download speed messing up after a resume.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Download from URL button disabled while offline.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Cancelling a paused download after a program restart didn\rquote t remove partial files.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1200,8 +1209,8 @@ Version 0.47.1 hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Latest mod version not updating if there\rquote s no new version.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Mod category reset failing to check the login status.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Latest mod version not updating if there\rquote s no new version.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Mod category reset failing to check the login status.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1210,19 +1219,19 @@ Version 0.47.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Download queue system.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Login-less Mod manager startup.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  New download options.\par
-{\pntext\f0 4.\tab}\cf1\b New Feature:\cf2\b0  You will now be able to copy the messages in the download monitor (CTRL+C or right-click menu).\par
-{\pntext\f0 5.\tab}\cf1\b New Feature:\cf2\b0  Button to seamlessly login and logout.\par
-{\pntext\f0 6.\tab}\cf1\b New Feature:\cf2\b0  Button to purge all completed/failed downloads.\par
-{\pntext\f0 7.\tab}\cf1\b New Feature:\cf2\b0  Button to resume all paused downloads.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  \ldblquote Get missing mod info\rdblquote  panel messing endorsement and category info.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Issues while moving multiple plugins on the loadorder.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Loading logo form disappearing from the taskbar.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Download retries.\par
-{\pntext\f0 12.\tab}\cf3\b Bugfix:\cf2\b0  Multiple occurrences of the same file download crashing the manager.\par
-{\pntext\f0 13.\tab}\cf3\b Bugfix:\cf2\b0  Download failing on \ldblquote File not found\rdblquote , NMM will now try other servers.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Download queue system.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Login-less Mod manager startup.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  New download options.\par
+{\pntext\f0 4.\tab}\cf3\b New Feature:\cf2\b0  You will now be able to copy the messages in the download monitor (CTRL+C or right-click menu).\par
+{\pntext\f0 5.\tab}\cf3\b New Feature:\cf2\b0  Button to seamlessly login and logout.\par
+{\pntext\f0 6.\tab}\cf3\b New Feature:\cf2\b0  Button to purge all completed/failed downloads.\par
+{\pntext\f0 7.\tab}\cf3\b New Feature:\cf2\b0  Button to resume all paused downloads.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  \ldblquote Get missing mod info\rdblquote  panel messing endorsement and category info.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Issues while moving multiple plugins on the loadorder.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Loading logo form disappearing from the taskbar.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Download retries.\par
+{\pntext\f0 12.\tab}\cf1\b Bugfix:\cf2\b0  Multiple occurrences of the same file download crashing the manager.\par
+{\pntext\f0 13.\tab}\cf1\b Bugfix:\cf2\b0  Download failing on \ldblquote File not found\rdblquote , NMM will now try other servers.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1231,10 +1240,10 @@ Version 0.46.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  New web service support.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  X: Rebirth support.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Fixed NMM crashing when pausing corrupt downloads.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  NMM getting stuck for a few seconds while resuming a download.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  New web service support.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  X: Rebirth support.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Fixed NMM crashing when pausing corrupt downloads.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  NMM getting stuck for a few seconds while resuming a download.\par
 
 \pard\widctlpar\qj\par
 \cf0\b\par
@@ -1243,18 +1252,18 @@ Version 0.45.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  The tracelog message will now link to the folder containing tracelog files (by clicking YES).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Added support for the new web calls.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Incompatibility with some Dragon Age versions.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Incompatibility with some Dragon Age 2 versions.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a rare crash when confirming the paths on the game detection form.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue causing Omods to fail to run their scripted installer.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue causing the Readme Manager to intercept some script files.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Readme Manager messing up the current folder during mod installations.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Crash in both Dragon Age game modes while trying to uninstall a mod with a chargenmorphcfg file.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Rare crash while downloading very small files.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Fixed a crash when the Archive Invalidation failed to work (security, permissions, etc).\par
-{\pntext\f0 12.\tab}\cf3\b Bugfix:\cf2\b0  Fixed an issue on the Game Detection form causing the OK button to become enabled when it shouldn\rquote t.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  The tracelog message will now link to the folder containing tracelog files (by clicking YES).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Added support for the new web calls.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Incompatibility with some Dragon Age versions.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Incompatibility with some Dragon Age 2 versions.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a rare crash when confirming the paths on the game detection form.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue causing Omods to fail to run their scripted installer.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue causing the Readme Manager to intercept some script files.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Readme Manager messing up the current folder during mod installations.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Crash in both Dragon Age game modes while trying to uninstall a mod with a chargenmorphcfg file.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Rare crash while downloading very small files.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Fixed a crash when the Archive Invalidation failed to work (security, permissions, etc).\par
+{\pntext\f0 12.\tab}\cf1\b Bugfix:\cf2\b0  Fixed an issue on the Game Detection form causing the OK button to become enabled when it shouldn\rquote t.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1263,10 +1272,10 @@ Version 0.45.6\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Game scan crashing while searching in invalid paths.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Long timeout on some web requests causing the program to hang.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Crash with scripted installers with invalid image paths.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Skyrim default categories updated (you\rquote ll need to use the \ldblquote Categories: reset to Nexus site defaults\rdblquote  button to update your local categories).\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Game scan crashing while searching in invalid paths.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Long timeout on some web requests causing the program to hang.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Crash with scripted installers with invalid image paths.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Skyrim default categories updated (you\rquote ll need to use the \ldblquote Categories: reset to Nexus site defaults\rdblquote  button to update your local categories).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1275,11 +1284,11 @@ Version 0.45.5\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Crash related to checkboxes.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Crash while retrieving the Mods/Install Info folder path from the registry.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Crash when the user tries to cancel a stuck download.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Rare crash while uninstalling a mod.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Crash when resuming a download.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Crash related to checkboxes.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Crash while retrieving the Mods/Install Info folder path from the registry.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Crash when the user tries to cancel a stuck download.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Rare crash while uninstalling a mod.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Crash when resuming a download.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1288,7 +1297,7 @@ Version 0.45.4\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Mod installation issue with nested paths in mod archives.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Mod installation issue with nested paths in mod archives.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1297,9 +1306,9 @@ Version 0.45.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Long startup times when huge mod archives are present. \i *will take effect the second time you run NMM after applying this update\i0\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Dragon Age chargenmorphcfg merge failing with commented lines.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Dragon Age chargenmorphcfg merge failing while uninstalling mods.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Long startup times when huge mod archives are present. \i *will take effect the second time you run NMM after applying this update\i0\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Dragon Age chargenmorphcfg merge failing with commented lines.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Dragon Age chargenmorphcfg merge failing while uninstalling mods.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1308,7 +1317,7 @@ Version 0.45.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Several issues while installing/uninstalling \ldblquote Dragon Age Origins\rdblquote  mods.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Several issues while installing/uninstalling \ldblquote Dragon Age Origins\rdblquote  mods.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1317,11 +1326,11 @@ Version 0.45.1\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  \ldblquote Dragon Age Origins\rdblquote  support, both loose files and dazip (NMM will automatically merge installed chargenmorphcfg.xml files, you\rquote ll need to remove any previously manually installed chargenmorphcfg.xml file for this to properly work).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  \ldblquote Dragon Age 2\rdblquote  support (NMM will automatically merge installed chargenmorphcfg.xml files, you\rquote ll need to remove any previously manually installed chargenmorphcfg.xml file for this to properly work).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Crash when antivirus programs prevents NMM from uninstalling files.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Crash when retrieving user credentials.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Startup crash when blocked by some security suites.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  \ldblquote Dragon Age Origins\rdblquote  support, both loose files and dazip (NMM will automatically merge installed chargenmorphcfg.xml files, you\rquote ll need to remove any previously manually installed chargenmorphcfg.xml file for this to properly work).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  \ldblquote Dragon Age 2\rdblquote  support (NMM will automatically merge installed chargenmorphcfg.xml files, you\rquote ll need to remove any previously manually installed chargenmorphcfg.xml file for this to properly work).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Crash when antivirus programs prevents NMM from uninstalling files.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Crash when retrieving user credentials.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Startup crash when blocked by some security suites.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1330,9 +1339,9 @@ Version 0.44.16\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  NMM unable to automatically download program updates.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  NMM crashing with manual login while there are connectivity issues.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  NMM Mods tab buttons being active when they shouldn\rquote t.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  NMM unable to automatically download program updates.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  NMM crashing with manual login while there are connectivity issues.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  NMM Mods tab buttons being active when they shouldn\rquote t.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1341,7 +1350,7 @@ Version 0.44.15\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  NMM crashing with auto login while there\rquote s no connection available.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  NMM crashing with auto login while there\rquote s no connection available.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1350,12 +1359,12 @@ Version 0.44.14\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  NMM will now properly handle web-side forced downtimes, warning the user about it.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  NMM misplacing Mods/InstallInfo folders while changing program settings.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Crash when loading incorrect UI settings.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Crash when trying to move plugins in the plugin list.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Crash when trying to remove a non existant plugin.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Crash while retrieving mod updates and received no answer from the web service.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  NMM will now properly handle web-side forced downtimes, warning the user about it.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  NMM misplacing Mods/InstallInfo folders while changing program settings.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Crash when loading incorrect UI settings.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Crash when trying to move plugins in the plugin list.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Crash when trying to remove a non existant plugin.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Crash while retrieving mod updates and received no answer from the web service.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1364,8 +1373,8 @@ Version 0.44.13\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix\cf1 :\cf2\b0  Fixed Witcher2 implementation.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  NMM slow loading times when big mod archives were present in the Mods directory (this is the first of two planned loading times fixes).\par
+\fi-360\li720\qj\cf1\b Bugfix\cf3 :\cf2\b0  Fixed Witcher2 implementation.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  NMM slow loading times when big mod archives were present in the Mods directory (this is the first of two planned loading times fixes).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1374,14 +1383,14 @@ Version 0.44.12\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  Added Witcher 2 REDKit mods support.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  NMM prompt windows popping in the background and requiring ALT+TAB to be reached.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Clicking the Enable/Disable All plugin button caused the manager window to lose focus and go behind any currently open window.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Fixed another antivirus crash, NMM will warn the user about the antivirus messing with it.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  InvalidCastException crash.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Rare crash while renaming a category.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Crash while trying to resume a file in this 2 cases: file became unavailable on the Nexus or the user starts NMM in online mode but then closes the connection.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  NMM will now force "Temp" as name for the custom temp folder to prevent users from selecting system/important folders with unexpected results.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  Added Witcher 2 REDKit mods support.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  NMM prompt windows popping in the background and requiring ALT+TAB to be reached.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Clicking the Enable/Disable All plugin button caused the manager window to lose focus and go behind any currently open window.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Fixed another antivirus crash, NMM will warn the user about the antivirus messing with it.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  InvalidCastException crash.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Rare crash while renaming a category.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Crash while trying to resume a file in this 2 cases: file became unavailable on the Nexus or the user starts NMM in online mode but then closes the connection.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  NMM will now force "Temp" as name for the custom temp folder to prevent users from selecting system/important folders with unexpected results.\par
 
 \pard\widctlpar\li720\qj\par
 
@@ -1391,9 +1400,9 @@ Version 0.44.11\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  ZoneAlarm crashing NMM (the user will now be warned that ZoneAlarm is blocking the program execution).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Multi uninstaller progress window closing way before the uninstallers where complete.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  When adding a new version of a mod NMM didn\rquote t properly import the previous version\rquote s settings (endorsement, category, show update warning).\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  ZoneAlarm crashing NMM (the user will now be warned that ZoneAlarm is blocking the program execution).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Multi uninstaller progress window closing way before the uninstallers where complete.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  When adding a new version of a mod NMM didn\rquote t properly import the previous version\rquote s settings (endorsement, category, show update warning).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1402,8 +1411,8 @@ Version 0.44.10\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  The user will now be able to set a custom Temp folder (General settings menu).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  NMM unable to complete the mod download/add process.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  The user will now be able to set a custom Temp folder (General settings menu).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  NMM unable to complete the mod download/add process.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1412,12 +1421,12 @@ Version 0.44.9\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  The fileserver selection will now show country flags and european countries will be grouped under "European Union".\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  The user will now be able to set the Tracelog files folder (General settings tab).\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Drag&Drop not working on collapsed categories.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Memory leak in mod file installation.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  New Czech server causing NMM to report \ldblquote file does not exist\rdblquote  if the user set any fileserver zone different from default.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  NMM crashing while adding a mod and the Mods folder is on a network drive.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  The fileserver selection will now show country flags and european countries will be grouped under "European Union".\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  The user will now be able to set the Tracelog files folder (General settings tab).\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Drag&Drop not working on collapsed categories.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Memory leak in mod file installation.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  New Czech server causing NMM to report \ldblquote file does not exist\rdblquote  if the user set any fileserver zone different from default.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  NMM crashing while adding a mod and the Mods folder is on a network drive.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1426,13 +1435,13 @@ Version 0.44.8\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Crash caused by duplicate entries in the Install Log file. (the dreaded "an item with the same key has already been added" crash).\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Uninstalling a plugin caused the program to remove it from the plugin list even if a previous version was restored.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  A readonly check preventing the program from restoring a previous file version if the file to restore was set to readonly.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  The mod manager will now automatically uninstall a mod whose mod archive is missing, instead of crashing the program.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Deleting a mod while having multiple mods selected also removed all the selected mods from the list even though the mod deletion method only works on a single mods.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  Rare crash with the saved column sorting.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Bug that prevented the program from obtaining updated mod info from a new version of the mod archive.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Crash caused by duplicate entries in the Install Log file. (the dreaded "an item with the same key has already been added" crash).\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Uninstalling a plugin caused the program to remove it from the plugin list even if a previous version was restored.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  A readonly check preventing the program from restoring a previous file version if the file to restore was set to readonly.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  The mod manager will now automatically uninstall a mod whose mod archive is missing, instead of crashing the program.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Deleting a mod while having multiple mods selected also removed all the selected mods from the list even though the mod deletion method only works on a single mods.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  Rare crash with the saved column sorting.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Bug that prevented the program from obtaining updated mod info from a new version of the mod archive.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1441,9 +1450,9 @@ Version 0.44.7\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Some Omod files failing to install.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Rare crash while renaming mods.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Messagebox for the automatic program update check popping on the background and blocking the program execution.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Some Omod files failing to install.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Rare crash while renaming mods.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Messagebox for the automatic program update check popping on the background and blocking the program execution.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1452,12 +1461,12 @@ Version 0.44.6\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  New options in the Mod Update Warning context menu, you will now be able to enable and disable the warning for all the mods with a single click. In the settings menu you will also be able to choose whether to show the greyed out icon or no icon at all.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  The program update prompt will now link the user to the latest version change log.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Crash while trying to uninstall mods that installed bloated paths.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  NMM showing a duplicate mod entry when overwriting an already present mod file.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  NMM unable to load custom mod screenshots for some archives.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  import/export load order functionality didn't properly handle the plugin\rquote s activation state.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  New options in the Mod Update Warning context menu, you will now be able to enable and disable the warning for all the mods with a single click. In the settings menu you will also be able to choose whether to show the greyed out icon or no icon at all.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  The program update prompt will now link the user to the latest version change log.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Crash while trying to uninstall mods that installed bloated paths.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  NMM showing a duplicate mod entry when overwriting an already present mod file.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  NMM unable to load custom mod screenshots for some archives.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  import/export load order functionality didn't properly handle the plugin\rquote s activation state.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1466,9 +1475,9 @@ Version 0.44.5\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf3\b Bugfix:\cf2\b0  Another bug causing NMM to show duplicate mods in the list. (if the program should warn you about a local mod version mismatch, answer NO for every mod, and it won\rquote t bother you anymore)\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Mod update warning resetting after a \ldblquote mod category reset\rdblquote  or \ldblquote get missing mod info\rdblquote .\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  \ldblquote unactive\rdblquote  typo.\par
+\fi-360\li720\qj\cf1\b Bugfix:\cf2\b0  Another bug causing NMM to show duplicate mods in the list. (if the program should warn you about a local mod version mismatch, answer NO for every mod, and it won\rquote t bother you anymore)\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Mod update warning resetting after a \ldblquote mod category reset\rdblquote  or \ldblquote get missing mod info\rdblquote .\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  \ldblquote unactive\rdblquote  typo.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1477,14 +1486,14 @@ Version 0.44.4\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  The ReadMeManager now supports PDF files.\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  ReadMe Manager preventing .txt files from being installed in mod folders. (This fixes the installation of mods like Fores New Idles)\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Rare crash while deleting a mod in CategoryView.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Omod script interpreter.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Users were able to set Mods and Install Info as the same folder.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  NMM crashing with a corrupt ReadMeManager.xml file.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  NMM using the wrong game path after a game rescan.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  LoadOrder export using the wrong plugin list.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  The ReadMeManager now supports PDF files.\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  ReadMe Manager preventing .txt files from being installed in mod folders. (This fixes the installation of mods like Fores New Idles)\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Rare crash while deleting a mod in CategoryView.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Omod script interpreter.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Users were able to set Mods and Install Info as the same folder.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  NMM crashing with a corrupt ReadMeManager.xml file.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  NMM using the wrong game path after a game rescan.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  LoadOrder export using the wrong plugin list.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1493,15 +1502,15 @@ Version 0.44.3\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  NMM will now prevent ReadMe files from being extracted in the mod folder (thus only installing them in the ReadMe Manager), you can set this behaviour on/off in the Settings menu (Default on).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  The user can now select the game mode by doubleclicking on it.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Mods failing to deactivate on upgrade.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Category view failing to update after mod rename.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  Mod list not re-sorting after mod/category name change.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  NMM mods startup scan searching in the readme folder (causing some duplicate entries in the mod list).\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  NMM crashing when another instance of the program is already running.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  "Yes to All" not working as intended.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Some OMOD crashes (comment lines and "misplaced" curly brackets).\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  NMM will now prevent ReadMe files from being extracted in the mod folder (thus only installing them in the ReadMe Manager), you can set this behaviour on/off in the Settings menu (Default on).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  The user can now select the game mode by doubleclicking on it.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Mods failing to deactivate on upgrade.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Category view failing to update after mod rename.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  Mod list not re-sorting after mod/category name change.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  NMM mods startup scan searching in the readme folder (causing some duplicate entries in the mod list).\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  NMM crashing when another instance of the program is already running.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  "Yes to All" not working as intended.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Some OMOD crashes (comment lines and "misplaced" curly brackets).\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1510,19 +1519,19 @@ Version 0.44.2\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1\b New Feature:\cf2\b0  New \ldblquote Uninstall all active mods\rdblquote  button in the Tools menu.\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  The readme scan is now optional and you can manually perform it by right-clicking on selected mods/categories and choosing the option from the context menu.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  Category view: category and mod properties failing to properly update on the list.\par
-{\pntext\f0 4.\tab}\cf3\b Bugfix:\cf2\b0  Category view: NMM freezing when trying to delete a mod from the list.\par
-{\pntext\f0 5.\tab}\cf3\b Bugfix:\cf2\b0  WoT manager crashing when the game was using a malformed version number.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  NMM crashing when checking for mod updates and the server was unreachable.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  NMM reporting a mod as installed/uninstalled even though the user aborted the scripted install/uninstall or there was an error performing it.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  NMM failing to properly load saved column sizes.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Readme Manager creating readme archive files into the wrong folder for newly downloaded mods.\par
+\fi-360\li720\qj\cf3\b New Feature:\cf2\b0  New \ldblquote Uninstall all active mods\rdblquote  button in the Tools menu.\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  The readme scan is now optional and you can manually perform it by right-clicking on selected mods/categories and choosing the option from the context menu.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  Category view: category and mod properties failing to properly update on the list.\par
+{\pntext\f0 4.\tab}\cf1\b Bugfix:\cf2\b0  Category view: NMM freezing when trying to delete a mod from the list.\par
+{\pntext\f0 5.\tab}\cf1\b Bugfix:\cf2\b0  WoT manager crashing when the game was using a malformed version number.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  NMM crashing when checking for mod updates and the server was unreachable.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  NMM reporting a mod as installed/uninstalled even though the user aborted the scripted install/uninstall or there was an error performing it.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  NMM failing to properly load saved column sizes.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Readme Manager creating readme archive files into the wrong folder for newly downloaded mods.\par
 
 \pard 
 {\pntext\f1 10.\tab}{\*\pn\pnlvlbody\pnf1\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\sa200\sl276\slmult1\qj\cf3\b Bugfix:\cf2\b0  Readme Manager setup adding random mod files in readme archives.\cf0\f1\par
+\fi-360\li720\sa200\sl276\slmult1\qj\cf1\b Bugfix:\cf2\b0  Readme Manager setup adding random mod files in readme archives.\cf0\f1\par
 
 \pard\widctlpar\qj\b\f0\par
 Version 0.44.1 \endash  Hotfix\par
@@ -1530,9 +1539,9 @@ Version 0.44.1 \endash  Hotfix\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 Suggestion:\cf2\b0  \ul We advise you to perform a clean install of this new version to prevent any leftover bug in config files to further mess with your mods (\i Uninstall NMM removing config files when asked, and then make sure the program folder has been removed, this won\rquote t remove your mods or mod install info\i0 )\ulnone .\par
-{\pntext\f0 2.\tab}\cf3\b Bugfix:\cf2\b0  Non-categorized view unable to update.\par
-{\pntext\f0 3.\tab}\cf3\b Bugfix:\cf2\b0  An inadvertently commented line caused NMM to duplicate some mods.\par
+\fi-360\li720\qj\cf3 Suggestion:\cf2\b0  \ul We advise you to perform a clean install of this new version to prevent any leftover bug in config files to further mess with your mods (\i Uninstall NMM removing config files when asked, and then make sure the program folder has been removed, this won\rquote t remove your mods or mod install info\i0 )\ulnone .\par
+{\pntext\f0 2.\tab}\cf1\b Bugfix:\cf2\b0  Non-categorized view unable to update.\par
+{\pntext\f0 3.\tab}\cf1\b Bugfix:\cf2\b0  An inadvertently commented line caused NMM to duplicate some mods.\par
 
 \pard\widctlpar\qj\cf0\b\par
 \par
@@ -1541,21 +1550,21 @@ Version 0.44.0\par
 
 \pard 
 {\pntext\f0 1.\tab}{\*\pn\pnlvlbody\pnf0\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\qj\cf1 New Feature:\cf2\b0  ReadMe Manager, quick access to mods readme files (right click on the mod and select the read me to open from the list).\par
-{\pntext\f0 2.\tab}\cf1\b New Feature:\cf2\b0  Enabled the toggle update warning on categories.\par
-{\pntext\f0 3.\tab}\cf1\b New Feature:\cf2\b0  NMM will now remember the last sorting (column and order) used while in category view.\par
-{\pntext\f0 4.\tab}\cf1\b New Feature:\cf2\b0  Adds a new icon for mods with the update warning disabled that could be outdated.\par
-{\pntext\f0 5.\tab}\cf1\b New Feature:\cf2\b0  The mod list view is now loaded into the new control.\par
-{\pntext\f0 6.\tab}\cf3\b Bugfix:\cf2\b0  NMM crashing while the UAC check was unable to parse an illegal folder path.\par
-{\pntext\f0 7.\tab}\cf3\b Bugfix:\cf2\b0  Readonly check preventing NMM to restore overwritten files on mod uninstall.\par
-{\pntext\f0 8.\tab}\cf3\b Bugfix:\cf2\b0  Mod install failing because of readonly files.\par
-{\pntext\f0 9.\tab}\cf3\b Bugfix:\cf2\b0  Mod update check resetting the update warning icon to false.\par
-{\pntext\f0 10.\tab}\cf3\b Bugfix:\cf2\b0  Rare crash while removing temporary mod installation files.\par
-{\pntext\f0 11.\tab}\cf3\b Bugfix:\cf2\b0  Sorting any column in descending order in category view reversed the category list order.\par
-{\pntext\f0 12.\tab}\cf3\b Bugfix:\cf2\b0  Ugly ToggleSidePanel button removed from the UI (there's now a setting in the General settings menu).\par
+\fi-360\li720\qj\cf3 New Feature:\cf2\b0  ReadMe Manager, quick access to mods readme files (right click on the mod and select the read me to open from the list).\par
+{\pntext\f0 2.\tab}\cf3\b New Feature:\cf2\b0  Enabled the toggle update warning on categories.\par
+{\pntext\f0 3.\tab}\cf3\b New Feature:\cf2\b0  NMM will now remember the last sorting (column and order) used while in category view.\par
+{\pntext\f0 4.\tab}\cf3\b New Feature:\cf2\b0  Adds a new icon for mods with the update warning disabled that could be outdated.\par
+{\pntext\f0 5.\tab}\cf3\b New Feature:\cf2\b0  The mod list view is now loaded into the new control.\par
+{\pntext\f0 6.\tab}\cf1\b Bugfix:\cf2\b0  NMM crashing while the UAC check was unable to parse an illegal folder path.\par
+{\pntext\f0 7.\tab}\cf1\b Bugfix:\cf2\b0  Readonly check preventing NMM to restore overwritten files on mod uninstall.\par
+{\pntext\f0 8.\tab}\cf1\b Bugfix:\cf2\b0  Mod install failing because of readonly files.\par
+{\pntext\f0 9.\tab}\cf1\b Bugfix:\cf2\b0  Mod update check resetting the update warning icon to false.\par
+{\pntext\f0 10.\tab}\cf1\b Bugfix:\cf2\b0  Rare crash while removing temporary mod installation files.\par
+{\pntext\f0 11.\tab}\cf1\b Bugfix:\cf2\b0  Sorting any column in descending order in category view reversed the category list order.\par
+{\pntext\f0 12.\tab}\cf1\b Bugfix:\cf2\b0  Ugly ToggleSidePanel button removed from the UI (there's now a setting in the General settings menu).\par
 
 \pard 
 {\pntext\f1 13.\tab}{\*\pn\pnlvlbody\pnf1\pnindent0\pnstart1\pndec{\pntxta.}}
-\fi-360\li720\sa200\sl276\slmult1\qj\cf3\b Bugfix:\cf2\b0  Some buttons will be set as invisible when disabled to reduce UI clutter.\cf0\f1\par
+\fi-360\li720\sa200\sl276\slmult1\qj\cf1\b Bugfix:\cf2\b0  Some buttons will be set as invisible when disabled to reduce UI clutter.\cf0\f1\par
 }
  
