@@ -1283,9 +1283,12 @@ namespace Nexus.Client.ModManagement
 					if (p_booHandlePlugin)
 						PluginManager.ActivatePlugin(strVirtualFileLink);
 				}
-            
-            p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder; // just adding it in, shhhh
-            p_modMod.UpdateInfo(p_modMod, true);
+
+			if (p_modMod != null)
+			{ 
+				p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder; // just adding it in, shhhh
+				p_modMod.UpdateInfo(p_modMod, true);
+			}
 			return strVirtualFileLink;
 		}
 
@@ -1422,8 +1425,12 @@ namespace Nexus.Client.ModManagement
 					m_tslVirtualModList.Add(vml);
 				}
 			}
-            p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder;
-            p_modMod.UpdateInfo(p_modMod, true);
+
+			if (p_modMod != null)
+			{
+				p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder;
+				p_modMod.UpdateInfo(p_modMod, true);
+			}
 		}
 
 		public void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks)
