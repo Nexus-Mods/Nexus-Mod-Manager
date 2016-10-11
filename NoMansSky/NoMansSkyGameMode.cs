@@ -424,6 +424,17 @@ namespace Nexus.Client.Games.NoMansSky
             return strPath;
         }
 
+		/// <summary>
+		/// Checks whether the file's type requires a hardlink for the current game mode.
+		/// </summary>
+		/// <returns>Whether the file's type requires a hardlink for the current game mode.</returns>
+		/// <param name="p_strFileName">The filename.</param>
+		public override bool HardlinkRequiredFilesType(string p_strFileName)
+		{
+			string strFileType = Path.GetExtension(p_strFileName);
+			return (strFileType.Equals(".mp3", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".dll", StringComparison.InvariantCultureIgnoreCase));
+		}
+
 		static string CleanInput(string p_strIn)
 		{
 			// Replace invalid characters with empty strings. 
