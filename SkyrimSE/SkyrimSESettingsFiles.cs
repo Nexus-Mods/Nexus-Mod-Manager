@@ -10,9 +10,9 @@ namespace Nexus.Client.Games.SkyrimSE
 		#region Properties
 
 		/// <summary>
-		/// Gets or sets the path to the SkyrimSE_default.ini file.
+		/// Gets or sets the path to the Skyrim_default.ini file.
 		/// </summary>
-		/// <value>The path to the SkyrimSE_default.ini file.</value>
+		/// <value>The path to the Skyrim_default.ini file.</value>
 		public string SkyrimSEDefaultIniPath
 		{
 			get

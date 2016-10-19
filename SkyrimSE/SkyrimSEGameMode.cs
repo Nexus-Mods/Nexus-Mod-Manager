@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		{
 			get
 			{
-				return Path.Combine(EnvironmentInfo.PersonalDataFolderPath, "My games\\SkyrimSE");
+				return Path.Combine(EnvironmentInfo.PersonalDataFolderPath, "My games\\Skyrim Special Edition");
 			}
 		}
 
@@ -162,8 +162,8 @@ namespace Nexus.Client.Games.SkyrimSE
 		protected override void SetupSettingsFiles()
 		{	
 			base.SetupSettingsFiles();
-			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "SkyrimSE.ini");
-			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "SkyrimSEPrefs.ini");
+			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Skyrim.ini");
+			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "SkyrimPrefs.ini");
 		}
 
 		#endregion
