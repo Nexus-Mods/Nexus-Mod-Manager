@@ -268,6 +268,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "SKYRIMNexusREST";
 					m_intRemoteGameId = 110;
 					break;
+				case "SkyrimSE":
+					m_strWebsite = "www.nexusmods.com/skyrimse";
+					m_strEndpoint = "SKYRIMSENexusREST";
+					m_intRemoteGameId = 1690;
+					break;
 				case "WorldOfTanks":
 					m_strWebsite = "www.nexusmods.com/worldoftanks";
 					m_strEndpoint = "WOTNexusREST";
