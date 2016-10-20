@@ -439,6 +439,12 @@ namespace Nexus.Client.Settings
 		bool UseMultithreadedDownloads { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the Skyrim SE warning has already been shown.
+		/// </summary>
+		/// <value>Whether the Skyrim SE warning has already been shown.</value>
+		bool SkyrimSEFirstInstallWarning { get; set; }
+
+		/// <summary>
 		/// Gets or sets the user favourite download location.
 		/// </summary>
 		/// <value>The user favourite download location.</value>

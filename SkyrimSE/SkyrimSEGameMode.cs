@@ -233,8 +233,19 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// <param name="p_strMessage">The message to show to the user.</param>
 		public override bool RequiresExternalConfig(out string p_strMessage)
 		{
+			/* This hacks into the intended use of this functionality to check whether this is the first time the user
+			tries to install a mod for Skyrim Special Edition. */
 			p_strMessage = String.Empty;
-			// Should we add a warning for Skyrim SE not being compatible with the old BSA files?
+
+			if (!EnvironmentInfo.Settings.SkyrimSEFirstInstallWarning)
+			{
+				EnvironmentInfo.Settings.SkyrimSEFirstInstallWarning = true;
+				EnvironmentInfo.Settings.Save();
+
+				p_strMessage = "If you're installing a mod for the vanilla Skyrim containing a .BSA file please be aware that it won't work with the Skyrim Special Edition. You will need to download a mod version made specifically for Skyim SE.";
+				return true;
+			}
+			
 			return false;
 		}
 	}
