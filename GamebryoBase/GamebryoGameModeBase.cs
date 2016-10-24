@@ -463,7 +463,9 @@ namespace Nexus.Client.Games.Gamebryo
 		public override bool HardlinkRequiredFilesType(string p_strFileName)
 		{
 			string strFileType = Path.GetExtension(p_strFileName);
-			return (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".bsa", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".mp3", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".BGSM", StringComparison.InvariantCultureIgnoreCase));
+			return (strFileType.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".esm", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".bsa", StringComparison.InvariantCultureIgnoreCase) 
+				|| strFileType.Equals(".mp3", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".BGSM", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".BGEM", StringComparison.InvariantCultureIgnoreCase)
+				|| strFileType.Equals(".wav", StringComparison.InvariantCultureIgnoreCase));
 		}
 
 		/// <summary>
