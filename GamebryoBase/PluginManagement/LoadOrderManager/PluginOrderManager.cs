@@ -321,6 +321,16 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			string strLocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 			string strGameModeLocalAppData = Path.Combine(strLocalAppData, AppDataGameFolderName);
+
+			if (!Directory.Exists(AppDataGameFolderName))
+			{
+				try
+				{
+					FileUtil.CreateDirectory(AppDataGameFolderName);
+				}
+				catch { }
+			}
+
 			LastValidActiveList = RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()).ToList();
 			LastValidLoadOrder = RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()).ToList();
 			TaskList.CollectionChanged += new NotifyCollectionChangedEventHandler(TaskList_CollectionChanged);
@@ -365,13 +375,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			FileWatchers = new List<FileSystemWatcher>();
 
 			FileSystemWatcher FileWatcher = new FileSystemWatcher();
-			FileWatcher.Path = p_strGameModeLocal;
-			FileWatcher.IncludeSubdirectories = false;
-			FileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
-			FileWatcher.Filter = "*.txt";
-			FileWatcher.Changed += new FileSystemEventHandler(FileWatcherOnChangedTxt);
-			FileWatcher.EnableRaisingEvents = true;
-			FileWatchers.Add(FileWatcher);
+
+			if (Directory.Exists(p_strGameModeLocal))
+			{
+				FileWatcher.Path = p_strGameModeLocal;
+				FileWatcher.IncludeSubdirectories = false;
+				FileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
+				FileWatcher.Filter = "*.txt";
+				FileWatcher.Changed += new FileSystemEventHandler(FileWatcherOnChangedTxt);
+				FileWatcher.EnableRaisingEvents = true;
+				FileWatchers.Add(FileWatcher);
+			}
 
 			FileWatcher = new FileSystemWatcher();
 			FileWatcher.Path = GameMode.PluginDirectory;
