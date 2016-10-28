@@ -76,7 +76,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// <c>null</c> if the path could not be determined.</returns>
 		public override string GetInstallationPath()
 		{
-			var registryKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\Apps\72850";
+			var registryKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\Apps\489830";
 			Trace.TraceInformation(@"Checking for steam install: {0}\Installed", registryKey);
 			Trace.Indent();
 
@@ -109,7 +109,7 @@ namespace Nexus.Client.Games.SkyrimSE
 							var kv = KeyValue.LoadAsText(steamConfig);
 							var node =
 								kv.Children[0].Children[0].Children[0].Children.Single(x => x.Name == "apps")
-									.Children.Single(x => x.Name == "72850");
+									.Children.Single(x => x.Name == "489830");
 							if (node != null)
 							{
 								appPath = node.Children.Single(x => x.Name == "installdir").Value;
@@ -133,7 +133,7 @@ namespace Nexus.Client.Games.SkyrimSE
 				{
 					Trace.TraceInformation("Getting install folder from Uninstall.");
 
-					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 72850", "InstallLocation", null).ToString();
+					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 489830", "InstallLocation", null).ToString();
 
 					if (Directory.Exists(uniPath))
 						strValue = uniPath;

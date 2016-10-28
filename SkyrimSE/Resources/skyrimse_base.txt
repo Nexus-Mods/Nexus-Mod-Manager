@@ -1,8 +1,6 @@
 Dawnguard.esm
 Dragonborn.esm
-filelist.txt
 HearthFires.esm
-Scripts.zip
 Skyrim - Animations.bsa
 Skyrim - Interface.bsa
 Skyrim - Meshes0.bsa

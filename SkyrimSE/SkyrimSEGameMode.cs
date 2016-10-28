@@ -128,6 +128,18 @@ namespace Nexus.Client.Games.SkyrimSE
 			}
 		}
 
+		/// <summary>
+		/// Gets whether the game mode supports the automatic sorting
+		/// functionality for plugins.
+		/// </summary>
+		public override bool SupportsPluginAutoSorting
+		{
+			get
+			{
+				return false;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

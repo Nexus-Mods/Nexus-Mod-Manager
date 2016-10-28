@@ -91,6 +91,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		protected bool TimestampOrder { get; private set; }
 
 		/// <summary>
+		/// Gets whether to ignore official plugins.
+		/// </summary>
+		/// <value>Whether to ignore official plugins.</value>
+		protected bool IgnoreOfficialPlugins { get; private set; }
+
+		/// <summary>
 		/// Gets whether the load order is based on the plugin modified date.
 		/// </summary>
 		/// <value>Whether the load order is based on the plugin modified date.</value>
@@ -111,8 +117,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Gets the path to the file containing the sorted list of plugins.
 		/// </summary>
-		/// <value>the path to the file containing the sorted list of plugins.</value>
+		/// <value>The path to the file containing the sorted list of plugins.</value>
 		protected string LoadOrderFilePath { get; private set; }
+
+		/// <summary>
+		/// Gets the name of the game folder in AppData.
+		/// </summary>
+		/// <value>The name of the game folder in AppData.</value>
+		protected string AppDataGameFolderName { get; private set; }
 
 		/// <summary>
 		/// Gets the file utility class.
@@ -240,28 +252,34 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void InitializeManager()
 		{
+			AppDataGameFolderName = GameMode.ModeId;
+
 			switch (GameMode.ModeId)
 			{
 				case "Oblivion":
 					TimestampOrder = true;
+					IgnoreOfficialPlugins = false;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
 					Fallout4PluginManagement = false;
 					break;
 				case "Fallout3":
 					TimestampOrder = true;
+					IgnoreOfficialPlugins = false;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
 					Fallout4PluginManagement = false;
 					break;
 				case "FalloutNV":
 					TimestampOrder = true;
+					IgnoreOfficialPlugins = false;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
 					Fallout4PluginManagement = false;
 					break;
 				case "Skyrim":
 					TimestampOrder = false;
+					IgnoreOfficialPlugins = false;
 					ForcedReadOnly = false;
 					SingleFileManagement = false;
 					Fallout4PluginManagement = false;
@@ -270,6 +288,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
 					{
 						TimestampOrder = false;
+						IgnoreOfficialPlugins = false;
 						SingleFileManagement = true;
 						if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
 						{
@@ -282,12 +301,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					else
 					{
 						TimestampOrder = false;
+						IgnoreOfficialPlugins = false;
 						ForcedReadOnly = true;
 						SingleFileManagement = false;
 						Fallout4PluginManagement = false;
 					}
 					break;
 				case "SkyrimSE":
+					AppDataGameFolderName = "Skyrim Special Edition";
+					IgnoreOfficialPlugins = true;
 					TimestampOrder = false;
 					SingleFileManagement = true;
 					Fallout4PluginManagement = true;
@@ -298,7 +320,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 
 			string strLocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-			string strGameModeLocalAppData = Path.Combine(strLocalAppData, GameMode.ModeId);
+			string strGameModeLocalAppData = Path.Combine(strLocalAppData, AppDataGameFolderName);
 			LastValidActiveList = RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()).ToList();
 			LastValidLoadOrder = RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()).ToList();
 			TaskList.CollectionChanged += new NotifyCollectionChangedEventHandler(TaskList_CollectionChanged);
@@ -805,10 +827,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (Fallout4PluginManagement)
 				{
-					strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
+					if (IgnoreOfficialPlugins)
+						strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+					else
+						strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
+
 					offset = 2;
 					strOrderedPluginNames = new string[(strPlugins.Count() + offset)];
-					strOrderedPluginNames[0] = "# This file is used by Fallout4 to keep track of your downloaded content.";
+					strOrderedPluginNames[0] = "# This file is used by the game to keep track of your downloaded content.";
 					strOrderedPluginNames[1] = "# Please do not modify this file.";
 				}
 				else
@@ -1065,10 +1091,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (Fallout4PluginManagement)
 				{
-					strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
+					if (IgnoreOfficialPlugins)
+						strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+					else
+						strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
+
 					offset = 2;
 					strPluginNames = new string[(strOrderedPluginNames.Count() + offset)];
-					strPluginNames[0] = "# This file is used by Fallout4 to keep track of your downloaded content.";
+					strPluginNames[0] = "# This file is used by the game to keep track of your downloaded content.";
 					strPluginNames[1] = "# Please do not modify this file.";
 				}
 				else

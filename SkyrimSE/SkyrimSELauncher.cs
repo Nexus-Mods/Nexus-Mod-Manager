@@ -156,7 +156,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// <returns>The plain launch command.</returns>
 		private string GetPlainLaunchCommand()
 		{
-			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "SkyrimSELauncher.exe");
+			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "SkyrimSE.exe");
 			return strCommand;
 		}
 
