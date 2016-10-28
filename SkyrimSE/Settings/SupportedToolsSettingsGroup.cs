@@ -20,7 +20,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		private string m_strLOOTDirectory = null;
 		private string m_strWryeBashDirectory = null;
 		private string m_strFNISDirectory = null;
-		private string m_strTES5EditDirectory = null;
+		private string m_strSSEEditDirectory = null;
 		private string m_strBS2Directory = null;
 		private string m_strDSRPDirectory = null;
 		private string m_strPMDirectory = null;
@@ -170,18 +170,18 @@ namespace Nexus.Client.Games.SkyrimSE
 		}
 
 		/// <summary>
-		/// Gets or sets the directory where TES5Edit is installed.
+		/// Gets or sets the directory where SSEEdit is installed.
 		/// </summary>
-		/// <value>The directory where TES5Edit is installed.</value>
-		public string TES5EditDirectory
+		/// <value>The directory where SSEEdit is installed.</value>
+		public string SSEEditDirectory
 		{
 			get
 			{
-				return m_strTES5EditDirectory;
+				return m_strSSEEditDirectory;
 			}
 			set
 			{
-				SetPropertyIfChanged(ref m_strTES5EditDirectory, value, () => TES5EditDirectory);
+				SetPropertyIfChanged(ref m_strSSEEditDirectory, value, () => SSEEditDirectory);
 			}
 		}
 
@@ -211,7 +211,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory are not equals;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBS2Path, string p_strBS2PathName, string p_strBS2Property, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty, string p_strDSRPPath, string p_strDSRPPathName, string p_strDSRPProperty, string p_strPMPath, string p_strPMPathName, string p_strPMProperty)
+		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBS2Path, string p_strBS2PathName, string p_strBS2Property, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strSSEEditPath, string p_strSSEEditPathName, string p_strSSEEditProperty, string p_strDSRPPath, string p_strDSRPPathName, string p_strDSRPProperty, string p_strPMPath, string p_strPMPathName, string p_strPMProperty)
 		{
 			Errors.Clear(p_strBOSSProperty);
 			if (String.IsNullOrEmpty(p_strBOSSPath))
@@ -255,10 +255,10 @@ namespace Nexus.Client.Games.SkyrimSE
 				Errors.SetError(p_strLOOTProperty, String.Format("You must select a {0}.", p_strLOOTPathName));
 				return false;
 			}
-			Errors.Clear(p_strTES5EditProperty);
-			if (String.IsNullOrEmpty(p_strTES5EditPath))
+			Errors.Clear(p_strSSEEditProperty);
+			if (String.IsNullOrEmpty(p_strSSEEditPath))
 			{
-				Errors.SetError(p_strTES5EditProperty, String.Format("You must select a {0}.", p_strTES5EditPathName));
+				Errors.SetError(p_strSSEEditProperty, String.Format("You must select a {0}.", p_strSSEEditPathName));
 				return false;
 			}
 
@@ -380,13 +380,13 @@ namespace Nexus.Client.Games.SkyrimSE
 		}
 
 		/// <summary>
-		/// Validates the selected TES5Edit directory.
+		/// Validates the selected SSEEdit directory.
 		/// </summary>
-		/// <returns><c>true</c> if the selected TES5Edit directory is valid;
+		/// <returns><c>true</c> if the selected SSEEdit directory is valid;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateTES5EditDirectory()
+		protected bool ValidateSSEEditDirectory()
 		{
-			return ValidateDirectory(TES5EditDirectory, "TES5Edit Directory", ObjectHelper.GetPropertyName(() => TES5EditDirectory));
+			return ValidateDirectory(SSEEditDirectory, "SSEEdit Directory", ObjectHelper.GetPropertyName(() => SSEEditDirectory));
 		}
 
 		/// <summary>
@@ -396,7 +396,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			return ValidateBOSSDirectory() && ValidateLOOTDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory() && ValidateTES5EditDirectory() && ValidatePMDirectory() && ValidateDSRPDirectory() && ValidateBS2Directory();
+			return ValidateBOSSDirectory() && ValidateLOOTDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory() && ValidateSSEEditDirectory() && ValidatePMDirectory() && ValidateDSRPDirectory() && ValidateBS2Directory();
 		}
 
 		#endregion
@@ -415,7 +415,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			string strBS2Path = String.Empty;
 			string strDSRPPath = String.Empty;
 			string strPMPath = String.Empty;
-			string strTES5EditPath = String.Empty;
+			string strSSEEditPath = String.Empty;
 			bool booReset = false;
 
 			if (IntPtr.Size == 8)
@@ -599,11 +599,11 @@ namespace Nexus.Client.Games.SkyrimSE
 					PMDirectory = strPMPath;
 			}
 
-			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit"))
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("SSEEdit"))
 			{
-				strTES5EditPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"];
-				if (!String.IsNullOrEmpty(strTES5EditPath) && Directory.Exists(strTES5EditPath))
-					TES5EditDirectory = strTES5EditPath;
+				strSSEEditPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["SSEEdit"];
+				if (!String.IsNullOrEmpty(strSSEEditPath) && Directory.Exists(strSSEEditPath))
+					SSEEditDirectory = strSSEEditPath;
 			}
 								
 			ValidateSettings();
@@ -640,8 +640,8 @@ namespace Nexus.Client.Games.SkyrimSE
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("PM") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], PMDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["PM"] = PMDirectory;
 
-			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], TES5EditDirectory))
-				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"] = TES5EditDirectory;
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("SSEEdit") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], SSEEditDirectory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["SSEEdit"] = SSEEditDirectory;
 
 			EnvironmentInfo.Settings.Save();
 			return true;

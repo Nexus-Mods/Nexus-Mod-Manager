@@ -50,10 +50,10 @@
 			this.lblBS2Prompt = new System.Windows.Forms.Label();
 			this.tbxBS2 = new System.Windows.Forms.TextBox();
 			this.lblBS2Label = new System.Windows.Forms.Label();
-			this.butSelectTES5EditDirectory = new System.Windows.Forms.Button();
-			this.lblTES5EditPrompt = new System.Windows.Forms.Label();
-			this.tbxTES5Edit = new System.Windows.Forms.TextBox();
-			this.lblTES5EditLabel = new System.Windows.Forms.Label();
+			this.butSelectSSEEditDirectory = new System.Windows.Forms.Button();
+			this.lblSSEEditPrompt = new System.Windows.Forms.Label();
+			this.tbxSSEEdit = new System.Windows.Forms.TextBox();
+			this.lblSSEEditLabel = new System.Windows.Forms.Label();
 			this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
 			this.fbdDirectory = new System.Windows.Forms.FolderBrowserDialog();
 			((System.ComponentModel.ISupportInitialize)(this.erpErrors)).BeginInit();
@@ -259,45 +259,45 @@
 			this.lblBS2Label.TabIndex = 13;
 			this.lblBS2Label.Text = "BodySlide2 path:";
 			// 
-			// butSelectTES5EditDirectory
+			// butSelectSSEEditDirectory
 			// 
-			this.butSelectTES5EditDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.butSelectTES5EditDirectory.AutoSize = true;
-			this.butSelectTES5EditDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.butSelectTES5EditDirectory.Location = new System.Drawing.Point(394, 186);
-			this.butSelectTES5EditDirectory.Name = "butSelectTES5EditDirectory";
-			this.butSelectTES5EditDirectory.Size = new System.Drawing.Size(26, 23);
-			this.butSelectTES5EditDirectory.TabIndex = 12;
-			this.butSelectTES5EditDirectory.Text = "...";
-			this.butSelectTES5EditDirectory.UseVisualStyleBackColor = true;
-			this.butSelectTES5EditDirectory.Click += new System.EventHandler(this.butSelectTES5EditDirectory_Click);
+			this.butSelectSSEEditDirectory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+			this.butSelectSSEEditDirectory.AutoSize = true;
+			this.butSelectSSEEditDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.butSelectSSEEditDirectory.Location = new System.Drawing.Point(394, 186);
+			this.butSelectSSEEditDirectory.Name = "butSelectSSEEditDirectory";
+			this.butSelectSSEEditDirectory.Size = new System.Drawing.Size(26, 23);
+			this.butSelectSSEEditDirectory.TabIndex = 12;
+			this.butSelectSSEEditDirectory.Text = "...";
+			this.butSelectSSEEditDirectory.UseVisualStyleBackColor = true;
+			this.butSelectSSEEditDirectory.Click += new System.EventHandler(this.butSelectSSEEditDirectory_Click);
 			// 
-			// lblTES5EditPrompt
+			// lblSSEEditPrompt
 			// 
-			this.lblTES5EditPrompt.AutoSize = true;
-			this.lblTES5EditPrompt.Location = new System.Drawing.Point(3, 172);
-			this.lblTES5EditPrompt.Name = "lblTES5EditPrompt";
-			this.lblTES5EditPrompt.Size = new System.Drawing.Size(222, 13);
-			this.lblTES5EditPrompt.TabIndex = 14;
-			this.lblTES5EditPrompt.Text = "Select the directory where TES5Edit is installed:";
+			this.lblSSEEditPrompt.AutoSize = true;
+			this.lblSSEEditPrompt.Location = new System.Drawing.Point(3, 172);
+			this.lblSSEEditPrompt.Name = "lblSSEEditPrompt";
+			this.lblSSEEditPrompt.Size = new System.Drawing.Size(222, 13);
+			this.lblSSEEditPrompt.TabIndex = 14;
+			this.lblSSEEditPrompt.Text = "Select the directory where SSEEdit is installed:";
 			// 
-			// tbxTES5Edit
+			// tbxSSEEdit
 			// 
-			this.tbxTES5Edit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+			this.tbxSSEEdit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
 						| System.Windows.Forms.AnchorStyles.Right)));
-			this.tbxTES5Edit.Location = new System.Drawing.Point(130, 188);
-			this.tbxTES5Edit.Name = "tbxTES5Edit";
-			this.tbxTES5Edit.Size = new System.Drawing.Size(250, 20);
-			this.tbxTES5Edit.TabIndex = 10;
+			this.tbxSSEEdit.Location = new System.Drawing.Point(130, 188);
+			this.tbxSSEEdit.Name = "tbxSSEEdit";
+			this.tbxSSEEdit.Size = new System.Drawing.Size(250, 20);
+			this.tbxSSEEdit.TabIndex = 10;
 			// 
-			// lblTES5EditLabel
+			// lblSSEEditLabel
 			// 
-			this.lblTES5EditLabel.AutoSize = true;
-			this.lblTES5EditLabel.Location = new System.Drawing.Point(38, 191);
-			this.lblTES5EditLabel.Name = "lblTES5EditLabel";
-			this.lblTES5EditLabel.Size = new System.Drawing.Size(82, 13);
-			this.lblTES5EditLabel.TabIndex = 13;
-			this.lblTES5EditLabel.Text = "TES5Edit path:";
+			this.lblSSEEditLabel.AutoSize = true;
+			this.lblSSEEditLabel.Location = new System.Drawing.Point(38, 191);
+			this.lblSSEEditLabel.Name = "lblSSEEditLabel";
+			this.lblSSEEditLabel.Size = new System.Drawing.Size(82, 13);
+			this.lblSSEEditLabel.TabIndex = 13;
+			this.lblSSEEditLabel.Text = "SSEEdit path:";
 			// 
 			// erpErrors
 			// 
@@ -334,10 +334,10 @@
 			this.Controls.Add(this.lblFNISPrompt);
 			this.Controls.Add(this.tbxFNIS);
 			this.Controls.Add(this.lblFNISLabel);
-			this.Controls.Add(this.butSelectTES5EditDirectory);
-			this.Controls.Add(this.lblTES5EditPrompt);
-			this.Controls.Add(this.tbxTES5Edit);
-			this.Controls.Add(this.lblTES5EditLabel);
+			this.Controls.Add(this.butSelectSSEEditDirectory);
+			this.Controls.Add(this.lblSSEEditPrompt);
+			this.Controls.Add(this.tbxSSEEdit);
+			this.Controls.Add(this.lblSSEEditLabel);
 			this.Controls.Add(this.butSelectBS2Directory);
 			this.Controls.Add(this.lblBS2Prompt);
 			this.Controls.Add(this.tbxBS2);
@@ -372,10 +372,10 @@
 		private System.Windows.Forms.Label lblBS2Prompt;
 		private System.Windows.Forms.TextBox tbxBS2;
 		private System.Windows.Forms.Label lblBS2Label;
-		private System.Windows.Forms.Button butSelectTES5EditDirectory;
-		private System.Windows.Forms.Label lblTES5EditPrompt;
-		private System.Windows.Forms.TextBox tbxTES5Edit;
-		private System.Windows.Forms.Label lblTES5EditLabel;
+		private System.Windows.Forms.Button butSelectSSEEditDirectory;
+		private System.Windows.Forms.Label lblSSEEditPrompt;
+		private System.Windows.Forms.TextBox tbxSSEEdit;
+		private System.Windows.Forms.Label lblSSEEditLabel;
 		private System.Windows.Forms.ErrorProvider erpErrors;
 		private System.Windows.Forms.FolderBrowserDialog fbdDirectory;
 		private System.Windows.Forms.Label label1;

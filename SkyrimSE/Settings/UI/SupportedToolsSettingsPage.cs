@@ -42,7 +42,7 @@ namespace Nexus.Client.Games.SkyrimSE.Settings.UI
 			BindingHelper.CreateFullBinding(tbxWryeBashDirectory, () => tbxWryeBashDirectory.Text, p_stsSettings, () => p_stsSettings.WryeBashDirectory);
 			BindingHelper.CreateFullBinding(tbxFNIS, () => tbxFNIS.Text, p_stsSettings, () => p_stsSettings.FNISDirectory);
 			BindingHelper.CreateFullBinding(tbxBS2, () => tbxBS2.Text, p_stsSettings, () => p_stsSettings.BS2Directory);
-			BindingHelper.CreateFullBinding(tbxTES5Edit, () => tbxTES5Edit.Text, p_stsSettings, () => p_stsSettings.TES5EditDirectory);
+			BindingHelper.CreateFullBinding(tbxSSEEdit, () => tbxSSEEdit.Text, p_stsSettings, () => p_stsSettings.SSEEditDirectory);
 
 			p_stsSettings.Errors.ErrorChanged -= new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
 			p_stsSettings.Errors.ErrorChanged += new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
@@ -52,7 +52,7 @@ namespace Nexus.Client.Games.SkyrimSE.Settings.UI
 			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);
 			lblFNISPrompt.Text = String.Format(lblFNISPrompt.Text, p_stsSettings.GameModeName);
 			lblBS2Prompt.Text = String.Format(lblBS2Prompt.Text, p_stsSettings.GameModeName);
-			lblTES5EditPrompt.Text = String.Format(lblTES5EditPrompt.Text, p_stsSettings.GameModeName);
+			lblSSEEditPrompt.Text = String.Format(lblSSEEditPrompt.Text, p_stsSettings.GameModeName);
 		}
 
 		#endregion
@@ -77,8 +77,8 @@ namespace Nexus.Client.Games.SkyrimSE.Settings.UI
 				erpErrors.SetError(butSelectBS2Directory, e.Error);
 			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.FNISDirectory)))
 				erpErrors.SetError(butSelectFNISDirectory, e.Error);
-			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.TES5EditDirectory)))
-				erpErrors.SetError(butSelectTES5EditDirectory, e.Error);
+			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.SSEEditDirectory)))
+				erpErrors.SetError(butSelectSSEEditDirectory, e.Error);
 		}
 
 		#endregion
@@ -190,19 +190,19 @@ namespace Nexus.Client.Games.SkyrimSE.Settings.UI
 		}
 
 		/// <summary>
-		/// Handles the <see cref="Control.Click"/> event of the select TES5Edit button.
+		/// Handles the <see cref="Control.Click"/> event of the select SSEEdit button.
 		/// </summary>
 		/// <remarks>
-		/// This opens the folder selection dialog for TES5Edit.
+		/// This opens the folder selection dialog for SSEEdit.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void butSelectTES5EditDirectory_Click(object sender, EventArgs e)
+		private void butSelectSSEEditDirectory_Click(object sender, EventArgs e)
 		{
-			fbdDirectory.SelectedPath = tbxTES5Edit.Text;
+			fbdDirectory.SelectedPath = tbxSSEEdit.Text;
 			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
 			{
-				tbxTES5Edit.Text = fbdDirectory.SelectedPath;
+				tbxSSEEdit.Text = fbdDirectory.SelectedPath;
 				//force the data binding on the textbox to push the value to the bound view model
 				ValidateChildren();
 			}

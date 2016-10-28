@@ -77,17 +77,17 @@ namespace Nexus.Client.Games.SkyrimSE
 				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Bash", "Configures Wrye Bash.", imgIcon, ConfigWryeBash, true));
 			}
 
-			strCommand = GetTES5EditLaunchCommand();
-			Trace.TraceInformation("TES5Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			strCommand = GetSSEEditLaunchCommand();
+			Trace.TraceInformation("SSEEdit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("TES5Edit", "Launch TES5Edit", "Launches TES5Edit.", imgIcon, LaunchTES5Edit, true));
+				AddLaunchCommand(new Command("SSEEdit", "Launch SSEEdit", "Launches SSEEdit.", imgIcon, LaunchSSEEdit, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#TES5Edit", "Config TES5Edit", "Configures TES5Edit.", imgIcon, ConfigTES5Edit, true));
+				AddLaunchCommand(new Command("Config#SSEEdit", "Config SSEEdit", "Configures SSEEdit.", imgIcon, ConfigSSEEdit, true));
 			}
 
 			strCommand = GetFNISLaunchCommand();
@@ -174,11 +174,11 @@ namespace Nexus.Client.Games.SkyrimSE
 			Launch(strCommand, null);
 		}
 
-		private void LaunchTES5Edit()
+		private void LaunchSSEEdit()
 		{
-			Trace.TraceInformation("Launching TES5Edit");
+			Trace.TraceInformation("Launching SSEEdit");
 			Trace.Indent();
-			string strCommand = GetTES5EditLaunchCommand();
+			string strCommand = GetSSEEditLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -338,21 +338,21 @@ namespace Nexus.Client.Games.SkyrimSE
 		}
 
 		/// <summary>
-		/// Gets the TES5Edit launch command.
+		/// Gets the SSEEdit launch command.
 		/// </summary>
-		/// <returns>The TES5Edit launch command.</returns>
-		private string GetTES5EditLaunchCommand()
+		/// <returns>The SSEEdit launch command.</returns>
+		private string GetSSEEditLaunchCommand()
 		{
-			string strTES5Edit = String.Empty;
+			string strSSEEdit = String.Empty;
 
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("TES5Edit"))
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("SSEEdit"))
 			{
-				strTES5Edit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["TES5Edit"];
-				if (!String.IsNullOrEmpty(strTES5Edit))
-					strTES5Edit = Path.Combine(strTES5Edit, @"TES5Edit.exe");
+				strSSEEdit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["SSEEdit"];
+				if (!String.IsNullOrEmpty(strSSEEdit))
+					strSSEEdit = Path.Combine(strSSEEdit, @"SSEEdit.exe");
 			}
 
-			return strTES5Edit;
+			return strSSEEdit;
 		}
 
 		/// <summary>
@@ -528,8 +528,8 @@ namespace Nexus.Client.Games.SkyrimSE
 					ConfigBS2();
 					break;
 
-				case "TES5Edit":
-					ConfigTES5Edit();
+				case "SSEEdit":
+					ConfigSSEEdit();
 					break;
 
 				case "WryeBash":
@@ -583,11 +583,11 @@ namespace Nexus.Client.Games.SkyrimSE
 				}
 		}
 
-		private void ConfigTES5Edit()
+		private void ConfigSSEEdit()
 		{
-			string p_strToolName = "TES5Edit";
-			string p_strExecutableName = "TES5Edit.exe";
-			string p_strToolID = "TES5Edit";
+			string p_strToolName = "SSEEdit";
+			string p_strExecutableName = "SSEEdit.exe";
+			string p_strToolID = "SSEEdit";
 			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
 			Trace.Indent();
 
