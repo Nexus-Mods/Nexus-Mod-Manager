@@ -1185,8 +1185,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				if (OrderedCriticalPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
 					return true;
-				else if (OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
-					return true;
+				else if (OrderedOfficialPluginNames != null)
+					if (OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+						return true;
 			}
 
 			if (File.Exists(PluginsFilePath))
