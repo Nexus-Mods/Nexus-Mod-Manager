@@ -9,8 +9,8 @@ namespace Nexus.Client.Games.SkyrimSE
 	public class SkyrimSEGameModeDescriptor : GamebryoGameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { "SkyrimSELauncher.exe" };
-		private static string[] CRITICAL_PLUGINS = { "Skyrim.esm", "Update.esm" };
-		private static string[] OFFICIAL_PLUGINS = { "Dawnguard.esm", "Dragonborn.esm", "HearthFires.esm" };
+		private static string[] CRITICAL_PLUGINS = { "Skyrim.esm", "Update.esm" , "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
+		private static string[] OFFICIAL_PLUGINS = { };
 		private const string MODE_ID = "SkyrimSE";
 
 		#region Properties
