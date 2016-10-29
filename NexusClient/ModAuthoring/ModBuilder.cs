@@ -280,6 +280,9 @@ namespace Nexus.Client.ModAuthoring
 						strDest = ConfirmOverwrite(p_dlgConfirmOverwrite, strDest);
 						if (!String.IsNullOrEmpty(strDest))
 						{
+							if (string.Equals(strMod, strDest, StringComparison.OrdinalIgnoreCase))
+								throw new FileNotFoundException("You can't add a mod directly from the NMM Mods folder, please move it somewhere else before adding it to the manager!");
+
 							File.Copy(strMod, strDest, true);
 							lstFoundMods.Add(strDest);
 						}
@@ -290,7 +293,7 @@ namespace Nexus.Client.ModAuthoring
 			}
 			catch (FileNotFoundException ex)
 			{
-				MessageBox.Show("An error has occured with the following archive: " + p_strArchivePath + "\n\n ERROR: " + ex.Message);
+				MessageBox.Show("Archive: " + p_strArchivePath + "\n\n ERROR: " + ex.Message, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return lstFoundMods;
 			}
 			finally
