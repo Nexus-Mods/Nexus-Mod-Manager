@@ -276,6 +276,9 @@ namespace Nexus.Client.Games.Fallout4
 			if (m_booOldEditsWarning)
 				return false;
 
+			if (!File.Exists(m_strFallout4Ini))
+				return false;
+
 			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strFallout4Ini);
 			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
 
