@@ -96,57 +96,6 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] p_objArgs)
 		{
-			try
-			{
-				ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
-				OverallMessage = "Checking the Profile Online Integrity...";
-				OverallProgress = 0;
-				OverallProgressStepSize = 1;
-				ShowItemProgress = false;
-				OverallProgressMaximum = 1;
-
-				List<ProfileMissingModInfo> lstMissingInfo = null;
-				Dictionary<string, string> dctMissingMods = new Dictionary<string, string>();
-				Dictionary<string, string> dctNewDownloadID = new Dictionary<string, string>();
-
-				if (ModProfile != null)
-					lstMissingInfo = ModRepository.GetMissingFiles(ModRepository.RemoteGameId, int.Parse(ModProfile.OnlineID));
-				
-				foreach(KeyValuePair<string, string> kvp in MissingModsList)
-				{
-					IVirtualModInfo Mod = ModProfile.ModList.Find(x => x.DownloadId == kvp.Value);
-
-					if (Mod != null)
-					{
-						ProfileMissingModInfo pmModInfo = lstMissingInfo.Find(x => x.FileId.ToString().Equals(kvp.Value));
-						
-						if (pmModInfo != null)
-						{
-							if ((!string.IsNullOrEmpty(pmModInfo.NewFileId.ToString())) && (pmModInfo.NewFileId.ToString() != "-1"))
-							{
-								dctNewDownloadID.Add(kvp.Key, pmModInfo.NewFileId.ToString());
-								dctMissingMods.Add(kvp.Key, @"@nxm://" + GameModeID + "/mods/" + Mod.ModId + "/files/" + pmModInfo.NewFileId.ToString());
-							}
-							else if (string.IsNullOrEmpty(pmModInfo.ModName))
-								dctMissingMods.Add(kvp.Key, null);
-							else if (pmModInfo.NewFileId.ToString().Equals("-1", StringComparison.OrdinalIgnoreCase))
-								dctMissingMods.Add(kvp.Key, null);
-						}
-						else
-							dctMissingMods.Add(kvp.Key, @"nxm://" + GameModeID + "/mods/" + Mod.ModId + "/files/" + Mod.DownloadId);
-					}
-				}
-
-
-				ProfileManager.UpdateProfileDownloadId(ModProfile, dctNewDownloadID);
-				
-				return dctMissingMods;
-			}
-			catch (Exception ex)
-			{
-				return ("ERROR - There was a problem communicating with the Nexus server: " + Environment.NewLine + ex.Message);
-			}
-
 			return null;
 		}
 	}

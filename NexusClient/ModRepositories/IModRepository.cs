@@ -231,79 +231,9 @@ namespace Nexus.Client.ModRepositories
 		IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms);
 
 		/// <summary>
-		/// Gets the Upload Request array.
-		/// </summary>
-		/// <returns>The Upload Request array.</returns>
-		NexusToken GetUploadRequest(int p_intGameId);
-
-		/// <summary>
-		/// Gets the Update Request array.
-		/// </summary>
-		/// <returns>The Update Request array.</returns>
-		NexusToken UpdateRequest(int p_intGameId, int p_intProfileId);
-
-		/// <summary>
-		/// Gets the Download Request array.
-		/// </summary>
-		/// <returns>The Download Request array.</returns>
-		NexusToken DownloadRequest(int p_intGameId, int p_intProfileId);
-
-		/// <summary>
-		/// Gets the Missing Files array.
-		/// </summary>
-		/// <returns>The Download Request array.</returns>
-		List<ProfileMissingModInfo> GetMissingFiles(int p_intGameId, int p_intProfileId);
-
-
-		/// <summary>
 		/// Gets the Categories array.
 		/// </summary>
 		/// <returns>The Categories array..</returns>
 		List<CategoriesInfo> GetCategories(int p_intGameId);
-
-		/// <summary>
-		/// The Profile Upload Request.
-		/// </summary>
-		/// <returns>The Profile Upload Request.</returns>
-		string UploadProfile(int p_intGameId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare);
-
-		/// <summary>
-		/// The Profile Upload Request.
-		/// </summary>
-		/// <returns>The Profile Upload Request.</returns>
-		string UpdateProfile(int p_intGameId, int p_intProfileId, byte[] p_FileStream, string p_strReqId, string p_strRes, int p_intShare);
-
-		/// <summary>
-		/// The Profile Download Request.
-		/// </summary>
-		/// <returns>The Profile Download Request.</returns>
-		Stream DownloadProfile(int p_intGameId, int p_intProfileId, string p_strReqId, string p_strRes);
-
-		/// <summary>
-		/// The Online Profile list.
-		/// </summary>
-		/// <returns>The Profile Download Request.</returns>
-		List<int> GetUserProfiles(int p_intGameId);
-
-		/// <summary>
-		/// The Profile data.
-		/// </summary>
-		/// <returns>The Profile Download Request.</returns>
-		IModProfileInfo GetProfileData(int p_intGameId, int p_intProfileId);
-
-		/// <summary>
-		/// Rename the Profile.
-		/// </summary>
-		string RenameProfile(int p_intGameId, int p_intProfileId, string p_strName);
-
-		/// <summary>
-		/// Remove the Profile.
-		/// </summary>
-		string RemoveProfile(int p_intGameId, int p_intProfileId);
-
-		/// <summary>
-		/// Remove the Profile.
-		/// </summary>
-		string ToggleSharing(int p_intGameId, int p_intProfileId, int p_intShare);
 	}
 }
