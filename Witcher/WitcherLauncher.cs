@@ -36,12 +36,18 @@ namespace Nexus.Client.Games.Witcher
             ClearLaunchCommands();
 
             string strCommand = GetPlainLaunchCommand();
-            string strCMIcon = Path.Combine(GameMode.ExecutablePath, "editor.release.exe");
+            string strCMIcon = Path.Combine(GameMode.ExecutablePath, "Witcher.exe");
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
             AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher", "Launches The Witcher.", imgIcon, LaunchGame, true));
 
-       
+            strCommand = GetPlainLaunchCommand();
+            strCMIcon = Path.Combine(GameMode.ExecutablePath, "Witcher.exe");
+            Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher (Launcher)", "Launches The Witcher using the official Launcher.", imgIcon, LaunchLauncher, true));
+
+
             DefaultLaunchCommand = new Command("Launch The Witcher", "Launches The Witcher.", LaunchGame);
 
             Trace.Unindent();
@@ -84,6 +90,11 @@ namespace Nexus.Client.Games.Witcher
             //    LaunchWitcher2Custom();
             //else
                 LaunchWitcherPlain();
+        }
+
+        private void LaunchLauncher()
+        {
+
         }
 
         #endregion
