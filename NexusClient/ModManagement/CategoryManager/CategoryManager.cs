@@ -306,7 +306,7 @@ namespace Nexus.Client.ModManagement
 		public IModCategory FindCategory(Int32 p_intCategoryId)
 		{
 			IModCategory imcCategory = m_tslCategories.Find(Item => Item.Id == p_intCategoryId);
-			return (imcCategory == null ? (IModCategory) new ModCategory() : imcCategory);
+			return (imcCategory == null ? new ModCategory() : imcCategory);
 		}
 
 		#endregion

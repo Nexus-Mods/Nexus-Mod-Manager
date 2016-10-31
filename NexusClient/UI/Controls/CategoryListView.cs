@@ -365,10 +365,24 @@ namespace Nexus.Client.UI.Controls
 			{
 				if (x.GetType() == typeof(ModCategory))
 				{
-					var CategoryMods = from Mod in m_rolManagedMods
-										where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == ((IModCategory)x).Id)
-										select Mod;
-					return CategoryMods;
+					IModCategory ModCategory = (IModCategory)x;
+
+					if (ModCategory.Id == 0)
+					{
+						var CategoryMods = from Mod in m_rolManagedMods
+									   where (Mod != null) && (((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == ModCategory.Id) || (CategoryManager.FindCategory(Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId).Id == 0))
+									   select Mod;
+
+						return CategoryMods;
+					}
+					else
+					{
+						var CategoryMods = from Mod in m_rolManagedMods
+										   where (Mod != null) && ((Mod.CustomCategoryId >= 0 ? Mod.CustomCategoryId : Mod.CategoryId) == ModCategory.Id)
+										   select Mod;
+
+						return CategoryMods;
+					}
 				}
 				else
 					return null;
