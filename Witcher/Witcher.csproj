@@ -101,6 +101,7 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <None Include="Resources\Categories.xml" />
     <Content Include="Resources\witcher_logo.ico" />
   </ItemGroup>
   <ItemGroup>

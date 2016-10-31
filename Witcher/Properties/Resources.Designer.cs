@@ -61,6 +61,30 @@ namespace Nexus.Client.Games.Witcher.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+        ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
+        ///  &lt;categoryList&gt;
+        ///    &lt;category path=&quot;Abilities&quot; ID=&quot;17&quot;&gt;
+        ///      &lt;name&gt;Abilities&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Alchemy and Crafting&quot; ID=&quot;18&quot;&gt;
+        ///      &lt;name&gt;Alchemy and Crafting&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Armour&quot; ID=&quot;19&quot;&gt;
+        ///      &lt;name&gt;Armour&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Audio - Music&quot; ID=&quot;35&quot;&gt;
+        ///      &lt;name&gt;Audio - Music&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Audio - SFX&quot; ID=&quot; [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string Categories {
+            get {
+                return ResourceManager.GetString("Categories", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon witcher_logo {
