@@ -333,7 +333,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "XCOM2NexusREST";
 					m_intRemoteGameId = 1271;
 					break;
-				default:
+                case "Witcher":
+                    m_strWebsite = "www.nexusmods.com/witcher";
+                    m_strEndpoint = "W1NexusREST";
+                    m_intRemoteGameId = 150;
+                    break;
+                default:
 					throw new Exception("Unsupported game mode: " + p_gmdGameMode.ModeId);
 			}
 		}

@@ -30,7 +30,7 @@ namespace Nexus.Client.Games.Witcher.Settings.UI
         {
             get
             {
-                throw new NotImplementedException();
+                return gsgGeneralSettings;
             }
         }
     }
