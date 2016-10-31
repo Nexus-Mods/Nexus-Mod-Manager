@@ -10,43 +10,10 @@ namespace Nexus.Client.Games.Witcher
 {
     public class WitcherGameModeDescriptor : GameModeDescriptorBase
     {
-        private static readonly List<string> PLUGIN_EXTENSIONS = new List<string>() { ".dzip" };
-        private static readonly List<string> STOP_FOLDERS = new List<string>() { "abilities", "characters", "combat", "cutscenes",
-                                                                                    "engine", "environment", "environment_levels", "fx",
-                                                                                    "game", "globals", "items", "junk",
-                                                                                    "levels", "reactions", "speedtree", "templates",
-                                                                                    "tests" };
-        private static string[] EXECUTABLES = { "userContentManager.exe", "witcher2.exe" };
-        private static string[] CRITICAL_PLUGINS = { "userContentManager.exe" };
-        private const string MODE_ID = "Witcher2";
+        private static string[] EXECUTABLES = { "witcher.exe" };
+        private const string MODE_ID = "Witcher";
 
         #region Properties
-
-        /// <summary>
-        /// Gets the extensions that are used by the game mode for plugin files.
-        /// </summary>
-        /// <value>The extensions that are used by the game mode for plugin files.</value>
-        public override IEnumerable<string> PluginExtensions
-        {
-            get
-            {
-                return PLUGIN_EXTENSIONS;
-            }
-        }
-
-        /// <summary>
-        /// Gets a list of possible folders that should be looked for in mod archives to determine
-        /// file structure.
-        /// </summary>
-        /// <value>A list of possible folders that should be looked for in mod archives to determine
-        /// file structure.</value>
-        public override IEnumerable<string> StopFolders
-        {
-            get
-            {
-                return STOP_FOLDERS;
-            }
-        }
 
         /// <summary>
         /// Gets the directory where The Witcher plugins are installed.
@@ -56,23 +23,7 @@ namespace Nexus.Client.Games.Witcher
         {
             get
             {
-                string strPath = Path.Combine(Path.GetDirectoryName(ExecutablePath), "CookedPC");
-                if (!Directory.Exists(strPath))
-                    Directory.CreateDirectory(strPath);
-                return strPath;
-            }
-        }
-
-        /// <summary>
-        /// Gets the secondary path to which mod files should be installed.
-        /// </summary>
-        /// <value>The secondary path to which mod files should be installed.</value>
-        public override string SecondaryInstallationPath
-        {
-            get
-            {
-                string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                strPath = Path.Combine(strPath, @"Witcher\UserContent");
+                string strPath = Path.Combine(Path.GetDirectoryName(ExecutablePath), "Data");
                 if (!Directory.Exists(strPath))
                     Directory.CreateDirectory(strPath);
                 return strPath;
@@ -115,20 +66,6 @@ namespace Nexus.Client.Games.Witcher
             }
         }
 
-        /// <summary>
-        /// Gets the list of critical plugin names, ordered by load order.
-        /// </summary>
-        /// <value>The list of critical plugin names, ordered by load order.</value>
-        public override string[] OrderedCriticalPluginNames
-        {
-            get
-            {
-                if (!String.IsNullOrEmpty(ExecutablePath))
-                    for (int i = 0; i < CRITICAL_PLUGINS.Length; i++)
-                        CRITICAL_PLUGINS[i] = Path.Combine(ExecutablePath, CRITICAL_PLUGINS[i]);
-                return CRITICAL_PLUGINS;
-            }
-        }
 
         /// <summary>
         /// Gets the theme to use for this game mode.

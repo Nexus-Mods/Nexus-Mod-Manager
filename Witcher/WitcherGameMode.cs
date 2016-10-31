@@ -17,6 +17,7 @@ using Nexus.Client.Games.Witcher.Tools;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Games.Witcher.Settings;
 using Nexus.Client.Games.Witcher.Settings.UI;
+using System.IO;
 
 namespace Nexus.Client.Games.Witcher
 {
@@ -57,6 +58,13 @@ namespace Nexus.Client.Games.Witcher
         {
             get
             {
+                string strFullPath = null;
+                foreach (string strExecutable in GameExecutables)
+                {
+                    strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, strExecutable);
+                    if (File.Exists(strFullPath))
+                        return new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+                }
                 return null;
             }
         }
@@ -73,43 +81,43 @@ namespace Nexus.Client.Games.Witcher
         {
             get
             {
-                throw new NotImplementedException();
+                return null;
             }
         }
 
         public override IActivePluginLogSerializer GetActivePluginLogSerializer(IPluginOrderLog p_polPluginOrderLog)
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public override IPluginDiscoverer GetPluginDiscoverer()
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public override IPluginFactory GetPluginFactory()
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public override IPluginOrderLogSerializer GetPluginOrderLogSerializer()
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public override IPluginOrderValidator GetPluginOrderValidator()
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public override IEnumerable<IUpdater> GetUpdaters()

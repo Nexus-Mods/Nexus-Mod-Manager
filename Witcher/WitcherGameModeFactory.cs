@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Settings;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Games.Witcher
 {
@@ -51,27 +52,41 @@ namespace Nexus.Client.Games.Witcher
 
         public string GetExecutablePath(string p_strGameInstallPath)
         {
-            throw new NotImplementedException();
+            return p_strGameInstallPath;
         }
 
         public string GetInstallationPath()
         {
-            throw new NotImplementedException();
+            //TODO
+            return null;
         }
 
         public string GetInstallationPath(string p_strGameInstallPath)
         {
-            throw new NotImplementedException();
+            return p_strGameInstallPath;
         }
 
         public bool PerformInitialization(ShowViewDelegate p_dlgShowView, ShowMessageDelegate p_dlgShowMessage)
         {
-            throw new NotImplementedException();
+            return true;
         }
 
         public bool PerformInitialSetup(ShowViewDelegate p_dlgShowView, ShowMessageDelegate p_dlgShowMessage)
         {
-            throw new NotImplementedException();
+            if (EnvironmentInfo.Settings.CustomGameModeSettings[GameModeDescriptor.ModeId] == null)
+                EnvironmentInfo.Settings.CustomGameModeSettings[GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
+
+            WitcherSetupVM vmlSetup = new WitcherSetupVM(EnvironmentInfo, GameModeDescriptor);
+            SetupForm frmSetup = new SetupForm(vmlSetup);
+            if (((DialogResult)p_dlgShowView(frmSetup, true)) == DialogResult.Cancel)
+                return false;
+            return vmlSetup.Save();
+        }
+
+        public WitcherGameModeFactory(IEnvironmentInfo p_eifEnvironmentInfo)
+        {
+            EnvironmentInfo = p_eifEnvironmentInfo;
+            m_gmdGameModeDescriptor = new WitcherGameModeDescriptor(p_eifEnvironmentInfo);
         }
     }
 }
