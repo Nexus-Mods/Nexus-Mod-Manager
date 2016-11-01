@@ -36,17 +36,19 @@ namespace Nexus.Client.Games.Witcher
             ClearLaunchCommands();
 
             string strCommand = GetPlainLaunchCommand();
-            string strCMIcon = Path.Combine(GameMode.ExecutablePath, "System", "Witcher.exe");
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
             AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher", "Launches The Witcher.", imgIcon, LaunchGame, true));
 
             strCommand = GetLauncherLaunchCommand();
-            strCMIcon = Path.Combine(GameMode.ExecutablePath, "launcher.exe");
-            Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+            Trace.TraceInformation("Launcher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
             AddLaunchCommand(new Command("LauncherLaunch", "Launch The Witcher (Launcher)", "Launches The Witcher using the official Launcher.", imgIcon, LaunchLauncher, true));
 
+            strCommand = GetEditorLaunchCommand();
+            Trace.TraceInformation("Editor Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            AddLaunchCommand(new Command("EditorLaunch", "Launch The Witcher Editor", "Launches The Witcher editor.", imgIcon, LaunchEditor, true));
 
             DefaultLaunchCommand = new Command("Launch The Witcher", "Launches The Witcher.", LaunchGame);
 
@@ -54,6 +56,25 @@ namespace Nexus.Client.Games.Witcher
         }
 
         #region Launch Commands
+
+        #region Editor Launch
+
+        private string GetEditorLaunchCommand()
+        {
+            string strCommand = Path.Combine(GameMode.ExecutablePath, "System", "djinni!.exe");
+            return strCommand;
+        }
+
+        private void LaunchEditor()
+        {
+            Trace.TraceInformation("Launching The Witcher Editor...");
+            Trace.Indent();
+            string strCommand = GetEditorLaunchCommand();
+            Trace.TraceInformation("Command: " + strCommand);
+            Launch(strCommand, null);
+        }
+
+        #endregion
 
         #region Vanilla Launch
 
@@ -80,18 +101,6 @@ namespace Nexus.Client.Games.Witcher
         }
 
         /// <summary>
-        /// Gets the plain launch command.
-        /// </summary>
-        /// <returns>The plain launch command.</returns>
-        private string GetLauncherLaunchCommand()
-        {
-            string strCommand = Path.Combine(GameMode.ExecutablePath, "launcher.exe");
-            return strCommand;
-        }
-
-        #endregion
-
-        /// <summary>
         /// Launches the game, using FOSE if present.
         /// </summary>
         private void LaunchGame()
@@ -100,6 +109,18 @@ namespace Nexus.Client.Games.Witcher
             //    LaunchWitcher2Custom();
             //else
                 LaunchWitcherPlain();
+        }
+        #endregion
+
+        #region Launcher Launch
+        /// <summary>
+        /// Gets the plain launch command.
+        /// </summary>
+        /// <returns>The plain launch command.</returns>
+        private string GetLauncherLaunchCommand()
+        {
+            string strCommand = Path.Combine(GameMode.ExecutablePath, "launcher.exe");
+            return strCommand;
         }
 
         private void LaunchLauncher()
@@ -110,6 +131,7 @@ namespace Nexus.Client.Games.Witcher
             Trace.TraceInformation("Command: " + strCommand);
             Launch(strCommand, null);
         }
+        #endregion
 
         #endregion
     }
