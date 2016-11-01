@@ -161,7 +161,6 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				//if (m_booMissingDownloadId)
 				if ((m_booMissingDownloadId == null) || ((m_booMissingDownloadId == true) && (string.IsNullOrEmpty(modCurrent.DownloadId) || (modCurrent.DownloadId == "0") || (modCurrent.DownloadId == "-1"))))
 				{
 					ModList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modID) ? "0" : modID, Path.GetFileName(modCurrent.Filename)));

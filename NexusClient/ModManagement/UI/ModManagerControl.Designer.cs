@@ -196,7 +196,6 @@
             // 
             this.tsbModOnlineChecks.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
             this.tsbModOnlineChecks.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.checkModUpdates,
             this.checkFileDownloadId,
             this.checkMissingDownloadId});
             this.tsbModOnlineChecks.Image = global::Nexus.Client.Properties.Resources.edit_find_and_replace;
@@ -219,7 +218,7 @@
             this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
             this.checkFileDownloadId.Name = "checkFileDownloadId";
             this.checkFileDownloadId.Size = new System.Drawing.Size(295, 38);
-            this.checkFileDownloadId.Text = "Fix missing or outdated download IDs";
+            this.checkFileDownloadId.Text = "Fix DownloadIDs and check for mod updates";
             this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
             // 
             // checkMissingDownloadId

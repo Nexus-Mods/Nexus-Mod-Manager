@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
