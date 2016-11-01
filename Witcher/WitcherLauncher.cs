@@ -1,4 +1,5 @@
 ﻿using Nexus.Client.Commands;
+using Nexus.Client.Util;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -40,6 +41,11 @@ namespace Nexus.Client.Games.Witcher
             Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
             AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher", "Launches The Witcher.", imgIcon, LaunchGame, true));
 
+            strCommand = GetCustomLaunchCommand();
+            Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            AddLaunchCommand(new Command("CustomLaunch", "Launch The Witcher Custom", "Launches The Witcher Custom.", imgIcon, LaunchWitcherCustom, true));
+
             strCommand = GetLauncherLaunchCommand();
             Trace.TraceInformation("Launcher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
@@ -55,7 +61,7 @@ namespace Nexus.Client.Games.Witcher
             Trace.Unindent();
         }
 
-        #region Launch Commands
+       #region Launch Commands
 
         #region Editor Launch
 
@@ -72,6 +78,40 @@ namespace Nexus.Client.Games.Witcher
             string strCommand = GetEditorLaunchCommand();
             Trace.TraceInformation("Command: " + strCommand);
             Launch(strCommand, null);
+        }
+
+        #endregion
+
+        #region Custom Command
+
+        private void LaunchWitcherCustom()
+        {
+            Trace.TraceInformation("Launching The Witcher (Custom)...");
+            Trace.Indent();
+
+            string strCommand = GetCustomLaunchCommand();
+            string strCommandArgs = EnvironmentInfo.Settings.CustomLaunchCommandArguments[GameMode.ModeId];
+            if (String.IsNullOrEmpty(strCommand))
+            {
+                Trace.TraceError("No custom launch command has been set.");
+                Trace.Unindent();
+                OnGameLaunched(false, "No custom launch command has been set.");
+                return;
+            }
+            Launch(strCommand, strCommandArgs);
+        }
+
+        private string GetCustomLaunchCommand()
+        {
+            string strCommand = EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId];
+            if (!String.IsNullOrEmpty(strCommand))
+            {
+                strCommand = Environment.ExpandEnvironmentVariables(strCommand);
+                strCommand = FileUtil.StripInvalidPathChars(strCommand);
+                if (!Path.IsPathRooted(strCommand))
+                    strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.ExecutablePath, strCommand);
+            }
+            return strCommand;
         }
 
         #endregion
