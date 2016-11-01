@@ -574,17 +574,16 @@ namespace Nexus.Client.ModManagement.UI
 			m_booDisableSummary = false;
 
 			if (e.Argument.ReturnValue != null)
-				ExtendedMessageBox.Show(this, "An error occurred during the Update: " + Environment.NewLine + e.Argument.ReturnValue.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-			else
-			{
-				ViewModel.ResetDefaultCategories();
-				clwCategoryView.Visible = false;
-				clwCategoryView.LoadData();
-				clwCategoryView.RefreshContextMenuCategoryList();
-				clwCategoryView.ReloadList(false);
-				ResetSearchBox(this, e);
-				clwCategoryView.Visible = true;
-			}
+				ExtendedMessageBox.Show(this, "Unable to update the category list online, it will use the base categories: " + Environment.NewLine + e.Argument.ReturnValue.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+
+			ViewModel.ResetDefaultCategories(e.Argument.ReturnValue != null);
+			clwCategoryView.Visible = false;
+			clwCategoryView.LoadData();
+			clwCategoryView.RefreshContextMenuCategoryList();
+			clwCategoryView.ReloadList(false);
+			ResetSearchBox(this, e);
+			clwCategoryView.Visible = true;
 		}
 
 		/// <summary>

@@ -846,9 +846,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Resets to the repository default categories.
 		/// </summary>
-		public bool ResetDefaultCategories()
+		public bool ResetDefaultCategories(bool p_booResetCategories)
 		{
-			this.CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
+			if (p_booResetCategories)
+				CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
 			SwitchModsToCategory(-1);
 			CheckForUpdates(true);
 			return true;
