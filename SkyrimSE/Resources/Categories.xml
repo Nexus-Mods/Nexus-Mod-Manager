@@ -1,182 +1,197 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <categoryManager fileVersion="0.1.0.0">
   <categoryList>
-    <category path="Alchemy" ID="3">
-      <name>Alchemy</name>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
     </category>
-    <category path="Animation" ID="4">
-      <name>Animation</name>
-    </category>
-    <category path="Armour" ID="5">
-      <name>Armour</name>
-    </category>
-    <category path="Armour - Shields" ID="6">
-      <name>Armour - Shields</name>
-    </category>
-    <category path="Audio - Music" ID="8">
-      <name>Audio - Music</name>
-    </category>
-    <category path="Audio - Sound Effects" ID="7">
-      <name>Audio - Sound Effects</name>
-    </category>
-    <category path="Audio - Voice" ID="9">
-      <name>Audio - Voice</name>
-    </category>
-    <category path="Body, Face, and Hair" ID="10">
-      <name>Body, Face, and Hair</name>
-    </category>
-    <category path="Books and Scrolls" ID="11">
-      <name>Books and Scrolls</name>
-    </category>
-    <category path="Bug fixes" ID="12">
-      <name>Bug fixes</name>
-    </category>
-    <category path="Buildings" ID="13">
-      <name>Buildings</name>
-    </category>
-    <category path="Castles, palaces, mansions and estates" ID="14">
-      <name>Castles, palaces, mansions and estates</name>
-    </category>
-    <category path="Cheats and god items" ID="15">
-      <name>Cheats and god items</name>
-    </category>
-    <category path="Cities, towns, villages and hamlets" ID="16">
-      <name>Cities, towns, villages and hamlets</name>
-    </category>
-    <category path="Clothing" ID="17">
-      <name>Clothing</name>
-    </category>
-    <category path="Clothing - Jewelry" ID="18">
-      <name>Clothing - Jewelry</name>
-    </category>
-    <category path="Collectables, treasure hunts and puzzles" ID="19">
-      <name>Collectables, treasure hunts and puzzles</name>
-    </category>
-    <category path="Combat" ID="20">
-      <name>Combat</name>
-    </category>
-    <category path="Companions" ID="21">
-      <name>Companions</name>
-    </category>
-    <category path="Companions - creatures" ID="22">
-      <name>Companions - creatures</name>
-    </category>
-    <category path="Dungeons - New" ID="25">
-      <name>Dungeons - New</name>
-    </category>
-    <category path="Dungeons - Vanilla" ID="26">
-      <name>Dungeons - Vanilla</name>
-    </category>
-	<category path="ENB Preset" ID="27">
-	  <name>ENB Preset</name>
-	</category>
-    <category path="Environmental" ID="28">
-      <name>Environmental</name>
-    </category>
-	<category path="Followers" ID="29">
-		<name>Followers</name>
-	</category>
-	<category path="Forts, Ruins, and Abandoned Structures" ID="30">
-		<name>Forts, Ruins, and Abandoned Structures</name>
-	</category>
-    <category path="Gameplay effects and changes" ID="31">
-      <name>Gameplay effects and changes</name>
-    </category>
-    <category path="Guilds and Factions" ID="32">
-      <name>Guilds and Factions</name>
-    </category>
-    <category path="Immersion" ID="33">
-      <name>Immersion</name>
-    </category>
-    <category path="Items and Objects - Player" ID="34">
-      <name>Items and Objects - Player</name>
-    </category>
-    <category path="Items and Objects - Wolrd" ID="35">
-      <name>Items and Objects - World</name>
-    </category>
-    <category path="Landscape changes" ID="36">
-      <name>Landscape changes</name>
-    </category>
-    <category path="Locations - New" ID="37">
-      <name>Locations - New</name>
-    </category>
-    <category path="Locations - Vanilla" ID="38">
-      <name>Locations - Vanilla</name>
-    </category>
-    <category path="Magic - Gameplay" ID="39">
-      <name>Magic - Gameplay</name>
-    </category>
-    <category path="Magic - Spells and enchantments" ID="40">
-      <name>Magic - Spells and enchantments</name>
-    </category>
-    <category path="Mercantiles (shops, stores, inns, taverns, etc)" ID="41">
-      <name>Mercantiles (shops, stores, inns, taverns, etc)</name>
-    </category>
-    <category path="Miscellaneous" ID="2">
-      <name>Miscellaneous</name>
-    </category>
-    <category path="Modders resources and tutorials" ID="42">
-      <name>Modders resources and tutorials</name>
-    </category>
-    <category path="Models and textures" ID="43">
-      <name>Models and textures</name>
-    </category>
-    <category path="Mounts" ID="44">
-      <name>Mounts</name>
-    </category>
-    <category path="New lands" ID="45">
-      <name>New lands</name>
-    </category>
-    <category path="NPC" ID="46">
-      <name>NPC</name>
-    </category>
-    <category path="NPC - Children" ID="47">
-      <name>NPC - Children</name>
-    </category>
-    <category path="Overhauls" ID="48">
-      <name>Overhauls</name>
-    </category>
-    <category path="Patches" ID="49">
-      <name>Patches</name>
-    </category>
-    <category path="Player homes" ID="50">
+    <category path="Player homes" ID="67">
       <name>Player homes</name>
     </category>
-    <category path="Quests and adventures" ID="51">
-      <name>Quests and adventures</name>
+    <category path="Creatures" ID="83">
+      <name>Creatures</name>
     </category>
-    <category path="Races, classes and birthsigns" ID="52">
-      <name>Races, classes and birthsigns</name>
+    <category path="Animation" ID="51">
+      <name>Animation</name>
     </category>
-    <category path="Saved games" ID="53">
-      <name>Saved games</name>
+    <category path="Armour" ID="54">
+      <name>Armour</name>
     </category>
-    <category path="Shouts" ID="54">
-      <name>Shouts</name>
+    <category path="Audio - Music" ID="61">
+      <name>Audio - Music</name>
     </category>
-    <category path="Skills and leveling" ID="55">
-      <name>Skills and leveling</name>
+    <category path="Bug Fixes" ID="95">
+      <name>Bug Fixes</name>
     </category>
-    <category path="Stealth" ID="56">
+    <category path="Castles, Palaces, Mansions, and Estates" ID="68">
+      <name>Castles, Palaces, Mansions, and Estates</name>
+    </category>
+    <category path="Cheats and God items" ID="40">
+      <name>Cheats and God items</name>
+    </category>
+    <category path="Cities, Towns, Villages, and Hamlets" ID="53">
+      <name>Cities, Towns, Villages, and Hamlets</name>
+    </category>
+    <category path="Clothing" ID="60">
+      <name>Clothing</name>
+    </category>
+    <category path="Collectables, Treasure Hunts, and Puzzles" ID="92">
+      <name>Collectables, Treasure Hunts, and Puzzles</name>
+    </category>
+    <category path="Combat" ID="77">
+      <name>Combat</name>
+    </category>
+    <category path="Followers &amp; Companions - Creatures" ID="65">
+      <name>Followers &amp; Companions - Creatures</name>
+    </category>
+    <category path="Companions - Other" ID="66">
+      <name>Companions - Other</name>
+    </category>
+    <category path="Dungeons - New" ID="88">
+      <name>Dungeons - New</name>
+    </category>
+    <category path="Dungeons - Vanilla" ID="91">
+      <name>Dungeons - Vanilla</name>
+    </category>
+    <category path="Presets - ENB" ID="97">
+      <name>Presets - ENB</name>
+    </category>
+    <category path="Environmental" ID="74">
+      <name>Environmental</name>
+    </category>
+    <category path="Followers &amp; Companions" ID="96">
+      <name>Followers &amp; Companions</name>
+    </category>
+    <category path="Gameplay Effects and Changes" ID="24">
+      <name>Gameplay Effects and Changes</name>
+    </category>
+    <category path="Guilds/Factions" ID="25">
+      <name>Guilds/Factions</name>
+    </category>
+    <category path="Body, Face, and Hair" ID="26">
+      <name>Body, Face, and Hair</name>
+    </category>
+    <category path="Immersion" ID="78">
+      <name>Immersion</name>
+    </category>
+    <category path="Items and Objects - Player" ID="27">
+      <name>Items and Objects - Player</name>
+    </category>
+    <category path="Items and Objects - World" ID="85">
+      <name>Items and Objects - World</name>
+    </category>
+    <category path="Landscape Changes" ID="58">
+      <name>Landscape Changes</name>
+    </category>
+    <category path="Locations -  New" ID="89">
+      <name>Locations -  New</name>
+    </category>
+    <category path="Locations - Vanilla" ID="90">
+      <name>Locations - Vanilla</name>
+    </category>
+    <category path="Alchemy" ID="94">
+      <name>Alchemy</name>
+    </category>
+    <category path="Magic - Gameplay" ID="93">
+      <name>Magic - Gameplay</name>
+    </category>
+    <category path="Magic - Spells &amp; Enchantments" ID="75">
+      <name>Magic - Spells &amp; Enchantments</name>
+    </category>
+    <category path="Mercantiles (shops, stores, inns, taverns, etc)" ID="69">
+      <name>Mercantiles (shops, stores, inns, taverns, etc)</name>
+    </category>
+    <category path="Miscellaneous" ID="28">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Modders Resources and Tutorials" ID="82">
+      <name>Modders Resources and Tutorials</name>
+    </category>
+    <category path="Models and Textures" ID="29">
+      <name>Models and Textures</name>
+    </category>
+    <category path="New Lands" ID="30">
+      <name>New Lands</name>
+    </category>
+    <category path="Buildings" ID="22">
+      <name>Buildings</name>
+    </category>
+    <category path="NPC" ID="33">
+      <name>NPC</name>
+    </category>
+    <category path="Overhauls" ID="79">
+      <name>Overhauls</name>
+    </category>
+    <category path="Patches" ID="84">
+      <name>Patches</name>
+    </category>
+    <category path="Quests and Adventures" ID="35">
+      <name>Quests and Adventures</name>
+    </category>
+    <category path="Races, Classes, and Birthsigns" ID="34">
+      <name>Races, Classes, and Birthsigns</name>
+    </category>
+    <category path="Forts, Ruins, and Abandoned Structures" ID="70">
+      <name>Forts, Ruins, and Abandoned Structures</name>
+    </category>
+    <category path="Save Games" ID="43">
+      <name>Save Games</name>
+    </category>
+    <category path="Skills and Leveling" ID="73">
+      <name>Skills and Leveling</name>
+    </category>
+    <category path="Stealth" ID="76">
       <name>Stealth</name>
     </category>
-    <category path="User interfaces" ID="57">
-      <name>User interfaces</name>
+    <category path="User Interface" ID="42">
+      <name>User Interface</name>
     </category>
-    <category path="Utilities" ID="58">
+    <category path="Utilities" ID="39">
       <name>Utilities</name>
     </category>
-    <category path="Videos and trailers" ID="60">
-      <name>Videos and trailers</name>
+    <category path="Videos and Trailers" ID="45">
+      <name>Videos and Trailers</name>
     </category>
-    <category path="Visuals and graphics" ID="61">
-      <name>Visuals and graphics</name>
+    <category path="Visuals and Graphics" ID="62">
+      <name>Visuals and Graphics</name>
     </category>
-    <category path="Weapons" ID="62">
+    <category path="Weapons and Armour" ID="36">
+      <name>Weapons and Armour</name>
+    </category>
+    <category path="Weapons" ID="55">
       <name>Weapons</name>
     </category>
-    <category path="Weapons and armour sets" ID="63">
-      <name>Weapons and Armour</name>
+    <category path="Skyrim Special Edition" ID="20">
+      <name>Skyrim Special Edition</name>
+    </category>
+    <category path="Books and Scrolls" ID="98">
+      <name>Books and Scrolls</name>
+    </category>
+    <category path="NPC - Children" ID="99">
+      <name>NPC - Children</name>
+    </category>
+    <category path="Crafting" ID="100">
+      <name>Crafting</name>
+    </category>
+    <category path="Mounts" ID="101">
+      <name>Mounts</name>
+    </category>
+    <category path="Clothing - Jewelry" ID="102">
+      <name>Clothing - Jewelry</name>
+    </category>
+    <category path="Armour - Shields" ID="103">
+      <name>Armour - Shields</name>
+    </category>
+    <category path="Shouts" ID="104">
+      <name>Shouts</name>
+    </category>
+    <category path="Presets - ReShade" ID="105">
+      <name>Presets - ReShade</name>
+    </category>
+    <category path="Audio - SFX" ID="106">
+      <name>Audio - SFX</name>
+    </category>
+    <category path="Audio - Voice" ID="107">
+      <name>Audio - Voice</name>
     </category>
   </categoryList>
 </categoryManager>
