@@ -36,16 +36,16 @@ namespace Nexus.Client.Games.Witcher
             ClearLaunchCommands();
 
             string strCommand = GetPlainLaunchCommand();
-            string strCMIcon = Path.Combine(GameMode.ExecutablePath, "Witcher.exe");
+            string strCMIcon = Path.Combine(GameMode.ExecutablePath, "System", "Witcher.exe");
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
             AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher", "Launches The Witcher.", imgIcon, LaunchGame, true));
 
-            strCommand = GetPlainLaunchCommand();
-            strCMIcon = Path.Combine(GameMode.ExecutablePath, "Witcher.exe");
+            strCommand = GetLauncherLaunchCommand();
+            strCMIcon = Path.Combine(GameMode.ExecutablePath, "launcher.exe");
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-            AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher (Launcher)", "Launches The Witcher using the official Launcher.", imgIcon, LaunchLauncher, true));
+            AddLaunchCommand(new Command("LauncherLaunch", "Launch The Witcher (Launcher)", "Launches The Witcher using the official Launcher.", imgIcon, LaunchLauncher, true));
 
 
             DefaultLaunchCommand = new Command("Launch The Witcher", "Launches The Witcher.", LaunchGame);
@@ -75,7 +75,17 @@ namespace Nexus.Client.Games.Witcher
         /// <returns>The plain launch command.</returns>
         private string GetPlainLaunchCommand()
         {
-            string strCommand = Path.Combine(GameMode.ExecutablePath, "Witcher.exe");
+            string strCommand = Path.Combine(GameMode.ExecutablePath, "System", "Witcher.exe");
+            return strCommand;
+        }
+
+        /// <summary>
+        /// Gets the plain launch command.
+        /// </summary>
+        /// <returns>The plain launch command.</returns>
+        private string GetLauncherLaunchCommand()
+        {
+            string strCommand = Path.Combine(GameMode.ExecutablePath, "launcher.exe");
             return strCommand;
         }
 
@@ -94,7 +104,11 @@ namespace Nexus.Client.Games.Witcher
 
         private void LaunchLauncher()
         {
-
+            Trace.TraceInformation("Launching The Witcher (launcher)...");
+            Trace.Indent();
+            string strCommand = GetLauncherLaunchCommand();
+            Trace.TraceInformation("Command: " + strCommand);
+            Launch(strCommand, null);
         }
 
         #endregion

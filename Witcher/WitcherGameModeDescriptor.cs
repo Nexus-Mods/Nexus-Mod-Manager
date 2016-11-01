@@ -10,7 +10,7 @@ namespace Nexus.Client.Games.Witcher
 {
     public class WitcherGameModeDescriptor : GameModeDescriptorBase
     {
-        private static string[] EXECUTABLES = { "witcher.exe" };
+        private static string[] EXECUTABLES = { "launcher.exe", "System\\djinni!.exe", "System\\witcher.exe" };
         private const string MODE_ID = "Witcher";
 
         #region Properties
