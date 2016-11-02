@@ -824,15 +824,22 @@ namespace Nexus.Client.ModManagement
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 		private void Downloader_TaskEnded(object sender, TaskEndedEventArgs e)
 		{
-			m_lstRunningTasks.Remove((IBackgroundTask)sender);
+			if (sender != null)
+				m_lstRunningTasks.Remove((IBackgroundTask)sender);
+
 			if (e.Status == TaskStatus.Complete)
 			{
-				DownloadedFileInfo dfiDownloadInfo = (DownloadedFileInfo)e.ReturnValue;
-				if (String.IsNullOrEmpty(Descriptor.SourcePath) && (Descriptor.DownloadFiles.IndexOf(dfiDownloadInfo.URL) == 0))
-					Descriptor.SourcePath = dfiDownloadInfo.SavedFilePath;
+				if (e.ReturnValue != null)
+				{
+					DownloadedFileInfo dfiDownloadInfo = (DownloadedFileInfo)e.ReturnValue;
+					if (String.IsNullOrEmpty(Descriptor.SourcePath) && (Descriptor.DownloadFiles.IndexOf(dfiDownloadInfo.URL) == 0))
+						Descriptor.SourcePath = dfiDownloadInfo.SavedFilePath;
 
-				Descriptor.DownloadFiles.Clear();
-				Descriptor.DownloadedFiles.Add(dfiDownloadInfo.SavedFilePath);
+					Descriptor.DownloadFiles.Clear();
+					Descriptor.DownloadedFiles.Add(dfiDownloadInfo.SavedFilePath);
+				}
+				else
+					Descriptor.DownloadedFiles.Clear();
 
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
