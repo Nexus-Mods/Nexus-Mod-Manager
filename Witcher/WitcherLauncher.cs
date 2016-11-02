@@ -145,9 +145,9 @@ namespace Nexus.Client.Games.Witcher
         /// </summary>
         private void LaunchGame()
         {
-            //if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
-            //    LaunchWitcher2Custom();
-            //else
+            if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
+                LaunchWitcherCustom();
+            else
                 LaunchWitcherPlain();
         }
         #endregion

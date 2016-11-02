@@ -98,7 +98,7 @@ namespace Nexus.Client.Games.Witcher
                             if (node != null)
                             {
                                 appPath = node.Children.Single(x => x.Name == "installdir").Value;
-                                if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, "witcher2.exe")))
+                                if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, "Data", "witcher.exe")))
                                     strValue = appPath;
                             }
                         }

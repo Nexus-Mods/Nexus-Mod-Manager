@@ -32,7 +32,7 @@ namespace Nexus.Client.Games.Witcher
             {
                 m_vmlViewModel = value as WitcherSetupVM;
                 if (m_vmlViewModel == null)
-                    throw new ArgumentException("The given view model must be a Witcher2SetupVM. Type found: " + value.GetType().FullName);
+                    throw new ArgumentException("The given view model must be a WitcherSetupVM. Type found: " + value.GetType().FullName);
                 lblTitle.Text = String.Format(lblTitle.Text, m_vmlViewModel.GameModeDescriptor.Name);
                 Text = String.Format(Text, m_vmlViewModel.GameModeDescriptor.Name);
                 rdcDirectories.ViewModel = m_vmlViewModel.SetupDirectoriesControlVM;
