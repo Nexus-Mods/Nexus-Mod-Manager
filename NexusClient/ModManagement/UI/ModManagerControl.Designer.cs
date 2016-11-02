@@ -218,7 +218,7 @@
             this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
             this.checkFileDownloadId.Name = "checkFileDownloadId";
             this.checkFileDownloadId.Size = new System.Drawing.Size(295, 38);
-            this.checkFileDownloadId.Text = "Fix DownloadIDs and check for mod updates";
+            this.checkFileDownloadId.Text = "Fix download IDs and Check for mod updates";
             this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
             // 
             // checkMissingDownloadId
