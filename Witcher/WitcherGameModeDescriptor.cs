@@ -13,8 +13,9 @@ namespace Nexus.Client.Games.Witcher
         private static string[] EXECUTABLES = { "launcher.exe", "System\\djinni!.exe", "System\\witcher.exe" };
         private const string MODE_ID = "Witcher";
 
-        #region Properties
 
+        #region Properties
+        
         /// <summary>
         /// Gets the directory where The Witcher plugins are installed.
         /// </summary>

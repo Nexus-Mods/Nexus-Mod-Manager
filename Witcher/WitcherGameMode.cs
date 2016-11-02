@@ -44,6 +44,18 @@ namespace Nexus.Client.Games.Witcher
             }
         }
 
+        /// <summary>
+		/// Gets the path to the per user The Witcher 2 data.
+		/// </summary>
+		/// <value>The path to the per user The Witcher 2 data.</value>
+		public string UserGameDataPath
+        {
+            get
+            {
+                return GameModeEnvironmentInfo.InstallationPath;
+            }
+        }
+
         public override IToolLauncher GameToolLauncher
         {
             get
