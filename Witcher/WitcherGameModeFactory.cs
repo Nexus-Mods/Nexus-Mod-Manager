@@ -168,7 +168,7 @@ namespace Nexus.Client.Games.Witcher
 		/// <c>null</c> if the path could be be determined.</returns>
         public string GetInstallationPath(string p_strGameInstallPath)
         {
-            string strPath = Path.Combine(Path.GetDirectoryName(p_strGameInstallPath), "Data", "Override");
+            string strPath = Path.Combine(p_strGameInstallPath, "Data", "Override");
             if (!Directory.Exists(strPath))
                 Directory.CreateDirectory(strPath);
             return strPath;

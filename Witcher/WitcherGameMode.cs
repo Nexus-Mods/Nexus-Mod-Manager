@@ -66,6 +66,29 @@ namespace Nexus.Client.Games.Witcher
             }
         }
 
+        public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
+        {
+            // - if Data\\ insert into root directory
+            // - if Override\\ insert into Data\\Override
+            // - if nothing:\\Data\\Override?
+
+            string path = p_strPath;
+            if (path.Contains("\\Data\\"))
+            {
+                path = path.Substring(path.IndexOf("\\Data\\") + "\\Data\\".Length);
+
+                return path;
+            }
+            else if (path.Contains("\\Override\\"))
+            {
+                path = path.Substring(path.IndexOf("\\Override\\") + "\\Override\\".Length);
+
+                return path;
+            }
+
+            return base.GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_booIgnoreIfPresent);
+        }
+
         /// <summary>
 		/// Gets the default game categories.
 		/// </summary>

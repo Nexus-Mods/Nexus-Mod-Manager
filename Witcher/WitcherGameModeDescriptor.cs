@@ -24,7 +24,7 @@ namespace Nexus.Client.Games.Witcher
         {
             get
             {
-                string strPath = Path.Combine(Path.GetDirectoryName(ExecutablePath), "Data", "Override");
+                string strPath = Path.Combine(ExecutablePath, "Data", "Override");
                 if (!Directory.Exists(strPath))
                     Directory.CreateDirectory(strPath);
                 return strPath;
