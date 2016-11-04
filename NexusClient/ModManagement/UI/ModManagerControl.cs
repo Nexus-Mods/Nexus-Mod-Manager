@@ -185,6 +185,21 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (ViewModel != null)
 			{
+				if (!ViewModel.ModManager.GameMode.UsesModLoadOrder)
+				{
+					try
+					{
+						clwCategoryView.Columns.RemoveAt(2);
+						tsb_SaveModLoadOrder.Visible = false;
+						tsb_ModUpLoadOrder.Visible = false;
+						tsb_ModDownLoadOrder.Visible = false;
+						toolStrip1.Items.RemoveByKey("tsb_SaveModLoadOrder");
+						toolStrip1.Items.RemoveByKey("tsb_ModUpLoadOrder");
+						toolStrip1.Items.RemoveByKey("tsb_ModDownLoadOrder");
+					}
+					catch { }
+				}
+				
 				ViewModel.Settings.SplitterSizes.LoadSplitterSizes("modManager", sptMods);
 				ViewModel.Settings.ColumnWidths.LoadColumnWidths("modManager", clwCategoryView);
 
@@ -2110,39 +2125,49 @@ namespace Nexus.Client.ModManagement.UI
 			m_booResizing = false;
 		}
 
-        #endregion
+		#endregion
 
-        private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
+		#region Mod Sorting
+		private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
         {
-            ViewModel.SaveModLoadOrder();
+			if (ViewModel.ModManager.GameMode.UsesModLoadOrder)
+	            ViewModel.SaveModLoadOrder();
         }
 
         private void tsb_ModUpLoadOrder_Click(Object sender, EventArgs e)
         {
-            if(clwCategoryView.SelectedMod != null)
-                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
-            else if (clwCategoryView.GetSelectedItems.Count > 0)
-            {
-                IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
-                foreach (IMod mod in cast)
-                    ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == -1 ? -1 : --mod.NewPlaceInModLoadOrder);
-            }
+			if (ViewModel.ModManager.GameMode.UsesModLoadOrder)
+			{
+				if (clwCategoryView.SelectedMod != null)
+					ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
+				else if (clwCategoryView.GetSelectedItems.Count > 0)
+				{
+					IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
+					foreach (IMod mod in cast)
+						ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == -1 ? -1 : --mod.NewPlaceInModLoadOrder);
+				}
 
-            Refresh();
+				Refresh();
+			}
         }
 
         private void tsb_ModDownLoadOrder_Click(Object sender, EventArgs e)
         {
-            if(clwCategoryView.SelectedMod != null)
-                ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
-            else if(clwCategoryView.GetSelectedItems.Count > 0)
-            {
-                IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
-                foreach (IMod mod in cast)
-                    ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.NewPlaceInModLoadOrder);
-            }
+			if (ViewModel.ModManager.GameMode.UsesModLoadOrder)
+			{
+				if (clwCategoryView.SelectedMod != null)
+					ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
+				else if (clwCategoryView.GetSelectedItems.Count > 0)
+				{
+					IEnumerable<IMod> cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
+					foreach (IMod mod in cast)
+						ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.NewPlaceInModLoadOrder);
+				}
 
-            Refresh();
+				Refresh();
+			}
         }
     }
+
+	#endregion
 }
