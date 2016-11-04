@@ -172,8 +172,16 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// Adds the settings files to the game mode's list.
 		/// </summary>
 		protected override void SetupSettingsFiles()
-		{	
-			base.SetupSettingsFiles();
+		{
+			SettingsFiles.RendererFilePath = Path.Combine(UserGameDataPath, "RendererInfo.txt");
+			SettingsFiles.PluginsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Skyrim Special Edition", "plugins.txt");
+			if (!File.Exists(SettingsFiles.PluginsFilePath))
+			{
+				string strDirectory = Path.GetDirectoryName(SettingsFiles.PluginsFilePath);
+				if (!Directory.Exists(strDirectory))
+					Directory.CreateDirectory(strDirectory);
+				File.Create(SettingsFiles.PluginsFilePath).Close();
+			}
 			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Skyrim.ini");
 			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "SkyrimPrefs.ini");
 		}
