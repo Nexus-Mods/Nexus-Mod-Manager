@@ -50,10 +50,35 @@ namespace Nexus.Client.ModManagement
 				return new Version("0.0.0.0");
 
 			XDocument docVirtual;
-			using (var sr = new StreamReader(p_strVirtualActivatorConfigPath))
+
+			try
 			{
-				docVirtual = XDocument.Load(sr);
+				using (var sr = new StreamReader(p_strVirtualActivatorConfigPath))
+				{
+					docVirtual = XDocument.Load(sr);
+				}
+
+				XElement xelVirtual = docVirtual.Element("virtualModActivator");
+				if (xelVirtual == null)
+					return new Version("0.0.0.0");
+
+				XAttribute xatVersion = xelVirtual.Attribute("fileVersion");
+				if (xatVersion == null)
+					return new Version("0.0.0.0");
+
+				return new Version(xatVersion.Value);
 			}
+			catch
+			{
+				return ReadVersionFromUri(p_strVirtualActivatorConfigPath);
+			}
+		}
+
+		protected static Version ReadVersionFromUri(string p_strVirtualActivatorConfigPath)
+		{
+			XDocument docVirtual;
+
+			docVirtual = XDocument.Load(p_strVirtualActivatorConfigPath);
 
 			XElement xelVirtual = docVirtual.Element("virtualModActivator");
 			if (xelVirtual == null)
