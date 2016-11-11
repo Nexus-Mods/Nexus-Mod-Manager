@@ -566,10 +566,14 @@ namespace Nexus.Client.Games.Settings
 
 				if (!String.IsNullOrEmpty(strRegMods))
 				{
-					if (strRegMods.IndexOf(strRandomGameKey) >= 0)
-						ModDirectory = strRegMods.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
-					else
-						ModDirectory = strRegMods.Replace(Path.GetFileName(strRegMods), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegMods));
+					try
+					{
+						if (strRegMods.IndexOf(strRandomGameKey) >= 0)
+							ModDirectory = strRegMods.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+						else
+							ModDirectory = strRegMods.Replace(Path.GetFileName(strRegMods), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegMods));
+					}
+					catch { }
 				}
 			}
 			if (string.IsNullOrEmpty(ModDirectory))
@@ -598,10 +602,14 @@ namespace Nexus.Client.Games.Settings
 				
 				if (!String.IsNullOrEmpty(strRegInstallInfo))
 				{
-					if (strRegInstallInfo.IndexOf(strRandomGameKey) >= 0)
-						InstallInfoDirectory = strRegInstallInfo.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
-					else
-						InstallInfoDirectory = strRegInstallInfo.Replace(Path.GetFileName(strRegInstallInfo), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegInstallInfo));
+					try
+					{
+						if (strRegInstallInfo.IndexOf(strRandomGameKey) >= 0)
+							InstallInfoDirectory = strRegInstallInfo.Replace(strRandomGameKey, GameModeDescriptor.ModeId);
+						else
+							InstallInfoDirectory = strRegInstallInfo.Replace(Path.GetFileName(strRegInstallInfo), GameModeDescriptor.ModeId + Path.DirectorySeparatorChar + Path.GetFileName(strRegInstallInfo));
+					}
+					catch { }
 				}
 			}
 			if (String.IsNullOrEmpty(InstallInfoDirectory))
