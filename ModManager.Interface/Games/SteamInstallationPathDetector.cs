@@ -25,7 +25,7 @@ namespace Nexus.Client.Games
         /// <summary>
         /// Extracts Steam installation directory from the registry and tries to find the game with the provided ID.
         /// </summary>
-        public string GetSteamInstallationPath(string steamId, string folderName)
+        public string GetSteamInstallationPath(string steamId, string folderName, string binaryName)
         {
             var registryKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\Apps\" + steamId;
             Trace.TraceInformation(@"Checking for steam install: {0}\Installed", registryKey);
@@ -64,7 +64,7 @@ namespace Nexus.Client.Games
                             if (node != null)
                             {
                                 appPath = node.Children.Single(x => x.Name == "installdir").Value;
-                                if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, "srhk.exe")))
+                                if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
                                     strValue = appPath;
                             }
                         }
