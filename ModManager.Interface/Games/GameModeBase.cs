@@ -490,7 +490,7 @@ namespace Nexus.Client.Games
         /// <summary>
         /// Provides a method to sort mods in your own way
         /// </summary>
-        public virtual void SortMods(Action<IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods)
+        public virtual void SortMods(Action<IMod, IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods)
         {
         }
 

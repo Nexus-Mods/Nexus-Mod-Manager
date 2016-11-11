@@ -500,9 +500,9 @@ namespace Nexus.Client.Games.NoMansSky
                              .Any();
         }
 
-        public override void SortMods(Action<IMod> p_actReinstallMod, ReadOnlyObservableList<IMod> p_lstActiveMods)
+        public override void SortMods(Action<IMod, IMod> p_actReinstallMod, ReadOnlyObservableList<IMod> p_lstActiveMods)
         {
-            foreach (IMod modMod in p_lstActiveMods) p_actReinstallMod(modMod);
+            foreach (IMod modMod in p_lstActiveMods) p_actReinstallMod(modMod, null);
         }
     }
 }

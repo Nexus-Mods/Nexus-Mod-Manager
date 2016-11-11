@@ -350,7 +350,7 @@ namespace Nexus.Client.Games
         /// </summary>
         bool UsesModLoadOrder { get; }
 
-        void SortMods(Action<IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods);
+        void SortMods(Action<IMod, IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods);
 
         /// <summary>
         /// Handles special file installation

@@ -481,13 +481,40 @@ namespace Nexus.Client.ModManagement.UI
 			}
 
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
-			if (String.IsNullOrEmpty(strErrorMessage))
+			if (string.IsNullOrEmpty(strErrorMessage))
 			{
 				if (!ActiveMods.Contains(p_modMod))
 				{
-					IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
-					if (btsInstall != null)
-						ModManager.ModActivationMonitor.AddActivity(btsInstall);
+					ModMatcher mmcMatcher = new ModMatcher(ModManager.InstallationLog.ActiveMods, true);
+					IMod modOldVersion = mmcMatcher.FindAlternateVersion(p_modMod, true);
+
+					if (modOldVersion != null)
+					{
+						string strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will install the new Mod normally.";
+						strUpgradeMessage = String.Format(strUpgradeMessage, modOldVersion.ModName, modOldVersion.HumanReadableVersion, p_modMod.HumanReadableVersion);
+						switch (MessageBox.Show(strUpgradeMessage, "Upgrade", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
+						{
+							case DialogResult.Yes:
+								ReinstallMod(modOldVersion, p_modMod);
+								break;
+							case DialogResult.No:
+								IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+								if (btsInstall != null)
+									ModManager.ModActivationMonitor.AddActivity(btsInstall);
+								break;
+							case DialogResult.Cancel:
+								break;
+							default:
+								break;
+						}
+					}
+					else
+					{
+						IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+						if (btsInstall != null)
+							ModManager.ModActivationMonitor.AddActivity(btsInstall);
+					}
+
 				}
 				else
 					EnableMod(p_modMod);
@@ -519,15 +546,41 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
-			if (String.IsNullOrEmpty(strErrorMessage))
+			if (string.IsNullOrEmpty(strErrorMessage))
 			{
 				foreach (IMod modMod in p_lstMod)
 				{
 					if (!ActiveMods.Contains(modMod))
 					{
-						IBackgroundTaskSet btsInstall = ModManager.ActivateMod(modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
-						if (btsInstall != null)
-							ModManager.ModActivationMonitor.AddActivity(btsInstall);
+						ModMatcher mmcMatcher = new ModMatcher(ModManager.InstallationLog.ActiveMods, true);
+						IMod modOldVersion = mmcMatcher.FindAlternateVersion(modMod, true);
+
+						if (modOldVersion != null)
+						{
+							string strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will install the new Mod normally.";
+							strUpgradeMessage = String.Format(strUpgradeMessage, modOldVersion.ModName, modOldVersion.HumanReadableVersion, modMod.HumanReadableVersion);
+							switch (MessageBox.Show(strUpgradeMessage, "Upgrade", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
+							{
+								case DialogResult.Yes:
+									ReinstallMod(modOldVersion, modMod);
+									break;
+								case DialogResult.No:
+									IBackgroundTaskSet btsInstall = ModManager.ActivateMod(modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+									if (btsInstall != null)
+										ModManager.ModActivationMonitor.AddActivity(btsInstall);
+									break;
+								case DialogResult.Cancel:
+									break;
+								default:
+									break;
+							}
+						}
+						else
+						{
+							IBackgroundTaskSet btsInstall = ModManager.ActivateMod(modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+							if (btsInstall != null)
+								ModManager.ModActivationMonitor.AddActivity(btsInstall);
+						}
 					}
 					else
 						EnableMod(modMod);
@@ -570,7 +623,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// Reinstalls the given mod.
 		/// </summary>
 		/// <param name="p_modMod">The mod to reinstall.</param>
-		public void ReinstallMod(IMod p_modMod)
+		public void ReinstallMod(IMod p_modMod, IMod p_modUpgrade)
 		{
 			VirtualModActivator.DisableMod(p_modMod);
 
@@ -595,7 +648,7 @@ namespace Nexus.Client.ModManagement.UI
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (String.IsNullOrEmpty(strErrorMessage))
 			{
-				IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+				IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(p_modUpgrade ?? p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
 				if (btsReinstall != null)
 					ModManager.ModActivationMonitor.AddActivity(btsReinstall);
 			}

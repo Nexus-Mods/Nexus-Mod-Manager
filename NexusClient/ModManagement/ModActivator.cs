@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;

@@ -1031,7 +1031,7 @@ namespace Nexus.Client.ModManagement.UI
 
 				case ModAction.Reinstall:
 					{
-						ViewModel.ReinstallMod(e.Mod);
+						ViewModel.ReinstallMod(e.Mod, null);
 					}
 					break;
 
