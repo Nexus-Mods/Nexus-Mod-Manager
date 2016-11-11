@@ -76,6 +76,7 @@ namespace Nexus.Client.Games.Morrowind
 		/// <c>null</c> if the path could not be determined.</returns>
 		public override string GetInstallationPath()
 		{
+            var strValue = S
 			var registryKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\Apps\22320";
 			Trace.TraceInformation(@"Checking for steam install: {0}\Installed", registryKey);
 			Trace.Indent();
