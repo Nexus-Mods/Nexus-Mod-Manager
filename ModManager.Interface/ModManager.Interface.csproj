@@ -97,6 +97,7 @@
     <Compile Include="Games\Settings\SetupDirectoriesControlVM.cs" />
     <Compile Include="Games\Settings\VirtualDirectoriesSetupVM.cs" />
     <Compile Include="Games\SetupBaseVM.cs" />
+    <Compile Include="Games\SteamInstallationPathDetector.cs" />
     <Compile Include="Games\Steam\KeyValue.cs" />
     <Compile Include="Games\Steam\StreamHelpers.cs" />
     <Compile Include="Games\SupportedToolsLauncherBase.cs" />
