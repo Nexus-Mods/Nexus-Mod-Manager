@@ -204,6 +204,7 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void BackupManagerForm_FormClosed(object sender, FormClosedEventArgs e)
 		{
+			BackupManager.TotalFileSize = BackupManager.InstalledModFileSize + BackupManager.BaseGameFilesSize + BackupManager.LooseFilesSize + BackupManager.ModArchivesSize;
 			BackupManager.InstalledModFileSize = 0;
 			BackupManager.BaseGameFilesSize = 0;
 			BackupManager.LooseFilesSize = 0;

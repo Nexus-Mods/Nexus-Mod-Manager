@@ -828,14 +828,14 @@ namespace Nexus.Client
 						break;
 					}
 				}
-				CreatingBackup(this, new EventArgs<IBackgroundTask>(CreateBackup(fbd.SelectedPath, p_bmBackupManager)));
+				CreatingBackup(this, new EventArgs<IBackgroundTask>(CreateBackupTask(fbd.SelectedPath, p_bmBackupManager)));
 			}
 		}
 
 		/// <summary>
 		/// Sets up the create backup task.
 		/// </summary>
-		private IBackgroundTask CreateBackup(string p_strSelectedPath, BackupManager p_bmBackupManager)
+		private IBackgroundTask CreateBackupTask(string p_strSelectedPath, BackupManager p_bmBackupManager)
 		{
 			CreateBackupTask bmtBackupManagerTask = new CreateBackupTask(ModManager.VirtualModActivator, ModManager, EnvironmentInfo, PluginManagerVM, PluginManager, ProfileManager, p_strSelectedPath, p_bmBackupManager, ConfirmUpdaterAction);
 			bmtBackupManagerTask.Update(ConfirmUpdaterAction);

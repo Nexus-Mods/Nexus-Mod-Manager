@@ -2187,7 +2187,12 @@ namespace Nexus.Client
 			}
 			ProgressDialog.ShowDialog(this, e.Argument, false);
 
-			MessageBox.Show("Backup Complete!", "Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			if (e.Argument.ReturnValue != null)
+			{
+				MessageBox.Show("Unable to create the backup: " + e.Argument.ReturnValue.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+			else
+				MessageBox.Show("Backup Complete!", "Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		private void ViewModel_RestoringBackup(object sender, EventArgs<IBackgroundTask> e)

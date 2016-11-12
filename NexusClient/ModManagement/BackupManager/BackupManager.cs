@@ -24,6 +24,7 @@ namespace Nexus.Client.ModManagement
 		public long InstalledNMMLINKFileSize = 0;
 		public long BaseGameFilesSize = 0;
 		public long ModArchivesSize = 0;
+		public long TotalFileSize = 0;
 
 		public string strLooseFilesSize = string.Empty;
 		public string strInstalledModFileSize = string.Empty;

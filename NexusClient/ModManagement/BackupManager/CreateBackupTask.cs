@@ -29,6 +29,7 @@ namespace Nexus.Client.ModManagement
 		private IEnvironmentInfo EnvironmentInfo = null;
 		private int FileCounter = 0;
 		private int TotalFiles = 0;
+		private long TotalFileSize = 0;
 		private string SelectedPath = string.Empty;
 		private static readonly Object m_objLock = new Object();
 
@@ -47,6 +48,7 @@ namespace Nexus.Client.ModManagement
 			EnvironmentInfo = p_EnvironmentInfo;
 			SelectedPath = p_strSelectedPath;
 			BackupManager = p_bmBackupManager;
+			TotalFileSize = BackupManager.TotalFileSize;
 			PluginManagerVM = p_pmPluginManagerVM;
 			PluginManager = p_pmPluginManager;
 			ProfileManager = p_pmProfileManager;
@@ -161,10 +163,8 @@ namespace Nexus.Client.ModManagement
 			OverallMessage = "Creating the directories.";
 			StepOverallProgress();
 			
-			System.IO.DriveInfo drive = new System.IO.DriveInfo(EnvironmentInfo.TemporaryPath);
-			drive = new System.IO.DriveInfo(drive.Name);
-
-			long TotalFileSize = BackupManager.InstalledModFileSize + BackupManager.BaseGameFilesSize + BackupManager.LooseFilesSize + BackupManager.ModArchivesSize;
+			DriveInfo drive = new DriveInfo(EnvironmentInfo.TemporaryPath);
+			drive = new DriveInfo(drive.Name);
 
 			if (drive.AvailableFreeSpace > (TotalFileSize))
 			{
@@ -242,7 +242,7 @@ namespace Nexus.Client.ModManagement
 						StepOverallProgress();
 						dir = Path.GetDirectoryName(Path.Combine("NMMLINK", bkInfo.VirtualModPath));
 						if (!string.IsNullOrEmpty(dir))
-							Directory.CreateDirectory(Path.Combine(BackupDirectory,dir));
+							Directory.CreateDirectory(Path.Combine(BackupDirectory, dir));
 
 						File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.ModID, bkInfo.VirtualModPath), true);
 
@@ -279,7 +279,7 @@ namespace Nexus.Client.ModManagement
 
 					TotalFiles += BackupManager.lstLooseFiles.Count;
 				}
-				
+
 				OverallProgressMaximum = BackupManager.lstModArchives.Count();
 				if ((BackupManager.checkList.Contains(3)) && (BackupManager.lstModArchives.Count > 0))
 				{
@@ -307,7 +307,7 @@ namespace Nexus.Client.ModManagement
 				byte[] bteLoadOrder = null;
 				if (ModManager.GameMode.UsesPlugins)
 					bteLoadOrder = PluginManagerVM.ExportLoadOrder();
-				
+
 				string[] strOptionalFiles = null;
 
 				if (ModManager.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
@@ -315,14 +315,14 @@ namespace Nexus.Client.ModManagement
 						strOptionalFiles = ModManager.GameMode.GetOptionalFilesList(PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
 
 				IModProfile mprModProfile = AddProfile(null, null, bteLoadOrder, ModManager.GameMode.ModeId, -1, strOptionalFiles, Path.Combine(BackupDirectory, "PROFILE"));
-				
+
 				Directory.CreateDirectory(Path.Combine(BackupDirectory, ModManager.GameMode.Name));
 
 				string installLog = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
 
 				if (File.Exists(installLog))
 					File.Copy(installLog, Path.Combine(BackupDirectory, "InstallLog.xml"));
-								
+
 				string startPath = BackupDirectory;
 				string zipPath = Path.Combine(EnvironmentInfo.ApplicationPersonalDataFolderPath, "NMM_BACKUP.zip");
 
@@ -331,7 +331,7 @@ namespace Nexus.Client.ModManagement
 
 				OverallMessage = "Zipping the Archive...";
 				StepOverallProgress();
-				
+
 				string strDateTimeStamp = DateTime.Now.ToString(System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.SortableDateTimePattern);
 				strDateTimeStamp = strDateTimeStamp.Replace(":", "");
 				strDateTimeStamp = strDateTimeStamp.Replace("-", "");
@@ -344,13 +344,15 @@ namespace Nexus.Client.ModManagement
 				szcCompressor.CompressionMethod = CompressionMethod.Default;
 				szcCompressor.CompressionMode = SevenZip.CompressionMode.Create;
 				szcCompressor.FileCompressionStarted += new EventHandler<FileNameEventArgs>(compressor_FileCompressionStarted);
-				
+
 				szcCompressor.CompressDirectory(startPath, Path.Combine(SelectedPath, ModManager.GameMode.ModeId + "_NMM_BACKUP_" + strDateTimeStamp + ".zip"), true);
 
 				OverallMessage = "Deleting the leftovers.";
 				StepOverallProgress();
 				FileUtil.ForceDelete(BackupDirectory);
 			}
+			else
+				return (string.Format("Not enough space on drive: {0} - ({1}Mb required)", drive.Name, ((TotalFileSize / 1024)/ 1024).ToString()));
 
 			return null;
 		}
