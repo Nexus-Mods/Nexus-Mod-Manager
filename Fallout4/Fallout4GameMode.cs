@@ -282,8 +282,14 @@ namespace Nexus.Client.Games.Fallout4
 			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strFallout4Ini);
 			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
 
+			if (!File.Exists(m_strFallout4Prefs))
+				return false;
+
 			girIniReader = new GamebryoIniReader(m_strFallout4Prefs);
 			string strPlugins = girIniReader.GetValue("Launcher", "bEnableFileSelection", null);
+
+			if (!File.Exists(m_strFallout4Custom))
+				return false;
 
 			girIniReader = new GamebryoIniReader(m_strFallout4Custom);
 			string strCustomLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
