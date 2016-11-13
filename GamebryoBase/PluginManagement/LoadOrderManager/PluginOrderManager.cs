@@ -288,7 +288,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
 					{
 						TimestampOrder = false;
-						IgnoreOfficialPlugins = false;
 						SingleFileManagement = true;
 						if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
 						{
@@ -301,11 +300,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					else
 					{
 						TimestampOrder = false;
-						IgnoreOfficialPlugins = false;
 						ForcedReadOnly = true;
 						SingleFileManagement = false;
 						Fallout4PluginManagement = false;
 					}
+					IgnoreOfficialPlugins = true;
 					break;
 				case "SkyrimSE":
 					AppDataGameFolderName = "Skyrim Special Edition";
