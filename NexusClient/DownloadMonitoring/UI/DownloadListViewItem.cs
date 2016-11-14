@@ -145,12 +145,12 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			}
 			else if (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.TaskSpeed)))
 			{
-				SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage)].Text = String.Format("{0:} kb/s", p_tskTask.TaskSpeed.ToString());
+				SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage)].Text = String.Format("{0:} KB/s", p_tskTask.TaskSpeed.ToString());
 			}
 			else if ((p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.DownloadProgress))) || (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.DownloadMaximum))))
 			{
 				if(p_tskTask.DownloadMaximum < 1024)
-					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallProgress)].Text = String.Format("{0}kb / {1}kb", p_tskTask.DownloadProgress, p_tskTask.DownloadMaximum);
+					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallProgress)].Text = String.Format("{0}KB / {1}KB", p_tskTask.DownloadProgress, p_tskTask.DownloadMaximum);
 				else
 					SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallProgress)].Text = String.Format("{0}MB / {1}MB", (p_tskTask.DownloadProgress / 1024), (p_tskTask.DownloadMaximum / 1024));
 			}

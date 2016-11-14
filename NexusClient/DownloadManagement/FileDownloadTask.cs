@@ -79,7 +79,7 @@ namespace Nexus.Client.DownloadManagement
 			#endregion
 		}
 
-		private const string m_strMessageFormat = "Downloading {0} ({1:f0}:{2:d2} left - {3} kb/s)";
+		private const string m_strMessageFormat = "Downloading {0} ({1:f0}:{2:d2} left - {3} KB/s)";
 		private string m_strUserAgent = "";
 		private Int32 m_intMaxConnections = 4;
 		private Int32 m_intMinBlockSize = 1000 * 1024;

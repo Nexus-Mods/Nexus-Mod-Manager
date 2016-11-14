@@ -379,14 +379,14 @@ namespace Nexus.Client.UI.Controls
 
 								if (m_booOptionalProgress)
 								{
-									progressString = String.Format("{0}% ({1}kb/s)", Maximum == 1 ? 0 : value, m_intOptionalValue);
+									progressString = String.Format("{0}% ({1}KB/s)", Maximum == 1 ? 0 : value, m_intOptionalValue);
 								}
 								else
 								{
 									if (range > 42949672) { value = (int)((uint)value >> 7); range = (int)((uint)range >> 7); }
 									if (range > 0)
-										progressString = string.Format(progressString.Length == 0 ? "{0}kb" : "{1}: {0}",
-											value.ToString() + "kb/" + range.ToString(), progressString);
+										progressString = string.Format(progressString.Length == 0 ? "{0}KB" : "{1}: {0}",
+											value.ToString() + "KB/" + range.ToString(), progressString);
 								}
 							}
 						}
