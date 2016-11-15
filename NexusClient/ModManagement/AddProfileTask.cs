@@ -1,13 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModRepositories;
-using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.UI;
-using Nexus.Client.Util;
-using RestSharp;
 
 
 namespace Nexus.Client.ModManagement

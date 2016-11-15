@@ -678,9 +678,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\ObjectListView.dll</HintPath>
     </Reference>
-    <Reference Include="RestSharp">
-      <HintPath>..\RestSharp.dll</HintPath>
-    </Reference>
     <Reference Include="SevenZipSharp, Version=0.64.3890.29348, Culture=neutral, PublicKeyToken=20de82c62b055c88, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\SevenZipSharp.dll</HintPath>
