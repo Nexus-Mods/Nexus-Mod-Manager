@@ -18,8 +18,8 @@ namespace Nexus.Client.ModManagement
 		private bool? m_booMissingDownloadId = false;
 		private List<IMod> m_lstModList = new List<IMod>();
 		private int m_intRetries = 0;
-		private int FlagShare = 0;
 		private bool OverrideLocalModNames = false;
+		private Dictionary<string, string> dctNewDownloadID = new Dictionary<string, string>();
 
 		#region Properties
 
@@ -52,7 +52,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModRepository">The current mod repository.</param>
 		/// <param name="p_lstModList">The list of mods we need to update.</param>
 		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IProfileManager p_prmProfileManager, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId, int p_intFlagShare, bool p_booOverrideLocalModNames)
+		public ModUpdateCheckTask(AutoUpdater p_AutoUpdater, IProfileManager p_prmProfileManager, IModRepository p_ModRepository, List<IMod> p_lstModList, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId, bool p_booOverrideLocalModNames)
 		{
 			AutoUpdater = p_AutoUpdater;
 			ModRepository = p_ModRepository;
@@ -60,7 +60,6 @@ namespace Nexus.Client.ModManagement
 			m_lstModList.AddRange(p_lstModList);
 			m_booOverrideCategorySetup = p_booOverrideCategorySetup;
 			m_booMissingDownloadId = p_booMissingDownloadId;
-			FlagShare = p_intFlagShare;
 			OverrideLocalModNames = p_booOverrideLocalModNames;
 		}
 
@@ -214,7 +213,7 @@ namespace Nexus.Client.ModManagement
 
 			m_lstModList.Clear();
 
-			return FlagShare;
+			return dctNewDownloadID;
 		}
 
 		private string StripFileName(string p_strFileName, string p_strId)
@@ -253,13 +252,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_lstModList">The mods for which to check for updates.</param>
 		private string CheckForModListUpdate(List<string> p_lstModList, List<IMod> p_lstModCheck)
 		{
-			string strResult = null;
 			if (m_booMissingDownloadId != false)
 				OverallMessage = "Updating mods info: retrieving download ids..";
 			else
 				OverallMessage = "Updating mods info: getting online updates..";
 			List<IModInfo> mifInfo = new List<IModInfo>();
-			Dictionary<string, string> dctNewDownloadID = new Dictionary<string, string>();
 			IMod[] ModCheckList = p_lstModCheck.ToArray();
 
 			try
@@ -380,19 +377,14 @@ namespace Nexus.Client.ModManagement
 							ItemProgress = 0;
 						}
 					}
-
-					if ((m_booMissingDownloadId != false) && (ProfileManager != null) && (dctNewDownloadID.Count > 0))
-					{
-						ProfileManager.UpdateProfileDownloadId(ProfileManager.CurrentProfile, dctNewDownloadID);
-					}
 				}
 			}
 			catch (RepositoryUnavailableException e)
 			{
-				strResult = "The check failed for a server-side issue:" + Environment.NewLine + Environment.NewLine + e.Message;
+				return "The check failed for a server-side issue:" + Environment.NewLine + Environment.NewLine + e.Message;
 			}
 
-			return strResult;
+			return null;
 		}
 	}
 }

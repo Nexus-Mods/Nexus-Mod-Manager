@@ -571,9 +571,17 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (e.Argument.ReturnValue != null)
 			{
-				string strResult = e.Argument.ReturnValue.ToString();
-				if (strResult.Length > 2)
-					ExtendedMessageBox.Show(this, strResult, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				if (e.Argument.ReturnValue.GetType() == typeof(Dictionary<string, string>))
+				{
+					Dictionary<string, string> dctDownloadID = (Dictionary<string, string>)e.Argument.ReturnValue;
+					ViewModel.UpdateVirtualListDownloadId(dctDownloadID);
+				}
+				else
+				{
+					string strResult = e.Argument.ReturnValue.ToString();
+					if (strResult.Length > 2)
+						ExtendedMessageBox.Show(this, strResult, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				}
 			}
 		}
 
@@ -2024,7 +2032,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			ViewModel.DeactivateMod(p_modMod);
 
-            this.UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
+            UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
         }
 		
 		#region Column Resizing

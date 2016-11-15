@@ -199,7 +199,7 @@ namespace Nexus.Client.ModManagement
 						{
 							Mod.InstallDate = DateTime.Now.ToString();
 							tsTransaction.Complete();
-							VirtualModActivator.SaveList();
+							VirtualModActivator.SaveList(true);
 							strMessage = "The mod was successfully activated.";
 							GC.GetTotalMemory(true);
 						}

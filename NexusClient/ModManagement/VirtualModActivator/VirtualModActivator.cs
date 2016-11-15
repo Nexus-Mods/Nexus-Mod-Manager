@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Xml.Linq;
 using ChinhDo.Transactions;
 using Microsoft.Win32;
@@ -70,25 +71,8 @@ namespace Nexus.Client.ModManagement
 			}
 			catch
 			{
-				return ReadVersionFromUri(p_strVirtualActivatorConfigPath);
+				return new Version("99.99.99.99");
 			}
-		}
-
-		protected static Version ReadVersionFromUri(string p_strVirtualActivatorConfigPath)
-		{
-			XDocument docVirtual;
-
-			docVirtual = XDocument.Load(p_strVirtualActivatorConfigPath);
-
-			XElement xelVirtual = docVirtual.Element("virtualModActivator");
-			if (xelVirtual == null)
-				return new Version("0.0.0.0");
-
-			XAttribute xatVersion = xelVirtual.Attribute("fileVersion");
-			if (xatVersion == null)
-				return new Version("0.0.0.0");
-
-			return new Version(xatVersion.Value);
 		}
 
 		/// <summary>
@@ -392,7 +376,7 @@ namespace Nexus.Client.ModManagement
 
 		public void Setup()
 		{
-			SaveList();
+			SaveList(false);
 			SetCurrentList(LoadList(m_strVirtualActivatorConfigPath));
 			m_booInitialized = true;
 		}
@@ -408,6 +392,13 @@ namespace Nexus.Client.ModManagement
 				return null;
 
 			Version FileVersion = ReadVersion(p_strFilePath);
+
+			if (!string.Equals(p_strFilePath, m_strVirtualActivatorConfigPath, StringComparison.OrdinalIgnoreCase))
+				if (FileVersion.CompareTo(new Version("99.99.99.99")) < 0)
+				{
+					SaveModList(p_strFilePath);
+					return null;
+				}
 
 			if (FileVersion.CompareTo(new Version("0.3.0.0")) < 0)
 				return p_strFilePath;
@@ -468,27 +459,26 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Save the mod list into the XML file.
 		/// </summary>
-		public void SaveList()
+		public bool SaveList()
+		{
+			return SaveList(false);
+		}
+
+		/// <summary>
+		/// Save the mod list into the XML file.
+		/// </summary>
+		public bool SaveList(bool p_booModActivationChange)
 		{
 			if (!Directory.Exists(m_strVirtualActivatorPath))
 				Directory.CreateDirectory(m_strVirtualActivatorPath);
 
-			SaveModList();
+			return SaveModList(p_booModActivationChange);
 		}
 
 		/// <summary>
 		/// Save the mod list into the XML file.
 		/// </summary>
-		private void SaveModList()
-		{
-			SaveModList(m_strVirtualActivatorConfigPath);
-		}
-
-		/// <summary>
-		/// Save the mod list into the XML file.
-		/// </summary>
-		/// <param name="p_strPath">The Virtual Activator path.</param>
-		public void SaveModList(string p_strPath)
+		private bool SaveModList(bool p_booModActivationChange)
 		{
 			List<VirtualModInfo> lstVirtualModInfo = new List<VirtualModInfo>();
 
@@ -531,10 +521,27 @@ namespace Nexus.Client.ModManagement
 									   new XText(link.Active.ToString())))));
 
 
-			using (StreamWriter streamWriter = File.CreateText(p_strPath))
+			using (StreamWriter streamWriter = File.CreateText(m_strVirtualActivatorConfigPath))
 			{
 				docVirtual.Save(streamWriter);
 			}
+
+			Thread.Sleep(250);
+			if (p_booModActivationChange)
+				ModActivationChanged(null, new EventArgs());
+
+			return true;
+		}
+
+		/// <summary>
+		/// Save the mod list into the XML file.
+		/// </summary>
+		/// <param name="p_strPath">The Virtual Activator path.</param>
+		public void SaveModList(string p_strPath)
+		{
+			if (!Directory.Exists(Path.GetDirectoryName(p_strPath)))
+				Directory.CreateDirectory(Path.GetDirectoryName(p_strPath));
+			File.Copy(m_strVirtualActivatorConfigPath, p_strPath, true);
 		}
 
 		/// <summary>
@@ -573,6 +580,55 @@ namespace Nexus.Client.ModManagement
 			using (StreamWriter streamWriter = File.CreateText(p_strPath))
 			{
 				docVirtual.Save(streamWriter);
+			}
+		}
+
+		public void UpdateDownloadId(string p_strCurrentProfilePath, Dictionary<string, string> p_dctNewDownloadID)
+		{
+
+			bool booEdited = false;
+
+			foreach (KeyValuePair<string, string> kvp in p_dctNewDownloadID)
+			{
+				IVirtualModInfo ModInfo = null;
+
+				try
+				{
+					ModInfo = m_tslVirtualModInfo.Where(x => (x != null) && (!string.IsNullOrEmpty(x.ModFileName))).Where(x => x.ModFileName.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+				}
+				catch { }
+
+				if (ModInfo != null)
+				{
+					VirtualModInfo vmiModInfo = new VirtualModInfo(ModInfo);
+					if (string.IsNullOrWhiteSpace(vmiModInfo.DownloadId))
+						vmiModInfo.DownloadId = kvp.Value;
+					else
+						vmiModInfo.UpdatedDownloadId = kvp.Value;
+
+					m_tslVirtualModInfo.Remove(ModInfo);
+					m_tslVirtualModInfo.Add(vmiModInfo);
+
+					List<IVirtualModLink> lstModLink = new List<IVirtualModLink>(m_tslVirtualModList.Where(x => (x != null) && (x.ModInfo == ModInfo)));
+
+					foreach (IVirtualModLink ModLink in lstModLink)
+					{
+						VirtualModLink UpdateLink = new VirtualModLink(ModLink);
+						UpdateLink.ModInfo = vmiModInfo;
+						m_tslVirtualModList.Remove(ModLink);
+						m_tslVirtualModList.Add(UpdateLink);
+					}
+
+					if (!booEdited)
+						booEdited = true;
+				}
+			}
+
+			if (booEdited)
+			{
+				if (SaveList(false))
+					if (!string.IsNullOrWhiteSpace(p_strCurrentProfilePath))
+						SaveModList(p_strCurrentProfilePath);		
 			}
 		}
 
@@ -1062,7 +1118,7 @@ namespace Nexus.Client.ModManagement
 				}
 
 				VirtualLinks.Clear();
-				SaveList();
+				SaveList(false);
 			}
 			return true;
 		}
@@ -1083,7 +1139,7 @@ namespace Nexus.Client.ModManagement
 				if ((lstMissing != null) && (lstMissing.Count > 0))
 					m_tslVirtualModInfo.RemoveRange(lstMissing);
 
-				SaveList();
+				SaveList(false);
 			}
 			return true;
 		}
@@ -1095,7 +1151,7 @@ namespace Nexus.Client.ModManagement
 			if ((lstMissing != null) && (lstMissing.Count > 0))
 				m_tslVirtualModInfo.RemoveRange(lstMissing);
 
-			SaveList();
+			SaveList(false);
 		}
 
 		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, Int32 p_intPriority)
@@ -1504,7 +1560,7 @@ namespace Nexus.Client.ModManagement
 					m_tslVirtualModInfo.RemoveAll(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant());
 
 					if (!p_booPurging)
-						SaveList();
+						SaveList(true);
 
 					if (GameMode.RequiresModFileMerge)
 					{
@@ -1512,10 +1568,6 @@ namespace Nexus.Client.ModManagement
 						ActiveMods = ModManager.ActiveMods.Where(x => ActiveModList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
 						GameMode.ModFileMerge(ActiveMods, p_modMod, true);
 					}
-
-					if (!p_booPurging)
-						if (this.ModActivationChanged != null)
-							this.ModActivationChanged(this, new EventArgs());
 				}
 			}
 		}
@@ -1532,7 +1584,7 @@ namespace Nexus.Client.ModManagement
 
 			m_tslVirtualModInfo.RemoveAll(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant());
 
-			SaveList();
+			SaveList(true);
 
 			if (GameMode.RequiresModFileMerge)
 			{
@@ -1540,9 +1592,6 @@ namespace Nexus.Client.ModManagement
 				ActiveMods = ModManager.ActiveMods.Where(x => ActiveModList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
 				GameMode.ModFileMerge(ActiveMods, p_modMod, true);
 			}
-
-			if (this.ModActivationChanged != null)
-				this.ModActivationChanged(this, new EventArgs());
 		}
 
 		public void EnableMod(IMod p_modMod)
@@ -1581,10 +1630,7 @@ namespace Nexus.Client.ModManagement
 							}
 				}
 				LoadIniEdits(p_modMod);
-				SaveList();
-
-				if (this.ModActivationChanged != null)
-					this.ModActivationChanged(p_modMod, new EventArgs());
+				SaveList(true);
 			}
 			m_booDisableIniLogging = false;
 		}
@@ -1599,10 +1645,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			LoadIniEdits(p_modMod);
-			SaveList();
-
-			if (this.ModActivationChanged != null)
-				this.ModActivationChanged(p_modMod, new EventArgs());
+			SaveList(true);
 		}
 
 		public void LogIniEdits(IMod p_modMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
@@ -1852,23 +1895,6 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 		}
-
-		//private bool GetIsSameMod(IMod p_modMod, IVirtualModInfo p_vmiModInfo)
-		//{
-		//	string strFilename = Path.GetFileName(p_modMod.Filename);
-		//	if (strFilename.Equals(p_vmiModInfo.ModFileName, StringComparison.InvariantCultureIgnoreCase))
-		//		return true;
-
-		//	if (!string.IsNullOrEmpty(p_modMod.DownloadId) && !string.IsNullOrEmpty(p_vmiModInfo.DownloadId))
-		//		if (p_modMod.DownloadId.Equals(p_vmiModInfo.DownloadId))
-		//			return true;
-
-		//	if (!string.IsNullOrEmpty(p_modMod.DownloadId) && !string.IsNullOrEmpty(p_vmiModInfo.UpdatedDownloadId))
-		//		if (p_modMod.DownloadId.Equals(p_vmiModInfo.UpdatedDownloadId))
-		//			return true;
-
-		//	return false;
-		//}
 
 		public IModLinkInstaller GetModLinkInstaller()
 		{

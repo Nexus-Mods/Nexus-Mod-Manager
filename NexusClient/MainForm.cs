@@ -1080,11 +1080,14 @@ namespace Nexus.Client
 			
 			if ((ViewModel.ProfileManager.CurrentProfile != null) && !ViewModel.IsSwitching)
 			{
-				byte[] bteIniEdits = null;
-				bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
+				//if (e.Action != NotifyCollectionChangedAction.Remove)
+				//{
+				//	byte[] bteIniEdits = null;
+				//	bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
 
-				ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, null);
-				BindProfileCommands();
+				//	ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, null);
+				//	BindProfileCommands();
+				//}
 			}
 		}
 
@@ -2145,7 +2148,6 @@ namespace Nexus.Client
 
 			if (!ViewModel.IsSwitching)
 			{
-
 				UpdateModsFeedback();
 
 				if (ViewModel.ProfileManager.CurrentProfile != null)

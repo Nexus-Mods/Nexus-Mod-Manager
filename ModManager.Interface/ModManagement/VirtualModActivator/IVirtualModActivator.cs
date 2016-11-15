@@ -39,13 +39,15 @@ namespace Nexus.Client.ModManagement
 		string RequiresFixing(string p_strFilePath);
 		void Setup();
 		void Reset();
-		void SaveList();
+		bool SaveList();
+		bool SaveList(bool p_booModActivationChange);
 		void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks);
 		List<IVirtualModLink> LoadList(string p_strXMLFilePath);
 		List<IVirtualModLink> LoadImportedList(string p_strXML, string p_strSavePath);
 		bool LoadListOnDemand(string p_strProfilePath, out List<IVirtualModLink> p_lstVirtualLinks, out List<IVirtualModInfo> p_lstVirtualMods);
 		void SaveModList(string p_strPath);
 		void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModList);
+		void UpdateDownloadId(string p_strCurrentProfilePath, Dictionary<string, string> p_dctNewDownloadID);
 		string CheckVirtualLink(string p_strFilePath);
 		Int32 CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> lstFileLinks);
 		bool PurgeLinks();

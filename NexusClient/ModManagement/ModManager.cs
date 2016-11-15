@@ -639,7 +639,7 @@ namespace Nexus.Client.ModManagement
 		{
 			if (ModRepository.UserStatus != null)
 			{
-				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, 0, EnvironmentInfo.Settings.OverrideLocalModNames);
+				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
 				mutModUpdateCheck.Update(p_camConfirm);
 				return mutModUpdateCheck;
 			}
@@ -749,8 +749,8 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public void AsyncUpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId)
 		{
-		ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, 0, EnvironmentInfo.Settings.OverrideLocalModNames);
-		AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+			AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
 		}
 
 		public async Task AsyncUpdateModsTask(ModUpdateCheckTask p_mutModUpdateCheck, ConfirmActionMethod p_camConfirm)

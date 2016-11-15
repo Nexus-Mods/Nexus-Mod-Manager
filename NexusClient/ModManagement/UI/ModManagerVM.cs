@@ -882,6 +882,15 @@ namespace Nexus.Client.ModManagement.UI
 			TogglingAllWarning(this, new EventArgs<IBackgroundTask>(ModManager.ToggleUpdateWarningTask(p_hashMods, p_booEnable, ConfirmUpdaterAction)));
 		}
 
+		/// <summary>
+		/// Updates the downlodIds into the Virtual Install config files.
+		/// </summary>
+		/// <param name="p_dctDownloadId">The updated downloadIds.</param>
+		public void UpdateVirtualListDownloadId(Dictionary<string, string> p_dctDownloadId)
+		{
+			VirtualModActivator.UpdateDownloadId(ProfileManager.GetProfileModListPath(ProfileManager.CurrentProfile), p_dctDownloadId);
+		}
+
 		#endregion
 
 		#region Category Updating

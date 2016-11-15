@@ -132,7 +132,7 @@ namespace Nexus.Client.ModManagement
 				try
 				{
 					Installers.FileInstaller.UninstallDataFile(strFile);
-					VirtualModActivator.RemoveFileLink(strFile, Mod);
+					//VirtualModActivator.RemoveFileLink(strFile, Mod);
 				}
 				catch (UnauthorizedAccessException)
 				{
@@ -172,7 +172,7 @@ namespace Nexus.Client.ModManagement
 				StepItemProgress();
 			}
 
-			VirtualModActivator.SaveList();
+			//VirtualModActivator.SaveList();
 			StepOverallProgress();
 
 			if (Installers.FileInstaller.InstallErrors.Count > 0)

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Diagnostics.CodeAnalysis;
@@ -16,7 +16,8 @@ namespace WeifenLuo.WinFormsUI.Docking
         void RemoveFromList(IDockContent content);
     }
 
-    partial class DockPanel
+	[DebuggerStepThrough()]
+	partial class DockPanel
     {
         private interface IFocusManager
         {
@@ -40,7 +41,8 @@ namespace WeifenLuo.WinFormsUI.Docking
                 public IntPtr lParam;
             }
 
-            private class LocalWindowsHook : IDisposable
+			[DebuggerStepThrough()]
+			private class LocalWindowsHook : IDisposable
             {
                 // Internal properties
                 private IntPtr m_hHook = IntPtr.Zero;
@@ -64,8 +66,9 @@ namespace WeifenLuo.WinFormsUI.Docking
                     m_filterFunc = new NativeMethods.HookProc(this.CoreHookProc);
                 }
 
-                // Default filter function
-                public IntPtr CoreHookProc(int code, IntPtr wParam, IntPtr lParam)
+				[DebuggerStepThrough()]
+				// Default filter function
+				public IntPtr CoreHookProc(int code, IntPtr wParam, IntPtr lParam)
                 {
                     if (code < 0)
                         return NativeMethods.CallNextHookEx(m_hHook, code, wParam, lParam);
