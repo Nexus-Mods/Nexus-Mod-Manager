@@ -10,7 +10,7 @@ namespace Nexus.Client.Games.Fallout4
 	{
 		private static string[] EXECUTABLES = { "Fallout4Launcher.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Fallout4.esm" };
-		private static string[] OFFICIAL_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm"};
+		private static string[] OFFICIAL_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm", "DLCNukaWorld.esm" };
 		private const string MODE_ID = "Fallout4";
 
 		#region Properties
