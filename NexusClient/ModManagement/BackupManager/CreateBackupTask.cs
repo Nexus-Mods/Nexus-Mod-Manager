@@ -209,7 +209,12 @@ namespace Nexus.Client.ModManagement
 						if (!string.IsNullOrEmpty(dir))
 							Directory.CreateDirectory(Path.Combine(BackupDirectory, bkInfo.Directory, dir));
 
-						File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.VirtualModPath), true);
+						try
+						{
+							File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.VirtualModPath), true);
+						}
+						catch (FileNotFoundException)
+						{ }
 					}
 
 					TotalFiles += BackupManager.lstBaseGameFiles.Count;
@@ -226,7 +231,12 @@ namespace Nexus.Client.ModManagement
 						if (!string.IsNullOrEmpty(dir))
 							Directory.CreateDirectory(Path.Combine(BackupDirectory, bkInfo.Directory, dir));
 
-						File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.ModID, bkInfo.VirtualModPath), true);
+						try
+						{ 
+							File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.ModID, bkInfo.VirtualModPath), true);
+						}
+						catch (FileNotFoundException)
+						{ }
 
 						if (ItemProgress < ItemProgressMaximum)
 						{
@@ -244,7 +254,12 @@ namespace Nexus.Client.ModManagement
 						if (!string.IsNullOrEmpty(dir))
 							Directory.CreateDirectory(Path.Combine(BackupDirectory, dir));
 
-						File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.ModID, bkInfo.VirtualModPath), true);
+						try
+						{
+							File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.ModID, bkInfo.VirtualModPath), true);
+						}
+						catch (FileNotFoundException)
+						{ }
 
 						if (ItemProgress < ItemProgressMaximum)
 						{
@@ -274,7 +289,12 @@ namespace Nexus.Client.ModManagement
 						if (!string.IsNullOrEmpty(dir))
 							Directory.CreateDirectory(Path.Combine(BackupDirectory, bkInfo.Directory, dir));
 
-						File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.VirtualModPath), true);
+						try
+						{
+							File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.VirtualModPath), true);
+						}
+						catch (FileNotFoundException)
+						{ }
 					}
 
 					TotalFiles += BackupManager.lstLooseFiles.Count;
@@ -298,7 +318,12 @@ namespace Nexus.Client.ModManagement
 						if (!string.IsNullOrEmpty(dir))
 							Directory.CreateDirectory(Path.Combine(BackupDirectory, dir));
 
-						File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.VirtualModPath), true);
+						try
+						{ 
+							File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.VirtualModPath), true);
+						}
+						catch (FileNotFoundException)
+						{ }
 					}
 
 					TotalFiles += BackupManager.lstModArchives.Count;
