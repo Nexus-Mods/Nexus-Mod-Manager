@@ -2218,7 +2218,7 @@ namespace Nexus.Client
 		{
 			if (InvokeRequired)
 			{
-				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_CreatingBackup, sender, e);
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_PurgingLooseFiles, sender, e);
 				return;
 			}
 			ProgressDialog.ShowDialog(this, e.Argument, false);
