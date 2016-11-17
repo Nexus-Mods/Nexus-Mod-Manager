@@ -455,7 +455,8 @@ namespace Nexus.Client.ModRepositories.Nexus
 				if (mifInfoCandidate != null)
 				{
 					IList<IModFileInfo> lstFiles = GetModFileInfo(strId);
-					Int32 intBestFoundWordCount = 0;
+					int intBestFoundWordCount = 0;
+					int intValidWordCount = 0;
 					foreach (IModFileInfo mfiFile in lstFiles)
 					{
 						if (mfiFile.Filename.Equals(strFilename, StringComparison.OrdinalIgnoreCase) ||
@@ -465,11 +466,15 @@ namespace Nexus.Client.ModRepositories.Nexus
 							mifInfo.HumanReadableVersion = mfiFile.HumanReadableVersion;
 							break;
 						}
-						Int32 intFoundWordCount = 0;
+						int intFoundWordCount = 0;
 						foreach (string strWord in strFilenameWords)
 						{
-							if (mfiFile.Filename.IndexOf(strWord, StringComparison.OrdinalIgnoreCase) > -1)
-								intFoundWordCount++;
+							if (strWord.Length > 2)
+							{
+								intValidWordCount++;
+								if (mfiFile.Filename.IndexOf(strWord, StringComparison.OrdinalIgnoreCase) > -1)
+									intFoundWordCount++;
+							}
 						}
 						if (intFoundWordCount > intBestFoundWordCount)
 							intBestFoundWordCount = intFoundWordCount;
@@ -478,7 +483,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 						break;
 
 					if (intBestFoundWordCount > 0)
-						lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
+					{
+						int intWords = intValidWordCount / 2;
+						if ((strFilenameWords.Length == 1) || (intValidWordCount == 1)  || (intBestFoundWordCount > intWords))
+							lstCandidates.Add(new KeyValuePair<Int32, IModInfo>(intBestFoundWordCount, mifInfoCandidate));
+					}
 				}
 			}
 			if ((mifInfo == null) && !lstCandidates.IsNullOrEmpty())

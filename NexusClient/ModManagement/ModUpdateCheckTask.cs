@@ -299,7 +299,7 @@ namespace Nexus.Client.ModManagement
 						
 						if (modMod == null)
 						{
-							if ((!string.IsNullOrEmpty(modUpdate.DownloadId)) || (modUpdate.DownloadId != "0") || (modUpdate.DownloadId != "-1"))
+							if ((!string.IsNullOrEmpty(modUpdate.DownloadId)) && (modUpdate.DownloadId != "0") && (modUpdate.DownloadId != "-1"))
 								modMod = m_lstModList.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.DownloadId) && modUpdate.DownloadId.Equals(x.DownloadId.ToString(), StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 
 						}
