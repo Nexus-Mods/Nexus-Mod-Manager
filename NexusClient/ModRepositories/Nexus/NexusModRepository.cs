@@ -425,7 +425,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			if (intCount > 3)
 			{
 				string strCheckName = Path.GetFileName(p_strFilename);
-				strCheckName = strCheckName.Substring(GetNthIndex(strCheckName, '-', intCount - 3));
+				strCheckName = strCheckName.Substring(GetNthIndex(strCheckName, '-', 1));
 				mchModId = rgxModId.Match(strCheckName);
 				if (!mchModId.Success)
 				{
