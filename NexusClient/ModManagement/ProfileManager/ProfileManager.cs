@@ -930,12 +930,13 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Updates the profile.
 		/// </summary>
-		public void UpdateProfile(IModProfile p_impModProfile, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles)
+		public void UpdateProfile(IModProfile p_impModProfile, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles, out string p_strError)
 		{
+			p_strError = null;
 			if (p_impModProfile.Id == m_strCurrentProfileId)
 				UpdateCurrentProfileModCount();
 
-			SaveProfile(p_impModProfile, null, p_bteIniEdits, p_bteLoadOrder, p_strOptionalFiles);
+			p_strError = SaveProfile(p_impModProfile, null, p_bteIniEdits, p_bteLoadOrder, p_strOptionalFiles);
 
 			if (p_impModProfile.Id == m_strCurrentProfileId)
 				m_tslProfiles.Remove(CurrentProfile);
@@ -1104,14 +1105,17 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Updates the profile file.
+		/// Saves the profile file.
 		/// </summary>
-		public void SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteIniList, byte[] p_bteLoadOrder, string[] p_strOptionalFiles)
+		public string SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteIniList, byte[] p_bteLoadOrder, string[] p_strOptionalFiles)
 		{
-			SaveProfile(p_impModProfile, p_bteModList, p_bteIniList, p_bteLoadOrder, p_strOptionalFiles, m_strProfileManagerPath);
+			return SaveProfile(p_impModProfile, p_bteModList, p_bteIniList, p_bteLoadOrder, p_strOptionalFiles, m_strProfileManagerPath);
 		}
 
-		public void SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteIniList, byte[] p_bteLoadOrder, string[] p_strOptionalFiles, string p_strProfileManagerPath)
+		/// <summary>
+		/// Saves the profile file.
+		/// </summary>
+		public string SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteIniList, byte[] p_bteLoadOrder, string[] p_strOptionalFiles, string p_strProfileManagerPath)
 		{
 			if (p_impModProfile != null)
 			{
@@ -1120,9 +1124,15 @@ namespace Nexus.Client.ModManagement
 				if (!Directory.Exists(strProfilePath))
 					Directory.CreateDirectory(strProfilePath);
 
-				if ((m_booUsesPlugin) && (p_bteLoadOrder != null) && (p_bteLoadOrder.Length > 0))
-					File.WriteAllBytes(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
-
+				try
+				{
+					if ((m_booUsesPlugin) && (p_bteLoadOrder != null) && (p_bteLoadOrder.Length > 0))
+						File.WriteAllBytes(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
+				}
+				catch (Exception ex)
+				{
+					return "Error: " + ex.Message;
+				}
 				if ((p_bteModList != null) && (p_bteModList.Length > 0))
 					File.WriteAllBytes(Path.Combine(strProfilePath, "modlist.xml"), p_bteModList);
 				else if (VirtualModActivator.VirtualLinks != null)
@@ -1169,6 +1179,8 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 			}
+
+			return null;
 		}
 
 		private byte[] GetProfileBytes(IModProfile p_impModProfile)

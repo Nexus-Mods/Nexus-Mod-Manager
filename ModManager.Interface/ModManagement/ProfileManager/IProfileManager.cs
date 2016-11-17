@@ -78,7 +78,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Updates the category file.
 		/// </summary>
-		void UpdateProfile(IModProfile p_impModProfile, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
+		void UpdateProfile(IModProfile p_impModProfile, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles, out string p_strError);
 
 		/// <summary>
 		/// Updates the profile file.
@@ -99,9 +99,9 @@ namespace Nexus.Client.ModManagement
 		void LoadProfile(IModProfile p_impModProfile, out Dictionary<string, string> p_dicFileStream);
 
 		/// <summary>
-		/// Updates the profile file.
+		/// Saves the profile file.
 		/// </summary>
-		void SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
+		string SaveProfile(IModProfile p_impModProfile, byte[] p_bteModList, byte[] p_bteIniEdits, byte[] p_bteLoadOrder, string[] p_strOptionalFiles);
 
 		void ExportProfile(IModProfile p_impModProfile, string p_strPath);
 
