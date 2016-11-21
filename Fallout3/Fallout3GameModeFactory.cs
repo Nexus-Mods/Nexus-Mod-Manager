@@ -88,75 +88,7 @@ namespace Nexus.Client.Games.Fallout3
 		/// <c>null</c> if the path could not be determined.</returns>
 		public override string GetInstallationPath()
 		{
-			var registryKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\Apps\22300";
-			Trace.TraceInformation(@"Checking for steam install: {0}\Installed", registryKey);
-			Trace.Indent();
-
-			string strValue = null;
-			try
-			{
-				var steamKey = Registry.GetValue(registryKey, "Installed", 0);
-				if (steamKey != null)
-				{
-					var isSteamInstall = steamKey.ToString() == "1";
-					if (isSteamInstall)
-					{
-						Trace.TraceInformation("Getting Steam install folder.");
-
-						var steamPath = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null).ToString();
-
-						// convert path to windows path. (steam uses C:/x/y we want C:\\x\\y
-						steamPath = Path.GetFullPath(steamPath);
-						var appPath = Path.Combine(steamPath, @"steamapps\common\Fallout 3");
-
-						// check if game is installed in the default directory
-						if (!Directory.Exists(appPath))
-						{
-							Trace.TraceInformation(
-								"Fallout 3 is not installed in standard directory. Checking steam config.vdf...");
-
-							// second try, check steam config.vdf
-							// if any of this fails, no problem... just drop through the catch
-							var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
-							var kv = KeyValue.LoadAsText(steamConfig);
-							var node =
-								kv.Children[0].Children[0].Children[0].Children.Single(x => x.Name == "apps")
-									.Children.Single(x => x.Name == "22300");
-							if (node != null)
-							{
-								appPath = node.Children.Single(x => x.Name == "installdir").Value;
-								if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, "fallout3.exe")))
-									strValue = appPath;
-							}
-						}
-						else
-							strValue = appPath;
-					}
-				}
-			}
-			catch
-			{
-				//if we can't read the registry or config.vdf, just return null
-			}
-
-			try
-			{
-				if (string.IsNullOrWhiteSpace(strValue))
-				{
-					Trace.TraceInformation("Getting install folder from Uninstall.");
-
-					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 22300", "InstallLocation", null).ToString();
-
-					if (Directory.Exists(uniPath))
-						strValue = uniPath;
-				}
-			}
-			catch
-			{
-			}
-
-			Trace.TraceInformation("Found {0}", strValue);
-			Trace.Unindent();
+            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("22300", "Fallout 3", "fallout3.exe");
 
 			if (string.IsNullOrEmpty(strValue))
 				strValue = base.GetInstallationPath();
