@@ -524,7 +524,7 @@ namespace Nexus.Client.Games.Fallout4
 
 				if (booReset)
 				{
-					string strBS = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\CalienteTools\BodySlide");
+					string strBS = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\Tools\BodySlide");
 					if (Directory.Exists(strBS))
 						strBSPath = strBS;
 					else
