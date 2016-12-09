@@ -41,7 +41,7 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			BindingHelper.CreateFullBinding(tbxLOOT, () => tbxLOOT.Text, p_stsSettings, () => p_stsSettings.LOOTDirectory);
 			BindingHelper.CreateFullBinding(tbxWryeBashDirectory, () => tbxWryeBashDirectory.Text, p_stsSettings, () => p_stsSettings.WryeBashDirectory);
 			BindingHelper.CreateFullBinding(tbxFNIS, () => tbxFNIS.Text, p_stsSettings, () => p_stsSettings.FNISDirectory);
-			BindingHelper.CreateFullBinding(tbxBS2, () => tbxBS2.Text, p_stsSettings, () => p_stsSettings.BS2Directory);
+			BindingHelper.CreateFullBinding(tbxBS, () => tbxBS.Text, p_stsSettings, () => p_stsSettings.BSDirectory);
 			BindingHelper.CreateFullBinding(tbxTES5Edit, () => tbxTES5Edit.Text, p_stsSettings, () => p_stsSettings.TES5EditDirectory);
 
 			p_stsSettings.Errors.ErrorChanged -= new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
@@ -51,7 +51,7 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 			lblLOOTPrompt.Text = String.Format(lblLOOTPrompt.Text, p_stsSettings.GameModeName);
 			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);
 			lblFNISPrompt.Text = String.Format(lblFNISPrompt.Text, p_stsSettings.GameModeName);
-			lblBS2Prompt.Text = String.Format(lblBS2Prompt.Text, p_stsSettings.GameModeName);
+			lblBSPrompt.Text = String.Format(lblBSPrompt.Text, p_stsSettings.GameModeName);
 			lblTES5EditPrompt.Text = String.Format(lblTES5EditPrompt.Text, p_stsSettings.GameModeName);
 		}
 
@@ -73,8 +73,8 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 				erpErrors.SetError(butSelectWryeBashDirectory, e.Error);
 			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.LOOTDirectory)))
 				erpErrors.SetError(butSelectLOOTDirectory, e.Error);
-			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.BS2Directory)))
-				erpErrors.SetError(butSelectBS2Directory, e.Error);
+			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.BSDirectory)))
+				erpErrors.SetError(butSelectBSDirectory, e.Error);
 			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.FNISDirectory)))
 				erpErrors.SetError(butSelectFNISDirectory, e.Error);
 			else if (e.Property.Equals(ObjectHelper.GetPropertyName<SupportedToolsSettingsGroup>(x => x.TES5EditDirectory)))
@@ -171,19 +171,19 @@ namespace Nexus.Client.Games.Skyrim.Settings.UI
 		}
 
 		/// <summary>
-		/// Handles the <see cref="Control.Click"/> event of the selectBS2 button.
+		/// Handles the <see cref="Control.Click"/> event of the selectBS button.
 		/// </summary>
 		/// <remarks>
-		/// This opens the folder selection dialog for BodySlide2.
+		/// This opens the folder selection dialog for BodySlide.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void butSelectBS2Directory_Click(object sender, EventArgs e)
+		private void butSelectBSDirectory_Click(object sender, EventArgs e)
 		{
-			fbdDirectory.SelectedPath = tbxBS2.Text;
+			fbdDirectory.SelectedPath = tbxBS.Text;
 			if (fbdDirectory.ShowDialog(this) == DialogResult.OK)
 			{
-				tbxBS2.Text = fbdDirectory.SelectedPath;
+				tbxBS.Text = fbdDirectory.SelectedPath;
 				//force the data binding on the textbox to push the value to the bound view model
 				ValidateChildren();
 			}

@@ -204,7 +204,7 @@ namespace Nexus.Client.Games.Fallout4
 
 			if (String.IsNullOrEmpty(strBS))
 			{
-				string strBSPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\CalienteTools\BodySlide");
+				string strBSPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\Tools\BodySlide");
 				if (Directory.Exists(strBSPath))
 				{
 					strBS = strBSPath;
@@ -319,7 +319,7 @@ namespace Nexus.Client.Games.Fallout4
 
 		private void ConfigBS()
 		{
-			string p_strToolName = "BS";
+			string p_strToolName = "BS2";
 			string p_strExecutableName = "BodySlide.exe";
 			string p_strToolID = "BS2";
 			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
