@@ -191,11 +191,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 			FileServerZones = new List<FileServerZone>();
 			FileServerZones.Add(new FileServerZone());
             //FileServerZones.Add(new FileServerZone("us", "U.S.A.", 2, global::Nexus.Client.Properties.Resources.us, false));
-            FileServerZones.Add(new FileServerZone("na.p1", "N.A. - North America Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
+            FileServerZones.Add(new FileServerZone("na.ca", "N.A. - North America Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
    //         FileServerZones.Add(new FileServerZone("us.p2", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
 			//FileServerZones.Add(new FileServerZone("us.p1", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
 			FileServerZones.Add(new FileServerZone("eu.p1", "E.U. - UK Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
-            FileServerZones.Add(new FileServerZone("eu.p2", "E.U. - Europe Premium", 2, global::Nexus.Client.Properties.Resources.europeanunion, true));
+            FileServerZones.Add(new FileServerZone("eu.fr", "E.U. - Europe Premium", 2, global::Nexus.Client.Properties.Resources.europeanunion, true));
             //FileServerZones.Add(new FileServerZone("eu", "European Union", 1, global::Nexus.Client.Properties.Resources.europeanunion, false));
 
             RepositoryFileServerZones = new List<FileServerZone>();
@@ -208,9 +208,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 			//RepositoryFileServerZones.Add(new FileServerZone("cz", "Czech Republic", 1, global::Nexus.Client.Properties.Resources.cz, false));
 			//RepositoryFileServerZones.Add(new FileServerZone("us.p2", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
 			//RepositoryFileServerZones.Add(new FileServerZone("us.p1", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-            RepositoryFileServerZones.Add(new FileServerZone("na.p1", "N.A. - North America Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
+            RepositoryFileServerZones.Add(new FileServerZone("na.ca", "N.A. - North America Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
             RepositoryFileServerZones.Add(new FileServerZone("eu.p1", "E.U. - UK Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
-            RepositoryFileServerZones.Add(new FileServerZone("eu.p2", "E.U. - Europe Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
+            RepositoryFileServerZones.Add(new FileServerZone("eu.fr", "E.U. - Europe Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
         }
 
 		/// <summary>
