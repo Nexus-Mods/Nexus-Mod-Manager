@@ -114,7 +114,7 @@ namespace Nexus.Client.Games.Witcher3
         /// <returns>The default launch command.</returns>
         private string GetPlainLaunchCommand()
         {
-			string strCommand = Path.Combine(Path.Combine(Path.Combine(GameMode.ExecutablePath, "bin"), "x64"), "Witcher3.exe");
+			string strCommand = Path.Combine(GameMode.ExecutablePath, "bin", "x64", "Witcher3.exe");
             return strCommand;
         }
 
