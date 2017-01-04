@@ -394,7 +394,7 @@ namespace Nexus.Client.ModManagement
 			Version FileVersion = ReadVersion(p_strFilePath);
 
 			if (!string.Equals(p_strFilePath, m_strVirtualActivatorConfigPath, StringComparison.OrdinalIgnoreCase))
-				if (FileVersion.CompareTo(new Version("99.99.99.99")) < 0)
+				if (!(FileVersion.CompareTo(new Version("99.99.99.99")) < 0))
 				{
 					SaveModList(p_strFilePath);
 					return null;
