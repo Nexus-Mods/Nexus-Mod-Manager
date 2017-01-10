@@ -527,7 +527,12 @@ namespace Nexus.UI.Controls
 			}
 			else
 			{
-				if (m_intMinimumDetailsHeight < 0)
+				// Adding handler for when hlbDetails.Document.Body is null.
+				// This is due to not being able to guarantee that the DocumentCompleted event has been run
+				// Even if the body ends up being valid, the event often fires after this runs. Check for null.
+				if (m_intMinimumDetailsHeight < 0 && (hlbDetails.Document.Body == null))
+					m_intMinimumDetailsHeight = ClientSize.Height / 2;
+				else if (m_intMinimumDetailsHeight < 0)
 					m_intMinimumDetailsHeight = Math.Min(hlbDetails.Document.Body.ScrollRectangle.Height, ClientSize.Height / 2);
 				if (LastDetailsHeight < 0)
 					LastDetailsHeight = m_intMinimumDetailsHeight;
