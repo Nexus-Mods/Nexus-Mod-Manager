@@ -970,7 +970,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			FileInfo fiFile = new FileInfo(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
 			if ((Directory.Exists(m_strCachePath) && ((File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strPath)))) || (fiFile.IsReadOnly))))
 			{
-				FileUtil.ForceDelete(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
+				//FileUtil.ForceDelete(Path.Combine(m_strCachePath, GetRealPath(p_strPath)));
 				File.WriteAllBytes(Path.Combine(m_strCachePath, GetRealPath(p_strPath)), p_bteData);
 			}
 		}
