@@ -576,7 +576,7 @@ namespace Nexus.Client
 		{
 			if (ViewModel.UsesPlugins)
 			{
-				DialogResult drPurgeLooseFiles = ExtendedMessageBox.Show(this, "USE THIS FUNCTION AT YOUR OWN RISK: Would you like to clean your game folder from loose files? Legit files may be lost if the mod manager doesn't recognize them as default game files.", "Purge Loose Files", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				DialogResult drPurgeLooseFiles = ExtendedMessageBox.Show(this, "USE THIS FUNCTION AT YOUR OWN RISK: Would you like to clean your game folder from unmanaged files (not installed by NMM and not official game files)? Legit files may be lost if the mod manager doesn't recognize them as official game files.", "Purge Unmanaged Files", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 				if (drPurgeLooseFiles == DialogResult.Yes)
 					ViewModel.PurgeLooseFiles();
 			}
@@ -1436,7 +1436,7 @@ namespace Nexus.Client
 			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
 			spbTools.DropDownItems.Add(tmiUninstallAllMods);
 
-			Command cmdPurgeLooseFiles = new Command("Purge Loose Files", "Purge Loose Files.", PurgeLooseFiles);
+			Command cmdPurgeLooseFiles = new Command("Purge Unmanaged Files", "Purge Unmanaged Files.", PurgeLooseFiles);
 			ToolStripMenuItem tmiPurgeLooseFiles = new ToolStripMenuItem();
 			tmiPurgeLooseFiles.Image = global::Nexus.Client.Properties.Resources.deleteProfile;
 			new ToolStripItemCommandBinding(tmiPurgeLooseFiles, cmdPurgeLooseFiles);
