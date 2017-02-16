@@ -385,7 +385,8 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 			stbModTypesDesc.Append(")|");
-			ofdChooseMod.Filter = stbModTypesDesc.ToString() + stbModTypesFilter.ToString() + "|All Files (*.*)|*.*";
+            ofdChooseMod.Filter = stbModTypesDesc.ToString() + stbModTypesFilter.ToString() + "|All Files (*.*)|*.*";
+            ofdChooseMod.Multiselect = true;
 		}
 
 		/// <summary>
@@ -1473,8 +1474,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void addModToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			if (ofdChooseMod.ShowDialog() == DialogResult.OK)
-				ViewModel.AddModCommand.Execute(ofdChooseMod.FileName);
+            
+            if (ofdChooseMod.ShowDialog() == DialogResult.OK)
+                foreach (string File in ofdChooseMod.FileNames)
+                {
+                    ViewModel.AddModCommand.Execute(File);
+                }
 		}
 
 		/// <summary>
