@@ -311,25 +311,33 @@ namespace Nexus.Client.Games.Fallout4
 			else if (strCustomLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
 				booNewLoose = true;
 
-			if (booNewLoose)
-			{
-				if (booLoose)
-					p_strMessage = string.Format("The old Fallout 4 ini edits are deprecated (the long string in the Fallout4.ini caused long loading times). Please remove the old edits and follow this updated guide:" + Environment.NewLine + Environment.NewLine + "{0}", m_strGuideLink);
-				else
-					p_strMessage = string.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this guide:" + Environment.NewLine + Environment.NewLine + "{3}", booNewLoose ? "Fallout4Custom.ini" : "", (booNewLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
-			}
-			else
-			{
-				if (booLoose)
-				{
-					p_strMessage = string.Format("The old Fallout4.ini edit is causing long loading times, please remove it from your .ini file, set it as:" + Environment.NewLine + "sResourceDataDirsFinal=" + Environment.NewLine + "(nothing after the '=')");
-					m_booOldEditsWarning = true;
-					return true;
-				}
-			}
+            // Implement backup and autofix.  If that fails, warn the user
 
-			m_booOldEditsWarning = true;
-			return (booNewLoose);
+            if (booNewLoose || booLoose)
+            {
+                try
+                {
+                    string DesiredContent = @"[Display]
+iLocation X=0
+iLocation Y=0
+[Archive]
+bInvalidateOlderFiles=1
+sResourceDataDirsFinal=
+";
+                    // back up the current file and then make the corrections
+                    System.IO.File.Move(m_strFallout4Custom, m_strFallout4Custom.Replace(".ini", ".nmm_backup"));
+                    System.IO.File.WriteAllText(m_strFallout4Custom, DesiredContent);
+                }
+                catch
+                {
+                    p_strMessage = string.Format("Your Fallout4Custom.ini is not configured correctly.  Nexus Mod Manager was unable to make the necessary changes automatically.  Please refer to the documentation located at http://wiki.tesnexus.com/index.php/Fallout_4_Mod_Installation#How_To_Enable_Fallout_4_Mods");
+                    m_booOldEditsWarning = true;
+                    return true;
+                }
+            }
+
+			// m_booOldEditsWarning = true;
+			return false;
 		}
 	}
 }
