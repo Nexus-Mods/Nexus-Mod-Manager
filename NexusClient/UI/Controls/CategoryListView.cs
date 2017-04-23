@@ -1464,6 +1464,8 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public void ResetColumns()
 		{
+            // No one wants every column to be exactly the same width
+            /*
 			tlcModName.Width = 100;
 			tlcCategory.Width = 100;
 			tlcInstallDate.Width = 100;
@@ -1472,6 +1474,7 @@ namespace Nexus.Client.UI.Controls
 			tlcWebVersion.Width = 100;
 			tlcAuthor.Width = 100;
 			SizeColumnsToFit();
+            */
 		}
 
 		/// <summary>
@@ -1479,18 +1482,21 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public void SizeColumnsToFit()
 		{
+            // No one wants every column to be exactly the same width
+            /*
 			Int32 intFixedWidth = 0;
 			for (Int32 i = 0; i < this.Columns.Count; i++)
 				if (this.Columns[i] != tlcModName)
 					intFixedWidth += this.Columns[i].Width;
 			tlcModName.Width = this.ClientSize.Width - intFixedWidth;
-		}
+            */
+        }
 
-		/// <summary>
-		/// This checks if the passed date string is a valid date.
-		/// </summary>
-		/// <param name="p_strDate">The date string to check.</param>
-		protected bool CheckDate(String p_strDate)
+        /// <summary>
+        /// This checks if the passed date string is a valid date.
+        /// </summary>
+        /// <param name="p_strDate">The date string to check.</param>
+        protected bool CheckDate(String p_strDate)
 		{
 			if (string.IsNullOrWhiteSpace(p_strDate))
 			{
