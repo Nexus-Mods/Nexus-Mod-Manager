@@ -297,7 +297,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						else
 							ForcedReadOnly = true;
 					}
-					else
+                    else if (GameMode.GameVersion < new Version(1, 0, 0, 0))
+                    {
+                        TimestampOrder = false;
+                        SingleFileManagement = true;
+                        Fallout4PluginManagement = true;
+                        ForcedReadOnly = false;
+                    }
+                    else
 					{
 						TimestampOrder = false;
 						ForcedReadOnly = true;
