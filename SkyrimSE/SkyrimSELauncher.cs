@@ -131,7 +131,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// <returns>The SKSE launch command.</returns>
 		private string GetSkseLaunchCommand()
 		{
-			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse_loader.exe");
+			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse64_loader.exe");
 		}
 
 		#endregion
@@ -169,7 +169,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		{
 			if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
 				LaunchSkyrimSECustom();
-			else if (File.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse_loader.exe")))
+			else if (File.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse64_loader.exe")))
 				LaunchSkyrimSESKSE();
 			else
 				LaunchSkyrimSEPlain();
