@@ -53,11 +53,19 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				if (!p_lstPlugins[i].Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
 					return false;
 			bool booIsPreviousMaster = true;
+			bool booIsPreviousLightMaster = false;
 			foreach (GamebryoPlugin plgPlugin in p_lstPlugins)
 			{
 				if (!booIsPreviousMaster && plgPlugin.IsMaster)
 					return false;
+				// simple test esl come after esm or esl
+				if (!(booIsPreviousMaster || booIsPreviousLightMaster) && plgPlugin.IsLightMaster)
+					return false;
+				// no true esm after an esl
+				if (booIsPreviousLightMaster && plgPlugin.IsMaster && !plgPlugin.IsLightMaster)
+					return false;
 				booIsPreviousMaster = plgPlugin.IsMaster;
+				booIsPreviousLightMaster = plgPlugin.IsLightMaster;
 			}
 			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
 				if (p_lstPlugins[i].HasMasters)
