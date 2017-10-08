@@ -1915,7 +1915,7 @@ namespace Nexus.Client.ModManagement
 				{
 					if (GameMode.UsesPlugins)
 					{
-						List<IVirtualModLink> ivlLinks = lstVirtualLinks.Where(x => x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(modMod.Filename).ToLowerInvariant() && (Path.GetExtension(x.VirtualModPath).ToLowerInvariant() == ".esp" || Path.GetExtension(x.VirtualModPath).ToLowerInvariant() == ".esm")).ToList();
+						List<IVirtualModLink> ivlLinks = lstVirtualLinks.Where(x => x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(modMod.Filename).ToLowerInvariant() && (Path.GetExtension(x.VirtualModPath).ToLowerInvariant() == ".esp" || Path.GetExtension(x.VirtualModPath).ToLowerInvariant() == ".esl" || Path.GetExtension(x.VirtualModPath).ToLowerInvariant() == ".esm")).ToList();
 						if (ivlLinks != null)
 						{
 							foreach (IVirtualModLink Link in ivlLinks)
