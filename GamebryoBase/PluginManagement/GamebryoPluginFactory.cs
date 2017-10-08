@@ -74,7 +74,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			if (tpgPlugin == null || tpgPlugin.Records.Count == 0 || (tpgPlugin.Records[0].Name != "TES4" && tpgPlugin.Records[0].Name != "TES3"))
 			{
 				string strDescription = strPluginName + Environment.NewLine + "Warning: Plugin appears corrupt";
-				return new GamebryoPlugin(p_strPluginPath, strDescription, null, false);
+				return new GamebryoPlugin(p_strPluginPath, strDescription, null, false, false);
 			}
 
 			StringBuilder stbDescription = new StringBuilder();
@@ -160,7 +160,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				catch { }
 			}
 
-			Plugin pifInfo = new GamebryoPlugin(p_strPluginPath, stbDescription.ToString(), imgPicture, (intIsMaster == 1));
+			Plugin pifInfo = new GamebryoPlugin(p_strPluginPath, stbDescription.ToString(), imgPicture, (intIsMaster == 1), (intIsLightMaster == 512));
 			pifInfo.SetMasters(masters);
 
 			return pifInfo;

@@ -130,6 +130,34 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				}
 			}
 
+			bool booFoundLightMasters = false;
+			intFirstNonMasterIndex = p_lstPlugins.Count - 1;
+			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
+			{
+				if (!booFoundLightMasters)
+					booFoundLightMasters = ((GamebryoPlugin)p_lstPlugins[i]).IsLightMaster;
+				if (!booFoundLightMasters)
+					intFirstNonMasterIndex = i - 1;
+				else
+				{
+					if ((!((GamebryoPlugin)p_lstPlugins[i]).IsLightMaster) && (!((GamebryoPlugin)p_lstPlugins[i]).IsMaster))
+					{
+						if (booHasMove)
+							((ThreadSafeObservableList<Plugin>)p_lstPlugins).Move(i, intFirstNonMasterIndex);
+						else
+						{
+							Plugin plgPlugin = p_lstPlugins[i];
+							p_lstPlugins.RemoveAt(i);
+							if (intFirstNonMasterIndex >= p_lstPlugins.Count)
+								p_lstPlugins.Add(plgPlugin);
+							else
+								p_lstPlugins.Insert(intFirstNonMasterIndex, plgPlugin);
+						}
+						intFirstNonMasterIndex--;
+					}
+				}
+			}
+
 			// Makes sure no plugin is loaded before his master.
 			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
 			{
