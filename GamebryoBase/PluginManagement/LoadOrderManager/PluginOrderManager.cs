@@ -23,7 +23,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 	{
 		private static readonly object m_objLock = new object();
 		private static Dictionary<string, string> dctFileHashes = new Dictionary<string, string>();
-		private Regex m_rgxPluginFile = new Regex(@"(?i)^.+\.es[mp]$");
+		private Regex m_rgxPluginFile = new Regex(@"(?i)^.+\.es[mpl]$");
 		private List<string> m_lstActivePlugins = new List<string>();
 		private DateTime m_dtiMasterDate = DateTime.Now;
 		private ThreadSafeObservableList<WriteLoadOrderTask> TaskList = new ThreadSafeObservableList<WriteLoadOrderTask>();
@@ -400,6 +400,18 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			FileWatcher.Filter = "*.esp";
 			if (TimestampOrder)
 				FileWatcher.Changed += new FileSystemEventHandler(FileWatcherOnChangedLoose);
+			FileWatcher.Deleted += new FileSystemEventHandler(FileWatcherOnDeletedLoose);
+			FileWatcher.Created += new FileSystemEventHandler(FileWatcherOnCreatedLoose);
+			FileWatcher.EnableRaisingEvents = true;
+			FileWatchers.Add(FileWatcher);
+
+			FileWatcher = new FileSystemWatcher();
+			FileWatcher.Path = GameMode.PluginDirectory;
+			FileWatcher.IncludeSubdirectories = false;
+			FileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.CreationTime;
+			FileWatcher.Filter = "*.esl";
+			if (TimestampOrder)
+			    FileWatcher.Changed += new FileSystemEventHandler(FileWatcherOnChangedLoose);
 			FileWatcher.Deleted += new FileSystemEventHandler(FileWatcherOnDeletedLoose);
 			FileWatcher.Created += new FileSystemEventHandler(FileWatcherOnCreatedLoose);
 			FileWatcher.EnableRaisingEvents = true;
@@ -907,7 +919,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					lstOrderedPlugins = diPluginFolder
 										.EnumerateFiles()
 										.OrderBy(file => file.LastWriteTime)
-										.Where(file => file.Extension.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
+										.Where(file => file.Extension.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esl", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
 										.Select(file => file.FullName)
 										.ToList();
 				}
@@ -1057,7 +1069,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					lstLoosePlugins = diPluginFolder
 										.EnumerateFiles()
 										.OrderBy(file => file.LastWriteTime)
-										.Where(file => file.Extension.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
+										.Where(file => file.Extension.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esl", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
 										.Select(file => file.FullName)
 										.ToList();
 

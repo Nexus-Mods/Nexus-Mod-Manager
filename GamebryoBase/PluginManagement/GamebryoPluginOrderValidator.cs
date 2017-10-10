@@ -53,11 +53,19 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				if (!p_lstPlugins[i].Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
 					return false;
 			bool booIsPreviousMaster = true;
+			bool booIsPreviousLightMaster = false;
 			foreach (GamebryoPlugin plgPlugin in p_lstPlugins)
 			{
 				if (!booIsPreviousMaster && plgPlugin.IsMaster)
 					return false;
+				// simple test esl come after esm or esl
+				if (!(booIsPreviousMaster || booIsPreviousLightMaster) && plgPlugin.IsLightMaster)
+					return false;
+				// no true esm after an esl
+				if (booIsPreviousLightMaster && plgPlugin.IsMaster && !plgPlugin.IsLightMaster)
+					return false;
 				booIsPreviousMaster = plgPlugin.IsMaster;
+				booIsPreviousLightMaster = plgPlugin.IsLightMaster;
 			}
 			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
 				if (p_lstPlugins[i].HasMasters)
@@ -113,6 +121,34 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				else
 				{
 					if (!((GamebryoPlugin)p_lstPlugins[i]).IsMaster)
+					{
+						if (booHasMove)
+							((ThreadSafeObservableList<Plugin>)p_lstPlugins).Move(i, intFirstNonMasterIndex);
+						else
+						{
+							Plugin plgPlugin = p_lstPlugins[i];
+							p_lstPlugins.RemoveAt(i);
+							if (intFirstNonMasterIndex >= p_lstPlugins.Count)
+								p_lstPlugins.Add(plgPlugin);
+							else
+								p_lstPlugins.Insert(intFirstNonMasterIndex, plgPlugin);
+						}
+						intFirstNonMasterIndex--;
+					}
+				}
+			}
+
+			bool booFoundLightMasters = false;
+			intFirstNonMasterIndex = p_lstPlugins.Count - 1;
+			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
+			{
+				if (!booFoundLightMasters)
+					booFoundLightMasters = ((GamebryoPlugin)p_lstPlugins[i]).IsLightMaster;
+				if (!booFoundLightMasters)
+					intFirstNonMasterIndex = i - 1;
+				else
+				{
+					if ((!((GamebryoPlugin)p_lstPlugins[i]).IsLightMaster) && (!((GamebryoPlugin)p_lstPlugins[i]).IsMaster))
 					{
 						if (booHasMove)
 							((ThreadSafeObservableList<Plugin>)p_lstPlugins).Move(i, intFirstNonMasterIndex);

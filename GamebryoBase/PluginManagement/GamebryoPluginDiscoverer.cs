@@ -11,7 +11,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 	/// </summary>
 	public class GamebryoPluginDiscoverer : IPluginDiscoverer
 	{
-		private static string[] PLUGIN_EXTENSIONS = new string[] { ".esp", ".esm" };
+		private static string[] PLUGIN_EXTENSIONS = new string[] { ".esp", ".esl", ".esm" };
 
 		#region Properties
 
