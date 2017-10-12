@@ -11,7 +11,8 @@ namespace Nexus.Client.Games.Fallout4
 		private static string[] EXECUTABLES = { "Fallout4Launcher.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Fallout4.esm" };
 		private static string[] OFFICIAL_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm", "DLCNukaWorld.esm" };
-		private const string MODE_ID = "Fallout4";
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm", "DLCNukaWorld.esm" };
+        private const string MODE_ID = "Fallout4";
 
 		#region Properties
 
@@ -63,11 +64,11 @@ namespace Nexus.Client.Games.Fallout4
 			}
 		}
 
-		/// <summary>
-		/// Gets the list of official plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of official plugin names, ordered by load order.</value>
-		protected override string[] OrderedOfficialPluginFilenames
+        /// <summary>
+        /// Gets the list of official plugin names, ordered by load order.
+        /// </summary>
+        /// <value>The list of official plugin names, ordered by load order.</value>
+        protected override string[] OrderedOfficialPluginFilenames
 		{
 			get
 			{
@@ -75,11 +76,23 @@ namespace Nexus.Client.Games.Fallout4
 			}
 		}
 
-		/// <summary>
-		/// Gets the theme to use for this game mode.
-		/// </summary>
-		/// <value>The theme to use for this game mode.</value>
-		public override Theme ModeTheme
+        /// <summary>
+        /// Gets the list of official unmanageable plugin names, ordered by load order.
+        /// </summary>
+        /// <value>The list of official unmanageable plugin names, ordered by load order.</value>
+        protected override string[] OrderedOfficialUnmanagedPluginFilenames
+        {
+            get
+            {
+                return OFFICIAL_UNMANAGED_PLUGINS;
+            }
+        }
+
+        /// <summary>
+        /// Gets the theme to use for this game mode.
+        /// </summary>
+        /// <value>The theme to use for this game mode.</value>
+        public override Theme ModeTheme
 		{
 			get
 			{

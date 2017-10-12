@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Nexus.Client.BackgroundTasks;
-using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
@@ -245,18 +244,18 @@ namespace Nexus.Client.PluginManagement.UI
 			}
 		}
 
-		#endregion
+        #endregion
 
-		#region Constructors
+        #region Constructors
 
-		/// <summary>
-		/// A simple constructor that initializes the object with its dependencies.
-		/// </summary>
-		/// <param name="p_pmgPluginManager">The plugin manager to use to manage plugins.</param>
-		/// <param name="p_setSettings">The application and user settings.</param>
-		/// <param name="p_gmdGameMode">The game mode that is currently being managed.</param>
-		/// <param name="p_mamMonitor">The mod activation monitor.</param>
-		public PluginManagerVM(IPluginManager p_pmgPluginManager, ISettings p_setSettings, IGameMode p_gmdGameMode, ModActivationMonitor p_mamMonitor, IVirtualModActivator p_ivaVirtualModActivator)
+        /// <summary>
+        /// A simple constructor that initializes the object with its dependencies.
+        /// </summary>
+        /// <param name="p_pmgPluginManager">The plugin manager to use to manage plugins.</param>
+        /// <param name="p_setSettings">The application and user settings.</param>
+        /// <param name="p_gmdGameMode">The game mode that is currently being managed.</param>
+        /// <param name="p_mamMonitor">The mod activation monitor.</param>
+        public PluginManagerVM(IPluginManager p_pmgPluginManager, ISettings p_setSettings, IGameMode p_gmdGameMode, ModActivationMonitor p_mamMonitor, IVirtualModActivator p_ivaVirtualModActivator)
 		{
 			PluginManager = p_pmgPluginManager;
 			Settings = p_setSettings;

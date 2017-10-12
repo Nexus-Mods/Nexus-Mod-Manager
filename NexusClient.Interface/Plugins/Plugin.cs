@@ -48,6 +48,17 @@ namespace Nexus.Client.Plugins
 			}
 		}
 
+        /// Gets whether the plugin ignores indexing.
+        /// </summary>
+        /// <value>Whether the plugin ignores indexing.</value>
+        public virtual bool IgnoreIndexing
+        {
+            get
+            {
+                return false;
+            }
+        }
+
 		#endregion
 
 		#region Constructors

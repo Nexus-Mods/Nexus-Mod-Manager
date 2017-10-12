@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Windows.Forms;
+using System.Linq;
 using ChinhDo.Transactions;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
@@ -354,11 +354,23 @@ namespace Nexus.Client.Games
 			}
 		}
 
-		/// <summary>
-		/// Gets the name of the required tool (if any) for the current game mode.
-		/// </summary>
-		/// <value>The name of the required tool (if any) for the current game mode.</value>
-		public string RequiredToolName
+        /// <summary>
+        /// Gets the list of official unmanaged plugin names, ordered by load order.
+        /// </summary>
+        /// <value>The list of official unmanaged plugin names, ordered by load order.</value>
+        public string[] OrderedOfficialUnmanagedPluginNames
+        {
+            get
+            {
+                return m_gmdGameModeInfo.OrderedOfficialUnmanagedPluginNames;
+            }
+        }
+
+        /// <summary>
+        /// Gets the name of the required tool (if any) for the current game mode.
+        /// </summary>
+        /// <value>The name of the required tool (if any) for the current game mode.</value>
+        public string RequiredToolName
 		{
 			get
 			{
@@ -710,7 +722,7 @@ namespace Nexus.Client.Games
 		/// <c>false</c> otherwise.</returns>
 		public bool IsCriticalPlugin(Plugin p_plgPlugin)
 		{
-			return OrderedCriticalPluginNames.Contains(p_plgPlugin.Filename.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar), StringComparer.OrdinalIgnoreCase);
+			return OrderedCriticalPluginNames.Concat(OrderedOfficialUnmanagedPluginNames).Contains(p_plgPlugin.Filename.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar), StringComparer.OrdinalIgnoreCase);
 		}
 
 		#endregion

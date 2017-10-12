@@ -180,11 +180,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 		}
 
-		protected bool IsExternalInput
+        protected bool IsExternalInput
 		{
 			get
 			{
-				return ((((RunningTask == null) || ((RunningTask != null) && (RunningTask.Status == BackgroundTasks.TaskStatus.Complete))) && (TaskList.Count == 0)) && ((ExternalTask == null) || (ExternalTask.Status != BackgroundTasks.TaskStatus.Running)));
+				return ((((RunningTask == null) || ((RunningTask != null) && (RunningTask.Status == TaskStatus.Complete))) && (TaskList.Count == 0)) && ((ExternalTask == null) || (ExternalTask.Status != TaskStatus.Running)));
 			}
 		}
 

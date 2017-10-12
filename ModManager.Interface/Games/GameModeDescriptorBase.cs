@@ -126,11 +126,23 @@ namespace Nexus.Client.Games
 			}
 		}
 
-		/// <summary>
-		/// Gets the name of the required tool (if any) for the current game mode.
-		/// </summary>
-		/// <value>The name of the required tool (if any) for the current game mode.</value>
-		public virtual string RequiredToolName 
+        /// <summary>
+        /// Gets the list of official unamanageable plugin names, ordered by load order.
+        /// </summary>
+        /// <value>The list of official unamanageable plugin names, ordered by load order.</value>
+        public virtual string[] OrderedOfficialUnmanagedPluginNames
+        {
+            get
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the name of the required tool (if any) for the current game mode.
+        /// </summary>
+        /// <value>The name of the required tool (if any) for the current game mode.</value>
+        public virtual string RequiredToolName 
 		{ 
 			get
 			{

@@ -17,6 +17,7 @@ namespace Nexus.Client.Games.Gamebryo
 																					"sound" };
 		private string[] m_strCriticalPlugins = null;
 		private string[] m_strOfficialPlugins = null;
+        private string[] m_strOfficialUnmanagedPlugins = null;
 		private string m_strPluginPath = string.Empty;
 
 		#region Properties
@@ -58,8 +59,8 @@ namespace Nexus.Client.Games.Gamebryo
 				if (!string.IsNullOrEmpty(m_strPluginPath))
 					return m_strPluginPath;
  
-				string strPath = String.Empty;
-				if (!String.IsNullOrEmpty(InstallationPath))
+				string strPath = string.Empty;
+				if (!string.IsNullOrEmpty(InstallationPath))
 				{
 					strPath = Path.Combine(InstallationPath, "Data");
 
@@ -95,7 +96,7 @@ namespace Nexus.Client.Games.Gamebryo
 				if (m_strCriticalPlugins == null)
 				{
 					m_strCriticalPlugins = new string[OrderedCriticalPluginFilenames.Length];
-					for (Int32 i = OrderedCriticalPluginFilenames.Length - 1; i >= 0; i--)
+					for (int i = OrderedCriticalPluginFilenames.Length - 1; i >= 0; i--)
 						m_strCriticalPlugins[i] = Path.Combine(PluginDirectory, OrderedCriticalPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				}
 				return m_strCriticalPlugins;
@@ -108,33 +109,62 @@ namespace Nexus.Client.Games.Gamebryo
 		/// <value>The list of official plugin names, ordered by load order.</value>
 		protected abstract string[] OrderedOfficialPluginFilenames { get; }
 
-		/// <summary>
-		/// Gets the list of official plugin names, ordered by load order.
-		/// </summary>
-		/// <value>The list of official plugin names, ordered by load order.</value>
-		public override string[] OrderedOfficialPluginNames
+        /// <summary>
+        /// Gets the list of official unmanageable plugin names, ordered by load order.
+        /// </summary>
+        /// <value>The list of official unmanageable plugin names, ordered by load order.</value>
+        protected virtual string[] OrderedOfficialUnmanagedPluginFilenames {
+            get
+            {
+                return null;
+            }            
+        }
+
+        /// <summary>
+        /// Gets the list of official plugin names, ordered by load order.
+        /// </summary>
+        /// <value>The list of official plugin names, ordered by load order.</value>
+        public override string[] OrderedOfficialPluginNames
 		{
 			get
 			{
 				if (m_strOfficialPlugins == null)
 				{
 					m_strOfficialPlugins = new string[OrderedOfficialPluginFilenames.Length];
-					for (Int32 i = OrderedOfficialPluginFilenames.Length - 1; i >= 0; i--)
+					for (int i = OrderedOfficialPluginFilenames.Length - 1; i >= 0; i--)
 						m_strOfficialPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				}
 				return m_strOfficialPlugins;
 			}
 		}
 
-		#endregion
+        /// <summary>
+        /// Gets the list of official unamanageable plugin names, ordered by load order.
+        /// </summary>
+        /// <value>The list of official unamanageable plugin names, ordered by load order.</value>
+        public override string[] OrderedOfficialUnmanagedPluginNames
+        {
+            get
+            {
+                if (m_strOfficialUnmanagedPlugins == null)
+                {
+                    m_strOfficialUnmanagedPlugins = new string[OrderedOfficialUnmanagedPluginFilenames.Length];
+                    for (int i = OrderedOfficialUnmanagedPluginFilenames.Length - 1; i >= 0; i--)
+                        m_strOfficialUnmanagedPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialUnmanagedPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                }
+                return m_strOfficialUnmanagedPlugins;
+            }
+        }
 
-		#region Constructors
+        #endregion
 
-		/// <summary>
-		/// A simple constructor that initializes the object with the given dependencies.
-		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public GamebryoGameModeDescriptorBase(IEnvironmentInfo p_eifEnvironmentInfo)
+        #region Constructors
+
+        /// <summary>
+        /// A simple constructor that initializes the object with the given dependencies.
+        /// </summary>
+        /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+        public GamebryoGameModeDescriptorBase(IEnvironmentInfo p_eifEnvironmentInfo)
 			: base(p_eifEnvironmentInfo)
 		{
 		}
