@@ -15,6 +15,7 @@ using Nexus.Client.Plugins;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
+using Nexus.Client.Games.Gamebryo.Plugins;
 
 namespace Nexus.Client.PluginManagement.UI
 {
@@ -277,7 +278,7 @@ namespace Nexus.Client.PluginManagement.UI
 				{
 					try
 					{
-						if (ViewModel.ActivePlugins.Contains((Plugin)lviPlugin.Tag))
+						if (ViewModel.ActivePlugins.Contains((Plugin)lviPlugin.Tag) && !((GamebryoPlugin)lviPlugin.Tag).IsLightMaster)
 						{
 							lviPlugin.SubItems[clmIndexHex.Name].Text = String.Format("{0:x2}", intIndex++).ToUpper();
 							lviPlugin.SubItems[clmIndex.Name].Text = intIndex.ToString();
