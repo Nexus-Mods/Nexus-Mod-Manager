@@ -148,9 +148,16 @@ namespace Nexus.Client.Games.Gamebryo
             {
                 if (m_strOfficialUnmanagedPlugins == null)
                 {
-                    m_strOfficialUnmanagedPlugins = new string[OrderedOfficialUnmanagedPluginFilenames.Length];
-                    for (int i = OrderedOfficialUnmanagedPluginFilenames.Length - 1; i >= 0; i--)
-                        m_strOfficialUnmanagedPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialUnmanagedPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                    if (OrderedOfficialUnmanagedPluginFilenames != null)
+                    {
+                        m_strOfficialUnmanagedPlugins = new string[OrderedOfficialUnmanagedPluginFilenames.Length];
+                        for (int i = OrderedOfficialUnmanagedPluginFilenames.Length - 1; i >= 0; i--)
+                            m_strOfficialUnmanagedPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialUnmanagedPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                    } 
+                    else
+                    {
+                        m_strOfficialUnmanagedPlugins = new string[0];
+                    }
                 }
                 return m_strOfficialUnmanagedPlugins;
             }

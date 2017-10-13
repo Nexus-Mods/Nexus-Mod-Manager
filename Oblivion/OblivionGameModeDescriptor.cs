@@ -11,7 +11,8 @@ namespace Nexus.Client.Games.Oblivion
 		private static string[] EXECUTABLES = { "oblivion.exe" };
 		private static string[] CRITICAL_PLUGINS = { "oblivion.esm" };
 		private static string[] OFFICIAL_PLUGINS = { "DLCHorseArmor.esp", "DLCMehrunesRazor.esp", "Knights.esp", "DLCShiveringIsles.esp", "DLCVileLair.esp", "DLCFrostcrag.esp", "DLCBattlehornCastle.esp", "DLCSpellTomes.esp", "DLCThievesDen.esp", "DLCOrrery.esp" };
-		private const string MODE_ID = "Oblivion";
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
+        private const string MODE_ID = "Oblivion";
 
 		#region Properties
 

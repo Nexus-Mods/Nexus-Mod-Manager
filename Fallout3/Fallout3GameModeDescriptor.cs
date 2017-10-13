@@ -11,7 +11,8 @@ namespace Nexus.Client.Games.Fallout3
 		private static string[] EXECUTABLES = { "fallout3.exe", "fallout3ng.exe" };
 		private static string[] CRITICAL_PLUGINS = { "fallout3.esm" };
 		private static string[] OFFICIAL_PLUGINS = { "Anchorage.esm", "ThePitt.esm", "BrokenSteel.esm", "PointLookout.esm", "Zeta.esm" };
-		private const string MODE_ID = "Fallout3";
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
+        private const string MODE_ID = "Fallout3";
 
 		#region Properties
 

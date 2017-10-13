@@ -13,7 +13,8 @@ namespace Nexus.Client.Games.Morrowind
 		private static string[] EXECUTABLES = { "Morrowind.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Morrowind.esm" };
 		private static string[] OFFICIAL_PLUGINS = { "Tribunal.esm", "Bloodmoon.esm" };
-		private const string MODE_ID = "Morrowind";
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
+        private const string MODE_ID = "Morrowind";
 
 		#region Properties
 

@@ -11,7 +11,8 @@ namespace Nexus.Client.Games.SkyrimSE
 		private static string[] EXECUTABLES = { "SkyrimSELauncher.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Skyrim.esm", "Update.esm" , "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
 		private static string[] OFFICIAL_PLUGINS = { };
-		private const string MODE_ID = "SkyrimSE";
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
+        private const string MODE_ID = "SkyrimSE";
 
 		#region Properties
 

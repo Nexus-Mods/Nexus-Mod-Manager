@@ -11,7 +11,9 @@ namespace Nexus.Client.Games.FalloutNV
 		private static string[] EXECUTABLES = { "falloutNV.exe", "falloutNVng.exe" };
 		private static string[] CRITICAL_PLUGINS = { "falloutnv.esm" };
 		private static string[] OFFICIAL_PLUGINS = { "DeadMoney.esm", "HonestHearts.esm", "OldWorldBlues.esm", "LonesomeRoad.esm", "GunRunnersArsenal.esm", "CaravanPack.esm", "ClassicPack.esm", "MercenaryPack.esm", "TribalPack.esm" };
-		private const string MODE_ID = "FalloutNV";
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
+
+        private const string MODE_ID = "FalloutNV";
 
 		#region Properties
 
