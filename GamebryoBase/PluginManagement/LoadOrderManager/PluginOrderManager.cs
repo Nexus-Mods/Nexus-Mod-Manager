@@ -686,6 +686,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					lstActivePlugins.AddRange(GameMode.OrderedCriticalPluginNames);
 					lstActivePlugins.AddRange(GameMode.OrderedOfficialPluginNames);
+					lstActivePlugins.AddRange(GameMode.OrderedOfficialUnmanagedPluginNames);
 				}
 
 				try
@@ -708,7 +709,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 									{
 										string strPlugin = line.Substring(1);
 										if (Fallout4PluginManagement)
-											if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
+											if (GameMode.OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 												continue;
 										if (m_rgxPluginFile.IsMatch(strPlugin))
 											lstActivePlugins.Add(AddPluginDirectory(strPlugin));
@@ -783,6 +784,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					lstActivePlugins.AddRange(GameMode.OrderedCriticalPluginNames);
 					lstActivePlugins.AddRange(GameMode.OrderedOfficialPluginNames);
+					lstActivePlugins.AddRange(GameMode.OrderedOfficialUnmanagedPluginNames);
 				}
 
 				try
@@ -804,7 +806,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 									{
 										string strPlugin = line.Substring(1);
 										if (Fallout4PluginManagement)
-											if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
+											if (GameMode.OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 												continue;
 										if (m_rgxPluginFile.IsMatch(strPlugin))
 											lstActivePlugins.Add(AddPluginDirectory(strPlugin));
@@ -860,7 +862,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				if (Fallout4PluginManagement)
 				{
 					if (IgnoreOfficialPlugins)
-						strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+						strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames).Except(GameMode.OrderedOfficialUnmanagedPluginNames, StringComparer.InvariantCultureIgnoreCase)).ToArray());
 					else
 						strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
 
@@ -964,6 +966,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					lstOrderedPlugins.AddRange(GameMode.OrderedCriticalPluginNames);
 					lstOrderedPlugins.AddRange(GameMode.OrderedOfficialPluginNames);
+					lstOrderedPlugins.AddRange(GameMode.OrderedOfficialUnmanagedPluginNames);
 				}
 
 				try
@@ -983,7 +986,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								{
 									string strPlugin = line.StartsWith("*") ? line.Substring(1) : line;
 									if (Fallout4PluginManagement)
-										if (GameMode.OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
+										if (GameMode.OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 											continue;
 									if (m_rgxPluginFile.IsMatch(strPlugin))
 										lstOrderedPlugins.Add(AddPluginDirectory(strPlugin));
@@ -1124,7 +1127,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				if (Fallout4PluginManagement)
 				{
 					if (IgnoreOfficialPlugins)
-						strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames)).ToArray());
+						strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames).Except(GameMode.OrderedOfficialPluginNames).Except(GameMode.OrderedOfficialUnmanagedPluginNames, StringComparer.InvariantCultureIgnoreCase)).ToArray());
 					else
 						strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
 
@@ -1201,10 +1204,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			if (Fallout4PluginManagement)
 			{
-				if (OrderedCriticalPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+				if (OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
 					return true;
 				else if (OrderedOfficialPluginNames != null)
-					if (OrderedOfficialPluginNames.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+					if (OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
 						return true;
 			}
 

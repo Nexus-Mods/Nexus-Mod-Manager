@@ -11,7 +11,16 @@ namespace Nexus.Client.Games.SkyrimSE
 		private static string[] EXECUTABLES = { "SkyrimSELauncher.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Skyrim.esm", "Update.esm" , "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
 		private static string[] OFFICIAL_PLUGINS = { };
-        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "ccBGSSSE002-ExoticArrows.esl",
+																"ccBGSSSE003-Zombies.esl",
+																"ccBGSSSE004-RuinsEdge.esl",
+																"ccBGSSSE006-StendarsHammer.esl",
+																"ccBGSSSE007-Chrysamere.esl",
+																"ccBGSSSE010-PetDwarvenArmoredMudcrab.esl",
+																"ccBGSSSE014-SpellPack01.esl",
+																"ccBGSSSE019-StaffofSheogorath.esl",
+																"ccMTYSSE001-KnightsoftheNine.esl",
+																"ccQDRSSE001-SurvivalMode.esl" };
         private const string MODE_ID = "SkyrimSE";
 
 		#region Properties
@@ -73,6 +82,18 @@ namespace Nexus.Client.Games.SkyrimSE
 			get
 			{
 				return OFFICIAL_PLUGINS;
+			}
+		}
+
+		/// <summary>
+		/// Gets the list of official unmanageable plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official unmanageable plugin names, ordered by load order.</value>
+		protected override string[] OrderedOfficialUnmanagedPluginFilenames
+		{
+			get
+			{
+				return OFFICIAL_UNMANAGED_PLUGINS;
 			}
 		}
 
