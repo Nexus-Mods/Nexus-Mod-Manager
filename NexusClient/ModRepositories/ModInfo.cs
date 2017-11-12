@@ -25,11 +25,17 @@ namespace Nexus.Client.ModRepositories
 		/// <remarks>The DownloadId of the mod.</remarks>
 		public string DownloadId { get; set; }
 
-		/// <summary>
-		/// Gets or sets the name of the mod.
-		/// </summary>
-		/// <value>The name of the mod.</value>
-		public string ModName { get; set; }
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        public DateTime? DownloadDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the mod.
+        /// </summary>
+        /// <value>The name of the mod.</value>
+        public string ModName { get; set; }
 
 		/// <summary>
 		/// Gets or sets the filename of the mod.
