@@ -103,7 +103,7 @@ namespace Nexus.Client.ModManagement
 			List<IMod> ModCheck = new List<IMod>();
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
 
-			string ModInstallDirectory = CurrentGameModeModDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; 
+			string ModInstallDirectory = CurrentGameModeModDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; 
 
 			OverallMessage = "Updating categories info: setup search..";
 			OverallProgress = 0;
