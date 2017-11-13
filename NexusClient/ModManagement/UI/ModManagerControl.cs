@@ -91,7 +91,7 @@ namespace Nexus.Client.ModManagement.UI
 				m_vmlViewModel.ConfirmModUpgrade = ConfirmModUpgrade;
 
 				new ToolStripItemCommandBinding<List<IMod>>(tsbActivate, m_vmlViewModel.ActivateModCommand, GetSelectedMods);
-				new ToolStripItemCommandBinding<IMod>(tsbDeactivate, m_vmlViewModel.DisableModCommand, GetSelectedMod);
+				new ToolStripItemCommandBinding<List<IMod>>(tsbDeactivate, m_vmlViewModel.DisableModCommand, GetSelectedMods);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, m_vmlViewModel.TagModCommand, GetSelectedMod);
 				Command cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
 				new ToolStripItemCommandBinding(tsbToggleEndorse, cmdToggleEndorsement);
@@ -775,9 +775,9 @@ namespace Nexus.Client.ModManagement.UI
 									SetCommandExecutableStatus();
 
 									if (ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(modMod.Filename).ToLowerInvariant()))
-										ViewModel.DisableModCommand.Execute(modMod);
+										ViewModel.DisableModCommand.Execute(new List<IMod> {modMod});
 									else
-										ViewModel.ActivateModCommand.Execute(new List<IMod>() { modMod });
+										ViewModel.ActivateModCommand.Execute(new List<IMod> { modMod });
 								}
 							}
 						}
@@ -1027,7 +1027,7 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						if (ViewModel.DisableModCommand.CanExecute)
 						{
-							ViewModel.DisableModCommand.Execute(e.Mod);
+							ViewModel.DisableModCommand.Execute(new List<IMod> {e.Mod});
 						}
 					}
 					break;

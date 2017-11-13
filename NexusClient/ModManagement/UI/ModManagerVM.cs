@@ -177,7 +177,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// The commands takes an argument describing the mod to be deactivated.
 		/// </remarks>
 		/// <value>The command to deactivate a mod.</value>
-		public Command<IMod> DisableModCommand { get; private set; }
+		public Command<List<IMod>> DisableModCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the command to tag a mod.
@@ -343,7 +343,7 @@ namespace Nexus.Client.ModManagement.UI
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
 			ActivateModCommand = new Command<List<IMod>>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMods);
-			DisableModCommand = new Command<IMod>("Disable Mod", "Disables the selected mod.", DisableMod);
+			DisableModCommand = new Command<List<IMod>>("Disable Mod", "Disables the selected mod.", DisableMods);
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
 
 			ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
@@ -765,21 +765,24 @@ namespace Nexus.Client.ModManagement.UI
 			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, false, ConfirmUpdaterAction)));
 		}
 
-		public void DisableMod(IMod p_modMod)
-		{
-			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, true, ConfirmUpdaterAction)));
-		}
+	    public void DisableMods(List<IMod> p_modMods)
+	    {
+	        foreach (var Mod in p_modMods)
+	        {
+	            ActivatingMod(Mod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(Mod, true, ConfirmUpdaterAction)));
+	        }
+	    }
+	   
+        #endregion
 
-		#endregion
+        #region Mod Updating
 
-		#region Mod Updating
-
-		/// <summary>
-		/// Checks for mod updates.
-		/// </summary>
-		/// <returns>Message</returns>
-		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
-		public void CheckForUpdates(bool p_booOverrideCategorySetup)
+        /// <summary>
+        /// Checks for mod updates.
+        /// </summary>
+        /// <returns>Message</returns>
+        /// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+        public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
 			List<IMod> lstModList = new List<IMod>();
 
