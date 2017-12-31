@@ -131,6 +131,7 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.ModReadmeFileRequested += CategoryListView_OpenReadMeFile;
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
+            clwCategoryView.GetNewModVersion += new EventHandler<ModGetNewVersionEventArgs>(CategoryListView_GetNewModVersion);
 
 			tsbAddMod.DefaultItem = tsbAddMod.DropDownItems[0];
 			tsbAddMod.Text = tsbAddMod.DefaultItem.Text;
@@ -1107,6 +1108,15 @@ namespace Nexus.Client.ModManagement.UI
 				clwCategoryView.ReloadList(true);
 			}
 		}
+
+        private void CategoryListView_GetNewModVersion(object sender, EventArgs e)
+        {
+            if(e is ModGetNewVersionEventArgs)
+            {
+                var args = e as ModGetNewVersionEventArgs;
+                ViewModel.AddModCommand.Execute(args.DownloadLink);
+            }
+        }
 
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.AllUpdateWarningsToggled"/> of the toggle
