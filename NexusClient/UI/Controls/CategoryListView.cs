@@ -30,14 +30,15 @@ namespace Nexus.Client.UI.Controls
 		private ToolStripMenuItem m_mniModUninstall;
 		private ToolStripMenuItem m_mniModReadme;
 		private ToolStripMenuItem m_mniModWarnings;
+        private ToolStripMenuItem m_mniModGetNewVersion;
 
 
-		#region Custom Events
+        #region Custom Events
 
-		/// <summary>
-		/// Occurs whenever all mods "warning update" status toggled.
-		/// </summary>
-		public event EventHandler<ModUpdateWarningEventArgs> AllUpdateWarningsToggled;
+        /// <summary>
+        /// Occurs whenever all mods "warning update" status toggled.
+        /// </summary>
+        public event EventHandler<ModUpdateWarningEventArgs> AllUpdateWarningsToggled;
 		public event EventHandler CategorySwitch;
 		public event EventHandler CategoryRemoved;
 		/// <summary>
@@ -1176,6 +1177,8 @@ namespace Nexus.Client.UI.Controls
 			m_mniModReinstall = new ToolStripMenuItem("Reinstall Mod", new Bitmap(Properties.Resources.change_game_mode, 16, 16),
 				(s, e) => this.OnModActionRequested(ModAction.Reinstall));
 			m_mniModReadme = new ToolStripMenuItem("Open readme", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
+
+            m_mniModGetNewVersion = new ToolStripMenuItem("Download new version", new Bitmap(Properties.Resources.down, 16, 16));
 		}
 
 		/// <summary>
@@ -1229,8 +1232,21 @@ namespace Nexus.Client.UI.Controls
 				{
 					cmsContextMenu.Items.Add(m_mniModUninstall);
 				}
-			}
-			else
+
+                //if mod has a newer version - enable retrieval of a new verion, else - disable
+                if(!this.SelectedMod.IsMatchingVersion())
+                {
+                    m_mniModGetNewVersion.Enabled = true;
+                }
+                else
+                {
+                    m_mniModGetNewVersion.Enabled = false;
+                }
+                m_mniModGetNewVersion.Click += cmsContextMenu_GetNewVersion;
+                cmsContextMenu.Items.Add(m_mniModGetNewVersion);
+
+            }
+            else
 			{
 				// multi-mod management
 				// can:
@@ -1334,12 +1350,24 @@ namespace Nexus.Client.UI.Controls
 			this.OnModReadmeFileRequested(new ModReadmeRequestEventArgs(this.SelectedMod, fileName));
 		}
 
-		/// <summary>
-		/// Handles the cmsContextMenu.CategoryClicked event.
+
+        /// <summary>
+		/// Handles the cmsContextMenu.OpenReadMefile event.
+        /// Starts a download of a newer version of the selected mod.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_CategoryClicked(object sender, EventArgs e)
+        private void cmsContextMenu_GetNewVersion(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Handles the cmsContextMenu.CategoryClicked event.
+        /// </summary>
+        /// <param name="sender">The object that raised the event.</param>
+        /// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
+        private void cmsContextMenu_CategoryClicked(object sender, EventArgs e)
 		{
 			ToolStripItem item = sender as ToolStripItem;
 
