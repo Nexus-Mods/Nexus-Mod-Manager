@@ -324,6 +324,7 @@
     <Compile Include="UI\Controls\BackedProfilesListView.designer.cs" />
     <Compile Include="UI\Controls\ModEventArgs.cs" />
     <Compile Include="UI\Controls\ModActionEventArgs.cs" />
+    <Compile Include="UI\Controls\ModGetNewVersionEventArgs.cs" />
     <Compile Include="UI\Controls\ModReadmeRequestEventArgs.cs" />
     <Compile Include="UI\Controls\ModInfoRequestEventArgs.cs" />
     <Compile Include="UI\Controls\ProfileModsListView.cs">

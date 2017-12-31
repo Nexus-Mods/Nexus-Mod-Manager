@@ -64,6 +64,11 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public event EventHandler<ModUpdateWarningEventArgs> UpdateWarningToggled;
 
+        /// <summary>
+        /// Occurs whenever a new mod version for a selected mod is selected.
+        /// </summary>
+        public event EventHandler<ModGetNewVersionEventArgs> GetNewModVersion;
+
 		#endregion
 
 		#region Properties
@@ -1359,7 +1364,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
         private void cmsContextMenu_GetNewVersion(object sender, EventArgs e)
         {
-            throw new NotImplementedException();
+            var eventArgs = new ModGetNewVersionEventArgs(SelectedMod, Settings.RememberedGameMode);
+            this.GetNewModVersion?.Invoke(sender, eventArgs);
         }
 
         /// <summary>
