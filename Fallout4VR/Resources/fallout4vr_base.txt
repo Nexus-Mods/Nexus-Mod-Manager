@@ -1,0 +1,73 @@
+DLCCoast - Geometry.csg
+DLCCoast - Main.ba2
+DLCCoast - Textures.ba2
+DLCCoast - Voices_en.ba2
+DLCCoast.cdx
+DLCCoast.esm
+DLCNukaWorld - Geometry.csg
+DLCNukaWorld - Main.ba2
+DLCNukaWorld - Textures.ba2
+DLCNukaWorld - Voices_en.ba2
+DLCNukaWorld.cdx
+DLCNukaWorld.esm
+DLCRobot - Geometry.csg
+DLCRobot - Main.ba2
+DLCRobot - Textures.ba2
+DLCRobot - Voices_en.ba2
+DLCRobot.cdx
+DLCRobot.esm
+DLCworkshop01 - Geometry.csg
+DLCworkshop01 - Main.ba2
+DLCworkshop01 - Textures.ba2
+DLCworkshop01.cdx
+DLCworkshop01.esm
+DLCworkshop02 - Main.ba2
+DLCworkshop02 - Textures.ba2
+DLCworkshop02 - Voices_en.ba2
+DLCworkshop02.esm
+DLCworkshop03 - Geometry.csg
+DLCworkshop03 - Main.ba2
+DLCworkshop03 - Textures.ba2
+DLCworkshop03 - Voices_en.ba2
+DLCworkshop03.cdx
+DLCworkshop03.esm
+Fallout4 - Animations.ba2
+Fallout4 - Geometry.csg
+Fallout4 - Interface.ba2
+Fallout4 - Materials.ba2
+Fallout4 - Meshes.ba2
+Fallout4 - MeshesExtra.ba2
+Fallout4 - Misc.ba2
+Fallout4 - Nvflex.ba2
+Fallout4 - Shaders.ba2
+Fallout4 - Sounds.ba2
+Fallout4 - Startup.ba2
+Fallout4 - Textures1.ba2
+Fallout4 - Textures2.ba2
+Fallout4 - Textures3.ba2
+Fallout4 - Textures4.ba2
+Fallout4 - Textures5.ba2
+Fallout4 - Textures6.ba2
+Fallout4 - Textures7.ba2
+Fallout4 - Textures8.ba2
+Fallout4 - Textures9.ba2
+Fallout4 - Voices.ba2
+Fallout4.cdx
+Fallout4.esm
+Strings\Fallout4_en.DLSTRINGS
+Strings\Fallout4_en.ILSTRINGS
+Strings\Fallout4_en.STRINGS
+Video\AGILITY.bk2
+Video\CHARISMA.bk2
+Video\Endgame_FEMALE_A.bk2
+Video\Endgame_FEMALE_B.bk2
+Video\Endgame_MALE_A.bk2
+Video\Endgame_MALE_B.bk2
+Video\ENDURANCE.bk2
+Video\GameIntro_V3_B.bk2
+Video\INTELLIGENCE.bk2
+Video\Intro.bk2
+Video\LUCK.bk2
+Video\MainMenuLoop.bk2
+Video\PERCEPTION.bk2
+Video\STRENGTH.bk2

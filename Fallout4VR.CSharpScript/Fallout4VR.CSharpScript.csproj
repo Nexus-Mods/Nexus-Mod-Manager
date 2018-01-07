@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{315F9985-C189-48AE-BE1D-997C6F0C59FB}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Nexus.Client.Games.Fallout4VR.Scripting.CSharpScript</RootNamespace>
+    <AssemblyName>Fallout4VR.CSharpScript</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\AssemblyInformationalVersion.cs">
+      <Link>Properties\AssemblyInformationalVersion.cs</Link>
+    </Compile>
+    <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
+      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    </Compile>
+    <Compile Include="Fallout4VRCSharpBaseScript.cs" />
+    <Compile Include="Fallout4VRCSharpScriptFunctionProxy.cs" />
+    <Compile Include="Fallout4VRCSharpScriptType.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CSharpScript\CSharpScript.csproj">
+      <Project>{6c3901c6-bfca-47fc-929b-0cd030325fbd}</Project>
+      <Name>CSharpScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout3.CSharpScript\Fallout3.CSharpScript.csproj">
+      <Project>{a11c9c68-3133-48bf-bb4d-c0db2ac1d201}</Project>
+      <Name>Fallout3.CSharpScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout3\Fallout3.csproj">
+      <Project>{211400c3-e73e-4eba-a9c7-9900df9e7719}</Project>
+      <Name>Fallout3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout4VR\Fallout4VR.csproj">
+      <Project>{5bd924d2-3909-40b4-9b0f-c837987a6849}</Project>
+      <Name>Fallout4VR</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055fb79-3587-486e-a87e-70304a61d7a4}</Project>
+      <Name>GamebryoBase</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ModManager.Interface\ModManager.Interface.csproj">
+      <Project>{33f65739-7cfb-4ec1-89ef-8b0b5440ab82}</Project>
+      <Name>ModManager.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NexusClient.Interface\NexusClient.Interface.csproj">
+      <Project>{d586e7d8-9c8e-48f0-b20c-31a52b37e9d3}</Project>
+      <Name>NexusClient.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Util\Util.csproj">
+      <Project>{44caa655-38c2-4ca2-ba68-a8d5c44b169d}</Project>
+      <Name>Util</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
