@@ -25,9 +25,9 @@ namespace Nexus.Client.Games.Fallout4VR
 		private Fallout4VRLauncher m_glnGameLauncher = null;
 		private Fallout4VRToolLauncher m_gtlToolLauncher = null;
 		private Fallout4VRSupportedTools m_stlSupportedTools = null;
-		private string m_strFallout4Ini = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4.ini"); // TODO: Unverified
-		private string m_strFallout4Prefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4Prefs.ini");
-		private string m_strFallout4Custom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4VrCustom.ini");
+		private string m_strFallout4VRIni = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4.ini"); // TODO: Unverified
+		private string m_strFallout4VRPrefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4Prefs.ini");
+		private string m_strFallout4VRCustom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4VrCustom.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
 		private string m_strPluginsDefaultValue = @"0";
 		private string m_strInvalidateRequiredValue = @"1";
@@ -276,22 +276,22 @@ namespace Nexus.Client.Games.Fallout4VR
 			if (m_booOldEditsWarning)
 				return false;
 
-			if (!File.Exists(m_strFallout4Ini))
+			if (!File.Exists(m_strFallout4VRIni))
 				return false;
 
-			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strFallout4Ini);
+			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strFallout4VRIni);
 			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
 
-			if (!File.Exists(m_strFallout4Prefs))
+			if (!File.Exists(m_strFallout4VRPrefs))
 				return false;
 
-			girIniReader = new GamebryoIniReader(m_strFallout4Prefs);
+			girIniReader = new GamebryoIniReader(m_strFallout4VRPrefs);
 			string strPlugins = girIniReader.GetValue("Launcher", "bEnableFileSelection", null);
 
-			if (!File.Exists(m_strFallout4Custom))
+			if (!File.Exists(m_strFallout4VRCustom))
 				return false;
 
-			girIniReader = new GamebryoIniReader(m_strFallout4Custom);
+			girIniReader = new GamebryoIniReader(m_strFallout4VRCustom);
 			string strCustomLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
 			string strCustomInvalidate = girIniReader.GetValue("Archive", "bInvalidateOlderFiles", null);
 

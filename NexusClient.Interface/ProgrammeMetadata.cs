@@ -29,6 +29,6 @@ namespace Nexus.Client
 		/// <summary>
 		/// Gets the full name of the mod manager.
 		/// </summary>
-		public const string ModManagerName = "Nexus Mod Manager";
+		public const string ModManagerName = "Nexus Mod Manager (unofficial build)";
 	}
 }

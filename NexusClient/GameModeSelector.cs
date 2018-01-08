@@ -66,6 +66,23 @@ namespace Nexus.Client
 		#endregion
 
 		/// <summary>
+        /// Asks the user if they want to use Fallout 4 VR instead of Fallout 4.
+        /// </summary>
+        /// <returns>Game mode ID for either Fallout 4 or Fallout 4 VR.</returns>
+        private string AskUserForFallout4VROverride()
+        {
+            var res = MessageBox.Show("Do you want to use Fallout 4VR?", "Override?", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            
+            if (res == DialogResult.Yes)
+            {
+                Trace.Write("Overriding Fallout 4 to Fallout 4 VR");
+                return "Fallout4VR";
+            }
+
+            return "Fallout4";
+        }
+
+		/// <summary>
 		/// Selectes the current game mode.
 		/// </summary>
 		/// <param name="p_strRequestedGameMode">The id of the game mode we want to select.</param>
@@ -76,6 +93,28 @@ namespace Nexus.Client
 			Trace.Write("Determining Game Mode: ");
 
 			string strSelectedGame = EnvironmentInfo.Settings.RememberGameMode ? EnvironmentInfo.Settings.RememberedGameMode : null;
+
+            if (!string.IsNullOrEmpty(p_strRequestedGameMode))
+            {
+                if (p_strRequestedGameMode.Equals("fallout4", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrEmpty(strSelectedGame))
+                    {
+                        if (strSelectedGame.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+                        {
+                            p_strRequestedGameMode = AskUserForFallout4VROverride();
+                        }
+                    }
+                    else
+                    {
+                        if (InstalledGameModes.IsRegistered("Fallout4VR"))
+                        {
+                            p_strRequestedGameMode = AskUserForFallout4VROverride();
+                        }
+                    }
+                }
+            }
+
 			if (!String.IsNullOrEmpty(p_strRequestedGameMode))
 			{
 				Trace.Write("(Requested Mode: " + p_strRequestedGameMode + ") ");
