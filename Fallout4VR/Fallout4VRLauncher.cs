@@ -12,6 +12,8 @@ namespace Nexus.Client.Games.Fallout4VR
 	/// </summary>
 	public class Fallout4VRLauncher : GameLauncherBase
 	{
+        // TODO: Needs to be verified what works and doesn't work with FO4VR.
+
 		#region Constructors
 
 		/// <summary>
@@ -159,7 +161,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		/// <returns>The plain launch command.</returns>
 		private string GetPlainLaunchCommand()
 		{
-			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "Fallout4.exe");
+			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "Fallout4VR.exe");
 			return strCommand;
 		}
 

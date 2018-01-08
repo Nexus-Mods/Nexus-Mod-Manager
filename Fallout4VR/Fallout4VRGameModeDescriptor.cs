@@ -8,32 +8,10 @@ namespace Nexus.Client.Games.Fallout4VR
 	/// </summary>
 	public class Fallout4VRGameModeDescriptor : GamebryoGameModeDescriptorBase
 	{
-		private static string[] EXECUTABLES = { "Fallout4Launcher.exe" };
-		private static string[] CRITICAL_PLUGINS = { "Fallout4.esm" };
-		private static string[] OFFICIAL_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm", "DLCNukaWorld.esm" };
-        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm", "DLCNukaWorld.esm",
-																"ccbgsfo4001-pipboy(black).esl",
-																"ccbgsfo4002-pipboy(blue).esl",
-																"ccbgsfo4003-pipboy(camo01).esl",
-																"ccbgsfo4004-pipboy(camo02).esl",
-																"ccbgsfo4006-pipboy(chrome).esl",
-																"ccbgsfo4012-pipboy(red).esl",
-																"ccbgsfo4014-pipboy(white).esl",
-																"ccbgsfo4016-prey.esl",
-																"ccbgsfo4017-mauler.esl",
-																"ccbgsfo4018-gaussrifleprototype.esl",
-																"ccbgsfo4019-chinesestealtharmor.esl",
-																"ccbgsfo4020-powerarmorskin(black).esl",
-																"ccbgsfo4038-horsearmor.esl",
-																"ccbgsfo4039-tunnelsnakes.esl",
-																"ccbgsfo4041-doommarinearmor.esl",
-																"ccbgsfo4042-bfg.esl",
-																"ccbgsfo4043-doomchainsaw.esl",
-																"ccbgsfo4044-hellfirepowerarmor.esl",
-																"ccfsvfo4001-modularmilitarybackpack.esl",
-																"ccfsvfo4002-midcenturymodern.esl",
-																"ccfrsfo4001-handmadeshotgun.esl",
-																"cceejfo4001-decorationpack.esl" };
+		private static string[] EXECUTABLES = { "Fallout4VR.exe" };
+		private static string[] CRITICAL_PLUGINS = { "Fallout4.esm", "Fallout4_VR.esm" };
+		private static string[] OFFICIAL_PLUGINS = { };
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
         private const string MODE_ID = "Fallout4VR";
 
 		#region Properties

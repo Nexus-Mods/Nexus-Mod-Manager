@@ -76,7 +76,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		/// <c>null</c> if the path could not be determined.</returns>
 		public override string GetInstallationPath()
 		{
-            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("377160", "Fallout4", "Fallout4Launcher.exe");
+            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("611660", "Fallout4VR", "Fallout4VR.exe"); // TODO: Unverified
 
             if (string.IsNullOrEmpty(strValue))
 				strValue = base.GetInstallationPath();

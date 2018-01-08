@@ -28,7 +28,7 @@ namespace Nexus.Client.Games.Fallout4VR.Scripting.XmlScript
 		{
 			get
 			{
-				return "Nexus/Client/Games/Fallout4/Scripting/XmlScript/data";
+				return "Nexus/Client/Games/Fallout4VR/Scripting/XmlScript/data";
 			}
 		}
 

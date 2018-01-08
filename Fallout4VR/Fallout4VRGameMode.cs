@@ -25,13 +25,13 @@ namespace Nexus.Client.Games.Fallout4VR
 		private Fallout4VRLauncher m_glnGameLauncher = null;
 		private Fallout4VRToolLauncher m_gtlToolLauncher = null;
 		private Fallout4VRSupportedTools m_stlSupportedTools = null;
-		private string m_strFallout4Ini = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4.ini");
-		private string m_strFallout4Prefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Prefs.ini");
-		private string m_strFallout4Custom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Custom.ini");
+		private string m_strFallout4Ini = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4.ini"); // TODO: Unverified
+		private string m_strFallout4Prefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4Prefs.ini");
+		private string m_strFallout4Custom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4VrCustom.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
 		private string m_strPluginsDefaultValue = @"0";
 		private string m_strInvalidateRequiredValue = @"1";
-		private string m_strGuideLink = @"http://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation";
+		private string m_strGuideLink = @"http://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation"; // TODO: Does this need to be changed?
 
 		#region Properties
 
@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.Fallout4VR
 				try
 				{
 					string strFullPath = null;
-					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Fallout4.exe");
+					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Fallout4VR.exe");
 					if (File.Exists(strFullPath))
 					{
 						FO4Version = new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
@@ -82,7 +82,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		{
 			get
 			{
-				return Path.Combine(EnvironmentInfo.PersonalDataFolderPath, "My games\\Fallout4");
+				return Path.Combine(EnvironmentInfo.PersonalDataFolderPath, @"My games\Fallout4VR");
 			}
 		}
 
@@ -220,7 +220,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		protected override void SetupSettingsFiles()
 		{
 			base.SetupSettingsFiles();
-			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Fallout4Custom.ini");
+			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Fallout4VrCustom.ini");
 			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "Fallout4Prefs.ini");
 		}
 
@@ -316,7 +316,7 @@ namespace Nexus.Client.Games.Fallout4VR
 				if (booLoose)
 					p_strMessage = string.Format("The old Fallout 4 ini edits are deprecated (the long string in the Fallout4.ini caused long loading times). Please remove the old edits and follow this updated guide:" + Environment.NewLine + Environment.NewLine + "{0}", m_strGuideLink);
 				else
-					p_strMessage = string.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this guide:" + Environment.NewLine + Environment.NewLine + "{3}", booNewLoose ? "Fallout4Custom.ini" : "", (booNewLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
+					p_strMessage = string.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this guide:" + Environment.NewLine + Environment.NewLine + "{3}", booNewLoose ? "Fallout4VrCustom.ini" : "", (booNewLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
 			}
 			else
 			{

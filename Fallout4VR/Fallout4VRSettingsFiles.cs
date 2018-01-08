@@ -13,15 +13,15 @@ namespace Nexus.Client.Games.Fallout4VR
 		/// Gets or sets the path to the Fallout4_default.ini file.
 		/// </summary>
 		/// <value>The path to the Fallout4_default.ini file.</value>
-		public string Fallout4DefaultIniPath
+		public string Fallout4VRDefaultIniPath
 		{
 			get
 			{
-				return this["Fallout4DefaultIniPath"];
+				return this["Fallout4VRDefaultIniPath"];
 			}
 			set
 			{
-				this["Fallout4DefaultIniPath"] = value;
+				this["Fallout4VRDefaultIniPath"] = value;
 			}
 		}
 

@@ -313,7 +313,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					}
 					IgnoreOfficialPlugins = true;
 					break;
-				case "SkyrimSE":
+                case "Fallout4VR": // TODO: This is just me guessing
+                    TimestampOrder = false;
+                    SingleFileManagement = true;
+                    Fallout4PluginManagement = true;
+                    ForcedReadOnly = false;
+                    break;
+                case "SkyrimSE":
 					AppDataGameFolderName = "Skyrim Special Edition";
 					IgnoreOfficialPlugins = true;
 					TimestampOrder = false;

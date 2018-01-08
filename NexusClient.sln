@@ -132,7 +132,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4VR", "Fallout4VR\Fa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4VR.CSharpScript", "Fallout4VR.CSharpScript\Fallout4VR.CSharpScript.csproj", "{315F9985-C189-48AE-BE1D-997C6F0C59FB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4VR", "Nexus.Client.Games.Fallout4VR\Fallout4VR.csproj", "{5BD924D2-3909-40B4-9B0F-C837987A6849}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4VR.XmlScript", "Fallout4VR.XmlScript\Fallout4VR.XmlScript.csproj", "{4113A263-3DB8-4E79-B653-CE59029F2C58}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
