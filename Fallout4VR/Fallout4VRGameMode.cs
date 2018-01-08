@@ -148,7 +148,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		{
 			get
 			{
-				return Properties.Resources.fallout4_base;
+				return Properties.Resources.fallout4vr_base;
 			}
 		}
 

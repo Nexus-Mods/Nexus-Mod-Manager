@@ -96,7 +96,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		{
 			get
 			{
-				return new Theme(Properties.Resources.Fallout4VR_logo,Color.FromArgb(50, 104, 158),null);
+				return new Theme(Properties.Resources.Fallout4VR_logo, Color.FromArgb(50, 104, 158),null);
 			}
 		}
 

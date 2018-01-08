@@ -110,9 +110,9 @@ namespace Nexus.Client.Games.Fallout4VR.Properties {
         ///DLCworkshop01.cdx
         ///DLCworks [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string fallout4_base {
+        internal static string fallout4vr_base {
             get {
-                return ResourceManager.GetString("fallout4_base", resourceCulture);
+                return ResourceManager.GetString("fallout4vr_base", resourceCulture);
             }
         }
         
