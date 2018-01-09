@@ -64,7 +64,15 @@ namespace Nexus.Client
 			if ((p_strArgs.Length > 0) && !p_strArgs[0].StartsWith("-"))
 			{
 				if (Uri.TryCreate(p_strArgs[0], UriKind.Absolute, out uriModToAdd) && uriModToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
-					strRequestedGameMode = uriModToAdd.Host;
+                {
+                    strRequestedGameMode = uriModToAdd.Host;
+
+                    // Hack to allow use of NMM links: if default mode is Fallout 4 VR and a Fallout 4 link is opened, rewrite the requested game mode.
+                    if (strRequestedGameMode.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+                    {
+                        strRequestedGameMode = "Fallout4VR";
+                    }
+                }
 			}
 			else
 				for (Int32 i = 0; i < p_strArgs.Length; i++)
