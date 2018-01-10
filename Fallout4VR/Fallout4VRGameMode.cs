@@ -1,37 +1,33 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
 using Nexus.Client.Games.Fallout3;
+using Nexus.Client.Games.Fallout4;
+using Nexus.Client.Games.Fallout4.Tools;
 using Nexus.Client.Games.Gamebryo;
-using Nexus.Client.Games.Fallout4VR.Tools;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.Util;
-using Nexus.Client.Games.Fallout4VR.Settings;
-using Nexus.Client.Games.Fallout4VR.Settings.UI;
-using Nexus.Client.Settings.UI;
 
 namespace Nexus.Client.Games.Fallout4VR
 {
 	/// <summary>
 	/// Provides information required for the programme to manage Fallout4 plugins and mods.
 	/// </summary>
-	public class Fallout4VRGameMode : Fallout3GameMode
+	public class Fallout4VRGameMode : Fallout4GameMode
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "f4se_loader.exe" };
 		private static bool m_booOldEditsWarning = false;
 		private Fallout4VRGameModeDescriptor m_gmdGameModeInfo = null;
 		private Fallout4VRLauncher m_glnGameLauncher = null;
-		private Fallout4VRToolLauncher m_gtlToolLauncher = null;
-		private Fallout4VRSupportedTools m_stlSupportedTools = null;
-		private string m_strFallout4VRIni = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4.ini"); // TODO: Unverified
+		private Fallout4ToolLauncher m_gtlToolLauncher = null;
+		private Fallout4SupportedTools m_stlSupportedTools = null;
+		private string m_strFallout4VRIni = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4.ini");
 		private string m_strFallout4VRPrefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4Prefs.ini");
 		private string m_strFallout4VRCustom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4VrCustom.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
 		private string m_strPluginsDefaultValue = @"0";
 		private string m_strInvalidateRequiredValue = @"1";
-		private string m_strGuideLink = @"http://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation"; // TODO: Does this need to be changed?
+		private string m_strGuideLink = @"http://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation";
 
 		#region Properties
 
@@ -109,7 +105,7 @@ namespace Nexus.Client.Games.Fallout4VR
 			get
 			{
 				if (m_gtlToolLauncher == null)
-					m_gtlToolLauncher = new Fallout4VRToolLauncher(this, EnvironmentInfo);
+					m_gtlToolLauncher = new Fallout4ToolLauncher(this, EnvironmentInfo);
 				return m_gtlToolLauncher;
 			}
 		}
@@ -123,7 +119,7 @@ namespace Nexus.Client.Games.Fallout4VR
 			get
 			{
 				if (m_stlSupportedTools == null)
-					m_stlSupportedTools = new Fallout4VRSupportedTools(this, EnvironmentInfo);
+					m_stlSupportedTools = new Fallout4SupportedTools(this, EnvironmentInfo);
 				return m_stlSupportedTools;
 			}
 		}

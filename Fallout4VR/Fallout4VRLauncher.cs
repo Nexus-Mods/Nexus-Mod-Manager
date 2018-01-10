@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
-using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Fallout4VR
 {
@@ -12,8 +11,6 @@ namespace Nexus.Client.Games.Fallout4VR
 	/// </summary>
 	public class Fallout4VRLauncher : GameLauncherBase
 	{
-        // TODO: Needs to be verified what works and doesn't work with FO4VR.
-
 		#region Constructors
 
 		/// <summary>
@@ -47,8 +44,6 @@ namespace Nexus.Client.Games.Fallout4VR
 		}
 
 		#region Launch Commands
-        				
-		#region Vanilla Launch
 
 		/// <summary>
 		/// Launches the game, without OBSE.
@@ -69,19 +64,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		/// <returns>The plain launch command.</returns>
 		private string GetPlainLaunchCommand()
 		{
-			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "Fallout4VR.exe");
-			return strCommand;
-		}
-
-		#endregion
-
-		/// <summary>
-		/// Launches the game, using SKSE if present.
-		/// </summary>
-		private void LaunchGame()
-		{
-			ForceReadOnlyPluginsFile();		
-            LaunchFallout4VR();
+			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "Fallout4VR.exe");
 		}
 
 		#endregion

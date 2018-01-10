@@ -56,35 +56,18 @@
     <Compile Include="Fallout4VRGameModeFactory.cs" />
     <Compile Include="Fallout4VRLauncher.cs" />
     <Compile Include="Fallout4VRSettingsFiles.cs" />
-    <Compile Include="Fallout4VRSupportedTools.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <DependentUpon>Resources.resx</DependentUpon>
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
     </Compile>
-    <Compile Include="Settings\SupportedToolsSettingsGroup.cs" />
-    <Compile Include="Settings\UI\SupportedToolsSettingsPage.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Settings\UI\SupportedToolsSettingsPage.designer.cs">
-      <DependentUpon>SupportedToolsSettingsPage.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Tools\AI\ArchiveInvalidation.cs" />
-    <Compile Include="Tools\AI\UI\ArchiveInvalidationView.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Tools\Fallout4VRToolLauncher.cs" />
-    <Compile Include="Tools\GamebryoIniReader.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Settings\UI\SupportedToolsSettingsPage.resx">
-      <DependentUpon>SupportedToolsSettingsPage.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
@@ -95,6 +78,10 @@
     <ProjectReference Include="..\Fallout3\Fallout3.csproj">
       <Project>{211400c3-e73e-4eba-a9c7-9900df9e7719}</Project>
       <Name>Fallout3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout4\Fallout4.csproj">
+      <Project>{90b15f92-e808-4e48-a4d7-bf2551959145}</Project>
+      <Name>Fallout4</Name>
     </ProjectReference>
     <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
       <Project>{0055fb79-3587-486e-a87e-70304a61d7a4}</Project>
