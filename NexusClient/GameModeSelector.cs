@@ -76,7 +76,6 @@ namespace Nexus.Client
 			Trace.Write("Determining Game Mode: ");
 
 			string strSelectedGame = EnvironmentInfo.Settings.RememberGameMode ? EnvironmentInfo.Settings.RememberedGameMode : null;
-            
 			if (!String.IsNullOrEmpty(p_strRequestedGameMode))
 			{
 				Trace.Write("(Requested Mode: " + p_strRequestedGameMode + ") ");

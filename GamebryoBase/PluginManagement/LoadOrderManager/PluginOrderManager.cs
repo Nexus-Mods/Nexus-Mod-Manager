@@ -313,7 +313,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					}
 					IgnoreOfficialPlugins = true;
 					break;
-                case "Fallout4VR": // TODO: This is just me guessing
+                case "Fallout4VR":
                     TimestampOrder = false;
                     SingleFileManagement = true;
                     Fallout4PluginManagement = true;
