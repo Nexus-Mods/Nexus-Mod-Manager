@@ -24,7 +24,7 @@ namespace Nexus.Client
 		/// (c) should change when there is a minor alteration to the programme.
 		/// Something akin to a minor bug fix, or a typo correction.
 		/// </remarks>
-		public const string VersionString = "0.63.17";
+		public const string VersionString = "0.63.18";
 
 		/// <summary>
 		/// Gets the full name of the mod manager.
