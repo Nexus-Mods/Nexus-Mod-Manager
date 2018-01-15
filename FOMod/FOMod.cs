@@ -59,6 +59,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
+		private bool m_booUpdateChecksEnabled = true;
 		private IScript m_scpInstallScript = null;
 		private bool m_booUsesPlugins = false;
 		private bool m_booMovedArchiveInitialized = false;
@@ -335,6 +336,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			set
 			{
 				SetPropertyIfChanged(ref m_booUpdateWarningEnabled, value, () => UpdateWarningEnabled);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		public bool UpdateChecksEnabled
+				{
+			get
+			{
+				return m_booUpdateChecksEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateChecksEnabled, value, () => UpdateChecksEnabled);
 			}
 		}
 
@@ -1181,6 +1198,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				UpdateWarningEnabled = p_mifInfo.UpdateWarningEnabled;
 				booChangedValue = true;
 			}
+			if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
+			{
+				UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
+				booChangedValue = true;
+			}
 
 			if (booChangedValue)
 			{
@@ -1235,7 +1257,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("IsEndorsed")).InnerText = IsEndorsed.ToString();
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("UpdateWarningEnabled")).InnerText = UpdateWarningEnabled.ToString();
-            xndInfo.AppendChild(p_xmlDocument.CreateElement("PlaceInLoadOrder")).InnerText = PlaceInModLoadOrder.ToString();
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("UpdateChecksEnabled")).InnerText = UpdateChecksEnabled.ToString();
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("PlaceInLoadOrder")).InnerText = PlaceInModLoadOrder.ToString();
 			if (Website != null)
 				xndInfo.AppendChild(p_xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
 			return xndInfo;
@@ -1345,7 +1368,20 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-            XmlNode xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
+			XmlNode xndUpdateChecksEnabled = xndRoot.SelectSingleNode("UpdateChecksEnabled");
+			if (xndUpdateChecksEnabled != null)
+			{
+				try
+				{
+					UpdateChecksEnabled = Convert.ToBoolean(xndUpdateChecksEnabled.InnerText);
+				}
+				catch
+				{
+					UpdateChecksEnabled = true;
+				}
+			}
+
+			XmlNode xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
             if (xndPlaceInLoadOrder != null && !String.IsNullOrEmpty(xndPlaceInLoadOrder.InnerText) && (!p_booFillOnlyEmptyValues || PlaceInModLoadOrder == -1))
             {
                 PlaceInModLoadOrder = Int32.Parse(xndPlaceInLoadOrder.InnerText);

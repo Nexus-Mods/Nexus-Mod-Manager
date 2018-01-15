@@ -30,6 +30,7 @@ namespace Nexus.Client.UI.Controls
 		private ToolStripMenuItem m_mniModUninstall;
 		private ToolStripMenuItem m_mniModReadme;
 		private ToolStripMenuItem m_mniModWarnings;
+		private ToolStripMenuItem m_mniModChecks;
 
 
 		#region Custom Events
@@ -38,6 +39,10 @@ namespace Nexus.Client.UI.Controls
 		/// Occurs whenever all mods "warning update" status toggled.
 		/// </summary>
 		public event EventHandler<ModUpdateWarningEventArgs> AllUpdateWarningsToggled;
+		/// <summary>
+		/// Occurs whenever the mod update check and rename is toggled on all mods.
+		/// </summary>
+		public event EventHandler<ModUpdateCheckEventArgs> AllUpdateChecksToggled;
 		public event EventHandler CategorySwitch;
 		public event EventHandler CategoryRemoved;
 		/// <summary>
@@ -59,9 +64,13 @@ namespace Nexus.Client.UI.Controls
 		public event EventHandler<ModReadmeRequestEventArgs> ModReadmeFileRequested;
 		public event EventHandler ReadmeScan;
 		/// <summary>
-		/// Occurs whenever selected mod's "warning update" status toggled.
+		/// Occurs whenever selected mod's "warning update" status is toggled.
 		/// </summary>
 		public event EventHandler<ModUpdateWarningEventArgs> UpdateWarningToggled;
+		/// <summary>
+		/// Occurs whenever selected mod's "update check" status is toggled.
+		/// </summary>
+		public event EventHandler<ModUpdateCheckEventArgs> UpdateCheckToggled;
 
 		#endregion
 
@@ -181,7 +190,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			get
 			{
-				return this.cmsContextMenu;
+				return cmsContextMenu;
 			}
 		}
 
@@ -267,7 +276,7 @@ namespace Nexus.Client.UI.Controls
 			tlcAuthor.AspectName = "Text";
 			tlcCategory.AspectName = "Text";
 
-			this.cmsContextMenu.Opening += cmsContextMenu_Opening;
+			cmsContextMenu.Opening += cmsContextMenu_Opening;
 			SetupContextMenu();
 		}
 
@@ -678,10 +687,21 @@ namespace Nexus.Client.UI.Controls
 					IMod modMod = (IMod)rowObject;
 					if (modMod != null)
 					{
-						if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
-							return new Bitmap(Properties.Resources.update_warning, 16, 16);
-						else if ((!modMod.IsMatchingVersion()) && (!Settings.HideModUpdateWarningIcon))
-							return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
+						if (modMod.UpdateChecksEnabled)
+						{
+							if (modMod.UpdateWarningEnabled && (!modMod.IsMatchingVersion()))
+								return new Bitmap(Properties.Resources.update_warning, 16, 16);
+							else if ((!modMod.IsMatchingVersion()) && (!Settings.HideModUpdateWarningIcon))
+								return new Bitmap(Properties.Resources.update_warning_disabled, 16, 16);
+						}
+						else
+						{
+							return new Bitmap(Properties.Resources.dialog_block, 16, 16);
+						}
+					}
+					else
+					{
+						return new Bitmap(Properties.Resources.dialog_block, 16, 16);
 					}
 				}
 				else
@@ -1060,7 +1080,7 @@ namespace Nexus.Client.UI.Controls
 			{
 				m_mniModWarnings.DropDownItems.Add(p_lstMods[0].UpdateWarningEnabled ? "Disable update warning" : "Enable update warning",
 					null,
-					(s, e) => this.OnUpdateWarningToggled(new ModUpdateWarningEventArgs(!p_lstMods[0].UpdateWarningEnabled)));
+					(s, e) => OnUpdateWarningToggled(new ModUpdateWarningEventArgs(!p_lstMods[0].UpdateWarningEnabled)));
 			}
 			else
 			{
@@ -1086,12 +1106,12 @@ namespace Nexus.Client.UI.Controls
 				if (hasDisabledWarnings)
 				{
 					m_mniModWarnings.DropDownItems.Add("Enable for selected files", null,
-						(s, e) => this.OnUpdateWarningToggled(new ModUpdateWarningEventArgs(true)));
+						(s, e) => OnUpdateWarningToggled(new ModUpdateWarningEventArgs(true)));
 				}
 				if (hasEnabledWarnings)
 				{
 					m_mniModWarnings.DropDownItems.Add("Disable for selected files", null,
-						(s, e) => this.OnUpdateWarningToggled(new ModUpdateWarningEventArgs(false)));
+						(s, e) => OnUpdateWarningToggled(new ModUpdateWarningEventArgs(false)));
 				}
 			}
 
@@ -1100,9 +1120,66 @@ namespace Nexus.Client.UI.Controls
 				m_mniModWarnings.DropDownItems.Add("-");
 			}
 			m_mniModWarnings.DropDownItems.Add("Enable for all files", null,
-				(s, e) => this.OnAllUpdateWarningsToggled(new ModUpdateWarningEventArgs(true)));
+				(s, e) => OnAllUpdateWarningsToggled(new ModUpdateWarningEventArgs(true)));
 			m_mniModWarnings.DropDownItems.Add("Disable for all files", null,
-				(s, e) => this.OnAllUpdateWarningsToggled(new ModUpdateWarningEventArgs(false)));
+				(s, e) => OnAllUpdateWarningsToggled(new ModUpdateWarningEventArgs(false)));
+		}
+
+		/// <summary>
+		/// Populates "Mod Disable Update Checks and Rename -> ..." sub-items as appropriate.
+		/// </summary>
+		private void RenderContextMenuModUpdateCheckDisable(List<IMod> p_lstMods)
+		{
+			if (p_lstMods == null || !p_lstMods.Any())
+			{
+				return;
+			}
+
+			if (p_lstMods.Count == 1)
+			{
+				m_mniModChecks.DropDownItems.Add(p_lstMods[0].UpdateChecksEnabled ? "Disable for this mod" : "Enable for this mod",
+					null,
+					(s, e) => OnUpdateCheckToggled(new ModUpdateCheckEventArgs(!p_lstMods[0].UpdateChecksEnabled)));
+			}
+			else
+			{
+				// for some reason linq over mods yield incorrect results, so use the conventional foreach loop...
+				bool hasEnabledUpdatedCheck = false;
+				bool hasDisabledUpdateCheck = false;
+				foreach (var mod in p_lstMods)
+				{
+					if (mod.UpdateChecksEnabled)
+					{
+						hasEnabledUpdatedCheck = true;
+					}
+					else
+					{
+						hasDisabledUpdateCheck = true;
+					}
+				}
+
+				if ((hasEnabledUpdatedCheck || hasDisabledUpdateCheck) && m_mniModChecks.DropDownItems.Count > 0)
+				{
+					m_mniModChecks.DropDownItems.Add("-");
+				}
+				if (hasDisabledUpdateCheck)
+				{
+					m_mniModChecks.DropDownItems.Add("Enable for selected mods", null,
+						(s, e) => OnUpdateCheckToggled(new ModUpdateCheckEventArgs(true)));
+				}
+				if (hasEnabledUpdatedCheck)
+				{
+					m_mniModChecks.DropDownItems.Add("Disable for selected mods", null,
+						(s, e) => OnUpdateCheckToggled(new ModUpdateCheckEventArgs(false)));
+				}
+			}
+
+			if (m_mniModChecks.DropDownItems.Count > 0)
+			{
+				m_mniModChecks.DropDownItems.Add("-");
+			}
+			m_mniModChecks.DropDownItems.Add("Enable for all mods", null,
+				(s, e) => OnAllUpdateChecksToggled(new ModUpdateCheckEventArgs(true)));
 		}
 
 		/// <summary>
@@ -1111,14 +1188,14 @@ namespace Nexus.Client.UI.Controls
 		private void SetupCategoryContextMenu()
 		{
 			// validate
-			if (!this.SelectedObjects.OfType<object>().All(o => o is ModCategory))
+			if (!SelectedObjects.OfType<object>().All(o => o is ModCategory))
 			{
 				return;
 			}
 
 			cmsContextMenu.Items.Add(m_mniCategories);
 
-			if (this.SelectedObjects.Count == 1)
+			if (SelectedObjects.Count == 1)
 			{
 				// single category management
 				// can:
@@ -1130,10 +1207,11 @@ namespace Nexus.Client.UI.Controls
 				m_mniCategories.DropDownItems.Add("Add new", new Bitmap(Properties.Resources.edit_add_4, 16, 16), cmsContextMenu_CategoryNew);
 				m_mniCategories.DropDownItems.Add("Delete", new Bitmap(Properties.Resources.edit_delete_6, 16, 16), cmsContextMenu_CategoryRemove);
 
-				if (GetCategoryModCount(this.SelectedCategory) > 0)
+				if (GetCategoryModCount(SelectedCategory) > 0)
 				{
 					cmsContextMenu.Items.Add("-");
 					cmsContextMenu.Items.Add(m_mniModWarnings);
+					cmsContextMenu.Items.Add(m_mniModChecks);
 				}
 			}
 			else
@@ -1149,8 +1227,9 @@ namespace Nexus.Client.UI.Controls
 
 			// shared - toggle update warnings
 			var mods = new List<IMod>();
-			this.SelectedObjects.OfType<ModCategory>().ToList().ForEach(modCategory => mods.AddRange(GetCategoryMods(modCategory)));
-			this.RenderContextMenuModWarningsToggle(mods);
+			SelectedObjects.OfType<ModCategory>().ToList().ForEach(modCategory => mods.AddRange(GetCategoryMods(modCategory)));
+			RenderContextMenuModWarningsToggle(mods);
+			RenderContextMenuModUpdateCheckDisable(mods);
 
 			// shared - facilitate expand/collapse all categories
 			RenderContextMenuCategoryExpandCollapse();
@@ -1165,7 +1244,8 @@ namespace Nexus.Client.UI.Controls
 			m_mniCategoryMoveTo = new ToolStripMenuItem("Move to");
 			m_mniCategoryMoveTo.DropDownOpening += m_mniCategoryMoveTo_DropDownOpening;
 			m_mniCategories = new ToolStripMenuItem("Category", new Bitmap(Properties.Resources.format_line_spacing_triple, 16, 16));
-			m_mniModWarnings = new ToolStripMenuItem("Mod update warnings", new Bitmap(Properties.Resources.update_warning, 16, 16));
+			m_mniModWarnings = new ToolStripMenuItem("Mod Update Warnings", new Bitmap(Properties.Resources.update_warning, 16, 16));
+			m_mniModChecks = new ToolStripMenuItem("Mod Update Checks and Automatic Mod Rename", new Bitmap(Properties.Resources.edit_find_and_replace, 16, 16));
 			m_mniModUninstall = new ToolStripMenuItem("Uninstall or Delete", new Bitmap(Properties.Resources.dialog_block, 16, 16));
 
 			// menu items without any sub-items
@@ -1184,12 +1264,12 @@ namespace Nexus.Client.UI.Controls
 		private void SetupModContextMenu()
 		{
 			// validate
-			if (!this.SelectedObjects.OfType<object>().All(o => o is IMod))
+			if (!SelectedObjects.OfType<object>().All(o => o is IMod))
 			{
 				return;
 			}
 
-			if (this.SelectedObjects.Count == 1)
+			if (SelectedObjects.Count == 1)
 			{
 				// single mod management
 				// can:
@@ -1239,10 +1319,17 @@ namespace Nexus.Client.UI.Controls
 
 			// for both single and multi-mod management can:
 			// - manage "update warnings"
-			this.RenderContextMenuModWarningsToggle(this.SelectedObjects.OfType<IMod>().ToList());
+			// - manage "mod update checks"
+			RenderContextMenuModWarningsToggle(SelectedObjects.OfType<IMod>().ToList());
+			RenderContextMenuModUpdateCheckDisable(SelectedObjects.OfType<IMod>().ToList());
+
 			if (m_mniModWarnings.DropDownItems.Count > 0)
 			{
 				cmsContextMenu.Items.Add(m_mniModWarnings);
+			}
+			if (m_mniModChecks.DropDownItems.Count > 0)
+			{
+				cmsContextMenu.Items.Add(m_mniModChecks);
 			}
 
 			if (m_mniCategoryMoveTo.DropDownItems.Count > 0)
@@ -1286,24 +1373,25 @@ namespace Nexus.Client.UI.Controls
 			cmsContextMenu.Items.Clear();
 			m_mniCategories.DropDownItems.Clear();
 			m_mniModWarnings.DropDownItems.Clear();
+			m_mniModChecks.DropDownItems.Clear();
 			m_mniModUninstall.DropDownItems.Clear();
 
-			if (this.SelectedObjects.Count < 1)
+			if (SelectedObjects.Count < 1)
 			{
 				e.Cancel = true;
 				return;
 			}
 
 			// we can also tailor context menu for homogeneous selections - i.e. for multiple selected categories or mods
-			if (this.SelectedObjects.OfType<object>().All(o => o is ModCategory))
+			if (SelectedObjects.OfType<object>().All(o => o is ModCategory))
 			{
-				this.SetupCategoryContextMenu();
+				SetupCategoryContextMenu();
 				return;
 			}
 
-			if (this.SelectedObjects.OfType<object>().All(o => o is IMod))
+			if (SelectedObjects.OfType<object>().All(o => o is IMod))
 			{
-				this.SetupModContextMenu();
+				SetupModContextMenu();
 				return;
 			}
 
@@ -1343,9 +1431,9 @@ namespace Nexus.Client.UI.Controls
 		{
 			ToolStripItem item = sender as ToolStripItem;
 
-			if (this.SelectedObjects.Count > 0)
+			if (SelectedObjects.Count > 0)
 			{
-                this.CategorySwitch?.Invoke(Categories.Find(Item => Item.CategoryName == item.Text), new EventArgs());
+                CategorySwitch?.Invoke(Categories.Find(Item => Item.CategoryName == item.Text), new EventArgs());
             }
 		}
 
@@ -1356,7 +1444,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void m_mniCategoryMoveTo_DropDownOpening(object sender, EventArgs e)
 		{
-			var selectedMod = this.SelectedMod;
+			var selectedMod = SelectedMod;
 			if (selectedMod == null)
 			{
 				return;
@@ -1364,7 +1452,7 @@ namespace Nexus.Client.UI.Controls
 
 			var selectedModCategoryId = selectedMod.CustomCategoryId > 0 ? selectedMod.CustomCategoryId : selectedMod.CategoryId;
 
-			foreach (ToolStripItem item in this.m_mniCategoryMoveTo.DropDownItems)
+			foreach (ToolStripItem item in m_mniCategoryMoveTo.DropDownItems)
 			{
 				var categoryId = item.Tag as int?;
 				if (!categoryId.HasValue)
@@ -1388,7 +1476,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		private void ApplyFilters(ModCategory p_mctModCategory)
 		{
-			this.ModelFilter = new ModelFilter(delegate(object x)
+			ModelFilter = new ModelFilter(delegate(object x)
 			{
 				var modCategory = x as ModCategory;
 				if (modCategory != null && !ShowHiddenCategories)
@@ -1412,7 +1500,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_booApplySearchFilter"> True if the function needs to restore the previous search filter.</param>
 		public void ReloadList(bool p_booApplySearchFilter)
 		{
-			this.RebuildAll(true);
+			RebuildAll(true);
 			if (CategoryModeEnabled)
 			{
 				ApplyFilters(null);
@@ -1436,7 +1524,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			TextMatchFilter tmfFilter = TextMatchFilter.Contains(this, p_strFilter);
 			tmfFilter.Columns = new OLVColumn[] { (OLVColumn)this.Columns[0] };
-			this.ModelFilter = tmfFilter;
+			ModelFilter = tmfFilter;
 			HighlightTextRenderer highlightingRenderer = this.GetColumn(0).Renderer as HighlightTextRenderer;
 			if (highlightingRenderer != null)
 				highlightingRenderer.Filter = tmfFilter;
@@ -1449,10 +1537,10 @@ namespace Nexus.Client.UI.Controls
 		public void RemoveStringFilter()
 		{
 			TextMatchFilter tmfFilter = TextMatchFilter.Contains(this, String.Empty);
-			if (this.Columns.Count > 0)
+			if (Columns.Count > 0)
 			{
-				tmfFilter.Columns = new OLVColumn[] { (OLVColumn)this.Columns[0] };
-				HighlightTextRenderer highlightingRenderer = this.GetColumn(0).Renderer as HighlightTextRenderer;
+				tmfFilter.Columns = new OLVColumn[] { (OLVColumn)Columns[0] };
+				HighlightTextRenderer highlightingRenderer = GetColumn(0).Renderer as HighlightTextRenderer;
 				if (highlightingRenderer != null)
 					highlightingRenderer.Filter = tmfFilter;
 			}
@@ -1593,8 +1681,17 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnAllUpdateWarningsToggled(ModUpdateWarningEventArgs e)
 		{
-            this.AllUpdateWarningsToggled?.Invoke(this, e);
+            AllUpdateWarningsToggled?.Invoke(this, e);
         }
+
+		/// <summary>
+		/// Raises <see cref="AllUpdateChecksToggled"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="e"></param>
+		private void OnAllUpdateChecksToggled(ModUpdateCheckEventArgs e)
+		{
+			AllUpdateChecksToggled?.Invoke(this, e);
+		}
 
 		/// <summary>
 		/// Raises <see cref="CategoryShowEmptyToggled"/> event with supplied arguments.
@@ -1602,7 +1699,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnCategoryShowEmptyToggled(EventArgs e)
 		{
-            this.CategoryShowEmptyToggled?.Invoke(this, e);
+            CategoryShowEmptyToggled?.Invoke(this, e);
         }
 
 		/// <summary>
@@ -1611,11 +1708,11 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="p_action">Action to perform on selected mod.</param>
 		private void OnModActionRequested(ModAction p_action)
 		{
-			if (this.SelectedMod == null)
+			if (SelectedMod == null)
 			{
 				return;
 			}
-            this.ModActionRequested?.Invoke(this, new ModActionEventArgs(this.SelectedMod, p_action));
+            ModActionRequested?.Invoke(this, new ModActionEventArgs(SelectedMod, p_action));
         }
 
 		/// <summary>
@@ -1624,7 +1721,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnModInfoRequested(ModInfoRequestEventArgs e)
 		{
-            this.ModInfoRequested?.Invoke(this, e);
+            ModInfoRequested?.Invoke(this, e);
         }
 
 		/// <summary>
@@ -1633,7 +1730,7 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnModReadmeFileRequested(ModReadmeRequestEventArgs e)
 		{
-            this.ModReadmeFileRequested?.Invoke(this, e);
+            ModReadmeFileRequested?.Invoke(this, e);
         }
 
 		/// <summary>
@@ -1642,9 +1739,18 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e"></param>
 		private void OnUpdateWarningToggled(ModUpdateWarningEventArgs e)
 		{
-            this.UpdateWarningToggled?.Invoke(this, e);
+            UpdateWarningToggled?.Invoke(this, e);
         }
-		
+
+		/// <summary>
+		/// Raises <see cref="UpdateCheckToggled"/> event with supplied arguments.
+		/// </summary>
+		/// <param name="e"></param>
+		private void OnUpdateCheckToggled(ModUpdateCheckEventArgs e)
+		{
+			UpdateCheckToggled?.Invoke(this, e);
+		}
+
 		/// <summary>
 		/// This checks if the passed font support Bold.
 		/// </summary>

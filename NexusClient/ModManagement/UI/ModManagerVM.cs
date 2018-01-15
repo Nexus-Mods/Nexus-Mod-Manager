@@ -67,11 +67,15 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ReadMeManagerSetup = delegate { };
 
-
 		/// <summary>
 		/// Raised when the toggle all mods is being set up.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> TogglingAllWarning = delegate { };
+
+		/// <summary>
+		/// Raised when the toggle mod update checks is being set up.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> TogglingModUpdateChecks = delegate { };
 
 		/// <summary>
 		/// Raised when disabling multiple mods.
@@ -786,7 +790,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (p_booOverrideCategorySetup)
 			{
 				lstModList.AddRange(from Mod in ManagedMods
-									where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
+									where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0) && Mod.UpdateChecksEnabled)
 									select Mod);
 			}
 			else
@@ -836,7 +840,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			List<IMod> lstModList = new List<IMod>();
 
-			lstModList.AddRange(from Mod in ManagedMods select Mod);
+			lstModList.AddRange(from Mod in ManagedMods
+								where Mod.UpdateChecksEnabled
+								select Mod);
 
 			if (!ModRepository.IsOffline)
 			{
@@ -880,6 +886,16 @@ namespace Nexus.Client.ModManagement.UI
 		public void ToggleModUpdateWarning(HashSet<IMod> p_hashMods, bool? p_booEnable)
 		{
 			TogglingAllWarning(this, new EventArgs<IBackgroundTask>(ModManager.ToggleUpdateWarningTask(p_hashMods, p_booEnable, ConfirmUpdaterAction)));
+		}
+
+		/// <summary>
+		/// Toggles the mod update check.
+		/// </summary>
+		/// <param name="p_hashMods">The mod list.</param>
+		/// <param name="p_booEnable">Whether to enable/disable the update check or toggle it if null.</param>
+		public void ToggleModUpdateCheck(HashSet<IMod> p_hashMods, bool? p_booEnable)
+		{
+			TogglingModUpdateChecks(this, new EventArgs<IBackgroundTask>(ModManager.ToggleUpdateChecksTask(p_hashMods, p_booEnable, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>

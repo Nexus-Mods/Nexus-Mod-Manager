@@ -125,7 +125,9 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.CategoryShowEmptyToggled += clwCategoryView_CategoryShowEmptyToggled;
 			clwCategoryView.FileDropped += new EventHandler(CategoryListView_FileDropped);
 			clwCategoryView.UpdateWarningToggled += CategoryListView_ToggleUpdateWarning;
+			clwCategoryView.UpdateCheckToggled += CategoryListView_ToggleUpdateChecks;
 			clwCategoryView.AllUpdateWarningsToggled += CategoryListViewAllUpdateWarningsToggled;
+			clwCategoryView.AllUpdateChecksToggled += CategoryListViewAllUpdateChecksToggled;
 			clwCategoryView.ModActionRequested += CategoryListView_ModActionRequested;
 			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
 			clwCategoryView.ModReadmeFileRequested += CategoryListView_OpenReadMeFile;
@@ -904,6 +906,14 @@ namespace Nexus.Client.ModManagement.UI
 						e.Text = "It seems there's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.";
 						e.IsBalloon = true;
 					}
+					else if (!modMod.UpdateChecksEnabled)
+					{
+						e.AutoPopDelay = 10000;
+						e.Title = "Mod Update Checks and Automatic Rename";
+						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
+						e.Text = "Mod update checks and automatic mod renames are disabled for this mod.";
+						e.IsBalloon = true;
+					}
 				}
 				else
 				{
@@ -1122,6 +1132,41 @@ namespace Nexus.Client.ModManagement.UI
 				if (hashMods.Count > 0)
 				{
 					ViewModel.ToggleModUpdateWarning(hashMods, e.EnableWarning);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.UpdateCheckToggled"/> of the toggle
+		/// mod update warning context menu.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="ModUpdateCheckEventArgs"/> describing the event arguments.</param>
+		private void CategoryListView_ToggleUpdateChecks(object sender, ModUpdateCheckEventArgs e)
+		{
+			HashSet<IMod> hashMods = GetSelectedModsHashset();
+
+			if ((hashMods != null) && (hashMods.Count > 0))
+			{
+				ViewModel.ToggleModUpdateCheck(hashMods, e.EnableCheck);
+				clwCategoryView.ReloadList(true);
+			}
+		}
+
+		/// <summary>
+		/// Handles the <see cref="CategoryListView.AllUpdateChecksToggled"/> of the toggle
+		/// mod update warning context menu.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">A <see cref="ModUpdateCheckEventArgs"/> describing the event arguments.</param>
+		private void CategoryListViewAllUpdateChecksToggled(object sender, ModUpdateCheckEventArgs e)
+		{
+			if (ViewModel.ManagedMods.Count > 0)
+			{
+				var hashMods = new HashSet<IMod>(ViewModel.ManagedMods);
+				if (hashMods.Count > 0)
+				{
+					ViewModel.ToggleModUpdateCheck(hashMods, e.EnableCheck);
 				}
 			}
 		}

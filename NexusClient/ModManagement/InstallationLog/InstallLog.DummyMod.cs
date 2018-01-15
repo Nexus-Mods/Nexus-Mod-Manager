@@ -293,7 +293,13 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <value>Whether the user wants to be warned about new versions</value>
 			public bool UpdateWarningEnabled { get; set; }
 
-            public int PlaceInModLoadOrder { get; set; }
+			/// <summary>
+			/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+			/// </summary>
+			/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+			public bool UpdateChecksEnabled { get; set; }
+
+			public int PlaceInModLoadOrder { get; set; }
 
             public int NewPlaceInModLoadOrder { get; set; }
 
@@ -339,6 +345,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					Screenshot = p_mifInfo.Screenshot;
 				if ((p_booOverwriteAllValues == true) || (UpdateWarningEnabled != p_mifInfo.UpdateWarningEnabled))
 					UpdateWarningEnabled = p_mifInfo.UpdateWarningEnabled;
+				if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
+					UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
 			}
 
 			#endregion

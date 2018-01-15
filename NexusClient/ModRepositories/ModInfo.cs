@@ -106,14 +106,20 @@ namespace Nexus.Client.ModRepositories
 		/// <summary>
 		/// Gets or sets whether the user wants to be warned about new versions.
 		/// </summary>
-		/// <value>Whether the user wants to be warned about new versions</value>
+		/// <value>Whether the user wants to be warned about new versions.</value>
 		public bool UpdateWarningEnabled { get; set; }
 
-        /// <summary>
-        /// Gets or sets the mod's current place in the mod load order
-        /// </summary>
-        /// <value>The mod's place in the load order</value>
-        public int PlaceInModLoadOrder { get; set; }
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		public bool UpdateChecksEnabled { get; set; }
+
+		/// <summary>
+		/// Gets or sets the mod's current place in the mod load order
+		/// </summary>
+		/// <value>The mod's place in the load order</value>
+		public int PlaceInModLoadOrder { get; set; }
 
         public int NewPlaceInModLoadOrder { get; set; }
 

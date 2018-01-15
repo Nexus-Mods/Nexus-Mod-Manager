@@ -62,6 +62,7 @@ namespace Nexus.Client.Mods.Formats.OMod
         private Int32 m_intNewPlaceInModLoadOrder = -1;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
+		private bool m_booUpdateChecksEnabled = true;
 		private IScript m_scpInstallScript = null;
 
 		private Int32 m_intReadOnlyInitFileBlockExtractionStages = 0;
@@ -360,6 +361,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 			set
 			{
 				SetPropertyIfChanged(ref m_booUpdateWarningEnabled, value, () => UpdateWarningEnabled);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		public bool UpdateChecksEnabled
+		{
+			get
+			{
+				return m_booUpdateChecksEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateChecksEnabled, value, () => UpdateChecksEnabled);
 			}
 		}
 
@@ -1410,6 +1427,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if ((p_booOverwriteAllValues == true) || (Website == null) || (p_booOverwriteAllValues == null))
 			{
 				Website = p_mifInfo.Website;
+				booChangedValue = true;
+			}
+			if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
+			{
+				UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
 				booChangedValue = true;
 			}
 

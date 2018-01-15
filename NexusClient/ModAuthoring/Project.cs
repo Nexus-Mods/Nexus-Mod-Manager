@@ -34,6 +34,7 @@ namespace Nexus.Client.ModAuthoring
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
+		private bool m_booUpdateChecksEnabled = true;
 		private IScript m_sctInstallScript = null;
 		private Readme m_rmeModReadme = null;
 		private IList<VirtualFileSystemItem> m_setFiles = null;
@@ -299,7 +300,23 @@ namespace Nexus.Client.ModAuthoring
 			}
 		}
 
-        public int PlaceInModLoadOrder
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		public bool UpdateChecksEnabled
+		{
+			get
+			{
+				return m_booUpdateChecksEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateChecksEnabled, value, () => UpdateChecksEnabled);
+			}
+		}
+
+		public int PlaceInModLoadOrder
         {
             get
             {

@@ -563,6 +563,7 @@ namespace Nexus.Client.ModManagement
 							{
 								modInfo.IsEndorsed = modMod.IsEndorsed;
 								modInfo.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
+								modInfo.UpdateChecksEnabled = modMod.UpdateChecksEnabled;
 								modInfo.CustomCategoryId = modMod.CustomCategoryId;
 							}
 
