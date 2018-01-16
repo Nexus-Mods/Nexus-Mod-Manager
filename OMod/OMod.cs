@@ -46,7 +46,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 		private string m_strModId = null;
 		private string m_strDownloadId = null;
-		private string m_strModName = null;
+        private DateTime? m_dtDownloadDate = null;
+        private string m_strModName = null;
 		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
@@ -109,11 +110,27 @@ namespace Nexus.Client.Mods.Formats.OMod
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the name of the mod.
-		/// </summary>
-		/// <value>The name of the mod.</value>
-		public string ModName
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        public DateTime? DownloadDate
+        {
+            get
+            {
+                return m_dtDownloadDate;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_dtDownloadDate, value, () => DownloadDate);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the name of the mod.
+        /// </summary>
+        /// <value>The name of the mod.</value>
+        public string ModName
 		{
 			get
 			{
@@ -535,7 +552,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 		{
 			Format = p_mftModFormat;
 			m_strFilePath = p_strFilePath;
-			m_arcFile = new Archive(p_strFilePath);
+            m_dtDownloadDate = File.GetLastWriteTime(m_strFilePath);
+            m_arcFile = new Archive(p_strFilePath);
 			ModName = Path.GetFileNameWithoutExtension(Filename);
 			bool p_booUseCache = true;
 

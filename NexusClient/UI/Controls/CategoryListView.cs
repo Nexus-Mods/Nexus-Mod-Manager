@@ -455,18 +455,9 @@ namespace Nexus.Client.UI.Controls
 				string Val = String.Empty;
 
 				if (rowObject.GetType() != typeof(ModCategory))
-				{
-					string strFilePath = ((IMod)rowObject).Filename;
-					if (!String.IsNullOrWhiteSpace(strFilePath))
-						if (File.Exists(strFilePath))
-							Val = File.GetLastWriteTime(((IMod)rowObject).Filename).ToString();
-					if (CheckDate(Val))
-						return Convert.ToDateTime(Val);
-				}
-				else
+					return ((IMod)rowObject).DownloadDate;
+                else
 					return ((ModCategory)rowObject).NewMods.ToString();
-
-				return null;
 			};
 
 			tlcDownloadDate.AspectToStringConverter = delegate(object x)

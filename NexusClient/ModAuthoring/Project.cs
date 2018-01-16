@@ -18,7 +18,8 @@ namespace Nexus.Client.ModAuthoring
 	{
 		private string m_strModId = null;
 		private string m_strDownloadId = null;
-		private string m_strModName = null;
+        private DateTime? m_dtDownloadDate = null;
+        private string m_strModName = null;
 		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
@@ -76,11 +77,27 @@ namespace Nexus.Client.ModAuthoring
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the filename of the mod.
-		/// </summary>
-		/// <value>The filename of the mod.</value>
-		public string FileName
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        public DateTime? DownloadDate
+        {
+            get
+            {
+                return m_dtDownloadDate;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_dtDownloadDate, value, () => DownloadDate);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the filename of the mod.
+        /// </summary>
+        /// <value>The filename of the mod.</value>
+        public string FileName
 		{
 			get
 			{

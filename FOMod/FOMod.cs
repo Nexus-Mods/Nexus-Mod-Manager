@@ -43,6 +43,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 		private string m_strModId = null;
 		private string m_strDownloadId = null;
+        private DateTime? m_dtDownloadDate = null;
 		private string m_strModName = null;
 		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
@@ -106,11 +107,27 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the filename of the mod.
-		/// </summary>
-		/// <value>The filename of the mod.</value>
-		public string FileName
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        public DateTime? DownloadDate
+        {
+            get
+            {
+                return m_dtDownloadDate;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_dtDownloadDate, value, () => DownloadDate);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the filename of the mod.
+        /// </summary>
+        /// <value>The filename of the mod.</value>
+        public string FileName
 		{
 			get
 			{
@@ -519,7 +536,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
 
-			p_mcmModCacheManager.MigrateCacheFile(this);
+            m_dtDownloadDate = File.GetLastWriteTime(m_strFilePath);
+
+            p_mcmModCacheManager.MigrateCacheFile(this);
 
 			#region Check for cacheInfo.txt file
 
