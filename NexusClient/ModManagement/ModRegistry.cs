@@ -35,7 +35,7 @@ namespace Nexus.Client.ModManagement
 
 			List<string> lstExludedPaths = new List<string>();
 			for (Int32 i = 0; i < p_strExcludedSubDirectories.Length; i++)
-				lstExludedPaths.Add((p_strExcludedSubDirectories[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar).ToLower());
+				lstExludedPaths.Add((p_strExcludedSubDirectories[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar).ToLower());
 
 			ModRegistry mdrRegistry = new ModRegistry(p_frgFormatRegistry, p_gmdGameMode);
 			string[] strMods = Directory.GetFiles(p_strSearchPath, "*", p_booRecurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);

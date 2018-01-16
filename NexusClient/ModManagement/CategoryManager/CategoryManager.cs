@@ -150,7 +150,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strCategoryPath">The path from which to load the categories.</param>
 		public CategoryManager(string p_strModInstallDirectory, string p_strCategoryPath)
 		{
-			ModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			ModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 			CategoryPath = Path.Combine(ModInstallDirectory, p_strCategoryPath);
 			CategoryFilePath = Path.Combine(CategoryPath, CATEGORY_FILE);
 		}
