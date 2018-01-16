@@ -566,6 +566,11 @@ namespace Nexus.Client.ModManagement
 								modInfo.UpdateChecksEnabled = modMod.UpdateChecksEnabled;
 								modInfo.CustomCategoryId = modMod.CustomCategoryId;
 							}
+							else
+							{
+								modInfo.UpdateWarningEnabled = true;
+								modInfo.UpdateChecksEnabled = true;
+							}
 
 							IModFileInfo mfiFileInfo = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
 							if ((modInfo != null) && (mfiFileInfo != null))

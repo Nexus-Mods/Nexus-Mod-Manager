@@ -1399,6 +1399,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					UpdateChecksEnabled = true;
 				}
 			}
+			else
+				UpdateChecksEnabled = true;
 
 			XmlNode xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
             if (xndPlaceInLoadOrder != null && !String.IsNullOrEmpty(xndPlaceInLoadOrder.InnerText) && (!p_booFillOnlyEmptyValues || PlaceInModLoadOrder == -1))

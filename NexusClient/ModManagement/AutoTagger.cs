@@ -90,13 +90,13 @@ namespace Nexus.Client.ModManagement
 			{
 				TraceUtil.TraceException(e);
 				//the repository is not available, so add a dummy value indicating such
-				lstMods.Add(new ModInfo(null, String.Format("{0} is unavailable", ModRepository.Name), null, null, null, null, false, null, null, 0, -1, null, null, null, null));
+				lstMods.Add(new ModInfo(null, String.Format("{0} is unavailable", ModRepository.Name), null, null, null, null, false, null, null, 0, -1, null, null, null, null, true, true));
 			}
 			catch (NullReferenceException e)
 			{
 				TraceUtil.TraceException(e);
 				//couldn't find any match, so add a dummy value indicating such
-				lstMods.Add(new ModInfo(null, String.Format("{0}", e.Message), null, null, null, null, false, null, null, 0, -1, null, null, null, null));
+				lstMods.Add(new ModInfo(null, String.Format("{0}", e.Message), null, null, null, null, false, null, null, 0, -1, null, null, null, null, true, true));
 			}
 			return lstMods;
 		}
