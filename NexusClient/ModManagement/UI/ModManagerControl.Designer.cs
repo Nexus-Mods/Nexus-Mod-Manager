@@ -47,7 +47,6 @@
             this.tsb_ModDownLoadOrder = new System.Windows.Forms.ToolStripButton();
             this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
             this.tsbModOnlineChecks = new System.Windows.Forms.ToolStripSplitButton();
-            this.checkModUpdates = new System.Windows.Forms.ToolStripMenuItem();
             this.checkFileDownloadId = new System.Windows.Forms.ToolStripMenuItem();
             this.checkMissingDownloadId = new System.Windows.Forms.ToolStripMenuItem();
             this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
@@ -61,6 +60,7 @@
             this.removeAllCategories = new System.Windows.Forms.ToolStripMenuItem();
             this.toggleHiddenCategories = new System.Windows.Forms.ToolStripMenuItem();
             this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
+            this.checkModUpdates = new System.Windows.Forms.ToolStripMenuItem();
             this.sptMods = new System.Windows.Forms.SplitContainer();
             this.clwCategoryView = new Nexus.Client.UI.Controls.CategoryListView();
             this.sptSummaryInfo = new System.Windows.Forms.SplitContainer();
@@ -141,6 +141,7 @@
             this.tsbActivate.Name = "tsbActivate";
             this.tsbActivate.Size = new System.Drawing.Size(46, 36);
             this.tsbActivate.Text = "toolStripButton1";
+            this.tsbActivate.Click += new System.EventHandler(this.tsbActivate_Click);
             // 
             // tsbDeactivate
             // 
@@ -205,19 +206,11 @@
             this.tsbModOnlineChecks.Text = "Check for mod updates";
             this.tsbModOnlineChecks.ButtonClick += new System.EventHandler(this.tsbModOnlineChecks_ButtonClick);
             // 
-            // checkModUpdates
-            // 
-            this.checkModUpdates.Image = global::Nexus.Client.Properties.Resources.change_game_mode;
-            this.checkModUpdates.Name = "checkModUpdates";
-            this.checkModUpdates.Size = new System.Drawing.Size(295, 38);
-            this.checkModUpdates.Text = "Check for mod updates";
-            this.checkModUpdates.Click += new System.EventHandler(this.checkModUpdates_Click);
-            // 
             // checkFileDownloadId
             // 
             this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
             this.checkFileDownloadId.Name = "checkFileDownloadId";
-            this.checkFileDownloadId.Size = new System.Drawing.Size(295, 38);
+            this.checkFileDownloadId.Size = new System.Drawing.Size(337, 38);
             this.checkFileDownloadId.Text = "Fix download IDs and Check for mod updates";
             this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
             // 
@@ -225,7 +218,7 @@
             // 
             this.checkMissingDownloadId.Image = global::Nexus.Client.Properties.Resources.get_missing_info;
             this.checkMissingDownloadId.Name = "checkMissingDownloadId";
-            this.checkMissingDownloadId.Size = new System.Drawing.Size(295, 38);
+            this.checkMissingDownloadId.Size = new System.Drawing.Size(337, 38);
             this.checkMissingDownloadId.Text = "Just check for missing download IDs";
             this.checkMissingDownloadId.Click += new System.EventHandler(this.checkMissingDownloadId_Click);
             // 
@@ -330,6 +323,14 @@
             this.tsbSwitchView.Text = "Switches the Mod Manager views";
             this.tsbSwitchView.Click += new System.EventHandler(this.tsbSwitchCategory_Click);
             // 
+            // checkModUpdates
+            // 
+            this.checkModUpdates.Image = global::Nexus.Client.Properties.Resources.change_game_mode;
+            this.checkModUpdates.Name = "checkModUpdates";
+            this.checkModUpdates.Size = new System.Drawing.Size(295, 38);
+            this.checkModUpdates.Text = "Check for mod updates";
+            this.checkModUpdates.Click += new System.EventHandler(this.checkModUpdates_Click);
+            // 
             // sptMods
             // 
             this.sptMods.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -351,6 +352,7 @@
             // clwCategoryView
             // 
             this.clwCategoryView.CategoryModeEnabled = true;
+            this.clwCategoryView.CellEditUseWholeCell = false;
             this.clwCategoryView.CheckBoxes = true;
             this.clwCategoryView.Cursor = System.Windows.Forms.Cursors.Default;
             this.clwCategoryView.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -360,7 +362,6 @@
             this.clwCategoryView.Location = new System.Drawing.Point(0, 0);
             this.clwCategoryView.MultiSelect = false;
             this.clwCategoryView.Name = "clwCategoryView";
-            this.clwCategoryView.OwnerDraw = true;
             this.clwCategoryView.ShowGroups = false;
             this.clwCategoryView.ShowHiddenCategories = false;
             this.clwCategoryView.ShowImagesOnSubItems = true;

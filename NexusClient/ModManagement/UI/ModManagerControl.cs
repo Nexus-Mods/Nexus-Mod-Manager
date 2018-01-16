@@ -141,9 +141,11 @@ namespace Nexus.Client.ModManagement.UI
 
 			tsbResetCategories.DefaultItem = tsbResetCategories.DropDownItems[0];
 
-			m_tmrColumnSizer.Interval = 100;
-			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
-		}
+            // BUG: columns shrunk after manual resizing; disable column sizer timer
+            // m_tmrColumnSizer.Interval = 100;
+            // m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
+            m_tmrColumnSizer.Enabled = false;
+        }
 
 		#endregion
 
@@ -2224,6 +2226,11 @@ namespace Nexus.Client.ModManagement.UI
 
 				Refresh();
 			}
+        }
+
+        private void tsbActivate_Click(object sender, EventArgs e)
+        {
+
         }
     }
 
