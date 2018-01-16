@@ -380,9 +380,7 @@ namespace Nexus.Client
 			IModRepository mrpModRepository = NexusModRepository.GetRepository(gmdGameMode);
 			Trace.Unindent();
 			StepOverallProgress();
-
-			StepOverallProgress();
-
+            
 			if ((gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory == null) || (gmdGameMode.GameModeEnvironmentInfo.ModDirectory == null))
 			{
 				ShowMessage(new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", "Warning", MessageBoxIcon.Warning));
@@ -676,8 +674,15 @@ namespace Nexus.Client
 			string strTestFile = null;
 			try
 			{
-				while (!Directory.Exists(strInstallationPath))
+				while (strInstallationPath != null && !Directory.Exists(strInstallationPath))
 					strInstallationPath = Path.GetDirectoryName(strInstallationPath);
+
+                if (strInstallationPath == null)
+                {
+                    Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + " was not found", p_strPath));
+                    return false;
+                }
+
 				strTestFile = Path.Combine(strInstallationPath, "limited");
 
 				string strVirtualStore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualStore\\");
