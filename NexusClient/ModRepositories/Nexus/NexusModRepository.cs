@@ -721,7 +721,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				strDownloadID = p_nmiNexusModInfo.NewDownloadId ?? strDownloadID;
 				strFilename = p_nmiNexusModInfo.NewFilename ?? strFilename;
 			}
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, strDownloadID, modName, strFilename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null);
+			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, strDownloadID, modName, strFilename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null, true, true);
 			return mifInfo;
 		}
 

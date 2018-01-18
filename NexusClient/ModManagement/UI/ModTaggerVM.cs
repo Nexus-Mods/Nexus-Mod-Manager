@@ -104,6 +104,7 @@ namespace Nexus.Client.ModManagement.UI
 			modMod.CustomCategoryId = Mod.CustomCategoryId;
 			modMod.InstallDate = Mod.InstallDate;
 			modMod.UpdateWarningEnabled = Mod.UpdateWarningEnabled;
+			modMod.UpdateChecksEnabled = Mod.UpdateChecksEnabled;
 			ModTagger.Tag(Mod, m_mifCurrentTagOption, true);
 		}
 	}

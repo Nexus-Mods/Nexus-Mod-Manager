@@ -229,7 +229,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			m_dicInstalledFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 			m_dicInstalledIniEdits = new InstalledItemDictionary<IniEdit, string>();
 			m_dicInstalledGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
-			ModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			ModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 			ManagedModRegistry = p_mdrManagedModRegistry;
 			LogPath = p_strLogPath;
 			GameMode = p_gmdGameMode;

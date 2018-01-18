@@ -23,11 +23,17 @@ namespace Nexus.Client.Mods
 		/// <remarks>The DownloadId of the mod</remarks>
 		string DownloadId { get; set; }
 
-		/// <summary>
-		/// Gets or sets the name of the mod.
-		/// </summary>
-		/// <value>The name of the mod.</value>
-		string ModName { get; }
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        DateTime? DownloadDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the mod.
+        /// </summary>
+        /// <value>The name of the mod.</value>
+        string ModName { get; }
 
 		/// <summary>
 		/// Gets or sets the Filename of the mod.
@@ -104,10 +110,16 @@ namespace Nexus.Client.Mods
 		/// <summary>
 		/// Gets or sets whether the user wants to be warned about new versions.
 		/// </summary>
-		/// <value>Whether the user wants to be warned about new versions</value>
+		/// <value>Whether the user wants to be warned about new versions.</value>
 		bool UpdateWarningEnabled { get; }
 
-        int PlaceInModLoadOrder { get; set; }
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		bool UpdateChecksEnabled { get; }
+
+		int PlaceInModLoadOrder { get; set; }
 
         int NewPlaceInModLoadOrder { get; set; }
 

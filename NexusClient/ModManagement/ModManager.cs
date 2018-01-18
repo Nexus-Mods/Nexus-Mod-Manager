@@ -875,10 +875,24 @@ namespace Nexus.Client.ModManagement
 			return tuwToggleWarning;
 		}
 
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_hashMods">The hash of mods.</param>
+		/// <param name="p_booEnable">Enable/Disable/Toggle.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask ToggleUpdateChecksTask(HashSet<IMod> p_hashMods, bool? p_booEnable, ConfirmActionMethod p_camConfirm)
+		{
+			ToggleModUpdateChecksTask tucToggleUpdateChecks = new ToggleModUpdateChecksTask(p_hashMods, p_booEnable, p_camConfirm);
+			tucToggleUpdateChecks.Update(p_camConfirm);
+			return tucToggleUpdateChecks;
+		}
+
 		#endregion
 
 		#region Mod Search
-		
+
 		/// <summary>
 		/// Returns the mod registered with the given file name.
 		/// </summary>

@@ -368,6 +368,7 @@ namespace Nexus.Client.ModManagement
 								modUpdate.CustomCategoryId = modMod.CustomCategoryId;
 							
 							modUpdate.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
+							modUpdate.UpdateChecksEnabled = modMod.UpdateChecksEnabled;
 							AutoUpdater.AddNewVersionNumberForMod(modMod, modUpdate);
 
 							if (!OverrideLocalModNames)

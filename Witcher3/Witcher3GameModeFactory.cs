@@ -71,9 +71,9 @@ namespace Nexus.Client.Games.Witcher3
 				{
 					Trace.TraceInformation("Getting GOG install folder.");
 
-					var gogPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\GOG.com\Games\1207664643", "PATH", null).ToString();
+					var gogPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\GOG.com\Games\1207664643", "PATH", null)?.ToString();
 
-					if (Directory.Exists(gogPath))
+					if (gogPath != null && Directory.Exists(gogPath))
 						strValue = gogPath;
 				}
 			}

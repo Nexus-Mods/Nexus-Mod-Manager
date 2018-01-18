@@ -166,6 +166,7 @@
     <Compile Include="ModManagement\ProfileManager\RemoveBackedProfileTask.cs" />
     <Compile Include="ModManagement\ProfileManager\RenameBackedProfileTask.cs" />
     <Compile Include="ModManagement\ProfileManager\ToggleSharingProfileTask.cs" />
+    <Compile Include="ModManagement\ToggleModUpdateChecksTask.cs" />
     <Compile Include="ModManagement\UI\ModManagerControl.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -326,6 +327,7 @@
     <Compile Include="UI\Controls\ModActionEventArgs.cs" />
     <Compile Include="UI\Controls\ModReadmeRequestEventArgs.cs" />
     <Compile Include="UI\Controls\ModInfoRequestEventArgs.cs" />
+    <Compile Include="UI\Controls\ModUpdateCheckEventArgs.cs" />
     <Compile Include="UI\Controls\ProfileModsListView.cs">
       <SubType>Component</SubType>
     </Compile>

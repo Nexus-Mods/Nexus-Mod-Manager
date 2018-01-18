@@ -43,6 +43,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 		private string m_strModId = null;
 		private string m_strDownloadId = null;
+        private DateTime? m_dtDownloadDate = null;
 		private string m_strModName = null;
 		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
@@ -59,6 +60,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
+		private bool m_booUpdateChecksEnabled = true;
 		private IScript m_scpInstallScript = null;
 		private bool m_booUsesPlugins = false;
 		private bool m_booMovedArchiveInitialized = false;
@@ -105,11 +107,27 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the filename of the mod.
-		/// </summary>
-		/// <value>The filename of the mod.</value>
-		public string FileName
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        public DateTime? DownloadDate
+        {
+            get
+            {
+                return m_dtDownloadDate;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_dtDownloadDate, value, () => DownloadDate);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the filename of the mod.
+        /// </summary>
+        /// <value>The filename of the mod.</value>
+        public string FileName
 		{
 			get
 			{
@@ -338,6 +356,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		public bool UpdateChecksEnabled
+				{
+			get
+			{
+				return m_booUpdateChecksEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateChecksEnabled, value, () => UpdateChecksEnabled);
+			}
+		}
+
 		#endregion
 
 		#region IScriptedMod Members
@@ -502,7 +536,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			m_strFilePath = p_strFilePath;
 			m_arcFile = new Archive(p_strFilePath);
 
-			p_mcmModCacheManager.MigrateCacheFile(this);
+            m_dtDownloadDate = File.GetLastWriteTime(m_strFilePath);
+
+            p_mcmModCacheManager.MigrateCacheFile(this);
 
 			#region Check for cacheInfo.txt file
 
@@ -1181,6 +1217,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				UpdateWarningEnabled = p_mifInfo.UpdateWarningEnabled;
 				booChangedValue = true;
 			}
+			if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
+			{
+				UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
+				booChangedValue = true;
+			}
 
 			if (booChangedValue)
 			{
@@ -1235,7 +1276,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("IsEndorsed")).InnerText = IsEndorsed.ToString();
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("Description")).InnerText = Description;
 			xndInfo.AppendChild(p_xmlDocument.CreateElement("UpdateWarningEnabled")).InnerText = UpdateWarningEnabled.ToString();
-            xndInfo.AppendChild(p_xmlDocument.CreateElement("PlaceInLoadOrder")).InnerText = PlaceInModLoadOrder.ToString();
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("UpdateChecksEnabled")).InnerText = UpdateChecksEnabled.ToString();
+			xndInfo.AppendChild(p_xmlDocument.CreateElement("PlaceInLoadOrder")).InnerText = PlaceInModLoadOrder.ToString();
 			if (Website != null)
 				xndInfo.AppendChild(p_xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
 			return xndInfo;
@@ -1345,7 +1387,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-            XmlNode xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
+			XmlNode xndUpdateChecksEnabled = xndRoot.SelectSingleNode("UpdateChecksEnabled");
+			if (xndUpdateChecksEnabled != null)
+			{
+				try
+				{
+					UpdateChecksEnabled = Convert.ToBoolean(xndUpdateChecksEnabled.InnerText);
+				}
+				catch
+				{
+					UpdateChecksEnabled = true;
+				}
+			}
+			else
+				UpdateChecksEnabled = true;
+
+			XmlNode xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
             if (xndPlaceInLoadOrder != null && !String.IsNullOrEmpty(xndPlaceInLoadOrder.InnerText) && (!p_booFillOnlyEmptyValues || PlaceInModLoadOrder == -1))
             {
                 PlaceInModLoadOrder = Int32.Parse(xndPlaceInLoadOrder.InnerText);

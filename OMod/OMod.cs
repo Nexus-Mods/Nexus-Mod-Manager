@@ -46,7 +46,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 		private string m_strModId = null;
 		private string m_strDownloadId = null;
-		private string m_strModName = null;
+        private DateTime? m_dtDownloadDate = null;
+        private string m_strModName = null;
 		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
@@ -62,6 +63,7 @@ namespace Nexus.Client.Mods.Formats.OMod
         private Int32 m_intNewPlaceInModLoadOrder = -1;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
+		private bool m_booUpdateChecksEnabled = true;
 		private IScript m_scpInstallScript = null;
 
 		private Int32 m_intReadOnlyInitFileBlockExtractionStages = 0;
@@ -108,11 +110,27 @@ namespace Nexus.Client.Mods.Formats.OMod
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the name of the mod.
-		/// </summary>
-		/// <value>The name of the mod.</value>
-		public string ModName
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        public DateTime? DownloadDate
+        {
+            get
+            {
+                return m_dtDownloadDate;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_dtDownloadDate, value, () => DownloadDate);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the name of the mod.
+        /// </summary>
+        /// <value>The name of the mod.</value>
+        public string ModName
 		{
 			get
 			{
@@ -363,6 +381,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 			}
 		}
 
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		public bool UpdateChecksEnabled
+		{
+			get
+			{
+				return m_booUpdateChecksEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateChecksEnabled, value, () => UpdateChecksEnabled);
+			}
+		}
+
 		#endregion
 
 		#region IScriptedMod Members
@@ -518,7 +552,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 		{
 			Format = p_mftModFormat;
 			m_strFilePath = p_strFilePath;
-			m_arcFile = new Archive(p_strFilePath);
+            m_dtDownloadDate = File.GetLastWriteTime(m_strFilePath);
+            m_arcFile = new Archive(p_strFilePath);
 			ModName = Path.GetFileNameWithoutExtension(Filename);
 			bool p_booUseCache = true;
 
@@ -1410,6 +1445,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 			if ((p_booOverwriteAllValues == true) || (Website == null) || (p_booOverwriteAllValues == null))
 			{
 				Website = p_mifInfo.Website;
+				booChangedValue = true;
+			}
+			if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
+			{
+				UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
 				booChangedValue = true;
 			}
 

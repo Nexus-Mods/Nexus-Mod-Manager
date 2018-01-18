@@ -84,9 +84,9 @@ namespace Nexus.Client.Games
                 {
                     Trace.TraceInformation("Getting install folder from Uninstall.");
 
-                    var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App " + steamId, "InstallLocation", null).ToString();
+                    var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App " + steamId, "InstallLocation", null)?.ToString();
 
-                    if (Directory.Exists(uniPath))
+                    if (uniPath != null && Directory.Exists(uniPath))
                         strValue = uniPath;
                 }
             }

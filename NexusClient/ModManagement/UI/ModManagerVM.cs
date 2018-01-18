@@ -67,11 +67,15 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ReadMeManagerSetup = delegate { };
 
-
 		/// <summary>
 		/// Raised when the toggle all mods is being set up.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> TogglingAllWarning = delegate { };
+
+		/// <summary>
+		/// Raised when the toggle mod update checks is being set up.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> TogglingModUpdateChecks = delegate { };
 
 		/// <summary>
 		/// Raised when disabling multiple mods.
@@ -177,7 +181,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// The commands takes an argument describing the mod to be deactivated.
 		/// </remarks>
 		/// <value>The command to deactivate a mod.</value>
-		public Command<IMod> DisableModCommand { get; private set; }
+		public Command<List<IMod>> DisableModCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the command to tag a mod.
@@ -343,7 +347,7 @@ namespace Nexus.Client.ModManagement.UI
 			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
 			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
 			ActivateModCommand = new Command<List<IMod>>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMods);
-			DisableModCommand = new Command<IMod>("Disable Mod", "Disables the selected mod.", DisableMod);
+			DisableModCommand = new Command<List<IMod>>("Disable Mod", "Disables the selected mod.", DisableMods);
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
 
 			ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
@@ -765,28 +769,31 @@ namespace Nexus.Client.ModManagement.UI
 			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, false, ConfirmUpdaterAction)));
 		}
 
-		public void DisableMod(IMod p_modMod)
-		{
-			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, true, ConfirmUpdaterAction)));
-		}
+	    public void DisableMods(List<IMod> p_modMods)
+	    {
+	        foreach (var Mod in p_modMods)
+	        {
+	            ActivatingMod(Mod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(Mod, true, ConfirmUpdaterAction)));
+	        }
+	    }
+	   
+        #endregion
 
-		#endregion
+        #region Mod Updating
 
-		#region Mod Updating
-
-		/// <summary>
-		/// Checks for mod updates.
-		/// </summary>
-		/// <returns>Message</returns>
-		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
-		public void CheckForUpdates(bool p_booOverrideCategorySetup)
+        /// <summary>
+        /// Checks for mod updates.
+        /// </summary>
+        /// <returns>Message</returns>
+        /// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+        public void CheckForUpdates(bool p_booOverrideCategorySetup)
 		{
 			List<IMod> lstModList = new List<IMod>();
 
 			if (p_booOverrideCategorySetup)
 			{
 				lstModList.AddRange(from Mod in ManagedMods
-									where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0))
+									where ((Mod.CategoryId == 0) && (Mod.CustomCategoryId < 0) && Mod.UpdateChecksEnabled)
 									select Mod);
 			}
 			else
@@ -836,7 +843,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			List<IMod> lstModList = new List<IMod>();
 
-			lstModList.AddRange(from Mod in ManagedMods select Mod);
+			lstModList.AddRange(from Mod in ManagedMods
+								where Mod.UpdateChecksEnabled
+								select Mod);
 
 			if (!ModRepository.IsOffline)
 			{
@@ -880,6 +889,16 @@ namespace Nexus.Client.ModManagement.UI
 		public void ToggleModUpdateWarning(HashSet<IMod> p_hashMods, bool? p_booEnable)
 		{
 			TogglingAllWarning(this, new EventArgs<IBackgroundTask>(ModManager.ToggleUpdateWarningTask(p_hashMods, p_booEnable, ConfirmUpdaterAction)));
+		}
+
+		/// <summary>
+		/// Toggles the mod update check.
+		/// </summary>
+		/// <param name="p_hashMods">The mod list.</param>
+		/// <param name="p_booEnable">Whether to enable/disable the update check or toggle it if null.</param>
+		public void ToggleModUpdateCheck(HashSet<IMod> p_hashMods, bool? p_booEnable)
+		{
+			TogglingModUpdateChecks(this, new EventArgs<IBackgroundTask>(ModManager.ToggleUpdateChecksTask(p_hashMods, p_booEnable, ConfirmUpdaterAction)));
 		}
 
 		/// <summary>

@@ -18,7 +18,8 @@ namespace Nexus.Client.ModAuthoring
 	{
 		private string m_strModId = null;
 		private string m_strDownloadId = null;
-		private string m_strModName = null;
+        private DateTime? m_dtDownloadDate = null;
+        private string m_strModName = null;
 		private string m_strFileName = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
@@ -34,6 +35,7 @@ namespace Nexus.Client.ModAuthoring
 		private Uri m_uriWebsite = null;
 		private ExtendedImage m_ximScreenshot = null;
 		private bool m_booUpdateWarningEnabled = true;
+		private bool m_booUpdateChecksEnabled = true;
 		private IScript m_sctInstallScript = null;
 		private Readme m_rmeModReadme = null;
 		private IList<VirtualFileSystemItem> m_setFiles = null;
@@ -75,11 +77,27 @@ namespace Nexus.Client.ModAuthoring
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the filename of the mod.
-		/// </summary>
-		/// <value>The filename of the mod.</value>
-		public string FileName
+        /// <summary>
+        /// Gets or sets the Download date of the mod.
+        /// </summary>
+        /// <remarks>The Download date of the mod</remarks>
+        public DateTime? DownloadDate
+        {
+            get
+            {
+                return m_dtDownloadDate;
+            }
+            set
+            {
+                SetPropertyIfChanged(ref m_dtDownloadDate, value, () => DownloadDate);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the filename of the mod.
+        /// </summary>
+        /// <value>The filename of the mod.</value>
+        public string FileName
 		{
 			get
 			{
@@ -299,7 +317,23 @@ namespace Nexus.Client.ModAuthoring
 			}
 		}
 
-        public int PlaceInModLoadOrder
+		/// <summary>
+		/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+		/// </summary>
+		/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+		public bool UpdateChecksEnabled
+		{
+			get
+			{
+				return m_booUpdateChecksEnabled;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_booUpdateChecksEnabled, value, () => UpdateChecksEnabled);
+			}
+		}
+
+		public int PlaceInModLoadOrder
         {
             get
             {

@@ -24,7 +24,7 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 		{
 			if (!File.Exists(p_strLogPath))
 				return;
-			string strModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			string strModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 			XDocument docLog = XDocument.Load(p_strLogPath);
 
 			string strLogVersion = docLog.Element("installLog").Attribute("fileVersion").Value;

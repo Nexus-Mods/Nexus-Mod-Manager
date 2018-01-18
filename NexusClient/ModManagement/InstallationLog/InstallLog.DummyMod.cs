@@ -209,11 +209,17 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <remarks>The DownloadId of the mod</remarks>
 			public string DownloadId { get; set; }
 
-			/// <summary>
-			/// Gets or sets the name of the mod.
-			/// </summary>
-			/// <value>The name of the mod.</value>
-			public string ModName { get; set; }
+            /// <summary>
+            /// Gets or sets the Download date of the mod.
+            /// </summary>
+            /// <remarks>The Download date of the mod</remarks>
+            public DateTime? DownloadDate { get; set; }
+
+            /// <summary>
+            /// Gets or sets the name of the mod.
+            /// </summary>
+            /// <value>The name of the mod.</value>
+            public string ModName { get; set; }
 
 			/// <summary>
 			/// Gets or sets the filename of the mod.
@@ -293,7 +299,13 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <value>Whether the user wants to be warned about new versions</value>
 			public bool UpdateWarningEnabled { get; set; }
 
-            public int PlaceInModLoadOrder { get; set; }
+			/// <summary>
+			/// Gets or sets whether the user wants for the program to check for this mod's update and perform the automatic rename.
+			/// </summary>
+			/// <value>Whether the user wants for the program to check for this mod's update and perform the automatic rename.</value>
+			public bool UpdateChecksEnabled { get; set; }
+
+			public int PlaceInModLoadOrder { get; set; }
 
             public int NewPlaceInModLoadOrder { get; set; }
 
@@ -339,6 +351,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 					Screenshot = p_mifInfo.Screenshot;
 				if ((p_booOverwriteAllValues == true) || (UpdateWarningEnabled != p_mifInfo.UpdateWarningEnabled))
 					UpdateWarningEnabled = p_mifInfo.UpdateWarningEnabled;
+				if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
+					UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
 			}
 
 			#endregion
