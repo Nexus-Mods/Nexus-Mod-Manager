@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
 using Nexus.Client.Util.Collections;
 using SevenZip;
 
@@ -615,6 +616,60 @@ namespace Nexus.Client.Util
 			}
 			return bteFile;
 		}
+
+        /// <summary>
+        /// Gets a FileStream to the specified file in the archive (will be temporarily unpacked).
+        /// </summary>
+        /// <param name="p_strPath">The file whose contents are to be retrieved.</param>
+        /// <param name="p_strTemporaryDirectory">Temporary directory of the application.</param>
+        /// <returns></returns>
+        public FileStream GetFileStream(string p_strPath, string p_strTemporaryDirectory)
+        {
+            string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            var tmpFile = Path.Combine(p_strTemporaryDirectory, Path.GetRandomFileName());
+
+            FileStream stream;
+
+            if (!m_dicFileInfo.ContainsKey(strPath))
+            {
+                throw new FileNotFoundException("The requested file does not exist in the archive.", p_strPath);
+            }
+            
+            ArchiveFileInfo afiFile = m_dicFileInfo[strPath];
+            
+            if (IsReadonly)
+            {
+                if (m_szeReadOnlyExtractor == null)
+                {
+                    stream = new FileStream(Path.Combine(m_strReadOnlyTempDirectory, strPath), FileMode.Open);
+                }
+                else
+                {
+                    using (var sr = new StreamWriter(tmpFile, false) { AutoFlush = true })
+                    {
+                        m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, sr.BaseStream);
+                        sr.Close();
+                    }
+
+                    stream = new FileStream(tmpFile, FileMode.Open);                    
+                }                    
+            }
+            else
+            {
+                using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
+                {
+                    using (var sr = new StreamWriter(tmpFile, false) { AutoFlush = true })
+                    {
+                        szeExtractor.ExtractFile(afiFile.Index, sr.BaseStream);
+                        sr.Close();
+                    }
+
+                    stream = new FileStream(tmpFile, FileMode.Open);                               
+                }
+            }
+
+            return stream;
+        }
 
 		/// <summary>
 		/// Replaces the specified file in the archive with the given data.

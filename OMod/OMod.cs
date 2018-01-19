@@ -72,6 +72,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 
 		private bool m_booAllowArchiveEdits = false;
 
+        private IEnvironmentInfo m_eifEnvironmentInfo;
+
 		#endregion
 
 		#region Properties
@@ -550,7 +552,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
 		public OMod(string p_strFilePath, OModFormat p_mftModFormat, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry)
 		{
-			Format = p_mftModFormat;
+            m_eifEnvironmentInfo = p_mcmModCacheManager.EnvironmentInfo;
+            Format = p_mftModFormat;
 			m_strFilePath = p_strFilePath;
             m_dtDownloadDate = File.GetLastWriteTime(m_strFilePath);
             m_arcFile = new Archive(p_strFilePath);
@@ -1299,11 +1302,22 @@ namespace Nexus.Client.Mods.Formats.OMod
 			return bteFile;
 		}
 
-		/// <summary>
-		/// Retrieves the list of files in this OMod.
+        /// <summary>
+		/// Retrieves stream for the specified file from the OMod.
 		/// </summary>
-		/// <returns>The list of files in this OMod.</returns>
-		public List<string> GetFileList()
+		/// <param name="p_strFile">The file to retrieve.</param>
+		/// <returns>Stream for the requested file data.</returns>
+		public FileStream GetFileStream(string p_strFile)
+        {
+            // TODO : SQUID-BOX
+            throw new NotImplementedException("Could not be bothered tonight.");
+        }
+
+        /// <summary>
+        /// Retrieves the list of files in this OMod.
+        /// </summary>
+        /// <returns>The list of files in this OMod.</returns>
+        public List<string> GetFileList()
 		{
 			return GetFileList(null, true);
 		}

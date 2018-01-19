@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using ChinhDo.Transactions;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
@@ -292,8 +291,8 @@ namespace Nexus.Client.ModManagement
 		{
 			try
 			{
-				byte[] bteModFile = Mod.GetFile(p_strModFilePath);
-				return GenerateDataFile(p_strInstallPath, bteModFile);
+                var modFile = Mod.GetFileStream(p_strModFilePath);
+				return GenerateDataFile(p_strInstallPath, modFile);
 			}
 			catch (FileNotFoundException)
 			{
@@ -329,10 +328,36 @@ namespace Nexus.Client.ModManagement
 			return true;
 		}
 
-		/// <summary>
-		/// Checks whether the file is a gamebryo-like plugin and adds/removes it to the plugin list.
+        /// <summary>
+		/// Writes the file represented by the given file stream to the given path.
 		/// </summary>
-		public bool PluginCheck(string p_strPath, bool p_booRemove)
+		/// <remarks>
+		/// This method writes the given data as a file at the given path. If the file
+		/// already exists the user is prompted to overwrite the file.
+		/// </remarks>
+		/// <param name="p_strPath">The path where the file is to be created.</param>
+		/// <param name="p_fstData">The data that is to make up the file.</param>
+		/// <returns><c>true</c> if the file was written; <c>false</c> if the user chose
+		/// not to overwrite an existing file.</returns>
+        public virtual bool GenerateDataFile(string p_strPath, FileStream p_fstData)
+        {
+            string strInstallFilePath = p_strPath;
+            if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
+                TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
+            else
+            {
+                if (!TestDoOverwrite(p_strPath))
+                    return false;
+            }
+            TransactionalFileManager.WriteFileStream(strInstallFilePath, p_fstData);
+            InstallLog.AddDataFile(Mod, p_strPath);
+            return true;
+        }
+
+        /// <summary>
+        /// Checks whether the file is a gamebryo-like plugin and adds/removes it to the plugin list.
+        /// </summary>
+        public bool PluginCheck(string p_strPath, bool p_booRemove)
 		{
 			if (IsPlugin)
 				if (PluginManager.IsActivatiblePluginFile(p_strPath))
