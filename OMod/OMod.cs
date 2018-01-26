@@ -1307,10 +1307,86 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// </summary>
 		/// <param name="p_strFile">The file to retrieve.</param>
 		/// <returns>Stream for the requested file data.</returns>
+        /// <exception cref="FileNotFoundException">Thrown if the specified file
+		/// is not in the OMod.</exception>
 		public FileStream GetFileStream(string p_strFile)
         {
-            // TODO : SQUID-BOX
-            throw new NotImplementedException("Could not be bothered tonight.");
+            if (!ContainsFile(p_strFile))
+            {
+                throw new FileNotFoundException("File doesn't exist in OMod", p_strFile);
+            }
+
+            if (!IsPacked)
+            {
+                string strPath;
+
+                if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strFile))))))
+                {
+                    strPath = Path.Combine(m_strCachePath, GetRealPath(p_strFile));
+                    
+                }
+
+                strPath = GetRealPath(p_strFile);
+
+                return new FileStream(strPath, FileMode.Open);
+            }
+
+            if (!String.IsNullOrEmpty(m_strReadOnlyTempDirectory))
+            {
+                return new FileStream(Path.Combine(m_strReadOnlyTempDirectory, p_strFile), FileMode.Open);
+            }
+
+            List<FileInfo> lstFiles = null;
+
+            string strTempFile = Path.Combine(m_eifEnvironmentInfo.TemporaryPath, Path.GetTempFileName());
+
+            using (Stream stmDataFiles = new MemoryStream())
+            {
+                using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
+                {
+                    if (Path.GetExtension(p_strFile).Equals(".esm", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(p_strFile).Equals(".esp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        szeOmod.ExtractFile("plugins", stmDataFiles);
+                        lstFiles = PluginList;
+                    }
+                    else
+                    {
+                        szeOmod.ExtractFile("data", stmDataFiles);
+                        lstFiles = DataFileList;
+                    }
+                }
+                stmDataFiles.Position = 0;                                
+
+                Int64 intTotalLength = lstFiles.Sum(x => x.Length);
+                
+                switch (CompressionType)
+                {
+                    case InArchiveFormat.SevenZip:
+                        byte[] bteProperties = new byte[5];
+                        stmDataFiles.Read(bteProperties, 0, 5);
+                        Decoder dcrDecoder = new Decoder();
+                        dcrDecoder.SetDecoderProperties(bteProperties);
+                        
+                        using (var sw = new StreamWriter(strTempFile, false))
+                        {
+                            dcrDecoder.Code(stmDataFiles, sw.BaseStream, stmDataFiles.Length - stmDataFiles.Position, intTotalLength, null);
+                        }
+                        break;
+                    case InArchiveFormat.Zip:
+                        using (SevenZipExtractor szeZip = new SevenZipExtractor(stmDataFiles))
+                        {
+                            using (var sw = new StreamWriter(strTempFile, false))
+                            {
+                                szeZip.ExtractFile(0, sw.BaseStream);
+                            }
+                        }
+                        break;
+                    default:
+                        throw new Exception("Cannot get file: unsupported compression type: " + CompressionType.ToString());
+                }
+            }
+
+            return new FileStream(strTempFile, FileMode.Open);
         }
 
         /// <summary>

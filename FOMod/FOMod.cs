@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -8,7 +7,6 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Util;
-using SevenZip;
 using System.Text;
 
 namespace Nexus.Client.Mods.Formats.FOMod

@@ -153,7 +153,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// is not in the mod.</exception>
 			public byte[] GetFile(string p_strFile)
 			{
-				throw new FileNotFoundException("This mod contians no files.");
+				throw new FileNotFoundException("This mod contains no files.");
 			}
 
             /// <summary>
@@ -163,7 +163,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <returns>The requested file stream.</returns>
             public FileStream GetFileStream(string p_strFile)
             {
-                throw new FileNotFoundException("This mod contians no files.");
+                throw new FileNotFoundException("This mod contains no files.");
             }
 
 			/// <summary>

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
 using Nexus.Client.Util.Collections;
 using SevenZip;
 
@@ -645,10 +644,9 @@ namespace Nexus.Client.Util
                 }
                 else
                 {
-                    using (var sr = new StreamWriter(tmpFile, false) { AutoFlush = true })
+                    using (var sw = new StreamWriter(tmpFile, false))
                     {
-                        m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, sr.BaseStream);
-                        sr.Close();
+                        m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
                     }
 
                     stream = new FileStream(tmpFile, FileMode.Open);                    
@@ -658,13 +656,12 @@ namespace Nexus.Client.Util
             {
                 using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
                 {
-                    using (var sr = new StreamWriter(tmpFile, false) { AutoFlush = true })
+                    using (var sw = new StreamWriter(tmpFile, false))
                     {
-                        szeExtractor.ExtractFile(afiFile.Index, sr.BaseStream);
-                        sr.Close();
+                        szeExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
                     }
 
-                    stream = new FileStream(tmpFile, FileMode.Open);                               
+                    stream = new FileStream(tmpFile, FileMode.Open);
                 }
             }
 
