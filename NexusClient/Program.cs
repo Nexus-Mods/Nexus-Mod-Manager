@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -56,6 +57,7 @@ namespace Nexus.Client
 #else
 				Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException, false);
 #endif
+
 				Application.ThreadException += new System.Threading.ThreadExceptionEventHandler(Application_ThreadException);
 				AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
 
@@ -130,6 +132,16 @@ namespace Nexus.Client
 		{
 			if (!p_setSettings.SettingsUpgraded)
 			{
+				try
+				{
+					p_setSettings.Upgrade();
+				}
+				catch (ConfigurationException e)
+				{
+					string strFilename = e.Filename;
+					File.Delete(strFilename);
+					p_setSettings.Reload();
+				}
 				p_setSettings.Upgrade();
 				p_setSettings.SettingsUpgraded = true;
 				p_setSettings.Save();

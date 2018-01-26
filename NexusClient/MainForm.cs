@@ -206,7 +206,9 @@ namespace Nexus.Client
 			{
 				if (ViewModel.ProfileManager.CurrentProfile != null)
 				{
-					ViewModel.ModManager.VirtualModActivator.Setup();
+					ViewModel.ModManager.VirtualModActivator.Initialize();
+					if (!ViewModel.ModManager.VirtualModActivator.Initialized)
+						ViewModel.ModManager.VirtualModActivator.Setup();
 					return;
 				}
 			}
