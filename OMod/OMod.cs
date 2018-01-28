@@ -1322,12 +1322,13 @@ namespace Nexus.Client.Mods.Formats.OMod
 
                 if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strFile))))))
                 {
-                    strPath = Path.Combine(m_strCachePath, GetRealPath(p_strFile));
-                    
+                    strPath = Path.Combine(m_strCachePath, GetRealPath(p_strFile));                    
                 }
-
-                strPath = GetRealPath(p_strFile);
-
+                else
+                {
+                    strPath = GetRealPath(p_strFile);
+                }
+                
                 return new FileStream(strPath, FileMode.Open);
             }
 
@@ -1338,7 +1339,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 
             List<FileInfo> lstFiles = null;
 
-            string strTempFile = Path.Combine(m_eifEnvironmentInfo.TemporaryPath, Path.GetTempFileName());
+            string strTempFile = Path.Combine(m_eifEnvironmentInfo.TemporaryPath, "tempfile_" + Path.GetRandomFileName());
 
             using (Stream stmDataFiles = new MemoryStream())
             {

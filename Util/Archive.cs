@@ -625,47 +625,47 @@ namespace Nexus.Client.Util
         public FileStream GetFileStream(string p_strPath, string p_strTemporaryDirectory)
         {
             string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-            var tmpFile = Path.Combine(p_strTemporaryDirectory, Path.GetRandomFileName());
-
-            FileStream stream;
-
+            string strTempFile = Path.Combine(p_strTemporaryDirectory, "tempfile_" + Path.GetRandomFileName());
+            
             if (!m_dicFileInfo.ContainsKey(strPath))
             {
                 throw new FileNotFoundException("The requested file does not exist in the archive.", p_strPath);
             }
             
             ArchiveFileInfo afiFile = m_dicFileInfo[strPath];
-            
+
+            string strFilePath;
+
             if (IsReadonly)
             {
                 if (m_szeReadOnlyExtractor == null)
                 {
-                    stream = new FileStream(Path.Combine(m_strReadOnlyTempDirectory, strPath), FileMode.Open);
+                    strFilePath = Path.Combine(m_strReadOnlyTempDirectory, strPath);
                 }
                 else
                 {
-                    using (var sw = new StreamWriter(tmpFile, false))
+                    using (var sw = new StreamWriter(strTempFile, false))
                     {
                         m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
                     }
 
-                    stream = new FileStream(tmpFile, FileMode.Open);                    
+                    strFilePath = strTempFile;
                 }                    
             }
             else
             {
                 using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
                 {
-                    using (var sw = new StreamWriter(tmpFile, false))
+                    using (var sw = new StreamWriter(strTempFile, false))
                     {
                         szeExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
                     }
 
-                    stream = new FileStream(tmpFile, FileMode.Open);
+                    strFilePath = strTempFile;
                 }
             }
 
-            return stream;
+            return new FileStream(strFilePath, FileMode.Open);
         }
 
 		/// <summary>
