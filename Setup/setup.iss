@@ -8,11 +8,11 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.63.20'
+#define MyAppVersion '0.63.21'
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'Black Tree Gaming'
 [Setup]
-AppName={#MyAppSetupName}
+AppName={#MyAppSetupName} (Unofficial build)
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
