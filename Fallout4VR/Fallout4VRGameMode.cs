@@ -23,7 +23,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		private Fallout4SupportedTools m_stlSupportedTools = null;
 		private string m_strFallout4VRIni = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4.ini");
 		private string m_strFallout4VRPrefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4Prefs.ini");
-		private string m_strFallout4VRCustom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4VrCustom.ini");
+		private string m_strFallout4VRCustom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4VR\Fallout4VCustom.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
 		private string m_strPluginsDefaultValue = @"0";
 		private string m_strInvalidateRequiredValue = @"1";
@@ -216,7 +216,7 @@ namespace Nexus.Client.Games.Fallout4VR
 		protected override void SetupSettingsFiles()
 		{
 			base.SetupSettingsFiles();
-			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Fallout4VrCustom.ini");
+			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Fallout4Custom.ini");
 			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "Fallout4Prefs.ini");
 		}
 
@@ -312,7 +312,7 @@ namespace Nexus.Client.Games.Fallout4VR
 				if (booLoose)
 					p_strMessage = string.Format("The old Fallout 4 ini edits are deprecated (the long string in the Fallout4.ini caused long loading times). Please remove the old edits and follow this updated guide:" + Environment.NewLine + Environment.NewLine + "{0}", m_strGuideLink);
 				else
-					p_strMessage = string.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this guide:" + Environment.NewLine + Environment.NewLine + "{3}", booNewLoose ? "Fallout4VrCustom.ini" : "", (booNewLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
+					p_strMessage = string.Format("To use Fallout 4 mods you are REQUIRED to make some necessary ini edits ({0}{1}{2}), please follow this guide:" + Environment.NewLine + Environment.NewLine + "{3}", booNewLoose ? "Fallout4Custom.ini" : "", (booNewLoose && booPlugins) ? " and " : "", booPlugins ? "Fallout4Prefs.ini" : "", m_strGuideLink);
 			}
 			else
 			{
