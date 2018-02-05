@@ -48,6 +48,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		/// <param name="p_csfFunctions">The proxy providing the implementations of the functions available to the C# script.</param>
 		/// <param name="p_tpeBaseScriptType">The type of the base script from which all C# scripts should derive.</param>
+		/// <param name="p_strVirtualActivatorFolder">The virtual mod activator's folder.</param>
 		public CSharpScriptExecutor(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, CSharpScriptFunctionProxy p_csfFunctions, Type p_tpeBaseScriptType, string p_strVirtualActivatorFolder)
 		{
 			m_gmdGameMode = p_gmdGameMode;

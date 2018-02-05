@@ -105,8 +105,6 @@ namespace Nexus.Client.ModManagement
 			ShowItemProgress = true;
 			OverallProgressMaximum = 5;
 
-			string ErrorMessage = null;
-
 			List<BackupInfo> lstLooseFiles = new List<BackupInfo>();
 			List<BackupInfo> lstInstalledModFiles = new List<BackupInfo>();
 			List<BackupInfo> lstInstalledNMMLINKFiles = new List<BackupInfo>();

@@ -152,7 +152,7 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
-		/// This asks the use to confirm the overwriting of the specified mod file.
+		/// This asks the user to confirm the overwriting of the specified mod file.
 		/// </summary>
 		/// <param name="p_strFileName">The name of the file that is to be overwritten.</param>
 		/// <param name="p_strNewFileName">An alternate name the file can be renamed to, instead of being overwritten.</param>

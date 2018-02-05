@@ -21,6 +21,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <param name="p_modMod">The mod for which the script is running.</param>
 		/// <param name="p_gmdGameMode">The game mode currently being managed.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="p_ivaVirtualModActivator">The virtual mod activator.</param>
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
 		/// <param name="p_uipUIProxy">The UI manager to use to interact with UI elements.</param>
 		public CSharpScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, UIUtil p_uipUIProxy)
