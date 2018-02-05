@@ -266,6 +266,35 @@ namespace ChinhDo.Transactions
 				}
 			}
 
+            /// <summary>
+			/// Creates a file, and writes the specified <paramref name="stream"/> to the file. 
+            /// If the file already exists, it is overwritten.
+			/// </summary>
+			/// <param name="path">The file to write to.</param>
+			/// <param name="stream">The stream to write to the file, which is disposed after the write.</param>
+            public void WriteFileStream(string path, FileStream stream)
+            {
+                var r = new RollbackFile(path);
+                try
+                {
+                    using (var file = File.Create(path))
+                    {
+                        stream.CopyTo(file);
+                        stream.Dispose();
+                    }
+                }
+                catch (Exception e)
+                {
+                    r.CleanUp();
+                    throw new Exception(e.Message, e);
+                }
+                if (_tx != null)
+                {
+                    _journal.Add(r);
+                    Enlist();
+                }
+            }
+
 			#endregion
 
 			#region IEnlistmentNotification Members

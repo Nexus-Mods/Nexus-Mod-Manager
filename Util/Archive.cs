@@ -616,6 +616,58 @@ namespace Nexus.Client.Util
 			return bteFile;
 		}
 
+        /// <summary>
+        /// Gets a FileStream to the specified file in the archive (will be temporarily unpacked).
+        /// </summary>
+        /// <param name="p_strPath">The file whose contents are to be retrieved.</param>
+        /// <param name="p_strTemporaryDirectory">Temporary directory of the application.</param>
+        /// <returns></returns>
+        public FileStream GetFileStream(string p_strPath, string p_strTemporaryDirectory)
+        {
+            string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            string strTempFile = Path.Combine(p_strTemporaryDirectory, "tempfile_" + Path.GetRandomFileName());
+            
+            if (!m_dicFileInfo.ContainsKey(strPath))
+            {
+                throw new FileNotFoundException("The requested file does not exist in the archive.", p_strPath);
+            }
+            
+            ArchiveFileInfo afiFile = m_dicFileInfo[strPath];
+
+            string strFilePath;
+
+            if (IsReadonly)
+            {
+                if (m_szeReadOnlyExtractor == null)
+                {
+                    strFilePath = Path.Combine(m_strReadOnlyTempDirectory, strPath);
+                }
+                else
+                {
+                    using (var sw = new StreamWriter(strTempFile, false))
+                    {
+                        m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
+                    }
+
+                    strFilePath = strTempFile;
+                }                    
+            }
+            else
+            {
+                using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
+                {
+                    using (var sw = new StreamWriter(strTempFile, false))
+                    {
+                        szeExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
+                    }
+
+                    strFilePath = strTempFile;
+                }
+            }
+
+            return new FileStream(strFilePath, FileMode.Open);
+        }
+
 		/// <summary>
 		/// Replaces the specified file in the archive with the given data.
 		/// </summary>

@@ -1298,9 +1298,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public Int32 GetPluginLoadOrder(string p_strPlugin)
 		{
 			throw new NotImplementedException();
-			UInt32 uintIndex = 0;
-			//notimplemented
-			return Convert.ToInt32(uintIndex);
 		}
 
 		/// <summary>
@@ -1317,9 +1314,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public void SetPluginLoadOrder(string p_strPlugin, Int32 p_intIndex)
 		{
 			throw new NotImplementedException();
-			UInt32 uintIndex = 0;
-			//notimplemented
-			Convert.ToInt32(uintIndex);
 		}
 
 		/// <summary>
@@ -1330,9 +1324,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public void SetPluginActive(string p_strPlugin, bool p_booActive)
 		{
 			throw new NotImplementedException();
-			UInt32 uintIndex = 0;
-			//notimplemented
-			Convert.ToInt32(uintIndex);
 		}
 
 		/// <summary>
@@ -1343,8 +1334,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public string GetIndexedPlugin(Int32 p_intIndex)
 		{
 			throw new NotImplementedException();
-			//notimplemented
-			return String.Empty;
 		}
 
 		#endregion

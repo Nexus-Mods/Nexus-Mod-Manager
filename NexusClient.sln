@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2010
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Game Modes", "Game Modes", "{512B02AB-C927-4F3F-A7BF-26E6EE4CF678}"
 EndProject
@@ -405,5 +405,8 @@ Global
 		{0D79098F-BEFC-431D-A4E2-1C4FA12C1F03} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{7EEFB043-53CB-419D-89B4-69F5958E9629} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{5BD924D2-3909-40B4-9B0F-C837987A6849} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}
 	EndGlobalSection
 EndGlobal
