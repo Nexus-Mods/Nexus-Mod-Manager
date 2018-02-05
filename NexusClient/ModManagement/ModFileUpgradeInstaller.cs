@@ -50,8 +50,9 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		/// <param name="p_UsesPlugins">Game using plugin or mods (True for plugins).</param>
-		public ModFileUpgradeInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins)
-			:base(p_gmiGameModeInfo, p_modMod, p_ilgInstallLog, p_pmgPluginManager, p_dfuDataFileUtility, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, p_UsesPlugins)
+        /// <param name="p_eifEnvironmentInfo">Environment info for the entire program.</param>
+		public ModFileUpgradeInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins, IEnvironmentInfo p_eifEnvironmentInfo)
+			:base(p_gmiGameModeInfo, p_modMod, p_ilgInstallLog, p_pmgPluginManager, p_dfuDataFileUtility, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, p_UsesPlugins, p_eifEnvironmentInfo)
 		{
 			OriginallyInstalledFiles = new Set<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (string strFile in InstallLog.GetInstalledModFiles(Mod))
