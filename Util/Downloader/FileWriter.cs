@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Threading;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Util.Threading;
@@ -58,7 +58,7 @@ namespace Nexus.Client.Util.Downloader
 			/// </summary>
 			/// <remarks>
 			/// <see cref="FileBlock"/>s are strictly ordered by their <see cref="FileBlock.StartPosition"/>s.
-			/// </remarks> 
+			/// </remarks>
 			/// <param name="other">The <see cref="FileBlock"/> to which to compare this <see cref="FileBlock"/>.</param>
 			/// <returns>A value less than 0 if this <see cref="FileBlock"/> is less than the other.
 			/// 0 if this <see cref="FileBlock"/> is equal to the other.
@@ -137,75 +137,90 @@ namespace Nexus.Client.Util.Downloader
 		/// <remarks>
 		/// This method is run on a separate thread. It waits to be signalled indicating that
 		/// there is data queued to be written, writes the data, and waits for the next signal.
-		/// 
+		///
 		/// Every time the file is written to, the metadata file is updated to reflect which parts
 		/// of the file have been written.
 		/// </remarks>
 		protected void WaitForData()
 		{
 			int intRetries = 0;
-			string strFolder = Path.GetDirectoryName(m_strFilePath);
-			if (!Directory.Exists(strFolder))
-				Directory.CreateDirectory(strFolder);
-			while (true)
-			{
-				while (m_sltBlocksToWrite.Count > 0)
-				{
-					try
-					{
-						using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
-						{
-							FileBlock fblData = null;
-							lock (m_sltBlocksToWrite)
-							{
-								fblData = m_sltBlocksToWrite[0];
-								m_sltBlocksToWrite.RemoveAt(0);
-							}
-							if (fblData.StartPosition > (Int64)fsmFile.Length)
-								fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
-							fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
-							fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
 
-							m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
-							StringBuilder stbRanges = new StringBuilder();
-							foreach (Range rngWritten in m_rgsWrittenRanges)
-								stbRanges.AppendLine(rngWritten.ToString());
-							File.WriteAllText(m_strFileMetadataPath, stbRanges.ToString());
-						}
+            string strFolder = Path.GetDirectoryName(m_strFilePath);
+            if (!Directory.Exists(strFolder))
+            {
+                Directory.CreateDirectory(strFolder);
+            }
 
-						intRetries = 0;
-					}
-					catch (IOException ex)
-					{
-						//See stackoverflow answer for determining if file is in use: http://stackoverflow.com/a/937558/1634249
-						var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
+            try
+            {
+                using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
+                using (FileStream fsmMetaFile = File.OpenWrite(m_strFileMetadataPath))
+                using (StreamWriter fsmMetaWriter = new StreamWriter(fsmMetaFile))
+                {
+                    while (true)
+                    {
+                        while (m_sltBlocksToWrite.Count > 0)
+                        {
+                            try
+                            {
+                                FileBlock fblData = null;
+                                lock (m_sltBlocksToWrite)
+                                {
+                                    fblData = m_sltBlocksToWrite[0];
+                                    m_sltBlocksToWrite.RemoveAt(0);
+                                }
+                                if (fblData.StartPosition > (Int64)fsmFile.Length)
+                                    fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
+                                fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
+                                fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
 
-						if (errorCode == 32 || errorCode == 33)
-						{
-							//Wait for file to be unlocked, hopefully soon
-							//XXX what else could be done?
-							if (intRetries > 600)
-							{
-								UnableToWrite(this, new EventArgs());
-								return;
-							}
-							else
-								intRetries++;
+                                m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
 
-							Thread.Sleep(100);
-						}
-						else
-						{
-							//Unknown exception, standard error handling (crash)
-							throw ex;
-						}
-					}
-				}
-				if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
-					return;
-				m_ewhProcessQueue.Reset();
-				m_ewhProcessQueue.WaitOne();
-			}
+                                fsmMetaFile.SetLength(0);
+                                foreach (Range rngWritten in m_rgsWrittenRanges)
+                                    fsmMetaWriter.WriteLine(rngWritten.ToString());
+                                fsmMetaWriter.Flush();
+
+                                intRetries = 0;
+                            }
+                            catch (IOException ex)
+                            {
+                                //See stackoverflow answer for determining if file is in use: https://stackoverflow.com/a/937558/1634249
+                                var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
+
+                                if (errorCode == 32 || errorCode == 33)
+                                {
+                                    //Wait for file to be unlocked, hopefully soon
+                                    //XXX what else could be done?
+                                    if (intRetries > 600)
+                                    {
+                                        UnableToWrite(this, new EventArgs());
+                                        return;
+                                    }
+                                    else
+                                        intRetries++;
+
+                                    Thread.Sleep(100);
+                                }
+                                else
+                                {
+                                    //Unknown exception, standard error handling (crash)
+                                    throw ex;
+                                }
+                            }
+                        }
+                        if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
+                            return;
+                        m_ewhProcessQueue.Reset();
+                        m_ewhProcessQueue.WaitOne();
+                    }
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Not much we can do.
+                Trace.TraceError("Unable to write to file \"{0}\", it's already opened.", m_strFilePath);
+            }
 		}
 
 		#endregion

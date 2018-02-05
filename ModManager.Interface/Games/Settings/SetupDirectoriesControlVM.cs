@@ -26,6 +26,7 @@ namespace Nexus.Client.Games.Settings
 		private List<string> lstModsAttempts = new List<string>();
 		private List<string> lstIIAttempts = new List<string>();
 		private bool m_booUseAdditionalChecks = false;
+        private const string RegistryLocation = @"SOFTWARE\NexusModManager\";
 
 		#region Properties
 
@@ -470,36 +471,37 @@ namespace Nexus.Client.Games.Settings
 		{
 			try
 			{
-				RegistryKey rkKey = null;
-				string strNMMKey = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\";
-				string strGameKey = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + p_strGameMode;
+			    var strGameKey = RegistryLocation + p_strGameMode;
 
-				if (RegistryUtil.CanReadKey(strNMMKey) && RegistryUtil.CanWriteKey(strNMMKey))
+			    RegistryKey rkKey = null;
+
+                if (RegistryUtil.CanReadKey(RegistryLocation) && RegistryUtil.CanWriteKey(RegistryLocation))
 				{
-					rkKey = Registry.LocalMachine.OpenSubKey(strNMMKey, true);
-					if (rkKey == null)
-						if (RegistryUtil.CanCreateKey(strNMMKey))
-							Registry.LocalMachine.CreateSubKey(strNMMKey);
+                    //This will create the key if it doesn't exist, if it does exist it opens it
+					rkKey = Registry.LocalMachine.CreateSubKey(RegistryLocation);
 				}
 
-				if (rkKey != null)
-				{
-					if (RegistryUtil.CanCreateKey(strGameKey))
-						Registry.LocalMachine.CreateSubKey(strGameKey);
+			    if (rkKey == null) return;
 
-					if (RegistryUtil.CanReadKey(strGameKey) && RegistryUtil.CanWriteKey(strGameKey))
-					{
-						rkKey = Registry.LocalMachine.OpenSubKey(strGameKey, true);
-						rkKey.SetValue("Mods", p_strMods);
-						rkKey.SetValue("InstallInfo", p_strInstallInfo);
-						rkKey.SetValue("Virtual", p_strVirtual);
-						rkKey.SetValue("HDLink", p_strHDLink);
-						rkKey.SetValue("MultiHDInstall", p_booMultiHDInstall);
-					}
-				}
+			    if (RegistryUtil.CanCreateKey(strGameKey))
+			    {
+			        Registry.LocalMachine.CreateSubKey(strGameKey);
+			    }
+
+			    if (!RegistryUtil.CanReadKey(strGameKey) || !RegistryUtil.CanWriteKey(strGameKey)) return;
+
+			    rkKey = Registry.LocalMachine.OpenSubKey(strGameKey, true);
+			    rkKey.SetValue("Mods", p_strMods);
+			    rkKey.SetValue("InstallInfo", p_strInstallInfo);
+			    rkKey.SetValue("Virtual", p_strVirtual);
+			    rkKey.SetValue("MultiHDInstall", p_booMultiHDInstall);
+
+                //This parameter can actually be null sometimes
+			    if(!string.IsNullOrWhiteSpace(p_strHDLink)) rkKey.SetValue("HDLink", p_strHDLink);
 			}
 			catch
 			{
+				//Why is this not being logged?
 				return;
 			}
 		}
@@ -527,7 +529,7 @@ namespace Nexus.Client.Games.Settings
 		/// </summary>
 		public void LoadSettings()
 		{
-			string strRegGameMode = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId;
+			string strRegGameMode = RegistryLocation + GameModeDescriptor.ModeId;
 			string strRegMods = String.Empty;
 			string strRegInstallInfo = String.Empty;
 			string strRegVirtual = String.Empty;

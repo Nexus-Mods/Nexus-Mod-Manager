@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
 using Nexus.UI.Controls;
@@ -32,12 +33,15 @@ namespace Nexus.Client
 				mtxAppRunningMutex = new Mutex(false, "Global\\6af12c54-643b-4752-87d0-8335503010de");
 
 				bool booTrace = false;
+
 				foreach (string strArg in p_strArgs)
+				{
 					if (strArg.ToLower().Equals("/trace") || strArg.ToLower().Equals("-trace"))
 					{
 						booTrace = true;
 						break;
 					}
+				}
 
 				foreach (string strArg in p_strArgs)
 				{
@@ -66,9 +70,13 @@ namespace Nexus.Client
 
 				UpgradeSettings(Properties.Settings.Default);
 				EnvironmentInfo = new EnvironmentInfo(Properties.Settings.Default);
-				if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
-					Directory.CreateDirectory(EnvironmentInfo.ApplicationPersonalDataFolderPath);
-				EnableTracing(EnvironmentInfo, booTrace);
+
+                if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
+                {
+                    Directory.CreateDirectory(EnvironmentInfo.ApplicationPersonalDataFolderPath);
+                }
+
+                EnableTracing(EnvironmentInfo, booTrace);
 
 #if !DEBUG
 				try
@@ -116,10 +124,44 @@ namespace Nexus.Client
 				}
 				Trace.Unindent();
 			}
+			catch (ConfigurationErrorsException e)
+			{
+			    var userChoice = MessageBox.Show("It seems your Nexus Mod Manager application settings file has been corrupted, we can reset this file for you.\n\n" + 
+				    "Yes: Will reset your NMM related settings (scanned game locations, mod storage path, etc.) but will not remove your installed mods.\n\n" + 
+				    "No: Your settings will remain corrupted and NMM will crash when trying to start.", "Settings file corrupted", 
+				    MessageBoxButtons.YesNo, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+
+			    if (userChoice == DialogResult.Yes)
+			    {
+				    var filename = e.Filename;
+
+				    if (string.IsNullOrEmpty(filename) && e.InnerException.GetType() == typeof(ConfigurationErrorsException))
+				    {
+					    var inner = e.InnerException as ConfigurationErrorsException;
+					    filename = inner.Filename;
+				    }
+
+				    try
+				    {
+					    File.Delete(filename);
+					    MessageBox.Show("We've deleted your corrupted settings file, please restart Nexus Mod Manager.", "Settings reset", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+				    }
+				    catch
+				    {
+					    MessageBox.Show("Something went wrong when trying to delete the settings file \"" + filename + "\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+				    }
+			    }
+			    else
+			    {
+				    MessageBox.Show("Nothing has been done, Nexus Mod Manager will now shut down.", "Settings unchanged", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+			    }
+			}
 			finally
 			{
 				if (mtxAppRunningMutex != null)
+				{
 					mtxAppRunningMutex.Close();
+				}
 			}
 		}
 
@@ -158,10 +200,16 @@ namespace Nexus.Client
 			Trace.AutoFlush = true;
 			string strTraceFile = "TraceLog" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt";
 			TextWriterTraceListener ttlTraceFile = null;
-			if (p_booForceTrace)
-				ttlTraceFile = new HeaderlessTextWriterTraceListener(Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
-			else
-				ttlTraceFile = new HeaderlessTextWriterTraceListener(new MemoryStream(), Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
+
+            if (p_booForceTrace)
+            {
+                ttlTraceFile = new HeaderlessTextWriterTraceListener(Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
+            }
+            else
+            {
+                ttlTraceFile = new HeaderlessTextWriterTraceListener(new MemoryStream(), Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
+            }
+
 			ttlTraceFile.Name = "DefaultListener";
 			Trace.Listeners.Add(ttlTraceFile);
 			Trace.TraceInformation("Trace file has been created: " + strTraceFile);
@@ -181,11 +229,15 @@ namespace Nexus.Client
 
 			using (RegistryKey ndpKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32).OpenSubKey("SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full\\"))
 			{
-				int releaseKey = Convert.ToInt32(ndpKey.GetValue("Release"));
-				if (true)
-				{
-					stbStatus.AppendFormat("\tv4.5: {0}", CheckFor45DotVersion(releaseKey)).AppendLine();
-				}
+                if (ndpKey != null)
+                {
+                    int releaseKey = Convert.ToInt32(ndpKey.GetValue("Release"));
+                    stbStatus.AppendFormat("\tv4.5: {0}", CheckFor45DotVersion(releaseKey)).AppendLine();
+                }
+				else
+                {
+                    stbStatus.AppendLine("\tv4.5: Not found.");
+                }
 			}
 
 			stbStatus.AppendFormat("Tracing is forced: {0}", p_booForceTrace).AppendLine();
@@ -266,9 +318,9 @@ namespace Nexus.Client
 			stbPromptMessage.AppendLine("A Trace Log file was created at:");
 			stbPromptMessage.AppendLine(htlListener.FilePath);
 			stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/");
+			stbPromptMessage.AppendLine(NexusLinks.FAQs);
 			stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+			stbPromptMessage.AppendLine(NexusLinks.Issues);
 			stbPromptMessage.AppendLine(Environment.NewLine + "Do you want to open the TraceLog folder?");
 			try
 			{

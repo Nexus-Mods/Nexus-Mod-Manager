@@ -106,7 +106,7 @@ namespace Nexus.Client.Games
 
 			Queue<string> queSearchPaths = new Queue<string>();
 			foreach (DriveInfo difDrive in difDrives)
-				if ((difDrive.DriveType != DriveType.CDRom) && difDrive.IsReady)
+				if (difDrive.DriveType == DriveType.Fixed && difDrive.IsReady)
 					queSearchPaths.Enqueue(difDrive.Name);
 			Int32 intFOlderCnt = 0;
 			while (queSearchPaths.Count > 0)

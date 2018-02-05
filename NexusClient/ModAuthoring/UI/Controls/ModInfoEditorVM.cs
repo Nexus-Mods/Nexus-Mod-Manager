@@ -407,7 +407,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				Uri uri;
 				if (!Uri.TryCreate(Website, UriKind.Absolute, out uri) || uri.IsFile || (uri.Scheme != "http" && uri.Scheme != "https"))
 				{
-					Errors.SetError(() => Website, "Invalid web address specified.\nDid you miss the 'http://'?");
+					Errors.SetError(() => Website, "Invalid web address specified.\nDid you miss the 'https://'?");
 					booIsValid = false;
 				}
 			}

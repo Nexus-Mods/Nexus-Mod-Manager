@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
 using Microsoft.Win32;
-using Nexus.Client.Games;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Settings
@@ -510,42 +509,6 @@ namespace Nexus.Client.Settings
 
 		#endregion
 
-		#region Shell Extensions
-
-		/// <summary>
-		/// Adds a shell extension for the file type represented by the specified key.
-		/// </summary>
-		/// <param name="p_strExtension">The extension of the file type for which to add a shell extension.</param>
-		private void AddShellExtension(string p_strExtension)
-		{
-			string strKey = Registry.GetValue(@"HKEY_CLASSES_ROOT\" + p_strExtension, null, null) as string;
-			if (strKey == null)
-				return;
-			string strCommandKey = "Add_to_" + EnvironmentInfo.Settings.ModManagerName.Replace(' ', '_');
-			Registry.SetValue("HKEY_CLASSES_ROOT\\" + strKey + "\\Shell\\" + strCommandKey, null, "Add to " + EnvironmentInfo.Settings.ModManagerName);
-			Registry.SetValue("HKEY_CLASSES_ROOT\\" + strKey + "\\Shell\\" + strCommandKey + "\\command", null, "\"" + Application.ExecutablePath + "\" \"%1\"", RegistryValueKind.String);
-		}
-
-		/// <summary>
-		/// Removes a shell extension for the file type represented by the specified key.
-		/// </summary>
-		/// <param name="p_strExtension">The key representing the file type for which to remove a shell extension.</param>
-		private void RemoveShellExtension(string p_strExtension)
-		{
-			string strKey = Registry.GetValue(@"HKEY_CLASSES_ROOT\" + p_strExtension, null, null) as string;
-			if (strKey == null)
-				return;
-			RegistryKey rk = Registry.ClassesRoot.OpenSubKey(strKey + "\\Shell", true);
-			if (rk == null)
-				return;
-			string strCommandKey = "Add_to_" + EnvironmentInfo.Settings.ModManagerName.Replace(' ', '_');
-			if (Array.IndexOf<string>(rk.GetSubKeyNames(), strCommandKey) != -1)
-				rk.DeleteSubKeyTree(strCommandKey);
-			rk.Close();
-		}
-
-		#endregion
-
 		#region Serialization/Deserialization
 
 		/// <summary>
@@ -588,28 +551,38 @@ namespace Nexus.Client.Settings
 		{
 			if (UacUtil.IsElevated)
 			{
-				foreach (FileAssociationSetting fasFileAssociation in FileAssociations)
-					if (fasFileAssociation.IsAssociated)
-						AssociateFile(fasFileAssociation);
-					else
-						UnassociateFile(fasFileAssociation);
+                foreach (FileAssociationSetting fasFileAssociation in FileAssociations)
+                    if (fasFileAssociation.IsAssociated)
+                    {
+                        AssociateFile(fasFileAssociation);
+                    }
+                    else
+                    {
+                        UnassociateFile(fasFileAssociation);
+                    }
 
-				if (AssociateNxmUrl)
-					AssociateUrl("nxm", "Nexus Mod");
-				else
-					UnassociateUrl("nxm");
+                if (AssociateNxmUrl)
+                {
+                    AssociateUrl("nxm", "Nexus Mod");
+                }
+                else
+                {
+                    UnassociateUrl("nxm");
+                }
 
-				if (AddShellExtensions)
-				{
-					AddShellExtension(".zip");
-					AddShellExtension(".rar");
-					AddShellExtension(".7z");
-				}
-				else
-				{
-					RemoveShellExtension(".zip");
-					RemoveShellExtension(".rar");
-					RemoveShellExtension(".7z");
+                if (AddShellExtensions)
+                {
+                    if (!ShellExtensionUtil.AddShellExtensions())
+                    {
+                        MessageBox.Show("Couldn't add shell extensions.\nCheck TraceLog for more info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                    }
+                }
+                else
+                {
+                    if (!ShellExtensionUtil.RemoveShellExtensions())
+                    {
+                        MessageBox.Show("Couldn't remove shell extensions.\nCheck TraceLog for more info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                    }
 				}
 			}
 

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -9,6 +8,7 @@ using System.Windows.Forms;
 using System.Xml.Serialization;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Properties;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
@@ -40,14 +40,21 @@ namespace Nexus.Client
 
         #endregion
 
-        /// <summary>
-        /// Helper method to allow overrides of the game mode for NMM links.
-        /// </summary>
-        /// <param name="p_strGameModeFromUri">Game mode specified by NMM URI.</param>
-        /// <returns>The appropriate game mode.</returns>
-        private string DetermineRequestedGameMode(string p_strGameModeFromUri)
+	    /// <summary>
+	    /// Helper method to allow overrides of the game mode for NMM links.
+	    /// </summary>
+	    /// <param name="p_strGameModeFromUri">Game mode specified by NMM URI.</param>
+	    /// <returns>The appropriate game mode.</returns>
+	    private string DetermineRequestedGameMode(string p_strGameModeFromUri)
 	    {
-            // Hack to allow Fallout 4 VR to use NMM links from the website.
+	        // Hack to allow Skyrim VR to use NMM links from the website.
+	        // If the default mode is Skyrim VR and a Skyrim SE link is opened, we rewrite the requested game mode.
+	        if (p_strGameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
+	        {
+	            return "SkyrimVR";
+	        }
+
+	        // Hack to allow Fallout 4 VR to use NMM links from the website.
 	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
             if (p_strGameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
 	        {
@@ -57,17 +64,17 @@ namespace Nexus.Client
 	        return p_strGameModeFromUri;
 	    }
 
-		/// <summary>
-		/// Runs the applications
-		/// </summary>
-		/// <remarks>
-		/// This method makes sure the environment is sane. If so, it creates the required services
-		/// and launches the main form.
-		/// </remarks>
-		/// <param name="p_strArgs">The command line arguments passed to the application.</param>
-		/// <returns><c>true</c> if the application started as expected;
-		/// <c>false</c> otherwise.</returns>
-		public bool RunMainForm(string[] p_strArgs)
+        /// <summary>
+        /// Runs the applications
+        /// </summary>
+        /// <remarks>
+        /// This method makes sure the environment is sane. If so, it creates the required services
+        /// and launches the main form.
+        /// </remarks>
+        /// <param name="p_strArgs">The command line arguments passed to the application.</param>
+        /// <returns><c>true</c> if the application started as expected;
+        /// <c>false</c> otherwise.</returns>
+        public bool RunMainForm(string[] p_strArgs)
 		{
 			if (!SandboxCheck(m_eifEnvironmentInfo))
 				return false;
@@ -81,8 +88,8 @@ namespace Nexus.Client
 			if ((p_strArgs.Length > 0) && !p_strArgs[0].StartsWith("-"))
 			{
 				if (Uri.TryCreate(p_strArgs[0], UriKind.Absolute, out uriModToAdd) && uriModToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
-				    strRequestedGameMode = DetermineRequestedGameMode(uriModToAdd.Host);
-            }
+					strRequestedGameMode = DetermineRequestedGameMode(uriModToAdd.Host);
+			}
 			else
 				for (Int32 i = 0; i < p_strArgs.Length; i++)
 				{
@@ -189,9 +196,9 @@ namespace Nexus.Client
 						stbPromptMessage.AppendLine("A Trace Log file was created at:");
 						stbPromptMessage.AppendLine(htlListener.FilePath);
 						stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/");
+						stbPromptMessage.AppendLine(NexusLinks.FAQs);
 						stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+						stbPromptMessage.AppendLine(NexusLinks.Issues);
 						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information);
 						return false;
 					}

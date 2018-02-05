@@ -1294,7 +1294,6 @@ namespace Nexus.Client.ModManagement
 
 		public bool RestoreBackupProfile()
 		{
-			string strErrorMessage;
 			IModProfile impImported = ImportProfile(Path.Combine(VirtualModActivator.VirtualPath, "Backup_DONOTDELETE.zip"));
 			if (impImported != null)
 			{

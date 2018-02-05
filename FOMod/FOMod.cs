@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -8,7 +7,6 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Util;
-using SevenZip;
 using System.Text;
 
 namespace Nexus.Client.Mods.Formats.FOMod
@@ -66,6 +64,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private bool m_booMovedArchiveInitialized = false;
 		private bool m_booAllowArchiveEdits = false;
 		private bool m_booNestedArchives = false;
+
+        private IEnvironmentInfo m_eifEnvironmentInfo;
 
 		protected List<string> IgnoreFolders = new List<string> { "__MACOSX" };
 
@@ -513,6 +513,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
 		public FOMod(string p_strFilePath, FOModFormat p_mftModFormat, IEnumerable<string> p_enmStopFolders, string p_strPluginsDirectoryName, IEnumerable<string> p_enmPluginExtensions, IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry, bool p_booUsePlugins, bool p_booNestedArchives)
 		{
+            m_eifEnvironmentInfo = p_mcmModCacheManager.EnvironmentInfo;
 			StopFolders = new List<string>(p_enmStopFolders);
 			if (!StopFolders.Contains("fomod", StringComparer.OrdinalIgnoreCase))
 				StopFolders.Add("fomod");
@@ -1070,6 +1071,23 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				return File.ReadAllBytes(Path.Combine(m_strCachePath, GetRealPath(p_strFile)));		
 			return m_arcFile.GetFileContents(GetRealPath(p_strFile));
 		}
+
+        /// <summary>
+        /// Retrieves FileStream to the specified file from the fomod.
+        /// </summary>
+        /// <param name="p_strFile">The file which stream to retrieve.</param>
+        /// <returns>The requested file data.</returns>
+        public FileStream GetFileStream(string p_strFile)
+        {
+            // File is present in cache
+            if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strFile))))))
+            {
+                return new FileStream(p_strFile, FileMode.Open);
+            }
+            
+            // Otherwise grab file from archive.
+            return m_arcFile.GetFileStream(GetRealPath(p_strFile), m_eifEnvironmentInfo.TemporaryPath);
+        }
 
 		/// <summary>
 		/// Retrieves the list of files in this FOMod.

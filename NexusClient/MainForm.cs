@@ -20,6 +20,7 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.ModActivationMonitoring.UI;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.Plugins;
@@ -703,7 +704,7 @@ namespace Nexus.Client
 
 			if (ViewModel.IsInstalling)
 			{
-				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing mod install/uninstall, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing mod install/uninstall, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 				if (drFormClose != DialogResult.Yes)
 					e.Cancel = true;
 			}
@@ -1587,7 +1588,7 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void tsbGoPremium_Click(object sender, EventArgs e)
 		{
-			System.Diagnostics.Process.Start("http://skyrim.nexusmods.com/users/premium/");
+			Process.Start(NexusLinks.Premium);
 		}
 
 		private Point FindControlCoords(string p_section, string p_object)

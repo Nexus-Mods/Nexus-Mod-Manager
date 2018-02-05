@@ -22,6 +22,11 @@ namespace Nexus.Client.Games
 		/// <value>The installation path that was found.</value>
 		public string InstallationPath { get; private set; }
 
+        /// <summary>
+        /// Gets a value determining whether or not the game is installed on a file system that supports symbolic linking.
+        /// </summary>
+        public bool InstalledOnSuitableFileSystem { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -35,7 +40,8 @@ namespace Nexus.Client.Games
 		{
 			GameMode = p_gmdGameModeInfo;
 			InstallationPath = p_strInstallationPath;
-		}
+            InstalledOnSuitableFileSystem = Util.FileUtil.DoesFileSystemSupportSymbolicLinks(p_strInstallationPath);            
+        }        
 
 		#endregion
 	}

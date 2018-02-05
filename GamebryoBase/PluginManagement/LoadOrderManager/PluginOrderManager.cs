@@ -285,33 +285,44 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Fallout4PluginManagement = false;
 					break;
 				case "Fallout4":
-					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
+					try
 					{
-						TimestampOrder = false;
-						SingleFileManagement = true;
-						if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
+						if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
 						{
+							TimestampOrder = false;
+							SingleFileManagement = true;
+							if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
+							{
+								Fallout4PluginManagement = true;
+								ForcedReadOnly = false;
+							}
+							else
+							{
+								ForcedReadOnly = true;
+							}
+						}
+						else if (GameMode.GameVersion < new Version(1, 0, 0, 0))
+						{
+							TimestampOrder = false;
+							SingleFileManagement = true;
 							Fallout4PluginManagement = true;
 							ForcedReadOnly = false;
 						}
 						else
+						{
+							TimestampOrder = false;
 							ForcedReadOnly = true;
-					}
-                    else if (GameMode.GameVersion < new Version(1, 0, 0, 0))
-                    {
-                        TimestampOrder = false;
-                        SingleFileManagement = true;
-                        Fallout4PluginManagement = true;
-                        ForcedReadOnly = false;
+							SingleFileManagement = false;
+							Fallout4PluginManagement = false;
+						}
+						IgnoreOfficialPlugins = true;
                     }
-                    else
-					{
-						TimestampOrder = false;
-						ForcedReadOnly = true;
-						SingleFileManagement = false;
-						Fallout4PluginManagement = false;
-					}
-					IgnoreOfficialPlugins = true;
+                    catch (ArgumentNullException e)
+                    {
+                        var ex = new FileNotFoundException("Could not initialize Fallout4 Game Mode: Could not find the Fallout 4 executable.", Path.Combine(GameMode.ExecutablePath, "Fallout4.exe"), e);
+                        TraceUtil.TraceException(ex);
+                        throw ex;
+                    }
 					break;
                 case "Fallout4VR":
                     TimestampOrder = false;
@@ -327,7 +338,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Fallout4PluginManagement = true;
 					ForcedReadOnly = false;
 					break;
-				default:
+			    case "SkyrimVR":
+			        AppDataGameFolderName = "Skyrim VR";
+			        IgnoreOfficialPlugins = true;
+			        TimestampOrder = false;
+			        SingleFileManagement = true;
+			        Fallout4PluginManagement = true;
+			        ForcedReadOnly = false;
+			        break;
+                default:
 					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
 
@@ -1298,9 +1317,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public Int32 GetPluginLoadOrder(string p_strPlugin)
 		{
 			throw new NotImplementedException();
-			UInt32 uintIndex = 0;
-			//notimplemented
-			return Convert.ToInt32(uintIndex);
 		}
 
 		/// <summary>
@@ -1317,9 +1333,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public void SetPluginLoadOrder(string p_strPlugin, Int32 p_intIndex)
 		{
 			throw new NotImplementedException();
-			UInt32 uintIndex = 0;
-			//notimplemented
-			Convert.ToInt32(uintIndex);
 		}
 
 		/// <summary>
@@ -1330,9 +1343,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public void SetPluginActive(string p_strPlugin, bool p_booActive)
 		{
 			throw new NotImplementedException();
-			UInt32 uintIndex = 0;
-			//notimplemented
-			Convert.ToInt32(uintIndex);
 		}
 
 		/// <summary>
@@ -1343,8 +1353,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public string GetIndexedPlugin(Int32 p_intIndex)
 		{
 			throw new NotImplementedException();
-			//notimplemented
-			return String.Empty;
 		}
 
 		#endregion

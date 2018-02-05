@@ -124,6 +124,17 @@ namespace ChinhDo.Transactions
 			GetEnlistment().WriteAllBytes(path, contents);
 		}
 
+        /// <summary>
+        /// Creates a file, and writes the specified <paramref name="stream"/> to the file. 
+        /// If the file already exists, it is overwritten.
+        /// </summary>
+        /// <param name="path">The file to write to.</param>
+        /// <param name="stream">The stream to write to the file, which is disposed after the write.</param>
+        public void WriteFileStream(string path, FileStream stream)
+        {
+            GetEnlistment().WriteFileStream(path, stream);
+        }
+
         #endregion
 
         /// <summary>
