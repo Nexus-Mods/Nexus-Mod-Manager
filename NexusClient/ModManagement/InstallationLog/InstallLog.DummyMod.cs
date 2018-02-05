@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
-using System.Text.RegularExpressions;
-using System.Xml;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
@@ -156,8 +153,18 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// is not in the mod.</exception>
 			public byte[] GetFile(string p_strFile)
 			{
-				throw new FileNotFoundException("This mod contians no files.");
+				throw new FileNotFoundException("This mod contains no files.");
 			}
+
+            /// <summary>
+			/// Retrieves a FileStream of the specified file from the mod.
+			/// </summary>
+			/// <param name="p_strFile">The file to retrieve stream for.</param>
+			/// <returns>The requested file stream.</returns>
+            public FileStream GetFileStream(string p_strFile)
+            {
+                throw new FileNotFoundException("This mod contains no files.");
+            }
 
 			/// <summary>
 			/// Retrieves the list of files in this Mod.

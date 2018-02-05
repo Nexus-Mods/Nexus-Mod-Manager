@@ -703,7 +703,7 @@ namespace Nexus.Client
 
 			if (ViewModel.IsInstalling)
 			{
-				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing mod install/uninstall, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+				DialogResult drFormClose = MessageBox.Show(String.Format("There is an ongoing mod install/uninstall, are you sure you want to close {0}?", Application.ProductName), "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 				if (drFormClose != DialogResult.Yes)
 					e.Cancel = true;
 			}

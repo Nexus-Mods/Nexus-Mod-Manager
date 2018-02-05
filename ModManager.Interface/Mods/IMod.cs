@@ -1,6 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.Collections.Generic;
+using System.IO;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Mods
@@ -81,6 +80,13 @@ namespace Nexus.Client.Mods
 		/// <exception cref="System.IO.FileNotFoundException">Thrown if the specified file
 		/// is not in the mod.</exception>
 		byte[] GetFile(string p_strFile);
+
+        /// <summary>
+        /// Retrieves stream for the specified file from the mod.
+        /// </summary>
+        /// <param name="p_strFile">The file to retrieve</param>
+        /// <returns>Stream of the requested file data.</returns>
+        FileStream GetFileStream(string p_strFile);
 
 		/// <summary>
 		/// Retrieves the list of files in this Mod.
