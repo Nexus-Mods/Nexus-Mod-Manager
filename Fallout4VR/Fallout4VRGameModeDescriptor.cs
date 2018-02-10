@@ -10,8 +10,8 @@ namespace Nexus.Client.Games.Fallout4VR
 	{
 		private static string[] EXECUTABLES = { "Fallout4VR.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Fallout4.esm", "Fallout4_VR.esm" };
-        private static string[] OFFICIAL_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm", "DLCNukaWorld.esm" };
-        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm", "DLCNukaWorld.esm" };
+        private static string[] OFFICIAL_PLUGINS = { };
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
         private const string MODE_ID = "Fallout4VR";
 
 		#region Properties
