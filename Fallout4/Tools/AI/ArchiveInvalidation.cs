@@ -85,17 +85,29 @@ namespace Nexus.Client.Games.Fallout4.Tools.AI
 			CloseToolView(this, teaArgs);
 		}
 
-		/// <summary>
-		/// Enables AI.
-		/// </summary>
-		protected void ApplyAI()
-		{
-			if (ConfirmAiReset())
-			{
-				string strPluginsPath = GameMode.PluginDirectory;
-				foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Fallout4 - *.bsa"))
-					fi.LastWriteTime = new DateTime(2008, 10, 1);
-			}
-		}
+        /// <summary>
+        /// Enables AI.
+        /// </summary>
+        protected void ApplyAI()
+        {
+            if (ConfirmAiReset())
+            {
+                string strPluginsPath = GameMode.PluginDirectory;
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Fallout4 - *.ba2"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 1);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCRobot - *.ba2"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 2);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCworkshop01 - *.ba2"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 3);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCCoast - *.ba2"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 4);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCworkshop02 - *.ba2"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 5);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCworkshop03 - *.ba2"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 6);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCNukaWorld - *.ba2"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 7);
+            }
+        }
 	}
 }

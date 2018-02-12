@@ -85,17 +85,27 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
 			CloseToolView(this, teaArgs);
 		}
 
-		/// <summary>
-		/// Enables AI.
-		/// </summary>
-		protected void ApplyAI()
-		{
-			if (ConfirmAiReset())
-			{
-				string strPluginsPath = GameMode.PluginDirectory;
-				foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
-					fi.LastWriteTime = new DateTime(2008, 10, 1);
-			}
-		}
+        /// <summary>
+        /// Enables AI.
+        /// </summary>
+        protected void ApplyAI()
+        {
+            if (ConfirmAiReset())
+            {
+                string strPluginsPath = GameMode.PluginDirectory;
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 1);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Update.bsa"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 2);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Dawnguard.bsa"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 3);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("HearthFires.bsa"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 4);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Dragonborn.bsa"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 5);
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("HighResTexturePack*.bsa"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 6);
+            }
+        }
 	}
 }
