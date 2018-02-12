@@ -1,4 +1,6 @@
 ﻿using System.Drawing;
+using System.IO;
+using System.Linq;
 using Nexus.Client.Games.Gamebryo;
 
 namespace Nexus.Client.Games.SkyrimSE
@@ -11,17 +13,10 @@ namespace Nexus.Client.Games.SkyrimSE
 		private static string[] EXECUTABLES = { "SkyrimSELauncher.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Skyrim.esm", "Update.esm" , "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
 		private static string[] OFFICIAL_PLUGINS = { };
-        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "ccBGSSSE002-ExoticArrows.esl",
-																"ccBGSSSE003-Zombies.esl",
-																"ccBGSSSE004-RuinsEdge.esl",
-																"ccBGSSSE006-StendarsHammer.esl",
-																"ccBGSSSE007-Chrysamere.esl",
-																"ccBGSSSE010-PetDwarvenArmoredMudcrab.esl",
-																"ccBGSSSE014-SpellPack01.esl",
-																"ccBGSSSE019-StaffofSheogorath.esl",
-																"ccMTYSSE001-KnightsoftheNine.esl",
-																"ccQDRSSE001-SurvivalMode.esl" };
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
         private const string MODE_ID = "SkyrimSE";
+
+        private bool m_booCheckedCccFile;
 
 		#region Properties
 
@@ -93,7 +88,17 @@ namespace Nexus.Client.Games.SkyrimSE
 		{
 			get
 			{
-				return OFFICIAL_UNMANAGED_PLUGINS;
+                if (!m_booCheckedCccFile)
+                {
+                    m_booCheckedCccFile = true;
+
+                    if (File.Exists(Path.Combine(InstallationPath, "Skyrim.ccc")))
+                    {
+                        OFFICIAL_UNMANAGED_PLUGINS = File.ReadLines(Path.Combine(InstallationPath, "Skyrim.ccc")).Where(line => !string.IsNullOrEmpty(line)).ToArray();
+                    }
+                }
+
+                return OFFICIAL_UNMANAGED_PLUGINS;
 			}
 		}
 
