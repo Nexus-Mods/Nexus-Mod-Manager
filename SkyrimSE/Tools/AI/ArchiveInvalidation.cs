@@ -85,17 +85,17 @@ namespace Nexus.Client.Games.SkyrimSE.Tools.AI
 			CloseToolView(this, teaArgs);
 		}
 
-		/// <summary>
-		/// Enables AI.
-		/// </summary>
-		protected void ApplyAI()
-		{
-			if (ConfirmAiReset())
-			{
-				string strPluginsPath = GameMode.PluginDirectory;
-				foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("SkyrimSE - *.bsa"))
-					fi.LastWriteTime = new DateTime(2008, 10, 1);
-			}
-		}
+        /// <summary>
+        /// Enables AI.
+        /// </summary>
+        protected void ApplyAI()
+        {
+            if (ConfirmAiReset())
+            {
+                string strPluginsPath = GameMode.PluginDirectory;
+                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
+                    fi.LastWriteTime = new DateTime(2008, 10, 1);
+            }
+        }
 	}
 }
