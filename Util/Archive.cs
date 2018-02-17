@@ -627,6 +627,11 @@ namespace Nexus.Client.Util
             string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
             string strTempFile = Path.Combine(p_strTemporaryDirectory, "tempfile_" + Path.GetRandomFileName());
             
+            if (!Directory.Exists(p_strTemporaryDirectory))
+            {
+                Directory.CreateDirectory(p_strTemporaryDirectory);
+            }
+
             if (!m_dicFileInfo.ContainsKey(strPath))
             {
                 throw new FileNotFoundException("The requested file does not exist in the archive.", p_strPath);

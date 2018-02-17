@@ -1341,6 +1341,11 @@ namespace Nexus.Client.Mods.Formats.OMod
 
             string strTempFile = Path.Combine(m_eifEnvironmentInfo.TemporaryPath, "tempfile_" + Path.GetRandomFileName());
 
+            if (!Directory.Exists(m_eifEnvironmentInfo.TemporaryPath))
+            {
+                Directory.CreateDirectory(m_eifEnvironmentInfo.TemporaryPath);
+            }
+
             using (Stream stmDataFiles = new MemoryStream())
             {
                 using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
