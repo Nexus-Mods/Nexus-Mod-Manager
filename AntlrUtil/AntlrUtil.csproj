@@ -23,7 +23,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\Stage\Debug\</OutputPath>
+    <OutputPath>..\Stage\Debug\ScriptTypes\</OutputPath>
     <IntermediateOutputPath>..\Stage\obj\Debug\</IntermediateOutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -35,7 +35,7 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>..\Stage\Release\</OutputPath>
-    <IntermediateOutputPath>..\Stage\obj\Release\</IntermediateOutputPath>
+    <IntermediateOutputPath>..\Stage\obj\Release\ScriptTypes\</IntermediateOutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
