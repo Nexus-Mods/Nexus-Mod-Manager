@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Abilities" ID="2">
+      <name>Abilities</name>
+    </category>
+    <category path="Alchemy and Crafting" ID="3">
+      <name>Alchemy and Crafting</name>
+    </category>
+    <category path="Armour" ID="11">
+      <name>Armour</name>
+    </category>
+    <category path="Bug Fixes" ID="13">
+      <name>Bug Fixes</name>
+    </category>
+    <category path="Castles, Palaces, Mansions and Estates" ID="32">
+      <name>Castles, Palaces, Mansions and Estates</name>
+    </category>
+    <category path="Cheats and God Items" ID="15">
+      <name>Cheats and God Items</name>
+    </category>
+    <category path="Cities, Towns, Villages and Hamlets" ID="31">
+      <name>Cities, Towns, Villages and Hamlets</name>
+    </category>
+    <category path="Inventory" ID="4">
+      <name>Inventory</name>
+    </category>
+    <category path="Items and Objects" ID="6">
+      <name>Items and Objects</name>
+    </category>
+    <category path="Miscellaneous" ID="9">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Quests and Adventures" ID="5">
+      <name>Quests and Adventures</name>
+    </category>
+    <category path="Texture Replacements" ID="7">
+      <name>Texture Replacements</name>
+    </category>
+    <category path="User Interfaces" ID="8">
+      <name>User Interfaces</name>
+    </category>
+    <category path="Utilities" ID="14">
+      <name>Utilities</name>
+    </category>
+    <category path="Weapons" ID="10">
+      <name>Weapons</name>
+    </category>
+    <category path="Weapons and Armour" ID="12">
+      <name>Weapons and Armour</name>
+    </category>
+  </categoryList>
+</categoryManager>

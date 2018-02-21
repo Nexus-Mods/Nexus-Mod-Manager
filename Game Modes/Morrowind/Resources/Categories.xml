@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Buildings" ID="2">
+      <name>Buildings</name>
+    </category>
+    <category path="Dungeons and Locations" ID="3">
+      <name>Dungeons and Locations</name>
+    </category>
+    <category path="Gameplay Effects and Changes" ID="4">
+      <name>Gameplay Effects and Changes</name>
+    </category>
+    <category path="Guilds and Factions" ID="5">
+      <name>Guilds and Factions</name>
+    </category>
+    <category path="Hair and Faces" ID="6">
+      <name>Hair and Faces</name>
+    </category>
+    <category path="Items, Objects and Clothes" ID="7">
+      <name>Items, Objects and Clothes</name>
+    </category>
+    <category path="Miscellaneous" ID="8">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Models and Textures" ID="9">
+      <name>Models and Textures</name>
+    </category>
+    <category path="New Lands" ID="10">
+      <name>New Lands</name>
+    </category>
+    <category path="NPCs" ID="11">
+      <name>NPCs</name>
+    </category>
+    <category path="Official Plugins" ID="12">
+      <name>Official Plugins</name>
+    </category>
+    <category path="Quests and Adventures" ID="13">
+      <name>Quests and Adventures</name>
+    </category>
+    <category path="Races, Classes and Birthsigns" ID="14">
+      <name>Races, Classes and Birthsigns</name>
+    </category>
+    <category path="Utilities" ID="15">
+      <name>Utilities</name>
+    </category>
+    <category path="Weapons and Armour" ID="16">
+      <name>Weapons and Armour</name>
+    </category>
+  </categoryList>
+</categoryManager>
