@@ -88,11 +88,6 @@
       <Name>Skyrim</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\Util\Util.csproj">
-      <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
-      <Name>Util</Name>
-      <Private>False</Private>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

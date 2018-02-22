@@ -57,7 +57,6 @@
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
-    <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
@@ -294,11 +293,6 @@
     <ProjectReference Include="..\..\AntlrUtil\AntlrUtil.csproj">
       <Project>{8B2AD10B-4E22-4559-A784-648179225ADC}</Project>
       <Name>AntlrUtil</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
-      <Project>{E824ACBB-90C8-4C60-9D52-9C8020E98E3E}</Project>
-      <Name>ChinhDo.Transactions.FileManager</Name>
       <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\Commanding\Commanding.csproj">

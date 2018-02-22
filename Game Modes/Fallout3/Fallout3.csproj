@@ -45,7 +45,6 @@
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
-    <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
@@ -82,11 +81,6 @@
     <Compile Include="Tools\Fallout3ToolLauncher.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
-      <Project>{E824ACBB-90C8-4C60-9D52-9C8020E98E3E}</Project>
-      <Name>ChinhDo.Transactions.FileManager</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\Commanding\Commanding.csproj">
       <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
       <Name>Commanding</Name>

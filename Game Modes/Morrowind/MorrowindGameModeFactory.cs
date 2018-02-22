@@ -2,7 +2,6 @@
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Games.Steam;
-using System.Linq;
 using System.IO;
 using System;
 using Microsoft.Win32;
