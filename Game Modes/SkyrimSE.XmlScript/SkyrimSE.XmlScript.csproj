@@ -105,6 +105,18 @@
       <Name>XmlScript</Name>
       <Private>False</Private>
     </ProjectReference>
+    <ProjectReference Include="..\Fallout3\Fallout3.csproj">
+      <Project>{211400c3-e73e-4eba-a9c7-9900df9e7719}</Project>
+      <Name>Fallout3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055fb79-3587-486e-a87e-70304a61d7a4}</Project>
+      <Name>GamebryoBase</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SkyrimSE\SkyrimSE.csproj">
+      <Project>{c178b6ca-f72d-4af3-9797-baeba896ad09}</Project>
+      <Name>SkyrimSE</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Antlr3.Runtime, Version=3.4.1.9004, Culture=neutral, PublicKeyToken=eb42632606e9261f, processorArchitecture=MSIL">

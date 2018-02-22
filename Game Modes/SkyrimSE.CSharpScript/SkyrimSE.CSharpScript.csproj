@@ -63,6 +63,10 @@
       <Name>Fallout3.CSharpScript</Name>
       <Private>False</Private>
     </ProjectReference>
+    <ProjectReference Include="..\Fallout3\Fallout3.csproj">
+      <Project>{211400c3-e73e-4eba-a9c7-9900df9e7719}</Project>
+      <Name>Fallout3</Name>
+    </ProjectReference>
     <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
       <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
       <Name>GamebryoBase</Name>
@@ -77,6 +81,10 @@
       <Project>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</Project>
       <Name>NexusClient.Interface</Name>
       <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\SkyrimSE\SkyrimSE.csproj">
+      <Project>{c178b6ca-f72d-4af3-9797-baeba896ad09}</Project>
+      <Name>SkyrimSE</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
