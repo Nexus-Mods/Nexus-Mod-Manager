@@ -10,16 +10,16 @@
 [Setup]
 AppName=Nexus Mod Manager
 AppID=6af12c54-643b-4752-87d0-8335503010de
-AppVersion=0.64.1
-AppVerName=Nexus Mod Manager 0.64.1
+AppVersion=0.64.2
+AppVerName=Nexus Mod Manager 0.64.2
 AppCopyright=Copyright © Black Tree Gaming 2011-2018
-VersionInfoVersion=0.64.1
+VersionInfoVersion=0.64.2
 VersionInfoCompany=Black Tree Gaming
 AppPublisher=Black Tree Gaming
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
-OutputBaseFilename=Nexus Mod Manager-0.64.1
+OutputBaseFilename=Nexus Mod Manager-0.64.2
 DefaultGroupName=Nexus Mod Manager
 DefaultDirName={pf}\Nexus Mod Manager
 UninstallDisplayName=Nexus Mod Manager
