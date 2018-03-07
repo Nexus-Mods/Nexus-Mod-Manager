@@ -58,7 +58,7 @@ namespace Nexus.Client.Util.Downloader
 			/// </summary>
 			/// <remarks>
 			/// <see cref="FileBlock"/>s are strictly ordered by their <see cref="FileBlock.StartPosition"/>s.
-			/// </remarks> 
+			/// </remarks>
 			/// <param name="other">The <see cref="FileBlock"/> to which to compare this <see cref="FileBlock"/>.</param>
 			/// <returns>A value less than 0 if this <see cref="FileBlock"/> is less than the other.
 			/// 0 if this <see cref="FileBlock"/> is equal to the other.
@@ -137,7 +137,7 @@ namespace Nexus.Client.Util.Downloader
 		/// <remarks>
 		/// This method is run on a separate thread. It waits to be signalled indicating that
 		/// there is data queued to be written, writes the data, and waits for the next signal.
-		/// 
+		///
 		/// Every time the file is written to, the metadata file is updated to reflect which parts
 		/// of the file have been written.
 		/// </remarks>
@@ -147,13 +147,16 @@ namespace Nexus.Client.Util.Downloader
 			string strFolder = Path.GetDirectoryName(m_strFilePath);
 			if (!Directory.Exists(strFolder))
 				Directory.CreateDirectory(strFolder);
-			while (true)
+
+			using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
+			using (FileStream fsmMetaFile = File.OpenWrite(m_strFileMetadataPath))
+			using (StreamWriter fsmMetaWriter = new StreamWriter(fsmMetaFile))
 			{
-				while (m_sltBlocksToWrite.Count > 0)
+				while (true)
 				{
-					try
+					while (m_sltBlocksToWrite.Count > 0)
 					{
-						using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
+						try
 						{
 							FileBlock fblData = null;
 							lock (m_sltBlocksToWrite)
@@ -167,44 +170,45 @@ namespace Nexus.Client.Util.Downloader
 							fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
 
 							m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
-							StringBuilder stbRanges = new StringBuilder();
+
+							fsmMetaFile.SetLength(0);
 							foreach (Range rngWritten in m_rgsWrittenRanges)
-								stbRanges.AppendLine(rngWritten.ToString());
-							File.WriteAllText(m_strFileMetadataPath, stbRanges.ToString());
+								fsmMetaWriter.WriteLine(rngWritten.ToString());
+							fsmMetaWriter.Flush();
+
+							intRetries = 0;
 						}
-
-						intRetries = 0;
-					}
-					catch (IOException ex)
-					{
-						//See stackoverflow answer for determining if file is in use: http://stackoverflow.com/a/937558/1634249
-						var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
-
-						if (errorCode == 32 || errorCode == 33)
+						catch (IOException ex)
 						{
-							//Wait for file to be unlocked, hopefully soon
-							//XXX what else could be done?
-							if (intRetries > 600)
+							//See stackoverflow answer for determining if file is in use: http://stackoverflow.com/a/937558/1634249
+							var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
+
+							if (errorCode == 32 || errorCode == 33)
 							{
-								UnableToWrite(this, new EventArgs());
-								return;
+								//Wait for file to be unlocked, hopefully soon
+								//XXX what else could be done?
+								if (intRetries > 600)
+								{
+									UnableToWrite(this, new EventArgs());
+									return;
+								}
+								else
+									intRetries++;
+
+								Thread.Sleep(100);
 							}
 							else
-								intRetries++;
-
-							Thread.Sleep(100);
-						}
-						else
-						{
-							//Unknown exception, standard error handling (crash)
-							throw ex;
+							{
+								//Unknown exception, standard error handling (crash)
+								throw ex;
+							}
 						}
 					}
+					if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
+						return;
+					m_ewhProcessQueue.Reset();
+					m_ewhProcessQueue.WaitOne();
 				}
-				if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
-					return;
-				m_ewhProcessQueue.Reset();
-				m_ewhProcessQueue.WaitOne();
 			}
 		}
 
