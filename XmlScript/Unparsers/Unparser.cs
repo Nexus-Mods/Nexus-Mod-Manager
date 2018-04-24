@@ -39,7 +39,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.Unparsers
 		public XElement Unparse()
 		{
 			XElement xelScript = new XElement("config",
-												new XAttribute(XName.Get("noNamespaceSchemaLocation", "http://www.w3.org/2001/XMLSchema-instance"), String.Format("XmlScript{0}.xsd", Script.Version)));
+												new XAttribute(XName.Get("noNamespaceSchemaLocation", "https://www.w3.org/2001/XMLSchema-instance"), String.Format("XmlScript{0}.xsd", Script.Version)));
 			
 			List<XElement> lstHeaderInfo = UnparseHeaderInfo();
 			foreach (XElement xelHeaderInfo in lstHeaderInfo)

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -9,6 +8,7 @@ using System.Windows.Forms;
 using System.Xml.Serialization;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Properties;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
@@ -172,9 +172,9 @@ namespace Nexus.Client
 						stbPromptMessage.AppendLine("A Trace Log file was created at:");
 						stbPromptMessage.AppendLine(htlListener.FilePath);
 						stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/");
+						stbPromptMessage.AppendLine(NexusLinks.FAQs);
 						stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-						stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+						stbPromptMessage.AppendLine(NexusLinks.Issues);
 						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information);
 						return false;
 					}

@@ -180,7 +180,7 @@ namespace Nexus.Client.Util.Downloader
 						}
 						catch (IOException ex)
 						{
-							//See stackoverflow answer for determining if file is in use: http://stackoverflow.com/a/937558/1634249
+							//See stackoverflow answer for determining if file is in use: https://stackoverflow.com/a/937558/1634249
 							var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
 
 							if (errorCode == 32 || errorCode == 33)

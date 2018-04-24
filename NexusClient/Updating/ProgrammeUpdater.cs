@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 
@@ -47,7 +48,7 @@ namespace Nexus.Client.Updating
 			}
 		}
 
-		protected const string m_strURI = "http://staticdelivery.nexusmods.com/NMM/releasenotes.html";
+		protected const string m_strURI = "https://staticdelivery.nexusmods.com/NMM/releasenotes.html";
 		private bool m_booIsAutoCheck = false;
 		
 		#region Properties
@@ -214,7 +215,7 @@ namespace Nexus.Client.Updating
 					stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
 					stbAVMessage.AppendLine();
 					stbAVMessage.AppendFormat("You can download the update manually from:");
-					stbAVMessage.AppendLine("http://skyrim.nexusmods.com/mods/modmanager/");
+					stbAVMessage.AppendLine(NexusLinks.Releases);
 					try
 					{
 						//the extended message box contains an activex control wich must be run in an STA thread,
@@ -268,7 +269,7 @@ namespace Nexus.Client.Updating
 						stbAVMessage.AppendLine();
 						stbAVMessage.AppendFormat("To fix this issue you need to add {0}'s executable and all its folders to your", EnvironmentInfo.Settings.ModManagerName).AppendLine();
 						stbAVMessage.AppendLine("anti-virus exception list. You can also download the update manually from:");
-						stbAVMessage.AppendLine("http://skyrim.nexusmods.com/mods/modmanager/");
+						stbAVMessage.AppendLine(NexusLinks.Releases);
 
 						try
 						{
@@ -308,8 +309,8 @@ namespace Nexus.Client.Updating
 				stbPromptMessage.AppendFormat("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
 				stbPromptMessage.AppendLine();
 				stbPromptMessage.AppendLine();
-				stbPromptMessage.AppendLine("NOTE: You can find the release notes, planned features and past versions here:");
-				stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/896029-nexus-mod-manager-release-notes/");
+				stbPromptMessage.AppendLine("NOTE: You can find the release notes and past versions here:");
+				stbPromptMessage.AppendLine(NexusLinks.Releases);
 
 				try
 				{
@@ -368,7 +369,7 @@ namespace Nexus.Client.Updating
 
 			try
 			{
-				string strNewVersion = wclNewVersion.DownloadString("http://nmm.nexusmods.com/NMM?GetLatestVersion");
+				string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion);
 				if (!String.IsNullOrEmpty(strNewVersion))
 				{
 					verNew = new Version(strNewVersion.Split('|')[0]);
@@ -379,7 +380,7 @@ namespace Nexus.Client.Updating
 			{
 				try
 				{
-					string strNewVersion = wclNewVersion.DownloadString("http://dev.nexusmods.com/client/4.5/latestversion.php");
+					string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion4dot5);
 					if (!String.IsNullOrEmpty(strNewVersion))
 					{
 						verNew = new Version(strNewVersion.Split('|')[0]);

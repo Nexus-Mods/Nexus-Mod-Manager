@@ -45,7 +45,7 @@
       <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="ModManagerUrl" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">http://www.nexusmods.com/content/modmanager/</Value>
+      <Value Profile="(Default)">https://www.nexusmods.com/content/modmanager/</Value>
     </Setting>
     <Setting Name="UserLocation" Type="System.String" Scope="User">
       <Value Profile="(Default)">default</Value>
@@ -129,13 +129,13 @@
       <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
 &lt;KeyedSettingsOfString&gt;
   &lt;item key="Beta Wiki"&gt;
-    &lt;string&gt;http://wiki.nexusmods.com/index.php/Category:NMM&lt;/string&gt;
+    &lt;string&gt;https://wiki.nexusmods.com/index.php/Category:NMM&lt;/string&gt;
   &lt;/item&gt;
   &lt;item key="Beta Forums"&gt;
-    &lt;string&gt;http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/&lt;/string&gt;
+    &lt;string&gt;https://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/&lt;/string&gt;
   &lt;/item&gt;
   &lt;item key="Bug Report How To"&gt;
-    &lt;string&gt;http://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/&lt;/string&gt;
+    &lt;string&gt;https://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/&lt;/string&gt;
   &lt;/item&gt;
   &lt;item key="Report a Bug"&gt;
     &lt;string&gt;https://github.com/Nexus-Mods/Nexus-Mod-Manager/issues&lt;/string&gt;
@@ -196,7 +196,7 @@
     </Setting>
     <Setting Name="InstalledGames" Type="Nexus.Client.Settings.SettingsList" Scope="User">
       <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
-&lt;ArrayOfString xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" /&gt;</Value>
+&lt;ArrayOfString xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" /&gt;</Value>
     </Setting>
     <Setting Name="QueuedModsToAdd" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[Nexus.Client.ModManagement.AddModDescriptor]]" Scope="User">
       <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;

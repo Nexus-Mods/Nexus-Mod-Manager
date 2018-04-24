@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Timers;
-using Nexus.Client.UI;
 using Nexus.Client.ModRepositories;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Util.Downloader;
 using Nexus.Client.BackgroundTasks;
 
@@ -451,7 +451,7 @@ namespace Nexus.Client.DownloadManagement
 				Status = TaskStatus.Cancelled;
 				if (m_fdrDownloader != null)
 					m_fdrDownloader.Cleanup();
-				OnTaskEnded("Download cancelled.", (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri("http://www.nexusmods.com")));
+				OnTaskEnded("Download cancelled.", (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri(NexusLinks.NexusURI)));
 			}
 		}
 

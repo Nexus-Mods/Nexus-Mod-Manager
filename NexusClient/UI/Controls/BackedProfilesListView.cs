@@ -372,35 +372,6 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		/// <summary>
-		/// Setup the Hyperlink Manager
-		/// </summary>
-		//public void SetupHyperlinkManager()
-		//{
-		//	tlcModId.Hyperlink = true;
-		//	this.IsHyperlink += delegate(object sender, BrightIdeasSoftware.IsHyperlinkEventArgs e)
-		//	{
-		//		try
-		//		{
-		//			IVirtualModInfo vmiInfo = (IVirtualModInfo)e.Model;
-		//			if (!(vmiInfo == null))
-		//			{
-		//				if (String.IsNullOrEmpty(vmiInfo.ModId))
-		//					e.Url = null;
-		//				else
-		//				{
-		//					string strUri = "http://" + m_mmrModRepository.GameModeWebsite + "/mods/" + vmiInfo.ModId;
-		//					e.Url = strUri;
-		//				}					
-		//			}
-		//		}
-		//		catch
-		//		{
-		//			e.Url = null;
-		//		}
-		//	};
-		//}
-
-		/// <summary>
 		/// Setup the context menu items visibility
 		/// </summary>
 		/// <param name="p_booProfileSetup">Whether to setup the visibility for a Profile or a mod</param>
