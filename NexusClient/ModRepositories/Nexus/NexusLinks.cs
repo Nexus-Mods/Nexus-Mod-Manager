@@ -48,6 +48,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			get
 			{
+				return @"https://legacy-api.nexusmods.com/NMM?GetLatestVersion";
 			}
 		}
 
