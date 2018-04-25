@@ -196,7 +196,7 @@
     </Setting>
     <Setting Name="InstalledGames" Type="Nexus.Client.Settings.SettingsList" Scope="User">
       <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
-&lt;ArrayOfString xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" /&gt;</Value>
+&lt;ArrayOfString xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" /&gt;</Value>
     </Setting>
     <Setting Name="QueuedModsToAdd" Type="Nexus.Client.Settings.PerGameModeSettings`1[Nexus.Client.Settings.KeyedSettings`1[Nexus.Client.ModManagement.AddModDescriptor]]" Scope="User">
       <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;

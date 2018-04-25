@@ -236,7 +236,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			string strScriptVersion = "1.0";
 			XElement xelRoot = p_xelScript.DescendantsAndSelf("config").First();
-			string strSchemaName = xelRoot.Attribute(XName.Get("noNamespaceSchemaLocation", "https://www.w3.org/2001/XMLSchema-instance")).Value.ToLowerInvariant();
+			string strSchemaName = xelRoot.Attribute(XName.Get("noNamespaceSchemaLocation", "http://www.w3.org/2001/XMLSchema-instance")).Value.ToLowerInvariant();
 			Int32 intStartPos = strSchemaName.LastIndexOf("xmlscript") + 9;
 			if (intStartPos < 9)
 				intStartPos = strSchemaName.LastIndexOf("modconfig") + 9;
