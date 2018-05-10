@@ -535,7 +535,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(true).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					strCookie = nmrApi.Login(p_strUsername, p_strPassword);
+					strCookie = nmrApi.LoginPOST(p_strUsername, p_strPassword);
 				}
 			}
 			catch (MessageHeaderException e)
@@ -623,7 +623,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(true).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					strCookie = nmrApi.ValidateTokens();
+					strCookie = nmrApi.ValidateTokensPOST();
 				}
 			}
 			catch (TimeoutException e)

@@ -184,6 +184,7 @@
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
     <Compile Include="ModManagement\VirtualModInfo.cs" />
     <Compile Include="ModManagement\VirtualModLink.cs" />
+    <Compile Include="ModRepositories\Nexus\NexusLinks.cs" />
     <Compile Include="ModRepositories\Nexus\NexusToken.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />

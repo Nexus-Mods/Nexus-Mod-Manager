@@ -362,7 +362,7 @@ namespace Nexus.Client.UI.Controls
 							e.Url = null;
 						else
 						{
-							string strUri = "http://" + m_mmrModRepository.GameModeWebsite + "/mods/" + vmiInfo.ModId;
+							string strUri = "https://" + m_mmrModRepository.GameModeWebsite + "/mods/" + vmiInfo.ModId;
 							e.Url = strUri;
 						}					
 					}

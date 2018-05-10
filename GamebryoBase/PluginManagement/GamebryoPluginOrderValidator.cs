@@ -61,9 +61,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				// simple test esl come after esm or esl
 				if (!(booIsPreviousMaster || booIsPreviousLightMaster) && plgPlugin.IsLightMaster)
 					return false;
-				// no true esm after an esl
-				if (booIsPreviousLightMaster && plgPlugin.IsMaster && !plgPlugin.IsLightMaster)
-					return false;
 				booIsPreviousMaster = plgPlugin.IsMaster;
 				booIsPreviousLightMaster = plgPlugin.IsLightMaster;
 			}

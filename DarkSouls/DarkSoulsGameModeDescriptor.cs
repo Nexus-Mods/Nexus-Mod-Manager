@@ -103,7 +103,7 @@ namespace Nexus.Client.Games.DarkSouls
 			get
 			{
 				
-				return ("DSfix by Durante is required for Dark Souls modding, make sure it's properly installed and up to date." + Environment.NewLine + "Link: http://darksouls.nexusmods.com/mods/19/" + Environment.NewLine + "Install it, then restart NMM.");
+				return ("DSfix by Durante is required for Dark Souls modding, make sure it's properly installed and up to date." + Environment.NewLine + "Link: https://darksouls.nexusmods.com/mods/19/" + Environment.NewLine + "Install it, then restart NMM.");
 			}
 		}
 

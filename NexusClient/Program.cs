@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
 using Nexus.UI.Controls;
@@ -266,9 +267,9 @@ namespace Nexus.Client
 			stbPromptMessage.AppendLine("A Trace Log file was created at:");
 			stbPromptMessage.AppendLine(htlListener.FilePath);
 			stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/");
+			stbPromptMessage.AppendLine(NexusLinks.FAQs);
 			stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-			stbPromptMessage.AppendLine("http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/");
+			stbPromptMessage.AppendLine(NexusLinks.Issues);
 			stbPromptMessage.AppendLine(Environment.NewLine + "Do you want to open the TraceLog folder?");
 			try
 			{
