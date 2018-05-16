@@ -40,7 +40,7 @@ namespace Nexus.UI.Controls
 		}
 
 		private static Regex HTML_MATCHER = new Regex(@"(?i)(<[^>]*>)");
-        private static Regex HTML_DETECTION_MATCHER = new Regex(@"(?i)((<\s*br\s*/?\s*>)|(<\s*/[^>]*>))");
+        	private static Regex HTML_DETECTION_MATCHER = new Regex(@"(?i)((<\s*br\s*/?\s*>)|(<\s*/[^>]*>))");
 		private static Regex HTML_CLOSING_MATCHER = new Regex(@"(?i)(</[^>]*>)");
 		private static Regex BBCODE_MATCHER = new Regex(@"(?i)(\[[^\]]*\])");
 		private static Regex BBCODE_CLOSING_MATCHER = new Regex(@"(?i)(\[/[^\]]*\])");
@@ -82,11 +82,11 @@ namespace Nexus.UI.Controls
 				switch (FormattingMode)
 				{
 					case Mode.HTML:
-                        if (m_htmHtmlLabel != null)
-                            m_htmHtmlLabel.Text = m_strText;
+                        			if (m_htmHtmlLabel != null)
+                            				m_htmHtmlLabel.Text = m_strText;
 						break;
 					case Mode.BBCode:
-                        if(m_htmHtmlLabel != null)
+                        			if(m_htmHtmlLabel != null)
 						    m_htmHtmlLabel.Text = TranslateBBCodeToHtml(m_strText);
 						break;
 					default:
