@@ -82,10 +82,12 @@ namespace Nexus.UI.Controls
 				switch (FormattingMode)
 				{
 					case Mode.HTML:
-						m_htmHtmlLabel.Text = m_strText;
+                        if (m_htmHtmlLabel != null)
+                            m_htmHtmlLabel.Text = m_strText;
 						break;
 					case Mode.BBCode:
-						m_htmHtmlLabel.Text = TranslateBBCodeToHtml(m_strText);
+                        if(m_htmHtmlLabel != null)
+						    m_htmHtmlLabel.Text = TranslateBBCodeToHtml(m_strText);
 						break;
 					default:
 						m_aslRtfLabel.Text = m_strText;
