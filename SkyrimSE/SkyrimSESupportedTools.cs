@@ -162,8 +162,8 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
-		}
+            Launch(strCommand, "--game=Skyrim");
+        }
 
 		private void LaunchWryeBash()
 		{

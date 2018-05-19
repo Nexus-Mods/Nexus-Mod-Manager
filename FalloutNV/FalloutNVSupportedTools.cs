@@ -83,7 +83,7 @@ namespace Nexus.Client.Games.FalloutNV
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
+			Launch(strCommand, "--game=FalloutNV");
 		}
 
 		/// <summary>
