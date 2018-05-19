@@ -355,17 +355,45 @@ namespace Nexus.Client.Util
 			return p_strPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).EndsWith(Path.VolumeSeparatorChar.ToString(), StringComparison.OrdinalIgnoreCase);
 		}
 
-		/// <summary>
-		/// Writes the given data to the specified file.
-		/// </summary>
-		/// <remarks>
-		/// If the specified file exists, it will be overwritten. If the specified file
-		/// does not exist, it is created. If the directory containing the specified file
-		/// does not exist, it is created.
-		/// </remarks>
-		/// <param name="p_strPath">The path to which to write the given data.</param>
-		/// <param name="p_bteData">The data to write to the file.</param>
-		public static void WriteAllBytes(string p_strPath, byte[] p_bteData)
+        /// <summary>
+        /// Determines if the file system of the drive is suitable for NMM to use.
+        /// </summary>
+        /// <param name="p_strPath">Path to folder on drive we want to check.</param>
+        /// <returns>True if we expect NMM to be able to use the drive in question, otherwise false.</returns>
+        public static bool DoesFileSystemSupportSymbolicLinks(string p_strPath)
+        {
+            if (string.IsNullOrEmpty(p_strPath))
+            {
+                // Won't matter if there's no path.
+                return true;
+            }
+
+            // This list can be extended as needed, and is not case sensitive.
+            var knownBadFileSystems = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "FAT",
+                "FAT32",
+                "ReFS",
+                "exFAT"
+            };
+
+            var file = new FileInfo(p_strPath);
+            var drive = new DriveInfo(file.Directory.Root.FullName);
+
+            return !knownBadFileSystems.Contains(drive.DriveFormat);
+        }
+
+        /// <summary>
+        /// Writes the given data to the specified file.
+        /// </summary>
+        /// <remarks>
+        /// If the specified file exists, it will be overwritten. If the specified file
+        /// does not exist, it is created. If the directory containing the specified file
+        /// does not exist, it is created.
+        /// </remarks>
+        /// <param name="p_strPath">The path to which to write the given data.</param>
+        /// <param name="p_bteData">The data to write to the file.</param>
+        public static void WriteAllBytes(string p_strPath, byte[] p_bteData)
 		{
 			string strDirectory = Path.GetDirectoryName(p_strPath);
 			if (!Directory.Exists(strDirectory))
