@@ -51,6 +51,7 @@
     <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
       <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
     </Compile>
+    <Compile Include="Fallout4VRSupportedTools.cs" />
     <Compile Include="Fallout4VRGameMode.cs" />
     <Compile Include="Fallout4VRGameModeDescriptor.cs" />
     <Compile Include="Fallout4VRGameModeFactory.cs" />
