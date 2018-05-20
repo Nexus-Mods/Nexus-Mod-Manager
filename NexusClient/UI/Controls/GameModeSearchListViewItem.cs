@@ -1,8 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Drawing;
-using System.Drawing.Text;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
@@ -99,11 +97,21 @@ namespace Nexus.Client.UI.Controls
 				Invoke((Action<object, GameModeDiscoveredEventArgs>)Detector_PathFound, sender, e);
 				return;
 			}
+
 			if (e.GameMode.ModeId.Equals(GameMode.ModeId))
 			{
 				m_booGamePathDetected = true;
-				lblPath.Text = e.InstallationPath;
-				SetVisiblePanel(pnlCandidate);
+                m_booAcceptedPath = e.InstalledOnSuitableFileSystem;
+                lblPath.Text = e.InstallationPath;
+
+                if (e.InstalledOnSuitableFileSystem)
+                {
+                    SetVisiblePanel(pnlCandidate);
+                }
+                else
+                {
+                    SetVisiblePanel(pnlFileSystemError);
+                }
 			}
 		}
 
