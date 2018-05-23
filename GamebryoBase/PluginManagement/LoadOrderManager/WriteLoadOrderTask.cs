@@ -154,7 +154,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			bool booWritten = false;
 			bool booLocked = false;
 
-			Trace.Indent();
 			Trace.TraceInformation("Preparing to write load order to file \"{0}\".", p_strFilePath);
 
 			while (!IsFileReady(p_strFilePath, ForcedReadOnly))
@@ -271,8 +270,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					}
 				}
 			}
-
-			Trace.Unindent();
 
 			return booWritten;
 		}
