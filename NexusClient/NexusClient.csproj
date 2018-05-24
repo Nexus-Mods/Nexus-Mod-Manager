@@ -58,6 +58,9 @@
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>Nexus.Client.Program</StartupObject>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\AssemblyInformationalVersion.cs">
       <Link>Properties\AssemblyInformationalVersion.cs</Link>
@@ -687,6 +690,7 @@
       <HintPath>..\lib\SevenZipSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
