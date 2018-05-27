@@ -110,6 +110,7 @@ namespace Nexus.Client.UI.Controls
                 }
                 else
                 {
+                    pnlFileSystemError.Size = new Size(pnlFileSystemError.Width, 66);
                     SetVisiblePanel(pnlFileSystemError);
                 }
 			}
