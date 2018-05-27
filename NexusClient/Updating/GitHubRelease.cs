@@ -62,15 +62,29 @@
         
         private static Version ParseVersion(string content)
         {
-            var releaseVersion = Regex.Match(content, "tag_name\":\"(\\d+\\.\\d+\\.\\d)\"", RegexOptions.IgnoreCase).Groups[1];
-            var tmp = releaseVersion.Value.Split('.');
+            try
+            {
+                var releaseVersion = Regex.Match(content, "tag_name\":\"(\\d+\\.\\d+\\.\\d)\"", RegexOptions.IgnoreCase).Groups[1];
+                var tmp = releaseVersion.Value.Split('.');
 
-            return new Version(Convert.ToInt32(tmp[0]), Convert.ToInt32(tmp[1]), Convert.ToInt32(tmp[2]));
+                return new Version(Convert.ToInt32(tmp[0]), Convert.ToInt32(tmp[1]), Convert.ToInt32(tmp[2]));
+            }
+            catch
+            {
+                return new Version(69, 69, 69, 69);
+            }
         }
 
         private static string ParseDownloadLink(string content)
         {
-            return Regex.Match(content, "browser_download_url\":\"(.*\\.exe)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+            try
+            {
+                return Regex.Match(content, "browser_download_url\":\"(.*\\.exe)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
     }
 }
