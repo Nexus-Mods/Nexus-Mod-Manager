@@ -97,8 +97,12 @@ namespace Nexus.Client.Updating
 			Trace.Indent();
 			SetProgressMaximum(2);
 			SetMessage(String.Format("Checking for new {0} version...", EnvironmentInfo.Settings.ModManagerName));
-			string strDownloadUri = String.Empty;
-			Version verNew = GetNewProgrammeVersion(out strDownloadUri);
+
+            var release = new GitHubRelease(GitHubRelease.LatestRelease);
+
+            Version verNew = release.Version;
+            string strDownloadUri = release.DownloadLink;
+            
 			SetProgress(1);
 
 			if (CancelRequested)
@@ -127,36 +131,7 @@ namespace Nexus.Client.Updating
 				stbPromptMessage.AppendLine();
 				stbPromptMessage.AppendLine("Below you can find the change log for the new release:");
 
-				try
-				{
-					HttpWebRequest request = (HttpWebRequest)WebRequest.Create(m_strURI);
-					HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-
-					if (response.StatusCode == HttpStatusCode.OK)
-					{
-						Stream receiveStream = response.GetResponseStream();
-						StreamReader readStream = null;
-
-						if (response.CharacterSet == null)
-						{
-							readStream = new StreamReader(receiveStream);
-						}
-						else
-						{
-							readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
-						}
-
-						strReleaseNotes = readStream.ReadToEnd();
-
-						response.Close();
-						readStream.Close();
-					}
-
-				}
-				catch
-				{
-					strReleaseNotes = "Unable to retrieve the Release Notes.";
-				}
+                strReleaseNotes = "<html><body><h1>Release notes</h1><p>Please check the <a href=\"" + NexusLinks.Releases + "\">GitHub Releases page</a> for the change log.</p></body></html>";
 
 				try
 				{
@@ -205,7 +180,7 @@ namespace Nexus.Client.Updating
 				string strNewInstaller = string.Empty;
 				try
 				{
-					strNewInstaller = DownloadFile(new Uri(String.Format(strDownloadUri)));
+                    strNewInstaller = GitHubDownload(strDownloadUri);
 				}
 				catch (FileNotFoundException)
 				{
@@ -303,6 +278,10 @@ namespace Nexus.Client.Updating
 					Trace.Unindent();
 					return true;
 				}
+                else
+                {
+                    MessageBox.Show( "Could not download update, please check Trace Log for more information.", "Download error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
 			}
 			else if (!m_booIsAutoCheck)
 			{
@@ -341,67 +320,66 @@ namespace Nexus.Client.Updating
 			return true;
 		}
 
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		/// <remarks>
-		/// This is a convience method that allows the setting of the message and
-		/// the determination of the return value in one call.
-		/// </remarks>
-		/// <returns>Always <c>true</c>.</returns>
-		private bool CancelUpdate()
-		{
-			SetMessage(String.Format("Cancelled {0} update.", EnvironmentInfo.Settings.ModManagerName));
-			SetProgress(2);
-			return true;
-		}
+        /// <summary>
+        /// Cancels the update.
+        /// </summary>
+        /// <remarks>
+        /// This is a convience method that allows the setting of the message and
+        /// the determination of the return value in one call.
+        /// </remarks>
+        /// <returns>Always <c>true</c>.</returns>
+        private bool CancelUpdate()
+        {
+            SetMessage(String.Format("Cancelled {0} update.", EnvironmentInfo.Settings.ModManagerName));
+            SetProgress(2);
+            return true;
+        }
 
-		/// <summary>
-		/// Gets the newest available programme version.
-		/// </summary>
-		/// <returns>The newest available programme version,
-		/// or 69.69.69.69 if now information could be retrieved.</returns>
-		private Version GetNewProgrammeVersion(out string p_strDownloadUri)
-		{
-			ExtendedWebClient wclNewVersion = new ExtendedWebClient(15000);
-			Version verNew = new Version("69.69.69.69");
-			p_strDownloadUri = String.Empty;
+        #region GitHub
 
-			try
-			{
-				string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion);
-				if (!String.IsNullOrEmpty(strNewVersion))
-				{
-					verNew = new Version(strNewVersion.Split('|')[0]);
-					p_strDownloadUri = strNewVersion.Split('|')[1];
-				}
-			}
-			catch (WebException)
-			{
-				try
-				{
-					string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion4dot5);
-					if (!String.IsNullOrEmpty(strNewVersion))
-					{
-						verNew = new Version(strNewVersion.Split('|')[0]);
-						p_strDownloadUri = strNewVersion.Split('|')[1];
-					}
-				}
-				catch (WebException e)
-				{
-					Trace.TraceError(String.Format("Could not connect to update server: {0}", e.Message));
-				}
-				catch (ArgumentException e)
-				{
-					Trace.TraceError(String.Format("Unexpected response from the server: {0}", e.Message));
-				}
-			}
-			catch (ArgumentException e)
-			{
-				Trace.TraceError(String.Format("Unexpected response from the server: {0}", e.Message));
-			}
+        // Couldn't use the existing downloading solution, GitHub doesn't accept the request and returns a 403.
+        private string GitHubDownload(string url)
+        {
+            try
+            {
+                var temporaryInstallerFile = Path.Combine(EnvironmentInfo.TemporaryPath, Path.GetFileName(url));
 
-			return verNew;
-		}
-	}
+                using (var wc = new WebClient())
+                {
+                    SetProgress(0);
+                    SetProgressMaximum(100);
+
+                    wc.DownloadProgressChanged += GitHubDownload_ProgressChanged;
+
+                    var task = wc.DownloadFileTaskAsync(url, temporaryInstallerFile);
+
+                    while (!task.IsCompleted)
+                    {
+                        if (CancelRequested)
+                        {
+                            wc.CancelAsync();
+                        }
+
+                        Thread.Sleep(100);
+                    }
+
+                    wc.DownloadProgressChanged -= GitHubDownload_ProgressChanged;
+                }
+
+                return temporaryInstallerFile;
+            }
+            catch (Exception e)
+            {
+                Trace.TraceError("Could not download installer \"{0}\" - {1}: {2}", url, e.GetType(), e.Message);
+                return string.Empty;
+            }
+        }
+
+        private void GitHubDownload_ProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+        {
+            SetProgress(e.ProgressPercentage);
+        }
+
+        #endregion
+    }
 }
