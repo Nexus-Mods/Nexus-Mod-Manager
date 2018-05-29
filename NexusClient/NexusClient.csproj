@@ -349,6 +349,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="UI\Controls\ProfilesListView.designer.cs" />
+    <Compile Include="Updating\GitHubRelease.cs" />
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
