@@ -225,8 +225,8 @@ namespace Nexus.Client.Updating
                         GitHubReleaseJsonContract latest = ghrjc[0];
                         this.LatestVersion = latest.tag_name;
                         this.LatestVersionUrl = latest.assets_info[0].browser_download_url;
+                        ret = true;
                     }
-                    ret = true;
                 }
                 catch (Exception e)
                 {
