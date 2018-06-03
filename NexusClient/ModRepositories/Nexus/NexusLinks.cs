@@ -52,15 +52,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 		}
 
-		public static string LatestVersion4dot5
-		{
-			get
-			{
-				return @"https://dev.nexusmods.com/client/4.5/latestversion.php";
-			}
-		}
-
-		public static string Releases
+		public static string GithubReleases
 		{
 			get
 			{
