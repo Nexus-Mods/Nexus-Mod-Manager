@@ -52,7 +52,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 			}
 		}
 
-		public static string GithubReleases
+		public static string Releases
 		{
 			get
 			{

@@ -447,7 +447,7 @@ namespace Nexus.Client.Updating
                     stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
                     stbAVMessage.AppendLine();
                     stbAVMessage.AppendFormat("You can download the update manually from:");
-                    stbAVMessage.AppendLine(NexusLinks.GithubReleases);
+                    stbAVMessage.AppendLine(NexusLinks.Releases);
                     try
                     {
                         //the extended message box contains an activex control wich must be run in an STA thread,
@@ -501,7 +501,7 @@ namespace Nexus.Client.Updating
                         stbAVMessage.AppendLine();
                         stbAVMessage.AppendFormat("To fix this issue you need to add {0}'s executable and all its folders to your", EnvironmentInfo.Settings.ModManagerName).AppendLine();
                         stbAVMessage.AppendLine("anti-virus exception list. You can also download the update manually from:");
-                        stbAVMessage.AppendLine(NexusLinks.GithubReleases);
+                        stbAVMessage.AppendLine(NexusLinks.Releases);
 
                         try
                         {
@@ -542,7 +542,7 @@ namespace Nexus.Client.Updating
                 stbPromptMessage.AppendLine();
                 stbPromptMessage.AppendLine();
                 stbPromptMessage.AppendLine("NOTE: You can find the release notes and past versions here:");
-                stbPromptMessage.AppendLine(NexusLinks.GithubReleases);
+                stbPromptMessage.AppendLine(NexusLinks.Releases);
 
                 try
                 {
