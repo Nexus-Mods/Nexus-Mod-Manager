@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -38,6 +38,8 @@ namespace Nexus.Client.Updating
 			public ExtendedWebClient(int p_intTimeout)
 			{
 				this.m_intDefaultTimeout = p_intTimeout;
+				this.Headers["User-Agent"] = string.Format("Nexus Client v{0}", ProgrammeMetadata.VersionString);
+		                this.Headers["Accept"] = "text/html,application/json,application/xml,application/xhtml+xml";
 			}
 
 			protected override WebRequest GetWebRequest(Uri uri)
@@ -370,10 +372,13 @@ namespace Nexus.Client.Updating
 			try
 			{
 				string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion);
+				strNewVersion = strNewVersion.TrimStart(new char[] { '\"' });
+				strNewVersion = strNewVersion.TrimEnd(new char[] { '\"' });
 				if (!String.IsNullOrEmpty(strNewVersion))
 				{
 					verNew = new Version(strNewVersion.Split('|')[0]);
 					p_strDownloadUri = strNewVersion.Split('|')[1];
+					p_strDownloadUri = p_strDownloadUri.Replace(@"\/", @"/");
 				}
 			}
 			catch (WebException)
@@ -381,10 +386,13 @@ namespace Nexus.Client.Updating
 				try
 				{
 					string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion4dot5);
+					strNewVersion = strNewVersion.TrimStart(new char[] { '\"' });
+			                strNewVersion = strNewVersion.TrimEnd(new char[] { '\"' });
 					if (!String.IsNullOrEmpty(strNewVersion))
 					{
 						verNew = new Version(strNewVersion.Split('|')[0]);
 						p_strDownloadUri = strNewVersion.Split('|')[1];
+						p_strDownloadUri = p_strDownloadUri.Replace(@"\/", @"/");
 					}
 				}
 				catch (WebException e)
