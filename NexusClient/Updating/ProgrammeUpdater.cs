@@ -223,9 +223,24 @@ namespace Nexus.Client.Updating
                     if (ghrjc != null && ghrjc.Count > 0)
                     {
                         GitHubReleaseJsonContract latest = ghrjc[0];
-                        this.LatestVersion = latest.tag_name;
-                        this.LatestVersionUrl = latest.assets_info[0].browser_download_url;
-                        ret = true;
+						if (latest != null)
+						{
+							if (!string.IsNullOrEmpty(latest.tag_name))
+							{
+								this.LatestVersion = latest.tag_name;
+							}
+							if (latest.assets_info != null)
+							{
+								if (latest.assets_info[0] != null)
+								{
+									if (!string.IsNullOrEmpty(latest.assets_info[0].browser_download_url))
+									{
+                                        this.LatestVersionUrl = latest.assets_info[0].browser_download_url);
+									}
+								}
+							}
+							ret = ( (this.LatestVersion != "") && (this.LatestVersionUrl != "") );
+                        }
                     }
                 }
                 catch (Exception e)
