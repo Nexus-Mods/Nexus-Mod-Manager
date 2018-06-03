@@ -235,7 +235,7 @@ namespace Nexus.Client.Updating
 								{
 									if (!string.IsNullOrEmpty(latest.assets_info[0].browser_download_url))
 									{
-                                        this.LatestVersionUrl = latest.assets_info[0].browser_download_url);
+                                        this.LatestVersionUrl = latest.assets_info[0].browser_download_url;
 									}
 								}
 							}
