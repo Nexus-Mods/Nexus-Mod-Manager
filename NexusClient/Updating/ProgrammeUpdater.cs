@@ -180,13 +180,13 @@ namespace Nexus.Client.Updating
                 {
                     if (!ParseReleaseInformation(data))
                     {
-                        NexusClientLogger.Error.WriteLine("failed to parse github release information");
+                        Console.Error.WriteLine("failed to parse github release information");
                         return false;
                     }
                 }
                 else
                 {
-                    NexusClientLogger.Error.WriteLine("failed to get github release information");
+                    Console.Error.WriteLine("failed to get github release information");
                     return false;
                 }
                 return true;
@@ -200,13 +200,13 @@ namespace Nexus.Client.Updating
                 {
                     try
                     {
-                        data = wclNewVersion.DownloadString(NexusLinks.LatestGitHubVersion);
+                        data = wclNewVersion.DownloadString(NexusLinks.LatestVersion);
                         ret = true;
                     }
                     catch (Exception e)
                     {
-                        NexusClientLogger.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
-                        NexusClientLogger.Error.WriteLine(e.ToString());
+                        Console.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
+                        Console.Error.WriteLine(e.ToString());
                         data = "";
                         ret = false;
                     }
@@ -230,8 +230,8 @@ namespace Nexus.Client.Updating
                 }
                 catch (Exception e)
                 {
-                    NexusClientLogger.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
-                    NexusClientLogger.Error.WriteLine(e.ToString());
+                    Console.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
+                    Console.Error.WriteLine(e.ToString());
                     data = "";
                     ret = false;
                 }
@@ -606,15 +606,15 @@ namespace Nexus.Client.Updating
                 {
                     verNew = new Version(release.LatestVersion);
                     p_strDownloadUri = release.LatestVersionUrl;
-                    NexusClientLogger.Debug.WriteLine("latest version = {0}", verNew.ToString());
-                    NexusClientLogger.Debug.WriteLine("latest version url = {0}", p_strDownloadUri);
+                    Console.Error.WriteLine("latest version = {0}", verNew.ToString());
+                    Console.Error.WriteLine("latest version url = {0}", p_strDownloadUri);
                 }
             }
             catch (Exception e)
             {
 
-                NexusClientLogger.Error.WriteLine("ProgrammeUpdater::GetNewProgrammeVersion:: error - {0}", e.Message);
-                NexusClientLogger.Error.WriteLine(e.ToString());
+                Console.Error.WriteLine("ProgrammeUpdater::GetNewProgrammeVersion:: error - {0}", e.Message);
+                Console.Error.WriteLine(e.ToString());
                 
             }
 

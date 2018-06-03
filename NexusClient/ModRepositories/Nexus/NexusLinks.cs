@@ -48,7 +48,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			get
 			{
-				return @"https://legacy-api.nexusmods.com/NMM?GetLatestVersion";
+				return @"https://api.github.com/repos/Nexus-Mods/Nexus-Mod-Manager/releases";
 			}
 		}
 
