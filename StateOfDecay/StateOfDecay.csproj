@@ -52,7 +52,7 @@
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Data" />
-    <Reference Include="System.XML" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\AssemblyInformationalVersion.cs">
@@ -77,7 +77,7 @@
     <Compile Include="SetupForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SetupForm.designer.cs">
+    <Compile Include="SetupForm.Designer.cs">
       <DependentUpon>SetupForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Tools\StateOfDecayToolLauncher.cs" />

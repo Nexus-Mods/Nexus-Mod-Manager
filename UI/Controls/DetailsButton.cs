@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -10,7 +12,14 @@ namespace Nexus.UI.Controls
 	/// </summary>
 	public class DetailsButton : Button
 	{
-		private Image[] m_imgImages = new Image[4];
+	        private enum ResourceIndex
+	        {
+	            open = 0,
+	            open_hot = 1,
+	            close = 2,
+	            close_hot = 3,
+	        }
+		private Dictionary<string, Image> m_imgImages = new Dictionary<string, Image>();
 		private string[] m_strText = new string[2];
 		private Int32 m_intTextIndex = 0;
 		private Int32 m_intTextImageSpacing = 3;
@@ -196,10 +205,10 @@ namespace Nexus.UI.Controls
 		/// </summary>
 		public DetailsButton()
 		{
-			m_imgImages[0] = Properties.Resources.open;
-			m_imgImages[1] = Properties.Resources.open_hot;
-			m_imgImages[2] = Properties.Resources.close;
-			m_imgImages[3] = Properties.Resources.close_hot;
+			m_imgImages.Add("open", Properties.Resources.open);
+			m_imgImages.Add("open_hot", Properties.Resources.open_hot);
+			m_imgImages.Add("close", Properties.Resources.close);
+			m_imgImages.Add("close_hot", Properties.Resources.close_hot);
 
 			ImageList iltImages = new ImageList();
 			iltImages.ColorDepth = ColorDepth.Depth32Bit;
@@ -233,10 +242,13 @@ namespace Nexus.UI.Controls
 		{
 			Int32 intImageIndex = ImageIndex;
 			ImageList.Images.Clear();
-			Image imgReference = PadImage(m_imgImages[0]);
+			Image imgReference = PadImage(0);
 			ImageList.ImageSize = new Size(imgReference.Width, imgReference.Height);
-			for (Int32 i = 0; i < m_imgImages.Length; i++)
-				ImageList.Images.Add(PadImage(m_imgImages[i]));
+			for (Int32 i = 0; i < m_imgImages.Count; i++) {
+				var img = PadImage(i);
+				ImageList.Images.Add(img);
+			}
+
 			ImageIndex = intImageIndex;
 		}
 
@@ -246,8 +258,12 @@ namespace Nexus.UI.Controls
 		/// <param name="p_imgImage">The image to pad.</param>
 		/// <returns>The given  image with the padding added to the appropriate side, based on
 		/// <see cref="TextImageRelation"/>.</returns>
-		private Bitmap PadImage(Image p_imgImage)
+		private Bitmap PadImage(int index)
 		{
+			Image p_imgImage = null;
+			ResourceIndex ri = (ResourceIndex)index;
+			string ri_name = ri.ToString();
+			p_imgImage = m_imgImages[ri_name];
 			Int32 intWidth = 0;
 			Int32 intHeight = 0;
 			Int32 intXOffset = 0;
@@ -286,8 +302,21 @@ namespace Nexus.UI.Controls
 					break;
 			}
 			Bitmap bmpPadded = new Bitmap(intWidth, intHeight, p_imgImage.PixelFormat);
-			using (Graphics g = Graphics.FromImage(bmpPadded))
-				g.DrawImageUnscaled(p_imgImage, intXOffset, intYOffset);
+			try
+			{
+				using (Graphics g = Graphics.FromImage(bmpPadded))
+					g.DrawImageUnscaled(p_imgImage, intXOffset, intYOffset);
+			}
+			catch (Exception ex)
+			{
+				Console.Error.WriteLine("PadImage::[index:{0}] [name:{1}]", index, ri_name);
+				Trace.TraceInformation(String.Format("PadImage::[index:{0}] [name:{1}]", index, ri_name));
+				Console.Error.WriteLine("PadImage::[PixelFormat:{0}]", p_imgImage.PixelFormat);
+				Trace.TraceInformation(String.Format("PadImage::[PixelFormat:{0}]", p_imgImage.PixelFormat));
+				Console.Error.WriteLine("PadImage::{0}", ex.Message);
+				Console.Error.WriteLine(ex.ToString());
+				Trace.TraceInformation(ex.ToString());
+			}
 			return bmpPadded;
 		}
 
