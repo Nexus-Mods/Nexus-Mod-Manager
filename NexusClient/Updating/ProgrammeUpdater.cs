@@ -219,28 +219,24 @@ namespace Nexus.Client.Updating
                 bool ret = false;
                 try
                 {
-                    List<GitHubReleaseJsonContract> ghrjc = JSONSerializer.Deserialize<List<GitHubReleaseJsonContract>>(data);
-                    if (ghrjc != null && ghrjc.Count > 0)
+                    GitHubReleaseJsonContract ghrjc = JSONSerializer.Deserialize<GitHubReleaseJsonContract>(data);
+                    if (ghrjc != null)
                     {
-                        GitHubReleaseJsonContract latest = ghrjc[0];
-						if (latest != null)
-						{
-							if (!string.IsNullOrEmpty(latest.tag_name))
-							{
-								this.LatestVersion = latest.tag_name;
-							}
-							if (latest.assets_info != null)
-							{
-								if (latest.assets_info[0] != null)
-								{
-									if (!string.IsNullOrEmpty(latest.assets_info[0].browser_download_url))
-									{
-                                        this.LatestVersionUrl = latest.assets_info[0].browser_download_url;
-									}
-								}
-							}
-							ret = ( (this.LatestVersion != "") && (this.LatestVersionUrl != "") );
-                        }
+                        if (!string.IsNullOrEmpty(ghrjc.tag_name))
+                            {
+                                this.LatestVersion = ghrjc.tag_name;
+                            }
+                            if (ghrjc.assets_info != null)
+                            {
+                                if (ghrjc.assets_info[0] != null)
+                                {
+                                    if (!string.IsNullOrEmpty(ghrjc.assets_info[0].browser_download_url))
+                                    {
+                                        this.LatestVersionUrl = ghrjc.assets_info[0].browser_download_url;
+                                    }
+                                }
+                            }
+                            ret = ( (this.LatestVersion != "") && (this.LatestVersionUrl != "") );
                     }
                 }
                 catch (Exception e)
