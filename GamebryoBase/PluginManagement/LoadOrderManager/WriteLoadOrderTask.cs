@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -7,7 +8,6 @@ using System.Text;
 using System.Threading;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
-
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 {
@@ -84,19 +84,28 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			KeyValuePair<string, string> kvpMD5 = new KeyValuePair<string, string>(null, null);
 
 			if (TimestampLoadOrder)
+			{
 				SetTimestampLoadOrder(Plugins);
+			}
 			else
 			{
-				if (WriteLoadOrderFile(FilePath, Plugins))
+				try
 				{
-					using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+					if (WriteLoadOrderFile(FilePath, Plugins))
 					{
-						SHA256CryptoServiceProvider sha = new SHA256CryptoServiceProvider();
-						byte[] hash = sha.ComputeHash(fs);
-						string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
+						using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+						{
+							SHA256CryptoServiceProvider sha = new SHA256CryptoServiceProvider();
+							byte[] hash = sha.ComputeHash(fs);
+							string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
 
-						kvpMD5 = new KeyValuePair<string, string>(Path.GetFileName(FilePath), strSHA);
+							kvpMD5 = new KeyValuePair<string, string>(Path.GetFileName(FilePath), strSHA);
+						}
 					}
+				}
+				catch (UnauthorizedAccessException)
+				{
+					Trace.TraceError("Could not write load order to file \"{0}\".", FilePath);
 				}
 			}
 
@@ -145,11 +154,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			bool booWritten = false;
 			bool booLocked = false;
 
+			Trace.TraceInformation("Preparing to write load order to file \"{0}\".", p_strFilePath);
+
 			while (!IsFileReady(p_strFilePath, ForcedReadOnly))
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ > 20)
 				{
+					Trace.TraceWarning("Could not get access to \"{0}\".", p_strFilePath);
 					booLocked = true;
 					break;
 				}
@@ -157,6 +169,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			if (!booLocked)
 			{
+				Trace.TraceInformation("Got access to \"{0}\".", p_strFilePath);
 				int intRetries = 0;
 
 				while (intRetries++ < 100)
@@ -170,30 +183,31 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 							while (IsFileReadOnly(p_strFilePath) && (intRetries < 10))
 							{
 
-								SetFileReadAccess(p_strFilePath, false);
+								SetFileReadOnlyAccess(p_strFilePath, false);
 								intReadOnly++;
 								Thread.Sleep(100);
 							}
 
 							if (IsFileReadOnly(p_strFilePath) && (intRetries >= 10))
+							{
 								throw new Exception(string.Format("Unable to remove read-only flag from the {0} file.", p_strFilePath));
+							}
 
 							StringBuilder sbPlugins = new StringBuilder();
 
 							foreach (string plugin in p_strPlugins)
+							{
 								sbPlugins.AppendLine(plugin);
-
-							//txFileManager.WriteAllText(p_strFilePath, sbPlugins.ToString());
+							}
 
 							using (StreamWriter swFile = new StreamWriter(p_strFilePath))
 							{
 								swFile.Write(sbPlugins.ToString());
-								//foreach (string plugin in p_strPlugins)
-								//	swFile.WriteLine(plugin);
 							}
 
 							booWritten = true;
 						}
+
 						break;
 					}
 					catch (IOException e)
@@ -207,19 +221,24 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								StringBuilder sbPlugins = new StringBuilder();
 
 								foreach (string plugin in p_strPlugins)
+								{
 									sbPlugins.AppendLine(plugin);
+								}
 
 								using (StreamWriter swFile = new StreamWriter(p_strFilePath + ".failed"))
 								{
 									swFile.Write(sbPlugins.ToString());
 								}
+
 								throw e;
 							}
 
 							Thread.Sleep(100);
 						}
 						else
+						{
 							throw e;
+						}
 					}
 					catch (UnauthorizedAccessException e)
 					{
@@ -228,12 +247,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 							StringBuilder sbPlugins = new StringBuilder();
 
 							foreach (string plugin in p_strPlugins)
+							{
 								sbPlugins.AppendLine(plugin);
+							}
 
 							using (StreamWriter swFile = new StreamWriter(p_strFilePath + ".failed"))
 							{
 								swFile.Write(sbPlugins.ToString());
 							}
+
 							throw e;
 						}
 
@@ -242,7 +264,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					finally
 					{
 						if (ForcedReadOnly)
-							SetFileReadAccess(p_strFilePath, true);
+						{
+							SetFileReadOnlyAccess(p_strFilePath, true);
+						}
 					}
 				}
 			}
@@ -264,7 +288,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 			catch (Exception)
 			{
-				SetFileReadAccess(p_strFilePath, false);
+				SetFileReadOnlyAccess(p_strFilePath, false);
 
 				return false;
 			}
@@ -285,7 +309,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <summary>
 		/// Sets the read-only value of a file.
 		/// </summary>
-		private static void SetFileReadAccess(string p_strFileName, bool p_booSetReadOnly)
+		private static void SetFileReadOnlyAccess(string p_strFileName, bool p_booSetReadOnly)
 		{
 			try
 			{
@@ -295,8 +319,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				// Set the IsReadOnly property.
 				fInfo.IsReadOnly = p_booSetReadOnly;
 			}
-			catch { }
+			catch (Exception e)
+			{
+				Trace.TraceError("Could not set file read access of {0} to {1}: {2} - {3}", p_strFileName, p_booSetReadOnly, e.GetType(), e.Message);
+			}
 		}
 	}
 }
-

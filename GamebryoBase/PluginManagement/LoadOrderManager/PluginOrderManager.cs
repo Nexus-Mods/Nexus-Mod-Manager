@@ -285,33 +285,43 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Fallout4PluginManagement = false;
 					break;
 				case "Fallout4":
-					if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
+					try
 					{
-						TimestampOrder = false;
-						SingleFileManagement = true;
-						if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
+						if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
 						{
+							TimestampOrder = false;
+							SingleFileManagement = true;
+							if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
+							{
+								Fallout4PluginManagement = true;
+								ForcedReadOnly = false;
+							}
+							else
+							{
+								ForcedReadOnly = true;
+							}
+						}
+						else if (GameMode.GameVersion < new Version(1, 0, 0, 0))
+						{
+							TimestampOrder = false;
+							SingleFileManagement = true;
 							Fallout4PluginManagement = true;
 							ForcedReadOnly = false;
 						}
 						else
+						{
+							TimestampOrder = false;
 							ForcedReadOnly = true;
-					}
-                    else if (GameMode.GameVersion < new Version(1, 0, 0, 0))
-                    {
-                        TimestampOrder = false;
-                        SingleFileManagement = true;
-                        Fallout4PluginManagement = true;
-                        ForcedReadOnly = false;
+							SingleFileManagement = false;
+							Fallout4PluginManagement = false;
+						}
+						IgnoreOfficialPlugins = true;
                     }
-                    else
-					{
-						TimestampOrder = false;
-						ForcedReadOnly = true;
-						SingleFileManagement = false;
-						Fallout4PluginManagement = false;
-					}
-					IgnoreOfficialPlugins = true;
+                    catch (ArgumentNullException)
+                    {
+                        // No idea what to do with this, guess we'll rethrow it for now.
+                        throw;
+                    }
 					break;
                 case "Fallout4VR":
                     TimestampOrder = false;

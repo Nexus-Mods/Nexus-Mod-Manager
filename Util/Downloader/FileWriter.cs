@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
-using System.Text;
 using System.Threading;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Util.Threading;
@@ -144,72 +144,83 @@ namespace Nexus.Client.Util.Downloader
 		protected void WaitForData()
 		{
 			int intRetries = 0;
-			string strFolder = Path.GetDirectoryName(m_strFilePath);
-			if (!Directory.Exists(strFolder))
-				Directory.CreateDirectory(strFolder);
 
-			using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
-			using (FileStream fsmMetaFile = File.OpenWrite(m_strFileMetadataPath))
-			using (StreamWriter fsmMetaWriter = new StreamWriter(fsmMetaFile))
-			{
-				while (true)
-				{
-					while (m_sltBlocksToWrite.Count > 0)
-					{
-						try
-						{
-							FileBlock fblData = null;
-							lock (m_sltBlocksToWrite)
-							{
-								fblData = m_sltBlocksToWrite[0];
-								m_sltBlocksToWrite.RemoveAt(0);
-							}
-							if (fblData.StartPosition > (Int64)fsmFile.Length)
-								fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
-							fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
-							fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
+            string strFolder = Path.GetDirectoryName(m_strFilePath);
+            if (!Directory.Exists(strFolder))
+            {
+                Directory.CreateDirectory(strFolder);
+            }
 
-							m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
+            try
+            {
+                using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
+                using (FileStream fsmMetaFile = File.OpenWrite(m_strFileMetadataPath))
+                using (StreamWriter fsmMetaWriter = new StreamWriter(fsmMetaFile))
+                {
+                    while (true)
+                    {
+                        while (m_sltBlocksToWrite.Count > 0)
+                        {
+                            try
+                            {
+                                FileBlock fblData = null;
+                                lock (m_sltBlocksToWrite)
+                                {
+                                    fblData = m_sltBlocksToWrite[0];
+                                    m_sltBlocksToWrite.RemoveAt(0);
+                                }
+                                if (fblData.StartPosition > (Int64)fsmFile.Length)
+                                    fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
+                                fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
+                                fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
 
-							fsmMetaFile.SetLength(0);
-							foreach (Range rngWritten in m_rgsWrittenRanges)
-								fsmMetaWriter.WriteLine(rngWritten.ToString());
-							fsmMetaWriter.Flush();
+                                m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
 
-							intRetries = 0;
-						}
-						catch (IOException ex)
-						{
-							//See stackoverflow answer for determining if file is in use: https://stackoverflow.com/a/937558/1634249
-							var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
+                                fsmMetaFile.SetLength(0);
+                                foreach (Range rngWritten in m_rgsWrittenRanges)
+                                    fsmMetaWriter.WriteLine(rngWritten.ToString());
+                                fsmMetaWriter.Flush();
 
-							if (errorCode == 32 || errorCode == 33)
-							{
-								//Wait for file to be unlocked, hopefully soon
-								//XXX what else could be done?
-								if (intRetries > 600)
-								{
-									UnableToWrite(this, new EventArgs());
-									return;
-								}
-								else
-									intRetries++;
+                                intRetries = 0;
+                            }
+                            catch (IOException ex)
+                            {
+                                //See stackoverflow answer for determining if file is in use: https://stackoverflow.com/a/937558/1634249
+                                var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
 
-								Thread.Sleep(100);
-							}
-							else
-							{
-								//Unknown exception, standard error handling (crash)
-								throw ex;
-							}
-						}
-					}
-					if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
-						return;
-					m_ewhProcessQueue.Reset();
-					m_ewhProcessQueue.WaitOne();
-				}
-			}
+                                if (errorCode == 32 || errorCode == 33)
+                                {
+                                    //Wait for file to be unlocked, hopefully soon
+                                    //XXX what else could be done?
+                                    if (intRetries > 600)
+                                    {
+                                        UnableToWrite(this, new EventArgs());
+                                        return;
+                                    }
+                                    else
+                                        intRetries++;
+
+                                    Thread.Sleep(100);
+                                }
+                                else
+                                {
+                                    //Unknown exception, standard error handling (crash)
+                                    throw ex;
+                                }
+                            }
+                        }
+                        if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
+                            return;
+                        m_ewhProcessQueue.Reset();
+                        m_ewhProcessQueue.WaitOne();
+                    }
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Not much we can do.
+                Trace.TraceError("Unable to write to file \"{0}\", it's already opened.", m_strFilePath);
+            }
 		}
 
 		#endregion

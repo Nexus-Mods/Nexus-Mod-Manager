@@ -299,10 +299,14 @@ namespace Nexus.Client.DownloadManagement
 
 			while ((retries <= m_intRetries) || (Status != TaskStatus.Paused) || (Status != TaskStatus.Queued))
 			{
-				if ((Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
-					break;
-				else if (Status == TaskStatus.Retrying)
-					Status = TaskStatus.Running;
+                if ((Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
+                {
+                    break;
+                }
+                else if (Status == TaskStatus.Retrying)
+                {
+                    Status = TaskStatus.Running;
+                }
 
 				m_fdrDownloader = new FileDownloader(uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
 				m_steState = new State(true, uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
@@ -313,10 +317,14 @@ namespace Nexus.Client.DownloadManagement
 				OverallProgressStepSize = 1;
 				OverallProgress = (Int64)m_fdrDownloader.DownloadedByteCount;
 
-				if (Status == TaskStatus.Cancelling)
-					retries = m_intRetries;
-				else if (Status == TaskStatus.Paused)
-					break;
+                if (Status == TaskStatus.Cancelling)
+                {
+                    retries = m_intRetries;
+                }
+                else if (Status == TaskStatus.Paused)
+                {
+                    break;
+                }
 
 				if (!m_fdrDownloader.FileExists)
 				{
@@ -339,9 +347,12 @@ namespace Nexus.Client.DownloadManagement
 
 						while ((swRetry.ElapsedMilliseconds < m_intRetryInterval) && swRetry.IsRunning)
 						{
-							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
-								break;
+                            if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
+                            {
+                                break;
+                            }
 						}
+
 						swRetry.Stop();
 						swRetry.Reset();
 					}
@@ -368,9 +379,12 @@ namespace Nexus.Client.DownloadManagement
 
 						while ((swRetry.ElapsedMilliseconds < m_intRetryInterval) && swRetry.IsRunning)
 						{
-							if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
-								break;
+                            if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
+                            {
+                                break;
+                            }
 						}
+
 						swRetry.Stop();
 						swRetry.Reset();
 					}
@@ -387,13 +401,15 @@ namespace Nexus.Client.DownloadManagement
 				}
 			}
 
-			if (ModRepository.IsOffline)
-				this.Pause();
-			else if (Status == TaskStatus.Running)
-			{
-				m_fdrDownloader.StartDownload();
-				m_tmrUpdater.Start();
-			}
+            if (ModRepository.IsOffline)
+            {
+                this.Pause();
+            }
+            else if (Status == TaskStatus.Running)
+            {
+                m_fdrDownloader.StartDownload();
+                m_tmrUpdater.Start();
+            }
 		}
 
 		/// <summary>
@@ -407,31 +423,50 @@ namespace Nexus.Client.DownloadManagement
 		private void Downloader_DownloadComplete(object sender, CompletedDownloadEventArgs e)
 		{
 			m_tmrUpdater.Stop();
-			if (m_areWaitForDownload != null)
-				m_areWaitForDownload.Set();
-			if (Status == TaskStatus.Paused)
-				OnTaskEnded(String.Format("Paused: {0}", ((FileDownloader)sender).URL), ((FileDownloader)sender).TempFiles);
-			else if (!e.GotEntireFile)
-			{
-				if (Status == TaskStatus.Cancelling)
-				{
-					m_fdrDownloader.Cleanup();
-					Status = TaskStatus.Cancelled;
-				}
-				else
-					Status = TaskStatus.Incomplete;
-				ErrorCode = ((FileDownloader)sender).ErrorCode;
-				ErrorInfo = ((FileDownloader)sender).ErrorInfo;
-				if (ErrorCode == "666")
-					OnTaskEnded(String.Format("{1}: {0} , ", ((FileDownloader)sender).URL, ErrorInfo), ((FileDownloader)sender).URL);
-				else
-					OnTaskEnded(String.Format("Error: {0} , unable to finish the download.", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
-			}
-			else
-			{
-				Status = TaskStatus.Complete;
-				OnTaskEnded(new DownloadedFileInfo(((FileDownloader)sender).URL, e.SavedFileName));
-			}
+
+            if (m_areWaitForDownload != null)
+            {
+                m_areWaitForDownload.Set();
+            }
+
+            if (Status == TaskStatus.Paused)
+            {
+                OnTaskEnded(String.Format("Paused: {0}", ((FileDownloader)sender).URL), ((FileDownloader)sender).TempFiles);
+            }
+            else if (!e.GotEntireFile)
+            {
+                if (Status == TaskStatus.Cancelling)
+                {
+                    m_fdrDownloader.Cleanup();
+                    Status = TaskStatus.Cancelled;
+                }
+                else
+                {
+                    Status = TaskStatus.Incomplete;
+                }
+
+                ErrorCode = ((FileDownloader)sender).ErrorCode;
+                ErrorInfo = ((FileDownloader)sender).ErrorInfo;
+
+                if (ErrorCode == "666")
+                {
+                    OnTaskEnded(String.Format("{1}: {0} , ", ((FileDownloader)sender).URL, ErrorInfo), ((FileDownloader)sender).URL);
+                }
+                else if (!string.IsNullOrEmpty(e.FailureMessage))
+                {
+                    Status = TaskStatus.Error;
+                    OnTaskEnded(e.FailureMessage, ((FileDownloader)sender).URL);
+                }
+                else
+                {
+                    OnTaskEnded(String.Format("Error: {0} , unable to finish the download.", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
+                }
+            }
+            else
+            {
+                Status = TaskStatus.Complete;
+                OnTaskEnded(new DownloadedFileInfo(((FileDownloader)sender).URL, e.SavedFileName));
+            }
 		}
 
 		#region Task Control
@@ -449,8 +484,12 @@ namespace Nexus.Client.DownloadManagement
 			else
 			{
 				Status = TaskStatus.Cancelled;
-				if (m_fdrDownloader != null)
-					m_fdrDownloader.Cleanup();
+
+                if (m_fdrDownloader != null)
+                {
+                    m_fdrDownloader.Cleanup();
+                }
+
 				OnTaskEnded("Download cancelled.", (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri(NexusLinks.NexusURI)));
 			}
 		}
@@ -462,12 +501,15 @@ namespace Nexus.Client.DownloadManagement
 		public override void Pause()
 		{
 			Status = TaskStatus.Paused;
-			if (m_fdrDownloader != null)
-				m_fdrDownloader.Stop();
-			else
-			{
-				base.Cancel();
-			}
+
+            if (m_fdrDownloader != null)
+            {
+                m_fdrDownloader.Stop();
+            }
+            else
+            {
+                base.Cancel();
+            }
 		}
 
 		/// <summary>
@@ -477,12 +519,15 @@ namespace Nexus.Client.DownloadManagement
 		public override void Queue()
 		{
 			Status = TaskStatus.Queued;
-			if (m_fdrDownloader != null)
-				m_fdrDownloader.Stop();
-			else
-			{
-				base.Cancel();
-			}
+
+            if (m_fdrDownloader != null)
+            {
+                m_fdrDownloader.Stop();
+            }
+            else
+            {
+                base.Cancel();
+            }
 		}
 
 		/// <summary>
@@ -491,12 +536,18 @@ namespace Nexus.Client.DownloadManagement
 		/// <exception cref="InvalidOperationException">Thrown if the task is not paused.</exception>
 		public override void Resume()
 		{
-			if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued))
-				throw new InvalidOperationException("Task is not paused.");
-			if (m_steState.IsAsync)
-				DownloadAsync(m_steState.URL, m_steState.Cookies, m_steState.SavePath, m_steState.UseDefaultFileName);
-			else
-				Download(m_steState.URL, m_steState.Cookies, m_steState.SavePath, m_steState.UseDefaultFileName);
+            if ((Status != TaskStatus.Paused) && (Status != TaskStatus.Incomplete) && (Status != TaskStatus.Queued))
+            {
+                throw new InvalidOperationException("Task is not paused.");
+            }
+            if (m_steState.IsAsync)
+            {
+                DownloadAsync(m_steState.URL, m_steState.Cookies, m_steState.SavePath, m_steState.UseDefaultFileName);
+            }
+            else
+            {
+                Download(m_steState.URL, m_steState.Cookies, m_steState.SavePath, m_steState.UseDefaultFileName);
+            }
 		}
 
 		#endregion
