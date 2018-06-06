@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -180,13 +179,13 @@ namespace Nexus.Client.Updating
                 {
                     if (!ParseReleaseInformation(data))
                     {
-                        Console.Error.WriteLine("failed to parse github release information");
+                        Trace.TraceError("failed to parse github release information");
                         return false;
                     }
                 }
                 else
                 {
-                    Console.Error.WriteLine("failed to get github release information");
+                    Trace.TraceError("failed to get github release information");
                     return false;
                 }
                 return true;
@@ -205,8 +204,8 @@ namespace Nexus.Client.Updating
                     }
                     catch (Exception e)
                     {
-                        Console.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
-                        Console.Error.WriteLine(e.ToString());
+                        Trace.TraceError("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
+                        Trace.TraceError(e.ToString());
                         data = "";
                         ret = false;
                     }
@@ -615,18 +614,16 @@ namespace Nexus.Client.Updating
 
                 if (release.GetLatestVersion())
                 {
-                    verNew = new Version(release.LatestVersion);
+                    verNew = new Version(release.LatestVersion.Replace("f", ""));
                     p_strDownloadUri = release.LatestVersionUrl;
-                    Console.Error.WriteLine("latest version = {0}", verNew.ToString());
-                    Console.Error.WriteLine("latest version url = {0}", p_strDownloadUri);
+                    Trace.TraceInformation("latest version = {0}", verNew.ToString());
+                    Trace.TraceInformation("latest version url = {0}", p_strDownloadUri);
                 }
             }
             catch (Exception e)
             {
-
-                Console.Error.WriteLine("ProgrammeUpdater::GetNewProgrammeVersion:: error - {0}", e.Message);
-                Console.Error.WriteLine(e.ToString());
-                
+                Trace.TraceError("ProgrammeUpdater::GetNewProgrammeVersion:: error - {0}", e.Message);
+                Trace.TraceError(e.ToString());                
             }
 
             return verNew;
