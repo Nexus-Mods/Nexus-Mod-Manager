@@ -163,18 +163,30 @@ namespace Nexus.Client.Updating
             public string browser_download_url { get; set; }
         }
         #endregion
+
         #region  GithubReleaseParser
+
         private class GithubReleaseParser
         {
-            public GithubReleaseParser()
-            {
-                this.LatestVersion = "";
-                this.LatestVersionUrl = "";             
-            }
+            /// <summary>
+            /// Latest version.
+            /// </summary>
+            public string LatestVersion { get; private set; }
+
+            /// <summary>
+            /// URL for the latest version.
+            /// </summary>
+            public string LatestVersionUrl { get; private set; }
+
+            /// <summary>
+            /// Release notes for the latest version.
+            /// </summary>
+            public string LatestVersionReleaseNotes { get; private set; }
 
             public bool GetLatestVersion()
             {
-                string data = "";
+                var data = string.Empty;
+
                 if (GetReleaseInformation(out data))
                 {
                     if (!ParseReleaseInformation(data))
@@ -188,13 +200,15 @@ namespace Nexus.Client.Updating
                     Trace.TraceError("failed to get github release information");
                     return false;
                 }
+
                 return true;
             }
 
             private bool GetReleaseInformation(out string data)
             {
-                data = "";
-                bool ret = false;
+                data = string.Empty;
+                var ret = false;
+
                 using (ExtendedWebClient wclNewVersion = new ExtendedWebClient(15000))
                 {
                     try
@@ -215,27 +229,33 @@ namespace Nexus.Client.Updating
             }
             private bool ParseReleaseInformation(string data)
             {
-                bool ret = false;
+                var ret = false;
+
                 try
                 {
                     GitHubReleaseJsonContract ghrjc = JSONSerializer.Deserialize<GitHubReleaseJsonContract>(data);
                     if (ghrjc != null)
                     {
                         if (!string.IsNullOrEmpty(ghrjc.tag_name))
+                        {
+                            LatestVersion = ghrjc.tag_name;
+                        }
+                        if (ghrjc.assets_info != null)
+                        {
+                            if (ghrjc.assets_info[0] != null)
                             {
-                                this.LatestVersion = ghrjc.tag_name;
-                            }
-                            if (ghrjc.assets_info != null)
-                            {
-                                if (ghrjc.assets_info[0] != null)
+                                if (!string.IsNullOrEmpty(ghrjc.assets_info[0].browser_download_url))
                                 {
-                                    if (!string.IsNullOrEmpty(ghrjc.assets_info[0].browser_download_url))
-                                    {
-                                        this.LatestVersionUrl = ghrjc.assets_info[0].browser_download_url;
-                                    }
+                                    this.LatestVersionUrl = ghrjc.assets_info[0].browser_download_url;
                                 }
                             }
-                            ret = ( (this.LatestVersion != "") && (this.LatestVersionUrl != "") );
+                        }
+                        if (ghrjc.body != null)
+                        {
+                            LatestVersionReleaseNotes = ghrjc.body;
+                        }
+
+                        ret = ( (this.LatestVersion != "") && (this.LatestVersionUrl != "") );
                     }
                 }
                 catch (Exception e)
@@ -248,13 +268,12 @@ namespace Nexus.Client.Updating
 
                 return ret;
             }
-
-            public string LatestVersion { get; private set; }
-            public string LatestVersionUrl { get; private set; }
+            
         }        
-#endregion
         
-#region ExtendedWebClient
+        #endregion
+        
+        #region ExtendedWebClient
         private class ExtendedWebClient : WebClient
         {
             private int m_intDefaultTimeout = 30000;
@@ -293,7 +312,7 @@ namespace Nexus.Client.Updating
         protected const string m_strURI = "https://staticdelivery.nexusmods.com/NMM/releasenotes.html";
         private bool m_booIsAutoCheck = false;
         
-#region Properties
+        #region Properties
 
         /// <summary>
         /// Gets the updater's name.
@@ -311,7 +330,7 @@ namespace Nexus.Client.Updating
 
 #endregion
 
-#region Constructors
+        #region Constructors
 
         /// <summary>
         /// A simple constructor that initializes the object with the given values.
@@ -338,9 +357,11 @@ namespace Nexus.Client.Updating
             Trace.TraceInformation("Checking for new client version...");
             Trace.Indent();
             SetProgressMaximum(2);
-            SetMessage(String.Format("Checking for new {0} version...", EnvironmentInfo.Settings.ModManagerName));
-            string strDownloadUri = String.Empty;
-            Version verNew = GetNewProgrammeVersion(out strDownloadUri);
+            SetMessage(string.Format("Checking for new {0} version...", EnvironmentInfo.Settings.ModManagerName));
+
+            string strDownloadUri = string.Empty;
+            string githubReleaseNotes = string.Empty;
+            Version verNew = GetNewProgrammeVersion(out strDownloadUri, out githubReleaseNotes);
             SetProgress(1);
 
             if (CancelRequested)
@@ -355,10 +376,15 @@ namespace Nexus.Client.Updating
                 return false;
             }
 
+            if (string.IsNullOrEmpty(githubReleaseNotes))
+            {
+                githubReleaseNotes = "Could not find release information.";
+            }
+
+            var strReleaseNotes = string.Format("<html><body><h1>Release notes {0}</h1><p>{1}</p></body></html>", verNew, githubReleaseNotes.Replace("\r\n", "<br />"));
+
             StringBuilder stbPromptMessage = new StringBuilder();
             DialogResult drResult = DialogResult.No;
-
-            string strReleaseNotes = String.Empty;
 
             if ((verNew > new Version(ProgrammeMetadata.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
             {
@@ -368,38 +394,7 @@ namespace Nexus.Client.Updating
                 stbPromptMessage.AppendLine();
                 stbPromptMessage.AppendLine();
                 stbPromptMessage.AppendLine("Below you can find the change log for the new release:");
-
-                try
-                {
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(m_strURI);
-                    HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        Stream receiveStream = response.GetResponseStream();
-                        StreamReader readStream = null;
-
-                        if (response.CharacterSet == null)
-                        {
-                            readStream = new StreamReader(receiveStream);
-                        }
-                        else
-                        {
-                            readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
-                        }
-
-                        strReleaseNotes = readStream.ReadToEnd();
-
-                        response.Close();
-                        readStream.Close();
-                    }
-
-                }
-                catch
-                {
-                    strReleaseNotes = "Unable to retrieve the Release Notes.";
-                }
-
+                
                 try
                 {
                     //the extended message box contains an activex control wich must be run in an STA thread,
@@ -529,11 +524,8 @@ namespace Nexus.Client.Updating
                                 thdMessage.Start();
                                 thdMessage.Join();
                             }
-
                         }
-                        catch
-                        {
-                        }
+                        catch {}
 
                         Trace.Unindent();
                         return CancelUpdate();
@@ -603,11 +595,14 @@ namespace Nexus.Client.Updating
         /// </summary>
         /// <returns>The newest available programme version,
         /// or 69.69.69.69 if now information could be retrieved.</returns>
-        private Version GetNewProgrammeVersion(out string p_strDownloadUri)
+        private Version GetNewProgrammeVersion(out string p_strDownloadUri, out string p_strReleaseNotes)
         {
-            ExtendedWebClient wclNewVersion = new ExtendedWebClient(15000);
-            Version verNew = new Version("69.69.69.69");
-            p_strDownloadUri = String.Empty;
+            var wclNewVersion = new ExtendedWebClient(15000);
+            var verNew = new Version("69.69.69.69");
+
+            p_strDownloadUri = string.Empty;
+            p_strReleaseNotes = string.Empty;
+
             try
             {
                 GithubReleaseParser release = new GithubReleaseParser();
@@ -616,6 +611,7 @@ namespace Nexus.Client.Updating
                 {
                     verNew = new Version(release.LatestVersion.Replace("f", ""));
                     p_strDownloadUri = release.LatestVersionUrl;
+                    p_strReleaseNotes = release.LatestVersionReleaseNotes;
                     Trace.TraceInformation("latest version = {0}", verNew.ToString());
                     Trace.TraceInformation("latest version url = {0}", p_strDownloadUri);
                 }
