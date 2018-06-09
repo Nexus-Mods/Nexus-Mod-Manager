@@ -77,7 +77,7 @@
     <Compile Include="SetupForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SetupForm.designer.cs">
+    <Compile Include="SetupForm.Designer.cs">
       <DependentUpon>SetupForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Tools\XRebirthToolLauncher.cs" />

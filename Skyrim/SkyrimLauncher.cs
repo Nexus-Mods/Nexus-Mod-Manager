@@ -36,26 +36,36 @@ namespace Nexus.Client.Games.Skyrim
 
 			ClearLaunchCommands();
 
+			Image imgIcon = null;
+
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			if (File.Exists(strCommand))
+			{
+				var icon = string.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(strCommand);
+				imgIcon = icon == null ? null : icon.ToBitmap();
+			}
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Skyrim", "Launches plain Skyrim.", imgIcon, LaunchSkyrimPlain, true));
-		
+
 			strCommand = GetSkseLaunchCommand();
 			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
-				AddLaunchCommand(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim with SKSE.", imgIcon, LaunchSkyrimSKSE, true));
+				var icon = string.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(strCommand);
+				imgIcon = icon == null ? null : icon.ToBitmap();
 			}
-			
+			AddLaunchCommand(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim with SKSE.", imgIcon, LaunchSkyrimSKSE, true));
+
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			if (File.Exists(strCommand))
+			{
+				var icon = string.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(strCommand);
+				imgIcon = icon == null ? null : icon.ToBitmap();
+			}
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Skyrim", "Launches Skyrim with custom command.", imgIcon, LaunchSkyrimCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Skyrim", "Launches Skyrim.", LaunchGame);
-
 			Trace.Unindent();
 		}
 
