@@ -70,9 +70,13 @@ namespace Nexus.Client
 
 				UpgradeSettings(Properties.Settings.Default);
 				EnvironmentInfo = new EnvironmentInfo(Properties.Settings.Default);
-				if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
-					Directory.CreateDirectory(EnvironmentInfo.ApplicationPersonalDataFolderPath);
-				EnableTracing(EnvironmentInfo, booTrace);
+
+                if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
+                {
+                    Directory.CreateDirectory(EnvironmentInfo.ApplicationPersonalDataFolderPath);
+                }
+
+                EnableTracing(EnvironmentInfo, booTrace);
 
 #if !DEBUG
 				try
@@ -196,10 +200,16 @@ namespace Nexus.Client
 			Trace.AutoFlush = true;
 			string strTraceFile = "TraceLog" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt";
 			TextWriterTraceListener ttlTraceFile = null;
-			if (p_booForceTrace)
-				ttlTraceFile = new HeaderlessTextWriterTraceListener(Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
-			else
-				ttlTraceFile = new HeaderlessTextWriterTraceListener(new MemoryStream(), Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
+
+            if (p_booForceTrace)
+            {
+                ttlTraceFile = new HeaderlessTextWriterTraceListener(Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
+            }
+            else
+            {
+                ttlTraceFile = new HeaderlessTextWriterTraceListener(new MemoryStream(), Path.Combine(String.IsNullOrEmpty(p_eifEnvironmentInfo.Settings.TraceLogFolder) ? p_eifEnvironmentInfo.ApplicationPersonalDataFolderPath : p_eifEnvironmentInfo.Settings.TraceLogFolder, strTraceFile));
+            }
+
 			ttlTraceFile.Name = "DefaultListener";
 			Trace.Listeners.Add(ttlTraceFile);
 			Trace.TraceInformation("Trace file has been created: " + strTraceFile);
@@ -219,11 +229,15 @@ namespace Nexus.Client
 
 			using (RegistryKey ndpKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32).OpenSubKey("SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full\\"))
 			{
-				int releaseKey = Convert.ToInt32(ndpKey.GetValue("Release"));
-				if (true)
-				{
-					stbStatus.AppendFormat("\tv4.5: {0}", CheckFor45DotVersion(releaseKey)).AppendLine();
-				}
+                if (ndpKey != null)
+                {
+                    int releaseKey = Convert.ToInt32(ndpKey.GetValue("Release"));
+                    stbStatus.AppendFormat("\tv4.5: {0}", CheckFor45DotVersion(releaseKey)).AppendLine();
+                }
+				else
+                {
+                    stbStatus.AppendLine("\tv4.5: Not found.");
+                }
 			}
 
 			stbStatus.AppendFormat("Tracing is forced: {0}", p_booForceTrace).AppendLine();
