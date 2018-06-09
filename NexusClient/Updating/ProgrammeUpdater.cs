@@ -442,7 +442,7 @@ namespace Nexus.Client.Updating
                 string strNewInstaller = string.Empty;
                 try
                 {
-                    strNewInstaller = DownloadFile(new Uri(String.Format(strDownloadUri)));
+                    strNewInstaller = GitHubDownload(strDownloadUri);
                 }
                 catch (FileNotFoundException)
                 {
@@ -451,7 +451,7 @@ namespace Nexus.Client.Updating
                     stbAVMessage.AppendLine("this could be caused by a network issue or by your Firewall.");
                     stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
                     stbAVMessage.AppendLine();
-                    stbAVMessage.AppendFormat("You can download the update manually from:");
+                    stbAVMessage.AppendFormat("You can download the update manually from: ");
                     stbAVMessage.AppendLine(NexusLinks.Releases);
                     try
                     {
@@ -589,6 +589,53 @@ namespace Nexus.Client.Updating
             SetProgress(2);
             return true;
         }
+
+        #region GitHub
+
+        // Couldn't use the existing downloading solution, GitHub doesn't accept the request and returns a 403.
+        private string GitHubDownload(string url)
+        {
+            try
+            {
+                var temporaryInstallerFile = Path.Combine(EnvironmentInfo.TemporaryPath, Path.GetFileName(url));
+
+                using (var wc = new WebClient())
+                {
+                    SetProgress(0);
+                    SetProgressMaximum(100);
+
+                    wc.DownloadProgressChanged += GitHubDownload_ProgressChanged;
+
+                    var task = wc.DownloadFileTaskAsync(url, temporaryInstallerFile);
+
+                    while (!task.IsCompleted)
+                    {
+                        if (CancelRequested)
+                        {
+                            wc.CancelAsync();
+                        }
+
+                        Thread.Sleep(100);
+                    }
+
+                    wc.DownloadProgressChanged -= GitHubDownload_ProgressChanged;
+                }
+
+                return temporaryInstallerFile;
+            }
+            catch (Exception e)
+            {
+                Trace.TraceError("Could not download installer \"{0}\" - {1}: {2}", url, e.GetType(), e.Message);
+                return string.Empty;
+            }
+        }
+
+        private void GitHubDownload_ProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+        {
+            SetProgress(e.ProgressPercentage);
+        }
+
+        #endregion
 
         /// <summary>
         /// Gets the newest available programme version.
