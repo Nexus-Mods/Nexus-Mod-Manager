@@ -1,16 +1,18 @@
-﻿using Nexus.Client.Settings;
-
-namespace Nexus.Client.Properties
+﻿namespace Nexus.Client.Properties
 {
-	/// <summary>
-	/// This class adds the <see cref="ISettings"/> to the project's <see cref="Properties.Settings"/>
-	/// class.
-	/// </summary>
-	/// <remarks>
-	/// This file should not contain any memebers or properties.
-	/// </remarks>
-	internal sealed partial class Settings : ISettings
+    using Nexus.Client.Settings;
+
+    /// <summary>
+    /// This class adds the <see cref="ISettings"/> to the project's <see cref="Properties.Settings"/>
+    /// class.
+    /// </summary>
+    /// <remarks>
+    /// This file should not contain any memebers or properties.
+    /// </remarks>
+    internal sealed partial class Settings : ISettings
 	{
+        private static object _settingsFileLock = new object();
+
 		/// <summary>
 		/// Gets the full name of the mod manager.
 		/// </summary>
@@ -22,5 +24,16 @@ namespace Nexus.Client.Properties
 				return ProgrammeMetadata.ModManagerName;
 			}
 		}
+
+        /// <summary>
+        /// A thread-safe call to save the current settings to file.
+        /// </summary>
+        public override void Save()
+        {
+            lock(_settingsFileLock)
+            {
+                base.Save();
+            }
+        }
 	}
 }
