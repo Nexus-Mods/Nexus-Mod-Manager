@@ -373,7 +373,7 @@
     <None Include="data\Nexus Mod Manager Licence.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="data\Licence.rtf">
+    <None Include="data\LICENCE.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Resources\down.png" />
@@ -485,7 +485,7 @@
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.designer.cs">
+    <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.Designer.cs">
       <DependentUpon>DownloadMonitorControl.cs</DependentUpon>
     </Compile>
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorVM.cs" />
@@ -523,7 +523,7 @@
     <Compile Include="UI\Controls\CustomizableToolStripProgressBar.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.designer.cs">
+    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.Designer.cs">
       <DependentUpon>CustomizableToolStripProgressBar.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\Controls\GameModeListViewItem.cs">
@@ -692,7 +692,6 @@
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
@@ -700,21 +699,22 @@
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Runtime.Remoting" />
     <Reference Include="System.Runtime.Serialization">
-      <RequiredTargetFramework>3.0</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.ServiceModel">
-      <RequiredTargetFramework>3.0</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.ServiceModel.Web">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="WindowsBase">
-      <RequiredTargetFramework>3.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="FalloutNV">
+      <HintPath>..\FalloutNV\obj\Debug\FalloutNV.dll</HintPath>
+    </Reference>
+    <Reference Include="FalloutNV">
+      <HintPath>..\FalloutNV\obj\Debug\FalloutNV.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -761,6 +761,10 @@
     <ProjectReference Include="..\Util\Util.csproj">
       <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
       <Name>Util</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\AntlrUtil\AntlrUtil.csproj">
+      <Project>{8B2AD10B-4E22-4559-A784-648179225ADC}</Project>
+      <Name>AntlrUtil</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
