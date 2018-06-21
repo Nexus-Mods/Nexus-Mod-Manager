@@ -131,6 +131,11 @@ namespace Nexus.Client.Games.Gamebryo
 				gmdGameMode = null;
 				p_imsWarning = new ViewMessage(String.Format(e.Message), null, "SorterException", MessageBoxIcon.Error);
 			}
+            catch (FileNotFoundException e)
+            {
+                gmdGameMode = null;
+                p_imsWarning = new ViewMessage(string.Format(e.Message), null, "FileNotFoundException", MessageBoxIcon.Error);
+            }
 
 			return gmdGameMode;
 		}
