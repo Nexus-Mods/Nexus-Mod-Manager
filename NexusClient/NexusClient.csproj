@@ -70,6 +70,7 @@
     </Compile>
     <Compile Include="DownloadMonitoring\PurgeDownloadsTask.cs" />
     <Compile Include="EnvironmentInfo.cs" />
+    <Compile Include="Exceptions\GameModeRegistryException.cs" />
     <Compile Include="Extensions\ExtensionMethods.cs" />
     <Compile Include="GameModeSelectionForm.cs">
       <SubType>Form</SubType>

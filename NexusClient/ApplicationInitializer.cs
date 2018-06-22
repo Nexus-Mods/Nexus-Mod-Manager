@@ -768,30 +768,47 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Registering supported Script Types...");
 			Trace.Indent();
-			IScriptTypeRegistry stgScriptTypeRegistry = ScriptTypeRegistry.DiscoverScriptTypes(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ScriptTypes"), p_gmdGameMode, DeletedDLL);
-			if (stgScriptTypeRegistry.Types.Count == 0)
-			{
-				p_vwmErrorMessage = new ViewMessage("No script types were found.", null, "No Script Types", MessageBoxIcon.Error);
-				return null;
+
+		    var path = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ScriptTypes");
+
+		    if (!Directory.Exists(path))
+		        Directory.CreateDirectory(path);
+
+            IScriptTypeRegistry stgScriptTypeRegistry = ScriptTypeRegistry.DiscoverScriptTypes(path, p_gmdGameMode, DeletedDLL);
+
+		    if (stgScriptTypeRegistry.Types.Count == 0)
+		    {
+		        string strDebugInfo = null;
+#if DEBUG
+		        strDebugInfo = $"\nZero script types found (dlls) in \"{path}\". Make sure to compile CSharpScript, ModScript & XmlScript to fix the problem.";
+#endif
+
+                p_vwmErrorMessage = new ViewMessage("No script types were found." + strDebugInfo, null, "No Script Types", MessageBoxIcon.Error);
+
+		        return null;
 			}
 			Trace.TraceInformation("Found {0} script types.", stgScriptTypeRegistry.Types.Count);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Registering supported mod formats...");
 			Trace.Indent();
-			IModFormatRegistry mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, p_gmdGameMode.SupportedFormats, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
-			if (mfrModFormatRegistry.Formats.Count == 0)
+
+		    IModFormatRegistry mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, p_gmdGameMode.SupportedFormats, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
+
+		    if (mfrModFormatRegistry.Formats.Count == 0)
 			{
 				p_vwmErrorMessage = new ViewMessage("No mod formats were found.", null, "No Mod Formats", MessageBoxIcon.Error);
 				return null;
 			}
-			Trace.TraceInformation("Found {0} formats.", mfrModFormatRegistry.Formats.Count);
+
+		    Trace.TraceInformation("Found {0} formats.", mfrModFormatRegistry.Formats.Count);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Finding managed mods...");
 			Trace.Indent();
 			ModRegistry mrgModRegistry = null;
-			try
+
+		    try
 			{
 				mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, EnvironmentInfo, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_LINK_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, ProfileManager.PROFILE_FOLDER));
 			}
@@ -800,14 +817,17 @@ namespace Nexus.Client
 				p_vwmErrorMessage = new ViewMessage(String.Format("An error occured while retrieving managed mods: \n\n{0}", ex.Message), null, "Install Log", MessageBoxIcon.Error);
 				return null;
 			}
-			Trace.TraceInformation("Found {0} managed mods.", mrgModRegistry.RegisteredMods.Count);
+
+		    Trace.TraceInformation("Found {0} managed mods.", mrgModRegistry.RegisteredMods.Count);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Install Log...");
 			Trace.Indent();
 			Trace.TraceInformation("Checking if upgrade is required...");
-			InstallLogUpgrader iluUgrader = new InstallLogUpgrader();
-			string strLogPath = string.Empty;
+
+		    InstallLogUpgrader iluUgrader = new InstallLogUpgrader();
+
+		    string strLogPath = string.Empty;
 
 			try
 			{
@@ -821,7 +841,8 @@ namespace Nexus.Client
 
 			if (!InstallLog.IsLogValid(strLogPath))
 				InstallLog.Restore(strLogPath);
-			if (iluUgrader.NeedsUpgrade(strLogPath))
+
+		    if (iluUgrader.NeedsUpgrade(strLogPath))
 			{
 				if (!iluUgrader.CanUpgrade(strLogPath))
 				{

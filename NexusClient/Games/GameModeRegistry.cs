@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
+using Nexus.Client.Exceptions;
 
 namespace Nexus.Client.Games
 {
@@ -22,54 +24,79 @@ namespace Nexus.Client.Games
 			Trace.TraceInformation("Discovering Game Mode Factories...");
 			Trace.Indent();
 
-			string strGameModesPath = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "GameModes");
+			var strGameModesPath = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "GameModes");
+
+		    if (!Directory.Exists(strGameModesPath))
+		        Directory.CreateDirectory(strGameModesPath);
 
 			Trace.TraceInformation("Looking in: {0}", strGameModesPath);
 
-			GameModeRegistry gmrRegistry = new GameModeRegistry();
-			string[] strAssemblies = Directory.GetFiles(strGameModesPath, "*.dll");
-			foreach (string strAssembly in strAssemblies)
+		    var arrAssemblies = Directory.GetFiles(strGameModesPath, "*.dll");
+
+            //If there are no assemblies detected then an exception must be thrown
+            //to prevent a divide by zero exception further along
+		    if (!arrAssemblies.Any())
+		    {
+		        string strDebug = null;
+#if DEBUG
+		        strDebug = @"Compile the Game Modes directory in the solution.";
+#endif
+
+                throw new GameModeRegistryException(strGameModesPath, strDebug);
+		    }
+
+            var gmrRegistry = new GameModeRegistry();
+
+		    foreach (string strAssembly in arrAssemblies)
 			{
 				Trace.TraceInformation("Checking: {0}", Path.GetFileName(strAssembly));
 				Trace.Indent();
 
 				Assembly asmGameMode = Assembly.LoadFrom(strAssembly);
-				try
+
+			    try
 				{
 					Type[] tpeTypes = asmGameMode.GetExportedTypes();
-					foreach (Type tpeType in tpeTypes)
+
+				    foreach (Type tpeType in tpeTypes)
 					{
-						if (typeof(IGameModeFactory).IsAssignableFrom(tpeType) && !tpeType.IsAbstract)
-						{
-							Trace.TraceInformation("Initializing: {0}", tpeType.FullName);
-							Trace.Indent();
+					    if (!typeof(IGameModeFactory).IsAssignableFrom(tpeType) || tpeType.IsAbstract) continue;
 
-							ConstructorInfo cifConstructor = tpeType.GetConstructor(new Type[] { typeof(IEnvironmentInfo) });
-							if (cifConstructor == null)
-							{
-								Trace.TraceInformation("No constructor accepting one argument of type IEnvironmentInfo found.");
-								Trace.Unindent();
-								continue;
-							}
-							IGameModeFactory gmfGameModeFactory = (IGameModeFactory)cifConstructor.Invoke(new object[] { p_eifEnvironmentInfo });
-							gmrRegistry.RegisterGameMode(gmfGameModeFactory);
+					    Trace.TraceInformation("Initializing: {0}", tpeType.FullName);
+					    Trace.Indent();
 
-							Trace.Unindent();
-						}
+					    var cifConstructor = tpeType.GetConstructor(new Type[] { typeof(IEnvironmentInfo) });
+
+					    if (cifConstructor == null)
+					    {
+					        Trace.TraceInformation("No constructor accepting one argument of type IEnvironmentInfo found.");
+
+					        Trace.Unindent();
+
+					        continue;
+					    }
+
+					    IGameModeFactory gmfGameModeFactory = (IGameModeFactory)cifConstructor.Invoke(new object[] { p_eifEnvironmentInfo });
+
+					    gmrRegistry.RegisterGameMode(gmfGameModeFactory);
+
+					    Trace.Unindent();
 					}
 				}
 				catch (FileNotFoundException e)
 				{
-					Trace.TraceError(String.Format("Cannot load {0}: cannot find dependency {1}", strAssembly, e.FileName));
+					Trace.TraceError($"Cannot load {strAssembly}: cannot find dependency {e.FileName}");
 					//some dependencies were missing, so we couldn't load the assembly
 					// given that these are plugins we don't have control over the dependecies:
 					// we may not even know what they (we can get their name, but if it's a custom
 					// dll not part of the client code base, we can't provide it even if we wanted to)
 					// there's nothing we can do, so simply skip the assembly
 				}
-				Trace.Unindent();
+
+			    Trace.Unindent();
 			}
-			Trace.Unindent();
+
+		    Trace.Unindent();
 
 			return gmrRegistry;
 		}
