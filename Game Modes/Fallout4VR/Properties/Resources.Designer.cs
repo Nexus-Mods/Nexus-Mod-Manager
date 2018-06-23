@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Nexus.Client.Games.DarkSouls.Properties {
+namespace Nexus.Client.Games.Fallout4VR.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace Nexus.Client.Games.DarkSouls.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Nexus.Client.Games.DarkSouls.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Nexus.Client.Games.Fallout4VR.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -64,19 +64,20 @@ namespace Nexus.Client.Games.DarkSouls.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
         ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Armour&quot; ID=&quot;111&quot;&gt;
+        ///    &lt;category path=&quot;Ammo&quot; ID=&quot;3&quot;&gt;
+        ///      &lt;name&gt;Ammo&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Animation&quot; ID=&quot;4&quot;&gt;
+        ///      &lt;name&gt;Animation&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Armour&quot; ID=&quot;5&quot;&gt;
         ///      &lt;name&gt;Armour&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Miscellaneous&quot; ID=&quot;102&quot;&gt;
-        ///      &lt;name&gt;Miscellaneous&lt;/name&gt;
+        ///    &lt;category path=&quot;Audio - Misc&quot; ID=&quot;35&quot;&gt;
+        ///      &lt;name&gt;Audio - Misc&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Shields&quot; ID=&quot;113&quot;&gt;
-        ///      &lt;name&gt;Shields&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;User Interface&quot; ID=&quot;114&quot;&gt;
-        ///      &lt;name&gt;User Interface&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Utilities and Tools&quot; ID=&quot;99&quot;&gt; [rest of string was truncated]&quot;;.
+        ///    &lt;category path=&quot;Audio - Music&quot; ID=&quot;34&quot;&gt;
+        ///      &lt;name&gt;Audio - Music&lt;/na [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Categories {
             get {
@@ -85,11 +86,42 @@ namespace Nexus.Client.Games.DarkSouls.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to DLCCoast - Geometry.csg
+        ///DLCCoast - Main.ba2
+        ///DLCCoast - Textures.ba2
+        ///DLCCoast - Voices_en.ba2
+        ///DLCCoast.cdx
+        ///DLCCoast.esm
+        ///DLCNukaWorld - Geometry.csg
+        ///DLCNukaWorld - Main.ba2
+        ///DLCNukaWorld - Textures.ba2
+        ///DLCNukaWorld - Voices_en.ba2
+        ///DLCNukaWorld.cdx
+        ///DLCNukaWorld.esm
+        ///DLCRobot - Geometry.csg
+        ///DLCRobot - Main.ba2
+        ///DLCRobot - Textures.ba2
+        ///DLCRobot - Voices_en.ba2
+        ///DLCRobot.cdx
+        ///DLCRobot.esm
+        ///DLCworkshop01 - Geometry.csg
+        ///DLCworkshop01 - Main.ba2
+        ///DLCworkshop01 - Textures.ba2
+        ///DLCworkshop01.cdx
+        ///DLCworks [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string fallout4vr_base {
+            get {
+                return ResourceManager.GetString("fallout4vr_base", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
-        internal static System.Drawing.Icon darksouls_logo {
+        internal static System.Drawing.Icon Fallout4VR_logo {
             get {
-                object obj = ResourceManager.GetObject("darksouls_logo", resourceCulture);
+                object obj = ResourceManager.GetObject("Fallout4VR_logo", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
             }
         }

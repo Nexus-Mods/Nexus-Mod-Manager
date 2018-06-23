@@ -13,7 +13,7 @@
 #define MyPublisher 'Black Tree Gaming'
 
 [Setup]
-AppName={#MyAppSetupName}
+AppName={#MyAppSetupName} (Unofficial build)
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}

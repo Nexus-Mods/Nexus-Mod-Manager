@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -11,397 +12,664 @@ using Nexus.UI.Controls;
 
 namespace Nexus.Client.Updating
 {
-	/// <summary>
-	/// Updates the programme.
-	/// </summary>
-	public class ProgrammeUpdater : UpdaterBase
-	{
 
-		private class ExtendedWebClient : WebClient
-		{
-			private int m_intDefaultTimeout = 30000;
+    /// <summary>
+    /// Updates the programme.
+    /// </summary>
+    public class ProgrammeUpdater : UpdaterBase
+    {
+    
+        #region  GitHubReleaseJsonContract
+        /* These classes (contracts) should be based on the format of the json from:
+            https://api.github.com/repos/Nexus-Mods/Nexus-Mod-Manager/releases
+        */
+        [DataContract]
+        private class GitHubReleaseJsonContract
+        {
+            [DataMember(Name = "url")]
+            public string url { get; set; }
+            [DataMember(Name = "assets_url")]
+            public string assets_url { get; set; }
+            [DataMember(Name = "upload_url")]
+            public string upload_url { get; set; }
+            [DataMember(Name = "html_url")]
+            public string html_url { get; set; }
+            [DataMember(Name = "id")]
+            public int id { get; set; }
+            [DataMember(Name = "node_id")]
+            public string node_id { get; set; }
+            [DataMember(Name = "tag_name")]
+            public string tag_name { get; set; }
+            [DataMember(Name = "target_commitish")]
+            public string target_commitish { get; set; }
+            [DataMember(Name = "name")]
+            public string name { get; set; }
+            [DataMember(Name = "draft")]
+            public bool draft { get; set; }
 
-			public Int32 CustomTimeout
-			{
-				get
-				{
-					return m_intDefaultTimeout;
-				}
-				set
-				{
-					m_intDefaultTimeout = value;
-				}
-			}
+            [DataMember(Name = "author")]
+            public author_information author_info { get; set; }
+            
+            [DataMember(Name = "prerelease")]
+            public bool prerelease { get; set; }
+            [DataMember(Name = "created_at")]
+            public string created_at { get; set; }
+            [DataMember(Name = "published_at")]
+            public string published_at { get; set; }
+            
+            [DataMember(Name = "assets")]
+            public assets_information[] assets_info { get; set; }
+            
+            [DataMember(Name = "tarball_url")]
+            public string tarball_url { get; set; }
+            [DataMember(Name = "zipball_url")]
+            public string zipball_url { get; set; }
+            [DataMember(Name = "body")]
+            public string body { get; set; }
+            
+            public override string ToString()
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine(string.Format("[tag_name='{0}']", this.tag_name));
+                sb.AppendLine(string.Format("[name='{0}']", this.name));
 
-			public ExtendedWebClient() : this(30000) { }
+                int index = 0;
+                sb.AppendLine(string.Format("[assets count='{0}']", this.assets_info == null ? "0" : this.assets_info.Length.ToString()));
+                foreach (var k in this.assets_info)
+                {
+                    //k.name
+                    sb.AppendLine(string.Format("[asset index='{0}']",index));
+                    sb.AppendLine(string.Format("[name='{0}']",k.name));
+                    sb.AppendLine(string.Format("[name='{0}']",k.browser_download_url));
+                    index++;
+                }  
+                sb.AppendLine(string.Format("[tarball_url='{0}']", this.tarball_url));
+                sb.AppendLine(string.Format("[zipball_url='{0}']", this.zipball_url));
+                
+                
+                
+                return sb.ToString();
+            }
 
-			public ExtendedWebClient(int p_intTimeout)
-			{
-				this.m_intDefaultTimeout = p_intTimeout;
-			}
+        }
+        [DataContract]
+        private class author_information
+        {
+            [DataMember(Name = "login")]
+            public string login { get; set; }
+            [DataMember(Name = "id")]
+            public int id { get; set; }
+            [DataMember(Name = "node_id")]
+            public string node_id { get; set; }
+            [DataMember(Name = "avatar_url")]
+            public string avatar_url { get; set; }
+            [DataMember(Name = "gravatar_id")]
+            public string gravatar_id { get; set; }
+            [DataMember(Name = "url")]
+            public string url { get; set; }
+            [DataMember(Name = "html_url")]
+            public string html_url { get; set; }
+            [DataMember(Name = "followers_url")]
+            public string followers_url { get; set; }
+            [DataMember(Name = "following_url")]
+            public string following_url { get; set; }
+            [DataMember(Name = "gists_url")]
+            public string gists_url { get; set; }
+            [DataMember(Name = "starred_url")]
+            public string starred_url { get; set; }
+            [DataMember(Name = "subscriptions_url")]
+            public string subscriptions_url { get; set; }
+            [DataMember(Name = "organizations_url")]
+            public string organizations_url { get; set; }
+            [DataMember(Name = "repos_url")]
+            public string repos_url { get; set; }
+            [DataMember(Name = "events_url")]
+            public string events_url { get; set; }
+            [DataMember(Name = "received_events_url")]
+            public string received_events_url { get; set; }
+            [DataMember(Name = "type")]
+            public string type { get; set; }
+            [DataMember(Name = "site_admin")]
+            public bool site_admin { get; set; }
+        }
+        [DataContract]
+        private class assets_information
+        {
+            [DataMember(Name = "url")]
+            public string url { get; set; }
+            [DataMember(Name = "id")]
+            public int id { get; set; }
+            [DataMember(Name = "node_id")]
+            public string node_id { get; set; }
+            [DataMember(Name = "name")]
+            public string name { get; set; }
+            [DataMember(Name = "label")]
+            public string label { get; set; }
+            
+            [DataMember(Name = "uploader")]
+            public author_information uploader_info { get; set; }
+            
+            [DataMember(Name = "content_type")]
+            public string content_type { get; set; }
+            [DataMember(Name = "state")]
+            public string state { get; set; }
+            [DataMember(Name = "download_count")]
+            public int download_count { get; set; }
+            [DataMember(Name = "created_at")]
+            public string created_at { get; set; }
+            [DataMember(Name = "published_at")]
+            public string published_at { get; set; }
+            [DataMember(Name = "browser_download_url")]
+            public string browser_download_url { get; set; }
+        }
+        #endregion
 
-			protected override WebRequest GetWebRequest(Uri uri)
-			{
-				WebRequest w = base.GetWebRequest(uri);
-				w.Timeout = m_intDefaultTimeout;
-				return w;
-			}
-		}
+        #region  GithubReleaseParser
 
-		protected const string m_strURI = "https://staticdelivery.nexusmods.com/NMM/releasenotes.html";
-		private bool m_booIsAutoCheck = false;
-		
-		#region Properties
+        private class GithubReleaseParser
+        {
+            /// <summary>
+            /// Latest version.
+            /// </summary>
+            public string LatestVersion { get; private set; }
 
-		/// <summary>
-		/// Gets the updater's name.
-		/// </summary>
-		/// <value>The updater's name.</value>
-		public override string Name
-		{
-			get
-			{
-				return String.Format("{0} Updater", EnvironmentInfo.Settings.ModManagerName);
-			}
-		}
+            /// <summary>
+            /// URL for the latest version.
+            /// </summary>
+            public string LatestVersionUrl { get; private set; }
 
-		private UpdateManager UpdateManager = null;
+            /// <summary>
+            /// Release notes for the latest version.
+            /// </summary>
+            public string LatestVersionReleaseNotes { get; private set; }
 
-		#endregion
+            public bool GetLatestVersion()
+            {
+                var data = string.Empty;
 
-		#region Constructors
+                if (GetReleaseInformation(out data))
+                {
+                    if (!ParseReleaseInformation(data))
+                    {
+                        Trace.TraceError("failed to parse github release information");
+                        return false;
+                    }
+                }
+                else
+                {
+                    Trace.TraceError("failed to get github release information");
+                    return false;
+                }
 
-		/// <summary>
-		/// A simple constructor that initializes the object with the given values.
-		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		/// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
-		public ProgrammeUpdater(UpdateManager p_umUpdateManager, IEnvironmentInfo p_eifEnvironmentInfo, bool p_booIsAutoCheck)
-			: base(p_eifEnvironmentInfo)
-		{
-			m_booIsAutoCheck = p_booIsAutoCheck;
-			SetRequiresRestart(true);
-			UpdateManager = p_umUpdateManager;
-		}
+                return true;
+            }
 
-		#endregion
+            private bool GetReleaseInformation(out string data)
+            {
+                data = string.Empty;
+                var ret = false;
 
-		/// <summary>
-		/// Performs the update.
-		/// </summary>
-		/// <returns><c>true</c> if the update completed successfully;
-		/// <c>false</c> otherwise.</returns>
-		public override bool Update()
-		{
-			Trace.TraceInformation("Checking for new client version...");
-			Trace.Indent();
-			SetProgressMaximum(2);
-			SetMessage(String.Format("Checking for new {0} version...", EnvironmentInfo.Settings.ModManagerName));
-			string strDownloadUri = String.Empty;
-			Version verNew = GetNewProgrammeVersion(out strDownloadUri);
-			SetProgress(1);
+                using (ExtendedWebClient wclNewVersion = new ExtendedWebClient(15000))
+                {
+                    try
+                    {
+                        data = wclNewVersion.DownloadString(NexusLinks.LatestVersion);
+                        ret = true;
+                    }
+                    catch (Exception e)
+                    {
+                        Trace.TraceError("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
+                        Trace.TraceError(e.ToString());
+                        data = "";
+                        ret = false;
+                    }
+                }
 
-			if (CancelRequested)
-			{
-				Trace.Unindent();
-				return CancelUpdate();
-			}
+                return ret;
+            }
+            private bool ParseReleaseInformation(string data)
+            {
+                var ret = false;
 
-			if (verNew == new Version("69.69.69.69"))
-			{
-				SetMessage("Could not get version information from the update server.");
-				return false;
-			}
+                try
+                {
+                    GitHubReleaseJsonContract ghrjc = JSONSerializer.Deserialize<GitHubReleaseJsonContract>(data);
+                    if (ghrjc != null)
+                    {
+                        if (!string.IsNullOrEmpty(ghrjc.tag_name))
+                        {
+                            LatestVersion = ghrjc.tag_name;
+                        }
+                        if (ghrjc.assets_info != null)
+                        {
+                            if (ghrjc.assets_info[0] != null)
+                            {
+                                if (!string.IsNullOrEmpty(ghrjc.assets_info[0].browser_download_url))
+                                {
+                                    this.LatestVersionUrl = ghrjc.assets_info[0].browser_download_url;
+                                }
+                            }
+                        }
+                        if (ghrjc.body != null)
+                        {
+                            LatestVersionReleaseNotes = ghrjc.body;
+                        }
 
-			StringBuilder stbPromptMessage = new StringBuilder();
-			DialogResult drResult = DialogResult.No;
+                        ret = ( (this.LatestVersion != "") && (this.LatestVersionUrl != "") );
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
+                    Console.Error.WriteLine(e.ToString());
+                    data = "";
+                    ret = false;
+                }
 
-			string strReleaseNotes = String.Empty;
+                return ret;
+            }
+            
+        }        
+        
+        #endregion
+        
+        #region ExtendedWebClient
+        private class ExtendedWebClient : WebClient
+        {
+            private int m_intDefaultTimeout = 30000;
 
-			if ((verNew > new Version(ProgrammeMetadata.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
-			{
-				string strCheckDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(strDownloadUri));
-				
-				stbPromptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine).AppendLine();
-				stbPromptMessage.AppendLine();
-				stbPromptMessage.AppendLine();
-				stbPromptMessage.AppendLine("Below you can find the change log for the new release:");
+            public Int32 CustomTimeout
+            {
+                get
+                {
+                    return m_intDefaultTimeout;
+                }
+                set
+                {
+                    m_intDefaultTimeout = value;
+                }
+            }
 
-				try
-				{
-					HttpWebRequest request = (HttpWebRequest)WebRequest.Create(m_strURI);
-					HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            public ExtendedWebClient() : this(30000) { }
 
-					if (response.StatusCode == HttpStatusCode.OK)
-					{
-						Stream receiveStream = response.GetResponseStream();
-						StreamReader readStream = null;
+            public ExtendedWebClient(int p_intTimeout)
+            {
+                this.m_intDefaultTimeout = p_intTimeout;
+                this.Headers["User-Agent"] = string.Format("Nexus Client v{0}", ProgrammeMetadata.VersionString);                
+                this.Headers["Accept"] = "application/json";
+                
+            }
 
-						if (response.CharacterSet == null)
-						{
-							readStream = new StreamReader(receiveStream);
-						}
-						else
-						{
-							readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
-						}
+            protected override WebRequest GetWebRequest(Uri uri)
+            {
+                WebRequest w = base.GetWebRequest(uri);
+                w.Timeout = m_intDefaultTimeout;
+                return w;
+            }
+        }
+#endregion
 
-						strReleaseNotes = readStream.ReadToEnd();
+        protected const string m_strURI = "https://staticdelivery.nexusmods.com/NMM/releasenotes.html";
+        private bool m_booIsAutoCheck = false;
+        
+        #region Properties
 
-						response.Close();
-						readStream.Close();
-					}
+        /// <summary>
+        /// Gets the updater's name.
+        /// </summary>
+        /// <value>The updater's name.</value>
+        public override string Name
+        {
+            get
+            {
+                return String.Format("{0} Updater", EnvironmentInfo.Settings.ModManagerName);
+            }
+        }
 
-				}
-				catch
-				{
-					strReleaseNotes = "Unable to retrieve the Release Notes.";
-				}
+        private UpdateManager UpdateManager = null;
 
-				try
-				{
-					//the extended message box contains an activex control wich must be run in an STA thread,
-					// we can't control what thread this gets called on, so create one if we need to
-					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", strReleaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question);
-					ApartmentState astState = ApartmentState.Unknown;
-					Thread.CurrentThread.TrySetApartmentState(astState);
-					if (astState == ApartmentState.STA)
-						actShowMessage();
-					else
-					{
-						Thread thdMessage = new Thread(actShowMessage);
-						thdMessage.SetApartmentState(ApartmentState.STA);
-						thdMessage.Start();
-						thdMessage.Join();
-					}
+#endregion
 
-				}
-				catch
-				{
-				}
+        #region Constructors
 
-				if (drResult == DialogResult.Cancel)
-				{
-					Trace.Unindent();
-					return CancelUpdate();
-				}
+        /// <summary>
+        /// A simple constructor that initializes the object with the given values.
+        /// </summary>
+        /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+        /// <param name="p_booIsAutoCheck">Whether the check is automatic or user requested.</param>
+        public ProgrammeUpdater(UpdateManager p_umUpdateManager, IEnvironmentInfo p_eifEnvironmentInfo, bool p_booIsAutoCheck)
+            : base(p_eifEnvironmentInfo)
+        {
+            m_booIsAutoCheck = p_booIsAutoCheck;
+            SetRequiresRestart(true);
+            UpdateManager = p_umUpdateManager;
+        }
 
-				if (drResult == DialogResult.Yes)
-				{
-					UpdateManager.CreateBackup();
-				}
+#endregion
 
-				if (File.Exists(strCheckDownloadedInstaller))
-				{
-					SetMessage("Launching installer...");
-					ProcessStartInfo psiInfo = new ProcessStartInfo(strCheckDownloadedInstaller);
-					Process.Start(psiInfo);
-					Trace.Unindent();
-					return true;
-				}
+        /// <summary>
+        /// Performs the update.
+        /// </summary>
+        /// <returns><c>true</c> if the update completed successfully;
+        /// <c>false</c> otherwise.</returns>
+        public override bool Update()
+        {
+            Trace.TraceInformation("Checking for new client version...");
+            Trace.Indent();
+            SetProgressMaximum(2);
+            SetMessage(string.Format("Checking for new {0} version...", EnvironmentInfo.Settings.ModManagerName));
 
-				SetMessage(String.Format("Downloading new {0} version...", EnvironmentInfo.Settings.ModManagerName));
+            string strDownloadUri = string.Empty;
+            string githubReleaseNotes = string.Empty;
+            Version verNew = GetNewProgrammeVersion(out strDownloadUri, out githubReleaseNotes);
+            SetProgress(1);
 
-				string strNewInstaller = string.Empty;
-				try
-				{
-					strNewInstaller = DownloadFile(new Uri(String.Format(strDownloadUri)));
-				}
-				catch (FileNotFoundException)
-				{
-					StringBuilder stbAVMessage = new StringBuilder();
-					stbAVMessage.AppendLine("Unable to find the installer to download:");
-					stbAVMessage.AppendLine("this could be caused by a network issue or by your Firewall.");
-					stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
-					stbAVMessage.AppendLine();
-					stbAVMessage.AppendFormat("You can download the update manually from:");
-					stbAVMessage.AppendLine(NexusLinks.Releases);
-					try
-					{
-						//the extended message box contains an activex control wich must be run in an STA thread,
-						// we can't control what thread this gets called on, so create one if we need to
-						ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information);
-						ApartmentState astState = ApartmentState.Unknown;
-						Thread.CurrentThread.TrySetApartmentState(astState);
-						if (astState == ApartmentState.STA)
-							actShowMessage();
-						else
-						{
-							Thread thdMessage = new Thread(actShowMessage);
-							thdMessage.SetApartmentState(ApartmentState.STA);
-							thdMessage.Start();
-							thdMessage.Join();
-						}
+            if (CancelRequested)
+            {
+                Trace.Unindent();
+                return CancelUpdate();
+            }
 
-					}
-					catch
-					{
-					}
+            if (verNew == new Version("69.69.69.69"))
+            {
+                SetMessage("Could not get version information from the update server.");
+                return false;
+            }
 
-					Trace.Unindent();
-					return CancelUpdate();
-				}
+            if (string.IsNullOrEmpty(githubReleaseNotes))
+            {
+                githubReleaseNotes = "Could not find release information.";
+            }
 
-				SetProgress(2);
+            var strReleaseNotes = string.Format("<html><body><h1>Release notes {0}</h1><p>{1}</p></body></html>", verNew, githubReleaseNotes.Replace("\r\n", "<br />"));
 
-				if (CancelRequested)
-				{
-					Trace.Unindent();
-					return CancelUpdate();
-				}
+            StringBuilder stbPromptMessage = new StringBuilder();
+            DialogResult drResult = DialogResult.No;
 
-				if (!String.IsNullOrEmpty(strNewInstaller))
-				{
-					string strOldPath = strNewInstaller;
-					strNewInstaller = Path.Combine(Path.GetTempPath(), Path.GetFileName(strNewInstaller));
-					FileUtil.ForceDelete(strNewInstaller);
+            if ((verNew > new Version(ProgrammeMetadata.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
+            {
+                string strCheckDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(strDownloadUri));
+                
+                stbPromptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, verNew, Environment.NewLine).AppendLine();
+                stbPromptMessage.AppendLine();
+                stbPromptMessage.AppendLine();
+                stbPromptMessage.AppendLine("Below you can find the change log for the new release:");
+                
+                try
+                {
+                    //the extended message box contains an activex control wich must be run in an STA thread,
+                    // we can't control what thread this gets called on, so create one if we need to
+                    ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "New version available", strReleaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question);
+                    ApartmentState astState = ApartmentState.Unknown;
+                    Thread.CurrentThread.TrySetApartmentState(astState);
+                    if (astState == ApartmentState.STA)
+                        actShowMessage();
+                    else
+                    {
+                        Thread thdMessage = new Thread(actShowMessage);
+                        thdMessage.SetApartmentState(ApartmentState.STA);
+                        thdMessage.Start();
+                        thdMessage.Join();
+                    }
 
-					try
-					{
-						File.Move(strOldPath, strNewInstaller);
-					}
-					catch (FileNotFoundException)
-					{
-						StringBuilder stbAVMessage = new StringBuilder();
-						stbAVMessage.AppendLine("Unable to find the downloaded update:");
-						stbAVMessage.AppendLine("this could be caused by a network issue or by your anti-virus software deleting it falsely flagging the installer as a virus.");
-						stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
-						stbAVMessage.AppendLine();
-						stbAVMessage.AppendFormat("To fix this issue you need to add {0}'s executable and all its folders to your", EnvironmentInfo.Settings.ModManagerName).AppendLine();
-						stbAVMessage.AppendLine("anti-virus exception list. You can also download the update manually from:");
-						stbAVMessage.AppendLine(NexusLinks.Releases);
+                }
+                catch
+                {
+                }
 
-						try
-						{
-							//the extended message box contains an activex control wich must be run in an STA thread,
-							// we can't control what thread this gets called on, so create one if we need to
-							ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information);
-							ApartmentState astState = ApartmentState.Unknown;
-							Thread.CurrentThread.TrySetApartmentState(astState);
-							if (astState == ApartmentState.STA)
-								actShowMessage();
-							else
-							{
-								Thread thdMessage = new Thread(actShowMessage);
-								thdMessage.SetApartmentState(ApartmentState.STA);
-								thdMessage.Start();
-								thdMessage.Join();
-							}
+                if (drResult == DialogResult.Cancel)
+                {
+                    Trace.Unindent();
+                    return CancelUpdate();
+                }
 
-						}
-						catch
-						{
-						}
+                if (drResult == DialogResult.Yes)
+                {
+                    UpdateManager.CreateBackup();
+                }
 
-						Trace.Unindent();
-						return CancelUpdate();
-					}
+                if (File.Exists(strCheckDownloadedInstaller))
+                {
+                    SetMessage("Launching installer...");
+                    ProcessStartInfo psiInfo = new ProcessStartInfo(strCheckDownloadedInstaller);
+                    Process.Start(psiInfo);
+                    Trace.Unindent();
+                    return true;
+                }
 
-					SetMessage("Launching installer...");
-					ProcessStartInfo psiInfo = new ProcessStartInfo(strNewInstaller);
-					Process.Start(psiInfo);
-					Trace.Unindent();
-					return true;
-				}
-			}
-			else if (!m_booIsAutoCheck)
-			{
-				stbPromptMessage.AppendFormat("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
-				stbPromptMessage.AppendLine();
-				stbPromptMessage.AppendLine();
-				stbPromptMessage.AppendLine("NOTE: You can find the release notes and past versions here:");
-				stbPromptMessage.AppendLine(NexusLinks.Releases);
+                SetMessage(String.Format("Downloading new {0} version...", EnvironmentInfo.Settings.ModManagerName));
 
-				try
-				{
-					//the extended message box contains an activex control wich must be run in an STA thread,
-					// we can't control what thread this gets called on, so create one if we need to
-					ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information);
-					ApartmentState astState = ApartmentState.Unknown;
-					Thread.CurrentThread.TrySetApartmentState(astState);
-					if (astState == ApartmentState.STA)
-						actShowMessage();
-					else
-					{
-						Thread thdMessage = new Thread(actShowMessage);
-						thdMessage.SetApartmentState(ApartmentState.STA);
-						thdMessage.Start();
-						thdMessage.Join();
-					}
+                string strNewInstaller = string.Empty;
+                try
+                {
+                    strNewInstaller = GitHubDownload(strDownloadUri);
+                }
+                catch (FileNotFoundException)
+                {
+                    StringBuilder stbAVMessage = new StringBuilder();
+                    stbAVMessage.AppendLine("Unable to find the installer to download:");
+                    stbAVMessage.AppendLine("this could be caused by a network issue or by your Firewall.");
+                    stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
+                    stbAVMessage.AppendLine();
+                    stbAVMessage.AppendFormat("You can download the update manually from: ");
+                    stbAVMessage.AppendLine(NexusLinks.Releases);
+                    try
+                    {
+                        //the extended message box contains an activex control wich must be run in an STA thread,
+                        // we can't control what thread this gets called on, so create one if we need to
+                        ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        ApartmentState astState = ApartmentState.Unknown;
+                        Thread.CurrentThread.TrySetApartmentState(astState);
+                        if (astState == ApartmentState.STA)
+                            actShowMessage();
+                        else
+                        {
+                            Thread thdMessage = new Thread(actShowMessage);
+                            thdMessage.SetApartmentState(ApartmentState.STA);
+                            thdMessage.Start();
+                            thdMessage.Join();
+                        }
 
-				}
-				catch
-				{
-				}
-			}
+                    }
+                    catch
+                    {
+                    }
 
-			SetMessage(String.Format("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName));
-			SetProgress(2);
-			Trace.Unindent();
-			return true;
-		}
+                    Trace.Unindent();
+                    return CancelUpdate();
+                }
 
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		/// <remarks>
-		/// This is a convience method that allows the setting of the message and
-		/// the determination of the return value in one call.
-		/// </remarks>
-		/// <returns>Always <c>true</c>.</returns>
-		private bool CancelUpdate()
-		{
-			SetMessage(String.Format("Cancelled {0} update.", EnvironmentInfo.Settings.ModManagerName));
-			SetProgress(2);
-			return true;
-		}
+                SetProgress(2);
 
-		/// <summary>
-		/// Gets the newest available programme version.
-		/// </summary>
-		/// <returns>The newest available programme version,
-		/// or 69.69.69.69 if now information could be retrieved.</returns>
-		private Version GetNewProgrammeVersion(out string p_strDownloadUri)
-		{
-			ExtendedWebClient wclNewVersion = new ExtendedWebClient(15000);
-			Version verNew = new Version("69.69.69.69");
-			p_strDownloadUri = String.Empty;
+                if (CancelRequested)
+                {
+                    Trace.Unindent();
+                    return CancelUpdate();
+                }
 
-			try
-			{
-				string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion);
-				if (!String.IsNullOrEmpty(strNewVersion))
-				{
-					verNew = new Version(strNewVersion.Split('|')[0]);
-					p_strDownloadUri = strNewVersion.Split('|')[1];
-				}
-			}
-			catch (WebException)
-			{
-				try
-				{
-					string strNewVersion = wclNewVersion.DownloadString(NexusLinks.LatestVersion4dot5);
-					if (!String.IsNullOrEmpty(strNewVersion))
-					{
-						verNew = new Version(strNewVersion.Split('|')[0]);
-						p_strDownloadUri = strNewVersion.Split('|')[1];
-					}
-				}
-				catch (WebException e)
-				{
-					Trace.TraceError(String.Format("Could not connect to update server: {0}", e.Message));
-				}
-				catch (ArgumentException e)
-				{
-					Trace.TraceError(String.Format("Unexpected response from the server: {0}", e.Message));
-				}
-			}
-			catch (ArgumentException e)
-			{
-				Trace.TraceError(String.Format("Unexpected response from the server: {0}", e.Message));
-			}
+                if (!String.IsNullOrEmpty(strNewInstaller))
+                {
+                    string strOldPath = strNewInstaller;
+                    strNewInstaller = Path.Combine(Path.GetTempPath(), Path.GetFileName(strNewInstaller));
+                    FileUtil.ForceDelete(strNewInstaller);
 
-			return verNew;
-		}
-	}
+                    try
+                    {
+                        File.Move(strOldPath, strNewInstaller);
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        StringBuilder stbAVMessage = new StringBuilder();
+                        stbAVMessage.AppendLine("Unable to find the downloaded update:");
+                        stbAVMessage.AppendLine("this could be caused by a network issue or by your anti-virus software deleting it falsely flagging the installer as a virus.");
+                        stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
+                        stbAVMessage.AppendLine();
+                        stbAVMessage.AppendFormat("To fix this issue you need to add {0}'s executable and all its folders to your", EnvironmentInfo.Settings.ModManagerName).AppendLine();
+                        stbAVMessage.AppendLine("anti-virus exception list. You can also download the update manually from:");
+                        stbAVMessage.AppendLine(NexusLinks.Releases);
+
+                        try
+                        {
+                            //the extended message box contains an activex control wich must be run in an STA thread,
+                            // we can't control what thread this gets called on, so create one if we need to
+                            ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            ApartmentState astState = ApartmentState.Unknown;
+                            Thread.CurrentThread.TrySetApartmentState(astState);
+                            if (astState == ApartmentState.STA)
+                                actShowMessage();
+                            else
+                            {
+                                Thread thdMessage = new Thread(actShowMessage);
+                                thdMessage.SetApartmentState(ApartmentState.STA);
+                                thdMessage.Start();
+                                thdMessage.Join();
+                            }
+                        }
+                        catch {}
+
+                        Trace.Unindent();
+                        return CancelUpdate();
+                    }
+
+                    SetMessage("Launching installer...");
+                    ProcessStartInfo psiInfo = new ProcessStartInfo(strNewInstaller);
+                    Process.Start(psiInfo);
+                    Trace.Unindent();
+                    return true;
+                }
+            }
+            else if (!m_booIsAutoCheck)
+            {
+                stbPromptMessage.AppendFormat("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
+                stbPromptMessage.AppendLine();
+                stbPromptMessage.AppendLine();
+                stbPromptMessage.AppendLine("NOTE: You can find the release notes and past versions here:");
+                stbPromptMessage.AppendLine(NexusLinks.Releases);
+
+                try
+                {
+                    //the extended message box contains an activex control wich must be run in an STA thread,
+                    // we can't control what thread this gets called on, so create one if we need to
+                    ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ApartmentState astState = ApartmentState.Unknown;
+                    Thread.CurrentThread.TrySetApartmentState(astState);
+                    if (astState == ApartmentState.STA)
+                        actShowMessage();
+                    else
+                    {
+                        Thread thdMessage = new Thread(actShowMessage);
+                        thdMessage.SetApartmentState(ApartmentState.STA);
+                        thdMessage.Start();
+                        thdMessage.Join();
+                    }
+
+                }
+                catch
+                {
+                }
+            }
+
+            SetMessage(String.Format("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName));
+            SetProgress(2);
+            Trace.Unindent();
+            return true;
+        }
+
+        /// <summary>
+        /// Cancels the update.
+        /// </summary>
+        /// <remarks>
+        /// This is a convience method that allows the setting of the message and
+        /// the determination of the return value in one call.
+        /// </remarks>
+        /// <returns>Always <c>true</c>.</returns>
+        private bool CancelUpdate()
+        {
+            SetMessage(String.Format("Cancelled {0} update.", EnvironmentInfo.Settings.ModManagerName));
+            SetProgress(2);
+            return true;
+        }
+
+        #region GitHub
+
+        // Couldn't use the existing downloading solution, GitHub doesn't accept the request and returns a 403.
+        private string GitHubDownload(string url)
+        {
+            try
+            {
+                var temporaryInstallerFile = Path.Combine(EnvironmentInfo.TemporaryPath, Path.GetFileName(url));
+
+                using (var wc = new WebClient())
+                {
+                    SetProgress(0);
+                    SetProgressMaximum(100);
+
+                    wc.DownloadProgressChanged += GitHubDownload_ProgressChanged;
+
+                    var task = wc.DownloadFileTaskAsync(url, temporaryInstallerFile);
+
+                    while (!task.IsCompleted)
+                    {
+                        if (CancelRequested)
+                        {
+                            wc.CancelAsync();
+                        }
+
+                        Thread.Sleep(100);
+                    }
+
+                    wc.DownloadProgressChanged -= GitHubDownload_ProgressChanged;
+                }
+
+                return temporaryInstallerFile;
+            }
+            catch (Exception e)
+            {
+                Trace.TraceError("Could not download installer \"{0}\" - {1}: {2}", url, e.GetType(), e.Message);
+                return string.Empty;
+            }
+        }
+
+        private void GitHubDownload_ProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+        {
+            SetProgress(e.ProgressPercentage);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Gets the newest available programme version.
+        /// </summary>
+        /// <returns>The newest available programme version,
+        /// or 69.69.69.69 if now information could be retrieved.</returns>
+        private Version GetNewProgrammeVersion(out string p_strDownloadUri, out string p_strReleaseNotes)
+        {
+            var wclNewVersion = new ExtendedWebClient(15000);
+            var verNew = new Version("69.69.69.69");
+
+            p_strDownloadUri = string.Empty;
+            p_strReleaseNotes = string.Empty;
+
+            try
+            {
+                GithubReleaseParser release = new GithubReleaseParser();
+
+                if (release.GetLatestVersion())
+                {
+                    verNew = new Version(release.LatestVersion.Replace("f", ""));
+                    p_strDownloadUri = release.LatestVersionUrl;
+                    p_strReleaseNotes = release.LatestVersionReleaseNotes;
+                    Trace.TraceInformation("latest version = {0}", verNew.ToString());
+                    Trace.TraceInformation("latest version url = {0}", p_strDownloadUri);
+                }
+            }
+            catch (Exception e)
+            {
+                Trace.TraceError("ProgrammeUpdater::GetNewProgrammeVersion:: error - {0}", e.Message);
+                Trace.TraceError(e.ToString());                
+            }
+
+            return verNew;
+        }
+    }
 }

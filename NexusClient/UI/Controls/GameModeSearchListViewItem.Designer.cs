@@ -31,6 +31,9 @@
             this.components = new System.ComponentModel.Container();
             this.fbdSelectPath = new System.Windows.Forms.FolderBrowserDialog();
             this.panel1 = new System.Windows.Forms.Panel();
+            this.pnlFileSystemError = new System.Windows.Forms.Panel();
+            this.lblFileSystemErrorDescription = new System.Windows.Forms.Label();
+            this.lblFileSystemError = new System.Windows.Forms.Label();
             this.lblGameModeName = new System.Windows.Forms.Label();
             this.pnlSet = new System.Windows.Forms.Panel();
             this.lblFinalPath = new Nexus.UI.Controls.PathLabel();
@@ -53,17 +56,14 @@
             this.lblPath = new Nexus.UI.Controls.PathLabel();
             this.pbxGameLogo = new System.Windows.Forms.PictureBox();
             this.erpErrors = new System.Windows.Forms.ErrorProvider(this.components);
-            this.pnlFileSystemError = new System.Windows.Forms.Panel();
-            this.lblFileSystemErrorDescription = new System.Windows.Forms.Label();
-            this.lblFileSystemError = new System.Windows.Forms.Label();
             this.panel1.SuspendLayout();
+            this.pnlFileSystemError.SuspendLayout();
             this.pnlSet.SuspendLayout();
             this.pnlNotFound.SuspendLayout();
             this.pnlSearching.SuspendLayout();
             this.pnlCandidate.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.erpErrors)).BeginInit();
-            this.pnlFileSystemError.SuspendLayout();
             this.SuspendLayout();
             // 
             // fbdSelectPath
@@ -79,6 +79,41 @@
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(388, 255);
             this.panel1.TabIndex = 4;
+            // 
+            // pnlFileSystemError
+            // 
+            this.pnlFileSystemError.Controls.Add(this.lblFileSystemErrorDescription);
+            this.pnlFileSystemError.Controls.Add(this.lblFileSystemError);
+            this.pnlFileSystemError.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnlFileSystemError.Location = new System.Drawing.Point(0, 255);
+            this.pnlFileSystemError.Name = "pnlFileSystemError";
+            this.pnlFileSystemError.Size = new System.Drawing.Size(388, 0);
+            this.pnlFileSystemError.TabIndex = 4;
+            // 
+            // lblFileSystemErrorDescription
+            // 
+            this.lblFileSystemErrorDescription.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.lblFileSystemErrorDescription.AutoSize = true;
+            this.lblFileSystemErrorDescription.Location = new System.Drawing.Point(6, -46);
+            this.lblFileSystemErrorDescription.Name = "lblFileSystemErrorDescription";
+            this.lblFileSystemErrorDescription.Size = new System.Drawing.Size(299, 13);
+            this.lblFileSystemErrorDescription.TabIndex = 1;
+            this.lblFileSystemErrorDescription.Text = "This game is installed on a drive with an unsuitable file system.";
+            // 
+            // lblFileSystemError
+            // 
+            this.lblFileSystemError.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblFileSystemError.AutoSize = true;
+            this.m_fpdFontProvider.SetFontSet(this.lblFileSystemError, "GameSearchText");
+            this.m_fpdFontProvider.SetFontSize(this.lblFileSystemError, 12F);
+            this.m_fpdFontProvider.SetFontStyle(this.lblFileSystemError, System.Drawing.FontStyle.Italic);
+            this.lblFileSystemError.ForeColor = System.Drawing.Color.DarkRed;
+            this.lblFileSystemError.Location = new System.Drawing.Point(6, -66);
+            this.lblFileSystemError.Name = "lblFileSystemError";
+            this.lblFileSystemError.Size = new System.Drawing.Size(163, 20);
+            this.lblFileSystemError.TabIndex = 0;
+            this.lblFileSystemError.Text = "Unsuitable file system";
             // 
             // lblGameModeName
             // 
@@ -348,41 +383,6 @@
             // 
             this.erpErrors.ContainerControl = this;
             // 
-            // pnlFileSystemError
-            // 
-            this.pnlFileSystemError.Controls.Add(this.lblFileSystemErrorDescription);
-            this.pnlFileSystemError.Controls.Add(this.lblFileSystemError);
-            this.pnlFileSystemError.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnlFileSystemError.Location = new System.Drawing.Point(0, 189);
-            this.pnlFileSystemError.Name = "pnlFileSystemError";
-            this.pnlFileSystemError.Size = new System.Drawing.Size(388, 66);
-            this.pnlFileSystemError.TabIndex = 4;
-            // 
-            // lblFileSystemErrorDescription
-            // 
-            this.lblFileSystemErrorDescription.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.lblFileSystemErrorDescription.AutoSize = true;
-            this.lblFileSystemErrorDescription.Location = new System.Drawing.Point(6, 20);
-            this.lblFileSystemErrorDescription.Name = "lblFileSystemErrorDescription";
-            this.lblFileSystemErrorDescription.Size = new System.Drawing.Size(299, 13);
-            this.lblFileSystemErrorDescription.TabIndex = 1;
-            this.lblFileSystemErrorDescription.Text = "This game is installed on a drive with an unsuitable file system.";
-            // 
-            // lblFileSystemError
-            // 
-            this.lblFileSystemError.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.lblFileSystemError.AutoSize = true;
-            this.m_fpdFontProvider.SetFontSet(this.lblFileSystemError, "GameSearchText");
-            this.m_fpdFontProvider.SetFontSize(this.lblFileSystemError, 12F);
-            this.m_fpdFontProvider.SetFontStyle(this.lblFileSystemError, System.Drawing.FontStyle.Italic);
-            this.lblFileSystemError.ForeColor = System.Drawing.Color.DarkRed;
-            this.lblFileSystemError.Location = new System.Drawing.Point(6, 0);
-            this.lblFileSystemError.Name = "lblFileSystemError";
-            this.lblFileSystemError.Size = new System.Drawing.Size(163, 20);
-            this.lblFileSystemError.TabIndex = 0;
-            this.lblFileSystemError.Text = "Unsuitable file system";
-            // 
             // GameModeSearchListViewItem
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -395,8 +395,11 @@
             this.Controls.Add(this.pbxGameLogo);
             this.m_fpdFontProvider.SetFontSet(this, "StandardText");
             this.MinimumSize = new System.Drawing.Size(516, 97);
+            this.Name = "GameModeSearchListViewItem";
             this.Size = new System.Drawing.Size(516, 519);
             this.panel1.ResumeLayout(false);
+            this.pnlFileSystemError.ResumeLayout(false);
+            this.pnlFileSystemError.PerformLayout();
             this.pnlSet.ResumeLayout(false);
             this.pnlNotFound.ResumeLayout(false);
             this.pnlNotFound.PerformLayout();
@@ -406,8 +409,6 @@
             this.pnlCandidate.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbxGameLogo)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.erpErrors)).EndInit();
-            this.pnlFileSystemError.ResumeLayout(false);
-            this.pnlFileSystemError.PerformLayout();
             this.ResumeLayout(false);
 
 		}

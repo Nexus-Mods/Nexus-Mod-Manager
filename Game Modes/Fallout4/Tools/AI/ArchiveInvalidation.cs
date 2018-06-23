@@ -1,18 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Games.Gamebryo.Tools.AI;
-using Nexus.Client.Util;
-using Nexus.Client.Games.Tools;
-using Nexus.Client.Commands;
-using Nexus.Client.Games.Gamebryo;
-
-namespace Nexus.Client.Games.Fallout4.Tools.AI
+﻿namespace Nexus.Client.Games.Fallout4.Tools.AI
 {
-	/// <summary>
-	/// Controls ArchiveInvalidation.
-	/// </summary>
-	public class ArchiveInvalidation : ITool
+    using System;
+    using System.IO;
+    using Nexus.Client.Games.Tools;
+    using Nexus.Client.Commands;
+
+    /// <summary>
+    /// Controls ArchiveInvalidation.
+    /// </summary>
+    public class ArchiveInvalidation : ITool
 	{
 		#region Events
 

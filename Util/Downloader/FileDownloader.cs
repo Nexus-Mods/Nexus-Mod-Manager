@@ -354,20 +354,6 @@ namespace Nexus.Client.Util.Downloader
 			DownloadComplete(this, e);
 		}
 
-		/// <summary>
-		/// Raises the <see cref="DownloadComplete"/> event.
-		/// </summary>
-		/// <remarks>
-		/// A completed download does not mean the entire file has been downloaded; the download
-		/// may have been interrupted.
-		/// </remarks>
-		/// <param name="p_booGotEntireFile">Whether the entire file has been downloaded.</param>
-		/// <param name="p_strSavedFileName">The path to the downloaded file.</param>
-		protected void OnDownloadComplete(bool p_booGotEntireFile, string p_strSavedFileName)
-		{
-			OnDownloadComplete(new CompletedDownloadEventArgs(p_booGotEntireFile, p_strSavedFileName));
-		}
-
 		#endregion
 
 		#region Download Control
@@ -462,23 +448,42 @@ namespace Nexus.Client.Util.Downloader
 				m_fwrWriter.Close();
 				m_fwrWriter.Dispose();
 			}
-			bool booGetEntireFile = m_fmdInfo.Length > 0 ? (m_fmdInfo.Length - ByteCount == 0) : false;
-			if (booGetEntireFile)
+
+            bool booGetEntireFile = m_fmdInfo.Length > 0 ? (m_fmdInfo.Length - ByteCount == 0) : false;
+            string failureMessage = string.Empty;
+
+            if (booGetEntireFile)
 			{
-				if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))
-					FileUtil.ForceDelete(m_strFileMetadataPath);
+                if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))
+                {
+                    FileUtil.ForceDelete(m_strFileMetadataPath);
+                }
+
 				string strNewPath = Path.ChangeExtension(m_strSavePath, null);
-				try
+
+                try
 				{
-					if (File.Exists(strNewPath))
-						FileUtil.ForceDelete(strNewPath);
+                    if (File.Exists(strNewPath))
+                    {
+                        FileUtil.ForceDelete(strNewPath);
+                    }
 				}
 				finally
 				{
-					File.Move(m_strSavePath, strNewPath);
+                    try
+                    {
+                        File.Move(m_strSavePath, strNewPath);
+                    }
+                    catch (IOException e)
+                    {
+                        Trace.TraceError("[{0}] Could not move downloaded file to its destination. Error message: \"{1}\"", m_uriURL, e.Message);
+                        failureMessage = e.Message;
+                        booGetEntireFile = false;
+                    }
 				}
 			}
-			OnDownloadComplete(booGetEntireFile, Path.ChangeExtension(m_strSavePath, null));
+
+			OnDownloadComplete(new CompletedDownloadEventArgs(booGetEntireFile, Path.ChangeExtension(m_strSavePath, null), failureMessage));
 		}
 
 		/// <summary>

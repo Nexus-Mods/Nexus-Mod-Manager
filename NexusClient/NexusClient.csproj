@@ -483,7 +483,7 @@
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.designer.cs">
+    <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.Designer.cs">
       <DependentUpon>DownloadMonitorControl.cs</DependentUpon>
     </Compile>
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorVM.cs" />
@@ -521,7 +521,7 @@
     <Compile Include="UI\Controls\CustomizableToolStripProgressBar.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.designer.cs">
+    <Compile Include="UI\Controls\CustomizableToolStripProgressBar.Designer.cs">
       <DependentUpon>CustomizableToolStripProgressBar.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\Controls\GameModeListViewItem.cs">
