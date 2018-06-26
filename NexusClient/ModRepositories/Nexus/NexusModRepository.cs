@@ -277,8 +277,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "SKYRIMNexusREST";
 					m_intRemoteGameId = 110;
 					break;
-				case "SkyrimSE":
-					m_strWebsite = "www.nexusmods.com/skyrimspecialedition";
+                case "SkyrimSE":
+                case "SkyrimVR":
+                    m_strWebsite = "www.nexusmods.com/skyrimspecialedition";
 					m_strEndpoint = "SKYRIMSENexusREST";
 					m_intRemoteGameId = 1704;
 					break;

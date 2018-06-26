@@ -122,9 +122,22 @@ namespace Nexus.Client.Games.Gamebryo
 				gmdGameMode = InstantiateGameMode(p_futFileUtility);
 
 				if (!File.Exists(((GamebryoGameModeBase)gmdGameMode).SettingsFiles.IniPath))
-					p_imsWarning = new ViewMessage(String.Format("You have no {0} INI file. Please run {0} to initialize the file before installing any mods or turning on Archive Invalidation.", gmdGameMode.Name), null, "Missing INI", MessageBoxIcon.Warning);
+                {
+                    // Skyrim VR doesn't create this file automatically.
+                    if (gmdGameMode.ModeId.Equals("SkyrimVR", StringComparison.OrdinalIgnoreCase))
+                    {
+                        File.Create(gmdGameMode.SettingsFiles.IniPath);
+                        p_imsWarning = null;
+                    }
+                    else
+                    {
+                        p_imsWarning = new ViewMessage(String.Format("You have no {0} INI file. Please run {0} to initialize the file before installing any mods or turning on Archive Invalidation.", gmdGameMode.Name), null, "Missing INI", MessageBoxIcon.Warning);
+                    }
+                }
 				else
-					p_imsWarning = null;
+				{
+				    p_imsWarning = null;
+				}
 			}
 			catch (SorterException e)
 			{

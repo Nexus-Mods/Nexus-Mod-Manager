@@ -38,19 +38,36 @@ namespace Nexus.Client
 			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
 		}
 
-		#endregion
+        #endregion
 
-		/// <summary>
-		/// Runs the applications
-		/// </summary>
-		/// <remarks>
-		/// This method makes sure the environment is sane. If so, it creates the required services
-		/// and launches the main form.
-		/// </remarks>
-		/// <param name="p_strArgs">The command line arguments passed to the application.</param>
-		/// <returns><c>true</c> if the application started as expected;
-		/// <c>false</c> otherwise.</returns>
-		public bool RunMainForm(string[] p_strArgs)
+	    /// <summary>
+	    /// Helper method to allow overrides of the game mode for NMM links.
+	    /// </summary>
+	    /// <param name="p_strGameModeFromUri">Game mode specified by NMM URI.</param>
+	    /// <returns>The appropriate game mode.</returns>
+	    private string DetermineRequestedGameMode(string p_strGameModeFromUri)
+	    {
+	        // Hack to allow Fallout 4 VR to use NMM links from the website.
+	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
+	        if (p_strGameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
+	        {
+	            return "SkyrimVR";
+	        }
+
+	        return p_strGameModeFromUri;
+	    }
+
+        /// <summary>
+        /// Runs the applications
+        /// </summary>
+        /// <remarks>
+        /// This method makes sure the environment is sane. If so, it creates the required services
+        /// and launches the main form.
+        /// </remarks>
+        /// <param name="p_strArgs">The command line arguments passed to the application.</param>
+        /// <returns><c>true</c> if the application started as expected;
+        /// <c>false</c> otherwise.</returns>
+        public bool RunMainForm(string[] p_strArgs)
 		{
 			if (!SandboxCheck(m_eifEnvironmentInfo))
 				return false;
@@ -64,7 +81,7 @@ namespace Nexus.Client
 			if ((p_strArgs.Length > 0) && !p_strArgs[0].StartsWith("-"))
 			{
 				if (Uri.TryCreate(p_strArgs[0], UriKind.Absolute, out uriModToAdd) && uriModToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
-					strRequestedGameMode = uriModToAdd.Host;
+					strRequestedGameMode = DetermineRequestedGameMode(uriModToAdd.Host);
 			}
 			else
 				for (Int32 i = 0; i < p_strArgs.Length; i++)
