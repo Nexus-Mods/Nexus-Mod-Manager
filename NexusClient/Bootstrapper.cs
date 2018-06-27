@@ -47,8 +47,8 @@ namespace Nexus.Client
 	    /// <returns>The appropriate game mode.</returns>
 	    private string DetermineRequestedGameMode(string p_strGameModeFromUri)
 	    {
-	        // Hack to allow Fallout 4 VR to use NMM links from the website.
-	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
+	        // Hack to allow Skyrim VR to use NMM links from the website.
+	        // If the default mode is Skyrim VR and a Skyrim SE link is opened, we rewrite the requested game mode.
 	        if (p_strGameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "SkyrimVR";
