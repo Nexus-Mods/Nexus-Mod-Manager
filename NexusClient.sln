@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27130.2010
+VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Game Modes", "Game Modes", "{512B02AB-C927-4F3F-A7BF-26E6EE4CF678}"
 EndProject
@@ -127,6 +127,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimSE.XmlScript", "SkyrimSE.XmlScript\SkyrimSE.XmlScript.csproj", "{0D79098F-BEFC-431D-A4E2-1C4FA12C1F03}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BreakingWheel", "BreakingWheel\BreakingWheel.csproj", "{7EEFB043-53CB-419D-89B4-69F5958E9629}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimVR", "SkyrimVR\SkyrimVR.csproj", "{1F520A7A-6DC7-4284-8647-76380A60C97D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -350,6 +352,10 @@ Global
 		{7EEFB043-53CB-419D-89B4-69F5958E9629}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7EEFB043-53CB-419D-89B4-69F5958E9629}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7EEFB043-53CB-419D-89B4-69F5958E9629}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1F520A7A-6DC7-4284-8647-76380A60C97D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1F520A7A-6DC7-4284-8647-76380A60C97D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1F520A7A-6DC7-4284-8647-76380A60C97D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1F520A7A-6DC7-4284-8647-76380A60C97D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -398,6 +404,7 @@ Global
 		{C6BA9724-B13B-4FAC-9E79-BA61E8B9334A} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{0D79098F-BEFC-431D-A4E2-1C4FA12C1F03} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{7EEFB043-53CB-419D-89B4-69F5958E9629} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{1F520A7A-6DC7-4284-8647-76380A60C97D} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}
