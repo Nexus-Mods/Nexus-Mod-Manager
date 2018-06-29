@@ -317,10 +317,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						}
 						IgnoreOfficialPlugins = true;
                     }
-                    catch (ArgumentNullException)
+                    catch (ArgumentNullException e)
                     {
-                        // No idea what to do with this, guess we'll rethrow it for now.
-                        throw;
+                        var ex = new FileNotFoundException("Could not initialize Fallout4 Game Mode: Could not find the Fallout 4 executable.", Path.Combine(GameMode.ExecutablePath, "Fallout4.exe"), e);
+                        TraceUtil.TraceException(ex);
+                        throw ex;
                     }
 					break;
 				case "SkyrimSE":
