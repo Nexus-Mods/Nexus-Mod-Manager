@@ -54,6 +54,13 @@ namespace Nexus.Client
 	            return "SkyrimVR";
 	        }
 
+	        // Hack to allow Fallout 4 VR to use NMM links from the website.
+	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
+            if (p_strGameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+	        {
+	            return "Fallout4VR";
+	        }
+
 	        return p_strGameModeFromUri;
 	    }
 

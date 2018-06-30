@@ -253,11 +253,12 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_intRemoteGameId = 130;
 					break;
 				case "Fallout4":
+				case "Fallout4VR":
 					m_strWebsite = "www.nexusmods.com/fallout4";
 					m_strEndpoint = "FO4NexusREST";
 					m_intRemoteGameId = 1151;
 					break;
-				case "Morrowind":
+                case "Morrowind":
 					m_strWebsite = "www.nexusmods.com/morrowind";
 					m_strEndpoint = "MWNexusREST";
 					m_intRemoteGameId = 100;
