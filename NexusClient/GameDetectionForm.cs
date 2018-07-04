@@ -28,7 +28,7 @@ namespace Nexus.Client
 		{
 			get => _vmlViewModel;
 
-		    set
+			set
 			{
 				_vmlViewModel = value;
 
