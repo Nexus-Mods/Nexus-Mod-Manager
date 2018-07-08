@@ -298,43 +298,56 @@ namespace Nexus.Client.Util.Downloader
 		/// <summary>
 		/// Sets up the initial values of the downloader.
 		/// </summary>
-		/// <param name="p_strSavePath">The path to which to save the file.
-		/// If <paramref name="p_booUseDefaultFileName"/> is <c>false</c>, this value should be a complete
-		/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
+		/// <param name="savePath">The path to which to save the file.
+		/// If <paramref name="useDefaultFileName"/> is <c>false</c>, this value should be a complete
+		/// path, including filename. If <paramref name="useDefaultFileName"/> is <c>true</c>,
 		/// this value should be the directory in which to save the file.</param>
-		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
-		private void Initialize(string p_strSavePath, bool p_booUseDefaultFileName)
+		/// <param name="useDefaultFileName">Whether to use the file name suggested by the server.</param>
+		private void Initialize(string savePath, bool useDefaultFileName)
 		{
 			m_fmdInfo = GetMetadata();
 
-			string strFilename = p_booUseDefaultFileName ? m_fmdInfo.SuggestedFileName : Path.GetFileName(p_strSavePath);
-			strFilename = Uri.UnescapeDataString(strFilename);
-			foreach (char chrInvalid in Path.GetInvalidFileNameChars())
+			var strFilename = useDefaultFileName ? m_fmdInfo.SuggestedFileName : Path.GetFileName(savePath);
+
+		    strFilename = Uri.UnescapeDataString(strFilename);
+
+		    foreach (var chrInvalid in Path.GetInvalidFileNameChars())
 				strFilename = strFilename.Replace(chrInvalid, '_');
-			p_strSavePath = Path.Combine(p_strSavePath, strFilename);
 
-			m_strSavePath = p_strSavePath + ".partial";
-			m_strFileMetadataPath = p_strSavePath + ".parts";
+		    savePath = Path.Combine(savePath, strFilename);
 
-			if (!m_fmdInfo.SupportsResume)
+			m_strSavePath = savePath + ".partial";
+			m_strFileMetadataPath = savePath + ".parts";
+
+		    var metaDataPathExists = File.Exists(m_strFileMetadataPath);
+
+            if (!m_fmdInfo.SupportsResume)
 			{
-				File.Delete(m_strFileMetadataPath);
-				File.Delete(m_strSavePath);
+                if(metaDataPathExists)
+				    File.Delete(m_strFileMetadataPath);
+
+                if(File.Exists(m_strSavePath))
+			        File.Delete(m_strSavePath);
 			}
 
 			//get the list of ranges we have already downloaded
-			RangeSet rgsRanges = new RangeSet();
-			if (File.Exists(m_strFileMetadataPath))
+			var rgsRanges = new RangeSet();
+
+		    if (metaDataPathExists)
 			{
-				string[] strRanges = File.ReadAllLines(m_strFileMetadataPath);
-				foreach (string strRange in strRanges)
+				var strRanges = File.ReadAllLines(m_strFileMetadataPath);
+
+			    foreach (var strRange in strRanges)
 				{
-					string strCleanRange = strRange.Trim().Trim('\0');
-					if (String.IsNullOrEmpty(strCleanRange))
+					var strCleanRange = strRange.Trim().Trim('\0');
+
+				    if (string.IsNullOrEmpty(strCleanRange))
 						continue;
-					rgsRanges.AddRange(Range.Parse(strCleanRange));
+
+				    rgsRanges.AddRange(Range.Parse(strCleanRange));
 				}
 			}
+
 			m_intInitialByteCount = rgsRanges.TotalSize;
 			m_intInitialDownloadedByteCount = rgsRanges.TotalSize / 1024;
 		}
@@ -544,48 +557,65 @@ namespace Nexus.Client.Util.Downloader
 		/// <returns>The file's metadata.</returns>
 		protected FileMetadata GetMetadata()
 		{
-			Trace.TraceInformation(String.Format("[{0}] Retreiving metadata.", m_uriURL.ToString()));
-			HttpWebRequest hwrFileMetadata = (HttpWebRequest)WebRequest.Create(m_uriURL);
-			CookieContainer ckcCookies = new CookieContainer();
-			foreach (KeyValuePair<string, string> kvpCookie in Cookies)
-				ckcCookies.Add(new Cookie(kvpCookie.Key, kvpCookie.Value, "/", m_uriURL.Host));
-			hwrFileMetadata.CookieContainer = ckcCookies;
-			hwrFileMetadata.Method = "HEAD";
-			hwrFileMetadata.AddRange(0, 1);
-			hwrFileMetadata.AllowAutoRedirect = true;
-			hwrFileMetadata.UserAgent = m_strUserAgent;
+			Trace.TraceInformation($"[{m_uriURL}] Retrieving meta data.");
+
+		    var ckcCookies = new CookieContainer();
+
+		    foreach (var kvp in Cookies)
+				ckcCookies.Add(new Cookie(kvp.Key, kvp.Value, "/", m_uriURL.Host));
+
+		    var metaData = (HttpWebRequest)WebRequest.Create(m_uriURL);
+
+		    metaData.CookieContainer = ckcCookies;
+			metaData.Method = "HEAD";
+			metaData.AddRange(0, 1);
+			metaData.AllowAutoRedirect = true;
+			metaData.UserAgent = m_strUserAgent;
 
 			FileMetadata fmiInfo = null;
+
 			try
 			{
-				using (HttpWebResponse wrpFileMetadata = (HttpWebResponse)hwrFileMetadata.GetResponse())
+				using (var wrpFileMetadata = (HttpWebResponse)metaData.GetResponse())
 				{
-					if ((wrpFileMetadata.StatusCode == HttpStatusCode.OK) || (wrpFileMetadata.StatusCode == HttpStatusCode.PartialContent))
-						fmiInfo = new FileMetadata(wrpFileMetadata.Headers);
+				    if (wrpFileMetadata.StatusCode == HttpStatusCode.OK ||
+				        wrpFileMetadata.StatusCode == HttpStatusCode.PartialContent)
+				    {
+				        fmiInfo = new FileMetadata(wrpFileMetadata.Headers);
+				    }
 				}
 			}
 			catch (WebException e)
 			{
-				using (HttpWebResponse wrpDownload = (HttpWebResponse)e.Response)
+				using (var wrpDownload = (HttpWebResponse)e.Response)
 				{
-					if (wrpDownload != null)
-						switch (wrpDownload.StatusCode)
-						{
-							case HttpStatusCode.ServiceUnavailable:
-								fmiInfo = new FileMetadata(e.Response.Headers);
-								break;
-							case HttpStatusCode.NotFound:
-								fmiInfo = new FileMetadata();
-								fmiInfo.NotFound = true;
-								break;
-						}
+				    if (wrpDownload != null)
+				    {
+				        switch (wrpDownload.StatusCode)
+				        {
+				            case HttpStatusCode.ServiceUnavailable:
+				                fmiInfo = new FileMetadata(e.Response.Headers);
+				                break;
+				            case HttpStatusCode.NotFound:
+				                fmiInfo = new FileMetadata();
+				                fmiInfo.NotFound = true;
+				                break;
+                            default:
+                                //On an off chance there are other enums not being handled
+                                Trace.TraceWarning($"[{wrpDownload.StatusCode}] wasn't handled. 0x201807081159");
+                                break;
+				        }
+				    }
 				}
 			}
+
 			if (fmiInfo == null)
 				fmiInfo = new FileMetadata();
-			if (String.IsNullOrEmpty(fmiInfo.SuggestedFileName))
+
+			if (string.IsNullOrEmpty(fmiInfo.SuggestedFileName))
 				fmiInfo.SuggestedFileName = Uri.UnescapeDataString(m_uriURL.Segments[m_uriURL.Segments.Length - 1]);
-			return fmiInfo;
+
+		    return fmiInfo;
 		}
 	}
 }
