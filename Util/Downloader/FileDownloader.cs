@@ -16,8 +16,10 @@ namespace Nexus.Client.Util.Downloader
 	public partial class FileDownloader
 	{
 	    private const int MaxBlockSize = 128 * 1024 * 1024;
+	    private const string DefaultUserAgent =
+	        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36";
 
-	    public event EventHandler<CompletedDownloadEventArgs> DownloadComplete = delegate { };
+        public event EventHandler<CompletedDownloadEventArgs> DownloadComplete = delegate { };
 
 		private readonly int _maxConnections; // = 5;
 	    private readonly int _writeBufferSize; // = 1024;
@@ -227,7 +229,7 @@ namespace Nexus.Client.Util.Downloader
 			_maxConnections = maxConnections;
 			_minBlockSize = minBlockSize;
 			_writeBufferSize = _minBlockSize * 1;
-			_userAgent = userAgent;
+			_userAgent = string.IsNullOrWhiteSpace(userAgent) ? DefaultUserAgent : userAgent;
 		    _startTime = DateTime.Now;
 
 		    URL = url;
@@ -249,7 +251,7 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="useDefaultFileName">Whether to use the file name suggested by the server.</param>
 		private void Initialize(string savePath, bool useDefaultFileName)
 		{
-			_metadata = GetMetadata();
+			_metadata = GetMetadata(URL, Cookies);
 
 			var strFilename = useDefaultFileName ? _metadata.SuggestedFileName : Path.GetFileName(savePath);
 
@@ -515,71 +517,83 @@ namespace Nexus.Client.Util.Downloader
 			}
 		}
 
-		/// <summary>
-		/// Gets the file's metadata.
-		/// </summary>
-		/// <returns>The file's metadata.</returns>
-		protected FileMetadata GetMetadata()
+	    /// <summary>
+	    /// Gets the file's metadata.
+	    /// </summary>
+	    /// <returns>The file's metadata.</returns>
+	    protected FileMetadata GetMetadata(Uri uri, Dictionary<string, string> cookies, string httpMethod = WebRequestMethods.Http.Head)
 		{
-			Trace.TraceInformation($"[{URL}] Retrieving meta data.");
+			Trace.TraceInformation($"[{uri}] Retrieving meta data.");
 
 		    var ckcCookies = new CookieContainer();
 
-		    foreach (var kvp in Cookies)
-				ckcCookies.Add(new Cookie(kvp.Key, kvp.Value, "/", URL.Host));
+		    foreach (var kvp in cookies)
+				ckcCookies.Add(new Cookie(kvp.Key, kvp.Value, "/", uri.Host));
 
-		    var metaData = (HttpWebRequest)WebRequest.Create(URL);
+		    var webMetaData = (HttpWebRequest)WebRequest.Create(uri);
 
-		    metaData.CookieContainer = ckcCookies;
-			metaData.Method = "HEAD";
-			metaData.AddRange(0, 1);
-			metaData.AllowAutoRedirect = true;
-			metaData.UserAgent = _userAgent;
+		    webMetaData.CookieContainer = ckcCookies;
+			webMetaData.Method = string.IsNullOrWhiteSpace(httpMethod) ? WebRequestMethods.Http.Head : httpMethod;
+			webMetaData.AddRange(0, 1);
+			webMetaData.AllowAutoRedirect = true;
+			webMetaData.UserAgent = _userAgent;
 
-			FileMetadata fmiInfo = null;
+		    FileMetadata fileMetaData = null;
 
 			try
 			{
-				using (var wrpFileMetadata = (HttpWebResponse)metaData.GetResponse())
+				using (var wrpFileMetadata = (HttpWebResponse)webMetaData.GetResponse())
 				{
 				    if (wrpFileMetadata.StatusCode == HttpStatusCode.OK ||
 				        wrpFileMetadata.StatusCode == HttpStatusCode.PartialContent)
 				    {
-				        fmiInfo = new FileMetadata(wrpFileMetadata.Headers);
+				        fileMetaData = new FileMetadata(wrpFileMetadata.Headers);
 				    }
 				}
 			}
 			catch (WebException e)
 			{
-				using (var wrpDownload = (HttpWebResponse)e.Response)
+				using (var response = (HttpWebResponse)e.Response)
 				{
-				    if (wrpDownload != null)
+				    if (response != null)
 				    {
-				        switch (wrpDownload.StatusCode)
+				        switch (response.StatusCode)
 				        {
 				            case HttpStatusCode.ServiceUnavailable:
-				                fmiInfo = new FileMetadata(e.Response.Headers);
+				                fileMetaData = new FileMetadata(e.Response.Headers);
 				                break;
 				            case HttpStatusCode.NotFound:
-				                fmiInfo = new FileMetadata();
-				                fmiInfo.NotFound = true;
+				                fileMetaData = new FileMetadata();
+				                fileMetaData.NotFound = true;
 				                break;
+                            case HttpStatusCode.Forbidden:
+                                /* GitHub is hosted by Amazon. Http GET method requests cause a (sort of) redirect to Amazon's servers using
+                                 * a 302 FOUND and then a 200 OK at a different URI.
+                                 * Using the HEAD method will cause a 403 error to be thrown. */
+                                if (httpMethod == WebRequestMethods.Http.Head)
+                                {
+                                    //This won't be entered again because the HTTP Method is changed at this point
+                                    //Also be aware that this is a single recursive call, but it is safe past this point
+                                    fileMetaData = GetMetadata(uri, cookies, WebRequestMethods.Http.Get);
+                                }
+
+                                break;
                             default:
                                 //On an off chance there are other enums not being handled
-                                Trace.TraceWarning($"[{wrpDownload.StatusCode}] wasn't handled. 0x201807081159");
+                                Trace.TraceWarning($"[{response.StatusCode}] wasn't handled. 0x201807081159");
                                 break;
 				        }
 				    }
 				}
 			}
 
-			if (fmiInfo == null)
-				fmiInfo = new FileMetadata();
+			if (fileMetaData == null)
+				fileMetaData = new FileMetadata();
 
-			if (string.IsNullOrEmpty(fmiInfo.SuggestedFileName))
-				fmiInfo.SuggestedFileName = Uri.UnescapeDataString(URL.Segments[URL.Segments.Length - 1]);
+			if (string.IsNullOrEmpty(fileMetaData.SuggestedFileName))
+				fileMetaData.SuggestedFileName = Uri.UnescapeDataString(URL.Segments[URL.Segments.Length - 1]);
 
-		    return fmiInfo;
+		    return fileMetaData;
 		}
-	}
+    }
 }
