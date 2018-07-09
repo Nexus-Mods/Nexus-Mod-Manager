@@ -16,7 +16,7 @@ AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
-AppCopyright=Copyright © {#MyPublisher} 2011-2018
+AppCopyright=Copyright ï¿½ {#MyPublisher} 2011-2018
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyPublisher}
 AppPublisher={#MyPublisher}
@@ -33,7 +33,7 @@ UninstallFilesDir={app}\uninstall
 DirExistsWarning=no
 DisableDirPage=no
 CreateAppDir=true
-OutputDir=bin
+OutputDir=..\Stage\Installer\
 SourceDir=.
 AllowNoIcons=true
 SignedUninstaller=true
@@ -44,9 +44,9 @@ InternalCompressLevel=Ultra64
 SolidCompression=true
 Compression=lzma2/Max
 ChangesAssociations=true
-LicenseFile=..\bin\Release\data\Licence.rtf
-InfoBeforeFile=..\bin\Release\data\NewVersionDisclaimer.rtf
-InfoAfterFile=..\bin\Release\data\releasenotes.rtf
+LicenseFile=..\Stage\Release\data\License.rtf
+InfoBeforeFile=..\Stage\Release\data\NewVersionDisclaimer.rtf
+InfoAfterFile=..\Stage\Release\data\releasenotes.rtf
 MinVersion=0,6.0
 PrivilegesRequired=admin
 ArchitecturesAllowed=x86 x64 ia64
@@ -66,13 +66,13 @@ Name: associateFomodFiles; Description: &Associate *.FOMOD files with {#MyAppSet
 Name: associateOmodFiles; Description: &Associate *.OMOD files with {#MyAppSetupName}; GroupDescription: Other tasks:;
 
 [Files]
-Source: "..\bin\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flags: ignoreversion
-Source: "..\bin\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
-Source: "..\bin\Release\*.dll"; DestDir: {app}; Flags: ignoreversion
-Source: "..\bin\Release\data\*"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
-Source: "..\bin\Release\GameModes\*"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
-Source: "..\bin\Release\ModFormats\*"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
-Source: "..\bin\Release\ScriptTypes\*"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flags: ignoreversion
+Source: "..\Stage\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
+Source: "..\Stage\Release\*.dll"; DestDir: {app}; Flags: ignoreversion
+Source: "..\Stage\Release\data\*"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\GameModes\*"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\ModFormats\*"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\ScriptTypes\*"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: {group}\{#MyAppSetupName}; Filename: {app}\{#MyExeName}; WorkingDir: {app}

@@ -48,7 +48,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			get
 			{
-				return @"https://api.github.com/repos/Nexus-Mods/Nexus-Mod-Manager/releases/latest";
+				return @"https://api.github.com/repos/squid-box/Nexus-Mod-Manager/releases/latest";
 			}
 		}
 
@@ -56,7 +56,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		{
 			get
 			{
-				return @"https://github.com/Nexus-Mods/Nexus-Mod-Manager/releases";
+				return @"https://github.com/squid-box/Nexus-Mod-Manager/releases";
 			}
 		}
 

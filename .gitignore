@@ -207,6 +207,7 @@ FakesAssemblies/
 *.opt
 
 # InnoSetup files
-Setup/PreprocessedNexus Mod Manager0.7.1.0.iss
+Setup/PreprocessedNexus Mod Manager*.iss
 Setup/scripts*
 
+[Ss]tage

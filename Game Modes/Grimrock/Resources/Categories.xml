@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Armour" ID="115">
+      <name>Armour</name>
+    </category>
+    <category path="Audio, Sound and Music" ID="111">
+      <name>Audio, Sound and Music</name>
+    </category>
+    <category path="Dungeons" ID="118">
+      <name>Dungeons</name>
+    </category>
+    <category path="Miscellaneous" ID="119">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Models and Textures" ID="113">
+      <name>Models and Textures</name>
+    </category>
+    <category path="Monsters" ID="117">
+      <name>Monsters</name>
+    </category>
+    <category path="Potions" ID="116">
+      <name>Potions</name>
+    </category>
+    <category path="Utilities" ID="112">
+      <name>Utilities</name>
+    </category>
+    <category path="Weapons" ID="114">
+      <name>Weapons</name>
+    </category>
+  </categoryList>
+</categoryManager>
