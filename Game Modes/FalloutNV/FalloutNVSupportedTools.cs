@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -63,7 +63,20 @@ namespace Nexus.Client.Games.FalloutNV
 				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
 			}
 
-			Trace.Unindent();
+            strCommand = GetFNVEditLaunchCommand();
+            Trace.TraceInformation("FNVEdit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+            if ((strCommand != null) && (File.Exists(strCommand)))
+            {
+                imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+                AddLaunchCommand(new Command("FNVEdit", "Launch FNVEdit", "Launches FNVEdit.", imgIcon, LaunchFNVEdit, true));
+            }
+            else
+            {
+                imgIcon = null;
+                AddLaunchCommand(new Command("Config#FNVEdit", "Config FNVEdit", "Configures FNVEdit.", imgIcon, ConfigFNVEdit, true));
+            }
+
+            Trace.Unindent();
 		}
 
 		#region Launch Commands
@@ -83,14 +96,23 @@ namespace Nexus.Client.Games.FalloutNV
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
+			Launch(strCommand, "--game=FalloutNV");
 		}
 
-		/// <summary>
-		/// Gets the BOSS launch command.
-		/// </summary>
-		/// <returns>The BOSS launch command.</returns>
-		private string GetBOSSLaunchCommand()
+        private void LaunchFNVEdit()
+        {
+            Trace.TraceInformation("Launching FNVEdit");
+            Trace.Indent();
+            string strCommand = GetFNVEditLaunchCommand();
+            Trace.TraceInformation("Command: " + strCommand);
+            Launch(strCommand, null);
+        }
+
+        /// <summary>
+        /// Gets the BOSS launch command.
+        /// </summary>
+        /// <returns>The BOSS launch command.</returns>
+        private string GetBOSSLaunchCommand()
 		{
 			string strBOSS = String.Empty;
 			string strRegBoss = String.Empty;
@@ -174,14 +196,32 @@ namespace Nexus.Client.Games.FalloutNV
 			return strLOOT;
 		}
 
-		#endregion
-
-		#region Config Commands
-
-		/// <summary>
-		/// Configures the selected command.
+        /// <summary>
+		/// Gets the FNVEdit launch command.
 		/// </summary>
-		public override void ConfigCommand(string p_strCommandID)
+		/// <returns>The FNVEdit launch command.</returns>
+		private string GetFNVEditLaunchCommand()
+        {
+            string strFNVEdit = String.Empty;
+
+            if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("FNVEdit"))
+            {
+                strFNVEdit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNVEdit"];
+                if (!String.IsNullOrEmpty(strFNVEdit))
+                    strFNVEdit = Path.Combine(strFNVEdit, @"FNVEdit.exe");
+            }
+
+            return strFNVEdit;
+        }
+
+        #endregion
+
+        #region Config Commands
+
+        /// <summary>
+        /// Configures the selected command.
+        /// </summary>
+        public override void ConfigCommand(string p_strCommandID)
 		{
 			if (string.IsNullOrWhiteSpace(p_strCommandID))
 				return;
@@ -261,6 +301,38 @@ private void ConfigBOSS()
 				}
 		}
 
-		#endregion
-	}
+        private void ConfigFNVEdit()
+        {
+            string p_strToolName = "FNVEdit";
+            string p_strExecutableName = "FNVEdit.exe";
+            string p_strToolID = "FNVEdit";
+            Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+            Trace.Indent();
+
+            FolderBrowserDialog fbd = new FolderBrowserDialog();
+            fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+            fbd.ShowNewFolderButton = false;
+
+            fbd.ShowDialog();
+
+            string strPath = fbd.SelectedPath;
+
+            if (!String.IsNullOrEmpty(strPath))
+            {
+                if (Directory.Exists(strPath))
+                {
+                    string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+                    if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+                    {
+                        EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+                        EnvironmentInfo.Settings.Save();
+                        OnChangedToolPath(new EventArgs());
+                    }
+                }
+            }
+        }
+
+        #endregion
+    }
 }

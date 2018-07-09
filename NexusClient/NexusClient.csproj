@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client</RootNamespace>
     <AssemblyName>NexusClient</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ApplicationIcon>Resources\tes_logo.ico</ApplicationIcon>
     <TargetZone>Internet</TargetZone>
@@ -68,6 +68,7 @@
     </Compile>
     <Compile Include="DownloadMonitoring\PurgeDownloadsTask.cs" />
     <Compile Include="EnvironmentInfo.cs" />
+    <Compile Include="Exceptions\GameModeRegistryException.cs" />
     <Compile Include="Extensions\ExtensionMethods.cs" />
     <Compile Include="GameModeSelectionForm.cs">
       <SubType>Form</SubType>
@@ -304,6 +305,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Settings.cs" />
+    <Compile Include="Settings\ShellExtensionUtil.cs" />
     <Compile Include="TipsManagement\Balloon.cs">
       <SubType>Form</SubType>
     </Compile>

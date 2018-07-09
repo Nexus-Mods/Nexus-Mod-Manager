@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
@@ -317,10 +317,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						}
 						IgnoreOfficialPlugins = true;
                     }
-                    catch (ArgumentNullException)
+                    catch (ArgumentNullException e)
                     {
-                        // No idea what to do with this, guess we'll rethrow it for now.
-                        throw;
+                        var ex = new FileNotFoundException("Could not initialize Fallout4 Game Mode: Could not find the Fallout 4 executable.", Path.Combine(GameMode.ExecutablePath, "Fallout4.exe"), e);
+                        TraceUtil.TraceException(ex);
+                        throw ex;
                     }
 					break;
                 case "Fallout4VR":
@@ -337,7 +338,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Fallout4PluginManagement = true;
 					ForcedReadOnly = false;
 					break;
-				default:
+			    case "SkyrimVR":
+			        AppDataGameFolderName = "Skyrim VR";
+			        IgnoreOfficialPlugins = true;
+			        TimestampOrder = false;
+			        SingleFileManagement = true;
+			        Fallout4PluginManagement = true;
+			        ForcedReadOnly = false;
+			        break;
+                default:
 					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
 

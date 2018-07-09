@@ -253,15 +253,11 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_intRemoteGameId = 130;
 					break;
 				case "Fallout4":
+				case "Fallout4VR":
 					m_strWebsite = "www.nexusmods.com/fallout4";
 					m_strEndpoint = "FO4NexusREST";
 					m_intRemoteGameId = 1151;
 					break;
-                case "Fallout4VR":
-                    m_strWebsite = "www.nexusmods.com/fallout4";
-                    m_strEndpoint = "FO4NexusREST";
-                    m_intRemoteGameId = 1151;
-                    break;
                 case "Morrowind":
 					m_strWebsite = "www.nexusmods.com/morrowind";
 					m_strEndpoint = "MWNexusREST";
@@ -282,8 +278,9 @@ namespace Nexus.Client.ModRepositories.Nexus
 					m_strEndpoint = "SKYRIMNexusREST";
 					m_intRemoteGameId = 110;
 					break;
-				case "SkyrimSE":
-					m_strWebsite = "www.nexusmods.com/skyrimspecialedition";
+                case "SkyrimSE":
+                case "SkyrimVR":
+                    m_strWebsite = "www.nexusmods.com/skyrimspecialedition";
 					m_strEndpoint = "SKYRIMSENexusREST";
 					m_intRemoteGameId = 1704;
 					break;

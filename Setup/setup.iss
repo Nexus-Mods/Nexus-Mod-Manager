@@ -8,12 +8,11 @@
 
 #define MyAppSetupName 'Nexus Mod Manager'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '1.0.0'
-#define SetupScriptVersion '1.0.0.0'
+#define MyAppVersion '0.65.7'
+#define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'Black Tree Gaming'
-
 [Setup]
-AppName={#MyAppSetupName} (Unofficial build)
+AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
@@ -37,7 +36,7 @@ CreateAppDir=true
 OutputDir=..\Stage\Installer\
 SourceDir=.
 AllowNoIcons=true
-SignedUninstaller=false
+SignedUninstaller=true
 UsePreviousGroup=true
 UsePreviousAppDir=true
 LanguageDetectionMethod=uilanguage
