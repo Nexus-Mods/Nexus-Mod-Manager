@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Controller Button Layout" ID="3">
+      <name>Controller Button Layout</name>
+    </category>
+    <category path="Graphics and Visuals" ID="4">
+      <name>Graphics and Visuals</name>
+    </category>
+    <category path="Save Files" ID="7">
+      <name>Save Files</name>
+    </category>
+    <category path="Tutorials" ID="9">
+      <name>Tutorials</name>
+    </category>
+    <category path="Tweaks" ID="8">
+      <name>Tweaks</name>
+    </category>
+    <category path="User Interface" ID="6">
+      <name>User Interface</name>
+    </category>
+    <category path="XP &amp; Levelling" ID="5">
+      <name>XP &amp; Levelling</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+  </categoryList>
+</categoryManager>
