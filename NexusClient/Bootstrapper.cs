@@ -120,6 +120,8 @@ namespace Nexus.Client
 					return false;
 				}
 
+			    CheckIfDefaultGameModeIsInstalled(gmrInstalledGames);
+
 				GameModeSelector gmsSelector = new GameModeSelector(gmrSupportedGames, gmrInstalledGames, m_eifEnvironmentInfo);
 				IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(strRequestedGameMode, booChangeDefaultGameMode);
 				if (gmsSelector.RescanRequested)
@@ -323,6 +325,29 @@ namespace Nexus.Client
 			string str7zPath = Path.Combine(p_eifEnvironmentInfo.ProgrammeInfoDirectory, p_eifEnvironmentInfo.Is64BitProcess ? "7z-64bit.dll" : "7z-32bit.dll");
 			SevenZipCompressor.SetLibraryPath(str7zPath);
 		}
+
+        /// <summary>
+        /// Checks if the default game mode is installed, and clears the setting if that is not the case.
+        /// </summary>
+        /// <param name="installedGames">GameModeRegistry of installed games.</param>
+	    private void CheckIfDefaultGameModeIsInstalled(GameModeRegistry installedGames)
+	    {
+	        var found = false;
+            
+	        foreach (var availableModes in installedGames.RegisteredGameModes)
+	        {
+	            if (availableModes.ModeId.Equals(m_eifEnvironmentInfo.Settings.RememberedGameMode, StringComparison.OrdinalIgnoreCase))
+	            {
+	                found = true;
+	            }
+	        }
+
+	        if (!found)
+	        {
+	            Trace.TraceWarning($"Remembered game mode \"{m_eifEnvironmentInfo.Settings.RememberedGameMode}\" was not found in installed games list, clearing setting.");
+	            m_eifEnvironmentInfo.Settings.RememberGameMode = false;
+	        }
+        }
 
 		#endregion
 
