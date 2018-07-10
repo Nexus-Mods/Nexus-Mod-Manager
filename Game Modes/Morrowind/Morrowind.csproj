@@ -33,7 +33,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\Stage\Debug\GameModes\</OutputPath>
+    <OutputPath>..\..\Stage\Release\GameModes\</OutputPath>
     <IntermediateOutputPath>..\..\Stage\obj\Debug\</IntermediateOutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>

@@ -128,9 +128,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimSE.XmlScript", "Game 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BreakingWheel", "Game Modes\BreakingWheel\BreakingWheel.csproj", "{7EEFB043-53CB-419D-89B4-69F5958E9629}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4VR", "Fallout4VR\Fallout4VR.csproj", "{5BD924D2-3909-40B4-9B0F-C837987A6849}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4VR", "Game Modes\Fallout4VR\Fallout4VR.csproj", "{5BD924D2-3909-40B4-9B0F-C837987A6849}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimVR", "SkyrimVR\SkyrimVR.csproj", "{1F520A7A-6DC7-4284-8647-76380A60C97D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimVR", "Game Modes\SkyrimVR\SkyrimVR.csproj", "{1F520A7A-6DC7-4284-8647-76380A60C97D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
