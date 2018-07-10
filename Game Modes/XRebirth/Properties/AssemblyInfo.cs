@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following 
@@ -7,12 +6,7 @@ using System.Runtime.InteropServices;
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - XRebirth Module")]
 [assembly: AssemblyDescription("The XRebirth Module for the official Mod Manager of the Nexus network of game mod websites.")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Black Tree Gaming")]
 [assembly: AssemblyProduct("XRebirth")]
-[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2013")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

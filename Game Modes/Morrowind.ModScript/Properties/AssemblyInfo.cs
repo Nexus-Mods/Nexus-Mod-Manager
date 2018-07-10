@@ -1,4 +1,3 @@
-using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -7,13 +6,7 @@ using System.Runtime.InteropServices;
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Morrowind Game Mode Mod Script Variant")]
 [assembly: AssemblyDescription("The Morrowind implementation of the Mod Script language for the official Mod Manager the Nexus network of game mod websites.")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Black Tree Gaming")]
 [assembly: AssemblyProduct("Morrowind.ModScript")]
-[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2012")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
-
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
 // COM, set the ComVisible attribute to true on that type.
