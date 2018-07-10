@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Default - I forgot to set this" ID="38">
+      <name>Default - I forgot to set this</name>
+    </category>
+    <category path="Alchemy and Crafting" ID="19">
+      <name>Alchemy and Crafting</name>
+    </category>
+    <category path="Animals, Creatures and Monsters" ID="3">
+      <name>Animals, Creatures and Monsters</name>
+    </category>
+    <category path="Animations" ID="4">
+      <name>Animations</name>
+    </category>
+    <category path="Armour" ID="5">
+      <name>Armour</name>
+    </category>
+    <category path="Audio, Sounds and Music" ID="6">
+      <name>Audio, Sounds and Music</name>
+    </category>
+    <category path="Cheats and God Items" ID="7">
+      <name>Cheats and God Items</name>
+    </category>
+    <category path="Cities, Towns and Villages" ID="8">
+      <name>Cities, Towns and Villages</name>
+    </category>
+    <category path="Clothing" ID="9">
+      <name>Clothing</name>
+    </category>
+    <category path="Companions" ID="10">
+      <name>Companions</name>
+    </category>
+    <category path="Dungeons" ID="11">
+      <name>Dungeons</name>
+    </category>
+    <category path="Environmental Changes" ID="12">
+      <name>Environmental Changes</name>
+    </category>
+    <category path="Gameplay Effects and Changes" ID="13">
+      <name>Gameplay Effects and Changes</name>
+    </category>
+    <category path="Hair and Face" ID="14">
+      <name>Hair and Face</name>
+    </category>
+    <category path="Items and Objects (for player characters)" ID="15">
+      <name>Items and Objects (for player characters)</name>
+    </category>
+    <category path="Items and Objects (for the world)" ID="16">
+      <name>Items and Objects (for the world)</name>
+    </category>
+	<category path="Locations" ID="18">
+		<name>Locations</name>
+	</category>
+	<category path="Magic" ID="20">
+		  <name>Magic</name>
+	</category>
+	<category path="Miscellaneous" ID="22">
+		  <name>Miscellaneous</name>
+	</category>
+	<category path="Models and Textures" ID="23">
+		  <name>Models and Textures</name>
+	</category>
+	<category path="New Buildings" ID="25">
+		  <name>New Buildings</name>
+	</category>
+	<category path="New Lands" ID="24">
+		  <name>New Lands</name>
+	</category>
+	<category path="NPCs" ID="26">
+		  <name>NPCs</name>
+	</category>
+	<category path="Quests and Adventures" ID="27">
+		  <name>Quests and Adventures</name>
+	</category>
+	<category path="Races and Classes" ID="28">
+		  <name>Races and Classes</name>
+	</category>
+	<category path="Saved Games" ID="29">
+		  <name>Saved Games</name>
+	</category>
+	<category path="Shops, Stores, Inns and Taverns" ID="21">
+		  <name>Shops, Stores, Inns and Taverns</name>
+	</category>
+	<category path="Skills, Tactics and Levelings" ID="30">
+		  <name>Skills, Tactics and Levelings</name>
+	</category>
+	<category path="Stealth" ID="31">
+		  <name>Stealth</name>
+	</category>
+	<category path="User Interfaces" ID="32">
+		  <name>User Interfaces</name>
+	</category>
+	<category path="Utilities" ID="33">
+		  <name>Utilities</name>
+	</category>
+	<category path="Videos and Trailers" ID="34">
+		  <name>Videos and Trailers</name>
+	</category>
+	<category path="Visuals and Graphics" ID="35">
+		  <name>Visuals and Graphics</name>
+	</category>
+	<category path="Weapons" ID="36">
+		  <name>Weapons</name>
+	</category>
+	<category path="Weapons and Armors" ID="37">
+		  <name>Weapons and Armors</name>
+	</category>
+  </categoryList>
+</categoryManager>

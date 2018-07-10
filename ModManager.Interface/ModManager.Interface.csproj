@@ -23,17 +23,18 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\Stage\Debug\</OutputPath>
+    <IntermediateOutputPath>..\Stage\obj\Debug\</IntermediateOutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>bin\Debug\ModManager.Interface.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\Stage\Release\</OutputPath>
+    <IntermediateOutputPath>..\Stage\obj\Release\</IntermediateOutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -202,22 +203,27 @@
     <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
       <Project>{e824acbb-90c8-4c60-9d52-9c8020e98e3e}</Project>
       <Name>ChinhDo.Transactions.FileManager</Name>
+      <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\Commanding\Commanding.csproj">
       <Project>{1732bb96-1f74-4b99-82d6-4d1239c9d36a}</Project>
       <Name>Commanding</Name>
+      <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\NexusClient.Interface\NexusClient.Interface.csproj">
       <Project>{d586e7d8-9c8e-48f0-b20c-31a52b37e9d3}</Project>
       <Name>NexusClient.Interface</Name>
+      <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\UI\UI.csproj">
       <Project>{5edd4e37-b8f3-403d-a2e9-aff31b21a236}</Project>
       <Name>UI</Name>
+      <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\Util\Util.csproj">
       <Project>{44caa655-38c2-4ca2-ba68-a8d5c44b169d}</Project>
       <Name>Util</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
