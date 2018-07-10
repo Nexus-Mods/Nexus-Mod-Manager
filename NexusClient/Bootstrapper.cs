@@ -1,41 +1,43 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Text;
-using System.Threading;
-using System.Windows.Forms;
-using System.Xml.Serialization;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Games;
-using Nexus.Client.ModRepositories.Nexus;
-using Nexus.Client.Properties;
-using Nexus.Client.Settings;
-using Nexus.Client.Util;
-using Nexus.UI;
-using Nexus.UI.Controls;
-using SevenZip;
-using Nexus.Client.UI;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
-	/// <summary>
-	/// This class is responsible for creating all the services the application needs, and making sure that the
-	/// environment is sane.
-	/// </summary>
-	public class Bootstrapper
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Text;
+    using System.Threading;
+    using System.Windows.Forms;
+    using System.Xml.Serialization;
+
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.Games;
+    using Nexus.Client.ModRepositories.Nexus;
+    using Nexus.Client.Properties;
+    using Nexus.Client.Settings;
+    using Nexus.Client.Util;
+    using Nexus.UI;
+    using Nexus.UI.Controls;
+    using Nexus.Client.UI;
+
+    using SevenZip;
+
+    /// <summary>
+    /// This class is responsible for creating all the services the application needs, and making sure that the
+    /// environment is sane.
+    /// </summary>
+    public class Bootstrapper
 	{
-		private EnvironmentInfo m_eifEnvironmentInfo = null;
+		private readonly EnvironmentInfo _environmentInfo;
 
 		#region Constructors
 
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public Bootstrapper(EnvironmentInfo p_eifEnvironmentInfo)
+		/// <param name="environmentInfo">The application's environment info.</param>
+		public Bootstrapper(EnvironmentInfo environmentInfo)
 		{
-			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
+			_environmentInfo = environmentInfo;
 		}
 
         #endregion
@@ -43,25 +45,25 @@ namespace Nexus.Client
 	    /// <summary>
 	    /// Helper method to allow overrides of the game mode for NMM links.
 	    /// </summary>
-	    /// <param name="p_strGameModeFromUri">Game mode specified by NMM URI.</param>
+	    /// <param name="gameModeFromUri">Game mode specified by NMM URI.</param>
 	    /// <returns>The appropriate game mode.</returns>
-	    private string DetermineRequestedGameMode(string p_strGameModeFromUri)
+	    private string DetermineRequestedGameMode(string gameModeFromUri)
 	    {
 	        // Hack to allow Skyrim VR to use NMM links from the website.
 	        // If the default mode is Skyrim VR and a Skyrim SE link is opened, we rewrite the requested game mode.
-	        if (p_strGameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
+	        if (gameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "SkyrimVR";
 	        }
 
 	        // Hack to allow Fallout 4 VR to use NMM links from the website.
 	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
-            if (p_strGameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && m_eifEnvironmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+            if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "Fallout4VR";
 	        }
 
-	        return p_strGameModeFromUri;
+	        return gameModeFromUri;
 	    }
 
         /// <summary>
@@ -71,130 +73,151 @@ namespace Nexus.Client
         /// This method makes sure the environment is sane. If so, it creates the required services
         /// and launches the main form.
         /// </remarks>
-        /// <param name="p_strArgs">The command line arguments passed to the application.</param>
+        /// <param name="args">The command line arguments passed to the application.</param>
         /// <returns><c>true</c> if the application started as expected;
         /// <c>false</c> otherwise.</returns>
-        public bool RunMainForm(string[] p_strArgs)
+        public bool RunMainForm(string[] args)
 		{
-			if (!SandboxCheck(m_eifEnvironmentInfo))
-				return false;
-			SetCompressorPath(m_eifEnvironmentInfo);
+			if (!SandboxCheck(_environmentInfo))
+            {
+                return false;
+            }
 
-			List<string> lstDeletedDLL = CheckModScriptDLL();
+            SetCompressorPath(_environmentInfo);
 
-			string strRequestedGameMode = null;
-			string[] strArgs = p_strArgs;
-			Uri uriModToAdd = null;
-			if ((p_strArgs.Length > 0) && !p_strArgs[0].StartsWith("-"))
+			var deletedDll = CheckModScriptDLL();
+
+			string requestedGameMode = null;
+            
+			Uri modToAdd = null;
+
+		    if (args.Length > 0 && !args[0].StartsWith("-"))
 			{
-				if (Uri.TryCreate(p_strArgs[0], UriKind.Absolute, out uriModToAdd) && uriModToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
-					strRequestedGameMode = DetermineRequestedGameMode(uriModToAdd.Host);
-			}
+				if (Uri.TryCreate(args[0], UriKind.Absolute, out modToAdd) && modToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
+                {
+                    requestedGameMode = DetermineRequestedGameMode(modToAdd.Host);
+                }
+            }
 			else
-				for (Int32 i = 0; i < p_strArgs.Length; i++)
+            {
+                for (var i = 0; i < args.Length; i++)
 				{
-					string strArg = p_strArgs[i];
-					if (strArg.StartsWith("-"))
-					{
-						switch (strArg)
-						{
-							case "-game":
-								strRequestedGameMode = p_strArgs[i + 1];
-								Trace.Write("Game Specified On Command line: " + strRequestedGameMode + ") ");
-								break;
-						}
-					}
-				}
+					var strArg = args[i];
 
-			bool booChangeDefaultGameMode = false;
-			GameModeRegistry gmrSupportedGames = GetSupportedGameModes();
-			do
+				    if (strArg == "-game")
+				    {
+				        requestedGameMode = args[i + 1];
+				        Trace.Write("Game Specified On Command line: " + requestedGameMode + ") ");
+				    }
+                }
+            }
+
+            var changeDefaultGameMode = false;
+		    var supportedGames = GetSupportedGameModes();
+
+		    do
 			{
-				NexusFontSetResolver nfrResolver = SetUpFonts();
+				var fontSetResolver = SetUpFonts();
 
-				GameModeRegistry gmrInstalledGames = GetInstalledGameModes(gmrSupportedGames);
-				if (gmrInstalledGames == null)
+				var installedGames = GetInstalledGameModes(supportedGames);
+
+				if (installedGames == null)
 				{
 					Trace.TraceInformation("No installed games.");
-					MessageBox.Show(String.Format("No games were detected! {0} will now close.", m_eifEnvironmentInfo.Settings.ModManagerName), "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					MessageBox.Show($"No games were detected! {_environmentInfo.Settings.ModManagerName} will now close.", "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return false;
 				}
 
-			    CheckIfDefaultGameModeIsInstalled(gmrInstalledGames);
+			    CheckIfDefaultGameModeIsInstalled(installedGames);
 
-				GameModeSelector gmsSelector = new GameModeSelector(gmrSupportedGames, gmrInstalledGames, m_eifEnvironmentInfo);
-				IGameModeFactory gmfGameModeFactory = gmsSelector.SelectGameMode(strRequestedGameMode, booChangeDefaultGameMode);
-				if (gmsSelector.RescanRequested)
+				var selector = new GameModeSelector(supportedGames, installedGames, _environmentInfo);
+				var gameModeFactory = selector.SelectGameMode(requestedGameMode, changeDefaultGameMode);
+
+			    if (selector.RescanRequested)
 				{
-					m_eifEnvironmentInfo.Settings.InstalledGamesDetected = false;
-					m_eifEnvironmentInfo.Settings.Save();
-					booChangeDefaultGameMode = true;
+					_environmentInfo.Settings.InstalledGamesDetected = false;
+					_environmentInfo.Settings.Save();
+					changeDefaultGameMode = true;
 					continue;
 				}
-				if (gmfGameModeFactory == null)
-					return false;
 
-				Trace.TraceInformation(String.Format("Game Mode Factory Selected: {0} ({1})", gmfGameModeFactory.GameModeDescriptor.Name, gmfGameModeFactory.GameModeDescriptor.ModeId));
+			    if (gameModeFactory == null)
+                {
+                    return false;
+                }
 
-				Mutex mtxGameModeMutex = null;
-				bool booOwnsMutex = false;
-				try
+                Trace.TraceInformation($"Game Mode Factory Selected: {gameModeFactory.GameModeDescriptor.Name} ({gameModeFactory.GameModeDescriptor.ModeId})");
+
+				Mutex gameModeMutex = null;
+				var ownsMutex = false;
+
+			    try
 				{
-					for (Int32 intAttemptCount = 0; intAttemptCount < 3; intAttemptCount++)
+					for (var attemptCount = 0; attemptCount < 3; attemptCount++)
 					{
-						Trace.TraceInformation("Creating Game Mode mutex (Attempt: {0})", intAttemptCount);
-						mtxGameModeMutex = new Mutex(true, String.Format("{0}-{1}-GameModeMutex", m_eifEnvironmentInfo.Settings.ModManagerName, gmfGameModeFactory.GameModeDescriptor.ModeId), out booOwnsMutex);
+						Trace.TraceInformation($"Creating Game Mode mutex (Attempt: {attemptCount})");
+						gameModeMutex = new Mutex(true, $"{_environmentInfo.Settings.ModManagerName}-{gameModeFactory.GameModeDescriptor.ModeId}-GameModeMutex", out ownsMutex);
 
 						//If the mutex is owned, you are the first instance of the mod manager for game mode, so break out of loop.
-						if (booOwnsMutex)
-							break;
+						if (ownsMutex)
+                        {
+                            break;
+                        }
 
-						try
+                        try
 						{
 							//If the mutex isn't owned, attempt to talk across the messager.
-							using (IMessager msgMessager = MessagerClient.GetMessager(m_eifEnvironmentInfo, gmfGameModeFactory.GameModeDescriptor))
+							using (var messager = MessagerClient.GetMessager(_environmentInfo, gameModeFactory.GameModeDescriptor))
 							{
-								if (msgMessager != null)
+								if (messager != null)
 								{
 									//Messenger was created OK, send download request, or bring to front.
-									if (uriModToAdd != null)
+									if (modToAdd != null)
 									{
-										Trace.TraceInformation(String.Format("Messaging to add: {0}", uriModToAdd));
-										msgMessager.AddMod(uriModToAdd.ToString());
+										Trace.TraceInformation($"Messaging to add: {modToAdd}");
+										messager.AddMod(modToAdd.ToString());
 									}
 									else
 									{
-										Trace.TraceInformation(String.Format("Messaging to bring to front."));
-										msgMessager.BringToFront();
+										Trace.TraceInformation("Messaging to bring to front.");
+										messager.BringToFront();
 									}
+
 									return true;
 								}
 							}
-							mtxGameModeMutex.Close();
-							mtxGameModeMutex = null;
+
+							gameModeMutex.Close();
+							gameModeMutex = null;
 						}
 						catch (InvalidOperationException)
 						{
-							StringBuilder stbPromptMessage = new StringBuilder();
-							stbPromptMessage.AppendFormat("{0} was unable to start. It appears another instance of {0} is already running.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
-							stbPromptMessage.AppendFormat("If you were trying to download multiple files, wait for {0} to start before clicking on a new file download.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
+							var stbPromptMessage = new StringBuilder();
+							stbPromptMessage.AppendLine($"{_environmentInfo.Settings.ModManagerName} was unable to start. It appears another instance of {_environmentInfo.Settings.ModManagerName} is already running.");
+							stbPromptMessage.AppendLine($"If you were trying to download multiple files, wait for {_environmentInfo.Settings.ModManagerName} to start before clicking on a new file download.");
 							MessageBox.Show(stbPromptMessage.ToString(), "Already running", MessageBoxButtons.OK, MessageBoxIcon.Information);
 							return false;
 						}
+
 						//Messenger couldn't be created, so sleep for a few seconds to give time for opening
 						// the running copy of the mod manager to start up/shut down
 						Thread.Sleep(TimeSpan.FromSeconds(5.0d));
 					}
-					if (!booOwnsMutex)
-					{
-						HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
-						htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
-						Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
-						if (!htlListener.TraceIsForced)
-							htlListener.SaveToFile();
 
-						StringBuilder stbPromptMessage = new StringBuilder();
-						stbPromptMessage.AppendFormat("{0} was unable to start. It appears another instance of {0} is already running.", m_eifEnvironmentInfo.Settings.ModManagerName).AppendLine();
+					if (!ownsMutex)
+					{
+						var htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
+						htlListener.ChangeFilePath(Path.Combine(Path.GetDirectoryName(htlListener.FilePath), "Messager" + Path.GetFileName(htlListener.FilePath)));
+
+					    Trace.TraceInformation("THIS IS A MESSAGER TRACE LOG.");
+
+					    if (!htlListener.TraceIsForced)
+                        {
+                            htlListener.SaveToFile();
+                        }
+
+                        var stbPromptMessage = new StringBuilder();
+						stbPromptMessage.AppendLine($"{_environmentInfo.Settings.ModManagerName} was unable to start. It appears another instance of {_environmentInfo.Settings.ModManagerName} is already running.");
 						stbPromptMessage.AppendLine("A Trace Log file was created at:");
 						stbPromptMessage.AppendLine(htlListener.FilePath);
 						stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
@@ -202,77 +225,84 @@ namespace Nexus.Client
 						stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
 						stbPromptMessage.AppendLine(NexusLinks.Issues);
 						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information);
-						return false;
+
+					    return false;
 					}
 
-					//ApplicationInitializer ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo, nfrResolver);
-					//ApplicationInitializationForm frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
-					//ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
-					//frmAppInitilizer.ShowDialog();
-					ApplicationInitializer ainInitializer = null;
-					ApplicationInitializationForm frmAppInitilizer = null;
-					while ((ainInitializer == null) || (ainInitializer.Status == TaskStatus.Retrying))
+					ApplicationInitializer appInitializer = null;
+
+				    while ((appInitializer == null) || (appInitializer.Status == TaskStatus.Retrying))
 					{
-						ainInitializer = new ApplicationInitializer(m_eifEnvironmentInfo, nfrResolver, lstDeletedDLL);
-						frmAppInitilizer = new ApplicationInitializationForm(ainInitializer);
-						ainInitializer.Initialize(gmfGameModeFactory, SynchronizationContext.Current);
-						frmAppInitilizer.ShowDialog();
+						appInitializer = new ApplicationInitializer(_environmentInfo, fontSetResolver, deletedDll);
+						var appInitializerForm = new ApplicationInitializationForm(appInitializer);
+						appInitializer.Initialize(gameModeFactory, SynchronizationContext.Current);
+						appInitializerForm.ShowDialog();
 					}
 
-					if (ainInitializer.Status != TaskStatus.Complete)
+					if (appInitializer.Status != TaskStatus.Complete)
 					{
-						if (ainInitializer.Status == TaskStatus.Error)
-							return false;
-						booChangeDefaultGameMode = true;
-						DisposeServices(ainInitializer.Services);
-						continue;
+						if (appInitializer.Status == TaskStatus.Error)
+                        {
+                            return false;
+                        }
+
+                        changeDefaultGameMode = true;
+						DisposeServices(appInitializer.Services);
+
+					    continue;
 					}
 
-					IGameMode gmdGameMode = ainInitializer.GameMode;
-					ServiceManager svmServices = ainInitializer.Services;
+					var gameMode = appInitializer.GameMode;
+					var services = appInitializer.Services;
 
-					MainFormVM vmlMainForm = new MainFormVM(m_eifEnvironmentInfo, gmrInstalledGames, gmdGameMode, svmServices.ModRepository, svmServices.DownloadMonitor, svmServices.ModActivationMonitor, svmServices.ModManager, svmServices.PluginManager);
-					MainForm frmMain = new MainForm(vmlMainForm);
+					var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager);
+					var mainForm = new MainForm(mainFormViewModel);
 
-					using (IMessager msgMessager = MessagerServer.InitializeListener(m_eifEnvironmentInfo, gmdGameMode, svmServices.ModManager, frmMain))
+					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm))
 					{
-						if (uriModToAdd != null)
+						if (modToAdd != null)
 						{
-							Trace.TraceInformation("Adding mod: " + uriModToAdd.ToString());
-							msgMessager.AddMod(uriModToAdd.ToString());
-							uriModToAdd = null;
+							Trace.TraceInformation("Adding mod: " + modToAdd);
+							msgMessager.AddMod(modToAdd.ToString());
+							modToAdd = null;
 						}
 
 						Trace.TraceInformation("Running Application.");
-						try
+
+					    try
 						{
-							Application.Run(frmMain);
-							svmServices.ModInstallLog.Backup();
-							strRequestedGameMode = vmlMainForm.RequestedGameMode;
-							booChangeDefaultGameMode = vmlMainForm.DefaultGameModeChangeRequested;
+							Application.Run(mainForm);
+							services.ModInstallLog.Backup();
+							requestedGameMode = mainFormViewModel.RequestedGameMode;
+							changeDefaultGameMode = mainFormViewModel.DefaultGameModeChangeRequested;
 						}
 						finally
 						{
-							DisposeServices(svmServices);
-							gmdGameMode.Dispose();
+							DisposeServices(services);
+							gameMode.Dispose();
                         }
 					}
 				}
 				finally
 				{
-					if (mtxGameModeMutex != null)
+					if (gameModeMutex != null)
 					{
-						if (booOwnsMutex)
-							mtxGameModeMutex.ReleaseMutex();
-						mtxGameModeMutex.Close();
+						if (ownsMutex)
+                        {
+                            gameModeMutex.ReleaseMutex();
+                        }
+
+                        gameModeMutex.Close();
 					}
-					FileUtil.ForceDelete(m_eifEnvironmentInfo.TemporaryPath);
+
+				    FileUtil.ForceDelete(_environmentInfo.TemporaryPath);
 
 					//Clean up created font's.
 					FontManager.Dispose();
 				}
-			} while (!String.IsNullOrEmpty(strRequestedGameMode) || booChangeDefaultGameMode);
-			return true;
+			} while (!string.IsNullOrEmpty(requestedGameMode) || changeDefaultGameMode);
+
+		    return true;
 		}
 
 		#region Pre Game Mode Selection
@@ -280,10 +310,10 @@ namespace Nexus.Client
 		/// <summary>
 		/// Checks to see if a sandbox is interfering with dynamic code generation.
 		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="environmentInfo">The application's envrionment info.</param>
 		/// <returns><c>true</c> if the check passed;
 		/// <c>false</c> otherwise.</returns>
-		protected bool SandboxCheck(EnvironmentInfo p_eifEnvironmentInfo)
+		protected bool SandboxCheck(EnvironmentInfo environmentInfo)
 		{
 			try
 			{
@@ -292,25 +322,27 @@ namespace Nexus.Client
 			catch (InvalidOperationException)
 			{
 
-				string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
-								"The sandbox is preventing {0} from performing" + Environment.NewLine +
-								"important operations. Please run {0} again," + Environment.NewLine +
-								"without the sandbox.";
-				string strDetails = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
-									"If you are running Comodo or any antivirus, please add {0} and its folders to the exception list.<br/><br/>";
-				ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return false;
+				const string message = "{0} has detected that it is running in a sandbox.{1}" +
+				                       "The sandbox is preventing {0} from performing{1}" +
+				                       "important operations. Please run {0} again,{1}" +
+				                       "without the sandbox.";
+				const string details = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
+				                       "If you are running Comodo or any antivirus, please add {0} and its folders to the exception list.<br/><br/>";
+				ExtendedMessageBox.Show(null, string.Format(message, environmentInfo.Settings.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, environmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+			    return false;
 			}
 			catch (System.Runtime.InteropServices.ExternalException)
 			{
-				string strMessage = "{0} has detected that it is running in a sandbox." + Environment.NewLine +
-								"The sandbox is preventing {0} from performing" + Environment.NewLine +
-								"important operations. Please run {0} again," + Environment.NewLine +
-								"without the sandbox.";
-				string strDetails = "This error commonly occurs on computers running Zone Alarm.<br/>" +
-									"If you are running Zone Alarm or any similar security suite, please add {0} and its folders to the exception list.<br/><br/>";
-				ExtendedMessageBox.Show(null, String.Format(strMessage, p_eifEnvironmentInfo.Settings.ModManagerName), "Sandbox Detected", String.Format(strDetails, p_eifEnvironmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return false;
+			    const string message = "{0} has detected that it is running in a sandbox.{1}" +
+			                           "The sandbox is preventing {0} from performing{1}" +
+			                           "important operations. Please run {0} again,{1}" +
+			                           "without the sandbox.";
+                const string details = "This error commonly occurs on computers running Zone Alarm.<br/>" +
+                                       "If you are running Zone Alarm or any similar security suite, please add {0} and its folders to the exception list.<br/><br/>";
+				ExtendedMessageBox.Show(null, string.Format(message, environmentInfo.Settings.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, environmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+			    return false;
 			}
 
 			return true;
@@ -319,11 +351,11 @@ namespace Nexus.Client
 		/// <summary>
 		/// Sets the path to the external compression library.
 		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		protected void SetCompressorPath(EnvironmentInfo p_eifEnvironmentInfo)
+		/// <param name="environmentInfo">The application's envrionment info.</param>
+		protected void SetCompressorPath(EnvironmentInfo environmentInfo)
 		{
-			string str7zPath = Path.Combine(p_eifEnvironmentInfo.ProgrammeInfoDirectory, p_eifEnvironmentInfo.Is64BitProcess ? "7z-64bit.dll" : "7z-32bit.dll");
-			SevenZipCompressor.SetLibraryPath(str7zPath);
+			var sevenZipPath = Path.Combine(environmentInfo.ProgrammeInfoDirectory, environmentInfo.Is64BitProcess ? "7z-64bit.dll" : "7z-32bit.dll");
+			SevenZipCompressor.SetLibraryPath(sevenZipPath);
 		}
 
         /// <summary>
@@ -336,7 +368,7 @@ namespace Nexus.Client
             
 	        foreach (var availableModes in installedGames.RegisteredGameModes)
 	        {
-	            if (availableModes.ModeId.Equals(m_eifEnvironmentInfo.Settings.RememberedGameMode, StringComparison.OrdinalIgnoreCase))
+	            if (availableModes.ModeId.Equals(_environmentInfo.Settings.RememberedGameMode, StringComparison.OrdinalIgnoreCase))
 	            {
 	                found = true;
 	            }
@@ -344,8 +376,8 @@ namespace Nexus.Client
 
 	        if (!found)
 	        {
-	            Trace.TraceWarning($"Remembered game mode \"{m_eifEnvironmentInfo.Settings.RememberedGameMode}\" was not found in installed games list, clearing setting.");
-	            m_eifEnvironmentInfo.Settings.RememberGameMode = false;
+	            Trace.TraceWarning($"Remembered game mode \"{_environmentInfo.Settings.RememberedGameMode}\" was not found in installed games list, clearing setting.");
+	            _environmentInfo.Settings.RememberGameMode = false;
 	        }
         }
 
@@ -362,20 +394,20 @@ namespace Nexus.Client
 			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RB);
 			FontManager.Add("LinBiolinum", Resources.LinBiolinum_RI);
 
-			FontSet fstDefault = new FontSet(new string[] { "Microsoft Sans Serif", "Arial" });
-			FontSetGroup fsgDefault = new FontSetGroup(fstDefault);
+			var fstDefault = new FontSet(new [] { "Microsoft Sans Serif", "Arial" });
+			var fsgDefault = new FontSetGroup(fstDefault);
 			fsgDefault.AddFontSet("StandardText", fstDefault);
 			fsgDefault.AddFontSet("HeadingText", fstDefault);
-			fsgDefault.AddFontSet("SmallText", new FontSet(new string[] { "Segoe UI", "Arial" }));
-			fsgDefault.AddFontSet("MenuText", new FontSet(new string[] { "Segoe UI", "Arial" }));
-			fsgDefault.AddFontSet("GameSearchText", new FontSet(new string[] { "LinBiolinum" }));
-			fsgDefault.AddFontSet("TestText", new FontSet(new string[] { "Wingdings" }));
+			fsgDefault.AddFontSet("SmallText", new FontSet(new [] { "Segoe UI", "Arial" }));
+			fsgDefault.AddFontSet("MenuText", new FontSet(new [] { "Segoe UI", "Arial" }));
+			fsgDefault.AddFontSet("GameSearchText", new FontSet(new [] { "LinBiolinum" }));
+			fsgDefault.AddFontSet("TestText", new FontSet(new [] { "Wingdings" }));
 
-			NexusFontSetResolver fsrResolver = new NexusFontSetResolver();
+			var fsrResolver = new NexusFontSetResolver();
 			fsrResolver.AddFontSets(fsgDefault);
-
 			FontProvider.SetFontSetResolver(fsrResolver);
-			return fsrResolver;
+
+		    return fsrResolver;
 		}
 
 		#endregion
@@ -385,19 +417,14 @@ namespace Nexus.Client
 		/// <summary>
 		/// This disposes of the services we created.
 		/// </summary>
-		/// <param name="p_smgServices">The services to dispose.</param>
-		protected void DisposeServices(ServiceManager p_smgServices)
+		/// <param name="serviceManager">The services to dispose.</param>
+		protected void DisposeServices(ServiceManager serviceManager)
 		{
-			if (p_smgServices == null)
-				return;
-			p_smgServices.ModInstallLog.Release();
-			if (p_smgServices.ActivePluginLog != null)
-				p_smgServices.ActivePluginLog.Release();
-			if (p_smgServices.PluginOrderLog != null)
-				p_smgServices.PluginOrderLog.Release();
-			if (p_smgServices.PluginManager != null)
-				p_smgServices.PluginManager.Release();
-			p_smgServices.ModManager.Release();
+		    serviceManager?.ModInstallLog.Release();
+		    serviceManager?.ActivePluginLog?.Release();
+		    serviceManager?.PluginOrderLog?.Release();
+		    serviceManager?.PluginManager?.Release();
+		    serviceManager?.ModManager.Release();
 		}
 
 		#endregion
@@ -410,50 +437,63 @@ namespace Nexus.Client
 		/// <returns>A registry of supported game modes.</returns>
 		protected GameModeRegistry GetSupportedGameModes()
 		{
-			return GameModeRegistry.DiscoverSupportedGameModes(m_eifEnvironmentInfo);
+			return GameModeRegistry.DiscoverSupportedGameModes(_environmentInfo);
 		}
 
 		/// <summary>
 		/// Gets a registry of installed game modes.
 		/// </summary>
-		/// <param name="p_gmrSupportedGameModes">The games modes supported by the mod manager.</param>
+		/// <param name="supportedGameModes">The games modes supported by the mod manager.</param>
 		/// <returns>A registry of installed game modes.</returns>
-		protected GameModeRegistry GetInstalledGameModes(GameModeRegistry p_gmrSupportedGameModes)
+		protected GameModeRegistry GetInstalledGameModes(GameModeRegistry supportedGameModes)
 		{
-			if (!m_eifEnvironmentInfo.Settings.InstalledGamesDetected)
+			if (!_environmentInfo.Settings.InstalledGamesDetected)
 			{
-				GameDiscoverer gdrGameDetector = new GameDiscoverer();
-				GameDetectionVM vmlGameDetection = new GameDetectionVM(m_eifEnvironmentInfo, gdrGameDetector, p_gmrSupportedGameModes);
-				GameDetectionForm frmGameDetector = new GameDetectionForm(vmlGameDetection);
-				gdrGameDetector.Find(p_gmrSupportedGameModes.RegisteredGameModeFactories);
+				var gdrGameDetector = new GameDiscoverer();
+				var vmlGameDetection = new GameDetectionVM(_environmentInfo, gdrGameDetector, supportedGameModes);
+				var frmGameDetector = new GameDetectionForm(vmlGameDetection);
+
+			    gdrGameDetector.Find(supportedGameModes.RegisteredGameModeFactories);
 				frmGameDetector.ShowDialog();
-				if (gdrGameDetector.Status != TaskStatus.Complete)
-					return null;
-				if (gdrGameDetector.DiscoveredGameModes.Count == 0)
-					return null;
-				m_eifEnvironmentInfo.Settings.InstalledGames.Clear();
-				Int32 j = 0;
-				foreach (GameDiscoverer.GameInstallData gidGameMode in gdrGameDetector.DiscoveredGameModes)
+
+			    if (gdrGameDetector.Status != TaskStatus.Complete)
+                {
+                    return null;
+                }
+
+                if (gdrGameDetector.DiscoveredGameModes.Count == 0)
+                {
+                    return null;
+                }
+
+                _environmentInfo.Settings.InstalledGames.Clear();
+				var j = 0;
+
+			    foreach (var gidGameMode in gdrGameDetector.DiscoveredGameModes)
 				{
-					if ((gidGameMode != null) && (gidGameMode.GameMode != null))
+					if (gidGameMode?.GameMode != null)
 					{
-						IGameModeFactory gmfGameModeFactory = p_gmrSupportedGameModes.GetGameMode(gidGameMode.GameMode.ModeId);
-						m_eifEnvironmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetInstallationPath(gidGameMode.GameInstallPath);
-						m_eifEnvironmentInfo.Settings.ExecutablePaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetExecutablePath(gidGameMode.GameInstallPath);
-						m_eifEnvironmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
+						var gmfGameModeFactory = supportedGameModes.GetGameMode(gidGameMode.GameMode.ModeId);
+						_environmentInfo.Settings.InstallationPaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetInstallationPath(gidGameMode.GameInstallPath);
+						_environmentInfo.Settings.ExecutablePaths[gidGameMode.GameMode.ModeId] = gmfGameModeFactory.GetExecutablePath(gidGameMode.GameInstallPath);
+						_environmentInfo.Settings.InstalledGames.Add(gidGameMode.GameMode.ModeId);
 					}
 					else
 					{
-						MessageBox.Show(string.Format("An error occured during the scan of the game {0} : {1}", gdrGameDetector.DiscoveredGameModes[j].GameMode.ModeId, Environment.NewLine + "The object GameMode is NULL"));
+						MessageBox.Show($"An error occured during the scan of the game {gdrGameDetector.DiscoveredGameModes[j].GameMode.ModeId} : {Environment.NewLine + "The object GameMode is NULL"}");
 					}
+
 					j++;
 				}
-				m_eifEnvironmentInfo.Settings.InstalledGamesDetected = true;
-				m_eifEnvironmentInfo.Settings.CacheOverhaulSetup = false;
-				m_eifEnvironmentInfo.Settings.Save();
+
+				_environmentInfo.Settings.InstalledGamesDetected = true;
+				_environmentInfo.Settings.CacheOverhaulSetup = false;
+				_environmentInfo.Settings.Save();
 			}
-			GameModeRegistry gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(p_gmrSupportedGameModes, m_eifEnvironmentInfo);
-			return gmrInstalledGameModes;
+
+			var gmrInstalledGameModes = GameModeRegistry.LoadInstalledGameModes(supportedGameModes, _environmentInfo);
+
+		    return gmrInstalledGameModes;
 		}
 
 		#endregion
@@ -463,32 +503,36 @@ namespace Nexus.Client
 		/// </summary>
 		private List<string> CheckModScriptDLL()
 		{
-			List<string> lstDeletedDLL = new List<string>();
-			lstDeletedDLL.Add("DarkSouls.ModScript.dll");
-			lstDeletedDLL.Add("DarkSouls2.ModScript.dll");
-			lstDeletedDLL.Add("DragonAge.ModScript.dll");
-			lstDeletedDLL.Add("DragonAge2.ModScript.dll");
-			lstDeletedDLL.Add("Grimrock.ModScript.dll");
-			lstDeletedDLL.Add("Morrowind.ModScript.dll");
-			lstDeletedDLL.Add("Oblivion.ModScript.dll");
-			lstDeletedDLL.Add("Starbound.ModScript.dll");
-			lstDeletedDLL.Add("StateOfDecay.ModScript.dll");
-			lstDeletedDLL.Add("Witcher2.ModScript.dll");
-			lstDeletedDLL.Add("WorldOfTanks.ModScript.dll");
+		    var dllsToDelete = new List<string>
+		    {
+		        "DarkSouls.ModScript.dll",
+		        "DarkSouls2.ModScript.dll",
+		        "DragonAge.ModScript.dll",
+		        "DragonAge2.ModScript.dll",
+		        "Grimrock.ModScript.dll",
+		        "Morrowind.ModScript.dll",
+		        "Oblivion.ModScript.dll",
+		        "Starbound.ModScript.dll",
+		        "StateOfDecay.ModScript.dll",
+		        "Witcher2.ModScript.dll",
+		        "WorldOfTanks.ModScript.dll"
+		    };
 
-			foreach (string DLL in lstDeletedDLL)
+		    foreach (var dll in dllsToDelete)
 			{
-				string DLLFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "GameModes", DLL);
+				var dllFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "GameModes", dll);
 
 				try
 				{
-					if (File.Exists(DLLFile))
-						FileUtil.ForceDelete(DLLFile);
-				}
+					if (File.Exists(dllFile))
+                    {
+                        FileUtil.ForceDelete(dllFile);
+                    }
+                }
 				catch {	}
 			}
 
-			return lstDeletedDLL;
+			return dllsToDelete;
 
 		}
 	}
