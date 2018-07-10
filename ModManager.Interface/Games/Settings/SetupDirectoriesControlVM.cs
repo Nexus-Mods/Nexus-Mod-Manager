@@ -529,31 +529,36 @@ namespace Nexus.Client.Games.Settings
 		/// </summary>
 		public void LoadSettings()
 		{
-			string strRegGameMode = RegistryLocation + GameModeDescriptor.ModeId;
-			string strRegMods = String.Empty;
-			string strRegInstallInfo = String.Empty;
-			string strRegVirtual = String.Empty;
-			string strRegHDLink = String.Empty;
-			bool? booRegMultiHDInstall = null;
-			if (RegistryUtil.CanReadKey(strRegGameMode))
+		    bool? booRegMultiHdInstall = null;
+		    var strRegMods = string.Empty;
+			var strRegInstallInfo = string.Empty;
+			var strRegVirtual = string.Empty;
+			var strRegHdLink = string.Empty;
+
+		    var strRegGameMode = RegistryLocation + GameModeDescriptor.ModeId;
+
+		    if (RegistryUtil.CanReadKey(strRegGameMode))
 			{
-				RegistryKey rkKey = Registry.LocalMachine.OpenSubKey(strRegGameMode, false);
-				if (rkKey != null)
+				var k = Registry.LocalMachine.OpenSubKey(strRegGameMode, false);
+
+			    if (k != null)
 				{
-					strRegMods = (string)rkKey.GetValue("Mods", null);
-					strRegInstallInfo = (string)rkKey.GetValue("InstallInfo", null);
-					strRegVirtual = (string)rkKey.GetValue("Virtual", null);
-					strRegHDLink = (string)rkKey.GetValue("HDLink", null);
-					booRegMultiHDInstall = (bool?)rkKey.GetValue("MultiHDInstall", null);
+					strRegMods = (string)k.GetValue("Mods", null);
+					strRegInstallInfo = (string)k.GetValue("InstallInfo", null);
+					strRegVirtual = (string)k.GetValue("Virtual", null);
+					strRegHdLink = (string)k.GetValue("HDLink", null);
+                    
+				    booRegMultiHdInstall = ConvertToNullableBool(k.GetValue("MultiHDInstall", null));
 				}
 			}
 
 			string strInstallationPath = EnvironmentInfo.Settings.InstallationPaths[GameModeDescriptor.ModeId];
-			if (string.IsNullOrWhiteSpace(strInstallationPath))
+
+		    if (string.IsNullOrWhiteSpace(strInstallationPath))
 				strInstallationPath = Application.ExecutablePath;
 
 			string strDirectory = null;
-			string strRandomGameKey = String.Empty;
+			string strRandomGameKey = string.Empty;
 			bool booRetrieved = false;
 
 			if (EnvironmentInfo.Settings.ModFolder.ContainsKey(GameModeDescriptor.ModeId) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.ModFolder[GameModeDescriptor.ModeId]))
@@ -656,17 +661,17 @@ namespace Nexus.Client.Games.Settings
 
 			if (EnvironmentInfo.Settings.MultiHDInstall.ContainsKey(GameModeDescriptor.ModeId))
 				MultiHDInstall = EnvironmentInfo.Settings.MultiHDInstall[GameModeDescriptor.ModeId];
-			else if (booRegMultiHDInstall != null)
-				MultiHDInstall = (bool)booRegMultiHDInstall;
-			if (booRegMultiHDInstall == null)
+			else if (booRegMultiHdInstall != null)
+				MultiHDInstall = (bool)booRegMultiHdInstall;
+			if (booRegMultiHdInstall == null)
 			{
 				if (EnvironmentInfo.Settings.DelayedSettings.ContainsKey(GameModeDescriptor.ModeId))
 					booRetrieved = EnvironmentInfo.Settings.DelayedSettings[GameModeDescriptor.ModeId].TryGetValue(String.Format("MultiHDInstall~{0}", GameModeDescriptor.ModeId), out strDirectory);
 				if (booRetrieved)
-					booRegMultiHDInstall = Convert.ToBoolean(strDirectory);
-				if (booRegMultiHDInstall == null)
-					booRegMultiHDInstall = false;
-				MultiHDInstall = (bool)booRegMultiHDInstall;
+					booRegMultiHdInstall = Convert.ToBoolean(strDirectory);
+				if (booRegMultiHdInstall == null)
+					booRegMultiHdInstall = false;
+				MultiHDInstall = (bool)booRegMultiHdInstall;
 			}
 
 			if (EnvironmentInfo.Settings.VirtualFolder.ContainsKey(GameModeDescriptor.ModeId) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[GameModeDescriptor.ModeId]))
@@ -696,8 +701,8 @@ namespace Nexus.Client.Games.Settings
 			{
 				if (EnvironmentInfo.Settings.HDLinkFolder.ContainsKey(GameModeDescriptor.ModeId) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId]))
 					LinkDirectory = EnvironmentInfo.Settings.HDLinkFolder[GameModeDescriptor.ModeId];
-				else if (!String.IsNullOrEmpty(strRegHDLink))
-					LinkDirectory = strRegHDLink;
+				else if (!String.IsNullOrEmpty(strRegHdLink))
+					LinkDirectory = strRegHdLink;
 				if (string.IsNullOrEmpty(LinkDirectory) ||
 					!CheckOnGameHD(LinkDirectory))
 				{
@@ -716,7 +721,21 @@ namespace Nexus.Client.Games.Settings
 			ValidateSettings();
 		}
 
-		/// <summary>
+	    private bool? ConvertToNullableBool(object value)
+	    {
+	        if (value == null) return null;
+
+	        var str = Convert.ToString(value);
+
+	        bool? result = null;
+
+	        if (bool.TryParse(str, out var boolResult))
+	            result = boolResult;
+
+	        return result;
+	    }
+
+	    /// <summary>
 		/// Persists the settings on this control.
 		/// </summary>
 		/// <param name="p_booDelaySettings">Whether the settings should be delayed until the next application restart.</param>
