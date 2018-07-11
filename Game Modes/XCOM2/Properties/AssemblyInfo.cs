@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - XCOM2 Module")]
+[assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - XCOM2 Module")]
 [assembly: AssemblyDescription("The XCOM2 Module for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("XCOM2")]
 

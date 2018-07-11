@@ -66,6 +66,7 @@
     <Compile Include="Archive.cs" />
     <Compile Include="BindingHelper.cs" />
     <Compile Include="CancelEventArgs`1.cs" />
+    <Compile Include="CommonData.cs" />
     <Compile Include="Downloader\CompletedDownloadEventArgs.cs" />
     <Compile Include="EventArgs.cs" />
     <Compile Include="ExtendedImage.cs" />

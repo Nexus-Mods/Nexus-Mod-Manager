@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - ANTLR Util")]
+[assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - ANTLR Util")]
 [assembly: AssemblyDescription("The ANTLR support Util library for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("AntlrUtil")]
 

@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Fallout4 Game Mode Xml Script Variant")]
+[assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Fallout4 Game Mode Xml Script Variant")]
 [assembly: AssemblyDescription("The Fallout4 implementation of the XML Script language for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("Fallout4.XmlScript")]
 

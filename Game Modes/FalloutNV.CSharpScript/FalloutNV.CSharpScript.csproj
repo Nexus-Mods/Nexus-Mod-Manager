@@ -66,6 +66,11 @@
       <Name>CSharpScript</Name>
       <Private>False</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\Util\Util.csproj">
+      <Project>{44caa655-38c2-4ca2-ba68-a8d5c44b169d}</Project>
+      <Name>Util</Name>
+      <Private>False</Private>
+    </ProjectReference>
     <ProjectReference Include="..\Fallout3.CSharpScript\Fallout3.CSharpScript.csproj">
       <Project>{A11C9C68-3133-48BF-BB4D-C0DB2AC1D201}</Project>
       <Name>Fallout3.CSharpScript</Name>

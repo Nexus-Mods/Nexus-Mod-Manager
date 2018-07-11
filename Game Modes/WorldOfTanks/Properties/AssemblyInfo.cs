@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - WorldOfTanks Module")]
+[assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - WorldOfTanks Module")]
 [assembly: AssemblyDescription("The WorldOfTanks Module for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("WorldOfTanks")]
 

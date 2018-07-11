@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Skyrim Special Edition Game Mode C# Script Variant")]
+[assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Skyrim Special Edition Game Mode C# Script Variant")]
 [assembly: AssemblyDescription("The Skyrim Special Edition implementation of the C# Script language for the official Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("SkyrimSE.CSharpScript")]
 

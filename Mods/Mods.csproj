@@ -61,6 +61,10 @@
       <Name>NexusClient.Interface</Name>
       <Private>False</Private>
     </ProjectReference>
+    <ProjectReference Include="..\Util\Util.csproj">
+      <Project>{44caa655-38c2-4ca2-ba68-a8d5c44b169d}</Project>
+      <Name>Util</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -95,7 +95,6 @@
     </Compile>
     <Compile Include="UI\ViewMessage.cs" />
     <Compile Include="ModManagement\AddModDescriptor.cs" />
-    <Compile Include="ProgrammeMetadata.cs" />
     <Compile Include="Settings\SettingsGroup.cs" />
     <Compile Include="Settings\SettingsList`1.cs" />
     <Compile Include="Settings\ColumnWidths.cs" />

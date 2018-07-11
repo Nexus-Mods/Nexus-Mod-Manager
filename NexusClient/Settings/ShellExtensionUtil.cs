@@ -6,6 +6,8 @@
     using System.Diagnostics;
     using System.Windows.Forms;
 
+    using Util;
+
     /// <summary>
     /// Contains functionality related to Shell Extensions for NMM.
     /// </summary>
@@ -91,10 +93,10 @@
                     return false;
                 }
 
-                string commandKey = "Add_to_" + ProgrammeMetadata.ModManagerName.Replace(' ', '_');
+                string commandKey = "Add_to_" + CommonData.ModManagerName.Replace(' ', '_');
 
                 var extensionRootKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey;
-                var extensionRootKeyValue = "Add to " + ProgrammeMetadata.ModManagerName;
+                var extensionRootKeyValue = "Add to " + CommonData.ModManagerName;
                 Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionRootKey, extensionRootKeyValue);
                 Registry.SetValue(extensionRootKey, null, extensionRootKeyValue);
 
@@ -134,7 +136,7 @@
                         return true;
                     }
 
-                    var strCommandKey = "Add_to_" + ProgrammeMetadata.ModManagerName.Replace(' ', '_');
+                    var strCommandKey = "Add_to_" + CommonData.ModManagerName.Replace(' ', '_');
 
                     if (Array.IndexOf(rk.GetSubKeyNames(), strCommandKey) != -1)
                     {
