@@ -84,7 +84,7 @@ namespace Nexus.Client.Games.Fallout3
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
+			Launch(strCommand, "--game=Fallout3");
 		}
 
 		/// <summary>

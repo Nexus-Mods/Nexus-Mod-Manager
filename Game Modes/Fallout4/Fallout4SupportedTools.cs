@@ -88,7 +88,7 @@ namespace Nexus.Client.Games.Fallout4
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
+			Launch(strCommand, "--game=Fallout4");
 		}
 				
 		private void LaunchFO4Edit()
