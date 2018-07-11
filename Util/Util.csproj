@@ -88,13 +88,6 @@
     <Compile Include="JSONSerializer.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
-      <Project>{E824ACBB-90C8-4C60-9D52-9C8020E98E3E}</Project>
-      <Name>ChinhDo.Transactions.FileManager</Name>
-      <Private>False</Private>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="CancelProgressEventArgs.cs" />
     <Compile Include="Crc32.cs" />
     <Compile Include="Delegates.cs" />

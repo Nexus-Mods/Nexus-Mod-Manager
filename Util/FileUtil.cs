@@ -2,7 +2,6 @@
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
-using ChinhDo.Transactions;
 using Nexus.Client.Util.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -132,47 +131,6 @@ namespace Nexus.Client.Util
 				return false;
 			else
 				return true;
-		}
-
-		/// <summary>
-		/// Copies the source to the destination.
-		/// </summary>
-		/// <remarks>
-		/// If the source is a directory, it is copied recursively.
-		/// </remarks>
-		/// <param name="p_tfmFileManager">The transactional file manager to use to copy the files.</param>
-		/// <param name="p_strSource">The path from which to copy.</param>
-		/// <param name="p_strDestination">The path to which to copy.</param>
-		/// <param name="p_fncCopyCallback">A callback method that notifies the caller when a file has been copied,
-		/// and provides the opportunity to cancel the copy operation.</param>
-		/// <returns><c>true</c> if the copy operation wasn't cancelled; <c>false</c> otherwise.</returns>
-		public static bool Copy(TxFileManager p_tfmFileManager, string p_strSource, string p_strDestination, Func<string, bool> p_fncCopyCallback)
-		{
-			if (File.Exists(p_strSource))
-			{
-				if (!Directory.Exists(Path.GetDirectoryName(p_strDestination)))
-					p_tfmFileManager.CreateDirectory(Path.GetDirectoryName(p_strDestination));
-				p_tfmFileManager.Copy(p_strSource, p_strDestination, true);
-				if ((p_fncCopyCallback != null) && p_fncCopyCallback(p_strSource))
-					return false;
-			}
-			else if (Directory.Exists(p_strSource))
-			{
-				if (!Directory.Exists(p_strDestination))
-					p_tfmFileManager.CreateDirectory(p_strDestination);
-				string[] strFiles = Directory.GetFiles(p_strSource);
-				foreach (string strFile in strFiles)
-				{
-					p_tfmFileManager.Copy(strFile, Path.Combine(p_strDestination, Path.GetFileName(strFile)), true);
-					if ((p_fncCopyCallback != null) && p_fncCopyCallback(strFile))
-						return false;
-				}
-				string[] strDirectories = Directory.GetDirectories(p_strSource);
-				foreach (string strDirectory in strDirectories)
-					if (!Copy(strDirectory, Path.Combine(p_strDestination, Path.GetFileName(strDirectory)), p_fncCopyCallback))
-						return false;
-			}
-			return true;
 		}
 
 		/// <summary>
