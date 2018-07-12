@@ -308,6 +308,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Settings.cs" />
+    <Compile Include="Settings\FileAssociationSetting.cs" />
     <Compile Include="Settings\ShellExtensionUtil.cs" />
     <Compile Include="Settings\UrlAssociationUtil.cs" />
     <Compile Include="TipsManagement\Balloon.cs">

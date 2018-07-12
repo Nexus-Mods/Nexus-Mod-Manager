@@ -85,7 +85,6 @@
         /// <returns>True if this installation of NMM is set for the shell extensions.</returns>
         public static bool ReadShellExtensions()
         {
-            Console.WriteLine("* * * * * * * * * * | I was called now!");
             foreach (var extension in _extensions)
             {
                 if (!ReadShellExtension(extension))
