@@ -519,12 +519,7 @@ namespace Nexus.Client.Settings
 			foreach (FileAssociationSetting fasFileAssociation in FileAssociations)
 				fasFileAssociation.IsAssociated = IsAssociated(fasFileAssociation.Extension);
 
-			string strKey = Registry.GetValue(@"HKEY_CLASSES_ROOT\.zip", null, null) as string;
-			if (strKey == null)
-				AddShellExtensions = false;
-			else
-				AddShellExtensions = (Registry.GetValue(String.Format("HKEY_CLASSES_ROOT\\{0}\\Shell\\Add_to_{1}", strKey, EnvironmentInfo.Settings.ModManagerName.Replace(' ', '_')), null, null) != null);
-
+		    AddShellExtensions = ShellExtensionUtil.ReadShellExtensions();
 			AssociateNxmUrl = IsUrlAssociated("nxm");
 			CheckForNewMods = EnvironmentInfo.Settings.CheckForNewModVersions;
 			ModVersionsCheckInterval = EnvironmentInfo.Settings.ModVersionsCheckInterval;
