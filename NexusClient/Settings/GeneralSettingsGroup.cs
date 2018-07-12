@@ -456,59 +456,7 @@ namespace Nexus.Client.Settings
 		}
 
 		#endregion
-
-		#region URL Association
-
-		/// <summary>
-		/// Determines if the specified URL protocol is associated with the client.
-		/// </summary>
-		/// <param name="p_strUrlProtocol">The protocol of the URL for which it is to be determined
-		/// whether it is associated with the client.</param>
-		/// <returns><c>true</c> if the URL protocol is associated with the client;
-		/// <c>false</c> otherwise.</returns>
-		protected bool IsUrlAssociated(string p_strUrlProtocol)
-		{
-			string key = Registry.GetValue(@"HKEY_CLASSES_ROOT\" + p_strUrlProtocol, null, null) as string;
-			return !String.IsNullOrEmpty(key);
-		}
-
-		/// <summary>
-		/// Associates the specifed URL protocol with the client.
-		/// </summary>
-		/// <param name="p_strUrlProtocol">The URL protocol for which to create an association.</param>
-		/// <param name="p_strDescription">The description of the URL protocol.</param>
-		/// <exception cref="InvalidOperationException">Thrown if the user does not have sufficient priviledges
-		/// to create the association.</exception>
-		protected void AssociateUrl(string p_strUrlProtocol, string p_strDescription)
-		{
-			if (!UacUtil.IsElevated)
-				throw new InvalidOperationException("You must have administrative privileges to change URL associations.");
-
-			string strUrlId = "URL:" + p_strDescription;
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + p_strUrlProtocol, null, strUrlId, RegistryValueKind.String);
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + p_strUrlProtocol, "URL Protocol", "", RegistryValueKind.String);
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + p_strUrlProtocol + @"\DefaultIcon", null, Application.ExecutablePath + ",0", RegistryValueKind.String);
-			Registry.SetValue(@"HKEY_CLASSES_ROOT\" + p_strUrlProtocol + @"\shell\open\command", null, "\"" + Application.ExecutablePath + "\" \"%1\"", RegistryValueKind.String);
-		}
-
-		/// <summary>
-		/// Removes the association of the specifed URL protocol with the client.
-		/// </summary>
-		/// <param name="p_strUrlProtocol">The URL protocol for which to remove the association.</param>
-		/// <exception cref="InvalidOperationException">Thrown if the user does not have sufficient priviledges
-		/// to remove the association.</exception>
-		protected void UnassociateUrl(string p_strUrlProtocol)
-		{
-			if (!UacUtil.IsElevated)
-				throw new InvalidOperationException("You must have administrative privileges to change URL associations.");
-
-			string[] strKeys = Registry.ClassesRoot.GetSubKeyNames();
-			if (Array.IndexOf<string>(strKeys, p_strUrlProtocol) != -1)
-				Registry.ClassesRoot.DeleteSubKeyTree(p_strUrlProtocol);
-		}
-
-		#endregion
-
+        
 		#region Serialization/Deserialization
 
 		/// <summary>
@@ -520,7 +468,7 @@ namespace Nexus.Client.Settings
 				fasFileAssociation.IsAssociated = IsAssociated(fasFileAssociation.Extension);
 
 		    AddShellExtensions = ShellExtensionUtil.ReadShellExtensions();
-			AssociateNxmUrl = IsUrlAssociated("nxm");
+			AssociateNxmUrl = UrlAssociationUtil.IsUrlAssociated("nxm");
 			CheckForNewMods = EnvironmentInfo.Settings.CheckForNewModVersions;
 			ModVersionsCheckInterval = EnvironmentInfo.Settings.ModVersionsCheckInterval;
 			AddMissingModInfo = EnvironmentInfo.Settings.AddMissingInfoToMods;
@@ -558,11 +506,11 @@ namespace Nexus.Client.Settings
 
                 if (AssociateNxmUrl)
                 {
-                    AssociateUrl("nxm", "Nexus Mod");
+                    UrlAssociationUtil.AssociateUrl("nxm", "Nexus Mod");
                 }
                 else
                 {
-                    UnassociateUrl("nxm");
+                    UrlAssociationUtil.UnassociateUrl("nxm");
                 }
 
                 if (AddShellExtensions)

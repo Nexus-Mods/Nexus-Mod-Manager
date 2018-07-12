@@ -309,6 +309,7 @@
     </Compile>
     <Compile Include="Settings.cs" />
     <Compile Include="Settings\ShellExtensionUtil.cs" />
+    <Compile Include="Settings\UrlAssociationUtil.cs" />
     <Compile Include="TipsManagement\Balloon.cs">
       <SubType>Form</SubType>
     </Compile>
