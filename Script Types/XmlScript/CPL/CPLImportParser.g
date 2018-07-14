@@ -32,7 +32,6 @@ options {
 	output=AST;    
 	ASTLabelType=CommonTree;
 	superClass=AntlrParserBase;
-	tokenVocab=CPLLexer;
 }
 
 @namespace {Nexus.Client.ModManagement.Scripting.XmlScript.CPL}
