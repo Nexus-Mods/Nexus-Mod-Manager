@@ -67,3 +67,4 @@ public factor		: file_check
 						| manager_ver_check
 						| LB! expr RB!;
 fose_ver_check		: FOSE_VERSION ATLEAST^ VERSION;
+start_rule          : FAKE_RULE;
