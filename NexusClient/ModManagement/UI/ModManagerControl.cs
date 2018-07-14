@@ -129,7 +129,6 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.AllUpdateWarningsToggled += CategoryListViewAllUpdateWarningsToggled;
 			clwCategoryView.AllUpdateChecksToggled += CategoryListViewAllUpdateChecksToggled;
 			clwCategoryView.ModActionRequested += CategoryListView_ModActionRequested;
-			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
 			clwCategoryView.ModReadmeFileRequested += CategoryListView_OpenReadMeFile;
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);

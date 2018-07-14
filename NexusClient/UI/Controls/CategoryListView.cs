@@ -62,7 +62,6 @@ namespace Nexus.Client.UI.Controls
 		/// Occurs whenever the selected mod's readme file is being opened.
 		/// </summary>
 		public event EventHandler<ModReadmeRequestEventArgs> ModReadmeFileRequested;
-		public event EventHandler ReadmeScan;
 		/// <summary>
 		/// Occurs whenever selected mod's "warning update" status is toggled.
 		/// </summary>

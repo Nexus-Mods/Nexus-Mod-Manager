@@ -90,6 +90,10 @@
       <Name>Fallout3</Name>
       <Private>False</Private>
     </ProjectReference>
+    <ProjectReference Include="..\Fallout4\Fallout4.csproj">
+      <Project>{90B15F92-E808-4E48-A4D7-BF2551959145}</Project>
+      <Name>Fallout4</Name>
+    </ProjectReference>
     <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
       <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
       <Name>GamebryoBase</Name>
@@ -110,9 +114,9 @@
       <Name>NexusClient.Interface</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Fallout4\Fallout4.csproj">
+    <ProjectReference Include="..\Skyrim\Skyrim.csproj">
       <Project>{BDF9F1A5-4A9D-4BB1-BABE-527EAAB20614}</Project>
-      <Name>Fallout4</Name>
+      <Name>Skyrim</Name>
       <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\Util\Util.csproj">

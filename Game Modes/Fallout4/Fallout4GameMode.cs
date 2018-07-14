@@ -29,9 +29,7 @@ namespace Nexus.Client.Games.Fallout4
 		private string m_strFallout4Prefs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Prefs.ini");
 		private string m_strFallout4Custom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Custom.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
-		private string m_strPluginsDefaultValue = @"0";
 		private string m_strInvalidateRequiredValue = @"1";
-		private string m_strGuideLink = @"http://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation";
 
 		#region Properties
 
@@ -269,7 +267,6 @@ namespace Nexus.Client.Games.Fallout4
 		public override bool RequiresExternalConfig(out string p_strMessage)
 		{
 			bool booLoose = false;
-			bool booPlugins = false;
 			bool booNewLoose = false;
 			p_strMessage = string.Empty;
 
@@ -285,9 +282,6 @@ namespace Nexus.Client.Games.Fallout4
 			if (!File.Exists(m_strFallout4Prefs))
 				return false;
 
-			girIniReader = new GamebryoIniReader(m_strFallout4Prefs);
-			string strPlugins = girIniReader.GetValue("Launcher", "bEnableFileSelection", null);
-
 			if (!File.Exists(m_strFallout4Custom))
 				return false;
 
@@ -298,11 +292,6 @@ namespace Nexus.Client.Games.Fallout4
 			if (!string.IsNullOrEmpty(strLoose))
 				if (!strLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
 					booLoose = true;
-
-			if (string.IsNullOrEmpty(strPlugins))
-				booPlugins = true;
-			else if (strPlugins.Equals(m_strPluginsDefaultValue, StringComparison.OrdinalIgnoreCase))
-				booPlugins = true;
 
 			if (string.IsNullOrEmpty(strCustomInvalidate))
 				booNewLoose = true;

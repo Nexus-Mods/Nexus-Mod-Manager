@@ -21,20 +21,11 @@ namespace Nexus.Client.UI.Controls
 		List<IVirtualModInfo> m_tslEnabledMods = null;
 
 		ThreadSafeObservableList<IModProfile> m_tslEnabledProfiles = null;
-
-		ThreadSafeObservableList<IModInfo> m_mifMods = null;	
 		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
 		IModProfile m_imcSelectedProfile = null;
 		IModRepository m_mmrModRepository = null;
 		bool m_booShowMissingMods= false;
 		string m_strLastSearchFilter = String.Empty;
-
-		#region Custom Events
-
-		public event EventHandler ProfileSwitch;
-		public event EventHandler ProfileRemoved;
-
-		#endregion
 
 		#region Properties
 

@@ -11,7 +11,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class CategoriesUpdateCheckTask : ThreadedBackgroundTask
 	{
-		private bool m_booCancel = false;
 		private string CurrentGameModeModDirectory = string.Empty;
 
 		#region Properties
@@ -82,17 +81,8 @@ namespace Nexus.Client.ModManagement
 		{
 			Start(p_camConfirm);
 		}
-
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
-		}
-
-		/// <summary>
+	    
+	    /// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
 		/// <param name="p_objArgs">Arguments to for the task execution.</param>

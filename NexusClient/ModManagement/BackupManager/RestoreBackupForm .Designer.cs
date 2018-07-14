@@ -160,7 +160,6 @@ namespace Nexus.Client.ModManagement.UI
 		private Button btNo;
 		private Button btCancel;
 		private Button btSelectFile;
-		private Label lblAdminMode;
 		private Label lblYes;
 		private Label lblCancel;
 		private Label lblNo;

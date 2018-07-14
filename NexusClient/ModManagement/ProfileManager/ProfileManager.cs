@@ -1633,7 +1633,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTask CheckOnlineProfileIntegrity(IModProfile p_impProfile, Dictionary<string, string> p_dicMissingMods, string p_strGameModeID, ConfirmActionMethod p_camConfirm)
 		{
-			CheckOnlineProfileIntegrityTask cotCheckIntegrity = new CheckOnlineProfileIntegrityTask(ModRepository, p_impProfile, this, p_dicMissingMods, p_strGameModeID);
+			CheckOnlineProfileIntegrityTask cotCheckIntegrity = new CheckOnlineProfileIntegrityTask(ModRepository, p_impProfile, this);
 			cotCheckIntegrity.Update(p_camConfirm);
 			return cotCheckIntegrity;
 		}
@@ -1646,7 +1646,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public void AsyncCheckOnlineProfileIntegrity(IModProfile p_impProfile, Dictionary<string, string> p_dicMissingMods, string p_strGameModeID, ConfirmActionMethod p_camConfirm)
 		{
-			CheckOnlineProfileIntegrityTask cotCheckIntegrity = new CheckOnlineProfileIntegrityTask(ModRepository, p_impProfile, this, p_dicMissingMods, p_strGameModeID);
+			CheckOnlineProfileIntegrityTask cotCheckIntegrity = new CheckOnlineProfileIntegrityTask(ModRepository, p_impProfile, this);
 			AsyncCheckOnlineProfileIntegrityTask(cotCheckIntegrity, p_camConfirm);
 		}
 
