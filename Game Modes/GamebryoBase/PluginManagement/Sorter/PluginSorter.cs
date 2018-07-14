@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
@@ -581,10 +581,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
 				}
 				catch (SorterException e)
 				{
+                    Trace.TraceWarning("GamebryoBase.PluginSorter.UpdateMasterlist() - Encountered an ignored SorterException.");
+				    TraceUtil.CreateTraceExceptionString(e);
 				}
-				catch (AccessViolationException)
+				catch (AccessViolationException e)
 				{
-				}
+				    Trace.TraceWarning("GamebryoBase.PluginSorter.UpdateMasterlist() - Encountered an ignored AccessViolationException.");
+				    TraceUtil.TraceException(e);
+                }
+
 				HandleStatusCode(uintStatus);
 
 				if (booExist && booUpdated)
@@ -612,10 +617,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
 			}
 			catch (SorterException e)
 			{
-			}
-			catch (AccessViolationException)
+			    Trace.TraceWarning("GamebryoBase.PluginSorter.MasterlistHasUpdate() - Encountered an ignored SorterException.");
+			    TraceUtil.CreateTraceExceptionString(e);
+            }
+			catch (AccessViolationException e)
 			{
-			}
+			    Trace.TraceWarning("GamebryoBase.PluginSorter.MasterlistHasUpdate() - Encountered an ignored AccessViolationException.");
+			    TraceUtil.TraceException(e);
+            }
 
 			return booRequiresUpdate;
 		}

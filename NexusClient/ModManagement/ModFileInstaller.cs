@@ -683,7 +683,7 @@ namespace Nexus.Client.ModManagement
 				using (File.Open(filePath, FileMode.Open)) { }
 				return false;
 			}
-			catch (IOException e)
+			catch (IOException)
 			{
 				return true;
 			}

@@ -77,7 +77,7 @@ namespace Nexus.Client.Settings.UI
 					ttpTip.SetToolTip(gbxAssociations, String.Format("Run {0} as Administrator to change these settings.", p_gsgSettings.EnvironmentInfo.Settings.ModManagerName));
 				}
 			}
-			catch(MissingMethodException ex)
+			catch(MissingMethodException)
 			{
 				string strErrorMessage = string.Format("Looks like you have a broken or incomplete .Net Framework!" + Environment.NewLine + 
 					"You need to install .NetFramework 4.5.2 or 4.6 . " + Environment.NewLine + 

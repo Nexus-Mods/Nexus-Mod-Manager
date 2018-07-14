@@ -1340,9 +1340,11 @@ namespace Nexus.Client.ModManagement
 				SaveConfig();
 				return mprModProfile;
 			}
-			catch (Exception ex)
+			catch (Exception e)
 			{
-			}
+			    Trace.TraceWarning("NexusClient.ProfileManager.ImportProfile() - Encountered an ignored Exception.");
+			    TraceUtil.TraceException(e);
+            }
 
 			return null;
 		}
