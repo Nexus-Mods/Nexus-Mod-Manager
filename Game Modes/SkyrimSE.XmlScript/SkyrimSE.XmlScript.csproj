@@ -113,10 +113,6 @@
     <ProjectReference Include="..\SkyrimSE\SkyrimSE.csproj">
       <Project>{C178B6CA-F72D-4AF3-9797-BAEBA896AD09}</Project>
       <Name>SkyrimSE</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Skyrim\Skyrim.csproj">
-      <Project>{BDF9F1A5-4A9D-4BB1-BABE-527EAAB20614}</Project>
-      <Name>Skyrim</Name>
       <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\Util\Util.csproj">
