@@ -61,15 +61,7 @@ namespace Nexus.Client
 		{
 			get
 			{
-				if (!String.IsNullOrEmpty(m_strTempPath))
-					return m_strTempPath;
-				else
-				{
-					string strPath = Path.Combine(Path.GetTempPath(), Application.ProductName);
-					if (!Directory.Exists(strPath))
-						Directory.CreateDirectory(strPath);
-					return strPath;
-				}
+				return m_strTempPath;
 			}
 		}
 
@@ -130,8 +122,15 @@ namespace Nexus.Client
 			if (String.IsNullOrEmpty(m_strPersonalDataFolderPath))
 				m_strPersonalDataFolderPath = Registry.GetValue(@"HKEY_CURRENT_USER\software\microsoft\windows\currentversion\explorer\user shell folders", "Personal", null).ToString();
 
-			if (!String.IsNullOrEmpty(Settings.TempPathFolder))
-				m_strTempPath = Settings.TempPathFolder;
+            if (String.IsNullOrEmpty(Settings.TempPathFolder))
+            {
+                m_strTempPath = Path.Combine(Path.GetTempPath(), Application.ProductName);
+                if (!Directory.Exists(m_strTempPath))
+                    Directory.CreateDirectory(m_strTempPath);
+            }
+            else
+                m_strTempPath = Settings.TempPathFolder;
+
 			m_strApplicationPersonalDataFolderPath = Path.Combine(m_strPersonalDataFolderPath, p_setSettings.ModManagerName);
 		}
 
