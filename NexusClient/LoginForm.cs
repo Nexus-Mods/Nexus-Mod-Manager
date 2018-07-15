@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Net.Mail;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
@@ -106,17 +107,44 @@ namespace Nexus.Client
 		{
 			if (Authenticating != null)
 			{
-				this.Hide();
-				Authenticating(this, new EventArgs());
+			    if (IsEmail(tbxUsername.Text))
+			    {
+			        MessageBox.Show(this, "You need to use your Nexus username, not your email address.", "Your email is not your username", MessageBoxButtons.OK, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1);
+			        tbxUsername.Clear();
+			        tbxUsername.Focus();
+                }
+			    else
+			    {
+                    this.Hide();
+                    Authenticating(this, new EventArgs());
+                }
 			}
 		}
 
-		/// <summary>
-		/// Handles the <see cref="Control.Click"/> event of the conacel button.
-		/// </summary>
-		/// <param name="sender">The object that triggered the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void butCancel_Click(object sender, EventArgs e)
+        /// <summary>
+        /// Checks if the given string is a valid email address or not.
+        /// </summary>
+        /// <param name="input">String to check.</param>
+        /// <returns>True if a valid email address, otherwise false.</returns>
+	    private bool IsEmail(string input)
+	    {
+	        try
+	        {
+	            var mailAddress = new MailAddress(input);
+	            return true;
+	        }
+	        catch (FormatException)
+	        {
+	            return false;
+	        }
+        }
+
+        /// <summary>
+        /// Handles the <see cref="Control.Click"/> event of the conacel button.
+        /// </summary>
+        /// <param name="sender">The object that triggered the event.</param>
+        /// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
+        private void butCancel_Click(object sender, EventArgs e)
 		{
             m_lftLoginTask.Reset();
             DialogResult = DialogResult.No;
