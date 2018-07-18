@@ -106,7 +106,7 @@ namespace Nexus.Client.Games.Oblivion
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, null);
+			Launch(strCommand, "--game=Oblivion");
 		}
 
 		/// <summary>
