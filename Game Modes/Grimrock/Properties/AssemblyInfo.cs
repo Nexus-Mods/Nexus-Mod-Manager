@@ -5,14 +5,9 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle(Nexus.Client.ProgrammeMetadata.ModManagerName + " - Grimrock Module")]
+[assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Grimrock Module")]
 [assembly: AssemblyDescription("The Legend of Grimrock Module for the official Mod Manager the Nexus network of game mod websites.")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Black Tree Gaming")]
 [assembly: AssemblyProduct("Grimrock")]
-[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2012")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

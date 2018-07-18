@@ -1,15 +1,17 @@
-﻿using System;
-using System.IO;
-using System.Windows.Forms;
-using Microsoft.Win32;
-using Nexus.Client.Settings;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
-	/// <summary>
-	/// Provides information about the current programme environment.
-	/// </summary>
-	public class EnvironmentInfo : IEnvironmentInfo
+    using System;
+    using System.IO;
+    using System.Windows.Forms;
+    using Microsoft.Win32;
+
+    using Settings;
+    using Util;
+
+    /// <summary>
+    /// Provides information about the current programme environment.
+    /// </summary>
+    public class EnvironmentInfo : IEnvironmentInfo
 	{
 		private string m_strApplicationPersonalDataFolderPath = null;
 		private string m_strPersonalDataFolderPath = null;
@@ -111,7 +113,7 @@ namespace Nexus.Client
 		{
 			get
 			{
-				return new Version(ProgrammeMetadata.VersionString);
+				return new Version(CommonData.VersionString);
 			}
 		}
 

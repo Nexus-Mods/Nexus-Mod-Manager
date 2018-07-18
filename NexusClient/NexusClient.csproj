@@ -63,11 +63,8 @@
     <StartupObject>Nexus.Client.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\AssemblyInformationalVersion.cs">
-      <Link>Properties\AssemblyInformationalVersion.cs</Link>
-    </Compile>
-    <Compile Include="..\SharedSolutionVersionInfo.Product.cs">
-      <Link>Properties\SharedSolutionVersionInfo.Product.cs</Link>
+    <Compile Include="..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
     </Compile>
     <Compile Include="DownloadMonitoring\PurgeDownloadsTask.cs" />
     <Compile Include="EnvironmentInfo.cs" />

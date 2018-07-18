@@ -1,24 +1,25 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Runtime.Serialization;
-using System.ServiceModel;
-using System.Text.RegularExpressions;
-using Nexus.Client.Games;
-using Nexus.Client.Mods;
-using Nexus.Client.ModManagement;
-using Nexus.Client.Util.Collections;
-
-namespace Nexus.Client.ModRepositories.Nexus
+﻿namespace Nexus.Client.ModRepositories.Nexus
 {
-	/// <remarks>
-	/// The Nexus mod repository is the repository hosted with the Nexus group of websites.
-	/// </remarks>
-	public class NexusModRepository : IModRepository
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Linq;
+    using System.Net;
+    using System.Runtime.Serialization;
+    using System.ServiceModel;
+    using System.Text.RegularExpressions;
+
+    using Games;
+    using Mods;
+    using ModManagement;
+    using Util;
+    using Util.Collections;
+
+    /// <remarks>
+    /// The Nexus mod repository is the repository hosted with the Nexus group of websites.
+    /// </remarks>
+    public class NexusModRepository : IModRepository
 	{
 		/// <summary>
 		/// Gets an instance of the Nexus mod repository.
@@ -177,7 +178,7 @@ namespace Nexus.Client.ModRepositories.Nexus
 		public NexusModRepository(IGameMode p_gmdGameMode)
 		{
 			SetWebsite(p_gmdGameMode);
-			UserAgent = String.Format("Nexus Client v{0}", ProgrammeMetadata.VersionString);
+			UserAgent = string.Format("Nexus Client v{0}", CommonData.VersionString);
 			SetFileServerZones();
 			AllowedConnections = 1;
 		}

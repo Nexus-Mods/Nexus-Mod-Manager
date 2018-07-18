@@ -52,11 +52,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\AssemblyInformationalVersion.cs">
-      <Link>Properties\AssemblyInformationalVersion.cs</Link>
-    </Compile>
-    <Compile Include="..\..\SharedSolutionVersionInfo.Auto.cs">
-      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    <Compile Include="..\..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
     </Compile>
     <Compile Include="FalloutNVCSharpBaseScript.cs" />
     <Compile Include="FalloutNVCSharpScriptFunctionProxy.cs" />
@@ -67,6 +64,11 @@
     <ProjectReference Include="..\..\Script Types\CSharpScript\CSharpScript.csproj">
       <Project>{6C3901C6-BFCA-47FC-929B-0CD030325FBD}</Project>
       <Name>CSharpScript</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Util\Util.csproj">
+      <Project>{44caa655-38c2-4ca2-ba68-a8d5c44b169d}</Project>
+      <Name>Util</Name>
       <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\Fallout3.CSharpScript\Fallout3.CSharpScript.csproj">

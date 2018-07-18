@@ -1,10 +1,12 @@
-﻿using Nexus.Client.Settings;
-using System.Diagnostics;
-using System.IO;
-using System.Threading;
-
-namespace Nexus.Client.Properties
+﻿namespace Nexus.Client.Properties
 {
+    using System.Diagnostics;
+    using System.IO;
+    using System.Threading;
+
+    using Client.Settings;
+    using Util;
+
     /// <summary>
     /// This class adds the <see cref="ISettings"/> to the project's <see cref="Properties.Settings"/>
     /// class.
@@ -22,7 +24,7 @@ namespace Nexus.Client.Properties
         /// Gets the full name of the mod manager.
         /// </summary>
         /// <value>The full name of the mod manager.</value>
-        public string ModManagerName => ProgrammeMetadata.ModManagerName;
+        public string ModManagerName => CommonData.ModManagerName;
 
         /// <summary>
         /// A thread-safe call to save the current settings to file.

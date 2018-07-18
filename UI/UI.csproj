@@ -58,8 +58,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
-      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    <Compile Include="..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
     </Compile>
     <Compile Include="Controls\AutosizeLabel.cs">
       <SubType>Component</SubType>
@@ -113,7 +113,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Controls\HtmlLabel.cs">
-      <SubType>Component</SubType>
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Controls\IconListView.cs">
       <SubType>Component</SubType>

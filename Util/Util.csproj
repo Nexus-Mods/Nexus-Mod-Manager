@@ -60,12 +60,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\SharedSolutionVersionInfo.Auto.cs">
-      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    <Compile Include="..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
     </Compile>
     <Compile Include="Archive.cs" />
     <Compile Include="BindingHelper.cs" />
     <Compile Include="CancelEventArgs`1.cs" />
+    <Compile Include="CommonData.cs" />
     <Compile Include="Downloader\CompletedDownloadEventArgs.cs" />
     <Compile Include="EventArgs.cs" />
     <Compile Include="ExtendedImage.cs" />
@@ -86,13 +87,6 @@
     <Compile Include="TextUtil.cs" />
     <Compile Include="ThreadSafeSevenZipExtractor.cs" />
     <Compile Include="JSONSerializer.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
-      <Project>{E824ACBB-90C8-4C60-9D52-9C8020E98E3E}</Project>
-      <Name>ChinhDo.Transactions.FileManager</Name>
-      <Private>False</Private>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CancelProgressEventArgs.cs" />
