@@ -78,31 +78,5 @@ namespace Nexus.Client.Settings.UI
 
 			DialogResult = DialogResult.OK;
 		}
-
-		#region Settings Persistence
-
-		/// <summary>
-		/// Persists the game-mode specific settings.
-		/// </summary>
-		/// <returns><c>true</c> if ettings were saved;
-		/// <c>false</c> otherwise.</returns>
-		protected bool SaveGameModeSettings()
-		{
-			/*bool booIsValid = true;
-			bool booIsPageValid = true;
-			foreach (TabPage tpgSettings in tbcTabs.TabPages)
-				if (tpgSettings.Tag is SettingsPage)
-				{
-					booIsPageValid = ((SettingsPage)tpgSettings.Tag).SaveSettings();
-					booIsValid &= booIsPageValid;
-					if (!booIsPageValid)
-						tbcTabs.SelectedTab = tpgSettings;
-				}
-			return booIsValid;
-			 * */
-			return true;
-		}
-
-		#endregion
 	}
 }
