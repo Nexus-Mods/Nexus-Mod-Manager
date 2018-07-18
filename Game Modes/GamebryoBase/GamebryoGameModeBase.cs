@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using ChinhDo.Transactions;
@@ -54,12 +55,21 @@ namespace Nexus.Client.Games.Gamebryo
 			get
 			{
 				string strFullPath = null;
+
 				foreach (string strExecutable in GameExecutables)
 				{
 					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, strExecutable);
+
 					if (File.Exists(strFullPath))
-						return new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+					{
+						return new Version(FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+					}
+                    else
+                    {
+                        Trace.TraceError("Could not find version of game executable \"{0}\", file could not be found.", strFullPath);
+                    }
 				}
+
 				return null;
 			}
 		}
@@ -129,12 +139,21 @@ namespace Nexus.Client.Games.Gamebryo
 			get
 			{
 				string strFullPath = null;
+
 				foreach (string strExecutable in ScriptExtenderExecutables)
 				{
 					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, strExecutable);
+
 					if (File.Exists(strFullPath))
-						return new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+                    {
+						return new Version(FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+					}
+                    else
+                    {
+                        Trace.TraceError("Could not find version of script extender \"{0}\", file could not be found.", strFullPath);
+                    }
 				}
+
 				return null;
 			}
 		}
