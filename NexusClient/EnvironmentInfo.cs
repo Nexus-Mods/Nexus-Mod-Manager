@@ -14,6 +14,7 @@
     public class EnvironmentInfo : IEnvironmentInfo
     {
         #region Properties
+
 		private string m_strApplicationPersonalDataFolderPath = null;
 		private string m_strPersonalDataFolderPath = null;
 		private string m_strTempPath = null;
@@ -89,6 +90,8 @@
 				return new Version(CommonData.VersionString);
 			}
 		}
+
+        #endregion
 
         #region Constructors
 
