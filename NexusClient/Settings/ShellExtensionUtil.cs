@@ -144,7 +144,7 @@
                     return false;
                 }
 
-                var commandKey = "Add_to_" + ProgrammeMetadata.ModManagerName.Replace(' ', '_');
+                var commandKey = "Add_to_" + CommonData.ModManagerName.Replace(' ', '_');
                 
                 var extensionSubKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey + "\\command";
                 var result = Registry.GetValue(extensionSubKey, null, null) as string;
