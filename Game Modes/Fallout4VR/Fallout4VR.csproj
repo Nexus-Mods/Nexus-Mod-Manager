@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{5BD924D2-3909-40B4-9B0F-C837987A6849}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Nexus.Client.Games.Fallout4VR</RootNamespace>
+    <AssemblyName>Fallout4VR</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\Stage\Debug\GameModes\</OutputPath>
+    <IntermediateOutputPath>..\..\Stage\obj\Debug\</IntermediateOutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\Stage\Release\GameModes\</OutputPath>
+    <IntermediateOutputPath>..\..\Stage\obj\Release\</IntermediateOutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="Resources\Categories.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\fallout4vr_base.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\fallout4vr_logo.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
+    </Compile>
+    <Compile Include="Fallout4VRSupportedTools.cs" />
+    <Compile Include="Fallout4VRGameMode.cs" />
+    <Compile Include="Fallout4VRGameModeDescriptor.cs" />
+    <Compile Include="Fallout4VRGameModeFactory.cs" />
+    <Compile Include="Fallout4VRLauncher.cs" />
+    <Compile Include="Fallout4VRSettingsFiles.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <DependentUpon>Resources.resx</DependentUpon>
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Commanding\Commanding.csproj">
+      <Project>{1732bb96-1f74-4b99-82d6-4d1239c9d36a}</Project>
+      <Name>Commanding</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout3\Fallout3.csproj">
+      <Project>{211400c3-e73e-4eba-a9c7-9900df9e7719}</Project>
+      <Name>Fallout3</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Fallout4\Fallout4.csproj">
+      <Project>{90b15f92-e808-4e48-a4d7-bf2551959145}</Project>
+      <Name>Fallout4</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055fb79-3587-486e-a87e-70304a61d7a4}</Project>
+      <Name>GamebryoBase</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ModManager.Interface\ModManager.Interface.csproj">
+      <Project>{33f65739-7cfb-4ec1-89ef-8b0b5440ab82}</Project>
+      <Name>ModManager.Interface</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NexusClient.Interface\NexusClient.Interface.csproj">
+      <Project>{d586e7d8-9c8e-48f0-b20c-31a52b37e9d3}</Project>
+      <Name>NexusClient.Interface</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\UI\UI.csproj">
+      <Project>{5edd4e37-b8f3-403d-a2e9-aff31b21a236}</Project>
+      <Name>UI</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Util\Util.csproj">
+      <Project>{44caa655-38c2-4ca2-ba68-a8d5c44b169d}</Project>
+      <Name>Util</Name>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

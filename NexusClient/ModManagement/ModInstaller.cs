@@ -27,7 +27,6 @@ namespace Nexus.Client.ModManagement
 	public class ModInstaller : ModInstallerBase
 	{
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
-		private ModManager m_mmModManager = null;
 
 		#region Properties
 

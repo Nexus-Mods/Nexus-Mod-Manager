@@ -19,19 +19,11 @@ namespace Nexus.Client.UI.Controls
 	{
 		List<IVirtualModLink> m_tslEnabledLinks = null;
 		List<IVirtualModInfo> m_tslEnabledMods = null;
-		ThreadSafeObservableList<IModInfo> m_mifMods = null;	
 		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
 		IModProfile m_imcSelectedProfile = null;
 		IModRepository m_mmrModRepository = null;
 		bool m_booShowMissingMods= false;
 		string m_strLastSearchFilter = String.Empty;
-
-		#region Custom Events
-
-		public event EventHandler ProfileSwitch;
-		public event EventHandler ProfileRemoved;
-
-		#endregion
 
 		#region Properties
 
@@ -362,7 +354,7 @@ namespace Nexus.Client.UI.Controls
 							e.Url = null;
 						else
 						{
-							string strUri = "http://" + m_mmrModRepository.GameModeWebsite + "/mods/" + vmiInfo.ModId;
+							string strUri = "https://" + m_mmrModRepository.GameModeWebsite + "/mods/" + vmiInfo.ModId;
 							e.Url = strUri;
 						}					
 					}

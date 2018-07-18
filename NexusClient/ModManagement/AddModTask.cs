@@ -823,39 +823,54 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		/// <summary>
-		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of the file downloader tasks.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
-		private void Downloader_TaskEnded(object sender, TaskEndedEventArgs e)
-		{
-			if (sender != null)
-				m_lstRunningTasks.Remove((IBackgroundTask)sender);
+        /// <summary>
+        /// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of the file downloader tasks.
+        /// </summary>
+        /// <param name="sender">The object that raised the event.</param>
+        /// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
+        private void Downloader_TaskEnded(object sender, TaskEndedEventArgs e)
+        {
+            if (sender != null)
+            {
+                m_lstRunningTasks.Remove((IBackgroundTask)sender);
+            }
 
-			if (e.Status == TaskStatus.Complete)
+            if (e.Status == TaskStatus.Error)
+            {
+                Status = e.Status;
+                OverallMessage = string.Format("\"{0}\" couldn't be downloaded: \"{1}\".", GetModDisplayName(), e.Message);
+                OnTaskEnded(e.Message, e.ReturnValue);
+            }
+            else if (e.Status == TaskStatus.Complete)
 			{
-				if (e.ReturnValue != null)
-				{
-					DownloadedFileInfo dfiDownloadInfo = (DownloadedFileInfo)e.ReturnValue;
-					if (String.IsNullOrEmpty(Descriptor.SourcePath) && (Descriptor.DownloadFiles.IndexOf(dfiDownloadInfo.URL) == 0))
-						Descriptor.SourcePath = dfiDownloadInfo.SavedFilePath;
+                if (e.ReturnValue != null)
+                {
+                    DownloadedFileInfo dfiDownloadInfo = (DownloadedFileInfo)e.ReturnValue;
+                    if (String.IsNullOrEmpty(Descriptor.SourcePath) && (Descriptor.DownloadFiles.IndexOf(dfiDownloadInfo.URL) == 0))
+                    {
+                        Descriptor.SourcePath = dfiDownloadInfo.SavedFilePath;
+                    }
 
-					Descriptor.DownloadFiles.Clear();
-					Descriptor.DownloadedFiles.Add(dfiDownloadInfo.SavedFilePath);
-				}
-				else
-					Descriptor.DownloadedFiles.Clear();
+                    Descriptor.DownloadFiles.Clear();
+                    Descriptor.DownloadedFiles.Add(dfiDownloadInfo.SavedFilePath);
+                }
+                else
+                {
+                    Descriptor.DownloadedFiles.Clear();
+                }
 
 				KeyedSettings<AddModDescriptor> dicQueuedMods = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_gmdGameMode.ModeId];
 				dicQueuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
-				lock (m_eifEnvironmentInfo.Settings)
-					m_eifEnvironmentInfo.Settings.Save();
+
+                lock (m_eifEnvironmentInfo.Settings)
+                {
+                    m_eifEnvironmentInfo.Settings.Save();
+                }
 
 				if (Descriptor.DownloadFiles.Count == 0)
 				{
 					StepOverallProgress();
-					AddModFile(m_cocConfirmOverwrite);
+                    AddModFile(m_cocConfirmOverwrite);
 				}
 			}
 			else if (IsActive)
@@ -876,8 +891,10 @@ namespace Nexus.Client.ModManagement
 				Descriptor.PausedFiles.AddRange(TempFiles);
 			}
 
-			if (swtSpeed.IsRunning)
-				swtSpeed.Stop();
+            if (swtSpeed.IsRunning)
+            {
+                swtSpeed.Stop();
+            }
 		}
 
 		#endregion

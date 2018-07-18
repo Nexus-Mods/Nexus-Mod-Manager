@@ -129,7 +129,6 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.AllUpdateWarningsToggled += CategoryListViewAllUpdateWarningsToggled;
 			clwCategoryView.AllUpdateChecksToggled += CategoryListViewAllUpdateChecksToggled;
 			clwCategoryView.ModActionRequested += CategoryListView_ModActionRequested;
-			clwCategoryView.ReadmeScan += new EventHandler(CategoryListView_ReadmeScan);
 			clwCategoryView.ModReadmeFileRequested += CategoryListView_OpenReadMeFile;
 			clwCategoryView.CellEditFinishing += new BrightIdeasSoftware.CellEditEventHandler(CategoryListView_CellEditFinishing);
 			clwCategoryView.CellToolTipShowing += new EventHandler<BrightIdeasSoftware.ToolTipShowingEventArgs>(CategoryListView_CellToolTipShowing);
@@ -1590,19 +1589,6 @@ namespace Nexus.Client.ModManagement.UI
 				return strResult;
 			}
 
-			return p_strFileName;
-			if (!p_strFileName.Equals(p_strNewFileName))
-			{
-				switch (MessageBox.Show(this, "File '" + p_strFileName + "' already exists. The old file can be replaced, or the new file can be named '" + p_strNewFileName + "'." + Environment.NewLine + "Do you want to overwrite the old file?", "Warning", MessageBoxButtons.YesNoCancel))
-				{
-					case DialogResult.Yes:
-						return p_strFileName;
-					case DialogResult.No:
-						return p_strNewFileName;
-					case DialogResult.Cancel:
-						return null;
-				}
-			}
 			return p_strFileName;
 		}
 

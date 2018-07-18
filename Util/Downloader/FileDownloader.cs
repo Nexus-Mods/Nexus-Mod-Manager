@@ -15,143 +15,92 @@ namespace Nexus.Client.Util.Downloader
 	/// </remarks>
 	public partial class FileDownloader
 	{
-		public event EventHandler<CompletedDownloadEventArgs> DownloadComplete = delegate { };
+	    private const int MaxBlockSize = 128 * 1024 * 1024;
+	    private const string DefaultUserAgent =
+	        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36";
 
-		private Int32 m_intMaxConnections = 5;
-		private Int32 m_intMinBlockSize = 1000 * 1024;
-		private Int32 m_intMaxBlockSize = 128 * 1024 * 1024;
-		private Int32 m_intWriteBufferSize = 1024;
-		private Uri m_uriURL = null;
-		private string m_strErrorCode = null;
-		private string m_strErrorInfo = null;
-		private string m_strSavePath = null;
-		private string m_strFileMetadataPath = null;
-		private string m_strUserAgent = "";
-		private FileMetadata m_fmdInfo = null;
-		private UInt64 m_intInitialDownloadedByteCount = 0;
-		private UInt64 m_intInitialByteCount = 0;
-		private Queue<Range> m_queRequiredBlocks = new Queue<Range>();
-		private List<BlockDownloader> m_lstDownloaders = new List<BlockDownloader>();
-		private FileWriter m_fwrWriter = null;
-		private DateTime m_dteStartTime = DateTime.Now;
+        public event EventHandler<CompletedDownloadEventArgs> DownloadComplete = delegate { };
 
-		#region Properties
+		private readonly int _maxConnections; // = 5;
+	    private readonly int _writeBufferSize; // = 1024;
+        private readonly int _minBlockSize; // = 1000 * 1024;
+	    private readonly string _userAgent;
+	    private readonly Queue<Range> _requiredBlocks = new Queue<Range>();
+	    private readonly List<BlockDownloader> _downloaders = new List<BlockDownloader>();
 
-		/// <summary>
-		/// Gets the URL of the file being downloaded.
-		/// </summary>
-		/// <value>The URL of the file being downloaded.</value>
-		public Uri URL
-		{
-			get
-			{
-				return m_uriURL;
-			}
-		}
+        private string _errorCode;
+		private string _errorInfo;
+		private string _savePath;
+		private string _fileMetadataPath;
+	    private ulong _initialByteCount;
 
-		/// <summary>
-		/// Gets the cookies to send with the file request.
-		/// </summary>
-		/// <value>The cookies to send with the file request.</value>
-		protected Dictionary<string, string> Cookies { get; private set; }
+	    private DateTime _startTime;
+        private FileMetadata _metadata;
+		private FileWriter _writer;
+
+        #region Properties
+
+        /// <summary>
+        /// Gets the URL of the file being downloaded.
+        /// </summary>
+        /// <value>The URL of the file being downloaded.</value>
+        public Uri URL { get; }
+
+        /// <summary>
+        /// Gets the cookies to send with the file request.
+        /// </summary>
+        /// <value>The cookies to send with the file request.</value>
+        protected Dictionary<string, string> Cookies { get; }
 
 		/// <summary>
 		/// Gets the number of bytes that have been downloaded.
 		/// </summary>
 		/// <value>The number of bytes that have been downloaded.</value>
-		public UInt64 DownloadedByteCount
-		{
-			get
-			{
-				return (m_fwrWriter == null) ? m_intInitialDownloadedByteCount : m_fwrWriter.WrittenByteCount / 1024;
-			}
-		}
+		public ulong DownloadedByteCount => _writer?.WrittenByteCount / 1024 ?? ResumedByteCount;
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the number of bytes that have been downloaded.
 		/// </summary>
 		/// <value>The number of bytes that have been downloaded.</value>
-		protected UInt64 ByteCount
-		{
-			get
-			{
-				return (m_fwrWriter == null) ? m_intInitialByteCount : m_fwrWriter.WrittenByteCount;
-			}
-		}
+		protected ulong ByteCount => _writer?.WrittenByteCount ?? _initialByteCount;
 
-		/// <summary>
-		/// Gets the number of bytes that have been previously downloaded.
-		/// </summary>
-		/// <value>The number of bytes that have been previously downloaded.</value>
-		public UInt64 ResumedByteCount
-		{
-			get
-			{
-				return m_intInitialDownloadedByteCount;
-			}
-		}
+	    /// <summary>
+        /// Gets the number of bytes that have been previously downloaded.
+        /// </summary>
+        /// <value>The number of bytes that have been previously downloaded.</value>
+        public ulong ResumedByteCount { get; private set; } = 0;
 
-		/// <summary>
-		/// Gets the number of currently active downloaders.
-		/// </summary>
-		/// <value>The number of currently active downloaders.</value>
-		public Int32 NumberOfActiveDownloaders
-		{
-			get
-			{
-				return m_lstDownloaders.Count;
-			}
-		}
+        /// <summary>
+        /// Gets the number of currently active downloaders.
+        /// </summary>
+        /// <value>The number of currently active downloaders.</value>
+        public int NumberOfActiveDownloaders => _downloaders.Count;
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the size of the file to download, in bytes.
 		/// </summary>
 		/// <value>The size of the file to download, in bytes.</value>
-		public UInt64 FileSize
-		{
-			get
-			{
-				return m_fmdInfo.Length;
-			}
-		}
+		public ulong FileSize => _metadata.Length;
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the path to which to the file will be saved.
 		/// </summary>
 		/// <value>The path to which to the file will be saved.</value>
-		public string SavePath
-		{
-			get
-			{
-				return Path.ChangeExtension(m_strSavePath, null);
-			}
-		}
+		public string SavePath => Path.ChangeExtension(_savePath, null);
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the path to which to the file will be saved.
 		/// </summary>
 		/// <value>The path to which to the file will be saved.</value>
-		public string[] TempFiles
-		{
-			get
-			{
-				return new string[] { m_strFileMetadataPath, m_strSavePath };
-			}
-		}
+		public string[] TempFiles => new[] { _fileMetadataPath, _savePath };
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the time that has elapsed downloading the file.
 		/// </summary>
 		/// <value>The time that has elapsed downloading the file.</value>
-		public TimeSpan ElapsedTime
-		{
-			get
-			{
-				return DateTime.Now.Subtract(m_dteStartTime);
-			}
-		}
+		public TimeSpan ElapsedTime => DateTime.Now.Subtract(_startTime);
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the time that has elapsed downloading the file.
 		/// </summary>
 		/// <value>The time that has elapsed downloading the file.</value>
@@ -161,10 +110,13 @@ namespace Nexus.Client.Util.Downloader
 			{
 				if (DownloadSpeed == 0)
 					return TimeSpan.MaxValue;
-				UInt64 lngRemainingData = m_fmdInfo.Length - (DownloadedByteCount * 1024);
-				Int64 lngNanoSecondsLeft = 0;
-				if (DownloadSpeed > 0)
-					lngNanoSecondsLeft = (Int64)(lngRemainingData / (UInt64)DownloadSpeed * 1000000000);
+
+			    ulong lngRemainingData = _metadata.Length - (DownloadedByteCount * 1024);
+
+			    long lngNanoSecondsLeft = 0;
+
+			    if (DownloadSpeed > 0)
+					lngNanoSecondsLeft = (long)(lngRemainingData / (ulong)DownloadSpeed * 1000000000);
 
 				return new TimeSpan(lngNanoSecondsLeft / 100);
 			}
@@ -180,8 +132,10 @@ namespace Nexus.Client.Util.Downloader
 			{
 				if (DownloadSpeed == 0)
 					return TimeSpan.MaxValue;
-				Int64 lngNanoSecondsLeft = (Int64)(m_fmdInfo.Length / (UInt64)DownloadSpeed * 1000000000);
-				return new TimeSpan(lngNanoSecondsLeft / 100);
+
+			    long lngNanoSecondsLeft = (long)(_metadata.Length / (ulong)DownloadSpeed * 1000000000);
+
+			    return new TimeSpan(lngNanoSecondsLeft / 100);
 			}
 		}
 
@@ -189,19 +143,19 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets the download speed, in bytes per second.
 		/// </summary>
 		/// <value>The download speed, in bytes per second.</value>
-		public Int32 DownloadSpeed
+		public int DownloadSpeed
 		{
 			get
 			{
-				if (m_lstDownloaders.Count == 0)
+				if (_downloaders.Count == 0)
 					return 0;
-				UInt64 intDownloadedThisSession = 0;
-				foreach (BlockDownloader bdlDownloader in m_lstDownloaders)
+				ulong intDownloadedThisSession = 0;
+				foreach (BlockDownloader bdlDownloader in _downloaders)
 					if (bdlDownloader.DownloadedByteCount > 0)
 						intDownloadedThisSession += bdlDownloader.DownloadedByteCount;
 				double dblSeconds = ElapsedTime.TotalSeconds;
 				double dblBytesPerSecond = intDownloadedThisSession / dblSeconds;
-				return (Int32)dblBytesPerSecond;
+				return (int)dblBytesPerSecond;
 			}
 		}
 
@@ -209,27 +163,15 @@ namespace Nexus.Client.Util.Downloader
 		/// Gets whether or not the file to be downloaded exists.
 		/// </summary>
 		/// <value>Whether or not the file to be downloaded exists.</value>
-		public bool FileExists
-		{
-			get
-			{
-				return m_fmdInfo.Exists && (m_fmdInfo.Length > 0);
-			}
-		}
+		public bool FileExists => _metadata.Exists && (_metadata.Length > 0);
 
-		/// <summary>
+	    /// <summary>
 		/// Gets whether or not the file exists on the server.
 		/// </summary>
 		/// <value>Whether or not the file exists on the server.</value>
-		public bool FileNotFound
-		{
-			get
-			{
-				return m_fmdInfo.NotFound;
-			}
-		}
+		public bool FileNotFound => _metadata.NotFound;
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the current error code, if anything wrong happened.
 		/// </summary>
 		/// <value>The current error code, if anything wrong happened.</value>
@@ -237,10 +179,10 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				if (String.IsNullOrEmpty(m_strErrorCode))
-					return ((m_fmdInfo != null) ? m_fmdInfo.NexusError : String.Empty);
-				else
-					return m_strErrorCode;
+				if (string.IsNullOrEmpty(_errorCode))
+					return ((_metadata != null) ? _metadata.NexusError : string.Empty);
+
+			    return _errorCode;
 			}
 		}
 
@@ -252,10 +194,10 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				if (String.IsNullOrEmpty(m_strErrorInfo))
-					return ((m_fmdInfo != null) ? m_fmdInfo.NexusErrorInfo : String.Empty);
-				else
-					return m_strErrorInfo;
+				if (string.IsNullOrEmpty(_errorInfo))
+					return ((_metadata != null) ? _metadata.NexusErrorInfo : string.Empty);
+
+			    return _errorInfo;
 			}
 		}
 
@@ -267,30 +209,34 @@ namespace Nexus.Client.Util.Downloader
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
 		/// <remarks>
-		/// If the given <paramref name="p_strSavePath"/> already exists, an attempt will be made to
+		/// If the given <paramref name="savePath"/> already exists, an attempt will be made to
 		/// resume the download. If the pre-existing file is not a partial download, or the download
 		/// cannot be resumed, the file will be overwritten.
 		/// </remarks>
-		/// <param name="p_uriURL">The URL of the file to download.</param>
-		/// <param name="p_dicCookies">A list of cookies that should be sent in the request to download the file.</param>
-		/// <param name="p_strSavePath">The path to which to save the file.
-		/// If <paramref name="p_booUseDefaultFileName"/> is <c>false</c>, this value should be a complete
-		/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
+		/// <param name="url">The URL of the file to download.</param>
+		/// <param name="cookies">A list of cookies that should be sent in the request to download the file.</param>
+		/// <param name="savePath">The path to which to save the file.
+		/// If <paramref name="useDefaultFileName"/> is <c>false</c>, this value should be a complete
+		/// path, including filename. If <paramref name="useDefaultFileName"/> is <c>true</c>,
 		/// this value should be the directory in which to save the file.</param>
-		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
-		/// <param name="p_intMaxConnections">The maximum number of connections to use to download the file.</param>
-		/// <param name="p_intMinBlockSize">The minimum block size that should be downloaded at once. This should
+		/// <param name="useDefaultFileName">Whether to use the file name suggested by the server.</param>
+		/// <param name="maxConnections">The maximum number of connections to use to download the file.</param>
+		/// <param name="minBlockSize">The minimum block size that should be downloaded at once. This should
 		/// ideally be some mulitple of the available bandwidth.</param>
-		/// <param name="p_strUserAgent">The current User Agent.</param>
-		public FileDownloader(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName, Int32 p_intMaxConnections, Int32 p_intMinBlockSize, string p_strUserAgent)
+		/// <param name="userAgent">The current User Agent.</param>
+		public FileDownloader(Uri url, Dictionary<string, string> cookies, string savePath, bool useDefaultFileName, int maxConnections, int minBlockSize, string userAgent)
 		{
-			m_uriURL = p_uriURL;
-			Cookies = p_dicCookies ?? new Dictionary<string, string>();
-			m_intMaxConnections = p_intMaxConnections;
-			m_intMinBlockSize = p_intMinBlockSize;
-			m_intWriteBufferSize = m_intMinBlockSize * 1;
-			m_strUserAgent = p_strUserAgent;
-			Initialize(p_strSavePath, p_booUseDefaultFileName);
+			_maxConnections = maxConnections;
+			_minBlockSize = minBlockSize;
+			_writeBufferSize = _minBlockSize * 1;
+			_userAgent = string.IsNullOrWhiteSpace(userAgent) ? DefaultUserAgent : userAgent;
+		    _startTime = DateTime.Now;
+
+		    URL = url;
+
+            Cookies = cookies ?? new Dictionary<string, string>();
+
+            Initialize(savePath, useDefaultFileName);
 		}
 
 		#endregion
@@ -298,45 +244,59 @@ namespace Nexus.Client.Util.Downloader
 		/// <summary>
 		/// Sets up the initial values of the downloader.
 		/// </summary>
-		/// <param name="p_strSavePath">The path to which to save the file.
-		/// If <paramref name="p_booUseDefaultFileName"/> is <c>false</c>, this value should be a complete
-		/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
+		/// <param name="savePath">The path to which to save the file.
+		/// If <paramref name="useDefaultFileName"/> is <c>false</c>, this value should be a complete
+		/// path, including filename. If <paramref name="useDefaultFileName"/> is <c>true</c>,
 		/// this value should be the directory in which to save the file.</param>
-		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
-		private void Initialize(string p_strSavePath, bool p_booUseDefaultFileName)
+		/// <param name="useDefaultFileName">Whether to use the file name suggested by the server.</param>
+		private void Initialize(string savePath, bool useDefaultFileName)
 		{
-			m_fmdInfo = GetMetadata();
+			_metadata = GetMetadata(URL, Cookies);
 
-			string strFilename = p_booUseDefaultFileName ? m_fmdInfo.SuggestedFileName : Path.GetFileName(p_strSavePath);
-			strFilename = Uri.UnescapeDataString(strFilename);
-			foreach (char chrInvalid in Path.GetInvalidFileNameChars())
+			var strFilename = useDefaultFileName ? _metadata.SuggestedFileName : Path.GetFileName(savePath);
+
+		    strFilename = Uri.UnescapeDataString(strFilename);
+
+		    foreach (var chrInvalid in Path.GetInvalidFileNameChars())
 				strFilename = strFilename.Replace(chrInvalid, '_');
-			p_strSavePath = Path.Combine(p_strSavePath, strFilename);
 
-			m_strSavePath = p_strSavePath + ".partial";
-			m_strFileMetadataPath = p_strSavePath + ".parts";
+		    savePath = Path.Combine(savePath, strFilename);
 
-			if (!m_fmdInfo.SupportsResume)
+			_savePath = savePath + ".partial";
+			_fileMetadataPath = savePath + ".parts";
+
+		    var metaDataPathExists = File.Exists(_fileMetadataPath);
+
+            if (!_metadata.SupportsResume)
 			{
-				File.Delete(m_strFileMetadataPath);
-				File.Delete(m_strSavePath);
+                if(metaDataPathExists)
+				    File.Delete(_fileMetadataPath);
+
+                if(File.Exists(_savePath))
+			        File.Delete(_savePath);
 			}
 
 			//get the list of ranges we have already downloaded
-			RangeSet rgsRanges = new RangeSet();
-			if (File.Exists(m_strFileMetadataPath))
+			var rgsRanges = new RangeSet();
+
+		    if (metaDataPathExists)
 			{
-				string[] strRanges = File.ReadAllLines(m_strFileMetadataPath);
-				foreach (string strRange in strRanges)
+				var strRanges = File.ReadAllLines(_fileMetadataPath);
+
+			    foreach (var strRange in strRanges)
 				{
-					string strCleanRange = strRange.Trim().Trim('\0');
-					if (String.IsNullOrEmpty(strCleanRange))
+					var strCleanRange = strRange.Trim().Trim('\0');
+
+				    if (string.IsNullOrEmpty(strCleanRange))
 						continue;
-					rgsRanges.AddRange(Range.Parse(strCleanRange));
+
+				    rgsRanges.AddRange(Range.Parse(strCleanRange));
 				}
 			}
-			m_intInitialByteCount = rgsRanges.TotalSize;
-			m_intInitialDownloadedByteCount = rgsRanges.TotalSize / 1024;
+
+			_initialByteCount = rgsRanges.TotalSize;
+
+			ResumedByteCount = rgsRanges.TotalSize / 1024;
 		}
 
 		#region Event Raising
@@ -354,20 +314,6 @@ namespace Nexus.Client.Util.Downloader
 			DownloadComplete(this, e);
 		}
 
-		/// <summary>
-		/// Raises the <see cref="DownloadComplete"/> event.
-		/// </summary>
-		/// <remarks>
-		/// A completed download does not mean the entire file has been downloaded; the download
-		/// may have been interrupted.
-		/// </remarks>
-		/// <param name="p_booGotEntireFile">Whether the entire file has been downloaded.</param>
-		/// <param name="p_strSavedFileName">The path to the downloaded file.</param>
-		protected void OnDownloadComplete(bool p_booGotEntireFile, string p_strSavedFileName)
-		{
-			OnDownloadComplete(new CompletedDownloadEventArgs(p_booGotEntireFile, p_strSavedFileName));
-		}
-
 		#endregion
 
 		#region Download Control
@@ -377,68 +323,81 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		public void StartDownload()
 		{
-			Trace.TraceInformation(String.Format("[{0}] Downloading.", m_uriURL.ToString()));
-			if (!FileExists)
-				throw new FileNotFoundException("The file to download does not exist.", m_uriURL.ToString());
+			Trace.TraceInformation($"[{URL}] Downloading.");
 
-			Int32 intConnectionsToUse = m_fmdInfo.SupportsResume ? m_intMaxConnections : 1;
-			if (ServicePointManager.DefaultConnectionLimit < 1)
-				throw new Exception(String.Format("Only {0} connections can be created to the same file; {1} are wanted.", ServicePointManager.DefaultConnectionLimit, 1));
-			else if (ServicePointManager.DefaultConnectionLimit < intConnectionsToUse)
+		    if (!FileExists)
+				throw new FileNotFoundException("The file to download does not exist.", URL.ToString());
+
+			int intConnectionsToUse = _metadata.SupportsResume ? _maxConnections : 1;
+
+		    if (ServicePointManager.DefaultConnectionLimit < 1)
+				throw new Exception(string.Format("Only {0} connections can be created to the same file; {1} are wanted.", ServicePointManager.DefaultConnectionLimit, 1));
+
+		    if (ServicePointManager.DefaultConnectionLimit < intConnectionsToUse)
 				intConnectionsToUse = ServicePointManager.DefaultConnectionLimit;
 
 			//get the list of ranges we have not already downloaded
 			RangeSet rgsMissingRanges = new RangeSet();
-			rgsMissingRanges.AddRange(new Range(0, m_fmdInfo.Length - 1));
-			if (File.Exists(m_strFileMetadataPath))
+
+		    rgsMissingRanges.AddRange(new Range(0, _metadata.Length - 1));
+
+		    if (File.Exists(_fileMetadataPath))
 			{
-				string[] strRanges = File.ReadAllLines(m_strFileMetadataPath);
+				string[] strRanges = File.ReadAllLines(_fileMetadataPath);
 				foreach (string strRange in strRanges)
 				{
 					string strCleanRange = strRange.Trim().Trim('\0');
-					if (String.IsNullOrEmpty(strCleanRange))
+					if (string.IsNullOrEmpty(strCleanRange))
 						continue;
 					rgsMissingRanges.RemoveRange(Range.Parse(strCleanRange));
 				}
 			}
-			else if (File.Exists(m_strSavePath))
-				File.Delete(m_strSavePath);
+			else if (File.Exists(_savePath))
+				File.Delete(_savePath);
 
-			Int32 intMinBlockSize = (Int32)Math.Min((UInt64)m_intMinBlockSize, rgsMissingRanges.TotalSize);
-			Int32 intBaseBlockSize = (Int32)Math.Max(rgsMissingRanges.TotalSize / (UInt64)intConnectionsToUse, (UInt64)intMinBlockSize);
-			if (intConnectionsToUse > 1)
-				intBaseBlockSize = Math.Min(intBaseBlockSize, m_intMaxBlockSize);
+			int intMinBlockSize = (int)Math.Min((ulong)_minBlockSize, rgsMissingRanges.TotalSize);
+			int intBaseBlockSize = (int)Math.Max(rgsMissingRanges.TotalSize / (ulong)intConnectionsToUse, (ulong)intMinBlockSize);
+
+		    if (intConnectionsToUse > 1)
+				intBaseBlockSize = Math.Min(intBaseBlockSize, MaxBlockSize);
 
 			//break the ranges into blocks to be downloaded
 			foreach (Range rngNeeded in rgsMissingRanges)
 			{
 				//find out how many blocks will fit into the range
-				Int32 intBlockCount = (Int32)(rngNeeded.Size / (UInt64)intBaseBlockSize);
-				if (intBlockCount == 0)
+				int intBlockCount = (int)(rngNeeded.Size / (ulong)intBaseBlockSize);
+
+			    if (intBlockCount == 0)
 					intBlockCount = 1;
-				//there is likely to be some remainder (there are likely a fractional number of blocks
+				
+			    //there is likely to be some remainder (there are likely a fractional number of blocks
 				// in the range), so lets distrubute the remainder amongst all of the blocks
 				// we do this by elarging our blocksize
-				UInt64 intBlockSize = (UInt64)Math.Ceiling(rngNeeded.Size / (double)intBlockCount);
-				UInt64 intBlockStart = rngNeeded.StartByte;
-				for (; intBlockStart + intBlockSize < rngNeeded.EndByte; intBlockStart += intBlockSize)
-					m_queRequiredBlocks.Enqueue(new Range(intBlockStart, intBlockStart + intBlockSize - 1));
-				m_queRequiredBlocks.Enqueue(new Range(intBlockStart, rngNeeded.EndByte));
+				ulong intBlockSize = (ulong)Math.Ceiling(rngNeeded.Size / (double)intBlockCount);
+				ulong intBlockStart = rngNeeded.StartByte;
+
+			    for (; intBlockStart + intBlockSize < rngNeeded.EndByte; intBlockStart += intBlockSize)
+					_requiredBlocks.Enqueue(new Range(intBlockStart, intBlockStart + intBlockSize - 1));
+
+			    _requiredBlocks.Enqueue(new Range(intBlockStart, rngNeeded.EndByte));
 			}
 
-			m_fwrWriter = new FileWriter(m_strSavePath, m_strFileMetadataPath);
+			_writer = new FileWriter(_savePath, _fileMetadataPath);
 
-			m_dteStartTime = DateTime.Now;
-			//spawn the downloading threads
-			Int32 intRequiredBlocks = m_queRequiredBlocks.Count;
-			lock (m_lstDownloaders)
+			_startTime = DateTime.Now;
+			
+		    //spawn the downloading threads
+			int intRequiredBlocks = _requiredBlocks.Count;
+
+		    lock (_downloaders)
 			{
-				for (Int32 i = 0; i < (intRequiredBlocks < intConnectionsToUse ? intRequiredBlocks : intConnectionsToUse); i++)
+				for (int i = 0; i < (intRequiredBlocks < intConnectionsToUse ? intRequiredBlocks : intConnectionsToUse); i++)
 				{
-					BlockDownloader bdrDownloader = new BlockDownloader(this, m_fmdInfo, m_fwrWriter, m_intWriteBufferSize, m_strUserAgent);
+					BlockDownloader bdrDownloader = new BlockDownloader(this, _metadata, _writer, _writeBufferSize, _userAgent);
 					bdrDownloader.FinishedDownloading += new EventHandler(Downloader_FinishedDownloading);
 					bdrDownloader.Start();
-					m_lstDownloaders.Add(bdrDownloader);
+
+				    _downloaders.Add(bdrDownloader);
 				}
 			}
 		}
@@ -448,37 +407,59 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		public void Stop()
 		{
-			lock (m_lstDownloaders)
+			lock (_downloaders)
 			{
-				foreach (BlockDownloader bdrDownloader in m_lstDownloaders)
+				foreach (BlockDownloader bdrDownloader in _downloaders)
 				{
 					bdrDownloader.FinishedDownloading -= Downloader_FinishedDownloading;
 					bdrDownloader.Stop();
 				}
-				m_lstDownloaders.Clear();
+				_downloaders.Clear();
 			}
-			if (m_fwrWriter != null)
+			if (_writer != null)
 			{
-				m_fwrWriter.Close();
-				m_fwrWriter.Dispose();
+				_writer.Close();
+				_writer.Dispose();
 			}
-			bool booGetEntireFile = m_fmdInfo.Length > 0 ? (m_fmdInfo.Length - ByteCount == 0) : false;
-			if (booGetEntireFile)
+
+            bool booGetEntireFile = _metadata.Length > 0 && (_metadata.Length - ByteCount == 0);
+
+		    string failureMessage = string.Empty;
+
+            if (booGetEntireFile)
 			{
-				if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))
-					FileUtil.ForceDelete(m_strFileMetadataPath);
-				string strNewPath = Path.ChangeExtension(m_strSavePath, null);
-				try
+                if (!string.IsNullOrEmpty(_fileMetadataPath) && File.Exists(_fileMetadataPath))
+                {
+                    FileUtil.ForceDelete(_fileMetadataPath);
+                }
+
+				string strNewPath = Path.ChangeExtension(_savePath, null);
+
+                try
 				{
-					if (File.Exists(strNewPath))
-						FileUtil.ForceDelete(strNewPath);
+                    if (File.Exists(strNewPath))
+                    {
+                        FileUtil.ForceDelete(strNewPath);
+                    }
 				}
 				finally
 				{
-					File.Move(m_strSavePath, strNewPath);
+                    try
+                    {
+                        File.Move(_savePath, strNewPath);
+                    }
+                    catch (IOException e)
+                    {
+                        Trace.TraceError($"[{URL}] Could not move downloaded file to its destination. Error message: \"{e.Message}\"");
+
+                        failureMessage = e.Message;
+
+                        booGetEntireFile = false;
+                    }
 				}
 			}
-			OnDownloadComplete(booGetEntireFile, Path.ChangeExtension(m_strSavePath, null));
+
+			OnDownloadComplete(new CompletedDownloadEventArgs(booGetEntireFile, Path.ChangeExtension(_savePath, null), failureMessage));
 		}
 
 		/// <summary>
@@ -486,10 +467,11 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		public void Cleanup()
 		{
-			if (!String.IsNullOrEmpty(m_strFileMetadataPath) && File.Exists(m_strFileMetadataPath))
-				FileUtil.ForceDelete(m_strFileMetadataPath);
-			if (!String.IsNullOrEmpty(m_strSavePath) && File.Exists(m_strSavePath))
-				FileUtil.ForceDelete(m_strSavePath);
+			if (!string.IsNullOrEmpty(_fileMetadataPath) && File.Exists(_fileMetadataPath))
+				FileUtil.ForceDelete(_fileMetadataPath);
+
+		    if (!string.IsNullOrEmpty(_savePath) && File.Exists(_savePath))
+				FileUtil.ForceDelete(_savePath);
 		}
 
 		/// <summary>
@@ -504,16 +486,18 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="e">An <see cref="EventArgs"/> desciribing the event arguments.</param>
 		private void Downloader_FinishedDownloading(object sender, EventArgs e)
 		{
-			lock (m_lstDownloaders)
+			lock (_downloaders)
 			{
 				if (((BlockDownloader)sender).ErrorCode == "666")
 				{
-					m_strErrorCode = ((BlockDownloader)sender).ErrorCode;
-					m_strErrorInfo = ((BlockDownloader)sender).ErrorInfo;
+					_errorCode = ((BlockDownloader)sender).ErrorCode;
+					_errorInfo = ((BlockDownloader)sender).ErrorInfo;
 				}
-				m_lstDownloaders.Remove((BlockDownloader)sender);
+
+			    _downloaders.Remove((BlockDownloader)sender);
 			}
-			if (m_lstDownloaders.Count == 0)
+
+			if (_downloaders.Count == 0)
 				Stop();
 		}
 
@@ -525,62 +509,91 @@ namespace Nexus.Client.Util.Downloader
 		/// <returns>The next block in the file that needs to be downloaded.</returns>
 		protected Range GetNextBlock()
 		{
-			lock (m_queRequiredBlocks)
+			lock (_requiredBlocks)
 			{
-				if (m_queRequiredBlocks.Count == 0)
-					return null;
-				return m_queRequiredBlocks.Dequeue();
+			    var r = _requiredBlocks.Count == 0 ? null : _requiredBlocks.Dequeue();
+
+			    return r;
 			}
 		}
 
-		/// <summary>
-		/// Gets the file's metadata.
-		/// </summary>
-		/// <returns>The file's metadata.</returns>
-		protected FileMetadata GetMetadata()
+	    /// <summary>
+	    /// Gets the file's metadata.
+	    /// </summary>
+	    /// <returns>The file's metadata.</returns>
+	    protected FileMetadata GetMetadata(Uri uri, Dictionary<string, string> cookies, string httpMethod = WebRequestMethods.Http.Head)
 		{
-			Trace.TraceInformation(String.Format("[{0}] Retreiving metadata.", m_uriURL.ToString()));
-			HttpWebRequest hwrFileMetadata = (HttpWebRequest)WebRequest.Create(m_uriURL);
-			CookieContainer ckcCookies = new CookieContainer();
-			foreach (KeyValuePair<string, string> kvpCookie in Cookies)
-				ckcCookies.Add(new Cookie(kvpCookie.Key, kvpCookie.Value, "/", m_uriURL.Host));
-			hwrFileMetadata.CookieContainer = ckcCookies;
-			hwrFileMetadata.Method = "HEAD";
-			hwrFileMetadata.AddRange(0, 1);
-			hwrFileMetadata.AllowAutoRedirect = true;
-			hwrFileMetadata.UserAgent = m_strUserAgent;
+			Trace.TraceInformation($"[{uri}] Retrieving meta data.");
 
-			FileMetadata fmiInfo = null;
+		    var ckcCookies = new CookieContainer();
+
+		    foreach (var kvp in cookies)
+				ckcCookies.Add(new Cookie(kvp.Key, kvp.Value, "/", uri.Host));
+
+		    var webMetaData = (HttpWebRequest)WebRequest.Create(uri);
+
+		    webMetaData.CookieContainer = ckcCookies;
+			webMetaData.Method = string.IsNullOrWhiteSpace(httpMethod) ? WebRequestMethods.Http.Head : httpMethod;
+			webMetaData.AddRange(0, 1);
+			webMetaData.AllowAutoRedirect = true;
+			webMetaData.UserAgent = _userAgent;
+
+		    FileMetadata fileMetaData = null;
+
 			try
 			{
-				using (HttpWebResponse wrpFileMetadata = (HttpWebResponse)hwrFileMetadata.GetResponse())
+				using (var wrpFileMetadata = (HttpWebResponse)webMetaData.GetResponse())
 				{
-					if ((wrpFileMetadata.StatusCode == HttpStatusCode.OK) || (wrpFileMetadata.StatusCode == HttpStatusCode.PartialContent))
-						fmiInfo = new FileMetadata(wrpFileMetadata.Headers);
+				    if (wrpFileMetadata.StatusCode == HttpStatusCode.OK ||
+				        wrpFileMetadata.StatusCode == HttpStatusCode.PartialContent)
+				    {
+				        fileMetaData = new FileMetadata(wrpFileMetadata.Headers);
+				    }
 				}
 			}
 			catch (WebException e)
 			{
-				using (HttpWebResponse wrpDownload = (HttpWebResponse)e.Response)
+				using (var response = (HttpWebResponse)e.Response)
 				{
-					if (wrpDownload != null)
-						switch (wrpDownload.StatusCode)
-						{
-							case HttpStatusCode.ServiceUnavailable:
-								fmiInfo = new FileMetadata(e.Response.Headers);
-								break;
-							case HttpStatusCode.NotFound:
-								fmiInfo = new FileMetadata();
-								fmiInfo.NotFound = true;
-								break;
-						}
+				    if (response != null)
+				    {
+				        switch (response.StatusCode)
+				        {
+				            case HttpStatusCode.ServiceUnavailable:
+				                fileMetaData = new FileMetadata(e.Response.Headers);
+				                break;
+				            case HttpStatusCode.NotFound:
+				                fileMetaData = new FileMetadata();
+				                fileMetaData.NotFound = true;
+				                break;
+                            case HttpStatusCode.Forbidden:
+                                /* GitHub is hosted by Amazon. Http GET method requests cause a (sort of) redirect to Amazon's servers using
+                                 * a 302 FOUND and then a 200 OK at a different URI.
+                                 * Using the HEAD method will cause a 403 error to be thrown. */
+                                if (httpMethod == WebRequestMethods.Http.Head)
+                                {
+                                    //This won't be entered again because the HTTP Method is changed at this point
+                                    //Also be aware that this is a single recursive call, but it is safe past this point
+                                    fileMetaData = GetMetadata(uri, cookies, WebRequestMethods.Http.Get);
+                                }
+
+                                break;
+                            default:
+                                //On an off chance there are other enums not being handled
+                                Trace.TraceWarning($"[{response.StatusCode}] wasn't handled. 0x201807081159");
+                                break;
+				        }
+				    }
 				}
 			}
-			if (fmiInfo == null)
-				fmiInfo = new FileMetadata();
-			if (String.IsNullOrEmpty(fmiInfo.SuggestedFileName))
-				fmiInfo.SuggestedFileName = Uri.UnescapeDataString(m_uriURL.Segments[m_uriURL.Segments.Length - 1]);
-			return fmiInfo;
+
+			if (fileMetaData == null)
+				fileMetaData = new FileMetadata();
+
+			if (string.IsNullOrEmpty(fileMetaData.SuggestedFileName))
+				fileMetaData.SuggestedFileName = Uri.UnescapeDataString(URL.Segments[URL.Segments.Length - 1]);
+
+		    return fileMetaData;
 		}
-	}
+    }
 }

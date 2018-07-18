@@ -166,19 +166,7 @@ namespace Nexus.Client
 				MainForm.Invoke((MethodInvoker)(() => strResult = ConfirmModFileOverwrite(p_strFileName, p_strNewFileName)));
 				return strResult;
 			}
-			return p_strFileName;
-			if (!p_strFileName.Equals(p_strNewFileName))
-			{
-				switch (MessageBox.Show(MainForm, "File '" + p_strFileName + "' already exists. The old file can be replaced, or the new file can be named '" + p_strNewFileName + "'." + Environment.NewLine + "Do you want to overwrite the old file?", "Warning", MessageBoxButtons.YesNoCancel))
-				{
-					case DialogResult.Yes:
-						return p_strFileName;
-					case DialogResult.No:
-						return p_strNewFileName;
-					case DialogResult.Cancel:
-						return null;
-				}
-			}
+
 			return p_strFileName;
 		}
 

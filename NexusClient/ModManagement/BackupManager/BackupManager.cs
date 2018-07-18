@@ -162,7 +162,8 @@ namespace Nexus.Client.ModManagement
 				using (SevenZipExtractor szeExtractor = new SevenZipExtractor(p_strFileName))
 				{
 					ReadOnlyCollection<ArchiveFileInfo> lstArchiveFiles = szeExtractor.ArchiveFileData;
-					GameModeNameCheck = lstArchiveFiles.Where(x => x.FileName.Equals(ModManager.GameMode.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+                    string gameModeName = PurgeIllegalWindowsCharacters(ModManager.GameMode.Name);
+					GameModeNameCheck = lstArchiveFiles.Where(x => x.FileName.Equals(gameModeName, StringComparison.OrdinalIgnoreCase)).ToList();
 
 					if (GameModeNameCheck.Count() > 0)
 					{
@@ -328,5 +329,24 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 		}
-	}
+
+        /// <summary>
+        /// Removes all illegal characters from game names, such that all games can be backed up on Windows
+        /// </summary>
+        /// <param name="gameName">Name of the game</param>
+        /// <returns>Clean string</returns>
+        private string PurgeIllegalWindowsCharacters(string gameName)
+        {
+            string toReturn = gameName.Replace(":", string.Empty);
+            toReturn = toReturn.Replace("<", string.Empty);
+            toReturn = toReturn.Replace(">", string.Empty);
+            toReturn = toReturn.Replace("\"", string.Empty);
+            toReturn = toReturn.Replace("/", string.Empty);
+            toReturn = toReturn.Replace("\\", string.Empty);
+            toReturn = toReturn.Replace("|", string.Empty);
+            toReturn = toReturn.Replace("?", string.Empty);
+            toReturn = toReturn.Replace("*", string.Empty);
+            return toReturn.Replace("..", string.Empty); // Path traversal, looks malicious
+        }
+    }
 }

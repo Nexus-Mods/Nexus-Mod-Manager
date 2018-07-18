@@ -9,7 +9,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class ModMigrationTask : ThreadedBackgroundTask
 	{
-		bool m_booCancel = false;
 		private bool m_booMigrate = true;
 
 		protected ConfirmActionMethod ConfirmActionMethod { get; private set; }
@@ -67,15 +66,6 @@ namespace Nexus.Client.ModManagement
 		public void Update(ConfirmActionMethod p_camConfirm)
 		{
 			Start(p_camConfirm);
-		}
-
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
 		}
 
 		/// <summary>

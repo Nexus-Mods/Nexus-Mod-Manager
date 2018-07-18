@@ -16,59 +16,34 @@ namespace Nexus.Client
 	/// </summary>
 	public partial class GameDetectionForm : ManagedFontForm
 	{
-		private GameDetectionVM m_vmlViewModel = null;
-		private List<IGameModeDescriptor> lstGameModes = null;
+        #region Properties
+	    private GameDetectionVM _vmlViewModel = null;
 
-		#region Properties
-
-		/// <summary>
-		/// Gets or sets the view model that provides the data and operations for this view.
-		/// </summary>
-		/// <value>The view model that provides the data and operations for this view.</value>
-		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// Gets or sets the view model that provides the data and operations for this view.
+        /// </summary>
+        /// <value>The view model that provides the data and operations for this view.</value>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		protected GameDetectionVM ViewModel
 		{
-			get
-			{
-				return m_vmlViewModel;
-			}
+			get => _vmlViewModel;
+
 			set
 			{
-				m_vmlViewModel = value;
-				butOK.Enabled = false;
-				m_vmlViewModel.GameDetector.GameResolved += new EventHandler<GameModeDiscoveredEventArgs>(GameDetector_GameResolved);
-				m_vmlViewModel.GameDetector.DisableButOk += new EventHandler<GameModeDiscoveredEventArgs>(GameDetector_DisableButOk);
-				GameModeSearchListViewItem gliGameModeItem = null;
-				lstGameModes = new List<IGameModeDescriptor>(m_vmlViewModel.SupportedGameModes.RegisteredGameModes);
-				for (Int32 i = 0; i < lstGameModes.Count; i++)
-				{
-					gliGameModeItem = new GameModeSearchListViewItem(lstGameModes[i], m_vmlViewModel.GameDetector);
-					gameModeListView1.Controls.Add(gliGameModeItem);
-				}
+				_vmlViewModel = value;
 
-				Size szeMax = Screen.GetWorkingArea(this).Size;
-				Size = new Size((Int32)(szeMax.Width * .9), (Int32)(szeMax.Height * .9));
-				Int32 intWidthOffset = Size.Width - gameModeListView1.ClientSize.Width;
-				Int32 intHeightOffset = Size.Height - gameModeListView1.ClientSize.Height;
-				szeMax = gameModeListView1.ClientSize;
-				Int32 intIdealWidthCount = (Int32)Math.Ceiling(Math.Sqrt(lstGameModes.Count));
-				Int32 intWidth = 0;
-				Int32 intHeigth = 0;
-				do
-				{
-					intWidth = gameModeListView1.PreferredSize.Width / lstGameModes.Count * intIdealWidthCount;
-					intHeigth = gameModeListView1.PreferredSize.Height * (Int32)Math.Ceiling((double)lstGameModes.Count / intIdealWidthCount);
-				} while ((szeMax.Width < intWidth) && (--intIdealWidthCount > 0));
-				if (intHeigth > szeMax.Height)
-				{
-					intWidthOffset += 17;
-					intHeigth = szeMax.Height;
-				}
-				Size = new Size(intWidth + intWidthOffset, intHeigth + intHeightOffset);
+			    butOK.Enabled = false;
+
+                //Ensure that this is only happening once
+			    _vmlViewModel.GameDetector.GameResolved += GameDetector_GameResolved;
+				_vmlViewModel.GameDetector.DisableButOk += GameDetector_DisableButOk;
+
+			    var lst = new List<IGameModeDescriptor>(_vmlViewModel.SupportedGameModes.RegisteredGameModes);
+
+			    AdjustFormDimentions(lst);
 			}
 		}
-
-		#endregion
+	    #endregion
 
 		#region Constructors
 
@@ -85,7 +60,49 @@ namespace Nexus.Client
 
 		#endregion
 
-		/// <summary>
+	    private void AdjustFormDimentions(List<IGameModeDescriptor> gameModes)
+	    {
+	        foreach (var gm in gameModes)
+	        {
+	            var gliGameModeItem = new GameModeSearchListViewItem(gm, _vmlViewModel.GameDetector);
+
+	            gameModeListView1.Controls.Add(gliGameModeItem);
+	        }
+
+	        var szeMax = Screen.GetWorkingArea(this).Size;
+
+	        Size = new Size((int)(szeMax.Width * .9), (int)(szeMax.Height * .9));
+
+	        var intWidthOffset = Size.Width - gameModeListView1.ClientSize.Width;
+	        var intHeightOffset = Size.Height - gameModeListView1.ClientSize.Height;
+
+	        szeMax = gameModeListView1.ClientSize;
+
+	        var intIdealWidthCount = (int)Math.Ceiling(Math.Sqrt(gameModes.Count));
+
+	        var intWidth = 0;
+	        var intHeigth = 0;
+
+	        do
+	        {
+	            //There is a strong possibility for a DivideByZeroException to be thrown here
+	            intWidth = gameModeListView1.PreferredSize.Width / gameModes.Count * intIdealWidthCount;
+
+	            intHeigth = gameModeListView1.PreferredSize.Height * (int)Math.Ceiling((double)gameModes.Count / intIdealWidthCount);
+	        }
+	        while ((szeMax.Width < intWidth) && (--intIdealWidthCount > 0));
+
+	        if (intHeigth > szeMax.Height)
+	        {
+	            intWidthOffset += 17;
+
+	            intHeigth = szeMax.Height;
+	        }
+
+	        Size = new Size(intWidth + intWidthOffset, intHeigth + intHeightOffset);
+        }
+
+	    /// <summary>
 		/// Handles the <see cref="GameDiscoverer.GameResolved"/> event of the game discoverer.
 		/// </summary>
 		/// <remarks>
@@ -128,7 +145,7 @@ namespace Nexus.Client
 		private void butCancel_Click(object sender, EventArgs e)
 		{
 			DialogResult = DialogResult.None;
-			if (MessageBox.Show(this, String.Format("Cancelling will exit {0}. Are you sure?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
+			if (MessageBox.Show(this, String.Format("Canceling will exit {0}. Are you sure?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
 			{
 				DialogResult = DialogResult.Cancel;
 				ViewModel.Cancel();
@@ -157,7 +174,7 @@ namespace Nexus.Client
 		/// Handles the <see cref="Control.Click"/> event of the quick startup button.
 		/// </summary>
 		/// <remarks>
-		/// Confirms that the users wants to luanch the quick startup.
+		/// Confirms that the users wants to launch the quick startup.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.IO;
 using System.Linq;
@@ -194,9 +195,11 @@ namespace Nexus.Client.Mods
 							}
 						}
 					}
-					catch (FileNotFoundException ex)
+					catch (FileNotFoundException e)
 					{
-					}
+					    Trace.TraceWarning("NexusClient.NexusModCacheManager.CreateCacheFile() - Encountered an ignored FileNotFoundException.");
+                        TraceUtil.TraceException(e);
+                    }
 				}
 			}
 		}

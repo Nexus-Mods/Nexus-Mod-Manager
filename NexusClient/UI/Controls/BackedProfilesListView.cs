@@ -21,20 +21,11 @@ namespace Nexus.Client.UI.Controls
 		List<IVirtualModInfo> m_tslEnabledMods = null;
 
 		ThreadSafeObservableList<IModProfile> m_tslEnabledProfiles = null;
-
-		ThreadSafeObservableList<IModInfo> m_mifMods = null;	
 		ReadOnlyObservableList<IMod> m_rolManagedMods = null;
 		IModProfile m_imcSelectedProfile = null;
 		IModRepository m_mmrModRepository = null;
 		bool m_booShowMissingMods= false;
 		string m_strLastSearchFilter = String.Empty;
-
-		#region Custom Events
-
-		public event EventHandler ProfileSwitch;
-		public event EventHandler ProfileRemoved;
-
-		#endregion
 
 		#region Properties
 
@@ -370,35 +361,6 @@ namespace Nexus.Client.UI.Controls
 			{
 			};
 		}
-
-		/// <summary>
-		/// Setup the Hyperlink Manager
-		/// </summary>
-		//public void SetupHyperlinkManager()
-		//{
-		//	tlcModId.Hyperlink = true;
-		//	this.IsHyperlink += delegate(object sender, BrightIdeasSoftware.IsHyperlinkEventArgs e)
-		//	{
-		//		try
-		//		{
-		//			IVirtualModInfo vmiInfo = (IVirtualModInfo)e.Model;
-		//			if (!(vmiInfo == null))
-		//			{
-		//				if (String.IsNullOrEmpty(vmiInfo.ModId))
-		//					e.Url = null;
-		//				else
-		//				{
-		//					string strUri = "http://" + m_mmrModRepository.GameModeWebsite + "/mods/" + vmiInfo.ModId;
-		//					e.Url = strUri;
-		//				}					
-		//			}
-		//		}
-		//		catch
-		//		{
-		//			e.Url = null;
-		//		}
-		//	};
-		//}
 
 		/// <summary>
 		/// Setup the context menu items visibility

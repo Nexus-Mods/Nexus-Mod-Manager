@@ -345,7 +345,9 @@ namespace Nexus.Client.ModManagement
 
 				IModProfile mprModProfile = AddProfile(null, null, bteLoadOrder, ModManager.GameMode.ModeId, -1, strOptionalFiles, Path.Combine(BackupDirectory, "PROFILE"));
 
-				Directory.CreateDirectory(Path.Combine(BackupDirectory, ModManager.GameMode.Name));
+                string gameModeName = PurgeIllegalWindowsCharacters(ModManager.GameMode.Name);
+
+				Directory.CreateDirectory(Path.Combine(BackupDirectory, gameModeName));
 
 				string installLog = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
 
@@ -506,5 +508,23 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-	}
+        /// <summary>
+        /// Removes all illegal characters from game names, such that all games can be backed up on Windows
+        /// </summary>
+        /// <param name="gameName">Name of the game</param>
+        /// <returns>Clean string</returns>
+        private string PurgeIllegalWindowsCharacters(string gameName)
+        {
+            string toReturn = gameName.Replace(":", string.Empty);
+            toReturn = toReturn.Replace("<", string.Empty);
+            toReturn = toReturn.Replace(">", string.Empty);
+            toReturn = toReturn.Replace("\"", string.Empty);
+            toReturn = toReturn.Replace("/", string.Empty);
+            toReturn = toReturn.Replace("\\", string.Empty);
+            toReturn = toReturn.Replace("|", string.Empty);
+            toReturn = toReturn.Replace("?", string.Empty);
+            toReturn = toReturn.Replace("*", string.Empty);
+            return toReturn.Replace("..", string.Empty); // Path traversal, looks malicious
+        }
+    }
 }

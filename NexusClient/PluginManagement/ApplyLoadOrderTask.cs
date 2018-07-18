@@ -12,8 +12,6 @@ namespace Nexus.Client.PluginManagement
 {
 	public class ApplyLoadOrderTask : ThreadedBackgroundTask
 	{
-		bool m_booCancel = false;
-
 		#region Properties
 
 		/// <summary>
@@ -72,15 +70,6 @@ namespace Nexus.Client.PluginManagement
 		public override void Resume()
 		{
 			Update();
-		}
-
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
 		}
 
 		/// <summary>

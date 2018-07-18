@@ -8,10 +8,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class CheckOnlineProfileIntegrityTask : ThreadedBackgroundTask
 	{
-		Dictionary<string, string> MissingModsList = null;
-		string GameModeID = string.Empty;
-		bool m_booCancel = false;
-
 		#region Properties
 
 		/// <summary>
@@ -37,15 +33,10 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		/// <param name="p_ModManager">The current ModManager.</param>
-		/// <param name="p_lstMods">The mod list.</param>
-		/// <param name="p_intNewValue">The new category id.</param>
-		public CheckOnlineProfileIntegrityTask(IModRepository p_mrRepository, IModProfile p_imProfile, IProfileManager p_pmProfileManager, Dictionary<string, string> p_dicMissingMod, string p_strGameModeID)
+		public CheckOnlineProfileIntegrityTask(IModRepository p_mrRepository, IModProfile p_imProfile, IProfileManager p_pmProfileManager)
 		{
 			ModRepository = p_mrRepository;
 			ModProfile = p_imProfile;
-			MissingModsList = p_dicMissingMod;
-			GameModeID = p_strGameModeID;
 			ProfileManager = p_pmProfileManager;
 		}
 
@@ -78,15 +69,6 @@ namespace Nexus.Client.ModManagement
 		public override void Resume()
 		{
 			Start(ConfirmActionMethod);
-		}
-
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
 		}
 
 		/// <summary>

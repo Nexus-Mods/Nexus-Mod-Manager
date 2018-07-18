@@ -12,7 +12,7 @@ namespace Nexus.Client.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "14.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.5.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -193,7 +193,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("http://www.nexusmods.com/content/modmanager/")]
+        [global::System.Configuration.DefaultSettingValueAttribute("https://www.nexusmods.com/content/modmanager/")]
         public string ModManagerUrl {
             get {
                 return ((string)(this["ModManagerUrl"]));
@@ -516,16 +516,16 @@ namespace Nexus.Client.Properties {
         [global::System.Configuration.DefaultSettingValueAttribute(@"<?xml version=""1.0"" encoding=""utf-16""?>
 <KeyedSettingsOfString>
   <item key=""Beta Wiki"">
-    <string>http://wiki.nexusmods.com/index.php/Category:NMM</string>
+    <string>https://wiki.nexusmods.com/index.php/Category:NMM</string>
   </item>
   <item key=""Beta Forums"">
-    <string>http://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/</string>
+    <string>https://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/</string>
   </item>
   <item key=""Bug Report How To"">
-    <string>http://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/</string>
+    <string>https://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/</string>
   </item>
   <item key=""Report a Bug"">
-    <string>http://forums.nexusmods.com/index.php?/tracker/project-3-mod-manager-open-beta/</string>
+    <string>https://github.com/Nexus-Mods/Nexus-Mod-Manager/issues</string>
   </item>
 </KeyedSettingsOfString>")]
         public global::Nexus.Client.Settings.KeyedSettings<string> HelpLinks {

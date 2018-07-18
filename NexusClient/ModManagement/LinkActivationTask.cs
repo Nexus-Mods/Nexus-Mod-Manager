@@ -15,8 +15,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class LinkActivationTask : ThreadedBackgroundTask
 	{
-		bool m_booCancel = false;
-
 		#region Properties
 
 		/// <summary>
@@ -94,15 +92,6 @@ namespace Nexus.Client.ModManagement
 		public override void Resume()
 		{
 			Update(ConfirmActionMethod);
-		}
-
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
 		}
 
 		/// <summary>

@@ -20,6 +20,7 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.ModActivationMonitoring.UI;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.Plugins;
@@ -417,7 +418,7 @@ namespace Nexus.Client
 		/// </summary>
 		protected void LoadTips()
 		{
-			bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, ProgrammeMetadata.VersionString);
+			bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, CommonData.VersionString);
 		}
 
 		/// <summary>
@@ -717,7 +718,7 @@ namespace Nexus.Client
 			if ((ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup) && (bmBalloon.balloonHelp != null))
 			{
 				bmBalloon.balloonHelp.Close();
-				bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, ProgrammeMetadata.VersionString);
+				bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, CommonData.VersionString);
 			}
 			else
 			{
@@ -769,7 +770,7 @@ namespace Nexus.Client
 						else
 						{
 							bmBalloon.balloonHelp.Close();
-							bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, ProgrammeMetadata.VersionString);
+							bmBalloon.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, CommonData.VersionString);
 						}
 					}
 				}
@@ -1587,7 +1588,7 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void tsbGoPremium_Click(object sender, EventArgs e)
 		{
-			System.Diagnostics.Process.Start("http://skyrim.nexusmods.com/users/premium/");
+			Process.Start(NexusLinks.Premium);
 		}
 
 		private Point FindControlCoords(string p_section, string p_object)

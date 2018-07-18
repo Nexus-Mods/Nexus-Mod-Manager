@@ -23,9 +23,7 @@ namespace Nexus.Client.TipsManagement
 		private BalloonHelp m_bmBalloonHelp;
 		private List<ITips> m_lstTips = null;
 		private List<ITips> m_lstCurrentTips = null;
-		private List<ITips> m_lstTutorial = null;
 		private int m_intCurrentTip = 0;
-		private IEnvironmentInfo m_eiEnvironmentInfo = null;
 
 		public event EventHandler ShowNextClick;
 		public event EventHandler ShowPreviousClick;

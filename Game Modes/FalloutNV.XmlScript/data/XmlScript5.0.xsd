@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="2.0">
+	<xs:redefine schemaLocation="../XmlScript5.0.xsd">
+		<xs:annotation>
+			<xs:documentation>This extends the group of possible dependencies to include Fallout: New Vegas specific dependencies.</xs:documentation>
+		</xs:annotation>
+		<xs:group name="dependencyTypesGroup">
+			<xs:sequence>
+				<xs:choice maxOccurs="unbounded">
+					<xs:group ref="dependencyTypesGroup"/>
+					<xs:element name="nvseDependency" type="versionDependency" minOccurs="0" maxOccurs="1">
+						<xs:annotation>
+							<xs:documentation>Specifies a minimum required version of NVSE.</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:choice>
+			</xs:sequence>
+		</xs:group>
+	</xs:redefine>
+</xs:schema>

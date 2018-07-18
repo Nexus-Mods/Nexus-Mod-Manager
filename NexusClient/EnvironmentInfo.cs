@@ -1,17 +1,22 @@
-﻿using System;
-using System.IO;
-using System.Windows.Forms;
-using Microsoft.Win32;
-using Nexus.Client.Settings;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
+
+    using System;
+    using System.IO;
+    using System.Windows.Forms;
+    using Microsoft.Win32;
+    using Settings;
+    using Util;
+
     /// <summary>
     /// Provides information about the current programme environment.
     /// </summary>
     public class EnvironmentInfo : IEnvironmentInfo
     {
         #region Properties
+		private string m_strApplicationPersonalDataFolderPath = null;
+		private string m_strPersonalDataFolderPath = null;
+		private string m_strTempPath = null;
 
         /// <summary>
         /// Gets the path to the user's personal data folder.
@@ -73,19 +78,17 @@ namespace Nexus.Client
         /// <value>The application and user settings.</value>
         public ISettings Settings { get; private set; }
 
-        /// <summary>
-        /// Gets the version of the running application.
-        /// </summary>
-        /// <value>The version of the running application.</value>
-        public Version ApplicationVersion
-        {
-            get
-            {
-                return new Version(ProgrammeMetadata.VersionString);
-            }
-        }
-
-        #endregion
+		/// <summary>
+		/// Gets the version of the running application.
+		/// </summary>
+		/// <value>The version of the running application.</value>
+		public Version ApplicationVersion
+		{
+			get
+			{
+				return new Version(CommonData.VersionString);
+			}
+		}
 
         #region Constructors
 

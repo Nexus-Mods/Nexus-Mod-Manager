@@ -17,8 +17,6 @@ namespace Nexus.Client.ModManagement
 	/// </summary>
 	public class ModUninstaller : ModInstallerBase
 	{
-		private ModManager m_mmModManager = null;
-
 		#region Properties
 
 		/// <summary>
