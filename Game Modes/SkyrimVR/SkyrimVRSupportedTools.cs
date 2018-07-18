@@ -163,7 +163,7 @@
 			Trace.Indent();
 			var strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-            Launch(strCommand, null);
+            Launch(strCommand, "--game=\"Skyrim VR\"");
         }
 
 		private void LaunchWryeBash()

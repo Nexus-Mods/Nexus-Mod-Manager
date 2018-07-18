@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Nexus.Client.Games.Gamebryo.Plugins;
 using Nexus.Client.PluginManagement;
@@ -60,9 +60,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 					return false;
 				// simple test esl come after esm or esl
 				if (!(booIsPreviousMaster || booIsPreviousLightMaster) && plgPlugin.IsLightMaster)
-					return false;
-				// no true esm after an esl
-				if (booIsPreviousLightMaster && plgPlugin.IsMaster && !plgPlugin.IsLightMaster)
 					return false;
 				booIsPreviousMaster = plgPlugin.IsMaster;
 				booIsPreviousLightMaster = plgPlugin.IsLightMaster;

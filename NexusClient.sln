@@ -107,9 +107,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4.XmlScript", "Game 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7971A91A-0664-4AE6-93E2-7610D42E9E85}"
 	ProjectSection(SolutionItems) = preProject
-		AssemblyInformationalVersion.cs = AssemblyInformationalVersion.cs
-		SharedSolutionVersionInfo.Auto.cs = SharedSolutionVersionInfo.Auto.cs
-		SharedSolutionVersionInfo.Product.cs = SharedSolutionVersionInfo.Product.cs
+		SharedAssemblyInformation.cs = SharedAssemblyInformation.cs
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DragonsDogma", "Game Modes\DragonsDogma\DragonsDogma.csproj", "{9D05D679-62DE-4795-BF25-2EB20B28DA1C}"

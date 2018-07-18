@@ -47,11 +47,8 @@
     <Content Include="Resources\fallout4vr_logo.ico" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\AssemblyInformationalVersion.cs">
-      <Link>Properties\AssemblyInformationalVersion.cs</Link>
-    </Compile>
-    <Compile Include="..\..\SharedSolutionVersionInfo.Auto.cs">
-      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
+    <Compile Include="..\..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
     </Compile>
     <Compile Include="Fallout4VRSupportedTools.cs" />
     <Compile Include="Fallout4VRGameMode.cs" />
