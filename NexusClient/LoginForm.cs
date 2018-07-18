@@ -1,21 +1,22 @@
-﻿using System;
-using System.ComponentModel;
-using System.Windows.Forms;
-using Nexus.Client.Games;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
-using Nexus.Client.BackgroundTasks;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
-	/// <summary>
-	/// A form that gathers login credentials.
-	/// </summary>
-	public partial class LoginForm : ManagedFontForm
-	{
-		private LoginFormVM m_vmlViewModel = null;
+    using System;
+    using System.ComponentModel;
+    using System.Net.Mail;
+    using System.Windows.Forms;
 
-        private LoginFormTask m_lftLoginTask = null;
+    using Games;
+    using UI;
+    using Util;
+
+    /// <summary>
+    /// A form that gathers login credentials.
+    /// </summary>
+    public partial class LoginForm : ManagedFontForm
+	{
+		private LoginFormVM _loginFormViewModel;
+
+        private readonly LoginFormTask _loginTask;
 
 		#region Events
 
@@ -37,19 +38,19 @@ namespace Nexus.Client
 		{
 			get
 			{
-				return m_vmlViewModel;
+				return _loginFormViewModel;
 			}
 			set
 			{
-				m_vmlViewModel = value;
-				BindingHelper.CreateFullBinding(tbxUsername, () => tbxUsername.Text, m_vmlViewModel, () => m_vmlViewModel.Username);
-				BindingHelper.CreateFullBinding(tbxPassword, () => tbxPassword.Text, m_vmlViewModel, () => m_vmlViewModel.Password);
-				BindingHelper.CreateFullBinding(lblError, () => lblError.Text, m_vmlViewModel, () => m_vmlViewModel.ErrorMessage);
-				BindingHelper.CreateFullBinding(ckbStayLoggedIn, () => ckbStayLoggedIn.Checked, m_vmlViewModel, () => m_vmlViewModel.StayLoggedIn);
+				_loginFormViewModel = value;
+				BindingHelper.CreateFullBinding(tbxUsername, () => tbxUsername.Text, _loginFormViewModel, () => _loginFormViewModel.Username);
+				BindingHelper.CreateFullBinding(tbxPassword, () => tbxPassword.Text, _loginFormViewModel, () => _loginFormViewModel.Password);
+				BindingHelper.CreateFullBinding(lblError, () => lblError.Text, _loginFormViewModel, () => _loginFormViewModel.ErrorMessage);
+				BindingHelper.CreateFullBinding(ckbStayLoggedIn, () => ckbStayLoggedIn.Checked, _loginFormViewModel, () => _loginFormViewModel.StayLoggedIn);
 
-				lblPrompt.Text = m_vmlViewModel.Prompt;
+				lblPrompt.Text = _loginFormViewModel.Prompt;
 
-				ApplyTheme(m_vmlViewModel.CurrentTheme);
+				ApplyTheme(_loginFormViewModel.CurrentTheme);
 			}
 		}
 
@@ -60,15 +61,16 @@ namespace Nexus.Client
 		/// <summary>
 		/// A simple constructor the initializes the object with the given values.
 		/// </summary>
-		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
-		public LoginForm(LoginFormVM p_vmlViewModel, LoginFormTask p_lftLoginTask)
+		/// <param name="viewModel">The view model that provides the data and operations for this view.</param>
+		/// <param name="loginTask"></param>
+		public LoginForm(LoginFormVM viewModel, LoginFormTask loginTask)
         {
 			InitializeComponent();
 			lblError.Visible = true;
-			lblError.TextChanged += new EventHandler(lblError_TextChanged);
-            this.FormClosed += new FormClosedEventHandler(LoginForm_FormClosed);
-            m_lftLoginTask = p_lftLoginTask;
-			ViewModel = p_vmlViewModel;
+			lblError.TextChanged += lblError_TextChanged;
+            FormClosed += LoginForm_FormClosed;
+            _loginTask = loginTask;
+			ViewModel = viewModel;
 		}
 
 		#endregion
@@ -76,10 +78,10 @@ namespace Nexus.Client
 		/// <summary>
 		/// Applies the given theme to the form.
 		/// </summary>
-		/// <param name="p_thmTheme">The theme to apply.</param>
-		protected void ApplyTheme(Theme p_thmTheme)
+		/// <param name="theme">The theme to apply.</param>
+		protected void ApplyTheme(Theme theme)
 		{
-			Icon = p_thmTheme.Icon;
+			Icon = theme.Icon;
 		}
 
 		/// <summary>
@@ -92,8 +94,9 @@ namespace Nexus.Client
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void lblError_TextChanged(object sender, EventArgs e)
 		{
-			lblError.Visible = !String.IsNullOrEmpty(lblError.Text);
-			//force the form to resize
+			lblError.Visible = !string.IsNullOrEmpty(lblError.Text);
+			
+		    // Force the form to resize.
 			PerformLayout();
 		}
 
@@ -106,32 +109,50 @@ namespace Nexus.Client
 		{
 			if (Authenticating != null)
 			{
-				this.Hide();
-				Authenticating(this, new EventArgs());
+			    if (IsEmail(tbxUsername.Text))
+			    {
+			        MessageBox.Show(this, "You need to use your Nexus username, not your email address.", "Your email is not your username", MessageBoxButtons.OK, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1);
+			        tbxUsername.Clear();
+			        tbxUsername.Focus();
+                }
+			    else
+			    {
+                    Hide();
+                    Authenticating(this, new EventArgs());
+                }
 			}
 		}
 
-		/// <summary>
-		/// Handles the <see cref="Control.Click"/> event of the conacel button.
-		/// </summary>
-		/// <param name="sender">The object that triggered the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void butCancel_Click(object sender, EventArgs e)
-		{
-            m_lftLoginTask.Reset();
-            DialogResult = DialogResult.No;
-		}
+        /// <summary>
+        /// Checks if the given string is a valid email address or not.
+        /// </summary>
+        /// <param name="input">String to check.</param>
+        /// <returns>True if a valid email address, otherwise false.</returns>
+	    private bool IsEmail(string input)
+	    {
+	        try
+	        {
+	            var mailAddress = new MailAddress(input);
+	            return true;
+	        }
+	        catch (FormatException)
+	        {
+	            return false;
+	        }
+        }
 
 		private void butOffline_Click(object sender, EventArgs e)
 		{
-            m_lftLoginTask.Reset();
+            _loginTask.Reset();
             DialogResult = DialogResult.No;
 		}
 
-         private void LoginForm_FormClosed(object sender, EventArgs e)
+        private void LoginForm_FormClosed(object sender, EventArgs e)
 		{
-			if (!m_lftLoginTask.LoggedIn)
-				m_lftLoginTask.Reset();
- 		}
+		    if (!_loginTask.LoggedIn)
+            {
+                _loginTask.Reset();
+            }
+        }
 	}
 }
