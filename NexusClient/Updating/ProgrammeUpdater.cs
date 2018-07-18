@@ -1,18 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Net;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading;
-using System.Windows.Forms;
-using Nexus.Client.ModRepositories.Nexus;
-using Nexus.Client.Util;
-using Nexus.UI.Controls;
-
 namespace Nexus.Client.Updating
 {
+    using System;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Net;
+    using System.Runtime.Serialization;
+    using System.Text;
+    using System.Threading;
+    using System.Windows.Forms;
+
+    using Nexus.Client.ModRepositories.Nexus;
+    using Nexus.Client.Util;
+    using Nexus.UI.Controls;
 
     /// <summary>
     /// Updates the programme.
@@ -277,7 +276,7 @@ namespace Nexus.Client.Updating
             public ExtendedWebClient(int p_intTimeout)
             {
                 this.m_intDefaultTimeout = p_intTimeout;
-                this.Headers["User-Agent"] = string.Format("Nexus Client v{0}", ProgrammeMetadata.VersionString);                
+                this.Headers["User-Agent"] = string.Format("Nexus Client v{0}", CommonData.VersionString);                
                 this.Headers["Accept"] = "application/json";
                 
             }
@@ -361,7 +360,7 @@ namespace Nexus.Client.Updating
 
             string strReleaseNotes = String.Empty;
 
-            if ((verNew > new Version(ProgrammeMetadata.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
+            if ((verNew > new Version(CommonData.VersionString)) && !String.IsNullOrEmpty(strDownloadUri))
             {
                 string strCheckDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(strDownloadUri));
                 

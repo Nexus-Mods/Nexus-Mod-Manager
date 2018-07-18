@@ -6,12 +6,7 @@ using System.Runtime.InteropServices;
 // associated with an assembly.
 [assembly: AssemblyTitle("Util")]
 [assembly: AssemblyDescription("A library of utilities.")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Black Tree Gaming")]
 [assembly: AssemblyProduct("Util")]
-[assembly: AssemblyCopyright("Copyright © Black Tree Gaming 2011")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

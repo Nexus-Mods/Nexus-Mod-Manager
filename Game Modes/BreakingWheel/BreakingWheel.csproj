@@ -54,12 +54,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\AssemblyInformationalVersion.cs">
-      <Link>Properties\AssemblyInformationalVersion.cs</Link>
-    </Compile>
-    <Compile Include="..\..\SharedSolutionVersionInfo.Auto.cs">
-      <Link>Properties\SharedSolutionVersionInfo.Auto.cs</Link>
-    </Compile>
     <Compile Include="Settings\GeneralSettingsGroup.cs" />
     <Compile Include="Settings\UI\GeneralSettingsPage.cs">
       <SubType>UserControl</SubType>
@@ -85,6 +79,9 @@
     <Compile Include="BreakingWheelGameModeDescriptor.cs" />
     <Compile Include="BreakingWheelGameMode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="..\..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">

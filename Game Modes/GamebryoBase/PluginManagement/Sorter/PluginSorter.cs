@@ -574,7 +574,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
 					Directory.CreateDirectory(strDirectory);
 				try
 				{
-					string remoteUrl = String.Format("http://github.com/loot/{0}.git", GameMode.ModeId);
+					string remoteUrl = String.Format("https://github.com/loot/{0}.git", GameMode.ModeId);
 					string remoteBranch = "master";
 
 					uintStatus = m_dlgUpdateMasterlist(m_ptrSorterDb, MasterlistPath, remoteUrl, remoteBranch, ref booUpdated);
@@ -612,7 +612,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.Sorter
 
 			try
 			{
-				string remoteUrl = String.Format("http://github.com/loot/{0}.git", GameMode.ModeId);
+				string remoteUrl = String.Format("https://github.com/loot/{0}.git", GameMode.ModeId);
 				uintStatus = m_dlgUpdateMasterlist(m_ptrSorterDb, MasterlistPath, remoteUrl, remoteBranch, ref booRequiresUpdate);
 			}
 			catch (SorterException e)

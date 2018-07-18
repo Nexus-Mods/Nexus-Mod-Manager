@@ -63,11 +63,8 @@
     <StartupObject>Nexus.Client.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\AssemblyInformationalVersion.cs">
-      <Link>Properties\AssemblyInformationalVersion.cs</Link>
-    </Compile>
-    <Compile Include="..\SharedSolutionVersionInfo.Product.cs">
-      <Link>Properties\SharedSolutionVersionInfo.Product.cs</Link>
+    <Compile Include="..\SharedAssemblyInformation.cs">
+      <Link>Properties\SharedAssemblyInformation.cs</Link>
     </Compile>
     <Compile Include="DownloadMonitoring\PurgeDownloadsTask.cs" />
     <Compile Include="EnvironmentInfo.cs" />
@@ -308,7 +305,9 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Settings.cs" />
+    <Compile Include="Settings\FileAssociationSetting.cs" />
     <Compile Include="Settings\ShellExtensionUtil.cs" />
+    <Compile Include="Settings\UrlAssociationUtil.cs" />
     <Compile Include="TipsManagement\Balloon.cs">
       <SubType>Form</SubType>
     </Compile>

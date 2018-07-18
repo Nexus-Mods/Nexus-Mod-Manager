@@ -6,12 +6,16 @@
     using System.Diagnostics;
     using System.Windows.Forms;
 
+    using Util;
+
     /// <summary>
     /// Contains functionality related to Shell Extensions for NMM.
     /// </summary>
     public static class ShellExtensionUtil
     {
         private static string[] _extensions = { ".zip", ".rar", ".7z" };
+
+        private static string _addToNmmCommand = $"\"{Application.ExecutablePath}\" \"%1\"";
 
         /// <summary>
         /// Adds shell extensions for NMM.
@@ -77,6 +81,23 @@
             return true;
         }
 
+        /// <summary>
+        /// Checks if all extensions are set to this program.
+        /// </summary>
+        /// <returns>True if this installation of NMM is set for the shell extensions.</returns>
+        public static bool ReadShellExtensions()
+        {
+            foreach (var extension in _extensions)
+            {
+                if (!ReadShellExtension(extension))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static bool AddShellExtension(string extension)
         {
             var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
@@ -91,23 +112,53 @@
                     return false;
                 }
 
-                string commandKey = "Add_to_" + ProgrammeMetadata.ModManagerName.Replace(' ', '_');
-
+                var commandKey = "Add_to_" + CommonData.ModManagerName.Replace(' ', '_');
                 var extensionRootKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey;
-                var extensionRootKeyValue = "Add to " + ProgrammeMetadata.ModManagerName;
+                var extensionRootKeyValue = "Add to " + CommonData.ModManagerName;
                 Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionRootKey, extensionRootKeyValue);
                 Registry.SetValue(extensionRootKey, null, extensionRootKeyValue);
 
                 var extensionSubKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey + "\\command";
-                var extensionSubKeyValue = "\"" + Application.ExecutablePath + "\" \"%1\"";
-                Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionSubKey, extensionSubKeyValue);
-                Registry.SetValue(extensionSubKey, null, extensionSubKeyValue, RegistryValueKind.String);
+                Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionSubKey, _addToNmmCommand);
+                Registry.SetValue(extensionSubKey, null, _addToNmmCommand, RegistryValueKind.String);
 
                 return true;
             }
             catch (Exception e)
             {
                 Trace.TraceWarning("[ShellExtension] Couldn't add shell extension for \"{0}\", due to {1} - {2}.", extension, e.GetType(), e.Message);
+                return false;
+            }
+        }
+
+        private static bool ReadShellExtension(string extension)
+        {
+            var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
+
+            try
+            {
+                var key = Registry.GetValue(rootKey, null, null) as string;
+
+                if (key == null)
+                {
+                    return false;
+                }
+
+                var commandKey = "Add_to_" + ProgrammeMetadata.ModManagerName.Replace(' ', '_');
+                
+                var extensionSubKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey + "\\command";
+                var result = Registry.GetValue(extensionSubKey, null, null) as string;
+
+                if (string.IsNullOrEmpty(result) || !result.Equals(_addToNmmCommand, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+                
+                return true;
+            }
+            catch (Exception e)
+            {
+                Trace.TraceWarning("[ShellExtension] Couldn't read shell extension state for \"{0}\", due to {1} - {2}.", extension, e.GetType(), e.Message);
                 return false;
             }
         }
@@ -134,7 +185,7 @@
                         return true;
                     }
 
-                    var strCommandKey = "Add_to_" + ProgrammeMetadata.ModManagerName.Replace(' ', '_');
+                    var strCommandKey = "Add_to_" + CommonData.ModManagerName.Replace(' ', '_');
 
                     if (Array.IndexOf(rk.GetSubKeyNames(), strCommandKey) != -1)
                     {

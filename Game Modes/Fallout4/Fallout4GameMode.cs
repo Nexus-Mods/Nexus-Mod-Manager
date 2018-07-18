@@ -30,6 +30,7 @@ namespace Nexus.Client.Games.Fallout4
 		private string m_strFallout4Custom = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"My Games\Fallout4\Fallout4Custom.ini");
 		private string m_strLooseDefaultValue = @"STRINGS\";
 		private string m_strInvalidateRequiredValue = @"1";
+		private string m_strGuideLink = @"https://wiki.nexusmods.com/index.php/Fallout_4_Mod_Installation";
 
 		#region Properties
 
@@ -319,7 +320,7 @@ sResourceDataDirsFinal=
                 }
                 catch
                 {
-                    p_strMessage = string.Format("Your Fallout4Custom.ini is not configured correctly.  Nexus Mod Manager was unable to make the necessary changes automatically.  Please refer to the documentation located at http://wiki.tesnexus.com/index.php/Fallout_4_Mod_Installation#How_To_Enable_Fallout_4_Mods");
+                    p_strMessage = string.Format("Your Fallout4Custom.ini is not configured correctly.  Nexus Mod Manager was unable to make the necessary changes automatically.  Please refer to the documentation located at https://wiki.tesnexus.com/index.php/Fallout_4_Mod_Installation#How_To_Enable_Fallout_4_Mods");
                     m_booOldEditsWarning = true;
                     return true;
                 }
