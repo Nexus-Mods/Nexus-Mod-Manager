@@ -137,6 +137,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{85AF1071
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilTests", "Tests\UtilTests\UtilTests.csproj", "{C894BE1A-D258-4C7C-BE76-90881C5B7DCA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GamebryoBaseTests", "Tests\GamebryoBaseTests\GamebryoBaseTests.csproj", "{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -374,6 +376,9 @@ Global
 		{C894BE1A-D258-4C7C-BE76-90881C5B7DCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C894BE1A-D258-4C7C-BE76-90881C5B7DCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C894BE1A-D258-4C7C-BE76-90881C5B7DCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -427,6 +432,7 @@ Global
 		{1F520A7A-6DC7-4284-8647-76380A60C97D} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{6F54344F-9A88-4EDE-945C-768FD224E07D} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{C894BE1A-D258-4C7C-BE76-90881C5B7DCA} = {85AF1071-AA80-4EBB-949B-40847BBFC5C0}
+		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF} = {85AF1071-AA80-4EBB-949B-40847BBFC5C0}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}
