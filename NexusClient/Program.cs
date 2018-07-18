@@ -87,7 +87,7 @@ namespace Nexus.Client
 					{
 						btsInitializer.RunMainForm(p_strArgs);
 					}
-					catch (MissingMethodException e)
+					catch (MissingMethodException)
 					{
 						if (MessageBox.Show("You're running an older version of the .Net Framework!" + Environment.NewLine + "Please download .Net Framework 4.6 from the Microsoft website or using Windows Update." +
 								Environment.NewLine + Environment.NewLine + "Click YES if you want Nexus Mod Manager to automatically take you to the download page on your default browser." + Environment.NewLine +

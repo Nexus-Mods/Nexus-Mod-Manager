@@ -12,8 +12,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class VirtualConfigFixTask : ThreadedBackgroundTask
 	{
-		bool m_booCancel = false;
-
 		#region Properties
 
 		protected List<string> ConfigFilePaths { get; set; }
@@ -60,15 +58,6 @@ namespace Nexus.Client.ModManagement
 		public void Update(ConfirmActionMethod p_camConfirm)
 		{
 			Start(p_camConfirm);
-		}
-
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
 		}
 
 		/// <summary>

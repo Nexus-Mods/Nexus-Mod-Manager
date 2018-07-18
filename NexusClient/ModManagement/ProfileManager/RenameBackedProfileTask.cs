@@ -7,11 +7,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class RenameBackedProfileTask : ThreadedBackgroundTask
 	{
-
-		bool m_booCancel = false;
-		bool m_booStartupMigration = false;
-		int m_intSharing = 0;
-
 		#region Properties
 
 		/// <summary>
@@ -83,15 +78,6 @@ namespace Nexus.Client.ModManagement
 			Start(ConfirmActionMethod);
 		}
 
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
-		}
-				
 		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>

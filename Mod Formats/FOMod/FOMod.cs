@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -727,10 +728,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					{
 						File.WriteAllBytes(cacheFile, bteText);
 					}
-					catch (Exception ex)
+					catch (Exception e)
 					{
-
-					}
+					    Trace.TraceWarning("FOMod.FOMod() - Encountered an ignored Exception.");
+					    TraceUtil.TraceException(e);
+                    }
 				}
 					
 			}

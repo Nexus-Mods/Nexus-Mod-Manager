@@ -8,11 +8,6 @@ namespace Nexus.Client.ModManagement
 {
 	public class AddProfileTask : ThreadedBackgroundTask
 	{
-		bool m_booCancel = false;
-		bool m_booStartupMigration = false;
-		string Label = string.Empty;
-
-
 		#region Properties
 
 		/// <summary>
@@ -50,7 +45,6 @@ namespace Nexus.Client.ModManagement
 			ProfileManager = p_pmProfileManager;
 			m_Uri = p_uUri;
 			ConfirmActionMethod = p_camConfirm;
-			Label = p_strLabel;
 		}
 
 		#endregion
@@ -82,15 +76,6 @@ namespace Nexus.Client.ModManagement
 		public override void Resume()
 		{
 			Start(ConfirmActionMethod);
-		}
-
-		/// <summary>
-		/// Cancels the update.
-		/// </summary>
-		public override void Cancel()
-		{
-			base.Cancel();
-			m_booCancel = true;
 		}
 
 		/// <summary>

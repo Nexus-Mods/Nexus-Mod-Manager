@@ -20,7 +20,6 @@ namespace Nexus.Client.Games.Settings
 	{
 		private string m_strVirtualDirectory = null;
 		private string m_strLinkDirectory = null;
-		private bool m_booRequiredTool = false;
 		private bool m_booUseAdditionalChecks = false;
 
 		#region Properties
