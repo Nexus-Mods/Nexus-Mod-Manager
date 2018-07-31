@@ -340,8 +340,11 @@ namespace Nexus.Client.BackgroundTasks.UI
 		/// </remarks>
 		partial void DoDispose()
 		{
-			Task.TaskEnded -= Task_TaskEnded;
-			Task.PropertyChanged -= Task_PropertyChanged;
+		    if (Task != null)
+		    {
+		        Task.TaskEnded -= Task_TaskEnded;
+		        Task.PropertyChanged -= Task_PropertyChanged;
+            }
 		}
 	}
 }
