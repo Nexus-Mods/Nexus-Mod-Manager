@@ -376,7 +376,7 @@ namespace Nexus.Client.ModManagement
 				szcCompressor.CompressionMode = SevenZip.CompressionMode.Create;
 				szcCompressor.FileCompressionStarted += new EventHandler<FileNameEventArgs>(compressor_FileCompressionStarted);
 
-				szcCompressor.CompressDirectory(startPath, Path.Combine(SelectedPath, ModManager.GameMode.ModeId + "_NMM_BACKUP_" + strDateTimeStamp + ".zip"), true);
+				szcCompressor.CompressDirectory(startPath, Path.Combine(SelectedPath, ModManager.GameMode.ModeId + "_NMM_BACKUP_" + strDateTimeStamp + ".zip"));
 
 				OverallMessage = "Deleting the leftovers.";
 				StepOverallProgress();

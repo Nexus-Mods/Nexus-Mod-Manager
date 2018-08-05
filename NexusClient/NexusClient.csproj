@@ -354,6 +354,7 @@
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="Resources\text168.png" />
     <None Include="Resources\View Profile.png" />
     <None Include="data\NewVersionDisclaimer.rtf">
@@ -688,10 +689,8 @@
       <HintPath>..\lib\ObjectListView.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SevenZipSharp, Version=0.64.3890.29348, Culture=neutral, PublicKeyToken=20de82c62b055c88, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\lib\SevenZipSharp.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="SevenZipSharp, Version=1.1.91.0, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.1.91\lib\net45\SevenZipSharp.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <Private>False</Private>
