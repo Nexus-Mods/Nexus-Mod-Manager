@@ -38,10 +38,12 @@
             this.checkBoxShellRar = new System.Windows.Forms.CheckBox();
             this.checkBoxShellZip = new System.Windows.Forms.CheckBox();
             this.ttpTip = new System.Windows.Forms.ToolTip(this.components);
+            this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.flpGeneral.SuspendLayout();
             this.gbxAssociations.SuspendLayout();
             this.flpFileAssociations.SuspendLayout();
             this.groupBoxShellExtensions.SuspendLayout();
+            this.flowLayoutPanel1.SuspendLayout();
             this.SuspendLayout();
             // 
             // flpGeneral
@@ -70,7 +72,7 @@
             this.gbxAssociations.Size = new System.Drawing.Size(368, 48);
             this.gbxAssociations.TabIndex = 22;
             this.gbxAssociations.TabStop = false;
-            this.gbxAssociations.Text = "General";
+            this.gbxAssociations.Text = "Associations";
             // 
             // flpFileAssociations
             // 
@@ -97,13 +99,13 @@
             // 
             // groupBoxShellExtensions
             // 
+            this.groupBoxShellExtensions.AutoSize = true;
             this.groupBoxShellExtensions.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.groupBoxShellExtensions.Controls.Add(this.checkBoxShell7z);
-            this.groupBoxShellExtensions.Controls.Add(this.checkBoxShellRar);
-            this.groupBoxShellExtensions.Controls.Add(this.checkBoxShellZip);
+            this.groupBoxShellExtensions.Controls.Add(this.flowLayoutPanel1);
             this.groupBoxShellExtensions.Location = new System.Drawing.Point(3, 57);
+            this.groupBoxShellExtensions.MinimumSize = new System.Drawing.Size(368, 0);
             this.groupBoxShellExtensions.Name = "groupBoxShellExtensions";
-            this.groupBoxShellExtensions.Size = new System.Drawing.Size(365, 100);
+            this.groupBoxShellExtensions.Size = new System.Drawing.Size(368, 94);
             this.groupBoxShellExtensions.TabIndex = 23;
             this.groupBoxShellExtensions.TabStop = false;
             this.groupBoxShellExtensions.Text = "Shell extensions";
@@ -111,32 +113,47 @@
             // checkBoxShell7z
             // 
             this.checkBoxShell7z.AutoSize = true;
-            this.checkBoxShell7z.Location = new System.Drawing.Point(16, 66);
+            this.checkBoxShell7z.Location = new System.Drawing.Point(13, 52);
             this.checkBoxShell7z.Name = "checkBoxShell7z";
-            this.checkBoxShell7z.Size = new System.Drawing.Size(199, 17);
+            this.checkBoxShell7z.Size = new System.Drawing.Size(170, 17);
             this.checkBoxShell7z.TabIndex = 2;
-            this.checkBoxShell7z.Text = "Add NMM shell extension for .7z files";
+            this.checkBoxShell7z.Text = "Add shell extension for .7z files";
             this.checkBoxShell7z.UseVisualStyleBackColor = true;
             // 
             // checkBoxShellRar
             // 
             this.checkBoxShellRar.AutoSize = true;
-            this.checkBoxShellRar.Location = new System.Drawing.Point(16, 43);
+            this.checkBoxShellRar.Location = new System.Drawing.Point(13, 29);
             this.checkBoxShellRar.Name = "checkBoxShellRar";
-            this.checkBoxShellRar.Size = new System.Drawing.Size(200, 17);
+            this.checkBoxShellRar.Size = new System.Drawing.Size(171, 17);
             this.checkBoxShellRar.TabIndex = 1;
-            this.checkBoxShellRar.Text = "Add NMM shell extension for .rar files";
+            this.checkBoxShellRar.Text = "Add shell extension for .rar files";
             this.checkBoxShellRar.UseVisualStyleBackColor = true;
             // 
             // checkBoxShellZip
             // 
             this.checkBoxShellZip.AutoSize = true;
-            this.checkBoxShellZip.Location = new System.Drawing.Point(16, 20);
+            this.checkBoxShellZip.Location = new System.Drawing.Point(13, 6);
             this.checkBoxShellZip.Name = "checkBoxShellZip";
-            this.checkBoxShellZip.Size = new System.Drawing.Size(201, 17);
+            this.checkBoxShellZip.Size = new System.Drawing.Size(172, 17);
             this.checkBoxShellZip.TabIndex = 0;
-            this.checkBoxShellZip.Text = "Add NMM shell extension for .zip files";
+            this.checkBoxShellZip.Text = "Add shell extension for .zip files";
             this.checkBoxShellZip.UseVisualStyleBackColor = true;
+            // 
+            // flowLayoutPanel1
+            // 
+            this.flowLayoutPanel1.AutoSize = true;
+            this.flowLayoutPanel1.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.flowLayoutPanel1.Controls.Add(this.checkBoxShellZip);
+            this.flowLayoutPanel1.Controls.Add(this.checkBoxShellRar);
+            this.flowLayoutPanel1.Controls.Add(this.checkBoxShell7z);
+            this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flowLayoutPanel1.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
+            this.flowLayoutPanel1.Location = new System.Drawing.Point(3, 16);
+            this.flowLayoutPanel1.Name = "flowLayoutPanel1";
+            this.flowLayoutPanel1.Padding = new System.Windows.Forms.Padding(10, 3, 3, 3);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(362, 75);
+            this.flowLayoutPanel1.TabIndex = 3;
             // 
             // OsSettingsPage
             // 
@@ -153,6 +170,8 @@
             this.flpFileAssociations.PerformLayout();
             this.groupBoxShellExtensions.ResumeLayout(false);
             this.groupBoxShellExtensions.PerformLayout();
+            this.flowLayoutPanel1.ResumeLayout(false);
+            this.flowLayoutPanel1.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -168,5 +187,6 @@
         private System.Windows.Forms.CheckBox checkBoxShell7z;
         private System.Windows.Forms.CheckBox checkBoxShellRar;
         private System.Windows.Forms.CheckBox checkBoxShellZip;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
     }
 }

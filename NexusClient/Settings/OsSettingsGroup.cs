@@ -135,6 +135,38 @@
             AddShellExtensionZip = EnvironmentInfo.Settings.AddShellExtensions["zip"];
             AddShellExtensionRar = EnvironmentInfo.Settings.AddShellExtensions["rar"];
             AddShellExtension7z = EnvironmentInfo.Settings.AddShellExtensions["7z"];
+
+            if (EnvironmentInfo.Settings.AssociateWithUrl && !UrlAssociationUtil.IsUrlAssociated("nxm"))
+            {
+                if (UacUtil.IsElevated)
+                {
+                    var reply = MessageBox.Show("NXM URL association has been removed by some other process.\n\n" +
+                                                "Do you want to restore it?",
+                        "Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                    if (reply == DialogResult.Yes)
+                    {
+                        UrlAssociationUtil.AssociateUrl("nxm", "Nexus Mod");
+                    }
+                    else
+                    {
+                        EnvironmentInfo.Settings.AssociateWithUrl = false;
+                    }
+                }
+                else
+                {
+                    var removeSetting = MessageBox.Show("NXM URL association has been removed by some other process.\n\n" +
+                                                        $"If you want to restore it you have to run {EnvironmentInfo.Settings.ModManagerName} as Administrator.\n\n" +
+                                                        "Do you want to disable the setting instead?",
+                        "Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                    if (removeSetting == DialogResult.Yes)
+                    {
+                        EnvironmentInfo.Settings.AssociateWithUrl = false;
+                    }
+                }
+            }
+
             AssociateNxmUrl = UrlAssociationUtil.IsUrlAssociated("nxm");
         }
 
