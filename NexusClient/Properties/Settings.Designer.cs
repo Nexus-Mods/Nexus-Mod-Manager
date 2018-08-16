@@ -827,5 +827,35 @@ namespace Nexus.Client.Properties {
                 this["SkyrimSEFirstInstallWarning"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfBoolean />")]
+        public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions
+        {
+            get
+            {
+                return ((global::Nexus.Client.Settings.KeyedSettings<bool>)(this["AddShellExtensions"]));
+            }
+            set
+            {
+                this["AddShellExtensions"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AssociateWithUrl
+        {
+            get
+            {
+                return ((bool)(this["AssociateWithUrl"]));
+            }
+            set
+            {
+                this["AssociateWithUrl"] = value;
+            }
+        }
     }
 }

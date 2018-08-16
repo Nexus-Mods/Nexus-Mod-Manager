@@ -384,6 +384,16 @@ namespace Nexus.Client.Settings
 		/// <value>The links to help resources.</value>
 		KeyedSettings<string> HelpLinks { get; }
 
+        /// <summary>
+        /// Gets which extensions shall have shell extensions added.
+        /// </summary>
+        KeyedSettings<bool> AddShellExtensions { get; }
+
+        /// <summary>
+        /// Gets or sets whether NMM should be associated with NXM url's.
+        /// </summary>
+        bool AssociateWithUrl { get; set; }
+
 		/// <summary>
 		/// Gets or sets whether to check for updates on startup.
 		/// </summary>
