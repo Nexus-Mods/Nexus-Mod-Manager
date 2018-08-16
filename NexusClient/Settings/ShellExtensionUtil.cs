@@ -2,7 +2,6 @@
 {
     using Microsoft.Win32;
     using System;
-    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Windows.Forms;
 
@@ -13,93 +12,17 @@
     /// </summary>
     public static class ShellExtensionUtil
     {
-        private static string[] _extensions = { ".zip", ".rar", ".7z" };
-
-        private static string _addToNmmCommand = $"\"{Application.ExecutablePath}\" \"%1\"";
+        private static readonly string AddToNmmCommand = $"\"{Application.ExecutablePath}\" \"%1\"";
 
         /// <summary>
-        /// Adds shell extensions for NMM.
+        /// Extensions that NMM can associate shell extensions with.
         /// </summary>
-        /// <returns>True if successful, otherwise false.</returns>
-        public static bool AddShellExtensions()
+        public static string[] Extensions = { "zip", "rar", "7z" };
+
+        public static bool AddShellExtension(string extension)
         {
-            var addedExtensions = new List<string>();
+            ValidateExtensionParameter(ref extension);
 
-            foreach (var extension in _extensions)
-            {
-                if (AddShellExtension(extension))
-                {
-                    Trace.TraceInformation("[ShellExtension] Added shell extension for \"{0}\".", extension);
-                    addedExtensions.Add(extension);
-                }
-                else
-                {
-                    Trace.TraceInformation("[ShellExtension] Failed to add extension \"{0}\", rolling back any previous changes:", extension);
-                    
-                    // Try to roll back any previous changes.
-                    foreach (var addedExtension in addedExtensions)
-                    {
-                        RemoveShellExtension(addedExtension);
-                    }
-
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Removes shell extensions for NMM.
-        /// </summary>
-        /// <returns>True if successful, otherwise false.</returns>
-        public static bool RemoveShellExtensions()
-        {
-            var removedExtensions = new List<string>();
-
-            foreach (var extension in _extensions)
-            {
-                if (RemoveShellExtension(extension))
-                {
-                    Trace.TraceInformation("[ShellExtension] Removed shell extension for \"{0}\".", extension);
-                    removedExtensions.Add(extension);
-                }
-                else
-                {
-                    Trace.TraceInformation("[ShellExtension] Failed to remove extension \"{0}\", rolling back any previous changes:", extension);
-                    
-                    // Try to roll back any previous changes.
-                    foreach (var removedExtension in removedExtensions)
-                    {
-                        AddShellExtension(removedExtension);
-                    }
-
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Checks if all extensions are set to this program.
-        /// </summary>
-        /// <returns>True if this installation of NMM is set for the shell extensions.</returns>
-        public static bool ReadShellExtensions()
-        {
-            foreach (var extension in _extensions)
-            {
-                if (!ReadShellExtension(extension))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static bool AddShellExtension(string extension)
-        {
             var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
 
             try
@@ -119,8 +42,8 @@
                 Registry.SetValue(extensionRootKey, null, extensionRootKeyValue);
 
                 var extensionSubKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey + "\\command";
-                Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionSubKey, _addToNmmCommand);
-                Registry.SetValue(extensionSubKey, null, _addToNmmCommand, RegistryValueKind.String);
+                Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionSubKey, AddToNmmCommand);
+                Registry.SetValue(extensionSubKey, null, AddToNmmCommand, RegistryValueKind.String);
 
                 return true;
             }
@@ -131,8 +54,10 @@
             }
         }
 
-        private static bool ReadShellExtension(string extension)
+        public static bool ReadShellExtension(string extension)
         {
+            ValidateExtensionParameter(ref extension);
+
             var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
 
             try
@@ -149,7 +74,7 @@
                 var extensionSubKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey + "\\command";
                 var result = Registry.GetValue(extensionSubKey, null, null) as string;
 
-                if (string.IsNullOrEmpty(result) || !result.Equals(_addToNmmCommand, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrEmpty(result) || !result.Equals(AddToNmmCommand, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
@@ -163,8 +88,10 @@
             }
         }
 
-        private static bool RemoveShellExtension(string extension)
+        public static bool RemoveShellExtension(string extension)
         {
+            ValidateExtensionParameter(ref extension);
+
             var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
 
             try
@@ -199,6 +126,19 @@
             {
                 Trace.TraceWarning("[ShellExtension] Couldn't remove shell extension for \"{0}\", due to {1} - {2}.", extension, e.GetType(), e.Message);
                 return false;
+            }
+        }
+
+        private static void ValidateExtensionParameter(ref string extension)
+        {
+            if (string.IsNullOrEmpty(extension))
+            {
+                throw new ArgumentException("Argument cannot be null/empty.", nameof(extension));
+            }
+
+            if (!extension[0].Equals('.'))
+            {
+                extension = extension.Insert(0, ".");
             }
         }
     }

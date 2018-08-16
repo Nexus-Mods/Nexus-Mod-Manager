@@ -36,16 +36,21 @@
 				flpFileAssociations.Controls.Add(ckbFileAssociation);
 			}
 
-			BindingHelper.CreateFullBinding(ckbShellExtensions, () => ckbShellExtensions.Checked, settings, () => settings.AddShellExtensions);
 			BindingHelper.CreateFullBinding(ckbAssociateURL, () => ckbAssociateURL.Checked, settings, () => settings.AssociateNxmUrl);
 
-			try
+		    BindingHelper.CreateFullBinding(checkBoxShellZip, () => checkBoxShellZip.Checked, settings, () => settings.AddShellExtensionZip);
+		    BindingHelper.CreateFullBinding(checkBoxShellRar, () => checkBoxShellRar.Checked, settings, () => settings.AddShellExtensionRar);
+		    BindingHelper.CreateFullBinding(checkBoxShell7z, () => checkBoxShell7z.Checked, settings, () => settings.AddShellExtension7z);
+
+            try
 			{
 				if (!settings.CanAssociateFiles)
 				{
 					gbxAssociations.Enabled = false;
+				    groupBoxShellExtensions.Enabled = false;
 					ttpTip.SetToolTip(gbxAssociations, $"Run {settings.EnvironmentInfo.Settings.ModManagerName} as Administrator to change these settings.");
-				}
+				    ttpTip.SetToolTip(groupBoxShellExtensions, $"Run {settings.EnvironmentInfo.Settings.ModManagerName} as Administrator to change these settings.");
+                }
 			}
 			catch(MissingMethodException)
 			{
@@ -89,7 +94,14 @@
 				var pntToolTipLocation = gbxAssociations.PointToClient(Cursor.Position);
 				ttpTip.Show(ttpTip.GetToolTip(gbxAssociations), gbxAssociations, pntToolTipLocation.X, pntToolTipLocation.Y + Cursor.Current.Size.Height);
 			}
-		}
+
+		    if (!groupBoxShellExtensions.Enabled && groupBoxShellExtensions.ClientRectangle.Contains(groupBoxShellExtensions.PointToClient(Cursor.Position)))
+		    {
+		        _toolTipShown = true;
+		        var pntToolTipLocation = groupBoxShellExtensions.PointToClient(Cursor.Position);
+		        ttpTip.Show(ttpTip.GetToolTip(groupBoxShellExtensions), groupBoxShellExtensions, pntToolTipLocation.X, pntToolTipLocation.Y + Cursor.Current.Size.Height);
+		    }
+        }
 
 		/// <summary>
 		/// Handles the <see cref="Control.MouseMove"/> event of the general settings flow panel.

@@ -1,15 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Windows.Forms;
-using Microsoft.Win32;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.Settings
+﻿namespace Nexus.Client.Settings
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Windows.Forms;
+
+    using Microsoft.Win32;
+
+    using Util;
+
     public class OsSettingsGroup : SettingsGroup
     {
-        private bool _addShellExtensions = true;
         private bool _associateNxmUrls = true;
+
+        private bool _addShellExtensionZip = true;
+        private bool _addShellExtensionRar = true;
+        private bool _addShellExtension7z = true;
 
         public OsSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo) : base(p_eifEnvironmentInfo)
         {
@@ -29,15 +34,38 @@ namespace Nexus.Client.Settings
         public bool CanAssociateFiles { get; } = UacUtil.IsElevated;
 
         /// <summary>
-        /// Gets or sets whether the client should integrate with the explorer shell (right-click menu).
+        /// Gets or sets whether the client should integrate with the explorer shell (right-click menu) for .zip files.
         /// </summary>
-        /// <value>Whether the client should integrate with the explorer shell (right-click menu).</value>
-        public bool AddShellExtensions
+        public bool AddShellExtensionZip
         {
-            get => _addShellExtensions;
+            get => _addShellExtensionZip;
             set
             {
-                SetPropertyIfChanged(ref _addShellExtensions, value, () => AddShellExtensions);
+                SetPropertyIfChanged(ref _addShellExtensionZip, value, () => AddShellExtensionZip);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets whether the client should integrate with the explorer shell (right-click menu) for .rar files.
+        /// </summary>
+        public bool AddShellExtensionRar
+        {
+            get => _addShellExtensionRar;
+            set
+            {
+                SetPropertyIfChanged(ref _addShellExtensionRar, value, () => AddShellExtensionRar);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets whether the client should integrate with the explorer shell (right-click menu) for .7z files.
+        /// </summary>
+        public bool AddShellExtension7z
+        {
+            get => _addShellExtension7z;
+            set
+            {
+                SetPropertyIfChanged(ref _addShellExtension7z, value, () => AddShellExtension7z);
             }
         }
 
@@ -63,12 +91,60 @@ namespace Nexus.Client.Settings
                 fasFileAssociation.IsAssociated = IsAssociated(fasFileAssociation.Extension);
             }
 
-            AddShellExtensions = ShellExtensionUtil.ReadShellExtensions();
+            foreach (var extension in ShellExtensionUtil.Extensions)
+            {
+                if (EnvironmentInfo.Settings.AddShellExtensions[extension] && !ShellExtensionUtil.ReadShellExtension(extension))
+                {
+                    if (UacUtil.IsElevated)
+                    {
+                        var reply = MessageBox.Show($"Shell extension association for .{extension} has been removed by some other process.\n\n" +
+                                                    "Do you want to restore it?",
+                                                    "Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                        if (reply == DialogResult.Yes)
+                        {
+                            if (!ShellExtensionUtil.AddShellExtension(extension))
+                            {
+                                MessageBox.Show($"Unable to enable shell extension for .{extension}.", "Unknown error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                            }
+                        }
+                        else
+                        {
+                            EnvironmentInfo.Settings.AddShellExtensions[extension] = false;
+                        }
+                    }
+                    else
+                    {
+                        var removeSetting = MessageBox.Show($"Shell extension association for .{extension} has been removed by some other process.\n" +
+                                                            $"If you want to restore it you have to run {EnvironmentInfo.Settings.ModManagerName} as Administrator.\n\n" +
+                                                            "Do you want to disable the setting instead?",
+                            "Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                        if (removeSetting == DialogResult.Yes)
+                        {
+                            EnvironmentInfo.Settings.AddShellExtensions[extension] = false;
+                        }
+                    }
+                }
+                else
+                {
+                    EnvironmentInfo.Settings.AddShellExtensions[extension] = ShellExtensionUtil.ReadShellExtension(extension);
+                }
+            }
+
+            AddShellExtensionZip = EnvironmentInfo.Settings.AddShellExtensions["zip"];
+            AddShellExtensionRar = EnvironmentInfo.Settings.AddShellExtensions["rar"];
+            AddShellExtension7z = EnvironmentInfo.Settings.AddShellExtensions["7z"];
             AssociateNxmUrl = UrlAssociationUtil.IsUrlAssociated("nxm");
         }
 
         public override bool Save()
         {
+            EnvironmentInfo.Settings.AssociateWithUrl = _associateNxmUrls;
+            EnvironmentInfo.Settings.AddShellExtensions["zip"] = _addShellExtensionZip;
+            EnvironmentInfo.Settings.AddShellExtensions["rar"] = _addShellExtensionRar;
+            EnvironmentInfo.Settings.AddShellExtensions["7z"] = _addShellExtension7z;
+
             if (UacUtil.IsElevated)
             {
                 foreach (var fasFileAssociation in FileAssociations)
@@ -92,18 +168,21 @@ namespace Nexus.Client.Settings
                     UrlAssociationUtil.UnassociateUrl("nxm");
                 }
 
-                if (AddShellExtensions)
+                foreach (var extension in ShellExtensionUtil.Extensions)
                 {
-                    if (!ShellExtensionUtil.AddShellExtensions())
+                    if (EnvironmentInfo.Settings.AddShellExtensions[extension])
                     {
-                        MessageBox.Show("Couldn't add shell extensions.\nCheck TraceLog for more info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                        if (!ShellExtensionUtil.AddShellExtension(extension))
+                        {
+                            MessageBox.Show($"Couldn't add shell extension for .{extension} files.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                        }
                     }
-                }
-                else
-                {
-                    if (!ShellExtensionUtil.RemoveShellExtensions())
+                    else
                     {
-                        MessageBox.Show("Couldn't remove shell extensions.\nCheck TraceLog for more info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                        if (!ShellExtensionUtil.RemoveShellExtension(extension))
+                        {
+                            MessageBox.Show($"Couldn't remove shell extension for .{extension} files.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                        }
                     }
                 }
             }
