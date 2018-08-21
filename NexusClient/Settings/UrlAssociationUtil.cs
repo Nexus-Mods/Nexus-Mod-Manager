@@ -62,9 +62,16 @@
         /// <c>false</c> otherwise.</returns>
         public static bool IsUrlAssociated(string p_strUrlProtocol)
         {
-            var key = Registry.GetValue($"HKEY_CLASSES_ROOT\\{p_strUrlProtocol}\\shell\\open\\command\\", null, string.Empty) as string;
+            try
+            {
+                var key = Registry.GetValue($"HKEY_CLASSES_ROOT\\{p_strUrlProtocol}\\shell\\open\\command\\", null, string.Empty) as string;
 
-            return key.Equals(OpenWithNmmCommand);
+                return key.Equals(OpenWithNmmCommand);
+            }
+            catch (NullReferenceException)
+            {
+                return false;
+            }
         }
     }
 }
