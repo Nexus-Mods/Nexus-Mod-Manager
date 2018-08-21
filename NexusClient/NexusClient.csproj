@@ -218,6 +218,10 @@
       <DependentUpon>DownloadSettingsPage.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="Settings\UI\OsSettingsPage.resx">
+      <DependentUpon>OsSettingsPage.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <EmbeddedResource Include="TipsManagement\Balloon.resx" />
     <EmbeddedResource Include="TipsManagement\BalloonVM.resx" />
     <EmbeddedResource Include="TipsManagement\Hooks\WindowsHook.resx" />
@@ -305,8 +309,15 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Settings.cs" />
+    <Compile Include="Settings\OsSettingsGroup.cs" />
     <Compile Include="Settings\FileAssociationSetting.cs" />
     <Compile Include="Settings\ShellExtensionUtil.cs" />
+    <Compile Include="Settings\UI\OsSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Settings\UI\OsSettingsPage.Designer.cs">
+      <DependentUpon>OsSettingsPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Settings\UrlAssociationUtil.cs" />
     <Compile Include="TipsManagement\Balloon.cs">
       <SubType>Form</SubType>

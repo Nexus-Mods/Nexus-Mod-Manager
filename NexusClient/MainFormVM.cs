@@ -638,15 +638,22 @@ namespace Nexus.Client
 			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
-			foreach (IModFormat mftFormat in  p_mmgModManager.ModFormats)
-				gsgGeneralSettings.AddFileAssociation(mftFormat.Extension, mftFormat.Name);
+		    var gsgAssociationSettings = new OsSettingsGroup(p_eifEnvironmentInfo);
 
-			ModOptionsSettingsGroup mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
+		    foreach (IModFormat mftFormat in  p_mmgModManager.ModFormats)
+            {
+                gsgAssociationSettings.AddFileAssociation(mftFormat.Extension, mftFormat.Name);
+            }
 
-			List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>();
-			lstSettingGroups.Add(new GeneralSettingsPage(gsgGeneralSettings));
-			lstSettingGroups.Add(new ModOptionsPage(mosModOptions));
-			DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
+            ModOptionsSettingsGroup mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
+
+		    List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>
+		    {
+		        new GeneralSettingsPage(gsgGeneralSettings),
+                new OsSettingsPage(gsgAssociationSettings),
+		        new ModOptionsPage(mosModOptions)
+		    };
+		    DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
 			lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
 			
 			if (p_gmdGameMode.SettingsGroupViews != null)
