@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -17,7 +19,7 @@ namespace Nexus.Client.Games.Gamebryo
 																					"sound" };
 		private string[] m_strCriticalPlugins = null;
 		private string[] m_strOfficialPlugins = null;
-        private string[] m_strOfficialUnmanagedPlugins = null;
+        private string[] officialUnmanagedPlugins = null;
 		private string m_strPluginPath = string.Empty;
 
 		#region Properties
@@ -146,20 +148,36 @@ namespace Nexus.Client.Games.Gamebryo
         {
             get
             {
-                if (m_strOfficialUnmanagedPlugins == null)
+                try
                 {
-                    if (OrderedOfficialUnmanagedPluginFilenames != null)
+                    if (officialUnmanagedPlugins == null)
                     {
-                        m_strOfficialUnmanagedPlugins = new string[OrderedOfficialUnmanagedPluginFilenames.Length];
-                        for (int i = OrderedOfficialUnmanagedPluginFilenames.Length - 1; i >= 0; i--)
-                            m_strOfficialUnmanagedPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialUnmanagedPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-                    } 
-                    else
-                    {
-                        m_strOfficialUnmanagedPlugins = new string[0];
+                        if (OrderedOfficialUnmanagedPluginFilenames != null)
+                        {
+                            officialUnmanagedPlugins = new string[OrderedOfficialUnmanagedPluginFilenames.Length];
+
+                            for (var i = OrderedOfficialUnmanagedPluginFilenames.Length - 1; i >= 0; i--)
+                            {
+                                officialUnmanagedPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialUnmanagedPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                            }
+
+                            return officialUnmanagedPlugins;
+                        }
+                        else
+                        {
+                            return new string[0];
+                        }
                     }
+
+                    return officialUnmanagedPlugins;
                 }
-                return m_strOfficialUnmanagedPlugins;
+                catch (ArgumentException e)
+                {
+                    Trace.TraceError("Problem encountered when parsing official plugin file names, see information below.");
+                    TraceUtil.TraceException(e);
+
+                    return new string[0];
+                }
             }
         }
 
