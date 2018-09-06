@@ -1,17 +1,19 @@
-﻿using System;
-using System.IO;
-using System.Text.RegularExpressions;
-using System.Threading;
-using Nexus.Client.Util.Collections;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-
-namespace Nexus.Client.Util
+﻿namespace Nexus.Client.Util
 {
-	/// <summary>
-	/// Utility functions to work with files.
-	/// </summary>
-	public class FileUtil
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Runtime.InteropServices;
+    using System.Text.RegularExpressions;
+    using System.Threading;
+
+    using Nexus.Client.Util.Collections;
+
+    /// <summary>
+    /// Utility functions to work with files.
+    /// </summary>
+    public class FileUtil
 	{
 		// Copies, moves, renames, or deletes a file system object. 
 		[DllImport("shell32.dll", CharSet = CharSet.Unicode)]
@@ -336,9 +338,25 @@ namespace Nexus.Client.Util
             };
 
             var file = new FileInfo(p_strPath);
-            var drive = new DriveInfo(file.Directory.Root.FullName);
 
-            return !knownBadFileSystems.Contains(drive.DriveFormat);
+            if (file.Directory != null)
+            {
+                var drive = new DriveInfo(file.Directory.Root.FullName);
+
+                return !knownBadFileSystems.Contains(drive.DriveFormat);
+            }
+            
+            // Either the path points to the root, or something is very wrong.
+            if (Regex.IsMatch(p_strPath, @"[a-zA-Z]:"))
+            {
+                return !knownBadFileSystems.Contains(p_strPath);
+            }
+            else
+            {
+                // No idea how to handle this, so just assume it works.
+                Trace.TraceWarning($"Could not determine file system for path \"{p_strPath}\".");
+                return true;
+            }
         }
 
         /// <summary>
