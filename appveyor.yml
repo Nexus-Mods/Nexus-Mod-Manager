@@ -1,0 +1,23 @@
+version: '{build}-{branch}'
+image: Visual Studio 2017
+configuration: Release
+platform: Any CPU
+
+before_build:
+  - nuget restore
+
+build:
+  parallel: true
+  project: NexusClient.sln
+  verbosity: minimal
+
+# Uncomment the lines below to produce an installer.
+# Note: I'm not sure this works since it takes over 20 minutes and
+# still is not completed.
+
+# after_build:
+# - ps: "$workingDirectory = [System.Environment]::ExpandEnvironmentVariables(\"%APPVEYOR_BUILD_FOLDER%\") \nStart-Process -FilePath \"C:\\Program Files (x86)\\Inno Setup 5\\Compil32.exe\" -ArgumentList (\"/cc `\"Setup\\setup.iss`\"\") -WorkingDirectory $workingDirectory -Wait"
+
+# artifacts:
+# - path: Stage\Installer\*.exe
+#   name: Installer
