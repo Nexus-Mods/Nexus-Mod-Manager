@@ -1,24 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
-namespace Nexus.Client.Games.Gamebryo
+﻿namespace Nexus.Client.Games.Gamebryo
 {
-	/// <summary>
-	/// Provides common information about Gamebryo based games.
-	/// </summary>
-	public abstract class GamebryoGameModeDescriptorBase : GameModeDescriptorBase
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Linq;
+
+    using Nexus.Client.Util;
+
+    /// <summary>
+    /// Provides common information about Gamebryo based games.
+    /// </summary>
+    public abstract class GamebryoGameModeDescriptorBase : GameModeDescriptorBase
 	{
-		private static readonly List<string> PLUGIN_EXTENSIONS = new List<string>() { ".esm", ".esl", ".esp", ".bsa" };
-		private static readonly List<string> STOP_FOLDERS = new List<string>() { "textures",
+		private static readonly List<string> PLUGIN_EXTENSIONS = new List<string> { ".esm", ".esl", ".esp", ".bsa" };
+		private static readonly List<string> STOP_FOLDERS = new List<string> { "textures",
 																					"meshes", "music", "shaders", "video", "interface",
 																					"facegen", "menus", "lodsettings", "lsdata",
 																					"sound" };
-		private string[] m_strCriticalPlugins = null;
-		private string[] m_strOfficialPlugins = null;
-        private string[] m_strOfficialUnmanagedPlugins = null;
-		private string m_strPluginPath = string.Empty;
+		private string[] _criticalPlugins;
+		private string[] _officialPlugins;
+        private string[] _officialUnmanagedPlugins;
+		private string _pluginPath = string.Empty;
 
 		#region Properties
 
@@ -26,29 +29,17 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets the extensions that are used by the game mode for plugin files.
 		/// </summary>
 		/// <value>The extensions that are used by the game mode for plugin files.</value>
-		public override IEnumerable<string> PluginExtensions
-		{
-			get
-			{
-				return PLUGIN_EXTENSIONS;
-			}
-		}
+		public override IEnumerable<string> PluginExtensions => PLUGIN_EXTENSIONS;
 
-		/// <summary>
+	    /// <summary>
 		/// Gets a list of possible folders that should be looked for in mod archives to determine
 		/// file structure.
 		/// </summary>
 		/// <value>A list of possible folders that should be looked for in mod archives to determine
 		/// file structure.</value>
-		public override IEnumerable<string> StopFolders
-		{
-			get
-			{
-				return STOP_FOLDERS;
-			}
-		}
+		public override IEnumerable<string> StopFolders => STOP_FOLDERS;
 
-		/// <summary>
+	    /// <summary>
 		/// Gets the directory where Fallout 3 plugins are installed.
 		/// </summary>
 		/// <value>The directory where Fallout 3 plugins are installed.</value>
@@ -56,26 +47,33 @@ namespace Nexus.Client.Games.Gamebryo
 		{
 			get
 			{
-				if (!string.IsNullOrEmpty(m_strPluginPath))
-					return m_strPluginPath;
- 
-				string strPath = string.Empty;
-				if (!string.IsNullOrEmpty(InstallationPath))
+				if (!string.IsNullOrEmpty(_pluginPath))
+                {
+                    return _pluginPath;
+                }
+
+                var path = string.Empty;
+
+			    if (!string.IsNullOrEmpty(InstallationPath))
 				{
-					strPath = Path.Combine(InstallationPath, "Data");
+					path = Path.Combine(InstallationPath, "Data");
 
-					string strPathRoot = Path.GetPathRoot(strPath);
-					
+					var pathRoot = Path.GetPathRoot(path);
 
-					if (DriveInfo.GetDrives().Where(x => x.Name.Equals(strPathRoot, StringComparison.CurrentCultureIgnoreCase)).ToList().Count <= 0)
-						throw new DirectoryNotFoundException("The selected drive is no longer present on the system.");
+					if (DriveInfo.GetDrives().Where(x => x.Name.Equals(pathRoot, StringComparison.CurrentCultureIgnoreCase)).ToList().Count <= 0)
+                    {
+                        throw new DirectoryNotFoundException("The selected drive is no longer present on the system.");
+                    }
 
-					if (!Directory.Exists(strPath))
-						Directory.CreateDirectory(strPath);
-				}
+                    if (!Directory.Exists(path))
+                    {
+                        Directory.CreateDirectory(path);
+                    }
+                }
 
-				m_strPluginPath = strPath;
-				return strPath;
+				_pluginPath = path;
+
+			    return path;
 			}
 		}
 
@@ -93,13 +91,17 @@ namespace Nexus.Client.Games.Gamebryo
 		{
 			get
 			{
-				if (m_strCriticalPlugins == null)
+				if (_criticalPlugins == null)
 				{
-					m_strCriticalPlugins = new string[OrderedCriticalPluginFilenames.Length];
-					for (int i = OrderedCriticalPluginFilenames.Length - 1; i >= 0; i--)
-						m_strCriticalPlugins[i] = Path.Combine(PluginDirectory, OrderedCriticalPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-				}
-				return m_strCriticalPlugins;
+					_criticalPlugins = new string[OrderedCriticalPluginFilenames.Length];
+
+				    for (var i = OrderedCriticalPluginFilenames.Length - 1; i >= 0; i--)
+                    {
+                        _criticalPlugins[i] = Path.Combine(PluginDirectory, OrderedCriticalPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                    }
+                }
+
+				return _criticalPlugins;
 			}
 		}
 
@@ -113,14 +115,9 @@ namespace Nexus.Client.Games.Gamebryo
         /// Gets the list of official unmanageable plugin names, ordered by load order.
         /// </summary>
         /// <value>The list of official unmanageable plugin names, ordered by load order.</value>
-        protected virtual string[] OrderedOfficialUnmanagedPluginFilenames {
-            get
-            {
-                return null;
-            }            
-        }
+        protected virtual string[] OrderedOfficialUnmanagedPluginFilenames => null;
 
-        /// <summary>
+	    /// <summary>
         /// Gets the list of official plugin names, ordered by load order.
         /// </summary>
         /// <value>The list of official plugin names, ordered by load order.</value>
@@ -128,13 +125,17 @@ namespace Nexus.Client.Games.Gamebryo
 		{
 			get
 			{
-				if (m_strOfficialPlugins == null)
+				if (_officialPlugins == null)
 				{
-					m_strOfficialPlugins = new string[OrderedOfficialPluginFilenames.Length];
-					for (int i = OrderedOfficialPluginFilenames.Length - 1; i >= 0; i--)
-						m_strOfficialPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-				}
-				return m_strOfficialPlugins;
+					_officialPlugins = new string[OrderedOfficialPluginFilenames.Length];
+
+				    for (var i = OrderedOfficialPluginFilenames.Length - 1; i >= 0; i--)
+                    {
+                        _officialPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                    }
+                }
+
+				return _officialPlugins;
 			}
 		}
 
@@ -146,20 +147,36 @@ namespace Nexus.Client.Games.Gamebryo
         {
             get
             {
-                if (m_strOfficialUnmanagedPlugins == null)
+                try
                 {
-                    if (OrderedOfficialUnmanagedPluginFilenames != null)
+                    if (_officialUnmanagedPlugins == null)
                     {
-                        m_strOfficialUnmanagedPlugins = new string[OrderedOfficialUnmanagedPluginFilenames.Length];
-                        for (int i = OrderedOfficialUnmanagedPluginFilenames.Length - 1; i >= 0; i--)
-                            m_strOfficialUnmanagedPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialUnmanagedPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-                    } 
-                    else
-                    {
-                        m_strOfficialUnmanagedPlugins = new string[0];
+                        if (OrderedOfficialUnmanagedPluginFilenames != null)
+                        {
+                            _officialUnmanagedPlugins = new string[OrderedOfficialUnmanagedPluginFilenames.Length];
+
+                            for (var i = OrderedOfficialUnmanagedPluginFilenames.Length - 1; i >= 0; i--)
+                            {
+                                _officialUnmanagedPlugins[i] = Path.Combine(PluginDirectory, OrderedOfficialUnmanagedPluginFilenames[i]).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                            }
+
+                            return _officialUnmanagedPlugins;
+                        }
+                        else
+                        {
+                            return new string[0];
+                        }
                     }
+
+                    return _officialUnmanagedPlugins;
                 }
-                return m_strOfficialUnmanagedPlugins;
+                catch (ArgumentException e)
+                {
+                    Trace.TraceError("Problem encountered when parsing official plugin file names, see information below.");
+                    TraceUtil.TraceException(e);
+
+                    return new string[0];
+                }
             }
         }
 
@@ -170,9 +187,9 @@ namespace Nexus.Client.Games.Gamebryo
         /// <summary>
         /// A simple constructor that initializes the object with the given dependencies.
         /// </summary>
-        /// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-        public GamebryoGameModeDescriptorBase(IEnvironmentInfo p_eifEnvironmentInfo)
-			: base(p_eifEnvironmentInfo)
+        /// <param name="environmentInfo">The application's envrionment info.</param>
+        public GamebryoGameModeDescriptorBase(IEnvironmentInfo environmentInfo)
+			: base(environmentInfo)
 		{
 		}
 
