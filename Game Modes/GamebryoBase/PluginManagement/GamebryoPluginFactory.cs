@@ -112,12 +112,21 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			else if (tpgPlugin.Records[0].Name == "TES3")
 				intIsMaster = Convert.ToUInt32(TesPlugin.GetIsEsm(p_strPluginPath));
 
-			if (tpgPlugin.Records[0].Name == "TES4" && ((Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0) != ((intIsMaster == 0) && (intIsLightMaster == 0))))
+			if (tpgPlugin.Records[0].Name == "TES4")
 			{
-				if ((intIsMaster == 0) && (intIsLightMaster == 0))
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header marks it as an esp!</b></span><br/><br/>");
-				else
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (intIsLightMaster == 0))
+					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></span><br/><br/>");
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (intIsMaster == 0))
+					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag which marks it as an esp!</b></span><br/><br/>");
+				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
+				{
+					if ((intIsMaster == 1) && (intIsLightMaster == 512))
+						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></span><br/><br/>");
+					else if (intIsMaster == 1)
+						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+					else if (intIsLightMaster == 512)
+						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl!</b></span><br/><br/>");
+				}
 			}
 
 			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br/>", strPluginName);
@@ -223,12 +232,22 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			}
 			else if (tpgPlugin.Records[0].Name == "TES3")
 				intIsMaster = Convert.ToUInt32(TesPlugin.GetIsEsm(p_strPluginPath));
-			if (tpgPlugin.Records[0].Name == "TES4" && ((Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0) != ((intIsMaster == 0) && (intIsLightMaster == 0))))
+
+			if (tpgPlugin.Records[0].Name == "TES4")
 			{
-				if ((intIsMaster == 0) && (intIsLightMaster == 0))
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header marks it as an esp!</b></span><br/><br/>");
-				else
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (intIsLightMaster == 0))
+					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></span><br/><br/>");
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (intIsMaster == 0))
+					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag which marks it as an esp!</b></span><br/><br/>");
+				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
+				{
+					if ((intIsMaster == 1) && (intIsLightMaster == 512))
+						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></span><br/><br/>");
+					else if (intIsMaster == 1)
+						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+					else if (intIsLightMaster == 512)
+						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl!</b></span><br/><br/>");
+				}
 			}
 
 			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br/>", strPluginName);
