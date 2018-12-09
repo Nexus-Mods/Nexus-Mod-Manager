@@ -316,7 +316,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				throw new Exception("When querying IsActivatiblePluginFile, path must be absolute: " + p_strPath);
 #endif
 			string strExt = Path.GetExtension(p_strPath).ToLowerInvariant();
-			return (strExt == ".esp" || strExt == ".esm") && Path.GetDirectoryName(p_strPath).Equals(m_strPluginDirectory, StringComparison.OrdinalIgnoreCase);
+			return (strExt == ".esp" || strExt == ".esm" || strExt == ".esl") && Path.GetDirectoryName(p_strPath).Equals(m_strPluginDirectory, StringComparison.OrdinalIgnoreCase);
 		}
 	}
 }
