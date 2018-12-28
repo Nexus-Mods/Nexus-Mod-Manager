@@ -1,4 +1,6 @@
 # Nexus Mod Manager
+[![Build status](https://ci.appveyor.com/api/projects/status/mgt1kuc1a0eqju7m?svg=true)](https://ci.appveyor.com/project/Nexus-Mods/nexus-mod-manager)
+
 The Nexus Mod Manager (NMM) is a free and open source piece of software that allows you to download, install, update and manage your mod files through an easy to use interface. It integrates with the Nexus sites to provide you with a fast, efficient and much less hassled modding experience.
 
 ### Features
