@@ -469,5 +469,10 @@ namespace Nexus.Client.Settings
 		/// Reloads the stored values from persistent storage, discarding any unsaved changes.
 		/// </summary>
 		void Reload();
+
+        /// <summary>
+        /// The API key used to authenticate user against Nexus Mods API.
+        /// </summary>
+        string ApiKey { get; set; }
 	}
 }

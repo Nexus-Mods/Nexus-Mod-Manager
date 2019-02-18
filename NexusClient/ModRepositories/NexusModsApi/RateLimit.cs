@@ -1,7 +1,6 @@
 ﻿namespace Nexus.Client.ModRepositories.NexusModsApi
 {
     using System;
-    using System.Collections;
     using System.Collections.Generic;
     using RestSharp;
 
@@ -91,6 +90,10 @@
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
         public override string ToString()
         {
             return $"Hourly - Limit: {HourlyLimit}, Remaining: {HourlyLimitRemaining}, Reset: {HourlyLimitReset}\n" +
