@@ -74,6 +74,7 @@
     <Compile Include="FileUtil.cs" />
     <Compile Include="Collections\IListExtensions.cs" />
     <Compile Include="ImageFormatException.cs" />
+    <Compile Include="Md5.cs" />
     <Compile Include="ObjectHelper.cs" />
     <Compile Include="ObservableObject.cs" />
     <Compile Include="Collections\ObservableSet.cs" />

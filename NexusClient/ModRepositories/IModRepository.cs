@@ -118,9 +118,9 @@ namespace Nexus.Client.ModRepositories
 		/// <summary>
 		/// Gets the mod info for the mod to which the specified download file belongs.
 		/// </summary>
-		/// <param name="p_strFilename">The name of the file whose mod's info is to be returned..</param>
+		/// <param name="fileName">The name of the file whose mod's info is to be returned..</param>
 		/// <returns>The info for the mod to which the specified file belongs.</returns>
-		IModInfo GetModInfoForFile(string p_strFilename);
+		IModInfo GetModInfoForFile(string fileName);
 
 		/// <summary>
 		/// Gets the info for the specifed mod.
@@ -132,27 +132,27 @@ namespace Nexus.Client.ModRepositories
 		/// <summary>
 		/// Gets the info for the specifed mod list.
 		/// </summary>
-		/// <param name="p_lstModList">The mod list to submit.</param>
+		/// <param name="modIdList">The mod list to submit.</param>
 		/// <returns>The update mods' list.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		List<IModInfo> GetModListInfo(List<string> p_lstModList);
+		List<IModInfo> GetModListInfo(List<string> modIdList);
 
 		/// <summary>
 		/// Gets the info for the specifed file list.
 		/// </summary>
-		/// <param name="p_lstFileList">The file list to submit.</param>
+		/// <param name="modFileList">The file list to submit.</param>
 		/// <returns>The update mods' list.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		List<IModInfo> GetFileListInfo(List<string> p_lstFileList);
+		List<IModInfo> GetFileListInfo(List<string> modFileList);
 
 		/// <summary>
 		/// Toggles the mod Endorsement state.
 		/// </summary>
-		/// <param name="p_strModId">The mod ID.</param>
-		/// <param name="p_intLocalState">The local Endorsement state.</param>
+		/// <param name="modId">The mod ID.</param>
+		/// <param name="localState">The local Endorsement state.</param>
 		/// <returns>The updated online Endorsement state.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		bool ToggleEndorsement(string p_strModId, int p_intLocalState);
+		bool ToggleEndorsement(string modId, int localState);
 
 		/// <summary>
 		/// Gets the list of files for the specified mod.

@@ -2,24 +2,44 @@
 {
     using System;
     using System.Runtime.Serialization;
+    using Mods;
+    using Util;
 
     [DataContract]
-    public class ModDataContract
+    public class ModDataContract : IModInfo
     {
+        public int CustomCategoryId { get; }
+        public string InstallDate { get; set; }
+        public Uri Website { get; }
+        public ExtendedImage Screenshot { get; }
+        public bool UpdateWarningEnabled { get; }
+        public bool UpdateChecksEnabled { get; }
+        public int PlaceInModLoadOrder { get; set; }
+        public int NewPlaceInModLoadOrder { get; set; }
+        public string DownloadId { get; set; }
+        public DateTime? DownloadDate { get; set; }
+        public string ModName { get; }
+        public string FileName { get; }
+        public string HumanReadableVersion { get; set; }
+        public string LastKnownVersion { get; }
+
+        public bool? IsEndorsed => Endorsement.Status.Equals("endorsed", StringComparison.OrdinalIgnoreCase);
+
+        public Version MachineVersion { get; }
+
+        #region API data members
+
         [DataMember(Name = "name")]
         public string Name { get; private set; }
 
         [DataMember(Name = "Summary")]
         public string Summary { get; private set; }
 
-        [DataMember(Name = "description")]
-        public string Description { get; private set; }
-
         [DataMember(Name = "picture_url")]
         public string PictureUrl { get; private set; }
 
         [DataMember(Name = "mod_id")]
-        public int Id { get; private set; }
+        public string Id { get; set; }
 
         [DataMember(Name = "game_id")]
         public int GameId { get; private set; }
@@ -58,13 +78,23 @@
         public string Status { get; private set; }
 
         [DataMember(Name = "available")]
-        public bool Available{ get; private set; }
+        public bool Available { get; private set; }
 
         [DataMember(Name = "user")]
         public ModUserDataContract User { get; private set; }
 
         [DataMember(Name = "endorsement")]
         public ModEndorsementDataContract Endorsement { get; private set; }
+
+        [DataMember(Name = "description")]
+        public string Description { get; private set; }
+
+        #endregion
+
+        public void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     [DataContract]

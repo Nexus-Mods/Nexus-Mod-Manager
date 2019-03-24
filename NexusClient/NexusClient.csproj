@@ -187,9 +187,11 @@
     <Compile Include="ModManagement\VirtualModInfo.cs" />
     <Compile Include="ModManagement\VirtualModLink.cs" />
     <Compile Include="ModRepositories\NexusModsApi\ApiCallManager.cs" />
+    <Compile Include="ModRepositories\NexusModsApi\ApiObjects\GameDataContract.cs" />
     <Compile Include="ModRepositories\NexusModsApi\ApiObjects\Md5SearchDataContract.cs" />
     <Compile Include="ModRepositories\NexusModsApi\ApiObjects\ModDataContract.cs" />
     <Compile Include="ModRepositories\NexusModsApi\ApiObjects\UserDataContract.cs" />
+    <Compile Include="ModRepositories\NexusModsApi\NexusModsApiRepository.cs" />
     <Compile Include="ModRepositories\NexusModsApi\RateLimit.cs" />
     <Compile Include="ModRepositories\Nexus\NexusLinks.cs" />
     <Compile Include="ModRepositories\Nexus\NexusToken.cs" />

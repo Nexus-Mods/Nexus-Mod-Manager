@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Net;
 using System.Runtime.Serialization;
-using Nexus.Client.Mods;
 
 namespace Nexus.Client.ModRepositories.Nexus
 {

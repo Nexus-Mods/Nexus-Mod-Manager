@@ -1,13 +1,12 @@
-﻿using System;
-using System.Xml;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.Mods
+﻿namespace Nexus.Client.Mods
 {
-	/// <summary>
-	/// A contract specifying an object that contains information about a mod.
-	/// </summary>
-	public interface IModInfo
+    using System;
+    using Util;
+
+    /// <summary>
+    /// A contract specifying an object that contains information about a mod.
+    /// </summary>
+    public interface IModInfo
 	{
 		#region Properties
 
@@ -75,13 +74,13 @@ namespace Nexus.Client.Mods
 		/// Gets the CategoryId of the mod.
 		/// </summary>
 		/// <value>The CategoryId of the mod.</value>
-		Int32 CategoryId { get; }
+		int CategoryId { get; }
 
-		/// <summary>
-		/// Gets the user custom CategoryId of the mod.
-		/// </summary>
-		/// <value>The user custom CategoryId of the mod.</value>
-		Int32 CustomCategoryId { get; }
+        /// <summary>
+        /// Gets the user custom CategoryId of the mod.
+        /// </summary>
+        /// <value>The user custom CategoryId of the mod.</value>
+        int CustomCategoryId { get; }
 
 		/// <summary>
 		/// Gets or sets the description of the mod.

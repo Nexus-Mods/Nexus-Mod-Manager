@@ -234,7 +234,6 @@ namespace Nexus.Client.ModRepositories
 				UpdateWarningEnabled = p_booUpdateWarningEnabled;
 			if (p_booOverwriteAllValues || (UpdateChecksEnabled != p_booUpdateChecksEnabled))
 				UpdateChecksEnabled = p_booUpdateChecksEnabled;
-
 		}
 
 		/// <summary>

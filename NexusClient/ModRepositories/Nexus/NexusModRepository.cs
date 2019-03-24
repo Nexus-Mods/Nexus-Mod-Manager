@@ -726,12 +726,12 @@
 		/// <summary>
 		/// Gets the mod info for the mod to which the specified download file belongs.
 		/// </summary>
-		/// <param name="p_strFilename">The name of the file whose mod's info is to be returned..</param>
+		/// <param name="fileName">The name of the file whose mod's info is to be returned..</param>
 		/// <returns>The info for the mod to which the specified file belongs.</returns>
-		public IModInfo GetModInfoForFile(string p_strFilename)
+		public IModInfo GetModInfoForFile(string fileName)
 		{
 			IModInfo mifInfo = null;
-			ParseModIdFromFilename(p_strFilename, out mifInfo);
+			ParseModIdFromFilename(fileName, out mifInfo);
 			return mifInfo;
 		}
 
@@ -778,15 +778,15 @@
 		/// <summary>
 		/// Gets the info for the specifed mod list.
 		/// </summary>
-		/// <param name="p_lstModList">The mod list to.</param>
+		/// <param name="modIdList">The mod list to.</param>
 		/// <returns>The update mods' list.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public List<IModInfo> GetModListInfo(List<string> p_lstModList)
+		public List<IModInfo> GetModListInfo(List<string> modIdList)
 		{
 			NexusModInfo[] nmiInfo = null;
 			List<IModInfo> imiUpdatedMods = new List<IModInfo>();
 			string ModList = "";
-			p_lstModList.ForEach(x => ModList += String.Format("{0},", "\"" + x + "\""));
+			modIdList.ForEach(x => ModList += String.Format("{0},", "\"" + x + "\""));
 			ModList = ModList.Trim(",".ToCharArray());
 			ModList = "[" + ModList + "]";
 
@@ -832,15 +832,15 @@
 		/// <summary>
 		/// Gets the info for the specifed file list.
 		/// </summary>
-		/// <param name="p_lstFileList">The file list to.</param>
+		/// <param name="modFileList">The file list to.</param>
 		/// <returns>The update file' list.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public List<IModInfo> GetFileListInfo(List<string> p_lstFileList)
+		public List<IModInfo> GetFileListInfo(List<string> modFileList)
 		{
 			NexusModInfo[] nmiInfo = null;
 			List<IModInfo> imiUpdatedMods = new List<IModInfo>();
 			string FileList = "";
-			p_lstFileList.ForEach(x => FileList += String.Format("{0},", "\"" + x + "\""));
+			modFileList.ForEach(x => FileList += String.Format("{0},", "\"" + x + "\""));
 			FileList = FileList.Trim(",".ToCharArray());
 			FileList = "[" + FileList + "]";
 
@@ -908,11 +908,11 @@
 		/// <summary>
 		/// Toggles the mod Endorsement state.
 		/// </summary>
-		/// <param name="p_strModId">The mod ID.</param>
-		/// <param name="p_intLocalState">The local Endorsement state.</param>
+		/// <param name="modId">The mod ID.</param>
+		/// <param name="localState">The local Endorsement state.</param>
 		/// <returns>The updated online Endorsement state.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public bool ToggleEndorsement(string p_strModId, int p_intLocalState)
+		public bool ToggleEndorsement(string modId, int localState)
 		{
 			bool booOnlineState;
 
@@ -921,7 +921,7 @@
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					booOnlineState = nmrApi.ToggleEndorsement(p_strModId, p_intLocalState, m_intRemoteGameId);
+					booOnlineState = nmrApi.ToggleEndorsement(modId, localState, m_intRemoteGameId);
 				}
 			}
 			catch (TimeoutException e)
