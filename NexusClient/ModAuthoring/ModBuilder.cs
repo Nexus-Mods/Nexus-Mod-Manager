@@ -96,15 +96,15 @@ namespace Nexus.Client.ModAuthoring
 		/// This method hands off to another methods, as determined by the first parameter
 		/// which indicates the type of source from which the mod is being built.
 		/// </remarks>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <param name="p_strMessage">The message describing the state of the task.</param>
 		/// <returns>A return value.</returns>
-		protected override object DoWork(object[] p_objArgs, out string p_strMessage)
+		protected override object DoWork(object[] args, out string p_strMessage)
 		{
-			switch ((Sources)p_objArgs[0])
+			switch ((Sources)args[0])
 			{
 				case Sources.Archive:
-					return DoFromArchive((IModFormatRegistry)p_objArgs[1], (string)p_objArgs[2], (ConfirmOverwriteCallback)p_objArgs[3], out p_strMessage);
+					return DoFromArchive((IModFormatRegistry)args[1], (string)args[2], (ConfirmOverwriteCallback)args[3], out p_strMessage);
 			}
 			throw new ArgumentException("Unrecognized activity source.");
 		}

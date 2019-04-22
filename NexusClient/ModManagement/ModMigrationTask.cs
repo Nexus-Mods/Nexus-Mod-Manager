@@ -71,9 +71,9 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <returns>Always <c>null</c>.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
 			byte[] bteLoadOrder = null;
 			byte[] bteModList = null;

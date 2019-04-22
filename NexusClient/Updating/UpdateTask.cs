@@ -101,11 +101,11 @@ namespace Nexus.Client.Updating
 		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <returns>Always <c>null</c>.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
-			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
+			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
 
 			//TODO add game mode updaters
 			OverallMessage = "Updating...";

@@ -58,13 +58,13 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 		/// <summary>
 		/// Performs the actual upgrade.
 		/// </summary>
-		/// <param name="p_objArgs">The task arguments.</param>
+		/// <param name="args">The task arguments.</param>
 		/// <returns>A status message.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
 			try
 			{
-				UpgradeInstallLog((string)p_objArgs[0], (string)p_objArgs[1], (ModRegistry)p_objArgs[2]);
+				UpgradeInstallLog((string)args[0], (string)args[1], (ModRegistry)args[2]);
 				return null;
 			}
 			catch (UpgradeException e)

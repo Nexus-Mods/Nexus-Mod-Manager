@@ -117,9 +117,9 @@ namespace Nexus.Client.ModManagement
 		/// <remarks>
 		/// This method installs all of the files in the <see cref="IMod"/> being installed.
 		/// </remarks>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <returns>A return value.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };

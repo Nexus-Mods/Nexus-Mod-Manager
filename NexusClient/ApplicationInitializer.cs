@@ -204,13 +204,13 @@ namespace Nexus.Client
 		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <returns>A return value.</returns>
 		/// <seealso cref="DoApplicationInitialize(IGameModeFactory, SynchronizationContext, out ViewMessage)"/>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
-			IGameModeFactory gmfGameModeFactory = (IGameModeFactory)p_objArgs[0];
-			SynchronizationContext scxUIContext = (SynchronizationContext)p_objArgs[1];
+			IGameModeFactory gmfGameModeFactory = (IGameModeFactory)args[0];
+			SynchronizationContext scxUIContext = (SynchronizationContext)args[1];
 			ViewMessage vwmErrorMessage = null;
 			OverallProgress = 0;
 			OverallProgressMaximum = 17;

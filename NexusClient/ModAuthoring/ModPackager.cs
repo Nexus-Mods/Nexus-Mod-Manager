@@ -71,12 +71,12 @@ namespace Nexus.Client.ModAuthoring
 		/// <summary>
 		/// Performs the actual mod preparation work.
 		/// </summary>
-		/// <param name="p_objArgs">The task arguments.</param>
+		/// <param name="args">The task arguments.</param>
 		/// <returns>Always <c>null</c>.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
-			string strFileName = (string)p_objArgs[0];
-			Project prjModProject = (Project)p_objArgs[1];
+			string strFileName = (string)args[0];
+			Project prjModProject = (Project)args[1];
 			/*
 			 * 1) Create file dictionary
 			 * 2) Create info.xml
