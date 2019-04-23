@@ -134,27 +134,22 @@ namespace Nexus.Client.Settings
 
 		private bool LoadRepositorySettings()
 		{
-			bool MemberCheck  = false;
-			Int32 UserStatus = 3;
+			var memberCheck  = false;
 
-			if (FileServerZones != null)
-				FileServerZones.Clear();
+            FileServerZones?.Clear();
 
-			if (m_mmrModRepository.UserStatus != null)
-				UserStatus = Convert.ToInt32(m_mmrModRepository.UserStatus[1]);
-
-			if (((UserStatus != 4) && (UserStatus != 6) && (UserStatus != 13) && (UserStatus != 27) && (UserStatus != 31) && (UserStatus != 32)) && !m_mmrModRepository.IsOffline)
+            if (m_mmrModRepository.UserStatus != null && m_mmrModRepository.UserStatus.IsPremium)
 			{
-				PremiumEnabled = false;
-				FileServerZones = m_mmrModRepository.FileServerZones.Where(x => x.IsPremium == false).ToList();
-			}
+                PremiumEnabled = true;
+                FileServerZones = m_mmrModRepository.FileServerZones.ToList();
+            }
 			else
 			{
-				PremiumEnabled = true;
-				FileServerZones = m_mmrModRepository.FileServerZones.ToList();
+                PremiumEnabled = false;
+                FileServerZones = m_mmrModRepository.FileServerZones.Where(x => x.IsPremium == false).ToList();
 			}
 
-			FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
+			var fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
 
 			if (!PremiumEnabled)
 			{
@@ -163,16 +158,18 @@ namespace Nexus.Client.Settings
 					if (fszUser.IsPremium)
 					{
 						EnvironmentInfo.Settings.UserLocation = "default";
-						MemberCheck = true;
+						memberCheck = true;
 					}
 				}
 				else
-					EnvironmentInfo.Settings.UserLocation = "default";
-			}
+                {
+                    EnvironmentInfo.Settings.UserLocation = "default";
+                }
+            }
 
 			MaxConcurrentDownloads = m_mmrModRepository.MaxConcurrentDownloads;
 
-			return MemberCheck;
+			return memberCheck;
 		}
 
 		/// <summary>

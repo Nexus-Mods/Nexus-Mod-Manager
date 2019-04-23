@@ -13,6 +13,8 @@
     using Games;
     using Mods;
     using ModManagement;
+    using NexusModsApi;
+    using NexusModsApi.ApiObjects;
     using Util;
     using Util.Collections;
 
@@ -27,9 +29,9 @@
 		/// <param name="p_gmdGameMode">The current game mode.</param>
 		/// <param name="p_booOfflineMode">Whether the repository should be in a forced offline mode.</param>
 		/// <returns>An instance of the Nexus mod repository.</returns>
-		public static IModRepository GetRepository(IGameMode p_gmdGameMode)
+		public static IModRepository GetRepository(IGameMode p_gmdGameMode, ApiCallManager apiCallManager)
 		{
-			return new NexusModRepository(p_gmdGameMode);
+			return new NexusModsApiRepository(p_gmdGameMode.ModeId, apiCallManager);
 		}
 
 		private string m_strWebsite = null;
@@ -75,19 +77,9 @@
 		/// Gets the user membership status.
 		/// </summary>
 		/// <value>The user membership status.</value>
-		public string[] UserStatus
-		{
-			get
-			{
-				return m_strUserStatus;
-			}
-			private set
-			{
-				m_strUserStatus = value;
-			}
-		}
+		public UserDataContract UserStatus => null;
 
-		/// <summary>
+        /// <summary>
 		/// Gets whether the repository supports unauthenticated downloads.
 		/// </summary>
 		/// <value>Whether the repository supports unauthenticated downloads.</value>
@@ -189,29 +181,21 @@
 
 		protected void SetFileServerZones()
 		{
-			FileServerZones = new List<FileServerZone>();
-			FileServerZones.Add(new FileServerZone());
-            //FileServerZones.Add(new FileServerZone("us", "U.S.A.", 2, global::Nexus.Client.Properties.Resources.us, false));
-            FileServerZones.Add(new FileServerZone("na.ca", "N.A. - North America Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-   //         FileServerZones.Add(new FileServerZone("us.p2", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-			//FileServerZones.Add(new FileServerZone("us.p1", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-			FileServerZones.Add(new FileServerZone("eu.p1", "E.U. - UK Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
-            FileServerZones.Add(new FileServerZone("eu.fr", "E.U. - Europe Premium", 2, global::Nexus.Client.Properties.Resources.europeanunion, true));
-            //FileServerZones.Add(new FileServerZone("eu", "European Union", 1, global::Nexus.Client.Properties.Resources.europeanunion, false));
+            FileServerZones = new List<FileServerZone>
+            {
+                new FileServerZone(),
+                new FileServerZone("na.ca", "N.A. - North America Premium", 2, Properties.Resources.us, true),
+                new FileServerZone("eu.p1", "E.U. - UK Premium", 1, Properties.Resources.europeanunion, true),
+                new FileServerZone("eu.fr", "E.U. - Europe Premium", 2, Properties.Resources.europeanunion, true)
+            };
 
-            RepositoryFileServerZones = new List<FileServerZone>();
-			RepositoryFileServerZones.Add(new FileServerZone());
-			//RepositoryFileServerZones.Add(new FileServerZone("en", "England", 1, global::Nexus.Client.Properties.Resources.en, false));
-			//RepositoryFileServerZones.Add(new FileServerZone("us.w", "US West Coast", 2, global::Nexus.Client.Properties.Resources.us, false));
-			//RepositoryFileServerZones.Add(new FileServerZone("us.e", "US East Coast", 2, global::Nexus.Client.Properties.Resources.us, false));
-			//RepositoryFileServerZones.Add(new FileServerZone("us.c", "US Central", 2, global::Nexus.Client.Properties.Resources.us, false));
-			//RepositoryFileServerZones.Add(new FileServerZone("nl", "Netherlands", 1, global::Nexus.Client.Properties.Resources.nl, false));
-			//RepositoryFileServerZones.Add(new FileServerZone("cz", "Czech Republic", 1, global::Nexus.Client.Properties.Resources.cz, false));
-			//RepositoryFileServerZones.Add(new FileServerZone("us.p2", "U.S. - Dallas Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-			//RepositoryFileServerZones.Add(new FileServerZone("us.p1", "U.S. - Washington Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-            RepositoryFileServerZones.Add(new FileServerZone("na.ca", "N.A. - North America Premium", 2, global::Nexus.Client.Properties.Resources.us, true));
-            RepositoryFileServerZones.Add(new FileServerZone("eu.p1", "E.U. - UK Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
-            RepositoryFileServerZones.Add(new FileServerZone("eu.fr", "E.U. - Europe Premium", 1, global::Nexus.Client.Properties.Resources.europeanunion, true));
+            RepositoryFileServerZones = new List<FileServerZone>
+            {
+                new FileServerZone(),
+                new FileServerZone("na.ca", "N.A. - North America Premium", 2, Properties.Resources.us, true),
+                new FileServerZone("eu.p1", "E.U. - UK Premium", 1, Properties.Resources.europeanunion, true),
+                new FileServerZone("eu.fr", "E.U. - Europe Premium", 1, Properties.Resources.europeanunion, true)
+            };
         }
 
 		/// <summary>
@@ -1502,6 +1486,11 @@
 		}
 
 		#endregion
+
+        public bool Authenticate(string apiKey)
+        {
+            throw new NotImplementedException();
+        }
 
 		public List<CategoriesInfo> GetCategories(int p_intGameId)
 		{

@@ -45,10 +45,7 @@
 			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient6 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
 			WeifenLuo.WinFormsUI.Docking.TabGradient tabGradient7 = new WeifenLuo.WinFormsUI.Docking.TabGradient();
 
-			this.caption = new System.Windows.Forms.TextBox();
-			this.content = new System.Windows.Forms.TextBox();
-			this.anchor = new System.Windows.Forms.Label();
-			this.showForm = new System.Windows.Forms.Button();
+			new System.Windows.Forms.TextBox();
 
 			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
 			this.spbLaunch = new System.Windows.Forms.ToolStripSplitButton();
@@ -56,27 +53,27 @@
 			this.spbProfiles = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbHelp = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbChangeMode = new System.Windows.Forms.ToolStripSplitButton();
-			this.spbTools = new System.Windows.Forms.ToolStripSplitButton();
+			this.toolStripSplitButtonTools = new System.Windows.Forms.ToolStripSplitButton();
 			this.spbFolders = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbSettings = new System.Windows.Forms.ToolStripButton();
 			this.tsbTips = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbUpdate = new System.Windows.Forms.ToolStripButton();
 			this.dockPanel1 = new WeifenLuo.WinFormsUI.Docking.DockPanel();
 			this.tssDownload = new System.Windows.Forms.StatusStrip();
-			this.tlbDownloads = new System.Windows.Forms.ToolStripLabel();
-			this.tpbDownloadSpeed = new UI.Controls.CustomizableToolStripProgressBar();
-			this.tsbGoPremium = new System.Windows.Forms.ToolStripButton();
-			this.tlbLoginMessage = new System.Windows.Forms.ToolStripLabel();
-			this.tsbOnlineStatus = new System.Windows.Forms.ToolStripButton();
-			this.tstFind = new System.Windows.Forms.ToolStripTextBox();
+			this.toolStripLabelDownloads = new System.Windows.Forms.ToolStripLabel();
+			this.toolStripProgressBarDownloadSpeed = new UI.Controls.CustomizableToolStripProgressBar();
+			this.toolStripButtonGoPremium = new System.Windows.Forms.ToolStripButton();
+			this.toolStripLabelLoginMessage = new System.Windows.Forms.ToolStripLabel();
+			this.toolStripButtonOnlineStatus = new System.Windows.Forms.ToolStripButton();
+			this.toolStripTextBoxFind = new System.Windows.Forms.ToolStripTextBox();
 			this.tlbModsCounter = new System.Windows.Forms.ToolStripLabel();
-			this.tlbPluginsCounter = new System.Windows.Forms.ToolStripLabel();
-			this.tlbActivePluginsCounter = new System.Windows.Forms.ToolStripLabel();
+			this.toolStripLabelPluginsCounter = new System.Windows.Forms.ToolStripLabel();
+			this.toolStripLabelActivePluginsCounter = new System.Windows.Forms.ToolStripLabel();
 			this.tlbModSeparator = new System.Windows.Forms.ToolStripSeparator();
-			this.tlbPluginSeparator = new System.Windows.Forms.ToolStripSeparator();
-			this.tlbBottomBarFeedbackCounter = new System.Windows.Forms.ToolStripLabel();
-			this.tlbBottomBarFeedback = new System.Windows.Forms.ToolStripLabel();
-			this.tsbLoader = new System.Windows.Forms.ToolStripButton();
+			this.toolStripSeparatorPluginSeparator = new System.Windows.Forms.ToolStripSeparator();
+			this.toolStripLabelBottomBarFeedbackCounter = new System.Windows.Forms.ToolStripLabel();
+			this.toolStripLabelBottomBarFeedback = new System.Windows.Forms.ToolStripLabel();
+			this.toolStripButtonLoader = new System.Windows.Forms.ToolStripButton();
 			this.tlbStatusFiller = new System.Windows.Forms.ToolStripStatusLabel();
 			this.toolStrip1.SuspendLayout();
 			this.tssDownload.SuspendLayout();
@@ -92,11 +89,11 @@
 			this.spbProfiles,
 			this.spbHelp,
 			this.spbChangeMode,
-			this.spbTools,
+			this.toolStripSplitButtonTools,
 			this.spbFolders,
 			this.tsbSettings,
 			this.tsbTips,
-			this.tstFind,
+			this.toolStripTextBoxFind,
 			this.spbSupportedTools,
 			this.tsbUpdate});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
@@ -145,15 +142,15 @@
 			this.spbChangeMode.Text = "Change Game Mode";
 			this.spbChangeMode.ButtonClick += new System.EventHandler(this.spbChangeMode_ButtonClick);
 			// 
-			// spbTools
+			// toolStripSplitButtonTools
 			// 
-			this.spbTools.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.spbTools.Image = global::Nexus.Client.Properties.Resources.preferences_system_4;
-			this.spbTools.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.spbTools.Name = "spbTools";
-			this.spbTools.Size = new System.Drawing.Size(48, 36);
-			this.spbTools.Text = "Tools";
-			this.spbTools.ButtonClick += new System.EventHandler(this.spbTools_ButtonClick);
+			this.toolStripSplitButtonTools.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.toolStripSplitButtonTools.Image = global::Nexus.Client.Properties.Resources.preferences_system_4;
+			this.toolStripSplitButtonTools.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.toolStripSplitButtonTools.Name = "toolStripSplitButtonTools";
+			this.toolStripSplitButtonTools.Size = new System.Drawing.Size(48, 36);
+			this.toolStripSplitButtonTools.Text = "Tools";
+			this.toolStripSplitButtonTools.ButtonClick += new System.EventHandler(this.spbTools_ButtonClick);
 			// 
 			// spbFolders
 			// 
@@ -266,73 +263,73 @@
 			this.tssDownload.AutoSize = false;
 			this.tssDownload.ShowItemToolTips = true;
 			this.tssDownload.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-			this.tsbOnlineStatus,
-			this.tlbDownloads,
-			this.tpbDownloadSpeed,
-			this.tsbGoPremium,
-			this.tlbLoginMessage,
+			this.toolStripButtonOnlineStatus,
+			this.toolStripLabelDownloads,
+			this.toolStripProgressBarDownloadSpeed,
+			this.toolStripButtonGoPremium,
+			this.toolStripLabelLoginMessage,
 			this.tlbStatusFiller,
-			this.tlbBottomBarFeedback,
-			this.tlbBottomBarFeedbackCounter,
-			this.tsbLoader,
+			this.toolStripLabelBottomBarFeedback,
+			this.toolStripLabelBottomBarFeedbackCounter,
+			this.toolStripButtonLoader,
 			this.tlbModSeparator,
-			this.tlbPluginsCounter,
-			this.tlbActivePluginsCounter,
-			this.tlbPluginSeparator,
+			this.toolStripLabelPluginsCounter,
+			this.toolStripLabelActivePluginsCounter,
+			this.toolStripSeparatorPluginSeparator,
 			this.tlbModsCounter});
 			this.tssDownload.Location = new System.Drawing.Point(0, 497);
 			this.tssDownload.Name = "tssDownload";
 			this.tssDownload.Size = new System.Drawing.Size(804, 36);
 			this.tssDownload.TabIndex = 4;
 			// 
-			// tlbDownloads
+			// toolStripLabelDownloads
 			// 
 
-			this.tlbDownloads.Name = "tlbDownloads";
-			this.tlbDownloads.Size = new System.Drawing.Size(0, 34);
+			this.toolStripLabelDownloads.Name = "toolStripLabelDownloads";
+			this.toolStripLabelDownloads.Size = new System.Drawing.Size(0, 34);
 			// 
-			// tstFind
+			// toolStripTextBoxFind
 			// 
-			this.tstFind.Visible = false;
-			this.tstFind.Name = "tstFind";
-			this.tstFind.Size = new System.Drawing.Size(100, 20);
-			this.tstFind.KeyUp += new System.Windows.Forms.KeyEventHandler(this.tstFind_KeyUp);
-			this.tstFind.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+			this.toolStripTextBoxFind.Visible = false;
+			this.toolStripTextBoxFind.Name = "toolStripTextBoxFind";
+			this.toolStripTextBoxFind.Size = new System.Drawing.Size(100, 20);
+			this.toolStripTextBoxFind.KeyUp += new System.Windows.Forms.KeyEventHandler(this.tstFind_KeyUp);
+			this.toolStripTextBoxFind.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
 			// 
-			// tpbDownloadSpeed
+			// toolStripProgressBarDownloadSpeed
 			// 
-			this.tpbDownloadSpeed.AutoSize = false;
-			this.tpbDownloadSpeed.Maximum = 100;
-			this.tpbDownloadSpeed.Name = "tpbDownloadSpeed";
-			this.tpbDownloadSpeed.Size = new System.Drawing.Size(200, 34);
-			this.tpbDownloadSpeed.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-			this.tpbDownloadSpeed.Value = 0;
+			this.toolStripProgressBarDownloadSpeed.AutoSize = false;
+			this.toolStripProgressBarDownloadSpeed.Maximum = 100;
+			this.toolStripProgressBarDownloadSpeed.Name = "toolStripProgressBarDownloadSpeed";
+			this.toolStripProgressBarDownloadSpeed.Size = new System.Drawing.Size(200, 34);
+			this.toolStripProgressBarDownloadSpeed.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
+			this.toolStripProgressBarDownloadSpeed.Value = 0;
 			// 
-			// tsbGoPremium
+			// toolStripButtonGoPremium
 			// 
-			this.tsbGoPremium.AutoSize = false;
-			this.tsbGoPremium.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbGoPremium.Image = global::Nexus.Client.Properties.Resources.go_premium;
-			this.tsbGoPremium.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-			this.tsbGoPremium.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbGoPremium.Name = "tsbGoPremium";
-			this.tsbGoPremium.Size = new System.Drawing.Size(36, 34);
-			this.tsbGoPremium.Click += new System.EventHandler(this.tsbGoPremium_Click);
+			this.toolStripButtonGoPremium.AutoSize = false;
+			this.toolStripButtonGoPremium.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.toolStripButtonGoPremium.Image = global::Nexus.Client.Properties.Resources.go_premium;
+			this.toolStripButtonGoPremium.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+			this.toolStripButtonGoPremium.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.toolStripButtonGoPremium.Name = "toolStripButtonGoPremium";
+			this.toolStripButtonGoPremium.Size = new System.Drawing.Size(36, 34);
+			this.toolStripButtonGoPremium.Click += new System.EventHandler(this.tsbGoPremium_Click);
 			// 
-			// tsbOnlineStatus
+			// toolStripButtonOnlineStatus
 			// 
-			this.tsbOnlineStatus.AutoSize = false;
-			this.tsbOnlineStatus.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbOnlineStatus.Image = global::Nexus.Client.Properties.Resources.offline_icon;
-			this.tsbOnlineStatus.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-			this.tsbOnlineStatus.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbOnlineStatus.Name = "tsbOnlineStatus";
-			this.tsbOnlineStatus.Size = new System.Drawing.Size(36, 34);
+			this.toolStripButtonOnlineStatus.AutoSize = false;
+			this.toolStripButtonOnlineStatus.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.toolStripButtonOnlineStatus.Image = global::Nexus.Client.Properties.Resources.offline_icon;
+			this.toolStripButtonOnlineStatus.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+			this.toolStripButtonOnlineStatus.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.toolStripButtonOnlineStatus.Name = "toolStripButtonOnlineStatus";
+			this.toolStripButtonOnlineStatus.Size = new System.Drawing.Size(36, 34);
 			// 
-			// tlbLoginMessage
+			// toolStripLabelLoginMessage
 			// 
-			this.tlbLoginMessage.Name = "tlbLoginMessage";
-			this.tlbLoginMessage.Size = new System.Drawing.Size(0, 34);
+			this.toolStripLabelLoginMessage.Name = "toolStripLabelLoginMessage";
+			this.toolStripLabelLoginMessage.Size = new System.Drawing.Size(0, 34);
 			// 
 			// tlbStatusFiller
 			// 			
@@ -346,39 +343,39 @@
 			this.tlbModsCounter.Text = " | Total mods / Active mods ";
 			this.tlbModsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			// 
-			// tlbPluginsCounter
+			// toolStripLabelPluginsCounter
 			// 
-			this.tlbPluginsCounter.Name = "tlbPluginsCounter";
-			this.tlbPluginsCounter.Text = " | Total plugins / Active plugins ";
-			this.tlbPluginsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			this.toolStripLabelPluginsCounter.Name = "toolStripLabelPluginsCounter";
+			this.toolStripLabelPluginsCounter.Text = " | Total plugins / Active plugins ";
+			this.toolStripLabelPluginsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			// 
-			// tlbActivePluginsCounter
+			// toolStripLabelActivePluginsCounter
 			// 
-			this.tlbActivePluginsCounter.Name = "tlbActivePluginsCounter";
-			this.tlbActivePluginsCounter.Text = "";
-			this.tlbActivePluginsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			this.toolStripLabelActivePluginsCounter.Name = "toolStripLabelActivePluginsCounter";
+			this.toolStripLabelActivePluginsCounter.Text = "";
+			this.toolStripLabelActivePluginsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			// 
-			// tlbBottomBarFeedback
+			// toolStripLabelBottomBarFeedback
 			// 
-			this.tlbBottomBarFeedback.Name = "tlbBottomBarFeedback";
-			this.tlbBottomBarFeedback.Text = "";
-			this.tlbBottomBarFeedback.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			this.toolStripLabelBottomBarFeedback.Name = "toolStripLabelBottomBarFeedback";
+			this.toolStripLabelBottomBarFeedback.Text = "";
+			this.toolStripLabelBottomBarFeedback.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			//
-			// tlbBottomBarFeedbackCounter
+			// toolStripLabelBottomBarFeedbackCounter
 			//
-			this.tlbBottomBarFeedbackCounter.Name = "BottomBarFeedbackCounter";
-			this.tlbBottomBarFeedbackCounter.Text = "";
-			this.tlbBottomBarFeedbackCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			this.toolStripLabelBottomBarFeedbackCounter.Name = "BottomBarFeedbackCounter";
+			this.toolStripLabelBottomBarFeedbackCounter.Text = "";
+			this.toolStripLabelBottomBarFeedbackCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
 			// 
-			// tsbLoader
+			// toolStripButtonLoader
 			// 
-			this.tsbLoader.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbLoader.Image = global::Nexus.Client.Properties.Resources.round_loading;
-			this.tsbLoader.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbLoader.Name = "tsbLoader";
-			this.tsbLoader.Size = new System.Drawing.Size(16, 16);
-			this.tsbLoader.Text = "Settings";
-			this.tsbLoader.Visible = false;
+			this.toolStripButtonLoader.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.toolStripButtonLoader.Image = global::Nexus.Client.Properties.Resources.round_loading;
+			this.toolStripButtonLoader.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.toolStripButtonLoader.Name = "toolStripButtonLoader";
+			this.toolStripButtonLoader.Size = new System.Drawing.Size(16, 16);
+			this.toolStripButtonLoader.Text = "Settings";
+			this.toolStripButtonLoader.Visible = false;
 			// 
 			// MainForm
 			// 
@@ -407,26 +404,26 @@
 		private System.Windows.Forms.ToolStripButton tsbSettings;
 		public System.Windows.Forms.ToolStripSplitButton tsbTips;
 		private System.Windows.Forms.ToolStripSplitButton spbChangeMode;
-		private System.Windows.Forms.ToolStripSplitButton spbTools;
+		private System.Windows.Forms.ToolStripSplitButton toolStripSplitButtonTools;
 		private System.Windows.Forms.ToolStripSplitButton spbFolders;
 		private System.Windows.Forms.ToolStripButton tsbUpdate;
 		private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanel1;
 		private System.Windows.Forms.ToolStripSplitButton spbHelp;
 		private System.Windows.Forms.StatusStrip tssDownload;
-		private UI.Controls.CustomizableToolStripProgressBar tpbDownloadSpeed;
-		private System.Windows.Forms.ToolStripLabel tlbDownloads;
-		private System.Windows.Forms.ToolStripLabel tlbLoginMessage;
-		private System.Windows.Forms.ToolStripButton tsbGoPremium;
-		private System.Windows.Forms.ToolStripButton tsbOnlineStatus;
+		private UI.Controls.CustomizableToolStripProgressBar toolStripProgressBarDownloadSpeed;
+		private System.Windows.Forms.ToolStripLabel toolStripLabelDownloads;
+		private System.Windows.Forms.ToolStripLabel toolStripLabelLoginMessage;
+		private System.Windows.Forms.ToolStripButton toolStripButtonGoPremium;
+		private System.Windows.Forms.ToolStripButton toolStripButtonOnlineStatus;
 		private System.Windows.Forms.ToolStripLabel tlbModsCounter;
-		private System.Windows.Forms.ToolStripLabel tlbPluginsCounter;
-		private System.Windows.Forms.ToolStripLabel tlbActivePluginsCounter;
-		private System.Windows.Forms.ToolStripSeparator tlbPluginSeparator;
+		private System.Windows.Forms.ToolStripLabel toolStripLabelPluginsCounter;
+		private System.Windows.Forms.ToolStripLabel toolStripLabelActivePluginsCounter;
+		private System.Windows.Forms.ToolStripSeparator toolStripSeparatorPluginSeparator;
 		private System.Windows.Forms.ToolStripSeparator tlbModSeparator;
-		private System.Windows.Forms.ToolStripLabel tlbBottomBarFeedback;
-		private System.Windows.Forms.ToolStripLabel tlbBottomBarFeedbackCounter;
-		private System.Windows.Forms.ToolStripButton tsbLoader;
+		private System.Windows.Forms.ToolStripLabel toolStripLabelBottomBarFeedback;
+		private System.Windows.Forms.ToolStripLabel toolStripLabelBottomBarFeedbackCounter;
+		private System.Windows.Forms.ToolStripButton toolStripButtonLoader;
 		private System.Windows.Forms.ToolStripStatusLabel tlbStatusFiller;
-		private System.Windows.Forms.ToolStripTextBox tstFind;
+		private System.Windows.Forms.ToolStripTextBox toolStripTextBoxFind;
 	}
 }

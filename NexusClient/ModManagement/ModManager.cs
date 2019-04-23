@@ -93,7 +93,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// The loginform Task.
 		/// </summary>
-		public LoginFormTask LoginTask;
+		public AuthenticationFormTask LoginTask;
 
 		/// <summary>
 		/// Gets the application's envrionment info.
@@ -340,7 +340,7 @@ namespace Nexus.Client.ModManagement
 			ModActivationMonitor = p_mamMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
-			LoginTask = new LoginFormTask(this);
+			LoginTask = new AuthenticationFormTask(this);
 		}
 
 		#endregion

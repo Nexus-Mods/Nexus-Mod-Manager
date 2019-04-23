@@ -28,7 +28,9 @@ using Nexus.Client.Util;
 
 namespace Nexus.Client
 {
-	/// <summary>
+    using ModRepositories.NexusModsApi;
+
+    /// <summary>
 	/// Confirms whether a file system item should be made writable.
 	/// </summary>
 	/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
@@ -69,7 +71,7 @@ namespace Nexus.Client
 		/// Gets or sets the delegate that logs the user into the repository being used.
 		/// </summary>
 		/// <value>The delegate that logs the user into the repository being used.</value>
-		public Func<LoginFormVM, bool> LoginUser { get; set; }
+		public Func<AuthenticationFormViewModel, bool> LoginUser { get; set; }
 
 		/// <summary>
 		/// Gets or sets the delegate that displays a view.
@@ -377,7 +379,7 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Initializing Mod Repository...");
 			Trace.Indent();
-			IModRepository mrpModRepository = NexusModRepository.GetRepository(gmdGameMode);
+			IModRepository mrpModRepository = NexusModRepository.GetRepository(gmdGameMode, ApiCallManager.Initialize(EnvironmentInfo));
 			Trace.Unindent();
 			StepOverallProgress();
             
@@ -727,27 +729,27 @@ namespace Nexus.Client
 			if (EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] == null)
 				EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] = new KeyedSettings<string>();
 
-			Dictionary<string, string> dicAuthTokens = new Dictionary<string, string>(EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id]);
-			bool booCredentialsExpired = false;
-			string strError = String.Empty;
+			var _credentialsExpired = false;
+			var _error = string.Empty;
 
 			try
 			{
-				booCredentialsExpired = !p_mrpModRepository.Login(dicAuthTokens);
+				_credentialsExpired = !p_mrpModRepository.Authenticate(EnvironmentInfo.Settings.ApiKey);
 			}
 			catch (RepositoryUnavailableException e)
 			{
-				strError = e.Message;
-				dicAuthTokens.Clear();
+				_error = e.Message;
 			}
 
-			if ((dicAuthTokens.Count == 0) || booCredentialsExpired)
+			if (string.IsNullOrEmpty(EnvironmentInfo.Settings.ApiKey) || _credentialsExpired)
 			{
-				string strMessage = String.Format("You must log into the {0} website.", p_mrpModRepository.Name);
-				string strCancelWarning = String.Format("If you do not login {0} will close.", EnvironmentInfo.Settings.ModManagerName);
-				strError = booCredentialsExpired ? "You need to login using your Nexus username and password." : strError;
-				LoginFormVM vmlLoginVM = new LoginFormVM(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, strMessage, strError, strCancelWarning);
-				return LoginUser(vmlLoginVM);
+				var strMessage = $"You must log into the {p_mrpModRepository.Name} website.";
+				var strCancelWarning = $"If you do not login {EnvironmentInfo.Settings.ModManagerName} will close.";
+
+                _error = _credentialsExpired ? "You need to login using your Nexus username and password." : _error;
+				var vmlAuthenticationViewModel = new AuthenticationFormViewModel(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, strMessage, _error, strCancelWarning);
+
+                return LoginUser(vmlAuthenticationViewModel);
 			}
 			return true;
 		}

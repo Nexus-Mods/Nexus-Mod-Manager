@@ -78,7 +78,7 @@
     </Compile>
     <Compile Include="GameModeSelector.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
-    <Compile Include="LoginFormTask.cs" />
+    <Compile Include="AuthenticationFormTask.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -244,8 +244,8 @@
       <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="LoginForm.resx">
-      <DependentUpon>LoginForm.cs</DependentUpon>
+    <EmbeddedResource Include="AuthenticationForm.resx">
+      <DependentUpon>AuthenticationForm.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="MainForm.resx">
@@ -577,13 +577,13 @@
     <Compile Include="UI\Controls\GameModeListViewItemBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="LoginForm.cs">
+    <Compile Include="AuthenticationForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="LoginForm.Designer.cs">
-      <DependentUpon>LoginForm.cs</DependentUpon>
+    <Compile Include="AuthenticationForm.Designer.cs">
+      <DependentUpon>AuthenticationForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="LoginFormVM.cs" />
+    <Compile Include="AuthenticationFormViewModel.cs" />
     <Compile Include="MessagerServer.cs" />
     <Compile Include="ModManagement\AddModTask.cs" />
     <Compile Include="ModManagement\AutoTagger.cs" />

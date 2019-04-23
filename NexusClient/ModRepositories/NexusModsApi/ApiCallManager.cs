@@ -36,7 +36,7 @@
         /// <param name="environmentInfo">Environment info to be used by the <see cref="ApiCallManager"/>.</param>
         /// <returns>The ApiCallManager, unless it has already been created before.</returns>
         /// <remarks>Throws <see cref="InvalidOperationException"/> if an instance was already created.</remarks>
-        public ApiCallManager Initialize(IEnvironmentInfo environmentInfo)
+        public static ApiCallManager Initialize(IEnvironmentInfo environmentInfo)
         {
             if (_instance != null)
             {
@@ -61,9 +61,14 @@
 
         #endregion
 
-        private IRestResponse ExecuteRequest(IRestRequest request)
+        private IRestResponse ExecuteRequest(IRestRequest request, string apiKey = "")
         {
-            request.AddHeader("apikey", _environmentInfo.Settings.ApiKey);
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                apiKey = _environmentInfo.Settings.ApiKey;
+            }
+
+            request.AddHeader("apikey", apiKey);
             request.AddHeader("User-Agent", UserAgent);
 
             var result = _restClient.Execute(request);
@@ -160,15 +165,18 @@
         /// Validate the current API key against Nexus Mods.
         /// </summary>
         /// <returns>A <see cref="UserDataContract"/> if the key is valid, otherwise null.</returns>
-        public UserDataContract ValidateUser()
+        public UserDataContract ValidateUser(string apiKey)
         {
             var request = new RestRequest("v1/users/validate.json", Method.GET);
 
-            var result = ExecuteRequest(request);
+            var result = ExecuteRequest(request, apiKey);
 
             if (!result.IsSuccessful)
             {
-                Trace.TraceInformation($"API key validation failed, status: {result.StatusCode} : {result.StatusDescription}");
+                Trace.TraceInformation($"API key \"{apiKey}\" validation failed, status: {result.StatusCode} : {result.StatusDescription}");
+                _environmentInfo.Settings.ApiKey = string.Empty;
+                _environmentInfo.Settings.Save();
+
                 return null;
             }
 

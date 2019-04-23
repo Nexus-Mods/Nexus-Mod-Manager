@@ -31,7 +31,9 @@ using Nexus.UI.Controls;
 
 namespace Nexus.Client
 {
-	/// <summary>
+    using ModRepositories.NexusModsApi.ApiObjects;
+
+    /// <summary>
 	/// This class encapsulates the data and the operations presented by UI
 	/// elements that display the main form.
 	/// </summary>
@@ -50,54 +52,19 @@ namespace Nexus.Client
 			#endregion
 
 			#region Properties
-			public bool IsSilent
-			{
-				get
-				{
-					return _booisSilent;
-				}
-			}
+			public bool IsSilent => _booisSilent;
 
-			public IModProfile Profile
-			{
-				get
-				{
-					return _impCurrentProfile;
-				}
-			}
+            public IModProfile Profile => _impCurrentProfile;
 
-			public List<IVirtualModLink> VirtualLinks
-			{
-				get
-				{
-					return _lstVirtualLinks;
-				}
-			}
+            public List<IVirtualModLink> VirtualLinks => _lstVirtualLinks;
 
-			public List<IVirtualModInfo> MissingMods
-			{
-				get
-				{
-					return _lstMissingMods;
-				}
-			}
+            public List<IVirtualModInfo> MissingMods => _lstMissingMods;
 
-			public List<string> ScriptedMismatchList
-			{
-				get
-				{
-					return _lstScriptedMismatch;
-				}
-			}
+            public List<string> ScriptedMismatchList => _lstScriptedMismatch;
 
-			public Dictionary<string, string> ProfileDictionary
-			{
-				get
-				{
-					return _dicProfile;
-				}
-			}
-			#endregion
+            public Dictionary<string, string> ProfileDictionary => _dicProfile;
+
+            #endregion
 
 			public ProfileSwitchToken(bool p_booIsSilent, IModProfile p_impProfile, List<IVirtualModLink> p_lstVirtualLinks, List<string> p_lstScriptedMismatch, List<IVirtualModInfo> p_lstMissingMods, Dictionary<string, string> p_dicProfile)
 			{
@@ -255,15 +222,9 @@ namespace Nexus.Client
 		/// Gets the virtual mod activator.
 		/// </summary>
 		/// <value>The virtual mod activator.</value>
-		public IVirtualModActivator VirtualModActivator
-		{
-			get
-			{
-				return ModManager.VirtualModActivator;
-			}
-		}
+		public IVirtualModActivator VirtualModActivator => ModManager.VirtualModActivator;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the backup manager.
 		/// </summary>
 		/// <value>The backup manager.</value>
@@ -357,15 +318,9 @@ namespace Nexus.Client
 		/// Gets the name of the currently managed game mode.
 		/// </summary>
 		/// <value>The name of the currently managed game mode.</value>
-		public string CurrentGameModeName
-		{
-			get
-			{
-				return GameMode.Name;
-			}
-		}
+		public string CurrentGameModeName => GameMode.Name;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the help information.
 		/// </summary>
 		/// <value>The help information.</value>
@@ -375,73 +330,40 @@ namespace Nexus.Client
 		/// Gets the title of the form.
 		/// </summary>
 		/// <value>The title of the form.</value>
-		public string Title
-		{
-			get
-			{
-				return String.Format("{0} ({1}) - {2}", EnvironmentInfo.Settings.ModManagerName, EnvironmentInfo.ApplicationVersion, GameMode.Name);
-			}
-		}
+		public string Title => String.Format("{0} ({1}) - {2}", EnvironmentInfo.Settings.ModManagerName, EnvironmentInfo.ApplicationVersion, GameMode.Name);
 
-		/// <summary>
+        /// <summary>
 		/// Gets the current game mode theme.
 		/// </summary>
 		/// <value>The current game mode theme.</value>
-		public Theme ModeTheme
-		{
-			get
-			{
-				return GameMode.ModeTheme;
-			}
-		}
+		public Theme ModeTheme => GameMode.ModeTheme;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the game launcher for the currently manage game.
 		/// </summary>
 		/// <value>The game launcher for the currently manage game.</value>
-		public IGameLauncher GameLauncher
-		{
-			get
-			{
-				return GameMode.GameLauncher;
-			}
-		}
+		public IGameLauncher GameLauncher => GameMode.GameLauncher;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the tool launcher for the currently manage game.
 		/// </summary>
 		/// <value>The tool launcher for the currently manage game.</value>
-		public IToolLauncher GameToolLauncher
-		{
-			get
-			{
-				return GameMode.GameToolLauncher;
-			}
-		}
+		public IToolLauncher GameToolLauncher => GameMode.GameToolLauncher;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the SupportedTools launcher for the currently manage game.
 		/// </summary>
 		/// <value>The SupportedTools launcher for the currently manage game.</value>
-		public ISupportedToolsLauncher SupportedToolsLauncher
-		{
-			get
-			{
-				return GameMode.SupportedToolsLauncher;
-			}
-		}
+		public ISupportedToolsLauncher SupportedToolsLauncher => GameMode.SupportedToolsLauncher;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the id of the selected game launch command.
 		/// </summary>
 		/// <value>The id of the selected game launch command.</value>
 		public string SelectedGameLaunchCommandId
 		{
-			get
-			{
-				return EnvironmentInfo.Settings.SelectedLaunchCommands[GameMode.ModeId];
-			}
-			set
+			get => EnvironmentInfo.Settings.SelectedLaunchCommands[GameMode.ModeId];
+            set
 			{
 				EnvironmentInfo.Settings.SelectedLaunchCommands[GameMode.ModeId] = value;
 				EnvironmentInfo.Settings.Save();
@@ -458,129 +380,63 @@ namespace Nexus.Client
 		/// Gets whether the game mode uses plugins.
 		/// </summary>
 		/// <value>Whether the game mode uses plugins.</value>
-		public bool UsesPlugins
-		{
-			get
-			{
-				return GameMode.UsesPlugins;
-			}
-		}
+		public bool UsesPlugins => GameMode.UsesPlugins;
 
-		/// <summary>
+        /// <summary>
 		/// Gets whether the manager is in offline mode.
 		/// </summary>
 		/// <value>Whether the manager is in offline mode.</value>
-		public bool OfflineMode
-		{
-			get
-			{
-				return ModRepository.IsOffline;
-			}
-		}
+		public bool OfflineMode => ModRepository.IsOffline;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the Game root folder.
 		/// </summary>
 		/// <value>The path to the game folder.</value>
-		public string GamePath
-		{
-			get
-			{
-				return GameMode.GameModeEnvironmentInfo.InstallationPath;
-			}
-		}
+		public string GamePath => GameMode.GameModeEnvironmentInfo.InstallationPath;
 
-		/// <summary>
+        /// <summary>
 		/// Gets NMM's mods folder.
 		/// </summary>
 		/// <value>The path to NMM's mods folder.</value>
-		public string ModsPath
-		{
-			get
-			{
-				return GameMode.GameModeEnvironmentInfo.ModDirectory;
-			}
-		}
+		public string ModsPath => GameMode.GameModeEnvironmentInfo.ModDirectory;
 
-		/// <summary>
+        /// <summary>
 		/// Gets NMM's Install Info folder.
 		/// </summary>
 		/// <value>The path to NMM's Install Info folder.</value>
-		public string InstallInfoPath
-		{
-			get
-			{
-				return GameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
-			}
-		}
+		public string InstallInfoPath => GameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the user membership status.
 		/// </summary>
 		/// <value>Gets the user membership status.</value>
-		public string[] UserStatus
-		{
-			get
-			{
-				return ModRepository.UserStatus;
-			}
-		}
+		public UserDataContract UserStatus => ModRepository.UserStatus;
 
-		/// <summary>
+        /// <summary>
 		/// Gets whether the manager is currently installing/uninstalling a mod.
 		/// </summary>
 		/// <value>Whether  the manager is currently installing/uninstalling a mod.</value>
-		public bool IsInstalling
-		{
-			get
-			{
-				return ModActivationMonitor.IsInstalling;
-			}
-		}
+		public bool IsInstalling => ModActivationMonitor.IsInstalling;
 
-		/// <summary>
+        /// <summary>
 		/// Whether the plugin sorter is properly initialized.
 		/// </summary>
-		public bool PluginSorterInitialized
-		{
-			get
-			{
-				return GameMode.PluginSorterInitialized;
-			}
-		}
+		public bool PluginSorterInitialized => GameMode.PluginSorterInitialized;
 
-		/// <summary>
+        /// <summary>
 		/// Whether the current game mode support the automatic plugin sorting.
 		/// </summary>
-		public bool SupportsPluginAutoSorting
-		{
-			get
-			{
-				return GameMode.SupportsPluginAutoSorting;
-			}
-		}
+		public bool SupportsPluginAutoSorting => GameMode.SupportsPluginAutoSorting;
 
-		public bool IsSwitching
+        public bool IsSwitching
 		{
-			get
-			{
-				return m_booIsSwitching;
-			}
-			set
-			{
-				m_booIsSwitching = value;
-			}
-		}
-
-        public bool UsesModLoadOrder
-        {
-            get
-            {
-                return GameMode.UsesModLoadOrder;
-            }
+			get => m_booIsSwitching;
+            set => m_booIsSwitching = value;
         }
 
-		#endregion
+        public bool UsesModLoadOrder => GameMode.UsesModLoadOrder;
+
+        #endregion
 
 		#region Settings
 
@@ -633,48 +489,57 @@ namespace Nexus.Client
 			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository);
 			ModActivationMonitor = p_mamMonitor;
 			ModActivationMonitorVM = new ModActivationMonitorVM(p_mamMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager);
-			if (GameMode.UsesPlugins)
-				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor, ModManager.VirtualModActivator);
-			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
-			GeneralSettingsGroup gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
+            if (GameMode.UsesPlugins)
+            {
+                PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor, ModManager.VirtualModActivator);
+            }
+
+            HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
+
+			var gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
 		    var gsgAssociationSettings = new OsSettingsGroup(p_eifEnvironmentInfo);
 
-		    foreach (IModFormat mftFormat in  p_mmgModManager.ModFormats)
+		    foreach (var mftFormat in  p_mmgModManager.ModFormats)
             {
                 gsgAssociationSettings.AddFileAssociation(mftFormat.Extension, mftFormat.Name);
             }
 
-            ModOptionsSettingsGroup mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
+            var mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
 
-		    List<ISettingsGroupView> lstSettingGroups = new List<ISettingsGroupView>
+		    var lstSettingGroups = new List<ISettingsGroupView>
 		    {
 		        new GeneralSettingsPage(gsgGeneralSettings),
                 new OsSettingsPage(gsgAssociationSettings),
 		        new ModOptionsPage(mosModOptions)
 		    };
-		    DownloadSettingsGroup dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
+
+            var dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
 			lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
 			
 			if (p_gmdGameMode.SettingsGroupViews != null)
-				lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
+            {
+                lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
+            }
 
-			SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
+            SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 
-			UpdateCommand = new Command("Update", String.Format("Update {0}", EnvironmentInfo.Settings.ModManagerName), UpdateProgramme);
+			UpdateCommand = new Command("Update", $"Update {EnvironmentInfo.Settings.ModManagerName}", UpdateProgramme);
 			LogoutCommand = new Command("Logout", "Logout", Logout);
 
-			List<Command> lstChangeGameModeCommands = new List<Command>();
-			List<IGameModeDescriptor> lstSortedModes = new List<IGameModeDescriptor>(p_gmrInstalledGames.RegisteredGameModes);
+			var lstChangeGameModeCommands = new List<Command>();
+			var lstSortedModes = new List<IGameModeDescriptor>(p_gmrInstalledGames.RegisteredGameModes);
 			lstSortedModes.Sort((x, y) => x.Name.CompareTo(y.Name));
-			foreach (IGameModeDescriptor gmdInstalledGame in lstSortedModes)
+
+            foreach (var gmdInstalledGame in lstSortedModes)
 			{
-				string strId = gmdInstalledGame.ModeId;
-				string strName = gmdInstalledGame.Name;
-				string strDescription = String.Format("Change game to {0}", gmdInstalledGame.Name);
+				var strId = gmdInstalledGame.ModeId;
+				var strName = gmdInstalledGame.Name;
+				var strDescription = $"Change game to {gmdInstalledGame.Name}";
 				Image imgCommandIcon = new Icon(gmdInstalledGame.ModeTheme.Icon, 32, 32).ToBitmap();
 				lstChangeGameModeCommands.Add(new Command(strId, strName, strDescription, imgCommandIcon, () => ChangeGameMode(strId), true));
 			}
+
 			lstChangeGameModeCommands.Add(new Command("Change Default Game...", "Change Default Game", () => ChangeGameMode(CHANGE_DEFAULT_GAME_MODE)));
 			lstChangeGameModeCommands.Add(new Command("Rescan Installed Games...", "Rescan Installed Games", () => ChangeGameMode(RESCAN_INSTALLED_GAMES)));
 			ChangeGameModeCommands = lstChangeGameModeCommands;
@@ -1321,15 +1186,20 @@ namespace Nexus.Client
 		private void Logout()
 		{
 			lock (ModRepository)
-				if (ModRepository.IsOffline)
-					ModManager.Login();
-				else
-				{
-					ModRepository.Logout();
-					ModManager.Logout();
-					EnvironmentInfo.Settings.RepositoryAuthenticationTokens.Remove(ModRepository.Id);
-					EnvironmentInfo.Settings.Save();
-				}
-		}
+            {
+                if (ModRepository.IsOffline)
+                {
+                    ModManager.Login();
+                }
+                else
+                {
+                    ModRepository.Logout();
+                    ModManager.Logout();
+
+                    EnvironmentInfo.Settings.ApiKey = string.Empty;
+                    EnvironmentInfo.Settings.Save();
+                }
+            }
+        }
 	}
 }

@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using ApiObjects;
     using ModManagement;
     using Mods;
     using Util;
@@ -15,6 +16,8 @@
 
         #endregion
 
+        private UserDataContract _userStatus;
+
         #region Properties
 
         /// <inheritdoc cref="IModRepository"/>
@@ -24,19 +27,34 @@
         public string Name { get; }
 
         /// <inheritdoc cref="IModRepository"/>
-        public string[] UserStatus { get; }
+        public UserDataContract UserStatus
+        {
+            get => _userStatus;
+            private set
+            {
+                if (_userStatus != value)
+                {
+                    _userStatus = value;
+                    UserStatusUpdate?.Invoke(this, EventArgs.Empty);
+                }
+                
+            }
+        }
 
         /// <inheritdoc cref="IModRepository"/>
         public string UserAgent { get; }
 
         /// <inheritdoc cref="IModRepository"/>
-        public bool IsOffline { get; }
+        public bool IsOffline => UserStatus == null;
 
         /// <inheritdoc cref="IModRepository"/>
         public bool SupportsUnauthenticatedDownload { get; }
 
-        /// <inheritdoc cref="IModRepository"/>
-        public List<FileServerZone> FileServerZones { get; }
+        /// <summary>
+        /// Gets the repository's file server zones.
+        /// </summary>
+        /// <value>the repository's file server zones.</value>
+        public List<FileServerZone> FileServerZones { get; private set; }
 
         /// <inheritdoc cref="IModRepository"/>
         public int AllowedConnections { get; }
@@ -50,6 +68,12 @@
         /// <inheritdoc cref="IModRepository"/>
         public int RemoteGameId { get; }
 
+        /// <summary>
+        /// Gets the repository's file server zones.
+        /// </summary>
+        /// <value>the repository's file server zones.</value>
+        private List<FileServerZone> RepositoryFileServerZones { get; set; }
+
         #endregion
 
         private readonly ApiCallManager _apiCallManager;
@@ -59,26 +83,20 @@
         {
             _currentGame = currentGame;
             _apiCallManager = apiCallManager;
+            SetFileServerZones();
         }
 
-        /// <inheritdoc cref="IModRepository"/>
-        public bool Login(string p_strUsername, string p_strPassword, out Dictionary<string, string> p_dicTokens)
+        public bool Authenticate(string apiKey)
         {
-            // TODO: Remove unecessary parameters & functions from IModRepository.
-            throw new NotImplementedException();
-        }
-
-        /// <inheritdoc cref="IModRepository"/>
-        public bool Login(Dictionary<string, string> p_dicTokens)
-        {
-            // TODO: Remove unecessary parameters & functions from IModRepository.
-            throw new NotImplementedException();
+            UserStatus = _apiCallManager.ValidateUser(apiKey);
+            return UserStatus != null;
         }
 
         /// <inheritdoc cref="IModRepository"/>
         public void Logout()
         {
-            throw new NotImplementedException();
+            UserStatus = null;
+            UserStatusUpdateEvent();
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -168,6 +186,35 @@
         {
             throw new NotImplementedException();
         }
+
+        private void UserStatusUpdateEvent()
+        {
+            if (this.UserStatusUpdate != null)
+                this.UserStatusUpdate(this, new EventArgs());
+        }
+
+        #region Helpers
+
+        #endregion
+        protected void SetFileServerZones()
+        {
+            FileServerZones = new List<FileServerZone>
+            {
+                new FileServerZone(),
+                new FileServerZone("na.ca", "N.A. - North America Premium", 2, Properties.Resources.us, true),
+                new FileServerZone("eu.p1", "E.U. - UK Premium", 1, Properties.Resources.europeanunion, true),
+                new FileServerZone("eu.fr", "E.U. - Europe Premium", 2, Properties.Resources.europeanunion, true)
+            };
+
+            RepositoryFileServerZones = new List<FileServerZone>
+            {
+                new FileServerZone(),
+                new FileServerZone("na.ca", "N.A. - North America Premium", 2, Properties.Resources.us, true),
+                new FileServerZone("eu.p1", "E.U. - UK Premium", 1, Properties.Resources.europeanunion, true),
+                new FileServerZone("eu.fr", "E.U. - Europe Premium", 1, Properties.Resources.europeanunion, true)
+            };
+        }
+
 
         #region Deprecated
 

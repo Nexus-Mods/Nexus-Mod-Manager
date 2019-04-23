@@ -7,7 +7,9 @@ using Nexus.Client.ModRepositories.Nexus;
 
 namespace Nexus.Client.ModRepositories
 {
-	/// <summary>
+    using NexusModsApi.ApiObjects;
+
+    /// <summary>
 	/// Describes the methods and properties of a mod repository.
 	/// </summary>
 	/// <remarks>
@@ -35,11 +37,12 @@ namespace Nexus.Client.ModRepositories
 		/// <value>The name of the mod repository.</value>
 		string Name { get; }
 
-		/// <summary>
-		/// Gets the user membership status.
-		/// </summary>
-		/// <value>The user membership status.</value>
-		string[] UserStatus { get; }
+        /// <summary>
+        /// Gets the user membership status.
+        /// </summary>
+        /// <value>The user membership status.</value>
+
+        UserDataContract UserStatus { get; }
 
 		/// <summary>
 		/// Gets the User Agent used for the mod repository.
@@ -89,24 +92,12 @@ namespace Nexus.Client.ModRepositories
 
 		#region Account Management
 
-		/// <summary>
-		/// Logs the user into the mod repository.
-		/// </summary>
-		/// <param name="p_strUsername">The username of the account with which to login.</param>
-		/// <param name="p_strPassword">The password of the account with which to login.</param>
-		/// <param name="p_dicTokens">The returned tokens that can be used to login instead of the username/password
-		/// credentials.</param>
-		/// <returns><c>true</c> if the login was successful;
-		/// <c>fales</c> otherwise.</returns>
-		bool Login(string p_strUsername, string p_strPassword, out Dictionary<string,string> p_dicTokens);
-
-		/// <summary>
-		/// Logs the user into the mod repository.
-		/// </summary>
-		/// <param name="p_dicTokens">The authentication tokens with which to login.</param>
-		/// <returns><c>true</c> if the given tokens are valid;
-		/// <c>fales</c> otherwise.</returns>
-		bool Login(Dictionary<string,string> p_dicTokens);
+        /// <summary>
+        /// Verifies the given API key is valid.
+        /// </summary>
+        /// <param name="apiKey">API key to authenticate with.</param>
+        /// <returns>True if valid, otherwise false.</returns>
+        bool Authenticate(string apiKey);
 
 		/// <summary>
 		/// Logs the user out of the mod repository.
