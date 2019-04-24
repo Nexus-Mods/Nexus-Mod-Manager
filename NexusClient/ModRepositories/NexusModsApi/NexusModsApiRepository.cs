@@ -2,7 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
-    using ApiObjects;
+    using DataContracts;
     using ModManagement;
     using Mods;
     using Util;
@@ -41,26 +41,28 @@
             }
         }
 
+        /// <summary>
+        /// Game Domain E.g. 'skyrim'
+        /// </summary>
+        public string GameDomainName { get; }
+
         /// <inheritdoc cref="IModRepository"/>
-        public string UserAgent { get; }
+        public string UserAgent => ApiCallManager.UserAgent;
 
         /// <inheritdoc cref="IModRepository"/>
         public bool IsOffline => UserStatus == null;
 
         /// <inheritdoc cref="IModRepository"/>
-        public bool SupportsUnauthenticatedDownload { get; }
+        public bool SupportsUnauthenticatedDownload => false;
 
-        /// <summary>
-        /// Gets the repository's file server zones.
-        /// </summary>
-        /// <value>the repository's file server zones.</value>
+        /// <inheritdoc />
         public List<FileServerZone> FileServerZones { get; private set; }
 
         /// <inheritdoc cref="IModRepository"/>
-        public int AllowedConnections { get; }
+        public int AllowedConnections { get; private set; }
 
         /// <inheritdoc cref="IModRepository"/>
-        public int MaxConcurrentDownloads { get; }
+        public int MaxConcurrentDownloads { get; private set; }
 
         /// <inheritdoc cref="IModRepository"/>
         public string GameModeWebsite { get; }
@@ -77,11 +79,10 @@
         #endregion
 
         private readonly ApiCallManager _apiCallManager;
-        private readonly string _currentGame;
 
-        public NexusModsApiRepository(string currentGame, ApiCallManager apiCallManager)
+        public NexusModsApiRepository(string currentGameDomain, ApiCallManager apiCallManager)
         {
-            _currentGame = currentGame;
+            GameDomainName = currentGameDomain;
             _apiCallManager = apiCallManager;
             SetFileServerZones();
         }
@@ -89,7 +90,19 @@
         public bool Authenticate(string apiKey)
         {
             UserStatus = _apiCallManager.ValidateUser(apiKey);
-            return UserStatus != null;
+
+            if (UserStatus == null)
+            {
+                AllowedConnections = 1;
+                MaxConcurrentDownloads = 5;
+
+                return false;
+            }
+
+            AllowedConnections = UserStatus.IsPremium ? 4 : 1;
+            MaxConcurrentDownloads = UserStatus.IsPremium ? 10 : 5;
+
+            return true;
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -103,13 +116,15 @@
         public IModInfo GetModInfoForFile(string fileName)
         {
             var hash = Md5.CalculateMd5(fileName);
-            return _apiCallManager.SearchForModByMd5(_currentGame, hash)[0].Mod;
+
+            // TODO: Should probably handle cases with multiple hits.
+            return _apiCallManager.SearchForModByMd5(GameDomainName, hash)[0].Mod;
         }
 
         /// <inheritdoc cref="IModRepository"/>
         public IModInfo GetModInfo(string modId)
         {
-            return _apiCallManager.SearchForModById(_currentGame, modId);
+            return _apiCallManager.SearchForModById(GameDomainName, modId);
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -145,7 +160,7 @@
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public IList<IModFileInfo> GetModFileInfo(string p_strModId)
+        public IList<IModFileInfo> GetModFileInfo(string modId)
         {
             throw new NotImplementedException();
         }
@@ -189,8 +204,7 @@
 
         private void UserStatusUpdateEvent()
         {
-            if (this.UserStatusUpdate != null)
-                this.UserStatusUpdate(this, new EventArgs());
+            UserStatusUpdate?.Invoke(this, new EventArgs());
         }
 
         #region Helpers

@@ -1,37 +1,36 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Windows.Forms;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.DownloadMonitoring;
-using Nexus.Client.DownloadMonitoring.UI;
-using Nexus.Client.Commands;
-using Nexus.Client.Games;
-using Nexus.Client.Games.Tools;
-using Nexus.Client.ModActivationMonitoring;
-using Nexus.Client.ModActivationMonitoring.UI;
-using Nexus.Client.ModManagement;
-using Nexus.Client.ModManagement.UI;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.Mods;
-using Nexus.Client.Plugins;
-using Nexus.Client.PluginManagement;
-using Nexus.Client.PluginManagement.UI;
-using Nexus.Client.Settings;
-using Nexus.Client.Settings.UI;
-using Nexus.Client.UI;
-using Nexus.Client.Updating;
-using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
-using Nexus.Client.Commands.Generic;
-using Nexus.UI.Controls;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
-    using ModRepositories.NexusModsApi.ApiObjects;
+    using System;
+    using System.Collections.Generic;
+    using System.ComponentModel;
+    using System.Drawing;
+    using System.IO;
+    using System.Linq;
+    using System.Windows.Forms;
+    using ModRepositories.NexusModsApi.DataContracts;
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.DownloadMonitoring;
+    using Nexus.Client.DownloadMonitoring.UI;
+    using Nexus.Client.Commands;
+    using Nexus.Client.Games;
+    using Nexus.Client.Games.Tools;
+    using Nexus.Client.ModActivationMonitoring;
+    using Nexus.Client.ModActivationMonitoring.UI;
+    using Nexus.Client.ModManagement;
+    using Nexus.Client.ModManagement.UI;
+    using Nexus.Client.ModRepositories;
+    using Nexus.Client.Mods;
+    using Nexus.Client.Plugins;
+    using Nexus.Client.PluginManagement;
+    using Nexus.Client.PluginManagement.UI;
+    using Nexus.Client.Settings;
+    using Nexus.Client.Settings.UI;
+    using Nexus.Client.UI;
+    using Nexus.Client.Updating;
+    using Nexus.Client.Util;
+    using Nexus.Client.Util.Collections;
+    using Nexus.Client.Commands.Generic;
+    using Nexus.UI.Controls;
 
     /// <summary>
 	/// This class encapsulates the data and the operations presented by UI

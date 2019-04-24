@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Mods;
-using Nexus.Client.ModManagement;
-using Nexus.Client.ModRepositories.Nexus;
-
-namespace Nexus.Client.ModRepositories
+﻿namespace Nexus.Client.ModRepositories
 {
-    using NexusModsApi.ApiObjects;
+    using System;
+    using System.Collections.Generic;
+    using ModManagement;
+    using Mods;
+    using NexusModsApi.DataContracts;
 
     /// <summary>
 	/// Describes the methods and properties of a mod repository.
@@ -148,9 +145,9 @@ namespace Nexus.Client.ModRepositories
 		/// <summary>
 		/// Gets the list of files for the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod whose list of files is to be returned.</param>
+		/// <param name="modId">The id of the mod whose list of files is to be returned.</param>
 		/// <returns>The list of files for the specified mod.</returns>
-		IList<IModFileInfo> GetModFileInfo(string p_strModId);
+		IList<IModFileInfo> GetModFileInfo(string modId);
 
 		/// <summary>
 		/// Gets the URLs of the file parts for the specified download file of the specified mod.

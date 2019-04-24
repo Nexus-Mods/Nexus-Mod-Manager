@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi.ApiObjects
+﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts
 {
     using System;
     using System.Collections.Generic;

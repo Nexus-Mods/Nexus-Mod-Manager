@@ -14,7 +14,7 @@
     using Mods;
     using ModManagement;
     using NexusModsApi;
-    using NexusModsApi.ApiObjects;
+    using NexusModsApi.DataContracts;
     using Util;
     using Util.Collections;
 
@@ -36,7 +36,7 @@
 
 		private string m_strWebsite = null;
 		private string m_strEndpoint = null;
-		private int m_intRemoteGameId = 0;
+		private int m_intRemoteGameId;
 		private int m_intMaxConcurrentDownloads = 5;
 		private string[] m_strUserStatus = null;
 		private Dictionary<string, string> m_dicAuthenticationTokens = null;
@@ -1082,10 +1082,10 @@
 		/// <summary>
 		/// Gets the list of files for the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod whose list of files is to be returned.</param>
+		/// <param name="modId">The id of the mod whose list of files is to be returned.</param>
 		/// <returns>The list of files for the specified mod.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public IList<IModFileInfo> GetModFileInfo(string p_strModId)
+		public IList<IModFileInfo> GetModFileInfo(string modId)
 		{
 			if (IsOffline)
 				return null;
@@ -1095,7 +1095,7 @@
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory(15).CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					return nmrApi.GetModFiles(p_strModId, m_intRemoteGameId).ConvertAll(x => (IModFileInfo)x);
+					return nmrApi.GetModFiles(modId, m_intRemoteGameId).ConvertAll(x => (IModFileInfo)x);
 				}
 			}
 			catch (TimeoutException e)
