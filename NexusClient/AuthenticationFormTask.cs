@@ -62,6 +62,7 @@
 			Status = TaskStatus.Error;
 			_error = string.Empty;
 			_credentialsExpired = false;
+            
 			OverallMessage = "You are not logged in.";
 		}
 
@@ -151,7 +152,7 @@
 
 			try
             {
-                _credentialsExpired = !ModManager.ModRepository.Authenticate(ModManager.EnvironmentInfo.Settings.ApiKey);
+                _credentialsExpired = !ModManager.ModRepository.Authenticate();
             }
 			catch (RepositoryUnavailableException e)
 			{

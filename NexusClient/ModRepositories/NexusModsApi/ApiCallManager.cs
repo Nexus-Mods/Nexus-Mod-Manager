@@ -1,15 +1,8 @@
 ﻿namespace Nexus.Client.ModRepositories.NexusModsApi
 {
     using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using EndPoints.ColourSchemes;
-    using EndPoints.Games;
-    using EndPoints.ModFiles;
-    using EndPoints.Mods;
-    using EndPoints.User;
-    using RestSharp;
-    using SimpleJson;
+    using Pathoschild.FluentNexus;
+    using Pathoschild.FluentNexus.Endpoints;
     using Util;
 
     /// <summary>
@@ -22,23 +15,34 @@
     /// </remarks>
     public class ApiCallManager
     {
-        private const string BaseUrl = "https://api.nexusmods.com";
         private readonly IEnvironmentInfo _environmentInfo;
-        private readonly RestClient _restClient;
+        private NexusClient _nexusClient;
 
         private static ApiCallManager _instance;
 
         private ApiCallManager(IEnvironmentInfo environmentInfo)
         {
-            _restClient = new RestClient(BaseUrl);
             _environmentInfo = environmentInfo;
-            RateLimit = new RateLimit();
+            UpdateNexusClient();
+        }
 
-            ColourSchemes = new ColourSchemesEndPoint(this);
-            Games = new GamesEndPoint(this);
-            User = new UserEndPoint(this);
-            Mods = new ModsEndPoint(this);
-            ModFiles = new ModFilesEndPoint(this);
+        /// <summary>
+        /// Updates the NexusClient object for making API calls.
+        /// </summary>
+        public void UpdateNexusClient()
+        {
+            _nexusClient = new NexusClient(_environmentInfo.Settings.ApiKey);
+            _nexusClient.SetUserAgent(UserAgent);
+        }
+
+        /// <summary>
+        /// Clears the API key from the settings.
+        /// </summary>
+        public void ClearApiKey()
+        {
+            _environmentInfo.Settings.ApiKey = string.Empty;
+            _environmentInfo.Settings.Save();
+            UpdateNexusClient();
         }
 
         /// <summary>
@@ -59,12 +63,7 @@
         }
 
         #region Properties
-
-        /// <summary>
-        /// Current state of the API rate limitation.
-        /// </summary>
-        public RateLimit RateLimit { get; }
-
+        
         /// <summary>
         /// Gets the user agent string to send to the Nexus Mods API.
         /// </summary>
@@ -75,56 +74,30 @@
         /// <summary>
         /// End point for getting ColourSchemes info from Nexus.
         /// </summary>
-        public ColourSchemesEndPoint ColourSchemes { get; }
+        public NexusColorSchemesClient ColourSchemes => _nexusClient.ColorSchemes;
 
         /// <summary>
         /// End point for getting Games info from Nexus.
         /// </summary>
-        public GamesEndPoint Games { get; }
+        public NexusGamesClient Games => _nexusClient.Games;
 
         /// <summary>
         /// End point for getting User info from Nexus.
         /// </summary>
-        public UserEndPoint User { get; }
+        public NexusUsersClient Users => _nexusClient.Users;
 
         /// <summary>
         /// End point for getting Mods info from Nexus.
         /// </summary>
-        public ModsEndPoint Mods { get; }
+        public NexusModsClient Mods => _nexusClient.Mods;
 
         /// <summary>
         /// End point for getting Mods info from Nexus.
         /// </summary>
-        public ModFilesEndPoint ModFiles { get; }
+        public NexusModFilesClient ModFiles => _nexusClient.ModFiles;
 
         #endregion
 
         #endregion
-
-        internal IRestResponse ExecuteRequest(IRestRequest request, string apiKey = "")
-        {
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                apiKey = _environmentInfo.Settings.ApiKey;
-            }
-
-            request.AddHeader("apikey", apiKey);
-            request.AddHeader("User-Agent", UserAgent);
-
-            var result = _restClient.Execute(request);
-
-            RateLimit.Update(result.Headers);
-
-            return result;
-        }
-
-        /// <summary>
-        /// Clears the stored API key.
-        /// </summary>
-        public void ClearApiKey()
-        {
-            _environmentInfo.Settings.ApiKey = string.Empty;
-            _environmentInfo.Settings.Save();
-        }
     }
 }

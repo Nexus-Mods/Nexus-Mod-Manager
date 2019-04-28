@@ -13,7 +13,6 @@
 	{
 		private string _apiKey;
 		private string _errorMessage;
-		private bool _stayLoggedIn;
 
         #region Properties
 
@@ -61,19 +60,6 @@
 		}
 
 		/// <summary>
-		/// Gets whether or not to keep the user logged in.
-		/// </summary>
-		/// <value>Whether or not to keep the user logged in.</value>
-		public bool StayLoggedIn
-		{
-			get => _stayLoggedIn;
-            set
-			{
-				SetPropertyIfChanged(ref _stayLoggedIn, value, () => StayLoggedIn);
-			}
-		}
-
-		/// <summary>
 		/// Gets or sets the error message for the last login attempt.
 		/// </summary>
 		/// <value>The error message for the last login attempt.</value>
@@ -108,7 +94,6 @@
 			ErrorMessage = error;
 			CancelWarning = cancelWarning;
 			ApiKey = EnvironmentInfo.Settings.ApiKey;
-            StayLoggedIn = !string.IsNullOrEmpty(EnvironmentInfo.Settings.ApiKey);
         }
 
 		#endregion
@@ -123,21 +108,24 @@
 			ErrorMessage = null;
 
             try
-			{
-				if (!ModRepository.Authenticate(ApiKey))
+            {
+                EnvironmentInfo.Settings.ApiKey = ApiKey;
+
+				if (!ModRepository.Authenticate())
 				{
                     Trace.TraceWarning($"Couldn't authenticate with API key \"{ApiKey}\".");
-					ErrorMessage = "Couldn't authenticate user.";
+                    EnvironmentInfo.Settings.ApiKey = string.Empty;
+                    ErrorMessage = "Couldn't authenticate user.";
 					return false;
 				}
 			}
 			catch (RepositoryUnavailableException e)
 			{
 				ErrorMessage = e.Message;
-				return false;
+                EnvironmentInfo.Settings.ApiKey = string.Empty;
+                return false;
 			}
-
-			EnvironmentInfo.Settings.ApiKey = StayLoggedIn ? ApiKey : string.Empty;
+			
 			EnvironmentInfo.Settings.Save();
 
 			return true;

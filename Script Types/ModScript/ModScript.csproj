@@ -136,6 +136,7 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="Resources\document-open-5.png" />
   </ItemGroup>
   <ItemGroup>

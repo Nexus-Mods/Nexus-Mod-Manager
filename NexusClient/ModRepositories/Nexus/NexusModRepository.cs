@@ -14,7 +14,7 @@
     using Mods;
     using ModManagement;
     using NexusModsApi;
-    using NexusModsApi.EndPoints.User;
+    using Pathoschild.FluentNexus.Models;
     using Util;
     using Util.Collections;
 
@@ -928,17 +928,17 @@
 		/// <summary>
 		/// Finds the mods containing the given search terms.
 		/// </summary>
-		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
+		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="includeAllTerms">Whether the returned mods' names should include all of
 		/// the given search terms.</param>
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public IList<IModInfo> FindMods(string p_strModNameSearchString, bool p_booIncludeAllTerms)
+		public IList<IModInfo> FindMods(string modNameSearchString, bool includeAllTerms)
 		{
 			if (IsOffline)
 				return null;
 
-			string[] strTerms = p_strModNameSearchString.Split('"');
+			string[] strTerms = modNameSearchString.Split('"');
 			for (Int32 i = 0; i < strTerms.Length; i += 2)
 				strTerms[i] = strTerms[i].Replace(' ', '~');
 			//if the are an even number of terms we have unclosed quotes,
@@ -953,7 +953,7 @@
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
-					nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+					nmrApi.FindMods(strSearchString, includeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					return mfiMods;
 				}
 			}
@@ -978,18 +978,18 @@
 		/// <summary>
 		/// Finds the mods containing the given search terms.
 		/// </summary>
-		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="p_strModAuthor">The Mod author.</param>
-		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
+		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="modAuthor">The Mod author.</param>
+		/// <param name="includeAllTerms">Whether the returned mods' names should include all of
 		/// the given search terms.</param>
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms)
+		public IList<IModInfo> FindMods(string modNameSearchString, string modAuthor, bool includeAllTerms)
 		{
 			if (IsOffline)
 				return null;
 
-			string[] strTerms = p_strModNameSearchString.Split('"');
+			string[] strTerms = modNameSearchString.Split('"');
 			for (Int32 i = 0; i < strTerms.Length; i += 2)
 				strTerms[i] = strTerms[i].Replace(' ', '~');
 			//if the are an even number of terms we have unclosed quotes,
@@ -1005,10 +1005,10 @@
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
-					if (String.IsNullOrEmpty(p_strModAuthor))
-						nmrApi.FindMods(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+					if (String.IsNullOrEmpty(modAuthor))
+						nmrApi.FindMods(strSearchString, includeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					else
-						nmrApi.FindModsAuthor(strSearchString, p_booIncludeAllTerms ? "ALL" : "ANY", p_strModAuthor, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+						nmrApi.FindModsAuthor(strSearchString, includeAllTerms ? "ALL" : "ANY", modAuthor, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					return mfiMods;
 				}
 			}
@@ -1033,16 +1033,16 @@
 		/// <summary>
 		/// Finds the mods by Author name.
 		/// </summary>
-		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
+		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="authorSearchString">The Author to use to search for mods.</param>
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString)
+		public IList<IModInfo> FindMods(string modNameSearchString, string authorSearchString)
 		{
 			if (IsOffline)
 				return null;
 
-			string[] strTerms = p_strModNameSearchString.Split('"');
+			string[] strTerms = modNameSearchString.Split('"');
 			for (Int32 i = 0; i < strTerms.Length; i += 2)
 				strTerms[i] = strTerms[i].Replace(' ', '~');
 			//if the are an even number of terms we have unclosed quotes,
@@ -1057,7 +1057,7 @@
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
-					nmrApi.FindModsAuthor(strSearchString, "ANY", p_strAuthorSearchString, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+					nmrApi.FindModsAuthor(strSearchString, "ANY", authorSearchString, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
 					return mfiMods;
 				}
 			}
@@ -1119,11 +1119,11 @@
 		/// <summary>
 		/// Gets the URLs of the file parts for the default download file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
-		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
+		/// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
+		/// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
 		/// <returns>The URLs of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public Uri[] GetFilePartUrls(string p_strModId, string p_strFileId)
+		public Uri[] GetFilePartUrls(string modId, string fileId)
 		{
 			if (IsOffline)
 				return null;
@@ -1135,7 +1135,7 @@
 			//    using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 			//    {
 			//        INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-			//        foreach (string strUrl in nmrApi.GetModFileDownloadUrls(p_strFileId))
+			//        foreach (string strUrl in nmrApi.GetModFileDownloadUrls(fileId))
 			//            lstDownloadUrls.Add(new Uri(strUrl));
 			//    }
 			//}
@@ -1158,15 +1158,15 @@
 		/// <summary>
 		/// Gets the URLs of the file parts for the default download file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
-		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
-		/// <param name="p_strUserLocation">The preferred user location.</param>
-		/// <param name="p_strRepositoryMessage">Custom repository message, if needed.</param>
+		/// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
+		/// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
+		/// <param name="userLocation">The preferred user location.</param>
+		/// <param name="repositoryMessage">Custom repository message, if needed.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, string p_strUserLocation, out string p_strRepositoryMessage)
+		public List<FileserverInfo> GetFilePartInfo(string modId, string fileId, string userLocation, out string repositoryMessage)
 		{
-			p_strRepositoryMessage = String.Empty;
+			repositoryMessage = String.Empty;
 			if (IsOffline)
 				return null;
 
@@ -1177,8 +1177,8 @@
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					fsiServerInfo = nmrApi.GetModFileDownloadUrls(p_strFileId, m_intRemoteGameId);
-					fsiBestMatch = GetBestFileserver(fsiServerInfo, p_strUserLocation, out p_strRepositoryMessage);
+					fsiServerInfo = nmrApi.GetModFileDownloadUrls(fileId, m_intRemoteGameId);
+					fsiBestMatch = GetBestFileserver(fsiServerInfo, userLocation, out repositoryMessage);
 				}
 			}
 			catch (TimeoutException e)
@@ -1359,12 +1359,12 @@
 		/// <summary>
 		/// Gets the file info for the specified download file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod the whose file's metadata is to be retrieved.</param>
-		/// <param name="p_strFileId">The id of the download file whose metadata is to be retrieved.</param>
+		/// <param name="modId">The id of the mod the whose file's metadata is to be retrieved.</param>
+		/// <param name="fileId">The id of the download file whose metadata is to be retrieved.</param>
 		/// <returns>The file info for the specified download file of the specified mod.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository is not available.</exception>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public IModFileInfo GetFileInfo(string p_strModId, string p_strFileId)
+		public IModFileInfo GetFileInfo(string modId, string fileId)
 		{
 			if (IsOffline)
 				return null;
@@ -1374,7 +1374,7 @@
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					return nmrApi.GetModFile(p_strFileId, m_intRemoteGameId);
+					return nmrApi.GetModFile(fileId, m_intRemoteGameId);
 				}
 			}
 			catch (TimeoutException e)
@@ -1390,11 +1390,11 @@
 		/// <summary>
 		/// Gets the file info for the specified download file.
 		/// </summary>
-		/// <param name="p_strFilename">The name of the file whose info is to be returned.</param>
+		/// <param name="fileName">The name of the file whose info is to be returned.</param>
 		/// <param name="p_mifInfo">The mod info for the mod to which the specified file belongs.</param>
 		/// <returns>The file info for the specified download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		private NexusModFileInfo GetFileInfoForFile(string p_strFilename, out IModInfo p_mifInfo)
+		private NexusModFileInfo GetFileInfoForFile(string fileName, out IModInfo p_mifInfo)
 		{
 			if (IsOffline)
 			{
@@ -1402,10 +1402,10 @@
 				return null;
 			}
 
-			string strModId = ParseModIdFromFilename(p_strFilename, out p_mifInfo);
+			string strModId = ParseModIdFromFilename(fileName, out p_mifInfo);
 			if (strModId == null)
 				return null;
-			string strFilename = Path.GetFileName(p_strFilename);
+			string strFilename = Path.GetFileName(fileName);
 			try
 			{
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
@@ -1435,21 +1435,21 @@
 		/// <summary>
 		/// Gets the file info for the specified download file.
 		/// </summary>
-		/// <param name="p_strFilename">The name of the file whose info is to be returned..</param>
+		/// <param name="fileName">The name of the file whose info is to be returned..</param>
 		/// <returns>The file info for the specified download file.</returns>
-		public IModFileInfo GetFileInfoForFile(string p_strFilename)
+		public IModFileInfo GetFileInfoForFile(string fileName)
 		{
 			IModInfo mifInfo = null;
-			return GetFileInfoForFile(p_strFilename, out mifInfo);
+			return GetFileInfoForFile(fileName, out mifInfo);
 		}
 
 		/// <summary>
 		/// Gets the file info for the default file of the speficied mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod the whose default file's metadata is to be retrieved.</param>
+		/// <param name="modId">The id of the mod the whose default file's metadata is to be retrieved.</param>
 		/// <returns>The file info for the default file of the speficied mod.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public IModFileInfo GetDefaultFileInfo(string p_strModId)
+		public IModFileInfo GetDefaultFileInfo(string modId)
 		{
 			if (IsOffline)
 				return null;
@@ -1459,7 +1459,7 @@
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(p_strModId, m_intRemoteGameId);
+					List<NexusModFileInfo> mfiFiles = nmrApi.GetModFiles(modId, m_intRemoteGameId);
 					NexusModFileInfo mfiDefault = (from f in mfiFiles
 													where f.Category == ModFileCategory.MainFiles
 													orderby f.Date descending
@@ -1487,12 +1487,12 @@
 
 		#endregion
 
-        public bool Authenticate(string apiKey)
+        public bool Authenticate()
         {
             throw new NotImplementedException();
         }
 
-		public List<CategoriesInfo> GetCategories(int p_intGameId)
+		public List<CategoriesInfo> GetCategories(int gameId)
 		{
 			List<CategoriesInfo> nst = null;
 
@@ -1501,7 +1501,7 @@
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					nst = nmrApi.GetCategories(p_intGameId);
+					nst = nmrApi.GetCategories(gameId);
 				}
 			}
 			catch (TimeoutException e)

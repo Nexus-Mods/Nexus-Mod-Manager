@@ -152,6 +152,7 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="Resources\Categories.xml">
       <SubType>Designer</SubType>
     </None>

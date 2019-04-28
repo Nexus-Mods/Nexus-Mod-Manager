@@ -128,10 +128,10 @@
         /// Updates the object's proerties to the values of the
         /// given <see cref="IModInfo"/>.
         /// </summary>
-        /// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
+        /// <param name="modInfo">The <see cref="IModInfo"/> whose values
         /// are to be used to update this object's properties.</param>
-        /// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
+        /// <param name="overwriteAllValues">Whether to overwrite the current info values,
         /// or just the empty ones.</param>
-        void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues);
+        void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues);
 	}
 }

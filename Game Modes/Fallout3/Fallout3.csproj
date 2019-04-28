@@ -124,6 +124,7 @@
     <EmbeddedResource Include="Settings\UI\SupportedToolsSettingsPage.resx" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="Resources\fo3_logo.ico" />
   </ItemGroup>
   <ItemGroup>

@@ -31,7 +31,6 @@
             this.panel2 = new System.Windows.Forms.Panel();
             this.textBoxApiKey = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
-            this.checkBoxRememberApiKey = new System.Windows.Forms.CheckBox();
             this.buttonAuthenticate = new System.Windows.Forms.Button();
             this.buttonCancel = new System.Windows.Forms.Button();
             this.labelErrorMessage = new System.Windows.Forms.Label();
@@ -63,19 +62,9 @@
             this.label1.TabIndex = 18;
             this.label1.Text = "API key:";
             // 
-            // checkBoxRememberApiKey
-            // 
-            this.checkBoxRememberApiKey.AutoSize = true;
-            this.checkBoxRememberApiKey.Location = new System.Drawing.Point(13, 55);
-            this.checkBoxRememberApiKey.Name = "checkBoxRememberApiKey";
-            this.checkBoxRememberApiKey.Size = new System.Drawing.Size(117, 17);
-            this.checkBoxRememberApiKey.TabIndex = 19;
-            this.checkBoxRememberApiKey.Text = "Remember API key";
-            this.checkBoxRememberApiKey.UseVisualStyleBackColor = true;
-            // 
             // buttonAuthenticate
             // 
-            this.buttonAuthenticate.Location = new System.Drawing.Point(11, 142);
+            this.buttonAuthenticate.Location = new System.Drawing.Point(11, 116);
             this.buttonAuthenticate.Name = "buttonAuthenticate";
             this.buttonAuthenticate.Size = new System.Drawing.Size(90, 33);
             this.buttonAuthenticate.TabIndex = 20;
@@ -85,7 +74,7 @@
             // 
             // buttonCancel
             // 
-            this.buttonCancel.Location = new System.Drawing.Point(159, 142);
+            this.buttonCancel.Location = new System.Drawing.Point(159, 116);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(75, 33);
             this.buttonCancel.TabIndex = 21;
@@ -97,7 +86,7 @@
             // 
             this.labelErrorMessage.AutoSize = true;
             this.labelErrorMessage.ForeColor = System.Drawing.Color.Red;
-            this.labelErrorMessage.Location = new System.Drawing.Point(11, 79);
+            this.labelErrorMessage.Location = new System.Drawing.Point(12, 62);
             this.labelErrorMessage.MaximumSize = new System.Drawing.Size(220, 0);
             this.labelErrorMessage.Name = "labelErrorMessage";
             this.labelErrorMessage.Size = new System.Drawing.Size(0, 13);
@@ -110,11 +99,10 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSize = true;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.ClientSize = new System.Drawing.Size(246, 187);
+            this.ClientSize = new System.Drawing.Size(246, 160);
             this.Controls.Add(this.labelErrorMessage);
             this.Controls.Add(this.buttonCancel);
             this.Controls.Add(this.buttonAuthenticate);
-            this.Controls.Add(this.checkBoxRememberApiKey);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.textBoxApiKey);
             this.Controls.Add(this.panel2);
@@ -135,7 +123,6 @@
 		private System.Windows.Forms.Panel panel2;
         private System.Windows.Forms.TextBox textBoxApiKey;
         private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.CheckBox checkBoxRememberApiKey;
         private System.Windows.Forms.Button buttonAuthenticate;
         private System.Windows.Forms.Button buttonCancel;
         private System.Windows.Forms.Label labelErrorMessage;

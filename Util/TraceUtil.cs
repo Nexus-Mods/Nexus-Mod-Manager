@@ -48,5 +48,21 @@ namespace Nexus.Client.Util
 			}
 			return stbException.ToString();
 		}
+
+        public static void TraceAggregateException(AggregateException e)
+        {
+            var exceptionTrace = new StringBuilder("AggregateException:");
+            exceptionTrace.AppendLine($"Message: {e.Message}");
+            exceptionTrace.AppendLine($"Stacktrace:\n{e.StackTrace}");
+            exceptionTrace.AppendLine("Inner exceptions:\n----------------");
+
+            foreach (var exception in e.Flatten().InnerExceptions)
+            {
+                exceptionTrace.AppendLine(exception.ToString());
+                exceptionTrace.AppendLine("----------------");
+            }
+
+            Trace.TraceError(exceptionTrace.ToString());
+        }
 	}
 }

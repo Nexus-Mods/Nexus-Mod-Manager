@@ -1,10 +1,11 @@
-﻿using System;
-using Nexus.Client.Mods;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.ModRepositories
+﻿namespace Nexus.Client.ModRepositories
 {
-	/// <summary>
+    using System;
+    using Mods;
+    using Pathoschild.FluentNexus.Models;
+    using Util;
+
+    /// <summary>
 	/// Describes the metadata of a mod in a repository.
 	/// </summary>
 	public class ModInfo : IModInfo
@@ -77,13 +78,13 @@ namespace Nexus.Client.ModRepositories
 		/// Gets the CategoryId of the mod.
 		/// </summary>
 		/// <value>The CategoryId of the mod.</value>
-		public Int32 CategoryId { get; set; }
+		public int CategoryId { get; set; }
 
 		/// <summary>
 		/// Gets the user custom CategoryId of the mod.
 		/// </summary>
 		/// <value>The user custom CategoryId of the mod.</value>
-		public Int32 CustomCategoryId { get; set; }
+		public int CustomCategoryId { get; set; }
 
 		/// <summary>
 		/// Gets or sets the description of the mod.
@@ -127,6 +128,10 @@ namespace Nexus.Client.ModRepositories
 		/// <value>The mod's place in the load order</value>
 		public int PlaceInModLoadOrder { get; set; }
 
+        /// <summary>
+        /// Gets or sets the mod's new place in the mod load order.
+        /// </summary>
+        /// <value>The mod's new place in the load order.</value>
         public int NewPlaceInModLoadOrder { get; set; }
 
 		#endregion
@@ -136,117 +141,195 @@ namespace Nexus.Client.ModRepositories
 		#region Constructors
 
 		/// <summary>
-		/// The default cosntructor.
+		/// The default constructor.
 		/// </summary>
 		public ModInfo()
 		{
 		}
 
+        /// <summary>
+        /// Creates a <see cref="ModInfo"/> from a <see cref="ModHashResult"/>.
+        /// </summary>
+        /// <param name="result">HashResult to get info from.</param>
+        public ModInfo(Mod result)
+        {
+            // TODO: Figure out if the null values are required for NMM to work...
+            SetAllInfo(true,
+                result.ModID.ToString(),
+                null,
+                result.Name,
+                null,
+                result.Version,
+                null,
+                result.Endorsement.EndorseStatus == EndorsementStatus.Endorsed,
+                new Version(result.Version),
+                result.Author,
+                result.CategoryID,
+                -1,
+                result.Description,
+                null,
+                null,
+                null,
+                false,
+                false
+                );
+        }
+
 		/// <summary>
-		/// The copy cosntructor.
+		/// The copy constructor.
 		/// </summary>
-		/// <param name="p_mifCopy">The mod info to copy.</param>
-		public ModInfo(IModInfo p_mifCopy)
+		/// <param name="original">The mod info to copy.</param>
+		public ModInfo(IModInfo original)
 		{
-			if (p_mifCopy != null)
-				SetAllInfo(true, p_mifCopy.Id, p_mifCopy.DownloadId, p_mifCopy.ModName, p_mifCopy.FileName, p_mifCopy.HumanReadableVersion, p_mifCopy.LastKnownVersion, p_mifCopy.IsEndorsed, p_mifCopy.MachineVersion, p_mifCopy.Author, p_mifCopy.CategoryId, p_mifCopy.CustomCategoryId, p_mifCopy.Description, p_mifCopy.InstallDate, p_mifCopy.Website, p_mifCopy.Screenshot, p_mifCopy.UpdateWarningEnabled, p_mifCopy.UpdateChecksEnabled);
-		}
+			if (original != null)
+            {
+                SetAllInfo(true, original.Id, original.DownloadId, original.ModName, original.FileName, original.HumanReadableVersion, original.LastKnownVersion, original.IsEndorsed, original.MachineVersion, original.Author, original.CategoryId, original.CustomCategoryId, original.Description, original.InstallDate, original.Website, original.Screenshot, original.UpdateWarningEnabled, original.UpdateChecksEnabled);
+            }
+        }
 
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
-		/// <param name="p_strId">The id of the mod.</param>
-		/// <param name="p_strDownloadId">The DownloadId of the mod.</param>
-		/// <param name="p_strModName">The name of the mod.</param>
-		/// <param name="p_strFileName">The name of the mod.</param>
-		/// <param name="p_strHumanReadableVersion">The human readable form of the mod's version.</param>
-		/// <param name="p_strLastKnownVersion">The last known mod version.</param>
-		/// <param name="p_booIsEndorsed">The Endorsement state of the mod.</param>
-		/// <param name="p_verMachineVersion">The version of the mod.</param>
-		/// <param name="p_strAuthor">The author of the mod.</param>
-		/// <param name="p_strCategoryId">The category of the mod.</param>
-		/// <param name="p_strCustomCategoryId">The custom category of the mod.</param>
-		/// <param name="p_strDescription">The description of the mod.</param>
-		/// <param name="p_strInstallDate">The install date of the mod.</param>
-		/// <param name="p_uriWebsite">The website of the mod.</param>
-		/// <param name="p_eimScreenshot">The mod's screenshot.</param>
-		/// <param name="p_booUpdateWarningEnabled">Whether update warning is enabled for this mod.</param>
-		/// <param name="p_booUpdateChecksEnabled">Whether update checks are enabled for this mod.</param>
-		public ModInfo(string p_strId, string p_strDownloadId, string p_strModName, string p_strFileName, string p_strHumanReadableVersion, string p_strLastKnownVersion, bool? p_booIsEndorsed, Version p_verMachineVersion, string p_strAuthor, int p_intCategoryId, int p_intCustomCategoryId, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot, bool p_booUpdateWarningEnabled, bool p_booUpdateChecksEnabled)
+		/// <param name="id">The id of the mod.</param>
+		/// <param name="downloadId">The DownloadId of the mod.</param>
+		/// <param name="modName">The name of the mod.</param>
+		/// <param name="fileName">The filename of the mod?</param>
+		/// <param name="humanReadableVersion">The human readable form of the mod's version.</param>
+		/// <param name="lastKnownVersion">The last known mod version.</param>
+		/// <param name="isEndorsed">The Endorsement state of the mod.</param>
+		/// <param name="machineVersion">The version of the mod.</param>
+		/// <param name="author">The author of the mod.</param>
+		/// <param name="categoryId">The category of the mod.</param>
+		/// <param name="customCategoryId">The custom category of the mod.</param>
+		/// <param name="description">The description of the mod.</param>
+		/// <param name="installDate">The install date of the mod.</param>
+		/// <param name="website">The website of the mod.</param>
+		/// <param name="screenshot">The mod's screenshot.</param>
+		/// <param name="updateWarningEnabled">Whether update warning is enabled for this mod.</param>
+		/// <param name="updateChecksEnabled">Whether update checks are enabled for this mod.</param>
+		public ModInfo(string id, string downloadId, string modName, string fileName, string humanReadableVersion, string lastKnownVersion, bool? isEndorsed, Version machineVersion, string author, int categoryId, int customCategoryId, string description, string installDate, Uri website, ExtendedImage screenshot, bool updateWarningEnabled, bool updateChecksEnabled)
 		{
-			SetAllInfo(true, p_strId, p_strDownloadId, p_strModName, p_strFileName, p_strHumanReadableVersion, p_strLastKnownVersion, p_booIsEndorsed, p_verMachineVersion, p_strAuthor, p_intCategoryId, p_intCustomCategoryId, p_strDescription, p_strInstallDate, p_uriWebsite, p_eimScreenshot, p_booUpdateWarningEnabled, p_booUpdateChecksEnabled);
+			SetAllInfo(true, id, downloadId, modName, fileName, humanReadableVersion, lastKnownVersion, isEndorsed, machineVersion, author, categoryId, customCategoryId, description, installDate, website, screenshot, updateWarningEnabled, updateChecksEnabled);
 		}
 
-		#endregion
+        #endregion
 
-		/// <summary>
-		/// Sets all of the properties of the object.
-		/// </summary>
-		/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
-		/// or just the empty ones.</param>
-		/// <param name="p_strId">The id of the mod.</param>
-		/// <param name="p_strDownloadId">The DownloadId of the mod.</param>
-		/// <param name="p_strModName">The name of the mod.</param>
-		/// <param name="p_strHumanReadableVersion">The human readable form of the mod's version.</param>
-		/// <param name="p_strLastKnownVersion">The last known mod version.</param>
-		/// <param name="p_booIsEndorsed">The Endorsement state of the mod.</param>
-		/// <param name="p_verMachineVersion">The version of the mod.</param>
-		/// <param name="p_strAuthor">The author of the mod.</param>
-		/// <param name="p_strCategoryId">The category of the mod.</param>
-		/// <param name="p_strCustomCategoryId">The custom category of the mod.</param>
-		/// <param name="p_strDescription">The description of the mod.</param>
-		/// <param name="p_strInstallDate">The install date of the mod.</param>
-		/// <param name="p_uriWebsite">The website of the mod.</param>
-		/// <param name="p_eimScreenshot">The mod's screenshot.</param>
-		/// <param name="p_booUpdateWarningEnabled">Whether update warning is enabled for this mod.</param>
-		/// <param name="p_booUpdateChecksEnabled">Whether update checks are enabled for this mod.</param>
-		protected void SetAllInfo(bool p_booOverwriteAllValues, string p_strId, string p_strDownloadId, string p_strModName, string p_strFileName, string p_strHumanReadableVersion, string p_strLastKnownVersion, bool? p_booIsEndorsed, Version p_verMachineVersion, string p_strAuthor, Int32 p_intCategoryId, Int32 p_intCustomCategoryId, string p_strDescription, string p_strInstallDate, Uri p_uriWebsite, ExtendedImage p_eimScreenshot, bool p_booUpdateWarningEnabled, bool p_booUpdateChecksEnabled)
+        /// <summary>
+        /// Sets all of the properties of the object.
+        /// </summary>
+        /// <param name="overwriteAllValues">Whether to overwrite the current info values,
+        /// or just the empty ones.</param>
+        /// <param name="id">The id of the mod.</param>
+        /// <param name="downloadId">The DownloadId of the mod.</param>
+        /// <param name="modName">The name of the mod.</param>
+        /// <param name="fileName">The filename of the mod?</param>
+        /// <param name="humanReadableVersion">The human readable form of the mod's version.</param>
+        /// <param name="lastKnownVersion">The last known mod version.</param>
+        /// <param name="isEndorsed">The Endorsement state of the mod.</param>
+        /// <param name="machineVersion">The version of the mod.</param>
+        /// <param name="author">The author of the mod.</param>
+        /// <param name="categoryId">The category of the mod.</param>
+        /// <param name="customCategoryId">The custom category of the mod.</param>
+        /// <param name="description">The description of the mod.</param>
+        /// <param name="installDate">The install date of the mod.</param>
+        /// <param name="website">The website of the mod.</param>
+        /// <param name="screenshot">The mod's screenshot.</param>
+        /// <param name="updateWarningEnabled">Whether update warning is enabled for this mod.</param>
+        /// <param name="updateChecksEnabled">Whether update checks are enabled for this mod.</param>
+        protected void SetAllInfo(bool overwriteAllValues, string id, string downloadId, string modName, string fileName, string humanReadableVersion, string lastKnownVersion, bool? isEndorsed, Version machineVersion, string author, int categoryId, int customCategoryId, string description, string installDate, Uri website, ExtendedImage screenshot, bool updateWarningEnabled, bool updateChecksEnabled)
 		{
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Id))
-				Id = p_strId;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(DownloadId))
-				DownloadId = p_strDownloadId;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(ModName))
-				ModName = p_strModName;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(FileName))
-				FileName = p_strFileName;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(HumanReadableVersion))
-				HumanReadableVersion = p_strHumanReadableVersion;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(LastKnownVersion))
-				LastKnownVersion = p_strLastKnownVersion;
-			if (p_booOverwriteAllValues || (IsEndorsed != p_booIsEndorsed))
-				IsEndorsed = p_booIsEndorsed;
-			if (p_booOverwriteAllValues || (MachineVersion == null))
-				MachineVersion = p_verMachineVersion;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Author))
-				Author = p_strAuthor;
-			if (p_booOverwriteAllValues || (CategoryId != p_intCategoryId))
-				CategoryId = p_intCategoryId;
-			if (p_booOverwriteAllValues || (CustomCategoryId != p_intCustomCategoryId))
-				CustomCategoryId = p_intCustomCategoryId;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(Description))
-				Description = p_strDescription;
-			if (p_booOverwriteAllValues || String.IsNullOrEmpty(InstallDate))
-				InstallDate = p_strInstallDate;
-			if (p_booOverwriteAllValues || (Website == null))
-				Website = p_uriWebsite;
-			if (p_booOverwriteAllValues || (UpdateWarningEnabled != p_booUpdateWarningEnabled))
-				UpdateWarningEnabled = p_booUpdateWarningEnabled;
-			if (p_booOverwriteAllValues || (UpdateChecksEnabled != p_booUpdateChecksEnabled))
-				UpdateChecksEnabled = p_booUpdateChecksEnabled;
-		}
+			if (overwriteAllValues || string.IsNullOrEmpty(Id))
+            {
+                Id = id;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(DownloadId))
+            {
+                DownloadId = downloadId;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(ModName))
+            {
+                ModName = modName;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(FileName))
+            {
+                FileName = fileName;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(HumanReadableVersion))
+            {
+                HumanReadableVersion = humanReadableVersion;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(LastKnownVersion))
+            {
+                LastKnownVersion = lastKnownVersion;
+            }
+
+            if (overwriteAllValues || (IsEndorsed != isEndorsed))
+            {
+                IsEndorsed = isEndorsed;
+            }
+
+            if (overwriteAllValues || (MachineVersion == null))
+            {
+                MachineVersion = machineVersion;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(Author))
+            {
+                Author = author;
+            }
+
+            if (overwriteAllValues || (CategoryId != categoryId))
+            {
+                CategoryId = categoryId;
+            }
+
+            if (overwriteAllValues || (CustomCategoryId != customCategoryId))
+            {
+                CustomCategoryId = customCategoryId;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(Description))
+            {
+                Description = description;
+            }
+
+            if (overwriteAllValues || string.IsNullOrEmpty(InstallDate))
+            {
+                InstallDate = installDate;
+            }
+
+            if (overwriteAllValues || (Website == null))
+            {
+                Website = website;
+            }
+
+            if (overwriteAllValues || (UpdateWarningEnabled != updateWarningEnabled))
+            {
+                UpdateWarningEnabled = updateWarningEnabled;
+            }
+
+            if (overwriteAllValues || (UpdateChecksEnabled != updateChecksEnabled))
+            {
+                UpdateChecksEnabled = updateChecksEnabled;
+            }
+        }
 
 		/// <summary>
 		/// Updates the object's proerties to the values of the
 		/// given <see cref="IModInfo"/>.
 		/// </summary>
-		/// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
+		/// <param name="modInfo">The <see cref="IModInfo"/> whose values
 		/// are to be used to update this object's properties.</param>
-		/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
+		/// <param name="overwriteAllValues">Whether to overwrite the current info values,
 		/// or just the empty ones.</param>
-		public void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues)
+		public void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues)
 		{
-			SetAllInfo((p_booOverwriteAllValues == true), p_mifInfo.Id, p_mifInfo.DownloadId, p_mifInfo.ModName, p_mifInfo.FileName, p_mifInfo.HumanReadableVersion, p_mifInfo.LastKnownVersion, p_mifInfo.IsEndorsed, p_mifInfo.MachineVersion, p_mifInfo.Author, p_mifInfo.CategoryId, p_mifInfo.CustomCategoryId, p_mifInfo.Description, p_mifInfo.InstallDate, p_mifInfo.Website, p_mifInfo.Screenshot, p_mifInfo.UpdateWarningEnabled, p_mifInfo.UpdateChecksEnabled);
+			SetAllInfo(overwriteAllValues == true, modInfo.Id, modInfo.DownloadId, modInfo.ModName, modInfo.FileName, modInfo.HumanReadableVersion, modInfo.LastKnownVersion, modInfo.IsEndorsed, modInfo.MachineVersion, modInfo.Author, modInfo.CategoryId, modInfo.CustomCategoryId, modInfo.Description, modInfo.InstallDate, modInfo.Website, modInfo.Screenshot, modInfo.UpdateWarningEnabled, modInfo.UpdateChecksEnabled);
 		}
 	}
 }

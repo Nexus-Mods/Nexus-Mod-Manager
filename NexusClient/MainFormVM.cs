@@ -7,7 +7,6 @@
     using System.IO;
     using System.Linq;
     using System.Windows.Forms;
-    using ModRepositories.NexusModsApi.EndPoints.User;
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.DownloadMonitoring;
     using Nexus.Client.DownloadMonitoring.UI;
@@ -31,6 +30,7 @@
     using Nexus.Client.Util.Collections;
     using Nexus.Client.Commands.Generic;
     using Nexus.UI.Controls;
+    using Pathoschild.FluentNexus.Models;
 
     /// <summary>
 	/// This class encapsulates the data and the operations presented by UI

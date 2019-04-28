@@ -2,7 +2,6 @@
 {
     using System;
     using System.ComponentModel;
-    using System.Net.Mail;
     using System.Windows.Forms;
 
     using Games;
@@ -21,7 +20,7 @@
         #region Events
 
         /// <summary>
-        /// Raised when the programme is being updated.
+        /// Raised when the user is being authenticated.
         /// </summary>
         public event EventHandler Authenticating = delegate { };
 
@@ -45,7 +44,6 @@
                 m_authenticationFormViewModel = value;
                 BindingHelper.CreateFullBinding(textBoxApiKey, () => textBoxApiKey.Text, m_authenticationFormViewModel, () => m_authenticationFormViewModel.ApiKey);
                 BindingHelper.CreateFullBinding(labelErrorMessage, () => labelErrorMessage.Text, m_authenticationFormViewModel, () => m_authenticationFormViewModel.ErrorMessage);
-                BindingHelper.CreateFullBinding(checkBoxRememberApiKey, () => checkBoxRememberApiKey.Checked, m_authenticationFormViewModel, () => m_authenticationFormViewModel.StayLoggedIn);
 
                 //lblPrompt.Text = m_authenticationFormViewModel.Prompt;
 

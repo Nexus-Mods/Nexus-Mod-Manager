@@ -2,9 +2,12 @@
 {
     using System;
     using System.Collections.Generic;
-    using EndPoints.User;
+    using System.Diagnostics;
+    using System.Linq;
     using ModManagement;
     using Mods;
+    using Pathoschild.FluentNexus.Models;
+    using Pathoschild.Http.Client;
     using Util;
 
     public class NexusModsApiRepository : IModRepository
@@ -21,10 +24,10 @@
         #region Properties
 
         /// <inheritdoc cref="IModRepository"/>
-        public string Id { get; }
+        public string Id => "Nexus";
 
         /// <inheritdoc cref="IModRepository"/>
-        public string Name { get; }
+        public string Name => "Nexus";
 
         /// <inheritdoc cref="IModRepository"/>
         public User UserStatus
@@ -82,14 +85,45 @@
 
         public NexusModsApiRepository(string currentGameDomain, ApiCallManager apiCallManager)
         {
-            GameDomainName = currentGameDomain;
+            GameDomainName = HandleGameDomainName(currentGameDomain);
             _apiCallManager = apiCallManager;
             SetFileServerZones();
         }
 
-        public bool Authenticate(string apiKey)
+        /// <summary>
+        /// Due to the hacky implementation of SkyrimVR and Fallout4VR, these domains need to be corrected.
+        /// </summary>
+        /// <param name="currentGameDomain">The input Current Game Domain.</param>
+        /// <returns>The corrected game domain name, if applicable.</returns>
+        private string HandleGameDomainName(string currentGameDomain)
         {
-            UserStatus = _apiCallManager.User.ValidateUser(apiKey);
+            if (currentGameDomain.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+            {
+                return "fallout4";
+            }
+
+            if (currentGameDomain.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
+            {
+                return "skyrim";
+            }
+
+            return currentGameDomain;
+        }
+        
+        /// <inheritdoc />
+        public bool Authenticate()
+        {
+            _apiCallManager.UpdateNexusClient();
+
+            try
+            {
+                UserStatus = _apiCallManager.Users.ValidateAsync().Result;
+            }
+            catch (AggregateException a)
+            {
+                Trace.TraceError("Error encountered while validating API key.");
+                TraceUtil.TraceAggregateException(a);
+            }
 
             if (UserStatus == null)
             {
@@ -109,22 +143,39 @@
         public void Logout()
         {
             UserStatus = null;
+            _apiCallManager.ClearApiKey();
             UserStatusUpdateEvent();
         }
 
         /// <inheritdoc cref="IModRepository"/>
         public IModInfo GetModInfoForFile(string fileName)
         {
-            var hash = Md5.CalculateMd5(fileName);
-
-            // TODO: Should probably handle cases with multiple hits.
-            return _apiCallManager.Mods.SearchByMd5(GameDomainName, hash)[0].Mod;
+            try
+            {
+                var hash = Md5.CalculateMd5(fileName);
+                
+                // TODO: Probably need to handle cases with multiple hits.
+                return new ModInfo(_apiCallManager.Mods.GetModsByFileHash(GameDomainName, hash).Result[0].Mod);
+            }
+            catch (AggregateException a)
+            {
+                TraceUtil.TraceAggregateException(a);
+                return null;
+            }
         }
 
         /// <inheritdoc cref="IModRepository"/>
         public IModInfo GetModInfo(string modId)
         {
-            return _apiCallManager.Mods.GetById(GameDomainName, modId);
+            try
+            {
+                return new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, Convert.ToInt32(modId)).Result);
+            }
+            catch (AggregateException a)
+            {
+                TraceUtil.TraceAggregateException(a);
+                return null;
+            }
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -156,50 +207,98 @@
         /// <inheritdoc cref="IModRepository"/>
         public bool ToggleEndorsement(string modId, int localState)
         {
-            throw new NotImplementedException();
+            var id = Convert.ToInt32(modId);
+
+            switch (localState)
+            {
+                case -1:
+                    _apiCallManager.Mods.Unendorse(GameDomainName, id, "whatVersion?").RunSynchronously();
+                    break;
+                case 1:
+                    _apiCallManager.Mods.Endorse(GameDomainName, id, "whatVersion?").RunSynchronously();
+                    break;
+            }
+
+            // TODO: Can we get this state from the Endorse/Unendorse calls above?
+            return _apiCallManager.Mods.GetMod(GameDomainName, id).Result.Endorsement.EndorseStatus.Equals(EndorsementStatus.Endorsed);
         }
 
         /// <inheritdoc cref="IModRepository"/>
         public IList<IModFileInfo> GetModFileInfo(string modId)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var modFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), null).Result.Files;
+                return modFiles.Select(modFileInfo => new ModFileInfo(modFileInfo)).Cast<IModFileInfo>().ToList();
+            }
+            catch (AggregateException a)
+            {
+                TraceUtil.TraceAggregateException(a);
+                return null;
+            }
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public Uri[] GetFilePartUrls(string p_strModId, string p_strFileId)
+        public Uri[] GetFilePartUrls(string modId, string fileId)
+        {
+            try
+            {
+                // TODO: Does NMM ever need to provide key/expiry for non-premium downloads like this?
+                var urls = _apiCallManager.ModFiles.GetDownloadLinks(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result;
+                return urls.Select(url => url.Uri).ToArray();
+            }
+            catch (AggregateException a)
+            {
+                TraceUtil.TraceAggregateException(a);
+                return null;
+            }
+        }
+
+        /// <inheritdoc cref="IModRepository"/>
+        public List<FileserverInfo> GetFilePartInfo(string modId, string fileId, string userLocation, out string repositoryMessage)
         {
             throw new NotImplementedException();
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, string p_strUserLocation,
-            out string p_strRepositoryMessage)
+        public IModFileInfo GetFileInfo(string modId, string fileId)
+        {
+            try
+            {
+                return new ModFileInfo(_apiCallManager.ModFiles.GetModFile(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result);
+            }
+            catch (AggregateException e)
+            {
+                TraceUtil.TraceAggregateException(e);
+                throw;
+            }
+        }
+
+        /// <inheritdoc cref="IModRepository"/>
+        public IModFileInfo GetFileInfoForFile(string fileName)
         {
             throw new NotImplementedException();
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public IModFileInfo GetFileInfo(string p_strModId, string p_strFileId)
+        public IModFileInfo GetDefaultFileInfo(string modId)
         {
             throw new NotImplementedException();
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public IModFileInfo GetFileInfoForFile(string p_strFilename)
+        public List<CategoriesInfo> GetCategories(int gameId)
         {
-            throw new NotImplementedException();
-        }
-
-        /// <inheritdoc cref="IModRepository"/>
-        public IModFileInfo GetDefaultFileInfo(string p_strModId)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <inheritdoc cref="IModRepository"/>
-        public List<CategoriesInfo> GetCategories(int p_intGameId)
-        {
-            throw new NotImplementedException();
+            try
+            {
+                var categories = _apiCallManager.Games.GetGame(GameDomainName).Result.Categories;
+                return categories.Select(category => new CategoriesInfo(category)).ToList();
+            }
+            catch (AggregateException a)
+            {
+                TraceUtil.TraceAggregateException(a);
+                return null;
+            }
         }
 
         private void UserStatusUpdateEvent()
@@ -209,7 +308,6 @@
 
         #region Helpers
 
-        #endregion
         protected void SetFileServerZones()
         {
             FileServerZones = new List<FileServerZone>
@@ -229,23 +327,24 @@
             };
         }
 
+        #endregion
 
         #region Deprecated
 
         /// <inheritdoc cref="IModRepository"/>
-        public IList<IModInfo> FindMods(string p_strModNameSearchString, bool p_booIncludeAllTerms)
+        public IList<IModInfo> FindMods(string modNameSearchString, bool includeAllTerms)
         {
             throw new NotImplementedException();
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString)
+        public IList<IModInfo> FindMods(string modNameSearchString, string authorSearchString)
         {
             throw new NotImplementedException();
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms)
+        public IList<IModInfo> FindMods(string modNameSearchString, string modAuthor, bool includeAllTerms)
         {
             throw new NotImplementedException();
         }

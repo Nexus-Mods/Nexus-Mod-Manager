@@ -4,13 +4,13 @@
     using System.Collections.Generic;
     using ModManagement;
     using Mods;
-    using NexusModsApi.EndPoints.User;
+    using Pathoschild.FluentNexus.Models;
 
     /// <summary>
 	/// Describes the methods and properties of a mod repository.
 	/// </summary>
 	/// <remarks>
-	/// A mod repository provides access to mods, and mod minformation.
+	/// A mod repository provides access to mods, and mod information.
 	/// </remarks>
 	public interface IModRepository
 	{
@@ -92,9 +92,8 @@
         /// <summary>
         /// Verifies the given API key is valid.
         /// </summary>
-        /// <param name="apiKey">API key to authenticate with.</param>
         /// <returns>True if valid, otherwise false.</returns>
-        bool Authenticate(string apiKey);
+        bool Authenticate();
 
 		/// <summary>
 		/// Logs the user out of the mod repository.
@@ -152,76 +151,76 @@
 		/// <summary>
 		/// Gets the URLs of the file parts for the specified download file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod whose download file's parts' URLs are to be retrieved.</param>
-		/// <param name="p_strFileId">The id of the download file whose parts' URLs are to be retrieved.</param>
+		/// <param name="modId">The id of the mod whose download file's parts' URLs are to be retrieved.</param>
+		/// <param name="fileId">The id of the download file whose parts' URLs are to be retrieved.</param>
 		/// <returns>The URLs of the file parts for the specified download file.</returns>
-		Uri[] GetFilePartUrls(string p_strModId, string p_strFileId);
+		Uri[] GetFilePartUrls(string modId, string fileId);
 
 		/// <summary>
 		/// Gets the FileserverInfo for the default download file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
-		/// <param name="p_strFileId">The id of the file whose parts' URLs are to be retrieved.</param>
-		/// <param name="p_strUserLocation">The preferred user location.</param>
-		/// <param name="p_strRepositoryMessage">Custom repository message, if needed.</param>
+		/// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
+		/// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
+		/// <param name="userLocation">The preferred user location.</param>
+		/// <param name="repositoryMessage">Custom repository message, if needed.</param>
 		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		List<FileserverInfo> GetFilePartInfo(string p_strModId, string p_strFileId, string p_strUserLocation, out string p_strRepositoryMessage);
+		List<FileserverInfo> GetFilePartInfo(string modId, string fileId, string userLocation, out string repositoryMessage);
 
 		/// <summary>
 		/// Gets the file info for the specified download file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod the whose file's metadata is to be retrieved.</param>
-		/// <param name="p_strFileId">The id of the download file whose metadata is to be retrieved.</param>
+		/// <param name="modId">The id of the mod the whose file's metadata is to be retrieved.</param>
+		/// <param name="fileId">The id of the download file whose metadata is to be retrieved.</param>
 		/// <returns>The file info for the specified download file of the specified mod.</returns>
-		IModFileInfo GetFileInfo(string p_strModId, string p_strFileId);
+		IModFileInfo GetFileInfo(string modId, string fileId);
 
 		/// <summary>
 		/// Gets the file info for the specified download file.
 		/// </summary>
-		/// <param name="p_strFilename">The name of the file whose info is to be returned..</param>
+		/// <param name="fileName">The name of the file whose info is to be returned..</param>
 		/// <returns>The file info for the specified download file.</returns>
-		IModFileInfo GetFileInfoForFile(string p_strFilename);
+		IModFileInfo GetFileInfoForFile(string fileName);
 
 		/// <summary>
-		/// Gets the file info for the default file of the speficied mod.
+		/// Gets the file info for the default file of the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod the whose default file's metadata is to be retrieved.</param>
-		/// <returns>The file info for the default file of the speficied mod.</returns>
-		IModFileInfo GetDefaultFileInfo(string p_strModId);
+		/// <param name="modId">The id of the mod the whose default file's metadata is to be retrieved.</param>
+		/// <returns>The file info for the default file of the specified mod.</returns>
+		IModFileInfo GetDefaultFileInfo(string modId);
 
 		/// <summary>
 		/// Finds the mods containing the given search terms.
 		/// </summary>
-		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
+		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="includeAllTerms">Whether the returned mods' names should include all of
 		/// the given search terms.</param>
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
-		IList<IModInfo> FindMods(string p_strModNameSearchString, bool p_booIncludeAllTerms);
+		IList<IModInfo> FindMods(string modNameSearchString, bool includeAllTerms);
 
 		/// <summary>
 		/// Finds the mods by Author name.
 		/// </summary>
-		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="p_strAuthorSearchString">The Author to use to search for mods.</param>
+		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="authorSearchString">The Author to use to search for mods.</param>
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
-		IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strAuthorSearchString);
+		IList<IModInfo> FindMods(string modNameSearchString, string authorSearchString);
 
 		/// <summary>
 		/// Finds the mods containing the given search terms.
 		/// </summary>
-		/// <param name="p_strModNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="p_strModAuthor">The Mod author.</param>
-		/// <param name="p_booIncludeAllTerms">Whether the returned mods' names should include all of
+		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
+		/// <param name="modAuthor">The Mod author.</param>
+		/// <param name="includeAllTerms">Whether the returned mods' names should include all of
 		/// the given search terms.</param>
 		/// <returns>The mod info for the mods matching the given search criteria.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		IList<IModInfo> FindMods(string p_strModNameSearchString, string p_strModAuthor, bool p_booIncludeAllTerms);
+		IList<IModInfo> FindMods(string modNameSearchString, string modAuthor, bool includeAllTerms);
 
 		/// <summary>
 		/// Gets the Categories array.
 		/// </summary>
 		/// <returns>The Categories array..</returns>
-		List<CategoriesInfo> GetCategories(int p_intGameId);
+		List<CategoriesInfo> GetCategories(int gameId);
 	}
 }

@@ -23,7 +23,6 @@ using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.PluginManagement.OrderLog;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
-using Nexus.Client.Updating;
 using Nexus.Client.Util;
 
 namespace Nexus.Client
@@ -734,7 +733,7 @@ namespace Nexus.Client
 
 			try
 			{
-				_credentialsExpired = !p_mrpModRepository.Authenticate(EnvironmentInfo.Settings.ApiKey);
+				_credentialsExpired = !p_mrpModRepository.Authenticate();
 			}
 			catch (RepositoryUnavailableException e)
 			{

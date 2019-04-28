@@ -322,44 +322,44 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// Updates the object's proerties to the values of the
 			/// given <see cref="IModInfo"/>.
 			/// </summary>
-			/// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
+			/// <param name="modInfo">The <see cref="IModInfo"/> whose values
 			/// are to be used to update this object's properties.</param>
-			/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
+			/// <param name="overwriteAllValues">Whether to overwrite the current info values,
 			/// or just the empty ones.</param>
-			public void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues)
+			public void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues)
 			{
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Id))
-					Id = p_mifInfo.Id;
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(DownloadId))
-					DownloadId = p_mifInfo.DownloadId;
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(ModName))
-					ModName = p_mifInfo.ModName;
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(HumanReadableVersion))
-					HumanReadableVersion = p_mifInfo.HumanReadableVersion;
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(LastKnownVersion))
-					LastKnownVersion = p_mifInfo.LastKnownVersion;
-				if ((p_booOverwriteAllValues == true) || (IsEndorsed != p_mifInfo.IsEndorsed))
-					IsEndorsed = p_mifInfo.IsEndorsed;
-				if ((p_booOverwriteAllValues == true) || (MachineVersion == null))
-					MachineVersion = p_mifInfo.MachineVersion;
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Author))
-					Author = p_mifInfo.Author;
-				if ((p_booOverwriteAllValues == true) || (CategoryId != p_mifInfo.CategoryId))
-					CategoryId = p_mifInfo.CategoryId;
-				if ((p_booOverwriteAllValues == true) || (CustomCategoryId != p_mifInfo.CustomCategoryId))
-					CustomCategoryId = p_mifInfo.CustomCategoryId;
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Description))
-					Description = p_mifInfo.Description;
-				if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(InstallDate))
-					InstallDate = p_mifInfo.InstallDate;
-				if ((p_booOverwriteAllValues == true) || (Website == null))
-					Website = p_mifInfo.Website;
-				if ((p_booOverwriteAllValues == true) || (Screenshot == null))
-					Screenshot = p_mifInfo.Screenshot;
-				if ((p_booOverwriteAllValues == true) || (UpdateWarningEnabled != p_mifInfo.UpdateWarningEnabled))
-					UpdateWarningEnabled = p_mifInfo.UpdateWarningEnabled;
-				if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
-					UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(Id))
+					Id = modInfo.Id;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(DownloadId))
+					DownloadId = modInfo.DownloadId;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(ModName))
+					ModName = modInfo.ModName;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(HumanReadableVersion))
+					HumanReadableVersion = modInfo.HumanReadableVersion;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(LastKnownVersion))
+					LastKnownVersion = modInfo.LastKnownVersion;
+				if ((overwriteAllValues == true) || (IsEndorsed != modInfo.IsEndorsed))
+					IsEndorsed = modInfo.IsEndorsed;
+				if ((overwriteAllValues == true) || (MachineVersion == null))
+					MachineVersion = modInfo.MachineVersion;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(Author))
+					Author = modInfo.Author;
+				if ((overwriteAllValues == true) || (CategoryId != modInfo.CategoryId))
+					CategoryId = modInfo.CategoryId;
+				if ((overwriteAllValues == true) || (CustomCategoryId != modInfo.CustomCategoryId))
+					CustomCategoryId = modInfo.CustomCategoryId;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(Description))
+					Description = modInfo.Description;
+				if ((overwriteAllValues == true) || String.IsNullOrEmpty(InstallDate))
+					InstallDate = modInfo.InstallDate;
+				if ((overwriteAllValues == true) || (Website == null))
+					Website = modInfo.Website;
+				if ((overwriteAllValues == true) || (Screenshot == null))
+					Screenshot = modInfo.Screenshot;
+				if ((overwriteAllValues == true) || (UpdateWarningEnabled != modInfo.UpdateWarningEnabled))
+					UpdateWarningEnabled = modInfo.UpdateWarningEnabled;
+				if ((overwriteAllValues == true) || (UpdateChecksEnabled != modInfo.UpdateChecksEnabled))
+					UpdateChecksEnabled = modInfo.UpdateChecksEnabled;
 			}
 
 			#endregion
