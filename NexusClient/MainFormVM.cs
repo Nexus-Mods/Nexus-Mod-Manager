@@ -7,7 +7,7 @@
     using System.IO;
     using System.Linq;
     using System.Windows.Forms;
-    using ModRepositories.NexusModsApi.DataContracts;
+    using ModRepositories.NexusModsApi.EndPoints.User;
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.DownloadMonitoring;
     using Nexus.Client.DownloadMonitoring.UI;
@@ -409,7 +409,7 @@
 		/// Gets the user membership status.
 		/// </summary>
 		/// <value>Gets the user membership status.</value>
-		public UserDataContract UserStatus => ModRepository.UserStatus;
+		public User UserStatus => ModRepository.UserStatus;
 
         /// <summary>
 		/// Gets whether the manager is currently installing/uninstalling a mod.

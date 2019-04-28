@@ -1,17 +1,7 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts
+﻿namespace Nexus.Client.ModRepositories.NexusModsApi.EndPoints.Mods
 {
     using System;
     using System.Runtime.Serialization;
-
-    [DataContract]
-    public class Md5SearchDataContract
-    {
-        [DataMember(Name = "mod")]
-        public ModDataContract Mod { get; private set; }
-
-        [DataMember(Name = "file_details")]
-        public Md5SearchFileDetails FileDetails { get; private set; }
-    }
 
     [DataContract]
     public class Md5SearchFileDetails

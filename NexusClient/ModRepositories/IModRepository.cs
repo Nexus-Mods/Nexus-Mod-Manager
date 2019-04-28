@@ -4,7 +4,7 @@
     using System.Collections.Generic;
     using ModManagement;
     using Mods;
-    using NexusModsApi.DataContracts;
+    using NexusModsApi.EndPoints.User;
 
     /// <summary>
 	/// Describes the methods and properties of a mod repository.
@@ -39,7 +39,7 @@
         /// </summary>
         /// <value>The user membership status.</value>
 
-        UserDataContract UserStatus { get; }
+        User UserStatus { get; }
 
 		/// <summary>
 		/// Gets the User Agent used for the mod repository.

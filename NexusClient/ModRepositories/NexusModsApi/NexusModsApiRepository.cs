@@ -2,7 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
-    using DataContracts;
+    using EndPoints.User;
     using ModManagement;
     using Mods;
     using Util;
@@ -16,7 +16,7 @@
 
         #endregion
 
-        private UserDataContract _userStatus;
+        private User _userStatus;
 
         #region Properties
 
@@ -27,7 +27,7 @@
         public string Name { get; }
 
         /// <inheritdoc cref="IModRepository"/>
-        public UserDataContract UserStatus
+        public User UserStatus
         {
             get => _userStatus;
             private set
@@ -89,7 +89,7 @@
 
         public bool Authenticate(string apiKey)
         {
-            UserStatus = _apiCallManager.ValidateUser(apiKey);
+            UserStatus = _apiCallManager.User.ValidateUser(apiKey);
 
             if (UserStatus == null)
             {
@@ -118,13 +118,13 @@
             var hash = Md5.CalculateMd5(fileName);
 
             // TODO: Should probably handle cases with multiple hits.
-            return _apiCallManager.SearchForModByMd5(GameDomainName, hash)[0].Mod;
+            return _apiCallManager.Mods.SearchByMd5(GameDomainName, hash)[0].Mod;
         }
 
         /// <inheritdoc cref="IModRepository"/>
         public IModInfo GetModInfo(string modId)
         {
-            return _apiCallManager.SearchForModById(GameDomainName, modId);
+            return _apiCallManager.Mods.GetById(GameDomainName, modId);
         }
 
         /// <inheritdoc cref="IModRepository"/>

@@ -1,11 +1,11 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts
+﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts.Games
 {
     using System;
     using System.Collections.Generic;
     using System.Runtime.Serialization;
 
     [DataContract]
-    public class GameDataContract
+    public class Game
     {
         [DataMember(Name = "id")]
         public int Id { get; private set; }
@@ -47,19 +47,6 @@
         public int Mods { get; private set; }
 
         [DataMember(Name = "categories")]
-        public List<GameCategoryDataContract> Categories { get; private set; }
-    }
-
-    [DataContract]
-    public class GameCategoryDataContract
-    {
-        [DataMember(Name = "category_id")]
-        public int Id { get; private set; }
-
-        [DataMember(Name = "name")]
-        public string Name { get; private set; }
-
-        [DataMember(Name = "parent_category")]
-        public int ParentCategory { get; private set; }
+        public List<GameCategory> Categories { get; private set; }
     }
 }

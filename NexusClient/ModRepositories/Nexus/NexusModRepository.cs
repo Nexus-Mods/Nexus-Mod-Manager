@@ -14,7 +14,7 @@
     using Mods;
     using ModManagement;
     using NexusModsApi;
-    using NexusModsApi.DataContracts;
+    using NexusModsApi.EndPoints.User;
     using Util;
     using Util.Collections;
 
@@ -77,7 +77,7 @@
 		/// Gets the user membership status.
 		/// </summary>
 		/// <value>The user membership status.</value>
-		public UserDataContract UserStatus => null;
+		public User UserStatus => null;
 
         /// <summary>
 		/// Gets whether the repository supports unauthenticated downloads.

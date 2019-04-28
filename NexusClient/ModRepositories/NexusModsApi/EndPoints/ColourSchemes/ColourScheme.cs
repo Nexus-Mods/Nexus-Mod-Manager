@@ -1,9 +1,9 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts
+﻿namespace Nexus.Client.ModRepositories.NexusModsApi.EndPoints.ColourSchemes
 {
     using System.Runtime.Serialization;
 
     [DataContract]
-    public class ColourSchemeDataContract
+    public class ColourScheme
     {
         [DataMember(Name = "id")]
         public int Id { get; private set; }

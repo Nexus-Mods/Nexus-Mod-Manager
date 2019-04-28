@@ -1,10 +1,10 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts
+﻿namespace Nexus.Client.ModRepositories.NexusModsApi.EndPoints.ModFiles
 {
     using System;
     using System.Runtime.Serialization;
 
     [DataContract]
-    public class ModFileDownloadInfoDataContract
+    public class ModFileDownloadInfo
     {
         [DataMember(Name = "name")]
         public string Name { get; private set; }

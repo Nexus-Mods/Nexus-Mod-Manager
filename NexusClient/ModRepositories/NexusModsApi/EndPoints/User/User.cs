@@ -1,9 +1,9 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts
+﻿namespace Nexus.Client.ModRepositories.NexusModsApi.EndPoints.User
 {
     using System.Runtime.Serialization;
 
     [DataContract]
-    public class UserDataContract
+    public class User
     {
         [DataMember(Name = "user_id")]
         public int Id { get; private set; }

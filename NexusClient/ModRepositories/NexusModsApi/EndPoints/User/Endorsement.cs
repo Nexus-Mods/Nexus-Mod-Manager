@@ -1,10 +1,10 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi.DataContracts
+﻿namespace Nexus.Client.ModRepositories.NexusModsApi.EndPoints.User
 {
     using System;
     using System.Runtime.Serialization;
 
     [DataContract]
-    public class EndorsementDataContract
+    public class Endorsement
     {
         [DataMember(Name = "mod_id")]
         public int ModId { get; private set; }
