@@ -60,22 +60,16 @@
 		bool SupportsUnauthenticatedDownload { get; }
 
 		/// <summary>
-		/// Gets the repository's file server zones.
-		/// </summary>
-		/// <value>the repository's file server zones.</value>
-		List<FileServerZone> FileServerZones { get; }
-
-		/// <summary>
 		/// Gets the number allowed connections.
 		/// </summary>
 		/// <value>The number allowed connections.</value>
-		Int32 AllowedConnections { get; }
+		int AllowedConnections { get; }
 
 		/// <summary>
 		/// Gets the number of maximum allowed concurrent downloads.
 		/// </summary>
 		/// <value>The number of maximum allowed concurrent downloads.</value>
-		Int32 MaxConcurrentDownloads { get; }
+		int MaxConcurrentDownloads { get; }
 
 		string GameModeWebsite { get; }
 
@@ -83,7 +77,7 @@
 		/// Gets the remote id of the mod repository.
 		/// </summary>
 		/// <value>The id of the mod repository.</value>
-		int RemoteGameId { get; }
+		string RemoteGameId { get; }
 
 		#endregion
 
@@ -110,14 +104,14 @@
 		IModInfo GetModInfoForFile(string fileName);
 
 		/// <summary>
-		/// Gets the info for the specifed mod.
+		/// Gets the info for the specified mod.
 		/// </summary>
 		/// <param name="p_strModId">The id of the mod info is be retrieved.</param>
 		/// <returns>The info for the specifed mod.</returns>
 		IModInfo GetModInfo(string p_strModId);
 
 		/// <summary>
-		/// Gets the info for the specifed mod list.
+		/// Gets the info for the specified mod list.
 		/// </summary>
 		/// <param name="modIdList">The mod list to submit.</param>
 		/// <returns>The update mods' list.</returns>
@@ -125,7 +119,7 @@
 		List<IModInfo> GetModListInfo(List<string> modIdList);
 
 		/// <summary>
-		/// Gets the info for the specifed file list.
+		/// Gets the info for the specified file list.
 		/// </summary>
 		/// <param name="modFileList">The file list to submit.</param>
 		/// <returns>The update mods' list.</returns>
@@ -156,24 +150,22 @@
 		/// <returns>The URLs of the file parts for the specified download file.</returns>
 		Uri[] GetFilePartUrls(string modId, string fileId);
 
-		/// <summary>
-		/// Gets the FileserverInfo for the default download file of the specified mod.
-		/// </summary>
-		/// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
-		/// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
-		/// <param name="userLocation">The preferred user location.</param>
-		/// <param name="repositoryMessage">Custom repository message, if needed.</param>
-		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
-		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		List<FileserverInfo> GetFilePartInfo(string modId, string fileId, string userLocation, out string repositoryMessage);
+        /// <summary>
+        /// Gets the FileserverInfo for the default download file of the specified mod.
+        /// </summary>
+        /// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
+        /// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
+        /// <returns>The FileserverInfo of the file parts for the default download file.</returns>
+        /// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+        List<ModFileDownloadLink> GetFilePartInfo(string modId, string fileId, string key = "", int expiry = -1);
 
-		/// <summary>
-		/// Gets the file info for the specified download file of the specified mod.
-		/// </summary>
-		/// <param name="modId">The id of the mod the whose file's metadata is to be retrieved.</param>
-		/// <param name="fileId">The id of the download file whose metadata is to be retrieved.</param>
-		/// <returns>The file info for the specified download file of the specified mod.</returns>
-		IModFileInfo GetFileInfo(string modId, string fileId);
+        /// <summary>
+        /// Gets the file info for the specified download file of the specified mod.
+        /// </summary>
+        /// <param name="modId">The id of the mod the whose file's metadata is to be retrieved.</param>
+        /// <param name="fileId">The id of the download file whose metadata is to be retrieved.</param>
+        /// <returns>The file info for the specified download file of the specified mod.</returns>
+        IModFileInfo GetFileInfo(string modId, string fileId);
 
 		/// <summary>
 		/// Gets the file info for the specified download file.
@@ -221,6 +213,6 @@
 		/// Gets the Categories array.
 		/// </summary>
 		/// <returns>The Categories array..</returns>
-		List<CategoriesInfo> GetCategories(int gameId);
+		List<CategoriesInfo> GetCategories(string gameDomainName);
 	}
 }

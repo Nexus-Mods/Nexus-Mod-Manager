@@ -141,12 +141,12 @@ namespace Nexus.Client.Settings
             if (m_mmrModRepository.UserStatus != null && m_mmrModRepository.UserStatus.IsPremium)
 			{
                 PremiumEnabled = true;
-                FileServerZones = m_mmrModRepository.FileServerZones.ToList();
+                FileServerZones = new List<FileServerZone>();
             }
 			else
 			{
                 PremiumEnabled = false;
-                FileServerZones = m_mmrModRepository.FileServerZones.Where(x => x.IsPremium == false).ToList();
+                FileServerZones = new List<FileServerZone>();
 			}
 
 			var fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);

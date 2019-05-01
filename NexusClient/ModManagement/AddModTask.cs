@@ -19,7 +19,9 @@ using ChinhDo.Transactions;
 
 namespace Nexus.Client.ModManagement
 {
-	/// <summary>
+    using Pathoschild.FluentNexus.Models;
+
+    /// <summary>
 	/// Adds, and downloads if required, a mod to the mod manager.
 	/// </summary>
 	public class AddModTask : BackgroundTask, IDisposable
@@ -627,40 +629,39 @@ namespace Nexus.Client.ModManagement
 				switch (p_uriPath.Scheme.ToLowerInvariant())
 				{
 					case "nxm":
-						NexusUrl nxuModUrl = new NexusUrl(p_uriPath);
+						var nxuModUrl = new NexusUrl(p_uriPath);
 
-						if (String.IsNullOrEmpty(nxuModUrl.ModId))
+						if (string.IsNullOrEmpty(nxuModUrl.ModId))
 						{
 							Trace.TraceError("Invalid Nexus URI: " + p_uriPath.ToString());
 							return null;
 						}
 
-						IModFileInfo mfiFile = null;
-						List<FileserverInfo> lstFileServerInfo = new List<FileserverInfo>();
-						List<Uri> uriFilesToDownload = new List<Uri>();
-						try
+						IModFileInfo mfiFile;
+						var uriFilesToDownload = new List<Uri>();
+
+                        try
 						{
-							if (String.IsNullOrEmpty(nxuModUrl.FileId))
-								mfiFile = m_mrpModRepository.GetDefaultFileInfo(nxuModUrl.ModId);
-							else
-								mfiFile = m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
-							if (mfiFile == null)
+							mfiFile = string.IsNullOrEmpty(nxuModUrl.FileId) ? m_mrpModRepository.GetDefaultFileInfo(nxuModUrl.ModId) : m_mrpModRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+
+                            if (mfiFile == null)
 							{
-								Trace.TraceInformation(String.Format("[{0}] Can't get the file: no file.", p_uriPath.ToString()));
+								Trace.TraceInformation($"[{p_uriPath}] Can't get the file: no file.");
 								return null;
 							}
-							string strRepositoryMessage;
-							lstFileServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id.ToString(), m_eifEnvironmentInfo.Settings.UserLocation, out strRepositoryMessage);
-							if (lstFileServerInfo.Count > 0)
+
+                            var lstFileServerInfo = m_mrpModRepository.GetFilePartInfo(nxuModUrl.ModId, mfiFile.Id, nxuModUrl.Key, nxuModUrl.Expiry);
+
+                            if (lstFileServerInfo.Count > 0)
 							{
-								foreach (FileserverInfo fsiFileServer in lstFileServerInfo)
-									if (!String.IsNullOrEmpty(fsiFileServer.DownloadLink))
-									{
-										uriFilesToDownload.Add(new Uri(fsiFileServer.DownloadLink));
-										m_strFileserverCaptions.Add(fsiFileServer.Name);
-									}
-								if (!String.IsNullOrEmpty(strRepositoryMessage))
-									m_strRepositoryMessage = strRepositoryMessage;
+								foreach (var fsiFileServer in lstFileServerInfo)
+                                {
+                                    if (fsiFileServer.Uri != null)
+                                    {
+                                        uriFilesToDownload.Add(fsiFileServer.Uri);
+                                        m_strFileserverCaptions.Add(fsiFileServer.CdnShortName);
+                                    }
+                                }
 							}
 						}
 						catch (RepositoryUnavailableException e)
@@ -669,19 +670,26 @@ namespace Nexus.Client.ModManagement
 							return null;
 						}
 
-						if ((uriFilesToDownload == null) || (uriFilesToDownload.Count <= 0))
-							return null;
-						string strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
+						if (uriFilesToDownload.Count <= 0)
+                        {
+                            return null;
+                        }
+
+                        var strSourcePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, mfiFile.Filename);
 						amdDescriptor = new AddModDescriptor(p_uriPath, strSourcePath, uriFilesToDownload, TaskStatus.Running, m_strFileserverCaptions);
 						break;
 					default:
-						Trace.TraceInformation(String.Format("[{0}] Can't get the file.", p_uriPath.ToString()));
-						throw new Exception("Unable to retrieve file: " + p_uriPath.ToString());
+						Trace.TraceInformation($"[{p_uriPath}] Can't get the file.");
+						throw new Exception("Unable to retrieve file: " + p_uriPath);
 				}
+
 				dicQueuedMods[p_uriPath.ToString()] = amdDescriptor;
-				lock (m_eifEnvironmentInfo.Settings)
-					m_eifEnvironmentInfo.Settings.Save();
-			}
+
+                lock (m_eifEnvironmentInfo.Settings)
+                {
+                    m_eifEnvironmentInfo.Settings.Save();
+                }
+            }
 
 			return amdDescriptor;
 		}

@@ -21,7 +21,7 @@
     /// <remarks>
     /// The Nexus mod repository is the repository hosted with the Nexus group of websites.
     /// </remarks>
-    public class NexusModRepository : IModRepository
+    public class NexusModRepository
 	{
 		/// <summary>
 		/// Gets an instance of the Nexus mod repository.
@@ -492,8 +492,9 @@
 				mifInfo = lstCandidates[0].Value;
 			}
 			p_mifInfo = mifInfo;
-			return (mifInfo == null) ? null : mifInfo.Id;
-		}
+            return null;
+            //return (mifInfo == null) ? null : mifInfo.Id;
+        }
 
 		#endregion
 
@@ -690,21 +691,23 @@
 		/// Converts the native Nexus repository mod info data structure into an <see cref="IModInfo"/>
 		/// structure.
 		/// </summary>
-		/// <param name="p_nmiNexusModInfo">The structure to convert.</param>
+		/// <param name="nexusModInfo">The structure to convert.</param>
 		/// <returns>The converted structure.</returns>
-		private IModInfo Convert(NexusModInfo p_nmiNexusModInfo)
+		private IModInfo ConvertNmiToImi(NexusModInfo nexusModInfo)
 		{
-			Uri uriWebsite = (String.IsNullOrEmpty(p_nmiNexusModInfo.Website) ? null : new Uri(p_nmiNexusModInfo.Website));
-			string strDownloadID = p_nmiNexusModInfo.DownloadId;
-			string strFilename = p_nmiNexusModInfo.Filename;
-			string modName = string.IsNullOrWhiteSpace(p_nmiNexusModInfo.RequestedFileName) ? p_nmiNexusModInfo.Name : p_nmiNexusModInfo.Name + " - " + p_nmiNexusModInfo.RequestedFileName;
-			if (String.IsNullOrWhiteSpace(strDownloadID) || (strDownloadID == "0") || (strDownloadID == "-1"))
+			var website = (string.IsNullOrEmpty(nexusModInfo.Website) ? null : new Uri(nexusModInfo.Website));
+			var downloadId = nexusModInfo.DownloadId;
+			var filename = nexusModInfo.Filename;
+			var modName = string.IsNullOrWhiteSpace(nexusModInfo.RequestedFileName) ? nexusModInfo.Name : nexusModInfo.Name + " - " + nexusModInfo.RequestedFileName;
+
+            if (string.IsNullOrWhiteSpace(downloadId) || (downloadId == "0") || (downloadId == "-1"))
 			{
-				strDownloadID = p_nmiNexusModInfo.NewDownloadId ?? strDownloadID;
-				strFilename = p_nmiNexusModInfo.NewFilename ?? strFilename;
+				downloadId = nexusModInfo.NewDownloadId ?? downloadId;
+				filename = nexusModInfo.NewFilename ?? filename;
 			}
-			ModInfo mifInfo = new ModInfo(p_nmiNexusModInfo.Id, strDownloadID, modName, strFilename, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.HumanReadableVersion, p_nmiNexusModInfo.IsEndorsed, null, p_nmiNexusModInfo.Author, p_nmiNexusModInfo.CategoryId, -1, p_nmiNexusModInfo.Description, null, uriWebsite, null, true, true);
-			return mifInfo;
+
+            var info = new ModInfo(nexusModInfo.Id, downloadId, modName, filename, nexusModInfo.HumanReadableVersion, nexusModInfo.HumanReadableVersion, nexusModInfo.IsEndorsed, null, nexusModInfo.Author, nexusModInfo.CategoryId, -1, nexusModInfo.Description, null, website, null, true, true);
+			return info;
 		}
 
 		/// <summary>
@@ -756,7 +759,7 @@
 			if (nmiInfo == null)
 				return null;
 
-			return Convert(nmiInfo);
+			return ConvertNmiToImi(nmiInfo);
 		}
 
 		/// <summary>
@@ -808,7 +811,7 @@
 				return null;
 
 			foreach (NexusModInfo iMod in nmiInfo)
-				imiUpdatedMods.Add(Convert(iMod));
+				imiUpdatedMods.Add(ConvertNmiToImi(iMod));
 
 			return imiUpdatedMods;
 		}
@@ -884,7 +887,7 @@
 				return null;
 
 			foreach (NexusModInfo iMod in nmiInfo)
-				imiUpdatedMods.Add(Convert(iMod));
+				imiUpdatedMods.Add(ConvertNmiToImi(iMod));
 
 			return imiUpdatedMods;
 		}
@@ -953,7 +956,7 @@
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
-					nmrApi.FindMods(strSearchString, includeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+					nmrApi.FindMods(strSearchString, includeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(ConvertNmiToImi(x)));
 					return mfiMods;
 				}
 			}
@@ -1006,9 +1009,9 @@
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
 					if (String.IsNullOrEmpty(modAuthor))
-						nmrApi.FindMods(strSearchString, includeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+						nmrApi.FindMods(strSearchString, includeAllTerms ? "ALL" : "ANY", m_intRemoteGameId).ForEach(x => mfiMods.Add(ConvertNmiToImi(x)));
 					else
-						nmrApi.FindModsAuthor(strSearchString, includeAllTerms ? "ALL" : "ANY", modAuthor, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+						nmrApi.FindModsAuthor(strSearchString, includeAllTerms ? "ALL" : "ANY", modAuthor, m_intRemoteGameId).ForEach(x => mfiMods.Add(ConvertNmiToImi(x)));
 					return mfiMods;
 				}
 			}
@@ -1057,7 +1060,7 @@
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
 					List<IModInfo> mfiMods = new List<IModInfo>();
-					nmrApi.FindModsAuthor(strSearchString, "ANY", authorSearchString, m_intRemoteGameId).ForEach(x => mfiMods.Add(Convert(x)));
+					nmrApi.FindModsAuthor(strSearchString, "ANY", authorSearchString, m_intRemoteGameId).ForEach(x => mfiMods.Add(ConvertNmiToImi(x)));
 					return mfiMods;
 				}
 			}
@@ -1155,18 +1158,15 @@
 			return lstDownloadUrls.ToArray();
 		}
 
-		/// <summary>
-		/// Gets the URLs of the file parts for the default download file of the specified mod.
-		/// </summary>
-		/// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
-		/// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
-		/// <param name="userLocation">The preferred user location.</param>
-		/// <param name="repositoryMessage">Custom repository message, if needed.</param>
-		/// <returns>The FileserverInfo of the file parts for the default download file.</returns>
-		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		public List<FileserverInfo> GetFilePartInfo(string modId, string fileId, string userLocation, out string repositoryMessage)
-		{
-			repositoryMessage = String.Empty;
+        /// <summary>
+        /// Gets the URLs of the file parts for the default download file of the specified mod.
+        /// </summary>
+        /// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
+        /// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
+        /// <returns>The FileserverInfo of the file parts for the default download file.</returns>
+        /// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
+        public List<ModFileDownloadLink> GetFilePartInfo(int modId, int fileId, string key = "", int expiry = -1)
+        {
 			if (IsOffline)
 				return null;
 
@@ -1177,8 +1177,8 @@
 				using (IDisposable dspProxy = (IDisposable)GetProxyFactory().CreateChannel())
 				{
 					INexusModRepositoryApi nmrApi = (INexusModRepositoryApi)dspProxy;
-					fsiServerInfo = nmrApi.GetModFileDownloadUrls(fileId, m_intRemoteGameId);
-					fsiBestMatch = GetBestFileserver(fsiServerInfo, userLocation, out repositoryMessage);
+					fsiServerInfo = nmrApi.GetModFileDownloadUrls(fileId.ToString(), m_intRemoteGameId);
+					//fsiBestMatch = GetBestFileserver(fsiServerInfo, userLocation, out repositoryMessage);
 				}
 			}
 			catch (TimeoutException e)
@@ -1193,7 +1193,9 @@
 			{
 				throw new RepositoryUnavailableException(String.Format("Cannot reach the {0} metadata server.", Name), e);
 			}
-			return fsiBestMatch;
+
+            return null;
+            //return fsiBestMatch;
 		}
 
 
