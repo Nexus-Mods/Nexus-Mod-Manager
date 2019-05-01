@@ -73,11 +73,10 @@
 
 		string GameModeWebsite { get; }
 
-		/// <summary>
-		/// Gets the remote id of the mod repository.
-		/// </summary>
-		/// <value>The id of the mod repository.</value>
-		string RemoteGameId { get; }
+        /// <summary>
+        /// Game Domain E.g. 'skyrim'
+        /// </summary>
+        string GameDomainName { get; }
 
 		#endregion
 
@@ -111,14 +110,6 @@
 		IModInfo GetModInfo(string p_strModId);
 
 		/// <summary>
-		/// Gets the info for the specified mod list.
-		/// </summary>
-		/// <param name="modIdList">The mod list to submit.</param>
-		/// <returns>The update mods' list.</returns>
-		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		List<IModInfo> GetModListInfo(List<string> modIdList);
-
-		/// <summary>
 		/// Gets the info for the specified file list.
 		/// </summary>
 		/// <param name="modFileList">The file list to submit.</param>
@@ -126,14 +117,14 @@
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		List<IModInfo> GetFileListInfo(List<string> modFileList);
 
-		/// <summary>
-		/// Toggles the mod Endorsement state.
-		/// </summary>
-		/// <param name="modId">The mod ID.</param>
-		/// <param name="localState">The local Endorsement state.</param>
-		/// <returns>The updated online Endorsement state.</returns>
-		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		bool ToggleEndorsement(string modId, int localState);
+        /// <summary>
+        /// Toggles the mod Endorsement state.
+        /// </summary>
+        /// <param name="modId">The mod ID.</param>
+        /// <param name="localState">The local Endorsement state.</param>
+        /// <param name="version">Version of the mod to endorse.</param>
+        /// <returns>The updated online Endorsement state.</returns>
+        bool? ToggleEndorsement(string modId, int localState, string version);
 
 		/// <summary>
 		/// Gets the list of files for the specified mod.
@@ -141,14 +132,6 @@
 		/// <param name="modId">The id of the mod whose list of files is to be returned.</param>
 		/// <returns>The list of files for the specified mod.</returns>
 		IList<IModFileInfo> GetModFileInfo(string modId);
-
-		/// <summary>
-		/// Gets the URLs of the file parts for the specified download file of the specified mod.
-		/// </summary>
-		/// <param name="modId">The id of the mod whose download file's parts' URLs are to be retrieved.</param>
-		/// <param name="fileId">The id of the download file whose parts' URLs are to be retrieved.</param>
-		/// <returns>The URLs of the file parts for the specified download file.</returns>
-		Uri[] GetFilePartUrls(string modId, string fileId);
 
         /// <summary>
         /// Gets the FileserverInfo for the default download file of the specified mod.

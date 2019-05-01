@@ -161,7 +161,7 @@
                 null,
                 result.Version,
                 null,
-                result.Endorsement.EndorseStatus == EndorsementStatus.Endorsed,
+                result.Endorsement?.EndorseStatus == EndorsementStatus.Endorsed,
                 new Version(result.Version),
                 result.Author,
                 result.CategoryID,

@@ -6,6 +6,8 @@
     using System.IO;
     using System.Linq;
     using System.Text.RegularExpressions;
+    using System.Threading;
+    using System.Threading.Tasks;
     using ModManagement;
     using Mods;
     using Pathoschild.FluentNexus.Models;
@@ -45,8 +47,6 @@
                 
             }
         }
-        
-        public string GameDomainName { get; }
 
         /// <inheritdoc cref="IModRepository"/>
         public string UserAgent => ApiCallManager.UserAgent;
@@ -66,16 +66,18 @@
         /// <inheritdoc cref="IModRepository"/>
         public string GameModeWebsite { get; }
 
-        /// <summary>
-        /// Game Domain E.g. 'skyrim'
-        /// </summary>
         /// <inheritdoc cref="IModRepository"/>
-        public string RemoteGameId { get; }
+        public string GameDomainName { get; }
 
         #endregion
 
         private readonly ApiCallManager _apiCallManager;
 
+        /// <summary>
+        /// Creates a new instance of the <see cref="NexusModsApiRepository"/>.
+        /// </summary>
+        /// <param name="currentGameDomain">Currently selected game.</param>
+        /// <param name="apiCallManager"><see cref="ApiCallManager"/> to use for API calls.</param>
         public NexusModsApiRepository(string currentGameDomain, ApiCallManager apiCallManager)
         {
             GameDomainName = HandleGameDomainName(currentGameDomain);
@@ -171,50 +173,51 @@
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public List<IModInfo> GetModListInfo(List<string> modIdList)
-        {
-            var result = new List<IModInfo>();
-
-            foreach (var modId in modIdList)
-            {
-                result.Add(GetModInfo(modId));
-            }
-
-            return result;
-        }
-
-        /// <inheritdoc cref="IModRepository"/>
         public List<IModInfo> GetFileListInfo(List<string> modFileList)
         {
+            // TODO: This is required.
             throw new NotImplementedException("This might not be possible with the new API?");
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public bool ToggleEndorsement(string modId, int localState)
+        public bool? ToggleEndorsement(string modId, int localState, string version)
         {
             var id = Convert.ToInt32(modId);
 
-            switch (localState)
-            {
-                case -1:
-                    _apiCallManager.Mods.Unendorse(GameDomainName, id, "whatVersion?").RunSynchronously();
-                    break;
-                case 1:
-                    _apiCallManager.Mods.Endorse(GameDomainName, id, "whatVersion?").RunSynchronously();
-                    break;
-            }
-
-            // TODO: Can we get this state from the Endorse/Unendorse calls above?
-            return _apiCallManager.Mods.GetMod(GameDomainName, id).Result.Endorsement.EndorseStatus.Equals(EndorsementStatus.Endorsed);
-        }
-
-        /// <inheritdoc cref="IModRepository"/>
-        public IList<IModFileInfo> GetModFileInfo(string modId)
-        {
             try
             {
-                var modFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), null).Result.Files;
-                return modFiles.Select(modFileInfo => new ModFileInfo(modFileInfo)).Cast<IModFileInfo>().ToList();
+                Task action = null;
+
+                switch (localState)
+                {
+                    case -1:
+                    case 0:
+                        // -1 is abstained, 0 is null. Toggling these states will endorse the mod.
+                        action = _apiCallManager.Mods.Endorse(GameDomainName, id, version);
+                        break;
+                    case 1:
+                        // 1 is endorsed, toggling this state will abstain from endorsing the mod.
+                        action = _apiCallManager.Mods.Unendorse(GameDomainName, id, version);
+                        break;
+                }
+
+                var timeout = 5000;
+
+                while (!action.IsCompleted)
+                {
+                    Thread.Sleep(250);
+                    timeout -= 250;
+
+                    if (timeout <= 0)
+                    {
+                        Trace.TraceError("Timed out waiting for endorsement toggle to complete.");
+                        return null;
+                    }
+                }
+
+                // TODO: Can we get this state from the Endorse/Unendorse calls above?
+                return _apiCallManager.Mods.GetMod(GameDomainName, id).Result.Endorsement.EndorseStatus
+                    .Equals(EndorsementStatus.Endorsed);
             }
             catch (AggregateException a)
             {
@@ -224,13 +227,12 @@
         }
 
         /// <inheritdoc cref="IModRepository"/>
-        public Uri[] GetFilePartUrls(string modId, string fileId)
+        public IList<IModFileInfo> GetModFileInfo(string modId)
         {
             try
             {
-                // TODO: Does NMM ever need to provide key/expiry for non-premium downloads like this?
-                var urls = _apiCallManager.ModFiles.GetDownloadLinks(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result;
-                return urls.Select(url => url.Uri).ToArray();
+                var modFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), null).Result.Files;
+                return modFiles.Select(modFileInfo => new ModFileInfo(modFileInfo)).Cast<IModFileInfo>().ToList();
             }
             catch (AggregateException a)
             {
@@ -276,19 +278,27 @@
         /// <inheritdoc cref="IModRepository"/>
         public IModFileInfo GetFileInfoForFile(string fileName)
         {
-            var modId = ParseModIdFromFilename(fileName);
-
-            if (modId == null)
+            try
             {
+                var modId = ParseModIdFromFilename(fileName);
+
+                if (modId == null)
+                {
+                    return null;
+                }
+
+                var filename = Path.GetFileName(fileName);
+                var files = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), null).Result.Files;
+                var fileInfo = files.Find(x => x.Name.Equals(filename, StringComparison.OrdinalIgnoreCase)) ??
+                               files.Find(x => x.Name.Replace(' ', '_').Equals(filename, StringComparison.OrdinalIgnoreCase));
+
+                return new ModFileInfo(fileInfo);
+            }
+            catch (AggregateException a)
+            {
+                TraceUtil.TraceAggregateException(a);
                 return null;
             }
-
-            var filename = Path.GetFileName(fileName);
-            var files = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), null).Result.Files;
-            var fileInfo = files.Find(x => x.Name.Equals(filename, StringComparison.OrdinalIgnoreCase)) ??
-                           files.Find(x => x.Name.Replace(' ', '_').Equals(filename, StringComparison.OrdinalIgnoreCase));
-
-            return new ModFileInfo(fileInfo);
         }
 
         /// <summary>
@@ -296,7 +306,7 @@
 		/// </summary>
 		/// <param name="filePath">The filePath from which to parse the mod's id.</param>
 		/// <returns>The mod's id, if one was found; null otherwise.</returns>
-		protected string ParseModIdFromFilename(string filePath)
+		private string ParseModIdFromFilename(string filePath)
         {
             var modIdRegex = new Regex(@"-((\d+)[-\.])+");
 
@@ -405,15 +415,23 @@
         /// <inheritdoc cref="IModRepository"/>
         public IModFileInfo GetDefaultFileInfo(string modId)
         {
-            var mfiFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main).Result.Files;
+            try
+            {
+                var mfiFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main).Result.Files;
 
-            var mfiDefault = (from f in mfiFiles
-                                 orderby f.UploadedTimestamp descending
-                                 select f).FirstOrDefault() ?? (from f in mfiFiles
-                                 orderby f.UploadedTimestamp descending
-                                 select f).FirstOrDefault();
+                var mfiDefault = (from f in mfiFiles
+                                     orderby f.UploadedTimestamp descending
+                                     select f).FirstOrDefault() ?? (from f in mfiFiles
+                                     orderby f.UploadedTimestamp descending
+                                     select f).FirstOrDefault();
 
-            return new ModFileInfo(mfiDefault);
+                return new ModFileInfo(mfiDefault);
+            }
+            catch (AggregateException a)
+            {
+                TraceUtil.TraceAggregateException(a);
+                return null;
+            }
         }
 
         /// <inheritdoc cref="IModRepository"/>

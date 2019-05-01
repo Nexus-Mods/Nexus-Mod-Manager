@@ -106,7 +106,7 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 
-				var lstCategories = ModRepository.GetCategories(ModRepository.RemoteGameId);
+				var lstCategories = ModRepository.GetCategories(ModRepository.GameDomainName);
 
 				var i = 1;
 

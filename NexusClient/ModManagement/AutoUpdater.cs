@@ -1,18 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.IO;
-using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using System.Text.RegularExpressions;
-using System.Threading;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.Mods;
-using Nexus.Client.Util.Collections;
-
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
-	/// <summary>
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Specialized;
+    using System.IO;
+    using System.Linq;
+    using System.Runtime.Remoting.Messaging;
+    using System.Text.RegularExpressions;
+    using System.Threading;
+    using ModRepositories;
+    using Mods;
+    using Util.Collections;
+
+    /// <summary>
 	/// Check for newer versions of the registered mods.
 	/// </summary>
 	/// <remarks>
@@ -67,11 +67,10 @@ namespace Nexus.Client.ModManagement
 				Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
 				string strThisVersion = rgxClean.Replace(NewestInfo.HumanReadableVersion ?? "", "");
 				string strThatVersion = rgxClean.Replace(p_strVersion ?? "", "");
-				if (String.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
+				if (string.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
 					return true;
-				else
-					return String.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
-			}
+                return string.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
+            }
 		}
 
 		private ThreadSafeObservableList<UpdateInfo> m_oclNewInfo = new ThreadSafeObservableList<UpdateInfo>();
@@ -121,7 +120,7 @@ namespace Nexus.Client.ModManagement
 			ModRepository = p_mrpModRepository;
 			ManagedModRegistry = p_mrgModRegistry;
 			EnvironmentInfo = p_eifEnvironmentInfo;
-			ManagedModRegistry.RegisteredMods.CollectionChanged += new NotifyCollectionChangedEventHandler(RegisteredMods_CollectionChanged);
+			ManagedModRegistry.RegisteredMods.CollectionChanged += RegisteredMods_CollectionChanged;
 			NewestModInfo = new ReadOnlyObservableList<UpdateInfo>(m_oclNewInfo);
 		}
 
@@ -133,12 +132,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
 		public void ToggleModEndorsement(IMod p_modMod)
 		{
-			bool? booEndorsementState = ModRepository.ToggleEndorsement(p_modMod.Id, p_modMod.IsEndorsed == true ? 1 : (p_modMod.IsEndorsed == false ? -1 : 0)); 
-			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
-			mifUpdatedMod.IsEndorsed = booEndorsementState;
-			mifUpdatedMod.HumanReadableVersion = String.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;
-			AddNewVersionNumberForMod(p_modMod, (IModInfo)mifUpdatedMod);
-			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+			bool? booEndorsementState = ModRepository.ToggleEndorsement(p_modMod.Id, p_modMod.IsEndorsed == true ? 1 : (p_modMod.IsEndorsed == false ? -1 : 0), p_modMod.HumanReadableVersion);
+            var mifUpdatedMod = new ModInfo(p_modMod) {IsEndorsed = booEndorsementState};
+            mifUpdatedMod.HumanReadableVersion = string.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;
+			AddNewVersionNumberForMod(p_modMod, mifUpdatedMod);
+			p_modMod.UpdateInfo(mifUpdatedMod, false);
 		}
 
 		/// <summary>
@@ -146,13 +144,13 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_modMod">The mod.</param>
 		/// <param name="p_intCategoryId">The new category id.</param>
-		public void SwitchModCategory(IMod p_modMod, Int32 p_intCategoryId)
+		public void SwitchModCategory(IMod p_modMod, int p_intCategoryId)
 		{
 			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
 			mifUpdatedMod.CustomCategoryId = p_intCategoryId;
 			mifUpdatedMod.UpdateWarningEnabled = p_modMod.UpdateWarningEnabled;
 			mifUpdatedMod.UpdateChecksEnabled = p_modMod.UpdateChecksEnabled;
-			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+			p_modMod.UpdateInfo(mifUpdatedMod, false);
 		}
 
 		/// <summary>
@@ -200,7 +198,7 @@ namespace Nexus.Client.ModManagement
 					//get mod info
 					for (int i = 0; i <= 2; i++)
 					{
-						if (!String.IsNullOrEmpty(p_modMod.Id))
+						if (!string.IsNullOrEmpty(p_modMod.Id))
 							mifInfo = ModRepository.GetModInfo(p_modMod.Id);
 						if (mifInfo == null)
 							mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
@@ -212,15 +210,15 @@ namespace Nexus.Client.ModManagement
 					if (mifInfo == null)
 					{
 						string strSearchTerms = p_modMod.ModName;
-						if (String.IsNullOrEmpty(strSearchTerms))
+						if (string.IsNullOrEmpty(strSearchTerms))
 							strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_", " ").Replace("-", " ");
 						//use heuristics to find info
-						if (!String.IsNullOrEmpty(strSearchTerms))
+						if (!string.IsNullOrEmpty(strSearchTerms))
 						{
 							string[] strTerms = strSearchTerms.Split(' ', '-', '_');
 							string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
 							string strAuthor = p_modMod.Author;
-							if (!String.IsNullOrEmpty(strSearchString) && !String.IsNullOrEmpty(strAuthor) && (strAuthor.Length >= 3))
+							if (!string.IsNullOrEmpty(strSearchString) && !string.IsNullOrEmpty(strAuthor) && (strAuthor.Length >= 3))
 								mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
 						}
 					}
@@ -258,7 +256,7 @@ namespace Nexus.Client.ModManagement
 		{
 			lock (m_oclNewInfo)
 			{
-				Int32 intExistingIndex = m_oclNewInfo.IndexOf(x => (x.Mod == p_modMod));
+				int intExistingIndex = m_oclNewInfo.IndexOf(x => (x.Mod == p_modMod));
 				if (intExistingIndex < 0)
 					m_oclNewInfo.Add(new UpdateInfo(p_modMod, p_mifNewestInfo));
 				else
