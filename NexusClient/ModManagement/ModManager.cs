@@ -630,22 +630,23 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>
-		/// <param name="p_lstModList">The list of mods we need to update.</param>
-		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
-		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
+		/// <param name="modList">The list of mods we need to update.</param>
+		/// <param name="confirm">The delegate to call to confirm an action.</param>
+		/// <param name="overrideCategorySetup">Whether to force a global update.</param>
+		/// <param name="missingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId)
-		{
-			if (ModRepository.UserStatus != null)
+		public IBackgroundTask UpdateMods(List<IMod> modList, IProfileManager profileManager, ConfirmActionMethod confirm, bool overrideCategorySetup, bool? missingDownloadId)
+        {
+            if (ModRepository.UserStatus != null)
 			{
-				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
-				mutModUpdateCheck.Update(p_camConfirm);
-				return mutModUpdateCheck;
+				var modUpdateCheck = new ModUpdateCheckTask(AutoUpdater, profileManager, ModRepository, modList, overrideCategorySetup, missingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+				modUpdateCheck.Update(confirm);
+
+                return modUpdateCheck;
 			}
-			else
-				throw new Exception("Login required");
-		}
+
+            throw new Exception("Login required");
+        }
 
 		/// <summary>
 		/// Disables multiple mods.

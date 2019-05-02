@@ -1137,8 +1137,8 @@
 			ViewModel.Updating += ViewModel_Updating;
 			new ToolStripItemCommandBinding(tsbUpdate, ViewModel.UpdateCommand);
 
-			ViewModel.LogoutCommand.BeforeExecute += LogoutCommand_BeforeExecute;
-			new ToolStripItemCommandBinding(toolStripButtonOnlineStatus, ViewModel.LogoutCommand);
+			ViewModel.ToggleLoginCommand.BeforeExecute += LogoutCommand_BeforeExecute;
+			new ToolStripItemCommandBinding(toolStripButtonOnlineStatus, ViewModel.ToggleLoginCommand);
 
 			BindLaunchCommands();
 			BindProfileCommands();
