@@ -175,14 +175,24 @@
         /// <inheritdoc cref="IModRepository"/>
         public List<IModInfo> GetFileListInfo(List<string> modFileList)
         {
-            // TODO: This is required.
-            throw new NotImplementedException("This might not be possible with the new API?");
+            var list = new List<IModInfo>();
+
+            var modIds = new List<int>();
+
+            foreach (var mod in modFileList)
+            {
+                var id = Convert.ToInt32(mod.Split('|')[1]);
+                list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
+            }
+
+            return list;
         }
 
         /// <inheritdoc cref="IModRepository"/>
         public bool? ToggleEndorsement(string modId, int localState, string version)
         {
             var id = Convert.ToInt32(modId);
+            var localStateAfterCompletion = localState != 1;
 
             try
             {
@@ -215,9 +225,8 @@
                     }
                 }
 
-                // TODO: Can we get this state from the Endorse/Unendorse calls above?
-                return _apiCallManager.Mods.GetMod(GameDomainName, id).Result.Endorsement.EndorseStatus
-                    .Equals(EndorsementStatus.Endorsed);
+                // We'll trust that if nothing went wrong we can figure out the new state.
+                return localStateAfterCompletion;
             }
             catch (AggregateException a)
             {

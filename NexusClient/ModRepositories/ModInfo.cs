@@ -148,11 +148,22 @@
 		}
 
         /// <summary>
-        /// Creates a <see cref="ModInfo"/> from a <see cref="ModHashResult"/>.
+        /// Creates a <see cref="ModInfo"/> from a <see cref="Mod"/>.
         /// </summary>
-        /// <param name="result">HashResult to get info from.</param>
+        /// <param name="result">Mod to get info from.</param>
         public ModInfo(Mod result)
         {
+            bool? endorsementState = null;
+
+            if (result.Endorsement.EndorseStatus == EndorsementStatus.Abstained)
+            {
+                endorsementState = false;
+            }
+            else if (result.Endorsement.EndorseStatus == EndorsementStatus.Endorsed)
+            {
+                endorsementState = true;
+            }
+
             // TODO: Figure out if the null values are required for NMM to work...
             SetAllInfo(true,
                 result.ModID.ToString(),
@@ -161,8 +172,8 @@
                 null,
                 result.Version,
                 null,
-                result.Endorsement?.EndorseStatus == EndorsementStatus.Endorsed,
-                new Version(result.Version),
+                endorsementState,
+                null,
                 result.Author,
                 result.CategoryID,
                 -1,
