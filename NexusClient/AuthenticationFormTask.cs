@@ -91,7 +91,7 @@
             if (AuthenticationFormViewModel.Login())
 			{
 				Status = TaskStatus.Complete;
-				OverallMessage = "Logged in.";
+				OverallMessage = $"Logged in as {ModManager.ModRepository.UserStatus.Name}.";
 				LoginForm.DialogResult = DialogResult.OK;
 			}
 			else
@@ -150,27 +150,18 @@
 
             OverallMessage = "Sending login token...";
 
-			try
-            {
-                _credentialsExpired = !ModManager.ModRepository.Authenticate();
-            }
-			catch (RepositoryUnavailableException e)
-			{
-				_error = e.Message;
-			}
-
-			if (_credentialsExpired)
-			{
-				Status = TaskStatus.Incomplete;
-				OverallMessage = "Token expired: insert login credentials";
-				return false;
-			}
-			else
+			if (ModManager.ModRepository.Authenticate())
 			{
 				Status = TaskStatus.Complete;
-				OverallMessage = "Logged in.";
-				return true;
+                OverallMessage = $"Logged in as {ModManager.ModRepository.UserStatus.Name}.";
+                return true;
 			}
-		}
+
+            Status = TaskStatus.Incomplete;
+            ModManager.EnvironmentInfo.Settings.ApiKey = string.Empty;
+            ModManager.EnvironmentInfo.Settings.Save();
+            OverallMessage = "API key invalid: enter new key";
+            return false;
+        }
 	}
 }

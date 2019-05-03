@@ -72,7 +72,6 @@
             this.toolStripLabelActivePluginsCounter = new System.Windows.Forms.ToolStripLabel();
             this.toolStripSeparatorPluginSeparator = new System.Windows.Forms.ToolStripSeparator();
             this.tlbModsCounter = new System.Windows.Forms.ToolStripLabel();
-            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
             this.toolStrip1.SuspendLayout();
             this.tssDownload.SuspendLayout();
             this.SuspendLayout();
@@ -279,8 +278,7 @@
             this.toolStripLabelPluginsCounter,
             this.toolStripLabelActivePluginsCounter,
             this.toolStripSeparatorPluginSeparator,
-            this.tlbModsCounter,
-            this.toolStripStatusLabel1});
+            this.tlbModsCounter});
             this.tssDownload.Location = new System.Drawing.Point(0, 497);
             this.tssDownload.Name = "tssDownload";
             this.tssDownload.ShowItemToolTips = true;
@@ -296,6 +294,7 @@
             this.toolStripButtonOnlineStatus.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.toolStripButtonOnlineStatus.Name = "toolStripButtonOnlineStatus";
             this.toolStripButtonOnlineStatus.Size = new System.Drawing.Size(36, 34);
+            this.toolStripButtonOnlineStatus.ToolTipText = "Login";
             // 
             // toolStripLabelDownloads
             // 
@@ -334,7 +333,7 @@
             // tlbStatusFiller
             // 
             this.tlbStatusFiller.Name = "tlbStatusFiller";
-            this.tlbStatusFiller.Size = new System.Drawing.Size(5, 31);
+            this.tlbStatusFiller.Size = new System.Drawing.Size(177, 31);
             this.tlbStatusFiller.Spring = true;
             // 
             // toolStripLabelBottomBarFeedback
@@ -389,12 +388,6 @@
             this.tlbModsCounter.Text = " | Total mods / Active mods ";
             this.tlbModsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
-            // toolStripStatusLabel1
-            // 
-            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
-            this.toolStripStatusLabel1.Size = new System.Drawing.Size(118, 31);
-            this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
-            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -445,6 +438,5 @@
 		private System.Windows.Forms.ToolStripButton toolStripButtonLoader;
 		private System.Windows.Forms.ToolStripStatusLabel tlbStatusFiller;
 		private System.Windows.Forms.ToolStripTextBox toolStripTextBoxFind;
-        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
     }
 }

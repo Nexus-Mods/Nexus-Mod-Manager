@@ -738,13 +738,15 @@
 		{
 			var authenticationFormTask = (AuthenticationFormTask)sender;
 
-			if (authenticationFormTask.OverallMessage == "Logged in." && OptionalPremiumMessage != string.Empty)
+			if (authenticationFormTask.OverallMessage != null && authenticationFormTask.OverallMessage.Contains("Logged in"))
             {
-                toolStripLabelLoginMessage.Text = authenticationFormTask.OverallMessage + OptionalPremiumMessage;
+                toolStripLabelLoginMessage.Text = $"{authenticationFormTask.OverallMessage}{OptionalPremiumMessage}";
+                toolStripButtonOnlineStatus.ToolTipText = "Logout";
             }
             else
             {
                 toolStripLabelLoginMessage.Text = authenticationFormTask.OverallMessage;
+                toolStripButtonOnlineStatus.ToolTipText = "Login";
             }
         }
 
@@ -889,16 +891,6 @@
 			UpdateModsFeedback();
 		}
 
-		private void ViewModel_DownloadingMissingMods(object sender, EventArgs<IBackgroundTask> e)
-		{
-			var modProfile = (IModProfile)e.Argument.ReturnValue;
-
-			if (modProfile != null)
-			{
-				ViewModel.DownloadProfileMissingMods(this, modProfile);
-			}
-		}
-
 		/// <summary>
 		/// Updates the Mods Counter
 		/// </summary>
@@ -956,7 +948,7 @@
 		/// </summary>
 		private void pmcPluginManager_PluginMoved(object sender, EventArgs e)
 		{
-            if ((ViewModel.ProfileManager.CurrentProfile != null) && !ViewModel.IsSwitching)
+            if (ViewModel.ProfileManager.CurrentProfile != null && !ViewModel.IsSwitching)
 			{
                 if (ViewModel.GameMode.UsesPlugins)
 				{
@@ -1207,19 +1199,22 @@
 				return;
 			}
 
-			if ((ViewModel.ProfileManager.CurrentProfile != null) && !ViewModel.IsSwitching)
+			if (ViewModel.ProfileManager.CurrentProfile != null && !ViewModel.IsSwitching)
 			{
 				string[] strOptionalFiles = null;
-				byte[] bteLoadOrder = null;
-				string strError;
-				if (ViewModel.GameMode.UsesPlugins)
+
+                if (ViewModel.GameMode.UsesPlugins)
 				{
 					if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-						if ((ViewModel.PluginManager != null) && ((ViewModel.PluginManager.ActivePlugins != null) && (ViewModel.PluginManager.ActivePlugins.Count > 0)))
-							strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
-					
-					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, strOptionalFiles, out strError);
+                    {
+                        if (ViewModel.PluginManager?.ActivePlugins != null && ViewModel.PluginManager.ActivePlugins.Count > 0)
+                        {
+                            strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+                        }
+                    }
+
+                    var bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+                    ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, strOptionalFiles, out var strError);
 
 					if (!string.IsNullOrEmpty(strError))
 					{
@@ -1245,6 +1240,7 @@
 				Invoke((Action<object, EventArgs>)ModRepository_UserStatusUpdate, sender, e);
 				return;
 			}
+
 			UserStatusFeedback();
 		}
 
@@ -1263,14 +1259,17 @@
 				Invoke((Action<object, NotifyCollectionChangedEventArgs>)Tasks_CollectionChanged, sender, e);
 				return;
 			}
+
 			_downloadMonitor.Activate();
 
 			if (!ViewModel.OfflineMode)
 			{
-				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitor.ViewModel.ActiveTasks.Count, (_downloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
+				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitor.ViewModel.ActiveTasks.Count, _downloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
 				if (_downloadMonitor.ViewModel.ActiveTasks.Count <= 0)
-					UpdateProgressBarSpeed("TotalSpeed", true);
-			}
+                {
+                    UpdateProgressBarSpeed("TotalSpeed", true);
+                }
+            }
 		}
 
 		/// <summary>
@@ -1288,14 +1287,15 @@
 				Invoke((Action<object, NotifyCollectionChangedEventArgs>)ActiveTasks_CollectionChanged, sender, e);
 				return;
 			}
+
 			_downloadMonitor.Activate();
 
 			if (!ViewModel.OfflineMode)
 			{
-				if ((e.OldItems != null) && (e.OldItems.Count > 0))
+				if (e.OldItems != null && e.OldItems.Count > 0)
 				{
 					foreach (AddModTask Task in e.OldItems)
-						if (!String.IsNullOrEmpty(Task.ErrorCode) && (Task.ErrorCode == "666") && !((Task.Status == TaskStatus.Cancelling) || (Task.Status == TaskStatus.Cancelled) || (Task.Status == TaskStatus.Complete)))
+						if (!String.IsNullOrEmpty(Task.ErrorCode) && Task.ErrorCode == "666" && !(Task.Status == TaskStatus.Cancelling || Task.Status == TaskStatus.Cancelled || Task.Status == TaskStatus.Complete))
 						{
 							MessageBox.Show(String.Format("The NMM web services have currently been disabled by staff of the sites."
 								+ " This is NOT an error with NMM and you DO NOT need to report this error to us."
@@ -1303,7 +1303,7 @@
 								+ "If the staff have provided a reason for this down time we'll display it below: {0}", Environment.NewLine + Environment.NewLine + Task.ErrorInfo), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 						}
 				}
-				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitor.ViewModel.ActiveTasks.Count, (_downloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files"));
+				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitor.ViewModel.ActiveTasks.Count, _downloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
 				if (_downloadMonitor.ViewModel.ActiveTasks.Count <= 0)
 					UpdateProgressBarSpeed("TotalSpeed", true);
 			}
@@ -1361,7 +1361,7 @@
 
                         if (_downloadMonitor.ViewModel.TotalMaxProgress > 0)
                         {
-                            toolStripProgressBarDownloadSpeed.Value = Convert.ToInt32((Convert.ToSingle(_downloadMonitor.ViewModel.TotalProgress) / Convert.ToSingle(_downloadMonitor.ViewModel.TotalMaxProgress)) * 100);
+                            toolStripProgressBarDownloadSpeed.Value = Convert.ToInt32(Convert.ToSingle(_downloadMonitor.ViewModel.TotalProgress) / Convert.ToSingle(_downloadMonitor.ViewModel.TotalMaxProgress) * 100);
                             toolStripProgressBarDownloadSpeed.OptionalValue = _downloadMonitor.ViewModel.TotalSpeed;
                         }
 
@@ -2085,7 +2085,7 @@
 			{
 				var value = kvp.Value;
 
-                if (!string.IsNullOrEmpty(value) && (value.Contains("@")))
+                if (!string.IsNullOrEmpty(value) && value.Contains("@"))
 				{
 					intNewVersions++;
 					tslMissingMods.Add(value.Substring(1));
@@ -2138,7 +2138,7 @@
                 BindProfileCommands();
 				return;
 			}
-			else if ((lstMissingMods.Count <= 0) && (lstIncompleteMods.Count > 0))
+			else if (lstMissingMods.Count <= 0 && lstIncompleteMods.Count > 0)
 			{
 				var sbIncomplete = new StringBuilder();
 
@@ -2625,7 +2625,7 @@
 		{
 			if (e.Button == MouseButtons.Right)
 			{
-                ToolStripMenuItem tmiClicked = (ToolStripMenuItem) sender;
+                var tmiClicked = (ToolStripMenuItem) sender;
 
                 if (tmiClicked?.Tag != null && tmiClicked.Tag.GetType() == typeof(Command))
                 {
@@ -3103,7 +3103,12 @@
 			ShowStartupMessage();
 			ViewModel.ViewIsShown();
 			LoadTips();
-		}
+
+            if (ViewModel.ModRepository.IsOffline)
+            {
+                ViewModel.ModManager.LoginTask.TokenLogin();
+            }
+        }
 
 		#endregion
 
