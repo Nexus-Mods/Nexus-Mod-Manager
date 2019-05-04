@@ -510,16 +510,8 @@
 			switch (descriptor.SourceUri.Scheme.ToLowerInvariant())
 			{
 				case "file":
-					try
-					{
-						return new ModInfo(_modRepository.GetModInfoForFile(Path.GetFileName(descriptor.DefaultSourcePath)));
-					}
-					catch (RepositoryUnavailableException e)
-					{
-						TraceUtil.TraceException(e);
-						return null;
-					}
-				case "nxm":
+                    return new ModInfo(_modRepository.GetModInfoForFile(Path.GetFileName(descriptor.DefaultSourcePath)));
+                case "nxm":
 					var nxuModUrl = new NexusUrl(descriptor.SourceUri);
 
                     if (string.IsNullOrEmpty(nxuModUrl.ModId) || string.IsNullOrEmpty(nxuModUrl.FileId))
@@ -529,40 +521,33 @@
 
                     ModInfo modInfo = null;
 
-					try
-					{
-						if (!_modRepository.IsOffline)
-						{
-							modInfo = (ModInfo)_modRepository.GetModInfo(nxuModUrl.ModId);
-							var modMod = _modRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
+                    if (!_modRepository.IsOffline)
+                    {
+                        modInfo = (ModInfo)_modRepository.GetModInfo(nxuModUrl.ModId);
+                        var modMod = _modRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
 
-                            if (modMod != null && modInfo != null)
-							{
-								modInfo.IsEndorsed = modMod.IsEndorsed;
-								modInfo.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
-								modInfo.UpdateChecksEnabled = modMod.UpdateChecksEnabled;
-								modInfo.CustomCategoryId = modMod.CustomCategoryId;
-							}
-							else
-							{
-								modInfo.UpdateWarningEnabled = true;
-								modInfo.UpdateChecksEnabled = true;
-							}
-
-							var mfiFileInfo = _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
-
-                            if (modInfo != null && mfiFileInfo != null)
-                            {
-                                modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
-                            }
+                        if (modMod != null && modInfo != null)
+                        {
+                            modInfo.IsEndorsed = modMod.IsEndorsed;
+                            modInfo.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
+                            modInfo.UpdateChecksEnabled = modMod.UpdateChecksEnabled;
+                            modInfo.CustomCategoryId = modMod.CustomCategoryId;
                         }
-					}
-					catch (RepositoryUnavailableException e)
-					{
-						TraceUtil.TraceException(e);
-					}
+                        else
+                        {
+                            modInfo.UpdateWarningEnabled = true;
+                            modInfo.UpdateChecksEnabled = true;
+                        }
 
-					return modInfo;
+                        var mfiFileInfo = _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+
+                        if (mfiFileInfo != null)
+                        {
+                            modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
+                        }
+                    }
+
+                    return modInfo;
 				default:
 					Trace.TraceInformation($"[{descriptor.SourceUri}] Can't get mod info.");
 					throw new Exception("Unable to retrieve mod info: " + descriptor.SourceUri);
@@ -631,40 +616,31 @@
 							return null;
 						}
 
-						IModFileInfo fileInfo;
 						var uriFilesToDownload = new List<Uri>();
 
-                        try
-						{
-							fileInfo = string.IsNullOrEmpty(nxuModUrl.FileId) ? _modRepository.GetDefaultFileInfo(nxuModUrl.ModId) : _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+                        var fileInfo = string.IsNullOrEmpty(nxuModUrl.FileId) ? _modRepository.GetDefaultFileInfo(nxuModUrl.ModId) : _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
 
-                            if (fileInfo == null)
-							{
-								Trace.TraceInformation($"[{path}] Can't get the file: no file.");
-								return null;
-							}
+                        if (fileInfo == null)
+                        {
+                            Trace.TraceInformation($"[{path}] Can't get the file: no file.");
+                            return null;
+                        }
 
-                            var downloadLinks = _modRepository.GetFilePartInfo(nxuModUrl.ModId, fileInfo.Id, nxuModUrl.Key, nxuModUrl.Expiry);
+                        var downloadLinks = _modRepository.GetFilePartInfo(nxuModUrl.ModId, fileInfo.Id, nxuModUrl.Key, nxuModUrl.Expiry);
 
-                            if (downloadLinks.Count > 0)
-							{
-								foreach (var link in downloadLinks)
+                        if (downloadLinks.Count > 0)
+                        {
+                            foreach (var link in downloadLinks)
+                            {
+                                if (link.Uri != null)
                                 {
-                                    if (link.Uri != null)
-                                    {
-                                        uriFilesToDownload.Add(link.Uri);
-                                        _fileserverCaptions.Add(link.CdnShortName);
-                                    }
+                                    uriFilesToDownload.Add(link.Uri);
+                                    _fileserverCaptions.Add(link.CdnShortName);
                                 }
-							}
-						}
-						catch (RepositoryUnavailableException e)
-						{
-							TraceUtil.TraceException(e);
-							return null;
-						}
+                            }
+                        }
 
-						if (uriFilesToDownload.Count <= 0)
+                        if (uriFilesToDownload.Count <= 0)
                         {
                             return null;
                         }

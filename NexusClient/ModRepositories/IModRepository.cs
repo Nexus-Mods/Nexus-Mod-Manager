@@ -165,34 +165,6 @@
 		IModFileInfo GetDefaultFileInfo(string modId);
 
 		/// <summary>
-		/// Finds the mods containing the given search terms.
-		/// </summary>
-		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="includeAllTerms">Whether the returned mods' names should include all of
-		/// the given search terms.</param>
-		/// <returns>The mod info for the mods matching the given search criteria.</returns>
-		IList<IModInfo> FindMods(string modNameSearchString, bool includeAllTerms);
-
-		/// <summary>
-		/// Finds the mods by Author name.
-		/// </summary>
-		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="authorSearchString">The Author to use to search for mods.</param>
-		/// <returns>The mod info for the mods matching the given search criteria.</returns>
-		IList<IModInfo> FindMods(string modNameSearchString, string authorSearchString);
-
-		/// <summary>
-		/// Finds the mods containing the given search terms.
-		/// </summary>
-		/// <param name="modNameSearchString">The terms to use to search for mods.</param>
-		/// <param name="modAuthor">The Mod author.</param>
-		/// <param name="includeAllTerms">Whether the returned mods' names should include all of
-		/// the given search terms.</param>
-		/// <returns>The mod info for the mods matching the given search criteria.</returns>
-		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-		IList<IModInfo> FindMods(string modNameSearchString, string modAuthor, bool includeAllTerms);
-
-		/// <summary>
 		/// Gets the Categories array.
 		/// </summary>
 		/// <returns>The Categories array..</returns>

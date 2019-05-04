@@ -107,26 +107,18 @@
 		{
 			ErrorMessage = null;
 
-            try
-            {
-                EnvironmentInfo.Settings.ApiKey = ApiKey;
+            EnvironmentInfo.Settings.ApiKey = ApiKey;
 
-				if (!ModRepository.Authenticate())
-				{
-                    Trace.TraceWarning($"Couldn't authenticate with API key \"{ApiKey}\".");
-                    EnvironmentInfo.Settings.ApiKey = string.Empty;
-                    ErrorMessage = "Couldn't authenticate user.";
-					return false;
-				}
-			}
-			catch (RepositoryUnavailableException e)
-			{
-				ErrorMessage = e.Message;
+            if (!ModRepository.Authenticate())
+            {
+                Trace.TraceWarning($"Couldn't authenticate with API key \"{ApiKey}\".");
                 EnvironmentInfo.Settings.ApiKey = string.Empty;
+                ErrorMessage = "Couldn't authenticate user.";
+
                 return false;
-			}
-			
-			EnvironmentInfo.Settings.Save();
+            }
+
+            EnvironmentInfo.Settings.Save();
 
 			return true;
 		}

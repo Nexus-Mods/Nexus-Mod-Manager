@@ -759,16 +759,9 @@
 			var _credentialsExpired = false;
 			var _error = string.Empty;
 
-			try
-			{
-				_credentialsExpired = !p_mrpModRepository.Authenticate();
-			}
-			catch (RepositoryUnavailableException e)
-			{
-				_error = e.Message;
-			}
+            _credentialsExpired = !p_mrpModRepository.Authenticate();
 
-			if (string.IsNullOrEmpty(EnvironmentInfo.Settings.ApiKey) || _credentialsExpired)
+            if (string.IsNullOrEmpty(EnvironmentInfo.Settings.ApiKey) || _credentialsExpired)
 			{
 				var strMessage = $"You must log into the {p_mrpModRepository.Name} website.";
 				var strCancelWarning = $"If you do not login {EnvironmentInfo.Settings.ModManagerName} will close.";

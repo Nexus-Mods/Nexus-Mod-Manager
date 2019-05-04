@@ -16,14 +16,10 @@
 
     public class NexusModsApiRepository : IModRepository
     {
-        #region Events
-        
+        private User _userStatus;
+
         /// <inheritdoc cref="IModRepository"/>
         public event EventHandler UserStatusUpdate;
-
-        #endregion
-
-        private User _userStatus;
 
         #region Properties
 
@@ -462,27 +458,5 @@
         {
             UserStatusUpdate?.Invoke(this, new EventArgs());
         }
-
-        #region Deprecated
-
-        /// <inheritdoc cref="IModRepository"/>
-        public IList<IModInfo> FindMods(string modNameSearchString, bool includeAllTerms)
-        {
-            throw new NotImplementedException("This might not be possible with the new API?");
-        }
-
-        /// <inheritdoc cref="IModRepository"/>
-        public IList<IModInfo> FindMods(string modNameSearchString, string authorSearchString)
-        {
-            throw new NotImplementedException("This might not be possible with the new API?");
-        }
-
-        /// <inheritdoc cref="IModRepository"/>
-        public IList<IModInfo> FindMods(string modNameSearchString, string modAuthor, bool includeAllTerms)
-        {
-            throw new NotImplementedException("This might not be possible with the new API?");
-        }
-
-        #endregion
     }
 }

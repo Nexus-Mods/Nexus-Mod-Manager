@@ -199,65 +199,34 @@
 		/// or <c>null</c> if no information is available.</returns>
 		private IModInfo CheckForUpdate(IMod mod)
 		{
-			IModInfo mifInfo = null;
+			IModInfo modInfo = null;
 
-			try
-			{
-				if (!ModRepository.IsOffline)
-				{
-					//get mod info
-					for (var i = 0; i <= 2; i++)
-					{
-						if (!string.IsNullOrEmpty(mod.Id))
-                        {
-                            mifInfo = ModRepository.GetModInfo(mod.Id);
-                        }
+            if (!ModRepository.IsOffline)
+            {
+                //get mod info
+                for (var i = 0; i <= 2; i++)
+                {
+                    if (!string.IsNullOrEmpty(mod.Id))
+                    {
+                        modInfo = ModRepository.GetModInfo(mod.Id);
+                    }
 
-                        if (mifInfo == null)
-                        {
-                            mifInfo = ModRepository.GetModInfoForFile(mod.Filename);
-                        }
+                    if (modInfo == null)
+                    {
+                        modInfo = ModRepository.GetModInfoForFile(mod.Filename);
+                    }
 
-                        if (mifInfo != null)
-                        {
-                            break;
-                        }
+                    if (modInfo != null)
+                    {
+                        break;
+                    }
 
-                        Thread.Sleep(1000);
-					}
-
-					if (mifInfo == null)
-					{
-						var strSearchTerms = mod.ModName;
-
-                        if (string.IsNullOrEmpty(strSearchTerms))
-                        {
-                            strSearchTerms = Path.GetFileNameWithoutExtension(mod.Filename)?.Replace("_", " ").Replace("-", " ");
-                        }
-
-                        //use heuristics to find info
-						if (!string.IsNullOrEmpty(strSearchTerms))
-						{
-							var strTerms = strSearchTerms.Split(' ', '-', '_');
-							var strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
-							var strAuthor = mod.Author;
-
-                            if (!string.IsNullOrEmpty(strSearchString) && !string.IsNullOrEmpty(strAuthor) && strAuthor.Length >= 3)
-                            {
-                                mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
-                            }
-                        }
-					}
-				}
-
-                return mifInfo;
+                    Thread.Sleep(1000);
+                }
             }
-			catch (RepositoryUnavailableException)
-			{
-				//the repository is not available, so don't bother
-				return null;
-			}
-		}
+
+            return modInfo;
+        }
 
 		/// <summary>
 		/// The callback when information about a mod has been retrieved.
