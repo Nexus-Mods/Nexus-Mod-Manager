@@ -569,7 +569,7 @@
 
                     if (toolStripProgressBarDownloadSpeed != null)
                     {
-                        toolStripProgressBarDownloadSpeed.Maximum = 1024;
+                        toolStripProgressBarDownloadSpeed.Maximum = ViewModel.UserStatus.IsSupporter ? 2048 : 1024;
                         toolStripProgressBarDownloadSpeed.Value = 0;
                         toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Descending;
                         toolStripProgressBarDownloadSpeed.ShowOptionalProgress = false;
@@ -1369,7 +1369,7 @@
                     case ProgressLabel.FillType.Descending:
                     {
                         toolStripProgressBarDownloadSpeed.Visible = true;
-                        toolStripProgressBarDownloadSpeed.Value = _downloadMonitorControl.ViewModel.TotalSpeed <= 1024 ? _downloadMonitorControl.ViewModel.TotalSpeed : 1024;
+                        toolStripProgressBarDownloadSpeed.Value = _downloadMonitorControl.ViewModel.TotalSpeed <= 1024 ? _downloadMonitorControl.ViewModel.TotalSpeed : (ViewModel.UserStatus.IsSupporter ? 2048 : 1024);
                         break;
                     }
                 }

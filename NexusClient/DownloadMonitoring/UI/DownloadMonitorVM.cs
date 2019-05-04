@@ -1,27 +1,27 @@
-﻿using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Commands.Generic;
-using Nexus.Client.ModManagement;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.Settings;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
-using System;
-using System.ComponentModel;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-
-namespace Nexus.Client.DownloadMonitoring.UI
+﻿namespace Nexus.Client.DownloadMonitoring.UI
 {
-	/// <summary>
-	/// This class encapsulates the data and the operations presented by UI
-	/// elements that display Download monitoring.
-	/// </summary>
-	public class DownloadMonitorVM : INotifyPropertyChanged
+    using System;
+    using System.ComponentModel;
+    using System.Collections.Generic;
+    using System.Linq;
+
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.Commands.Generic;
+    using Nexus.Client.ModManagement;
+    using Nexus.Client.ModRepositories;
+    using Nexus.Client.Settings;
+    using Nexus.Client.UI;
+    using Nexus.Client.Util;
+    using Nexus.Client.Util.Collections;
+    
+    /// <summary>
+    /// This class encapsulates the data and the operations presented by UI
+    /// elements that display Download monitoring.
+    /// </summary>
+    public class DownloadMonitorVM : INotifyPropertyChanged
 	{
-		ModManager m_mmgModManager = null;
-		private static readonly Object m_objLock = new Object();
+        readonly ModManager _modManager;
+		private static readonly object Lock = new object();
 
 		#region  events
 
@@ -115,27 +115,15 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the list of tasks being monitored.
 		/// </summary>
 		/// <value>The list of tasks being monitored.</value>
-		public ReadOnlyObservableList<AddModTask> Tasks
-		{
-			get
-			{
-				return DownloadMonitor.Tasks;
-			}
-		}
+		public ReadOnlyObservableList<AddModTask> Tasks => DownloadMonitor.Tasks;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the list of tasks being executed.
 		/// </summary>
 		/// <value>The list of tasks being executed.</value>
-		public ReadOnlyObservableList<AddModTask> ActiveTasks
-		{
-			get
-			{
-				return DownloadMonitor.ActiveTasks;
-			}
-		}
+		public ReadOnlyObservableList<AddModTask> ActiveTasks => DownloadMonitor.ActiveTasks;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the list of tasks being executed.
 		/// </summary>
 		/// <value>The list of tasks being executed.</value>
@@ -165,43 +153,25 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// Gets the total task speed.
 		/// </summary>
 		/// <value>The total task speed.</value>
-		public int TotalSpeed
-		{
-			get
-			{
-				return DownloadMonitor.TotalSpeed;
-			}
-		}
+		public int TotalSpeed => DownloadMonitor.TotalSpeed;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the total download progress.
 		/// </summary>
 		/// <value>The total download progress.</value>
-		public Int64 TotalProgress
-		{
-			get
-			{
-				return DownloadMonitor.TotalProgress;
-			}
-		}
+		public long TotalProgress => DownloadMonitor.TotalProgress;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the total maximum download progress.
 		/// </summary>
 		/// <value>The total maximum download progress.</value>
-		public Int64 TotalMaxProgress
-		{
-			get
-			{
-				return DownloadMonitor.TotalMaximumProgress;
-			}
-		}
+		public long TotalMaxProgress => DownloadMonitor.TotalMaximumProgress;
 
-		/// <summary>
+        /// <summary>
 		/// Gets the application and user settings.
 		/// </summary>
 		/// <value>The application and user settings.</value>
-		public ISettings Settings { get; private set; }
+		public ISettings Settings { get; }
 
 		#endregion
 
@@ -212,11 +182,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		/// <param name="p_amnDownloadMonitor">The Download manager to use to manage the monitored activities.</param>
 		/// <param name="p_setSettings">The application and user settings.</param>
-		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, ModManager p_mmgModManager, IModRepository p_mrpModRepository)
+		public DownloadMonitorVM(DownloadMonitor p_amnDownloadMonitor, ISettings p_setSettings, ModManager pModManager, IModRepository p_mrpModRepository)
 		{
 			DownloadMonitor = p_amnDownloadMonitor;
 			Settings = p_setSettings;
-			m_mmgModManager = p_mmgModManager;
+			_modManager = pModManager;
 			ModRepository = p_mrpModRepository;
 			ModRepository.UserStatusUpdate += new System.EventHandler(ModRepository_UserStatusUpdate);
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
@@ -259,7 +229,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">The task to cancel.</param>
 		public void CancelTask(IBackgroundTask p_tskTask)
 		{
-			lock (m_objLock)
+			lock (Lock)
 				p_tskTask.Cancel();
 		}
 
@@ -285,7 +255,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">IBackgroundTask task to remove.</param>
 		public void RemoveTask(AddModTask p_tskTask)
 		{
-			lock (m_objLock)
+			lock (Lock)
 			{
 				if (DownloadMonitor.CanRemove(p_tskTask))
 					DownloadMonitor.RemoveDownload(p_tskTask);
@@ -308,7 +278,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			if (lstTasks.Count > 0)
 				foreach (IBackgroundTask btRemovable in lstTasks)
 				{
-					lock (m_objLock)
+					lock (Lock)
 						RemoveTask((AddModTask)btRemovable);
 				}
 		}
@@ -351,7 +321,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">The task to pause.</param>
 		public void PauseTask(IBackgroundTask p_tskTask)
 		{
-			lock (m_objLock)
+			lock (Lock)
 			{
 				if (DownloadMonitor.CanPause(p_tskTask))
 					DownloadMonitor.PauseDownload(p_tskTask);
@@ -380,7 +350,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// <param name="p_tskTask">The task to pause.</param>
 		public void QueueTask(IBackgroundTask p_tskTask)
 		{
-			lock (m_objLock)
+			lock (Lock)
 			{
 				if (DownloadMonitor.CanQueue(p_tskTask))
 					DownloadMonitor.QueueDownload(p_tskTask);
@@ -415,7 +385,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			{
 				if (ModRepository.IsOffline && (!ModRepository.SupportsUnauthenticatedDownload))
 				{
-					if (m_mmgModManager.Login())
+					if (_modManager.Login())
 						booCanResume = true;
 				}
 				else
@@ -434,7 +404,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				if (RunningTasks.Count >= MaxDownloads)
 				{
 					if ((p_tskTask.SupportsQueue) && (p_tskTask.IsRemote))
-						lock (m_objLock)
+						lock (Lock)
 							p_tskTask.Queue();
 
 					booCanResume = false;
@@ -460,7 +430,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			int TaskCounter = 0;
 
 			if (ModRepository.IsOffline)
-				m_mmgModManager.Login();
+				_modManager.Login();
 			else
 			{
 				List<IBackgroundTask> lstTasks = new List<IBackgroundTask>();
@@ -478,7 +448,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 					{
 						if (TaskCounter < Settings.MaxConcurrentDownloads)
 						{
-							lock (m_objLock)
+							lock (Lock)
 								ResumeTask(btPaused);
 							TaskCounter++;
 						}
@@ -529,7 +499,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 					}
 					if (lstTasks.Count > 0)
 						foreach (IBackgroundTask btActive in lstTasks)
-							lock (m_objLock)
+							lock (Lock)
 								PauseTask(btActive);
 				}
 		}

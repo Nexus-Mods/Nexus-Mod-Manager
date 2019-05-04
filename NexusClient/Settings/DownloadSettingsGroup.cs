@@ -179,15 +179,14 @@ namespace Nexus.Client.Settings
 		{
 			UseMultithreadedDownloads = EnvironmentInfo.Settings.UseMultithreadedDownloads;
 
-			FileServerZone fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
-			if (fszUser != null)
-				UserLocation = fszUser.FileServerID;
-			else
-				UserLocation = "default";
+			var fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
+			UserLocation = fszUser != null ? fszUser.FileServerID : "default";
 
 			if(MaxConcurrentDownloads == 0)
-				MaxConcurrentDownloads = EnvironmentInfo.Settings.MaxConcurrentDownloads;
-		}
+            {
+                MaxConcurrentDownloads = EnvironmentInfo.Settings.MaxConcurrentDownloads;
+            }
+        }
 
 		/// <summary>
 		/// Persists the grouped setting values to the persistent store.
@@ -199,9 +198,13 @@ namespace Nexus.Client.Settings
 			EnvironmentInfo.Settings.UseMultithreadedDownloads = UseMultithreadedDownloads;
 			EnvironmentInfo.Settings.UserLocation = UserLocation;
 			EnvironmentInfo.Settings.MaxConcurrentDownloads = MaxConcurrentDownloads;
-			lock (EnvironmentInfo.Settings)
-				EnvironmentInfo.Settings.Save();
-			return true;
+
+            lock (EnvironmentInfo.Settings)
+            {
+                EnvironmentInfo.Settings.Save();
+            }
+
+            return true;
 		}
 
 		/// <summary>
@@ -215,8 +218,7 @@ namespace Nexus.Client.Settings
 		private void m_mmrModRepository_UserStatusUpdate(object sender, EventArgs e)
 		{
 			LoadRepositorySettings();
-			if (this.UpdatedSettings != null)
-				this.UpdatedSettings(this, new EventArgs());
-		}
+            UpdatedSettings?.Invoke(this, new EventArgs());
+        }
 	}
 }
