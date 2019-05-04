@@ -4,7 +4,6 @@ using System.IO;
 using System.Threading;
 using System.Timers;
 using Nexus.Client.ModRepositories;
-using Nexus.Client.ModRepositories.Nexus;
 using Nexus.Client.Util.Downloader;
 using Nexus.Client.BackgroundTasks;
 

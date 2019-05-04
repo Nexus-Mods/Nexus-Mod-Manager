@@ -9,7 +9,7 @@ namespace Nexus.Client.Updating
     using System.Threading;
     using System.Windows.Forms;
 
-    using Nexus.Client.ModRepositories.Nexus;
+    using Nexus.Client.ModRepositories;
     using Nexus.Client.Util;
     using Nexus.UI.Controls;
 

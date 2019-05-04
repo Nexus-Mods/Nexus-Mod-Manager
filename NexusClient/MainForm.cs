@@ -10,7 +10,6 @@
     using System.Linq;
     using System.Text;
     using System.Windows.Forms;
-
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.BackgroundTasks.UI;
     using Nexus.Client.Commands;
@@ -23,7 +22,7 @@
     using Nexus.Client.ModActivationMonitoring.UI;
     using Nexus.Client.ModManagement;
     using Nexus.Client.ModManagement.UI;
-    using Nexus.Client.ModRepositories.Nexus;
+    using Nexus.Client.ModRepositories;
     using Nexus.Client.Mods;
     using Nexus.Client.PluginManagement.UI;
     using Nexus.Client.Plugins;

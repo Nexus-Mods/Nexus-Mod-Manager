@@ -1,33 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Windows.Forms;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.DownloadMonitoring;
-using Nexus.UI.Controls;
-using Nexus.Client.ModActivationMonitoring;
-using Nexus.Client.Games;
-using Nexus.Client.ModManagement;
-using Nexus.Client.ModManagement.InstallationLog;
-using Nexus.Client.ModManagement.InstallationLog.Upgraders;
-using Nexus.Client.ModManagement.Scripting;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.ModRepositories.Nexus;
-using Nexus.Client.Mods;
-using Nexus.Client.PluginManagement;
-using Nexus.Client.PluginManagement.InstallationLog;
-using Nexus.Client.PluginManagement.OrderLog;
-using Nexus.Client.Settings;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
-    using ModRepositories.NexusModsApi;
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Reflection;
+    using System.Text;
+    using System.Threading;
+    using System.Windows.Forms;
+    
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.DownloadMonitoring;
+    using Nexus.UI.Controls;
+    using Nexus.Client.ModActivationMonitoring;
+    using Nexus.Client.Games;
+    using Nexus.Client.ModManagement;
+    using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.ModManagement.InstallationLog.Upgraders;
+    using Nexus.Client.ModManagement.Scripting;
+    using Nexus.Client.ModRepositories;
+    using Nexus.Client.ModRepositories.NexusModsApi;
+    using Nexus.Client.Mods;
+    using Nexus.Client.PluginManagement;
+    using Nexus.Client.PluginManagement.InstallationLog;
+    using Nexus.Client.PluginManagement.OrderLog;
+    using Nexus.Client.Settings;
+    using Nexus.Client.UI;
+    using Nexus.Client.Util;
 
     /// <summary>
 	/// Confirms whether a file system item should be made writable.
@@ -57,12 +56,11 @@ namespace Nexus.Client
 
 		#endregion
 
-		private AutoResetEvent m_areTaskWait = new AutoResetEvent(false);
-		private IGameMode m_gmdGameMode = null;
-		private ServiceManager m_svmServiceManager = null;
-		private List<string> DeletedDLL = null;
+		private readonly AutoResetEvent m_areTaskWait = new AutoResetEvent(false);
+        private readonly List<string> DeletedDLL = null;
+        private IGameMode m_gmdGameMode;
 
-		#region Properties
+        #region Properties
 
 		#region Delegates
 
@@ -99,50 +97,35 @@ namespace Nexus.Client
 		#endregion
 
 		/// <summary>
-		/// Gets the game mode that was created during the initalization process.
+		/// Gets the game mode that was created during the initialization process.
 		/// </summary>
-		/// <value>The game mode that was created during the initalization process.</value>
+		/// <value>The game mode that was created during the initialization process.</value>
 		public IGameMode GameMode
 		{
 			get
-			{
-				if (m_gmdGameMode == null)
-					throw new InvalidOperationException(String.Format("{0} cannot be accessed until the initializer has completed its work.", ObjectHelper.GetPropertyName(() => GameMode)));
-				return m_gmdGameMode;
-			}
-			private set
-			{
-				m_gmdGameMode = value;
-			}
-		}
+            {
+                return m_gmdGameMode ?? throw new InvalidOperationException($"{ObjectHelper.GetPropertyName(() => GameMode)} cannot be accessed until the initializer has completed its work.");
+            }
+			private set => m_gmdGameMode = value;
+        }
 
 		/// <summary>
 		/// Gets the service manager that was created during the initalization process.
 		/// </summary>
 		/// <value>The service manager that was created during the initalization process.</value>
-		public ServiceManager Services
-		{
-			get
-			{
-				return m_svmServiceManager;
-			}
-			private set
-			{
-				m_svmServiceManager = value;
-			}
-		}
+		public ServiceManager Services { get; private set; }
 
-		/// <summary>
-		/// Gets the application's envrionment info.
+        /// <summary>
+		/// Gets the application's environment info.
 		/// </summary>
-		/// <value>The application's envrionment info.</value>
-		public IEnvironmentInfo EnvironmentInfo { get; private set; }
+		/// <value>The application's environment info.</value>
+		public IEnvironmentInfo EnvironmentInfo { get; }
 
 		/// <summary>
 		/// Gets the <see cref="NexusFontSetResolver"/> to use.
 		/// </summary>
 		/// <value>The <see cref="NexusFontSetResolver"/> to use.</value>
-		public NexusFontSetResolver FontSetResolver { get; private set; }
+		public NexusFontSetResolver FontSetResolver { get; }
 
 		#endregion
 
@@ -151,7 +134,7 @@ namespace Nexus.Client
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
+		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
 		/// <param name="p_nfrFontSetResolver">The <see cref="NexusFontSetResolver"/> to use.</param>
 		public ApplicationInitializer(EnvironmentInfo p_eifEnvironmentInfo, NexusFontSetResolver p_nfrFontSetResolver, List<string> p_lstDeletedDLL)
 		{
@@ -210,22 +193,26 @@ namespace Nexus.Client
 		/// <seealso cref="DoApplicationInitialize(IGameModeFactory, SynchronizationContext, out ViewMessage)"/>
 		protected override object DoWork(object[] args)
 		{
-			IGameModeFactory gmfGameModeFactory = (IGameModeFactory)args[0];
-			SynchronizationContext scxUIContext = (SynchronizationContext)args[1];
-			ViewMessage vwmErrorMessage = null;
-			OverallProgress = 0;
+			var gmfGameModeFactory = (IGameModeFactory)args[0];
+			var scxUIContext = (SynchronizationContext)args[1];
+            OverallProgress = 0;
 			OverallProgressMaximum = 17;
 			OverallProgressStepSize = 1;
-			if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out vwmErrorMessage) && (Status != TaskStatus.Error))
-				Status = TaskStatus.Incomplete;
-			StepOverallProgress();
-			return vwmErrorMessage;
+
+            if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out var vwmErrorMessage) && Status != TaskStatus.Error)
+            {
+                Status = TaskStatus.Incomplete;
+            }
+
+            StepOverallProgress();
+
+            return vwmErrorMessage;
 		}
 
 		#endregion
 
 		/// <summary>
-		/// Performs the applicatio initialization.
+		/// Performs the application initialization.
 		/// </summary>
 		/// <param name="p_gmfGameModeFactory">The factory to use to create the game mode for which we will be managing mods.</param>
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
@@ -235,28 +222,45 @@ namespace Nexus.Client
 		protected bool DoApplicationInitialize(IGameModeFactory p_gmfGameModeFactory, SynchronizationContext p_scxUIContext, out ViewMessage p_vwmErrorMessage)
 		{
 			if (EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
-				EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
-			if (EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
-				EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
-			if (EnvironmentInfo.Settings.DelayedSettings["ALL"] == null)
-				EnvironmentInfo.Settings.DelayedSettings["ALL"] = new KeyedSettings<string>();
-			if (EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
-				EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
+            {
+                EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
+            }
 
-			StepOverallProgress();
+            if (EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
+            {
+                EnvironmentInfo.Settings.DelayedSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
+            }
+
+            if (EnvironmentInfo.Settings.DelayedSettings["ALL"] == null)
+            {
+                EnvironmentInfo.Settings.DelayedSettings["ALL"] = new KeyedSettings<string>();
+            }
+
+            if (EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
+            {
+                EnvironmentInfo.Settings.SupportedTools[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new KeyedSettings<string>();
+            }
+
+            StepOverallProgress();
 
 			if (!ApplyDelayedSettings(p_gmfGameModeFactory.GameModeDescriptor.ModeId, out p_vwmErrorMessage))
 			{
 				EnvironmentInfo.Settings.Reload();
 				return false;
 			}
-			EnvironmentInfo.Settings.Save();
-			StepOverallProgress();
 
-			string strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
-			if (String.IsNullOrEmpty(strUacCheckPath) || (!String.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.InstallationPath)))
-				strUacCheckPath = p_gmfGameModeFactory.GameModeDescriptor.InstallationPath;
-			if (!String.IsNullOrEmpty(strUacCheckPath) && !String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
+			EnvironmentInfo.Settings.Save();
+
+            StepOverallProgress();
+
+			var strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
+
+            if (string.IsNullOrEmpty(strUacCheckPath) || !string.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.InstallationPath))
+            {
+                strUacCheckPath = p_gmfGameModeFactory.GameModeDescriptor.InstallationPath;
+            }
+
+            if (!string.IsNullOrEmpty(strUacCheckPath) && !string.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
 			{
 				try
 				{
@@ -264,18 +268,19 @@ namespace Nexus.Client
 				}
 				catch (Exception ex)
 				{
-					Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath));
-					string strPathMessage = (String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath));
-					string strPathDetails = String.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
+					Trace.TraceError(string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath));
+					var strPathMessage = string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath);
+					var strPathDetails = string.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
 					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, "Error", MessageBoxIcon.Error);
-					return false;
+
+                    return false;
 				}
 
 				if (!UacCheck(strUacCheckPath))
 				{
 					Trace.TraceError("Unable to get write permissions for: " + strUacCheckPath);
-					string strMessage = "Unable to get write permissions for:" + Environment.NewLine + strUacCheckPath;
-					string strDetails = String.Format("This error happens when you are running Windows Vista or later,  and have installed <b>{0}</b> in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
+					var strMessage = "Unable to get write permissions for:" + Environment.NewLine + strUacCheckPath;
+					var strDetails = string.Format("This error happens when you are running Windows Vista or later,  and have installed <b>{0}</b> in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
 										"<li>Disable UAC (<i>not recommended</i>).</li>" +
 										@"<li>Move <b>{0}</b> outside of the <b>Program Files</b> folder (for example, to <b>C:\Games\{0}</b>). This may require a reinstall.<br>With Oblivion you could just copy the game folder to a new location, run the game, and all would be well. This may not work with other games.</li>" +
 										"<li>Run <b>{1}</b> as administrator. You can try this by right-clicking on <b>{1}</b> shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
@@ -283,7 +288,8 @@ namespace Nexus.Client
 										"The best thing to do in order to avoid other problems, and the generally recommended solution, is to install <b>{0}</b> outside of the <b>Program Files</b> folder.",
 										p_gmfGameModeFactory.GameModeDescriptor.Name, EnvironmentInfo.Settings.ModManagerName);
 					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
-					return false;
+
+                    return false;
 				}
 			}
 			else
@@ -291,12 +297,13 @@ namespace Nexus.Client
 				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
 				EnvironmentInfo.Settings.Save();
 
-				if (String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
+				if (string.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
 				{
 					ShowMessage(new ViewMessage("You need to setup the paths where Nexus Mod Manager will store mod archives, the mod installation registry and where the mod files are installed." + Environment.NewLine + Environment.NewLine +
 						"If you used previous versions of NMM, this new version requires you to revise your folder settings." + Environment.NewLine + Environment.NewLine + "Click OK to continue to the setup screen." + Environment.NewLine, "Setup", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information));
 				}
 			}
+
 			StepOverallProgress();
 
 			if (!EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId])
@@ -306,71 +313,92 @@ namespace Nexus.Client
 					p_vwmErrorMessage = null;
 					return false;
 				}
-				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = true;
+
+                EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = true;
 				EnvironmentInfo.Settings.Save();
 			}
+
 			StepOverallProgress();
 
 			if (p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames != null)
-				foreach (string strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
-					if (!File.Exists(strPlugin))
-					{
-						StringBuilder stbMessage = new StringBuilder();
-						stbMessage.AppendFormat("You are missing {0}.", strPlugin);
-						if (String.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage))
-							stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
-						else
-							stbMessage.AppendLine(Environment.NewLine + p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage);
-						p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
-						return false;
-					}
+            {
+                foreach (var strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
+                {
+                    if (!File.Exists(strPlugin))
+                    {
+                        var stbMessage = new StringBuilder();
+                        stbMessage.AppendFormat("You are missing {0}.", strPlugin);
 
-			StepOverallProgress();
+                        if (string.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage))
+                        {
+                            stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
+                        }
+                        else
+                        {
+                            stbMessage.AppendLine(Environment.NewLine + p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage);
+                        }
+
+                        p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
+                        return false;
+                    }
+                }
+            }
+
+            StepOverallProgress();
 
 			if (!p_gmfGameModeFactory.PerformInitialization(ShowView, ShowMessage))
 			{
 				p_vwmErrorMessage = null;
 				return false;
 			}
+
 			StepOverallProgress();
 
-			NexusFileUtil nfuFileUtility = new NexusFileUtil(EnvironmentInfo);
+			var nfuFileUtility = new NexusFileUtil(EnvironmentInfo);
 
-			ViewMessage vwmWarning = null;
-			IGameMode gmdGameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out vwmWarning);
-			if (gmdGameMode == null)
+            var gmdGameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out var vwmWarning);
+
+            if (gmdGameMode == null)
 			{
-				p_vwmErrorMessage = vwmWarning ?? new ViewMessage(String.Format("Could not initialize {0} Game Mode.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, "Error", MessageBoxIcon.Error);
+				p_vwmErrorMessage = vwmWarning ?? new ViewMessage(
+                                        $"Could not initialize {p_gmfGameModeFactory.GameModeDescriptor.Name} Game Mode.", null, "Error", MessageBoxIcon.Error);
 				return false;
 			}
-			if (vwmWarning != null)
-				ShowMessage(vwmWarning);
-			//Now we have a game mode use it's theme.
+
+            if (vwmWarning != null)
+            {
+                ShowMessage(vwmWarning);
+            }
+
+            //Now we have a game mode use it's theme.
 			FontSetResolver.AddFontSets(gmdGameMode.ModeTheme.FontSets);
 			StepOverallProgress();
 
 			if (!UacCheckEnvironment(gmdGameMode, out p_vwmErrorMessage))
 			{
-				//TODO it would be really nice of us if we, instead of closing,
+				// TODO: it would be really nice of us if we, instead of closing,
 				// force the game mode to reinitialize, and select new paths
 				return false;
 			}
 			StepOverallProgress();
 
 			if (!CreateEnvironmentPaths(gmdGameMode, out p_vwmErrorMessage))
-				return false;
-			StepOverallProgress();
+            {
+                return false;
+            }
 
-			Trace.TraceInformation(String.Format("Game Mode Built: {0} ({1})", gmdGameMode.Name, gmdGameMode.ModeId));
+            StepOverallProgress();
+
+			Trace.TraceInformation($"Game Mode Built: {gmdGameMode.Name} ({gmdGameMode.ModeId})");
 			Trace.Indent();
-			Trace.TraceInformation(String.Format("Installation Path: {0}", gmdGameMode.GameModeEnvironmentInfo.InstallationPath));
-			Trace.TraceInformation(String.Format("Install Info Path: {0}", gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory));
-			Trace.TraceInformation(String.Format("Mod Path: {0}", gmdGameMode.GameModeEnvironmentInfo.ModDirectory));
-			Trace.TraceInformation(String.Format("Mod Cache Path: {0}", gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory));
-			Trace.TraceInformation(String.Format("Mod Download Cache: {0}", gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory));
-			Trace.TraceInformation(String.Format("Overwrite Path: {0}", gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
-			Trace.TraceInformation(String.Format("Virtual Install Path: {0}", EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]));
-			Trace.TraceInformation(String.Format("NMM Link Path: {0}", EnvironmentInfo.Settings.HDLinkFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]));
+			Trace.TraceInformation($"Installation Path: {gmdGameMode.GameModeEnvironmentInfo.InstallationPath}");
+			Trace.TraceInformation($"Install Info Path: {gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory}");
+			Trace.TraceInformation($"Mod Path: {gmdGameMode.GameModeEnvironmentInfo.ModDirectory}");
+			Trace.TraceInformation($"Mod Cache Path: {gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory}");
+			Trace.TraceInformation($"Mod Download Cache: {gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory}");
+			Trace.TraceInformation($"Overwrite Path: {gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory}");
+			Trace.TraceInformation($"Virtual Install Path: {EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]}");
+			Trace.TraceInformation($"NMM Link Path: {EnvironmentInfo.Settings.HDLinkFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]}");
 			Trace.Unindent();
 
 			ScanForReadonlyFiles(gmdGameMode);
@@ -378,11 +406,11 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Initializing Mod Repository...");
 			Trace.Indent();
-			IModRepository mrpModRepository = NexusModRepository.GetRepository(gmdGameMode, ApiCallManager.Initialize(EnvironmentInfo));
+			IModRepository mrpModRepository = new NexusModsApiRepository(gmdGameMode.ModeId, ApiCallManager.Initialize(EnvironmentInfo));
 			Trace.Unindent();
 			StepOverallProgress();
             
-			if ((gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory == null) || (gmdGameMode.GameModeEnvironmentInfo.ModDirectory == null))
+			if (gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory == null || gmdGameMode.GameModeEnvironmentInfo.ModDirectory == null)
 			{
 				ShowMessage(new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", "Warning", MessageBoxIcon.Warning));
 				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
@@ -391,7 +419,7 @@ namespace Nexus.Client
 				return false;
 			}
 
-			ServiceManager svmServices = InitializeServices(gmdGameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
+			var svmServices = InitializeServices(gmdGameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
 			if (svmServices == null)
 			{
 				ShowMessage(p_vwmErrorMessage);
@@ -442,16 +470,16 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		protected bool ApplyDelayedSettings(string p_strGameModeId, out ViewMessage p_vwmErrorMessage)
 		{
-			if ((EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId] == null) || (EnvironmentInfo.Settings.DelayedSettings["ALL"] == null))
+			if (EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId] == null || EnvironmentInfo.Settings.DelayedSettings["ALL"] == null)
 			{
 				p_vwmErrorMessage = null;
 				return true;
 			}
-			foreach (KeyValuePair<string, string> kvpSetting in EnvironmentInfo.Settings.DelayedSettings["ALL"])
+			foreach (var kvpSetting in EnvironmentInfo.Settings.DelayedSettings["ALL"])
 				if (!ApplyDelayedSetting(kvpSetting.Key, kvpSetting.Value, out p_vwmErrorMessage))
 					return false;
 			EnvironmentInfo.Settings.DelayedSettings["ALL"].Clear();
-			foreach (KeyValuePair<string, string> kvpSetting in EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId])
+			foreach (var kvpSetting in EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId])
 				if (!ApplyDelayedSetting(kvpSetting.Key, kvpSetting.Value, out p_vwmErrorMessage))
 					return false;
 			EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId].Clear();
@@ -469,7 +497,7 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		protected bool ApplyDelayedSetting(string p_strKey, string p_strValue, out ViewMessage p_vwmErrorMessage)
 		{
-			string[] strPropertyIndexers = p_strKey.Split(new char[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
+			var strPropertyIndexers = p_strKey.Split(new char[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
 			if (strPropertyIndexers.Length == 0)
 			{
 				p_vwmErrorMessage = new ViewMessage("Missing Setting name.", "Missing Setting Name");
@@ -489,7 +517,7 @@ namespace Nexus.Client
 				Trace.TraceInformation("Type: {0}", EnvironmentInfo.GetType().FullName);
 				Trace.TraceInformation("All Properties:");
 				Trace.Indent();
-				foreach (PropertyInfo pifProperty in EnvironmentInfo.GetType().GetProperties())
+				foreach (var pifProperty in EnvironmentInfo.GetType().GetProperties())
 					Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
 				Trace.Unindent();
 				Trace.Unindent();
@@ -497,7 +525,7 @@ namespace Nexus.Client
 			}
 			object objSetting = EnvironmentInfo;
 			Type tpeSettings = null;
-			for (Int32 i = 0; i < strPropertyIndexers.Length; i++)
+			for (var i = 0; i < strPropertyIndexers.Length; i++)
 			{
 				if (pifSetting.GetIndexParameters().Length == 1)
 					objSetting = pifSetting.GetValue(objSetting, new object[] { strPropertyIndexers[i] });
@@ -505,7 +533,7 @@ namespace Nexus.Client
 					objSetting = pifSetting.GetValue(objSetting, null);
 				else
 				{
-					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
+					p_vwmErrorMessage = new ViewMessage(string.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
 					return false;
 				}
 				tpeSettings = objSetting.GetType();
@@ -521,7 +549,7 @@ namespace Nexus.Client
 					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
 					Trace.TraceInformation("All Properties:");
 					Trace.Indent();
-					foreach (PropertyInfo pifProperty in tpeSettings.GetProperties())
+					foreach (var pifProperty in tpeSettings.GetProperties())
 						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
 					Trace.Unindent();
 					Trace.Unindent();
@@ -530,7 +558,7 @@ namespace Nexus.Client
 				try
 				{
 					if (pifSetting == null)
-						for (Type tpeBase = tpeSettings; (pifSetting == null) && (tpeBase != null); tpeBase = tpeBase.BaseType)
+						for (var tpeBase = tpeSettings; pifSetting == null && tpeBase != null; tpeBase = tpeBase.BaseType)
 							pifSetting = tpeBase.GetProperty("Item", BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance);
 				}
 				catch (AmbiguousMatchException)
@@ -541,7 +569,7 @@ namespace Nexus.Client
 					Trace.TraceInformation("Type: {0}", tpeSettings.FullName);
 					Trace.TraceInformation("All Properties:");
 					Trace.Indent();
-					foreach (PropertyInfo pifProperty in tpeSettings.GetProperties())
+					foreach (var pifProperty in tpeSettings.GetProperties())
 						Trace.TraceInformation("{0}, declared in {1}", pifProperty.Name, pifProperty.DeclaringType.FullName);
 					Trace.Unindent();
 					Trace.Unindent();
@@ -549,7 +577,7 @@ namespace Nexus.Client
 				}
 				if (pifSetting == null)
 				{
-					p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Setting does not exist.", p_strKey), "Invalid Setting");
+					p_vwmErrorMessage = new ViewMessage(string.Format("Cannot set value for setting: '{0}'. Setting does not exist.", p_strKey), "Invalid Setting");
 					return false;
 				}
 			}
@@ -559,7 +587,7 @@ namespace Nexus.Client
 				pifSetting.SetValue(objSetting, p_strValue, null);
 			else
 			{
-				p_vwmErrorMessage = new ViewMessage(String.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
+				p_vwmErrorMessage = new ViewMessage(string.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
 				return false;
 			}
 			p_vwmErrorMessage = null;
@@ -575,14 +603,14 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		protected bool CreateEnvironmentPaths(IGameMode p_gmdGameMode, out ViewMessage p_vwmErrorMessage)
 		{
-			string[] strPaths = new string[] { p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory,
+			var strPaths = new string[] { p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory,
 												p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory};
-			foreach (string strPath in strPaths)
-				if (!String.IsNullOrEmpty(strPath))
+			foreach (var strPath in strPaths)
+				if (!string.IsNullOrEmpty(strPath))
 					if (!Directory.Exists(strPath))
 						Directory.CreateDirectory(strPath);
 			p_vwmErrorMessage = null;
@@ -598,25 +626,25 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		protected bool UacCheckEnvironment(IGameMode p_gmdGameMode, out ViewMessage p_vwmErrorMessage)
 		{
-			Dictionary<string, string> dicPaths = new Dictionary<string, string>();
-			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory)))
+			var dicPaths = new Dictionary<string, string>();
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = "Install Info";
-			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory] = "Mods";
-			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory] = "Mods";
-			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory] = "Mods";
-			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = "Install Info";
-			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Mods";
-			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath) && (!dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath)))
+			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath))
 				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath] = "Install Path";
-			if(!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId]) && (!dicPaths.ContainsKey(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER))))
+			if(!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId]) && !dicPaths.ContainsKey(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER)))
 				dicPaths[Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER)] = "Virtual Install";
 
-			foreach (KeyValuePair<string, string> kvpUacCheckPath in dicPaths)
+			foreach (var kvpUacCheckPath in dicPaths)
 			{
 				try
 				{
@@ -625,8 +653,8 @@ namespace Nexus.Client
 				catch (Exception ex)
 				{
 					Trace.TraceError(string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
-					string strPathMessage = (string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
-					string strPathDetails = string.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
+					var strPathMessage = string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key);
+					var strPathDetails = string.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
 					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, "Error", MessageBoxIcon.Error);
 					return false;
 				}
@@ -636,8 +664,8 @@ namespace Nexus.Client
 					if (!Directory.Exists(Path.GetPathRoot(kvpUacCheckPath.Key)))
 					{
 						Trace.TraceError("Unable to access: " + kvpUacCheckPath.Key);
-						string strHDMessage = "Unable to access:" + Environment.NewLine + kvpUacCheckPath.Key;
-						string strHDDetails = String.Format("This error usually happens when you set one of the {0} folders on a hard drive that is no longer in your system:" +
+						var strHDMessage = "Unable to access:" + Environment.NewLine + kvpUacCheckPath.Key;
+						var strHDDetails = string.Format("This error usually happens when you set one of the {0} folders on a hard drive that is no longer in your system:" +
 											 Environment.NewLine + Environment.NewLine + "Select this game mode again to go back to the folder setup screen and make sure the {1} path is correct.",
 											EnvironmentInfo.Settings.ModManagerName, kvpUacCheckPath.Value);
 						p_vwmErrorMessage = new ViewMessage(strHDMessage, strHDDetails, "Warning", MessageBoxIcon.Warning);
@@ -647,8 +675,8 @@ namespace Nexus.Client
 					}
 
 					Trace.TraceError("Unable to get write permissions for: " + kvpUacCheckPath.Key);
-					string strMessage = "Unable to get write permissions for:" + Environment.NewLine + kvpUacCheckPath.Key;
-					string strDetails = String.Format("This error happens when you are running Windows Vista or later, and have put {0}'s <b>{1}</b> folder in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
+					var strMessage = "Unable to get write permissions for:" + Environment.NewLine + kvpUacCheckPath.Key;
+					var strDetails = string.Format("This error happens when you are running Windows Vista or later, and have put {0}'s <b>{1}</b> folder in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
 										"<li>Disable UAC (<i>not recommended</i>).</li>" +
 										@"<li>Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder (for example, to <b>C:\Games\ModManagerInfo\{1}</b>).</li>" +
 										"<li>Run <b>{0}</b> as administrator. You can try this by right-clicking on <b>{0}</b>'s shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
@@ -671,7 +699,7 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		protected bool UacCheck(string p_strPath)
 		{
-			string strInstallationPath = p_strPath;
+			var strInstallationPath = p_strPath;
 			string strTestFile = null;
 			try
 			{
@@ -680,32 +708,32 @@ namespace Nexus.Client
 
                 if (strInstallationPath == null)
                 {
-                    Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + " was not found", p_strPath));
+                    Trace.TraceError(string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + " was not found", p_strPath));
                     return false;
                 }
 
 				strTestFile = Path.Combine(strInstallationPath, "limited");
 
-				string strVirtualStore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualStore\\");
+				var strVirtualStore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualStore\\");
 				strVirtualStore = Path.Combine(strVirtualStore, strInstallationPath.Remove(0, 3));
 				strVirtualStore = Path.Combine(strVirtualStore, "limited");
 				if (File.Exists(strVirtualStore))
 					File.Delete(strVirtualStore);
-				using (FileStream fs = File.Create(strTestFile)) { }
+				using (var fs = File.Create(strTestFile)) { }
 				if (File.Exists(strVirtualStore))
 				{
-					Trace.TraceError(String.Format("UAC is messing us up: {0}", p_strPath));
+					Trace.TraceError(string.Format("UAC is messing us up: {0}", p_strPath));
 					return false;
 				}
 			}
 			catch (ArgumentException ex)
 			{
-				Trace.TraceError(String.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error: " + Environment.NewLine + "{1}", strInstallationPath, ex.Message));
+				Trace.TraceError(string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error: " + Environment.NewLine + "{1}", strInstallationPath, ex.Message));
 				return false;
 			}
 			catch
 			{
-				Trace.TraceError(String.Format("UAC is messing us up: {0}", p_strPath));
+				Trace.TraceError(string.Format("UAC is messing us up: {0}", p_strPath));
 				return false;
 			}
 			finally
@@ -775,7 +803,7 @@ namespace Nexus.Client
 		    if (!Directory.Exists(path))
 		        Directory.CreateDirectory(path);
 
-            IScriptTypeRegistry stgScriptTypeRegistry = ScriptTypeRegistry.DiscoverScriptTypes(path, p_gmdGameMode, DeletedDLL);
+            var stgScriptTypeRegistry = ScriptTypeRegistry.DiscoverScriptTypes(path, p_gmdGameMode, DeletedDLL);
 
 		    if (stgScriptTypeRegistry.Types.Count == 0)
 		    {
@@ -794,7 +822,7 @@ namespace Nexus.Client
 			Trace.TraceInformation("Registering supported mod formats...");
 			Trace.Indent();
 
-		    IModFormatRegistry mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, p_gmdGameMode.SupportedFormats, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
+		    var mfrModFormatRegistry = ModFormatRegistry.DiscoverFormats(mcmModCacheManager, p_gmdGameMode.SupportedFormats, stgScriptTypeRegistry, Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "ModFormats"));
 
 		    if (mfrModFormatRegistry.Formats.Count == 0)
 			{
@@ -815,7 +843,7 @@ namespace Nexus.Client
 			}
 			catch (UnauthorizedAccessException ex)
 			{
-				p_vwmErrorMessage = new ViewMessage(String.Format("An error occured while retrieving managed mods: \n\n{0}", ex.Message), null, "Install Log", MessageBoxIcon.Error);
+				p_vwmErrorMessage = new ViewMessage(string.Format("An error occured while retrieving managed mods: \n\n{0}", ex.Message), null, "Install Log", MessageBoxIcon.Error);
 				return null;
 			}
 
@@ -826,9 +854,9 @@ namespace Nexus.Client
 			Trace.Indent();
 			Trace.TraceInformation("Checking if upgrade is required...");
 
-		    InstallLogUpgrader iluUgrader = new InstallLogUpgrader();
+		    var iluUgrader = new InstallLogUpgrader();
 
-		    string strLogPath = string.Empty;
+		    var strLogPath = string.Empty;
 
 			try
 			{
@@ -847,10 +875,10 @@ namespace Nexus.Client
 			{
 				if (!iluUgrader.CanUpgrade(strLogPath))
 				{
-					p_vwmErrorMessage = new ViewMessage(String.Format("{0} does not support version {1} of the Install Log.", EnvironmentInfo.Settings.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, "Install Log", MessageBoxIcon.Error);
+					p_vwmErrorMessage = new ViewMessage(string.Format("{0} does not support version {1} of the Install Log.", EnvironmentInfo.Settings.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, "Install Log", MessageBoxIcon.Error);
 					return null;
 				}
-				IBackgroundTask tskUpgrader = iluUgrader.UpgradeInstallLog(strLogPath, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, mrgModRegistry);
+				var tskUpgrader = iluUgrader.UpgradeInstallLog(strLogPath, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, mrgModRegistry);
 				m_areTaskWait.Reset();
 				tskUpgrader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
 				OnTaskStarted(tskUpgrader);
@@ -859,12 +887,12 @@ namespace Nexus.Client
 				tskUpgrader.TaskEnded -= new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
 				if (tskUpgrader.Status != TaskStatus.Complete)
 				{
-					string strDetails = (string)(tskUpgrader.ReturnValue ?? null);
+					var strDetails = (string)(tskUpgrader.ReturnValue ?? null);
 					p_vwmErrorMessage = new ViewMessage("Install Log was not upgraded.", strDetails, "Install Log", MessageBoxIcon.Error);
 					return null;
 				}
 			}
-			IInstallLog ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
+			var ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Plugin Management Services...");
@@ -902,17 +930,17 @@ namespace Nexus.Client
 
 			Trace.TraceInformation("Initializing Activity Monitor...");
 			Trace.Indent();
-			DownloadMonitor dmtMonitor = new DownloadMonitor();
+			var dmtMonitor = new DownloadMonitor();
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Mod Activation Monitor...");
 			Trace.Indent();
-			ModActivationMonitor mamMonitor = new ModActivationMonitor();
+			var mamMonitor = new ModActivationMonitor();
 			Trace.Unindent();
 
 			Trace.TraceInformation("Initializing Mod Manager...");
 			Trace.Indent();
-			ModManager mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
+			var mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
 			Trace.Unindent();
 			
 			p_vwmErrorMessage = null;
@@ -926,22 +954,22 @@ namespace Nexus.Client
 		{
 			Trace.TraceInformation("Scanning for read-only files...");
 			Trace.Indent();
-			List<string> lstFiles = new List<string>();
-			IEnumerable<string> enmWritablePaths = p_gmdGameMode.WritablePaths;
+			var lstFiles = new List<string>();
+			var enmWritablePaths = p_gmdGameMode.WritablePaths;
 			if (enmWritablePaths != null)
-				foreach (string strPath in enmWritablePaths)
+				foreach (var strPath in enmWritablePaths)
 					if (File.Exists(strPath))
 						lstFiles.Add(strPath);
-			foreach (string strFile in lstFiles)
+			foreach (var strFile in lstFiles)
 			{
-				FileInfo fifPlugin = new FileInfo(strFile);
-				if (fifPlugin.Exists && ((fifPlugin.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly))
+				var fifPlugin = new FileInfo(strFile);
+				if (fifPlugin.Exists && (fifPlugin.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
 				{
-					Trace.TraceInformation(String.Format("Found {0}", strFile));
+					Trace.TraceInformation(string.Format("Found {0}", strFile));
 					Trace.Indent();
-					bool booAsk = (bool)EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["AskAboutReadOnlySettingsFiles"];
-					bool booMakeWritable = (bool)EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["UnReadOnlySettingsFiles"];
-					bool booRemember = false;
+					var booAsk = (bool)EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["AskAboutReadOnlySettingsFiles"];
+					var booMakeWritable = (bool)EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["UnReadOnlySettingsFiles"];
+					var booRemember = false;
 					if (booAsk)
 						booMakeWritable = ConfirmMakeWritable(EnvironmentInfo, fifPlugin.Name, out booRemember);
 					if (booMakeWritable)
@@ -991,7 +1019,7 @@ namespace Nexus.Client
 		/// <param name="p_mmgModManager">The mod manager to use to upgrade any replaced mods.</param>
 		protected void UpgradeMismatchedVersionMods(IInstallLog p_ilgInstallLog, ModManager p_mmgModManager)
 		{
-			UpgradeMismatchedVersionScanner uvsScanner = new UpgradeMismatchedVersionScanner(p_ilgInstallLog, p_mmgModManager, ConfirmMismatchedVersionModUpgrade, ConfirmItemOverwrite);
+			var uvsScanner = new UpgradeMismatchedVersionScanner(p_ilgInstallLog, p_mmgModManager, ConfirmMismatchedVersionModUpgrade, ConfirmItemOverwrite);
 			uvsScanner.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(TaskSet_TaskStarted);
 			uvsScanner.Scan();
 			WaitForSet(uvsScanner, false);
@@ -1012,10 +1040,10 @@ namespace Nexus.Client
 		/// <c>false</c> otherwise.</returns>
 		private bool ConfirmMismatchedVersionModUpgrade(IMod p_modOld, IMod p_modNew)
 		{
-			if (String.IsNullOrWhiteSpace(p_modNew.HumanReadableVersion))
+			if (string.IsNullOrWhiteSpace(p_modNew.HumanReadableVersion))
 				return false;
-			string strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will replace the mod in the mod list, but won't change any files.";
-			switch ((DialogResult)ShowMessage(new ViewMessage(String.Format(strUpgradeMessage, p_modNew.ModName, p_modOld.HumanReadableVersion, p_modNew.HumanReadableVersion), null, "Upgrade", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Question)))
+			var strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will replace the mod in the mod list, but won't change any files.";
+			switch ((DialogResult)ShowMessage(new ViewMessage(string.Format(strUpgradeMessage, p_modNew.ModName, p_modOld.HumanReadableVersion, p_modNew.HumanReadableVersion), null, "Upgrade", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Question)))
 			{
 				case DialogResult.Yes:
 					return true;
@@ -1088,7 +1116,7 @@ namespace Nexus.Client
 		{
 			Trace.TraceInformation("Uninstalling missing Mods...");
 			Trace.Indent();
-			foreach (IMod modMissing in new List<IMod>(p_mmgModManager.ActiveMods))
+			foreach (var modMissing in new List<IMod>(p_mmgModManager.ActiveMods))
 			{
 				if (!File.Exists(modMissing.Filename))
 				{
@@ -1096,16 +1124,16 @@ namespace Nexus.Client
 					Trace.Indent();
 
 					//look for another version of the mod
-					List<IMod> lstInactiveMods = new List<IMod>();
-					foreach (IMod modRegistered in p_mmgModManager.ManagedMods)
+					var lstInactiveMods = new List<IMod>();
+					foreach (var modRegistered in p_mmgModManager.ManagedMods)
 						if (!p_mmgModManager.ActiveMods.Contains(modRegistered))
 							lstInactiveMods.Add(modRegistered);
-					ModMatcher mmcMatcher = new ModMatcher(lstInactiveMods, false);
-					IMod modNewVersion = mmcMatcher.FindAlternateVersion(modMissing, true);
+					var mmcMatcher = new ModMatcher(lstInactiveMods, false);
+					var modNewVersion = mmcMatcher.FindAlternateVersion(modMissing, true);
 					if (modNewVersion != null)
 					{
 						Trace.TraceInformation("Found alternate version...");
-						string strUpgradeMessage = String.Format("'{0}' cannot be found. " + Environment.NewLine +
+						var strUpgradeMessage = string.Format("'{0}' cannot be found. " + Environment.NewLine +
 										"However, a different version has been detected. The installed, missing, version is {1}; the new version is {2}." + Environment.NewLine +
 										"You can either upgrade the mod or uninstall it. If you Cancel, {3} will close and you will " +
 										"have to put the Mod ({4}) back in the mods folder." + Environment.NewLine +
@@ -1115,7 +1143,7 @@ namespace Nexus.Client
 						{
 							case DialogResult.Yes:
 								Trace.TraceInformation("Upgrading.");
-								IBackgroundTaskSet btsUpgrader = p_mmgModManager.ForceUpgrade(modMissing, modNewVersion, ConfirmItemOverwrite);
+								var btsUpgrader = p_mmgModManager.ForceUpgrade(modMissing, modNewVersion, ConfirmItemOverwrite);
 								WaitForSet(btsUpgrader, true);
 								Trace.Unindent();
 								continue;
@@ -1127,11 +1155,11 @@ namespace Nexus.Client
 							case DialogResult.No:
 								break;
 							default:
-								throw new Exception(String.Format("Unexpected value for cofnirmation of upgrading missing mod {0}.", modMissing.ModName));
+								throw new Exception(string.Format("Unexpected value for cofnirmation of upgrading missing mod {0}.", modMissing.ModName));
 						}
 					}
 
-					string strMessage = String.Format("'{0}' cannot be found. " + Environment.NewLine + Environment.NewLine +
+					var strMessage = string.Format("'{0}' cannot be found. " + Environment.NewLine + Environment.NewLine +
 										"This could be caused by setting the wrong 'Mods' folder or an old config file being used." + Environment.NewLine + Environment.NewLine +
 										"If you haven't deleted or moved any of your mods on your hard-drive and they're still on your hard-drive somewhere then select YES and input the proper location of your Mods folder." + Environment.NewLine + Environment.NewLine +
 										"If you select NO {1} will automatically uninstall the missing mod's files." + Environment.NewLine + Environment.NewLine +
@@ -1139,7 +1167,7 @@ namespace Nexus.Client
 					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Warning)) == DialogResult.No)
 					{
 						Trace.TraceInformation("Removing.");
-						IBackgroundTaskSet btsDeactivator = p_mmgModManager.DeactivateMod(modMissing, p_mmgModManager.ActiveMods);
+						var btsDeactivator = p_mmgModManager.DeactivateMod(modMissing, p_mmgModManager.ActiveMods);
 						WaitForSet(btsDeactivator, true);
 					}
 					else

@@ -1,23 +1,25 @@
-﻿using System;
-using System.Configuration;
-using System.Diagnostics;
-using System.IO;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Windows.Forms;
-using Microsoft.Win32;
-using Nexus.Client.ModRepositories.Nexus;
-using Nexus.Client.Util;
-using Nexus.Client.Util.Threading;
-using Nexus.UI.Controls;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
-	/// <summary>
-	/// The entry class of the application.
-	/// </summary>
-	static class Program
+    using System;
+    using System.Configuration;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Reflection;
+    using System.Text;
+    using System.Threading;
+    using System.Windows.Forms;
+
+    using Microsoft.Win32;
+
+    using Nexus.Client.ModRepositories;
+    using Nexus.Client.Util;
+    using Nexus.Client.Util.Threading;
+    using Nexus.UI.Controls;
+
+    /// <summary>
+    /// The entry class of the application.
+    /// </summary>
+    static class Program
 	{
 		private static EnvironmentInfo EnvironmentInfo = null;
 

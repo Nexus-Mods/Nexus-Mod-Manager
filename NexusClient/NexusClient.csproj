@@ -189,8 +189,7 @@
     <Compile Include="ModRepositories\ModFileInfo.cs" />
     <Compile Include="ModRepositories\NexusModsApi\ApiCallManager.cs" />
     <Compile Include="ModRepositories\NexusModsApi\NexusModsApiRepository.cs" />
-    <Compile Include="ModRepositories\Nexus\NexusLinks.cs" />
-    <Compile Include="ModRepositories\Nexus\NexusToken.cs" />
+    <Compile Include="ModRepositories\NexusLinks.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
     <Compile Include="PluginManagement\AutoPluginSortingTask.cs" />
@@ -616,16 +615,8 @@
     <Compile Include="ModManagement\UI\ModTaggerVM.cs" />
     <Compile Include="ModRepositories\IModFileInfo.cs" />
     <Compile Include="ModRepositories\IModRepository.cs" />
-    <Compile Include="ModRepositories\Nexus\CookieEndpointBehaviour.cs" />
-    <Compile Include="ModRepositories\Nexus\CookieMessageInspector.cs" />
-    <Compile Include="ModRepositories\Nexus\NexusModFileInfo.cs" />
     <Compile Include="ModRepositories\ModInfo.cs" />
-    <Compile Include="ModRepositories\Nexus\HttpUserAgentEndpointBehaviour.cs" />
-    <Compile Include="ModRepositories\Nexus\HttpUserAgentMessageInspector.cs" />
-    <Compile Include="ModRepositories\Nexus\INexusModRepositoryApi.cs" />
     <Compile Include="ModRepositories\ModFileCategory.cs" />
-    <Compile Include="ModRepositories\Nexus\NexusModInfo.cs" />
-    <Compile Include="ModRepositories\Nexus\NexusModRepository.cs" />
     <Compile Include="ModRepositories\RepositoryUnavailableException.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.TransactionEnlistment.cs" />
