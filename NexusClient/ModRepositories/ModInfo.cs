@@ -1,6 +1,7 @@
 ﻿namespace Nexus.Client.ModRepositories
 {
     using System;
+    using System.Text.RegularExpressions;
     using Mods;
     using Pathoschild.FluentNexus.Models;
     using Util;
@@ -171,9 +172,9 @@
                 result.Name,
                 null,
                 result.Version,
-                null,
+                result.Version,
                 endorsementState,
-                null,
+                string.IsNullOrEmpty(result.Version) ? null : new Version(Regex.Replace(result.Version, "[^.0-9]", "")),
                 result.Author,
                 result.CategoryID,
                 -1,
