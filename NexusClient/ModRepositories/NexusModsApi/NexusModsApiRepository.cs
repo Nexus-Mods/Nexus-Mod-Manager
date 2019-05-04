@@ -173,8 +173,6 @@
         {
             var list = new List<IModInfo>();
 
-            var modIds = new List<int>();
-
             foreach (var mod in modFileList)
             {
                 var id = Convert.ToInt32(mod.Split('|')[1]);

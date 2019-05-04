@@ -34,6 +34,7 @@
             this.buttonAuthenticate = new System.Windows.Forms.Button();
             this.buttonCancel = new System.Windows.Forms.Button();
             this.labelErrorMessage = new System.Windows.Forms.Label();
+            this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.SuspendLayout();
             // 
             // panel2
@@ -58,9 +59,9 @@
             this.label1.AutoSize = true;
             this.label1.Location = new System.Drawing.Point(12, 9);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(47, 13);
+            this.label1.Size = new System.Drawing.Size(91, 13);
             this.label1.TabIndex = 18;
-            this.label1.Text = "API key:";
+            this.label1.Text = "Personal API key:";
             // 
             // buttonAuthenticate
             // 
@@ -93,6 +94,17 @@
             this.labelErrorMessage.TabIndex = 22;
             this.labelErrorMessage.Visible = false;
             // 
+            // linkLabel1
+            // 
+            this.linkLabel1.AutoSize = true;
+            this.linkLabel1.Location = new System.Drawing.Point(31, 86);
+            this.linkLabel1.Name = "linkLabel1";
+            this.linkLabel1.Size = new System.Drawing.Size(177, 13);
+            this.linkLabel1.TabIndex = 23;
+            this.linkLabel1.TabStop = true;
+            this.linkLabel1.Text = "Manage your Nexus API key(s) here";
+            this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.LinkLabel1_LinkClicked);
+            // 
             // AuthenticationForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -100,6 +112,7 @@
             this.AutoSize = true;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.ClientSize = new System.Drawing.Size(246, 160);
+            this.Controls.Add(this.linkLabel1);
             this.Controls.Add(this.labelErrorMessage);
             this.Controls.Add(this.buttonCancel);
             this.Controls.Add(this.buttonAuthenticate);
@@ -126,5 +139,6 @@
         private System.Windows.Forms.Button buttonAuthenticate;
         private System.Windows.Forms.Button buttonCancel;
         private System.Windows.Forms.Label labelErrorMessage;
+        private System.Windows.Forms.LinkLabel linkLabel1;
     }
 }

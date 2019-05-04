@@ -124,5 +124,10 @@
                 _loginTask.Reset();
             }
         }
+
+        private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://www.nexusmods.com/users/myaccount?tab=api%20access");
+        }
     }
 }
