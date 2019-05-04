@@ -383,9 +383,6 @@
     <None Include="data\releasenotes.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="data\TxFileMAnager Licence.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="data\Nexus Mod Manager License.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -401,12 +398,6 @@
     <None Include="Resources\edit-clear-3.png" />
     <None Include="Resources\info_add.png" />
     <None Include="Resources\dialog-warning-4.png" />
-    <None Include="data\DockPanel Suite Licence.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\AntlrBuildTask Licence.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="Resources\application-exit-2.png" />
     <None Include="Resources\go_premium.png" />
     <None Include="Resources\en.gif" />
@@ -466,6 +457,24 @@
     <None Include="Resources\deleteProfile.png" />
     <None Include="Resources\createBackup.png" />
     <None Include="Resources\restoreBackup.png" />
+    <Content Include="data\Third-Party Licenses\AntlrBuildTask License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\Third-Party Licenses\DockPanel Suite License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\Third-Party Licenses\FluentNexus License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\Third-Party Licenses\NUnit License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\Third-Party Licenses\SevenZipSharp License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\Third-Party Licenses\TxFileMAnager License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
