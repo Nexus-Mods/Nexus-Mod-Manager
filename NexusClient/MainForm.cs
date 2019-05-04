@@ -42,10 +42,10 @@
 	{
 		private MainFormVM _viewModel;
 		private FormWindowState _lastWindowState = FormWindowState.Normal;
-		private readonly ModManagerControl _modManager;
-		private readonly PluginManagerControl _pluginManager;
-		private readonly DownloadMonitorControl _downloadMonitor;
-		private readonly ModActivationMonitorControl _modActivationMonitor;
+		private readonly ModManagerControl _modManagerControl;
+		private readonly PluginManagerControl _pluginManagerControl;
+		private readonly DownloadMonitorControl _downloadMonitorControl;
+		private readonly ModActivationMonitorControl _modActivationMonitorControl;
 		private double _defaultActivityManagerAutoHidePortion;
 		private double _defaultActivationMonitorAutoHidePortion;
 
@@ -87,21 +87,21 @@
 				_viewModel.RestoringBackup += ViewModel_RestoringBackup;
 				_viewModel.PurgingLooseFiles += ViewModel_PurgingLooseFiles;
 				_viewModel.ConfigFilesFixing += ViewModel_ConfigFilesFixing;
-				_modManager.ViewModel = _viewModel.ModManagerVM;
+				_modManagerControl.ViewModel = _viewModel.ModManagerVM;
 
                 if (ViewModel.UsesPlugins)
 				{
-					_pluginManager.ViewModel = _viewModel.PluginManagerVM;
+					_pluginManagerControl.ViewModel = _viewModel.PluginManagerVM;
 					_viewModel.PluginManager.ActivePlugins.CollectionChanged += ActivePlugins_CollectionChanged;
-					_pluginManager.ViewModel.PluginMoved += pmcPluginManager_PluginMoved;
-					_pluginManager.ViewModel.ApplyingImportedLoadOrder += ViewModel_ApplyingImportedLoadOrder;
+					_pluginManagerControl.ViewModel.PluginMoved += pmcPluginManager_PluginMoved;
+					_pluginManagerControl.ViewModel.ApplyingImportedLoadOrder += ViewModel_ApplyingImportedLoadOrder;
 				}
 
-				_modActivationMonitor.ViewModel = _viewModel.ModActivationMonitorVM;
-				_downloadMonitor.ViewModel = _viewModel.DownloadMonitorVM;
-				_downloadMonitor.ViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
-				_downloadMonitor.ViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
-				_downloadMonitor.ViewModel.PropertyChanged += ActiveTasks_PropertyChanged;
+				_modActivationMonitorControl.ViewModel = _viewModel.ModActivationMonitorVM;
+				_downloadMonitorControl.ViewModel = _viewModel.DownloadMonitorVM;
+				_downloadMonitorControl.ViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
+				_downloadMonitorControl.ViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
+				_downloadMonitorControl.ViewModel.PropertyChanged += ActiveTasks_PropertyChanged;
 
 				ViewModel.ModRepository.UserStatusUpdate += ModRepository_UserStatusUpdate;
 
@@ -155,20 +155,20 @@
 			Resize += MainForm_Resize;
 			Shown += MainForm_Shown;
 
-			_pluginManager = new PluginManagerControl();
-			_modManager = new ModManagerControl();
-			_downloadMonitor = new DownloadMonitorControl();
-			_modActivationMonitor = new ModActivationMonitorControl();
+			_pluginManagerControl = new PluginManagerControl();
+			_modManagerControl = new ModManagerControl();
+			_downloadMonitorControl = new DownloadMonitorControl();
+			_modActivationMonitorControl = new ModActivationMonitorControl();
 			dockPanel1.ActiveContentChanged += dockPanel1_ActiveContentChanged;
-			_modManager.SetTextBoxFocus += mmgModManager_SetTextBoxFocus;
-			_modManager.ResetSearchBox += mmgModManager_ResetSearchBox;
-			_modManager.UpdateModsCount += mmgModManager_UpdateModsCount;
-			_modManager.UninstallModFromProfiles += ModManagerUninstallModFromProfiles;
-			_modManager.UninstalledAllMods += mmgModManager_UninstalledAllMods;
-			_downloadMonitor.SetTextBoxFocus += dmcDownloadMonitor_SetTextBoxFocus;
-			_pluginManager.UpdatePluginsCount += pmcPluginManager_UpdatePluginsCount;
-			_modActivationMonitor = new ModActivationMonitorControl();
-			_modActivationMonitor.UpdateBottomBarFeedback += macModActivationMonitor_UpdateBottomBarFeedback;
+			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
+			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
+			_modManagerControl.UpdateModsCount += MmgModManagerControlUpdateModsCount;
+			_modManagerControl.UninstallModFromProfiles += ModManagerControlUninstallModFromProfiles;
+			_modManagerControl.UninstalledAllMods += MmgModManagerControlUninstalledAllMods;
+			_downloadMonitorControl.SetTextBoxFocus += DmcDownloadMonitorControlSetTextBoxFocus;
+			_pluginManagerControl.UpdatePluginsCount += PmcPluginManagerControlUpdatePluginsCount;
+			_modActivationMonitorControl = new ModActivationMonitorControl();
+			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
 			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
 			tsbTips.DropDownItemClicked += tsbTips_DropDownItemClicked;
 			
@@ -237,7 +237,7 @@
                 }
                 else
 				{
-					ViewModel.MigrateMods(_modManager, drResult == DialogResult.Yes);
+					ViewModel.MigrateMods(_modManagerControl, drResult == DialogResult.Yes);
 				}
 			}
 		}
@@ -305,111 +305,111 @@
 				{
 					if (_defaultActivityManagerAutoHidePortion == 0)
                     {
-                        _defaultActivityManagerAutoHidePortion = _downloadMonitor.AutoHidePortion;
+                        _defaultActivityManagerAutoHidePortion = _downloadMonitorControl.AutoHidePortion;
                     }
                 }
 				catch { }
 
                 if (!ViewModel.UsesPlugins)
                 {
-                    _pluginManager.Hide();
+                    _pluginManagerControl.Hide();
                 }
             }
 			else
 			{
 				if (ViewModel.UsesPlugins)
                 {
-                    _pluginManager.DockState = DockState.Unknown;
+                    _pluginManagerControl.DockState = DockState.Unknown;
                 }
 
-                _modManager.DockState = DockState.Unknown;
-				_downloadMonitor.DockState = DockState.Unknown;
-				_downloadMonitor.ShowHint = DockState.DockBottomAutoHide;
-				_downloadMonitor.Show(dockPanel1, DockState.DockBottomAutoHide);
+                _modManagerControl.DockState = DockState.Unknown;
+				_downloadMonitorControl.DockState = DockState.Unknown;
+				_downloadMonitorControl.ShowHint = DockState.DockBottomAutoHide;
+				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottomAutoHide);
 
                 if (_defaultActivityManagerAutoHidePortion == 0)
                 {
-                    _defaultActivityManagerAutoHidePortion = _downloadMonitor.Height;
+                    _defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
                 }
 
                 try
 				{
-					_downloadMonitor.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
+					_downloadMonitorControl.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
 				}
 				catch { }
 
-				_modActivationMonitor.DockState = DockState.Unknown;
-				_modActivationMonitor.ShowHint = DockState.DockBottom;
-				_modActivationMonitor.Show(dockPanel1, DockState.DockBottom);
+				_modActivationMonitorControl.DockState = DockState.Unknown;
+				_modActivationMonitorControl.ShowHint = DockState.DockBottom;
+				_modActivationMonitorControl.Show(dockPanel1, DockState.DockBottom);
 
 				if (_defaultActivationMonitorAutoHidePortion == 0)
                 {
-                    _defaultActivationMonitorAutoHidePortion = _modActivationMonitor.Height;
+                    _defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
                 }
 
                 try
 				{
-					_modActivationMonitor.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
+					_modActivationMonitorControl.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
 				}
 				catch { }
 
 				if (ViewModel.UsesPlugins)
                 {
-                    _pluginManager.Show(dockPanel1);
+                    _pluginManagerControl.Show(dockPanel1);
                 }
 
-                _modManager.Show(dockPanel1);
+                _modManagerControl.Show(dockPanel1);
 			}
 
 			var strTab = dockPanel1.ActiveDocument.DockHandler.TabText;
 
 			if (ViewModel.PluginManagerVM != null)
             {
-                _pluginManager.Show(dockPanel1);
+                _pluginManagerControl.Show(dockPanel1);
             }
 
             if (ViewModel.UsesPlugins && strTab == "Plugins")
             {
-                _pluginManager.Show(dockPanel1);
+                _pluginManagerControl.Show(dockPanel1);
             }
             else
             {
-                _modManager.Show(dockPanel1);
+                _modManagerControl.Show(dockPanel1);
             }
 
-            if (_downloadMonitor == null || _downloadMonitor.VisibleState == DockState.Unknown || _downloadMonitor.VisibleState == DockState.Hidden)
+            if (_downloadMonitorControl == null || _downloadMonitorControl.VisibleState == DockState.Unknown || _downloadMonitorControl.VisibleState == DockState.Hidden)
 			{
-				_downloadMonitor.Show(dockPanel1, DockState.DockBottom);
+				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottom);
 
                 if (_defaultActivityManagerAutoHidePortion == 0)
                 {
-                    _defaultActivityManagerAutoHidePortion = _downloadMonitor.Height;
+                    _defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
                 }
 
                 try
 				{
-					_downloadMonitor.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
+					_downloadMonitorControl.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
 				}
 				catch { }
 			}
 
-			if (_modActivationMonitor == null || _modActivationMonitor.VisibleState == DockState.Unknown || _modActivationMonitor.VisibleState == DockState.Hidden)
+			if (_modActivationMonitorControl == null || _modActivationMonitorControl.VisibleState == DockState.Unknown || _modActivationMonitorControl.VisibleState == DockState.Hidden)
 			{
-				_modActivationMonitor.Show(dockPanel1, DockState.DockBottom);
+				_modActivationMonitorControl.Show(dockPanel1, DockState.DockBottom);
 
                 if (_defaultActivationMonitorAutoHidePortion == 0)
                 {
-                    _defaultActivationMonitorAutoHidePortion = _modActivationMonitor.Height;
+                    _defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
                 }
 
                 try
 				{
-					_modActivationMonitor.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
+					_modActivationMonitorControl.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
 				}
 				catch { }
 			}
 
-			_modActivationMonitor.DockTo(_downloadMonitor.Pane, DockStyle.Right, 1);
+			_modActivationMonitorControl.DockTo(_downloadMonitorControl.Pane, DockStyle.Right, 1);
 
 			if (ViewModel.UsesPlugins)
 			{
@@ -579,12 +579,12 @@
                     toolStripLabelDownloads.Tag = "Download Speed:";
 				}
 
-                if (toolStripProgressBarDownloadSpeed != null && _downloadMonitor.ViewModel.ActiveTasks.Count > 0)
+                if (toolStripProgressBarDownloadSpeed != null && _downloadMonitorControl.ViewModel.ActiveTasks.Count > 0)
                 {
                     toolStripProgressBarDownloadSpeed.Visible = true;
                 }
 
-                toolStripLabelDownloads.Text = $"{toolStripLabelDownloads.Tag} ({_downloadMonitor.ViewModel.ActiveTasks.Count} {(_downloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files")}) ";
+                toolStripLabelDownloads.Text = $"{toolStripLabelDownloads.Tag} ({_downloadMonitorControl.ViewModel.ActiveTasks.Count} {(_downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files")}) ";
 			}
 		}
 
@@ -598,7 +598,7 @@
 
             try
 			{
-				_modManager.ResetColumns();
+				_modManagerControl.ResetColumns();
 			}
 			catch { }
 		}
@@ -626,7 +626,7 @@
 		/// </summary>
 		protected void DisableAllMods()
 		{
-			_modManager.DisableAllMods();
+			_modManagerControl.DisableAllMods();
 		}
 
 		/// <summary>
@@ -678,7 +678,7 @@
 
 		protected void RestoreBackup()
 		{
-			ViewModel.RestoreBackup(_modManager);
+			ViewModel.RestoreBackup(_modManagerControl);
 		}
 
 		/// <summary>
@@ -686,7 +686,7 @@
 		/// </summary>
 		protected void UninstallAllMods(bool forceUninstall, bool silent)
 		{
-			_modManager.DeactivateAllMods(forceUninstall, silent);
+			_modManagerControl.DeactivateAllMods(forceUninstall, silent);
  		}
 
 		/// <summary>
@@ -886,7 +886,7 @@
 		/// <summary>
 		/// Updates the Mods Counter
 		/// </summary>
-		private void mmgModManager_UpdateModsCount(object sender, EventArgs e)
+		private void MmgModManagerControlUpdateModsCount(object sender, EventArgs e)
 		{
 			UpdateModsFeedback();
 		}
@@ -902,7 +902,7 @@
 		/// <summary>
 		/// Updates the Plugins Counter
 		/// </summary>
-		private void pmcPluginManager_UpdatePluginsCount(object sender, EventArgs e)
+		private void PmcPluginManagerControlUpdatePluginsCount(object sender, EventArgs e)
 		{
 			toolStripLabelPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
 			var myFontFamily = new FontFamily(toolStripLabelActivePluginsCounter.Font.Name);
@@ -967,7 +967,7 @@
 		/// <summary>
 		/// Set the focus to the Search Textbox.
 		/// </summary>
-		private void mmgModManager_SetTextBoxFocus(object sender, EventArgs e)
+		private void MmgModManagerControlSetTextBoxFocus(object sender, EventArgs e)
 		{
 			toolStripTextBoxFind.Focus();
 		}
@@ -975,7 +975,7 @@
 		/// <summary>
 		/// The Main Form resetSearchBox event.
 		/// </summary>
-		private void mmgModManager_ResetSearchBox(object sender, EventArgs e)
+		private void MmgModManagerControlResetSearchBox(object sender, EventArgs e)
 		{
 			toolStripTextBoxFind.Clear();
 		}
@@ -986,7 +986,7 @@
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="ModEventArgs"/> describing the event arguments.</param>
-		private void ModManagerUninstallModFromProfiles(object sender, ModEventArgs e)
+		private void ModManagerControlUninstallModFromProfiles(object sender, ModEventArgs e)
 		{
             var mods = new List<IMod> {e.Mod};
 
@@ -1002,7 +1002,7 @@
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
-		private void mmgModManager_UninstalledAllMods(object sender, EventArgs e)
+		private void MmgModManagerControlUninstalledAllMods(object sender, EventArgs e)
 		{
 			if (ViewModel.ProfileManager?.CurrentProfile != null)
             {
@@ -1013,9 +1013,9 @@
 		/// <summary>
 		/// Set the focus to the Search Textbox.
 		/// </summary>
-		private void dmcDownloadMonitor_SetTextBoxFocus(object sender, EventArgs e)
+		private void DmcDownloadMonitorControlSetTextBoxFocus(object sender, EventArgs e)
 		{
-			if (_modManager.Visible)
+			if (_modManagerControl.Visible)
             {
                 toolStripTextBoxFind.Focus();
             }
@@ -1024,7 +1024,7 @@
 		/// <summary>
 		/// Updates the Bottom Bar Queue Feedback
 		/// </summary>
-		private void macModActivationMonitor_UpdateBottomBarFeedback(object sender, EventArgs e)
+		private void MacModActivationMonitorControlUpdateBottomBarFeedback(object sender, EventArgs e)
 		{
 			UpgradeBottomBarFeedbackCounter();
 
@@ -1075,9 +1075,9 @@
 		/// </summary>
 		private void UpgradeBottomBarFeedbackCounter()
 		{
-			var intCompletedTasks = _modActivationMonitor.ViewModel.Tasks.Count(x => x.IsCompleted);
+			var intCompletedTasks = _modActivationMonitorControl.ViewModel.Tasks.Count(x => x.IsCompleted);
 
-			if (_modActivationMonitor.ViewModel.Tasks.Count == 0)
+			if (_modActivationMonitorControl.ViewModel.Tasks.Count == 0)
 			{
 				toolStripLabelBottomBarFeedbackCounter.Text = "";
 				toolStripLabelBottomBarFeedback.Text = "";
@@ -1085,7 +1085,7 @@
 			}
 			else
             {
-                toolStripLabelBottomBarFeedbackCounter.Text = $"({intCompletedTasks}/{_modActivationMonitor.ViewModel.Tasks.Count})";
+                toolStripLabelBottomBarFeedbackCounter.Text = $"({intCompletedTasks}/{_modActivationMonitorControl.ViewModel.Tasks.Count})";
             }
         }
 
@@ -1105,7 +1105,7 @@
 		/// </summary>
 		private void tstFind_KeyUp(object sender, KeyEventArgs e)
 		{
-			_modManager.FindItemWithText(toolStripTextBoxFind.Text);
+			_modManagerControl.FindItemWithText(toolStripTextBoxFind.Text);
 		}
 
 		/// <summary>
@@ -1260,12 +1260,12 @@
 				return;
 			}
 
-			_downloadMonitor.Activate();
+			_downloadMonitorControl.Activate();
 
 			if (!ViewModel.OfflineMode)
 			{
-				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitor.ViewModel.ActiveTasks.Count, _downloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
-				if (_downloadMonitor.ViewModel.ActiveTasks.Count <= 0)
+				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
+				if (_downloadMonitorControl.ViewModel.ActiveTasks.Count <= 0)
                 {
                     UpdateProgressBarSpeed("TotalSpeed", true);
                 }
@@ -1288,7 +1288,7 @@
 				return;
 			}
 
-			_downloadMonitor.Activate();
+			_downloadMonitorControl.Activate();
 
 			if (!ViewModel.OfflineMode)
 			{
@@ -1303,8 +1303,8 @@
 								+ "If the staff have provided a reason for this down time we'll display it below: {0}", Environment.NewLine + Environment.NewLine + Task.ErrorInfo), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 						}
 				}
-				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitor.ViewModel.ActiveTasks.Count, _downloadMonitor.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
-				if (_downloadMonitor.ViewModel.ActiveTasks.Count <= 0)
+				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
+				if (_downloadMonitorControl.ViewModel.ActiveTasks.Count <= 0)
 					UpdateProgressBarSpeed("TotalSpeed", true);
 			}
 		}
@@ -1352,17 +1352,17 @@
                 {
                     case ProgressLabel.FillType.Fixed:
                         toolStripProgressBarDownloadSpeed.Visible = true;
-                        toolStripProgressBarDownloadSpeed.Maximum = _downloadMonitor.ViewModel.TotalSpeed > 0 ? _downloadMonitor.ViewModel.TotalSpeed : 1;
+                        toolStripProgressBarDownloadSpeed.Maximum = _downloadMonitorControl.ViewModel.TotalSpeed > 0 ? _downloadMonitorControl.ViewModel.TotalSpeed : 1;
                         toolStripProgressBarDownloadSpeed.Value = toolStripProgressBarDownloadSpeed.Maximum;
                         break;
                     case ProgressLabel.FillType.Ascending:
                     {
                         toolStripProgressBarDownloadSpeed.Visible = true;
 
-                        if (_downloadMonitor.ViewModel.TotalMaxProgress > 0)
+                        if (_downloadMonitorControl.ViewModel.TotalMaxProgress > 0)
                         {
-                            toolStripProgressBarDownloadSpeed.Value = Convert.ToInt32(Convert.ToSingle(_downloadMonitor.ViewModel.TotalProgress) / Convert.ToSingle(_downloadMonitor.ViewModel.TotalMaxProgress) * 100);
-                            toolStripProgressBarDownloadSpeed.OptionalValue = _downloadMonitor.ViewModel.TotalSpeed;
+                            toolStripProgressBarDownloadSpeed.Value = Convert.ToInt32(Convert.ToSingle(_downloadMonitorControl.ViewModel.TotalProgress) / Convert.ToSingle(_downloadMonitorControl.ViewModel.TotalMaxProgress) * 100);
+                            toolStripProgressBarDownloadSpeed.OptionalValue = _downloadMonitorControl.ViewModel.TotalSpeed;
                         }
 
                         break;
@@ -1370,7 +1370,7 @@
                     case ProgressLabel.FillType.Descending:
                     {
                         toolStripProgressBarDownloadSpeed.Visible = true;
-                        toolStripProgressBarDownloadSpeed.Value = _downloadMonitor.ViewModel.TotalSpeed <= 1024 ? _downloadMonitor.ViewModel.TotalSpeed : 1024;
+                        toolStripProgressBarDownloadSpeed.Value = _downloadMonitorControl.ViewModel.TotalSpeed <= 1024 ? _downloadMonitorControl.ViewModel.TotalSpeed : 1024;
                         break;
                     }
                 }
@@ -1410,22 +1410,22 @@
         {
             if (contentId == typeof(PluginManagerControl).ToString())
             {
-                return _pluginManager;
+                return _pluginManagerControl;
             }
 
             if (contentId == typeof(ModManagerControl).ToString())
             {
-                return _modManager;
+                return _modManagerControl;
             }
 
             if (contentId == typeof(DownloadMonitorControl).ToString())
             {
-                return _downloadMonitor;
+                return _downloadMonitorControl;
             }
 
             if (contentId == typeof(ModActivationMonitorControl).ToString())
             {
-                return _modActivationMonitor;
+                return _modActivationMonitorControl;
             }
 
             return null;
@@ -1466,7 +1466,7 @@
 
             if (frmSettings.ShowDialog(this) == DialogResult.OK)
 			{
-				_modManager.RefreshModList();
+				_modManagerControl.RefreshModList();
 
                 if (ViewModel.SupportedToolsLauncher != null)
 				{
@@ -1756,7 +1756,7 @@
 
 				case "ModManager.toolStrip1":
 					section = "toolStrip1";
-					root = _modManager.Controls.Find(section, true)[0];
+					root = _modManagerControl.Controls.Find(section, true)[0];
 					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
 					coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 5;
 					coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 10;
@@ -1764,28 +1764,28 @@
 
 				case "DownloadManager.toolStrip1":
 					section = "toolStrip1";
-					root = _downloadMonitor.Controls.Find(section, true)[0];
+					root = _downloadMonitorControl.Controls.Find(section, true)[0];
 					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
 
-					switch (_downloadMonitor.DockState)
+					switch (_downloadMonitorControl.DockState)
 					{
 						case DockState.DockBottomAutoHide:
-							_downloadMonitor.DockState = DockState.DockBottom;
+							_downloadMonitorControl.DockState = DockState.DockBottom;
 							break;
 						case DockState.DockLeftAutoHide:
-							_downloadMonitor.DockState = DockState.DockLeft;
+							_downloadMonitorControl.DockState = DockState.DockLeft;
 							break;
 						case DockState.DockRightAutoHide:
-							_downloadMonitor.DockState = DockState.DockRight;
+							_downloadMonitorControl.DockState = DockState.DockRight;
 							break;
 						case DockState.DockTopAutoHide:
-							_downloadMonitor.DockState = DockState.DockTop;
+							_downloadMonitorControl.DockState = DockState.DockTop;
 							break;
 					}
 
-					if (!_downloadMonitor.Visible)
+					if (!_downloadMonitorControl.Visible)
                     {
-                        _downloadMonitor.Show();
+                        _downloadMonitorControl.Show();
                     }
 
                     coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
@@ -1793,39 +1793,39 @@
 					break;
 
 				case "CLWCategoryListView":
-					coords.X = _modManager.clwCategoryView.AccessibilityObject.Bounds.Location.X;
-					coords.Y = _modManager.clwCategoryView.AccessibilityObject.Bounds.Location.Y - 40;
+					coords.X = _modManagerControl.clwCategoryView.AccessibilityObject.Bounds.Location.X;
+					coords.Y = _modManagerControl.clwCategoryView.AccessibilityObject.Bounds.Location.Y - 40;
 					break;
 					
 					case "ModActivationMonitorListView":
-						switch (_modActivationMonitor.DockState)
+						switch (_modActivationMonitorControl.DockState)
 						{
 							case DockState.DockBottomAutoHide:
-								_modActivationMonitor.DockState = DockState.DockBottom;
+								_modActivationMonitorControl.DockState = DockState.DockBottom;
 								break;
 							case DockState.DockLeftAutoHide:
-								_modActivationMonitor.DockState = DockState.DockLeft;
+								_modActivationMonitorControl.DockState = DockState.DockLeft;
 								break;
 							case DockState.DockRightAutoHide:
-								_modActivationMonitor.DockState = DockState.DockRight;
+								_modActivationMonitorControl.DockState = DockState.DockRight;
 								break;
 							case DockState.DockTopAutoHide:
-								_modActivationMonitor.DockState = DockState.DockTop;
+								_modActivationMonitorControl.DockState = DockState.DockTop;
 								break;
 						}
 
-						if (!_modActivationMonitor.Visible)
+						if (!_modActivationMonitorControl.Visible)
                         {
-                            _modActivationMonitor.Show();
+                            _modActivationMonitorControl.Show();
                         }
 
-                        coords.X = _modActivationMonitor.AccessibilityObject.Bounds.Location.X + 20;
-						coords.Y = _modActivationMonitor.AccessibilityObject.Bounds.Location.Y - 70;
+                        coords.X = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.X + 20;
+						coords.Y = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.Y - 70;
 						break;
 
 					case "ModActivationMonitorControl.toolStrip1":
 						section = "toolStrip1";
-						root = _modActivationMonitor.Controls.Find(section, true)[0];
+						root = _modActivationMonitorControl.Controls.Find(section, true)[0];
 						rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
 
 						if (rootItem.Visible)
@@ -1966,7 +1966,7 @@
             ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null, null, out _);
 			ViewModel.ProfileManager.SetDefaultProfile(ViewModel.ProfileManager.CurrentProfile);	
 			ViewModel.ProfileManager.SaveConfig();
-			_modManager.ForceListRefresh();
+			_modManagerControl.ForceListRefresh();
 			BindProfileCommands();
 			UpdateModsFeedback();
 
@@ -2343,7 +2343,7 @@
 						MessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 
-					_modManager.SetCommandExecutableStatus();
+					_modManagerControl.SetCommandExecutableStatus();
 					BindProfileCommands();
 				}
 			}
