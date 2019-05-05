@@ -1,37 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.DownloadMonitoring;
-using Nexus.Client.Games;
-using Nexus.Client.ModActivationMonitoring;
-using Nexus.Client.ModAuthoring;
-using Nexus.Client.ModManagement.InstallationLog;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.Mods;
-using Nexus.Client.PluginManagement;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
-
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
-	/// <summary>
-	/// The class the encapsulates managing mods.
-	/// </summary>
-	/// <remarks>
-	/// The list of managed mods needs to be centralized to ensure integrity; having multiple mod managers, each
-	/// with a potentially different list of managed mods, would be disastrous. As such, this
-	/// object is a singleton to help enforce that policy.
-	/// Note, however, that the singleton nature of the manager is not meant to provide global access to the object.
-	/// As such, there is no static accessor to retrieve the singleton instance. Instead, the
-	/// <see cref="Initialize"/> method returns the only instance that should be used.
-	/// </remarks>
-	public partial class ModManager
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Text.RegularExpressions;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using System.Windows.Forms;
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.DownloadMonitoring;
+    using Nexus.Client.Games;
+    using Nexus.Client.ModActivationMonitoring;
+    using Nexus.Client.ModAuthoring;
+    using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.ModRepositories;
+    using Nexus.Client.Mods;
+    using Nexus.Client.PluginManagement;
+    using Nexus.Client.SSO;
+    using Nexus.Client.UI;
+    using Nexus.Client.Util;
+    using Nexus.Client.Util.Collections;
+
+    /// <summary>
+    /// The class the encapsulates managing mods.
+    /// </summary>
+    /// <remarks>
+    /// The list of managed mods needs to be centralized to ensure integrity; having multiple mod managers, each
+    /// with a potentially different list of managed mods, would be disastrous. As such, this
+    /// object is a singleton to help enforce that policy.
+    /// Note, however, that the singleton nature of the manager is not meant to provide global access to the object.
+    /// As such, there is no static accessor to retrieve the singleton instance. Instead, the
+    /// <see cref="Initialize"/> method returns the only instance that should be used.
+    /// </remarks>
+    public partial class ModManager
 	{
 		#region Singleton
 

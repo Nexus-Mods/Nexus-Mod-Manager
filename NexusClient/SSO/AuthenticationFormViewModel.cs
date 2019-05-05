@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client
+﻿namespace Nexus.Client.SSO
 {
     using System.Diagnostics;
     using Games;

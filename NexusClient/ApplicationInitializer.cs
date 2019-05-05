@@ -8,10 +8,9 @@
     using System.Text;
     using System.Threading;
     using System.Windows.Forms;
-    
+
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.DownloadMonitoring;
-    using Nexus.UI.Controls;
     using Nexus.Client.ModActivationMonitoring;
     using Nexus.Client.Games;
     using Nexus.Client.ModManagement;
@@ -25,8 +24,10 @@
     using Nexus.Client.PluginManagement.InstallationLog;
     using Nexus.Client.PluginManagement.OrderLog;
     using Nexus.Client.Settings;
+    using Nexus.Client.SSO;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
+    using Nexus.UI.Controls;
 
     /// <summary>
 	/// Confirms whether a file system item should be made writable.
@@ -754,23 +755,24 @@
 		protected bool Login(IGameMode p_gmdGameMode, IModRepository p_mrpModRepository)
 		{
 			if (EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] == null)
-				EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] = new KeyedSettings<string>();
+            {
+                EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] = new KeyedSettings<string>();
+            }
 
-			var _credentialsExpired = false;
-			var _error = string.Empty;
+            var error = string.Empty;
+            var credentialsExpired = !p_mrpModRepository.Authenticate();
 
-            _credentialsExpired = !p_mrpModRepository.Authenticate();
-
-            if (string.IsNullOrEmpty(EnvironmentInfo.Settings.ApiKey) || _credentialsExpired)
+            if (string.IsNullOrEmpty(EnvironmentInfo.Settings.ApiKey) || credentialsExpired)
 			{
-				var strMessage = $"You must log into the {p_mrpModRepository.Name} website.";
-				var strCancelWarning = $"If you do not login {EnvironmentInfo.Settings.ModManagerName} will close.";
+				var message = $"You must log into the {p_mrpModRepository.Name} website.";
+				var cancelWarning = $"If you do not login {EnvironmentInfo.Settings.ModManagerName} will close.";
 
-                _error = _credentialsExpired ? "You need to login using your Nexus username and password." : _error;
-				var vmlAuthenticationViewModel = new AuthenticationFormViewModel(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, strMessage, _error, strCancelWarning);
+                error = credentialsExpired ? "You need to authorize NMM to access your Nexus Mods profile." : error;
+				var authenticationViewModel = new AuthenticationFormViewModel(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, message, error, cancelWarning);
 
-                return LoginUser(vmlAuthenticationViewModel);
+                return LoginUser(authenticationViewModel);
 			}
+
 			return true;
 		}
 

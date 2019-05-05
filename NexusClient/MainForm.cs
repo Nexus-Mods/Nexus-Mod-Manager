@@ -27,6 +27,7 @@
     using Nexus.Client.PluginManagement.UI;
     using Nexus.Client.Plugins;
     using Nexus.Client.Settings.UI;
+    using Nexus.Client.SSO;
     using Nexus.Client.TipsManagement;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
@@ -1153,7 +1154,7 @@
 		{
 			if (!ViewModel.OfflineMode)
             {
-                if (ExtendedMessageBox.Show(this, "Do you want to logout? This will require you to authenticate using your username and password the next time you try to log in.", "Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (ExtendedMessageBox.Show(this, "Do you want to logout? This will require you to authorize NMM again the next time you try to log in.", "Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 {
                     e.Cancel = true;
                 }

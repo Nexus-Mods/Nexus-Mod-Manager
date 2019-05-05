@@ -1,12 +1,10 @@
-﻿namespace Nexus.Client
+﻿namespace Nexus.Client.SSO
 {
     using System;
     using System.ComponentModel;
     using System.Windows.Forms;
-
     using Games;
     using UI;
-    using Util;
 
     /// <summary>
     /// A form that gathers login credentials.
@@ -16,6 +14,8 @@
         private AuthenticationFormViewModel m_authenticationFormViewModel;
 
         private readonly AuthenticationFormTask _loginTask;
+
+        private readonly SsoManager _ssoManager;
 
         #region Events
 
@@ -42,11 +42,6 @@
             set
             {
                 m_authenticationFormViewModel = value;
-                BindingHelper.CreateFullBinding(textBoxApiKey, () => textBoxApiKey.Text, m_authenticationFormViewModel, () => m_authenticationFormViewModel.ApiKey);
-                BindingHelper.CreateFullBinding(labelErrorMessage, () => labelErrorMessage.Text, m_authenticationFormViewModel, () => m_authenticationFormViewModel.ErrorMessage);
-
-                //lblPrompt.Text = m_authenticationFormViewModel.Prompt;
-
                 ApplyTheme(m_authenticationFormViewModel.CurrentTheme);
             }
         }
@@ -63,14 +58,20 @@
         public AuthenticationForm(AuthenticationFormViewModel viewModel, AuthenticationFormTask loginTask)
         {
             InitializeComponent();
-            labelErrorMessage.Visible = true;
-            labelErrorMessage.TextChanged += lblError_TextChanged;
             FormClosed += LoginForm_FormClosed;
             _loginTask = loginTask;
             ViewModel = viewModel;
+            _ssoManager = new SsoManager();
+            _ssoManager.ApiKeyReceived += (_, args) => Invoke((Action<string>)ApiKeyReceived, args.ApiKey);
         }
 
         #endregion
+
+        private void ApiKeyReceived(string apiKey)
+        {
+            ViewModel.ApiKey = apiKey;
+            Authenticate(null, null);
+        }
 
         /// <summary>
         /// Applies the given theme to the form.
@@ -82,27 +83,11 @@
         }
 
         /// <summary>
-        /// Handles the <see cref="Control.TextChanged"/> event of the error label.
-        /// </summary>
-        /// <remarks>
-        /// Show or hides the error label, depending on whether it contains any text.
-        /// </remarks>
-        /// <param name="sender">The object that raised the event.</param>
-        /// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-        private void lblError_TextChanged(object sender, EventArgs e)
-        {
-            labelErrorMessage.Visible = !string.IsNullOrEmpty(labelErrorMessage.Text);
-
-            // Force the form to resize.
-            PerformLayout();
-        }
-
-        /// <summary>
         /// Handles the <see cref="Control.Click"/> event of the login button.
         /// </summary>
         /// <param name="sender">The object that triggered the event.</param>
         /// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-        private void ButtonAuthenticate_Click(object sender, EventArgs e)
+        private void Authenticate(object sender, EventArgs e)
         {
             if (Authenticating != null)
             {
@@ -114,6 +99,7 @@
         private void ButtonCancel_Click(object sender, EventArgs e)
         {
             _loginTask.Reset();
+            _ssoManager.Cancel();
             DialogResult = DialogResult.No;
         }
 
@@ -125,9 +111,15 @@
             }
         }
 
-        private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        private void linkLabelManageApiKeys_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             System.Diagnostics.Process.Start("https://www.nexusmods.com/users/myaccount?tab=api%20access");
+        }
+
+        private void ButtonSingleSignOn_Click(object sender, EventArgs e)
+        {
+            buttonSingleSignOn.Enabled = false;
+            _ssoManager.Start();
         }
     }
 }

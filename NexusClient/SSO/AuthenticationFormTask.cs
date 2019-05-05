@@ -1,10 +1,8 @@
-﻿namespace Nexus.Client
+﻿namespace Nexus.Client.SSO
 {
     using System;
     using System.Windows.Forms;
-
     using BackgroundTasks;
-    using ModRepositories;
     using ModManagement;
 
     public class AuthenticationFormTask : ThreadedBackgroundTask
@@ -111,7 +109,7 @@
 		{
 			var strMessage = $"You must log into the {ModManager.ModRepository.Name} website.";
 			var strCancelWarning = $"If you do not login {ModManager.EnvironmentInfo.Settings.ModManagerName} will close.";
-			_error = _credentialsExpired ? "You need to login using your Nexus username and password." : _error;
+			_error = _credentialsExpired ? "You need to authorize NMM to access your Nexus Mods profile." : _error;
 
 			AuthenticationFormViewModel = new AuthenticationFormViewModel(ModManager.EnvironmentInfo, ModManager.ModRepository, ModManager.GameMode.ModeTheme, strMessage, _error, strCancelWarning);
 
@@ -148,7 +146,7 @@
 
 			Status = TaskStatus.Running;
 
-            OverallMessage = "Sending login token...";
+            OverallMessage = "Validating API key...";
 
 			if (ModManager.ModRepository.Authenticate())
 			{
