@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.Collections.Specialized;
     using System.ComponentModel;
+    using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Text;
@@ -1903,12 +1904,24 @@
 			}
 
 			m_booDisableSummary = true;
-			ProgressDialog.ShowDialog(this, e.Argument);
+
+            try
+            {
+                ProgressDialog.ShowDialog(this, e.Argument);
+            }
+            catch (ArgumentNullException ex)
+            {
+                Trace.TraceError("Could not show ProgressDialog, parameter backgroundTask was null.");
+                TraceUtil.TraceException(ex);
+            }
 
 			var modMod = (IMod)sender;
 			if (sender != null)
-				clwCategoryView.RefreshObject(modMod);
-			m_booDisableSummary = false;
+            {
+                clwCategoryView.RefreshObject(modMod);
+            }
+
+            m_booDisableSummary = false;
 		}
 
 		/// <summary>

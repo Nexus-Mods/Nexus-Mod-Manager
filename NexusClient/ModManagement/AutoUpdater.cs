@@ -7,6 +7,7 @@
     using System.Runtime.Remoting.Messaging;
     using System.Text.RegularExpressions;
     using System.Threading;
+    using System.Windows.Forms;
     using ModRepositories;
     using Mods;
     using Util.Collections;
@@ -130,14 +131,21 @@
 		/// <summary>
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
-		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-		public void ToggleModEndorsement(IMod p_modMod)
+		/// <param name="mod">The mod to endorse/unendorse.</param>
+		public void ToggleModEndorsement(IMod mod)
 		{
-			bool? booEndorsementState = ModRepository.ToggleEndorsement(p_modMod.Id, p_modMod.IsEndorsed == true ? 1 : p_modMod.IsEndorsed == false ? -1 : 0, p_modMod.HumanReadableVersion);
-            var mifUpdatedMod = new ModInfo(p_modMod) {IsEndorsed = booEndorsementState};
+			var booEndorsementState = ModRepository.ToggleEndorsement(mod.Id, mod.IsEndorsed == true ? 1 : mod.IsEndorsed == false ? -1 : 0, mod.HumanReadableVersion);
+
+            if (booEndorsementState == null)
+            {
+                MessageBox.Show($"Could not change endorsement status of \"{mod.ModName}\".", "Endorsement toggle error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var mifUpdatedMod = new ModInfo(mod) {IsEndorsed = booEndorsementState};
             mifUpdatedMod.HumanReadableVersion = string.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;
-			AddNewVersionNumberForMod(p_modMod, mifUpdatedMod);
-			p_modMod.UpdateInfo(mifUpdatedMod, false);
+			AddNewVersionNumberForMod(mod, mifUpdatedMod);
+			mod.UpdateInfo(mifUpdatedMod, false);
 		}
 
 		/// <summary>

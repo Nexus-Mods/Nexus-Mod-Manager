@@ -62,12 +62,27 @@
             _loginTask = loginTask;
             ViewModel = viewModel;
             _ssoManager = new SsoManager();
-            _ssoManager.ApiKeyReceived += (_, args) => Invoke((Action<string>)ApiKeyReceived, args.ApiKey);
+            _ssoManager.ApiKeyReceived += (_, args) => Invoke((Action<string>)OnApiKeyReceived, args.ApiKey);
+            _ssoManager.AuthenticationCancelled += OnAuthenticationCancelled;
+        }
+
+        private void OnAuthenticationCancelled(object sender, CancellationEventArgs e)
+        {
+            if (e.Reason == AuthenticationCancelledReason.ConnectionIssue)
+            {
+                MessageBox.Show(this, "Authentication failed due to network issues.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+            }
+            else if (e.Reason != AuthenticationCancelledReason.Manual)
+            {
+                MessageBox.Show(this, "Authentication failed for unknown reasons, check trace logs.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+            }
+
+            Close();
         }
 
         #endregion
 
-        private void ApiKeyReceived(string apiKey)
+        private void OnApiKeyReceived(string apiKey)
         {
             ViewModel.ApiKey = apiKey;
             Authenticate(null, null);

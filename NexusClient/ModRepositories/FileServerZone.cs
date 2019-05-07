@@ -1,13 +1,12 @@
-﻿using System;
-using System.Drawing;
-using System.Text;
-
-namespace Nexus.Client.ModRepositories
+﻿namespace Nexus.Client.ModRepositories
 {
-	/// <summary>
-	/// A repository's fileserver info.
-	/// </summary>
-	public class FileServerZone
+    using System;
+    using System.Drawing;
+
+    /// <summary>
+    /// A repository's fileserver info.
+    /// </summary>
+    public class FileServerZone
 	{
 		private string m_strFileServerName = String.Empty;
 		private string m_strFileServerID = String.Empty;

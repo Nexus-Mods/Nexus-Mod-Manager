@@ -5,6 +5,7 @@
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Net.Http;
     using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
@@ -101,9 +102,11 @@
         }
         
         /// <inheritdoc />
-        public bool Authenticate()
+        public AuthenticationStatus Authenticate()
         {
             _apiCallManager.UpdateNexusClient();
+
+            var status = AuthenticationStatus.Unknown;
 
             try
             {
@@ -113,6 +116,11 @@
             {
                 Trace.TraceError("Error encountered while validating API key.");
                 TraceUtil.TraceAggregateException(a);
+
+                if (a.InnerExceptions.Any(ex => ex.GetType() == typeof(HttpRequestException)))
+                {
+                    status = AuthenticationStatus.NetworkError;
+                }
             }
 
             if (UserStatus == null)
@@ -120,13 +128,13 @@
                 AllowedConnections = 1;
                 MaxConcurrentDownloads = 5;
 
-                return false;
+                return status;
             }
 
             AllowedConnections = UserStatus.IsPremium ? 4 : 1;
             MaxConcurrentDownloads = UserStatus.IsPremium ? 10 : 5;
 
-            return true;
+            return AuthenticationStatus.Successful;
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -219,8 +227,14 @@
                     }
                 }
 
-                // We'll trust that if nothing went wrong we can figure out the new state.
-                return localStateAfterCompletion;
+                if (action.Status != TaskStatus.Faulted)
+                {
+                    // We'll trust that if nothing went wrong we can figure out the new state.
+                    return localStateAfterCompletion;
+                }
+
+                Trace.TraceError($"Endorsement Toggle for mod {modId}, result: {action.Status}");
+                return null;
             }
             catch (AggregateException a)
             {

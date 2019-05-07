@@ -744,38 +744,7 @@
 			}
 			return true;
 		}
-
-		/// <summary>
-		/// Logins the user into the current mod repository.
-		/// </summary>
-		/// <param name="p_gmdGameMode">The current game mode.</param>
-		/// <param name="p_mrpModRepository">The mod repository to use to retrieve mods and mod metadata.</param>
-		/// <returns><c>true</c> if the user was successfully logged in;
-		/// <c>false</c> otherwise</returns>
-		protected bool Login(IGameMode p_gmdGameMode, IModRepository p_mrpModRepository)
-		{
-			if (EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] == null)
-            {
-                EnvironmentInfo.Settings.RepositoryAuthenticationTokens[p_mrpModRepository.Id] = new KeyedSettings<string>();
-            }
-
-            var error = string.Empty;
-            var credentialsExpired = !p_mrpModRepository.Authenticate();
-
-            if (string.IsNullOrEmpty(EnvironmentInfo.Settings.ApiKey) || credentialsExpired)
-			{
-				var message = $"You must log into the {p_mrpModRepository.Name} website.";
-				var cancelWarning = $"If you do not login {EnvironmentInfo.Settings.ModManagerName} will close.";
-
-                error = credentialsExpired ? "You need to authorize NMM to access your Nexus Mods profile." : error;
-				var authenticationViewModel = new AuthenticationFormViewModel(EnvironmentInfo, p_mrpModRepository, p_gmdGameMode.ModeTheme, message, error, cancelWarning);
-
-                return LoginUser(authenticationViewModel);
-			}
-
-			return true;
-		}
-
+        
 		/// <summary>
 		/// This initializes the services required to run the client.
 		/// </summary>

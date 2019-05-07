@@ -489,7 +489,7 @@ namespace Nexus.Client.DownloadManagement
                     m_fdrDownloader.Cleanup();
                 }
 
-				OnTaskEnded("Download cancelled.", (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri(NexusLinks.NexusURI)));
+				OnTaskEnded("Download cancelled.", (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri(NexusLinks.NexusMods)));
 			}
 		}
 

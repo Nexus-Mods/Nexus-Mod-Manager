@@ -1,48 +1,47 @@
-﻿using System;
-using System.ComponentModel;
-using System.Threading;
-using System.Windows.Forms;
-
-namespace Nexus.Client.BackgroundTasks.UI
+﻿namespace Nexus.Client.BackgroundTasks.UI
 {
-	/// <summary>
-	/// This is a window that displays the progress of a <see cref="IBackgroundTask"/>
-	/// </summary>
-	public partial class ProgressDialog : Form
+    using System;
+    using System.ComponentModel;
+    using System.Threading;
+    using System.Windows.Forms;
+
+    /// <summary>
+    /// This is a window that displays the progress of a <see cref="IBackgroundTask"/>
+    /// </summary>
+    public partial class ProgressDialog : Form
 	{
-		private Int32 m_intCreatedThreadId = -1;
-		private DialogResult m_drtLastDialogResult = DialogResult.None;
+        private DialogResult _lastDialogResult = DialogResult.None;
 
 		/// <summary>
 		/// Shows the progress dialog as a modal window.
 		/// </summary>
-		/// <param name="p_bgtTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
-		/// <returns>The <see cref="Form.DialogResult"/> of the prigress dialog.</returns>
-		public static DialogResult ShowDialog(IBackgroundTask p_bgtTask)
+		/// <param name="backgroundTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
+		/// <returns>The <see cref="Form.DialogResult"/> of the progress dialog.</returns>
+		public static DialogResult ShowDialog(IBackgroundTask backgroundTask)
 		{
-			return new ProgressDialog(p_bgtTask, true).ShowDialog();
+			return new ProgressDialog(backgroundTask, true).ShowDialog();
 		}
 
 		/// <summary>
 		/// Shows the progress dialog as a modal window that is a child of the given owner.
 		/// </summary>
-		/// <param name="p_winOwner">The owner of the dialog.</param>
-		/// <param name="p_bgtTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
-		/// <returns>The <see cref="Form.DialogResult"/> of the prigress dialog.</returns>
-		public static DialogResult ShowDialog(IWin32Window p_winOwner, IBackgroundTask p_bgtTask)
+		/// <param name="owner">The owner of the dialog.</param>
+		/// <param name="backgroundTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
+		/// <returns>The <see cref="Form.DialogResult"/> of the progress dialog.</returns>
+		public static DialogResult ShowDialog(IWin32Window owner, IBackgroundTask backgroundTask)
 		{
-			return new ProgressDialog(p_bgtTask, true).ShowDialog(p_winOwner);
+			return new ProgressDialog(backgroundTask, true).ShowDialog(owner);
 		}
 
 		/// <summary>
 		/// Shows the progress dialog as a modal window that is a child of the given owner.
 		/// </summary>
-		/// <param name="p_winOwner">The owner of the dialog.</param>
-		/// <param name="p_bgtTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
-		/// <returns>The <see cref="Form.DialogResult"/> of the prigress dialog.</returns>
-		public static DialogResult ShowDialog(IWin32Window p_winOwner, IBackgroundTask p_bgtTask, bool p_booAllowCancel)
+		/// <param name="owner">The owner of the dialog.</param>
+		/// <param name="backgroundTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
+		/// <returns>The <see cref="Form.DialogResult"/> of the progress dialog.</returns>
+		public static DialogResult ShowDialog(IWin32Window owner, IBackgroundTask backgroundTask, bool allowCancel)
 		{
-			return new ProgressDialog(p_bgtTask, p_booAllowCancel).ShowDialog(p_winOwner);
+			return new ProgressDialog(backgroundTask, allowCancel).ShowDialog(owner);
  		}
 
 		#region Properties
@@ -60,32 +59,36 @@ namespace Nexus.Client.BackgroundTasks.UI
 		/// <summary>
 		/// A simple constructor that initializes the object with the given values.
 		/// </summary>
-		/// <param name="p_bgtTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
-		protected ProgressDialog(IBackgroundTask p_bgtTask, bool p_booAllowCancel)
+		/// <param name="backgroundTask">The <see cref="IBackgroundTask"/> whose progress is to be displayed.</param>
+		protected ProgressDialog(IBackgroundTask backgroundTask, bool allowCancel)
 		{
-			m_intCreatedThreadId = Thread.CurrentThread.ManagedThreadId;
-			Task = p_bgtTask;
-			Task.TaskEnded += new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
-			Task.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
+            if (backgroundTask == null)
+            {
+                throw new ArgumentNullException(nameof(backgroundTask), "Argument can't be null");
+            }
+
+            Task = backgroundTask;
+			Task.TaskEnded += Task_TaskEnded;
+			Task.PropertyChanged += Task_PropertyChanged;
 			InitializeComponent();
 
-			pbrItemProgress.Maximum = (Int32)Task.ItemProgressMaximum;
-			pbrItemProgress.Minimum = (Int32)Task.ItemProgressMinimum;
+			pbrItemProgress.Maximum = (int)Task.ItemProgressMaximum;
+			pbrItemProgress.Minimum = (int)Task.ItemProgressMinimum;
 			
-			pbrItemProgress.Value = (Int32)Task.ItemProgress;
+			pbrItemProgress.Value = (int)Task.ItemProgress;
 			lblItemMessage.Text = Task.ItemMessage;
 			lblTotalMessage.Text = Task.OverallMessage;
 			
 			pbrItemProgress.Step = Task.ItemProgressStepSize;
-			pbrTotalProgress.Maximum = (Int32)Task.OverallProgressMaximum;
-			pbrTotalProgress.Minimum = (Int32)Task.OverallProgressMinimum;
-			pbrTotalProgress.Value = (Int32)Task.OverallProgress;
+			pbrTotalProgress.Maximum = (int)Task.OverallProgressMaximum;
+			pbrTotalProgress.Minimum = (int)Task.OverallProgressMinimum;
+			pbrTotalProgress.Value = (int)Task.OverallProgress;
 			pbrTotalProgress.Step = Task.OverallProgressStepSize;
 			pnlItemProgress.Visible = Task.ShowItemProgress;
 			pbrTotalProgress.Style = Task.ShowOverallProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 			pbrItemProgress.Style = Task.ShowItemProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 
-			butCancel.Visible = p_booAllowCancel;
+			butCancel.Visible = allowCancel;
 		}
 
 		#endregion
@@ -141,23 +144,23 @@ namespace Nexus.Client.BackgroundTasks.UI
 				if (pnlItemProgress.Visible)
 				{
 					if ((Task.ItemProgress <= pbrItemProgress.Maximum) && (Task.ItemProgress <= Task.ItemProgressMaximum))
-						pbrItemProgress.Value = (Int32)Task.ItemProgress;
+						pbrItemProgress.Value = (int)Task.ItemProgress;
 					else
-						pbrItemProgress.Value = (pbrItemProgress.Maximum > (Int32)Task.ItemProgressMaximum) ? (Int32)Task.ItemProgressMaximum : pbrItemProgress.Maximum;
+						pbrItemProgress.Value = (pbrItemProgress.Maximum > (int)Task.ItemProgressMaximum) ? (int)Task.ItemProgressMaximum : pbrItemProgress.Maximum;
 					lblItemMessage.Text = Task.ItemMessage;
-					pbrItemProgress.Maximum = (Int32)Task.ItemProgressMaximum;
-					pbrItemProgress.Minimum = (Int32)Task.ItemProgressMinimum;
+					pbrItemProgress.Maximum = (int)Task.ItemProgressMaximum;
+					pbrItemProgress.Minimum = (int)Task.ItemProgressMinimum;
 					pbrItemProgress.Step = Task.ItemProgressStepSize;
 					pbrItemProgress.Style = Task.ShowItemProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 				}
 
 				if ((Task.OverallProgress <= pbrTotalProgress.Maximum) && (Task.OverallProgress <= Task.OverallProgressMaximum))
-					pbrTotalProgress.Value = (Int32)Task.OverallProgress;
+					pbrTotalProgress.Value = (int)Task.OverallProgress;
 				else
-					pbrTotalProgress.Value = (pbrTotalProgress.Maximum > (Int32)Task.OverallProgressMaximum) ? (Int32)Task.OverallProgressMaximum : pbrTotalProgress.Maximum;
+					pbrTotalProgress.Value = (pbrTotalProgress.Maximum > (int)Task.OverallProgressMaximum) ? (int)Task.OverallProgressMaximum : pbrTotalProgress.Maximum;
 				lblTotalMessage.Text = Task.OverallMessage;
-				pbrTotalProgress.Maximum = (Int32)Task.OverallProgressMaximum;
-				pbrTotalProgress.Minimum = (Int32)Task.OverallProgressMinimum;
+				pbrTotalProgress.Maximum = (int)Task.OverallProgressMaximum;
+				pbrTotalProgress.Minimum = (int)Task.OverallProgressMinimum;
 				pbrTotalProgress.Step = Task.OverallProgressStepSize;
 				pbrTotalProgress.Style = Task.ShowOverallProgressAsMarquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
 				/*
@@ -243,8 +246,8 @@ namespace Nexus.Client.BackgroundTasks.UI
 				DialogResult = DialogResult.OK;
 			else
 				DialogResult = DialogResult.Cancel;
-			m_drtLastDialogResult = DialogResult;
-			if (!String.IsNullOrEmpty(e.Message))
+			_lastDialogResult = DialogResult;
+			if (!string.IsNullOrEmpty(e.Message))
 				MessageBox.Show(this, e.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			//only try to close the form if it has been created
 			// otherwise Close() can get called before the form is shown,
@@ -252,7 +255,7 @@ namespace Nexus.Client.BackgroundTasks.UI
 			// System.ObjectDisposedException is thrown
 			if (IsHandleCreated)
 			{
-				for (Int32 i = 0; i < 10; i++)
+				for (int i = 0; i < 10; i++)
 				{
 					try
 					{
@@ -287,7 +290,7 @@ namespace Nexus.Client.BackgroundTasks.UI
 			{
 				//we need to set this again, as it gets reset once the form is shown,
 				// and if we are here, we set it before the form was shown
-				DialogResult = m_drtLastDialogResult;
+				DialogResult = _lastDialogResult;
 				Close();
 			}
 		}

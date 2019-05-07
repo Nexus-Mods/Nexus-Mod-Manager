@@ -2,14 +2,13 @@
 {
 	public static class NexusLinks
 	{
-
 		#region Properties
 
 		public static string FAQs => @"https://forums.nexusmods.com/index.php?/topic/721054-read-here-first-nexus-mod-manager-frequent-issues/";
 
         public static string Issues => @"https://github.com/Nexus-Mods/Nexus-Mod-Manager/issues";
 
-        public static string NexusURI => @"https://www.nexusmods.com";
+        public static string NexusMods => @"https://www.nexusmods.com";
 
         public static string Premium => @"https://www.nexusmods.com/register/premium";
 

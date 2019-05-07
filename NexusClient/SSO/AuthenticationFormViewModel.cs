@@ -109,11 +109,13 @@
 
             EnvironmentInfo.Settings.ApiKey = ApiKey;
 
-            if (!ModRepository.Authenticate())
+            var authenticationResults = ModRepository.Authenticate();
+
+            if (authenticationResults != AuthenticationStatus.Successful)
             {
-                Trace.TraceWarning($"Couldn't authenticate with API key \"{ApiKey}\".");
+                Trace.TraceWarning($"Couldn't authenticate with API key \"{ApiKey}\", result: {authenticationResults}.");
                 EnvironmentInfo.Settings.ApiKey = string.Empty;
-                ErrorMessage = "Couldn't authenticate user.";
+                ErrorMessage = $"Couldn't authenticate user: {authenticationResults}";
 
                 return false;
             }

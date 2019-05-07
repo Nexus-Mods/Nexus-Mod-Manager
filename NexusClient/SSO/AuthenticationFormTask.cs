@@ -4,6 +4,7 @@
     using System.Windows.Forms;
     using BackgroundTasks;
     using ModManagement;
+    using ModRepositories;
 
     public class AuthenticationFormTask : ThreadedBackgroundTask
 	{
@@ -148,18 +149,29 @@
 
             OverallMessage = "Validating API key...";
 
-			if (ModManager.ModRepository.Authenticate())
-			{
-				Status = TaskStatus.Complete;
-                OverallMessage = $"Logged in as {ModManager.ModRepository.UserStatus.Name}.";
-                return true;
-			}
+            var authenticationResult = ModManager.ModRepository.Authenticate();
 
-            Status = TaskStatus.Incomplete;
-            ModManager.EnvironmentInfo.Settings.ApiKey = string.Empty;
-            ModManager.EnvironmentInfo.Settings.Save();
-            OverallMessage = "API key invalid: enter new key";
-            return false;
+            switch (authenticationResult)
+            {
+                case AuthenticationStatus.Successful:
+                    Status = TaskStatus.Complete;
+                    OverallMessage = $"Logged in as {ModManager.ModRepository.UserStatus.Name}.";
+                    return true;
+                case AuthenticationStatus.InvalidKey:
+                    Status = TaskStatus.Incomplete;
+                    ModManager.EnvironmentInfo.Settings.ApiKey = string.Empty;
+                    ModManager.EnvironmentInfo.Settings.Save();
+                    OverallMessage = "API key invalid.";
+                    return false;
+                case AuthenticationStatus.NetworkError:
+                    Status = TaskStatus.Incomplete;
+                    OverallMessage = "Network error, could not authenticate.";
+                    return false;
+                default:
+                    Status = TaskStatus.Incomplete;
+                    OverallMessage = $"Unknown authentication status \"{authenticationResult}\".";
+                    return false;
+            }
         }
 	}
 }

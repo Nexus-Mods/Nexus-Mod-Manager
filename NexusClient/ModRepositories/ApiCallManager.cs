@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi
+﻿namespace Nexus.Client.ModRepositories
 {
     using System;
     using Pathoschild.FluentNexus;

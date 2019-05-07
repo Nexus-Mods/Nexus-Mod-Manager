@@ -86,7 +86,7 @@
         /// Verifies the given API key is valid.
         /// </summary>
         /// <returns>True if valid, otherwise false.</returns>
-        bool Authenticate();
+        AuthenticationStatus Authenticate();
 
 		/// <summary>
 		/// Logs the user out of the mod repository.
@@ -134,11 +134,11 @@
 		IList<IModFileInfo> GetModFileInfo(string modId);
 
         /// <summary>
-        /// Gets the FileserverInfo for the default download file of the specified mod.
+        /// Gets the FileServerInfo for the default download file of the specified mod.
         /// </summary>
         /// <param name="modId">The id of the mod whose default download file's parts' URLs are to be retrieved.</param>
         /// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
-        /// <returns>The FileserverInfo of the file parts for the default download file.</returns>
+        /// <returns>The FileServerInfo of the file parts for the default download file.</returns>
         /// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
         List<ModFileDownloadLink> GetFilePartInfo(string modId, string fileId, string key = "", int expiry = -1);
 

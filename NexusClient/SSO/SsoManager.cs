@@ -1,11 +1,11 @@
 ﻿namespace Nexus.Client.SSO
 {
     using System;
-    using System.ComponentModel;
     using System.Diagnostics;
     using System.Security.Authentication;
     using System.Windows.Forms;
     using Newtonsoft.Json.Linq;
+    using Util;
     using WebSocketSharp;
 
     /// <summary>
@@ -26,6 +26,11 @@
         /// Event invoked when an API key has been received by this <see cref="SsoManager"/>.
         /// </summary>
         public event EventHandler<ApiKeyReceivedEventArgs> ApiKeyReceived;
+
+        /// <summary>
+        /// Event invoked when the authorization process is cancelled.
+        /// </summary>
+        public event EventHandler<CancellationEventArgs> AuthenticationCancelled;
 
         /// <summary>
         /// Creates a new <see cref="SsoManager"/>.
@@ -60,8 +65,15 @@
         /// </summary>
         public void Cancel()
         {
+            Cancel(AuthenticationCancelledReason.Manual);
+        }
+
+        private void Cancel(AuthenticationCancelledReason reason)
+        {
             _active = false;
             _webSocket.Close();
+
+            AuthenticationCancelled?.Invoke(this, new CancellationEventArgs(reason));
         }
 
         #region WebSocket events
@@ -103,7 +115,21 @@
         {
             if (_active)
             {
-                _webSocket.Connect();
+                try
+                {
+                    _webSocket.Connect();
+                }
+                catch (Exception ex)
+                {
+                    if (ex.Message.Contains("A series of reconnecting has failed."))
+                    {
+                        Trace.TraceWarning($"SsoManager: Could not connect to \"{SsoServiceAddress}\"");
+                        Cancel(AuthenticationCancelledReason.ConnectionIssue);
+                    }
+
+                    TraceUtil.TraceException(ex);
+                    Cancel(AuthenticationCancelledReason.Unknown);
+                }
             }
         }
 

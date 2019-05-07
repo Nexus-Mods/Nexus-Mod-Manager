@@ -78,6 +78,8 @@
     </Compile>
     <Compile Include="GameModeSelector.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
+    <Compile Include="ModRepositories\AuthenticationStatus.cs" />
+    <Compile Include="SSO\AuthenticationCancelledReason.cs" />
     <Compile Include="SSO\AuthenticationFormTask.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
@@ -187,8 +189,8 @@
     <Compile Include="ModManagement\VirtualModInfo.cs" />
     <Compile Include="ModManagement\VirtualModLink.cs" />
     <Compile Include="ModRepositories\ModFileInfo.cs" />
-    <Compile Include="ModRepositories\NexusModsApi\ApiCallManager.cs" />
-    <Compile Include="ModRepositories\NexusModsApi\NexusModsApiRepository.cs" />
+    <Compile Include="ModRepositories\ApiCallManager.cs" />
+    <Compile Include="ModRepositories\NexusModsApiRepository.cs" />
     <Compile Include="ModRepositories\NexusLinks.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
@@ -321,6 +323,7 @@
       <DependentUpon>OsSettingsPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Settings\UrlAssociationUtil.cs" />
+    <Compile Include="SSO\CancellationEventArgs.cs" />
     <Compile Include="SSO\SsoManager.cs" />
     <Compile Include="SSO\ApiKeyReceivedEventArgs.cs" />
     <Compile Include="TipsManagement\Balloon.cs">
@@ -528,7 +531,6 @@
     <Compile Include="ModManagement\ReadMeSetupTask.cs" />
     <Compile Include="ModManagement\ToggleUpdateWarningTask.cs" />
     <Compile Include="ModRepositories\FileServerZone.cs" />
-    <Compile Include="ModRepositories\FileserverInfo.cs" />
     <Compile Include="ModRepositories\ModCategory.cs" />
     <Compile Include="PluginManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
     <Compile Include="PluginManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
@@ -628,7 +630,6 @@
     <Compile Include="ModRepositories\IModFileInfo.cs" />
     <Compile Include="ModRepositories\IModRepository.cs" />
     <Compile Include="ModRepositories\ModInfo.cs" />
-    <Compile Include="ModRepositories\ModFileCategory.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.TransactionEnlistment.cs" />
     <Compile Include="PluginManagement\OrderLog\PluginOrderLog.cs" />
