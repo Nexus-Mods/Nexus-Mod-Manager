@@ -170,11 +170,7 @@ namespace Nexus.Client.Util.Downloader
 
 						HttpWebRequest hwrDownload = (HttpWebRequest)WebRequest.Create(m_fdrFileDownloader.URL);
 						intLineTracker = 1;
-						CookieContainer ckcCookies = new CookieContainer();
-						foreach (KeyValuePair<string, string> kvpCookie in m_fdrFileDownloader.Cookies)
-							ckcCookies.Add(new Cookie(kvpCookie.Key, kvpCookie.Value, "/", m_fdrFileDownloader.URL.Host));
 						intLineTracker = 2;
-						hwrDownload.CookieContainer = ckcCookies;
 						hwrDownload.Method = "GET";
 						hwrDownload.UserAgent = m_strUserAgent;
 						hwrDownload.AllowAutoRedirect = true;

@@ -45,13 +45,7 @@ namespace Nexus.Client.Util.Downloader
         /// </summary>
         /// <value>The URL of the file being downloaded.</value>
         public Uri URL { get; }
-
-        /// <summary>
-        /// Gets the cookies to send with the file request.
-        /// </summary>
-        /// <value>The cookies to send with the file request.</value>
-        protected Dictionary<string, string> Cookies { get; }
-
+        
 		/// <summary>
 		/// Gets the number of bytes that have been downloaded.
 		/// </summary>
@@ -214,7 +208,6 @@ namespace Nexus.Client.Util.Downloader
 		/// cannot be resumed, the file will be overwritten.
 		/// </remarks>
 		/// <param name="url">The URL of the file to download.</param>
-		/// <param name="cookies">A list of cookies that should be sent in the request to download the file.</param>
 		/// <param name="savePath">The path to which to save the file.
 		/// If <paramref name="useDefaultFileName"/> is <c>false</c>, this value should be a complete
 		/// path, including filename. If <paramref name="useDefaultFileName"/> is <c>true</c>,
@@ -224,7 +217,7 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="minBlockSize">The minimum block size that should be downloaded at once. This should
 		/// ideally be some mulitple of the available bandwidth.</param>
 		/// <param name="userAgent">The current User Agent.</param>
-		public FileDownloader(Uri url, Dictionary<string, string> cookies, string savePath, bool useDefaultFileName, int maxConnections, int minBlockSize, string userAgent)
+		public FileDownloader(Uri url, string savePath, bool useDefaultFileName, int maxConnections, int minBlockSize, string userAgent)
 		{
 			_maxConnections = maxConnections;
 			_minBlockSize = minBlockSize;
@@ -233,9 +226,7 @@ namespace Nexus.Client.Util.Downloader
 		    _startTime = DateTime.Now;
 
 		    URL = url;
-
-            Cookies = cookies ?? new Dictionary<string, string>();
-
+            
             Initialize(savePath, useDefaultFileName);
 		}
 
@@ -251,7 +242,7 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="useDefaultFileName">Whether to use the file name suggested by the server.</param>
 		private void Initialize(string savePath, bool useDefaultFileName)
 		{
-			_metadata = GetMetadata(URL, Cookies);
+			_metadata = GetMetadata(URL);
 
 			var strFilename = useDefaultFileName ? _metadata.SuggestedFileName : Path.GetFileName(savePath);
 
@@ -521,18 +512,12 @@ namespace Nexus.Client.Util.Downloader
 	    /// Gets the file's metadata.
 	    /// </summary>
 	    /// <returns>The file's metadata.</returns>
-	    protected FileMetadata GetMetadata(Uri uri, Dictionary<string, string> cookies, string httpMethod = WebRequestMethods.Http.Head)
+	    protected FileMetadata GetMetadata(Uri uri, string httpMethod = WebRequestMethods.Http.Head)
 		{
 			Trace.TraceInformation($"[{uri}] Retrieving meta data.");
 
-		    var ckcCookies = new CookieContainer();
-
-		    foreach (var kvp in cookies)
-				ckcCookies.Add(new Cookie(kvp.Key, kvp.Value, "/", uri.Host));
-
 		    var webMetaData = (HttpWebRequest)WebRequest.Create(uri);
 
-		    webMetaData.CookieContainer = ckcCookies;
 			webMetaData.Method = string.IsNullOrWhiteSpace(httpMethod) ? WebRequestMethods.Http.Head : httpMethod;
 			webMetaData.AddRange(0, 1);
 			webMetaData.AllowAutoRedirect = true;
@@ -574,7 +559,7 @@ namespace Nexus.Client.Util.Downloader
                                 {
                                     //This won't be entered again because the HTTP Method is changed at this point
                                     //Also be aware that this is a single recursive call, but it is safe past this point
-                                    fileMetaData = GetMetadata(uri, cookies, WebRequestMethods.Http.Get);
+                                    fileMetaData = GetMetadata(uri, WebRequestMethods.Http.Get);
                                 }
 
                                 break;

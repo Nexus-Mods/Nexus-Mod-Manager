@@ -34,12 +34,6 @@ namespace Nexus.Client.DownloadManagement
 			public Uri URL { get; private set; }
 
 			/// <summary>
-			/// Gets the list of cookies that should be sent in the request to download the file.
-			/// </summary>
-			/// <value>The list of cookies that should be sent in the request to download the file.</value>
-			public Dictionary<string, string> Cookies { get; private set; }
-
-			/// <summary>
 			/// Gets the path to which to save the file.
 			/// </summary>
 			/// <remarks>
@@ -65,13 +59,12 @@ namespace Nexus.Client.DownloadManagement
 			/// </summary>
 			/// <param name="p_booIsAsync">Whether the file is being downloaded asynchronously.</param>
 			/// <param name="p_uriURL">The URL of the file to download.</param>
-			/// <param name="p_dicCookies">A list of cookies that should be sent in the request to download the file.</param>
 			/// <param name="p_strSavePath">The path to which to save the file.
 			/// If <paramref name="p_booUseDefaultFileName"/> is <c>false</c>, this value should be a complete
 			/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
 			/// this value should be the directory in which to save the file.</param>
 			/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
-			public State(bool p_booIsAsync, Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
+			public State(bool p_booIsAsync, Uri p_uriURL, string p_strSavePath, bool p_booUseDefaultFileName)
 			{
 			}
 
@@ -234,17 +227,16 @@ namespace Nexus.Client.DownloadManagement
 		/// cannot be resumed, the file will be overwritten.
 		/// </remarks>
 		/// <param name="p_uriURL">The URL of the file to download.</param>
-		/// <param name="p_dicCookies">A list of cookies that should be sent in the request to download the file.</param>
 		/// <param name="p_strSavePath">The path to which to save the file.
 		/// If <paramref name="p_booUseDefaultFileName"/> is <c>false</c>, this value should be a complete
 		/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
 		/// this value should be the directory in which to save the file.</param>
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
-		public void Download(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
+		public void Download(Uri p_uriURL, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
-			m_steState = new State(false, p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+			m_steState = new State(false, p_uriURL, p_strSavePath, p_booUseDefaultFileName);
 			m_areWaitForDownload = new AutoResetEvent(false);
-			DownloadAsync(p_uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+			DownloadAsync(p_uriURL, p_strSavePath, p_booUseDefaultFileName);
 			m_areWaitForDownload.WaitOne();
 		}
 
@@ -265,9 +257,9 @@ namespace Nexus.Client.DownloadManagement
 		/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
 		/// this value should be the directory in which to save the file.</param>
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
-		public void DownloadAsync(Uri p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
+		public void DownloadAsync(Uri p_uriURL, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
-			DownloadAsync(new List<Uri>() { p_uriURL }, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+			DownloadAsync(new List<Uri>() { p_uriURL }, p_strSavePath, p_booUseDefaultFileName);
 		}
 
 		/// <summary>
@@ -287,7 +279,7 @@ namespace Nexus.Client.DownloadManagement
 		/// path, including filename. If <paramref name="p_booUseDefaultFileName"/> is <c>true</c>,
 		/// this value should be the directory in which to save the file.</param>
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
-		public void DownloadAsync(List<Uri> p_uriURL, Dictionary<string, string> p_dicCookies, string p_strSavePath, bool p_booUseDefaultFileName)
+		public void DownloadAsync(List<Uri> p_uriURL, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
 			System.Diagnostics.Stopwatch swRetry = new System.Diagnostics.Stopwatch();
 			int retries = 1;
@@ -307,8 +299,8 @@ namespace Nexus.Client.DownloadManagement
                     Status = TaskStatus.Running;
                 }
 
-				m_fdrDownloader = new FileDownloader(uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
-				m_steState = new State(true, uriURL, p_dicCookies, p_strSavePath, p_booUseDefaultFileName);
+				m_fdrDownloader = new FileDownloader(uriURL, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
+				m_steState = new State(true, uriURL, p_strSavePath, p_booUseDefaultFileName);
 				m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
 				ShowItemProgress = false;
 				OverallProgressMaximum = (Int64)(m_fdrDownloader.FileSize / 1024);
@@ -541,11 +533,11 @@ namespace Nexus.Client.DownloadManagement
             }
             if (m_steState.IsAsync)
             {
-                DownloadAsync(m_steState.URL, m_steState.Cookies, m_steState.SavePath, m_steState.UseDefaultFileName);
+                DownloadAsync(m_steState.URL, m_steState.SavePath, m_steState.UseDefaultFileName);
             }
             else
             {
-                Download(m_steState.URL, m_steState.Cookies, m_steState.SavePath, m_steState.UseDefaultFileName);
+                Download(m_steState.URL, m_steState.SavePath, m_steState.UseDefaultFileName);
             }
 		}
 

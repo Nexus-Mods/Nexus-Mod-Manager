@@ -1,25 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Windows.Forms;
-using Nexus.Client.Games;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.Settings
+﻿namespace Nexus.Client.Settings
 {
-	/// <summary>
-	/// The group of download settings.
-	/// </summary>
-	public class DownloadSettingsGroup : SettingsGroup
+    using System;
+    using ModRepositories;
+
+    /// <summary>
+    /// The group of download settings.
+    /// </summary>
+    public class DownloadSettingsGroup : SettingsGroup
 	{
-
-		private bool m_booUseMultithreadedDownloads = false;
-		private bool m_booPremiumEnabled = false;
-		private int m_intMaxConcurrentDownloads = 10;
-		private string m_strUserLocation = "default";
-		private IModRepository m_mmrModRepository = null;
-
+        private readonly IModRepository _modRepository;
+        private bool _useMultithreadedDownloads;
+		private bool _premiumEnabled;
+		private int _maxConcurrentDownloads = 10;
+		
 		#region Custom Events
 
 		public event EventHandler UpdatedSettings;
@@ -32,27 +25,18 @@ namespace Nexus.Client.Settings
 		/// Gets the title of the settings group.
 		/// </summary>
 		/// <value>The title of the settings group.</value>
-		public override string Title
-		{
-			get
-			{
-				return "Download Options";
-			}
-		}
+		public override string Title => "Download Options";
 
-		/// <summary>
+        /// <summary>
 		/// Gets or sets whether to use multithreaded downloads.
 		/// </summary>
 		/// <value>Whether to use multithreaded downloads.</value>
 		public bool UseMultithreadedDownloads
 		{
-			get
+			get => _useMultithreadedDownloads;
+            set
 			{
-				return m_booUseMultithreadedDownloads;
-			}
-			set
-			{
-				SetPropertyIfChanged(ref m_booUseMultithreadedDownloads, value, () => UseMultithreadedDownloads);
+				SetPropertyIfChanged(ref _useMultithreadedDownloads, value, () => UseMultithreadedDownloads);
 			}
 		}
 
@@ -60,15 +44,12 @@ namespace Nexus.Client.Settings
 		/// Gets or sets the interval (in days) to wait before checking for a program update.
 		/// </summary>
 		/// <value>The interval (in days) to wait before checking for a program update.</value>
-		public Int32 MaxConcurrentDownloads
+		public int MaxConcurrentDownloads
 		{
-			get
+			get => _maxConcurrentDownloads;
+            set
 			{
-				return m_intMaxConcurrentDownloads;
-			}
-			set
-			{
-				SetPropertyIfChanged(ref m_intMaxConcurrentDownloads, value, () => MaxConcurrentDownloads);
+				SetPropertyIfChanged(ref _maxConcurrentDownloads, value, () => MaxConcurrentDownloads);
 			}
 		}
 
@@ -78,36 +59,12 @@ namespace Nexus.Client.Settings
 		/// <value>Whether the user wants to use only Premium Server.</value>
 		public bool PremiumEnabled
 		{
-			get
+			get => _premiumEnabled;
+            private set
 			{
-				return m_booPremiumEnabled;
-			}
-			private set
-			{
-				SetPropertyIfChanged(ref m_booPremiumEnabled, value, () => PremiumEnabled);
+				SetPropertyIfChanged(ref _premiumEnabled, value, () => PremiumEnabled);
 			}
 		}
-		/// <summary>
-		/// Gets or sets the user favourite download location.
-		/// </summary>
-		/// <value>The user favourite download location.</value>
-		public string UserLocation
-		{
-			get
-			{
-				return m_strUserLocation;
-			}
-			set
-			{
-				SetPropertyIfChanged(ref m_strUserLocation, value, () => UserLocation);
-			}
-		}
-
-		/// <summary>
-		/// Gets the repository's file server zones.
-		/// </summary>
-		/// <value>the repository's file server zones.</value>
-		public List<FileServerZone> FileServerZones { get; private set; }
 
 		#endregion
 
@@ -116,73 +73,42 @@ namespace Nexus.Client.Settings
 		/// <summary>
 		/// A simple constructor that initializes the object with the given dependencies.
 		/// </summary>
-		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		public DownloadSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mmrModRepository)
-			: base(p_eifEnvironmentInfo)
+		/// <param name="environmentInfo">The application's environment info.</param>
+		public DownloadSettingsGroup(IEnvironmentInfo environmentInfo, IModRepository modRepository)
+			: base(environmentInfo)
 		{
-			m_mmrModRepository = p_mmrModRepository;
-			m_mmrModRepository.UserStatusUpdate += new EventHandler(m_mmrModRepository_UserStatusUpdate);
+			_modRepository = modRepository;
+			_modRepository.UserStatusUpdate += ModRepositoryUserStatusUpdate;
 
-			if (LoadRepositorySettings())
-			{
-				Load();
-				Save();
-			}
+            LoadRepositorySettings();
+			Load();
+			Save();
 		}
 
 		#endregion
 
-		private bool LoadRepositorySettings()
+		private void LoadRepositorySettings()
 		{
-			var memberCheck  = false;
-
-            FileServerZones?.Clear();
-
-            if (m_mmrModRepository.UserStatus != null && m_mmrModRepository.UserStatus.IsPremium)
+            if (_modRepository.UserStatus != null && _modRepository.UserStatus.IsPremium)
 			{
                 PremiumEnabled = true;
-                FileServerZones = new List<FileServerZone>();
             }
 			else
 			{
                 PremiumEnabled = false;
-                FileServerZones = new List<FileServerZone>();
 			}
 
-			var fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
-
-			if (!PremiumEnabled)
-			{
-				if (fszUser != null)
-				{
-					if (fszUser.IsPremium)
-					{
-						EnvironmentInfo.Settings.UserLocation = "default";
-						memberCheck = true;
-					}
-				}
-				else
-                {
-                    EnvironmentInfo.Settings.UserLocation = "default";
-                }
-            }
-
-			MaxConcurrentDownloads = m_mmrModRepository.MaxConcurrentDownloads;
-
-			return memberCheck;
+			MaxConcurrentDownloads = _modRepository.MaxConcurrentDownloads;
 		}
 
 		/// <summary>
 		/// Loads the grouped setting values from the persistent store.
 		/// </summary>
-		public override void Load()
+		public sealed override void Load()
 		{
 			UseMultithreadedDownloads = EnvironmentInfo.Settings.UseMultithreadedDownloads;
 
-			var fszUser = FileServerZones.Find(x => x.FileServerID == EnvironmentInfo.Settings.UserLocation);
-			UserLocation = fszUser != null ? fszUser.FileServerID : "default";
-
-			if(MaxConcurrentDownloads == 0)
+			if (MaxConcurrentDownloads == 0)
             {
                 MaxConcurrentDownloads = EnvironmentInfo.Settings.MaxConcurrentDownloads;
             }
@@ -193,10 +119,9 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <returns><c>true</c> if the settings were persisted;
 		/// <c>false</c> otherwise.</returns>
-		public override bool Save()
+		public sealed override bool Save()
 		{
 			EnvironmentInfo.Settings.UseMultithreadedDownloads = UseMultithreadedDownloads;
-			EnvironmentInfo.Settings.UserLocation = UserLocation;
 			EnvironmentInfo.Settings.MaxConcurrentDownloads = MaxConcurrentDownloads;
 
             lock (EnvironmentInfo.Settings)
@@ -208,14 +133,14 @@ namespace Nexus.Client.Settings
 		}
 
 		/// <summary>
-		/// Handles the <see cref="m_mmrModRepository.UserStatusUpdate"/> event of the tasks list.
+		/// Handles the <see cref="_modRepository.UserStatusUpdate"/> event of the tasks list.
 		/// </summary>
 		/// <remarks>
 		/// Updates the UI elements.
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void m_mmrModRepository_UserStatusUpdate(object sender, EventArgs e)
+		private void ModRepositoryUserStatusUpdate(object sender, EventArgs e)
 		{
 			LoadRepositorySettings();
             UpdatedSettings?.Invoke(this, new EventArgs());

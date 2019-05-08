@@ -675,7 +675,6 @@
 		{
 			Trace.TraceInformation($"[{Descriptor.SourceUri}] Downloading Files.");
 			Trace.TraceInformation($"[{Descriptor.SourceUri}] Launching downloading of {files[0]}.");
-			Dictionary<string, string> dicAuthenticationTokens = _environmentInfo.Settings.RepositoryAuthenticationTokens[_modRepository.Id];
 			var intConnections = _environmentInfo.Settings.UseMultithreadedDownloads ? _modRepository.AllowedConnections : 1;
 
 			var downloader = new FileDownloadTask(_modRepository, intConnections, 1024 * 500, _modRepository.UserAgent);
@@ -683,7 +682,7 @@
 			downloader.PropertyChanged += Downloader_PropertyChanged;
             
 			_runningTasks.Add(downloader);
-			downloader.DownloadAsync(files, dicAuthenticationTokens, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
+			downloader.DownloadAsync(files, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
 		}
 
 		/// <summary>

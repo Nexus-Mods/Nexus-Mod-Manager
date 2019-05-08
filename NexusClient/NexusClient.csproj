@@ -530,7 +530,6 @@
     <Compile Include="ModManagement\ReadMeManager\ReadMeManager.cs" />
     <Compile Include="ModManagement\ReadMeSetupTask.cs" />
     <Compile Include="ModManagement\ToggleUpdateWarningTask.cs" />
-    <Compile Include="ModRepositories\FileServerZone.cs" />
     <Compile Include="ModRepositories\ModCategory.cs" />
     <Compile Include="PluginManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
     <Compile Include="PluginManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
