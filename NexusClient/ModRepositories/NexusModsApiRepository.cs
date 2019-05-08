@@ -41,7 +41,6 @@
                     _userStatus = value;
                     UserStatusUpdate?.Invoke(this, EventArgs.Empty);
                 }
-                
             }
         }
 
@@ -100,7 +99,7 @@
 
             return currentGameDomain;
         }
-        
+
         /// <inheritdoc />
         public AuthenticationStatus Authenticate()
         {
@@ -120,6 +119,10 @@
                 if (a.InnerExceptions.Any(ex => ex.GetType() == typeof(HttpRequestException)))
                 {
                     status = AuthenticationStatus.NetworkError;
+                }
+                else if (a.InnerExceptions.Any(ex => ex.Message.Contains("Please provide a valid API Key")))
+                {
+                    status = AuthenticationStatus.InvalidKey;
                 }
             }
 
@@ -151,7 +154,7 @@
             try
             {
                 var hash = Md5.CalculateMd5(fileName);
-                
+
                 // TODO: Probably need to handle cases with multiple hits.
                 return new ModInfo(_apiCallManager.Mods.GetModsByFileHash(GameDomainName, hash).Result[0].Mod);
             }

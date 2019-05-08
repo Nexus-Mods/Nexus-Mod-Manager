@@ -161,15 +161,15 @@
                     Status = TaskStatus.Incomplete;
                     ModManager.EnvironmentInfo.Settings.ApiKey = string.Empty;
                     ModManager.EnvironmentInfo.Settings.Save();
-                    OverallMessage = "API key invalid.";
+                    OverallMessage = "Not logged in: API key invalid.";
                     return false;
                 case AuthenticationStatus.NetworkError:
                     Status = TaskStatus.Incomplete;
-                    OverallMessage = "Network error, could not authenticate.";
+                    OverallMessage = "Not logged in: Network error.";
                     return false;
                 default:
                     Status = TaskStatus.Incomplete;
-                    OverallMessage = $"Unknown authentication status \"{authenticationResult}\".";
+                    OverallMessage = $"Not logged in: Status \"{authenticationResult}\".";
                     return false;
             }
         }
