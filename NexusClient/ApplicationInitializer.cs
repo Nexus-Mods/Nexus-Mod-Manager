@@ -18,7 +18,6 @@
     using Nexus.Client.ModManagement.InstallationLog.Upgraders;
     using Nexus.Client.ModManagement.Scripting;
     using Nexus.Client.ModRepositories;
-    using Nexus.Client.ModRepositories.NexusModsApi;
     using Nexus.Client.Mods;
     using Nexus.Client.PluginManagement;
     using Nexus.Client.PluginManagement.InstallationLog;

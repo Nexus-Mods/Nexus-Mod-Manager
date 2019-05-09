@@ -10,12 +10,12 @@
     using System.Linq;
     using System.Text;
     using System.Windows.Forms;
+
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.BackgroundTasks.UI;
     using Nexus.Client.Commands;
     using Nexus.Client.DownloadMonitoring.UI;
     using Nexus.Client.UI.Controls;
-    using Nexus.Client.Commands.Generic;
     using Nexus.Client.Games;
     using Nexus.Client.Games.Settings;
     using Nexus.Client.Games.Tools;
@@ -25,7 +25,6 @@
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Mods;
     using Nexus.Client.PluginManagement.UI;
-    using Nexus.Client.Plugins;
     using Nexus.Client.Settings.UI;
     using Nexus.Client.SSO;
     using Nexus.Client.TipsManagement;
@@ -33,6 +32,7 @@
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
     using Nexus.UI.Controls;
+
     using WeifenLuo.WinFormsUI.Docking;
 
     /// <summary>
@@ -167,7 +167,7 @@
 			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
 			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
             toolStripButtonRateLimit.Click +=  ToolStripButtonRateLimitOnClick;
-
+            viewModel.ModRepository.RateLimitExceeded += (sender, args) => Invoke((Action<RateLimitExceededArgs>)OnRateLimitExceeded, args);
 
             if (viewModel.GameMode.SupportedToolsLauncher != null)
             {
@@ -189,6 +189,11 @@
 			_lastWindowState = WindowState;
 		}
 
+        private void OnRateLimitExceeded(RateLimitExceededArgs args)
+        {
+            MessageBox.Show(this, $"You've reached your daily and hourly limit. Try again in {Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} minutes.", "API Rate Limit exceeded", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+        }
+
         private void ToolStripButtonRateLimitOnClick(object sender, EventArgs e)
         {
             if (ViewModel.UserStatus != null)
@@ -197,8 +202,8 @@
                 var dailyReset = rateLimit.DailyReset - DateTimeOffset.UtcNow;
                 
                 var info =
-                    $"Daily: {rateLimit.DailyLimit}/{rateLimit.DailyRemaining} (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
-                    $"Hourly: {rateLimit.HourlyLimit}/{rateLimit.HourlyRemaining} (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
+                    $"Daily: {rateLimit.DailyRemaining}/{rateLimit.DailyLimit} (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
+                    $"Hourly: {rateLimit.HourlyRemaining}/{rateLimit.HourlyLimit} (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
                 MessageBox.Show(this, info, "API Rate Limit information", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else

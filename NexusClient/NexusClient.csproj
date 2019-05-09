@@ -79,6 +79,7 @@
     <Compile Include="GameModeSelector.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
     <Compile Include="ModRepositories\AuthenticationStatus.cs" />
+    <Compile Include="ModRepositories\RateLimitExceededArgs.cs" />
     <Compile Include="SSO\AuthenticationCancelledReason.cs" />
     <Compile Include="SSO\AuthenticationFormTask.cs" />
     <Compile Include="MainForm.cs">

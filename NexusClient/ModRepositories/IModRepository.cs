@@ -17,17 +17,25 @@
 	{
 		#region Custom Events
 
+        /// <summary>
+        /// Invoked when UserStatus changes.
+        /// </summary>
 		event EventHandler UserStatusUpdate;
 
-		#endregion
+        /// <summary>
+        /// Invoked when the rate limit has been exceeded.
+        /// </summary>
+        event EventHandler<RateLimitExceededArgs> RateLimitExceeded;
 
-		#region Properties
+        #endregion
 
-		/// <summary>
-		/// Gets the id of the mod repository.
-		/// </summary>
-		/// <value>The id of the mod repository.</value>
-		string Id { get; }
+        #region Properties
+
+        /// <summary>
+        /// Gets the id of the mod repository.
+        /// </summary>
+        /// <value>The id of the mod repository.</value>
+        string Id { get; }
 
 		/// <summary>
 		/// Gets the name of the mod repository.

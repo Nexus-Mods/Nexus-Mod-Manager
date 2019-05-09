@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModRepositories.NexusModsApi
+﻿namespace Nexus.Client.ModRepositories
 {
     using System;
     using System.Collections.Generic;
@@ -22,6 +22,9 @@
 
         /// <inheritdoc cref="IModRepository"/>
         public event EventHandler UserStatusUpdate;
+
+        /// <inheritdoc cref="IModRepository"/>
+        public event EventHandler<RateLimitExceededArgs> RateLimitExceeded;
 
         #region Properties
 
@@ -146,7 +149,7 @@
         {
             UserStatus = null;
             _apiCallManager.ClearApiKey();
-            UserStatusUpdateEvent();
+            UserStatusUpdate?.Invoke(this, new EventArgs());
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -161,7 +164,7 @@
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -175,7 +178,7 @@
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -183,15 +186,25 @@
         /// <inheritdoc cref="IModRepository"/>
         public List<IModInfo> GetFileListInfo(List<string> modFileList)
         {
-            var list = new List<IModInfo>();
-
-            foreach (var mod in modFileList)
+            try
             {
-                var id = Convert.ToInt32(mod.Split('|')[1]);
-                list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
+                var list = new List<IModInfo>();
+
+                foreach (var mod in modFileList)
+                {
+                    var id = Convert.ToInt32(mod.Split('|')[1]);
+                    list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
+                }
+
+                return list;
+            }
+            catch (AggregateException a)
+            {
+                ReactToAggregateException(a);
+                return null;
             }
 
-            return list;
+
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -237,12 +250,14 @@
                     return localStateAfterCompletion;
                 }
 
+                ReactToAggregateException(action.Exception);
+
                 Trace.TraceError($"Endorsement Toggle for mod {modId}, result: {action.Status}");
                 return null;
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -257,7 +272,7 @@
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -277,7 +292,7 @@
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -289,9 +304,9 @@
             {
                 return new ModFileInfo(_apiCallManager.ModFiles.GetModFile(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result);
             }
-            catch (AggregateException e)
+            catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(e);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -317,7 +332,7 @@
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -450,7 +465,7 @@
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
@@ -465,14 +480,23 @@
             }
             catch (AggregateException a)
             {
-                TraceUtil.TraceAggregateException(a);
+                ReactToAggregateException(a);
                 return null;
             }
         }
-
-        private void UserStatusUpdateEvent()
+        
+        /// <summary>
+        /// Checks and reacts to contents of an AggregateException.
+        /// </summary>
+        /// <param name="a">AggregateException to react to.</param>
+        private void ReactToAggregateException(AggregateException a)
         {
-            UserStatusUpdate?.Invoke(this, new EventArgs());
+            TraceUtil.TraceAggregateException(a);
+
+            if (a.InnerExceptions.Any(ex => ex.Message.Contains("Too Many Requests")))
+            {
+                RateLimitExceeded?.Invoke(this, new RateLimitExceededArgs(RateLimit));
+            }
         }
     }
 }
