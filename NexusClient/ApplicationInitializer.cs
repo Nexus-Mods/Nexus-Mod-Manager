@@ -407,7 +407,7 @@
 
 			Trace.TraceInformation("Initializing Mod Repository...");
 			Trace.Indent();
-			IModRepository mrpModRepository = new NexusModsApiRepository(gmdGameMode.ModeId, ApiCallManager.Initialize(EnvironmentInfo));
+			IModRepository mrpModRepository = new NexusModsApiRepository(gmdGameMode.ModeId, ApiCallManager.Instance(EnvironmentInfo));
 			Trace.Unindent();
 			StepOverallProgress();
             

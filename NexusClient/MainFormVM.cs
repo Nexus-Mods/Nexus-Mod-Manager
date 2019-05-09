@@ -179,7 +179,7 @@
 		/// Gets the commands to change the managed game mode.
 		/// </summary>
 		/// <value>The commands to change the managed game mode.</value>
-		public IEnumerable<Command> ChangeGameModeCommands { get; private set; }
+		public IEnumerable<Command> ChangeGameModeCommands { get; }
 
 		#endregion
 

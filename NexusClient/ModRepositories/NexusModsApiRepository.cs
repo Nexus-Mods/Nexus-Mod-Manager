@@ -11,6 +11,7 @@
     using System.Threading.Tasks;
     using ModManagement;
     using Mods;
+    using Pathoschild.FluentNexus;
     using Pathoschild.FluentNexus.Models;
     using Util;
     using Util.Collections;
@@ -60,10 +61,10 @@
         public int MaxConcurrentDownloads { get; private set; }
 
         /// <inheritdoc cref="IModRepository"/>
-        public string GameModeWebsite { get; }
+        public string GameDomainName { get; }
 
         /// <inheritdoc cref="IModRepository"/>
-        public string GameDomainName { get; }
+        public IRateLimitManager RateLimit => _apiCallManager.RateLimit;
 
         #endregion
 
@@ -365,7 +366,7 @@
             {
                 var id = match.Value;
 
-                //get the mod info to make sure the id is valid, and not
+                // get the mod info to make sure the id is valid, and not
                 // just some random match from elsewhere in the filePath
                 var infoCandidate = GetModInfo(id);
 

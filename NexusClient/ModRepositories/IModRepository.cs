@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using ModManagement;
     using Mods;
+    using Pathoschild.FluentNexus;
     using Pathoschild.FluentNexus.Models;
 
     /// <summary>
@@ -71,16 +72,19 @@
 		/// <value>The number of maximum allowed concurrent downloads.</value>
 		int MaxConcurrentDownloads { get; }
 
-		string GameModeWebsite { get; }
-
         /// <summary>
         /// Game Domain E.g. 'skyrim'
         /// </summary>
         string GameDomainName { get; }
 
-		#endregion
+        /// <summary>
+        /// Gets the current rate limits.
+        /// </summary>
+        IRateLimitManager RateLimit { get; }
 
-		#region Account Management
+        #endregion
+
+        #region Account Management
 
         /// <summary>
         /// Verifies the given API key is valid.
@@ -105,9 +109,9 @@
 		/// <summary>
 		/// Gets the info for the specified mod.
 		/// </summary>
-		/// <param name="p_strModId">The id of the mod info is be retrieved.</param>
-		/// <returns>The info for the specifed mod.</returns>
-		IModInfo GetModInfo(string p_strModId);
+		/// <param name="modId">The id of the mod info is be retrieved.</param>
+		/// <returns>The info for the specified mod.</returns>
+		IModInfo GetModInfo(string modId);
 
 		/// <summary>
 		/// Gets the info for the specified file list.

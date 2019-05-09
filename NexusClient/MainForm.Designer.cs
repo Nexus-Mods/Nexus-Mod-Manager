@@ -52,7 +52,6 @@
             this.toolStripSplitButtonTools = new System.Windows.Forms.ToolStripSplitButton();
             this.spbFolders = new System.Windows.Forms.ToolStripSplitButton();
             this.tsbSettings = new System.Windows.Forms.ToolStripButton();
-            this.tsbTips = new System.Windows.Forms.ToolStripSplitButton();
             this.toolStripTextBoxFind = new System.Windows.Forms.ToolStripTextBox();
             this.spbSupportedTools = new System.Windows.Forms.ToolStripSplitButton();
             this.tsbUpdate = new System.Windows.Forms.ToolStripButton();
@@ -72,6 +71,7 @@
             this.toolStripLabelActivePluginsCounter = new System.Windows.Forms.ToolStripLabel();
             this.toolStripSeparatorPluginSeparator = new System.Windows.Forms.ToolStripSeparator();
             this.tlbModsCounter = new System.Windows.Forms.ToolStripLabel();
+            this.toolStripButtonRateLimit = new System.Windows.Forms.ToolStripButton();
             this.toolStrip1.SuspendLayout();
             this.tssDownload.SuspendLayout();
             this.SuspendLayout();
@@ -89,7 +89,6 @@
             this.toolStripSplitButtonTools,
             this.spbFolders,
             this.tsbSettings,
-            this.tsbTips,
             this.toolStripTextBoxFind,
             this.spbSupportedTools,
             this.tsbUpdate});
@@ -167,15 +166,6 @@
             this.tsbSettings.Size = new System.Drawing.Size(36, 36);
             this.tsbSettings.Text = "Settings";
             this.tsbSettings.Click += new System.EventHandler(this.tsbSettings_Click);
-            // 
-            // tsbTips
-            // 
-            this.tsbTips.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.tsbTips.Image = global::Nexus.Client.Properties.Resources.tipsIcon;
-            this.tsbTips.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.tsbTips.Name = "tsbTips";
-            this.tsbTips.Size = new System.Drawing.Size(48, 36);
-            this.tsbTips.Text = "Tips";
             // 
             // toolStripTextBoxFind
             // 
@@ -270,6 +260,7 @@
             this.toolStripProgressBarDownloadSpeed,
             this.toolStripButtonGoPremium,
             this.toolStripLabelLoginMessage,
+            this.toolStripButtonRateLimit,
             this.tlbStatusFiller,
             this.toolStripLabelBottomBarFeedback,
             this.toolStripLabelBottomBarFeedbackCounter,
@@ -333,7 +324,7 @@
             // tlbStatusFiller
             // 
             this.tlbStatusFiller.Name = "tlbStatusFiller";
-            this.tlbStatusFiller.Size = new System.Drawing.Size(177, 31);
+            this.tlbStatusFiller.Size = new System.Drawing.Size(100, 31);
             this.tlbStatusFiller.Spring = true;
             // 
             // toolStripLabelBottomBarFeedback
@@ -388,6 +379,15 @@
             this.tlbModsCounter.Text = " | Total mods / Active mods ";
             this.tlbModsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
+            // toolStripButtonRateLimit
+            // 
+            this.toolStripButtonRateLimit.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.toolStripButtonRateLimit.Image = ((System.Drawing.Image)(resources.GetObject("toolStripButtonRateLimit.Image")));
+            this.toolStripButtonRateLimit.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonRateLimit.Name = "toolStripButtonRateLimit";
+            this.toolStripButtonRateLimit.Size = new System.Drawing.Size(23, 34);
+            this.toolStripButtonRateLimit.Text = "Rate Limit";
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -415,7 +415,6 @@
 		private System.Windows.Forms.ToolStripSplitButton spbSupportedTools;
 		private System.Windows.Forms.ToolStripSplitButton spbProfiles;
 		private System.Windows.Forms.ToolStripButton tsbSettings;
-		public System.Windows.Forms.ToolStripSplitButton tsbTips;
 		private System.Windows.Forms.ToolStripSplitButton spbChangeMode;
 		private System.Windows.Forms.ToolStripSplitButton toolStripSplitButtonTools;
 		private System.Windows.Forms.ToolStripSplitButton spbFolders;
@@ -438,5 +437,6 @@
 		private System.Windows.Forms.ToolStripButton toolStripButtonLoader;
 		private System.Windows.Forms.ToolStripStatusLabel tlbStatusFiller;
 		private System.Windows.Forms.ToolStripTextBox toolStripTextBoxFind;
+        private System.Windows.Forms.ToolStripButton toolStripButtonRateLimit;
     }
 }

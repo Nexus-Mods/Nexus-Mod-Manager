@@ -51,13 +51,9 @@
 
         public string OptionalPremiumMessage = string.Empty;
 
-		private ToolStripMenuItem _toolStripMenuItemShowTips;
-
 		FormWindowState LastWindowState = FormWindowState.Minimized;
 		private bool _showLastBalloon;
 		private BalloonManager _balloonManager;
-
-		private string _selectedTipsVersion = string.Empty;
 		
 		#region Properties
 
@@ -170,9 +166,10 @@
 			_modActivationMonitorControl = new ModActivationMonitorControl();
 			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
 			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
-			tsbTips.DropDownItemClicked += tsbTips_DropDownItemClicked;
-			
-			if (viewModel.GameMode.SupportedToolsLauncher != null)
+            toolStripButtonRateLimit.Click +=  ToolStripButtonRateLimitOnClick;
+
+
+            if (viewModel.GameMode.SupportedToolsLauncher != null)
             {
                 viewModel.GameMode.SupportedToolsLauncher.ChangedToolPath += SupportedTools_ChangedToolPath;
             }
@@ -192,9 +189,25 @@
 			_lastWindowState = WindowState;
 		}
 
+        private void ToolStripButtonRateLimitOnClick(object sender, EventArgs e)
+        {
+            if (ViewModel.UserStatus != null)
+            {
+                var rateLimit = ViewModel.ModRepository.RateLimit;
+                var dailyReset = rateLimit.DailyReset - DateTimeOffset.UtcNow;
+                
+                var info =
+                    $"Daily: {rateLimit.DailyLimit}/{rateLimit.DailyRemaining} (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
+                    $"Hourly: {rateLimit.HourlyLimit}/{rateLimit.HourlyRemaining} (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
+                MessageBox.Show(this, info, "API Rate Limit information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit information", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+            }
+        }
 
-
-		#endregion
+        #endregion
 
 		#region Startup Checks
 
@@ -461,14 +474,6 @@
 
 			UpdateModsFeedback();
 			UserStatusFeedback();
-		}
-
-		/// <summary>
-		/// The function that checks the Tips.
-		/// </summary>
-		protected void LoadTips()
-		{
-			_balloonManager.CheckTips(this.Location.X + tsbTips.Bounds.Location.X, this.Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, CommonData.VersionString);
 		}
 
 		/// <summary>
@@ -800,7 +805,6 @@
 			if (ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup && _balloonManager.balloonHelp != null)
 			{
 				_balloonManager.balloonHelp.Close();
-				_balloonManager.CheckTips(Location.X + tsbTips.Bounds.Location.X, Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, CommonData.VersionString);
 			}
 			else
 			{
@@ -857,7 +861,6 @@
 						else
 						{
 							_balloonManager.balloonHelp.Close();
-							_balloonManager.CheckTips(Location.X + tsbTips.Bounds.Location.X, Location.Y + tsbTips.Bounds.Location.Y, ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup, CommonData.VersionString);
 						}
 					}
 				}
@@ -1502,11 +1505,16 @@
 		/// </summary>
 		protected void BindChangeModeCommands()
         {
-            var toolStripMenuItemChange = new ToolStripMenuItem();
-
             foreach (var changeCommand in ViewModel.ChangeGameModeCommands)
 			{
-				changeCommand.Executed += ChangeGameModeCommand_Executed;
+                if (ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Don't show the current game mode in the Change Mode list.
+                    continue;
+                }
+
+                var toolStripMenuItemChange = new ToolStripMenuItem();
+                changeCommand.Executed += ChangeGameModeCommand_Executed;
                 new ToolStripItemCommandBinding(toolStripMenuItemChange, changeCommand);
 				spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
 			}
@@ -1592,24 +1600,6 @@
 				toolStripSplitButtonTools.DropDownItems.Add(tmicmdSortPluginsTool);
 			}
 
-			var enuVersions = _balloonManager.GetVersionList();
-
-            if (enuVersions != null)
-			{
-				foreach (var strVersion in enuVersions)
-				{
-					var cmdShowTips = new Command<string>(strVersion, "Shows the tips for the current version.", ShowTips);
-                    _toolStripMenuItemShowTips = new ToolStripMenuItem
-                    {
-                        ImageScaling = ToolStripItemImageScaling.None,
-                        Image = Properties.Resources.tipsIcon
-                    };
-                    new ToolStripItemCommandBinding<string>(_toolStripMenuItemShowTips, cmdShowTips, GetSelectedVersion);
-
-					tsbTips.DropDownItems.Add(_toolStripMenuItemShowTips);
-				}
-			}
-
             var tmiTool = new ToolStripMenuItem();
 
             foreach (var tolTool in ViewModel.GameToolLauncher.Tools)
@@ -1621,16 +1611,6 @@
 				tolTool.CloseToolView += Tool_CloseToolView;
 				toolStripSplitButtonTools.DropDownItems.Add(tmiTool);
 			}
-		}
-
-		private void tsbTips_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
-		{
-			_selectedTipsVersion = e.ClickedItem.Text;
-		}
-
-		private string GetSelectedVersion()
-		{
-			return _selectedTipsVersion;
 		}
 
 		private void SupportedTools_ChangedToolPath(object sender, EventArgs e)
@@ -3102,7 +3082,6 @@
 			base.OnShown(e);
 			ShowStartupMessage();
 			ViewModel.ViewIsShown();
-			LoadTips();
 
             if (ViewModel.ModRepository.IsOffline)
             {

@@ -50,16 +50,9 @@
         /// </summary>
         /// <param name="environmentInfo">Environment info to be used by the <see cref="ApiCallManager"/>.</param>
         /// <returns>The ApiCallManager, unless it has already been created before.</returns>
-        /// <remarks>Throws <see cref="InvalidOperationException"/> if an instance was already created.</remarks>
-        public static ApiCallManager Initialize(IEnvironmentInfo environmentInfo)
+        public static ApiCallManager Instance(IEnvironmentInfo environmentInfo)
         {
-            if (_instance != null)
-            {
-                throw new InvalidOperationException("The ApiCallManager has already been initialized.");
-            }
-
-            _instance = new ApiCallManager(environmentInfo);
-            return _instance;
+            return _instance ?? (_instance = new ApiCallManager(environmentInfo));
         }
 
         #region Properties
@@ -68,6 +61,11 @@
         /// Gets the user agent string to send to the Nexus Mods API.
         /// </summary>
         public static string UserAgent => $"NexusModManager/{CommonData.VersionString} ({Environment.OSVersion})";
+
+        /// <summary>
+        /// Gets the current rate limits.
+        /// </summary>
+        public IRateLimitManager RateLimit => _nexusClient.GetRateLimits().Result;
 
         #region EndPoints
 
