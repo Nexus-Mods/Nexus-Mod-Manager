@@ -202,13 +202,13 @@
                 var dailyReset = rateLimit.DailyReset - DateTimeOffset.UtcNow;
                 
                 var info =
-                    $"Daily: {rateLimit.DailyRemaining}/{rateLimit.DailyLimit} (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
-                    $"Hourly: {rateLimit.HourlyRemaining}/{rateLimit.HourlyLimit} (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
-                MessageBox.Show(this, info, "API Rate Limit information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    $"Daily: {rateLimit.DailyRemaining}/{rateLimit.DailyLimit} requests left (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
+                    $"Hourly: {rateLimit.HourlyRemaining}/{rateLimit.HourlyLimit} requests left (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
+                MessageBox.Show(this, info, "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
-                MessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit information", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                MessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Hand);
             }
         }
 

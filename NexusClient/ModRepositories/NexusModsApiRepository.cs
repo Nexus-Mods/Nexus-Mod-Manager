@@ -250,7 +250,10 @@
                     return localStateAfterCompletion;
                 }
 
-                ReactToAggregateException(action.Exception);
+                if (ReactToAggregateException(action.Exception))
+                {
+                    return !localStateAfterCompletion;
+                }
 
                 Trace.TraceError($"Endorsement Toggle for mod {modId}, result: {action.Status}");
                 return null;
@@ -489,14 +492,18 @@
         /// Checks and reacts to contents of an AggregateException.
         /// </summary>
         /// <param name="a">AggregateException to react to.</param>
-        private void ReactToAggregateException(AggregateException a)
+        /// <returns>A value indicating whether or not the rate limit has been exceeded.</returns>
+        private bool ReactToAggregateException(AggregateException a)
         {
             TraceUtil.TraceAggregateException(a);
 
             if (a.InnerExceptions.Any(ex => ex.Message.Contains("Too Many Requests")))
             {
                 RateLimitExceeded?.Invoke(this, new RateLimitExceededArgs(RateLimit));
+                return true;
             }
+
+            return false;
         }
     }
 }
