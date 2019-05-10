@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	
+	<Target Name="CopyScriptTypes" AfterTargets="Build">
+		<ItemGroup>
+		    <ScriptTypes Include="$(SolutionDir)\Stage\$(Configuration)\ScriptTypes\*.dll" />
+		</ItemGroup>
+
+		<Message Text="Copying ScriptType files to GameModes..." Importance="High" />
+		<Copy SourceFiles="@(ScriptTypes)" DestinationFolder="$(SolutionDir)\Stage\$(Configuration)\GameModes\%(RecursiveDir)" SkipUnchangedFiles="true" />
+	</Target>
+</Project>
