@@ -62,6 +62,7 @@
             this.toolStripProgressBarDownloadSpeed = new Nexus.Client.UI.Controls.CustomizableToolStripProgressBar();
             this.toolStripButtonGoPremium = new System.Windows.Forms.ToolStripButton();
             this.toolStripLabelLoginMessage = new System.Windows.Forms.ToolStripLabel();
+            this.toolStripButtonRateLimit = new System.Windows.Forms.ToolStripButton();
             this.tlbStatusFiller = new System.Windows.Forms.ToolStripStatusLabel();
             this.toolStripLabelBottomBarFeedback = new System.Windows.Forms.ToolStripLabel();
             this.toolStripLabelBottomBarFeedbackCounter = new System.Windows.Forms.ToolStripLabel();
@@ -71,7 +72,6 @@
             this.toolStripLabelActivePluginsCounter = new System.Windows.Forms.ToolStripLabel();
             this.toolStripSeparatorPluginSeparator = new System.Windows.Forms.ToolStripSeparator();
             this.tlbModsCounter = new System.Windows.Forms.ToolStripLabel();
-            this.toolStripButtonRateLimit = new System.Windows.Forms.ToolStripButton();
             this.toolStrip1.SuspendLayout();
             this.tssDownload.SuspendLayout();
             this.SuspendLayout();
@@ -321,6 +321,15 @@
             this.toolStripLabelLoginMessage.Name = "toolStripLabelLoginMessage";
             this.toolStripLabelLoginMessage.Size = new System.Drawing.Size(0, 34);
             // 
+            // toolStripButtonRateLimit
+            // 
+            this.toolStripButtonRateLimit.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.toolStripButtonRateLimit.Image = global::Nexus.Client.Properties.Resources.info;
+            this.toolStripButtonRateLimit.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonRateLimit.Name = "toolStripButtonRateLimit";
+            this.toolStripButtonRateLimit.Size = new System.Drawing.Size(23, 34);
+            this.toolStripButtonRateLimit.Text = "Rate Limit";
+            // 
             // tlbStatusFiller
             // 
             this.tlbStatusFiller.Name = "tlbStatusFiller";
@@ -378,15 +387,6 @@
             this.tlbModsCounter.Size = new System.Drawing.Size(155, 34);
             this.tlbModsCounter.Text = " | Total mods / Active mods ";
             this.tlbModsCounter.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // toolStripButtonRateLimit
-            // 
-            this.toolStripButtonRateLimit.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.toolStripButtonRateLimit.Image = ((System.Drawing.Image)(resources.GetObject("toolStripButtonRateLimit.Image")));
-            this.toolStripButtonRateLimit.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.toolStripButtonRateLimit.Name = "toolStripButtonRateLimit";
-            this.toolStripButtonRateLimit.Size = new System.Drawing.Size(23, 34);
-            this.toolStripButtonRateLimit.Text = "Rate Limit";
             // 
             // MainForm
             // 
