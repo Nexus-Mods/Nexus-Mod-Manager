@@ -343,18 +343,21 @@ namespace Nexus.Client.UI.Controls
 		public void SetupHyperlinkManager()
 		{
 			tlcModId.Hyperlink = true;
-			this.IsHyperlink += delegate(object sender, BrightIdeasSoftware.IsHyperlinkEventArgs e)
+			IsHyperlink += delegate(object sender, BrightIdeasSoftware.IsHyperlinkEventArgs e)
 			{
 				try
 				{
-					IVirtualModInfo vmiInfo = (IVirtualModInfo)e.Model;
-					if (!(vmiInfo == null))
+					var vmiInfo = (IVirtualModInfo)e.Model;
+
+                    if (vmiInfo != null)
 					{
-						if (String.IsNullOrEmpty(vmiInfo.ModId))
-							e.Url = null;
+                        if (string.IsNullOrEmpty(vmiInfo.ModId))
+                        {
+                            e.Url = null;
+                        }
 						else
 						{
-							string strUri = "https://" + m_mmrModRepository.GameModeWebsite + "/mods/" + vmiInfo.ModId;
+							var strUri = $"https://www.nexusmods.com/{m_mmrModRepository.GameDomainName}/mods/{vmiInfo.ModId}";
 							e.Url = strUri;
 						}					
 					}

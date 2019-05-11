@@ -1,18 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.IO;
-using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using System.Text.RegularExpressions;
-using System.Threading;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.Mods;
-using Nexus.Client.Util.Collections;
-
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
-	/// <summary>
+    using System;
+    using System.Collections.Specialized;
+    using System.IO;
+    using System.Linq;
+    using System.Runtime.Remoting.Messaging;
+    using System.Text.RegularExpressions;
+    using System.Threading;
+    using System.Windows.Forms;
+    using ModRepositories;
+    using Mods;
+    using Util.Collections;
+
+    /// <summary>
 	/// Check for newer versions of the registered mods.
 	/// </summary>
 	/// <remarks>
@@ -46,12 +46,12 @@ namespace Nexus.Client.ModManagement
 			/// <summary>
 			/// A simple constructor that initializes the object with the given values.
 			/// </summary>
-			/// <param name="p_modMod">The mod for which the information was retrieved.</param>
-			/// <param name="p_strNewestInfo">The newest info available for the mod.</param>
-			public UpdateInfo(IMod p_modMod, IModInfo p_strNewestInfo)
+			/// <param name="mod">The mod for which the information was retrieved.</param>
+			/// <param name="newestInfo">The newest info available for the mod.</param>
+			public UpdateInfo(IMod mod, IModInfo newestInfo)
 			{
-				Mod = p_modMod;
-				NewestInfo = p_strNewestInfo;
+				Mod = mod;
+				NewestInfo = newestInfo;
 			}
 
 			#endregion
@@ -59,23 +59,24 @@ namespace Nexus.Client.ModManagement
 			/// <summary>
 			/// Determines if the given version is the same as the version in this update info.
 			/// </summary>
-			/// <param name="p_strVersion">The version to match.</param>
-			/// <returns><c>true</c> if the given version is the same as the version in this update info;
-			/// <c>false</c> otherwise.</returns>
-			public bool IsMatchingVersion(string p_strVersion)
+			/// <param name="version">The version to match.</param>
+			/// <returns>true if the given version is the same as the version in this update info;
+			/// false otherwise.</returns>
+			public bool IsMatchingVersion(string version)
 			{
-				Regex rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
-				string strThisVersion = rgxClean.Replace(NewestInfo.HumanReadableVersion ?? "", "");
-				string strThatVersion = rgxClean.Replace(p_strVersion ?? "", "");
-				if (String.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion))
-					return true;
-				else
-					return String.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
-			}
+				var clean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
+				var thisVersion = clean.Replace(NewestInfo.HumanReadableVersion ?? "", "");
+				var thatVersion = clean.Replace(version ?? "", "");
+				if (string.IsNullOrEmpty(thisVersion) || string.IsNullOrEmpty(thatVersion))
+                {
+                    return true;
+                }
+
+                return string.Equals(thisVersion, thatVersion, StringComparison.OrdinalIgnoreCase);
+            }
 		}
 
-		private ThreadSafeObservableList<UpdateInfo> m_oclNewInfo = new ThreadSafeObservableList<UpdateInfo>();
-		private List<IMod> m_lstModList = new List<IMod>();
+		private readonly ThreadSafeObservableList<UpdateInfo> _newInfo = new ThreadSafeObservableList<UpdateInfo>();
 
 		#region Properties
 
@@ -121,8 +122,8 @@ namespace Nexus.Client.ModManagement
 			ModRepository = p_mrpModRepository;
 			ManagedModRegistry = p_mrgModRegistry;
 			EnvironmentInfo = p_eifEnvironmentInfo;
-			ManagedModRegistry.RegisteredMods.CollectionChanged += new NotifyCollectionChangedEventHandler(RegisteredMods_CollectionChanged);
-			NewestModInfo = new ReadOnlyObservableList<UpdateInfo>(m_oclNewInfo);
+			ManagedModRegistry.RegisteredMods.CollectionChanged += RegisteredMods_CollectionChanged;
+			NewestModInfo = new ReadOnlyObservableList<UpdateInfo>(_newInfo);
 		}
 
 		#endregion
@@ -130,15 +131,21 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
-		/// <param name="p_modMod">The mod to endorse/unendorse.</param>
-		public void ToggleModEndorsement(IMod p_modMod)
+		/// <param name="mod">The mod to endorse/unendorse.</param>
+		public void ToggleModEndorsement(IMod mod)
 		{
-			bool? booEndorsementState = ModRepository.ToggleEndorsement(p_modMod.Id, p_modMod.IsEndorsed == true ? 1 : (p_modMod.IsEndorsed == false ? -1 : 0)); 
-			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
-			mifUpdatedMod.IsEndorsed = booEndorsementState;
-			mifUpdatedMod.HumanReadableVersion = String.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;
-			AddNewVersionNumberForMod(p_modMod, (IModInfo)mifUpdatedMod);
-			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+			var booEndorsementState = ModRepository.ToggleEndorsement(mod.Id, mod.IsEndorsed == true ? 1 : mod.IsEndorsed == false ? -1 : 0, mod.HumanReadableVersion);
+
+            if (booEndorsementState == null)
+            {
+                MessageBox.Show($"Could not change endorsement status of \"{mod.ModName}\".", "Endorsement toggle error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var mifUpdatedMod = new ModInfo(mod) {IsEndorsed = booEndorsementState};
+            mifUpdatedMod.HumanReadableVersion = string.IsNullOrEmpty(mifUpdatedMod.LastKnownVersion) ? mifUpdatedMod.HumanReadableVersion : mifUpdatedMod.LastKnownVersion;
+			AddNewVersionNumberForMod(mod, mifUpdatedMod);
+			mod.UpdateInfo(mifUpdatedMod, false);
 		}
 
 		/// <summary>
@@ -146,13 +153,13 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_modMod">The mod.</param>
 		/// <param name="p_intCategoryId">The new category id.</param>
-		public void SwitchModCategory(IMod p_modMod, Int32 p_intCategoryId)
+		public void SwitchModCategory(IMod p_modMod, int p_intCategoryId)
 		{
 			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
 			mifUpdatedMod.CustomCategoryId = p_intCategoryId;
 			mifUpdatedMod.UpdateWarningEnabled = p_modMod.UpdateWarningEnabled;
 			mifUpdatedMod.UpdateChecksEnabled = p_modMod.UpdateChecksEnabled;
-			p_modMod.UpdateInfo((IModInfo)mifUpdatedMod, false);
+			p_modMod.UpdateInfo(mifUpdatedMod, false);
 		}
 
 		/// <summary>
@@ -167,103 +174,102 @@ namespace Nexus.Client.ModManagement
 		private void RegisteredMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			if (!EnvironmentInfo.Settings.CheckForNewModVersions)
-				return;
-			switch (e.Action)
+            {
+                return;
+            }
+
+            switch (e.Action)
 			{
 				case NotifyCollectionChangedAction.Add:
 				case NotifyCollectionChangedAction.Replace:
 					foreach (IMod modMod in e.NewItems)
-						((Func<IMod, IModInfo>)CheckForUpdate).BeginInvoke(modMod, GotNewVersionNumber, modMod);
-					break;
+                    {
+                        ((Func<IMod, IModInfo>)CheckForUpdate).BeginInvoke(modMod, GotNewVersionNumber, modMod);
+                    }
+
+                    break;
 				case NotifyCollectionChangedAction.Remove:
 				case NotifyCollectionChangedAction.Reset:
 					foreach (IMod modMod in e.OldItems)
-						m_oclNewInfo.RemoveAll(x => x.Mod == modMod);
-					break;
+                    {
+                        _newInfo.RemoveAll(x => x.Mod == modMod);
+                    }
+
+                    break;
 			}
 		}
 
 		/// <summary>
 		/// Checks for the updated information for the given mod.
 		/// </summary>
-		/// <param name="p_modMod">The mod for which to check for updates.</param>
-		/// <returns>The lastest informaiton available for the given mod,
+		/// <param name="mod">The mod for which to check for updates.</param>
+		/// <returns>The latest information available for the given mod,
 		/// or <c>null</c> if no information is available.</returns>
-		private IModInfo CheckForUpdate(IMod p_modMod)
+		private IModInfo CheckForUpdate(IMod mod)
 		{
-			IModInfo mifInfo = null;
+			IModInfo modInfo = null;
 
-			try
-			{
-				if (!ModRepository.IsOffline)
-				{
-					//get mod info
-					for (int i = 0; i <= 2; i++)
-					{
-						if (!String.IsNullOrEmpty(p_modMod.Id))
-							mifInfo = ModRepository.GetModInfo(p_modMod.Id);
-						if (mifInfo == null)
-							mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
-						if (mifInfo != null)
-							break;
+            if (!ModRepository.IsOffline)
+            {
+                //get mod info
+                for (var i = 0; i <= 2; i++)
+                {
+                    if (!string.IsNullOrEmpty(mod.Id))
+                    {
+                        modInfo = ModRepository.GetModInfo(mod.Id);
+                    }
 
-						Thread.Sleep(1000);
-					}
-					if (mifInfo == null)
-					{
-						string strSearchTerms = p_modMod.ModName;
-						if (String.IsNullOrEmpty(strSearchTerms))
-							strSearchTerms = Path.GetFileNameWithoutExtension(p_modMod.Filename).Replace("_", " ").Replace("-", " ");
-						//use heuristics to find info
-						if (!String.IsNullOrEmpty(strSearchTerms))
-						{
-							string[] strTerms = strSearchTerms.Split(' ', '-', '_');
-							string strSearchString = strTerms.OrderByDescending(s => s.Length).FirstOrDefault();
-							string strAuthor = p_modMod.Author;
-							if (!String.IsNullOrEmpty(strSearchString) && !String.IsNullOrEmpty(strAuthor) && (strAuthor.Length >= 3))
-								mifInfo = ModRepository.FindMods(strSearchString, strAuthor, true).FirstOrDefault();
-						}
-					}
-				}
-				if (mifInfo == null)
-					return null;
-				return mifInfo;
-			}
-			catch (RepositoryUnavailableException)
-			{
-				//the repository is not available, so don't bother
-				return null;
-			}
-		}
+                    if (modInfo == null)
+                    {
+                        modInfo = ModRepository.GetModInfoForFile(mod.Filename);
+                    }
+
+                    if (modInfo != null)
+                    {
+                        break;
+                    }
+
+                    Thread.Sleep(1000);
+                }
+            }
+
+            return modInfo;
+        }
 
 		/// <summary>
 		/// The callback when information about a mod has been retrieved.
 		/// </summary>
-		/// <param name="p_arsResult">The asynchronous result.</param>
-		private void GotNewVersionNumber(IAsyncResult p_arsResult)
+		/// <param name="result">The asynchronous result.</param>
+		private void GotNewVersionNumber(IAsyncResult result)
 		{
-			Func<IMod, IModInfo> dlgUpdateChecker = (Func<IMod, IModInfo>)((AsyncResult)p_arsResult).AsyncDelegate;
-			IModInfo mifNewestInfo = dlgUpdateChecker.EndInvoke(p_arsResult);
-			p_arsResult.AsyncWaitHandle.Close();
-			IMod modMod = (IMod)p_arsResult.AsyncState;
-			AddNewVersionNumberForMod(modMod, mifNewestInfo);
+			var dlgUpdateChecker = (Func<IMod, IModInfo>)((AsyncResult)result).AsyncDelegate;
+			var mifNewestInfo = dlgUpdateChecker.EndInvoke(result);
+			result.AsyncWaitHandle.Close();
+			var modMod = (IMod)result.AsyncState;
+
+            AddNewVersionNumberForMod(modMod, mifNewestInfo);
 		}
 
 		/// <summary>
 		/// Adds the newest information for the given mod.
 		/// </summary>
-		/// <param name="p_modMod">The mod for which to add the newest info.</param>
-		/// <param name="p_mifNewestInfo">The newest info to add for the given mod.</param>
-		public void AddNewVersionNumberForMod(IMod p_modMod, IModInfo p_mifNewestInfo)
+		/// <param name="mod">The mod for which to add the newest info.</param>
+		/// <param name="newestInfo">The newest info to add for the given mod.</param>
+		public void AddNewVersionNumberForMod(IMod mod, IModInfo newestInfo)
 		{
-			lock (m_oclNewInfo)
+			lock (_newInfo)
 			{
-				Int32 intExistingIndex = m_oclNewInfo.IndexOf(x => (x.Mod == p_modMod));
-				if (intExistingIndex < 0)
-					m_oclNewInfo.Add(new UpdateInfo(p_modMod, p_mifNewestInfo));
-				else
-					m_oclNewInfo[intExistingIndex] = new UpdateInfo(p_modMod, p_mifNewestInfo);
-			}
+				var existingIndex = _newInfo.IndexOf(x => x.Mod == mod);
+
+                if (existingIndex < 0)
+                {
+                    _newInfo.Add(new UpdateInfo(mod, newestInfo));
+                }
+                else
+                {
+                    _newInfo[existingIndex] = new UpdateInfo(mod, newestInfo);
+                }
+            }
 		}
 	}
 }

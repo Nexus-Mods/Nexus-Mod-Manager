@@ -1,20 +1,21 @@
-﻿using System;
-using System.ComponentModel;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Threading;
-using System.Windows.Forms;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.BackgroundTasks.UI;
-using Nexus.Client.ModManagement;
-using Nexus.Client.ModManagement.UI;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
-using Nexus.UI.Controls;
-
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
-	/// <summary>
+    using System;
+    using System.ComponentModel;
+    using System.Drawing;
+    using System.Drawing.Drawing2D;
+    using System.Threading;
+    using System.Windows.Forms;
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.BackgroundTasks.UI;
+    using Nexus.Client.ModManagement;
+    using Nexus.Client.ModManagement.UI;
+    using Nexus.Client.SSO;
+    using Nexus.Client.UI;
+    using Nexus.Client.Util;
+    using Nexus.UI.Controls;
+
+    /// <summary>
 	/// The view displaying the progress of the application initialization.
 	/// </summary>
 	/// <remarks>
@@ -380,11 +381,14 @@ namespace Nexus.Client
 		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
 		/// <returns><c>true</c> if the user was successfully logged in;
 		/// <c>false</c> otherwise</returns>
-		protected bool Login(LoginFormVM p_vmlViewModel)
+		protected bool Login(AuthenticationFormViewModel p_vmlViewModel)
 		{
 			if (InvokeRequired)
-				return (bool)Invoke((Func<LoginFormVM, bool>)Login, p_vmlViewModel);
-			LoginForm frmLogin = new LoginForm(p_vmlViewModel, null);
+            {
+                return (bool)Invoke((Func<AuthenticationFormViewModel, bool>)Login, p_vmlViewModel);
+            }
+
+            var frmLogin = new AuthenticationForm(p_vmlViewModel, null);
 			return frmLogin.ShowDialog(this) == DialogResult.OK;
 		}
 

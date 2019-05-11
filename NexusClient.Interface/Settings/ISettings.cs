@@ -65,9 +65,9 @@ namespace Nexus.Client.Settings
 		string RememberedGameMode { get; set; }
 
 		/// <summary>
-		/// Gets or sets whether the selected view mode should be rememberd the next time the client is started.
+		/// Gets or sets whether the selected view mode should be remembered the next time the client is started.
 		/// </summary>
-		/// <value>Whether the selected view mode should be rememberd the next time the client is started.</value>
+		/// <value>Whether the selected view mode should be remembered the next time the client is started.</value>
 		bool UseCategoryView { get; set; }
 
 		/// <summary>
@@ -298,7 +298,7 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <value>The index of the currently selected Add Mod command in the Mod
 		/// Manager view.</value>
-		Int32 SelectedAddModCommandIndex { get; set; }
+		int SelectedAddModCommandIndex { get; set; }
 
 		/// <summary>
 		/// Gets the last used launch command for a game mode.
@@ -334,13 +334,13 @@ namespace Nexus.Client.Settings
 		/// Gets or sets the interval (in days) to wait before checking for mod updates.
 		/// </summary>
 		/// <value>The interval (in days) to wait before checking for a mod updates.</value>
-		Int32 ModVersionsCheckInterval { get; set; }
+		int ModVersionsCheckInterval { get; set; }
 
 		/// <summary>
-		/// Gets or sets the Max currenta downloads limit.
+		/// Gets or sets the Max current downloads limit.
 		/// </summary>
 		/// <value>The max current downloads limit.</value>
-		Int32 MaxConcurrentDownloads { get; set; }
+		int MaxConcurrentDownloads { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether the client should add missing info to managed mods.
@@ -365,18 +365,6 @@ namespace Nexus.Client.Settings
 		/// </remarks>
 		/// <value>The custom launch command arguments for a game mode.</value>
 		PerGameModeSettings<string> CustomLaunchCommandArguments { get; }
-
-		/// <summary>
-		/// Gets the user's authentication tokens for each mod repository.
-		/// </summary>
-		/// <value>The user's authentication tokens for each mod repository.</value>
-		KeyedSettings<KeyedSettings<string>> RepositoryAuthenticationTokens { get; }
-
-		/// <summary>
-		/// Gets the user's usernames for each mod repository.
-		/// </summary>
-		/// <value>The user's usernames for each mod repository.</value>
-		KeyedSettings<string> RepositoryUsernames { get; }
 
 		/// <summary>
 		/// Gets the links to help resources.
@@ -416,7 +404,7 @@ namespace Nexus.Client.Settings
 		/// Gets or sets the interval (in days) to wait before checking for a program update.
 		/// </summary>
 		/// <value>The interval (in days) to wait before checking for a program update.</value>
-		Int32 UpdateCheckInterval { get; set; }
+		int UpdateCheckInterval { get; set; }
 
 		/// <summary>
 		/// Gets or sets whether to scan sub directories of the mod directory for mods.
@@ -455,12 +443,6 @@ namespace Nexus.Client.Settings
 		bool SkyrimSEFirstInstallWarning { get; set; }
 
 		/// <summary>
-		/// Gets or sets the user favourite download location.
-		/// </summary>
-		/// <value>The user favourite download location.</value>
-		string UserLocation { get; set; }
-
-		/// <summary>
 		/// Saves changes to the user settings.
 		/// </summary>
 		void Save();
@@ -469,5 +451,10 @@ namespace Nexus.Client.Settings
 		/// Reloads the stored values from persistent storage, discarding any unsaved changes.
 		/// </summary>
 		void Reload();
+
+        /// <summary>
+        /// The API key used to authenticate user against Nexus Mods API.
+        /// </summary>
+        string ApiKey { get; set; }
 	}
 }

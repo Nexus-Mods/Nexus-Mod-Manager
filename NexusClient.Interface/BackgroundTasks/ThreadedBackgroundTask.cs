@@ -59,21 +59,21 @@ namespace Nexus.Client
 		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <param name="p_strMessage">The message describing the state of the task.</param>
 		/// <returns>A return value.</returns>
-		protected virtual object DoWork(object[] p_objArgs, out string p_strMessage)
+		protected virtual object DoWork(object[] args, out string p_strMessage)
 		{
 			p_strMessage = null;
-			return DoWork(p_objArgs);
+			return DoWork(args);
 		}
 
 		/// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <returns>A return value.</returns>
-		protected virtual object DoWork(object[] p_objArgs)
+		protected virtual object DoWork(object[] args)
 		{
 			return null;
 		}
@@ -127,7 +127,7 @@ namespace Nexus.Client
 			// StartWait() breaks on said line.
 
 			/*Func<object, object> dlg = new Func<object, object>(RunThreadedWork);
-			IAsyncResult ar = dlg.BeginInvoke(p_objArgs, EndThreadInvokeHandler, p_objArgs);*/
+			IAsyncResult ar = dlg.BeginInvoke(args, EndThreadInvokeHandler, args);*/
 
 			TrackedThread thdWork = new TrackedThread(RunThread);
 			thdWork.Thread.IsBackground = p_booRunInBackground;
@@ -191,7 +191,7 @@ namespace Nexus.Client
 
 			/*
 			m_areTaskEnded.Reset();
-			Start(p_booRunInBackground, p_objArgs);
+			Start(p_booRunInBackground, args);
 			m_areTaskEnded.WaitOne();*/
 			return m_objReturnValue;
 		}

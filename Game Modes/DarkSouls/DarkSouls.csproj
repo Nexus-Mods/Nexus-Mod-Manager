@@ -56,7 +56,7 @@
   <ItemGroup>
     <Compile Include="..\..\SharedAssemblyInformation.cs">
       <Link>Properties\SharedAssemblyInformation.cs</Link>
-    </Compile>    
+    </Compile>
     <Compile Include="Settings\GeneralSettingsGroup.cs" />
     <Compile Include="Settings\UI\GeneralSettingsPage.cs">
       <SubType>UserControl</SubType>
@@ -129,6 +129,9 @@
   <ItemGroup>
     <Content Include="Resources\Categories.xml" />
     <Content Include="Resources\darksouls_logo.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

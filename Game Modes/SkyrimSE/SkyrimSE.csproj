@@ -122,6 +122,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="Resources\Categories.xml" />
     <None Include="Resources\SkyrimSE_base.txt" />
     <Content Include="Resources\SkyrimSE_logo.ico" />

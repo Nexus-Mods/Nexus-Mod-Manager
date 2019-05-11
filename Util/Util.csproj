@@ -41,10 +41,8 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="SevenZipSharp, Version=0.64.3890.29348, Culture=neutral, PublicKeyToken=20de82c62b055c88, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.1.91\lib\net45\SevenZipSharp.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="SevenZipSharp, Version=1.1.144.0, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.1.144\lib\net45\SevenZipSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
@@ -74,6 +72,7 @@
     <Compile Include="FileUtil.cs" />
     <Compile Include="Collections\IListExtensions.cs" />
     <Compile Include="ImageFormatException.cs" />
+    <Compile Include="Md5.cs" />
     <Compile Include="ObjectHelper.cs" />
     <Compile Include="ObservableObject.cs" />
     <Compile Include="Collections\ObservableSet.cs" />
@@ -104,6 +103,9 @@
     <Compile Include="Threading\TrackedThreadManager.cs" />
     <Compile Include="TraceUtil.cs" />
     <Compile Include="UriUtil.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

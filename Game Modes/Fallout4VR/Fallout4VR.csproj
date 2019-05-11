@@ -38,6 +38,7 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="Resources\Categories.xml" />
   </ItemGroup>
   <ItemGroup>

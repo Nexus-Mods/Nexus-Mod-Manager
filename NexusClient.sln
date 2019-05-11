@@ -107,8 +107,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fallout4.XmlScript", "Game 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7971A91A-0664-4AE6-93E2-7610D42E9E85}"
 	ProjectSection(SolutionItems) = preProject
-		SharedAssemblyInformation.cs = SharedAssemblyInformation.cs
 		nuget.config = nuget.config
+		SharedAssemblyInformation.cs = SharedAssemblyInformation.cs
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DragonsDogma", "Game Modes\DragonsDogma\DragonsDogma.csproj", "{9D05D679-62DE-4795-BF25-2EB20B28DA1C}"
@@ -384,7 +384,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{325AAE29-5A23-4CF9-B0B2-F9316DD46606} = {7971A91A-0664-4AE6-93E2-7610D42E9E85}
 		{BD5A9056-F832-4DE4-97B2-38AB62342382} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{211400C3-E73E-4EBA-A9C7-9900DF9E7719} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{B0F526DB-967B-4A57-9EC9-2E4950E54F26} = {A8150A1D-749D-4346-B8F7-616644392CD9}

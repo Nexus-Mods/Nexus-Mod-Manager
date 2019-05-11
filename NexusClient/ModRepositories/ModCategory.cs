@@ -1,10 +1,10 @@
-﻿using System;
-using Nexus.Client.Mods;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.ModRepositories
+﻿namespace Nexus.Client.ModRepositories
 {
-	public class ModCategory : IModCategory, IEquatable<ModCategory>
+    using System;
+
+    using Mods;
+
+    public class ModCategory : IModCategory, IEquatable<ModCategory>
 	{
 		#region Properties
 

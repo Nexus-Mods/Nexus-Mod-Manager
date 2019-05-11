@@ -1466,86 +1466,86 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// Updates the object's properties to the values of the
 		/// given <see cref="IModInfo"/>.
 		/// </summary>
-		/// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
+		/// <param name="modInfo">The <see cref="IModInfo"/> whose values
 		/// are to be used to update this object's properties.</param>
-		/// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
+		/// <param name="overwriteAllValues">Whether to overwrite the current info values,
 		/// or just the empty ones.</param>
-		public void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues)
+		public void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues)
 		{
 			bool booChangedValue = false;
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Id))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(Id))
 			{
-				Id = p_mifInfo.Id;
+				Id = modInfo.Id;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(DownloadId) || (p_booOverwriteAllValues == null))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(DownloadId) || (overwriteAllValues == null))
 			{
-				DownloadId = p_mifInfo.DownloadId;
+				DownloadId = modInfo.DownloadId;
 				booChangedValue = true;
 			}
-			if (((p_booOverwriteAllValues != false) || String.IsNullOrEmpty(ModName) || ModName.Equals(Path.GetFileNameWithoutExtension(m_strFilePath))) && !String.IsNullOrEmpty(p_mifInfo.ModName))
+			if (((overwriteAllValues != false) || String.IsNullOrEmpty(ModName) || ModName.Equals(Path.GetFileNameWithoutExtension(m_strFilePath))) && !String.IsNullOrEmpty(modInfo.ModName))
 			{
-				ModName = p_mifInfo.ModName;
+				ModName = modInfo.ModName;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(FileName))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(FileName))
 			{
-				FileName = p_mifInfo.FileName;
+				FileName = modInfo.FileName;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(HumanReadableVersion))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(HumanReadableVersion))
 			{
-				HumanReadableVersion = p_mifInfo.HumanReadableVersion;
+				HumanReadableVersion = modInfo.HumanReadableVersion;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(LastKnownVersion) || (LastKnownVersion != p_mifInfo.LastKnownVersion))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(LastKnownVersion) || (LastKnownVersion != modInfo.LastKnownVersion))
 			{
-				LastKnownVersion = p_mifInfo.LastKnownVersion;
+				LastKnownVersion = modInfo.LastKnownVersion;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || (IsEndorsed != p_mifInfo.IsEndorsed))
+			if ((overwriteAllValues == true) || (IsEndorsed != modInfo.IsEndorsed))
 			{
-				IsEndorsed = p_mifInfo.IsEndorsed;
+				IsEndorsed = modInfo.IsEndorsed;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || (MachineVersion == null))
+			if ((overwriteAllValues == true) || (MachineVersion == null))
 			{
-				MachineVersion = p_mifInfo.MachineVersion;
+				MachineVersion = modInfo.MachineVersion;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Author) || (p_booOverwriteAllValues == null))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(Author) || (overwriteAllValues == null))
 			{
-				Author = p_mifInfo.Author;
+				Author = modInfo.Author;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || (CategoryId != p_mifInfo.CategoryId) || (p_booOverwriteAllValues == null))
+			if ((overwriteAllValues == true) || (CategoryId != modInfo.CategoryId) || (overwriteAllValues == null))
 			{
-				CategoryId = p_mifInfo.CategoryId;
+				CategoryId = modInfo.CategoryId;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || (CustomCategoryId != p_mifInfo.CustomCategoryId))
+			if ((overwriteAllValues == true) || (CustomCategoryId != modInfo.CustomCategoryId))
 			{
-				CustomCategoryId = p_mifInfo.CustomCategoryId;
+				CustomCategoryId = modInfo.CustomCategoryId;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(Description) || (p_booOverwriteAllValues == null))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(Description) || (overwriteAllValues == null))
 			{
-				Description = p_mifInfo.Description;
+				Description = modInfo.Description;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || String.IsNullOrEmpty(InstallDate))
+			if ((overwriteAllValues == true) || String.IsNullOrEmpty(InstallDate))
 			{
-				InstallDate = p_mifInfo.InstallDate;
+				InstallDate = modInfo.InstallDate;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || (Website == null) || (p_booOverwriteAllValues == null))
+			if ((overwriteAllValues == true) || (Website == null) || (overwriteAllValues == null))
 			{
-				Website = p_mifInfo.Website;
+				Website = modInfo.Website;
 				booChangedValue = true;
 			}
-			if ((p_booOverwriteAllValues == true) || (UpdateChecksEnabled != p_mifInfo.UpdateChecksEnabled))
+			if ((overwriteAllValues == true) || (UpdateChecksEnabled != modInfo.UpdateChecksEnabled))
 			{
-				UpdateChecksEnabled = p_mifInfo.UpdateChecksEnabled;
+				UpdateChecksEnabled = modInfo.UpdateChecksEnabled;
 				booChangedValue = true;
 			}
 
@@ -1555,19 +1555,19 @@ namespace Nexus.Client.Mods.Formats.OMod
 				ReplaceSpecialFile("config", bteInfo);
 			}
 
-			if ((p_booOverwriteAllValues == true) || (Screenshot == null))
+			if ((overwriteAllValues == true) || (Screenshot == null))
 			{
-				if (p_mifInfo.Screenshot == null)
+				if (modInfo.Screenshot == null)
 				{
 					if (m_booHasScreenshot)
 					{
 						DeleteSpecialFile(ScreenshotPath);
-						Screenshot = p_mifInfo.Screenshot;
+						Screenshot = modInfo.Screenshot;
 					}
 				}
 				else
 				{
-					Screenshot = p_mifInfo.Screenshot;
+					Screenshot = modInfo.Screenshot;
 					ReplaceSpecialFile(ScreenshotPath, Screenshot.Data);
 				}
 			}

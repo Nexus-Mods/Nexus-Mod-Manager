@@ -1,7 +1,7 @@
 ﻿namespace Nexus.Client.Util
 {
     /// <summary>
-    /// 
+    /// Data that is commonly accessed throughout the solution.
     /// </summary>
     public static class CommonData
     {
@@ -11,18 +11,18 @@
         /// <remarks>
         /// The version is in the form: a.b.c
         /// 
-        /// (a) should change when there is a major alteration to the programme.
+        /// (a) should change when there is a major alteration to the program.
         /// Something akin to a UI overhaul, or a major new feature that alters
         /// how users will interact with the application.
         /// 
-        /// (b) should change when there is a normal alteration to the programme.
+        /// (b) should change when there is a normal alteration to the program.
         /// Something akin to regular maintenance, a major bug fix, or a simple
         /// new feature addition.
         /// 
-        /// (c) should change when there is a minor alteration to the programme.
+        /// (c) should change when there is a minor alteration to the program.
         /// Something akin to a minor bug fix, or a typo correction.
         /// </remarks>
-        public const string VersionString = "0.65.11";
+        public const string VersionString = "0.66.0";
 
         /// <summary>
         /// Gets the full name of the mod manager.

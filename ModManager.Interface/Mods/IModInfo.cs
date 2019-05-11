@@ -1,13 +1,12 @@
-﻿using System;
-using System.Xml;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.Mods
+﻿namespace Nexus.Client.Mods
 {
-	/// <summary>
-	/// A contract specifying an object that contains information about a mod.
-	/// </summary>
-	public interface IModInfo
+    using System;
+    using Util;
+
+    /// <summary>
+    /// A contract specifying an object that contains information about a mod.
+    /// </summary>
+    public interface IModInfo
 	{
 		#region Properties
 
@@ -75,13 +74,13 @@ namespace Nexus.Client.Mods
 		/// Gets the CategoryId of the mod.
 		/// </summary>
 		/// <value>The CategoryId of the mod.</value>
-		Int32 CategoryId { get; }
+		int CategoryId { get; }
 
-		/// <summary>
-		/// Gets the user custom CategoryId of the mod.
-		/// </summary>
-		/// <value>The user custom CategoryId of the mod.</value>
-		Int32 CustomCategoryId { get; }
+        /// <summary>
+        /// Gets the user custom CategoryId of the mod.
+        /// </summary>
+        /// <value>The user custom CategoryId of the mod.</value>
+        int CustomCategoryId { get; }
 
 		/// <summary>
 		/// Gets or sets the description of the mod.
@@ -129,10 +128,10 @@ namespace Nexus.Client.Mods
         /// Updates the object's proerties to the values of the
         /// given <see cref="IModInfo"/>.
         /// </summary>
-        /// <param name="p_mifInfo">The <see cref="IModInfo"/> whose values
+        /// <param name="modInfo">The <see cref="IModInfo"/> whose values
         /// are to be used to update this object's properties.</param>
-        /// <param name="p_booOverwriteAllValues">Whether to overwrite the current info values,
+        /// <param name="overwriteAllValues">Whether to overwrite the current info values,
         /// or just the empty ones.</param>
-        void UpdateInfo(IModInfo p_mifInfo, bool? p_booOverwriteAllValues);
+        void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues);
 	}
 }

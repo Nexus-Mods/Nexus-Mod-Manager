@@ -1,15 +1,18 @@
-﻿using System;
-using System.IO;
-
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
-	/// <summary>
-	/// Represents an NXM url.
-	/// </summary>
-	/// <remarks>
-	/// This is a convenice class that parses out parts of the URL that are of interest.
-	/// </remarks>
-	public class NexusUrl : Uri
+    using System;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Text.RegularExpressions;
+
+    /// <inheritdoc />
+    /// <summary>
+    /// Represents an NXM url.
+    /// </summary>
+    /// <remarks>
+    /// This is a convenience class that parses out parts of the URL that are of interest.
+    /// </remarks>
+    public class NexusUrl : Uri
 	{
 		#region Properties
 
@@ -24,10 +27,14 @@ namespace Nexus.Client.ModManagement
 		{
 			get
 			{
-				string[] strUriParts = TrimmedSegments;
-				if ((strUriParts.Length > 2) && strUriParts[1].Equals("mods", StringComparison.OrdinalIgnoreCase))
-					return strUriParts[2];
-				return null;
+				var strUriParts = TrimmedSegments;
+
+                if (strUriParts.Length > 2 && strUriParts[1].Equals("mods", StringComparison.OrdinalIgnoreCase))
+                {
+                    return strUriParts[2];
+                }
+
+                return null;
 			}
 		}
 
@@ -42,10 +49,14 @@ namespace Nexus.Client.ModManagement
 		{
 			get
 			{
-				string[] strUriParts = TrimmedSegments;
-				if ((strUriParts.Length > 4) && strUriParts[3].Equals("files", StringComparison.OrdinalIgnoreCase))
-					return strUriParts[4];
-				return null;
+				var strUriParts = TrimmedSegments;
+
+                if (strUriParts.Length > 4 && strUriParts[3].Equals("files", StringComparison.OrdinalIgnoreCase))
+                {
+                    return strUriParts[4];
+                }
+
+                return null;
 			}
 		}
 
@@ -57,10 +68,14 @@ namespace Nexus.Client.ModManagement
 		{
 			get
 			{
-				string[] strUriParts = Segments;
-				for (Int32 i = 0; i < strUriParts.Length; i++)
-					strUriParts[i] = strUriParts[i].TrimEnd(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-				return strUriParts;
+				var strUriParts = Segments;
+
+                for (var i = 0; i < strUriParts.Length; i++)
+                {
+                    strUriParts[i] = strUriParts[i].TrimEnd(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                }
+
+                return strUriParts;
 			}
 		}
 
@@ -75,29 +90,69 @@ namespace Nexus.Client.ModManagement
 		{
 			get
 			{
-				string[] strUriParts = TrimmedSegments;
-				if ((strUriParts.Length > 2) && strUriParts[1].Equals("profiles", StringComparison.OrdinalIgnoreCase))
-					return strUriParts[2];
-				return null;
+				var strUriParts = TrimmedSegments;
+
+                if (strUriParts.Length > 2 && strUriParts[1].Equals("profiles", StringComparison.OrdinalIgnoreCase))
+                {
+                    return strUriParts[2];
+                }
+
+                return null;
 			}
 		}
 
-		#endregion
+        /// <summary>
+        /// Key from Nexus for this download.
+        /// </summary>
+        public string Key { get; private set; }
 
-		#region Constructors
+        /// <summary>
+        /// Expiry of the key for this download.
+        /// </summary>
+        public int Expiry { get; private set; }
 
-		/// <summary>
-		/// A simple constructor that initializes the object with the given values.
-		/// </summary>
-		/// <param name="p_uriUrl">The NXM URL.</param>
-		/// <exception cref="ArgumentException">Thrown if the given URI's scheme is not NXM.</exception>
-		public NexusUrl(Uri p_uriUrl)
-			: base(p_uriUrl.ToString())
+        /// <summary>
+        /// User associated with this download.
+        /// </summary>
+        public int UserId { get; private set; }
+
+        #endregion
+
+        #region Constructors
+
+        /// <inheritdoc />
+        /// <summary>
+        /// A simple constructor that initializes the object with the given values.
+        /// </summary>
+        /// <param name="url">The NXM URL.</param>
+        /// <exception cref="T:System.ArgumentException">Thrown if the given URI's scheme is not NXM.</exception>
+        public NexusUrl(Uri url) : base(url.ToString())
 		{
-			if (!Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
-				throw new ArgumentException("Scheme must be NXM.");
-		}
+            if (!Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Scheme must be NXM.");
+            }
 
-		#endregion
+            SetQueryValues(Query);
+        }
+
+        #endregion
+
+        private void SetQueryValues(string query)
+        {
+            var match = Regex.Match(query, @"\?key=([^&]*)\&expires=(\d*)\&user_id=(\d*)");
+
+            if (match.Groups.Count != 4)
+            {
+                Trace.TraceWarning("Download URL did not contain expected values.");
+                Key = string.Empty;
+                Expiry = -1;
+                return;
+            }
+
+            Key = match.Groups[1].Value;
+            Expiry = Convert.ToInt32(match.Groups[2].Value);
+            UserId = Convert.ToInt32(match.Groups[3].Value);
+        }
 	}
 }

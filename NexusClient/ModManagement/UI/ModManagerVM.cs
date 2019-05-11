@@ -839,25 +839,25 @@ namespace Nexus.Client.ModManagement.UI
 		/// Checks for mod file's missing download id.
 		/// </summary>
 		/// <returns>Message</returns>
-		public void CheckModFileDownloadId(bool? p_booOnlyMissing)
+		public void CheckModFileDownloadId(bool? onlyMissing)
 		{
-			List<IMod> lstModList = new List<IMod>();
+			var lstModList = new List<IMod>();
 
-			lstModList.AddRange(from Mod in ManagedMods
-								where Mod.UpdateChecksEnabled
-								select Mod);
+			lstModList.AddRange(from mod in ManagedMods
+								where mod.UpdateChecksEnabled
+								select mod);
 
 			if (!ModRepository.IsOffline)
 			{
 				if (ManagedMods.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, p_booOnlyMissing)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, onlyMissing)));
 				}
 			}
 			else
 			{
 				ModManager.Login();
-				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, p_booOnlyMissing);
+				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, onlyMissing);
 			}
 		}
 

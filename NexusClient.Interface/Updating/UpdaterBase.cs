@@ -248,8 +248,8 @@ namespace Nexus.Client.Updating
 		protected string DownloadFile(Uri p_uriUrl)
 		{
 			//TODO get the block size from settings
-			FileDownloader fdrDownloader = new FileDownloader(p_uriUrl, null, EnvironmentInfo.TemporaryPath, true, 1, 500 * 1024, "");
-			fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
+			var fdrDownloader = new FileDownloader(p_uriUrl, EnvironmentInfo.TemporaryPath, true, 1, 500 * 1024, "");
+			fdrDownloader.DownloadComplete += Downloader_DownloadComplete;
 			fdrDownloader.StartDownload();
 			m_dicWaitForDownloads[fdrDownloader] = new AutoResetEvent(false);
 			m_dicWaitForDownloads[fdrDownloader].WaitOne();

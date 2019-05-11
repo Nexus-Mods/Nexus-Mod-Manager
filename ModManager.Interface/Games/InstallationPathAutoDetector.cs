@@ -48,11 +48,11 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// The delegate that is called to start the backgound task.
 		/// </summary>
-		/// <param name="p_objArgs">the files to search for.</param>
+		/// <param name="args">the files to search for.</param>
 		/// <returns>The auto-detected installation path.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
-			string[] strSearchFiles = (string[])p_objArgs;
+			string[] strSearchFiles = (string[])args;
 			DriveInfo[] difDrives = DriveInfo.GetDrives();
 
 			OverallProgressMaximum = difDrives.Length * 2;

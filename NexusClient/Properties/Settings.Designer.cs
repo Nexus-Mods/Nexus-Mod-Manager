@@ -202,16 +202,19 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("default")]
-        public string UserLocation {
-            get {
-                return ((string)(this["UserLocation"]));
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string ApiKey
+        {
+            get
+            {
+                return ((string)(this["ApiKey"]));
             }
-            set {
-                this["UserLocation"] = value;
+            set
+            {
+                this["ApiKey"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
@@ -664,19 +667,6 @@ namespace Nexus.Client.Properties {
             }
             set {
                 this["RepositoryUsernames"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfKeyedSettingsOfString />" +
-            "")]
-        public global::Nexus.Client.Settings.KeyedSettings<Nexus.Client.Settings.KeyedSettings<string>> RepositoryAuthenticationTokens {
-            get {
-                return ((global::Nexus.Client.Settings.KeyedSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["RepositoryAuthenticationTokens"]));
-            }
-            set {
-                this["RepositoryAuthenticationTokens"] = value;
             }
         }
         

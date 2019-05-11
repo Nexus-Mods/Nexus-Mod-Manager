@@ -1,37 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.DownloadMonitoring;
-using Nexus.Client.Games;
-using Nexus.Client.ModActivationMonitoring;
-using Nexus.Client.ModAuthoring;
-using Nexus.Client.ModManagement.InstallationLog;
-using Nexus.Client.ModRepositories;
-using Nexus.Client.Mods;
-using Nexus.Client.PluginManagement;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
-
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
-	/// <summary>
-	/// The class the encapsulates managing mods.
-	/// </summary>
-	/// <remarks>
-	/// The list of managed mods needs to be centralized to ensure integrity; having multiple mod managers, each
-	/// with a potentially different list of managed mods, would be disastrous. As such, this
-	/// object is a singleton to help enforce that policy.
-	/// Note, however, that the singleton nature of the manager is not meant to provide global access to the object.
-	/// As such, there is no static accessor to retrieve the singleton instance. Instead, the
-	/// <see cref="Initialize"/> method returns the only instance that should be used.
-	/// </remarks>
-	public partial class ModManager
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Text.RegularExpressions;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using System.Windows.Forms;
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.DownloadMonitoring;
+    using Nexus.Client.Games;
+    using Nexus.Client.ModActivationMonitoring;
+    using Nexus.Client.ModAuthoring;
+    using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.ModRepositories;
+    using Nexus.Client.Mods;
+    using Nexus.Client.PluginManagement;
+    using Nexus.Client.SSO;
+    using Nexus.Client.UI;
+    using Nexus.Client.Util;
+    using Nexus.Client.Util.Collections;
+
+    /// <summary>
+    /// The class the encapsulates managing mods.
+    /// </summary>
+    /// <remarks>
+    /// The list of managed mods needs to be centralized to ensure integrity; having multiple mod managers, each
+    /// with a potentially different list of managed mods, would be disastrous. As such, this
+    /// object is a singleton to help enforce that policy.
+    /// Note, however, that the singleton nature of the manager is not meant to provide global access to the object.
+    /// As such, there is no static accessor to retrieve the singleton instance. Instead, the
+    /// <see cref="Initialize"/> method returns the only instance that should be used.
+    /// </remarks>
+    public partial class ModManager
 	{
 		#region Singleton
 
@@ -93,7 +94,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// The loginform Task.
 		/// </summary>
-		public LoginFormTask LoginTask;
+		public AuthenticationFormTask LoginTask;
 
 		/// <summary>
 		/// Gets the application's envrionment info.
@@ -340,7 +341,7 @@ namespace Nexus.Client.ModManagement
 			ModActivationMonitor = p_mamMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
-			LoginTask = new LoginFormTask(this);
+			LoginTask = new AuthenticationFormTask(this);
 		}
 
 		#endregion
@@ -630,22 +631,23 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Runs the managed updaters.
 		/// </summary>
-		/// <param name="p_lstModList">The list of mods we need to update.</param>
-		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
-		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
+		/// <param name="modList">The list of mods we need to update.</param>
+		/// <param name="confirm">The delegate to call to confirm an action.</param>
+		/// <param name="overrideCategorySetup">Whether to force a global update.</param>
+		/// <param name="missingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask UpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId)
-		{
-			if (ModRepository.UserStatus != null)
+		public IBackgroundTask UpdateMods(List<IMod> modList, IProfileManager profileManager, ConfirmActionMethod confirm, bool overrideCategorySetup, bool? missingDownloadId)
+        {
+            if (ModRepository.UserStatus != null)
 			{
-				ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
-				mutModUpdateCheck.Update(p_camConfirm);
-				return mutModUpdateCheck;
+				var modUpdateCheck = new ModUpdateCheckTask(AutoUpdater, profileManager, ModRepository, modList, overrideCategorySetup, missingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+				modUpdateCheck.Update(confirm);
+
+                return modUpdateCheck;
 			}
-			else
-				throw new Exception("Login required");
-		}
+
+            throw new Exception("Login required");
+        }
 
 		/// <summary>
 		/// Disables multiple mods.

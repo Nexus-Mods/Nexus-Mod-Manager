@@ -39,66 +39,65 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Gets a list of possible mod info tags which match the given mod.
 		/// </summary>
-		/// <param name="p_modMod">The mod for which to retrieve a list of possible tags.</param>
+		/// <param name="mod">The mod for which to retrieve a list of possible tags.</param>
 		/// <returns>A list of possible mod info tags which match the given mod.</returns>
-		public IEnumerable<IModInfo> GetTagInfoCandidates(IMod p_modMod)
+		public IEnumerable<IModInfo> GetTagInfoCandidates(IMod mod)
 		{
 			//get mod info
-			List<IModInfo> lstMods = new List<IModInfo>();
-			IModInfo mifInfo = null;
-			try
-			{
-				if (!String.IsNullOrEmpty(p_modMod.Id))
-					mifInfo = ModRepository.GetModInfo(p_modMod.Id);
-				if (mifInfo == null)
-					mifInfo = ModRepository.GetModInfoForFile(p_modMod.Filename);
-				if (mifInfo == null)
-				{
-					//use heuristics to find info
-					lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, true));
-					if (lstMods.Count == 0)
-						lstMods.AddRange(ModRepository.FindMods(Regex.Replace(p_modMod.ModName, "[^a-zA-Z0-9_. ]+", "", RegexOptions.Compiled), true));
-					if ((lstMods.Count == 0) && (!String.IsNullOrEmpty(p_modMod.Author)))
-						lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, p_modMod.Author));
-					if (lstMods.Count == 0)
-						lstMods.AddRange(ModRepository.FindMods(p_modMod.ModName, false));
-				}
-				else
-					lstMods.Add(mifInfo);
+			var mods = new List<IModInfo>();
+			IModInfo modInfo = null;
 
-				//if we don't know the mod Id, then we have no way of getting
-				// the file-specific info, so only look if we have one mod info
-				// candidate.
-				if (lstMods.Count == 1)
-				{
-					mifInfo = lstMods[0];
-					lstMods.Clear();
-					//get file specific info
-					IModFileInfo mfiFileInfo = ModRepository.GetFileInfoForFile(p_modMod.Filename);
-					if (mfiFileInfo == null)
-					{
-						foreach (IModFileInfo mfiModFileInfo in ModRepository.GetModFileInfo(mifInfo.Id))
-							lstMods.Add(CombineInfo(mifInfo, mfiModFileInfo));
-					}
-					else
-						lstMods.Add(CombineInfo(mifInfo, mfiFileInfo));
-					if (lstMods.Count == 0)
-						lstMods.Add(mifInfo);
-				}
-			}
-			catch (RepositoryUnavailableException e)
+            try
 			{
-				TraceUtil.TraceException(e);
-				//the repository is not available, so add a dummy value indicating such
-				lstMods.Add(new ModInfo(null, String.Format("{0} is unavailable", ModRepository.Name), null, null, null, null, false, null, null, 0, -1, null, null, null, null, true, true));
+				if (!string.IsNullOrEmpty(mod.Id))
+                {
+                    modInfo = ModRepository.GetModInfo(mod.Id);
+                }
+
+                if (modInfo == null)
+                {
+                    modInfo = ModRepository.GetModInfoForFile(mod.Filename);
+                }
+				
+				mods.Add(modInfo);
+
+                // If we don't know the mod Id, then we have no way of getting the
+                // file-specific info, so only look if we have one mod info candidate.
+                if (mods.Count == 1)
+				{
+					modInfo = mods[0];
+					mods.Clear();
+					
+					//get file specific info
+					var mfiFileInfo = ModRepository.GetFileInfoForFile(mod.Filename);
+
+                    if (mfiFileInfo == null)
+					{
+						foreach (var mfiModFileInfo in ModRepository.GetModFileInfo(modInfo.Id))
+                        {
+                            mods.Add(CombineInfo(modInfo, mfiModFileInfo));
+                        }
+                    }
+					else
+                    {
+                        mods.Add(CombineInfo(modInfo, mfiFileInfo));
+                    }
+
+                    if (mods.Count == 0)
+                    {
+                        mods.Add(modInfo);
+                    }
+                }
 			}
 			catch (NullReferenceException e)
 			{
 				TraceUtil.TraceException(e);
+				
 				//couldn't find any match, so add a dummy value indicating such
-				lstMods.Add(new ModInfo(null, String.Format("{0}", e.Message), null, null, null, null, false, null, null, 0, -1, null, null, null, null, true, true));
+				mods.Add(new ModInfo(null, $"{e.Message}", null, null, null, null, false, null, null, 0, -1, null, null, null, null, true, true));
 			}
-			return lstMods;
+
+			return mods;
 		}
 
 		/// <summary>
@@ -109,9 +108,10 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mid info representing the information from both given info objects.</returns>
 		public static IModInfo CombineInfo(IModInfo p_mifInfo, IModFileInfo p_mfiFileInfo)
 		{
-			Int32 intLineTracker = 0;
-			ModInfo mifUpdatedInfo = null;
-			try
+			var intLineTracker = 0;
+			ModInfo mifUpdatedInfo;
+
+            try
 			{
 				if (p_mifInfo == null)
 				{

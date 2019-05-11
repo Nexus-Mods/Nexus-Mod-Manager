@@ -127,6 +127,7 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="Resources\Categories.xml" />
     <Content Include="Resources\WarThunder_logo.ico" />
   </ItemGroup>

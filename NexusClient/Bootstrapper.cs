@@ -11,7 +11,7 @@
 
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.Games;
-    using Nexus.Client.ModRepositories.Nexus;
+    using Nexus.Client.ModRepositories;
     using Nexus.Client.Properties;
     using Nexus.Client.Settings;
     using Nexus.Client.Util;

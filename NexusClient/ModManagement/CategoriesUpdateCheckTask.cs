@@ -85,15 +85,15 @@ namespace Nexus.Client.ModManagement
 	    /// <summary>
 		/// The method that is called to start the backgound task.
 		/// </summary>
-		/// <param name="p_objArgs">Arguments to for the task execution.</param>
+		/// <param name="args">Arguments to for the task execution.</param>
 		/// <returns>Always <c>null</c>.</returns>
-		protected override object DoWork(object[] p_objArgs)
+		protected override object DoWork(object[] args)
 		{
-			List<string> ModList = new List<string>();
-			List<IMod> ModCheck = new List<IMod>();
-			ConfirmActionMethod camConfirm = (ConfirmActionMethod)p_objArgs[0];
+			var ModList = new List<string>();
+			var ModCheck = new List<IMod>();
+			var camConfirm = (ConfirmActionMethod)args[0];
 
-			string ModInstallDirectory = CurrentGameModeModDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; 
+			var ModInstallDirectory = CurrentGameModeModDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; 
 
 			OverallMessage = "Updating categories info: setup search..";
 			OverallProgress = 0;
@@ -106,22 +106,27 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 
-				List<CategoriesInfo> lstCategories = ModRepository.GetCategories(ModRepository.RemoteGameId);
+				var lstCategories = ModRepository.GetCategories(ModRepository.GameDomainName);
 
-				int i = 1;
-				if (lstCategories.Count > 0)
+				var i = 1;
+
+                if (lstCategories.Count > 0)
 				{
-					foreach(CategoriesInfo category in lstCategories)
+					foreach(var category in lstCategories)
 					{
 						OverallMessage = "Saving the categories list... " + i + "/" + lstCategories.Count();
 						StepOverallProgress();
 
-						IModCategory modCategory = CategoryManager.FindCategory(category.Id);
-						if ((modCategory != null) && (modCategory.Id != 0))
-							CategoryManager.RenameCategory(modCategory.Id, category.Name);
-						else
-							CategoryManager.AddCategory(new ModCategory(category.Id, category.Name, category.Name));
-					}
+						var modCategory = CategoryManager.FindCategory(category.Id);
+						if (modCategory != null && modCategory.Id != 0)
+                        {
+                            CategoryManager.RenameCategory(modCategory.Id, category.Name);
+                        }
+                        else
+                        {
+                            CategoryManager.AddCategory(new ModCategory(category.Id, category.Name, category.Name));
+                        }
+                    }
 				}
 			}
 			catch (Exception ex)

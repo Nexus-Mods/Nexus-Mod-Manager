@@ -141,6 +141,9 @@
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <!-- Folder containing AntlrBuildTask.dll -->
