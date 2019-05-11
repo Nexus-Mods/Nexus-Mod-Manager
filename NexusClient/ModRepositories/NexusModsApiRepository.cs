@@ -193,7 +193,8 @@
 			{
 				try
 				{
-					string modId = Regex.Replace(mod.Split('|')[1], "[^0-9]", "");
+					string[] modInfo = mod.Split('|');
+					string modId = Regex.Replace(modInfo.Length == 1 ? modInfo[0] : modInfo[1], "[^0-9]", "");
 					var id = Convert.ToInt32(modId);
 					list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
 				}
