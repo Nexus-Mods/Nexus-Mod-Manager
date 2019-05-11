@@ -156,7 +156,7 @@
         {
             bool? endorsementState = null;
 
-            if (result.Endorsement.EndorseStatus == EndorsementStatus.Abstained)
+            if((result.Endorsement == null) || (result.Endorsement.EndorseStatus == EndorsementStatus.Abstained))
             {
                 endorsementState = false;
             }
@@ -165,8 +165,25 @@
                 endorsementState = true;
             }
 
-            // TODO: Figure out if the null values are required for NMM to work...
-            SetAllInfo(true,
+			Version properVersion = new Version(0, 0);
+
+			string version = Regex.Replace(result.Version, "[^.0-9]", "");
+
+			if (!string.IsNullOrEmpty(version))
+			{
+				int crazyVersioningCheck = version.IndexOf(".");
+
+				if (crazyVersioningCheck > 0)
+					properVersion = new Version(version);
+				else if (crazyVersioningCheck == 0)
+					properVersion = new Version("0" + version);
+				else
+					properVersion = new Version(version + ".0");
+			}
+
+
+			// TODO: Figure out if the null values are required for NMM to work...
+			SetAllInfo(true,
                 result.ModID.ToString(),
                 null,
                 result.Name,
@@ -174,7 +191,7 @@
                 result.Version,
                 result.Version,
                 endorsementState,
-                string.IsNullOrEmpty(result.Version) ? null : new Version(Regex.Replace(result.Version, "[^.0-9]", "")),
+                properVersion,
                 result.Author,
                 result.CategoryID,
                 -1,
