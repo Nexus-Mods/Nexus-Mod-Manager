@@ -150,6 +150,7 @@
     <AntlrToolPath>$(SolutionDir)\lib\Antlr\Antlr3.exe</AntlrToolPath>
   </PropertyGroup>
   <Import Project="$(SolutionDir)\lib\Antlr\Antlr3.targets" />
+  <Import Project="$(SolutionDir)\Support\BuildTasks\CopyScriptTypes.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
