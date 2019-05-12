@@ -1564,14 +1564,9 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public void SizeColumnsToFit()
 		{
-            // No one wants every column to be exactly the same width
-            /*
-			Int32 intFixedWidth = 0;
-			for (Int32 i = 0; i < this.Columns.Count; i++)
-				if (this.Columns[i] != tlcModName)
-					intFixedWidth += this.Columns[i].Width;
-			tlcModName.Width = this.ClientSize.Width - intFixedWidth;
-            */
+			// As of now it just makes sure the Mod Name column isn't too short.
+			if (tlcModName.Width < 250)
+				tlcModName.Width = 250;
         }
 
         /// <summary>

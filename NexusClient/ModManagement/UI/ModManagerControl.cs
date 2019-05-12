@@ -884,6 +884,8 @@
                 {
                     clwCategoryView.ExpandAll();
                 }
+
+				SizeColumnsToFitClw();
             }
 		}
 
