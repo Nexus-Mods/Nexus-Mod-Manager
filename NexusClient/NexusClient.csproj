@@ -483,6 +483,8 @@
     </Content>
     <Content Include="data\Third-Party Licenses\WebSocket-Sharp License.txt" />
     <None Include="Resources\info.png" />
+    <None Include="Resources\Nmm-community-edition.png" />
+    <None Include="Resources\Nmm-ce_800.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
