@@ -1605,13 +1605,14 @@
 				toolStripSplitButtonTools.DropDownItems.Add(tmicmdSortPluginsTool);
 			}
 
-            var tmiTool = new ToolStripMenuItem();
-
             foreach (var tolTool in ViewModel.GameToolLauncher.Tools)
 			{
-                tmiTool.Tag = tolTool;
-				tmiTool.ImageScaling = ToolStripItemImageScaling.None;
-				new ToolStripItemCommandBinding(tmiTool, tolTool.LaunchCommand);
+                var tmiTool = new ToolStripMenuItem
+                {
+                    Tag = tolTool, ImageScaling = ToolStripItemImageScaling.None
+                };
+
+                new ToolStripItemCommandBinding(tmiTool, tolTool.LaunchCommand);
 				tolTool.DisplayToolView += Tool_DisplayToolView;
 				tolTool.CloseToolView += Tool_CloseToolView;
 				toolStripSplitButtonTools.DropDownItems.Add(tmiTool);
@@ -2418,12 +2419,10 @@
 		/// </summary>
 		protected void BindLaunchCommands()
 		{
-            var tmiLaunch = new ToolStripMenuItem();
-
             foreach (var cmdLaunch in ViewModel.GameLauncher.LaunchCommands)
 			{
-                tmiLaunch.Tag = cmdLaunch;
-				new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
+                var tmiLaunch = new ToolStripMenuItem {Tag = cmdLaunch};
+                new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
 				spbLaunch.DropDownItems.Add(tmiLaunch);
 
                 if (string.Equals(cmdLaunch.Id, _viewModel.SelectedGameLaunchCommandId))
@@ -2578,7 +2577,6 @@
 			{
 				foreach (var cmdLaunch in ViewModel.SupportedToolsLauncher.LaunchCommands)
 				{
-
                     var tmiLaunch = new ToolStripMenuItem {Tag = cmdLaunch};
 
                     if (tmiLaunch.Image == null)
