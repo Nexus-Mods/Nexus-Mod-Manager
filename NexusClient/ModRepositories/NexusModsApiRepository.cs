@@ -289,7 +289,7 @@
 		{
 			try
 			{
-				var modFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), null).Result.Files;
+				var modFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
 				return modFiles.Select(modFileInfo => new ModFileInfo(modFileInfo)).Cast<IModFileInfo>().ToList();
 			}
 			catch (AggregateException a)
@@ -346,7 +346,7 @@
 				}
 
 				var filename = Path.GetFileName(fileName);
-				var files = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), null).Result.Files;
+				var files = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
 				var fileInfo = files.Find(x => x.Name.Equals(filename, StringComparison.OrdinalIgnoreCase)) ??
 							   files.Find(x => x.Name.Replace(' ', '_').Equals(filename, StringComparison.OrdinalIgnoreCase));
 
