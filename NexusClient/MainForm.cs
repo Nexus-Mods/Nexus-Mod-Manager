@@ -2418,12 +2418,10 @@
 		/// </summary>
 		protected void BindLaunchCommands()
 		{
-            var tmiLaunch = new ToolStripMenuItem();
-
             foreach (var cmdLaunch in ViewModel.GameLauncher.LaunchCommands)
 			{
-                tmiLaunch.Tag = cmdLaunch;
-				new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
+                var tmiLaunch = new ToolStripMenuItem {Tag = cmdLaunch};
+                new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
 				spbLaunch.DropDownItems.Add(tmiLaunch);
 
                 if (string.Equals(cmdLaunch.Id, _viewModel.SelectedGameLaunchCommandId))
