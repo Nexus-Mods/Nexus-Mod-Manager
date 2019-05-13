@@ -510,7 +510,7 @@
 			switch (descriptor.SourceUri.Scheme.ToLowerInvariant())
 			{
 				case "file":
-                    return new ModInfo(_modRepository.GetModInfoForFile(Path.GetFileName(descriptor.DefaultSourcePath)));
+                    return new ModInfo(_modRepository.GetModInfoForFile(descriptor.DefaultSourcePath));
                 case "nxm":
 					var nxuModUrl = new NexusUrl(descriptor.SourceUri);
 
