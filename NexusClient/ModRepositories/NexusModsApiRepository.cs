@@ -63,8 +63,16 @@
 		/// <inheritdoc cref="IModRepository"/>
 		public int MaxConcurrentDownloads { get; private set; }
 
+		private string _gameDomain = string.Empty;
+
 		/// <inheritdoc cref="IModRepository"/>
-		public string GameDomainName { get; }
+		public string GameDomainName
+		{
+			get
+			{
+				return string.IsNullOrEmpty(_gameDomain) ? string.Empty : _gameDomain.ToLower();
+			}
+		}
 
 		/// <inheritdoc cref="IModRepository"/>
 		public IRateLimitManager RateLimit => _apiCallManager.RateLimit;
@@ -80,7 +88,7 @@
 		/// <param name="apiCallManager"><see cref="ApiCallManager"/> to use for API calls.</param>
 		public NexusModsApiRepository(string currentGameDomain, ApiCallManager apiCallManager)
 		{
-			GameDomainName = HandleGameDomainName(currentGameDomain);
+			_gameDomain = HandleGameDomainName(currentGameDomain);
 			_apiCallManager = apiCallManager;
 		}
 
@@ -99,6 +107,16 @@
 			if (currentGameDomain.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
 			{
 				return "skyrim";
+			}
+
+			if (currentGameDomain.Equals("skyrimse", StringComparison.OrdinalIgnoreCase))
+			{
+				return "skyrimspecialedition";
+			}
+
+			if (currentGameDomain.Equals("falloutnv", StringComparison.OrdinalIgnoreCase))
+			{
+				return "newvegas";
 			}
 
 			return currentGameDomain;
@@ -174,7 +192,8 @@
 		{
 			try
 			{
-				return new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, Convert.ToInt32(modId)).Result);
+				string id = ParseModId(modId);
+				return new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, Convert.ToInt32(id)).Result);
 			}
 			catch (AggregateException a)
 			{
@@ -193,8 +212,7 @@
 			{
 				try
 				{
-					string[] modInfo = mod.Split('|');
-					string modId = Regex.Replace(modInfo.Length == 1 ? modInfo[0] : modInfo[1], "[^0-9]", "");
+					string modId = ParseModId(mod);
 					var id = Convert.ToInt32(modId);
 					list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
 				}
@@ -505,6 +523,24 @@
 			}
 
 			return false;
+		}
+
+		/// <summary>
+		/// Catch'em all failsafe to try and avoid idiotic crashes when the modId is borked.
+		/// </summary>
+		/// <param name="modId"></param>
+		/// <returns></returns>
+		private string ParseModId(string modId)
+		{
+			string parsedId = "0";
+
+			if (!string.IsNullOrEmpty(modId))
+			{
+				string[] modInfo = modId.Split('|');
+				parsedId = Regex.Replace(modInfo.Length == 1 ? modInfo[0] : modInfo[1], "[^0-9]", "");
+			}
+
+			return parsedId;
 		}
 	}
 }
