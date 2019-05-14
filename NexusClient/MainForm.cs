@@ -1511,17 +1511,28 @@
 		protected void BindChangeModeCommands()
         {
             foreach (var changeCommand in ViewModel.ChangeGameModeCommands)
-			{
+            {
+                var isReloadCommand = false;
+
                 if (ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase))
                 {
-                    // Don't show the current game mode in the Change Mode list.
-                    continue;
+                    changeCommand.UpdateDescription($"Reload {changeCommand.Id}");
+                    isReloadCommand = true;
                 }
 
                 var toolStripMenuItemChange = new ToolStripMenuItem();
                 changeCommand.Executed += ChangeGameModeCommand_Executed;
                 new ToolStripItemCommandBinding(toolStripMenuItemChange, changeCommand);
-				spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
+
+                if (isReloadCommand)
+                {
+                    spbChangeMode.DropDownItems.Insert(0, toolStripMenuItemChange);
+                    spbChangeMode.DropDownItems.Insert(1, new ToolStripSeparator());
+                }
+                else
+                {
+                    spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
+                }
 			}
         }
 

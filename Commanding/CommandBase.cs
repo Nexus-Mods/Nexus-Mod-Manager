@@ -34,7 +34,7 @@ namespace Nexus.Client.Commands
 		/// Gets the description of the command.
 		/// </summary>
 		/// <value>The description of the command.</value>
-		public string Description { get; private set; }
+		public string Description { get; protected set; }
 
 		/// <summary>
 		/// Gets the image of the command.

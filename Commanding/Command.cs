@@ -89,5 +89,14 @@ namespace Nexus.Client.Commands
 				Executed(this, new EventArgs());
 			}
 		}
+
+        /// <summary>
+        /// Updates the description of this <see cref="Command"/>.
+        /// </summary>
+        /// <param name="description">New description.</param>
+        public void UpdateDescription(string description)
+        {
+            Description = description;
+        }
 	}
 }
