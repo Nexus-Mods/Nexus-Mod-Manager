@@ -89,5 +89,5 @@ namespace Nexus.Client.Commands
 				Executed(this, new EventArgs());
 			}
 		}
-	}
+    }
 }
