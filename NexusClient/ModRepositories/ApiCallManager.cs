@@ -33,6 +33,10 @@
         {
             _nexusClient = new NexusClient(_environmentInfo.Settings.ApiKey);
             _nexusClient.SetUserAgent(UserAgent);
+
+            _nexusClient.HttpClient.AddDefault(req => req
+                .WithHeader("Application-Name", "NMM")
+                .WithHeader("Application-Version", CommonData.VersionString));
         }
 
         /// <summary>
