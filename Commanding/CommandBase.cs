@@ -28,13 +28,13 @@ namespace Nexus.Client.Commands
 		/// Gets the name of the command.
 		/// </summary>
 		/// <value>The name of the command.</value>
-		public string Name { get; private set; }
+		public string Name { get; set; }
 
 		/// <summary>
 		/// Gets the description of the command.
 		/// </summary>
 		/// <value>The description of the command.</value>
-		public string Description { get; protected set; }
+		public string Description { get; set; }
 
 		/// <summary>
 		/// Gets the image of the command.

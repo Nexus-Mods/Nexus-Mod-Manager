@@ -1516,7 +1516,8 @@
 
                 if (ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase))
                 {
-                    changeCommand.UpdateDescription($"Reload {changeCommand.Id}");
+                    changeCommand.Name = $"Reload {changeCommand.Id}";
+                    changeCommand.Description = $"Reload {changeCommand.Id}";
                     isReloadCommand = true;
                 }
 
@@ -1528,12 +1529,16 @@
                 {
                     spbChangeMode.DropDownItems.Insert(0, toolStripMenuItemChange);
                     spbChangeMode.DropDownItems.Insert(1, new ToolStripSeparator());
+                    continue;
                 }
-                else
+
+                if (changeCommand.Name.Equals("Change Default Game...", StringComparison.OrdinalIgnoreCase))
                 {
-                    spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
+                    spbChangeMode.DropDownItems.Add(new ToolStripSeparator());
                 }
-			}
+
+                spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
+            }
         }
 
 		/// <summary>
