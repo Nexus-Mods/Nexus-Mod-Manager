@@ -699,8 +699,8 @@
     <Reference Include="Accessibility">
       <Private>False</Private>
     </Reference>
-    <Reference Include="FluentNexus, Version=0.6.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Pathoschild.FluentNexus.0.6.0\lib\net45\FluentNexus.dll</HintPath>
+    <Reference Include="FluentNexus, Version=0.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Pathoschild.FluentNexus.0.7.0\lib\net45\FluentNexus.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -736,6 +736,9 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Net.Http.Formatting, Version=5.2.7.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Microsoft.AspNet.WebApi.Client.5.2.7\lib\net45\System.Net.Http.Formatting.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.InteropServices.RuntimeInformation, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\System.Runtime.InteropServices.RuntimeInformation.4.3.0\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
     </Reference>
     <Reference Include="System.Runtime.Remoting" />
     <Reference Include="System.Runtime.Serialization">
