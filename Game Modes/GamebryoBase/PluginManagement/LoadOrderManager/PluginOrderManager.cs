@@ -346,7 +346,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			        Fallout4PluginManagement = true;
 			        ForcedReadOnly = false;
 			        break;
-                default:
+				case "Enderal":
+					TimestampOrder = false;
+					IgnoreOfficialPlugins = false;
+					ForcedReadOnly = false;
+					SingleFileManagement = false;
+					Fallout4PluginManagement = false;
+					break;
+				default:
 					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
 

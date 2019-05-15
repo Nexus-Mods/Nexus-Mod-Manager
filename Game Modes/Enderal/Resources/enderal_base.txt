@@ -1,0 +1,165 @@
+Interface\Translate_English.txt
+E - Meshes.bsa
+E - Music.bsa
+E - Scripts.bsa
+E - Sounds.bsa
+E - Textures1.bsa
+E - Textures2.bsa
+E - Textures3.bsa
+Enderal - Forgotten Stories.esm
+L - Textures.bsa
+L - Voices.bsa
+Skyrim - Animations.bsa
+Skyrim - Interface.bsa
+Skyrim - Meshes.bsa
+Skyrim - Misc.bsa
+Skyrim - Shaders.bsa
+Skyrim - Sounds.bsa
+Skyrim - Textures.bsa
+Skyrim.esm
+Update.bsa
+Update.esm
+Video\Enderal_Credits.bik
+Video\EnderalIntro.bik
+Video\MQ17BlackGuardian.bik
+Video\MQP03NearDeathExperience.bik
+Enderal - Forgotten Stories_english.DLSTRINGS
+Enderal - Forgotten Stories_english.ILSTRINGS
+Enderal - Forgotten Stories_english.STRINGS
+Strings\Skyrim_English.DLStrings
+Strings\Skyrim_English.ILStrings
+Strings\Skyrim_English.strings
+shadersfx\Lighting\059\P800C05.fxp
+shadersfx\Lighting\059\V800400.fxp
+shadersfx\Lighting\059\V800405.fxp
+shadersfx\Lighting\059\VC00401.fxp
+Meshes\animationdatasinglefile.txt
+Meshes\animationsetdatasinglefile.txt
+Meshes\~AnimationDataSingleFile.txt
+Meshes\Actors\character\characters female
+Meshes\Actors\character\behaviors\0_master.hkx
+Meshes\Actors\character\behaviors\1hm_behavior.hkx
+Meshes\Actors\character\behaviors\FNIS_Enderal_Behavior.hkx
+Meshes\Actors\character\behaviors\FNIS_FNISBase_Behavior.hkx
+Meshes\Actors\character\behaviors\FNIS_PaleTest04_Behavior.hkx
+Meshes\Actors\character\behaviors\FNIS_PipeSmoking_Behavior.hkx
+Meshes\Actors\character\behaviors\magicbehavior.hkx
+Meshes\Actors\character\behaviors\mt_behavior.hkx
+Meshes\Actors\character\behaviors\sprintbehavior - Kopie.hkx
+Meshes\Actors\character\behaviors\sprintbehavior.hkx
+Meshes\Actors\character\characters\defaultmale.hkx
+Meshes\Actors\character\characters female\defaultfemale.hkx
+interface\00E_heromenu.swf
+interface\00E_statsmenu.swf
+interface\bartermenu.swf
+interface\book.swf
+interface\bookmenu.swf
+interface\console.swf
+interface\console_alias.ini
+interface\containermenu.swf
+interface\cosmeticmenu.swf
+interface\craftingmenu.swf
+interface\credits.txt
+interface\creditsmenu.swf
+interface\cursormenu.swf
+interface\dialoguemenu.swf
+interface\dyemenu.swf
+interface\extension_assets
+interface\fadermenu.swf
+interface\favoritesmenu.swf
+interface\fontconfig.txt
+interface\fonts_console.swf
+interface\fonts_en.swf
+interface\fonts_en2.swf
+interface\fonts_fh2.swf
+interface\giftmenu.swf
+interface\inventorymenu.swf
+interface\levelupmenu.swf
+interface\listmenu.swf
+interface\loadingmenu.swf
+interface\lockpickingmenu.swf
+interface\magicmenu.swf
+interface\magicmenuext.swf
+interface\magic_card_2.swf
+interface\map.swf
+interface\messagebox.swf
+interface\quest_journal.swf
+interface\selectionmenu.swf
+interface\sharedcomponents.swf
+interface\sleepwaitmenu.swf
+interface\startmenu.swf
+interface\startmenu_fs.swf
+interface\statsmenu.swf
+interface\statssheetmenu.swf
+interface\textentrymenu.swf
+interface\titles.swf
+interface\trainingmenu.swf
+interface\Translate_ENGLISH.txt
+interface\translations
+interface\tweenmenu.swf
+interface\wheelmenu.swf
+interface\widgetoverlay.swf
+interface\controls\360\controlmap.txt
+interface\controls\360\gamepad.txt
+interface\controls\360\keyboard_english.txt
+interface\controls\pc\controlmap.txt
+interface\controls\pc\gamepad.txt
+interface\controls\pc\keyboard_english.txt
+interface\controls\pc\keyboard_french.txt
+interface\controls\pc\keyboard_german.txt
+interface\controls\pc\keyboard_italian.txt
+interface\controls\pc\keyboard_spanish.txt
+interface\controls\pc\mouse.txt
+interface\controls\ps3\controlmap.txt
+interface\controls\ps3\gamepad.txt
+interface\controls\ps3\keyboard_english.txt
+interface\exported\skyui\icons_effect_psychosteve.swf
+interface\exported\skyui\widgetloader.swf
+interface\exported\uilib\uilib_1_notificationarea.swf
+interface\exported\widgets\skyui
+interface\exported\widgets\skyui\activeeffects.swf
+interface\exported\widgets\skyui\followerpanel.swf
+interface\exported\widgets\skyui\meter.swf
+interface\extension_assets\bottombar.swf
+interface\extension_assets\buttonart.swf
+interface\extension_assets\icons_category_psychosteve.swf
+interface\extension_assets\meter.swf
+interface\skyui\bottombar.swf
+interface\skyui\buttonart.swf
+interface\skyui\config.txt
+interface\skyui\configpanel.swf
+interface\skyui\icons_category_celtic.swf
+interface\skyui\icons_category_curved.swf
+interface\skyui\icons_category_psychosteve.swf
+interface\skyui\icons_category_straight.swf
+interface\skyui\icons_item_psychosteve.swf
+interface\skyui\inventorylists.swf
+interface\skyui\itemcard.swf
+interface\skyui\mapmarkerart.swf
+interface\skyui\mcm_splash.swf
+interface\skyui\skyui_splash.swf
+interface\skyui\res\mcm_logo.dds
+interface\translations\buriedtreasure_english.txt
+interface\translations\skyui_czech.txt
+interface\translations\skyui_english.txt
+interface\translations\skyui_french.txt
+interface\translations\skyui_german.txt
+interface\translations\skyui_italian.txt
+interface\translations\skyui_japanese.txt
+interface\translations\skyui_polish.txt
+interface\translations\skyui_russian.txt
+interface\translations\skyui_spanish.txt
+interface\translations\taverngamesczech.txt
+interface\translations\taverngames_english.txt
+interface\translations\taverngames_french.txt
+interface\translations\taverngames_german.txt
+interface\translations\taverngames_italian.txt
+interface\translations\taverngames_japanese.txt
+interface\translations\taverngames_polish.txt
+interface\translations\taverngames_russian.txt
+interface\translations\taverngames_spanish.txt
+interface\translations\uiextensions_english.txt
+interface\translations\uiextensions_german.txt
+interface\uilib\buttonart.swf
+interface\uilib\uilib_1_listmenu.swf
+interface\uilib\uilib_1_textinputmenu.swf

@@ -139,6 +139,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilTests", "Tests\UtilTest
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GamebryoBaseTests", "Tests\GamebryoBaseTests\GamebryoBaseTests.csproj", "{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Enderal", "Game Modes\Enderal\Enderal.csproj", "{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -379,6 +381,10 @@ Global
 		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -432,6 +438,7 @@ Global
 		{6F54344F-9A88-4EDE-945C-768FD224E07D} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{C894BE1A-D258-4C7C-BE76-90881C5B7DCA} = {85AF1071-AA80-4EBB-949B-40847BBFC5C0}
 		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF} = {85AF1071-AA80-4EBB-949B-40847BBFC5C0}
+		{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}
