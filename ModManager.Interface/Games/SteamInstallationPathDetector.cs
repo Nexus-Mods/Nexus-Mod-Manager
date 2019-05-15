@@ -52,21 +52,45 @@ namespace Nexus.Client.Games
                         if (!Directory.Exists(appPath))
                         {
                             Trace.TraceInformation(
-                                folderName + " is not installed in standard directory. Checking steam config.vdf...");
+                                folderName + " is not installed in standard directory. Checking steam libraryfolders.vdf...");
 
-                            // second try, check steam config.vdf
-                            // if any of this fails, no problem... just drop through the catch
-                            var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
-                            var kv = KeyValue.LoadAsText(steamConfig);
-                            var node =
-                                kv.Children[0].Children[0].Children[0].Children.Single(x => x.Name == "apps")
-                                    .Children.Single(x => x.Name == steamId);
-                            if (node != null)
-                            {
-                                appPath = node.Children.Single(x => x.Name == "installdir").Value;
-                                if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
-                                    strValue = appPath;
-                            }
+							// This chunk of code does a very simplistic cyclic check of the additional libraries within Steam.
+							var steamLibraries = Path.Combine(Path.Combine(steamPath, "SteamApps"), "libraryfolders.vdf");
+							var kv = KeyValue.LoadAsText(steamLibraries);
+
+							string nodePath = null;
+
+							foreach (var node in kv.Children)
+							{
+								nodePath = node.Value;
+								appPath = Path.Combine(nodePath, @"steamapps\common\" + folderName);
+								if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
+								{
+									strValue = appPath;
+									break;
+								}
+
+							}
+
+							// third try, check steam config.vdf
+							// if any of this fails, no problem... just drop through the catch
+							if (string.IsNullOrWhiteSpace(strValue))
+							{
+								Trace.TraceInformation(
+									folderName + " is not installed in standard directory. Checking steam config.vdf...");
+
+								var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
+								kv = KeyValue.LoadAsText(steamConfig);
+								var node =
+									kv.Children[0].Children[0].Children[0].Children.Single(x => x.Name == "apps")
+										.Children.Single(x => x.Name == steamId);
+								if (node != null)
+								{
+									appPath = node.Children.Single(x => x.Name == "installdir").Value;
+									if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
+										strValue = appPath;
+								}
+							}
                         }
                         else
                             strValue = appPath;
