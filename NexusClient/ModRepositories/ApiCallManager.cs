@@ -31,8 +31,11 @@
         /// </summary>
         public void UpdateNexusClient()
         {
-            _nexusClient = new NexusClient(_environmentInfo.Settings.ApiKey, "NMM", CommonData.VersionString);
-            _nexusClient.SetUserAgent(UserAgent);
+            if (!string.IsNullOrEmpty(_environmentInfo.Settings.ApiKey))
+            {
+                _nexusClient = new NexusClient(_environmentInfo.Settings.ApiKey, "NMM", CommonData.VersionString);
+                _nexusClient.SetUserAgent(UserAgent);
+            }
         }
 
         /// <summary>
