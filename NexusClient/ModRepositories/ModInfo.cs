@@ -183,7 +183,7 @@
                 -1,
                 result.Description,
                 null,
-                null,
+                new Uri($"https://www.nexusmods.com/{GameDomainTranslator.DetermineGameDomain(result.DomainName)}/mods/{result.ModID}"),
                 null,
                 false,
                 false

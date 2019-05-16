@@ -88,38 +88,8 @@
 		/// <param name="apiCallManager"><see cref="ApiCallManager"/> to use for API calls.</param>
 		public NexusModsApiRepository(string currentGameDomain, ApiCallManager apiCallManager)
 		{
-			_gameDomain = HandleGameDomainName(currentGameDomain);
+			_gameDomain = GameDomainTranslator.DetermineGameDomain(currentGameDomain);
 			_apiCallManager = apiCallManager;
-		}
-
-		/// <summary>
-		/// Due to the hacky implementation of SkyrimVR and Fallout4VR, these domains need to be corrected.
-		/// </summary>
-		/// <param name="currentGameDomain">The input Current Game Domain.</param>
-		/// <returns>The corrected game domain name, if applicable.</returns>
-		private string HandleGameDomainName(string currentGameDomain)
-		{
-			if (currentGameDomain.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
-			{
-				return "fallout4";
-			}
-
-			if (currentGameDomain.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
-			{
-				return "skyrim";
-			}
-
-			if (currentGameDomain.Equals("skyrimse", StringComparison.OrdinalIgnoreCase))
-			{
-				return "skyrimspecialedition";
-			}
-
-			if (currentGameDomain.Equals("falloutnv", StringComparison.OrdinalIgnoreCase))
-			{
-				return "newvegas";
-			}
-
-			return currentGameDomain;
 		}
 
 		/// <inheritdoc />
