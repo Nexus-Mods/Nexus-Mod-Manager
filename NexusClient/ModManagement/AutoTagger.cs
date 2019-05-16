@@ -69,7 +69,7 @@ namespace Nexus.Client.ModManagement
 					mods.Clear();
 					
 					//get file specific info
-					var mfiFileInfo = ModRepository.GetFileInfoForFile(mod.Filename);
+                    var mfiFileInfo = ModRepository.GetModFileInfoForFile(mod.Filename);
 
                     if (mfiFileInfo == null)
 					{

@@ -22,10 +22,10 @@
         /// <param name="modFile">ModFile to get information from.</param>
         public ModFileInfo(ModFile modFile)
         {
-            Id = modFile.FileID.ToString();
-            Filename = modFile.FileName;
-            Name = modFile.Name;
-            HumanReadableVersion = modFile.ModVersion;
+            Id = modFile?.FileID.ToString();
+            Filename = modFile?.FileName;
+            Name = modFile?.Name;
+            HumanReadableVersion = modFile?.ModVersion;
         }
     }
 }
