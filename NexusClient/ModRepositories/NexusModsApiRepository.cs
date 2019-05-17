@@ -192,22 +192,27 @@
 		/// <inheritdoc cref="IModRepository"/>
 		public List<IModInfo> GetFileListInfo(List<string> modFileList)
 		{
-
 			var list = new List<IModInfo>();
 
 			foreach (var mod in modFileList)
 			{
-				try
-				{
-					string modId = ParseModId(mod);
-					var id = Convert.ToInt32(modId);
-					list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
-				}
-				catch (AggregateException a)
-				{
-					if (ReactToAggregateException(a))
-						break;
-				}
+                try
+                {
+                    string modId = ParseModId(mod);
+                    var id = Convert.ToInt32(modId);
+                    list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
+                }
+                catch (AggregateException a)
+                {
+                    if (ReactToAggregateException(a))
+                        break;
+                }
+                catch (Exception e)
+                {
+                    Trace.TraceError($"Exception while parsing mod ID from mod \"{mod}\".");
+                    TraceUtil.TraceException(e);
+                    continue;
+                }
 			}
 
 			return list;
