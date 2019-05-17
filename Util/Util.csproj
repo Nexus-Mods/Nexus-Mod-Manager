@@ -68,6 +68,7 @@
     <Compile Include="Downloader\CompletedDownloadEventArgs.cs" />
     <Compile Include="EventArgs.cs" />
     <Compile Include="ExtendedImage.cs" />
+    <Compile Include="GameDomainTranslator.cs" />
     <Compile Include="ImageExtensions.cs" />
     <Compile Include="FileUtil.cs" />
     <Compile Include="Collections\IListExtensions.cs" />
