@@ -110,16 +110,23 @@
 		/// <summary>
 		/// Gets the mod info for the mod to which the specified download file belongs.
 		/// </summary>
-		/// <param name="fileName">The name of the file whose mod's info is to be returned..</param>
+		/// <param name="fileName">The name of the file whose mod's info is to be returned.</param>
 		/// <returns>The info for the mod to which the specified file belongs.</returns>
 		IModInfo GetModInfoForFile(string fileName);
 
-		/// <summary>
-		/// Gets the info for the specified mod.
-		/// </summary>
-		/// <param name="modId">The id of the mod info is be retrieved.</param>
-		/// <returns>The info for the specified mod.</returns>
-		IModInfo GetModInfo(string modId);
+        /// <summary>
+        /// Gets the mod file info which the specified download file belongs.
+        /// </summary>
+        /// <param name="fileName">The name of the file whose info is to be returned.</param>
+        /// <returns>The info for the mod specified file.</returns>
+        IModFileInfo GetModFileInfoForFile(string fileName);
+
+        /// <summary>
+        /// Gets the info for the specified mod.
+        /// </summary>
+        /// <param name="modId">The id of the mod info is be retrieved.</param>
+        /// <returns>The info for the specified mod.</returns>
+        IModInfo GetModInfo(string modId);
 
 		/// <summary>
 		/// Gets the info for the specified file list.

@@ -157,8 +157,25 @@
 			}
 		}
 
-		/// <inheritdoc cref="IModRepository"/>
-		public IModInfo GetModInfo(string modId)
+        /// <inheritdoc cref="IModRepository"/>
+        public IModFileInfo GetModFileInfoForFile(string fileName)
+        {
+            try
+            {
+                var hash = Md5.CalculateMd5(fileName);
+
+                // TODO: Probably need to handle cases with multiple hits.
+                return new ModFileInfo(_apiCallManager.Mods.GetModsByFileHash(GameDomainName, hash).Result[0].File);
+            }
+            catch (AggregateException a)
+            {
+                ReactToAggregateException(a);
+                return null;
+            }
+        }
+
+        /// <inheritdoc cref="IModRepository"/>
+        public IModInfo GetModInfo(string modId)
 		{
 			try
 			{
@@ -317,10 +334,11 @@
 
 				var filename = Path.GetFileName(fileName);
 				var files = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
-				var fileInfo = files.Find(x => x.Name.Equals(filename, StringComparison.OrdinalIgnoreCase)) ??
-							   files.Find(x => x.Name.Replace(' ', '_').Equals(filename, StringComparison.OrdinalIgnoreCase));
+                var fileInfo = (files.Find(x => x.Name.Equals(filename, StringComparison.OrdinalIgnoreCase)) ?? 
+                               files.Find(x => x.Name.Replace(' ', '_').Equals(filename, StringComparison.OrdinalIgnoreCase))) ??
+                               files.Find(x => x.Name.Replace(' ', '-').Equals(filename, StringComparison.OrdinalIgnoreCase));
 
-				return new ModFileInfo(fileInfo);
+                return new ModFileInfo(fileInfo);
 			}
 			catch (AggregateException a)
 			{
