@@ -147,9 +147,11 @@
 			{
 				var hash = Md5.CalculateMd5(fileName);
 
-				// TODO: Probably need to handle cases with multiple hits.
-				return new ModInfo(_apiCallManager.Mods.GetModsByFileHash(GameDomainName, hash).Result[0].Mod);
-			}
+                // TODO: Probably need to handle cases with multiple hits.
+                var mod = _apiCallManager.Mods.GetModsByFileHash(GameDomainName, hash)?.Result[0]?.Mod;
+
+                return mod == null ? new ModInfo() : new ModInfo(mod);
+            }
 			catch (AggregateException a)
 			{
 				ReactToAggregateException(a);
