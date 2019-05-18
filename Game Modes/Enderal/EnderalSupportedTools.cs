@@ -77,17 +77,17 @@ namespace Nexus.Client.Games.Enderal
 				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Bash", "Configures Wrye Bash.", imgIcon, ConfigWryeBash, true));
 			}
 
-			strCommand = GetTES5EditLaunchCommand();
-			Trace.TraceInformation("TES5Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			strCommand = GetEnderalEditLaunchCommand();
+			Trace.TraceInformation("EnderalEdit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("TES5Edit", "Launch TES5Edit", "Launches TES5Edit.", imgIcon, LaunchTES5Edit, true));
+				AddLaunchCommand(new Command("EnderalEdit", "Launch EnderalEdit", "Launches EnderalEdit.", imgIcon, LaunchEnderalEdit, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#TES5Edit", "Config TES5Edit", "Configures TES5Edit.", imgIcon, ConfigTES5Edit, true));
+				AddLaunchCommand(new Command("Config#EnderalEdit", "Config EnderalEdit", "Configures EnderalEdit.", imgIcon, ConfigEnderalEdit, true));
 			}
 
 			strCommand = GetFNISLaunchCommand();
@@ -174,11 +174,11 @@ namespace Nexus.Client.Games.Enderal
 			Launch(strCommand, null);
 		}
 
-		private void LaunchTES5Edit()
+		private void LaunchEnderalEdit()
 		{
-			Trace.TraceInformation("Launching TES5Edit");
+			Trace.TraceInformation("Launching EnderalEdit");
 			Trace.Indent();
-			string strCommand = GetTES5EditLaunchCommand();
+			string strCommand = GetEnderalEditLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -338,21 +338,21 @@ namespace Nexus.Client.Games.Enderal
 		}
 
 		/// <summary>
-		/// Gets the TES5Edit launch command.
+		/// Gets the EnderalEdit launch command.
 		/// </summary>
-		/// <returns>The TES5Edit launch command.</returns>
-		private string GetTES5EditLaunchCommand()
+		/// <returns>The EnderalEdit launch command.</returns>
+		private string GetEnderalEditLaunchCommand()
 		{
-			string strTES5Edit = String.Empty;
+			string strEnderalEdit = String.Empty;
 
-			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("TES5Edit"))
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("EnderalEdit"))
 			{
-				strTES5Edit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["TES5Edit"];
-				if (!String.IsNullOrEmpty(strTES5Edit))
-					strTES5Edit = Path.Combine(strTES5Edit, @"TES5Edit.exe");
+				strEnderalEdit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["EnderalEdit"];
+				if (!String.IsNullOrEmpty(strEnderalEdit))
+					strEnderalEdit = Path.Combine(strEnderalEdit, @"EnderalEdit.exe");
 			}
 
-			return strTES5Edit;
+			return strEnderalEdit;
 		}
 
 		/// <summary>
@@ -528,8 +528,8 @@ namespace Nexus.Client.Games.Enderal
 					ConfigBS();
 					break;
 
-				case "TES5Edit":
-					ConfigTES5Edit();
+				case "EnderalEdit":
+					ConfigEnderalEdit();
 					break;
 
 				case "WryeBash":
@@ -583,11 +583,11 @@ namespace Nexus.Client.Games.Enderal
 				}
 		}
 
-		private void ConfigTES5Edit()
+		private void ConfigEnderalEdit()
 		{
-			string p_strToolName = "TES5Edit";
-			string p_strExecutableName = "TES5Edit.exe";
-			string p_strToolID = "TES5Edit";
+			string p_strToolName = "EnderalEdit";
+			string p_strExecutableName = "EnderalEdit.exe";
+			string p_strToolID = "EnderalEdit";
 			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
 			Trace.Indent();
 
