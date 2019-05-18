@@ -96,19 +96,24 @@
                 }
                 else
                 {
-                    MessageBox.Show(e.Data, "Unknown WebSocket Message");
                     Trace.TraceError($"Unknown WebSocket message:\n\t{e.Data}.");
+
+                    Cancel(AuthenticationCancelledReason.Unknown);
                 }
             }
             else
             {
-                throw new InvalidOperationException(message.data.error);
+                Trace.TraceError($"WebSocketOnMessage error: {e.Data}");
+                Cancel(AuthenticationCancelledReason.Unknown);
             }
         }
 
         private void WebSocketOnError(object sender, ErrorEventArgs e)
         {
-            MessageBox.Show($"{e.Message}\n{e.Exception.GetType()}: {e.Exception.Message}", "WebSocket Error");
+            Trace.TraceError($"Unknown WebSocket error, \"{e.Message}\".");
+            TraceUtil.TraceException(e.Exception);
+
+            Cancel(AuthenticationCancelledReason.Unknown);
         }
 
         private void WebSocketOnClose(object sender, CloseEventArgs e)
@@ -141,7 +146,22 @@
             data.protocol = 2;
 
             _webSocket.Send(data.ToString());
-            Process.Start(string.Format(NexusAddressBase, _uuid));
+            
+            try
+            {
+                // Seriously, who doesn't have a default browser?
+                Process.Start(string.Format(NexusAddressBase, _uuid));
+            }
+            catch (Exception)
+            {
+                Trace.TraceWarning("Unable to open browser for authorizing NMM.");
+                MessageBox.Show(
+                    "Unable to open browser for authorization, either set a default browser or " +
+                    $"manually visit this address to authenticate NMM:\n\n{string.Format(NexusAddressBase, _uuid)}",
+                    "Default Browser not found",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         #endregion
