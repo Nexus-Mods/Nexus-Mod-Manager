@@ -2293,7 +2293,97 @@
         {
 
         }
-    }
+
+		private void checkForModsUpdatedWithinTheLastWeekToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.CheckUpdatedMods("1w");
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					var message = $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}";
+					MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+		}
+
+		private void checkForModsUpdatedWithinTheLastMonthToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.CheckUpdatedMods("1m");
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					var message = $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}";
+					MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+		}
+
+		private void withinTheLastDayToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.CheckUpdatedMods("1d");
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					var message = $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}";
+					MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+		}
+
+		private void withinTheLastWeekToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.CheckUpdatedMods("1w");
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					var message = $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}";
+					MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+		}
+
+		private void withinTheLastMonthToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.CheckUpdatedMods("1m");
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+				{
+					var message = $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}";
+					MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
+		}
+	}
 
 	#endregion
 }

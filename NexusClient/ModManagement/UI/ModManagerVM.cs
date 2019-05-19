@@ -803,7 +803,7 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if (lstModList.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, null, ConfirmUpdaterAction, p_booOverrideCategorySetup, false)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, null, ConfirmUpdaterAction, string.Empty, p_booOverrideCategorySetup, false)));
 				}
 			}
 			else
@@ -851,13 +851,39 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if (ManagedMods.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, onlyMissing)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, string.Empty, false, onlyMissing)));
 				}
 			}
 			else
 			{
 				ModManager.Login();
 				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, onlyMissing);
+			}
+		}
+
+		/// <summary>
+		/// Checks for mods updated within a the last day/week/month.
+		/// </summary>
+		/// <returns>Message</returns>
+		public void CheckUpdatedMods(string period)
+		{
+			var lstModList = new List<IMod>();
+
+			lstModList.AddRange(from mod in ManagedMods
+								where mod.UpdateChecksEnabled
+								select mod);
+
+			if (!ModRepository.IsOffline)
+			{
+				if (ManagedMods.Count > 0)
+				{
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, period, false, null)));
+				}
+			}
+			else
+			{
+				ModManager.Login();
+				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, false);
 			}
 		}
 

@@ -636,11 +636,11 @@
 		/// <param name="overrideCategorySetup">Whether to force a global update.</param>
 		/// <param name="missingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask UpdateMods(List<IMod> modList, IProfileManager profileManager, ConfirmActionMethod confirm, bool overrideCategorySetup, bool? missingDownloadId)
+		public IBackgroundTask UpdateMods(List<IMod> modList, IProfileManager profileManager, ConfirmActionMethod confirm, string period, bool overrideCategorySetup, bool? missingDownloadId)
         {
             if (ModRepository.UserStatus != null)
 			{
-				var modUpdateCheck = new ModUpdateCheckTask(AutoUpdater, profileManager, ModRepository, modList, overrideCategorySetup, missingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+				var modUpdateCheck = new ModUpdateCheckTask(AutoUpdater, profileManager, ModRepository, modList, period, overrideCategorySetup, missingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
 				modUpdateCheck.Update(confirm);
 
                 return modUpdateCheck;
@@ -751,7 +751,7 @@
 		/// <returns>The background task that will run the updaters.</returns>
 		public void AsyncUpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId)
 		{
-			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, string.Empty, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
 			AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
 		}
 

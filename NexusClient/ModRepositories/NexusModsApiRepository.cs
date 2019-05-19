@@ -221,6 +221,29 @@
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
+		public List<string> GetUpdated(string period)
+		{
+			List<string> updatedMods = new List<string>();
+
+			try
+			{
+				ModUpdate[] updates = _apiCallManager.Mods.GetUpdated(GameDomainName, period).Result;
+				if (updates.Length > 0)
+					updatedMods = updates.Select(x => x.ModID.ToString()).ToList();
+			}
+			catch (AggregateException a)
+			{
+				ReactToAggregateException(a);
+			}
+			catch (Exception e)
+			{
+				TraceUtil.TraceException(e);
+			}
+
+			return updatedMods;
+		}
+
+		/// <inheritdoc cref="IModRepository"/>
 		public bool? ToggleEndorsement(string modId, int localState, string version)
 		{
 			var id = Convert.ToInt32(modId);

@@ -11,7 +11,7 @@
     using Nexus.Client.Mods;
     using Nexus.Client.UI;
 
-    public class ModUpdateCheckTask : ThreadedBackgroundTask
+	public class ModUpdateCheckTask : ThreadedBackgroundTask
 	{
 		private readonly bool _overrideCategorySetup;
 		private readonly bool? _missingDownloadId = false;
@@ -20,6 +20,7 @@
         private readonly Dictionary<string, string> _newDownloadID = new Dictionary<string, string>();
         private int _retries = 0;
         private bool _cancel;
+		private string _period = string.Empty;
         
 		#region Properties
 
@@ -53,11 +54,12 @@
         /// <param name="modList">The list of mods we need to update.</param>
         /// <param name="overrideCategorySetup">Whether to force a global update.</param>
         /// <inheritdoc />
-        public ModUpdateCheckTask(AutoUpdater autoUpdater, IProfileManager profileManager, IModRepository modRepository, IEnumerable<IMod> modList, bool overrideCategorySetup, bool? missingDownloadId, bool overrideLocalModNames)
+        public ModUpdateCheckTask(AutoUpdater autoUpdater, IProfileManager profileManager, IModRepository modRepository, IEnumerable<IMod> modList, string period, bool overrideCategorySetup, bool? missingDownloadId, bool overrideLocalModNames)
 		{
 			AutoUpdater = autoUpdater;
 			ModRepository = modRepository;
 			ProfileManager = profileManager;
+			_period = period;
 			_modList.AddRange(modList);
 			_overrideCategorySetup = overrideCategorySetup;
 			_missingDownloadId = missingDownloadId;
@@ -93,8 +95,10 @@
 		protected override object DoWork(object[] args)
 		{
 			const int modLimit = 75;
-            
-            var modList = new List<string>();
+
+			List<string> updatedMods = new List<string>();
+
+			var modList = new List<string>();
 			var modCheck = new List<IMod>();
 
             OverallMessage = "Updating mods info: setup search..";
@@ -108,6 +112,12 @@
 
 			OverallProgressMaximum = _modList.Count * 2;
 			ItemProgressMaximum = _modList.Count > modLimit ? modLimit : _modList.Count;
+
+			if (!string.IsNullOrEmpty(_period))
+			{
+				// get mod updates
+				updatedMods = ModRepository.GetUpdated(_period);
+			}
 
 			for (var i = 0; i < _modList.Count; i++)
 			{
@@ -143,8 +153,16 @@
 
 				if (_missingDownloadId == null || _missingDownloadId == true && (string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1"))
 				{
-					modList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, Path.GetFileName(modCurrent.Filename)));
-					modCheck.Add(modCurrent);
+					if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Contains(modId, StringComparer.OrdinalIgnoreCase))
+					{
+						modList.Add(string.Format("{0}|{1}|{2}", modName, modId, Path.GetFileName(modCurrent.Filename)));
+						modCheck.Add(modCurrent);
+					}
+					else if (updatedMods.Count == 0 || string.IsNullOrWhiteSpace(modId))
+					{
+						modList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, Path.GetFileName(modCurrent.Filename)));
+						modCheck.Add(modCurrent);
+					}
 				}
 				else if (_missingDownloadId == false && !string.IsNullOrEmpty(modCurrent.DownloadId))
 				{
@@ -237,8 +255,8 @@
 			var fileListInfo = new List<IModInfo>();
 			var modCheckList = modsToCheck.ToArray();
 
-            //get mod info
-            for (var i = 0; i <= _retries; i++)
+			//get mod info
+			for (var i = 0; i <= _retries; i++)
             {
                 fileListInfo = ModRepository.GetFileListInfo(modList);
 

@@ -1687,19 +1687,6 @@
 			toolStripSplitButtonTools.DropDown.Show();
 		}
 
-		/// <summary>
-		/// Handles the <see cref="ToolStripItem.Click"/> event of the Go Premium button.
-		/// </summary>
-		/// <remarks>
-		/// Opens a default browser window on the Premium webpage.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void tsbGoPremium_Click(object sender, EventArgs e)
-		{
-			Process.Start(NexusLinks.Premium);
-		}
-
 		private Point FindControlCoords(string section, string target)
 		{
 			var coords = new Point(0, 0);

@@ -305,17 +305,6 @@
             this.toolStripProgressBarDownloadSpeed.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             this.toolStripProgressBarDownloadSpeed.Value = 0;
             // 
-            // toolStripButtonGoPremium
-            // 
-            this.toolStripButtonGoPremium.AutoSize = false;
-            this.toolStripButtonGoPremium.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.toolStripButtonGoPremium.Image = global::Nexus.Client.Properties.Resources.go_premium;
-            this.toolStripButtonGoPremium.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            this.toolStripButtonGoPremium.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.toolStripButtonGoPremium.Name = "toolStripButtonGoPremium";
-            this.toolStripButtonGoPremium.Size = new System.Drawing.Size(36, 34);
-            this.toolStripButtonGoPremium.Click += new System.EventHandler(this.tsbGoPremium_Click);
-            // 
             // toolStripLabelLoginMessage
             // 
             this.toolStripLabelLoginMessage.Name = "toolStripLabelLoginMessage";

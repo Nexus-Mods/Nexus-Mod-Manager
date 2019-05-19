@@ -177,6 +177,13 @@
 		IModFileInfo GetFileInfoForFile(string fileName);
 
 		/// <summary>
+		/// Gets the list of mods that were updated during the given period.
+		/// </summary>
+		/// <param name="period">The time period: 1d, 1w, 1m.</param>
+		/// <returns>List of mod IDs.</returns>
+		List<string> GetUpdated(string period);
+
+		/// <summary>
 		/// Gets the file info for the default file of the specified mod.
 		/// </summary>
 		/// <param name="modId">The id of the mod the whose default file's metadata is to be retrieved.</param>
