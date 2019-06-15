@@ -23,7 +23,7 @@
         {
             ValidateExtensionParameter(ref extension);
 
-            var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
+            var rootKey = $"HKEY_CLASSES_ROOT\\{extension}";
 
             try
             {
@@ -31,25 +31,25 @@
 
                 if (key == null)
                 {
-                    Trace.TraceWarning("[ShellExtension] Couldn't add shell extension for \"{0}\", registry key did not exist.", extension);
-                    return false;
+                    Registry.SetValue(rootKey, null, $"NMM{extension}");
+                    key = Registry.GetValue(rootKey, null, null) as string;
                 }
 
                 var commandKey = "Add_to_" + CommonData.ModManagerName.Replace(' ', '_');
-                var extensionRootKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey;
+                var extensionRootKey = $"HKEY_CLASSES_ROOT\\{key}\\Shell\\{commandKey}";
                 var extensionRootKeyValue = "Add to " + CommonData.ModManagerName;
-                Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionRootKey, extensionRootKeyValue);
+                Trace.TraceInformation($"[ShellExtension] Adding key \"{extensionRootKey}\" with data \"{extensionRootKeyValue}\".");
                 Registry.SetValue(extensionRootKey, null, extensionRootKeyValue);
 
-                var extensionSubKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey + "\\command";
-                Trace.TraceInformation("[ShellExtension] Adding key \"{0}\" with data \"{1}\".", extensionSubKey, AddToNmmCommand);
+                var extensionSubKey = $"HKEY_CLASSES_ROOT\\{key}\\Shell\\{commandKey}\\command";
+                Trace.TraceInformation($"[ShellExtension] Adding key \"{extensionSubKey}\" with data \"{AddToNmmCommand}\".");
                 Registry.SetValue(extensionSubKey, null, AddToNmmCommand, RegistryValueKind.String);
 
                 return true;
             }
             catch (Exception e)
             {
-                Trace.TraceWarning("[ShellExtension] Couldn't add shell extension for \"{0}\", due to {1} - {2}.", extension, e.GetType(), e.Message);
+                Trace.TraceWarning($"[ShellExtension] Couldn't add shell extension for \"{extension}\", due to {e.GetType()} - {e.Message}.");
                 return false;
             }
         }
@@ -58,7 +58,7 @@
         {
             ValidateExtensionParameter(ref extension);
 
-            var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
+            var rootKey = $"HKEY_CLASSES_ROOT\\{extension}";
 
             try
             {
@@ -70,20 +70,15 @@
                 }
 
                 var commandKey = "Add_to_" + CommonData.ModManagerName.Replace(' ', '_');
-                
-                var extensionSubKey = "HKEY_CLASSES_ROOT\\" + key + "\\Shell\\" + commandKey + "\\command";
+
+                var extensionSubKey = $"HKEY_CLASSES_ROOT\\{key}\\Shell\\{commandKey}\\command";
                 var result = Registry.GetValue(extensionSubKey, null, null) as string;
 
-                if (string.IsNullOrEmpty(result) || !result.Equals(AddToNmmCommand, StringComparison.OrdinalIgnoreCase))
-                {
-                    return false;
-                }
-                
-                return true;
+                return !string.IsNullOrEmpty(result) && result.Equals(AddToNmmCommand, StringComparison.OrdinalIgnoreCase);
             }
             catch (Exception e)
             {
-                Trace.TraceWarning("[ShellExtension] Couldn't read shell extension state for \"{0}\", due to {1} - {2}.", extension, e.GetType(), e.Message);
+                Trace.TraceWarning($"[ShellExtension] Couldn't read shell extension state for \"{extension}\", due to {e.GetType()} - {e.Message}.");
                 return false;
             }
         }
@@ -92,7 +87,7 @@
         {
             ValidateExtensionParameter(ref extension);
 
-            var rootKey = @"HKEY_CLASSES_ROOT\" + extension;
+            var rootKey = $"HKEY_CLASSES_ROOT\\{extension}";
 
             try
             {
@@ -104,7 +99,7 @@
                     return true;
                 }
 
-                using (var rk = Registry.ClassesRoot.OpenSubKey(key + "\\Shell", true))
+                using (var rk = Registry.ClassesRoot.OpenSubKey($"{key}\\Shell", true))
                 {
                     if (rk == null)
                     {
@@ -124,7 +119,7 @@
             }
             catch (Exception e)
             {
-                Trace.TraceWarning("[ShellExtension] Couldn't remove shell extension for \"{0}\", due to {1} - {2}.", extension, e.GetType(), e.Message);
+                Trace.TraceWarning($"[ShellExtension] Couldn't remove shell extension for \"{extension}\", due to {e.GetType()} - {e.Message}.");
                 return false;
             }
         }
@@ -136,9 +131,9 @@
                 throw new ArgumentException("Argument cannot be null/empty.", nameof(extension));
             }
 
-            if (!extension[0].Equals('.'))
+            if (!extension.StartsWith("."))
             {
-                extension = extension.Insert(0, ".");
+                extension = $".{extension}";
             }
         }
     }
