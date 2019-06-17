@@ -17,6 +17,11 @@
         /// <remarks>Taken from: https://stackoverflow.com/a/10520086/1728343 </remarks>
         public static string CalculateMd5(string filename)
         {
+            if (!File.Exists(filename))
+            {
+                throw new FileNotFoundException("Could not find the file to calculate md5 checksum.", filename);
+            }
+
             using (var md5 = MD5.Create())
             {
                 using (var stream = File.OpenRead(filename))

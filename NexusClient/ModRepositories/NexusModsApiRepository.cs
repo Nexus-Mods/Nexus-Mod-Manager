@@ -101,7 +101,7 @@
 
 			try
 			{
-				UserStatus = _apiCallManager.Users.ValidateAsync().Result;
+				UserStatus = _apiCallManager.Users?.ValidateAsync().Result;
 			}
 			catch (AggregateException a)
 			{
@@ -143,20 +143,25 @@
 		/// <inheritdoc cref="IModRepository"/>
 		public IModInfo GetModInfoForFile(string fileName)
 		{
-			try
-			{
-				var hash = Md5.CalculateMd5(fileName);
+            try
+            {
+                var hash = Md5.CalculateMd5(fileName);
 
                 // TODO: Probably need to handle cases with multiple hits.
-                var mod = _apiCallManager.Mods.GetModsByFileHash(GameDomainName, hash)?.Result[0]?.Mod;
+                var mod = _apiCallManager.Mods?.GetModsByFileHash(GameDomainName, hash)?.Result[0]?.Mod;
 
                 return mod == null ? new ModInfo() : new ModInfo(mod);
             }
-			catch (AggregateException a)
-			{
-				ReactToAggregateException(a);
-				return null;
-			}
+            catch (AggregateException a)
+            {
+                ReactToAggregateException(a);
+                return null;
+            }
+            catch (FileNotFoundException f)
+            {
+                TraceUtil.TraceException(f);
+                return null;
+            }
 		}
 
         /// <inheritdoc cref="IModRepository"/>
@@ -167,11 +172,16 @@
                 var hash = Md5.CalculateMd5(fileName);
 
                 // TODO: Probably need to handle cases with multiple hits.
-                return new ModFileInfo(_apiCallManager.Mods.GetModsByFileHash(GameDomainName, hash).Result[0].File);
+                return new ModFileInfo(_apiCallManager.Mods?.GetModsByFileHash(GameDomainName, hash).Result[0].File);
             }
             catch (AggregateException a)
             {
                 ReactToAggregateException(a);
+                return null;
+            }
+            catch (FileNotFoundException f)
+            {
+                TraceUtil.TraceException(f);
                 return null;
             }
         }
@@ -182,7 +192,7 @@
 			try
 			{
 				string id = ParseModId(modId);
-				return new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, Convert.ToInt32(id)).Result);
+				return new ModInfo(_apiCallManager.Mods?.GetMod(GameDomainName, Convert.ToInt32(id)).Result);
 			}
 			catch (AggregateException a)
 			{
@@ -202,7 +212,14 @@
                 {
                     string modId = ParseModId(mod);
                     var id = Convert.ToInt32(modId);
-                    list.Add(new ModInfo(_apiCallManager.Mods.GetMod(GameDomainName, id).Result));
+                    var tmpMod = _apiCallManager.Mods?.GetMod(GameDomainName, id).Result;
+
+                    if (tmpMod == null)
+                    {
+                        continue;
+                    }
+
+                    list.Add(new ModInfo(tmpMod));
                 }
                 catch (AggregateException a)
                 {
@@ -258,11 +275,11 @@
 					case -1:
 					case 0:
 						// -1 is abstained, 0 is null. Toggling these states will endorse the mod.
-						action = _apiCallManager.Mods.Endorse(GameDomainName, id, version);
+						action = _apiCallManager.Mods?.Endorse(GameDomainName, id, version);
 						break;
 					case 1:
 						// 1 is endorsed, toggling this state will abstain from endorsing the mod.
-						action = _apiCallManager.Mods.Unendorse(GameDomainName, id, version);
+						action = _apiCallManager.Mods?.Unendorse(GameDomainName, id, version);
 						break;
 				}
 
@@ -306,7 +323,7 @@
 		{
 			try
 			{
-				var modFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
+				var modFiles = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
 				return modFiles.Select(modFileInfo => new ModFileInfo(modFileInfo)).Cast<IModFileInfo>().ToList();
 			}
 			catch (AggregateException a)
@@ -325,8 +342,8 @@
 			try
 			{
 				var downloadUris = UserStatus.IsPremium ?
-					_apiCallManager.ModFiles.GetDownloadLinks(GameDomainName, mod, file).Result :
-					_apiCallManager.ModFiles.GetDownloadLinks(GameDomainName, mod, file, key, expiry).Result;
+					_apiCallManager.ModFiles?.GetDownloadLinks(GameDomainName, mod, file).Result :
+					_apiCallManager.ModFiles?.GetDownloadLinks(GameDomainName, mod, file, key, expiry).Result;
 				return downloadUris.ToList();
 			}
 			catch (AggregateException a)
@@ -341,7 +358,7 @@
 		{
 			try
 			{
-				return new ModFileInfo(_apiCallManager.ModFiles.GetModFile(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result);
+				return new ModFileInfo(_apiCallManager.ModFiles?.GetModFile(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result);
 			}
 			catch (AggregateException a)
 			{
@@ -363,7 +380,7 @@
 				}
 
 				var filename = Path.GetFileName(fileName);
-				var files = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
+				var files = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
                 var fileInfo = (files.Find(x => x.Name.Equals(filename, StringComparison.OrdinalIgnoreCase)) ?? 
                                files.Find(x => x.Name.Replace(' ', '_').Equals(filename, StringComparison.OrdinalIgnoreCase))) ??
                                files.Find(x => x.Name.Replace(' ', '-').Equals(filename, StringComparison.OrdinalIgnoreCase));
@@ -493,7 +510,7 @@
 		{
 			try
 			{
-				var mfiFiles = _apiCallManager.ModFiles.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main).Result.Files;
+				var mfiFiles = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main).Result.Files;
 
 				var mfiDefault = (from f in mfiFiles
 								  orderby f.UploadedTimestamp descending
@@ -515,7 +532,7 @@
 		{
 			try
 			{
-				var categories = _apiCallManager.Games.GetGame(gameId).Result.Categories;
+				var categories = _apiCallManager.Games?.GetGame(gameId).Result.Categories;
 				return categories.Select(category => new CategoriesInfo(category)).ToList();
 			}
 			catch (AggregateException a)
