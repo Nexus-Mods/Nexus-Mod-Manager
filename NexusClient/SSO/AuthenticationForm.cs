@@ -71,6 +71,13 @@
             if (e.Reason == AuthenticationCancelledReason.ConnectionIssue)
             {
                 MessageBox.Show(this, "Authentication failed due to network issues.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                var fallbackForm = new ManualApiKeyEntryForm(ViewModel);
+                var result = fallbackForm.ShowDialog(this);
+
+                if (result == DialogResult.OK)
+                {
+                    Authenticate(null, null);
+                }
             }
             else if (e.Reason != AuthenticationCancelledReason.Manual)
             {
@@ -124,11 +131,6 @@
             {
                 _loginTask.Reset();
             }
-        }
-
-        private void linkLabelManageApiKeys_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://www.nexusmods.com/users/myaccount?tab=api%20access");
         }
 
         private void ButtonSingleSignOn_Click(object sender, EventArgs e)
