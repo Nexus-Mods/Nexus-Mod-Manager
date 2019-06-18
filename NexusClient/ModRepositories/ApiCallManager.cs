@@ -59,7 +59,7 @@
         }
 
         #region Properties
-        
+
         /// <summary>
         /// Gets the user agent string to send to the Nexus Mods API.
         /// </summary>
@@ -68,34 +68,34 @@
         /// <summary>
         /// Gets the current rate limits.
         /// </summary>
-        public IRateLimitManager RateLimit => _nexusClient.GetRateLimits().Result;
+        public IRateLimitManager RateLimit => _nexusClient?.GetRateLimits().Result;
 
         #region EndPoints
 
         /// <summary>
         /// End point for getting ColourSchemes info from Nexus.
         /// </summary>
-        public NexusColorSchemesClient ColourSchemes => _nexusClient.ColorSchemes;
+        public NexusColorSchemesClient ColourSchemes => _nexusClient?.ColorSchemes;
 
         /// <summary>
         /// End point for getting Games info from Nexus.
         /// </summary>
-        public NexusGamesClient Games => _nexusClient.Games;
+        public NexusGamesClient Games => _nexusClient?.Games;
 
         /// <summary>
         /// End point for getting User info from Nexus.
         /// </summary>
-        public NexusUsersClient Users => _nexusClient.Users;
+        public NexusUsersClient Users => _nexusClient?.Users;
 
         /// <summary>
         /// End point for getting Mods info from Nexus.
         /// </summary>
-        public NexusModsClient Mods => _nexusClient.Mods;
+        public NexusModsClient Mods => _nexusClient?.Mods;
 
         /// <summary>
         /// End point for getting Mods info from Nexus.
         /// </summary>
-        public NexusModFilesClient ModFiles => _nexusClient.ModFiles;
+        public NexusModFilesClient ModFiles => _nexusClient?.ModFiles;
 
         #endregion
 
