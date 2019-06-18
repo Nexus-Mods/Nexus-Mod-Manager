@@ -131,9 +131,11 @@
                         Trace.TraceWarning($"SsoManager: Could not connect to \"{SsoServiceAddress}\"");
                         Cancel(AuthenticationCancelledReason.ConnectionIssue);
                     }
-
-                    TraceUtil.TraceException(ex);
-                    Cancel(AuthenticationCancelledReason.Unknown);
+                    else
+                    {
+                        TraceUtil.TraceException(ex);
+                        Cancel(AuthenticationCancelledReason.Unknown);
+                    }
                 }
             }
         }

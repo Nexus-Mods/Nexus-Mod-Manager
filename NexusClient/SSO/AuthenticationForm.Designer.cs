@@ -30,7 +30,6 @@
 		{
             this.panel2 = new System.Windows.Forms.Panel();
             this.buttonCancel = new System.Windows.Forms.Button();
-            this.linkLabelManageApiKeys = new System.Windows.Forms.LinkLabel();
             this.buttonSingleSignOn = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
@@ -49,7 +48,7 @@
             // buttonCancel
             // 
             this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.buttonCancel.Location = new System.Drawing.Point(166, 101);
+            this.buttonCancel.Location = new System.Drawing.Point(166, 83);
             this.buttonCancel.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(75, 33);
@@ -58,20 +57,9 @@
             this.buttonCancel.UseVisualStyleBackColor = true;
             this.buttonCancel.Click += new System.EventHandler(this.ButtonCancel_Click);
             // 
-            // linkLabelManageApiKeys
-            // 
-            this.linkLabelManageApiKeys.AutoSize = true;
-            this.linkLabelManageApiKeys.Location = new System.Drawing.Point(33, 74);
-            this.linkLabelManageApiKeys.Name = "linkLabelManageApiKeys";
-            this.linkLabelManageApiKeys.Size = new System.Drawing.Size(177, 13);
-            this.linkLabelManageApiKeys.TabIndex = 2;
-            this.linkLabelManageApiKeys.TabStop = true;
-            this.linkLabelManageApiKeys.Text = "Manage your Nexus API key(s) here";
-            this.linkLabelManageApiKeys.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabelManageApiKeys_LinkClicked);
-            // 
             // buttonSingleSignOn
             // 
-            this.buttonSingleSignOn.Location = new System.Drawing.Point(12, 101);
+            this.buttonSingleSignOn.Location = new System.Drawing.Point(12, 83);
             this.buttonSingleSignOn.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
             this.buttonSingleSignOn.Name = "buttonSingleSignOn";
             this.buttonSingleSignOn.Size = new System.Drawing.Size(91, 33);
@@ -108,11 +96,10 @@
             this.AutoSize = true;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.CancelButton = this.buttonCancel;
-            this.ClientSize = new System.Drawing.Size(253, 151);
+            this.ClientSize = new System.Drawing.Size(253, 126);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.buttonSingleSignOn);
-            this.Controls.Add(this.linkLabelManageApiKeys);
             this.Controls.Add(this.buttonCancel);
             this.Controls.Add(this.panel2);
             this.m_fpdFontProvider.SetFontSet(this, "StandardText");
@@ -120,7 +107,6 @@
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.MinimumSize = new System.Drawing.Size(262, 39);
-            this.Name = "AuthenticationForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Authorization";
             this.ResumeLayout(false);
@@ -131,7 +117,6 @@
 		#endregion
 		private System.Windows.Forms.Panel panel2;
         private System.Windows.Forms.Button buttonCancel;
-        private System.Windows.Forms.LinkLabel linkLabelManageApiKeys;
         private System.Windows.Forms.Button buttonSingleSignOn;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;
