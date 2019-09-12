@@ -1739,7 +1739,7 @@
 				}
 			}
 
-			clwCategoryView.ReloadList(false);
+			clwCategoryView.ReloadList(true);
 			UpdateModsCount(this, e);
 			SetCommandExecutableStatus();
 		}
