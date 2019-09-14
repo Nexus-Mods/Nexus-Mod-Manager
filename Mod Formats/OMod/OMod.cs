@@ -771,16 +771,16 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// 
 		/// Read-only mode can greatly increase the speed at which multiple file are extracted.
 		/// </remarks>
-		public void BeginReadOnlyTransaction(FileUtil p_futFileUtil)
+		public void BeginReadOnlyTransaction(FileUtil fileUtil)
 		{
 			if (!IsPacked)
 			{
 				m_arcFile.ReadOnlyInitProgressUpdated += new CancelProgressEventHandler(ArchiveFile_ReadOnlyInitProgressUpdated);
-				m_arcFile.BeginReadOnlyTransaction(p_futFileUtil);
+				m_arcFile.BeginReadOnlyTransaction(fileUtil);
 				return;
 			}
 
-			m_strReadOnlyTempDirectory = p_futFileUtil.CreateTempDirectory();
+			m_strReadOnlyTempDirectory = fileUtil.CreateTempDirectory();
 
 			string[] strFileStreamNames = { "plugins", "data" };
 			List<FileInfo> lstFiles = null;
@@ -1222,25 +1222,25 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <summary>
 		/// Retrieves the specified file from the OMod.
 		/// </summary>
-		/// <param name="p_strFile">The file to retrieve.</param>
+		/// <param name="file">The file to retrieve.</param>
 		/// <returns>The requested file data.</returns>
 		/// <exception cref="FileNotFoundException">Thrown if the specified file
 		/// is not in the OMod.</exception>
-		public byte[] GetFile(string p_strFile)
+		public byte[] GetFile(string file)
 		{
-			if (!ContainsFile(p_strFile))
-				throw new FileNotFoundException("File doesn't exist in OMod", p_strFile);
+			if (!ContainsFile(file))
+				throw new FileNotFoundException("File doesn't exist in OMod", file);
 
 			if (!IsPacked)
 			{
-				if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strFile))))))
-					return (File.ReadAllBytes(Path.Combine(m_strCachePath, GetRealPath(p_strFile))));
+				if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(file))))))
+					return (File.ReadAllBytes(Path.Combine(m_strCachePath, GetRealPath(file))));
 
-				return m_arcFile.GetFileContents(GetRealPath(p_strFile));
+				return m_arcFile.GetFileContents(GetRealPath(file));
 			}
 
 			if (!String.IsNullOrEmpty(m_strReadOnlyTempDirectory))
-				return File.ReadAllBytes(Path.Combine(m_strReadOnlyTempDirectory, p_strFile));
+				return File.ReadAllBytes(Path.Combine(m_strReadOnlyTempDirectory, file));
 
 			List<FileInfo> lstFiles = null;
 			byte[] bteFileBlock = null;
@@ -1248,7 +1248,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
 				{
-					if (Path.GetExtension(p_strFile).Equals(".esm", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(p_strFile).Equals(".esp", StringComparison.OrdinalIgnoreCase))
+					if (Path.GetExtension(file).Equals(".esm", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".esp", StringComparison.OrdinalIgnoreCase))
 					{
 						szeOmod.ExtractFile("plugins", stmDataFiles);
 						lstFiles = PluginList;
@@ -1290,7 +1290,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			byte[] bteFile = null;
 			foreach (FileInfo ofiFile in lstFiles)
 			{
-				if (!ofiFile.Name.Equals(p_strFile, StringComparison.OrdinalIgnoreCase))
+				if (!ofiFile.Name.Equals(file, StringComparison.OrdinalIgnoreCase))
 					intFileStart += ofiFile.Length;
 				else
 				{
@@ -1305,28 +1305,28 @@ namespace Nexus.Client.Mods.Formats.OMod
         /// <summary>
 		/// Retrieves stream for the specified file from the OMod.
 		/// </summary>
-		/// <param name="p_strFile">The file to retrieve.</param>
+		/// <param name="file">The file to retrieve.</param>
 		/// <returns>Stream for the requested file data.</returns>
         /// <exception cref="FileNotFoundException">Thrown if the specified file
 		/// is not in the OMod.</exception>
-		public FileStream GetFileStream(string p_strFile)
+		public FileStream GetFileStream(string file)
         {
-            if (!ContainsFile(p_strFile))
+            if (!ContainsFile(file))
             {
-                throw new FileNotFoundException("File doesn't exist in OMod", p_strFile);
+                throw new FileNotFoundException("File doesn't exist in OMod", file);
             }
 
             if (!IsPacked)
             {
                 string strPath;
 
-                if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(p_strFile))))))
+                if ((Directory.Exists(m_strCachePath) && (File.Exists(Path.Combine(m_strCachePath, GetRealPath(file))))))
                 {
-                    strPath = Path.Combine(m_strCachePath, GetRealPath(p_strFile));                    
+                    strPath = Path.Combine(m_strCachePath, GetRealPath(file));                    
                 }
                 else
                 {
-                    strPath = GetRealPath(p_strFile);
+                    strPath = GetRealPath(file);
                 }
                 
                 return new FileStream(strPath, FileMode.Open);
@@ -1334,7 +1334,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 
             if (!String.IsNullOrEmpty(m_strReadOnlyTempDirectory))
             {
-                return new FileStream(Path.Combine(m_strReadOnlyTempDirectory, p_strFile), FileMode.Open);
+                return new FileStream(Path.Combine(m_strReadOnlyTempDirectory, file), FileMode.Open);
             }
 
             List<FileInfo> lstFiles = null;
@@ -1350,7 +1350,7 @@ namespace Nexus.Client.Mods.Formats.OMod
             {
                 using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
                 {
-                    if (Path.GetExtension(p_strFile).Equals(".esm", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(p_strFile).Equals(".esp", StringComparison.OrdinalIgnoreCase))
+                    if (Path.GetExtension(file).Equals(".esm", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".esp", StringComparison.OrdinalIgnoreCase))
                     {
                         szeOmod.ExtractFile("plugins", stmDataFiles);
                         lstFiles = PluginList;
@@ -1423,19 +1423,19 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <summary>
 		/// Retrieves the list of all files in the specified OMod folder.
 		/// </summary>
-		/// <param name="p_strFolderPath">The OMod folder whose file list is to be retrieved.</param>
-		/// <param name="p_booRecurse">Whether to return files that are in subdirectories of the given directory.</param>
+		/// <param name="folderPath">The OMod folder whose file list is to be retrieved.</param>
+		/// <param name="recurse">Whether to return files that are in subdirectories of the given directory.</param>
 		/// <returns>The list of all files in the specified OMod folder.</returns>
-		public List<string> GetFileList(string p_strFolderPath, bool p_booRecurse)
+		public List<string> GetFileList(string folderPath, bool recurse)
 		{
 			List<string> lstFiles = new List<string>();
 			if (!IsPacked)
 			{
-				foreach (string strFile in m_arcFile.GetFiles(p_strFolderPath, p_booRecurse))
+				foreach (string strFile in m_arcFile.GetFiles(folderPath, recurse))
 					if (!m_dicMovedArchiveFiles.ContainsValue(strFile))
 						if (!strFile.StartsWith(CONVERSION_FOLDER, StringComparison.OrdinalIgnoreCase))
 							lstFiles.Add(strFile);
-				string strPathPrefix = p_strFolderPath ?? "";
+				string strPathPrefix = folderPath ?? "";
 				strPathPrefix = strPathPrefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				strPathPrefix = strPathPrefix.Trim(Path.DirectorySeparatorChar);
 				if (strPathPrefix.Length > 0)
@@ -1446,12 +1446,12 @@ namespace Nexus.Client.Mods.Formats.OMod
 				return lstFiles;
 			}
 
-			string strFolderPath = (p_strFolderPath ?? "").Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string strFolderPath = (folderPath ?? "").Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			if (!strFolderPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
 				strFolderPath += Path.DirectorySeparatorChar;
 			foreach (FileInfo fifFile in PluginList.Union(DataFileList))
 			{
-				if ((p_booRecurse && fifFile.Name.StartsWith(strFolderPath, StringComparison.OrdinalIgnoreCase))
+				if ((recurse && fifFile.Name.StartsWith(strFolderPath, StringComparison.OrdinalIgnoreCase))
 					|| (Path.GetDirectoryName(fifFile.Name) + Path.DirectorySeparatorChar).Equals(strFolderPath, StringComparison.OrdinalIgnoreCase))
 					lstFiles.Add(fifFile.Name);
 			}

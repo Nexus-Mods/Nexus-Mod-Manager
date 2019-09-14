@@ -1,13 +1,15 @@
-﻿using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.Mods
+﻿namespace Nexus.Client.Mods
 {
-	/// <summary>
-	/// The interface for mods.
-	/// </summary>
-	public interface IMod : IModInfo, IScriptedMod
+    using System.Collections.Generic;
+    using System.IO;
+
+    using Nexus.Client.Util;
+
+    /// <summary>
+    /// The interface for mods.
+    /// </summary>
+    /// <inheritdoc cref="IModInfo" />
+    public interface IMod : IModInfo, IScriptedMod
 	{
 		#region Properties
 
@@ -56,7 +58,7 @@ namespace Nexus.Client.Mods
 		/// 
 		/// Read-only mode can greatly increase the speed at which multiple file are extracted.
 		/// </remarks>
-		void BeginReadOnlyTransaction(FileUtil p_futFileUtil);
+		void BeginReadOnlyTransaction(FileUtil fileUtil);
 
 		/// <summary>
 		/// Ends a read-only transaction.
@@ -75,18 +77,18 @@ namespace Nexus.Client.Mods
 		/// <summary>
 		/// Retrieves the specified file from the mod.
 		/// </summary>
-		/// <param name="p_strFile">The file to retrieve.</param>
+		/// <param name="file">The file to retrieve.</param>
 		/// <returns>The requested file data.</returns>
 		/// <exception cref="System.IO.FileNotFoundException">Thrown if the specified file
 		/// is not in the mod.</exception>
-		byte[] GetFile(string p_strFile);
+		byte[] GetFile(string file);
 
         /// <summary>
         /// Retrieves stream for the specified file from the mod.
         /// </summary>
-        /// <param name="p_strFile">The file to retrieve</param>
+        /// <param name="file">The file to retrieve</param>
         /// <returns>Stream of the requested file data.</returns>
-        FileStream GetFileStream(string p_strFile);
+        FileStream GetFileStream(string file);
 
 		/// <summary>
 		/// Retrieves the list of files in this Mod.
@@ -97,10 +99,10 @@ namespace Nexus.Client.Mods
 		/// <summary>
 		/// Retrieves the list of all files in the specified Mod folder.
 		/// </summary>
-		/// <param name="p_strFolderPath">The Mod folder whose file list is to be retrieved.</param>
-		/// <param name="p_booRecurse">Whether to return files that are in subdirectories of the given directory.</param>
+		/// <param name="folderPath">The Mod folder whose file list is to be retrieved.</param>
+		/// <param name="recurse">Whether to return files that are in subdirectories of the given directory.</param>
 		/// <returns>The list of all files in the specified Mod folder.</returns>
-		List<string> GetFileList(string p_strFolderPath, bool p_booRecurse);
+		List<string> GetFileList(string folderPath, bool recurse);
 
 		/// <summary>
 		/// Determines if last known version is the same as the current version.
