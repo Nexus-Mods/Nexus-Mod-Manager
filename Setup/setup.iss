@@ -70,10 +70,10 @@ Name: associateOmodFiles; Description: &Associate *.OMOD files with {#MyAppSetup
 Source: "..\Stage\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.dll"; DestDir: {app}; Flags: ignoreversion
-Source: "..\Stage\Release\data\*"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\GameModes\*"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\ModFormats\*"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\ScriptTypes\*"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\data\*"; Excludes: "*.pdb"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\ModFormats\*"; Excludes: "*.pdb"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "*.pdb"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: {group}\{#MyAppSetupName}; Filename: {app}\{#MyExeName}; WorkingDir: {app}
