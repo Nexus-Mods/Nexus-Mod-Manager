@@ -1236,10 +1236,10 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			if (Fallout4PluginManagement)
 			{
-				if (OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+				if (OrderedCriticalPluginNames.Concat(StripPluginDirectory(GameMode.OrderedOfficialUnmanagedPluginNames)).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 					return true;
 				else if (OrderedOfficialPluginNames != null)
-					if (OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+					if (OrderedOfficialPluginNames.Concat(StripPluginDirectory(GameMode.OrderedOfficialUnmanagedPluginNames)).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 						return true;
 			}
 
