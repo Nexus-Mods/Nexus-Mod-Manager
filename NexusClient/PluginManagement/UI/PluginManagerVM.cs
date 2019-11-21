@@ -1253,12 +1253,12 @@ namespace Nexus.Client.PluginManagement.UI
 						throw new InvalidImportSourceException("The specified import source has more than one game mode defined.");
 				}
 
-				Match mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m))=([0:1])$");
+				Match mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m|l))=([0:1])$");
 				if (mchPlugin.Success)
 					kvpLoadOrder.Add(strLine.Split('=')[0], strLine.Split('=')[1]);
 				else
 				{
-					mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m))$");
+					mchPlugin = Regex.Match(strLine, @"^(.+\.es(?:p|m|l))$");
 					if (mchPlugin.Success)
 						kvpLoadOrder.Add(strLine, String.Empty);
 				}
