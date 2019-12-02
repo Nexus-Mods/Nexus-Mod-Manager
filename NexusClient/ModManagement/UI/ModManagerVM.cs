@@ -13,6 +13,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Commands;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -37,10 +38,20 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTaskSet>> DeletingMod = delegate { };
 
-		/// <summary>
-		/// Raised when the activation status of a mod is about to be changed.
+        /// <summary>
+		/// Raised when exporting the current mod list fails.
 		/// </summary>
-		public event EventHandler<EventArgs<IBackgroundTaskSet>> ChangingModActivation = delegate { };
+		public event EventHandler<ExportFailedEventArgs> ExportFailed = delegate { };
+
+        /// <summary>
+        /// Raised when exporting the current mod list succeeds.
+        /// </summary>
+        public event EventHandler<ExportSucceededEventArgs> ExportSucceeded = delegate { };
+
+        /// <summary>
+        /// Raised when the activation status of a mod is about to be changed.
+        /// </summary>
+        public event EventHandler<EventArgs<IBackgroundTaskSet>> ChangingModActivation = delegate { };
 
 		/// <summary>
 		/// Raised when a mod is being tagged.
@@ -212,11 +223,29 @@ namespace Nexus.Client.ModManagement.UI
 		/// <value>The current profile manager.</value>
 		public IProfileManager ProfileManager { get; private set; }
 
-		/// <summary>
-		/// Gets the category manager to use to manage categories.
+        /// <summary>
+		/// Gets the command to export the current mod list to a text file.
 		/// </summary>
-		/// <value>The category manager to use to manage categories.</value>
-		public CategoryManager CategoryManager { get; private set; }
+		/// <remarks>
+		/// The command takes an argument specifying the filename to save the mod list to.
+		/// </remarks>
+		/// <value>The command to export the current mod list to a text file.</value>
+		public Command<string> ExportModListToFileCommand { get; private set; }
+
+        /// <summary>
+        /// Gets the command to export the current mod list to the clipboard.
+        /// </summary>
+        /// <remarks>
+        /// The command takes an argument specifying the current game mode.
+        /// </remarks>
+        /// <value>The command to export the current mod list to the clipboard.</value>
+        public Command ExportModListToClipboardCommand { get; private set; }
+
+        /// <summary>
+        /// Gets the category manager to use to manage categories.
+        /// </summary>
+        /// <value>The category manager to use to manage categories.</value>
+        public CategoryManager CategoryManager { get; private set; }
 
 		/// <summary>
 		/// Gets the list of mods being managed by the mod manager.
@@ -349,8 +378,10 @@ namespace Nexus.Client.ModManagement.UI
 			ActivateModCommand = new Command<List<IMod>>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMods);
 			DisableModCommand = new Command<List<IMod>>("Disable Mod", "Disables the selected mod.", DisableMods);
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
+            ExportModListToFileCommand = new Command<string>("Export to a text file", "Exports the current mod list to a text file.", ExportModListToFile);
+            ExportModListToClipboardCommand = new Command("Export to the clipboard", "Exports the current mod list to the clipboard.", ExportModListToClipboard);
 
-			ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
+            ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
 			ModManager.UpdateCategoriesCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCategoriesCheckStarted);
 			ModManager.AutomaticDownloadStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_AutomaticDownloadStarted);
 		}
@@ -1055,14 +1086,188 @@ namespace Nexus.Client.ModManagement.UI
 				this.CategoryManager.LoadCategories(String.Empty);
 		}
 
-		#endregion
+        #endregion
 
-		#region ReadMe Manager
+        #region Export
 
-		/// <summary>
-		/// Checks if the ReadMe Manager has been properly initialized.
+        /// <summary>
+		/// Determines whether or not the mod list can currently be exported for the current game mode.
 		/// </summary>
-		public void CheckReadMeManager()
+		/// <returns><c>true</c> if the mod list can be exported; <c>false</c> otherwise.</returns>
+		public bool CanExecuteExportCommands()
+        {
+            return IsCategoryInitialized && (ActiveMods.Count > 0);
+        }
+
+        /// <summary>
+        /// Writes the current mod list and the id of the specified game mode to the specified 
+        /// <see cref="TextWriter"/> and returns the stream.
+        /// </summary>
+        /// <param name="p_twWriter">The TextWriter to export the current mod list to.</param>
+        /// <returns>The stream.</returns>
+        public byte[] ExportModList()
+        {
+            System.Text.StringBuilder sbModList = new System.Text.StringBuilder();
+
+            foreach (IMod mod in ActiveMods)
+            {
+                sbModList.AppendLine($"{(VirtualModActivator.CheckHasActiveLinks(mod) ? "ACTIVE" : "DISABLED")}" +
+                    $" [Name] {mod.ModName} [URL] {mod.Website}");
+            }
+
+            return System.Text.Encoding.UTF8.GetBytes(sbModList.ToString());
+        }
+
+        /// <summary>
+		/// Writes the current mod list to the specified 
+		/// <see cref="TextWriter"/> and returns the number of mods written.
+		/// </summary>
+		/// <param name="p_twWriter">The TextWriter to export the current mod list to.</param>
+		/// <returns>The number of mods exported.</returns>
+		private int ExportModList(TextWriter p_twWriter)
+        {
+            if (p_twWriter == null)
+                throw new ArgumentNullException("p_twWriter");
+
+            int intNumPluginsExported = 0;
+
+            foreach (IMod mod in ActiveMods)
+            {
+                p_twWriter.WriteLine($"{(VirtualModActivator.CheckHasActiveLinks(mod) ? "ACTIVE" : "DISABLED")}" +
+                    $" [Name] {mod.ModName} [URL] {mod.Website}");
+                intNumPluginsExported++;
+            }
+
+            return intNumPluginsExported;
+        }
+
+        /// <summary>
+        /// Exports the current mod list to a text file.
+        /// </summary>
+        /// <param name="p_strFilename">The filename to export the mod list to.</param>
+        protected void ExportModListToFile(string p_strFilename)
+        {
+            if (string.IsNullOrEmpty(p_strFilename))
+                return;
+
+            StreamWriter swWriter = null;
+            try
+            {
+                swWriter = new StreamWriter(p_strFilename, false);
+
+                int intExportedPluginCount = ExportModList(swWriter);
+
+                OnExportSucceeded(p_strFilename, intExportedPluginCount);
+            }
+            catch (Exception ex)
+            {
+                OnExportFailed(p_strFilename, ex);
+            }
+            finally
+            {
+                if (swWriter != null)
+                    swWriter.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Exports the current mod list to the clipboard.
+        /// </summary>
+        protected void ExportModListToClipboard()
+        {
+            using (StringWriter writer = new StringWriter())
+            {
+                try
+                {
+                    int intExportedPluginCount = ExportModList(writer);
+
+                    System.Windows.Forms.Clipboard.SetText(writer.ToString());
+
+                    OnExportSucceeded(intExportedPluginCount);
+                }
+                catch (Exception ex)
+                {
+                    OnExportFailed(ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns a default filename when exporting the current mod list.
+        /// </summary>
+        /// <returns>A default filename when exporting the current mod list.</returns>
+        public string GetDefaultExportFilename()
+        {
+            // Get a sortable date/time string
+            string strDateTimeStamp =
+                DateTime.Now
+                .ToString(System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.SortableDateTimePattern);
+
+            // The SortableDateTimePattern property uses the ':' character, which can't be used in file names, so use '-' instead.
+            strDateTimeStamp = strDateTimeStamp.Replace(':', '-');
+
+            return string.Format("ModList_{0}.txt", strDateTimeStamp);
+        }
+
+        /// <summary>
+        /// Returns the filter string used when exporting the current mod list.
+        /// </summary>
+        /// <returns>The filter string used when exporting the current mod list.</returns>
+        public string GetExportFilterString()
+        {
+            return "Text files (*.txt)|*.txt";
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ExportFailed"/> event.
+        /// </summary>
+        /// <param name="p_exError">The error that occurred.</param>
+        protected void OnExportFailed(Exception p_exError)
+        {
+            if (ExportFailed != null)
+                ExportFailed(this, new ExportFailedEventArgs(p_exError));
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ExportFailed"/> event.
+        /// </summary>
+        /// <param name="p_strFilename">The filename that the mod list failed to export to.</param>
+        /// <param name="p_exError">The error that occurred.</param>
+        protected void OnExportFailed(string p_strFilename, Exception p_exError)
+        {
+            if (ExportFailed != null)
+                ExportFailed(this, new ExportFailedEventArgs(p_strFilename, p_exError));
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ExportSucceeded"/> event.
+        /// </summary>
+        /// <param name="p_intExportedPluginCount">The number of mods that were exported.</param>
+        protected void OnExportSucceeded(int p_intExportedPluginCount)
+        {
+            if (ExportSucceeded != null)
+                ExportSucceeded(this, new ExportSucceededEventArgs(p_intExportedPluginCount));
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ExportSucceeded"/> event.
+        /// </summary>
+        /// <param name="p_strFilename">The filename that the mod list was exported to.</param>
+        /// <param name="p_intExportedPluginCount">The number of mods that were exported.</param>
+        protected void OnExportSucceeded(string p_strFilename, int p_intExportedPluginCount)
+        {
+            if (ExportSucceeded != null)
+                ExportSucceeded(this, new ExportSucceededEventArgs(p_strFilename, p_intExportedPluginCount));
+        }
+
+        #endregion
+
+        #region ReadMe Manager
+
+        /// <summary>
+        /// Checks if the ReadMe Manager has been properly initialized.
+        /// </summary>
+        public void CheckReadMeManager()
 		{
 			if ((this.ModManager.ManagedMods.Count > 0) && (!this.ModManager.ReadMeManager.IsInitialized))
 			{
