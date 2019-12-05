@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement.UI
+namespace Nexus.Client.ModManagement.UI
 {
     using System;
     using System.Collections.Generic;
@@ -72,6 +72,9 @@
 				_viewModel.ManagedMods.CollectionChanged += ManagedMods_CollectionChanged;
 				_viewModel.ActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
 
+                _viewModel.ExportFailed += new EventHandler<ExportFailedEventArgs>(ViewModel_ExportFailed);
+                _viewModel.ExportSucceeded += new EventHandler<ExportSucceededEventArgs>(ViewModel_ExportSucceeded);
+
                 foreach (var modMod in _viewModel.ManagedMods)
 				{
 					modMod.PropertyChanged -= Mod_PropertyChanged;
@@ -92,7 +95,9 @@
 				new ToolStripItemCommandBinding<List<IMod>>(tsbActivate, _viewModel.ActivateModCommand, GetSelectedMods);
 				new ToolStripItemCommandBinding<List<IMod>>(tsbDeactivate, _viewModel.DisableModCommand, GetSelectedMods);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, _viewModel.TagModCommand, GetSelectedMod);
-				var cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
+                new ToolStripItemCommandBinding<string>(exportToTextFile, _viewModel.ExportModListToFileCommand, GetExportToFileArgs);
+                new ToolStripItemCommandBinding(exportToClipboard, _viewModel.ExportModListToClipboardCommand);
+                var cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
 				new ToolStripItemCommandBinding(tsbToggleEndorse, cmdToggleEndorsement);
 				ViewModel.DeleteModCommand.CanExecute = false;
 				ViewModel.ActivateModCommand.CanExecute = false;
@@ -100,7 +105,10 @@
 				ViewModel.TagModCommand.CanExecute = false;
 				ViewModel.ParentForm = this;
 
-				LoadMetrics();
+                ViewModel.ExportModListToFileCommand.CanExecute = _viewModel.CanExecuteExportCommands();
+                ViewModel.ExportModListToClipboardCommand.CanExecute = _viewModel.CanExecuteExportCommands();
+
+                LoadMetrics();
 				HidePanels();
 			}
 		}
@@ -2235,10 +2243,92 @@
 			m_booResizing = false;
 		}
 
-		#endregion
+        #endregion
 
-		#region Mod Sorting
-		private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
+        #region Export
+
+        /// <summary>
+        /// Returns the full path of the text file to export to.
+        /// </summary>
+        /// <returns>The full path of the text file to export to.</returns>
+        private string GetExportToFileArgs()
+        {
+            sfdChooseExport.FileName = ViewModel.GetDefaultExportFilename();
+            sfdChooseExport.Filter = ViewModel.GetExportFilterString();
+
+            if (sfdChooseExport.ShowDialog() == DialogResult.OK)
+                return sfdChooseExport.FileName;
+
+            return null;
+        }
+
+        /// <summary>
+        /// Handles the <see cref="ModManagement.ExportFailed"/> event of the view model.
+        /// </summary>
+        /// <remarks>
+        /// This displays a simple error message.
+        /// </remarks>
+        /// <param name="sender">The object that raised the event.</param>
+        /// <param name="e">An <see cref="ExportFailedEventArgs"/> describing the event arguments.</param>
+        private void ViewModel_ExportFailed(object sender, ExportFailedEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                Invoke((Action<object, ExportFailedEventArgs>)ViewModel_ExportFailed, sender, e);
+                return;
+            }
+
+            BeginInvoke(new MethodInvoker(() =>
+            {
+                if (string.IsNullOrEmpty(e.Filename))
+                    Trace.TraceError("Failed to export the current mod list to the clipboard");
+                else
+                    Trace.TraceError("Failed to export the current mod list to: {0}", e.Filename);
+                Trace.Indent();
+                Trace.TraceError("Reason: {0}", e.Message);
+                if (e.Error != null)
+                    TraceUtil.TraceException(e.Error);
+                Trace.Unindent();
+            }));
+
+            string message
+                = "An error was encountered trying to export the current mod list." + Environment.NewLine
+                + Environment.NewLine
+                + "Full details are available in the trace log.";
+            string details = "<b>Error:</b> " + e.Message;
+            ExtendedMessageBox.Show(this, message, Application.ProductName, details, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        /// <summary>
+        /// Handles the <see cref="ModManagement.ExportSucceeded"/> event of the view model.
+        /// </summary>
+        /// <remarks>
+        /// This displays a simple success message.
+        /// </remarks>
+        /// <param name="sender">The object that raised the event.</param>
+        /// <param name="e">An <see cref="EventArgs{String}"/> describing the event arguments.</param>
+        private void ViewModel_ExportSucceeded(object sender, ExportSucceededEventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                Invoke((Action<object, ExportSucceededEventArgs>)ViewModel_ExportSucceeded, sender, e);
+                return;
+            }
+
+            string message = "The current mod list was successfully exported to";
+            if (string.IsNullOrEmpty(e.Filename))
+                message += " the clipboard.";
+            else
+                message += ":" + Environment.NewLine + Environment.NewLine + e.Filename;
+
+            string details = string.Format("{0} {1} successfully exported.", e.ExportedModCount, (e.ExportedModCount == 1) ? "mod was" : "mods were");
+            ExtendedMessageBox.Show(this, message, ViewModel.Settings.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        #endregion
+
+        #region Mod Sorting
+        private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
         {
 			if (ViewModel.ModManager.GameMode.UsesModLoadOrder)
             {

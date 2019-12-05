@@ -78,6 +78,8 @@
     </Compile>
     <Compile Include="GameModeSelector.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
+    <Compile Include="ModManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
+    <Compile Include="ModManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
     <Compile Include="ModRepositories\AuthenticationStatus.cs" />
     <Compile Include="ModRepositories\RateLimitExceededArgs.cs" />
     <Compile Include="SSO\AuthenticationCancelledReason.cs" />
