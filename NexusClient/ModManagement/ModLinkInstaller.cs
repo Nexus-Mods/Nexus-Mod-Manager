@@ -1,25 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using Nexus.Client.Mods;
-using Nexus.Client.ModManagement.UI;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using Nexus.Client.Mods;
+    using Nexus.Client.ModManagement.UI;
+
+    /// <inheritdoc />
 	public class ModLinkInstaller : IModLinkInstaller
 	{
-		private List<string> m_lstOverwriteFolders = new List<string>();
-		private List<string> m_lstDontOverwriteFolders = new List<string>();
-		private List<string> m_lstOverwriteMods = new List<string>();
-		private List<string> m_lstDontOverwriteMods = new List<string>();
-		private bool m_booDontOverwriteAll = false;
-		private bool m_booOverwriteAll = false;
-		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = ((s, b, m) => OverwriteResult.YesToAll);
+		private readonly List<string> _overwriteFolders = new List<string>();
+		private readonly List<string> _doNotOverwriteFolders = new List<string>();
+		private readonly List<string> _overwriteMods = new List<string>();
+		private readonly List<string> _doNotOverwriteMods = new List<string>();
+		private bool _doNotOverwriteAll;
+		private bool _overwriteAll;
 
-		#region Properties
+        #region Properties
 
 		/// <summary>
 		/// Gets or sets the mod being installed.
@@ -31,176 +28,216 @@ namespace Nexus.Client.ModManagement
 
 		#region Constructors
 
-		public ModLinkInstaller(IVirtualModActivator p_ivaVirtualModActivator)
+		public ModLinkInstaller(IVirtualModActivator virtualModActivator)
 		{
-			VirtualModActivator = (VirtualModActivator)p_ivaVirtualModActivator;
+			VirtualModActivator = (VirtualModActivator)virtualModActivator;
 		}
 
 		#endregion
 
-		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching)
+		/// <inheritdoc />
+		public string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching)
 		{
-			return AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, false);
+			return AddFileLink(mod, baseFilePath, sourceFile, isSwitching, false);
 		}
 
-		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booHandlePlugin)
+        /// <inheritdoc />
+		public string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching, bool handlePlugin)
 		{
-			Int32 intPriority = 0;
-			List<IVirtualModLink> lstFileLinks;
-			bool? booLink = false;
-
-			booLink = (TestOverwriteFileLink(p_modMod, p_strBaseFilePath, out intPriority, out lstFileLinks));
+            var booLink = (TestOverwriteFileLink(mod, baseFilePath, out var priority, out var fileLinks));
 
 			if (booLink != null)
-			{
-				if (booLink == true)
+            {
+                if (booLink == true)
 				{
-					if ((intPriority >= 0) && (lstFileLinks != null) && (lstFileLinks.Count > 0))
+					if (priority >= 0 && fileLinks != null && fileLinks.Count > 0)
 					{
-						VirtualModActivator.UpdateLinkListPriority(lstFileLinks);
-						p_booIsSwitching = false;
+						VirtualModActivator.UpdateLinkListPriority(fileLinks);
+						isSwitching = false;
 					}
-					return VirtualModActivator.AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, false, p_booHandlePlugin, 0);
-				}
-				else
-					VirtualModActivator.AddInactiveLink(p_modMod, p_strBaseFilePath, ++intPriority);
-			}
 
-			return String.Empty;
+					return VirtualModActivator.AddFileLink(mod, baseFilePath, sourceFile, isSwitching, false, handlePlugin, 0);
+				}
+
+                VirtualModActivator.AddInactiveLink(mod, baseFilePath, ++priority);
+            }
+
+			return string.Empty;
 		}
 
-		private bool? TestOverwriteFileLink(IMod p_modMod, string p_strBaseFilePath, out Int32 p_intPriority, out List<IVirtualModLink> p_lstFileLinks)
+		private bool? TestOverwriteFileLink(IMod mod, string baseFilePath, out int priority, out List<IVirtualModLink> modLinks)
 		{
-			IMod modCheck;
-			Int32 intPriority = VirtualModActivator.CheckFileLink(p_strBaseFilePath, out modCheck, out p_lstFileLinks);
-			p_intPriority = intPriority;
-			string strLoweredPath = p_strBaseFilePath.ToLowerInvariant();
+            var fileLinkPriority = VirtualModActivator.CheckFileLink(baseFilePath, out var modCheck, out modLinks);
+			priority = fileLinkPriority;
+			var loweredPath = baseFilePath.ToLowerInvariant();
 
-			if (intPriority >= 0)
+			if (fileLinkPriority >= 0)
 			{
-				if (m_lstOverwriteFolders.Contains(Path.GetDirectoryName(strLoweredPath)))
-					return true;
-				if (m_lstDontOverwriteFolders.Contains(Path.GetDirectoryName(strLoweredPath)))
-					return false;
-				if (m_booOverwriteAll)
-					return true;
-				if (m_booDontOverwriteAll)
-					return false;
-			}
+				if (_overwriteFolders.Contains(Path.GetDirectoryName(loweredPath)))
+                {
+                    return true;
+                }
 
-			if (modCheck == p_modMod)
-				return null;
+                if (_doNotOverwriteFolders.Contains(Path.GetDirectoryName(loweredPath)))
+                {
+                    return false;
+                }
 
-			string strModFile = String.Empty;
-			string strModFileID = String.Empty;
-			string strMessage = null;
+                if (_overwriteAll)
+                {
+                    return true;
+                }
 
-			if (modCheck == VirtualModActivator.DummyMod)
+                if (_doNotOverwriteAll)
+                {
+                    return false;
+                }
+            }
+
+			if (modCheck == mod)
+            {
+                return null;
+            }
+
+            if (modCheck == VirtualModActivator.DummyMod)
 			{
-				VirtualModActivator.OverwriteLooseFile(p_strBaseFilePath, Path.GetFileName(p_modMod.Filename));
+				VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename));
 				return true;
 			}
-			else if (modCheck != null)
-			{
-				strModFile = modCheck.Filename;
-				strModFileID = modCheck.Id;
-				if (!String.IsNullOrEmpty(strModFileID))
-				{
-					if (m_lstOverwriteMods.Contains(strModFileID))
-						return true;
-					if (m_lstDontOverwriteMods.Contains(strModFileID))
-						return false;
-				}
-				else
-				{
-					if (m_lstOverwriteMods.Contains(strModFile))
-						return true;
-					if (m_lstDontOverwriteMods.Contains(strModFile))
-						return false;
-				}
-				strMessage = String.Format("Data file '{{0}}' has already been installed by '{1}'", p_strBaseFilePath, modCheck.ModName);
-				strMessage += Environment.NewLine + "Activate this mod's file instead?";
 
-				switch (OverwriteForm.ShowDialog(String.Format(strMessage, p_strBaseFilePath), true, (modCheck != null)))
-				{
-					case OverwriteResult.Yes:
-						return true;
-					case OverwriteResult.No:
-						return false;
-					case OverwriteResult.NoToAll:
-						m_booDontOverwriteAll = true;
-						return false;
-					case OverwriteResult.YesToAll:
-						m_booOverwriteAll = true;
-						return true;
-					case OverwriteResult.NoToGroup:
-						Queue<string> folders = new Queue<string>();
-						folders.Enqueue(Path.GetDirectoryName(strLoweredPath));
-						while (folders.Count > 0)
-						{
-							strLoweredPath = folders.Dequeue();
-							if (!m_lstOverwriteFolders.Contains(strLoweredPath))
-							{
-								m_lstDontOverwriteFolders.Add(strLoweredPath);
-								if (Directory.Exists(strLoweredPath))
-									foreach (string s in Directory.GetDirectories(strLoweredPath))
-									{
-										folders.Enqueue(s.ToLowerInvariant());
-									}
-							}
-						}
-						return false;
-					case OverwriteResult.YesToGroup:
-						folders = new Queue<string>();
-						folders.Enqueue(Path.GetDirectoryName(strLoweredPath));
-						while (folders.Count > 0)
-						{
-							strLoweredPath = folders.Dequeue();
-							if (!m_lstDontOverwriteFolders.Contains(strLoweredPath))
-							{
-								m_lstOverwriteFolders.Add(strLoweredPath);
-								if (Directory.Exists(strLoweredPath))
-									foreach (string s in Directory.GetDirectories(strLoweredPath))
-									{
-										folders.Enqueue(s.ToLowerInvariant());
-									}
-							}
-						}
-						return true;
-					case OverwriteResult.NoToMod:
-						strModFile = modCheck.Filename;
-						strModFileID = modCheck.Id;
-						if (!String.IsNullOrEmpty(strModFileID))
-						{
-							if (!m_lstOverwriteMods.Contains(strModFileID))
-								m_lstDontOverwriteMods.Add(strModFileID);
-						}
-						else
-						{
-							if (!m_lstOverwriteMods.Contains(strModFile))
-								m_lstDontOverwriteMods.Add(strModFile);
-						}
-						return false;
-					case OverwriteResult.YesToMod:
-						strModFile = modCheck.Filename;
-						strModFileID = modCheck.Id;
-						if (!String.IsNullOrEmpty(strModFileID))
-						{
-							if (!m_lstDontOverwriteMods.Contains(strModFileID))
-								m_lstOverwriteMods.Add(strModFileID);
-						}
-						else
-						{
-							if (!m_lstDontOverwriteMods.Contains(strModFile))
-								m_lstOverwriteMods.Add(strModFile);
-						}
-						return true;
-					default:
-						throw new Exception("Sanity check failed: OverwriteDialog returned a value not present in the OverwriteResult enum");
-				}
-			}
-			else
-				return true;
-		}
+            if (modCheck != null)
+            {
+                var modFile = modCheck.Filename;
+                var modFileId = modCheck.Id;
+                
+                if (!string.IsNullOrEmpty(modFileId))
+                {
+                    if (_overwriteMods.Contains(modFileId))
+                    {
+                        return true;
+                    }
+
+                    if (_doNotOverwriteMods.Contains(modFileId))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (_overwriteMods.Contains(modFile))
+                    {
+                        return true;
+                    }
+
+                    if (_doNotOverwriteMods.Contains(modFile))
+                    {
+                        return false;
+                    }
+                }
+
+                var strMessage = $"Data file '{baseFilePath}' has already been installed by '{modCheck.ModName}'";
+                strMessage += Environment.NewLine + "Activate this mod's file instead?";
+
+                switch (OverwriteForm.ShowDialog(string.Format(strMessage, baseFilePath), true, true))
+                {
+                    case OverwriteResult.Yes:
+                        return true;
+                    case OverwriteResult.No:
+                        return false;
+                    case OverwriteResult.NoToAll:
+                        _doNotOverwriteAll = true;
+                        return false;
+                    case OverwriteResult.YesToAll:
+                        _overwriteAll = true;
+                        return true;
+                    case OverwriteResult.NoToGroup:
+                        var folders = new Queue<string>();
+                        folders.Enqueue(Path.GetDirectoryName(loweredPath));
+                        
+                        while (folders.Count > 0)
+                        {
+                            loweredPath = folders.Dequeue();
+                            
+                            if (!_overwriteFolders.Contains(loweredPath))
+                            {
+                                _doNotOverwriteFolders.Add(loweredPath);
+                                
+                                if (Directory.Exists(loweredPath))
+                                {
+                                    foreach (var s in Directory.GetDirectories(loweredPath))
+                                    {
+                                        folders.Enqueue(s.ToLowerInvariant());
+                                    }
+                                }
+                            }
+                        }
+
+                        return false;
+                    case OverwriteResult.YesToGroup:
+                        folders = new Queue<string>();
+                        folders.Enqueue(Path.GetDirectoryName(loweredPath));
+                        
+                        while (folders.Count > 0)
+                        {
+                            loweredPath = folders.Dequeue();
+                            
+                            if (!_doNotOverwriteFolders.Contains(loweredPath))
+                            {
+                                _overwriteFolders.Add(loweredPath);
+                                if (Directory.Exists(loweredPath))
+                                {
+                                    foreach (var s in Directory.GetDirectories(loweredPath))
+                                    {
+                                        folders.Enqueue(s.ToLowerInvariant());
+                                    }
+                                }
+                            }
+                        }
+                        return true;
+                    case OverwriteResult.NoToMod:
+                        modFile = modCheck.Filename;
+                        modFileId = modCheck.Id;
+                        
+                        if (!string.IsNullOrEmpty(modFileId))
+                        {
+                            if (!_overwriteMods.Contains(modFileId))
+                            {
+                                _doNotOverwriteMods.Add(modFileId);
+                            }
+                        }
+                        else
+                        {
+                            if (!_overwriteMods.Contains(modFile))
+                            {
+                                _doNotOverwriteMods.Add(modFile);
+                            }
+                        }
+                        return false;
+                    case OverwriteResult.YesToMod:
+                        modFile = modCheck.Filename;
+                        modFileId = modCheck.Id;
+                        
+                        if (!string.IsNullOrEmpty(modFileId))
+                        {
+                            if (!_doNotOverwriteMods.Contains(modFileId))
+                            {
+                                _overwriteMods.Add(modFileId);
+                            }
+                        }
+                        else
+                        {
+                            if (!_doNotOverwriteMods.Contains(modFile))
+                            {
+                                _overwriteMods.Add(modFile);
+                            }
+                        }
+                        return true;
+                    default:
+                        throw new Exception("Sanity check failed: OverwriteDialog returned a value not present in the OverwriteResult enum");
+                }
+            }
+
+            return true;
+        }
 	}
 }

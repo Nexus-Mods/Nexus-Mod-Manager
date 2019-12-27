@@ -1,24 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Xml.Linq;
-using ChinhDo.Transactions;
-using Microsoft.Win32;
-using Nexus.Client.BackgroundTasks;
-using Nexus.Client.Games;
-using Nexus.Client.ModManagement.InstallationLog;
-using Nexus.Client.Mods;
-using Nexus.Client.PluginManagement;
-using Nexus.Client.UI;
-using Nexus.Client.Util;
-using Nexus.Client.Util.Collections;
-
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Linq;
+    using System.Runtime.InteropServices;
+    using System.Threading;
+    using System.Xml.Linq;
+
+    using ChinhDo.Transactions;
+    using Microsoft.Win32;
+
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.Games;
+    using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.Mods;
+    using Nexus.Client.PluginManagement;
+    using Nexus.Client.UI;
+    using Nexus.Client.Util;
+    using Nexus.Client.Util.Collections;
+
 	public class VirtualModActivator : IVirtualModActivator
 	{
 		[DllImport("kernel32.dll")]
