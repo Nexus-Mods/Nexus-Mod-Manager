@@ -1,14 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Nexus.Client.Mods;
-using Nexus.Client.Util.Collections;
-using Nexus.Transactions;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.ModManagement.InstallationLog
+﻿namespace Nexus.Client.ModManagement.InstallationLog
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+
+    using Nexus.Client.Mods;
+    using Nexus.Client.Util.Collections;
+    using Nexus.Transactions;
+    using Nexus.Client.Util;
+
 	public partial class InstallLog
 	{
 		/// <summary>
@@ -18,21 +19,21 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// </summary>
 		private class TransactionEnlistment : IEnlistmentNotification
 		{
-			private ActiveModRegistry m_amrModKeys = new ActiveModRegistry();
+			private readonly ActiveModRegistry _activeModRegistry = new ActiveModRegistry();
 
-			private InstalledItemDictionary<string, object> m_dicInstalledFiles = null;
-			private InstalledItemDictionary<string, object> m_dicUninstalledFiles = null;
+			private readonly InstalledItemDictionary<string, object> _installedFiles;
+			private readonly InstalledItemDictionary<string, object> _uninstalledFiles;
 
-			private InstalledItemDictionary<IniEdit, string> m_dicInstalledIniEdits = null;
-			private InstalledItemDictionary<IniEdit, string> m_dicReplacedIniEdits = null;
-			private InstalledItemDictionary<IniEdit, string> m_dicUninstalledIniEdits = null;
+			private readonly InstalledItemDictionary<IniEdit, string> _installedIniEdits;
+			private readonly InstalledItemDictionary<IniEdit, string> _replacedIniEdits;
+			private readonly InstalledItemDictionary<IniEdit, string> _uninstalledIniEdits;
 
-			private InstalledItemDictionary<string, byte[]> m_dicInstalledGameSpecificValueEdits = null;
-			private InstalledItemDictionary<string, byte[]> m_dicReplacedGameSpecificValueEdits = null;
-			private InstalledItemDictionary<string, byte[]> m_dicUninstalledGameSpecificValueEdits = null;
+			private readonly InstalledItemDictionary<string, byte[]> _installedGameSpecificValueEdits;
+			private readonly InstalledItemDictionary<string, byte[]> _replacedGameSpecificValueEdits;
+			private readonly InstalledItemDictionary<string, byte[]> _uninstalledGameSpecificValueEdits;
 
-			private Set<string> m_setRemovedModKeys = new Set<string>();
-			private bool m_booEnlisted = false;
+			private readonly Set<string> _removedModKeys = new Set<string>();
+			private bool _enlisted;
 
 			#region Properties
 
@@ -40,13 +41,13 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// Gets the transaction into which we are enlisting.
 			/// </summary>
 			/// <value>The transaction into which we are enlisting.</value>
-			protected Transaction CurrentTransaction { get; private set; }
+			protected Transaction CurrentTransaction { get; }
 
 			/// <summary>
 			/// Gets the install log whose actions are being transacted.
 			/// </summary>
 			/// <value>The install log whose actions are being transacted.</value>
-			protected InstallLog EnlistedInstallLog { get; private set; }
+			protected InstallLog EnlistedInstallLog { get; }
 
 			#endregion
 
@@ -55,22 +56,22 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <summary>
 			/// A simple constructor that initializes the object with the given values.
 			/// </summary>
-			/// <param name="p_txTransaction">The transaction into which we are enlisting.</param>
-			/// <param name="p_ilgInstallLog">The install log whose actions are being transacted.</param>
-			public TransactionEnlistment(Transaction p_txTransaction, InstallLog p_ilgInstallLog)
+			/// <param name="transaction">The transaction into which we are enlisting.</param>
+			/// <param name="installLog">The install log whose actions are being transacted.</param>
+			public TransactionEnlistment(Transaction transaction, InstallLog installLog)
 			{
-				CurrentTransaction = p_txTransaction;
-				EnlistedInstallLog = p_ilgInstallLog;
-				m_dicInstalledFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-				m_dicUninstalledFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+				CurrentTransaction = transaction;
+				EnlistedInstallLog = installLog;
+				_installedFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+				_uninstalledFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
-				m_dicInstalledIniEdits = new InstalledItemDictionary<IniEdit, string>();
-				m_dicReplacedIniEdits = new InstalledItemDictionary<IniEdit, string>();
-				m_dicUninstalledIniEdits = new InstalledItemDictionary<IniEdit, string>();
+				_installedIniEdits = new InstalledItemDictionary<IniEdit, string>();
+				_replacedIniEdits = new InstalledItemDictionary<IniEdit, string>();
+				_uninstalledIniEdits = new InstalledItemDictionary<IniEdit, string>();
 
-				m_dicInstalledGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
-				m_dicReplacedGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
-				m_dicUninstalledGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
+				_installedGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
+				_replacedGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
+				_uninstalledGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
 			}
 
 			#endregion
@@ -82,25 +83,29 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// </summary>
 			public void Commit()
 			{
-				//merge registered mods
-				foreach (KeyValuePair<IMod, string> kvpMod in m_amrModKeys.Registrations)
-					EnlistedInstallLog.m_amrModKeys.RegisterMod(kvpMod.Key, kvpMod.Value, m_amrModKeys.IsModHidden(kvpMod.Key));
+				// Merge registered mods
+				foreach (var mod in _activeModRegistry.Registrations)
+                {
+                    EnlistedInstallLog._activeModRegistry.RegisterMod(mod.Key, mod.Value, _activeModRegistry.IsModHidden(mod.Key));
+                }
 
-				CommitFileChanges();
+                CommitFileChanges();
 				CommitIniEditChanges();
 				CommitGameSpecificValueEditChanges();
 
-				//remove registered mods
-				foreach (string strRemovedModKey in m_setRemovedModKeys)
-					EnlistedInstallLog.m_amrModKeys.DeregisterMod(strRemovedModKey);
+				// Remove registered mods
+				foreach (var removedModKey in _removedModKeys)
+                {
+                    EnlistedInstallLog._activeModRegistry.DeregisterMod(removedModKey);
+                }
 
-				EnlistedInstallLog.SaveInstallLog();
+                EnlistedInstallLog.SaveInstallLog();
 
-				m_booEnlisted = false;
-				m_amrModKeys.Clear();
-				m_dicInstalledFiles.Clear();
-				m_dicInstalledIniEdits.Clear();
-				m_dicInstalledGameSpecificValueEdits.Clear();
+				_enlisted = false;
+				_activeModRegistry.Clear();
+				_installedFiles.Clear();
+				_installedIniEdits.Clear();
+				_installedGameSpecificValueEdits.Clear();
 			}
 
 			/// <summary>
@@ -108,42 +113,61 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// </summary>
 			protected void CommitFileChanges()
 			{
-				InstalledItemDictionary<string, object> iidFiles = EnlistedInstallLog.m_dicInstalledFiles;
-				//merge installed files
-				foreach (InstalledItemDictionary<string, object>.ItemInstallers insFile in m_dicInstalledFiles)
+				var installedFiles = EnlistedInstallLog._installedFiles;
+				
+                // Merge installed files
+				foreach (var file in _installedFiles)
 				{
-					if ((insFile.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insFile.Installers.Peek().InstallerKey))
-						continue;
-					foreach (InstalledValue<object> isvMod in insFile.Installers)
+					if (file.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(file.Installers.Peek().InstallerKey))
+                    {
+                        continue;
+                    }
+
+                    foreach (var isvMod in file.Installers)
 					{
-						iidFiles[insFile.Item].Remove(isvMod);
-						iidFiles[insFile.Item].Push(isvMod);
+						installedFiles[file.Item].Remove(isvMod);
+						installedFiles[file.Item].Push(isvMod);
 					}
 				}
-				//remove deleted files
-				List<string> lstFilesToRemove = new List<string>();
-				foreach (InstalledItemDictionary<string, object>.ItemInstallers insFile in m_dicUninstalledFiles)
+
+				// Remove deleted files
+				var filesToRemove = new List<string>();
+				
+                foreach (var insFile in _uninstalledFiles)
 				{
-					if (!iidFiles.ContainsItem(insFile.Item))
-						continue;
-					iidFiles[insFile.Item].RemoveRange(insFile.Installers);
-					if ((iidFiles[insFile.Item].Count == 0) || GetModKey(OriginalValueMod).Equals(iidFiles[insFile.Item].Peek().InstallerKey))
-						lstFilesToRemove.Add(insFile.Item);
-				}
-				//remove all traces of removed mods from installed files
-				// this step should be unneccessary, as if a mod has been removed
+					if (!installedFiles.ContainsItem(insFile.Item))
+                    {
+                        continue;
+                    }
+
+                    installedFiles[insFile.Item].RemoveRange(insFile.Installers);
+					
+                    if (installedFiles[insFile.Item].Count == 0 || GetModKey(OriginalValueMod).Equals(installedFiles[insFile.Item].Peek().InstallerKey))
+                    {
+                        filesToRemove.Add(insFile.Item);
+                    }
+                }
+				
+                // Remove all traces of removed mods from installed files
+				// this step should be unnecessary, as if a mod has been removed
 				// then all of it's files should have been entered in the dictionary
 				// of uninstalled files, and already removed.
 				// this is here, however, as a safeguard to help ensure the install log
 				// doesn't get polluted with old entries.
-				foreach (InstalledItemDictionary<string, object>.ItemInstallers insFile in iidFiles)
+				foreach (var file in installedFiles)
 				{
-					foreach (string strRemovedModKey in m_setRemovedModKeys)
-						insFile.Installers.Remove(strRemovedModKey);
-					if ((insFile.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insFile.Installers.Peek().InstallerKey))
-						lstFilesToRemove.Add(insFile.Item);
-				}
-				lstFilesToRemove.ForEach(x => iidFiles.Remove(x));
+					foreach (var strRemovedModKey in _removedModKeys)
+                    {
+                        file.Installers.Remove(strRemovedModKey);
+                    }
+
+                    if (file.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(file.Installers.Peek().InstallerKey))
+                    {
+                        filesToRemove.Add(file.Item);
+                    }
+                }
+
+				filesToRemove.ForEach(x => installedFiles.Remove(x));
 			}
 
 			/// <summary>
@@ -151,50 +175,75 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// </summary>
 			protected void CommitIniEditChanges()
 			{
-				InstalledItemDictionary<IniEdit, string> iidIniEdits = EnlistedInstallLog.m_dicInstalledIniEdits;
-				//merge installed ini edits
-				foreach (InstalledItemDictionary<IniEdit, string>.ItemInstallers insIniEdit in m_dicInstalledIniEdits)
+				var installedIniEdits = EnlistedInstallLog._installedIniEdits;
+				
+                // Merge installed ini edits
+				foreach (var iniEdit in _installedIniEdits)
 				{
-					if ((insIniEdit.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insIniEdit.Installers.Peek().InstallerKey))
-						continue;
-					foreach (InstalledValue<string> isvMod in insIniEdit.Installers)
+					if (iniEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(iniEdit.Installers.Peek().InstallerKey))
+                    {
+                        continue;
+                    }
+
+                    foreach (var isvMod in iniEdit.Installers)
 					{
-						iidIniEdits[insIniEdit.Item].Remove(isvMod);
-						iidIniEdits[insIniEdit.Item].Push(isvMod);
+						installedIniEdits[iniEdit.Item].Remove(isvMod);
+						installedIniEdits[iniEdit.Item].Push(isvMod);
 					}
 				}
-				//replace replaced ini edits
-				foreach (InstalledItemDictionary<IniEdit, string>.ItemInstallers insIniEdit in m_dicReplacedIniEdits)
+				
+                // Replace replaced ini edits
+				foreach (var iniEdit in _replacedIniEdits)
 				{
-					if ((insIniEdit.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insIniEdit.Installers.Peek().InstallerKey))
-						continue;
-					foreach (InstalledValue<string> isvMod in insIniEdit.Installers)
-						iidIniEdits[insIniEdit.Item].Find(x => x.Equals(isvMod)).Value = isvMod.Value;
-				}
-				//remove deleted ini edits
-				List<IniEdit> lstIniEditsToRemove = new List<IniEdit>();
-				foreach (InstalledItemDictionary<IniEdit, string>.ItemInstallers insIniEdit in m_dicUninstalledIniEdits)
+					if (iniEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(iniEdit.Installers.Peek().InstallerKey))
+                    {
+                        continue;
+                    }
+
+                    foreach (var mod in iniEdit.Installers)
+                    {
+                        installedIniEdits[iniEdit.Item].Find(x => x.Equals(mod)).Value = mod.Value;
+                    }
+                }
+				
+                // Remove deleted ini edits
+				var lstIniEditsToRemove = new List<IniEdit>();
+				
+                foreach (var insIniEdit in _uninstalledIniEdits)
 				{
-					if (!iidIniEdits.ContainsItem(insIniEdit.Item))
-						continue;
-					iidIniEdits[insIniEdit.Item].RemoveRange(insIniEdit.Installers);
-					if ((iidIniEdits[insIniEdit.Item].Count == 0) || GetModKey(OriginalValueMod).Equals(iidIniEdits[insIniEdit.Item].Peek().InstallerKey))
-						lstIniEditsToRemove.Add(insIniEdit.Item);
-				}
-				//remove all traces of removed mods from installed ini edits
-				// this step should be unneccessary, as if a mod has been removed
+					if (!installedIniEdits.ContainsItem(insIniEdit.Item))
+                    {
+                        continue;
+                    }
+
+                    installedIniEdits[insIniEdit.Item].RemoveRange(insIniEdit.Installers);
+					
+                    if (installedIniEdits[insIniEdit.Item].Count == 0 || GetModKey(OriginalValueMod).Equals(installedIniEdits[insIniEdit.Item].Peek().InstallerKey))
+                    {
+                        lstIniEditsToRemove.Add(insIniEdit.Item);
+                    }
+                }
+
+				// Remove all traces of removed mods from installed ini edits
+				// this step should be unnecessary, as if a mod has been removed
 				// then all of it's ini edits should have been entered in the dictionary
 				// of uninstalled ini edits, and already removed.
 				// this is here, however, as a safeguard to help ensure the install log
 				// doesn't get polluted with old entries.
-				foreach (InstalledItemDictionary<IniEdit, string>.ItemInstallers insIniEdit in iidIniEdits)
+				foreach (var insIniEdit in installedIniEdits)
 				{
-					foreach (string strRemovedModKey in m_setRemovedModKeys)
-						insIniEdit.Installers.Remove(strRemovedModKey);
-					if ((insIniEdit.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insIniEdit.Installers.Peek().InstallerKey))
-						lstIniEditsToRemove.Add(insIniEdit.Item);
-				}
-				lstIniEditsToRemove.ForEach(x => iidIniEdits.Remove(x));
+					foreach (var strRemovedModKey in _removedModKeys)
+                    {
+                        insIniEdit.Installers.Remove(strRemovedModKey);
+                    }
+
+                    if (insIniEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(insIniEdit.Installers.Peek().InstallerKey))
+                    {
+                        lstIniEditsToRemove.Add(insIniEdit.Item);
+                    }
+                }
+
+				lstIniEditsToRemove.ForEach(x => installedIniEdits.Remove(x));
 			}
 
 			/// <summary>
@@ -202,63 +251,85 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// </summary>
 			protected void CommitGameSpecificValueEditChanges()
 			{
-				InstalledItemDictionary<string, byte[]> iidGameSpecificValueEdits = EnlistedInstallLog.m_dicInstalledGameSpecificValueEdits;
-				//merge installed game specific value edits
-				foreach (InstalledItemDictionary<string, byte[]>.ItemInstallers insGameSpecificValueEdit in m_dicInstalledGameSpecificValueEdits)
+				var gameSpecificValueEdits = EnlistedInstallLog._gameSpecificValueEdits;
+				
+                // Merge installed game specific value edits
+				foreach (var gameSpecificValueEdit in _installedGameSpecificValueEdits)
 				{
-					if ((insGameSpecificValueEdit.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insGameSpecificValueEdit.Installers.Peek().InstallerKey))
-						continue;
-					foreach (InstalledValue<byte[]> isvMod in insGameSpecificValueEdit.Installers)
+					if (gameSpecificValueEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(gameSpecificValueEdit.Installers.Peek().InstallerKey))
+                    {
+                        continue;
+                    }
+
+                    foreach (var mod in gameSpecificValueEdit.Installers)
 					{
-						iidGameSpecificValueEdits[insGameSpecificValueEdit.Item].Remove(isvMod);
-						iidGameSpecificValueEdits[insGameSpecificValueEdit.Item].Push(isvMod);
+						gameSpecificValueEdits[gameSpecificValueEdit.Item].Remove(mod);
+						gameSpecificValueEdits[gameSpecificValueEdit.Item].Push(mod);
 					}
 				}
-				//replace replaced game specific value edits
-				foreach (InstalledItemDictionary<string, byte[]>.ItemInstallers insGameSpecificValueEdit in m_dicReplacedGameSpecificValueEdits)
+				
+                // Replace replaced game specific value edits
+				foreach (var insGameSpecificValueEdit in _replacedGameSpecificValueEdits)
 				{
-					if ((insGameSpecificValueEdit.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insGameSpecificValueEdit.Installers.Peek().InstallerKey))
-						continue;
-					foreach (InstalledValue<byte[]> isvMod in insGameSpecificValueEdit.Installers)
-						iidGameSpecificValueEdits[insGameSpecificValueEdit.Item].Find(x => x.Equals(isvMod)).Value = isvMod.Value;
-				}
-				//remove deleted game specific value edits
-				List<string> lstGameSpecificValueEditsToRemove = new List<string>();
-				foreach (InstalledItemDictionary<string, byte[]>.ItemInstallers insGameSpecificValueEdit in m_dicUninstalledGameSpecificValueEdits)
+					if (insGameSpecificValueEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(insGameSpecificValueEdit.Installers.Peek().InstallerKey))
+                    {
+                        continue;
+                    }
+
+                    foreach (var mod in insGameSpecificValueEdit.Installers)
+                    {
+                        gameSpecificValueEdits[insGameSpecificValueEdit.Item].Find(x => x.Equals(mod)).Value = mod.Value;
+                    }
+                }
+
+				// Remove deleted game specific value edits
+				var lstGameSpecificValueEditsToRemove = new List<string>();
+				
+                foreach (var insGameSpecificValueEdit in _uninstalledGameSpecificValueEdits)
 				{
-					if (!iidGameSpecificValueEdits.ContainsItem(insGameSpecificValueEdit.Item))
-						continue;
-					iidGameSpecificValueEdits[insGameSpecificValueEdit.Item].RemoveRange(insGameSpecificValueEdit.Installers);
-					if ((iidGameSpecificValueEdits[insGameSpecificValueEdit.Item].Count == 0) || GetModKey(OriginalValueMod).Equals(iidGameSpecificValueEdits[insGameSpecificValueEdit.Item].Peek().InstallerKey))
-						lstGameSpecificValueEditsToRemove.Add(insGameSpecificValueEdit.Item);
-				}
-				//remove all traces of removed mods from installed game specific value edits
-				// this step should be unneccessary, as if a mod has been removed
+					if (!gameSpecificValueEdits.ContainsItem(insGameSpecificValueEdit.Item))
+                    {
+                        continue;
+                    }
+
+                    gameSpecificValueEdits[insGameSpecificValueEdit.Item].RemoveRange(insGameSpecificValueEdit.Installers);
+					
+                    if (gameSpecificValueEdits[insGameSpecificValueEdit.Item].Count == 0 || GetModKey(OriginalValueMod).Equals(gameSpecificValueEdits[insGameSpecificValueEdit.Item].Peek().InstallerKey))
+                    {
+                        lstGameSpecificValueEditsToRemove.Add(insGameSpecificValueEdit.Item);
+                    }
+                }
+
+				// Remove all traces of removed mods from installed game specific value edits
+				// this step should be unnecessary, as if a mod has been removed
 				// then all of it's game specific value edits should have been entered in the dictionary
 				// of uninstalled game specific value edits, and already removed.
 				// this is here, however, as a safeguard to help ensure the install log
 				// doesn't get polluted with old entries.
-				foreach (InstalledItemDictionary<string, byte[]>.ItemInstallers insGameSpecificValueEdit in iidGameSpecificValueEdits)
+				foreach (var insGameSpecificValueEdit in gameSpecificValueEdits)
 				{
-					foreach (string strRemovedModKey in m_setRemovedModKeys)
-						insGameSpecificValueEdit.Installers.Remove(strRemovedModKey);
-					if ((insGameSpecificValueEdit.Installers.Count == 0) || GetModKey(OriginalValueMod).Equals(insGameSpecificValueEdit.Installers.Peek().InstallerKey))
-						lstGameSpecificValueEditsToRemove.Add(insGameSpecificValueEdit.Item);
-				}
-				lstGameSpecificValueEditsToRemove.ForEach(x => iidGameSpecificValueEdits.Remove(x));
+					foreach (var strRemovedModKey in _removedModKeys)
+                    {
+                        insGameSpecificValueEdit.Installers.Remove(strRemovedModKey);
+                    }
+
+                    if (insGameSpecificValueEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(insGameSpecificValueEdit.Installers.Peek().InstallerKey))
+                    {
+                        lstGameSpecificValueEditsToRemove.Add(insGameSpecificValueEdit.Item);
+                    }
+                }
+
+				lstGameSpecificValueEditsToRemove.ForEach(x => gameSpecificValueEdits.Remove(x));
 			}
 
-			/// <summary>
-			/// Used to notify an enlisted resource manager that the transaction is being committed.
-			/// </summary>
-			/// <param name="p_eltEnlistment">The enlistment class used to communicate with the resource manager.</param>
-			public void Commit(Enlistment p_eltEnlistment)
+            /// <inheritdoc />
+			public void Commit(Enlistment enlistment)
 			{
 				try
 				{
 					Commit();
-					m_dicEnlistments.Remove(CurrentTransaction.TransactionInformation.LocalIdentifier);
-					p_eltEnlistment.Done();
+					_enlistments.Remove(CurrentTransaction.TransactionInformation.LocalIdentifier);
+					enlistment.Done();
 				}
 				catch (Exception e)
 				{
@@ -266,41 +337,28 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				}
 			}
 
-			/// <summary>
-			/// Used to notify an enlisted resource manager that the transaction is in doubt.
-			/// </summary>
-			/// <remarks>
-			/// A transaction is in doubt if it has not received votes from all enlisted resource managers
-			/// as to the state of the transaciton.
-			/// </remarks>
-			/// <param name="p_eltEnlistment">The enlistment class used to communicate with the resource manager.</param>
-			public void InDoubt(Enlistment p_eltEnlistment)
+            /// <inheritdoc />
+			public void InDoubt(Enlistment enlistment)
 			{
-				Rollback(p_eltEnlistment);
+				Rollback(enlistment);
 			}
 
-			/// <summary>
-			/// Used to notify an enlisted resource manager that the transaction is being prepared for commitment.
-			/// </summary>
-			/// <param name="p_entPreparingEnlistment">The enlistment class used to communicate with the resource manager.</param>
-			public void Prepare(PreparingEnlistment p_entPreparingEnlistment)
+            /// <inheritdoc />
+			public void Prepare(PreparingEnlistment preparingEnlistment)
 			{
-				p_entPreparingEnlistment.Prepared();
+				preparingEnlistment.Prepared();
 			}
 
-			/// <summary>
-			/// Used to notify an enlisted resource manager that the transaction is being rolled back.
-			/// </summary>
-			/// <param name="p_eltEnlistment">The enlistment class used to communicate with the resource manager.</param>
-			public void Rollback(Enlistment p_eltEnlistment)
+			/// <inheritdoc />
+			public void Rollback(Enlistment enlistment)
 			{
-				m_booEnlisted = false;
-				m_amrModKeys.Clear();
-				m_dicInstalledFiles.Clear();
-				m_dicInstalledIniEdits.Clear();
-				m_dicInstalledGameSpecificValueEdits.Clear();
-				m_dicEnlistments.Remove(CurrentTransaction.TransactionInformation.LocalIdentifier);
-				p_eltEnlistment.Done();
+				_enlisted = false;
+				_activeModRegistry.Clear();
+				_installedFiles.Clear();
+				_installedIniEdits.Clear();
+				_installedGameSpecificValueEdits.Clear();
+				_enlistments.Remove(CurrentTransaction.TransactionInformation.LocalIdentifier);
+				enlistment.Done();
 			}
 
 			#endregion
@@ -310,10 +368,10 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// </summary>
 			private void Enlist()
 			{
-				if (!m_booEnlisted)
+				if (!_enlisted)
 				{
 					CurrentTransaction.EnlistVolatile(this, EnlistmentOptions.None);
-					m_booEnlisted = true;
+					_enlisted = true;
 				}
 			}
 
@@ -329,27 +387,35 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// If there is no current transaction, the mod is added directly to the install log. Otherwise,
 			/// the mod is added to a buffer than can later be committed or rolled back.
 			/// </remarks>
-			/// <param name="p_modMod">The <see cref="IMod"/> being added.</param>
-			/// <param name="p_booIsSpecial">Indicates that the mod is a special mod, internal to the
+			/// <param name="mod">The <see cref="IMod"/> being added.</param>
+			/// <param name="isSpecial">Indicates that the mod is a special mod, internal to the
 			/// install log, and show not be included in the list of active mods.</param>
 			/// <returns>The key of the added mod.</returns>
-			public string AddActiveMod(IMod p_modMod, bool p_booIsSpecial)
+			public string AddActiveMod(IMod mod, bool isSpecial)
 			{
-				string strKey = GetModKey(p_modMod);
-				if (String.IsNullOrEmpty(strKey))
+				var key = GetModKey(mod);
+				
+                if (string.IsNullOrEmpty(key))
 				{
 					do
 					{
-						strKey = Path.GetFileNameWithoutExtension(Path.GetRandomFileName());
-					} while (m_amrModKeys.DoesKeyExist(strKey) || EnlistedInstallLog.m_amrModKeys.DoesKeyExist(strKey));
-					m_amrModKeys.RegisterMod(p_modMod, strKey, p_booIsSpecial);
-					m_setRemovedModKeys.Remove(strKey);
-					if (CurrentTransaction == null)
-						Commit();
-					else
-						Enlist();
-				}
-				return strKey;
+						key = Path.GetFileNameWithoutExtension(Path.GetRandomFileName());
+					} while (_activeModRegistry.DoesKeyExist(key) || EnlistedInstallLog._activeModRegistry.DoesKeyExist(key));
+					
+                    _activeModRegistry.RegisterMod(mod, key, isSpecial);
+					_removedModKeys.Remove(key);
+					
+                    if (CurrentTransaction == null)
+                    {
+                        Commit();
+                    }
+                    else
+                    {
+                        Enlist();
+                    }
+                }
+
+				return key;
 			}
 
 			/// <summary>
@@ -358,52 +424,51 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <remarks>
 			/// This replaces a mod in the install log without changing its key.
 			/// </remarks>
-			/// <param name="p_modOldMod">The mod with to be replaced with the new mod in the install log.</param>
-			/// <param name="p_modNewMod">The mod with which to replace the old mod in the install log.</param>
-			public void ReplaceActiveMod(IMod p_modOldMod, IMod p_modNewMod)
+			/// <param name="oldMod">The mod with to be replaced with the new mod in the install log.</param>
+			/// <param name="newMod">The mod with which to replace the old mod in the install log.</param>
+			public void ReplaceActiveMod(IMod oldMod, IMod newMod)
 			{
-				if (!m_amrModKeys.IsModRegistered(p_modOldMod) && !EnlistedInstallLog.m_amrModKeys.IsModRegistered(p_modOldMod))
+				if (!_activeModRegistry.IsModRegistered(oldMod) && !EnlistedInstallLog._activeModRegistry.IsModRegistered(oldMod))
 				{
-					AddActiveMod(p_modNewMod, false);
+					AddActiveMod(newMod, false);
 					return;
 				}
 
-				string strKey = GetModKey(p_modOldMod);
-				m_amrModKeys.DeregisterMod(p_modOldMod);
-				m_amrModKeys.RegisterMod(p_modNewMod, strKey, false);
-				m_setRemovedModKeys.Remove(strKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var key = GetModKey(oldMod);
+				_activeModRegistry.DeregisterMod(oldMod);
+				_activeModRegistry.RegisterMod(newMod, key, false);
+				_removedModKeys.Remove(key);
+				
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Gets the key that was assigned to the specified mod.
 			/// </summary>
-			/// <param name="p_modMod">The mod whose key is to be retrieved.</param>
+			/// <param name="mod">The mod whose key is to be retrieved.</param>
 			/// <returns>The key that was assigned to the specified mod, or <c>null</c> if
 			/// the specified mod has no key.</returns>
-			public string GetModKey(IMod p_modMod)
+			public string GetModKey(IMod mod)
 			{
-				string strKey = m_amrModKeys.GetKey(p_modMod);
-				if (strKey == null)
-					strKey = EnlistedInstallLog.m_amrModKeys.GetKey(p_modMod);
-				return strKey;
+                return _activeModRegistry.GetKey(mod) ?? EnlistedInstallLog._activeModRegistry.GetKey(mod);
 			}
 
 			/// <summary>
 			/// Gets the mod identified by the given key.
 			/// </summary>
-			/// <param name="p_strKey">The key of the mod to be retrieved.</param>
+			/// <param name="key">The key of the mod to be retrieved.</param>
 			/// <returns>The mod identified by the given key, or <c>null</c> if
 			/// no mod is identified by the given key.</returns>
-			public IMod GetMod(string p_strKey)
+			public IMod GetMod(string key)
 			{
-				IMod modMod = m_amrModKeys.GetMod(p_strKey);
-				if (modMod == null)
-					modMod = EnlistedInstallLog.m_amrModKeys.GetMod(p_strKey);
-				return modMod;
+				return _activeModRegistry.GetMod(key) ?? EnlistedInstallLog._activeModRegistry.GetMod(key);
 			}
 
 			#endregion
@@ -414,38 +479,61 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// Removes the mod, as well as entries for items installed by the given mod,
 			/// from the install log.
 			/// </summary>
-			/// <param name="p_modUninstaller">The mod to remove.</param>
-			public void RemoveMod(IMod p_modUninstaller)
+			/// <param name="uninstaller">The mod to remove.</param>
+			public void RemoveMod(IMod uninstaller)
 			{
-				string strUninstallerKey = GetModKey(p_modUninstaller);
-				m_setRemovedModKeys.Add(strUninstallerKey);
+				var uninstallerKey = GetModKey(uninstaller);
+				_removedModKeys.Add(uninstallerKey);
 
-				//remove the mod's files
-				foreach (InstalledItemDictionary<string, object>.ItemInstallers insFile in m_dicInstalledFiles)
-					insFile.Installers.Remove(strUninstallerKey);
-				foreach (InstalledItemDictionary<string, object>.ItemInstallers insFile in EnlistedInstallLog.m_dicInstalledFiles)
-					if (insFile.Installers.Contains(strUninstallerKey))
-						m_dicUninstalledFiles[insFile.Item].Push(strUninstallerKey, null);
+				// Remove the mod's files
+				foreach (var file in _installedFiles)
+                {
+                    file.Installers.Remove(uninstallerKey);
+                }
 
-				//remove the mod's ini edits
-				foreach (InstalledItemDictionary<IniEdit, string>.ItemInstallers insIniEdit in m_dicInstalledIniEdits)
-					insIniEdit.Installers.Remove(strUninstallerKey);
-				foreach (InstalledItemDictionary<IniEdit, string>.ItemInstallers insIniEdit in EnlistedInstallLog.m_dicInstalledIniEdits)
-					if (insIniEdit.Installers.Contains(strUninstallerKey))
-						m_dicUninstalledIniEdits[insIniEdit.Item].Push(strUninstallerKey, null);
+                foreach (var file in EnlistedInstallLog._installedFiles)
+                {
+                    if (file.Installers.Contains(uninstallerKey))
+                    {
+                        _uninstalledFiles[file.Item].Push(uninstallerKey, null);
+                    }
+                }
 
-				//remove the mod's game specific value edits
-				foreach (InstalledItemDictionary<string, byte[]>.ItemInstallers insGameSpecificValueEdit in m_dicInstalledGameSpecificValueEdits)
-					insGameSpecificValueEdit.Installers.Remove(strUninstallerKey);
-				foreach (InstalledItemDictionary<string, byte[]>.ItemInstallers insGameSpecificValueEdit in EnlistedInstallLog.m_dicInstalledGameSpecificValueEdits)
-					if (insGameSpecificValueEdit.Installers.Contains(strUninstallerKey))
-						m_dicUninstalledGameSpecificValueEdits[insGameSpecificValueEdit.Item].Push(strUninstallerKey, null);
+                // Remove the mod's ini edits
+				foreach (var insIniEdit in _installedIniEdits)
+                {
+                    insIniEdit.Installers.Remove(uninstallerKey);
+                }
 
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+                foreach (var insIniEdit in EnlistedInstallLog._installedIniEdits)
+                {
+                    if (insIniEdit.Installers.Contains(uninstallerKey))
+                    {
+                        _uninstalledIniEdits[insIniEdit.Item].Push(uninstallerKey, null);
+                    }
+                }
+
+                // Remove the mod's game specific value edits
+				foreach (var insGameSpecificValueEdit in _installedGameSpecificValueEdits)
+                {
+                    insGameSpecificValueEdit.Installers.Remove(uninstallerKey);
+                }
+
+                foreach (var insGameSpecificValueEdit in EnlistedInstallLog._gameSpecificValueEdits)
+                {
+                    if (insGameSpecificValueEdit.Installers.Contains(uninstallerKey))
+                        _uninstalledGameSpecificValueEdits[insGameSpecificValueEdit.Item].Push(uninstallerKey, null);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			#endregion
 
@@ -454,90 +542,125 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <summary>
 			/// Gets the ordered list of mod that have installed the specified file.
 			/// </summary>
-			/// <param name="p_strPath">The path of the file for which to retrieve the list of installing mods.</param>
+			/// <param name="path">The path of the file for which to retrieve the list of installing mods.</param>
 			/// <returns>The ordered list of mods that have installed the specified file.</returns>
-			protected InstallerStack<object> GetCurrentFileInstallers(string p_strPath)
+			protected InstallerStack<object> GetCurrentFileInstallers(string path)
 			{
-				string strNormalizedPath = FileUtil.NormalizePath(p_strPath);
-				InstallerStack<object> stkInstallers = new InstallerStack<object>();
-				if (EnlistedInstallLog.m_dicInstalledFiles.ContainsItem(strNormalizedPath))
-					stkInstallers.PushRange(EnlistedInstallLog.m_dicInstalledFiles[strNormalizedPath]);
-				if (m_dicInstalledFiles.ContainsItem(strNormalizedPath))
-					foreach (InstalledValue<object> isvMod in m_dicInstalledFiles[strNormalizedPath])
-					{
-						stkInstallers.Remove(isvMod);
-						stkInstallers.Push(isvMod);
-					}
-				if (m_dicUninstalledFiles.ContainsItem(strNormalizedPath))
-					foreach (InstalledValue<object> isvMod in m_dicUninstalledFiles[strNormalizedPath])
-						stkInstallers.Remove(isvMod);
-				m_setRemovedModKeys.ForEach(x => stkInstallers.Remove(x));
-				return stkInstallers;
+				var normalizedPath = FileUtil.NormalizePath(path);
+				var installers = new InstallerStack<object>();
+				
+                if (EnlistedInstallLog._installedFiles.ContainsItem(normalizedPath))
+                {
+                    installers.PushRange(EnlistedInstallLog._installedFiles[normalizedPath]);
+                }
+
+                if (_installedFiles.ContainsItem(normalizedPath))
+                {
+                    foreach (var isvMod in _installedFiles[normalizedPath])
+                    {
+                        installers.Remove(isvMod);
+                        installers.Push(isvMod);
+                    }
+                }
+
+                if (_uninstalledFiles.ContainsItem(normalizedPath))
+                {
+                    foreach (var isvMod in _uninstalledFiles[normalizedPath])
+                        installers.Remove(isvMod);
+                }
+
+                _removedModKeys.ForEach(x => installers.Remove(x));
+				
+                return installers;
 			}
 
 			/// <summary>
 			/// Logs the specified data file as having been installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstallingMod">The mod installing the specified data file.</param>
-			/// <param name="p_strDataFilePath">The file bieng installed.</param>
-			public void AddDataFile(IMod p_modInstallingMod, string p_strDataFilePath)
+			/// <param name="installingMod">The mod installing the specified data file.</param>
+			/// <param name="dataFilePath">The file being installed.</param>
+			public void AddDataFile(IMod installingMod, string dataFilePath)
 			{
-				string strInstallingModKey = AddActiveMod(p_modInstallingMod, false);
-				string strNormalizedPath = FileUtil.NormalizePath(p_strDataFilePath);
-				m_dicInstalledFiles[strNormalizedPath].Push(strInstallingModKey, null);
-				if (m_dicUninstalledFiles.ContainsItem(strNormalizedPath))
-					m_dicUninstalledFiles[strNormalizedPath].Remove(strInstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var installingModKey = AddActiveMod(installingMod, false);
+				var normalizedPath = FileUtil.NormalizePath(dataFilePath);
+				_installedFiles[normalizedPath].Push(installingModKey, null);
+				
+                if (_uninstalledFiles.ContainsItem(normalizedPath))
+                {
+                    _uninstalledFiles[normalizedPath].Remove(installingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Removes the specified data file as having been installed by the given mod.
 			/// </summary>
-			/// <param name="p_modUninstallingMod">The mod for which to remove the specified data file.</param>
-			/// <param name="p_strDataFilePath">The file being removed for the given mod.</param>
-			public void RemoveDataFile(IMod p_modUninstallingMod, string p_strDataFilePath)
+			/// <param name="uninstallingMod">The mod for which to remove the specified data file.</param>
+			/// <param name="dataFilePath">The file being removed for the given mod.</param>
+			public void RemoveDataFile(IMod uninstallingMod, string dataFilePath)
 			{
-				string strUninstallingModKey = GetModKey(p_modUninstallingMod);
-				if (String.IsNullOrEmpty(strUninstallingModKey))
-					return;
-				string strNormalizedPath = FileUtil.NormalizePath(p_strDataFilePath);
-				m_dicUninstalledFiles[strNormalizedPath].Push(strUninstallingModKey, null);
-				if (m_dicInstalledFiles.ContainsItem(strNormalizedPath))
-					m_dicInstalledFiles[strNormalizedPath].Remove(strUninstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var uninstallingModKey = GetModKey(uninstallingMod);
+				
+                if (string.IsNullOrEmpty(uninstallingModKey))
+                {
+                    return;
+                }
+
+                var normalizedPath = FileUtil.NormalizePath(dataFilePath);
+				_uninstalledFiles[normalizedPath].Push(uninstallingModKey, null);
+				
+                if (_installedFiles.ContainsItem(normalizedPath))
+                {
+                    _installedFiles[normalizedPath].Remove(uninstallingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Gets the mod that owns the specified file.
 			/// </summary>
-			/// <param name="p_strPath">The path of the file whose owner is to be retrieved.</param>
+			/// <param name="path">The path of the file whose owner is to be retrieved.</param>
 			/// <returns>The mod that owns the specified file.</returns>
-			public IMod GetCurrentFileOwner(string p_strPath)
+			public IMod GetCurrentFileOwner(string path)
 			{
-				InstallerStack<object> stkInstallers = GetCurrentFileInstallers(p_strPath);
-				if (stkInstallers.Count == 0)
-					return null;
-				return GetMod(stkInstallers.Peek().InstallerKey);
-			}
+				var currentFileInstallers = GetCurrentFileInstallers(path);
+				
+                return currentFileInstallers.Count == 0 ? null : GetMod(currentFileInstallers.Peek().InstallerKey);
+            }
 
 			/// <summary>
 			/// Gets the mod that owned the specified file prior to the current owner.
 			/// </summary>
-			/// <param name="p_strPath">The path of the file whose previous owner is to be retrieved.</param>
+			/// <param name="path">The path of the file whose previous owner is to be retrieved.</param>
 			/// <returns>The mod that owned the specified file prior to the current owner.</returns>
-			public IMod GetPreviousFileOwner(string p_strPath)
+			public IMod GetPreviousFileOwner(string path)
 			{
-				InstallerStack<object> stkInstallers = GetCurrentFileInstallers(p_strPath);
-				if (stkInstallers.Count < 2)
-					return null;
-				stkInstallers.Pop();
-				return GetMod(stkInstallers.Peek().InstallerKey);
+				var currentFileInstallers = GetCurrentFileInstallers(path);
+				
+                if (currentFileInstallers.Count < 2)
+                {
+                    return null;
+                }
+
+                currentFileInstallers.Pop();
+				
+                return GetMod(currentFileInstallers.Peek().InstallerKey);
 			}
 
 			/// <summary>
@@ -546,36 +669,44 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <remarks>
 			/// Logging an original data file prepares it to be overwritten by a mod's file.
 			/// </remarks>
-			/// <param name="p_strDataFilePath">The path of the data file to log as an
+			/// <param name="dataFilePath">The path of the data file to log as an
 			/// original value.</param>
-			public void LogOriginalDataFile(string p_strDataFilePath)
+			public void LogOriginalDataFile(string dataFilePath)
 			{
-				if (GetCurrentFileOwner(p_strDataFilePath) != null)
-					return;
-				AddDataFile(OriginalValueMod, p_strDataFilePath);
+				if (GetCurrentFileOwner(dataFilePath) != null)
+                {
+                    return;
+                }
+
+                AddDataFile(OriginalValueMod, dataFilePath);
 			}
 
 			/// <summary>
 			/// Gets the list of files that was installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstaller">The mod whose isntalled files are to be returned.</param>
+			/// <param name="installer">The mod whose installed files are to be returned.</param>
 			/// <returns>The list of files that was installed by the given mod.</returns>
-			public IList<string> GetInstalledModFiles(IMod p_modInstaller)
+			public IList<string> GetInstalledModFiles(IMod installer)
 			{
-				Set<string> setFiles = new Set<string>(StringComparer.OrdinalIgnoreCase);
-				string strInstallerKey = GetModKey(p_modInstaller);
-				if (String.IsNullOrEmpty(strInstallerKey) || m_setRemovedModKeys.Contains(strInstallerKey))
-					return setFiles;
-				setFiles.AddRange(from itm in m_dicInstalledFiles
-								  where itm.Installers.Contains(strInstallerKey)
+				var modFiles = new Set<string>(StringComparer.OrdinalIgnoreCase);
+				var installerKey = GetModKey(installer);
+				
+                if (string.IsNullOrEmpty(installerKey) || _removedModKeys.Contains(installerKey))
+                {
+                    return modFiles;
+                }
+
+                modFiles.AddRange(from itm in _installedFiles
+								  where itm.Installers.Contains(installerKey)
 								  select itm.Item);
-				setFiles.AddRange(from itm in EnlistedInstallLog.m_dicInstalledFiles
-								  where itm.Installers.Contains(strInstallerKey)
+				modFiles.AddRange(from itm in EnlistedInstallLog._installedFiles
+								  where itm.Installers.Contains(installerKey)
 								  select itm.Item);
-				setFiles.RemoveRange(from itm in m_dicUninstalledFiles
-									 where itm.Installers.Contains(strInstallerKey)
+				modFiles.RemoveRange(from itm in _uninstalledFiles
+									 where itm.Installers.Contains(installerKey)
 									 select itm.Item);
-				return setFiles;
+				
+                return modFiles;
 			}
 
 			/// <summary>
@@ -587,15 +718,19 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// the list was the most recent. This implies that the current version of
 			/// the specified file was installed by the last mod in the list. 
 			/// </remarks>
-			/// <param name="p_strPath">The path of the file whose installers are to be retrieved.</param>
+			/// <param name="path">The path of the file whose installers are to be retrieved.</param>
 			/// <returns>All of the mods that have installed the specified file.</returns>
-			public IList<IMod> GetFileInstallers(string p_strPath)
+			public IList<IMod> GetFileInstallers(string path)
 			{
-				InstallerStack<object> stkInstallers = GetCurrentFileInstallers(p_strPath);
-				List<IMod> lstInstallers = new List<IMod>();
-				foreach (InstalledValue<object> ivlInstaller in stkInstallers)
-					lstInstallers.Add(GetMod(ivlInstaller.InstallerKey));
-				return lstInstallers;
+				var currentFileInstallers = GetCurrentFileInstallers(path);
+				var installers = new List<IMod>();
+				
+                foreach (var ivlInstaller in currentFileInstallers)
+                {
+                    installers.Add(GetMod(ivlInstaller.InstallerKey));
+                }
+
+                return installers;
 			}
 
 			#endregion
@@ -605,127 +740,180 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <summary>
 			/// Gets the ordered list of mod that have installed the given ini edit.
 			/// </summary>
-			/// <param name="p_iedEdit">The ini edit for which to retrieve the list of installing mods.</param>
+			/// <param name="iniEdit">The ini edit for which to retrieve the list of installing mods.</param>
 			/// <returns>The ordered list of mods that have installed the given ini edit.</returns>
-			protected InstallerStack<string> GetCurrentIniEditInstallers(IniEdit p_iedEdit)
+			protected InstallerStack<string> GetCurrentIniEditInstallers(IniEdit iniEdit)
 			{
-				InstallerStack<string> stkInstallers = new InstallerStack<string>();
-				if (EnlistedInstallLog.m_dicInstalledIniEdits.ContainsItem(p_iedEdit))
-					stkInstallers.PushRange(EnlistedInstallLog.m_dicInstalledIniEdits[p_iedEdit]);
-				if (m_dicInstalledIniEdits.ContainsItem(p_iedEdit))
-					foreach (InstalledValue<string> isvMod in m_dicInstalledIniEdits[p_iedEdit])
-					{
-						stkInstallers.Remove(isvMod);
-						stkInstallers.Push(isvMod);
-					}
-				if (m_dicReplacedIniEdits.ContainsItem(p_iedEdit))
-					foreach (InstalledValue<string> isvMod in m_dicReplacedIniEdits[p_iedEdit])
-						stkInstallers.Find(x => x.Equals(isvMod)).Value = isvMod.Value;
-				if (m_dicUninstalledIniEdits.ContainsItem(p_iedEdit))
-					foreach (InstalledValue<string> isvMod in m_dicUninstalledIniEdits[p_iedEdit])
-						stkInstallers.Remove(isvMod);
-				m_setRemovedModKeys.ForEach(x => stkInstallers.Remove(x));
-				return stkInstallers;
+				var installers = new InstallerStack<string>();
+				
+                if (EnlistedInstallLog._installedIniEdits.ContainsItem(iniEdit))
+                {
+                    installers.PushRange(EnlistedInstallLog._installedIniEdits[iniEdit]);
+                }
+
+                if (_installedIniEdits.ContainsItem(iniEdit))
+                {
+                    foreach (var mod in _installedIniEdits[iniEdit])
+                    {
+                        installers.Remove(mod);
+                        installers.Push(mod);
+                    }
+                }
+
+                if (_replacedIniEdits.ContainsItem(iniEdit))
+                {
+                    foreach (var isvMod in _replacedIniEdits[iniEdit])
+                    {
+                        installers.Find(x => x.Equals(isvMod)).Value = isvMod.Value;
+                    }
+                }
+
+                if (_uninstalledIniEdits.ContainsItem(iniEdit))
+                {
+                    foreach (var mod in _uninstalledIniEdits[iniEdit])
+                    {
+                        installers.Remove(mod);
+                    }
+                }
+
+                _removedModKeys.ForEach(x => installers.Remove(x));
+				
+                return installers;
 			}
 
 			/// <summary>
 			/// Logs the specified INI edit as having been installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstallingMod">The mod installing the specified INI edit.</param>
-			/// <param name="p_strSettingsFileName">The name of the edited INI file.</param>
-			/// <param name="p_strSection">The section containing the INI edit.</param>
-			/// <param name="p_strKey">The key of the edited INI value.</param>
-			/// <param name="p_strValue">The value installed by the mod.</param>
-			public void AddIniEdit(IMod p_modInstallingMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+			/// <param name="installingMod">The mod installing the specified INI edit.</param>
+			/// <param name="settingsFileName">The name of the edited INI file.</param>
+			/// <param name="section">The section containing the INI edit.</param>
+			/// <param name="key">The key of the edited INI value.</param>
+			/// <param name="value">The value installed by the mod.</param>
+			public void AddIniEdit(IMod installingMod, string settingsFileName, string section, string key, string value)
 			{
-				string strInstallingModKey = AddActiveMod(p_modInstallingMod, false);
-				IniEdit iedEdit = new IniEdit(p_strSettingsFileName, p_strSection, p_strKey);
-				m_dicInstalledIniEdits[iedEdit].Push(strInstallingModKey, p_strValue);
-				if (m_dicUninstalledIniEdits.ContainsItem(iedEdit))
-					m_dicUninstalledIniEdits[iedEdit].Remove(strInstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var installingModKey = AddActiveMod(installingMod, false);
+				var iniEdit = new IniEdit(settingsFileName, section, key);
+				_installedIniEdits[iniEdit].Push(installingModKey, value);
+				
+                if (_uninstalledIniEdits.ContainsItem(iniEdit))
+                {
+                    _uninstalledIniEdits[iniEdit].Remove(installingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Replaces the edited value of the specified INI edit installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstallingMod">The mod whose INI edit value is to be replaced.</param>
-			/// <param name="p_strSettingsFileName">The name of the Ini value whose edited value is to be replaced.</param>
-			/// <param name="p_strSection">The section of the Ini value whose edited value is to be replaced.</param>
-			/// <param name="p_strKey">The key of the Ini value whose edited value is to be replaced.</param>
-			/// <param name="p_strValue">The value with which to replace the edited value of the specified INI edit installed by the given mod.</param>
-			public void ReplaceIniEdit(IMod p_modInstallingMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+			/// <param name="installingMod">The mod whose INI edit value is to be replaced.</param>
+			/// <param name="settingsFileName">The name of the Ini value whose edited value is to be replaced.</param>
+			/// <param name="section">The section of the Ini value whose edited value is to be replaced.</param>
+			/// <param name="key">The key of the Ini value whose edited value is to be replaced.</param>
+			/// <param name="value">The value with which to replace the edited value of the specified INI edit installed by the given mod.</param>
+			public void ReplaceIniEdit(IMod installingMod, string settingsFileName, string section, string key, string value)
 			{
-				string strInstallingModKey = GetModKey(p_modInstallingMod);
-				IniEdit iedEdit = new IniEdit(p_strSettingsFileName, p_strSection, p_strKey);
-				m_dicReplacedIniEdits[iedEdit].Push(strInstallingModKey, p_strValue);
-				if (m_dicUninstalledIniEdits.ContainsItem(iedEdit))
-					m_dicUninstalledIniEdits[iedEdit].Remove(strInstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var installingModKey = GetModKey(installingMod);
+				var iniEdit = new IniEdit(settingsFileName, section, key);
+				_replacedIniEdits[iniEdit].Push(installingModKey, value);
+				
+                if (_uninstalledIniEdits.ContainsItem(iniEdit))
+                {
+                    _uninstalledIniEdits[iniEdit].Remove(installingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Removes the specified ini edit as having been installed by the given mod.
 			/// </summary>
-			/// <param name="p_modUninstallingMod">The mod for which to remove the specified ini edit.</param>
-			/// <param name="p_strSettingsFileName">The name of the edited INI file containing the INI edit being removed for the given mod.</param>
-			/// <param name="p_strSection">The section containting the INI edit being removed for the given mod.</param>
-			/// <param name="p_strKey">The key of the edited INI value whose edit is being removed for the given mod.</param>
-			public void RemoveIniEdit(IMod p_modUninstallingMod, string p_strSettingsFileName, string p_strSection, string p_strKey)
+			/// <param name="uninstallingMod">The mod for which to remove the specified ini edit.</param>
+			/// <param name="settingsFileName">The name of the edited INI file containing the INI edit being removed for the given mod.</param>
+			/// <param name="section">The section containing the INI edit being removed for the given mod.</param>
+			/// <param name="key">The key of the edited INI value whose edit is being removed for the given mod.</param>
+			public void RemoveIniEdit(IMod uninstallingMod, string settingsFileName, string section, string key)
 			{
-				string strUninstallingModKey = GetModKey(p_modUninstallingMod);
-				if (String.IsNullOrEmpty(strUninstallingModKey))
-					return;
-				IniEdit iedEdit = new IniEdit(p_strSettingsFileName, p_strSection, p_strKey);
-				m_dicUninstalledIniEdits[iedEdit].Push(strUninstallingModKey, null);
-				if (m_dicInstalledIniEdits.ContainsItem(iedEdit))
-					m_dicInstalledIniEdits[iedEdit].Remove(strUninstallingModKey);
-				if (m_dicReplacedIniEdits.ContainsItem(iedEdit))
-					m_dicReplacedIniEdits[iedEdit].Remove(strUninstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var uninstallingModKey = GetModKey(uninstallingMod);
+				
+                if (string.IsNullOrEmpty(uninstallingModKey))
+                {
+                    return;
+                }
+
+                var iniEdit = new IniEdit(settingsFileName, section, key);
+				_uninstalledIniEdits[iniEdit].Push(uninstallingModKey, null);
+				
+                if (_installedIniEdits.ContainsItem(iniEdit))
+                {
+                    _installedIniEdits[iniEdit].Remove(uninstallingModKey);
+                }
+
+                if (_replacedIniEdits.ContainsItem(iniEdit))
+                {
+                    _replacedIniEdits[iniEdit].Remove(uninstallingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Gets the mod that owns the specified INI edit.
 			/// </summary>
-			/// <param name="p_strSettingsFileName">The name of the edited INI file.</param>
-			/// <param name="p_strSection">The section containting the INI edit.</param>
-			/// <param name="p_strKey">The key of the edited INI value.</param>
+			/// <param name="settingsFileName">The name of the edited INI file.</param>
+			/// <param name="section">The section containing the INI edit.</param>
+			/// <param name="key">The key of the edited INI value.</param>
 			/// <returns>The mod that owns the specified INI edit.</returns>
-			public IMod GetCurrentIniEditOwner(string p_strSettingsFileName, string p_strSection, string p_strKey)
+			public IMod GetCurrentIniEditOwner(string settingsFileName, string section, string key)
 			{
-				IniEdit iedEdit = new IniEdit(p_strSettingsFileName, p_strSection, p_strKey);
-				InstallerStack<string> stkInstallers = GetCurrentIniEditInstallers(iedEdit);
-				if (stkInstallers.Count == 0)
-					return null;
-				return GetMod(stkInstallers.Peek().InstallerKey);
-			}
+				var iniEdit = new IniEdit(settingsFileName, section, key);
+				var currentIniEditInstallers = GetCurrentIniEditInstallers(iniEdit);
+				
+                return currentIniEditInstallers.Count == 0 ? null : GetMod(currentIniEditInstallers.Peek().InstallerKey);
+            }
 
 			/// <summary>
 			/// Gets the value of the specified key before it was most recently overwritten.
 			/// </summary>
-			/// <param name="p_strSettingsFileName">The Ini file containing the key whose previous value is to be retrieved.</param>
-			/// <param name="p_strSection">The section containing the key whose previous value is to be retrieved.</param>
-			/// <param name="p_strKey">The key whose previous value is to be retrieved.</param>
+			/// <param name="settingsFileName">The Ini file containing the key whose previous value is to be retrieved.</param>
+			/// <param name="section">The section containing the key whose previous value is to be retrieved.</param>
+			/// <param name="key">The key whose previous value is to be retrieved.</param>
 			/// <returns>The value of the specified key before it was most recently overwritten, or
 			/// <c>null</c> if there was no previous value.</returns>
-			public string GetPreviousIniValue(string p_strSettingsFileName, string p_strSection, string p_strKey)
+			public string GetPreviousIniValue(string settingsFileName, string section, string key)
 			{
-				IniEdit iedEdit = new IniEdit(p_strSettingsFileName, p_strSection, p_strKey);
-				InstallerStack<string> stkInstallers = GetCurrentIniEditInstallers(iedEdit);
-				if (stkInstallers.Count < 2)
-					return null;
-				stkInstallers.Pop();
-				return stkInstallers.Peek().Value;
+				var iniEdit = new IniEdit(settingsFileName, section, key);
+				var currentIniEditInstallers = GetCurrentIniEditInstallers(iniEdit);
+				
+                if (currentIniEditInstallers.Count < 2)
+                {
+                    return null;
+                }
+
+                currentIniEditInstallers.Pop();
+				
+                return currentIniEditInstallers.Peek().Value;
 			}
 
 			/// <summary>
@@ -734,55 +922,67 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <remarks>
 			/// Logging an original INI value prepares it to be overwritten by a mod's value.
 			/// </remarks>
-			/// <param name="p_strSettingsFileName">The name of the INI file containing the original value to log.</param>
-			/// <param name="p_strSection">The section containting the original INI value to log.</param>
-			/// <param name="p_strKey">The key of the original INI value to log.</param>
-			/// <param name="p_strValue">The value installed by the mod.</param>
-			public void LogOriginalIniValue(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+			/// <param name="settingsFileName">The name of the INI file containing the original value to log.</param>
+			/// <param name="section">The section containing the original INI value to log.</param>
+			/// <param name="key">The key of the original INI value to log.</param>
+			/// <param name="value">The value installed by the mod.</param>
+			public void LogOriginalIniValue(string settingsFileName, string section, string key, string value)
 			{
-				if (GetCurrentIniEditOwner(p_strSettingsFileName, p_strSection, p_strKey) != null)
-					return;
-				AddIniEdit(OriginalValueMod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+				if (GetCurrentIniEditOwner(settingsFileName, section, key) != null)
+                {
+                    return;
+                }
+
+                AddIniEdit(OriginalValueMod, settingsFileName, section, key, value);
 			}
 
 			/// <summary>
 			/// Gets the list of INI edit that were installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstaller">The mod whose isntalled files are to be returned.</param>
+			/// <param name="installer">The mod whose installed files are to be returned.</param>
 			/// <returns>The list of files that was installed by the given mod.</returns>
-			public IList<IniEdit> GetInstalledIniEdits(IMod p_modInstaller)
+			public IList<IniEdit> GetInstalledIniEdits(IMod installer)
 			{
-				Set<IniEdit> setEdits = new Set<IniEdit>();
-				string strInstallerKey = GetModKey(p_modInstaller);
-				if (String.IsNullOrEmpty(strInstallerKey) || m_setRemovedModKeys.Contains(strInstallerKey))
-					return setEdits;
-				setEdits.AddRange(from itm in m_dicInstalledIniEdits
-								  where itm.Installers.Contains(strInstallerKey)
+				var iniEdits = new Set<IniEdit>();
+				var installerKey = GetModKey(installer);
+				
+                if (string.IsNullOrEmpty(installerKey) || _removedModKeys.Contains(installerKey))
+                {
+                    return iniEdits;
+                }
+
+                iniEdits.AddRange(from itm in _installedIniEdits
+								  where itm.Installers.Contains(installerKey)
 								  select itm.Item);
-				setEdits.AddRange(from itm in EnlistedInstallLog.m_dicInstalledIniEdits
-								  where itm.Installers.Contains(strInstallerKey)
+				iniEdits.AddRange(from itm in EnlistedInstallLog._installedIniEdits
+								  where itm.Installers.Contains(installerKey)
 								  select itm.Item);
-				setEdits.RemoveRange(from itm in m_dicUninstalledIniEdits
-									 where itm.Installers.Contains(strInstallerKey)
+				iniEdits.RemoveRange(from itm in _uninstalledIniEdits
+									 where itm.Installers.Contains(installerKey)
 									 select itm.Item);
-				return setEdits;
+				
+                return iniEdits;
 			}
 
 			/// <summary>
 			/// Gets all of the mods that have installed the specified Ini edit.
 			/// </summary>
-			/// <param name="p_strSettingsFileName">The Ini file containing the key whose installers are to be retrieved.</param>
-			/// <param name="p_strSection">The section containing the key whose installers are to be retrieved.</param>
-			/// <param name="p_strKey">The key whose installers are to be retrieved.</param>
+			/// <param name="settingsFileName">The Ini file containing the key whose installers are to be retrieved.</param>
+			/// <param name="section">The section containing the key whose installers are to be retrieved.</param>
+			/// <param name="key">The key whose installers are to be retrieved.</param>
 			/// <returns>All of the mods that have installed the specified Ini edit.</returns>
-			public IList<IMod> GetIniEditInstallers(string p_strSettingsFileName, string p_strSection, string p_strKey)
+			public IList<IMod> GetIniEditInstallers(string settingsFileName, string section, string key)
 			{
-				IniEdit iedEdit = new IniEdit(p_strSettingsFileName, p_strSection, p_strKey);
-				InstallerStack<string> stkInstallers = GetCurrentIniEditInstallers(iedEdit);
-				List<IMod> lstInstallers = new List<IMod>();
-				foreach (InstalledValue<string> ivlInstaller in stkInstallers)
-					lstInstallers.Add(GetMod(ivlInstaller.InstallerKey));
-				return lstInstallers;
+				var iniEdit = new IniEdit(settingsFileName, section, key);
+				var currentIniEditInstallers = GetCurrentIniEditInstallers(iniEdit);
+				var installers = new List<IMod>();
+				
+                foreach (var ivlInstaller in currentIniEditInstallers)
+                {
+                    installers.Add(GetMod(ivlInstaller.InstallerKey));
+                }
+
+                return installers;
 			}
 
 			#endregion
@@ -792,112 +992,165 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <summary>
 			/// Gets the ordered list of mod that have installed the specified game specific value edit.
 			/// </summary>
-			/// <param name="p_strKey">The key of the game specific value edit for which to retrieve the list of installing mods.</param>
+			/// <param name="key">The key of the game specific value edit for which to retrieve the list of installing mods.</param>
 			/// <returns>The ordered list of mods that have installed the specified game specific value edit.</returns>
-			protected InstallerStack<byte[]> GetCurrentGameSpecificValueInstallers(string p_strKey)
+			protected InstallerStack<byte[]> GetCurrentGameSpecificValueInstallers(string key)
 			{
-				InstallerStack<byte[]> stkInstallers = new InstallerStack<byte[]>();
-				if (EnlistedInstallLog.m_dicInstalledGameSpecificValueEdits.ContainsItem(p_strKey))
-					stkInstallers.PushRange(EnlistedInstallLog.m_dicInstalledGameSpecificValueEdits[p_strKey]);
-				if (m_dicInstalledGameSpecificValueEdits.ContainsItem(p_strKey))
-					foreach (InstalledValue<byte[]> isvMod in m_dicInstalledGameSpecificValueEdits[p_strKey])
-					{
-						stkInstallers.Remove(isvMod);
-						stkInstallers.Push(isvMod);
-					}
-				if (m_dicReplacedGameSpecificValueEdits.ContainsItem(p_strKey))
-					foreach (InstalledValue<byte[]> isvMod in m_dicReplacedGameSpecificValueEdits[p_strKey])
-						stkInstallers.Find(x => x.Equals(isvMod)).Value = isvMod.Value;
-				if (m_dicUninstalledGameSpecificValueEdits.ContainsItem(p_strKey))
-					foreach (InstalledValue<byte[]> isvMod in m_dicUninstalledGameSpecificValueEdits[p_strKey])
-						stkInstallers.Remove(isvMod);
-				m_setRemovedModKeys.ForEach(x => stkInstallers.Remove(x));
-				return stkInstallers;
+				var installers = new InstallerStack<byte[]>();
+				
+                if (EnlistedInstallLog._gameSpecificValueEdits.ContainsItem(key))
+                {
+                    installers.PushRange(EnlistedInstallLog._gameSpecificValueEdits[key]);
+                }
+
+                if (_installedGameSpecificValueEdits.ContainsItem(key))
+                {
+                    foreach (var isvMod in _installedGameSpecificValueEdits[key])
+                    {
+                        installers.Remove(isvMod);
+                        installers.Push(isvMod);
+                    }
+                }
+
+                if (_replacedGameSpecificValueEdits.ContainsItem(key))
+                {
+                    foreach (var isvMod in _replacedGameSpecificValueEdits[key])
+                    {
+                        installers.Find(x => x.Equals(isvMod)).Value = isvMod.Value;
+                    }
+                }
+
+                if (_uninstalledGameSpecificValueEdits.ContainsItem(key))
+                {
+                    foreach (var isvMod in _uninstalledGameSpecificValueEdits[key])
+                    {
+                        installers.Remove(isvMod);
+                    }
+                }
+
+                _removedModKeys.ForEach(x => installers.Remove(x));
+				
+                return installers;
 			}
 
 			/// <summary>
 			/// Logs the specified Game Specific Value edit as having been installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstallingMod">The mod installing the specified INI edit.</param>
-			/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
-			/// <param name="p_bteValue">The value installed by the mod.</param>
-			public void AddGameSpecificValueEdit(IMod p_modInstallingMod, string p_strKey, byte[] p_bteValue)
+			/// <param name="installingMod">The mod installing the specified INI edit.</param>
+			/// <param name="key">The key of the edited Game Specific Value.</param>
+			/// <param name="value">The value installed by the mod.</param>
+			public void AddGameSpecificValueEdit(IMod installingMod, string key, byte[] value)
 			{
-				string strInstallingModKey = AddActiveMod(p_modInstallingMod, false);
-				m_dicInstalledGameSpecificValueEdits[p_strKey].Push(strInstallingModKey, p_bteValue);
-				if (m_dicUninstalledGameSpecificValueEdits.ContainsItem(p_strKey))
-					m_dicUninstalledGameSpecificValueEdits[p_strKey].Remove(strInstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var installingModKey = AddActiveMod(installingMod, false);
+				_installedGameSpecificValueEdits[key].Push(installingModKey, value);
+				
+                if (_uninstalledGameSpecificValueEdits.ContainsItem(key))
+                {
+                    _uninstalledGameSpecificValueEdits[key].Remove(installingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Replaces the edited value of the specified game specific value edit installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstallingMod">The mod whose game specific value edit value is to be replaced.</param>
-			/// <param name="p_strKey">The key of the game spcified value whose edited value is to be replaced.</param>
-			/// <param name="p_bteValue">The value with which to replace the edited value of the specified game specific value edit installed by the given mod.</param>
-			public void ReplaceGameSpecificValueEdit(IMod p_modInstallingMod, string p_strKey, byte[] p_bteValue)
+			/// <param name="installingMod">The mod whose game specific value edit value is to be replaced.</param>
+			/// <param name="key">The key of the game specified value whose edited value is to be replaced.</param>
+			/// <param name="value">The value with which to replace the edited value of the specified game specific value edit installed by the given mod.</param>
+			public void ReplaceGameSpecificValueEdit(IMod installingMod, string key, byte[] value)
 			{
-				string strInstallingModKey = GetModKey(p_modInstallingMod);
-				m_dicReplacedGameSpecificValueEdits[p_strKey].Push(strInstallingModKey, p_bteValue);
-				if (m_dicUninstalledGameSpecificValueEdits.ContainsItem(p_strKey))
-					m_dicUninstalledGameSpecificValueEdits[p_strKey].Remove(strInstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var installingModKey = GetModKey(installingMod);
+				_replacedGameSpecificValueEdits[key].Push(installingModKey, value);
+				
+                if (_uninstalledGameSpecificValueEdits.ContainsItem(key))
+                {
+                    _uninstalledGameSpecificValueEdits[key].Remove(installingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Removes the specified Game Specific Value edit as having been installed by the given mod.
 			/// </summary>
-			/// <param name="p_modUninstallingMod">The mod for which to remove the specified Game Specific Value edit.</param>
-			/// <param name="p_strKey">The key of the Game Specific Value whose edit is being removed for the given mod.</param>
-			public void RemoveGameSpecificValueEdit(IMod p_modUninstallingMod, string p_strKey)
+			/// <param name="uninstallingMod">The mod for which to remove the specified Game Specific Value edit.</param>
+			/// <param name="key">The key of the Game Specific Value whose edit is being removed for the given mod.</param>
+			public void RemoveGameSpecificValueEdit(IMod uninstallingMod, string key)
 			{
-				string strUninstallingModKey = GetModKey(p_modUninstallingMod);
-				if (String.IsNullOrEmpty(strUninstallingModKey))
-					return;
-				m_dicUninstalledGameSpecificValueEdits[p_strKey].Push(strUninstallingModKey, null);
-				if (m_dicInstalledGameSpecificValueEdits.ContainsItem(p_strKey))
-					m_dicInstalledGameSpecificValueEdits[p_strKey].Remove(strUninstallingModKey);
-				if (m_dicReplacedGameSpecificValueEdits.ContainsItem(p_strKey))
-					m_dicReplacedGameSpecificValueEdits[p_strKey].Remove(strUninstallingModKey);
-				if (CurrentTransaction == null)
-					Commit();
-				else
-					Enlist();
-			}
+				var uninstallingModKey = GetModKey(uninstallingMod);
+				
+                if (string.IsNullOrEmpty(uninstallingModKey))
+                {
+                    return;
+                }
+
+                _uninstalledGameSpecificValueEdits[key].Push(uninstallingModKey, null);
+				
+                if (_installedGameSpecificValueEdits.ContainsItem(key))
+                {
+                    _installedGameSpecificValueEdits[key].Remove(uninstallingModKey);
+                }
+
+                if (_replacedGameSpecificValueEdits.ContainsItem(key))
+                {
+                    _replacedGameSpecificValueEdits[key].Remove(uninstallingModKey);
+                }
+
+                if (CurrentTransaction == null)
+                {
+                    Commit();
+                }
+                else
+                {
+                    Enlist();
+                }
+            }
 
 			/// <summary>
 			/// Gets the mod that owns the specified Game Specific Value edit.
 			/// </summary>
-			/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
+			/// <param name="key">The key of the edited Game Specific Value.</param>
 			/// <returns>The mod that owns the specified Game Specific Value edit.</returns>
-			public IMod GetCurrentGameSpecificValueEditOwner(string p_strKey)
+			public IMod GetCurrentGameSpecificValueEditOwner(string key)
 			{
-				InstallerStack<byte[]> stkInstallers = GetCurrentGameSpecificValueInstallers(p_strKey);
-				if (stkInstallers.Count == 0)
-					return null;
-				return GetMod(stkInstallers.Peek().InstallerKey);
-			}
+				var currentGameSpecificValueInstallers = GetCurrentGameSpecificValueInstallers(key);
+				
+                return currentGameSpecificValueInstallers.Count == 0 ? null : GetMod(currentGameSpecificValueInstallers.Peek().InstallerKey);
+            }
 
 			/// <summary>
 			/// Gets the value of the specified key before it was most recently overwritten.
 			/// </summary>
-			/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
+			/// <param name="key">The key of the edited Game Specific Value.</param>
 			/// <returns>The value of the specified key before it was most recently overwritten, or
 			/// <c>null</c> if there was no previous value.</returns>
-			public byte[] GetPreviousGameSpecificValue(string p_strKey)
+			public byte[] GetPreviousGameSpecificValue(string key)
 			{
-				InstallerStack<byte[]> stkInstallers = GetCurrentGameSpecificValueInstallers(p_strKey);
-				if (stkInstallers.Count < 2)
-					return null;
-				stkInstallers.Pop();
-				return stkInstallers.Peek().Value;
+				var currentGameSpecificValueInstallers = GetCurrentGameSpecificValueInstallers(key);
+				
+                if (currentGameSpecificValueInstallers.Count < 2)
+                {
+                    return null;
+                }
+
+                currentGameSpecificValueInstallers.Pop();
+				
+                return currentGameSpecificValueInstallers.Peek().Value;
 			}
 
 			/// <summary>
@@ -906,50 +1159,62 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <remarks>
 			/// Logging an original Game Specific Value prepares it to be overwritten by a mod's value.
 			/// </remarks>
-			/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
-			/// <param name="p_bteValue">The original value.</param>
-			public void LogOriginalGameSpecificValue(string p_strKey, byte[] p_bteValue)
+			/// <param name="key">The key of the edited Game Specific Value.</param>
+			/// <param name="value">The original value.</param>
+			public void LogOriginalGameSpecificValue(string key, byte[] value)
 			{
-				if (GetCurrentGameSpecificValueEditOwner(p_strKey) != null)
-					return;
-				AddGameSpecificValueEdit(OriginalValueMod, p_strKey, p_bteValue);
+				if (GetCurrentGameSpecificValueEditOwner(key) != null)
+                {
+                    return;
+                }
+
+                AddGameSpecificValueEdit(OriginalValueMod, key, value);
 			}
 
 			/// <summary>
 			/// Gets the list of Game Specific Value edited keys that were installed by the given mod.
 			/// </summary>
-			/// <param name="p_modInstaller">The mod whose isntalled edits are to be returned.</param>
+			/// <param name="installer">The mod whose installed edits are to be returned.</param>
 			/// <returns>The list of edited keys that was installed by the given mod.</returns>
-			public IList<string> GetInstalledGameSpecificValueEdits(IMod p_modInstaller)
+			public IList<string> GetInstalledGameSpecificValueEdits(IMod installer)
 			{
-				Set<string> setGameSpecificValues = new Set<string>();
-				string strInstallerKey = GetModKey(p_modInstaller);
-				if (String.IsNullOrEmpty(strInstallerKey) || m_setRemovedModKeys.Contains(strInstallerKey))
-					return setGameSpecificValues;
-				setGameSpecificValues.AddRange(from itm in m_dicInstalledGameSpecificValueEdits
-												where itm.Installers.Contains(strInstallerKey)
+				var gameSpecificValues = new Set<string>();
+				var installerKey = GetModKey(installer);
+				
+                if (string.IsNullOrEmpty(installerKey) || _removedModKeys.Contains(installerKey))
+                {
+                    return gameSpecificValues;
+                }
+
+                gameSpecificValues.AddRange(from itm in _installedGameSpecificValueEdits
+												where itm.Installers.Contains(installerKey)
 												select itm.Item);
-				setGameSpecificValues.AddRange(from itm in EnlistedInstallLog.m_dicInstalledGameSpecificValueEdits
-												where itm.Installers.Contains(strInstallerKey)
+				gameSpecificValues.AddRange(from itm in EnlistedInstallLog._gameSpecificValueEdits
+												where itm.Installers.Contains(installerKey)
 												select itm.Item);
-				setGameSpecificValues.RemoveRange(from itm in m_dicUninstalledGameSpecificValueEdits
-												  where itm.Installers.Contains(strInstallerKey)
+				gameSpecificValues.RemoveRange(from itm in _uninstalledGameSpecificValueEdits
+												  where itm.Installers.Contains(installerKey)
 												  select itm.Item);
-				return setGameSpecificValues;
+				
+                return gameSpecificValues;
 			}
 
 			/// <summary>
 			/// Gets all of the mods that have installed the specified game specific value edit.
 			/// </summary>
-			/// <param name="p_strKey">The key whose installers are to be retrieved.</param>
+			/// <param name="key">The key whose installers are to be retrieved.</param>
 			/// <returns>All of the mods that have installed the specified game specific value edit.</returns>
-			public IList<IMod> GetGameSpecificValueEditInstallers(string p_strKey)
+			public IList<IMod> GetGameSpecificValueEditInstallers(string key)
 			{
-				InstallerStack<byte[]> stkInstallers = GetCurrentGameSpecificValueInstallers(p_strKey);
-				List<IMod> lstInstallers = new List<IMod>();
-				foreach (InstalledValue<byte[]> ivlInstaller in stkInstallers)
-					lstInstallers.Add(GetMod(ivlInstaller.InstallerKey));
-				return lstInstallers;
+				var currentGameSpecificValueInstallers = GetCurrentGameSpecificValueInstallers(key);
+				var installers = new List<IMod>();
+				
+                foreach (var ivlInstaller in currentGameSpecificValueInstallers)
+                {
+                    installers.Add(GetMod(ivlInstaller.InstallerKey));
+                }
+
+                return installers;
 			}
 
 			#endregion

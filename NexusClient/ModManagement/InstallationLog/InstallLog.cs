@@ -1,19 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Xml;
-using System.Xml.Linq;
-using Nexus.Client.Mods;
-using Nexus.Client.Util.Collections;
-using Nexus.Client.Games;
-using Nexus.Transactions;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.ModManagement.InstallationLog
+﻿namespace Nexus.Client.ModManagement.InstallationLog
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Linq;
+    using System.Text;
+    using System.Xml;
+    using System.Xml.Linq;
+    
+    using Nexus.Client.Mods;
+    using Nexus.Client.Util.Collections;
+    using Nexus.Client.Games;
+    using Nexus.Transactions;
+    using Nexus.Client.Util;
+
 	/// <summary>
 	/// The log that tracks items that are installed by mods.
 	/// </summary>
@@ -22,16 +23,13 @@ namespace Nexus.Client.ModManagement.InstallationLog
 	/// object is a singleton to help enforce that policy.
 	/// Note, however, that the singleton nature of the log is not meant to provide global access to the object.
 	/// As such, there is no static accessor to retrieve the singleton instance. Instead, the
-	/// <see cref="Initialize(ModRegistry, string, string)"/> method returns the only instance that should be used.
+	/// <see cref="Initialize(ModRegistry, IGameMode, string, string)"/> method returns the only instance that should be used.
 	/// </remarks>
 	public partial class InstallLog : IInstallLog
 	{
-		private static readonly IMod m_modOriginalValueMod = new DummyMod("ORIGINAL_VALUE", String.Format("Dummy Mod: {0}", "ORIGINAL_VALUE"));
-		private static readonly IMod m_modModManagerValueMod = new DummyMod("MOD_MANAGER_VALUE", String.Format("Dummy Mod: {0}", "MOD_MANAGER_VALUE"));
-		private static readonly Version CURRENT_VERSION = new Version("0.5.0.0");
-		private static readonly object m_objEnlistmentLock = new object();
-		private static Dictionary<string, TransactionEnlistment> m_dicEnlistments = null;
-		private static Dictionary<string, IMod> m_dicFileOwner = null;
+        private static readonly object EnlistmentLock = new object();
+		private static Dictionary<string, TransactionEnlistment> _enlistments;
+		private static Dictionary<string, IMod> _fileOwner;
 
 		#region Static Properties
 
@@ -41,126 +39,126 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// </summary>
 		/// <value>The dummy mod used as a placeholder to indicate logged values that are original, meaning
 		/// they weren't installed by a mod.</value>
-		public static IMod OriginalValueMod
-		{
-			get
-			{
-				return m_modOriginalValueMod;
-			}
-		}
+		public static IMod OriginalValueMod { get; } = new DummyMod("ORIGINAL_VALUE", "Dummy Mod: ORIGINAL_VALUE");
 
-		/// <summary>
+        /// <summary>
 		/// Gets the dummy mod used as a placeholder to indicate logged values that were installed
 		/// the the client software itself, not a mod.
 		/// </summary>
 		/// <value>The dummy mod used as a placeholder to indicate logged values that were installed
 		/// the the client software itself, not a mod.</value>
-		public static IMod ModManagerValueMod
-		{
-			get
-			{
-				return m_modModManagerValueMod;
-			}
-		}
+		public static IMod ModManagerValueMod { get; } = new DummyMod("MOD_MANAGER_VALUE", "Dummy Mod: MOD_MANAGER_VALUE");
 
-		/// <summary>
+        /// <summary>
 		/// Gets the current support version of the install log.
 		/// </summary>
 		/// <value>The current support version of the install log.</value>
-		public static Version CurrentVersion
-		{
-			get
-			{
-				return CURRENT_VERSION;
-			}
-		}
+		public static Version CurrentVersion { get; } = new Version("0.5.0.0");
 
-		#endregion
+        #endregion
 
 		#region Singleton
 
-		private static IInstallLog m_ilgCurrent = null;
+		private static IInstallLog _instance;
 
-		/// <summary>
-		/// Initializes the install log.
-		/// </summary>
-		/// <param name="p_mdrManagedModRegistry">The <see cref="ModRegistry"/> that contains the list
-		/// of managed <see cref="IMod"/>s.</param>
-		/// <param name="p_strModInstallDirectory">The path of the directory where all of the mods are installed.</param>
-		/// <param name="p_strLogPath">The path from which to load the install log information.</param>
-		/// <returns>The initialized install log.</returns>
-		/// <exception cref="InvalidOperationException">Thrown if the install log has already
-		/// been initialized.</exception>
-		public static IInstallLog Initialize(ModRegistry p_mdrManagedModRegistry, IGameMode p_gmdGameMode, string p_strModInstallDirectory, string p_strLogPath)
+        /// <summary>
+        /// Initializes the install log.
+        /// </summary>
+        /// <param name="managedModRegistry">The <see cref="ModRegistry"/> that contains the list of managed <see cref="IMod"/>s.</param>
+        /// <param name="gameMode">The current game mode.</param>
+        /// <param name="modInstallDirectory">The path of the directory where all of the mods are installed.</param>
+        /// <param name="logPath">The path from which to load the install log information.</param>
+        /// <returns>The initialized install log.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the install log has already
+        /// been initialized.</exception>
+        public static IInstallLog Initialize(ModRegistry managedModRegistry, IGameMode gameMode, string modInstallDirectory, string logPath)
 		{
-			if (m_ilgCurrent != null)
-				throw new InvalidOperationException("The Install Log has already been initialized.");
-			m_ilgCurrent = new InstallLog(p_mdrManagedModRegistry, p_gmdGameMode, p_strModInstallDirectory, p_strLogPath);
-			return m_ilgCurrent;
+			if (_instance != null)
+            {
+                throw new InvalidOperationException("The Install Log has already been initialized.");
+            }
+
+            _instance = new InstallLog(managedModRegistry, gameMode, modInstallDirectory, logPath);
+
+			return _instance;
 		}
 
-		public IInstallLog ReInitialize(string p_strLogPath)
+		/// <inheritdoc />
+		public IInstallLog ReInitialize(string logPath)
 		{
-			m_ilgCurrent = new InstallLog(ManagedModRegistry, GameMode, ModInstallDirectory, p_strLogPath);
-			return m_ilgCurrent;
+			_instance = new InstallLog(ManagedModRegistry, GameMode, ModInstallDirectory, logPath);
+			
+            return _instance;
 		}
 
 		#endregion
 
 		/// <summary>
-		/// Reads the install log verion from the given install log.
+		/// Reads the install log version from the given install log.
 		/// </summary>
-		/// <param name="p_strLogPath">The install log whose version is to be read.</param>
+		/// <param name="logPath">The install log whose version is to be read.</param>
 		/// <returns>The version of the specified install log, or a version of
 		/// <c>0.0.0.0</c> if the log format is not recognized.</returns>
-		public static Version ReadVersion(string p_strLogPath)
+		public static Version ReadVersion(string logPath)
 		{
-			if (!File.Exists(p_strLogPath))
-				return new Version("0.0.0.0");
+			if (!File.Exists(logPath))
+            {
+                return new Version("0.0.0.0");
+            }
 
-			XDocument docLog = XDocument.Load(p_strLogPath);
+            var docLog = XDocument.Load(logPath);
 
-			XElement xelLog = docLog.Element("installLog");
-			if (xelLog == null)
-				return new Version("0.0.0.0");
+			var xelLog = docLog.Element("installLog");
+			
+            if (xelLog == null)
+            {
+                return new Version("0.0.0.0");
+            }
 
-			XAttribute xatVersion = xelLog.Attribute("fileVersion");
-			if (xatVersion == null)
-				return new Version("0.0.0.0");
+            var xatVersion = xelLog.Attribute("fileVersion");
+			
+            if (xatVersion == null)
+            {
+                return new Version("0.0.0.0");
+            }
 
-			return new Version(xatVersion.Value);
+            return new Version(xatVersion.Value);
 		}
 
 		/// <summary>
 		/// Determines if the log at the given path is valid.
 		/// </summary>
-		/// <param name="p_strLogPath">The path of the log to validate.</param>
+		/// <param name="logPath">The path of the log to validate.</param>
 		/// <returns><c>true</c> if the given log is valid;
 		/// <c>false</c> otherwise.</returns>
-		public static bool IsLogValid(string p_strLogPath)
+		public static bool IsLogValid(string logPath)
 		{
-			if (!File.Exists(p_strLogPath))
-				return false;
-			try
+			if (!File.Exists(logPath))
+            {
+                return false;
+            }
+
+            try
 			{
-				XDocument docLog = XDocument.Load(p_strLogPath);
+				var docLog = XDocument.Load(logPath);
+                return true;
 			}
 			catch (Exception e)
 			{
-				Trace.TraceError("Invalid Install Log ({0}):", p_strLogPath);
+				Trace.TraceError("Invalid Install Log ({0}):", logPath);
 				Trace.Indent();
 				TraceUtil.TraceException(e);
 				Trace.Unindent();
-				return false;
+				
+                return false;
 			}
-			return true;
-		}
+        }
 
-		private ActiveModRegistry m_amrModKeys = new ActiveModRegistry();
+		private readonly ActiveModRegistry _activeModRegistry = new ActiveModRegistry();
 
-		private InstalledItemDictionary<string, object> m_dicInstalledFiles = null;
-		private InstalledItemDictionary<IniEdit, string> m_dicInstalledIniEdits = null;
-		private InstalledItemDictionary<string, byte[]> m_dicInstalledGameSpecificValueEdits = null;
+		private readonly InstalledItemDictionary<string, object> _installedFiles;
+		private readonly InstalledItemDictionary<IniEdit, string> _installedIniEdits;
+		private readonly InstalledItemDictionary<string, byte[]> _gameSpecificValueEdits;
 
 		#region Properties
 
@@ -170,73 +168,58 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// </summary>
 		/// <value>The <see cref="ModRegistry"/> that contains the list
 		/// of managed <see cref="IMod"/>s.</value>
-		protected ModRegistry ManagedModRegistry { get; private set; }
+		protected ModRegistry ManagedModRegistry { get; }
 
-		protected IGameMode GameMode { get; private set; }
+		protected IGameMode GameMode { get; }
 
 		/// <summary>
 		/// Gets the path of the install log file.
 		/// </summary>
 		/// <value>The path of the install log file.</value>
-		protected string LogPath { get; private set; }
+		protected string LogPath { get; }
 
 		/// <summary>
 		/// Gets the path of the directory where all of the mods are installed.
 		/// </summary>
 		/// <value>The path of the directory where all of the mods are installed.</value>
-		protected string ModInstallDirectory { get; private set; }
+		protected string ModInstallDirectory { get; }
 
-		/// <summary>
-		/// Gets the key of the mod representing original values.
-		/// </summary>
-		/// <remarks>
-		/// Origianl values are values that were preexisting on the system.
-		/// </remarks>
-		/// <value>The key of the mod representing original values.</value>
-		public string OriginalValuesKey
-		{
-			get
-			{
-				return GetModKey(OriginalValueMod);
-			}
-		}
+        /// <inheritdoc />
+		public string OriginalValuesKey => GetModKey(OriginalValueMod);
 
-		/// <summary>
-		/// Gets the list of active mods.
-		/// </summary>
-		/// <value>The list of active mods.</value>
-		public ReadOnlyObservableList<IMod> ActiveMods
-		{
-			get
-			{
-				return m_amrModKeys.RegisteredMods;
-			}
-		}
+        /// <inheritdoc />
+		public ReadOnlyObservableList<IMod> ActiveMods => _activeModRegistry.RegisteredMods;
 
-		#endregion
+        #endregion
 
 		#region Constructors
 
-		/// <summary>
-		/// A simple constructor that initializes the object with its dependencies.
-		/// </summary>
-		/// <param name="p_mdrManagedModRegistry">The <see cref="ModRegistry"/> that contains the list
-		/// of managed <see cref="IMod"/>s.</param>
-		/// <param name="p_strModInstallDirectory">The path of the directory where all of the mods are installed.</param>
-		/// <param name="p_strLogPath">The path from which to load the install log information.</param>
-		private InstallLog(ModRegistry p_mdrManagedModRegistry, IGameMode p_gmdGameMode, string p_strModInstallDirectory, string p_strLogPath)
+        /// <summary>
+        /// A simple constructor that initializes the object with its dependencies.
+        /// </summary>
+        /// <param name="managedModRegistry">The <see cref="ModRegistry"/> that contains the list
+        /// of managed <see cref="IMod"/>s.</param>
+        /// <param name="gameMode">The current game mode.</param>
+        /// <param name="modInstallDirectory">The path of the directory where all of the mods are installed.</param>
+        /// <param name="logPath">The path from which to load the install log information.</param>
+        private InstallLog(ModRegistry managedModRegistry, IGameMode gameMode, string modInstallDirectory, string logPath)
 		{
-			m_dicInstalledFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-			m_dicInstalledIniEdits = new InstalledItemDictionary<IniEdit, string>();
-			m_dicInstalledGameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
-			ModInstallDirectory = p_strModInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-			ManagedModRegistry = p_mdrManagedModRegistry;
-			LogPath = p_strLogPath;
-			GameMode = p_gmdGameMode;
-			LoadInstallLog();
-			if (!m_amrModKeys.IsModRegistered(OriginalValueMod))
-				AddActiveMod(OriginalValueMod, true);
-		}
+			_installedFiles = new InstalledItemDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+			_installedIniEdits = new InstalledItemDictionary<IniEdit, string>();
+			_gameSpecificValueEdits = new InstalledItemDictionary<string, byte[]>();
+			
+            ModInstallDirectory = modInstallDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			ManagedModRegistry = managedModRegistry;
+			LogPath = logPath;
+			GameMode = gameMode;
+			
+            LoadInstallLog();
+			
+            if (!_activeModRegistry.IsModRegistered(OriginalValueMod))
+            {
+                AddActiveMod(OriginalValueMod, true);
+            }
+        }
 
 		#endregion
 
@@ -248,36 +231,57 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <returns>The mod info that is currently in the install log, indexed by mod key.</returns>
 		private IDictionary<string, IMod> GetInstallLogModInfo()
 		{
-			Dictionary<string, IMod> dicLoggedModInfo = new Dictionary<string, IMod>();
-			XDocument docLog = XDocument.Load(LogPath);
+			var loggedModInfo = new Dictionary<string, IMod>();
+			var log = XDocument.Load(LogPath);
 
-			string strLogVersion = docLog.Element("installLog").Attribute("fileVersion").Value;
-			if (!CURRENT_VERSION.ToString().Equals(strLogVersion))
-				throw new Exception(String.Format("Invalid Install Log version: {0} Expecting {1}", strLogVersion, CURRENT_VERSION));
+			var logVersion = log.Element("installLog")?.Attribute("fileVersion")?.Value;
 
-			XElement xelModList = docLog.Descendants("modList").FirstOrDefault();
-			if (xelModList != null)
+            if (!CurrentVersion.ToString().Equals(logVersion))
+            {
+                throw new Exception($"Invalid Install Log version: \"{logVersion}\", expected \"{CurrentVersion}\".");
+            }
+
+            var modList = log.Descendants("modList").FirstOrDefault();
+			
+            if (modList != null)
 			{
-				foreach (XElement xelMod in xelModList.Elements("mod"))
+				foreach (var mod in modList.Elements("mod"))
 				{
-					string strModPath = xelMod.Attribute("path").Value;
-					if (!OriginalValueMod.Filename.Equals(strModPath) && !ModManagerValueMod.Filename.Equals(strModPath))
+					var modPath = mod.Attribute("path")?.Value;
+
+					if (!OriginalValueMod.Filename.Equals(modPath) && !ModManagerValueMod.Filename.Equals(modPath))
 					{
-						strModPath = Path.Combine(ModInstallDirectory, strModPath);
-						XElement xelVersion = xelMod.Element("version");
-						string strVersion = xelVersion.Attribute("machineVersion").Value;
-						Version verVersion = String.IsNullOrEmpty(strVersion) ? null : new Version(strVersion);
-						strVersion = xelVersion.Value;
-						string strModName = xelMod.Element("name").Value;
-						string strInstallDate = "<No Data>";
-						if (!(xelMod.Element("installDate") == null))
-							strInstallDate = xelMod.Element("installDate").Value;
-						IMod modMod = new DummyMod(strModName, strModPath, verVersion, strVersion, "", strInstallDate);
-						dicLoggedModInfo[xelMod.Attribute("key").Value] = modMod;
+                        if (string.IsNullOrEmpty(modPath))
+                        {
+                            throw new Exception($"Could not determine path to mod \"{mod}\"");
+                        }
+
+						modPath = Path.Combine(ModInstallDirectory, modPath);
+						var version = mod.Element("version");
+						var humanReadableVersion = version?.Attribute("machineVersion")?.Value;
+						var machineVersion = string.IsNullOrEmpty(humanReadableVersion) ? null : new Version(humanReadableVersion);
+						humanReadableVersion = version?.Value;
+						var modName = mod.Element("name")?.Value;
+						var installDate = "<No Data>";
+						
+                        if (mod.Element("installDate") != null)
+                        {
+                            installDate = mod.Element("installDate")?.Value;
+                        }
+
+                        IMod dummyMod = new DummyMod(modName, modPath, machineVersion, humanReadableVersion, "", installDate);
+
+                        var loggedModInfoKey = mod.Attribute("key")?.Value;
+
+                        if (loggedModInfoKey != null)
+                        {
+                            loggedModInfo[loggedModInfoKey] = dummyMod;
+                        }
 					}
 				}
 			}
-			return dicLoggedModInfo;
+
+			return loggedModInfo;
 		}
 
 		/// <summary>
@@ -285,95 +289,119 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// </summary>
 		private void LoadInstallLog()
 		{
-			Trace.TraceInformation(String.Format("Path: {0}", LogPath));
-			if (!File.Exists(LogPath))
-				SaveInstallLog();
-			XDocument docLog = XDocument.Load(LogPath);
+			Trace.TraceInformation($"Path: {LogPath}");
+			
+            if (!File.Exists(LogPath))
+            {
+                SaveInstallLog();
+            }
+
+            var docLog = XDocument.Load(LogPath);
 			Trace.TraceInformation("Loaded from XML.");
 
-			string strLogVersion = docLog.Element("installLog").Attribute("fileVersion").Value;
-			if (!CURRENT_VERSION.ToString().Equals(strLogVersion))
-				throw new Exception(String.Format("Invalid Install Log version: {0} Expecting {1}", strLogVersion, CURRENT_VERSION));
+			var logVersion = docLog.Element("installLog")?.Attribute("fileVersion")?.Value;
+			
+            if (!CurrentVersion.ToString().Equals(logVersion))
+            {
+				throw new Exception($"Invalid Install Log version: \"{logVersion}\", expected \"{CurrentVersion}\"");
+			}
 
-			XElement xelModList = docLog.Descendants("modList").FirstOrDefault();
-			if (xelModList != null)
+            var modList = docLog.Descendants("modList").FirstOrDefault();
+			
+            if (modList != null)
 			{
-				foreach (XElement xelMod in xelModList.Elements("mod"))
+				foreach (var mod in modList.Elements("mod"))
 				{
-					string strModPath = xelMod.Attribute("path").Value;
-					Trace.Write("Found " + strModPath + "...");
-					if (OriginalValueMod.ModArchivePath.Equals(strModPath))
+					var modPath = mod.Attribute("path")?.Value;
+					Trace.Write("Found " + modPath + "...");
+					
+                    if (OriginalValueMod.ModArchivePath.Equals(modPath))
 					{
-						m_amrModKeys.RegisterMod(OriginalValueMod, xelMod.Attribute("key").Value, true);
+						_activeModRegistry.RegisterMod(OriginalValueMod, mod.Attribute("key")?.Value, true);
 						Trace.WriteLine("OK");
 					}
-					else if (ModManagerValueMod.ModArchivePath.Equals(strModPath))
+					else if (ModManagerValueMod.ModArchivePath.Equals(modPath))
 					{
-						m_amrModKeys.RegisterMod(ModManagerValueMod, xelMod.Attribute("key").Value, true);
+						_activeModRegistry.RegisterMod(ModManagerValueMod, mod.Attribute("key")?.Value, true);
 						Trace.WriteLine("OK");
 					}
 					else
 					{
-						string strModName = xelMod.Element("name").Value;
-						string strInstallDate = "<No Data>";
-						if (!(xelMod.Element("installDate") == null))
-							strInstallDate = xelMod.Element("installDate").Value;
-						strModPath = Path.Combine(ModInstallDirectory, strModPath);
-						XElement xelVersion = xelMod.Element("version");
-						string strVersion = xelVersion.Attribute("machineVersion").Value;
-						Version verVersion = String.IsNullOrEmpty(strVersion) ? null : new Version(strVersion);
-						strVersion = xelVersion.Value;
-						IMod modMod = ManagedModRegistry.GetMod(strModPath) ?? new DummyMod(strModName, strModPath, verVersion, strVersion, "", strInstallDate);
-						modMod.InstallDate = strInstallDate;
+						var strModName = mod.Element("name")?.Value;
+						var installDate = "<No Data>";
+						
+                        if (mod.Element("installDate") != null)
+                        {
+                            installDate = mod.Element("installDate")?.Value;
+                        }
+
+                        modPath = Path.Combine(ModInstallDirectory, modPath);
+						
+                        var version = mod.Element("version");
+						var humanReadableVersion = version.Attribute("machineVersion").Value;
+						var machineVersion = string.IsNullOrEmpty(humanReadableVersion) ? null : new Version(humanReadableVersion);
+						humanReadableVersion = version.Value;
+						
+                        var modMod = ManagedModRegistry.GetMod(modPath) ?? new DummyMod(strModName, modPath, machineVersion, humanReadableVersion, "", installDate);
+						modMod.InstallDate = installDate;
 
 						try
 						{
-							m_amrModKeys.RegisterMod(modMod, xelMod.Attribute("key").Value);
+							_activeModRegistry.RegisterMod(modMod, mod.Attribute("key").Value);
 						}
 						catch (ArgumentException) { }
 
-						if (modMod is DummyMod)
-							Trace.WriteLine("Missing");
-						else
-							Trace.WriteLine("OK");
-					}
+                        Trace.WriteLine(modMod is DummyMod ? "Missing" : "OK");
+                    }
 				}
 			}
 
-			XElement xelFiles = docLog.Descendants("dataFiles").FirstOrDefault();
-			if (xelFiles != null)
+			var files = docLog.Descendants("dataFiles").FirstOrDefault();
+			
+            if (files != null)
 			{
-				foreach (XElement xelFile in xelFiles.Elements("file"))
+				foreach (var file in files.Elements("file"))
 				{
-					string strPath = xelFile.Attribute("path").Value;
-					foreach (XElement xelMod in xelFile.Descendants("mod"))
-						m_dicInstalledFiles[strPath].Push(xelMod.Attribute("key") != null ? xelMod.Attribute("key").Value : string.Empty, null);
-				}
+					var path = file.Attribute("path").Value;
+					
+                    foreach (var mod in file.Descendants("mod"))
+                    {
+                        _installedFiles[path].Push(mod.Attribute("key") != null ? mod.Attribute("key").Value : string.Empty, null);
+                    }
+                }
 			}
 
-			XElement xelIniEdits = docLog.Descendants("iniEdits").FirstOrDefault();
-			if (xelIniEdits != null)
+			var iniEdits = docLog.Descendants("iniEdits").FirstOrDefault();
+			
+            if (iniEdits != null)
 			{
-				foreach (XElement xelIniEdit in xelIniEdits.Elements("ini"))
+				foreach (var iniEdit in iniEdits.Elements("ini"))
 				{
-					string strFile = xelIniEdit.Attribute("file").Value;
-					string strSection = xelIniEdit.Attribute("section").Value;
-					string strKey = xelIniEdit.Attribute("key").Value;
-					IniEdit iniEntry = new IniEdit(strFile, strSection, strKey);
-					foreach (XElement xelMod in xelIniEdit.Descendants("mod"))
-						m_dicInstalledIniEdits[iniEntry].Push(xelMod.Attribute("key").Value, xelMod.Value);
-				}
+					var file = iniEdit.Attribute("file").Value;
+					var section = iniEdit.Attribute("section").Value;
+					var key = iniEdit.Attribute("key").Value;
+					var iniEntry = new IniEdit(file, section, key);
+					
+                    foreach (var xelMod in iniEdit.Descendants("mod"))
+                    {
+                        _installedIniEdits[iniEntry].Push(xelMod.Attribute("key").Value, xelMod.Value);
+                    }
+                }
 			}
 
-			XElement xelGameSpecificValueEdits = docLog.Descendants("gameSpecificEdits").FirstOrDefault();
-			if (xelGameSpecificValueEdits != null)
+			var gameSpecificValueEdits = docLog.Descendants("gameSpecificEdits").FirstOrDefault();
+			
+            if (gameSpecificValueEdits != null)
 			{
-				foreach (XElement xelGameSpecificValueEdit in xelGameSpecificValueEdits.Elements("edit"))
+				foreach (var gameSpecificValueEdit in gameSpecificValueEdits.Elements("edit"))
 				{
-					string strKey = xelGameSpecificValueEdit.Attribute("key").Value;
-					foreach (XElement xelMod in xelGameSpecificValueEdit.Descendants("mod"))
-						m_dicInstalledGameSpecificValueEdits[strKey].Push(xelMod.Attribute("key").Value, Convert.FromBase64String(xelMod.Value));
-				}
+					var key = gameSpecificValueEdit.Attribute("key").Value;
+					
+                    foreach (var mod in gameSpecificValueEdit.Descendants("mod"))
+                    {
+                        _gameSpecificValueEdits[key].Push(mod.Attribute("key").Value, Convert.FromBase64String(mod.Value));
+                    }
+                }
 			}
 		}
 
@@ -382,15 +410,15 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// </summary>
 		protected void SaveInstallLog()
 		{
-			XDocument docLog = new XDocument();
-			XElement xelRoot = new XElement("installLog", new XAttribute("fileVersion", CURRENT_VERSION));
-			docLog.Add(xelRoot);
+			var log = new XDocument();
+			var root = new XElement("installLog", new XAttribute("fileVersion", CurrentVersion));
+			log.Add(root);
 
-			XElement xelModList = new XElement("modList");
-			xelRoot.Add(xelModList);
-			xelModList.Add(from kvp in m_amrModKeys.Registrations
+			var modList = new XElement("modList");
+			root.Add(modList);
+			modList.Add(from kvp in _activeModRegistry.Registrations
 						select new XElement("mod",
-									new XAttribute("path", (kvp.Key is DummyMod) ? kvp.Key.ModArchivePath : kvp.Key.ModArchivePath.Substring(ModInstallDirectory.Length)),
+									new XAttribute("path", kvp.Key is DummyMod ? kvp.Key.ModArchivePath : kvp.Key.ModArchivePath.Substring(ModInstallDirectory.Length)),
 									new XAttribute("key", kvp.Value),
 									new XElement("version",
 										new XAttribute("machineVersion", kvp.Key.MachineVersion ?? new Version()),
@@ -400,9 +428,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 									new XElement("installDate",
 										new XText(kvp.Key.InstallDate ?? DateTime.Now.ToString()))));
 
-			XElement xelFiles = new XElement("dataFiles");
-			xelRoot.Add(xelFiles);
-			xelFiles.Add(from itm in m_dicInstalledFiles
+			var files = new XElement("dataFiles");
+			root.Add(files);
+			files.Add(from itm in _installedFiles
 						 select new XElement("file",
 								new XAttribute("path", itm.Item),
 								new XElement("installingMods",
@@ -410,9 +438,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 									select new XElement("mod",
 										new XAttribute("key", m.InstallerKey)))));
 
-			XElement xelIniEdits = new XElement("iniEdits");
-			xelRoot.Add(xelIniEdits);
-			xelIniEdits.Add(from itm in m_dicInstalledIniEdits
+			var iniEdits = new XElement("iniEdits");
+			root.Add(iniEdits);
+			iniEdits.Add(from itm in _installedIniEdits
 							select new XElement("ini",
 									new XAttribute("file", itm.Item.File),
 									new XAttribute("section", itm.Item.Section),
@@ -423,9 +451,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 											new XAttribute("key", m.InstallerKey),
 											new XText(m.Value)))));
 
-			XElement xelGameSpecificValueEdits = new XElement("gameSpecificEdits");
-			xelRoot.Add(xelGameSpecificValueEdits);
-			xelGameSpecificValueEdits.Add(from itm in m_dicInstalledGameSpecificValueEdits
+			var gameSpecificValueEdits = new XElement("gameSpecificEdits");
+			root.Add(gameSpecificValueEdits);
+			gameSpecificValueEdits.Add(from itm in _gameSpecificValueEdits
 										  select new XElement("edit",
 												 new XAttribute("key", itm.Item),
 												 new XElement("installingMods",
@@ -434,29 +462,39 @@ namespace Nexus.Client.ModManagement.InstallationLog
 														 new XAttribute("key", m.InstallerKey),
 														 new XText(Convert.ToBase64String(m.Value))))));
 
-			if (!Directory.Exists(Path.GetDirectoryName(LogPath)))
-				Directory.CreateDirectory(Path.GetDirectoryName(LogPath));
-			docLog.Save(LogPath);
+            var logDirectory = Path.GetDirectoryName(LogPath);
+
+            if (string.IsNullOrEmpty(logDirectory))
+            {
+                throw new Exception($"Directory of {nameof(LogPath)} \"{LogPath}\" is invalid.");
+            }
+
+			if (!Directory.Exists(logDirectory))
+            {
+                Directory.CreateDirectory(logDirectory);
+            }
+
+            log.Save(LogPath);
 		}
 
 		#endregion
 
-
-		public byte[] GetXMLIniList()
-		{
-			if (m_dicInstalledIniEdits.Count() > 0)
+		/// <inheritdoc />
+		public byte[] GetXmlIniList()
+        {
+            if (_installedIniEdits.Any())
 			{
-				string strFileName = Path.GetRandomFileName() + ".xml";
-				string strTempPath = Path.Combine(Path.GetTempPath(), strFileName);
-				XDocument docVirtual = new XDocument();
-				XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", VirtualModActivator.CurrentVersion.ToString()));
-				docVirtual.Add(xelRoot);
+				var fileName = Path.GetRandomFileName() + ".xml";
+				var tempPath = Path.Combine(Path.GetTempPath(), fileName);
+				var virtualDoc = new XDocument();
+				var root = new XElement("virtualModActivator", new XAttribute("fileVersion", VirtualModActivator.CurrentVersion.ToString()));
+				virtualDoc.Add(root);
 
-				XElement xelIniEdits = new XElement("iniEdits");
-				xelRoot.Add(xelIniEdits);
-				xelIniEdits.Add(from itm in m_dicInstalledIniEdits
+				var iniEdits = new XElement("iniEdits");
+				root.Add(iniEdits);
+				iniEdits.Add(from itm in _installedIniEdits
 								select new XElement("iniEdit",
-									new XAttribute("modFile", m_amrModKeys.Registrations.Where(x => x.Value == itm.Installers.FirstOrDefault().InstallerKey).FirstOrDefault().Key.Filename),
+									new XAttribute("modFile", _activeModRegistry.Registrations.FirstOrDefault(x => x.Value == itm.Installers.FirstOrDefault()?.InstallerKey).Key.Filename),
 									new XElement("iniFile",
 										new XText(itm.Item.File)),
 									new XElement("iniSection",
@@ -464,50 +502,58 @@ namespace Nexus.Client.ModManagement.InstallationLog
 									new XElement("iniKey",
 										new XText(itm.Item.Key)),
 									new XElement("iniValue",
-										new XText(itm.Installers.FirstOrDefault().Value))));
-				docVirtual.Save(strTempPath);
+										new XText(itm.Installers.FirstOrDefault()?.Value ?? throw new InvalidOperationException($"{nameof(itm.Installers)} has no value.")))));
+				virtualDoc.Save(tempPath);
 
-				XmlDocument xmlDocument = new XmlDocument();
-				xmlDocument.Load(strTempPath);
-				FileUtil.ForceDelete(strTempPath);
+				var xmlDocument = new XmlDocument();
+				xmlDocument.Load(tempPath);
+				FileUtil.ForceDelete(tempPath);
 				return Encoding.UTF8.GetBytes(xmlDocument.OuterXml);
 			}
-			else
-				return null;
-		}
 
-		public byte[] GetXMLModList()
+            return null;
+        }
+
+        /// <inheritdoc />
+		public byte[] GetXmlModList()
 		{
-			string strFileName = Path.GetRandomFileName() + ".xml";
-			string strTempPath = Path.Combine(Path.GetTempPath(), strFileName);
-			XDocument docVirtual = new XDocument();
-			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", VirtualModActivator.CurrentVersion.ToString()));
+			var strFileName = Path.GetRandomFileName() + ".xml";
+			var strTempPath = Path.Combine(Path.GetTempPath(), strFileName);
+			var docVirtual = new XDocument();
+			var xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", VirtualModActivator.CurrentVersion.ToString()));
 			docVirtual.Add(xelRoot);
 
-			XElement xelModList = new XElement("modList");
+			var xelModList = new XElement("modList");
 			xelRoot.Add(xelModList);
-			m_dicFileOwner = new Dictionary<string, IMod>();
+			_fileOwner = new Dictionary<string, IMod>();
 
-			foreach (KeyValuePair<IMod, string> mod in m_amrModKeys.Registrations.Where(x => !(x.Key is DummyMod)))
+			foreach (var mod in _activeModRegistry.Registrations.Where(x => !(x.Key is DummyMod)))
 			{
-				//List<InstalledItemDictionary<string, object>.ItemInstallers> lstItems = m_dicInstalledFiles.Where(x => CheckFileKvp(x) && (GetCurrentFileOwnerLogged(x.Item) != null) && (GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant())).ToList();
-				List<InstalledItemDictionary<string, object>.ItemInstallers> lstItems = m_dicInstalledFiles.Where(x => (GetCurrentFileOwnerLogged(x.Item) != null) && (GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant())).ToList();
-				if ((lstItems != null) && (lstItems.Count > 0))
+				//List<InstalledItemDictionary<string, object>.ItemInstallers> lstItems = _installedFiles.Where(x => CheckFileKeyValuePair(x) && (GetCurrentFileOwnerLogged(x.Item) != null) && (GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant())).ToList();
+				var lstItems = _installedFiles.Where(x => GetCurrentFileOwnerLogged(x.Item) != null && GetCurrentFileOwnerLogged(x.Item).Filename.ToLowerInvariant() == mod.Key.Filename.ToLowerInvariant()).ToList();
+				
+                if (lstItems.Count > 0)
 				{
-					XElement xelMod = new XElement("modInfo", 
-						new XAttribute("modId", mod.Key.Id ?? String.Empty), 
+                    var modFileName = mod.Key.Filename;
+
+                    if (string.IsNullOrEmpty(modFileName))
+                    {
+                        throw new Exception($"Could not determine filename of mod \"{mod.Key.ModName}\".");
+                    }
+
+					var xelMod = new XElement("modInfo", 
+						new XAttribute("modId", mod.Key.Id ?? string.Empty), 
 						new XAttribute("modName", mod.Key.ModName), 
-						new XAttribute("modFileName", Path.GetFileName(mod.Key.Filename)), 
-						new XAttribute("modFilePath", Path.GetDirectoryName(mod.Key.Filename)));
+						new XAttribute("modFileName", Path.GetFileName(modFileName)), 
+						new XAttribute("modFilePath", Path.GetDirectoryName(modFileName)));
 					xelModList.Add(xelMod);
-					foreach (InstalledItemDictionary<string, object>.ItemInstallers item in lstItems)
-					{
-						XElement xelFile = new XElement("fileLink",
-							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, true))),
+
+					foreach (var item in lstItems)
+                    {
+                        var xelFile = new XElement("fileLink",
+							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(modFileName), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, true))),
 							new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, true)),
-							//new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(mod.Key.Filename), item.Item)),
-							//new XAttribute("virtualPath", item.Item),
-							new XElement("linkPriority", "0"),
+                            new XElement("linkPriority", "0"),
 							new XElement("isActive", "true"));
 						xelMod.Add(xelFile);
 					}
@@ -516,40 +562,39 @@ namespace Nexus.Client.ModManagement.InstallationLog
 
 			docVirtual.Save(strTempPath);
 
-			XmlDocument xmlDocument = new XmlDocument();
-			xmlDocument.Load(strTempPath);
+			var document = new XmlDocument();
+			document.Load(strTempPath);
 			FileUtil.ForceDelete(strTempPath);
-			m_dicFileOwner = null;
-			return Encoding.UTF8.GetBytes(xmlDocument.OuterXml);
+			_fileOwner = null;
+			
+            return Encoding.UTF8.GetBytes(document.OuterXml);
 		}
 
-		private bool CheckModKvp(KeyValuePair<IMod, string> p_kvp)
+		private bool CheckModKeyValuePair(KeyValuePair<IMod, string> keyValuePair)
 		{
 			Trace.WriteLine("Mod kvp:");
-			try
+			
+            try
 			{
-				Trace.WriteLine(p_kvp.Key.Id);
-				Trace.WriteLine(p_kvp.Key.ModName);
-				Trace.WriteLine(p_kvp.Key.Filename);
+				Trace.WriteLine(keyValuePair.Key.Id);
+				Trace.WriteLine(keyValuePair.Key.ModName);
+				Trace.WriteLine(keyValuePair.Key.Filename);
 			}
-			catch
-			{
-			}
+			catch {}
 
 			return true;
 		}
 
-		private bool CheckFileKvp(InstalledItemDictionary<string, object>.ItemInstallers p_item)
+		private bool CheckFileKeyValuePair(InstalledItemDictionary<string, object>.ItemInstallers p_item)
 		{
 			Trace.WriteLine("File kvp:");
-			try
+			
+            try
 			{
 				Trace.WriteLine(p_item.Item);
 				Trace.WriteLine(GetCurrentFileOwnerLogged(p_item.Item).Filename);
 			}
-			catch
-			{
-			}
+			catch {}
 
 			return true;
 		}
@@ -563,49 +608,45 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// transaction.</returns>
 		private TransactionEnlistment GetEnlistment()
 		{
-			Transaction txTransaction = Transaction.Current;
-			TransactionEnlistment enlEnlistment = null; ;
+			var transaction = Transaction.Current;
+			TransactionEnlistment enlistment;
 
-			if (txTransaction != null)
+			if (transaction != null)
 			{
-				lock (m_objEnlistmentLock)
+				lock (EnlistmentLock)
 				{
-					if (m_dicEnlistments == null)
-						m_dicEnlistments = new Dictionary<string, TransactionEnlistment>();
+					if (_enlistments == null)
+                    {
+                        _enlistments = new Dictionary<string, TransactionEnlistment>();
+                    }
 
-					if (m_dicEnlistments.ContainsKey(txTransaction.TransactionInformation.LocalIdentifier))
-						enlEnlistment = m_dicEnlistments[txTransaction.TransactionInformation.LocalIdentifier];
-					else
+                    if (_enlistments.ContainsKey(transaction.TransactionInformation.LocalIdentifier))
+                    {
+                        enlistment = _enlistments[transaction.TransactionInformation.LocalIdentifier];
+                    }
+                    else
 					{
-						enlEnlistment = new TransactionEnlistment(txTransaction, this);
-						m_dicEnlistments.Add(txTransaction.TransactionInformation.LocalIdentifier, enlEnlistment);
+						enlistment = new TransactionEnlistment(transaction, this);
+						_enlistments.Add(transaction.TransactionInformation.LocalIdentifier, enlistment);
 					}
 				}
 			}
 			else
-				enlEnlistment = new TransactionEnlistment(null, this);
+            {
+                enlistment = new TransactionEnlistment(null, this);
+            }
 
-			return enlEnlistment;
+            return enlistment;
 		}
 
 		#endregion
 
 		#region Mod Tracking
 
-		/// <summary>
-		/// Adds a mod to the install log.
-		/// </summary>
-		/// <remarks>
-		/// Adding a mod to the install log assigns it a key. Keys are used to track file and
-		/// edit versions.
-		/// 
-		/// If there is no current transaction, the mod is added directly to the install log. Otherwise,
-		/// the mod is added to a buffer than can later be committed or rolled back.
-		/// </remarks>
-		/// <param name="p_modMod">The <see cref="IMod"/> being added.</param>
-		public void AddActiveMod(IMod p_modMod)
+        /// <inheritdoc />
+		public void AddActiveMod(IMod mod)
 		{
-			AddActiveMod(p_modMod, false);
+			AddActiveMod(mod, false);
 		}
 
 		/// <summary>
@@ -618,441 +659,295 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// If there is no current transaction, the mod is added directly to the install log. Otherwise,
 		/// the mod is added to a buffer than can later be committed or rolled back.
 		/// </remarks>
-		/// <param name="p_modMod">The <see cref="IMod"/> being added.</param>
-		/// <param name="p_booIsSpecial">Indicates that the mod is a special mod, internal to the
+		/// <param name="mod">The <see cref="IMod"/> being added.</param>
+		/// <param name="isSpecial">Indicates that the mod is a special mod, internal to the
 		/// install log, and show not be included in the list of active mods.</param>
-		protected void AddActiveMod(IMod p_modMod, bool p_booIsSpecial)
+		protected void AddActiveMod(IMod mod, bool isSpecial)
 		{
-			GetEnlistment().AddActiveMod(p_modMod, p_booIsSpecial);
+			GetEnlistment().AddActiveMod(mod, isSpecial);
 		}
 
-		/// <summary>
-		/// Replaces a mod in the install log, in a transaction.
-		/// </summary>
-		/// <remarks>
-		/// This replaces a mod in the install log without changing its key.
-		/// </remarks>
-		/// <param name="p_modOldMod">The mod with to be replaced with the new mod in the install log.</param>
-		/// <param name="p_modNewMod">The mod with which to replace the old mod in the install log.</param>
-		public void ReplaceActiveMod(IMod p_modOldMod, IMod p_modNewMod)
+        /// <inheritdoc />
+		public void ReplaceActiveMod(IMod oldMod, IMod newMod)
 		{
-			GetEnlistment().ReplaceActiveMod(p_modOldMod, p_modNewMod);
+			GetEnlistment().ReplaceActiveMod(oldMod, newMod);
 		}
 
-		/// <summary>
-		/// Gets the key that was assigned to the specified mod.
-		/// </summary>
-		/// <param name="p_modMod">The mod whose key is to be retrieved.</param>
-		/// <returns>The key that was assigned to the specified mod, or <c>null</c> if
-		/// the specified mod has no key.</returns>
-		public string GetModKey(IMod p_modMod)
+        /// <inheritdoc />
+		public string GetModKey(IMod mod)
 		{
-			return GetEnlistment().GetModKey(p_modMod);
+			return GetEnlistment().GetModKey(mod);
 		}
 
 		/// <summary>
 		/// Gets the mod identified by the given key.
 		/// </summary>
-		/// <param name="p_strKey">The key of the mod to be retrieved.</param>
+		/// <param name="key">The key of the mod to be retrieved.</param>
 		/// <returns>The mod identified by the given key, or <c>null</c> if
 		/// no mod is identified by the given key.</returns>
-		protected IMod GetMod(string p_strKey)
+		protected IMod GetMod(string key)
 		{
-			return GetEnlistment().GetMod(p_strKey);
+			return GetEnlistment().GetMod(key);
 		}
 
-		/// <summary>
-		/// Gets the list of mods whose versions don't match the version in the install log.
-		/// </summary>
-		/// <returns>The list of mods whose versions don't match the version in the install log.
-		/// The key is the mod info stored in the install log. The value is the actual mod
-		/// registered with the mod manager.</returns>
+        /// <inheritdoc />
 		public IEnumerable<KeyValuePair<IMod, IMod>> GetMismatchedVersionMods()
 		{
-			foreach (KeyValuePair<string, IMod> kvpMod in GetInstallLogModInfo())
+			foreach (var mod in GetInstallLogModInfo())
 			{
-				IMod modRegistered = GetMod(kvpMod.Key);
-				if ((modRegistered != null) && File.Exists(modRegistered.ModArchivePath) && !String.Equals(modRegistered.HumanReadableVersion ?? "", kvpMod.Value.HumanReadableVersion ?? "", StringComparison.InvariantCultureIgnoreCase))
-					if (!(String.IsNullOrWhiteSpace(modRegistered.HumanReadableVersion) || String.IsNullOrWhiteSpace(kvpMod.Value.HumanReadableVersion)))
-						yield return new KeyValuePair<IMod, IMod>(kvpMod.Value, modRegistered);
-			}
+				var modRegistered = GetMod(mod.Key);
+				
+                if (modRegistered != null && File.Exists(modRegistered.ModArchivePath) && !string.Equals(modRegistered.HumanReadableVersion ?? "", mod.Value.HumanReadableVersion ?? "", StringComparison.InvariantCultureIgnoreCase) && !(string.IsNullOrWhiteSpace(modRegistered.HumanReadableVersion) || string.IsNullOrWhiteSpace(mod.Value.HumanReadableVersion)))
+                {
+                    yield return new KeyValuePair<IMod, IMod>(mod.Value, modRegistered);
+                }
+            }
 		}
 
 		#endregion
 
 		#region Uninstall
 
-		/// <summary>
-		/// Removes the mod, as well as entries for items installed by the given mod,
-		/// from the install log.
-		/// </summary>
-		/// <param name="p_modUninstaller">The mod to remove.</param>
-		public void RemoveMod(IMod p_modUninstaller)
+        /// <inheritdoc />
+		public void RemoveMod(IMod modToRemove)
 		{
-			GetEnlistment().RemoveMod(p_modUninstaller);
+			GetEnlistment().RemoveMod(modToRemove);
 		}
 
 		#endregion
 
 		#region File Version Management
 
-		/// <summary>
-		/// Logs the specified data file as having been installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod installing the specified data file.</param>
-		/// <param name="p_strDataFilePath">The file bieng installed.</param>
-		public void AddDataFile(IMod p_modInstallingMod, string p_strDataFilePath)
+        /// <inheritdoc />
+		public void AddDataFile(IMod installingMod, string dataFilePath)
 		{
-			GetEnlistment().AddDataFile(p_modInstallingMod, p_strDataFilePath);
+			GetEnlistment().AddDataFile(installingMod, dataFilePath);
 		}
 
-		/// <summary>
-		/// Removes the specified data file as having been installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod for which to remove the specified data file.</param>
-		/// <param name="p_strDataFilePath">The file being removed for the given mod.</param>
-		public void RemoveDataFile(IMod p_modInstallingMod, string p_strDataFilePath)
+        /// <inheritdoc />
+		public void RemoveDataFile(IMod installingMod, string dataFilePath)
 		{
-			GetEnlistment().RemoveDataFile(p_modInstallingMod, p_strDataFilePath);
+			GetEnlistment().RemoveDataFile(installingMod, dataFilePath);
 		}
 
-		/// <summary>
-		/// Gets the mod that owns the specified file.
-		/// </summary>
-		/// <param name="p_strPath">The path of the file whose owner is to be retrieved.</param>
-		/// <returns>The mod that owns the specified file.</returns>
-		public IMod GetCurrentFileOwner(string p_strPath)
+        /// <inheritdoc />
+		public IMod GetCurrentFileOwner(string path)
 		{
 
-			return GetEnlistment().GetCurrentFileOwner(p_strPath);
+			return GetEnlistment().GetCurrentFileOwner(path);
 		}
 
 		/// <summary>
 		/// Gets the mod that owns the specified file.
 		/// </summary>
-		/// <param name="p_strPath">The path of the file whose owner is to be retrieved.</param>
+		/// <param name="path">The path of the file whose owner is to be retrieved.</param>
 		/// <returns>The mod that owns the specified file.</returns>
-		public IMod GetCurrentFileOwnerLogged(string p_strPath)
+		public IMod GetCurrentFileOwnerLogged(string path)
 		{
-			if (m_dicFileOwner.ContainsKey(p_strPath))
-				return m_dicFileOwner[p_strPath];
+			if (_fileOwner.ContainsKey(path))
+            {
+                return _fileOwner[path];
+            }
 
-			IMod modMod = GetEnlistment().GetCurrentFileOwner(p_strPath);
-			if (modMod != null)
+            var modMod = GetEnlistment().GetCurrentFileOwner(path);
+			
+            if (modMod != null)
 			{
-				m_dicFileOwner.Add(p_strPath, modMod);
+				_fileOwner.Add(path, modMod);
 			}
-			return modMod;
+			
+            return modMod;
 		}
 
-		/// <summary>
-		/// Gets the mod that owned the specified file prior to the current owner.
-		/// </summary>
-		/// <param name="p_strPath">The path of the file whose previous owner is to be retrieved.</param>
-		/// <returns>The mod that owned the specified file prior to the current owner.</returns>
-		public IMod GetPreviousFileOwner(string p_strPath)
+        /// <inheritdoc />
+		public IMod GetPreviousFileOwner(string path)
 		{
-			return GetEnlistment().GetPreviousFileOwner(p_strPath);
+			return GetEnlistment().GetPreviousFileOwner(path);
 		}
 
-		/// <summary>
-		/// Gets the key of the mod that owns the specified file.
-		/// </summary>
-		/// <param name="p_strPath">The path of the file whose owner is to be retrieved.</param>
-		/// <returns>The key of the mod that owns the specified file.</returns>
-		public string GetCurrentFileOwnerKey(string p_strPath)
+        /// <inheritdoc />
+		public string GetCurrentFileOwnerKey(string path)
 		{
-			IMod modCurrentOwner = GetCurrentFileOwner(p_strPath);
-			return (modCurrentOwner == null) ? null : GetModKey(modCurrentOwner);
+			var modCurrentOwner = GetCurrentFileOwner(path);
+
+			return modCurrentOwner == null ? null : GetModKey(modCurrentOwner);
 		}
 
-		/// <summary>
-		/// Gets the key of the mod that owned the specified file prior to the current owner.
-		/// </summary>
-		/// <param name="p_strPath">The path of the file whose previous owner is to be retrieved.</param>
-		/// <returns>The key of the mod that owned the specified file prior to the current owner.</returns>
-		public string GetPreviousFileOwnerKey(string p_strPath)
+        /// <inheritdoc />
+		public string GetPreviousFileOwnerKey(string path)
 		{
-			IMod modPreviousOwner = GetPreviousFileOwner(p_strPath);
-			return (modPreviousOwner == null) ? null : GetModKey(modPreviousOwner);
+			var modPreviousOwner = GetPreviousFileOwner(path);
+			
+            return modPreviousOwner == null ? null : GetModKey(modPreviousOwner);
 		}
 
-		/// <summary>
-		/// Logs that the specified data file is an original value.
-		/// </summary>
-		/// <remarks>
-		/// Logging an original data file prepares it to be overwritten by a mod's file.
-		/// </remarks>
-		/// <param name="p_strDataFilePath">The path of the data file to log as an
-		/// original value.</param>
-		public void LogOriginalDataFile(string p_strDataFilePath)
+        /// <inheritdoc />
+		public void LogOriginalDataFile(string dataFilePath)
 		{
-			GetEnlistment().LogOriginalDataFile(p_strDataFilePath);
+			GetEnlistment().LogOriginalDataFile(dataFilePath);
 		}
 
-		/// <summary>
-		/// Gets the list of files that were installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstaller">The mod whose isntalled files are to be returned.</param>
-		/// <returns>The list of files that were installed by the given mod.</returns>
-		public IList<string> GetInstalledModFiles(IMod p_modInstaller)
+        /// <inheritdoc />
+		public IList<string> GetInstalledModFiles(IMod installer)
 		{
-			return GetEnlistment().GetInstalledModFiles(p_modInstaller);
+			return GetEnlistment().GetInstalledModFiles(installer);
 		}
 
-		/// <summary>
-		/// Gets all of the mods that have installed the specified file.
-		/// </summary>
-		/// <param name="p_strPath">The path of the file whose installers are to be retrieved.</param>
-		/// <returns>All of the mods that have installed the specified file.</returns>
-		public IList<IMod> GetFileInstallers(string p_strPath)
+        /// <inheritdoc />
+		public IList<IMod> GetFileInstallers(string path)
 		{
-			return GetEnlistment().GetFileInstallers(p_strPath);
+			return GetEnlistment().GetFileInstallers(path);
 		}
 
 		#endregion
 
 		#region INI Version Management
 
-		/// <summary>
-		/// Logs the specified INI edit as having been installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod installing the specified INI edit.</param>
-		/// <param name="p_strSettingsFileName">The name of the edited INI file.</param>
-		/// <param name="p_strSection">The section containting the INI edit.</param>
-		/// <param name="p_strKey">The key of the edited INI value.</param>
-		/// <param name="p_strValue">The value installed by the mod.</param>
-		public void AddIniEdit(IMod p_modInstallingMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+        /// <inheritdoc />
+		public void AddIniEdit(IMod installingMod, string settingsFileName, string section, string key, string value)
 		{
-			GetEnlistment().AddIniEdit(p_modInstallingMod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+			GetEnlistment().AddIniEdit(installingMod, settingsFileName, section, key, value);
 		}
 
-		/// <summary>
-		/// Replaces the edited value of the specified INI edit installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod whose INI edit value is to be replaced.</param>
-		/// <param name="p_strSettingsFileName">The name of the Ini value whose edited value is to be replaced.</param>
-		/// <param name="p_strSection">The section of the Ini value whose edited value is to be replaced.</param>
-		/// <param name="p_strKey">The key of the Ini value whose edited value is to be replaced.</param>
-		/// <param name="p_strValue">The value with which to replace the edited value of the specified INI edit installed by the given mod.</param>
-		public void ReplaceIniEdit(IMod p_modInstallingMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+        /// <inheritdoc />
+		public void ReplaceIniEdit(IMod installingMod, string settingsFileName, string section, string key, string value)
 		{
-			GetEnlistment().ReplaceIniEdit(p_modInstallingMod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+			GetEnlistment().ReplaceIniEdit(installingMod, settingsFileName, section, key, value);
 		}
 
-		/// <summary>
-		/// Removes the specified ini edit as having been installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod for which to remove the specified ini edit.</param>
-		/// <param name="p_strSettingsFileName">The name of the edited INI file containing the INI edit being removed for the given mod.</param>
-		/// <param name="p_strSection">The section containting the INI edit being removed for the given mod.</param>
-		/// <param name="p_strKey">The key of the edited INI value whose edit is being removed for the given mod.</param>
-		public void RemoveIniEdit(IMod p_modInstallingMod, string p_strSettingsFileName, string p_strSection, string p_strKey)
+        /// <inheritdoc />
+		public void RemoveIniEdit(IMod installingMod, string settingsFileName, string section, string key)
 		{
-			GetEnlistment().RemoveIniEdit(p_modInstallingMod, p_strSettingsFileName, p_strSection, p_strKey);
+			GetEnlistment().RemoveIniEdit(installingMod, settingsFileName, section, key);
 		}
 
-		/// <summary>
-		/// Gets the mod that owns the specified INI edit.
-		/// </summary>
-		/// <param name="p_strSettingsFileName">The name of the edited INI file.</param>
-		/// <param name="p_strSection">The section containting the INI edit.</param>
-		/// <param name="p_strKey">The key of the edited INI value.</param>
-		/// <returns>The mod that owns the specified INI edit.</returns>
-		public IMod GetCurrentIniEditOwner(string p_strSettingsFileName, string p_strSection, string p_strKey)
+        /// <inheritdoc />
+		public IMod GetCurrentIniEditOwner(string settingsFileName, string section, string key)
 		{
-			return GetEnlistment().GetCurrentIniEditOwner(p_strSettingsFileName, p_strSection, p_strKey);
+			return GetEnlistment().GetCurrentIniEditOwner(settingsFileName, section, key);
 		}
 
-		/// <summary>
-		/// Gets the key of the mod that owns the specified INI edit.
-		/// </summary>
-		/// <param name="p_strSettingsFileName">The name of the edited INI file.</param>
-		/// <param name="p_strSection">The section containting the INI edit.</param>
-		/// <param name="p_strKey">The key of the edited INI value.</param>
-		/// <returns>The key of the mod that owns the specified INI edit.</returns>
-		public string GetCurrentIniEditOwnerKey(string p_strSettingsFileName, string p_strSection, string p_strKey)
+        /// <inheritdoc />
+		public string GetCurrentIniEditOwnerKey(string settingsFileName, string section, string key)
 		{
-			IMod modCurrentOwner = GetCurrentIniEditOwner(p_strSettingsFileName, p_strSection, p_strKey);
-			return (modCurrentOwner == null) ? null : GetModKey(modCurrentOwner);
+			var modCurrentOwner = GetCurrentIniEditOwner(settingsFileName, section, key);
+			
+            return modCurrentOwner == null ? null : GetModKey(modCurrentOwner);
 		}
 
-		/// <summary>
-		/// Gets the value of the specified key before it was most recently overwritten.
-		/// </summary>
-		/// <param name="p_strSettingsFileName">The Ini file containing the key whose previous value is to be retrieved.</param>
-		/// <param name="p_strSection">The section containing the key whose previous value is to be retrieved.</param>
-		/// <param name="p_strKey">The key whose previous value is to be retrieved.</param>
-		/// <returns>The value of the specified key before it was most recently overwritten, or
-		/// <c>null</c> if there was no previous value.</returns>
-		public string GetPreviousIniValue(string p_strSettingsFileName, string p_strSection, string p_strKey)
+        /// <inheritdoc />
+		public string GetPreviousIniValue(string settingsFileName, string section, string key)
 		{
-			return GetEnlistment().GetPreviousIniValue(p_strSettingsFileName, p_strSection, p_strKey);
+			return GetEnlistment().GetPreviousIniValue(settingsFileName, section, key);
 		}
 
-		/// <summary>
-		/// Logs that the specified INI value is an original value.
-		/// </summary>
-		/// <remarks>
-		/// Logging an original INI value prepares it to be overwritten by a mod's value.
-		/// </remarks>
-		/// <param name="p_strSettingsFileName">The name of the INI file containing the original value to log.</param>
-		/// <param name="p_strSection">The section containting the original INI value to log.</param>
-		/// <param name="p_strKey">The key of the original INI value to log.</param>
-		/// <param name="p_strValue">The original value.</param>
-		public void LogOriginalIniValue(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+        /// <inheritdoc />
+		public void LogOriginalIniValue(string settingsFileName, string section, string key, string value)
 		{
-			GetEnlistment().LogOriginalIniValue(p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+			GetEnlistment().LogOriginalIniValue(settingsFileName, section, key, value);
 		}
 
-		/// <summary>
-		/// Gets the list of INI edits that were installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstaller">The mod whose isntalled edits are to be returned.</param>
-		/// <returns>The list of edits that was installed by the given mod.</returns>
-		public IList<IniEdit> GetInstalledIniEdits(IMod p_modInstaller)
+        /// <inheritdoc />
+		public IList<IniEdit> GetInstalledIniEdits(IMod installer)
 		{
-			return GetEnlistment().GetInstalledIniEdits(p_modInstaller);
+			return GetEnlistment().GetInstalledIniEdits(installer);
 		}
 
-		/// <summary>
-		/// Gets all of the mods that have installed the specified Ini edit.
-		/// </summary>
-		/// <param name="p_strSettingsFileName">The Ini file containing the key whose installers are to be retrieved.</param>
-		/// <param name="p_strSection">The section containing the key whose installers are to be retrieved.</param>
-		/// <param name="p_strKey">The key whose installers are to be retrieved.</param>
-		/// <returns>All of the mods that have installed the specified Ini edit.</returns>
-		public IList<IMod> GetIniEditInstallers(string p_strSettingsFileName, string p_strSection, string p_strKey)
+        /// <inheritdoc />
+		public IList<IMod> GetIniEditInstallers(string settingsFileName, string section, string key)
 		{
-			return GetEnlistment().GetIniEditInstallers(p_strSettingsFileName, p_strSection, p_strKey);
+			return GetEnlistment().GetIniEditInstallers(settingsFileName, section, key);
 		}
 
 		#endregion
 
 		#region Game Specific Value Version Management
 
-		/// <summary>
-		/// Logs the specified Game Specific Value edit as having been installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod installing the specified INI edit.</param>
-		/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
-		/// <param name="p_bteValue">The value installed by the mod.</param>
-		public void AddGameSpecificValueEdit(IMod p_modInstallingMod, string p_strKey, byte[] p_bteValue)
+        /// <inheritdoc />
+		public void AddGameSpecificValueEdit(IMod installingMod, string key, byte[] value)
 		{
-			GetEnlistment().AddGameSpecificValueEdit(p_modInstallingMod, p_strKey, p_bteValue);
+			GetEnlistment().AddGameSpecificValueEdit(installingMod, key, value);
 		}
 
-		/// <summary>
-		/// Replaces the edited value of the specified game specific value edit installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod whose game specific value edit value is to be replaced.</param>
-		/// <param name="p_strKey">The key of the game spcified value whose edited value is to be replaced.</param>
-		/// <param name="p_bteValue">The value with which to replace the edited value of the specified game specific value edit installed by the given mod.</param>
-		public void ReplaceGameSpecificValueEdit(IMod p_modInstallingMod, string p_strKey, byte[] p_bteValue)
+        /// <inheritdoc />
+		public void ReplaceGameSpecificValueEdit(IMod installingMod, string key, byte[] value)
 		{
-			GetEnlistment().ReplaceGameSpecificValueEdit(p_modInstallingMod, p_strKey, p_bteValue);
+			GetEnlistment().ReplaceGameSpecificValueEdit(installingMod, key, value);
 		}
 
-		/// <summary>
-		/// Removes the specified Game Specific Value edit as having been installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstallingMod">The mod for which to remove the specified Game Specific Value edit.</param>
-		/// <param name="p_strKey">The key of the Game Specific Value whose edit is being removed for the given mod.</param>
-		public void RemoveGameSpecificValueEdit(IMod p_modInstallingMod, string p_strKey)
+        /// <inheritdoc />
+		public void RemoveGameSpecificValueEdit(IMod installingMod, string key)
 		{
-			GetEnlistment().RemoveGameSpecificValueEdit(p_modInstallingMod, p_strKey);
+			GetEnlistment().RemoveGameSpecificValueEdit(installingMod, key);
 		}
 
-		/// <summary>
-		/// Gets the mod that owns the specified Game Specific Value edit.
-		/// </summary>
-		/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
-		/// <returns>The mod that owns the specified Game Specific Value edit.</returns>
-		public IMod GetCurrentGameSpecificValueEditOwner(string p_strKey)
+        /// <inheritdoc />
+		public IMod GetCurrentGameSpecificValueEditOwner(string key)
 		{
-			return GetEnlistment().GetCurrentGameSpecificValueEditOwner(p_strKey);
+			return GetEnlistment().GetCurrentGameSpecificValueEditOwner(key);
 		}
 
-		/// <summary>
-		/// Gets the key of the mod that owns the specified Game Specific Value edit.
-		/// </summary>
-		/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
-		/// <returns>The key of the mod that owns the specified Game Specific Value edit.</returns>
-		public string GetCurrentGameSpecificValueEditOwnerKey(string p_strKey)
+        /// <inheritdoc />
+		public string GetCurrentGameSpecificValueEditOwnerKey(string key)
 		{
-			IMod modCurrentOwner = GetCurrentGameSpecificValueEditOwner(p_strKey);
-			return (modCurrentOwner == null) ? null : GetModKey(modCurrentOwner);
+			var modCurrentOwner = GetCurrentGameSpecificValueEditOwner(key);
+
+			return modCurrentOwner == null ? null : GetModKey(modCurrentOwner);
 		}
 
-		/// <summary>
-		/// Gets the value of the specified key before it was most recently overwritten.
-		/// </summary>
-		/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
-		/// <returns>The value of the specified key before it was most recently overwritten, or
-		/// <c>null</c> if there was no previous value.</returns>
-		public byte[] GetPreviousGameSpecificValue(string p_strKey)
+        /// <inheritdoc />
+		public byte[] GetPreviousGameSpecificValue(string key)
 		{
-			return GetEnlistment().GetPreviousGameSpecificValue(p_strKey);
+			return GetEnlistment().GetPreviousGameSpecificValue(key);
 		}
 
-		/// <summary>
-		/// Logs that the specified Game Specific Value is an original value.
-		/// </summary>
-		/// <remarks>
-		/// Logging an original Game Specific Value prepares it to be overwritten by a mod's value.
-		/// </remarks>
-		/// <param name="p_strKey">The key of the edited Game Specific Value.</param>
-		/// <param name="p_bteValue">The original value.</param>
-		public void LogOriginalGameSpecificValue(string p_strKey, byte[] p_bteValue)
+        /// <inheritdoc />
+		public void LogOriginalGameSpecificValue(string key, byte[] value)
 		{
-			GetEnlistment().LogOriginalGameSpecificValue(p_strKey, p_bteValue);
+			GetEnlistment().LogOriginalGameSpecificValue(key, value);
 		}
 
-		/// <summary>
-		/// Gets the list of Game Specific Value edited keys that were installed by the given mod.
-		/// </summary>
-		/// <param name="p_modInstaller">The mod whose isntalled edits are to be returned.</param>
-		/// <returns>The list of edited keys that was installed by the given mod.</returns>
-		public IList<string> GetInstalledGameSpecificValueEdits(IMod p_modInstaller)
+        /// <inheritdoc />
+		public IList<string> GetInstalledGameSpecificValueEdits(IMod installer)
 		{
-			return GetEnlistment().GetInstalledGameSpecificValueEdits(p_modInstaller);
+			return GetEnlistment().GetInstalledGameSpecificValueEdits(installer);
 		}
 
-		/// <summary>
-		/// Gets all of the mods that have installed the specified game specific value edit.
-		/// </summary>
-		/// <param name="p_strKey">The key whose installers are to be retrieved.</param>
-		/// <returns>All of the mods that have installed the specified game specific value edit.</returns>
-		public IList<IMod> GetGameSpecificValueEditInstallers(string p_strKey)
+        /// <inheritdoc />
+		public IList<IMod> GetGameSpecificValueEditInstallers(string key)
 		{
-			return GetEnlistment().GetGameSpecificValueEditInstallers(p_strKey);
+			return GetEnlistment().GetGameSpecificValueEditInstallers(key);
 		}
 
 		#endregion
 
 		#region Backup Management
 
-		/// <summary>
-		/// This backs up the install log.
-		/// </summary>
+        /// <inheritdoc />
 		public void Backup()
 		{
 			if (File.Exists(LogPath))
 			{
-				string strBackupLogPath = LogPath + ".bak";
-				FileInfo fifInstallLog = new FileInfo(LogPath);
-				FileInfo fifInstallLogBak = File.Exists(strBackupLogPath) ? new FileInfo(strBackupLogPath) : null;
+				var backupLogPath = LogPath + ".bak";
+				var installLog = new FileInfo(LogPath);
+				var installLogBak = File.Exists(backupLogPath) ? new FileInfo(backupLogPath) : null;
 
-				if ((fifInstallLogBak == null) || (fifInstallLogBak.LastWriteTimeUtc != fifInstallLog.LastWriteTimeUtc))
+				if (installLogBak == null || installLogBak.LastWriteTimeUtc != installLog.LastWriteTimeUtc)
 				{
-					for (Int32 i = 4; i > 0; i--)
+					for (var i = 4; i > 0; i--)
 					{
-						if (File.Exists(strBackupLogPath + i))
-							File.Copy(strBackupLogPath + i, strBackupLogPath + (i + 1), true);
-					}
-					if (File.Exists(strBackupLogPath))
-						File.Copy(strBackupLogPath, strBackupLogPath + "1", true);
-					File.Copy(LogPath, strBackupLogPath, true);
+						if (File.Exists(backupLogPath + i))
+                        {
+                            File.Copy(backupLogPath + i, backupLogPath + (i + 1), true);
+                        }
+                    }
+
+					if (File.Exists(backupLogPath))
+                    {
+                        File.Copy(backupLogPath, backupLogPath + "1", true);
+                    }
+
+                    File.Copy(LogPath, backupLogPath, true);
 				}
 			}
 		}
@@ -1060,40 +955,51 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <summary>
 		/// This restores the first valid backup of the install log.
 		/// </summary>
-		public static bool Restore(string p_strLogPath)
+		public static bool Restore(string logPath)
 		{
-			string strSuffix = "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bad";
-			if (File.Exists(p_strLogPath))
-				FileUtil.Move(p_strLogPath, p_strLogPath + strSuffix, true);
-			string strBackupLogPath = p_strLogPath + ".bak";
-			if (IsLogValid(strBackupLogPath))
+			var suffix = "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bad";
+			
+            if (File.Exists(logPath))
+            {
+                FileUtil.Move(logPath, logPath + suffix, true);
+            }
+
+            var backupLogPath = logPath + ".bak";
+			
+            if (IsLogValid(backupLogPath))
 			{
-				File.Copy(strBackupLogPath, p_strLogPath, true);
+				File.Copy(backupLogPath, logPath, true);
 				return true;
 			}
-			if (File.Exists(strBackupLogPath))
-				FileUtil.Move(strBackupLogPath, strBackupLogPath + strSuffix, true);
-			for (Int32 i = 1; i < 6; i++)
+			
+            if (File.Exists(backupLogPath))
+            {
+                FileUtil.Move(backupLogPath, backupLogPath + suffix, true);
+            }
+
+            for (var i = 1; i < 6; i++)
 			{
-				if (IsLogValid(strBackupLogPath + i))
+				if (IsLogValid(backupLogPath + i))
 				{
-					FileUtil.Move(strBackupLogPath + i, p_strLogPath, true);
+					FileUtil.Move(backupLogPath + i, logPath, true);
 					return true;
 				}
-				if (File.Exists(strBackupLogPath + i))
-					FileUtil.Move(strBackupLogPath + i, strBackupLogPath + i + strSuffix, true);
-			}
+				
+                if (File.Exists(backupLogPath + i))
+                {
+                    FileUtil.Move(backupLogPath + i, backupLogPath + i + suffix, true);
+                }
+            }
+
 			return false;
 		}
 
 		#endregion
 
-		/// <summary>
-		/// This disposes of the install log, allowing it to be re-initialized.
-		/// </summary>
+        /// <inheritdoc />
 		public void Release()
 		{
-			m_ilgCurrent = null;
+			_instance = null;
 		}
 	}
 }
