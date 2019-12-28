@@ -26,7 +26,7 @@
 		/// <value>The current VirtualModActivator.</value>
 		protected IVirtualModActivator VirtualModActivator { get; }
 
-		protected ConfirmActionMethod ConfirmActionMethodActionMethod { get; }
+		protected ConfirmActionMethod ConfirmActionMethod { get; }
 
 		protected bool MultiHDMode => VirtualModActivator.MultiHDMode;
 
@@ -52,7 +52,7 @@
 			VirtualModActivator = virtualModActivator;
 			Mod = mod;
 			Disabling = disable;
-			ConfirmActionMethodActionMethod = confirmActionMethod;
+			ConfirmActionMethod = confirmActionMethod;
 		}
 
 		#endregion
@@ -72,7 +72,7 @@
 		/// <exception cref="InvalidOperationException">Thrown if the task is not paused.</exception>
 		public override void Resume()
 		{
-			Update(ConfirmActionMethodActionMethod);
+			Update(ConfirmActionMethod);
 		}
 
 		/// <summary>
