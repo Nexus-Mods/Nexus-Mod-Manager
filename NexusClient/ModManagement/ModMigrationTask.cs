@@ -97,11 +97,11 @@ namespace Nexus.Client.ModManagement
 				Thread.Sleep(1);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
-				bteModList = ViewModel.ModManager.InstallationLog.GetXMLModList();
+				bteModList = ViewModel.ModManager.InstallationLog.GetXmlModList();
 				OverallMessage = "Setup: Exporting IniEdits List";
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
-				bteIniList = ViewModel.ModManager.InstallationLog.GetXMLIniList();
+				bteIniList = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 				intModCount = ViewModel.ModManager.ActiveMods.Count;
 				OverallMessage = "Setup: Backing Up Current Profile";
 				if (OverallProgress < OverallProgressMaximum)

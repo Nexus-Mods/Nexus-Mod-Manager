@@ -356,25 +356,36 @@
 
 			var nfuFileUtility = new NexusFileUtil(EnvironmentInfo);
 
-            var gmdGameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out var vwmWarning);
+			IGameMode gameMode = null;
+			ViewMessage warningMessage = null;
 
-            if (gmdGameMode == null)
+			try
 			{
-				p_vwmErrorMessage = vwmWarning ?? new ViewMessage(
+				gameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out warningMessage);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Could not build game mode!");
+				TraceUtil.TraceException(ex);
+			}
+
+            if (gameMode == null)
+			{
+				p_vwmErrorMessage = warningMessage ?? new ViewMessage(
                                         $"Could not initialize {p_gmfGameModeFactory.GameModeDescriptor.Name} Game Mode.", null, "Error", MessageBoxIcon.Error);
 				return false;
 			}
 
-            if (vwmWarning != null)
+            if (warningMessage != null)
             {
-                ShowMessage(vwmWarning);
+                ShowMessage(warningMessage);
             }
 
             //Now we have a game mode use it's theme.
-			FontSetResolver.AddFontSets(gmdGameMode.ModeTheme.FontSets);
+			FontSetResolver.AddFontSets(gameMode.ModeTheme.FontSets);
 			StepOverallProgress();
 
-			if (!UacCheckEnvironment(gmdGameMode, out p_vwmErrorMessage))
+			if (!UacCheckEnvironment(gameMode, out p_vwmErrorMessage))
 			{
 				// TODO: it would be really nice of us if we, instead of closing,
 				// force the game mode to reinitialize, and select new paths
@@ -382,35 +393,35 @@
 			}
 			StepOverallProgress();
 
-			if (!CreateEnvironmentPaths(gmdGameMode, out p_vwmErrorMessage))
+			if (!CreateEnvironmentPaths(gameMode, out p_vwmErrorMessage))
             {
                 return false;
             }
 
             StepOverallProgress();
 
-			Trace.TraceInformation($"Game Mode Built: {gmdGameMode.Name} ({gmdGameMode.ModeId})");
+			Trace.TraceInformation($"Game Mode Built: {gameMode.Name} ({gameMode.ModeId})");
 			Trace.Indent();
-			Trace.TraceInformation($"Installation Path: {gmdGameMode.GameModeEnvironmentInfo.InstallationPath}");
-			Trace.TraceInformation($"Install Info Path: {gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory}");
-			Trace.TraceInformation($"Mod Path: {gmdGameMode.GameModeEnvironmentInfo.ModDirectory}");
-			Trace.TraceInformation($"Mod Cache Path: {gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory}");
-			Trace.TraceInformation($"Mod Download Cache: {gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory}");
-			Trace.TraceInformation($"Overwrite Path: {gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory}");
+			Trace.TraceInformation($"Installation Path: {gameMode.GameModeEnvironmentInfo.InstallationPath}");
+			Trace.TraceInformation($"Install Info Path: {gameMode.GameModeEnvironmentInfo.InstallInfoDirectory}");
+			Trace.TraceInformation($"Mod Path: {gameMode.GameModeEnvironmentInfo.ModDirectory}");
+			Trace.TraceInformation($"Mod Cache Path: {gameMode.GameModeEnvironmentInfo.ModCacheDirectory}");
+			Trace.TraceInformation($"Mod Download Cache: {gameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory}");
+			Trace.TraceInformation($"Overwrite Path: {gameMode.GameModeEnvironmentInfo.OverwriteDirectory}");
 			Trace.TraceInformation($"Virtual Install Path: {EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]}");
 			Trace.TraceInformation($"NMM Link Path: {EnvironmentInfo.Settings.HDLinkFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]}");
 			Trace.Unindent();
 
-			ScanForReadonlyFiles(gmdGameMode);
+			ScanForReadonlyFiles(gameMode);
 			StepOverallProgress();
 
 			Trace.TraceInformation("Initializing Mod Repository...");
 			Trace.Indent();
-			IModRepository mrpModRepository = new NexusModsApiRepository(gmdGameMode.ModeId, ApiCallManager.Instance(EnvironmentInfo));
+			IModRepository mrpModRepository = new NexusModsApiRepository(gameMode.ModeId, ApiCallManager.Instance(EnvironmentInfo));
 			Trace.Unindent();
 			StepOverallProgress();
             
-			if (gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory == null || gmdGameMode.GameModeEnvironmentInfo.ModDirectory == null)
+			if (gameMode.GameModeEnvironmentInfo.ModCacheDirectory == null || gameMode.GameModeEnvironmentInfo.ModDirectory == null)
 			{
 				ShowMessage(new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", "Warning", MessageBoxIcon.Warning));
 				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
@@ -419,7 +430,7 @@
 				return false;
 			}
 
-			var svmServices = InitializeServices(gmdGameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
+			var svmServices = InitializeServices(gameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
 			if (svmServices == null)
 			{
 				ShowMessage(p_vwmErrorMessage);
@@ -433,7 +444,7 @@
 			UpgradeMismatchedVersionMods(svmServices.ModInstallLog, svmServices.ModManager);
 			StepOverallProgress();
 
-			if (!UninstallMissingMods(gmdGameMode, EnvironmentInfo, svmServices.ModManager))
+			if (!UninstallMissingMods(gameMode, EnvironmentInfo, svmServices.ModManager))
 			{
 				if (Status == TaskStatus.Retrying)
 				{
@@ -450,7 +461,7 @@
 			svmServices.ModManager.LoadQueuedMods();
 			StepOverallProgress();
 
-			GameMode = gmdGameMode;
+			GameMode = gameMode;
 			Services = svmServices;
 
 			p_vwmErrorMessage = null;

@@ -718,8 +718,8 @@
                         bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
                     }
 
-                    var bteModList = ViewModel.ModManager.InstallationLog.GetXMLModList();
-					var bteIniList = ViewModel.ModManager.InstallationLog.GetXMLIniList();
+                    var bteModList = ViewModel.ModManager.InstallationLog.GetXmlModList();
+					var bteIniList = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 					var intModCount = ViewModel.ModManager.ActiveMods.Count;
 					AddNewProfile(bteModList, bteIniList, bteLoadOrder, intModCount, true);
 
@@ -2322,7 +2322,7 @@
 
 				if (ViewModel.ProfileManager.CurrentProfile != null)
 				{
-                    var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
+                    var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 
 					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, null, out var error);
 
@@ -2857,7 +2857,7 @@
                                     bteNewLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
                                 }
 
-                                var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXMLIniList();
+                                var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 
 								string[] optionalFiles = null;
 

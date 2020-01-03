@@ -7,6 +7,7 @@
     using System.IO;
     using System.Linq;
     using System.Net;
+    using System.ServiceModel;
     using System.Threading;
 
     using ChinhDo.Transactions;
@@ -379,7 +380,7 @@
 			{
 				Descriptor = BuildDescriptor(_downloadPath);
 			}
-			catch (System.ServiceModel.CommunicationException e)
+			catch (CommunicationException e)
 			{
 				if (((WebException) e.InnerException)?.Response?.Headers != null)
 				{
@@ -407,25 +408,24 @@
 					Pause();
 					return;
 				}
-				else
-				{
-					ErrorCode = strNexusError;
-					ErrorInfo = strNexusErrorInfo;
-					Status = TaskStatus.Error;
-					if (!string.IsNullOrEmpty(strNexusErrorInfo))
-					{
-						OverallMessage = strNexusErrorInfo;
-						OnTaskEnded(strNexusErrorInfo, null);
-					}
-					else
-					{
-						OverallMessage = $"Server Unreachable: {_downloadPath}";
-						OnTaskEnded($"Server Unreachable: {_downloadPath}", null);
-					}
 
-					return;
-				}
-			}
+                ErrorCode = strNexusError;
+                ErrorInfo = strNexusErrorInfo;
+                Status = TaskStatus.Error;
+                
+                if (!string.IsNullOrEmpty(strNexusErrorInfo))
+                {
+                    OverallMessage = strNexusErrorInfo;
+                    OnTaskEnded(strNexusErrorInfo, null);
+                }
+                else
+                {
+                    OverallMessage = $"Server Unreachable: {_downloadPath}";
+                    OnTaskEnded($"Server Unreachable: {_downloadPath}", null);
+                }
+
+                return;
+            }
 
 			ModInfo = GetModInfo(Descriptor);
 
@@ -472,6 +472,7 @@
                             _sourceUri.Add(Descriptor.SourceUri.ToString(), _localID);
                         }
                     }
+
 					try
 					{
 						DownloadFiles(Descriptor.DownloadFiles, queued);
@@ -501,9 +502,9 @@
 		}
 
 		/// <summary>
-		/// Get the reposiroty info for the described mod.
+		/// Get the repository info for the described mod.
 		/// </summary>
-		/// <param name="descriptor">The obejct that describes the mod for which to retrieve the info.</param>
+		/// <param name="descriptor">The object that describes the mod for which to retrieve the info.</param>
 		/// <returns>The repository info for the described mod.</returns>
 		private IModInfo GetModInfo(AddModDescriptor descriptor)
 		{
@@ -561,6 +562,12 @@
 		/// <returns>The object that describes the mod being added.</returns>
 		private AddModDescriptor BuildDescriptor(Uri path)
 		{
+            if (path == null)
+            {
+				Trace.TraceError($"{nameof(AddModTask)}.{nameof(BuildDescriptor)}: Argument \"{nameof(path)}\" was null.");
+                return null;
+            }
+
 			if (!_environmentInfo.Settings.QueuedModsToAdd.ContainsKey(_gameMode.ModeId))
             {
                 _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
