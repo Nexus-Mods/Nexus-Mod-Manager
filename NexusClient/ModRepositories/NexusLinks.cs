@@ -14,6 +14,11 @@
 
         public static string LatestVersion => @"https://api.github.com/repos/Nexus-Mods/Nexus-Mod-Manager/releases/latest";
 
+        /// <summary>
+        /// URL to retrieve JSON data for all available releases on GitHub.
+        /// </summary>
+        public static string ReleasesJson => @"https://api.github.com/repos/Nexus-Mods/Nexus-Mod-Manager/releases";
+
         public static string Releases => @"https://github.com/Nexus-Mods/Nexus-Mod-Manager/releases";
 
         #endregion

@@ -683,7 +683,7 @@
     </Compile>
     <Compile Include="UI\Controls\SelectedItemEventArgs.cs" />
     <Compile Include="UI\NexusFontSetResolver.cs" />
-    <Compile Include="Updating\ProgrammeUpdater.cs" />
+    <Compile Include="Updating\ProgramUpdater.cs" />
     <Compile Include="Updating\UpdateManager.cs" />
     <Compile Include="Updating\UpdateTask.cs" />
     <Compile Include="Util\UacUtil.cs" />
