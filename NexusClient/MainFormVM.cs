@@ -321,7 +321,7 @@
 		/// Gets the title of the form.
 		/// </summary>
 		/// <value>The title of the form.</value>
-		public string Title => $"{EnvironmentInfo.Settings.ModManagerName} ({EnvironmentInfo.ApplicationVersion}) - {GameMode.Name}";
+		public string Title => $"{CommonData.ModManagerName} ({EnvironmentInfo.ApplicationVersion}) - {GameMode.Name}";
 
         /// <summary>
 		/// Gets the current game mode theme.
@@ -515,7 +515,7 @@
 
             SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 
-			UpdateCommand = new Command("Update", $"Update {EnvironmentInfo.Settings.ModManagerName}", UpdateProgram);
+			UpdateCommand = new Command("Update", $"Update {CommonData.ModManagerName}", UpdateProgram);
 			ToggleLoginCommand = new Command("ToggleLogin", "Login/Logout", ToggleLogin);
 
 			var lstChangeGameModeCommands = new List<Command>();
@@ -685,7 +685,7 @@
 		{
             var fbd = new FolderBrowserDialog
             {
-                Description = $"Select the folder where {EnvironmentInfo.Settings.ModManagerName} will save the Backup Archive.",
+                Description = $"Select the folder where {CommonData.ModManagerName} will save the Backup Archive.",
                 ShowNewFolderButton = true
             };
 
@@ -994,7 +994,7 @@
 					}
 					else
 					{
-						var drResult = ExtendedMessageBox.Show(parent, sbMessage.ToString(), ModManagerVM.Settings.ModManagerName, strDetails, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+						var drResult = ExtendedMessageBox.Show(parent, sbMessage.ToString(), CommonData.ModManagerName, strDetails, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
 
                         if (drResult == DialogResult.Yes)
 						{

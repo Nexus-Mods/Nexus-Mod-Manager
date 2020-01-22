@@ -6,6 +6,7 @@ using System.Text;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using System.Windows.Forms;
+using Nexus.Client.Util;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.Games.Fallout3
@@ -116,7 +117,7 @@ namespace Nexus.Client.Games.Fallout3
 								stbMessage.AppendLine(strDLC);
 								stbMessage.AppendFormat("Would you like to move it to {0}'s data directory to allow for offline use and script extender compatibility?", GameModeDescriptor.Name).AppendLine();
 								stbMessage.AppendLine("Note that this may cause issues with any save games created after it was purchased but before it was moved.");
-								stbMessage.AppendFormat("Click YES to move, IGNORE to ignore, and CANCEL if you don't want {0} to offer to move any DLCs for you again.", EnvironmentInfo.Settings.ModManagerName);
+								stbMessage.AppendFormat("Click YES to move, IGNORE to ignore, and CANCEL if you don't want {0} to offer to move any DLCs for you again.", CommonData.ModManagerName);
 
 								switch ((DialogResult)ConfirmAction(new ViewMessage(stbMessage.ToString(), null, "Move DLC", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.Ignore | ExtendedMessageBoxButtons.Cancel, MessageBoxIcon.Question)))
 								{

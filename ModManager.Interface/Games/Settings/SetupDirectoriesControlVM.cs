@@ -591,7 +591,7 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.ModFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 				if (String.IsNullOrEmpty(strDirectory))
 				{
-					string strDefault = Path.Combine(Path.GetPathRoot(strInstallationPath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId, "Mods");
+					string strDefault = Path.Combine(Path.GetPathRoot(strInstallationPath), "Games", CommonData.ModManagerName, GameModeDescriptor.ModeId, "Mods");
 					strDirectory = strDefault;
 				}
 				ModDirectory = strDirectory;
@@ -629,7 +629,7 @@ namespace Nexus.Client.Games.Settings
 					EnvironmentInfo.Settings.InstallInfoFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 				if (String.IsNullOrEmpty(strDirectory))
 				{
-					string strDefault = Path.Combine(Path.GetPathRoot(strInstallationPath), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId, "Install Info");
+					string strDefault = Path.Combine(Path.GetPathRoot(strInstallationPath), "Games", CommonData.ModManagerName, GameModeDescriptor.ModeId, "Install Info");
 					strDirectory = strDefault;
 				}
 				InstallInfoDirectory = strDirectory;
@@ -690,7 +690,7 @@ namespace Nexus.Client.Games.Settings
 					string strDefault = String.Empty;
 					strDefault = ModDirectory;
 					if (!MultiHDInstall && (!CheckOnGameHD(strDefault)))
-						strDefault = Path.Combine(((m_booRequiredTool ? Path.GetPathRoot(ToolDirectory) : Path.GetPathRoot(GameModeDescriptor.InstallationPath)) ?? Path.GetPathRoot(Application.ExecutablePath)), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
+						strDefault = Path.Combine(((m_booRequiredTool ? Path.GetPathRoot(ToolDirectory) : Path.GetPathRoot(GameModeDescriptor.InstallationPath)) ?? Path.GetPathRoot(Application.ExecutablePath)), "Games", CommonData.ModManagerName, GameModeDescriptor.ModeId);
 
 					strDirectory = strDefault;
 				}
@@ -712,7 +712,7 @@ namespace Nexus.Client.Games.Settings
 						EnvironmentInfo.Settings.HDLinkFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 					if (String.IsNullOrEmpty(strDirectory) || !CheckOnGameHD(strDirectory))
 					{
-						strDirectory = Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath ?? Path.GetPathRoot(Application.ExecutablePath)), "Games", EnvironmentInfo.Settings.ModManagerName, GameModeDescriptor.ModeId);
+						strDirectory = Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath ?? Path.GetPathRoot(Application.ExecutablePath)), "Games", CommonData.ModManagerName, GameModeDescriptor.ModeId);
 					}
 					LinkDirectory = strDirectory;
 				}

@@ -19,13 +19,7 @@
 	    private static readonly object SettingsFileLock = new object();
 	    private const int PauseBetweenAttemptsMilliseconds = 500;
 	    private const int RetryAttempts = 3;
-
-        /// <summary>
-        /// Gets the full name of the mod manager.
-        /// </summary>
-        /// <value>The full name of the mod manager.</value>
-        public string ModManagerName => CommonData.ModManagerName;
-
+        
         /// <summary>
         /// A thread-safe call to save the current settings to file.
         /// </summary>

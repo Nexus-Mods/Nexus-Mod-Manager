@@ -23,12 +23,44 @@ namespace Nexus.Client.Updating
     {
         private readonly bool _isAutomaticCheck;
         private readonly UpdateManager _updateManager;
+
+        private JArray _releases;
         
         /// <summary>
         /// Gets the updater name.
         /// </summary>
         /// <value>The updater name.</value>
-        public override string Name => $"{EnvironmentInfo.Settings.ModManagerName} Updater";
+        public override string Name => $"{CommonData.ModManagerName} Updater";
+
+        /// <summary>
+        /// Gets Releases information from GitHub.
+        /// </summary>
+        private JArray Releases
+        {
+            get
+            {
+                if (_releases == null)
+                {
+                    using (var wc = new WebClient())
+                    {
+                        wc.Headers["User-Agent"] = ApiCallManager.UserAgent;
+
+                        try
+                        {
+                            var releasesRawData = wc.DownloadString(Links.Instance.ReleasesApi);
+                            _releases = JArray.Parse(releasesRawData);
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.TraceError("Could not download release information from GitHub.");
+                            TraceUtil.TraceException(ex);
+                        }
+                    }
+                }
+
+                return _releases;
+            }
+        }
 
         /// <summary>
         /// A simple constructor that initializes the object with the given values.
@@ -42,6 +74,8 @@ namespace Nexus.Client.Updating
             _isAutomaticCheck = isAutomaticCheck;
             SetRequiresRestart(true);
             _updateManager = updateManager;
+
+            _releases = null;
         }
 
         /// <summary>
@@ -55,7 +89,7 @@ namespace Nexus.Client.Updating
             Trace.Indent();
 
             SetProgressMaximum(2);
-            SetMessage($"Checking for new {EnvironmentInfo.Settings.ModManagerName} version...");
+            SetMessage($"Checking for new {CommonData.ModManagerName} version...");
             
             var currentVersion = new Version(CommonData.VersionString);
             var (newVersion, downloadUrl) = GetReleaseInformation();
@@ -74,18 +108,17 @@ namespace Nexus.Client.Updating
                 return false;
             }
 
-            var promptMessage = new StringBuilder();
             var dialogResult = DialogResult.No;
 
             if (newVersion > currentVersion)
             {
                 string releaseNotes;
                 var checkDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(downloadUrl));
-                
-                promptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, newVersion, Environment.NewLine).AppendLine();
-                promptMessage.AppendLine();
-                promptMessage.AppendLine();
-                promptMessage.AppendLine("Below you can find the change log for the new release:");
+
+                var promptMessage =
+                    $"A new version of {CommonData.ModManagerName} is available ({newVersion}).{Environment.NewLine}" +
+                    $"Would you like to download and install it?{Environment.NewLine}{Environment.NewLine}" +
+                    "Below you can find the change log for the new release:";
 
                 try
                 {
@@ -96,7 +129,7 @@ namespace Nexus.Client.Updating
                     releaseNotes = "Unable to retrieve change log.";
                 }
 
-                DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, promptMessage.ToString(), "New version available", releaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question));
+                DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, promptMessage, "New version available", releaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question));
 
                 switch (dialogResult)
                 {
@@ -111,14 +144,14 @@ namespace Nexus.Client.Updating
                 if (File.Exists(checkDownloadedInstaller))
                 {
                     SetMessage("Launching installer...");
-                    var psiInfo = new ProcessStartInfo(checkDownloadedInstaller);
-                    Process.Start(psiInfo);
+                    var processStartInfo = new ProcessStartInfo(checkDownloadedInstaller);
+                    Process.Start(processStartInfo);
                     Trace.Unindent();
                     
                     return true;
                 }
 
-                SetMessage($"Downloading new {EnvironmentInfo.Settings.ModManagerName} version...");
+                SetMessage($"Downloading new {CommonData.ModManagerName} version...");
 
                 string newInstaller;
 
@@ -128,15 +161,13 @@ namespace Nexus.Client.Updating
                 }
                 catch (FileNotFoundException)
                 {
-                    var stbAVMessage = new StringBuilder();
-                    stbAVMessage.AppendLine("Unable to find the installer to download:");
-                    stbAVMessage.AppendLine("this could be caused by a network issue or by your Firewall.");
-                    stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
-                    stbAVMessage.AppendLine();
-                    stbAVMessage.AppendFormat("You can download the update manually from:");
-                    stbAVMessage.AppendLine(NexusLinks.Releases);
-                    
-                    DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                    var avMessage = 
+                        $"Unable to find the installer to download:{Environment.NewLine}" +
+                        $"This could be caused by a network issue or by your Firewall.{Environment.NewLine}{Environment.NewLine}" +
+                        $"As a result you won't be able to automatically update the program.{Environment.NewLine}{Environment.NewLine}" +
+                        $"You can download the update manually from:{Environment.NewLine}{Links.Instance.Releases}";
+
+                    DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, avMessage, "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
                     Trace.Unindent();
                     return CancelUpdate();
@@ -162,16 +193,14 @@ namespace Nexus.Client.Updating
                     }
                     catch (FileNotFoundException)
                     {
-                        var stbAVMessage = new StringBuilder();
-                        stbAVMessage.AppendLine("Unable to find the downloaded update:");
-                        stbAVMessage.AppendLine("this could be caused by a network issue or by your anti-virus software deleting it falsely flagging the installer as a virus.");
-                        stbAVMessage.AppendLine("As a result you won't be able to automatically update the program.");
-                        stbAVMessage.AppendLine();
-                        stbAVMessage.AppendFormat("To fix this issue you need to add {0}'s executable and all its folders to your", EnvironmentInfo.Settings.ModManagerName).AppendLine();
-                        stbAVMessage.AppendLine("anti-virus exception list. You can also download the update manually from:");
-                        stbAVMessage.AppendLine(NexusLinks.Releases);
+                        var avMessage = 
+                            $"Unable to find the downloaded update:{Environment.NewLine}" +
+                            $"This could be caused by a network issue or by your anti-virus software deleting it falsely flagging the installer as a virus.{Environment.NewLine}" +
+                            $"As a result you won't be able to automatically update the program.{Environment.NewLine}{Environment.NewLine}" +
+                            $"To fix this issue you need to add {CommonData.ModManagerName}'s executable and all its folders to your{Environment.NewLine}" +
+                            $"anti-virus exception list. You can also download the update manually from:{Environment.NewLine}{Links.Instance.Releases}";
 
-                        DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                        DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, avMessage, "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
                         
                         Trace.Unindent();
                         return CancelUpdate();
@@ -187,16 +216,14 @@ namespace Nexus.Client.Updating
             }
             else if (!_isAutomaticCheck)
             {
-                promptMessage.AppendFormat("{0} is already up to date.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
-                promptMessage.AppendLine();
-                promptMessage.AppendLine();
-                promptMessage.AppendLine("NOTE: You can find the release notes and past versions here:");
-                promptMessage.AppendLine(NexusLinks.Releases);
+                var promptMessage = 
+                    $"{CommonData.ModManagerName} is already up to date.{Environment.NewLine}{Environment.NewLine}" +
+                    $"NOTE: You can find the release notes and past versions here:{Environment.NewLine}{Links.Instance.Releases}";
 
-                DisplayDialog(() => ExtendedMessageBox.Show(null, promptMessage.ToString(), "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                DisplayDialog(() => ExtendedMessageBox.Show(null, promptMessage, "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information));
             }
 
-            SetMessage($"{EnvironmentInfo.Settings.ModManagerName} is already up to date.");
+            SetMessage($"{CommonData.ModManagerName} is already up to date.");
             SetProgress(2);
             Trace.Unindent();
 
@@ -238,7 +265,7 @@ namespace Nexus.Client.Updating
         /// <returns>Always <c>true</c>.</returns>
         private bool CancelUpdate()
         {
-            SetMessage($"Cancelled {EnvironmentInfo.Settings.ModManagerName} update.");
+            SetMessage($"Cancelled {CommonData.ModManagerName} update.");
             SetProgress(2);
 
             return true;
@@ -250,33 +277,16 @@ namespace Nexus.Client.Updating
         /// <param name="currentVersion">The currently running version of NMM.</param>
         /// <param name="newVersion">The new version of NMM available for download.</param>
         /// <returns></returns>
-        private static string ConstructChangeLog(Version currentVersion, Version newVersion)
+        private string ConstructChangeLog(Version currentVersion, Version newVersion)
         {
-            var newerVersions = new List<JToken>();
-
-            using (var wc = new WebClient())
+            if (Releases == null)
             {
-                wc.Headers["User-Agent"] = ApiCallManager.UserAgent;
-                wc.Headers["Accept"] = "application/json";
-
-                try
-                {
-                    var releasesRawData = wc.DownloadString(NexusLinks.ReleasesJson);
-                    var releases = JArray.Parse(releasesRawData);
-
-                    // Select releases that have a version above the current one.
-                    newerVersions.AddRange(from release in releases let version = new Version(release["tag_name"].Value<string>()) where version > currentVersion select release);
-                }
-                catch (Exception ex)
-                {
-                    Trace.TraceError("Could not download release information from GitHub.");
-                    TraceUtil.TraceException(ex);
-                    return null;
-                }
+                throw new Exception("Could not get Releases info from GitHub.");
             }
-
-            // Construct changelog from filtered releases.
-
+            
+            var newerVersions = new List<JToken>();
+            newerVersions.AddRange(from release in Releases let version = new Version(release["tag_name"].Value<string>()) where version > currentVersion select release);
+            
             var changeLog = new StringBuilder($"<html><body><h1>Changes between {currentVersion} and {newVersion}:</h1>");
 
             foreach (var version in newerVersions)
@@ -316,33 +326,22 @@ namespace Nexus.Client.Updating
         /// Get release information.
         /// </summary>
         /// <returns>Version of latest release, and download URL for it.</returns>
-        private static (Version LatestVersion, string DownloadUrl) GetReleaseInformation()
+        private (Version LatestVersion, string DownloadUrl) GetReleaseInformation()
         {
+            if (Releases == null)
+            {
+                return (null, null);
+            }
+
             Version latestVersion = null;
             string downloadUrl = null;
 
-            using (var wc = new WebClient())
+            var latestReleaseInfo = Releases[0];
+
+            if (latestReleaseInfo != null)
             {
-                wc.Headers["User-Agent"] = ApiCallManager.UserAgent;
-                wc.Headers["Accept"] = "application/json";
-
-                try
-                {
-                    var data = wc.DownloadString(NexusLinks.LatestVersion);
-
-                    var latestReleaseInfo = JToken.Parse(data);
-
-                    if (latestReleaseInfo != null)
-                    {
-                        latestVersion = new Version(latestReleaseInfo["tag_name"].Value<string>());
-                        downloadUrl = latestReleaseInfo["assets"][0]["browser_download_url"].Value<string>();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Trace.TraceError("Failed to retrieve latest release version info.");
-                    TraceUtil.TraceException(ex);
-                }
+                latestVersion = new Version(latestReleaseInfo["tag_name"].Value<string>());
+                downloadUrl = latestReleaseInfo["assets"][0]["browser_download_url"].Value<string>();
             }
 
             return (latestVersion, downloadUrl);

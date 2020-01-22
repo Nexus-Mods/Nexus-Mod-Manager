@@ -115,7 +115,7 @@
             else
                 TemporaryPath = Settings.TempPathFolder;
 
-            ApplicationPersonalDataFolderPath = Path.Combine(PersonalDataFolderPath, p_setSettings.ModManagerName);
+            ApplicationPersonalDataFolderPath = Path.Combine(PersonalDataFolderPath, CommonData.ModManagerName);
         }
 
         #endregion

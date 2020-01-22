@@ -194,7 +194,7 @@
     <Compile Include="ModRepositories\ModFileInfo.cs" />
     <Compile Include="ModRepositories\ApiCallManager.cs" />
     <Compile Include="ModRepositories\NexusModsApiRepository.cs" />
-    <Compile Include="ModRepositories\NexusLinks.cs" />
+    <Compile Include="ModRepositories\Links.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
     <Compile Include="PluginManagement\AutoPluginSortingTask.cs" />

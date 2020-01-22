@@ -8,6 +8,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
 using Nexus.Client.UI.Controls;
+using Nexus.Client.Util;
 
 namespace Nexus.Client
 {
@@ -145,7 +146,7 @@ namespace Nexus.Client
 		private void butCancel_Click(object sender, EventArgs e)
 		{
 			DialogResult = DialogResult.None;
-			if (MessageBox.Show(this, String.Format("Canceling will exit {0}. Are you sure?", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
+			if (MessageBox.Show(this, String.Format("Canceling will exit {0}. Are you sure?", CommonData.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
 			{
 				DialogResult = DialogResult.Cancel;
 				ViewModel.Cancel();

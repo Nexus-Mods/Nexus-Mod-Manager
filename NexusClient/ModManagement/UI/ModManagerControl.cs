@@ -2322,7 +2322,7 @@ namespace Nexus.Client.ModManagement.UI
                 message += ":" + Environment.NewLine + Environment.NewLine + e.Filename;
 
             string details = string.Format("{0} {1} successfully exported.", e.ExportedModCount, (e.ExportedModCount == 1) ? "mod was" : "mods were");
-            ExtendedMessageBox.Show(this, message, ViewModel.Settings.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
+            ExtendedMessageBox.Show(this, message, CommonData.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         #endregion

@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.UI;
+using Nexus.Client.Util;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.Games.TESO
@@ -100,7 +101,7 @@ namespace Nexus.Client.Games.TESO
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void wizSetup_Cancelled(object sender, EventArgs e)
 		{
-			if (MessageBox.Show(this, String.Format("If you cancel the setup {0} will close.", ViewModel.EnvironmentInfo.Settings.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
+			if (MessageBox.Show(this, String.Format("If you cancel the setup {0} will close.", CommonData.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
 				DialogResult = DialogResult.Cancel;
 		}
 

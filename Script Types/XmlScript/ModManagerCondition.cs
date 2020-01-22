@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript
 {
@@ -49,7 +50,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			Version verInstalledVersion = p_csmStateManager.EnvironmentInfo.ApplicationVersion;
 			if (verInstalledVersion < MinimumVersion)
-				return String.Format("This mod requires v{0} or higher of {1}. You have {2}. Please update from {3}", MinimumVersion, p_csmStateManager.EnvironmentInfo.Settings.ModManagerName, verInstalledVersion, p_csmStateManager.EnvironmentInfo.Settings.ModManagerUrl);
+				return String.Format("This mod requires v{0} or higher of {1}. You have {2}. Please update from {3}", MinimumVersion, CommonData.ModManagerName, verInstalledVersion, p_csmStateManager.EnvironmentInfo.Settings.ModManagerUrl);
 			return "Passed";
 		}
 	}

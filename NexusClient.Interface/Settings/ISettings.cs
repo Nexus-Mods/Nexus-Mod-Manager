@@ -9,13 +9,7 @@
 	/// </summary>
 	public interface ISettings
 	{
-		/// <summary>
-		/// Gets the full name of the mod manager.
-		/// </summary>
-		/// <value>The full name of the mod manager.</value>
-		string ModManagerName { get; }
-
-		/// <summary>
+        /// <summary>
 		/// Gets the URL where the mod manager is available for download.
 		/// </summary>
 		/// <value>The URL where the mod manager is available for download.</value>

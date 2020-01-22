@@ -40,7 +40,7 @@ namespace Nexus.Client
 			else
 				throw new InvalidOperationException("The IPC Channel has already been created as a CLIENT.");
 
-			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
+			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", CommonData.ModManagerName, p_gmdGameModeInfo.ModeId);
 			IMessager msgMessager = null;
 			try
 			{

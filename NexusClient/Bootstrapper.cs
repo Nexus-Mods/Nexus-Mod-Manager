@@ -124,7 +124,7 @@
 				if (installedGames == null)
 				{
 					Trace.TraceInformation("No installed games.");
-					MessageBox.Show($"No games were detected! {_environmentInfo.Settings.ModManagerName} will now close.", "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					MessageBox.Show($"No games were detected! {CommonData.ModManagerName} will now close.", "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return false;
 				}
 
@@ -156,7 +156,7 @@
 					for (var attemptCount = 0; attemptCount < 3; attemptCount++)
 					{
 						Trace.TraceInformation($"Creating Game Mode mutex (Attempt: {attemptCount})");
-						gameModeMutex = new Mutex(true, $"{_environmentInfo.Settings.ModManagerName}-{gameModeFactory.GameModeDescriptor.ModeId}-GameModeMutex", out ownsMutex);
+						gameModeMutex = new Mutex(true, $"{CommonData.ModManagerName}-{gameModeFactory.GameModeDescriptor.ModeId}-GameModeMutex", out ownsMutex);
 
 						//If the mutex is owned, you are the first instance of the mod manager for game mode, so break out of loop.
 						if (ownsMutex)
@@ -193,8 +193,8 @@
 						catch (InvalidOperationException)
 						{
 							var stbPromptMessage = new StringBuilder();
-							stbPromptMessage.AppendLine($"{_environmentInfo.Settings.ModManagerName} was unable to start. It appears another instance of {_environmentInfo.Settings.ModManagerName} is already running.");
-							stbPromptMessage.AppendLine($"If you were trying to download multiple files, wait for {_environmentInfo.Settings.ModManagerName} to start before clicking on a new file download.");
+							stbPromptMessage.AppendLine($"{CommonData.ModManagerName} was unable to start. It appears another instance of {CommonData.ModManagerName} is already running.");
+							stbPromptMessage.AppendLine($"If you were trying to download multiple files, wait for {CommonData.ModManagerName} to start before clicking on a new file download.");
 							MessageBox.Show(stbPromptMessage.ToString(), "Already running", MessageBoxButtons.OK, MessageBoxIcon.Information);
 							return false;
 						}
@@ -217,13 +217,13 @@
                         }
 
                         var stbPromptMessage = new StringBuilder();
-						stbPromptMessage.AppendLine($"{_environmentInfo.Settings.ModManagerName} was unable to start. It appears another instance of {_environmentInfo.Settings.ModManagerName} is already running.");
+						stbPromptMessage.AppendLine($"{CommonData.ModManagerName} was unable to start. It appears another instance of {CommonData.ModManagerName} is already running.");
 						stbPromptMessage.AppendLine("A Trace Log file was created at:");
 						stbPromptMessage.AppendLine(htlListener.FilePath);
 						stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-						stbPromptMessage.AppendLine(NexusLinks.FAQs);
+						stbPromptMessage.AppendLine(Links.FAQs);
 						stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-						stbPromptMessage.AppendLine(NexusLinks.Issues);
+						stbPromptMessage.AppendLine(Links.Instance.Issues);
 						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
 					    return false;
@@ -328,7 +328,7 @@
 				                       "without the sandbox.";
 				const string details = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
 				                       "If you are running Comodo or any antivirus, please add {0} and its folders to the exception list.<br/><br/>";
-				ExtendedMessageBox.Show(null, string.Format(message, environmentInfo.Settings.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, environmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(null, string.Format(message, CommonData.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, CommonData.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
 			    return false;
 			}
@@ -340,7 +340,7 @@
 			                           "without the sandbox.";
                 const string details = "This error commonly occurs on computers running Zone Alarm.<br/>" +
                                        "If you are running Zone Alarm or any similar security suite, please add {0} and its folders to the exception list.<br/><br/>";
-				ExtendedMessageBox.Show(null, string.Format(message, environmentInfo.Settings.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, environmentInfo.Settings.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(null, string.Format(message, CommonData.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, CommonData.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
 			    return false;
 			}
