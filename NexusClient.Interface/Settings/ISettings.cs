@@ -1,10 +1,9 @@
-﻿using Nexus.Client.ModManagement;
-using SevenZip;
-using System;
-using System.Drawing;
-
-namespace Nexus.Client.Settings
+﻿namespace Nexus.Client.Settings
 {
+    using Nexus.Client.ModManagement;
+    using SevenZip;
+    using System;
+
 	/// <summary>
 	/// The contracts for classes exposing user and application scoped settings.
 	/// </summary>
@@ -272,7 +271,7 @@ namespace Nexus.Client.Settings
 		/// Gets or sets the preferred compression level to use for mods.
 		/// </summary>
 		/// <remarks>
-		/// Note that not all mod formats support confirgurable compression levels.
+		/// Note that not all mod formats support configurable compression levels.
 		/// </remarks>
 		/// <value>The preferred compression level to use for mods.</value>
 		CompressionLevel ModCompressionLevel { get; set; }
@@ -281,7 +280,7 @@ namespace Nexus.Client.Settings
 		/// Gets or sets the preferred compression format to use for mods.
 		/// </summary>
 		/// <remarks>
-		/// Note that not all mod formats support confirgurable compression formats.
+		/// Note that not all mod formats support configurable compression formats.
 		/// </remarks>
 		/// <value>The preferred compression format to use for mods.</value>
 		OutArchiveFormat ModCompressionFormat { get; set; }

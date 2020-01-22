@@ -6,10 +6,11 @@ namespace Nexus.Client.Updating
     using System.IO;
     using System.Linq;
     using System.Net;
-    using System.Runtime.Serialization;
     using System.Text;
     using System.Threading;
     using System.Windows.Forms;
+
+    using Newtonsoft.Json.Linq;
 
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Util;
@@ -20,300 +21,14 @@ namespace Nexus.Client.Updating
     /// </summary>
     public class ProgramUpdater : UpdaterBase
     {
-        #region  GitHubReleaseJsonContract
-        /* These classes (contracts) should be based on the format of the json from:
-            https://api.github.com/repos/Nexus-Mods/Nexus-Mod-Manager/releases
-        */
-
-        [DataContract]
-        private class GitHubReleaseJsonContract
-        {
-            [DataMember(Name = "url")]
-            public string url { get; set; }
-            [DataMember(Name = "assets_url")]
-            public string assets_url { get; set; }
-            [DataMember(Name = "upload_url")]
-            public string upload_url { get; set; }
-            [DataMember(Name = "html_url")]
-            public string html_url { get; set; }
-            [DataMember(Name = "id")]
-            public int id { get; set; }
-            [DataMember(Name = "node_id")]
-            public string node_id { get; set; }
-            [DataMember(Name = "tag_name")]
-            public string tag_name { get; set; }
-            [DataMember(Name = "target_commitish")]
-            public string target_commitish { get; set; }
-            [DataMember(Name = "name")]
-            public string name { get; set; }
-            [DataMember(Name = "draft")]
-            public bool draft { get; set; }
-
-            [DataMember(Name = "author")]
-            public author_information author_info { get; set; }
-            
-            [DataMember(Name = "prerelease")]
-            public bool prerelease { get; set; }
-            [DataMember(Name = "created_at")]
-            public string created_at { get; set; }
-            [DataMember(Name = "published_at")]
-            public string published_at { get; set; }
-            
-            [DataMember(Name = "assets")]
-            public assets_information[] assets_info { get; set; }
-            
-            [DataMember(Name = "tarball_url")]
-            public string tarball_url { get; set; }
-            [DataMember(Name = "zipball_url")]
-            public string zipball_url { get; set; }
-            [DataMember(Name = "body")]
-            public string body { get; set; }
-            
-            public override string ToString()
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine($"[tag_name='{this.tag_name}']");
-                sb.AppendLine($"[name='{this.name}']");
-
-                var index = 0;
-                sb.AppendLine(
-                    $"[assets count='{(this.assets_info == null ? "0" : this.assets_info.Length.ToString())}']");
-                foreach (var k in this.assets_info)
-                {
-                    //k.name
-                    sb.AppendLine($"[asset index='{index}']");
-                    sb.AppendLine($"[name='{k.name}']");
-                    sb.AppendLine($"[name='{k.browser_download_url}']");
-                    index++;
-                }  
-                sb.AppendLine($"[tarball_url='{this.tarball_url}']");
-                sb.AppendLine($"[zipball_url='{this.zipball_url}']");
-                
-                
-                
-                return sb.ToString();
-            }
-
-        }
-        [DataContract]
-        private class author_information
-        {
-            [DataMember(Name = "login")]
-            public string login { get; set; }
-            [DataMember(Name = "id")]
-            public int id { get; set; }
-            [DataMember(Name = "node_id")]
-            public string node_id { get; set; }
-            [DataMember(Name = "avatar_url")]
-            public string avatar_url { get; set; }
-            [DataMember(Name = "gravatar_id")]
-            public string gravatar_id { get; set; }
-            [DataMember(Name = "url")]
-            public string url { get; set; }
-            [DataMember(Name = "html_url")]
-            public string html_url { get; set; }
-            [DataMember(Name = "followers_url")]
-            public string followers_url { get; set; }
-            [DataMember(Name = "following_url")]
-            public string following_url { get; set; }
-            [DataMember(Name = "gists_url")]
-            public string gists_url { get; set; }
-            [DataMember(Name = "starred_url")]
-            public string starred_url { get; set; }
-            [DataMember(Name = "subscriptions_url")]
-            public string subscriptions_url { get; set; }
-            [DataMember(Name = "organizations_url")]
-            public string organizations_url { get; set; }
-            [DataMember(Name = "repos_url")]
-            public string repos_url { get; set; }
-            [DataMember(Name = "events_url")]
-            public string events_url { get; set; }
-            [DataMember(Name = "received_events_url")]
-            public string received_events_url { get; set; }
-            [DataMember(Name = "type")]
-            public string type { get; set; }
-            [DataMember(Name = "site_admin")]
-            public bool site_admin { get; set; }
-        }
-        [DataContract]
-        private class assets_information
-        {
-            [DataMember(Name = "url")]
-            public string url { get; set; }
-            [DataMember(Name = "id")]
-            public int id { get; set; }
-            [DataMember(Name = "node_id")]
-            public string node_id { get; set; }
-            [DataMember(Name = "name")]
-            public string name { get; set; }
-            [DataMember(Name = "label")]
-            public string label { get; set; }
-            
-            [DataMember(Name = "uploader")]
-            public author_information uploader_info { get; set; }
-            
-            [DataMember(Name = "content_type")]
-            public string content_type { get; set; }
-            [DataMember(Name = "state")]
-            public string state { get; set; }
-            [DataMember(Name = "download_count")]
-            public int download_count { get; set; }
-            [DataMember(Name = "created_at")]
-            public string created_at { get; set; }
-            [DataMember(Name = "published_at")]
-            public string published_at { get; set; }
-            [DataMember(Name = "browser_download_url")]
-            public string browser_download_url { get; set; }
-        }
-        #endregion
-
-        #region  GithubReleaseParser
-
-        private class GithubReleaseParser
-        {
-            public GithubReleaseParser()
-            {
-                LatestVersion = "";
-                LatestVersionUrl = "";             
-            }
-
-            public bool GetLatestVersion()
-            {
-                if (GetReleaseInformation(out var data))
-                {
-                    if (!ParseReleaseInformation(data))
-                    {
-                        Trace.TraceWarning("Failed to parse github release information.");
-                        return false;
-                    }
-                }
-                else
-                {
-                    Trace.TraceWarning("Failed to get github release information.");
-                    return false;
-                }
-                
-                return true;
-            }
-
-            private bool GetReleaseInformation(out string data)
-            {
-                data = "";
-                
-                bool result;
-                
-                using (var wclNewVersion = new ExtendedWebClient(15000))
-                {
-                    try
-                    {
-                        data = wclNewVersion.DownloadString(NexusLinks.LatestVersion);
-                        result = true;
-                    }
-                    catch (Exception e)
-                    {
-                        Console.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
-                        Console.Error.WriteLine(e.ToString());
-                        
-                        data = "";
-                        result = false;
-                    }
-                }
-
-                return result;
-            }
-
-            private bool ParseReleaseInformation(string data)
-            {
-                var result = false;
-                
-                try
-                {
-                    var ghrjc = JSONSerializer.Deserialize<GitHubReleaseJsonContract>(data);
-                    
-                    if (ghrjc != null)
-                    {
-                        if (!string.IsNullOrEmpty(ghrjc.tag_name))
-                        {
-                            LatestVersion = ghrjc.tag_name;
-                        }
-
-                        if (ghrjc.assets_info?[0] != null)
-                        {
-                            if (!string.IsNullOrEmpty(ghrjc.assets_info[0].browser_download_url))
-                            {
-                                LatestVersionUrl = ghrjc.assets_info[0].browser_download_url;
-                            }
-                        }
-                        
-                        result = !string.IsNullOrEmpty(LatestVersion) && !string.IsNullOrEmpty(LatestVersionUrl);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.Error.WriteLine("GithubReleaseParser::GetReleaseInformation:: error - {0}", e.Message);
-                    Console.Error.WriteLine(e.ToString());
-                    result = false;
-                }
-
-                return result;
-            }
-
-            public string LatestVersion { get; private set; }
-
-            public string LatestVersionUrl { get; private set; }
-        }    
-        
-        #endregion
-        
-        #region ExtendedWebClient
-        
-        private class ExtendedWebClient : WebClient
-        {
-            private int CustomTimeout { get; }
-
-            public ExtendedWebClient() : this(30000) { }
-
-            public ExtendedWebClient(int timeout)
-            {
-                CustomTimeout = timeout;
-                Headers["User-Agent"] = ApiCallManager.UserAgent;                
-                Headers["Accept"] = "application/json";
-            }
-
-            protected override WebRequest GetWebRequest(Uri uri)
-            {
-                var webRequest = base.GetWebRequest(uri);
-
-                if (webRequest == null)
-                {
-                    Trace.TraceError("ExtendedWebClient: Could not set custom timeout on WebRequest.");
-                }
-                else
-                {
-                    webRequest.Timeout = CustomTimeout;
-                }
-
-                return webRequest;
-            }
-        }
-
-        #endregion
-
-        protected const string ReleaseNotesUri = "https://staticdelivery.nexusmods.com/NMM/releasenotes.html";
         private readonly bool _isAutomaticCheck;
         private readonly UpdateManager _updateManager;
-
-        #region Properties
-
+        
         /// <summary>
         /// Gets the updater name.
         /// </summary>
         /// <value>The updater name.</value>
         public override string Name => $"{EnvironmentInfo.Settings.ModManagerName} Updater";
-
-        #endregion
-
-        #region Constructors
 
         /// <summary>
         /// A simple constructor that initializes the object with the given values.
@@ -329,8 +44,6 @@ namespace Nexus.Client.Updating
             _updateManager = updateManager;
         }
 
-        #endregion
-
         /// <summary>
         /// Performs the update.
         /// </summary>
@@ -340,10 +53,13 @@ namespace Nexus.Client.Updating
         {
             Trace.TraceInformation("Checking for new client version...");
             Trace.Indent();
+
             SetProgressMaximum(2);
             SetMessage($"Checking for new {EnvironmentInfo.Settings.ModManagerName} version...");
+            
             var currentVersion = new Version(CommonData.VersionString);
-            var newVersion = GetNewProgramVersion(out var downloadUri);
+            var (newVersion, downloadUrl) = GetReleaseInformation();
+
             SetProgress(1);
 
             if (CancelRequested)
@@ -352,7 +68,7 @@ namespace Nexus.Client.Updating
                 return CancelUpdate();
             }
 
-            if (newVersion == null)
+            if (newVersion == null || string.IsNullOrEmpty(downloadUrl))
             {
                 SetMessage("Could not get version information from the update server.");
                 return false;
@@ -361,11 +77,10 @@ namespace Nexus.Client.Updating
             var promptMessage = new StringBuilder();
             var dialogResult = DialogResult.No;
 
-            var releaseNotes = string.Empty;
-
-            if (newVersion > currentVersion && !string.IsNullOrEmpty(downloadUri))
+            if (newVersion > currentVersion)
             {
-                var checkDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(downloadUri));
+                string releaseNotes;
+                var checkDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(downloadUrl));
                 
                 promptMessage.AppendFormat("A new version of {0} is available ({1}).{2}Would you like to download and install it?", EnvironmentInfo.Settings.ModManagerName, newVersion, Environment.NewLine).AppendLine();
                 promptMessage.AppendLine();
@@ -376,35 +91,12 @@ namespace Nexus.Client.Updating
                 {
                     releaseNotes = ConstructChangeLog(currentVersion, newVersion);
                 }
-                 catch
-                {
-                    releaseNotes = "Unable to retrieve the Release Notes.";
-                }
-
-                try
-                {
-                    // The extended message box contains an ActiveX control which must be run in an STA thread,
-                    // we can't control what thread this gets called on, so create one if we need to.
-                    ThreadStart showMessage = () => dialogResult = ExtendedMessageBox.Show(null, promptMessage.ToString(), "New version available", releaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question);
-                    var apartmentState = ApartmentState.Unknown;
-                    Thread.CurrentThread.TrySetApartmentState(apartmentState);
-                    
-                    if (apartmentState == ApartmentState.STA)
-                    {
-                        showMessage();
-                    }
-                    else
-                    {
-                        var message = new Thread(showMessage);
-                        message.SetApartmentState(ApartmentState.STA);
-                        message.Start();
-                        message.Join();
-                    }
-
-                }
                 catch
                 {
+                    releaseNotes = "Unable to retrieve change log.";
                 }
+
+                DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, promptMessage.ToString(), "New version available", releaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question));
 
                 switch (dialogResult)
                 {
@@ -432,7 +124,7 @@ namespace Nexus.Client.Updating
 
                 try
                 {
-                    newInstaller = DownloadFile(new Uri(string.Format(downloadUri)));
+                    newInstaller = DownloadFile(new Uri(string.Format(downloadUrl)));
                 }
                 catch (FileNotFoundException)
                 {
@@ -444,30 +136,7 @@ namespace Nexus.Client.Updating
                     stbAVMessage.AppendFormat("You can download the update manually from:");
                     stbAVMessage.AppendLine(NexusLinks.Releases);
                     
-                    try
-                    {
-                        // The extended message box contains an ActiveX control which must be run in an STA thread,
-                        // we can't control what thread this gets called on, so create one if we need to.
-                        ThreadStart showMessage = () => dialogResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        var astState = ApartmentState.Unknown;
-                        Thread.CurrentThread.TrySetApartmentState(astState);
-                        
-                        if (astState == ApartmentState.STA)
-                        {
-                            showMessage();
-                        }
-                        else
-                        {
-                            var message = new Thread(showMessage);
-                            message.SetApartmentState(ApartmentState.STA);
-                            message.Start();
-                            message.Join();
-                        }
-
-                    }
-                    catch
-                    {
-                    }
+                    DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
                     Trace.Unindent();
                     return CancelUpdate();
@@ -502,28 +171,8 @@ namespace Nexus.Client.Updating
                         stbAVMessage.AppendLine("anti-virus exception list. You can also download the update manually from:");
                         stbAVMessage.AppendLine(NexusLinks.Releases);
 
-                        try
-                        {
-                            // The extended message box contains an ActiveX control which must be run in an STA thread,
-                            // we can't control what thread this gets called on, so create one if we need to.
-                            ThreadStart actShowMessage = () => dialogResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            var astState = ApartmentState.Unknown;
-                            Thread.CurrentThread.TrySetApartmentState(astState);
-                            if (astState == ApartmentState.STA)
-                                actShowMessage();
-                            else
-                            {
-                                var thdMessage = new Thread(actShowMessage);
-                                thdMessage.SetApartmentState(ApartmentState.STA);
-                                thdMessage.Start();
-                                thdMessage.Join();
-                            }
-
-                        }
-                        catch
-                        {
-                        }
-
+                        DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, stbAVMessage.ToString(), "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                        
                         Trace.Unindent();
                         return CancelUpdate();
                     }
@@ -532,6 +181,7 @@ namespace Nexus.Client.Updating
                     var psiInfo = new ProcessStartInfo(newInstaller);
                     Process.Start(psiInfo);
                     Trace.Unindent();
+
                     return true;
                 }
             }
@@ -543,30 +193,7 @@ namespace Nexus.Client.Updating
                 promptMessage.AppendLine("NOTE: You can find the release notes and past versions here:");
                 promptMessage.AppendLine(NexusLinks.Releases);
 
-                try
-                {
-                    // The extended message box contains an ActiveX control which must be run in an STA thread,
-                    // we can't control what thread this gets called on, so create one if we need to.
-                    ThreadStart showMessage = () => dialogResult = ExtendedMessageBox.Show(null, promptMessage.ToString(), "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    var astState = ApartmentState.Unknown;
-                    Thread.CurrentThread.TrySetApartmentState(astState);
-                    
-                    if (astState == ApartmentState.STA)
-                    {
-                        showMessage();
-                    }
-                    else
-                    {
-                        var thdMessage = new Thread(showMessage);
-                        thdMessage.SetApartmentState(ApartmentState.STA);
-                        thdMessage.Start();
-                        thdMessage.Join();
-                    }
-
-                }
-                catch
-                {
-                }
+                DisplayDialog(() => ExtendedMessageBox.Show(null, promptMessage.ToString(), "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information));
             }
 
             SetMessage($"{EnvironmentInfo.Settings.ModManagerName} is already up to date.");
@@ -574,6 +201,31 @@ namespace Nexus.Client.Updating
             Trace.Unindent();
 
             return true;
+        }
+
+        private static void DisplayDialog(ThreadStart showMessage)
+        {
+            try
+            {
+                // The extended message box contains an ActiveX control which must be run in an STA thread,
+                // we can't control what thread this gets called on, so create one if we need to.
+
+                var apartmentState = ApartmentState.Unknown;
+                Thread.CurrentThread.TrySetApartmentState(apartmentState);
+                
+                if (apartmentState == ApartmentState.STA)
+                {
+                    showMessage();
+                }
+                else
+                {
+                    var messageThread = new Thread(showMessage);
+                    messageThread.SetApartmentState(ApartmentState.STA);
+                    messageThread.Start();
+                    messageThread.Join();
+                }
+            }
+            catch {}
         }
 
         /// <summary>
@@ -600,16 +252,20 @@ namespace Nexus.Client.Updating
         /// <returns></returns>
         private static string ConstructChangeLog(Version currentVersion, Version newVersion)
         {
-            var newerVersions = new List<GitHubReleaseJsonContract>();
+            var newerVersions = new List<JToken>();
 
-            using (var wc = new ExtendedWebClient(15000))
+            using (var wc = new WebClient())
             {
+                wc.Headers["User-Agent"] = ApiCallManager.UserAgent;
+                wc.Headers["Accept"] = "application/json";
+
                 try
                 {
                     var releasesRawData = wc.DownloadString(NexusLinks.ReleasesJson);
-                    var releases = JSONSerializer.Deserialize<List<GitHubReleaseJsonContract>>(releasesRawData);
+                    var releases = JArray.Parse(releasesRawData);
 
-                    newerVersions.AddRange(from release in releases let version = new Version(release.tag_name) where version > currentVersion select release);
+                    // Select releases that have a version above the current one.
+                    newerVersions.AddRange(from release in releases let version = new Version(release["tag_name"].Value<string>()) where version > currentVersion select release);
                 }
                 catch (Exception ex)
                 {
@@ -619,11 +275,13 @@ namespace Nexus.Client.Updating
                 }
             }
 
-            var changeLog = new StringBuilder($"<html><body><h1>Changes included in update to {newVersion}:</h1>");
+            // Construct changelog from filtered releases.
+
+            var changeLog = new StringBuilder($"<html><body><h1>Changes between {currentVersion} and {newVersion}:</h1>");
 
             foreach (var version in newerVersions)
             {
-                var body = version.body;
+                var body = version["body"].Value<string>();
 
                 try
                 {
@@ -655,36 +313,39 @@ namespace Nexus.Client.Updating
         }
 
         /// <summary>
-        /// Gets the newest available program version.
+        /// Get release information.
         /// </summary>
-        /// <returns>The newest available program version,
-        /// or null if no information could be retrieved.</returns>
-        private static Version GetNewProgramVersion(out string downloadUri)
+        /// <returns>Version of latest release, and download URL for it.</returns>
+        private static (Version LatestVersion, string DownloadUrl) GetReleaseInformation()
         {
-            Version newVersion = null;
-            downloadUri = string.Empty;
-            
-            try
-            {
-                var release = new GithubReleaseParser();
+            Version latestVersion = null;
+            string downloadUrl = null;
 
-                if (release.GetLatestVersion())
+            using (var wc = new WebClient())
+            {
+                wc.Headers["User-Agent"] = ApiCallManager.UserAgent;
+                wc.Headers["Accept"] = "application/json";
+
+                try
                 {
-                    newVersion = new Version(release.LatestVersion);
-                    downloadUri = release.LatestVersionUrl;
-                    Console.Error.WriteLine("latest version = {0}", newVersion.ToString());
-                    Console.Error.WriteLine("latest version url = {0}", downloadUri);
+                    var data = wc.DownloadString(NexusLinks.LatestVersion);
+
+                    var latestReleaseInfo = JToken.Parse(data);
+
+                    if (latestReleaseInfo != null)
+                    {
+                        latestVersion = new Version(latestReleaseInfo["tag_name"].Value<string>());
+                        downloadUrl = latestReleaseInfo["assets"][0]["browser_download_url"].Value<string>();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceError("Failed to retrieve latest release version info.");
+                    TraceUtil.TraceException(ex);
                 }
             }
-            catch (Exception e)
-            {
 
-                Console.Error.WriteLine("ProgramUpdater::GetNewProgramVersion:: error - {0}", e.Message);
-                Console.Error.WriteLine(e.ToString());
-                
-            }
-
-            return newVersion;
+            return (latestVersion, downloadUrl);
         }
     }
 }
