@@ -7,6 +7,7 @@ namespace Nexus.Client.Updating
     using System.Linq;
     using System.Net;
     using System.Text;
+    using System.Text.RegularExpressions;
     using System.Threading;
     using System.Windows.Forms;
 
@@ -65,8 +66,8 @@ namespace Nexus.Client.Updating
         /// <summary>
         /// A simple constructor that initializes the object with the given values.
         /// </summary>
-        /// <param name="updateManager"></param>
-        /// <param name="environmentInfo">The application's environment info.</param>
+        /// <param name="updateManager">The Update Manager.</param>
+        /// <param name="environmentInfo">The applications environment info.</param>
         /// <param name="isAutomaticCheck">Whether the check is automatic or user requested.</param>
         public ProgramUpdater(UpdateManager updateManager, IEnvironmentInfo environmentInfo, bool isAutomaticCheck)
                     : base(environmentInfo)
@@ -294,32 +295,37 @@ namespace Nexus.Client.Updating
 
             foreach (var version in newerVersions)
             {
-                var body = version["body"].Value<string>();
+                var body = version["body"].Value<string>().Replace("\r\n", Environment.NewLine);
 
-                try
-                {
-                    body = body.Substring(body.IndexOf("###"));
-                }
-                catch {}
+                var paragraph = new StringBuilder($"<h2>{version["tag_name"].Value<string>()}</h2>");
+                
+                var newFeaturesRaw = Regex.Match(body, @"\*\*[nN]ew [fF]eatures\*\*(.+)\*\*[bB]", RegexOptions.Singleline).Groups[1].Value;
+                var newFeatures = newFeaturesRaw.TrimEnd(' ', '-').Trim(' ', '\r', '\n').Split('\n');
 
-                if (body.StartsWith("###"))
+                paragraph.AppendLine("<h3>New Features</h3><ul>");
+
+                foreach (var feature in newFeatures)
                 {
-                    body = body.Substring(4);
-                    body = body.Insert(0, "<h2>");
-                    
-                    body = body.Insert(body.IndexOf('\r'), "</h2>");
+                    paragraph.AppendLine($"<li>{feature.Trim().TrimStart(' ', '-')}</li>");
                 }
 
-                body = body.Replace("\r\n", "");
-                body = body.Replace("- **Bugfixes**", "<h3>Bugfixes</h3>");
-                body = body.Replace("- **New features**", "<h3>New features</h3>");
+                var bugFixesRaw = Regex.Match(body, @"\*\*[bB]ugfixes\*\*(.+)", RegexOptions.Singleline).Groups[1].Value;
+                var bugFixes = bugFixesRaw.Trim(' ', '\r', '\n').Split('\n');
 
-                // TODO: Make the list of items prettier, this is adding extra line breaks after the H3 elements.
-                body = body.Replace("- ", "<br />* ");
+                paragraph.AppendLine("</ul><h3>Bug fixes</h3><ul>");
 
-                changeLog.AppendLine($"<p>{body.Trim()}</p>");
+                foreach (var bugFix in bugFixes)
+                {
+                    paragraph.AppendLine($"<li>{bugFix.Trim().TrimStart(' ', '-')}</li>");
+                }
+
+                paragraph.AppendLine("</ul>");
+
+                changeLog.AppendLine($"<p>{paragraph}</p>");
+                changeLog.AppendLine("<hr />");
             }
 
+            changeLog.Remove(changeLog.Length - 6, 6); // Remove the last <hr />
             changeLog.AppendLine("</body></html>");
 
             return changeLog.ToString();
