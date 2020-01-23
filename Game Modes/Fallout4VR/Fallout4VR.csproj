@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>Nexus.Client.Games.Fallout4VR</RootNamespace>
     <AssemblyName>Fallout4VR</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFrameworkProfile />

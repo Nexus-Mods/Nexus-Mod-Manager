@@ -92,7 +92,10 @@ namespace Nexus.Client.Updating
             SetMessage($"Checking for new {CommonData.ModManagerName} version...");
             
             var currentVersion = new Version(CommonData.VersionString);
-            var (newVersion, downloadUrl) = GetReleaseInformation();
+            var releaseInformation = GetReleaseInformation();
+
+            var newVersion = releaseInformation.Item1;
+            var downloadUrl = releaseInformation.Item2;
 
             SetProgress(1);
 
@@ -326,11 +329,11 @@ namespace Nexus.Client.Updating
         /// Get release information.
         /// </summary>
         /// <returns>Version of latest release, and download URL for it.</returns>
-        private (Version LatestVersion, string DownloadUrl) GetReleaseInformation()
+        private Tuple<Version, string> GetReleaseInformation()
         {
             if (Releases == null)
             {
-                return (null, null);
+                return new Tuple<Version, string>(null, null);
             }
 
             Version latestVersion = null;
@@ -344,7 +347,7 @@ namespace Nexus.Client.Updating
                 downloadUrl = latestReleaseInfo["assets"][0]["browser_download_url"].Value<string>();
             }
 
-            return (latestVersion, downloadUrl);
+            return new Tuple<Version, string>(latestVersion, downloadUrl);
         }
     }
 }

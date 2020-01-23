@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client</RootNamespace>
     <AssemblyName>NexusClient</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ApplicationIcon>Resources\tes_logo.ico</ApplicationIcon>
     <TargetZone>Internet</TargetZone>
@@ -710,8 +710,8 @@
     <Reference Include="Accessibility">
       <Private>False</Private>
     </Reference>
-    <Reference Include="FluentNexus, Version=0.8.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Pathoschild.FluentNexus.0.8.0\lib\net471\FluentNexus.dll</HintPath>
+    <Reference Include="FluentNexus, Version=0.7.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Pathoschild.FluentNexus.0.7.1\lib\net45\FluentNexus.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -727,8 +727,8 @@
       <HintPath>..\lib\ObjectListView.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Pathoschild.Http.Client, Version=3.3.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Pathoschild.Http.FluentClient.3.3.1\lib\net45\Pathoschild.Http.Client.dll</HintPath>
+    <Reference Include="Pathoschild.Http.Client, Version=3.3.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Pathoschild.Http.FluentClient.3.3.0\lib\net45\Pathoschild.Http.Client.dll</HintPath>
     </Reference>
     <Reference Include="SevenZipSharp, Version=1.2.242.0, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.2.242\lib\net45\SevenZipSharp.dll</HintPath>
