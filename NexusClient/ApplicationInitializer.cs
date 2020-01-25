@@ -286,7 +286,7 @@
 										"<li>Run <b>{1}</b> as administrator. You can try this by right-clicking on <b>{1}</b> shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
 										"</ol>" +
 										"The best thing to do in order to avoid other problems, and the generally recommended solution, is to install <b>{0}</b> outside of the <b>Program Files</b> folder.",
-										p_gmfGameModeFactory.GameModeDescriptor.Name, EnvironmentInfo.Settings.ModManagerName);
+										p_gmfGameModeFactory.GameModeDescriptor.Name, CommonData.ModManagerName);
 					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
 
                     return false;
@@ -678,7 +678,7 @@
 						var strHDMessage = "Unable to access:" + Environment.NewLine + kvpUacCheckPath.Key;
 						var strHDDetails = string.Format("This error usually happens when you set one of the {0} folders on a hard drive that is no longer in your system:" +
 											 Environment.NewLine + Environment.NewLine + "Select this game mode again to go back to the folder setup screen and make sure the {1} path is correct.",
-											EnvironmentInfo.Settings.ModManagerName, kvpUacCheckPath.Value);
+                            CommonData.ModManagerName, kvpUacCheckPath.Value);
 						p_vwmErrorMessage = new ViewMessage(strHDMessage, strHDDetails, "Warning", MessageBoxIcon.Warning);
 						EnvironmentInfo.Settings.CompletedSetup[p_gmdGameMode.ModeId] = false;
 						EnvironmentInfo.Settings.Save();
@@ -693,7 +693,7 @@
 										"<li>Run <b>{0}</b> as administrator. You can try this by right-clicking on <b>{0}</b>'s shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
 										"</ol>" +
 										"The best thing to do in order to avoid other problems, and the generally recommended solution, is to Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder.",
-										EnvironmentInfo.Settings.ModManagerName, kvpUacCheckPath.Value);
+                        CommonData.ModManagerName, kvpUacCheckPath.Value);
 					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
 					return false;
 				}
@@ -849,7 +849,7 @@
 			{
 				if (!iluUgrader.CanUpgrade(strLogPath))
 				{
-					p_vwmErrorMessage = new ViewMessage(string.Format("{0} does not support version {1} of the Install Log.", EnvironmentInfo.Settings.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, "Install Log", MessageBoxIcon.Error);
+					p_vwmErrorMessage = new ViewMessage(string.Format("{0} does not support version {1} of the Install Log.", CommonData.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, "Install Log", MessageBoxIcon.Error);
 					return null;
 				}
 				var tskUpgrader = iluUgrader.UpgradeInstallLog(strLogPath, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, mrgModRegistry);
@@ -1111,7 +1111,7 @@
 										"However, a different version has been detected. The installed, missing, version is {1}; the new version is {2}." + Environment.NewLine +
 										"You can either upgrade the mod or uninstall it. If you Cancel, {3} will close and you will " +
 										"have to put the Mod ({4}) back in the mods folder." + Environment.NewLine +
-										"Would you like to upgrade the mod?", modMissing.ModName, modMissing.HumanReadableVersion, modNewVersion.HumanReadableVersion, p_eifEnvironmentInfo.Settings.ModManagerName, modMissing.Filename);
+										"Would you like to upgrade the mod?", modMissing.ModName, modMissing.HumanReadableVersion, modNewVersion.HumanReadableVersion, CommonData.ModManagerName, modMissing.Filename);
 
 						switch ((DialogResult)ShowMessage(new ViewMessage(strUpgradeMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No | ExtendedMessageBoxButtons.Cancel, MessageBoxIcon.Warning)))
 						{
@@ -1137,7 +1137,7 @@
 										"This could be caused by setting the wrong 'Mods' folder or an old config file being used." + Environment.NewLine + Environment.NewLine +
 										"If you haven't deleted or moved any of your mods on your hard-drive and they're still on your hard-drive somewhere then select YES and input the proper location of your Mods folder." + Environment.NewLine + Environment.NewLine +
 										"If you select NO {1} will automatically uninstall the missing mod's files." + Environment.NewLine + Environment.NewLine +
-										"NOTE: The mods folder is where NMM stores your mod archives, it is not the same location as your game's mod folder.", modMissing.Filename, p_eifEnvironmentInfo.Settings.ModManagerName);
+										"NOTE: The mods folder is where NMM stores your mod archives, it is not the same location as your game's mod folder.", modMissing.Filename, CommonData.ModManagerName);
 					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Warning)) == DialogResult.No)
 					{
 						Trace.TraceInformation("Removing.");

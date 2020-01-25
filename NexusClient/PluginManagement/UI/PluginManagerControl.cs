@@ -879,7 +879,7 @@ namespace Nexus.Client.PluginManagement.UI
 				message += ":" + Environment.NewLine + Environment.NewLine + e.Filename;
 
 			string details = string.Format("{0} {1} successfully exported.", e.ExportedPluginCount, (e.ExportedPluginCount == 1) ? "plugin was" : "plugins were");
-			ExtendedMessageBox.Show(this, message, ViewModel.Settings.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
+			ExtendedMessageBox.Show(this, message, CommonData.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		#endregion
@@ -1007,7 +1007,7 @@ namespace Nexus.Client.PluginManagement.UI
 
 			FormatPluginCountsReport(e, ref sbMessage, out strDetails);
 
-			ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.Settings.ModManagerName, strDetails, ExtendedMessageBoxButtons.OK, MessageBoxIcon.Warning);
+			ExtendedMessageBox.Show(this, sbMessage.ToString(), CommonData.ModManagerName, strDetails, ExtendedMessageBoxButtons.OK, MessageBoxIcon.Warning);
 		}
 
 		/// <summary>
@@ -1033,7 +1033,7 @@ namespace Nexus.Client.PluginManagement.UI
 
 			FormatPluginCountsReport(e, ref sbMessage, out strDetails);
 
-			ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.Settings.ModManagerName, strDetails, ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
+			ExtendedMessageBox.Show(this, sbMessage.ToString(), CommonData.ModManagerName, strDetails, ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		#endregion

@@ -2137,7 +2137,7 @@
                 }
 
                 var strIncomplete = sbIncomplete.ToString();
-				var drIncomplete = ExtendedMessageBox.Show(this, "Some mods required by this profile were not completely downloaded or the download was paused, Nexus Mod Manager will now try to resume their download.", ViewModel.ModManagerVM.Settings.ModManagerName, strIncomplete, MessageBoxButtons.OK, MessageBoxIcon.Information);
+				var drIncomplete = ExtendedMessageBox.Show(this, "Some mods required by this profile were not completely downloaded or the download was paused, Nexus Mod Manager will now try to resume their download.", CommonData.ModManagerName, strIncomplete, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 if (drIncomplete == DialogResult.OK)
 				{
@@ -2165,7 +2165,7 @@
 
 			var details = sbDetails.ToString();
 
-			var drResult = ExtendedMessageBox.Show(this, sbMessage.ToString(), ViewModel.ModManagerVM.Settings.ModManagerName, details, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+			var drResult = ExtendedMessageBox.Show(this, sbMessage.ToString(), CommonData.ModManagerName, details, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
 
             if (drResult == DialogResult.Yes)
 			{
@@ -2980,7 +2980,7 @@
 		/// <c>false</c> otherwise.</returns>
 		private bool ConfirmCloseAfterGameLaunch(out bool rememberSelection)
 		{
-            var close = ExtendedMessageBox.Show(this, $"Would you like {ViewModel.EnvironmentInfo.Settings.ModManagerName} to close after launching the game?", "Close", "Details", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out var remember) == DialogResult.Yes;
+            var close = ExtendedMessageBox.Show(this, $"Would you like {CommonData.ModManagerName} to close after launching the game?", "Close", "Details", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out var remember) == DialogResult.Yes;
 			rememberSelection = remember;
 
             return close;

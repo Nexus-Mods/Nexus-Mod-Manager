@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Reflection;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using System.Text;
+using Nexus.Client.Util;
 
 namespace Nexus.Client
 {
@@ -103,7 +102,7 @@ namespace Nexus.Client
 					stbError.AppendFormat("Unrecognized Game Mode: {0}", strSelectedGame);
 				else
 				{
-					stbError.AppendFormat("{0} is not set up to work with {1}", EnvironmentInfo.Settings.ModManagerName, SupportedGameModes.GetGameMode(strSelectedGame).GameModeDescriptor.Name).AppendLine();
+					stbError.AppendFormat("{0} is not set up to work with {1}", CommonData.ModManagerName, SupportedGameModes.GetGameMode(strSelectedGame).GameModeDescriptor.Name).AppendLine();
 					stbError.AppendFormat("If {0} is installed, rescan for installed games from the Change Game toolbar item.", SupportedGameModes.GetGameMode(strSelectedGame).GameModeDescriptor.Name).AppendLine();
 				}
 				Trace.TraceError(stbError.ToString());

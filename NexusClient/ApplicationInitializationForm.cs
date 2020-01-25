@@ -63,7 +63,7 @@
 				m_vmlViewModel.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
 
 				lblVersion.Text = Application.ProductVersion;
-				Text = m_vmlViewModel.EnvironmentInfo.Settings.ModManagerName;
+				Text = CommonData.ModManagerName;
 			}
 		}
 
@@ -410,7 +410,7 @@
 				p_booRememberSelection = booRemember;
 				return booResult;
 			}
-			return (ExtendedMessageBox.Show(this, String.Format("'{0}' is read-only, so it can't be managed by {1}. Would you like to make it not read-only?", p_strFileSystemItemPath, p_eifEnvironmentInfo.Settings.ModManagerName), "Read Only", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out p_booRememberSelection) == DialogResult.Yes);
+			return (ExtendedMessageBox.Show(this, String.Format("'{0}' is read-only, so it can't be managed by {1}. Would you like to make it not read-only?", p_strFileSystemItemPath, CommonData.ModManagerName), "Read Only", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out p_booRememberSelection) == DialogResult.Yes);
 		}
 
 		/// <summary>

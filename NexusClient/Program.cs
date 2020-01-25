@@ -316,13 +316,13 @@
 				htlListener.SaveToFile();
 
 			StringBuilder stbPromptMessage = new StringBuilder();
-			stbPromptMessage.AppendFormat("{0} has encountered an error and needs to close.", EnvironmentInfo.Settings.ModManagerName).AppendLine();
+			stbPromptMessage.AppendFormat("{0} has encountered an error and needs to close.", CommonData.ModManagerName).AppendLine();
 			stbPromptMessage.AppendLine("A Trace Log file was created at:");
 			stbPromptMessage.AppendLine(htlListener.FilePath);
 			stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-			stbPromptMessage.AppendLine(NexusLinks.FAQs);
+			stbPromptMessage.AppendLine(Links.FAQs);
 			stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-			stbPromptMessage.AppendLine(NexusLinks.Issues);
+			stbPromptMessage.AppendLine(Links.Instance.Issues);
 			stbPromptMessage.AppendLine(Environment.NewLine + "Do you want to open the TraceLog folder?");
 			try
 			{

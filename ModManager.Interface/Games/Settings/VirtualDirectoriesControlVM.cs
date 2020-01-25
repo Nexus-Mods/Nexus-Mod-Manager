@@ -358,7 +358,7 @@ namespace Nexus.Client.Games.Settings
 						EnvironmentInfo.Settings.HDLinkFolder.TryGetValue(GameModeDescriptor.ModeId, out strDirectory);
 					if (String.IsNullOrEmpty(strDirectory) || !CheckOnGameHD(strDirectory))
 					{
-						strDirectory = Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath), "Games"), EnvironmentInfo.Settings.ModManagerName), GameModeDescriptor.ModeId);
+						strDirectory = Path.Combine(Path.Combine(Path.Combine(Path.GetPathRoot(GameModeDescriptor.InstallationPath), "Games"), CommonData.ModManagerName), GameModeDescriptor.ModeId);
 					}
 					LinkDirectory = strDirectory;
 				}

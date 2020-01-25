@@ -125,6 +125,18 @@
     <Setting Name="OverrideLocalModNames" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="SkyrimSEFirstInstallWarning" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="ApiKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="AssociateWithUrl" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="AddShellExtensions" Type="Nexus.Client.Settings.KeyedSettings`1[System.Boolean]" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
     <Setting Name="HelpLinks" Type="Nexus.Client.Settings.KeyedSettings`1[System.String]" Scope="Application">
       <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
 &lt;KeyedSettingsOfString&gt;
@@ -233,9 +245,6 @@
     <Setting Name="MultiHDInstall" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
       <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
 &lt;PerGameModeSettingsOfBoolean /&gt;</Value>
-    </Setting>
-    <Setting Name="SkyrimSEFirstInstallWarning" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>
 </SettingsFile>

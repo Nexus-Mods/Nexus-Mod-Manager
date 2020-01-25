@@ -7,6 +7,7 @@ using System.Runtime.Remoting.Channels.Ipc;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
+using Nexus.Client.Util;
 
 namespace Nexus.Client
 {
@@ -35,7 +36,7 @@ namespace Nexus.Client
 			if (m_schMessagerChannel != null)
 				throw new InvalidOperationException("The IPC Channel has already been created as a SERVER.");
 
-			string strUri = String.Format("{0}-{1}IpcServer", p_eifEnvironmentInfo.Settings.ModManagerName, p_gmdGameModeInfo.ModeId);
+			string strUri = String.Format("{0}-{1}IpcServer", CommonData.ModManagerName, p_gmdGameModeInfo.ModeId);
 			m_schMessagerChannel = new IpcServerChannel(strUri);
 			ChannelServices.RegisterChannel(m_schMessagerChannel, true);
 			MessagerServer msgMessager = new MessagerServer(p_mmgModManager, p_frmMainForm);

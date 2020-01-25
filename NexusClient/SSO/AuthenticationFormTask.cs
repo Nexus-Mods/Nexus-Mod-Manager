@@ -2,11 +2,13 @@
 {
     using System;
     using System.Windows.Forms;
-    using BackgroundTasks;
-    using ModManagement;
-    using ModRepositories;
+    
+    using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.ModManagement;
+    using Nexus.Client.ModRepositories;
+    using Nexus.Client.Util;
 
-    public class AuthenticationFormTask : ThreadedBackgroundTask
+	public class AuthenticationFormTask : ThreadedBackgroundTask
 	{
 		#region Properties
 
@@ -109,7 +111,7 @@
 		protected bool LoginUser()
 		{
 			var strMessage = $"You must log into the {ModManager.ModRepository.Name} website.";
-			var strCancelWarning = $"If you do not login {ModManager.EnvironmentInfo.Settings.ModManagerName} will close.";
+			var strCancelWarning = $"If you do not login {CommonData.ModManagerName} will close.";
 			_error = _credentialsExpired ? "You need to authorize NMM to access your Nexus Mods profile." : _error;
 
 			AuthenticationFormViewModel = new AuthenticationFormViewModel(ModManager.EnvironmentInfo, ModManager.ModRepository, ModManager.GameMode.ModeTheme, strMessage, _error, strCancelWarning);

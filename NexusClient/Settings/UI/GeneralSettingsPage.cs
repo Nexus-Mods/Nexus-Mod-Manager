@@ -58,7 +58,7 @@
 			BindingHelper.CreateFullBinding(tbxTraceLogDirectory, () => tbxTraceLogDirectory.Text, settings, () => settings.TraceLogPath);
 			BindingHelper.CreateFullBinding(tbxTempPathDirectory, () => tbxTempPathDirectory.Text, settings, () => settings.TempPath);
             
-			ckbCloseManagerAfterGameLaunch.Text = string.Format(ckbCloseManagerAfterGameLaunch.Text, settings.EnvironmentInfo.Settings.ModManagerName);
+			ckbCloseManagerAfterGameLaunch.Text = string.Format(ckbCloseManagerAfterGameLaunch.Text, CommonData.ModManagerName);
 		}
 
 		#endregion

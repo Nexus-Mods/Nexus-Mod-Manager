@@ -194,7 +194,7 @@
     <Compile Include="ModRepositories\ModFileInfo.cs" />
     <Compile Include="ModRepositories\ApiCallManager.cs" />
     <Compile Include="ModRepositories\NexusModsApiRepository.cs" />
-    <Compile Include="ModRepositories\NexusLinks.cs" />
+    <Compile Include="ModRepositories\Links.cs" />
     <Compile Include="Mods\NexusMod.cs" />
     <Compile Include="Mods\NexusModCacheManager.cs" />
     <Compile Include="PluginManagement\AutoPluginSortingTask.cs" />
@@ -683,7 +683,7 @@
     </Compile>
     <Compile Include="UI\Controls\SelectedItemEventArgs.cs" />
     <Compile Include="UI\NexusFontSetResolver.cs" />
-    <Compile Include="Updating\ProgrammeUpdater.cs" />
+    <Compile Include="Updating\ProgramUpdater.cs" />
     <Compile Include="Updating\UpdateManager.cs" />
     <Compile Include="Updating\UpdateTask.cs" />
     <Compile Include="Util\UacUtil.cs" />
