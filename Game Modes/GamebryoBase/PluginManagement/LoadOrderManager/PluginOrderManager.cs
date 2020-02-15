@@ -34,7 +34,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		#region Events
 
 		public event EventHandler LoadOrderUpdate;
-		public event EventHandler ActivePluginUpdate;
+		public event EventHandler<PluginManagementEventArgs> ActivePluginUpdate;
 		public event EventHandler ExternalPluginAdded;
 		public event EventHandler ExternalPluginRemoved;
 
@@ -418,7 +418,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			{
 				FileWatcher.Path = p_strGameModeLocal;
 				FileWatcher.IncludeSubdirectories = false;
-				FileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
+				FileWatcher.NotifyFilter = NotifyFilters.LastWrite;// | NotifyFilters.Size;
 				FileWatcher.Filter = "*.txt";
 				FileWatcher.Changed += new FileSystemEventHandler(FileWatcherOnChangedTxt);
 				FileWatcher.EnableRaisingEvents = true;
@@ -470,36 +470,42 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			if ((source == null) || (e == null))
 				return;
 
-			string strFile = e.Name ?? string.Empty;
-			string strPath = e.FullPath ?? string.Empty;
-
-			if (IsExternalInput && !string.IsNullOrWhiteSpace(strFile))
+			try
 			{
-				int intRepeat = 0;
-				bool? booReady = false;
+				(source as FileSystemWatcher).EnableRaisingEvents = false;
+				string strFile = e.Name ?? string.Empty;
+				string strPath = e.FullPath ?? string.Empty;
 
-				while (booReady == false)
+				if (IsExternalInput && !string.IsNullOrWhiteSpace(strFile))
 				{
-					Thread.Sleep(100);
-					if (intRepeat++ >= 20)
-						break;
-					booReady = IsFileReady(strFile, ForcedReadOnly);
-				}
+					int intRepeat = 0;
+					bool? booReady = false;
 
-				if (!CheckSameFileHash(strFile, strPath))
-				{
-					if (strFile.Equals("plugins.txt", StringComparison.InvariantCultureIgnoreCase))
+					while (booReady == false)
 					{
-						if (ActivePluginUpdate != null)
-							ActivePluginUpdate(GetActivePlugins(), new EventArgs());
+						Thread.Sleep(100);
+						if (intRepeat++ >= 20)
+							break;
+						booReady = IsFileReady(strFile, ForcedReadOnly);
 					}
-					else if (strFile.Equals("loadorder.txt", StringComparison.InvariantCultureIgnoreCase))
+
+					if (!CheckSameFileHash(strFile, strPath))
 					{
-						if (!TimestampOrder && !SingleFileManagement)
-							if (LoadOrderUpdate != null)
-								LoadOrderUpdate(GetLoadOrder(), new EventArgs());
+						if (strFile.Equals("plugins.txt", StringComparison.InvariantCultureIgnoreCase))
+						{
+								ActivePluginUpdate?.Invoke(this, new PluginManagementEventArgs(GetActivePlugins(), SingleFileManagement));
+						}
+						else if (strFile.Equals("loadorder.txt", StringComparison.InvariantCultureIgnoreCase))
+						{
+							if (!TimestampOrder && !SingleFileManagement)
+									LoadOrderUpdate?.Invoke(GetLoadOrder(), new EventArgs());
+						}
 					}
 				}
+			}
+			finally
+			{
+				(source as FileSystemWatcher).EnableRaisingEvents = true;
 			}
 		}
 
@@ -980,14 +986,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private string[] GetSortedListLoadOrder()
 		{
 			int intRepeat = 0;
-			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
+			bool? booReady = IsFileReady(LoadOrderFilePath, ForcedReadOnly, true);
 
 			while (booReady == false)
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
 					break;
-				booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
+				booReady = IsFileReady(LoadOrderFilePath, ForcedReadOnly, true);
 			}
 
 			if (booReady != false)
@@ -1549,7 +1555,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			while ((ExternalTask != null) && (ExternalTask.Status != TaskStatus.Running))
 			{
-				Thread.Sleep(500);
+				System.Threading.Tasks.Task.Delay(500).Wait();
 				if (intRepeat++ > 20)
 				{
 					booLocked = true;

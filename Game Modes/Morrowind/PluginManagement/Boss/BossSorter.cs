@@ -23,7 +23,7 @@ namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 		#region Events (Not Implemented)
 
 		public event EventHandler LoadOrderUpdate;
-		public event EventHandler ActivePluginUpdate;
+		public event EventHandler<PluginManagementEventArgs> ActivePluginUpdate;
 		public event EventHandler ExternalPluginAdded;
 		public event EventHandler ExternalPluginRemoved;
 

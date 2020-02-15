@@ -275,7 +275,7 @@ namespace Nexus.Client.PluginManagement.UI
 			ModActivationMonitor = p_mamMonitor;
 			VirtualModActivator = p_ivaVirtualModActivator;
 
-			CurrentGameMode.LoadOrderManager.ActivePluginUpdate += new EventHandler(LoadOrderManager_ActivePluginUpdate);
+			CurrentGameMode.LoadOrderManager.ActivePluginUpdate += new EventHandler<PluginManagementEventArgs>(LoadOrderManager_ActivePluginUpdate);
 			CurrentGameMode.LoadOrderManager.LoadOrderUpdate += new EventHandler(LoadOrderManager_LoadOrderUpdate);
 			CurrentGameMode.LoadOrderManager.ExternalPluginAdded += new EventHandler(LoadOrderManager_ExternalPluginAdded);
 			CurrentGameMode.LoadOrderManager.ExternalPluginRemoved += new EventHandler(LoadOrderManager_ExternalPluginRemoved);
@@ -298,7 +298,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <summary>
 		/// Handles changes to the plugin activation state made by external programs (or manually)
 		/// </summary>
-		private void LoadOrderManager_ActivePluginUpdate(object sender, EventArgs e)
+		private void LoadOrderManager_ActivePluginUpdate(object sender, PluginManagementEventArgs e)
 		{
 			if (ModActivationMonitor.IsInstalling)
 				return;
@@ -312,7 +312,7 @@ namespace Nexus.Client.PluginManagement.UI
 			{
 				try
 				{
-					lstNewActiveList = ((string[])sender).ToList();
+					lstNewActiveList = (e.Plugins).ToList();
 				}
 				catch
 				{
@@ -347,6 +347,9 @@ namespace Nexus.Client.PluginManagement.UI
 					if (PluginManager.IsPluginRegistered(plugin))
 						PluginManager.DeactivatePlugin(plugin);
 				}
+
+				if (e.ForceSorting)
+					RefreshPluginSorting(e.Plugins);
 			}
 		}
 
@@ -865,7 +868,7 @@ namespace Nexus.Client.PluginManagement.UI
 			{
 				string strPluginPath = Path.Combine(strPluginDirectory, filename);
 				Plugin plgPlugin = PluginManager.GetRegisteredPlugin(strPluginPath);
-				if (plgPlugin != null)
+				if (plgPlugin != null && !p_kvpOrderedPlugins.ContainsKey(plgPlugin))
 					p_kvpOrderedPlugins.Add(plgPlugin, "0");
 			}
 		}

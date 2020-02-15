@@ -15,7 +15,7 @@ namespace Nexus.Client.PluginManagement
 		#region Events
 
 		event EventHandler LoadOrderUpdate;
-		event EventHandler ActivePluginUpdate;
+		event EventHandler<PluginManagementEventArgs> ActivePluginUpdate;
 		event EventHandler ExternalPluginAdded;
 		event EventHandler ExternalPluginRemoved;
 
@@ -158,5 +158,17 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		/// <param name="p_tskTask">The task to monitor.</param>
 		void MonitorExternalTask(IBackgroundTask p_tskTask);
+	}
+
+	public class PluginManagementEventArgs : EventArgs
+	{
+		public string[] Plugins { get; }
+		public bool ForceSorting { get; }
+
+		public PluginManagementEventArgs(string[] plugins, bool forceSorting)
+		{
+			Plugins = plugins;
+			ForceSorting = forceSorting;
+		}
 	}
 }
