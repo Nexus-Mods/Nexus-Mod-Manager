@@ -1,15 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Games.Gamebryo.Tools.AI;
-using Nexus.Client.Util;
-using Nexus.Client.Games.Tools;
-using Nexus.Client.Commands;
-using Nexus.Client.Games.Gamebryo;
-
-namespace Nexus.Client.Games.SkyrimSE.Tools.AI
+﻿namespace Nexus.Client.Games.SkyrimSE.Tools.AI
 {
-	/// <summary>
+    using System;
+	using System.Diagnostics;
+	using System.IO;
+	using System.Windows.Forms;
+
+	using Nexus.Client.Util;
+    using Nexus.Client.Games.Tools;
+    using Nexus.Client.Commands;
+	
+    /// <summary>
 	/// Controls ArchiveInvalidation.
 	/// </summary>
 	public class ArchiveInvalidation : ITool
@@ -92,9 +92,28 @@ namespace Nexus.Client.Games.SkyrimSE.Tools.AI
         {
             if (ConfirmAiReset())
             {
-                string strPluginsPath = GameMode.PluginDirectory;
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 1);
+                var pluginsPath = GameMode.PluginDirectory;
+                
+                foreach (var fileInfo in new DirectoryInfo(pluginsPath).GetFiles("Skyrim - *.bsa"))
+                {
+                    try
+                    {
+                        fileInfo.LastWriteTime = new DateTime(2008, 10, 1);
+                    }
+                    catch (Exception ex)
+                    {
+						Trace.TraceError($"ApplyAI - Could not set LastWriteTime of file \"{fileInfo.Name}\".");
+						TraceUtil.TraceException(ex);
+
+                        MessageBox.Show(
+                            "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                            "Please try again, or check trace log for more info.\n\n" +
+                            ex.Message,
+                            "Archive Invalidation failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+					}
+                }
             }
         }
 	}
