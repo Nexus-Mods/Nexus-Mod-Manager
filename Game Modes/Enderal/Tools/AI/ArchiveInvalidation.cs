@@ -1,15 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Games.Gamebryo.Tools.AI;
-using Nexus.Client.Util;
-using Nexus.Client.Games.Tools;
-using Nexus.Client.Commands;
-using Nexus.Client.Games.Gamebryo;
-
-namespace Nexus.Client.Games.Enderal.Tools.AI
+﻿namespace Nexus.Client.Games.Enderal.Tools.AI
 {
-	/// <summary>
+    using System;
+	using System.Diagnostics;
+	using System.IO;
+	using System.Windows.Forms;
+
+	using Nexus.Client.Util;
+    using Nexus.Client.Games.Tools;
+    using Nexus.Client.Commands;
+	
+    /// <summary>
 	/// Controls ArchiveInvalidation.
 	/// </summary>
 	public class ArchiveInvalidation : ITool
@@ -92,16 +92,44 @@ namespace Nexus.Client.Games.Enderal.Tools.AI
         {
             if (ConfirmAiReset())
             {
-                string strPluginsPath = GameMode.PluginDirectory;
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
-                    fi.LastWriteTime = new DateTime(2019, 2, 1);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Update.bsa"))
-                    fi.LastWriteTime = new DateTime(2019, 2, 2);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("E - *.bsa"))
-                    fi.LastWriteTime = new DateTime(2019, 2, 3);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("L - *.bsa"))
-                    fi.LastWriteTime = new DateTime(2019, 2, 4);
-            }
+                var pluginsPath = GameMode.PluginDirectory;
+
+                try
+                {
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Skyrim - *.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2019, 2, 1);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Update.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2019, 2, 2);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("E - *.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2019, 2, 3);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("L - *.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2019, 2, 4);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceError("ApplyAI - Could not set LastWriteTime.");
+                    TraceUtil.TraceException(ex);
+
+                    MessageBox.Show(
+                        "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                        "Please try again, or check trace log for more info.\n\n" +
+                        ex.Message,
+                        "Archive Invalidation failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+			}
         }
 	}
 }

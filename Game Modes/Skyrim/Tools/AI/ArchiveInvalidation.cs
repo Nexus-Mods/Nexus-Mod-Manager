@@ -1,15 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Games.Gamebryo.Tools.AI;
-using Nexus.Client.Util;
-using Nexus.Client.Games.Tools;
-using Nexus.Client.Commands;
-using Nexus.Client.Games.Gamebryo;
-
-namespace Nexus.Client.Games.Skyrim.Tools.AI
+﻿namespace Nexus.Client.Games.Skyrim.Tools.AI
 {
-	/// <summary>
+    using System;
+	using System.Diagnostics;
+	using System.IO;
+	using System.Windows.Forms;
+
+	using Nexus.Client.Util;
+    using Nexus.Client.Games.Tools;
+    using Nexus.Client.Commands;
+	
+    /// <summary>
 	/// Controls ArchiveInvalidation.
 	/// </summary>
 	public class ArchiveInvalidation : ITool
@@ -92,19 +92,53 @@ namespace Nexus.Client.Games.Skyrim.Tools.AI
         {
             if (ConfirmAiReset())
             {
-                string strPluginsPath = GameMode.PluginDirectory;
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Skyrim - *.bsa"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 1);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Update.bsa"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 2);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Dawnguard.bsa"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 3);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("HearthFires.bsa"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 4);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Dragonborn.bsa"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 5);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("HighResTexturePack*.bsa"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 6);
+                var pluginsPath = GameMode.PluginDirectory;
+
+                try
+                {
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Skyrim - *.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 1);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Update.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 2);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Dawnguard.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 3);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("HearthFires.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 4);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Dragonborn.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 5);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("HighResTexturePack*.bsa"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 6);
+                    }
+                }
+                catch (Exception ex)
+                {
+					Trace.TraceError("ApplyAI - Could not set LastWriteTime.");
+                    TraceUtil.TraceException(ex);
+
+                    MessageBox.Show(
+                        "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                        "Please try again, or check trace log for more info.\n\n" + 
+                        ex.Message,
+                        "Archive Invalidation failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+				}
             }
         }
 	}

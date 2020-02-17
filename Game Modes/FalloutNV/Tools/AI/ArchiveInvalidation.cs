@@ -1,12 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Games.Gamebryo.Tools.AI;
-using Nexus.Client.Util;
-
-namespace Nexus.Client.Games.FalloutNV.Tools.AI
+﻿namespace Nexus.Client.Games.FalloutNV.Tools.AI
 {
-	/// <summary>
+    using System;
+    using System.Collections.Generic;
+	using System.Diagnostics;
+	using System.IO;
+	using System.Windows.Forms;
+
+	using Nexus.Client.Games.Gamebryo.Tools.AI;
+    using Nexus.Client.Util;
+	
+    /// <summary>
 	/// Controls ArchiveInvalidation.
 	/// </summary>
 	public class ArchiveInvalidation : ArchiveInvalidationBase
@@ -107,26 +110,49 @@ namespace Nexus.Client.Games.FalloutNV.Tools.AI
 		/// </summary>
 		protected override void ApplyAI()
 		{
-			string strPluginsPath = GameMode.PluginDirectory;
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Fallout - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 1);
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("ClassicPack - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 1);
+			var pluginsPath = GameMode.PluginDirectory;
 
-			WriteIniInt("Archive", "bInvalidateOlderFiles", 1);
-			WriteIniInt("General", "bLoadFaceGenHeadEGTFiles", 1);
-			WriteIniString("Archive", "SInvalidationFile", "");
-			File.Delete(Path.Combine(strPluginsPath, "archiveinvalidation.txt"));
-			File.Delete(Path.Combine(strPluginsPath, OLD_AI_BSA));
-			File.WriteAllBytes(Path.Combine(strPluginsPath, AI_BSA), new byte[] {
-                0x42, 0x53, 0x41, 0x00, 0x67, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x03, 0x07, 0x00, 0x00,
-                0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
-                0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
-                0x36, 0x00, 0x00, 0x00, 0x01, 0x00, 0x61, 0x00, 0x01, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x61, 0x00
-            });
-			WriteIniString("Archive", "SArchiveList", GetBSAList(true));
-		}
+            try
+            {
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Fallout - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 1);
+                }
+
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("ClassicPack - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 1);
+                }
+
+                WriteIniInt("Archive", "bInvalidateOlderFiles", 1);
+                WriteIniInt("General", "bLoadFaceGenHeadEGTFiles", 1);
+                WriteIniString("Archive", "SInvalidationFile", "");
+                File.Delete(Path.Combine(pluginsPath, "archiveinvalidation.txt"));
+                File.Delete(Path.Combine(pluginsPath, OLD_AI_BSA));
+                File.WriteAllBytes(Path.Combine(pluginsPath, AI_BSA), new byte[]
+                {
+                    0x42, 0x53, 0x41, 0x00, 0x67, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x03, 0x07, 0x00, 0x00,
+                    0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+                    0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+                    0x36, 0x00, 0x00, 0x00, 0x01, 0x00, 0x61, 0x00, 0x01, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x61, 0x00
+                });
+                WriteIniString("Archive", "SArchiveList", GetBSAList(true));
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError("ApplyAI - Could not apply ArchiveInvalidation.");
+                TraceUtil.TraceException(ex);
+
+                MessageBox.Show(
+                    "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                    "Please try again, or check trace log for more info.\n\n" +
+                    ex.Message,
+                    "Archive Invalidation failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+			}
+        }
 
 		/// <summary>
 		/// Disables AI.

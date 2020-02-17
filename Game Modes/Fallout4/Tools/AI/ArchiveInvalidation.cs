@@ -1,15 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Games.Gamebryo.Tools.AI;
-using Nexus.Client.Util;
-using Nexus.Client.Games.Tools;
-using Nexus.Client.Commands;
-using Nexus.Client.Games.Gamebryo;
-
-namespace Nexus.Client.Games.Fallout4.Tools.AI
+﻿namespace Nexus.Client.Games.Fallout4.Tools.AI
 {
-	/// <summary>
+    using System;
+	using System.Diagnostics;
+	using System.IO;
+	using System.Windows.Forms;
+
+	using Nexus.Client.Util;
+    using Nexus.Client.Games.Tools;
+    using Nexus.Client.Commands;
+	
+    /// <summary>
 	/// Controls ArchiveInvalidation.
 	/// </summary>
 	public class ArchiveInvalidation : ITool
@@ -92,21 +92,58 @@ namespace Nexus.Client.Games.Fallout4.Tools.AI
         {
             if (ConfirmAiReset())
             {
-                string strPluginsPath = GameMode.PluginDirectory;
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Fallout4 - *.ba2"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 1);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCRobot - *.ba2"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 2);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCworkshop01 - *.ba2"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 3);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCCoast - *.ba2"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 4);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCworkshop02 - *.ba2"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 5);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCworkshop03 - *.ba2"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 6);
-                foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("DLCNukaWorld - *.ba2"))
-                    fi.LastWriteTime = new DateTime(2008, 10, 7);
+                var pluginsPath = GameMode.PluginDirectory;
+
+                try
+                {
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Fallout4 - *.ba2"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 1);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCRobot - *.ba2"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 2);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCworkshop01 - *.ba2"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 3);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCCoast - *.ba2"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 4);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCworkshop02 - *.ba2"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 5);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCworkshop03 - *.ba2"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 6);
+                    }
+
+                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCNukaWorld - *.ba2"))
+                    {
+                        fi.LastWriteTime = new DateTime(2008, 10, 7);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceError("ApplyAI - Could not set LastWriteTime.");
+                    TraceUtil.TraceException(ex);
+
+                    MessageBox.Show(
+                        "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                        "Please try again, or check trace log for more info.\n\n" +
+                        ex.Message,
+                        "Archive Invalidation failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+				}
             }
         }
 	}

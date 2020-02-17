@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Nexus.Client.Games.Gamebryo.Tools.AI;
-using Nexus.Client.Util;
-using System.Windows.Forms;
-
-namespace Nexus.Client.Games.Fallout3.Tools.AI
+﻿namespace Nexus.Client.Games.Fallout3.Tools.AI
 {
-	/// <summary>
+    using System;
+    using System.Collections.Generic;
+	using System.Diagnostics;
+	using System.IO;
+	using System.Windows.Forms;
+
+	using Nexus.Client.Games.Gamebryo.Tools.AI;
+    using Nexus.Client.Util;
+    
+    /// <summary>
 	/// UI.Controls ArchiveInvalidation.
 	/// </summary>
 	public class ArchiveInvalidation : ArchiveInvalidationBase
@@ -65,34 +67,71 @@ namespace Nexus.Client.Games.Fallout3.Tools.AI
 		/// </summary>
 		protected override void ApplyAI()
 		{
-			string strPluginsPath = GameMode.PluginDirectory;
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Fallout - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 1);
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Anchorage - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 2);
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("ThePitt - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 3);
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("BrokenSteel - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 4);
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("PointLookout - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 5);
-			foreach (FileInfo fi in new DirectoryInfo(strPluginsPath).GetFiles("Zeta - *.bsa"))
-				fi.LastWriteTime = new DateTime(2008, 10, 6);
+			var pluginsPath = GameMode.PluginDirectory;
 
-			string strFalloutIniPath = GameMode.SettingsFiles.IniPath;
-			IniMethods.WritePrivateProfileInt32("Archive", "bInvalidateOlderFiles", 1, strFalloutIniPath);
-			IniMethods.WritePrivateProfileInt32("General", "bLoadFaceGenHeadEGTFiles", 1, strFalloutIniPath);
-			IniMethods.WritePrivateProfileString("Archive", "SInvalidationFile", "", strFalloutIniPath);
-			File.Delete(Path.Combine(strPluginsPath, "archiveinvalidation.txt"));
-			File.WriteAllBytes(Path.Combine(strPluginsPath, AI_BSA), new byte[] {
-                0x42, 0x53, 0x41, 0x00, 0x67, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x03, 0x07, 0x00, 0x00,
-                0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
-                0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
-                0x36, 0x00, 0x00, 0x00, 0x01, 0x00, 0x61, 0x00, 0x01, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x61, 0x00
-            });
-			IniMethods.WritePrivateProfileString("Archive", "SArchiveList", AI_BSA + ", " + GetBSAList(), strFalloutIniPath);
-		}
+            try
+            {
+
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Fallout - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 1);
+                }
+
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Anchorage - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 2);
+                }
+
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("ThePitt - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 3);
+                }
+
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("BrokenSteel - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 4);
+                }
+
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("PointLookout - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 5);
+                }
+
+                foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Zeta - *.bsa"))
+                {
+                    fi.LastWriteTime = new DateTime(2008, 10, 6);
+                }
+
+                var falloutIniPath = GameMode.SettingsFiles.IniPath;
+
+                IniMethods.WritePrivateProfileInt32("Archive", "bInvalidateOlderFiles", 1, falloutIniPath);
+                IniMethods.WritePrivateProfileInt32("General", "bLoadFaceGenHeadEGTFiles", 1, falloutIniPath);
+                IniMethods.WritePrivateProfileString("Archive", "SInvalidationFile", "", falloutIniPath);
+                File.Delete(Path.Combine(pluginsPath, "archiveinvalidation.txt"));
+                File.WriteAllBytes(Path.Combine(pluginsPath, AI_BSA), new byte[]
+                {
+                    0x42, 0x53, 0x41, 0x00, 0x67, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x03, 0x07, 0x00, 0x00,
+                    0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+                    0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+                    0x36, 0x00, 0x00, 0x00, 0x01, 0x00, 0x61, 0x00, 0x01, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x48, 0x00, 0x00, 0x00, 0x61, 0x00
+                });
+                IniMethods.WritePrivateProfileString("Archive", "SArchiveList", AI_BSA + ", " + GetBSAList(), falloutIniPath);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError("ApplyAI - Could not apply ArchiveInvalidation.");
+                TraceUtil.TraceException(ex);
+
+                MessageBox.Show(
+                    "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                    "Please try again, or check trace log for more info.\n\n" +
+                    ex.Message,
+                    "Archive Invalidation failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+			}
+        }
 
 		/// <summary>
 		/// Disables AI.
