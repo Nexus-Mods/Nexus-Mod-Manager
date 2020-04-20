@@ -18,12 +18,6 @@ begin
 		Result := regVersionString <> '';
 	end else begin
 		case version of
-			NetFx11:
-				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v1.1.4322' + lcid, 'Install', regVersion);
-			NetFx20:
-				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v2.0.50727' + lcid, 'Install', regVersion);
-			NetFx30:
-				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v3.0\Setup' + lcid, 'InstallSuccess', regVersion);
 			NetFx35:
 				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v3.5' + lcid, 'Install', regVersion);
 			NetFx40Client:
@@ -53,15 +47,6 @@ begin
 		NetFx10:
 			//not supported
 			regVersion := -1;
-		NetFx11:
-			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v1.1.4322' + lcid, 'SP', regVersion)) then
-				regVersion := -1;
-		NetFx20:
-			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v2.0.50727' + lcid, 'SP', regVersion)) then
-				regVersion := -1;
-		NetFx30:
-			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v3.0' + lcid, 'SP', regVersion)) then
-				regVersion := -1;
 		NetFx35:
 			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v3.5' + lcid, 'SP', regVersion)) then
 				regVersion := -1;
