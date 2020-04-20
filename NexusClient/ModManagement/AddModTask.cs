@@ -635,6 +635,12 @@
 
                         var downloadLinks = _modRepository.GetFilePartInfo(nxuModUrl.ModId, fileInfo.Id, nxuModUrl.Key, nxuModUrl.Expiry);
 
+						if (downloadLinks == null)
+						{
+							Trace.TraceError($"Could not retrieve download links for mod \"{nxuModUrl.ModId}\", file \"{fileInfo.Id}\".");
+							return null;
+						}
+
                         if (downloadLinks.Count > 0)
                         {
                             foreach (var link in downloadLinks)
