@@ -55,15 +55,26 @@
 	        {
 	            return "SkyrimVR";
 	        }
-
 	        // Hack to allow Fallout 4 VR to use NMM links from the website.
 	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
-            if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+            else if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "Fallout4VR";
 	        }
+			else if (gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase))
+			{
+				return "SkyrimSE";
+			}
+			else if (gameModeFromUri.Equals("newvegas", StringComparison.OrdinalIgnoreCase))
+			{
+				return "FalloutNV";
+			}
+			else if (gameModeFromUri.Equals("elderscrollsonline", StringComparison.OrdinalIgnoreCase))
+			{
+				return "TESO";
+			}
 
-	        return gameModeFromUri;
+			return gameModeFromUri;
 	    }
 
         /// <summary>
