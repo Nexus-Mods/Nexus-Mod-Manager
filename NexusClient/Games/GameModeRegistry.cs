@@ -25,7 +25,8 @@
 			Trace.TraceInformation("Discovering Game Mode Factories...");
 			Trace.Indent();
 
-			var gameModesPath = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "GameModes");
+            var appDirectory = Path.GetDirectoryName(Application.ExecutablePath);
+			var gameModesPath = Path.Combine(appDirectory ?? string.Empty, "GameModes");
 
 		    if (!Directory.Exists(gameModesPath))
             {
@@ -40,15 +41,14 @@
             //to prevent a divide by zero exception further along
 		    if (!assemblies.Any())
 		    {
-		        var debugMessage = string.Empty;
 #if DEBUG
-		        debugMessage = @"Compile the Game Modes directory in the solution.";
+				throw new GameModeRegistryException(gameModesPath, "Compile the Game Modes directory in the solution.");
+#else
+				throw new GameModeRegistryException(gameModesPath);
 #endif
+            }
 
-                throw new GameModeRegistryException(gameModesPath, debugMessage);
-		    }
-
-            var registry = new GameModeRegistry();
+			var registry = new GameModeRegistry();
 
 		    foreach (var assembly in assemblies)
 			{
@@ -68,7 +68,7 @@
 					    Trace.TraceInformation("Initializing: {0}", type.FullName);
 					    Trace.Indent();
 
-					    var constructor = type.GetConstructor(new Type[] { typeof(IEnvironmentInfo) });
+					    var constructor = type.GetConstructor(new[] { typeof(IEnvironmentInfo) });
 
 					    if (constructor == null)
 					    {
@@ -136,7 +136,7 @@
 
 		private readonly Dictionary<string, IGameModeFactory> _gameModeFactories = new Dictionary<string, IGameModeFactory>(StringComparer.OrdinalIgnoreCase);
 
-		#region Properties
+        #region Properties
 
 		/// <summary>
 		/// Gets the list of registered game modes.
