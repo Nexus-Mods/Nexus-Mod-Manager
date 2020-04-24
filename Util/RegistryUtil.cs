@@ -1,10 +1,10 @@
-﻿using System.Security.Permissions;
-using System.Security;
-
-namespace Nexus.Client.Util
+﻿namespace Nexus.Client.Util
 {
+    using System.Security.Permissions;
+    using System.Security;
+    using Microsoft.Win32;
 
-	public static class RegistryUtil
+    public static class RegistryUtil
 	{
 		/// <summary>
 		/// Checks whether the user has the given permission to operate on the given registry key.
@@ -73,5 +73,11 @@ namespace Nexus.Client.Util
 				return false;
 			}
 		}
+
+        public static string ReadValue(RegistryHive hive, string registryKey, string value)
+        {
+            var key = RegistryKey.OpenBaseKey(hive, RegistryView.Default).OpenSubKey(registryKey, false);
+            return key?.GetValue(value, string.Empty).ToString();
+        }
 	}
 }

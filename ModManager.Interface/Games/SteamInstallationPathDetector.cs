@@ -1,24 +1,25 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Diagnostics;
-using Microsoft.Win32;
-using Nexus.Client.Games.Steam;
-
-namespace Nexus.Client.Games
+﻿namespace Nexus.Client.Games
 {
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Diagnostics;
+    using Microsoft.Win32;
+
+    using Nexus.Client.Games.Steam;
+    using Nexus.Client.Util;
+
     /// <summary>
     /// Find out the installation paths of a Steam game.
     /// </summary>
     public sealed class SteamInstallationPathDetector
     {
-
-        private static readonly Lazy<SteamInstallationPathDetector> lazy = new Lazy<SteamInstallationPathDetector>(() => new SteamInstallationPathDetector());
+        private static readonly Lazy<SteamInstallationPathDetector> Lazy = new Lazy<SteamInstallationPathDetector>(() => new SteamInstallationPathDetector());
 
         /// <summary>
         /// Returns the single instance of this class.
         /// </summary>
-        public static SteamInstallationPathDetector Instance { get { return lazy.Value; } }
+        public static SteamInstallationPathDetector Instance => Lazy.Value;
 
         private SteamInstallationPathDetector() { }
 
@@ -27,73 +28,74 @@ namespace Nexus.Client.Games
         /// </summary>
         public string GetSteamInstallationPath(string steamId, string folderName, string binaryName)
         {
-            var registryKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\Apps\" + steamId;
-            Trace.TraceInformation(@"Checking for steam install: {0}\Installed", registryKey);
+            var registryKey = $@"Software\Valve\Steam\Apps\{steamId}";
+            Trace.TraceInformation($@"Checking for steam install: {registryKey}\Installed");
             Trace.Indent();
 
-            string strValue = null;
+            string value = null;
+            
             try
             {
-                var steamKey = Registry.GetValue(registryKey, "Installed", 0);
-                if (steamKey != null)
+                var steamKey = RegistryUtil.ReadValue(RegistryHive.CurrentUser, registryKey, "Installed");
+
+                if (steamKey.Equals("1"))
                 {
-                    var isSteamInstall = steamKey.ToString() == "1";
-                    if (isSteamInstall)
+                    Trace.TraceInformation("Getting Steam install folder.");
+
+                    var steamPath = RegistryUtil.ReadValue(RegistryHive.CurrentUser, @"Software\Valve\Steam", "SteamPath");
+
+                    // convert path to windows path. (steam uses C:/x/y we want C:\\x\\y
+                    steamPath = Path.GetFullPath(steamPath);
+                    var appPath = Path.Combine(steamPath, @"steamapps\common\" + folderName);
+
+                    // check if game is installed in the default directory
+                    if (!Directory.Exists(appPath))
                     {
-                        Trace.TraceInformation("Getting Steam install folder.");
+                        Trace.TraceInformation($"{folderName} is not installed in standard directory. Checking steam libraryfolders.vdf...");
 
-                        var steamPath = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null).ToString();
+						// This chunk of code does a very simplistic cyclic check of the additional libraries within Steam.
+						var steamLibraries = Path.Combine(Path.Combine(steamPath, "SteamApps"), "libraryfolders.vdf");
+						var kv = KeyValue.LoadAsText(steamLibraries);
 
-                        // convert path to windows path. (steam uses C:/x/y we want C:\\x\\y
-                        steamPath = Path.GetFullPath(steamPath);
-                        var appPath = Path.Combine(steamPath, @"steamapps\common\" + folderName);
-
-                        // check if game is installed in the default directory
-                        if (!Directory.Exists(appPath))
-                        {
-                            Trace.TraceInformation(
-                                folderName + " is not installed in standard directory. Checking steam libraryfolders.vdf...");
-
-							// This chunk of code does a very simplistic cyclic check of the additional libraries within Steam.
-							var steamLibraries = Path.Combine(Path.Combine(steamPath, "SteamApps"), "libraryfolders.vdf");
-							var kv = KeyValue.LoadAsText(steamLibraries);
-
-							string nodePath = null;
-
-							foreach (var node in kv.Children)
+                        foreach (var node in kv.Children)
+						{
+							var nodePath = node.Value;
+							appPath = Path.Combine(nodePath, @"steamapps\common\" + folderName);
+							
+                            if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
 							{
-								nodePath = node.Value;
-								appPath = Path.Combine(nodePath, @"steamapps\common\" + folderName);
-								if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
-								{
-									strValue = appPath;
-									break;
-								}
-
+								value = appPath;
+								break;
 							}
 
-							// third try, check steam config.vdf
-							// if any of this fails, no problem... just drop through the catch
-							if (string.IsNullOrWhiteSpace(strValue))
-							{
-								Trace.TraceInformation(
-									folderName + " is not installed in standard directory. Checking steam config.vdf...");
+						}
 
-								var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
-								kv = KeyValue.LoadAsText(steamConfig);
-								var node =
-									kv.Children[0].Children[0].Children[0].Children.Single(x => x.Name == "apps")
-										.Children.Single(x => x.Name == steamId);
-								if (node != null)
-								{
-									appPath = node.Children.Single(x => x.Name == "installdir").Value;
-									if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
-										strValue = appPath;
-								}
-							}
-                        }
-                        else
-                            strValue = appPath;
+						// third try, check steam config.vdf
+						// if any of this fails, no problem... just drop through the catch
+						if (string.IsNullOrWhiteSpace(value))
+						{
+							Trace.TraceInformation(folderName + " is not installed in standard directory. Checking steam config.vdf...");
+
+							var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
+							kv = KeyValue.LoadAsText(steamConfig);
+							var node =
+								kv.Children[0].Children[0].Children[0].Children.Single(x => x.Name == "apps")
+									.Children.Single(x => x.Name == steamId);
+							
+                            if (node != null)
+							{
+								appPath = node.Children.Single(x => x.Name == "installdir").Value;
+								
+                                if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
+                                {
+                                    value = appPath;
+                                }
+                            }
+						}
+                    }
+                    else
+                    {
+                        value = appPath;
                     }
                 }
             }
@@ -104,24 +106,27 @@ namespace Nexus.Client.Games
 
             try
             {
-                if (string.IsNullOrWhiteSpace(strValue))
+                if (string.IsNullOrWhiteSpace(value))
                 {
                     Trace.TraceInformation("Getting install folder from Uninstall.");
 
                     var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App " + steamId, "InstallLocation", null)?.ToString();
 
                     if (uniPath != null && Directory.Exists(uniPath))
-                        strValue = uniPath;
+                    {
+                        value = uniPath;
+                    }
                 }
             }
             catch
             {
+                // Just ignore this.
             }
 
-            Trace.TraceInformation("Found {0}", strValue);
+            Trace.TraceInformation("Found {0}", value);
             Trace.Unindent();
 
-            return strValue;
+            return value;
         }
 
     }
