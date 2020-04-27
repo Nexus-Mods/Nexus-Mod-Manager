@@ -31,6 +31,35 @@ The Nexus Mod Manager (NMM) is a free and open source piece of software that all
  - **No advertising**
    
    The Mod Manager is completely free of advertisements
+   
+ - **List of currently supported games**
+ 
+   ⦁	Skyrim
+   ⦁	Skyrim Special Edition
+   ⦁	Fallout 3
+   ⦁	Fallout: New Vegas
+   ⦁	Fallout 4
+   ⦁	Oblivion
+   ⦁	Morrowind
+   ⦁	Monster Hunter World
+   ⦁	Witcher 2
+   ⦁	Witcher 3
+   ⦁	Enderal
+   ⦁	X: Rebirth
+   ⦁	XCOM 2
+   ⦁	World of Tanks
+   ⦁	War Thunder
+   ⦁	The Elder Scrolls Online
+   ⦁	State of Decay
+   ⦁	Starbound
+   ⦁	Legends of Grimrock
+   ⦁	Dragon's Dogma
+   ⦁	Dragon Age: Origins
+   ⦁	Dragon Age 2
+   ⦁	Dark Souls
+   ⦁	Dark Souls 2
+   ⦁	Breaking Wheel
+   ⦁	No Man's Sky
 
 ### Contributing
 NMM is developed using the latest .Net Framework (currently 4.6)
