@@ -51,17 +51,21 @@
 	    {
 	        // Hack to allow Skyrim VR to use NMM links from the website.
 	        // If the default mode is Skyrim VR and a Skyrim SE link is opened, we rewrite the requested game mode.
-	        if (gameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
+	        if ((gameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) || gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase)) 
+                && _environmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "SkyrimVR";
 	        }
-	        // Hack to allow Fallout 4 VR to use NMM links from the website.
+	        
+            // Hack to allow Fallout 4 VR to use NMM links from the website.
 	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
-            else if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+            if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "Fallout4VR";
 	        }
-			else if (gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase))
+
+			// Work-around for new game ID's from Nexus.
+            if (gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase))
 			{
 				return "SkyrimSE";
 			}
