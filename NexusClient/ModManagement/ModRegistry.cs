@@ -183,7 +183,7 @@ namespace Nexus.Client.ModManagement
 					break;
 			modMod = CreateMod(p_strModPath, string.Empty, GameMode, p_eiEnvironmentInfo);
 			if (p_mifTagInfo != null)
-				modMod.UpdateInfo(p_mifTagInfo, false);
+				modMod.UpdateInfo(p_mifTagInfo, true);
 			if (modMod == null)
 				return null;
 			if (intExistingIndex < m_oclRegisteredMods.Count)

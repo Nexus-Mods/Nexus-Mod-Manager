@@ -184,7 +184,8 @@
 				case NotifyCollectionChangedAction.Replace:
 					foreach (IMod modMod in e.NewItems)
                     {
-                        ((Func<IMod, IModInfo>)CheckForUpdate).BeginInvoke(modMod, GotNewVersionNumber, modMod);
+						if (string.IsNullOrEmpty(modMod.DownloadId))
+							((Func<IMod, IModInfo>)CheckForUpdate).BeginInvoke(modMod, GotNewVersionNumber, modMod);
                     }
 
                     break;

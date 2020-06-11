@@ -378,7 +378,8 @@
 
 			try
 			{
-				Descriptor = BuildDescriptor(_downloadPath);
+				if (Descriptor == null || !Descriptor.SourceUri.Equals(_downloadPath))
+					Descriptor = BuildDescriptor(_downloadPath);
 			}
 			catch (CommunicationException e)
 			{
@@ -427,7 +428,8 @@
                 return;
             }
 
-			ModInfo = GetModInfo(Descriptor);
+			if (ModInfo == null || !ModInfo.FileName.Equals(Descriptor.FileName))
+				ModInfo = GetModInfo(Descriptor);
 
 			OverallMessage = $"{GetModDisplayName()}...";
 
@@ -540,12 +542,16 @@
                             modInfo.UpdateChecksEnabled = true;
                         }
 
-                        var mfiFileInfo = _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+						modInfo.FileName = Descriptor.FileName;
+						modInfo.DownloadId = nxuModUrl.FileId;
+						// This is redundant we already got the all the info we need
+						//var mfiFileInfo = _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+						//ModFileInfo mfiFileInfo = new ModFileInfo(modInfo.Id, modInfo.FileName, modInfo.ModName, modInfo.HumanReadableVersion);
 
-                        if (mfiFileInfo != null)
-                        {
-                            modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
-                        }
+						//if (mfiFileInfo != null)
+						//{
+						//	modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
+						//}
                     }
 
                     return modInfo;
@@ -584,7 +590,7 @@
                 }
                 else
 				{
-					descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>());
+					descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>(), string.Empty);
 					queuedMods[path.ToString()] = descriptor;
 
                     lock (_environmentInfo.Settings)
@@ -623,9 +629,10 @@
 							return null;
 						}
 
-						var uriFilesToDownload = new List<Uri>();
+						List<Uri> uriFilesToDownload = new List<Uri>();
+						List<Pathoschild.FluentNexus.Models.ModFileDownloadLink> downloadLinks;
 
-                        var fileInfo = string.IsNullOrEmpty(nxuModUrl.FileId) ? _modRepository.GetDefaultFileInfo(nxuModUrl.ModId) : _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+						IModFileInfo fileInfo = string.IsNullOrEmpty(nxuModUrl.FileId) ? _modRepository.GetDefaultFileInfo(nxuModUrl.ModId) : _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
 
                         if (fileInfo == null)
                         {
@@ -633,7 +640,7 @@
                             return null;
                         }
 
-                        var downloadLinks = _modRepository.GetFilePartInfo(nxuModUrl.ModId, fileInfo.Id, nxuModUrl.Key, nxuModUrl.Expiry);
+						downloadLinks = _modRepository.GetFilePartInfo(nxuModUrl.ModId, fileInfo.Id, nxuModUrl.Key, nxuModUrl.Expiry);
 
 						if (downloadLinks == null)
 						{
@@ -659,7 +666,7 @@
                         }
 
                         var strSourcePath = Path.Combine(_gameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, fileInfo.Filename);
-						descriptor = new AddModDescriptor(path, strSourcePath, uriFilesToDownload, TaskStatus.Running, _fileserverCaptions);
+						descriptor = new AddModDescriptor(path, strSourcePath, uriFilesToDownload, TaskStatus.Running, _fileserverCaptions, fileInfo.Filename);
 						break;
 					default:
 						Trace.TraceInformation($"[{path}] Can't get the file.");
@@ -1163,7 +1170,7 @@
 
 			if (Descriptor == null)
 			{
-				Descriptor = new AddModDescriptor(_downloadPath, string.Empty, null, Status, null);
+				Descriptor = new AddModDescriptor(_downloadPath, string.Empty, null, Status, null, string.Empty);
 				OverallMessage = $"Cancelled: {_downloadPath}";
 				OnTaskEnded($"Cancelled: {_downloadPath}", null);
 				return;

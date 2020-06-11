@@ -27,5 +27,13 @@
             Name = modFile?.Name;
             HumanReadableVersion = modFile?.ModVersion;
         }
+
+        public ModFileInfo(string id, string filename, string name, string modVersion)
+        {
+            Id = id;
+            Filename = filename;
+            Name = name;
+            HumanReadableVersion = modVersion;
+        }
     }
 }
