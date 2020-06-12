@@ -515,7 +515,7 @@
 				case "file":
                     return new ModInfo(_modRepository.GetModInfoForFile(descriptor.DefaultSourcePath));
                 case "nxm":
-					var nxuModUrl = new NexusUrl(descriptor.SourceUri);
+					NexusUrl nxuModUrl = new NexusUrl(descriptor.SourceUri);
 
                     if (string.IsNullOrEmpty(nxuModUrl.ModId) || string.IsNullOrEmpty(nxuModUrl.FileId))
                     {
@@ -527,7 +527,7 @@
                     if (!_modRepository.IsOffline)
                     {
                         modInfo = (ModInfo)_modRepository.GetModInfo(nxuModUrl.ModId);
-                        var modMod = _modRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
+                        IMod modMod = _modRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
 
                         if (modMod != null && modInfo != null)
                         {
@@ -542,6 +542,7 @@
                             modInfo.UpdateChecksEnabled = true;
                         }
 
+						modInfo.ModName = modInfo.ModName + " - " + Descriptor.ModFileName;
 						modInfo.FileName = Descriptor.FileName;
 						modInfo.DownloadId = nxuModUrl.FileId;
 						// This is redundant we already got the all the info we need
@@ -590,7 +591,7 @@
                 }
                 else
 				{
-					descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>(), string.Empty);
+					descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>(), string.Empty, string.Empty);
 					queuedMods[path.ToString()] = descriptor;
 
                     lock (_environmentInfo.Settings)
@@ -621,7 +622,7 @@
                 switch (path.Scheme.ToLowerInvariant())
 				{
 					case "nxm":
-						var nxuModUrl = new NexusUrl(path);
+						NexusUrl nxuModUrl = new NexusUrl(path);
 
 						if (string.IsNullOrEmpty(nxuModUrl.ModId))
 						{
@@ -666,7 +667,7 @@
                         }
 
                         var strSourcePath = Path.Combine(_gameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, fileInfo.Filename);
-						descriptor = new AddModDescriptor(path, strSourcePath, uriFilesToDownload, TaskStatus.Running, _fileserverCaptions, fileInfo.Filename);
+						descriptor = new AddModDescriptor(path, strSourcePath, uriFilesToDownload, TaskStatus.Running, _fileserverCaptions, fileInfo.Name, fileInfo.Filename);
 						break;
 					default:
 						Trace.TraceInformation($"[{path}] Can't get the file.");
@@ -1170,7 +1171,7 @@
 
 			if (Descriptor == null)
 			{
-				Descriptor = new AddModDescriptor(_downloadPath, string.Empty, null, Status, null, string.Empty);
+				Descriptor = new AddModDescriptor(_downloadPath, string.Empty, null, Status, null, string.Empty, string.Empty);
 				OverallMessage = $"Cancelled: {_downloadPath}";
 				OnTaskEnded($"Cancelled: {_downloadPath}", null);
 				return;

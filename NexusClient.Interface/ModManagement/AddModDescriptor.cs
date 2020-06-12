@@ -78,6 +78,11 @@ namespace Nexus.Client.ModManagement
 		public TaskStatus Status { get; set; }
 
 		/// <summary>
+		/// The name of the mod file being added.
+		/// </summary>
+		public string ModFileName { get; private set; }
+
+		/// <summary>
 		/// The name of the file being added.
 		/// </summary>
 		public string FileName { get; private set; }
@@ -104,8 +109,9 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strDefaultSourcePath">The default source path of the mod.</param>
 		/// <param name="p_enmDownloadFiles">The list of files that still need to be downloaded to build the mod.</param>
 		/// <param name="p_tstStatus">The status of the task that is adding the mod.</param>
+		/// <param name="modFileName">The name of the specific mod file being added.</param>
 		/// <param name="fileName">The name of the file being added.</param>
-		public AddModDescriptor(Uri p_uriSourceUri, string p_strDefaultSourcePath, IEnumerable<Uri> p_enmDownloadFiles, TaskStatus p_tstStatus, List<string> p_lstSourceName, string fileName)
+		public AddModDescriptor(Uri p_uriSourceUri, string p_strDefaultSourcePath, IEnumerable<Uri> p_enmDownloadFiles, TaskStatus p_tstStatus, List<string> p_lstSourceName, string modFileName, string fileName)
 			: this()
 		{
 			SourceUri = p_uriSourceUri;
@@ -114,6 +120,7 @@ namespace Nexus.Client.ModManagement
 				DownloadFiles.AddRange(p_enmDownloadFiles);
 			SourceName = p_lstSourceName;
 			Status = p_tstStatus;
+			ModFileName = modFileName;
 			FileName = fileName;
 		}
 
