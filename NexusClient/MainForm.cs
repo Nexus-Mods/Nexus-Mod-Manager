@@ -580,7 +580,8 @@
 
                     if (toolStripProgressBarDownloadSpeed != null)
                     {
-                        toolStripProgressBarDownloadSpeed.Maximum = ViewModel.UserStatus.IsSupporter ? 2048 : 1024;
+						// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
+                        toolStripProgressBarDownloadSpeed.Maximum = (ViewModel.UserStatus.IsSupporter) ? 2048 : 2048;
                         toolStripProgressBarDownloadSpeed.Value = 0;
                         toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Descending;
                         toolStripProgressBarDownloadSpeed.ShowOptionalProgress = false;
@@ -1378,7 +1379,8 @@
                     case ProgressLabel.FillType.Descending:
                     {
                         toolStripProgressBarDownloadSpeed.Visible = true;
-                        toolStripProgressBarDownloadSpeed.Value = _downloadMonitorControl.ViewModel.TotalSpeed <= 1024 ? _downloadMonitorControl.ViewModel.TotalSpeed : (ViewModel.UserStatus.IsSupporter ? 2048 : 1024);
+						// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
+						toolStripProgressBarDownloadSpeed.Value = _downloadMonitorControl.ViewModel.TotalSpeed <= 1024 ? _downloadMonitorControl.ViewModel.TotalSpeed : (ViewModel.UserStatus.IsSupporter ? 2048 : 2048);
                         break;
                     }
                 }
