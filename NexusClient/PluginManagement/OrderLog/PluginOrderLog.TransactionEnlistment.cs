@@ -81,8 +81,9 @@ namespace Nexus.Client.PluginManagement.OrderLog
 				Dictionary<Plugin, Plugin> dicPredecessors = new Dictionary<Plugin, Plugin>();
 				ThreadSafeObservableList<Plugin> oclUnorderedList = EnlistedPluginOrderLog.m_oclOrderedPlugins;
 
-				lock (EnlistedPluginOrderLog.m_oclOrderedPlugins)
-				{
+				// Removed faulty lock, it should no longer be necessary anyway
+				//lock (EnlistedPluginOrderLog.m_oclOrderedPlugins)
+				//{
 					EnlistedPluginOrderLog.m_oclOrderedPlugins.CollectionChanged -= MasterOrderedPlugins_CollectionChanged;
 					
 					IList<Plugin> lstOrderedList = m_oclOrderedPlugins;
@@ -110,7 +111,7 @@ namespace Nexus.Client.PluginManagement.OrderLog
 					for (Int32 i = oclUnorderedList.Count - 1; i >= lstOrderedList.Count; i--)
 						oclUnorderedList.RemoveAt(i);
 					EnlistedPluginOrderLog.OrderValidator.CorrectOrder(oclUnorderedList);
-				}
+				//}
 				EnlistedPluginOrderLog.SavePluginLog();
 				m_booEnlisted = false;
 				m_oclOrderedPlugins.Clear();

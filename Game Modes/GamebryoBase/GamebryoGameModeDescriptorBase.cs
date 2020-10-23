@@ -17,7 +17,8 @@
 		private static readonly List<string> STOP_FOLDERS = new List<string> { "textures",
 																					"meshes", "music", "shaders", "video", "interface",
 																					"facegen", "menus", "lodsettings", "lsdata",
-																					"sound" };
+																					"sound",
+                                                                                    "CalienteTools", "SKSE" };
 		private string[] _criticalPlugins;
 		private string[] _officialPlugins;
         private string[] _officialUnmanagedPlugins;

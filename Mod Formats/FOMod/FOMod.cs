@@ -726,7 +726,7 @@
 
                     stkPaths.Push(strDirectory);
 
-                    if (StopFolders.Contains(Path.GetFileName(strDirectory).ToLowerInvariant()))
+                    if (StopFolders.Contains(Path.GetFileName(strDirectory), StringComparer.InvariantCultureIgnoreCase))
 					{
 						booFoundPrefix = true;
 						break;

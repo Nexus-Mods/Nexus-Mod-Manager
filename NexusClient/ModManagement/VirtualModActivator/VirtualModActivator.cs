@@ -7,6 +7,7 @@
     using System.Linq;
     using System.Runtime.InteropServices;
     using System.Threading;
+    using System.Threading.Tasks;
     using System.Xml.Linq;
 
     using ChinhDo.Transactions;
@@ -1398,14 +1399,14 @@
 
 		protected void RemoveFileLink(IVirtualModLink p_ivlVirtualLink, IMod p_modMod, bool p_booPurging)
 		{
-			IMod modCheck = null;
+			IMod modCheck;
 
 			if (p_ivlVirtualLink != null)
 			{
 				bool booActive = p_ivlVirtualLink.Active;
 				int intCurrentPriority = p_ivlVirtualLink.Priority;
-				List<IVirtualModLink> lstOverwrites = null;
-				Int32 intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, intCurrentPriority, out modCheck, out lstOverwrites);
+				List<IVirtualModLink> lstOverwrites;
+				int intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, intCurrentPriority, out modCheck, out lstOverwrites);
 				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
 				if ((!File.Exists(strLinkPath)) && (p_modMod != null))
 					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
@@ -1426,7 +1427,7 @@
 					}
 				}
 
-				string strPath = string.Empty;
+				string strPath;
 				string strStop = m_strGameDataPath;
 				if ((p_modMod != null) && (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod)))
 				{
@@ -1541,10 +1542,28 @@
 			{
 				if (p_modMod != null)
 				{
+					string modFileName = Path.GetFileName(p_modMod.Filename);
+
 					if (m_tslVirtualModList.Count > 0)
 					{
-						List<IVirtualModLink> ivlLinks = m_tslVirtualModList.Where(x => (x.ModInfo != null) && (x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant())).ToList();
-						if ((ivlLinks != null) && (ivlLinks.Count > 0))
+						ThreadSafeObservableList<IVirtualModLink> ivlLinks = new ThreadSafeObservableList<IVirtualModLink>();
+
+						Parallel.ForEach(m_tslVirtualModList, (fileLink) =>
+						{
+							if (fileLink.ModInfo != null)
+								if (fileLink.ModInfo.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase))
+									ivlLinks.Add(fileLink);
+						});
+
+						//foreach (IVirtualModLink fileLink in m_tslVirtualModList)
+						//{
+						//	if (fileLink.ModInfo != null)
+						//		if (fileLink.ModInfo.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase))
+						//			ivlLinks.Add(fileLink);
+						//}
+
+						//IEnumerable<IVirtualModLink> ivlLinks = m_tslVirtualModList.Where(x => (x.ModInfo != null) && (x.ModInfo.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase)));
+						if ((ivlLinks != null) && (ivlLinks.Count() > 0))
 						{
 							foreach (IVirtualModLink Link in ivlLinks)
 								RemoveFileLink(Link, p_modMod, p_booPurging);
@@ -1559,7 +1578,7 @@
 
 					RemoveIniEdits(p_modMod);
 
-					m_tslVirtualModInfo.RemoveAll(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant());
+					m_tslVirtualModInfo.RemoveAll(x => x.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase));
 
 					if (!p_booPurging)
 						SaveList(true);

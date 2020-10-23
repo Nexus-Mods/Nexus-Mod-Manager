@@ -386,6 +386,8 @@
                             modUpdate.ModName = mod.ModName;
                         }
 
+						if (!string.IsNullOrEmpty(mod.ModName))
+							modUpdate.ModName = string.Empty;
                         mod.UpdateInfo(modUpdate, null);
                         ItemProgress = 0;
                     }
