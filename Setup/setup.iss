@@ -6,18 +6,18 @@
 
 // End
 
-#define MyAppSetupName 'Nexus Mod Manager'
+#define MyAppSetupName 'NMM'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.72.3'
+#define MyAppVersion '0.80.0'
 #define SetupScriptVersion '0.7.1.1'
-#define MyPublisher 'Black Tree Gaming'
+#define MyPublisher 'DuskDweller'
 
 [Setup]
 AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
-AppCopyright=Copyright � {#MyPublisher} 2011-2020
+AppCopyright=Copyright � {#MyPublisher} 2019-2021
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyPublisher}
 AppPublisher={#MyPublisher}
