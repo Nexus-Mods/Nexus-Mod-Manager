@@ -123,6 +123,7 @@
     <Content Include="data\boss64.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="Resources\morrowind_logo.ico" />
     <None Include="Resources\morrowind_base.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

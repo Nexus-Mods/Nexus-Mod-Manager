@@ -1,6 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <tipsManager>
 	<tipsList>
+		<tips section="toolStrip1" object="tsbPatreon" ID="1" version="0.80.0">
+			<text>Please support the NMM development, click this button and follow the link to the official Patreon: https://www.patreon.com/NMMCE .</text>
+		</tips>
+		<tips section="toolStrip1" object="tsbDiscord" ID="2" version="0.80.0">
+			<text>This is the link to the official NMM Community Discord, please join us to keep up to date with the development.</text>
+		</tips>
 		<tips section="ModManager.toolStrip1" object="tsbActivate" ID="1" version="0.61.8">
 			<text>To completely UNINSTALL or DELETE a mod, right-click on it and select the desired uninstall option from the context menu.</text>
 		</tips>

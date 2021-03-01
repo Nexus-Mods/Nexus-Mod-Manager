@@ -19,10 +19,10 @@ namespace Nexus.Client.Games.SkyrimSE.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,7 +36,7 @@ namespace Nexus.Client.Games.SkyrimSE.Properties {
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Nexus.Client.Games.SkyrimSE.Properties.Resources", typeof(Resources).Assembly);
@@ -51,7 +51,7 @@ namespace Nexus.Client.Games.SkyrimSE.Properties {
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -64,53 +64,54 @@ namespace Nexus.Client.Games.SkyrimSE.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
         ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Abodes - Player homes&quot; ID=&quot;67&quot;&gt;
-        ///      &lt;name&gt;Abodes - Player homes&lt;/name&gt;
+        ///    &lt;category path=&quot;Unassigned&quot; ID=&quot;0&quot;&gt;
+        ///      &lt;name&gt;Unassigned&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Animals, creatures, mounts &amp;amp; horses&quot; ID=&quot;83&quot;&gt;
-        ///      &lt;name&gt;Animals, creatures, mounts &amp;amp; horses&lt;/name&gt;
+        ///    &lt;category path=&quot;Player homes&quot; ID=&quot;67&quot;&gt;
+        ///      &lt;name&gt;Player homes&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Creatures&quot; ID=&quot;83&quot;&gt;
+        ///      &lt;name&gt;Creatures&lt;/name&gt;
         ///    &lt;/category&gt;
         ///    &lt;category path=&quot;Animation&quot; ID=&quot;51&quot;&gt;
         ///      &lt;name&gt;Animation&lt;/name&gt;
         ///    &lt;/category&gt;
         ///    &lt;category path=&quot;Armour&quot; ID=&quot;54&quot;&gt;
-        ///      &lt;name&gt;Armour&lt;/name&gt;
-        /// [rest of string was truncated]&quot;;.
+        ///      &lt;name&gt;Armo [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string Categories {
+        public static string Categories {
             get {
                 return ResourceManager.GetString("Categories", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Dawnguard.bsa
-        ///Dawnguard.esm
-        ///Dragonborn.bsa
+        ///   Looks up a localized string similar to Dawnguard.esm
         ///Dragonborn.esm
-        ///HearthFires.bsa
         ///HearthFires.esm
-        ///HighResTexturePack01.bsa
-        ///HighResTexturePack01.esp
-        ///HighResTexturePack02.bsa
-        ///HighResTexturePack02.esp
-        ///HighResTexturePack03.bsa
-        ///HighResTexturePack03.esp
-        ///Interface
-        ///Interface\Translate_ENGLISH.txt
-        ///SkyrimSE - Animations.bsa
-        ///SkyrimSE - Interface.bsa
-        ///SkyrimSE - Meshes.bsa
-        ///SkyrimSE - Misc.bsa
-        ///SkyrimSE - Shaders.bsa
-        ///SkyrimSE - Sounds.bsa
-        ///SkyrimSE - Textures.bsa
-        ///SkyrimSE - Voices.bsa
-        ///SkyrimSE.esm
-        ///Strings
-        ///Strings\SkyrimSE_Engl [rest of string was truncated]&quot;;.
+        ///Skyrim - Animations.bsa
+        ///Skyrim - Interface.bsa
+        ///Skyrim - Meshes0.bsa
+        ///Skyrim - Meshes1.bsa
+        ///Skyrim - Misc.bsa
+        ///Skyrim - Patch.bsa
+        ///Skyrim - Shaders.bsa
+        ///Skyrim - Sounds.bsa
+        ///Skyrim - Textures0.bsa
+        ///Skyrim - Textures1.bsa
+        ///Skyrim - Textures2.bsa
+        ///Skyrim - Textures3.bsa
+        ///Skyrim - Textures4.bsa
+        ///Skyrim - Textures5.bsa
+        ///Skyrim - Textures6.bsa
+        ///Skyrim - Textures7.bsa
+        ///Skyrim - Textures8.bsa
+        ///Skyrim - Voices_en0.bsa
+        ///Skyrim.esm
+        ///Update.esm
+        ///Video\BGS_Logo.bik.
         /// </summary>
-        internal static string SkyrimSE_base {
+        public static string SkyrimSE_base {
             get {
                 return ResourceManager.GetString("SkyrimSE_base", resourceCulture);
             }
@@ -119,7 +120,7 @@ namespace Nexus.Client.Games.SkyrimSE.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
-        internal static System.Drawing.Icon SkyrimSE_logo {
+        public static System.Drawing.Icon SkyrimSE_logo {
             get {
                 object obj = ResourceManager.GetObject("SkyrimSE_logo", resourceCulture);
                 return ((System.Drawing.Icon)(obj));

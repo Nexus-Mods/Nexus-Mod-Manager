@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.NoMansSky.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -64,19 +64,19 @@ namespace Nexus.Client.Games.NoMansSky.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
         ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Controller Button Layout&quot; ID=&quot;3&quot;&gt;
-        ///      &lt;name&gt;Controller Button Layout&lt;/name&gt;
+        ///    &lt;category path=&quot;Miscellaneous&quot; ID=&quot;2&quot;&gt;
+        ///      &lt;name&gt;Miscellaneous&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Graphics and Visuals&quot; ID=&quot;4&quot;&gt;
-        ///      &lt;name&gt;Graphics and Visuals&lt;/name&gt;
+        ///    &lt;category path=&quot;ReShade Presets&quot; ID=&quot;3&quot;&gt;
+        ///      &lt;name&gt;ReShade Presets&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Save Files&quot; ID=&quot;7&quot;&gt;
-        ///      &lt;name&gt;Save Files&lt;/name&gt;
+        ///    &lt;category path=&quot;Utilities&quot; ID=&quot;5&quot;&gt;
+        ///      &lt;name&gt;Utilities&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Tutorials&quot; ID=&quot;9&quot;&gt;
-        ///      &lt;name&gt;Tutorials&lt;/name&gt;
+        ///    &lt;category path=&quot;User Interface&quot; ID=&quot;4&quot;&gt;
+        ///      &lt;name&gt;User Interface&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;catego [rest of string was truncated]&quot;;.
+        ///    &lt;category path=&quot;Extension&quot; ID=&quot; [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Categories {
             get {

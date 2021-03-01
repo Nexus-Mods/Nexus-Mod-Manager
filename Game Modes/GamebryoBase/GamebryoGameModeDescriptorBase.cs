@@ -14,7 +14,7 @@
     public abstract class GamebryoGameModeDescriptorBase : GameModeDescriptorBase
 	{
 		private static readonly List<string> PLUGIN_EXTENSIONS = new List<string> { ".esm", ".esl", ".esp", ".bsa" };
-		private static readonly List<string> STOP_FOLDERS = new List<string> { "textures",
+		private static readonly List<string> STOP_FOLDERS = new List<string> { "textures", "scripts",
 																					"meshes", "music", "shaders", "video", "interface",
 																					"facegen", "menus", "lodsettings", "lsdata",
 																					"sound",

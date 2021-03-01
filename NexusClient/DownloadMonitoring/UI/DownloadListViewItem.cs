@@ -132,7 +132,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			else if ((p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ETA_Seconds))) || (p_strPropertyName.Equals(ObjectHelper.GetPropertyName<AddModTask>(x => x.ETA_Minutes))))
 			{
 				if (Task.Status == TaskStatus.Running)
-					SubItems["ETA"].Text = String.Format("{0:00}:{1:00}", p_tskTask.ETA_Minutes, p_tskTask.ETA_Seconds);
+					SubItems["ETA"].Text = String.Format("{0:00}:{1:00}:{2:00}", p_tskTask.ETA_Hours, p_tskTask.ETA_Minutes, p_tskTask.ETA_Seconds);
 				else
 					SubItems["ETA"].Text = String.Empty;
 			}

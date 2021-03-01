@@ -63,7 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
+      <Generator>PublicResXFileCodeGenerator</Generator>
       <SubType>Designer</SubType>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
@@ -74,9 +74,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\skyrimvr_base.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Resources\skyrimvr_logo.ico" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Commanding\Commanding.csproj">
@@ -124,6 +121,9 @@
       <Name>Util</Name>
       <Private>False</Private>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SkyrimVR_logo.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

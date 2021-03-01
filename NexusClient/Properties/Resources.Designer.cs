@@ -19,7 +19,7 @@ namespace Nexus.Client.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -73,9 +73,29 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap activate_flat {
+            get {
+                object obj = ResourceManager.GetObject("activate_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap activate_mod {
             get {
                 object obj = ResourceManager.GetObject("activate_mod", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap activate_mod_flat {
+            get {
+                object obj = ResourceManager.GetObject("activate_mod_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -103,9 +123,29 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap add_mod_file_flat {
+            get {
+                object obj = ResourceManager.GetObject("add_mod_file_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap add_mod_url {
             get {
                 object obj = ResourceManager.GetObject("add_mod_url", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap add_mod_url_flat {
+            get {
+                object obj = ResourceManager.GetObject("add_mod_url_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -173,6 +213,26 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap cancel_download_flat {
+            get {
+                object obj = ResourceManager.GetObject("cancel_download_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap categories_flat {
+            get {
+                object obj = ResourceManager.GetObject("categories_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap category_folder {
             get {
                 object obj = ResourceManager.GetObject("category_folder", resourceCulture);
@@ -186,6 +246,36 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap change_game_mode {
             get {
                 object obj = ResourceManager.GetObject("change_game_mode", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap check_mod_updates_flat {
+            get {
+                object obj = ResourceManager.GetObject("check_mod_updates_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap check_updates_id_fix_flat {
+            get {
+                object obj = ResourceManager.GetObject("check_updates_id_fix_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap check_updates_interval_flat {
+            get {
+                object obj = ResourceManager.GetObject("check_updates_interval_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -383,6 +473,36 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Digital_Patreon_Logo_FieryCoral {
+            get {
+                object obj = ResourceManager.GetObject("Digital-Patreon-Logo_FieryCoral", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap disable_mod_flat {
+            get {
+                object obj = ResourceManager.GetObject("disable_mod_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap discord_logo_512 {
+            get {
+                object obj = ResourceManager.GetObject("discord_logo_512", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap document_export_4 {
             get {
                 object obj = ResourceManager.GetObject("document_export_4", resourceCulture);
@@ -543,6 +663,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap endorse_flat {
+            get {
+                object obj = ResourceManager.GetObject("endorse_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap endorsed {
             get {
                 object obj = ResourceManager.GetObject("endorsed", resourceCulture);
@@ -583,6 +713,36 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap export_clipboard_flat {
+            get {
+                object obj = ResourceManager.GetObject("export_clipboard_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap export_mod_list_flat {
+            get {
+                object obj = ResourceManager.GetObject("export_mod_list_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap export_text_file_flat {
+            get {
+                object obj = ResourceManager.GetObject("export_text_file_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap eye_open_24x24 {
             get {
                 object obj = ResourceManager.GetObject("eye_open_24x24", resourceCulture);
@@ -596,6 +756,16 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap eye_open2_24x24 {
             get {
                 object obj = ResourceManager.GetObject("eye_open2_24x24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap folder_link_flat {
+            get {
+                object obj = ResourceManager.GetObject("folder_link_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -663,9 +833,29 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap help_flat {
+            get {
+                object obj = ResourceManager.GetObject("help_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap home_16x16 {
             get {
                 object obj = ResourceManager.GetObject("home_16x16", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap import_plugin_list_flat {
+            get {
+                object obj = ResourceManager.GetObject("import_plugin_list_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -713,6 +903,46 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap list_cleanup_flat {
+            get {
+                object obj = ResourceManager.GetObject("list_cleanup_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap loggedin_flat {
+            get {
+                object obj = ResourceManager.GetObject("loggedin_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap loggedout_flat {
+            get {
+                object obj = ResourceManager.GetObject("loggedout_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap mad_tagger_flat {
+            get {
+                object obj = ResourceManager.GetObject("mad_tagger_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap media_playback_pause_7 {
             get {
                 object obj = ResourceManager.GetObject("media_playback_pause_7", resourceCulture);
@@ -726,6 +956,26 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap media_playback_start_7 {
             get {
                 object obj = ResourceManager.GetObject("media_playback_start_7", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap move_down_flat {
+            get {
+                object obj = ResourceManager.GetObject("move_down_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap move_up_flat {
+            get {
+                object obj = ResourceManager.GetObject("move_up_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -751,11 +1001,31 @@ namespace Nexus.Client.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
+        /// </summary>
+        internal static System.Drawing.Icon NMM_CE_P_Logo {
+            get {
+                object obj = ResourceManager.GetObject("NMM_CE_P_Logo", resourceCulture);
+                return ((System.Drawing.Icon)(obj));
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
         internal static System.Drawing.Bitmap Nmm_community_edition {
             get {
                 object obj = ResourceManager.GetObject("Nmm-community-edition", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap NMM_P_Logo_800 {
+            get {
+                object obj = ResourceManager.GetObject("NMM_P_Logo_800", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -783,9 +1053,39 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Patreon_logo {
+            get {
+                object obj = ResourceManager.GetObject("Patreon_logo", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap pause_download_flat {
+            get {
+                object obj = ResourceManager.GetObject("pause_download_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap preferences_system_4 {
             get {
                 object obj = ResourceManager.GetObject("preferences_system_4", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap program_tools_flat {
+            get {
+                object obj = ResourceManager.GetObject("program_tools_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -806,6 +1106,16 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap remove_all_categories {
             get {
                 object obj = ResourceManager.GetObject("remove_all_categories", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap remove_download_flat {
+            get {
+                object obj = ResourceManager.GetObject("remove_download_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -873,9 +1183,39 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap resume_download_flat {
+            get {
+                object obj = ResourceManager.GetObject("resume_download_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap round_loading {
             get {
                 object obj = ResourceManager.GetObject("round_loading", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap save_mod_loadorder_flat {
+            get {
+                object obj = ResourceManager.GetObject("save_mod_loadorder_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap settings_flat {
+            get {
+                object obj = ResourceManager.GetObject("settings_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -923,9 +1263,39 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap supported_tools_flat {
+            get {
+                object obj = ResourceManager.GetObject("supported_tools_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap switch_game_flat {
+            get {
+                object obj = ResourceManager.GetObject("switch_game_flat", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap switch_view {
             get {
                 object obj = ResourceManager.GetObject("switch_view", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap switch_view_flat {
+            get {
+                object obj = ResourceManager.GetObject("switch_view_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -1041,6 +1411,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap token_info {
+            get {
+                object obj = ResourceManager.GetObject("token_info", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap uac_icon {
             get {
                 object obj = ResourceManager.GetObject("uac_icon", resourceCulture);
@@ -1074,6 +1454,16 @@ namespace Nexus.Client.Properties {
         internal static System.Drawing.Bitmap up {
             get {
                 object obj = ResourceManager.GetObject("up", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap update_check_flat {
+            get {
+                object obj = ResourceManager.GetObject("update_check_flat", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

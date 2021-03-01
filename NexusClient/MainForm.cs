@@ -550,12 +550,12 @@
 				toolStripLabelLoginMessage.Text = "You are not logged in.";
 				toolStripLabelLoginMessage.Font = new Font(base.Font, FontStyle.Bold);
 				toolStripButtonGoPremium.Visible = false;
-				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.offline_icon, 36, 34);
+				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.loggedout_flat, 32, 30);
 				toolStripLabelDownloads.Visible = false;
 			}
 			else
 			{
-				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.online_icon, 36, 34);
+				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.loggedin_flat, 32, 30);
 				
 				if (ViewModel.UserStatus.IsPremium)
 				{
@@ -2586,7 +2586,7 @@
 
                     if (tmiLaunch.Image == null)
                     {
-                        tmiLaunch.Image = ToolStripRenderer.CreateDisabledImage(Properties.Resources.supported_tools);
+                        tmiLaunch.Image = ToolStripRenderer.CreateDisabledImage(Properties.Resources.supported_tools_flat);
                     }
 
                     new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
@@ -2599,7 +2599,7 @@
 					if (spbSupportedTools.DropDownItems.Count > 0)
 					{
 						spbSupportedTools.Text = "Supported Tools";
-						spbSupportedTools.Image = Properties.Resources.supported_tools;
+						spbSupportedTools.Image = Properties.Resources.supported_tools_flat;
 					}
 				}
 			}
@@ -3015,7 +3015,7 @@
 		/// <param name="theme">The theme to apply.</param>
 		protected void ApplyTheme(Theme theme)
 		{
-			Icon = theme.Icon;
+			Icon = Properties.Resources.NMM_CE_P_Logo;
 
 			var changeMode = new Bitmap(spbChangeMode.Image);
 
@@ -3113,6 +3113,21 @@
 		{
 			WindowState = _lastWindowState;
 			Activate();
+		}
+
+		private void toolStripButtonOnlineStatus_Click(object sender, EventArgs e)
+		{
+
+		}
+
+		private void tsbDiscord_Click(object sender, EventArgs e)
+		{
+			Process.Start("https://discord.gg/JZ4tZ5KFQX");
+		}
+
+		private void tsbPatreon_Click(object sender, EventArgs e)
+		{
+			Process.Start("https://www.patreon.com/NMMCE");
 		}
 	}
 }

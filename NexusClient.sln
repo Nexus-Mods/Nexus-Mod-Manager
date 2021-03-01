@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27130.2036
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30907.101
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Game Modes", "Game Modes", "{512B02AB-C927-4F3F-A7BF-26E6EE4CF678}"
 EndProject
@@ -142,6 +142,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Enderal", "Game Modes\Enderal\Enderal.csproj", "{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonsterHunterWorld", "Game Modes\MonsterHunterWorld\MonsterHunterWorld.csproj", "{851EE0C7-E773-455A-9DA3-50A7D0BBD4D8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cyberpunk2077", "Game Modes\Cyberpunk2077\Cyberpunk2077.csproj", "{23CF6159-95B3-4880-B8D4-655558EA74BB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -391,6 +393,10 @@ Global
 		{851EE0C7-E773-455A-9DA3-50A7D0BBD4D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{851EE0C7-E773-455A-9DA3-50A7D0BBD4D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{851EE0C7-E773-455A-9DA3-50A7D0BBD4D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23CF6159-95B3-4880-B8D4-655558EA74BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23CF6159-95B3-4880-B8D4-655558EA74BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23CF6159-95B3-4880-B8D4-655558EA74BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23CF6159-95B3-4880-B8D4-655558EA74BB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -446,6 +452,7 @@ Global
 		{5AE82EDF-0726-4013-91A5-C7DB3DAF19CF} = {85AF1071-AA80-4EBB-949B-40847BBFC5C0}
 		{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{851EE0C7-E773-455A-9DA3-50A7D0BBD4D8} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{23CF6159-95B3-4880-B8D4-655558EA74BB} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}

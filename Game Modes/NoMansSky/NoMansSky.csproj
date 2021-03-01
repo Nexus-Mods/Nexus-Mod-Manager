@@ -134,6 +134,7 @@
     <None Include="Resources\Categories.xml">
       <SubType>Designer</SubType>
     </None>
+    <None Include="Resources\NoMansSky.ico" />
     <Content Include="Resources\NoMansSky_logo.ico" />
   </ItemGroup>
   <ItemGroup />

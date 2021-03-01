@@ -64,7 +64,7 @@ namespace Nexus.Client.UI.Controls
 					m_lviSelectedItem = value;
 					if (m_lviSelectedItem != null)
 					{
-						m_lviSelectedItem.BackColor = SystemColors.Highlight;
+						m_lviSelectedItem.BackColor = Color.LightBlue;
 						m_lviSelectedItem.Focus();
 					}
 				}

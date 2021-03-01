@@ -36,11 +36,11 @@
 			// pbxLogo
 			// 
 			this.pbxLogo.BackColor = System.Drawing.Color.Transparent;
-			this.pbxLogo.Image = global::Nexus.Client.Properties.Resources.Nmm_ce_800;
+			this.pbxLogo.Image = global::Nexus.Client.Properties.Resources.NMM_P_Logo_800;
 			this.pbxLogo.Location = new System.Drawing.Point(0, 0);
 			this.pbxLogo.Margin = new System.Windows.Forms.Padding(0);
 			this.pbxLogo.Name = "pbxLogo";
-			this.pbxLogo.Size = new System.Drawing.Size(800, 360);
+			this.pbxLogo.Size = new System.Drawing.Size(800, 447);
 			this.pbxLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
 			this.pbxLogo.TabIndex = 0;
 			this.pbxLogo.TabStop = false;
@@ -61,8 +61,8 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.BackColor = System.Drawing.Color.Black;
-			this.ClientSize = new System.Drawing.Size(800, 360);
+			this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
+			this.ClientSize = new System.Drawing.Size(800, 448);
 			this.ControlBox = false;
 			this.Controls.Add(this.lblVersion);
 			this.Controls.Add(this.pbxLogo);
@@ -74,7 +74,7 @@
 			this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Nexus Mod Manager";
-			this.TransparencyKey = System.Drawing.Color.Red;
+			this.TransparencyKey = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
 			((System.ComponentModel.ISupportInitialize)(this.pbxLogo)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();

@@ -129,7 +129,9 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="Resources\Categories.xml" />
-    <Content Include="Resources\grimrock_logo.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\grimrock_logo.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

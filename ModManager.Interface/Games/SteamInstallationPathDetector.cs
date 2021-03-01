@@ -38,7 +38,7 @@
             {
                 var steamKey = RegistryUtil.ReadValue(RegistryHive.CurrentUser, registryKey, "Installed");
 
-                if (steamKey.Equals("1"))
+                if (steamKey != null && steamKey.Equals("1"))
                 {
                     Trace.TraceInformation("Getting Steam install folder.");
 

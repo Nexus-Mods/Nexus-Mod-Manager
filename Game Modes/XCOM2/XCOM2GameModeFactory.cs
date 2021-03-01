@@ -112,10 +112,15 @@ namespace Nexus.Client.Games.XCOM2
 				{
 					Trace.TraceInformation("Getting install folder from Uninstall.");
 
-					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 268500", "InstallLocation", null).ToString();
+					var uniPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 268500", "InstallLocation", null);
 
-					if (Directory.Exists(uniPath))
-						strValue = uniPath;
+					if (uniPath != null)
+					{
+						string strUniPath = uniPath.ToString();
+
+						if (Directory.Exists(strUniPath))
+							strValue = strUniPath;
+					}
 				}
 			}
 			catch

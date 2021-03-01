@@ -8,8 +8,10 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Nexus.Client.Games.SkyrimVR.Properties
-{  
+namespace Nexus.Client.Games.SkyrimVR.Properties {
+    using System;
+    
+    
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -17,10 +19,10 @@ namespace Nexus.Client.Games.SkyrimVR.Properties
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -34,7 +36,7 @@ namespace Nexus.Client.Games.SkyrimVR.Properties
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("SkyrimVR.Properties.Resources", typeof(Resources).Assembly);
@@ -49,7 +51,7 @@ namespace Nexus.Client.Games.SkyrimVR.Properties
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -77,7 +79,7 @@ namespace Nexus.Client.Games.SkyrimVR.Properties
         ///    &lt;category path=&quot;Armour&quot; ID=&quot;54&quot;&gt;
         ///      &lt;name&gt;Armo [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string Categories {
+        public static string Categories {
             get {
                 return ResourceManager.GetString("Categories", resourceCulture);
             }
@@ -106,10 +108,11 @@ namespace Nexus.Client.Games.SkyrimVR.Properties
         ///Skyrim - Textures8.bsa
         ///Skyrim - Voices_en0.bsa
         ///Skyrim.esm
-        ///Update.esm
-        ///Video\BGS_Logo.bik.
+        ///Skyrim_VR - Main.bsa
+        ///SkyrimVR.esm
+        /// [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string SkyrimVR_base {
+        public static string SkyrimVR_base {
             get {
                 return ResourceManager.GetString("SkyrimVR_base", resourceCulture);
             }
@@ -118,7 +121,7 @@ namespace Nexus.Client.Games.SkyrimVR.Properties
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
-        internal static System.Drawing.Icon SkyrimVR_logo {
+        public static System.Drawing.Icon SkyrimVR_logo {
             get {
                 object obj = ResourceManager.GetObject("SkyrimVR_logo", resourceCulture);
                 return ((System.Drawing.Icon)(obj));

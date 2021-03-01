@@ -63,7 +63,7 @@ namespace Nexus.Client.Games.MonsterHunterWorld
 		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
-            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("4450266", "Monster Hunter World", "MonsterHunterWorld.exe");
+            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("582010", "Monster Hunter World", "MonsterHunterWorld.exe");
 
 			return strValue;
 		}

@@ -1039,5 +1039,10 @@ namespace Nexus.Client.PluginManagement.UI
 		#endregion
 
 		#endregion
+
+		private void tsbExport_Click(object sender, EventArgs e)
+		{
+
+		}
 	}
 }

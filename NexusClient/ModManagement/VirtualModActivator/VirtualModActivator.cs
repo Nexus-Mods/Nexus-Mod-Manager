@@ -1,6 +1,7 @@
 ﻿namespace Nexus.Client.ModManagement
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
@@ -1546,26 +1547,18 @@
 
 					if (m_tslVirtualModList.Count > 0)
 					{
-						ThreadSafeObservableList<IVirtualModLink> ivlLinks = new ThreadSafeObservableList<IVirtualModLink>();
+						ConcurrentQueue<IVirtualModLink> cqLinks = new ConcurrentQueue<IVirtualModLink>();
 
 						Parallel.ForEach(m_tslVirtualModList, (fileLink) =>
 						{
 							if (fileLink.ModInfo != null)
 								if (fileLink.ModInfo.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase))
-									ivlLinks.Add(fileLink);
+									cqLinks.Enqueue(fileLink);
 						});
 
-						//foreach (IVirtualModLink fileLink in m_tslVirtualModList)
-						//{
-						//	if (fileLink.ModInfo != null)
-						//		if (fileLink.ModInfo.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase))
-						//			ivlLinks.Add(fileLink);
-						//}
-
-						//IEnumerable<IVirtualModLink> ivlLinks = m_tslVirtualModList.Where(x => (x.ModInfo != null) && (x.ModInfo.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase)));
-						if ((ivlLinks != null) && (ivlLinks.Count() > 0))
+						if ((cqLinks != null) && (cqLinks.Count > 0))
 						{
-							foreach (IVirtualModLink Link in ivlLinks)
+							foreach (IVirtualModLink Link in cqLinks)
 								RemoveFileLink(Link, p_modMod, p_booPurging);
 						}
 					}

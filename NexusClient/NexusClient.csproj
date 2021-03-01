@@ -12,7 +12,7 @@
     <AssemblyName>NexusClient</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <ApplicationIcon>Resources\tes_logo.ico</ApplicationIcon>
+    <ApplicationIcon>NMM_CE_P_Logo.ico</ApplicationIcon>
     <TargetZone>Internet</TargetZone>
     <GenerateManifests>false</GenerateManifests>
     <IsWebBootstrapper>false</IsWebBootstrapper>
@@ -235,9 +235,15 @@
     <EmbeddedResource Include="TipsManagement\Balloon.resx" />
     <EmbeddedResource Include="TipsManagement\BalloonVM.resx" />
     <EmbeddedResource Include="TipsManagement\Hooks\WindowsHook.resx" />
+    <EmbeddedResource Include="UI\Controls\GameModeListView.resx">
+      <DependentUpon>GameModeListView.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\GameModeListViewItem.resx">
       <DependentUpon>GameModeListViewItem.cs</DependentUpon>
       <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\GameModeListViewItemBase.resx">
+      <DependentUpon>GameModeListViewItemBase.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\Controls\GameModeSearchListViewItem.resx">
       <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
@@ -384,6 +390,9 @@
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\token_info.png" />
+    <None Include="Resources\update_check_flat.png" />
+    <None Include="data\NMM License.rtf" />
     <None Include="packages.config" />
     <None Include="Resources\text168.png" />
     <None Include="Resources\View Profile.png" />
@@ -398,9 +407,6 @@
     <None Include="Resources\tips.png" />
     <None Include="Resources\uac-icon.png" />
     <None Include="data\releasenotes.rtf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\Nexus Mod Manager License.rtf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="data\License.rtf">
@@ -483,6 +489,7 @@
     <Content Include="data\Third-Party Licenses\FluentNexus License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="data\Third-Party Licenses\Icons License.txt" />
     <Content Include="data\Third-Party Licenses\NUnit License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -496,6 +503,44 @@
     <None Include="Resources\info.png" />
     <None Include="Resources\Nmm-community-edition.png" />
     <None Include="Resources\Nmm-ce_800.png" />
+    <None Include="Resources\NMM_P_Logo_800.png" />
+    <None Include="Resources\NMM_CE_P_Logo.ico" />
+    <Content Include="NMM_CE_P_Logo.ico" />
+    <None Include="Resources\discord_logo_512.png" />
+    <None Include="Resources\Patreon_logo.png" />
+    <None Include="Resources\Digital-Patreon-Logo_FieryCoral.png" />
+    <None Include="Resources\switch_game_flat.png" />
+    <None Include="Resources\help_flat.png" />
+    <None Include="Resources\supported_tools_flat.png" />
+    <None Include="Resources\settings_flat.png" />
+    <None Include="Resources\folder_link_flat.png" />
+    <None Include="Resources\program_tools_flat.png" />
+    <None Include="Resources\loggedin_flat.png" />
+    <None Include="Resources\loggedout_flat.png" />
+    <None Include="Resources\add_mod_file_flat.png" />
+    <None Include="Resources\add_mod_url_flat.png" />
+    <None Include="Resources\activate_flat.png" />
+    <None Include="Resources\activate_mod_flat.png" />
+    <None Include="Resources\disable_mod_flat.png" />
+    <None Include="Resources\save_mod_loadorder_flat.png" />
+    <None Include="Resources\move_up_flat.png" />
+    <None Include="Resources\move_down_flat.png" />
+    <None Include="Resources\mad_tagger_flat.png" />
+    <None Include="Resources\check_updates_interval_flat.png" />
+    <None Include="Resources\check_mod_updates_flat.png" />
+    <None Include="Resources\check_updates_id_fix_flat.png" />
+    <None Include="Resources\endorse_flat.png" />
+    <None Include="Resources\categories_flat.png" />
+    <None Include="Resources\switch_view_flat.png" />
+    <None Include="Resources\export_mod_list_flat.png" />
+    <None Include="Resources\export_text_file_flat.png" />
+    <None Include="Resources\export_clipboard_flat.png" />
+    <None Include="Resources\import_plugin_list_flat.png" />
+    <None Include="Resources\resume_download_flat.png" />
+    <None Include="Resources\cancel_download_flat.png" />
+    <None Include="Resources\pause_download_flat.png" />
+    <None Include="Resources\remove_download_flat.png" />
+    <None Include="Resources\list_cleanup_flat.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />

@@ -131,7 +131,7 @@
     <None Include="Resources\Categories.xml" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Resources\eso_logo.ico" />
+    <None Include="Resources\eso_logo.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

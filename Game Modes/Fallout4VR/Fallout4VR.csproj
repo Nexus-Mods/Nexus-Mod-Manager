@@ -45,9 +45,6 @@
     <None Include="Resources\fallout4vr_base.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Resources\fallout4vr_logo.ico" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="..\..\SharedAssemblyInformation.cs">
       <Link>Properties\SharedAssemblyInformation.cs</Link>
     </Compile>
@@ -118,6 +115,9 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Fallout4VR_logo.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

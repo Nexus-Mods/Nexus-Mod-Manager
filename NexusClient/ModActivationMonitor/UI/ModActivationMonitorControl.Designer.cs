@@ -62,7 +62,7 @@
 			// tsbCancel
 			// 
 			this.tsbCancel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbCancel.Image = global::Nexus.Client.Properties.Resources.edit_delete;
+			this.tsbCancel.Image = global::Nexus.Client.Properties.Resources.cancel_download_flat;
 			this.tsbCancel.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbCancel.Name = "tsbCancel";
 			this.tsbCancel.Size = new System.Drawing.Size(34, 36);
@@ -72,7 +72,7 @@
 			// tsbRemoveAll
 			// 
 			this.tsbRemoveAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbRemoveAll.Image = global::Nexus.Client.Properties.Resources.edit_clear_3;
+			this.tsbRemoveAll.Image = global::Nexus.Client.Properties.Resources.list_cleanup_flat;
 			this.tsbRemoveAll.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbRemoveAll.Name = "tsbRemoveAll";
 			this.tsbRemoveAll.Size = new System.Drawing.Size(34, 36);
@@ -81,7 +81,7 @@
 			// tsbRemoveQueued
 			// 
 			this.tsbRemoveQueued.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbRemoveQueued.Image = global::Nexus.Client.Properties.Resources.edit_delete_6;
+			this.tsbRemoveQueued.Image = global::Nexus.Client.Properties.Resources.remove_download_flat;
 			this.tsbRemoveQueued.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbRemoveQueued.Name = "tsbRemove";
 			this.tsbRemoveQueued.Size = new System.Drawing.Size(34, 36);

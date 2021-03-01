@@ -123,6 +123,7 @@
 		private readonly Stack<int> _previousSpeed = new Stack<int> { };
 		private readonly Stopwatch _speed = new Stopwatch();
 		private List<string> _fileserverCaptions = new List<string>();
+		private int _hours;
 		private double _minutes;
 		private int _seconds;
 		private long _downloadProgress;
@@ -170,7 +171,34 @@
 		/// <value>The time that has elapsed downloading the file.</value>
 		protected TimeSpan ElapsedTime => DateTime.Now.Subtract(_startTime);
 
-        /// <summary>
+		/// <summary>
+		/// Gets the current task speed.
+		/// </summary>
+		/// <value>The current task speed.</value>
+		public int ETA_Hours
+		{
+			get => _hours;
+			set
+			{
+				var changed = false;
+
+				lock (_lockObject)
+				{
+					if (_hours != value)
+					{
+						changed = true;
+						_hours = value;
+					}
+				}
+
+				if (changed)
+				{
+					OnPropertyChanged(() => ETA_Hours);
+				}
+			}
+		}
+
+		/// <summary>
 		/// Gets the current task speed.
 		/// </summary>
 		/// <value>The current task speed.</value>
@@ -821,6 +849,7 @@
 					_speed.Start();
 				}
 
+				int hours = speed == 0 ? 99 : timeRemaining.Hours;
 				double minutes = speed == 0 ? 99 : timeRemaining.Minutes;
 				var seconds = speed == 0 ? 99 : timeRemaining.Seconds;
 
@@ -834,6 +863,7 @@
                 }
                 else
 				{
+					ETA_Hours = hours;
 					ETA_Minutes = minutes;
 					ETA_Seconds = seconds;
 

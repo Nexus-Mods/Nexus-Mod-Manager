@@ -443,7 +443,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = true;
 				tsbToggleEndorse.Enabled = true;
-				tsbToggleEndorse.Image = Properties.Resources.thumbsup;
+				tsbToggleEndorse.Image = Properties.Resources.endorse_flat;
 			}
 			else
 			{
@@ -452,7 +452,7 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.TagModCommand.CanExecute = false;
 				ViewModel.DeleteModCommand.CanExecute = false;
 				tsbToggleEndorse.Enabled = false;
-				tsbToggleEndorse.Image = Properties.Resources.thumbsup;
+				tsbToggleEndorse.Image = Properties.Resources.endorse_flat;
 			}
 
 			tsbDeactivate.Visible = ViewModel.DisableModCommand.CanExecute;

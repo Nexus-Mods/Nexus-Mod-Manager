@@ -281,7 +281,7 @@ namespace Nexus.Client
 			Settings = p_setSettings;
 			InitializeComponent();
 			glvGameMode.MinimumSize = lblPrompt.Size;
-			Icon = Properties.Resources.DefaultIcon;
+			Icon = Properties.Resources.NMM_CE_P_Logo;
 			List<IGameModeDescriptor> lstSortedModes = new List<IGameModeDescriptor>(p_lstGameModes);
 			lstSortedModes.Sort((x, y) => x.Name.CompareTo(y.Name));
 			foreach (IGameModeDescriptor gmdInfo in lstSortedModes)
