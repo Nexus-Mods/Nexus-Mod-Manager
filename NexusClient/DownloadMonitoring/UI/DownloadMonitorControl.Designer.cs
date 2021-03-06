@@ -62,7 +62,7 @@
             this.tsbPurgeDownloads});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(37, 183);
+			this.toolStrip1.Size = new System.Drawing.Size(37, 307);
 			this.toolStrip1.TabIndex = 0;
 			this.toolStrip1.Text = "toolStrip1";
 			// 
@@ -109,16 +109,16 @@
 			this.tsbResumeAll.Image = global::Nexus.Client.Properties.Resources.compilebasic;
 			this.tsbResumeAll.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbResumeAll.Name = "tsbResumeAll";
-			this.tsbResumeAll.Size = new System.Drawing.Size(36, 36);
+			this.tsbResumeAll.Size = new System.Drawing.Size(34, 36);
 			this.tsbResumeAll.Text = "Resume All";
 			// 
 			// tsbRemoveAll
 			// 
 			this.tsbRemoveAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbRemoveAll.Image = global::Nexus.Client.Properties.Resources.edit_clear_3;
+			this.tsbRemoveAll.Image = global::Nexus.Client.Properties.Resources.list_cleanup_flat;
 			this.tsbRemoveAll.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbRemoveAll.Name = "tsbRemoveAll";
-			this.tsbRemoveAll.Size = new System.Drawing.Size(36, 36);
+			this.tsbRemoveAll.Size = new System.Drawing.Size(34, 36);
 			this.tsbRemoveAll.Text = "Remove All";
 			// 
 			// tsbPurgeDownloads
@@ -127,7 +127,7 @@
 			this.tsbPurgeDownloads.Image = global::Nexus.Client.Properties.Resources.Actions_edit_clear_list_icon;
 			this.tsbPurgeDownloads.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbPurgeDownloads.Name = "tsbPurgeDownloads";
-			this.tsbPurgeDownloads.Size = new System.Drawing.Size(36, 36);
+			this.tsbPurgeDownloads.Size = new System.Drawing.Size(34, 36);
 			this.tsbPurgeDownloads.Text = "Purge Downloads";
 			this.tsbPurgeDownloads.ToolTipText = "Purge Downloads";
 			// 
@@ -147,7 +147,7 @@
 			this.lvwTasks.Location = new System.Drawing.Point(37, 0);
 			this.lvwTasks.Name = "lvwTasks";
 			this.lvwTasks.ShowItemToolTips = true;
-			this.lvwTasks.Size = new System.Drawing.Size(516, 183);
+			this.lvwTasks.Size = new System.Drawing.Size(707, 307);
 			this.lvwTasks.TabIndex = 1;
 			this.lvwTasks.UseCompatibleStateImageBehavior = false;
 			this.lvwTasks.View = System.Windows.Forms.View.Details;
@@ -193,7 +193,7 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(553, 183);
+			this.ClientSize = new System.Drawing.Size(744, 307);
 			this.CloseButton = false;
 			this.CloseButtonVisible = false;
 			this.Controls.Add(this.lvwTasks);

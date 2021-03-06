@@ -20,6 +20,9 @@ namespace Nexus.UI.Controls
         //private static Regex HREF_MATCHER = new Regex(@"(?i)\b(href=[""'][^""']+[""'])");
         private static Regex TAG_MATCHER = new Regex(@"(?i)(<[^>]*>)");
         private static Regex LOOSE_URL_MATCHER = new Regex(@"(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'"".,<>?«»“”‘’]))");
+        //the html in some mod could lead to an infinite loop in the Regex, eg.: https://www.nexusmods.com/skyrimspecialedition/mods/45148
+        //this is a simplified version of the regex that should work for the time being.
+        private static Regex OPTIMIZED_MATCHER = new Regex(@"[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)");
         //private static Regex STRICT_URL_MATCHER = new Regex(@"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'"".,<>?«»“”‘’]))");
         private string m_strText = null;
         private WebBrowser m_browser = null;
@@ -300,10 +303,15 @@ namespace Nexus.UI.Controls
                         strText = strText.Replace (colUrls [i].Value, strShieldText);
                         dicProtectedUrls [strShieldText] = colUrls [i].Value;
                     }
-                    colUrls = LOOSE_URL_MATCHER.Matches (strText);
-                    for (Int32 i = colUrls.Count - 1; i >= 0; i--) {
-                        strText = strText.Remove (colUrls [i].Index, colUrls [i].Length);
-                        strText = strText.Insert (colUrls [i].Index, String.Format ("<a href=\"{0}\">{0}</a>", colUrls [i].Value));
+                    colUrls = OPTIMIZED_MATCHER.Matches (strText);
+                    if (colUrls.Count > 0)
+                    {
+                        int colUrlCount = colUrls.Count;
+                        for (int i = colUrlCount - 1; i >= 0; i--)
+                        {
+                            strText = strText.Remove(colUrls[i].Index, colUrls[i].Length);
+                            strText = strText.Insert(colUrls[i].Index, String.Format("<a href=\"{0}\">{0}</a>", colUrls[i].Value));
+                        }
                     }
                     foreach (string strKey in dicProtectedUrls.Keys)
                         strText = strText.Replace (strKey, dicProtectedUrls [strKey]);
