@@ -116,17 +116,28 @@
                 if (Directory.Exists(modFolderPath) || MultiHDMode && Directory.Exists(linkFolderPath))
 				{
 					string[] files;
-					
-					if (MultiHDMode && Directory.Exists(linkFolderPath))
+
+                    try
                     {
-                        files = Directory.Exists(modFolderPath) ? 
-                            Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories).Concat(Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)).ToArray() : 
-                            Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories);
-                    }
-					else
+                        if (MultiHDMode && Directory.Exists(linkFolderPath))
+                        {
+                            files = Directory.Exists(modFolderPath) ?
+                                Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories).Concat(Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)).ToArray() :
+                                Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories);
+                        }
+                        else
+                        {
+                            files = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
+                        }
+					}
+                    catch (Exception ex)
                     {
-                        files = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
-                    }
+						TraceUtil.TraceException(ex);
+                        OverallMessage = $"{nameof(LinkActivationTask)} failed: {ex.Message}";
+                        Status = TaskStatus.Error;
+
+                        return null;
+					}
 
                     if (files.Length <= 1000)
 					{
