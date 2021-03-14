@@ -2389,13 +2389,20 @@
 
 			ProgressDialog.ShowDialog(this, e.Argument, false);
 
-			if (e.Argument.ReturnValue != null)
+			if ((e.Argument.ReturnValue != null) && (e.Argument.ReturnValue is ModProfile modProfile))
 			{
-				ViewModel.SwitchProfile(this, (ModProfile)e.Argument.ReturnValue, true, true);
+				ViewModel.SwitchProfile(this, modProfile, true, true);
 			}
 			else
             {
-                MessageBox.Show("An error occured during the Restore!");
+				if ((e.Argument.ReturnValue != null) && (e.Argument.ReturnValue is string error))
+				{
+					MessageBox.Show(error);
+				}
+				else
+				{
+					MessageBox.Show("An error occured during the Restore!");
+				}
             }
         }
 
