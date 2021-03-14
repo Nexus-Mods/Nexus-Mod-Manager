@@ -63,18 +63,12 @@
 		/// <inheritdoc cref="IModRepository"/>
 		public int MaxConcurrentDownloads { get; private set; }
 
-		private string _gameDomain = string.Empty;
+		private readonly string _gameDomain;
 
 		/// <inheritdoc cref="IModRepository"/>
-		public string GameDomainName
-		{
-			get
-			{
-				return string.IsNullOrEmpty(_gameDomain) ? string.Empty : _gameDomain.ToLower();
-			}
-		}
+		public string GameDomainName => string.IsNullOrEmpty(_gameDomain) ? string.Empty : _gameDomain.ToLower();
 
-		/// <inheritdoc cref="IModRepository"/>
+        /// <inheritdoc cref="IModRepository"/>
 		public IRateLimitManager RateLimit => _apiCallManager.RateLimit;
 
 		#endregion
@@ -157,9 +151,9 @@
                 ReactToAggregateException(a);
                 return null;
             }
-            catch (FileNotFoundException f)
+            catch (Exception ex)
             {
-                TraceUtil.TraceException(f);
+                TraceUtil.TraceException(ex);
                 return null;
             }
 		}
@@ -179,9 +173,9 @@
                 ReactToAggregateException(a);
                 return null;
             }
-            catch (FileNotFoundException f)
+            catch (Exception ex)
             {
-                TraceUtil.TraceException(f);
+                TraceUtil.TraceException(ex);
                 return null;
             }
         }
@@ -199,6 +193,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
@@ -226,10 +225,10 @@
                     if (ReactToAggregateException(a))
                         break;
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
                     Trace.TraceError($"Exception while parsing mod ID from mod \"{mod}\".");
-                    TraceUtil.TraceException(e);
+                    TraceUtil.TraceException(ex);
                     continue;
                 }
 			}
@@ -252,9 +251,9 @@
 			{
 				ReactToAggregateException(a);
 			}
-			catch (Exception e)
+			catch (Exception ex)
 			{
-				TraceUtil.TraceException(e);
+				TraceUtil.TraceException(ex);
 			}
 
 			return updatedMods;
@@ -316,6 +315,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
@@ -331,6 +335,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
@@ -351,6 +360,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
@@ -365,6 +379,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
@@ -392,6 +411,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <summary>
@@ -525,6 +549,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
@@ -540,6 +569,11 @@
 				ReactToAggregateException(a);
 				return null;
 			}
+            catch (Exception ex)
+            {
+                TraceUtil.TraceException(ex);
+                return null;
+            }
 		}
 
 		/// <summary>
@@ -567,11 +601,11 @@
 		/// <returns></returns>
 		private string ParseModId(string modId)
 		{
-			string parsedId = "0";
+			var parsedId = "0";
 
 			if (!string.IsNullOrEmpty(modId))
 			{
-				string[] modInfo = modId.Split('|');
+				var modInfo = modId.Split('|');
 				parsedId = Regex.Replace(modInfo.Length == 1 ? modInfo[0] : modInfo[1], "[^0-9]", "");
 			}
 

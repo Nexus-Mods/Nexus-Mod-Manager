@@ -815,9 +815,9 @@
 			{
 				mrgModRegistry = ModRegistry.DiscoverManagedMods(mfrModFormatRegistry, mcmModCacheManager, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, EnvironmentInfo.Settings.ScanSubfoldersForMods, EnvironmentInfo, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModReadMeDirectory, p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory, Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, VirtualModActivator.ACTIVATOR_LINK_FOLDER), Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, ProfileManager.PROFILE_FOLDER));
 			}
-			catch (UnauthorizedAccessException ex)
+			catch (Exception ex)
 			{
-				p_vwmErrorMessage = new ViewMessage(string.Format("An error occured while retrieving managed mods: \n\n{0}", ex.Message), null, "Install Log", MessageBoxIcon.Error);
+				p_vwmErrorMessage = new ViewMessage($"An error occurred while retrieving managed mods: \n\n{ex.Message}", null, "Install Log", MessageBoxIcon.Error);
 				return null;
 			}
 
