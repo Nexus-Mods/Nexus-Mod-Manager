@@ -154,6 +154,9 @@
   <data name="up" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\up.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="playlist" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\playlist.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="endorse_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\endorse_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -228,9 +231,6 @@
   </data>
   <data name="export_clipboard_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\export_clipboard_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="reset_unassigned" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\reset_unassigned.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="help_3" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\help-3.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -310,6 +310,9 @@
   <data name="info_add" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\info_add.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="list_cleanup_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\list_cleanup_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="resume_download_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\resume_download_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -321,6 +324,9 @@
   </data>
   <data name="switch_view" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\switch_view.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="activate_mod" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\activate_mod.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="check_updates_interval_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\check_updates_interval_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -442,9 +448,6 @@
   <data name="TipsXML" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Tips.xml;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
-  <data name="backup" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\backup.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="media_playback_pause_7" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\media-playback-pause-7.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -493,6 +496,9 @@
   <data name="dialog_block" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\dialog-block.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="remove_download_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\remove_download_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="Patreon_logo" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Patreon_logo.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -504,6 +510,9 @@
   </data>
   <data name="createBackup" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\createBackup.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="reset_unassigned" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\reset_unassigned.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="eye_open_24x24" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\eye_open_24x24.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -538,16 +547,13 @@
   <data name="dialog_ok_4_22" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\dialog-ok-42.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="activate_mod" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\activate_mod.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="backup" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\backup.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="folders_open" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\folders-open.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="remove_download_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\remove_download_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="list_cleanup_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\list_cleanup_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="delete-file" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\delete-file.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>

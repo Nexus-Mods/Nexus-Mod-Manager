@@ -72,6 +72,7 @@ namespace Nexus.Client
 			List<HelpLink> lstLinks = new List<HelpLink>();
 			foreach (KeyValuePair<string, string> kvpLink in p_eifEnvironmentInfo.Settings.HelpLinks)
 				lstLinks.Add(new HelpLink(kvpLink.Key, kvpLink.Value));
+
 			HelpLinks = lstLinks;
 		}
 

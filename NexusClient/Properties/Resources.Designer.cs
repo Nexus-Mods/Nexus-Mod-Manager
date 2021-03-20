@@ -343,6 +343,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap delete_file {
+            get {
+                object obj = ResourceManager.GetObject("delete-file", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap deleteProfile {
             get {
                 object obj = ResourceManager.GetObject("deleteProfile", resourceCulture);
@@ -1073,6 +1083,16 @@ namespace Nexus.Client.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap playlist {
+            get {
+                object obj = ResourceManager.GetObject("playlist", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap preferences_system_4 {
             get {
                 object obj = ResourceManager.GetObject("preferences_system_4", resourceCulture);
@@ -1394,13 +1414,12 @@ namespace Nexus.Client.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;tipsManager&gt;
         ///	&lt;tipsList&gt;
-        ///		&lt;tips section=&quot;ModManager.toolStrip1&quot; object=&quot;tsbActivate&quot; ID=&quot;1&quot; version=&quot;0.61.8&quot;&gt;
-        ///			&lt;text&gt;To completely UNINSTALL or DELETE a mod, right-click on it and select the desired uninstall option from the context menu.&lt;/text&gt;
+        ///		&lt;tips section=&quot;toolStrip1&quot; object=&quot;tsbPatreon&quot; ID=&quot;1&quot; version=&quot;0.80.0&quot;&gt;
+        ///			&lt;text&gt;Please support the NMM development, click this button and follow the link to the official Patreon: https://www.patreon.com/NMMCE .&lt;/text&gt;
         ///		&lt;/tips&gt;
-        ///		&lt;tips section=&quot;CLWCategoryListView&quot; object=&quot;column&quot; ID=&quot;1&quot; version=&quot;0.60.10&quot;&gt;
-        ///			&lt;text&gt;Right-clicking on a mod name will now also show the mod’s filename.&lt;/text&gt;
-        ///		&lt;/tips&gt;
-        ///		&lt;tips section=&quot;PluginManager [rest of string was truncated]&quot;;.
+        ///		&lt;tips section=&quot;toolStrip1&quot; object=&quot;tsbDiscord&quot; ID=&quot;2&quot; version=&quot;0.80.0&quot;&gt;
+        ///			&lt;text&gt;This is the link to the official NMM Community Discord, please join us to keep up to date with the development.&lt;/text&gt;
+        ///		&lt;/ti [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string TipsXML {
             get {

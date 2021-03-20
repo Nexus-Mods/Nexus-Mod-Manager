@@ -541,6 +541,8 @@
     <None Include="Resources\pause_download_flat.png" />
     <None Include="Resources\remove_download_flat.png" />
     <None Include="Resources\list_cleanup_flat.png" />
+    <None Include="Resources\playlist.png" />
+    <None Include="Resources\delete-file.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />

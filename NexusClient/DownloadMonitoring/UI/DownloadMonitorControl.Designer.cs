@@ -106,7 +106,7 @@
 			// tsbResumeAll
 			// 
 			this.tsbResumeAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbResumeAll.Image = global::Nexus.Client.Properties.Resources.compilebasic;
+			this.tsbResumeAll.Image = global::Nexus.Client.Properties.Resources.playlist;
 			this.tsbResumeAll.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbResumeAll.Name = "tsbResumeAll";
 			this.tsbResumeAll.Size = new System.Drawing.Size(34, 36);
@@ -124,7 +124,7 @@
 			// tsbPurgeDownloads
 			// 
 			this.tsbPurgeDownloads.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbPurgeDownloads.Image = global::Nexus.Client.Properties.Resources.Actions_edit_clear_list_icon;
+			this.tsbPurgeDownloads.Image = global::Nexus.Client.Properties.Resources.delete_file;
 			this.tsbPurgeDownloads.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbPurgeDownloads.Name = "tsbPurgeDownloads";
 			this.tsbPurgeDownloads.Size = new System.Drawing.Size(34, 36);
