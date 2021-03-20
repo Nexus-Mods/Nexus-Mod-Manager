@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Cyberpunk2077 Module")]
-[assembly: AssemblyDescription("The Cyberpunk2077 Module for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The Cyberpunk2077 Module for the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("Cyberpunk2077")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

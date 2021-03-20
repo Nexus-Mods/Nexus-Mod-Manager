@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " -BreakingWheel Module")]
-[assembly: AssemblyDescription("BreakingWheel Module for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("BreakingWheel Module for the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("BreakingWheel")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

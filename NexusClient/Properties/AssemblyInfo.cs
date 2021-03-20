@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + "")]
-[assembly: AssemblyDescription("The official Mod Manager for the Nexus network of game mod websites.")]
-[assembly: AssemblyProduct("NexusModManager")]
+[assembly: AssemblyDescription("The Mod Manager for the NexusMods network of game mod websites and generic game modding.")]
+[assembly: AssemblyProduct("NMM Community Edition")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

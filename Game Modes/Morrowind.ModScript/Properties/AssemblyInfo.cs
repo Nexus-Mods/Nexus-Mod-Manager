@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Morrowind Game Mode Mod Script Variant")]
-[assembly: AssemblyDescription("The Morrowind implementation of the Mod Script language for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The Morrowind implementation of the Mod Script language for the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("Morrowind.ModScript")]
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

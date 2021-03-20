@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Grimrock Module")]
-[assembly: AssemblyDescription("The Legend of Grimrock Module for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The Legend of Grimrock Module for the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("Grimrock")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

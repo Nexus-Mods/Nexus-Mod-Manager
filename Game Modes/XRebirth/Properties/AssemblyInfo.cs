@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - XRebirth Module")]
-[assembly: AssemblyDescription("The XRebirth Module for the official Mod Manager of the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The XRebirth Module for the Mod Manager of the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("XRebirth")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

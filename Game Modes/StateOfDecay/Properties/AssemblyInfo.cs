@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - State of Decay Module")]
-[assembly: AssemblyDescription("The State of Decay Module for the official Mod Manager of the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The State of Decay Module for the Mod Manager of the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("StateOfDecay")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

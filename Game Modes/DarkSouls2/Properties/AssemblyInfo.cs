@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Dark Souls 2 Module")]
-[assembly: AssemblyDescription("The Dark Souls 2 Module for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The Dark Souls 2 Module for the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("DarkSouls2")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

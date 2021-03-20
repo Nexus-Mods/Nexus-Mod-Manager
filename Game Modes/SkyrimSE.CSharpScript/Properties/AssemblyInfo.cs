@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Skyrim Special Edition Game Mode C# Script Variant")]
-[assembly: AssemblyDescription("The Skyrim Special Edition implementation of the C# Script language for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The Skyrim Special Edition implementation of the C# Script language for the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("SkyrimSE.CSharpScript")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

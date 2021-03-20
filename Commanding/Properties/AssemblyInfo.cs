@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - Commanding Pattern")]
-[assembly: AssemblyDescription("The Commanding Pattern implementation used by the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The Commanding Pattern implementation used by the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("Commanding")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

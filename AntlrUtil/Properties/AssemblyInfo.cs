@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " - ANTLR Util")]
-[assembly: AssemblyDescription("The ANTLR support Util library for the official Mod Manager the Nexus network of game mod websites.")]
+[assembly: AssemblyDescription("The ANTLR support Util library for the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("AntlrUtil")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
