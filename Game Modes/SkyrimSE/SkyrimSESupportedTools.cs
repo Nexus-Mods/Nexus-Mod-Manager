@@ -90,6 +90,19 @@ namespace Nexus.Client.Games.SkyrimSE
 				AddLaunchCommand(new Command("Config#SSEEdit", "Config SSEEdit", "Configures SSEEdit.", imgIcon, ConfigSSEEdit, true));
 			}
 
+			strCommand = GetSSEEQACLaunchCommand();
+			Trace.TraceInformation("SSEEditQuickAutoClean Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("SSEEditQuickAutoClean", "Launch SSEEditQuickAutoClean", "Launches SSEEditQuickAutoClean.", imgIcon, LaunchSSEEdit, true));
+			}
+			else
+			{
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#SSEEdit", "Config SSEEdit", "Configures SSEEdit.", imgIcon, ConfigSSEEdit, true));
+			}
+
 			strCommand = GetFNISLaunchCommand();
 			Trace.TraceInformation("FNIS Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
@@ -179,6 +192,15 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.TraceInformation("Launching SSEEdit");
 			Trace.Indent();
 			string strCommand = GetSSEEditLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchSSEEQAC()
+		{
+			Trace.TraceInformation("Launching SSEEditQuickAutoClean");
+			Trace.Indent();
+			string strCommand = GetSSEEQACLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -350,6 +372,24 @@ namespace Nexus.Client.Games.SkyrimSE
 				strSSEEdit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["SSEEdit"];
 				if (!String.IsNullOrEmpty(strSSEEdit))
 					strSSEEdit = Path.Combine(strSSEEdit, @"SSEEdit.exe");
+			}
+
+			return strSSEEdit;
+		}
+
+		/// <summary>
+		/// Gets the SSEEditQuickAutoClean launch command.
+		/// </summary>
+		/// <returns>The SSEEditQuickAutoClean launch command.</returns>
+		private string GetSSEEQACLaunchCommand()
+		{
+			string strSSEEdit = String.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("SSEEdit"))
+			{
+				strSSEEdit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["SSEEdit"];
+				if (!String.IsNullOrEmpty(strSSEEdit))
+					strSSEEdit = Path.Combine(strSSEEdit, @"SSEEditQuickAutoClean.exe");
 			}
 
 			return strSSEEdit;
