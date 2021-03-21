@@ -93,7 +93,11 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Installing selected mods...";
+			int modCounter = 0;
+			if (m_lstModList != null && m_lstModList.Count > 0)
+				modCounter = m_lstModList.Count;
+
+			OverallMessage = string.Format("Installing selected mods ({0})...", modCounter);
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_lstModList.Count;
