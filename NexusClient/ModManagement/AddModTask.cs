@@ -406,7 +406,7 @@
 
 			try
 			{
-				if (Descriptor == null || !Descriptor.SourceUri.Equals(_downloadPath))
+				if (Descriptor == null || Descriptor.SourceUri == null || !Descriptor.SourceUri.Equals(_downloadPath))
 					Descriptor = BuildDescriptor(_downloadPath);
 			}
 			catch (CommunicationException e)
@@ -456,7 +456,7 @@
                 return;
             }
 
-			if (ModInfo == null || !ModInfo.FileName.Equals(Descriptor.FileName))
+			if (ModInfo == null || string.IsNullOrEmpty(ModInfo.FileName) || !ModInfo.FileName.Equals(Descriptor.FileName))
 				ModInfo = GetModInfo(Descriptor);
 
 			OverallMessage = $"{GetModDisplayName()}...";
