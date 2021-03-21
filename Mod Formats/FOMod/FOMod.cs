@@ -1119,13 +1119,13 @@
 
             if (overwriteAllValues == true || string.IsNullOrEmpty(HumanReadableVersion))
 			{
-				HumanReadableVersion = modInfo.HumanReadableVersion;
+				HumanReadableVersion = modInfo.HumanReadableVersion ?? HumanReadableVersion;
 				booChangedValue = true;
 			}
 
             if (overwriteAllValues == true || string.IsNullOrEmpty(LastKnownVersion) || LastKnownVersion != modInfo.LastKnownVersion)
 			{
-				LastKnownVersion = modInfo.LastKnownVersion;
+				LastKnownVersion = modInfo.LastKnownVersion ?? LastKnownVersion;
 				booChangedValue = true;
 			}
 
@@ -1143,25 +1143,25 @@
 
             if (overwriteAllValues == true || string.IsNullOrEmpty(Author) || overwriteAllValues == null)
 			{
-				Author = modInfo.Author;
+				Author = modInfo.Author ?? Author;
 				booChangedValue = true;
 			}
 
             if (overwriteAllValues == true || CategoryId != modInfo.CategoryId || overwriteAllValues == null)
 			{
-				CategoryId = modInfo.CategoryId;
+				CategoryId = modInfo.CategoryId <= 0 && CategoryId > 0 ? CategoryId : modInfo.CategoryId;
 				booChangedValue = true;
 			}
 
             if (overwriteAllValues == true || CustomCategoryId != modInfo.CustomCategoryId)
 			{
-				CustomCategoryId = modInfo.CustomCategoryId;
+				CustomCategoryId = modInfo.CustomCategoryId <= 0 && CustomCategoryId > 0 ? CustomCategoryId : modInfo.CustomCategoryId;
 				booChangedValue = true;
 			}
 
             if (overwriteAllValues == true || string.IsNullOrEmpty(Description) || overwriteAllValues == null)
 			{
-				Description = modInfo.Description;
+				Description = modInfo.Description ?? Description;
 				booChangedValue = true;
 			}
 
@@ -1173,7 +1173,7 @@
 
             if (overwriteAllValues == true || Website == null || overwriteAllValues == null)
 			{
-				Website = modInfo.Website;
+				Website = modInfo.Website ?? Website;
 				booChangedValue = true;
 			}
 
