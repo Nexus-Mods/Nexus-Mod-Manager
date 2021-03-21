@@ -91,6 +91,9 @@ namespace Nexus.Client.Games.Fallout3
             var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("22300", "Fallout 3", "fallout3.exe");
 
 			if (string.IsNullOrEmpty(strValue))
+				strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("22370", "Fallout 3 goty", "Fallout3.exe");
+
+			if (string.IsNullOrEmpty(strValue))
 				strValue = base.GetInstallationPath();
 
 			return strValue;
