@@ -77,6 +77,19 @@ namespace Nexus.Client.Games.Oblivion
 				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
 			}
 
+			strCommand = GetTES4EditLaunchCommand();
+			Trace.TraceInformation("TES4Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("TES4Edit", "Launch TES4Edit", "Launches TES4Edit.", imgIcon, LaunchTES4Edit, true));
+			}
+			else
+			{
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#TES4Edit", "Config TES4Edit", "Configures TES4Edit.", imgIcon, ConfigTES4Edit, true));
+			}
+
 			Trace.Unindent();
 		}
 
@@ -107,6 +120,15 @@ namespace Nexus.Client.Games.Oblivion
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, "--game=Oblivion");
+		}
+
+		private void LaunchTES4Edit()
+		{
+			Trace.TraceInformation("Launching TES4Edit");
+			Trace.Indent();
+			string strCommand = GetTES4EditLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
 		}
 
 		/// <summary>
@@ -215,6 +237,24 @@ namespace Nexus.Client.Games.Oblivion
 			return strLOOT;
 		}
 
+		/// <summary>
+		/// Gets the TES4Edit launch command.
+		/// </summary>
+		/// <returns>The TES4Edit launch command.</returns>
+		private string GetTES4EditLaunchCommand()
+		{
+			string strTES4Edit = String.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("TES4Edit"))
+			{
+				strTES4Edit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["TES4Edit"];
+				if (!String.IsNullOrEmpty(strTES4Edit))
+					strTES4Edit = Path.Combine(strTES4Edit, @"TES4Edit.exe");
+			}
+
+			return strTES4Edit;
+		}
+
 		#endregion
 
 		#region Config Commands
@@ -239,6 +279,10 @@ namespace Nexus.Client.Games.Oblivion
 
 				case "WryeBash":
 					ConfigWryeBash();
+					break;
+
+				case "TES4Edit":
+					ConfigTES4Edit();
 					break;
 
 				default:
@@ -323,6 +367,36 @@ namespace Nexus.Client.Games.Oblivion
 			string strPath = fbd.SelectedPath;
 
 			if (!String.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
+				{
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
+				}
+		}
+
+		private void ConfigTES4Edit()
+		{
+			string p_strToolName = "TES4Edit";
+			string p_strExecutableName = "TES4Edit.exe";
+			string p_strToolID = "TES4Edit";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
+
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!string.IsNullOrEmpty(strPath))
 				if (Directory.Exists(strPath))
 				{
 					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
