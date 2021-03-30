@@ -36,7 +36,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public ActivateMultipleModsTask(List<IMod> p_lstModList, bool p_booAllowCancel, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		public ActivateMultipleModsTask(List<IMod> p_lstModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
@@ -120,6 +120,7 @@ namespace Nexus.Client.ModManagement
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 			}
+
 			return null;
 		}
 	}

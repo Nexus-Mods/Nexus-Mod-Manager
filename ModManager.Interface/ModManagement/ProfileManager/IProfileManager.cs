@@ -121,6 +121,8 @@ namespace Nexus.Client.ModManagement
 
 		void UpdateProfileDownloadId(IModProfile p_impProfile, Dictionary<string, string> p_dicMissingMods);
 
+		void SetCurrentProfile(IModProfile p_impProfile);
+
 		#endregion
 
 		string GetProfilePath(IModProfile p_impProfile);

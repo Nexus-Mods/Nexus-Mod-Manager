@@ -1236,8 +1236,8 @@ namespace Nexus.Client.ModManagement
 		public void LoadProfile(IModProfile p_impModProfile, out Dictionary<string, string> p_dicFileStream)
 		{
 			p_dicFileStream = new Dictionary<string, string>();
-			string strLoadOrder = String.Empty;
-			string strModList = String.Empty;
+			string strLoadOrder = string.Empty;
+			string strModList = string.Empty;
 
 			string strProfilePath = Path.Combine(m_strProfileManagerPath, p_impModProfile.Id);
 
@@ -1272,7 +1272,7 @@ namespace Nexus.Client.ModManagement
 
 				if ((strFiles != null) && (strFiles.Length > 0))
 				{
-					string strOptionalFiles = String.Empty;
+					string strOptionalFiles = string.Empty;
 					foreach (string strFile in strFiles)
 						strOptionalFiles += (strFile + "#");
 
@@ -1514,7 +1514,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Check thescripted installers log files integrity.
+		/// Check the scripted installers log files integrity.
 		/// </summary>
 		public List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo)
 		{
@@ -1549,7 +1549,7 @@ namespace Nexus.Client.ModManagement
 				List<string> lstFrom = new List<string>();
 				List<string> lstTo = new List<string>();
 				List<string> lstCommon = new List<string>();
-				Int32 intConflicts = 0;
+				int intConflicts = 0;
 
 				try
 				{

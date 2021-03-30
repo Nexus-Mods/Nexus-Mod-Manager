@@ -623,7 +623,20 @@
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask ActivateMultipleMods(List<IMod> p_lstModList, bool p_booAllowCancel, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, p_booAllowCancel, this.InstallationLog, this.InstallerFactory, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
+			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, InstallationLog, InstallerFactory, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
+			ammActivateAllMods.Update(p_camConfirm);
+			return ammActivateAllMods;
+		}
+
+		/// <summary>
+		/// Runs the managed updaters.
+		/// </summary>
+		/// <param name="p_rolModList">The mod list.</param>
+		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
+		/// <returns>The background task that will run the updaters.</returns>
+		public IBackgroundTask ProfileActivateMultipleMods(List<IMod> p_lstModList, bool p_booAllowCancel, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		{
+			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, InstallationLog, InstallerFactory, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
 			ammActivateAllMods.Update(p_camConfirm);
 			return ammActivateAllMods;
 		}
@@ -686,6 +699,19 @@
 			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator, GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, p_booFilesOnly);
 			dmmDeactivateAllMods.Update(p_camConfirm);
 			return dmmDeactivateAllMods;
+		}
+
+		/// <summary>
+		/// Perform initial setup steps for the profile switch,
+		/// installing and disabling mods when required.
+		/// </summary>
+		public IBackgroundTask ProfileSwitchSetup(ReadOnlyObservableList<IMod> modsToDeactivate, List<IMod> modsToInstall, IProfileManager profileManager,
+			IModProfile profileToInstall, IModProfile profileToSwitch, bool p_booFilesOnly, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+		{
+			ProfileSwitchSetupTask profileSwitchSetup = new ProfileSwitchSetupTask(modsToDeactivate, modsToInstall, profileManager, profileToInstall, profileToSwitch, InstallationLog, InstallerFactory, VirtualModActivator, 
+				GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, p_booFilesOnly, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
+			profileSwitchSetup.Update(p_camConfirm);
+			return profileSwitchSetup;
 		}
 
 		#region asyncTag

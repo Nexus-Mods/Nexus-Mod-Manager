@@ -78,6 +78,7 @@
     </Compile>
     <Compile Include="GameModeSelector.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
+    <Compile Include="ModManagement\ProfileSwitchSetupTask.cs" />
     <Compile Include="ModManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
     <Compile Include="ModManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
     <Compile Include="ModRepositories\AuthenticationStatus.cs" />

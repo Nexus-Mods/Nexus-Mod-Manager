@@ -1,38 +1,38 @@
 ﻿namespace Nexus.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.ComponentModel;
-    using System.Drawing;
-    using System.IO;
-    using System.Linq;
-    using System.Windows.Forms;
-    using Nexus.Client.BackgroundTasks;
-    using Nexus.Client.DownloadMonitoring;
-    using Nexus.Client.DownloadMonitoring.UI;
-    using Nexus.Client.Commands;
-    using Nexus.Client.Games;
-    using Nexus.Client.Games.Tools;
-    using Nexus.Client.ModActivationMonitoring;
-    using Nexus.Client.ModActivationMonitoring.UI;
-    using Nexus.Client.ModManagement;
-    using Nexus.Client.ModManagement.UI;
-    using Nexus.Client.ModRepositories;
-    using Nexus.Client.Mods;
-    using Nexus.Client.Plugins;
-    using Nexus.Client.PluginManagement;
-    using Nexus.Client.PluginManagement.UI;
-    using Nexus.Client.Settings;
-    using Nexus.Client.Settings.UI;
-    using Nexus.Client.UI;
-    using Nexus.Client.Updating;
-    using Nexus.Client.Util;
-    using Nexus.Client.Util.Collections;
-    using Nexus.Client.Commands.Generic;
-    using Nexus.UI.Controls;
-    using Pathoschild.FluentNexus.Models;
+	using System;
+	using System.Collections.Generic;
+	using System.ComponentModel;
+	using System.Drawing;
+	using System.IO;
+	using System.Linq;
+	using System.Windows.Forms;
+	using Nexus.Client.BackgroundTasks;
+	using Nexus.Client.DownloadMonitoring;
+	using Nexus.Client.DownloadMonitoring.UI;
+	using Nexus.Client.Commands;
+	using Nexus.Client.Games;
+	using Nexus.Client.Games.Tools;
+	using Nexus.Client.ModActivationMonitoring;
+	using Nexus.Client.ModActivationMonitoring.UI;
+	using Nexus.Client.ModManagement;
+	using Nexus.Client.ModManagement.UI;
+	using Nexus.Client.ModRepositories;
+	using Nexus.Client.Mods;
+	using Nexus.Client.Plugins;
+	using Nexus.Client.PluginManagement;
+	using Nexus.Client.PluginManagement.UI;
+	using Nexus.Client.Settings;
+	using Nexus.Client.Settings.UI;
+	using Nexus.Client.UI;
+	using Nexus.Client.Updating;
+	using Nexus.Client.Util;
+	using Nexus.Client.Util.Collections;
+	using Nexus.Client.Commands.Generic;
+	using Nexus.UI.Controls;
+	using Pathoschild.FluentNexus.Models;
 
-    /// <summary>
+	/// <summary>
 	/// This class encapsulates the data and the operations presented by UI
 	/// elements that display the main form.
 	/// </summary>
@@ -45,21 +45,24 @@
 
 			public bool IsSilent { get; }
 
-            public IModProfile Profile { get; }
+			public bool IsRestoring { get; }
 
-            public List<IVirtualModLink> VirtualLinks { get; }
+			public IModProfile Profile { get; }
 
-            public List<IVirtualModInfo> MissingMods { get; }
+			public List<IVirtualModLink> VirtualLinks { get; }
 
-            public List<string> ScriptedMismatchList { get; }
+			public List<IVirtualModInfo> MissingMods { get; }
 
-            public Dictionary<string, string> ProfileDictionary { get; }
+			public List<string> ScriptedMismatchList { get; }
 
-            #endregion
+			public Dictionary<string, string> ProfileDictionary { get; }
 
-			public ProfileSwitchToken(bool isSilent, IModProfile modProfile, List<IVirtualModLink> virtualLinks, List<string> scriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles)
+			#endregion
+
+			public ProfileSwitchToken(bool isSilent, bool isRestoring, IModProfile modProfile, List<IVirtualModLink> virtualLinks, List<string> scriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles)
 			{
 				IsSilent = isSilent;
+				IsRestoring = isRestoring;
 				Profile = modProfile;
 				VirtualLinks = virtualLinks;
 				MissingMods = missingMods;
@@ -169,11 +172,11 @@
 		/// <value>The command to update the program.</value>
 		public Command UpdateCommand { get; private set; }
 
-        /// <summary>
-        /// Gets the command to log in/out of the current mod repository.
-        /// </summary>
-        /// <value>The command to in/out of the current mod repository.</value>
-        public Command ToggleLoginCommand { get; private set; }
+		/// <summary>
+		/// Gets the command to log in/out of the current mod repository.
+		/// </summary>
+		/// <value>The command to in/out of the current mod repository.</value>
+		public Command ToggleLoginCommand { get; private set; }
 
 		/// <summary>
 		/// Gets the commands to change the managed game mode.
@@ -215,7 +218,7 @@
 		/// <value>The virtual mod activator.</value>
 		public IVirtualModActivator VirtualModActivator => ModManager.VirtualModActivator;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the backup manager.
 		/// </summary>
 		/// <value>The backup manager.</value>
@@ -311,7 +314,7 @@
 		/// <value>The name of the currently managed game mode.</value>
 		public string CurrentGameModeName => GameMode.Name;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the help information.
 		/// </summary>
 		/// <value>The help information.</value>
@@ -323,38 +326,38 @@
 		/// <value>The title of the form.</value>
 		public string Title => $"{CommonData.ModManagerName} ({EnvironmentInfo.ApplicationVersion}) - {GameMode.Name}";
 
-        /// <summary>
+		/// <summary>
 		/// Gets the current game mode theme.
 		/// </summary>
 		/// <value>The current game mode theme.</value>
 		public Theme ModeTheme => GameMode.ModeTheme;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the game launcher for the currently manage game.
 		/// </summary>
 		/// <value>The game launcher for the currently manage game.</value>
 		public IGameLauncher GameLauncher => GameMode.GameLauncher;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the tool launcher for the currently manage game.
 		/// </summary>
 		/// <value>The tool launcher for the currently manage game.</value>
 		public IToolLauncher GameToolLauncher => GameMode.GameToolLauncher;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the SupportedTools launcher for the currently manage game.
 		/// </summary>
 		/// <value>The SupportedTools launcher for the currently manage game.</value>
 		public ISupportedToolsLauncher SupportedToolsLauncher => GameMode.SupportedToolsLauncher;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the id of the selected game launch command.
 		/// </summary>
 		/// <value>The id of the selected game launch command.</value>
 		public string SelectedGameLaunchCommandId
 		{
 			get => EnvironmentInfo.Settings.SelectedLaunchCommands[GameMode.ModeId];
-            set
+			set
 			{
 				EnvironmentInfo.Settings.SelectedLaunchCommands[GameMode.ModeId] = value;
 				EnvironmentInfo.Settings.Save();
@@ -373,61 +376,61 @@
 		/// <value>Whether the game mode uses plugins.</value>
 		public bool UsesPlugins => GameMode.UsesPlugins;
 
-        /// <summary>
+		/// <summary>
 		/// Gets whether the manager is in offline mode.
 		/// </summary>
 		/// <value>Whether the manager is in offline mode.</value>
 		public bool OfflineMode => ModRepository.IsOffline;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the Game root folder.
 		/// </summary>
 		/// <value>The path to the game folder.</value>
 		public string GamePath => GameMode.GameModeEnvironmentInfo.InstallationPath;
 
-        /// <summary>
+		/// <summary>
 		/// Gets NMM's mods folder.
 		/// </summary>
 		/// <value>The path to NMM's mods folder.</value>
 		public string ModsPath => GameMode.GameModeEnvironmentInfo.ModDirectory;
 
-        /// <summary>
+		/// <summary>
 		/// Gets NMM's Install Info folder.
 		/// </summary>
 		/// <value>The path to NMM's Install Info folder.</value>
 		public string InstallInfoPath => GameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
 
-        /// <summary>
+		/// <summary>
 		/// Gets the user membership status.
 		/// </summary>
 		/// <value>Gets the user membership status.</value>
 		public User UserStatus => ModRepository.UserStatus;
 
-        /// <summary>
+		/// <summary>
 		/// Gets whether the manager is currently installing/uninstalling a mod.
 		/// </summary>
 		/// <value>Whether  the manager is currently installing/uninstalling a mod.</value>
 		public bool IsInstalling => ModActivationMonitor.IsInstalling;
 
-        /// <summary>
+		/// <summary>
 		/// Whether the plugin sorter is properly initialized.
 		/// </summary>
 		public bool PluginSorterInitialized => GameMode.PluginSorterInitialized;
 
-        /// <summary>
+		/// <summary>
 		/// Whether the current game mode support the automatic plugin sorting.
 		/// </summary>
 		public bool SupportsPluginAutoSorting => GameMode.SupportsPluginAutoSorting;
 
-        public bool IsSwitching
+		public bool IsSwitching
 		{
 			get => m_booIsSwitching;
-            set => m_booIsSwitching = value;
-        }
+			set => m_booIsSwitching = value;
+		}
 
-        public bool UsesModLoadOrder => GameMode.UsesModLoadOrder;
+		public bool UsesModLoadOrder => GameMode.UsesModLoadOrder;
 
-        #endregion
+		#endregion
 
 		#region Settings
 
@@ -481,39 +484,39 @@
 			ModActivationMonitor = p_mamMonitor;
 			ModActivationMonitorVM = new ModActivationMonitorVM(p_mamMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager);
 
-            if (GameMode.UsesPlugins)
-            {
-                PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor, ModManager.VirtualModActivator);
-            }
+			if (GameMode.UsesPlugins)
+			{
+				PluginManagerVM = new PluginManagerVM(p_pmgPluginManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode, p_mamMonitor, ModManager.VirtualModActivator);
+			}
 
-            HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
+			HelpInfo = new HelpInformation(p_eifEnvironmentInfo);
 
 			var gsgGeneralSettings = new GeneralSettingsGroup(p_eifEnvironmentInfo);
-		    var gsgAssociationSettings = new OsSettingsGroup(p_eifEnvironmentInfo);
+			var gsgAssociationSettings = new OsSettingsGroup(p_eifEnvironmentInfo);
 
-		    foreach (var mftFormat in  p_mmgModManager.ModFormats)
-            {
-                gsgAssociationSettings.AddFileAssociation(mftFormat.Extension, mftFormat.Name);
-            }
+			foreach (var mftFormat in p_mmgModManager.ModFormats)
+			{
+				gsgAssociationSettings.AddFileAssociation(mftFormat.Extension, mftFormat.Name);
+			}
 
-            var mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
+			var mosModOptions = new ModOptionsSettingsGroup(p_eifEnvironmentInfo);
 
-		    var lstSettingGroups = new List<ISettingsGroupView>
-		    {
-		        new GeneralSettingsPage(gsgGeneralSettings),
-                new OsSettingsPage(gsgAssociationSettings),
-		        new ModOptionsPage(mosModOptions)
-		    };
+			var lstSettingGroups = new List<ISettingsGroupView>
+			{
+				new GeneralSettingsPage(gsgGeneralSettings),
+				new OsSettingsPage(gsgAssociationSettings),
+				new ModOptionsPage(mosModOptions)
+			};
 
-            var dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
+			var dsgDownloadSettings = new DownloadSettingsGroup(p_eifEnvironmentInfo, ModRepository);
 			lstSettingGroups.Add(new DownloadSettingsPage(dsgDownloadSettings));
-			
-			if (p_gmdGameMode.SettingsGroupViews != null)
-            {
-                lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
-            }
 
-            SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
+			if (p_gmdGameMode.SettingsGroupViews != null)
+			{
+				lstSettingGroups.AddRange(p_gmdGameMode.SettingsGroupViews);
+			}
+
+			SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 
 			UpdateCommand = new Command("Update", $"Update {CommonData.ModManagerName}", UpdateProgram);
 			ToggleLoginCommand = new Command("ToggleLogin", "Login/Logout", ToggleLogin);
@@ -522,7 +525,7 @@
 			var lstSortedModes = new List<IGameModeDescriptor>(p_gmrInstalledGames.RegisteredGameModes);
 			lstSortedModes.Sort((x, y) => x.Name.CompareTo(y.Name));
 
-            foreach (var gmdInstalledGame in lstSortedModes)
+			foreach (var gmdInstalledGame in lstSortedModes)
 			{
 				var strId = gmdInstalledGame.ModeId;
 				var strName = gmdInstalledGame.Name;
@@ -534,7 +537,7 @@
 			lstChangeGameModeCommands.Add(new Command("Change Default Game...", "Change Default Game", () => ChangeGameMode(CHANGE_DEFAULT_GAME_MODE)));
 			lstChangeGameModeCommands.Add(new Command("Rescan Installed Games...", "Rescan Installed Games", () => ChangeGameMode(RESCAN_INSTALLED_GAMES)));
 			ChangeGameModeCommands = lstChangeGameModeCommands;
-        }
+		}
 
 		#endregion
 
@@ -543,16 +546,16 @@
 		public bool RequiresModMigration()
 		{
 			if ((!ModManager.VirtualModActivator.Initialized || Directory.Exists(ModManager.VirtualModActivator.VirtualPath) && Directory.GetDirectories(ModManager.VirtualModActivator.VirtualPath).Length == 0) && ModManager.InstallationLog.ActiveMods.Count > 0)
-            {
-                return true;
-            }
+			{
+				return true;
+			}
 
-            if (!ModManager.VirtualModActivator.Initialized)
-            {
-                ModManager.VirtualModActivator.Setup();
-            }
+			if (!ModManager.VirtualModActivator.Initialized)
+			{
+				ModManager.VirtualModActivator.Setup();
+			}
 
-            return false;
+			return false;
 		}
 
 		#endregion
@@ -592,10 +595,10 @@
 		public void SortPlugins()
 		{
 			if (GameMode.UsesPlugins)
-            {
-                PluginManagerVM.SortPlugins();
-            }
-        }
+			{
+				PluginManagerVM.SortPlugins();
+			}
+		}
 
 		/// <summary>
 		/// The Automatic Download.
@@ -611,10 +614,10 @@
 		public void CheckOnlineProfileIntegrity(IModProfile profile, Dictionary<string, string> missingMods, string gameModeID)
 		{
 			if (!ModRepository.IsOffline)
-            {
-                CheckingOnlineProfileIntegrity(this, new EventArgs<IBackgroundTask>(ProfileManager.CheckOnlineProfileIntegrity(profile, missingMods, gameModeID, ConfirmUpdaterAction)));
-            }
-            else
+			{
+				CheckingOnlineProfileIntegrity(this, new EventArgs<IBackgroundTask>(ProfileManager.CheckOnlineProfileIntegrity(profile, missingMods, gameModeID, ConfirmUpdaterAction)));
+			}
+			else
 			{
 				ModManager.Login();
 				ProfileManager.AsyncCheckOnlineProfileIntegrity(profile, missingMods, gameModeID, ConfirmUpdaterAction);
@@ -642,7 +645,7 @@
 		{
 			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(profile, ModManager, newLinks, removeLinks, startupMigration, restoring, ConfirmUpdaterAction)));
 		}
-		
+
 		/// <summary>
 		/// Performs the startup mod migration.
 		/// </summary>
@@ -673,29 +676,29 @@
 				CreateBackup(mainForm, BackupManager);
 			}
 			else
-            {
-                bnfBackupForm.Close();
-            }
-        }
+			{
+				bnfBackupForm.Close();
+			}
+		}
 
 		/// <summary>
 		/// Performs the destination folder selection.
 		/// </summary>
 		public void CreateBackup(MainForm mainForm, BackupManager p_bmBackupManager)
 		{
-            var fbd = new FolderBrowserDialog
-            {
-                Description = $"Select the folder where {CommonData.ModManagerName} will save the Backup Archive.",
-                ShowNewFolderButton = true
-            };
+			var fbd = new FolderBrowserDialog
+			{
+				Description = $"Select the folder where {CommonData.ModManagerName} will save the Backup Archive.",
+				ShowNewFolderButton = true
+			};
 
-            fbd.ShowDialog(mainForm);
+			fbd.ShowDialog(mainForm);
 
 			if (!string.IsNullOrWhiteSpace(fbd.SelectedPath))
 			{
 				var directoryInfo = new DirectoryInfo(fbd.SelectedPath);
 
-                foreach (Environment.SpecialFolder folder in Enum.GetValues(typeof(Environment.SpecialFolder)))
+				foreach (Environment.SpecialFolder folder in Enum.GetValues(typeof(Environment.SpecialFolder)))
 				{
 					if (string.Equals(directoryInfo.FullName, Environment.GetFolderPath(folder), StringComparison.OrdinalIgnoreCase))
 					{
@@ -728,26 +731,26 @@
 			rbfRestoreForm.ShowDialog();
 
 			if (rbfRestoreForm.DialogResult == DialogResult.Cancel)
-            {
-                rbfRestoreForm.Close();
-            }
-            else if (!string.IsNullOrEmpty(rbfRestoreForm.Text))
+			{
+				rbfRestoreForm.Close();
+			}
+			else if (!string.IsNullOrEmpty(rbfRestoreForm.Text))
 			{
 				rbfRestoreForm.Close();
 
 				if (rbfRestoreForm.DialogResult == DialogResult.Yes)
-                {
-                    if (ProfileManager.CurrentProfile != null)
-                    {
-                        ProfileManager.RemoveProfile(ProfileManager.CurrentProfile);
-                    }
-                    else
-                    {
-                        ProfileManager.SetCurrentProfile(null);
-                    }
-                }
+				{
+					if (ProfileManager.CurrentProfile != null)
+					{
+						ProfileManager.RemoveProfile(ProfileManager.CurrentProfile);
+					}
+					else
+					{
+						ProfileManager.SetCurrentProfile(null);
+					}
+				}
 
-                ProfileManager.SetCurrentProfile(null);
+				ProfileManager.SetCurrentProfile(null);
 				p_mmgModManager.DeactivateAllMods(true, true);
 				RestoreBackup(rbfRestoreForm, rbfRestoreForm.DialogResult == DialogResult.Yes);
 			}
@@ -792,16 +795,16 @@
 		{
 			var mmtModMigrationTask = new ModMigrationTask(this, modManagerControl, migrate, ConfirmUpdaterAction);
 
-            if (VirtualModActivator.GameMode.LoadOrderManager != null)
-            {
-                VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
-            }
-            else
-            {
-                mmtModMigrationTask.Update(ConfirmUpdaterAction);
-            }
+			if (VirtualModActivator.GameMode.LoadOrderManager != null)
+			{
+				VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(mmtModMigrationTask);
+			}
+			else
+			{
+				mmtModMigrationTask.Update(ConfirmUpdaterAction);
+			}
 
-            return mmtModMigrationTask;
+			return mmtModMigrationTask;
 		}
 
 		/// <summary>
@@ -821,17 +824,17 @@
 		{
 			var impCurrentProfile = ProfileManager.CurrentProfile;
 
-            if (impCurrentProfile != null)
+			if (impCurrentProfile != null)
 			{
 				if (impCurrentProfile.LoadOrder != null && impCurrentProfile.LoadOrder.Count > 0)
-                {
-                    PluginManagerVM.ImportLoadOrderFromDictionary(impCurrentProfile.LoadOrder);
-                }
-                else
 				{
-                    ProfileManager.LoadProfile(impCurrentProfile, out var profile);
+					PluginManagerVM.ImportLoadOrderFromDictionary(impCurrentProfile.LoadOrder);
+				}
+				else
+				{
+					ProfileManager.LoadProfile(impCurrentProfile, out var profile);
 
-                    if (profile != null && profile.Count > 0 && profile.ContainsKey("loadorder"))
+					if (profile != null && profile.Count > 0 && profile.ContainsKey("loadorder"))
 					{
 						return PluginManagerVM.ParseLoadOrderFromString(profile["loadorder"]);
 					}
@@ -878,37 +881,50 @@
 		{
 		}
 
+		/// <summary>
+		/// Profile switch initialization.
+		/// </summary>
+		/// <param name="p_frmParent">The form who should be the owner of an eventual message box (sadly this gimmick is required to prevent the message to appear beneath the main form).</param>
+		/// <param name="p_impProfile">The profile we want to switch to.</param>
+		/// <param name="p_booSilentInstall">Whether this switch is part of an automated procedure and thus should not provide any feedback to the user.</param>
+		/// <param name="p_booRestoring">Whether we're restoring a backup profile.</param>
 		public void SwitchProfile(Form p_frmParent, IModProfile p_impProfile, bool p_booSilentInstall, bool p_booRestoring)
 		{
+			// It's an automatic procedure? Otherwise the switch is allowed only when there's no active profile or
+			// the profile we're switching to is not the same as the active one.
 			if (p_booSilentInstall || ProfileManager.CurrentProfile == null || p_impProfile.Id != ProfileManager.CurrentProfile.Id)
 			{
-				var lstVirtualLinks = new List<IVirtualModLink>();
-                var lstScriptedMismatch = new List<string>();
-				var lstMissingModInfo = new List<IVirtualModInfo>();
+				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
+				List<string> lstScriptedMismatch = new List<string>();
+				List<IVirtualModInfo> lstMissingModInfo = new List<IVirtualModInfo>();
 
+				// Checks whether there's any inconsistecies in scripted installers between the active and the profile we're switching to.
 				if (!p_booSilentInstall || ProfileManager.CurrentProfile != null)
 				{
 					lstScriptedMismatch = ProfileManager.CheckScriptedInstallersIntegrity(ProfileManager.CurrentProfile, p_impProfile);
 				}
 
-				ProfileManager.LoadProfile(p_impProfile, out var profiles);
+				// Loads all the info necessary for the profile switch to the new profile inside a dictionary.
+				ProfileManager.LoadProfile(p_impProfile, out Dictionary<string, string> profiles);
 
-                if (profiles != null && profiles.Count > 0 && profiles.ContainsKey("modlist"))
+				if (profiles != null && profiles.Count > 0 && profiles.ContainsKey("modlist"))
 				{
 					lstVirtualLinks = ModManager.VirtualModActivator.LoadImportedList(profiles["modlist"], ProfileManager.GetProfilePath(p_impProfile));
 					ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks, out lstMissingModInfo, lstScriptedMismatch);
 				}
 
-				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_impProfile, lstVirtualLinks, lstScriptedMismatch, lstMissingModInfo, profiles);
+				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, lstVirtualLinks, lstScriptedMismatch, lstMissingModInfo, profiles);
 
+				// Deprecated, online profiles are no longer supported by NexusMods.
+				/*
 				if (!p_booSilentInstall && lstMissingModInfo.Count > 0 && p_impProfile.IsOnline && !string.IsNullOrEmpty(p_impProfile.OnlineID))
 				{
-					var missingMods = new Dictionary<string, string>();
+					Dictionary<string, string> missingMods = new Dictionary<string, string>();
 
 					foreach (var vmi in lstMissingModInfo)
 					{
-						var lstManagedMods = new List<IMod>(ModManager.ManagedMods.ToList());
-						var modMod = lstManagedMods.Find(x => GetIsSameMod(x, vmi));
+						List<IMod> lstManagedMods = new List<IMod>(ModManager.ManagedMods.ToList());
+						IMod modMod = lstManagedMods.Find(x => GetIsSameMod(x, vmi));
 
                         if (modMod == null)
                         {
@@ -918,7 +934,7 @@
 
 					if (missingMods.Count > 0)
 					{
-						var booLoaded = ProfileManager.LoadProfileFileList(p_impProfile);
+						bool booLoaded = ProfileManager.LoadProfileFileList(p_impProfile);
 
 						if (booLoaded)
                         {
@@ -927,38 +943,45 @@
 
                         return;
 					}
-				}
+				}*/
 
-				ExecuteProfileSwitch(p_frmParent, p_booRestoring);
+				ExecuteProfileSwitch(p_frmParent);
 			}
 		}
 
-		public void ExecuteProfileSwitch(Form parent, bool restoring)
+		/// <summary>
+		/// Executes the profile switch.
+		/// </summary>
+		/// <param name="parent"></param>
+		/// <param name="restoring"></param>
+		public void SetupProfileSwitch(Form parent)
 		{
 			m_booIsSwitching = true;
-			var impCurrentProfile = ProfileManager.CurrentProfile;
+			IModProfile impCurrentProfile = ProfileManager.CurrentProfile;
 
+			// Prompts to automatically install any missing mod file
 			if (profileSwitchToken.ScriptedMismatchList != null && profileSwitchToken.ScriptedMismatchList.Count > 0 || profileSwitchToken.MissingMods != null && profileSwitchToken.MissingMods.Count > 0)
 			{
-				var sbMessage = new System.Text.StringBuilder();
+				System.Text.StringBuilder sbMessage = new System.Text.StringBuilder();
 
-                sbMessage.AppendLine("The selected profile contains files from mods not currently installed");
-				sbMessage.AppendLine("The manager will automatically reinstall the needed files. Click CANCEL if you want to skip this step.");
+				sbMessage.AppendLine("The selected profile contains files from mods not currently installed");
+				sbMessage.AppendLine("The manager will try to automatically reinstall the required files.");
+				sbMessage.AppendLine("- Click YES to proceed.");
+				sbMessage.AppendLine("- Click NO if you want to skip this step.");
+				sbMessage.AppendLine("- Click CANCEL if you want to abort the profile switch.");
 				sbMessage.AppendLine();
 				sbMessage.AppendLine("Depending on the mod, leaving it uninstalled could cause in game crashes.");
-				var sbDetails = new System.Text.StringBuilder();
+				System.Text.StringBuilder sbDetails = new System.Text.StringBuilder();
 
-				var booFoundOne = false;
-				var lstFoundMods = new List<IMod>();
-				var lstScriptedMods = new List<IMod>();
-				var lstManagedMods = new List<IMod>(ModManager.ManagedMods.ToList());
-				foreach (var vmi in profileSwitchToken.MissingMods)
+				List<IMod> lstFoundMods = new List<IMod>();
+				List<IMod> lstScriptedMods = new List<IMod>();
+				ReadOnlyObservableList<IMod> oclMods = new ReadOnlyObservableList<IMod>(lstScriptedMods);
+				List<IMod> lstManagedMods = new List<IMod>(ModManager.ManagedMods.ToList());
+				foreach (IVirtualModInfo vmi in profileSwitchToken.MissingMods)
 				{
-					var modMod = lstManagedMods.Find(x => GetIsSameMod(x, vmi));
+					IMod modMod = lstManagedMods.Find(x => GetIsSameMod(x, vmi));
 					if (modMod != null)
 					{
-						if (!booFoundOne)
-							booFoundOne = true;
 						lstFoundMods.Add(modMod);
 					}
 
@@ -966,43 +989,43 @@
 				}
 
 				if (profileSwitchToken.ScriptedMismatchList != null && profileSwitchToken.ScriptedMismatchList.Count > 0)
-                {
-                    lstScriptedMods = lstManagedMods.Where(x => profileSwitchToken.ScriptedMismatchList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
-                }
+				{
+					lstScriptedMods = lstManagedMods.Where(x => profileSwitchToken.ScriptedMismatchList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
+				}
 
-                ModManager.VirtualModActivator.DisableLinkCreation = true;
+				ModManager.VirtualModActivator.DisableLinkCreation = true;
 
 				if (lstScriptedMods.Count > 0)
 				{
 					ProfileManager.SetCurrentProfile(null);
-					var oclMods = new ThreadSafeObservableList<IMod>(lstScriptedMods);
-					ModManagerVM.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, true);
-					ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
-					ModManagerVM.MultiModInstall(lstScriptedMods, false);
-					ProfileManager.SetCurrentProfile(impCurrentProfile);
+					oclMods = new ReadOnlyObservableList<IMod>(lstScriptedMods);
+					//ModManagerVM.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, true);
+					//ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
+					//ModManagerVM.MultiModInstall(lstScriptedMods, false);
+					//ProfileManager.SetCurrentProfile(impCurrentProfile);
 				}
 
-				if (booFoundOne)
-                {
-                    var strDetails = sbDetails.Length > 0 ? sbDetails.ToString() : null;
+				if (lstFoundMods.Count > 0)
+				{
+					string strDetails = sbDetails.Length > 0 ? sbDetails.ToString() : null;
 
-                    if (profileSwitchToken.IsSilent)
+					if (profileSwitchToken.IsSilent)
 					{
-						ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
-						ModManagerVM.MultiModInstall(lstFoundMods, false);
-						ProfileManager.SetCurrentProfile(impCurrentProfile);
+						//ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
+						//ModManagerVM.MultiModInstall(lstFoundMods, false);
+						//ProfileManager.SetCurrentProfile(impCurrentProfile);
 					}
 					else
 					{
-						var drResult = ExtendedMessageBox.Show(parent, sbMessage.ToString(), CommonData.ModManagerName, strDetails, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+						DialogResult drResult = ExtendedMessageBox.Show(parent, sbMessage.ToString(), CommonData.ModManagerName, strDetails, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
 
-                        if (drResult == DialogResult.Yes)
+						if (drResult == DialogResult.Yes)
 						{
 							if (lstFoundMods.Count > 0)
 							{
-								ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
-								ModManagerVM.MultiModInstall(lstFoundMods, false);
-								ProfileManager.SetCurrentProfile(impCurrentProfile);
+								//ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
+								//ModManagerVM.MultiModInstall(lstFoundMods, false);
+								//ProfileManager.SetCurrentProfile(impCurrentProfile);
 							}
 						}
 						else if (drResult == DialogResult.Cancel)
@@ -1013,129 +1036,145 @@
 							AbortedProfileSwitch(this, new EventArgs());
 							return;
 						}
+						else if (drResult == DialogResult.No)
+							lstFoundMods.Clear();
 					}
-                }
-			}
+				}
 
+				lstFoundMods.AddRange(lstScriptedMods);
+
+				ModManagerVM.ProfileSwitchSetup(oclMods, lstFoundMods, profileSwitchToken.Profile, impCurrentProfile);
+			}
+			else
+				ExecuteProfileSwitch(parent);
+		}
+
+		/// <summary>
+		/// Executes the profile switch.
+		/// </summary>
+		/// <param name="parent"></param>
+		/// <param name="restoring"></param>
+		public void ExecuteProfileSwitch(Form parent)
+		{
 			ModManager.VirtualModActivator.PurgeIniEdits();
 
-            if (profileSwitchToken.ProfileDictionary != null && profileSwitchToken.ProfileDictionary.Count > 0 && profileSwitchToken.ProfileDictionary.ContainsKey("iniEdits"))
-            {
-                ModManager.VirtualModActivator.ImportIniEdits(profileSwitchToken.ProfileDictionary["iniEdits"]);
-            }
+			if (profileSwitchToken.ProfileDictionary != null && profileSwitchToken.ProfileDictionary.Count > 0 && profileSwitchToken.ProfileDictionary.ContainsKey("iniEdits"))
+			{
+				ModManager.VirtualModActivator.ImportIniEdits(profileSwitchToken.ProfileDictionary["iniEdits"]);
+			}
 
-            if (GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-            {
-                if (profileSwitchToken.ProfileDictionary != null && profileSwitchToken.ProfileDictionary.Count > 0 && profileSwitchToken.ProfileDictionary.ContainsKey("optional"))
-                {
-                    var strFiles = profileSwitchToken.ProfileDictionary["optional"].Split("#".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+			if (GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+			{
+				if (profileSwitchToken.ProfileDictionary != null && profileSwitchToken.ProfileDictionary.Count > 0 && profileSwitchToken.ProfileDictionary.ContainsKey("optional"))
+				{
+					var strFiles = profileSwitchToken.ProfileDictionary["optional"].Split("#".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
 
-                    if (strFiles.Length > 0)
-                    {
-                        GameMode.SetOptionalFilesList(strFiles);
-                    }
+					if (strFiles.Length > 0)
+					{
+						GameMode.SetOptionalFilesList(strFiles);
+					}
 
-                    if (PluginManager != null)
-                    {
-                        foreach (var strFile in strFiles)
-                        {
-                            if (PluginManager.IsActivatiblePluginFile(strFile))
-                            {
-                                PluginManager.AddPlugin(strFile);
-                            }
-                        }
-                    }
-                }
-            }
+					if (PluginManager != null)
+					{
+						foreach (var strFile in strFiles)
+						{
+							if (PluginManager.IsActivatiblePluginFile(strFile))
+							{
+								PluginManager.AddPlugin(strFile);
+							}
+						}
+					}
+				}
+			}
 
-            var lstMissingLinks = profileSwitchToken.VirtualLinks.Except(VirtualModActivator.VirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
+			var lstMissingLinks = profileSwitchToken.VirtualLinks.Except(VirtualModActivator.VirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
 			var lstUnneededLinks = VirtualModActivator.VirtualLinks.Except(profileSwitchToken.VirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
 
 			ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
 			ModManager.VirtualModActivator.DisableLinkCreation = false;
-			ProfileSwitch(profileSwitchToken.Profile, lstMissingLinks, lstUnneededLinks, profileSwitchToken.IsSilent, restoring);
+			ProfileSwitch(profileSwitchToken.Profile, lstMissingLinks, lstUnneededLinks, profileSwitchToken.IsSilent, profileSwitchToken.IsRestoring);
 		}
 
 		private bool GetIsSameMod(IMod p_modMod, IVirtualModInfo p_vmiModInfo)
 		{
 			var strFilename = Path.GetFileName(p_modMod.Filename);
 
-            if (strFilename.Equals(p_vmiModInfo.ModFileName, StringComparison.InvariantCultureIgnoreCase))
-            {
-                return true;
-            }
+			if (strFilename.Equals(p_vmiModInfo.ModFileName, StringComparison.InvariantCultureIgnoreCase))
+			{
+				return true;
+			}
 
-            if (!string.IsNullOrEmpty(p_modMod.DownloadId) && !string.IsNullOrEmpty(p_vmiModInfo.DownloadId))
-            {
-                if (p_modMod.DownloadId.Equals(p_vmiModInfo.DownloadId))
-                {
-                    return true;
-                }
-            }
+			if (!string.IsNullOrEmpty(p_modMod.DownloadId) && !string.IsNullOrEmpty(p_vmiModInfo.DownloadId))
+			{
+				if (p_modMod.DownloadId.Equals(p_vmiModInfo.DownloadId))
+				{
+					return true;
+				}
+			}
 
-            return !string.IsNullOrEmpty(p_modMod.DownloadId) && !string.IsNullOrEmpty(p_vmiModInfo.UpdatedDownloadId) && p_modMod.DownloadId.Equals(p_vmiModInfo.UpdatedDownloadId);
-        }
-		
+			return !string.IsNullOrEmpty(p_modMod.DownloadId) && !string.IsNullOrEmpty(p_vmiModInfo.UpdatedDownloadId) && p_modMod.DownloadId.Equals(p_vmiModInfo.UpdatedDownloadId);
+		}
+
 		public bool? CheckAlreadyDownloading(string p_strUrl, string p_strKey)
 		{
 			foreach (var adtTask in DownloadMonitorVM.Tasks)
 			{
 				if (!string.IsNullOrEmpty(adtTask.DescriptorSourcePath))
-                {
-                    if (Path.GetFileName(adtTask.DescriptorSourcePath).Equals(p_strKey, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return adtTask.Status == TaskStatus.Incomplete || adtTask.Status == TaskStatus.Paused
-                            ? (bool?) null
-                            : true;
-                    }
+				{
+					if (Path.GetFileName(adtTask.DescriptorSourcePath).Equals(p_strKey, StringComparison.OrdinalIgnoreCase))
+					{
+						return adtTask.Status == TaskStatus.Incomplete || adtTask.Status == TaskStatus.Paused
+							? (bool?)null
+							: true;
+					}
 
-                    if (adtTask.SourceUri.Equals(p_strUrl) && adtTask.Status == TaskStatus.Paused)
-                    {
-                        return null;
-                    }
-                }
+					if (adtTask.SourceUri.Equals(p_strUrl) && adtTask.Status == TaskStatus.Paused)
+					{
+						return null;
+					}
+				}
 				else if (adtTask.SourceUri.Equals(p_strUrl) && adtTask.Status == TaskStatus.Paused)
-                {
-                    return null;
-                }
-            }
+				{
+					return null;
+				}
+			}
 
-            return false;
+			return false;
 		}
 
 		public void ResumeIncompleteDownloads(List<string> p_lstIncompleteDownloads)
 		{
 			var lstAddModTask = new List<AddModTask>();
-			
+
 			foreach (var adtTask in DownloadMonitorVM.Tasks)
 			{
 				if (adtTask.ReturnValue != null && p_lstIncompleteDownloads.Contains(adtTask.ReturnValue.ToString(), StringComparer.OrdinalIgnoreCase) && (adtTask.Status == TaskStatus.Incomplete || adtTask.Status == TaskStatus.Paused))
 				{
-                    lstAddModTask.Add(adtTask);
-                }
+					lstAddModTask.Add(adtTask);
+				}
 			}
 
-			if(lstAddModTask.Count > 0)
-            {
-                DownloadMonitorVM.ResumeAllTasks(lstAddModTask);
-            }
-        }
+			if (lstAddModTask.Count > 0)
+			{
+				DownloadMonitorVM.ResumeAllTasks(lstAddModTask);
+			}
+		}
 
 		private class VirtualModLinkEqualityComparer : IEqualityComparer<IVirtualModLink>
 		{
 			public bool Equals(IVirtualModLink x, IVirtualModLink y)
 			{
 				if (ReferenceEquals(x, y))
-                {
-                    return true;
-                }
+				{
+					return true;
+				}
 
-                if (x == null || y == null)
-                {
-                    return false;
-                }
+				if (x == null || y == null)
+				{
+					return false;
+				}
 
-                return x.RealModPath.Equals(y.RealModPath, StringComparison.InvariantCultureIgnoreCase) && x.VirtualModPath.Equals(y.VirtualModPath, StringComparison.InvariantCultureIgnoreCase);
+				return x.RealModPath.Equals(y.RealModPath, StringComparison.InvariantCultureIgnoreCase) && x.VirtualModPath.Equals(y.VirtualModPath, StringComparison.InvariantCultureIgnoreCase);
 			}
 
 			public int GetHashCode(IVirtualModLink obj)
@@ -1155,7 +1194,7 @@
 		{
 			if (!EnvironmentInfo.Settings.CloseModManagerAfterGameLaunchIsRemembered)
 			{
-                var booClose = ConfirmCloseAfterGameLaunch(out var booRemember);
+				var booClose = ConfirmCloseAfterGameLaunch(out var booRemember);
 				EnvironmentInfo.Settings.CloseModManagerAfterGameLaunchIsRemembered = booRemember;
 				EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = booClose;
 				EnvironmentInfo.Settings.Save();
@@ -1168,20 +1207,20 @@
 		private void ToggleLogin()
 		{
 			lock (ModRepository)
-            {
-                if (ModRepository.IsOffline)
-                {
-                    ModManager.Login();
-                }
-                else
-                {
-                    ModRepository.Logout();
-                    ModManager.Logout();
+			{
+				if (ModRepository.IsOffline)
+				{
+					ModManager.Login();
+				}
+				else
+				{
+					ModRepository.Logout();
+					ModManager.Logout();
 
-                    EnvironmentInfo.Settings.ApiKey = string.Empty;
-                    EnvironmentInfo.Settings.Save();
-                }
-            }
-        }
+					EnvironmentInfo.Settings.ApiKey = string.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+		}
 	}
 }

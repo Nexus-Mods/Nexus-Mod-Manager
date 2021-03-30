@@ -83,6 +83,7 @@
 				_viewModel.RestoringBackup += ViewModel_RestoringBackup;
 				_viewModel.PurgingLooseFiles += ViewModel_PurgingLooseFiles;
 				_viewModel.ConfigFilesFixing += ViewModel_ConfigFilesFixing;
+				_viewModel.ModManagerVM.ProfileSwitchSettingUp += ModManagerVM_ProfileSwitchSettingUp;
 				_modManagerControl.ViewModel = _viewModel.ModManagerVM;
 
                 if (ViewModel.UsesPlugins)
@@ -128,6 +129,20 @@
 
 				BindCommands();
 			}
+		}
+
+		private void ModManagerVM_ProfileSwitchSettingUp(object sender, EventArgs<IBackgroundTask> e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, EventArgs<IBackgroundTask>>)ModManagerVM_ProfileSwitchSettingUp, sender, e);
+				return;
+			}
+			_modManagerControl.ToggleDisabledSummary(true);
+			ProgressDialog.ShowDialog(this, e.Argument);
+			_modManagerControl.ToggleDisabledSummary(false);
+
+			ViewModel.ExecuteProfileSwitch(this);
 		}
 
 		#endregion
@@ -2019,6 +2034,8 @@
             }
         }
 
+		#region DEPRECATED: Profile Sharing is no longer supported
+
 		/// <summary>
 		/// Handles the <see cref="MainFormVM.ProfileDownloading"/> event of the view model.
 		/// </summary>
@@ -2053,13 +2070,13 @@
 
                 if (!missingInfoDictionary.Any())
 				{
-					ViewModel.ExecuteProfileSwitch(this, false);
+					ViewModel.ExecuteProfileSwitch(this);
 					return;
 				}
 			}
 			else
 			{
-				ViewModel.ExecuteProfileSwitch(this, false);
+				ViewModel.ExecuteProfileSwitch(this);
 				return;
 			}
 
@@ -2190,7 +2207,7 @@
 
             if (drResult == DialogResult.No)
 			{
-				ViewModel.ExecuteProfileSwitch(this, false);
+				ViewModel.ExecuteProfileSwitch(this);
 			}
 
             if (drResult == DialogResult.Cancel)
@@ -2204,6 +2221,8 @@
 			}
 
 		}
+
+		#endregion
 
 		/// <summary>
 		/// Handles the <see cref="MainFormVM.ProfileSharing"/> event of the view model.

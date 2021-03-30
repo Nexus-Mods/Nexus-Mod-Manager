@@ -1011,7 +1011,7 @@
 						{
 							string strRealPath = xelLink.Attribute("realPath").Value;
 							string strVirtualPath = xelLink.Attribute("virtualPath").Value;
-							Int32 intPriority = 0;
+							int intPriority = 0;
 							try
 							{
 								intPriority = Convert.ToInt32(xelLink.Element("linkPriority").Value);

@@ -99,6 +99,11 @@ namespace Nexus.Client.ModManagement.UI
 		public event EventHandler<EventArgs<IBackgroundTask>> DeactivatingMultipleMods = delegate { };
 
 		/// <summary>
+		/// Raised when performing the profile switch setup.
+		/// </summary>
+		public event EventHandler<EventArgs<IBackgroundTask>> ProfileSwitchSettingUp = delegate { };
+
+		/// <summary>
 		/// Raised when uninstalling multiple mods.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> DeletingMultipleMods = delegate { };
@@ -734,10 +739,21 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
+		/// Perform initial setup steps for the profile switch,
+		/// installing and disabling mods when required.
+		/// </summary>
+		/// <param name="p_rolModList">The list of Active Mods.</param>
+		public void ProfileSwitchSetup(ReadOnlyObservableList<IMod> modsToDeactivate, List<IMod> modsToInstall,
+			IModProfile profileToInstall, IModProfile profileToSwitch)
+		{
+			ProfileSwitchSettingUp(true, new EventArgs<IBackgroundTask>(ModManager.ProfileSwitchSetup(modsToDeactivate, modsToInstall, ProfileManager, profileToInstall, profileToSwitch,  true, ConfirmUpdaterAction, ConfirmItemOverwrite)));
+		}
+
+		/// <summary>
 		/// Install all the mods.
 		/// </summary>
 		/// <param name="p_lstModList">The list of Active Mods.</param>
-        /// <param name="p_booAllowCancel">Defines if the user is allowed to cancel</param>
+		/// <param name="p_booAllowCancel">Defines if the user is allowed to cancel</param>
 		public void MultiModInstall(List<IMod> p_lstModList, bool p_booAllowCancel)
 		{
 			ActivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.ActivateMultipleMods(p_lstModList, p_booAllowCancel, ConfirmUpdaterAction, ConfirmItemOverwrite)));

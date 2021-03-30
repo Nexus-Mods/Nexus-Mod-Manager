@@ -219,6 +219,11 @@ namespace Nexus.Client.ModManagement.UI
 
 		#endregion
 
+		public void ToggleDisabledSummary(bool toggle)
+		{
+			m_booDisableSummary = toggle;
+		}
+
 		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the add new
 		/// category button.
