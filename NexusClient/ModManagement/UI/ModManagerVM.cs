@@ -702,11 +702,18 @@ namespace Nexus.Client.ModManagement.UI
 		/// Disables all the mods.
 		/// </summary>
 		/// <param name="p_rolModList">The list of mods to disable.</param>
-		public void DisableMultipleMods(List<IMod> p_rolModList)
+		public void DisableMultipleMods(List<IMod> p_rolModList, bool isSilent)
 		{
-			DialogResult Result = MessageBox.Show("Do you want to disable all the active mods?", "Disable Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (!isSilent)
+			{
+				DialogResult Result = MessageBox.Show("Do you want to disable all the active mods?", "Disable Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
-			if (Result == DialogResult.Yes)
+				if (Result == DialogResult.Yes)
+				{
+					DisablingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DisableMultipleMods(p_rolModList, ConfirmUpdaterAction)));
+				}
+			}
+			else
 			{
 				DisablingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.DisableMultipleMods(p_rolModList, ConfirmUpdaterAction)));
 			}

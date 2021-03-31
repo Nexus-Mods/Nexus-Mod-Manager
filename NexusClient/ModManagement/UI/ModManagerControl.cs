@@ -715,13 +715,13 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Disables all the currently active mods.
 		/// </summary>
-		public void DisableAllMods()
+		public void DisableAllMods(bool isSilent)
 		{
 			var lstEnabledMods = ViewModel.ActiveMods.Where(x => ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(x.Filename).ToLowerInvariant())).ToList();
 
             if (lstEnabledMods.Count > 0)
             {
-                ViewModel.DisableMultipleMods(lstEnabledMods);
+                ViewModel.DisableMultipleMods(lstEnabledMods, isSilent);
             }
         }
 

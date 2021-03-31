@@ -280,19 +280,13 @@
 		/// </summary>
 		private void ShowGameSpecificDisclaimer()
 		{
-			if (ViewModel.RequiresStartupWarning())
+			string warning = ViewModel.RequiresStartupWarning();
+			if (!string.IsNullOrEmpty(warning))
 			{
-				var strWarning = "We've detected that you are using Fallout 4 version 1.5 (or later) for the first time with NMM. In version 1.5, " + Environment.NewLine +
-					"Bethesda changed the way in which plugins were handled." + Environment.NewLine + Environment.NewLine +
-					"Because of this, any plugin you previously had enabled will be disabled in NMM and you will need to reactivate " + Environment.NewLine +
-					"them in order for your setup to work again." + Environment.NewLine + Environment.NewLine +
-					"Unfortunately this is a side-effect of Bethesda's patching of Fallout 4 and nothing to do with us. Unless " + Environment.NewLine +
-					"Bethesda change the modding method again in future patches you will only need to do this reactivation once " + Environment.NewLine + "(e.g. this won't happen every time you start NMM in the future!)." + Environment.NewLine + Environment.NewLine +
-					"NOTE: If you are making use of NMM's profile system, simply go to the profile menu and select 'Import Load Order' " + Environment.NewLine +
-					"from your profile, NMM will automatically reactivate all your plugins in the correct order for you." + Environment.NewLine + Environment.NewLine +
-					"If you are not using the profiling system, you will need to activate all your plugins again manually.";
+				ExtendedMessageBox.Show(this, warning, "New game version disclaimer", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-				ExtendedMessageBox.Show(this, strWarning, "New game version disclaimer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				if (ViewModel.GameMode.ModeId.Equals("Cyberpunk2077", StringComparison.InvariantCultureIgnoreCase))
+					_modManagerControl.DeactivateAllMods(true, true);
 			}
 		}
 
@@ -652,7 +646,7 @@
 		/// </summary>
 		protected void DisableAllMods()
 		{
-			_modManagerControl.DisableAllMods();
+			_modManagerControl.DisableAllMods(false);
 		}
 
 		/// <summary>
@@ -1142,6 +1136,17 @@
                 Process.Start(ViewModel.InstallInfoPath);
             }
         }
+
+		/// <summary>
+		/// Opens NMM's config folder.
+		/// </summary>
+		protected void OpenConfigFolder()
+		{
+			if (FileUtil.IsValidPath(ViewModel.ConfigPath))
+			{
+				Process.Start(ViewModel.ConfigPath);
+			}
+		}
 
 		#region Binding Helpers
 
@@ -1868,6 +1873,11 @@
             var tmiInstallFolder = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};
             new ToolStripItemCommandBinding(tmiInstallFolder, cmdInstallFolder);
 			spbFolders.DropDownItems.Add(tmiInstallFolder);
+
+			var cmdConfigFolder = new Command("Open NMM's Config Folder", "Open NMM's config in the explorer window.", OpenConfigFolder);
+			var tmiConfigFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+			new ToolStripItemCommandBinding(tmiConfigFolder, cmdConfigFolder);
+			spbFolders.DropDownItems.Add(tmiConfigFolder);
 		}
 
 		/// <summary>

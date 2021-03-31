@@ -28,8 +28,23 @@ namespace Nexus.Client.Games.Cyberpunk2077
 		private Cyberpunk2077GameModeDescriptor m_gmdGameModeInfo = null;
 		private Cyberpunk2077Launcher m_glnGameLauncher = null;
 		private Cyberpunk2077ToolLauncher m_gtlToolLauncher = null;
+		private bool? _isOldGameVersion = null;
 
 		#region Properties
+
+		private bool IsOldGameVersion
+		{
+			get
+			{
+				if (!_isOldGameVersion.HasValue)
+				{
+					_isOldGameVersion = GameVersion < new Version(1, 2);
+				}
+
+				return (_isOldGameVersion.HasValue ? _isOldGameVersion.Value : false);
+			}
+		}
+
 
 		/// <summary>
 		/// Gets the version of the installed game.
@@ -44,7 +59,7 @@ namespace Nexus.Client.Games.Cyberpunk2077
 				{
 					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, strExecutable);
 					if (File.Exists(strFullPath))
-						return new Version(FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+						return new Version(FileVersionInfo.GetVersionInfo(strFullPath).ProductVersion.Replace(", ", "."));
 				}
 				return null;
 			}
@@ -142,7 +157,7 @@ namespace Nexus.Client.Games.Cyberpunk2077
 				return false;
 			}
 		}
-	
+
 		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
@@ -324,19 +339,43 @@ namespace Nexus.Client.Games.Cyberpunk2077
 		{
 			string strPath = p_strPath;
 
-			if (!strPath.StartsWith("archive", StringComparison.InvariantCultureIgnoreCase))
+			if (strPath.StartsWith("bin") || strPath.StartsWith("x64"))
 			{
+				if (strPath.StartsWith("x64", StringComparison.InvariantCultureIgnoreCase))
+				{
+					strPath = Path.Combine("bin", strPath);
+				}
+			}
+			else if (!strPath.StartsWith("archive", StringComparison.InvariantCultureIgnoreCase))
+			{
+				string modPath = string.Empty;
+
+				if (!IsOldGameVersion)
+				{
+					strPath = strPath.Replace("patch", "mod");
+					modPath = "mod";
+				}
+				else
+					modPath = "patch";
+
 				if (strPath.StartsWith("pc", StringComparison.InvariantCultureIgnoreCase))
 				{
 					strPath = Path.Combine("archive", strPath);
 				}
-				else if (strPath.StartsWith("patch", StringComparison.InvariantCultureIgnoreCase))
+				else if (strPath.StartsWith(modPath, StringComparison.InvariantCultureIgnoreCase))
 				{
 					strPath = Path.Combine("archive", "pc", strPath);
 				}
 				else
 				{
-					strPath = Path.Combine("archive", "pc", "patch", strPath);
+					strPath = Path.Combine("archive", "pc", modPath, strPath);
+				}
+			}
+			else
+			{
+				if (!IsOldGameVersion)
+				{
+					strPath = strPath.Replace("patch", "mod");
 				}
 			}
 

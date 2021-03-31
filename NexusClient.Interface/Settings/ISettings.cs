@@ -100,6 +100,12 @@
 		bool ShowFallout4UpgradeDisclaimer { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether to show a game specific disclaimer.
+		/// </summary>
+		/// <value>Whether to show a game specific disclaimer.</value>
+		bool ShowCP2077UpgradeDisclaimer { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the manager should prevent readme files from being installed.
 		/// </summary>
 		/// <value>Whether the manager should prevent readme files from being installed.</value>

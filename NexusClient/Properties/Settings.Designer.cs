@@ -12,7 +12,7 @@ namespace Nexus.Client.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "16.4.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "16.8.1.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -549,195 +549,12 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfBoolean />")]
         public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions {
             get {
                 return ((global::Nexus.Client.Settings.KeyedSettings<bool>)(this["AddShellExtensions"]));
             }
             set {
                 this["AddShellExtensions"] = value;
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute(@"<?xml version=""1.0"" encoding=""utf-16""?>
-<KeyedSettingsOfString>
-  <item key=""Beta Wiki"">
-    <string>https://wiki.nexusmods.com/index.php/Category:NMM</string>
-  </item>
-  <item key=""Beta Forums"">
-    <string>https://forums.nexusmods.com/index.php?/forum/439-open-beta-feedback/</string>
-  </item>
-  <item key=""Bug Report How To"">
-    <string>https://forums.nexusmods.com/index.php?/topic/460590-reporting-bugs/</string>
-  </item>
-  <item key=""Report a Bug"">
-    <string>https://github.com/Nexus-Mods/Nexus-Mod-Manager/issues</string>
-  </item>
-</KeyedSettingsOfString>")]
-        public global::Nexus.Client.Settings.KeyedSettings<string> HelpLinks {
-            get {
-                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["HelpLinks"]));
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> ExecutablePaths {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["ExecutablePaths"]));
-            }
-            set {
-                this["ExecutablePaths"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> InstallationPaths {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["InstallationPaths"]));
-            }
-            set {
-                this["InstallationPaths"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfBoolean />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<bool> CompletedSetup {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<bool>)(this["CompletedSetup"]));
-            }
-            set {
-                this["CompletedSetup"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> ModFolder {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["ModFolder"]));
-            }
-            set {
-                this["ModFolder"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfPerGameModeSetting" +
-            "sOfObject />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.PerGameModeSettings<object>> CustomGameModeSettings {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.PerGameModeSettings<object>>)(this["CustomGameModeSettings"]));
-            }
-            set {
-                this["CustomGameModeSettings"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> InstallInfoFolder {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["InstallInfoFolder"]));
-            }
-            set {
-                this["InstallInfoFolder"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfString />")]
-        public global::Nexus.Client.Settings.KeyedSettings<string> DockPanelLayouts {
-            get {
-                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["DockPanelLayouts"]));
-            }
-            set {
-                this["DockPanelLayouts"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> CustomLaunchCommands {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["CustomLaunchCommands"]));
-            }
-            set {
-                this["CustomLaunchCommands"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> CustomLaunchCommandArguments {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["CustomLaunchCommandArguments"]));
-            }
-            set {
-                this["CustomLaunchCommandArguments"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<string> SelectedLaunchCommands {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["SelectedLaunchCommands"]));
-            }
-            set {
-                this["SelectedLaunchCommands"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfString />")]
-        public global::Nexus.Client.Settings.KeyedSettings<string> RepositoryUsernames {
-            get {
-                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["RepositoryUsernames"]));
-            }
-            set {
-                this["RepositoryUsernames"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfKeyedSettingsOfString />" +
-            "")]
-        public global::Nexus.Client.Settings.KeyedSettings<Nexus.Client.Settings.KeyedSettings<string>> RepositoryAuthenticationTokens {
-            get {
-                return ((global::Nexus.Client.Settings.KeyedSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["RepositoryAuthenticationTokens"]));
-            }
-            set {
-                this["RepositoryAuthenticationTokens"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfKeyedSettingsOfStr" +
-            "ing />")]
-        public global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>> DelayedSettings {
-            get {
-                return ((global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["DelayedSettings"]));
-            }
-            set {
-                this["DelayedSettings"] = value;
             }
         }
         
@@ -805,7 +622,196 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowCP2077UpgradeDisclaimer {
+            get {
+                return ((bool)(this["ShowCP2077UpgradeDisclaimer"]));
+            }
+            set {
+                this["ShowCP2077UpgradeDisclaimer"] = value;
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute(@"
+     <KeyedSettingsOfString>
+      <item key=""Support and Feedback (Official NMM Discord)"">
+       <string>https://discord.gg/JZ4tZ5KFQX</string>
+      </item>
+      <item key=""Beta Wiki"">
+       <string>https://wiki.nexusmods.com/index.php/Category:NMM</string>
+      </item>
+      <item key=""Report a Bug"">
+       <string>https://github.com/Nexus-Mods/Nexus-Mod-Manager/issues</string>
+      </item>
+     </KeyedSettingsOfString>
+    ")]
+        public global::Nexus.Client.Settings.KeyedSettings<string> HelpLinks {
+            get {
+                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["HelpLinks"]));
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> ExecutablePaths {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["ExecutablePaths"]));
+            }
+            set {
+                this["ExecutablePaths"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> InstallationPaths {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["InstallationPaths"]));
+            }
+            set {
+                this["InstallationPaths"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfBoolean />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<bool> CompletedSetup {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<bool>)(this["CompletedSetup"]));
+            }
+            set {
+                this["CompletedSetup"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> ModFolder {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["ModFolder"]));
+            }
+            set {
+                this["ModFolder"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfPerGameModeSettingsOfObject />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.PerGameModeSettings<object>> CustomGameModeSettings {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.PerGameModeSettings<object>>)(this["CustomGameModeSettings"]));
+            }
+            set {
+                this["CustomGameModeSettings"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> InstallInfoFolder {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["InstallInfoFolder"]));
+            }
+            set {
+                this["InstallInfoFolder"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <KeyedSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.KeyedSettings<string> DockPanelLayouts {
+            get {
+                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["DockPanelLayouts"]));
+            }
+            set {
+                this["DockPanelLayouts"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> CustomLaunchCommands {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["CustomLaunchCommands"]));
+            }
+            set {
+                this["CustomLaunchCommands"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> CustomLaunchCommandArguments {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["CustomLaunchCommandArguments"]));
+            }
+            set {
+                this["CustomLaunchCommandArguments"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> SelectedLaunchCommands {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["SelectedLaunchCommands"]));
+            }
+            set {
+                this["SelectedLaunchCommands"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <KeyedSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.KeyedSettings<string> RepositoryUsernames {
+            get {
+                return ((global::Nexus.Client.Settings.KeyedSettings<string>)(this["RepositoryUsernames"]));
+            }
+            set {
+                this["RepositoryUsernames"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <KeyedSettingsOfKeyedSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.KeyedSettings<Nexus.Client.Settings.KeyedSettings<string>> RepositoryAuthenticationTokens {
+            get {
+                return ((global::Nexus.Client.Settings.KeyedSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["RepositoryAuthenticationTokens"]));
+            }
+            set {
+                this["RepositoryAuthenticationTokens"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfKeyedSettingsOfString />\r\n    ")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>> DelayedSettings {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["DelayedSettings"]));
+            }
+            set {
+                this["DelayedSettings"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
         public global::Nexus.Client.Settings.PerGameModeSettings<string> ToolFolder {
             get {
                 return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["ToolFolder"]));
@@ -817,8 +823,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfKeyedSettingsOfStr" +
-            "ing />")]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfKeyedSettingsOfString />\r\n    ")]
         public global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>> SupportedTools {
             get {
                 return ((global::Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>>)(this["SupportedTools"]));
@@ -830,7 +835,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
         public global::Nexus.Client.Settings.PerGameModeSettings<string> VirtualFolder {
             get {
                 return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["VirtualFolder"]));
@@ -842,7 +847,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfString />")]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfString />\r\n    ")]
         public global::Nexus.Client.Settings.PerGameModeSettings<string> HDLinkFolder {
             get {
                 return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["HDLinkFolder"]));
@@ -854,7 +859,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<PerGameModeSettingsOfBoolean />")]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n     <PerGameModeSettingsOfBoolean />\r\n    ")]
         public global::Nexus.Client.Settings.PerGameModeSettings<bool> MultiHDInstall {
             get {
                 return ((global::Nexus.Client.Settings.PerGameModeSettings<bool>)(this["MultiHDInstall"]));
