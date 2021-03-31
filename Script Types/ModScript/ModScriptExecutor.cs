@@ -177,6 +177,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			//add the specific permissions the script will need
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Write, m_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory));
 
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Write, m_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory));
@@ -201,7 +202,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Append, m_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, m_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory));
 
-			if (!String.IsNullOrEmpty(m_strVirtualActivatorPath))
+			if (!string.IsNullOrEmpty(m_strVirtualActivatorPath))
 			{
 				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Write, m_strVirtualActivatorPath));
 				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_strVirtualActivatorPath));
@@ -219,6 +220,8 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 					pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, strPath));
 				}
 			}
+
+			pstGrantSet.AddPermission(new SecurityPermission(PermissionState.Unrestricted));
 
 			Trace.Unindent();
 

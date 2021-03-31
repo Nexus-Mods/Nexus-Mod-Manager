@@ -1328,8 +1328,16 @@ namespace Nexus.Client.Mods.Formats.OMod
                 {
                     strPath = GetRealPath(file);
                 }
-                
-                return new FileStream(strPath, FileMode.Open);
+
+				if (File.Exists(strPath))
+				{
+					return new FileStream(strPath, FileMode.Open);
+				}
+				else
+				{
+					// Otherwise grab file from archive.
+					return m_arcFile.GetFileStream(GetRealPath(file), m_eifEnvironmentInfo.TemporaryPath);
+				}
             }
 
             if (!String.IsNullOrEmpty(m_strReadOnlyTempDirectory))
