@@ -721,13 +721,13 @@ namespace Nexus.Client.UI.Controls
 					{
 						IVirtualModInfo vmiMod = VirtualMods.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant())).FirstOrDefault();
 						if ((vmiMod != null) && (m_rolActiveMods.Contains((IMod)rowObject)))
-							return new Bitmap(Properties.Resources.dialog_ok_4_16, 12, 12);
+							return new Bitmap(Properties.Resources.obsidianshade_checkmark, 14, 14);
 						else
-							return new Bitmap(!m_rolActiveMods.Contains((IMod)rowObject) ? new Bitmap(12, 12) : Properties.Resources.dialog_block, 14, 14);
+							return new Bitmap(!m_rolActiveMods.Contains((IMod)rowObject) ? new Bitmap(12, 12) : Properties.Resources.remove_download_flat, 14, 14);
 					}
 					catch
 					{
-						return new Bitmap(!m_rolActiveMods.Contains((IMod)rowObject) ? new Bitmap(12, 12) : Properties.Resources.dialog_block, 14, 14);
+						return new Bitmap(!m_rolActiveMods.Contains((IMod)rowObject) ? new Bitmap(12, 12) : Properties.Resources.remove_download_flat, 14, 14);
 					}
 				}
 			};

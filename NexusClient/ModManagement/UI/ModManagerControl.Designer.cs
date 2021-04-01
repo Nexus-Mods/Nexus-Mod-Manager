@@ -143,7 +143,7 @@
 			// tsbActivate
 			// 
 			this.tsbActivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbActivate.Image = global::Nexus.Client.Properties.Resources.activate_mod_flat;
+			this.tsbActivate.Image = global::Nexus.Client.Properties.Resources.obsidianshade_checkmark;
 			this.tsbActivate.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbActivate.Name = "tsbActivate";
 			this.tsbActivate.Size = new System.Drawing.Size(46, 36);
@@ -153,7 +153,7 @@
 			// tsbDeactivate
 			// 
 			this.tsbDeactivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbDeactivate.Image = global::Nexus.Client.Properties.Resources.disable_mod_flat;
+			this.tsbDeactivate.Image = global::Nexus.Client.Properties.Resources.remove_download_flat;
 			this.tsbDeactivate.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbDeactivate.Name = "tsbDeactivate";
 			this.tsbDeactivate.Size = new System.Drawing.Size(46, 36);
@@ -379,14 +379,14 @@
 			// 
 			this.exportToTextFile.Image = global::Nexus.Client.Properties.Resources.export_text_file_flat;
 			this.exportToTextFile.Name = "exportToTextFile";
-			this.exportToTextFile.Size = new System.Drawing.Size(196, 38);
+			this.exportToTextFile.Size = new System.Drawing.Size(169, 22);
 			this.exportToTextFile.Text = "Text file";
 			// 
 			// exportToClipboard
 			// 
 			this.exportToClipboard.Image = global::Nexus.Client.Properties.Resources.export_clipboard_flat;
 			this.exportToClipboard.Name = "exportToClipboard";
-			this.exportToClipboard.Size = new System.Drawing.Size(196, 38);
+			this.exportToClipboard.Size = new System.Drawing.Size(169, 22);
 			this.exportToClipboard.Text = "Copy to clipboard";
 			// 
 			// checkModUpdates
@@ -413,7 +413,7 @@
 			// 
 			this.sptMods.Panel2.Controls.Add(this.sptSummaryInfo);
 			this.sptMods.Size = new System.Drawing.Size(837, 514);
-			this.sptMods.SplitterDistance = 562;
+			this.sptMods.SplitterDistance = 564;
 			this.sptMods.SplitterWidth = 3;
 			this.sptMods.TabIndex = 1;
 			// 
@@ -435,7 +435,7 @@
 			this.clwCategoryView.ShowHiddenCategories = false;
 			this.clwCategoryView.ShowImagesOnSubItems = true;
 			this.clwCategoryView.ShowItemToolTips = true;
-			this.clwCategoryView.Size = new System.Drawing.Size(562, 514);
+			this.clwCategoryView.Size = new System.Drawing.Size(564, 514);
 			this.clwCategoryView.Sorting = System.Windows.Forms.SortOrder.Ascending;
 			this.clwCategoryView.TabIndex = 0;
 			this.clwCategoryView.UseCompatibleStateImageBehavior = false;
@@ -465,7 +465,7 @@
 			// sptSummaryInfo.Panel2
 			// 
 			this.sptSummaryInfo.Panel2.Controls.Add(this.flbInfo);
-			this.sptSummaryInfo.Size = new System.Drawing.Size(272, 514);
+			this.sptSummaryInfo.Size = new System.Drawing.Size(270, 514);
 			this.sptSummaryInfo.SplitterDistance = 142;
 			this.sptSummaryInfo.SplitterWidth = 3;
 			this.sptSummaryInfo.TabIndex = 0;
@@ -476,7 +476,7 @@
 			this.ipbScreenShot.Location = new System.Drawing.Point(0, 0);
 			this.ipbScreenShot.Margin = new System.Windows.Forms.Padding(2);
 			this.ipbScreenShot.Name = "ipbScreenShot";
-			this.ipbScreenShot.Size = new System.Drawing.Size(272, 142);
+			this.ipbScreenShot.Size = new System.Drawing.Size(270, 142);
 			this.ipbScreenShot.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
 			this.ipbScreenShot.TabIndex = 0;
 			this.ipbScreenShot.TabStop = false;
@@ -491,7 +491,7 @@
 			this.flbInfo.Margin = new System.Windows.Forms.Padding(2);
 			this.flbInfo.MinimumSize = new System.Drawing.Size(15, 15);
 			this.flbInfo.Name = "flbInfo";
-			this.flbInfo.Size = new System.Drawing.Size(272, 369);
+			this.flbInfo.Size = new System.Drawing.Size(270, 369);
 			this.flbInfo.TabIndex = 0;
 			this.flbInfo.Text = null;
 			// 
