@@ -1036,7 +1036,6 @@
 
 				if (lstScriptedMods.Count > 0)
 				{
-					ProfileManager.SetCurrentProfile(null);
 					oclMods = new ReadOnlyObservableList<IMod>(lstScriptedMods);
 					//ModManagerVM.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, true);
 					//ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);

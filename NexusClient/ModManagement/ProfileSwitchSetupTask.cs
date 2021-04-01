@@ -120,6 +120,8 @@ namespace Nexus.Client.ModManagement
 
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
 
+			_profileManager.SetCurrentProfile(null);
+
 			foreach (IMod modMod in _modsToDeactivate)
 			{
 				OverallMessage = "Uninstalling: " + modMod.ModName;
