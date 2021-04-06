@@ -3158,11 +3158,13 @@
 
 		private void tsbDiscord_Click(object sender, EventArgs e)
 		{
+			MessageBox.Show(this, "NMM will open the official NMM Discord server invitation in your default browser.", "NMM Official Discord", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://discord.gg/JZ4tZ5KFQX");
 		}
 
 		private void tsbPatreon_Click(object sender, EventArgs e)
 		{
+			MessageBox.Show(this, "NMM will open the official NMM Patreon page in your default browser.", "NMM Official Patreon", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://www.patreon.com/NMMCE");
 		}
 	}
