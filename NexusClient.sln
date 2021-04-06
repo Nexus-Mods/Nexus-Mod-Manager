@@ -145,6 +145,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonsterHunterWorld", "Game 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cyberpunk2077", "Game Modes\Cyberpunk2077\Cyberpunk2077.csproj", "{23CF6159-95B3-4880-B8D4-655558EA74BB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderalSE", "Game Modes\EnderalSE\EnderalSE.csproj", "{AD9DEB54-6470-4BA0-9E63-2C92CF7941EE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -397,6 +399,10 @@ Global
 		{23CF6159-95B3-4880-B8D4-655558EA74BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{23CF6159-95B3-4880-B8D4-655558EA74BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{23CF6159-95B3-4880-B8D4-655558EA74BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD9DEB54-6470-4BA0-9E63-2C92CF7941EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD9DEB54-6470-4BA0-9E63-2C92CF7941EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD9DEB54-6470-4BA0-9E63-2C92CF7941EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD9DEB54-6470-4BA0-9E63-2C92CF7941EE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -453,6 +459,7 @@ Global
 		{B9D8379B-58FC-4CEB-8EF7-C3968E0F7509} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{851EE0C7-E773-455A-9DA3-50A7D0BBD4D8} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{23CF6159-95B3-4880-B8D4-655558EA74BB} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{AD9DEB54-6470-4BA0-9E63-2C92CF7941EE} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}

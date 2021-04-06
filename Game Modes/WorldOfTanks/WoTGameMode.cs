@@ -125,9 +125,9 @@ namespace Nexus.Client.Games.WorldOfTanks
 		}
 
 		/// <summary>
-		/// Gets the path to the per user Morrowind data.
+		/// Gets the path to the per user World of Tanks data.
 		/// </summary>
-		/// <value>The path to the per user Morrowind data.</value>
+		/// <value>The path to the per user World of Tanks data.</value>
 		public string UserGameDataPath
 		{
 			get
