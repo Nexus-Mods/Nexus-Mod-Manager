@@ -537,29 +537,6 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool AssociateWithUrl {
-            get {
-                return ((bool)(this["AssociateWithUrl"]));
-            }
-            set {
-                this["AssociateWithUrl"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions {
-            get {
-                return ((global::Nexus.Client.Settings.KeyedSettings<bool>)(this["AddShellExtensions"]));
-            }
-            set {
-                this["AddShellExtensions"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<ArrayOfString xmlns:xsi=\"http://www.w3." +
             "org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" />")]
         public global::Nexus.Client.Settings.SettingsList InstalledGames {
@@ -866,6 +843,36 @@ namespace Nexus.Client.Properties {
             }
             set {
                 this["MultiHDInstall"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AssociateWithUrl
+        {
+            get
+            {
+                return ((bool)(this["AssociateWithUrl"]));
+            }
+            set
+            {
+                this["AssociateWithUrl"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n        &lt;KeyedSettingsOfBoolean /&gt;\r\n        ")]
+        public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions
+        {
+            get
+            {
+                return ((global::Nexus.Client.Settings.KeyedSettings<bool>)(this["AddShellExtensions"]));
+            }
+            set
+            {
+                this["AddShellExtensions"] = value;
             }
         }
     }
