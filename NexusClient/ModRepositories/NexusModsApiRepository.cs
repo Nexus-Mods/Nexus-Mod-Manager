@@ -120,7 +120,7 @@
 				return status;
 			}
 
-			AllowedConnections = UserStatus.IsPremium ? 4 : 1;
+			AllowedConnections = UserStatus.IsPremium ? 2 : 1;
 			MaxConcurrentDownloads = UserStatus.IsPremium ? 10 : 5;
 
 			return AuthenticationStatus.Successful;

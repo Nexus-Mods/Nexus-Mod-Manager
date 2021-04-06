@@ -175,6 +175,8 @@ namespace Nexus.Client.ModManagement
 							strReadMeFile = Path.GetFileName(strFileName);
 							strReadMePath = Path.Combine(ReadMeTempPath, strReadMeFile);
 							p_tfmFileManager.WriteAllBytes(strReadMePath, bteData);
+
+							break;
 						}
 					}
 				}

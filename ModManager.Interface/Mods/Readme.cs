@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Mods
@@ -173,6 +174,8 @@ namespace Nexus.Client.Mods
 				return false;
 			if (!IsValidFilename(Path.GetFileName(p_strPath.ToLower())))
 				return false;
+			if (IsConfigFile(Path.GetFileName(p_strPath)))
+				return false;
 			return IsValidExtension(Path.GetExtension(p_strPath.ToLower()));
 		}
 
@@ -198,6 +201,11 @@ namespace Nexus.Client.Mods
 		public static bool IsValidFilename(string p_strFilename)
 		{
 			return !m_lstFilenames.Contains(p_strFilename);
+		}
+
+		public static bool IsConfigFile(string p_strFilename)
+		{
+			return p_strFilename.IndexOf("config", StringComparison.InvariantCultureIgnoreCase) >= 0;
 		}
 	}
 }
