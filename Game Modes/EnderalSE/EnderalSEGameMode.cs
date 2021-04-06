@@ -174,8 +174,8 @@ namespace Nexus.Client.Games.EnderalSE
 		protected override void SetupSettingsFiles()
 		{	
 			base.SetupSettingsFiles();
-			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "EnderalSE.ini");
-			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "EnderalSEPrefs.ini");
+			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "Enderal.ini");
+			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "EnderalPrefs.ini");
 		}
 
 		#endregion
