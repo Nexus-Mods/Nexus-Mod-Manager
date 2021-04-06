@@ -719,7 +719,8 @@ namespace Nexus.Client.UI.Controls
 				{
 					try
 					{
-						IVirtualModInfo vmiMod = VirtualMods.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(((IMod)rowObject).Filename.ToLowerInvariant())).FirstOrDefault();
+						string modFileName = Path.GetFileName(((IMod)rowObject).Filename);
+						IVirtualModInfo vmiMod = VirtualMods.Where(x => x.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase)).FirstOrDefault();
 						if ((vmiMod != null) && (m_rolActiveMods.Contains((IMod)rowObject)))
 							return new Bitmap(Properties.Resources.obsidianshade_checkmark, 14, 14);
 						else
