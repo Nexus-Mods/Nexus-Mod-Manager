@@ -154,7 +154,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			bool booWritten = false;
 			bool booLocked = false;
 
-			Trace.TraceInformation("Preparing to write load order to file \"{0}\".", p_strFilePath);
+			//Trace.TraceInformation("Preparing to write load order to file \"{0}\".", p_strFilePath);
 
 			while (!IsFileReady(p_strFilePath, ForcedReadOnly))
 			{
@@ -169,7 +169,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			if (!booLocked)
 			{
-				Trace.TraceInformation("Got access to \"{0}\".", p_strFilePath);
+				//Trace.TraceInformation("Got access to \"{0}\".", p_strFilePath);
 				int intRetries = 0;
 
 				while (intRetries++ < 100)
