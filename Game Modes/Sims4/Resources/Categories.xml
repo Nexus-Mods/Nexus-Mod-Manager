@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+	<categoryList>
+		<category path="Audio" ID="13">
+			<name>Audio</name>
+		</category>
+		<category path="Build Mode" ID="6">
+			<name>Build Mode</name>
+		</category>
+		<category path="Buy Mode" ID="7">
+			<name>Buy Mode</name>
+		</category>
+		<category path="Careers" ID="8">
+			<name>Careers</name>
+		</category>
+		<category path="Clothing" ID="3">
+			<name>Clothing</name>
+		</category>
+		<category path="Create a Sim (CAS)" ID="9">
+			<name>Create a Sim (CAS)</name>
+		</category>
+		<category path="Decorations" ID="5">
+			<name>Decorations</name>
+		</category>
+		<category path="Gameplay" ID="4">
+			<name>Gameplay</name>
+		</category>
+		<category path="Lots and Houses" ID="10">
+			<name>Lots and Houses</name>
+		</category>
+		<category path="Miscellaneous" ID="2">
+			<name>Miscellaneous</name>
+		</category>
+		<category path="Skins" ID="11">
+			<name>Skins</name>
+		</category>
+		<category path="Utilities" ID="12">
+			<name>Utilities</name>
+		</category>
+	</categoryList>
+</categoryManager>
