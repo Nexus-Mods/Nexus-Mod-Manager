@@ -76,7 +76,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// <c>null</c> if the path could not be determined.</returns>
 		public override string GetInstallationPath()
 		{
-            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("489830", "SkyrimSE", "SkyrimSELauncher.exe");
+            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("976620", "SkyrimSE", "SkyrimSELauncher.exe");
 
 			if (string.IsNullOrEmpty(strValue))
 				strValue = base.GetInstallationPath();
