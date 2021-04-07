@@ -33,6 +33,7 @@ namespace Nexus.Client.Settings
 		/// The default constructor.
 		/// </summary>
 		public KeyedSettings()
+			: base(StringComparer.InvariantCultureIgnoreCase)
 		{
 		}
 
@@ -41,7 +42,7 @@ namespace Nexus.Client.Settings
 		/// </summary>
 		/// <param name="p_dicValues">The values with which to initializes this object.</param>
 		public KeyedSettings(Dictionary<string, T> p_dicValues)
-			: base(p_dicValues)
+			: base(p_dicValues, StringComparer.InvariantCultureIgnoreCase)
 		{
 		}
 
