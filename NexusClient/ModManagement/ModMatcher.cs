@@ -68,9 +68,10 @@ namespace Nexus.Client.ModManagement
 				}
 				if (lstMatches.Count() == 0)
 				{
-					string strNewModNamePrefix = strNewModName.Split('-')[0].Trim();
+					string strNewModNamePrefix = strNewModName.Split(new string[] {" - "}, StringSplitOptions.None)[0].Trim();
+
 					lstMatches = from m in Candidates
-								 where m.ModName.Split('-')[0].Trim().Equals(strNewModNamePrefix, StringComparison.InvariantCultureIgnoreCase)
+								 where m.ModName.Split(new string[] { " - " }, StringSplitOptions.None)[0].Trim().Equals(strNewModNamePrefix, StringComparison.InvariantCultureIgnoreCase)
 									 && !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
 									 && (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
 								 select m;
