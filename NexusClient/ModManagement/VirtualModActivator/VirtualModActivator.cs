@@ -1247,6 +1247,10 @@
 			string strRealLinkFilePath = (MultiHDMode && !string.IsNullOrEmpty(HDLinkFolder)) ? GetRealFilePath(p_modMod, p_strBaseFilePath, HDLinkFolder) : string.Empty;
 
 			string strAdjustedFilePath = GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true);
+
+			if (string.IsNullOrEmpty(strAdjustedFilePath))
+				return string.Empty;
+
 			string strVirtualFileLink = String.Empty;
 
 			if (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod))
