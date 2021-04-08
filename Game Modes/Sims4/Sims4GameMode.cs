@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml;
 using ChinhDo.Transactions;
@@ -29,6 +30,8 @@ namespace Nexus.Client.Games.Sims4
 		private Sims4GameModeDescriptor m_gmdGameModeInfo = null;
 		private Sims4Launcher m_glnGameLauncher = null;
 		private Sims4ToolLauncher m_gtlToolLauncher = null;
+		private List<string> _trayExtensions = new List<string>() {".householdbinary", ".trayitem", ".sgi", ".hhi", ".blueprint", ".bpi" };
+		private List<string> _unusedExtensions = new List<string>() { ".txt", ".png", ".jpg", ".pdf", ".doc", ".docx" };
 
 		#region Properties
 
@@ -285,6 +288,65 @@ namespace Nexus.Client.Games.Sims4
 			if (m_gmdGameModeInfo == null)
 				m_gmdGameModeInfo = new Sims4GameModeDescriptor(EnvironmentInfo);
 			return m_gmdGameModeInfo;
+		}
+
+		/// <summary>
+		/// Adjusts the given path to be relative to the installation path of the game mode.
+		/// </summary>
+		/// <remarks>
+		/// This is basically a hack to allow older FOMod/OMods to work. Older FOMods assumed
+		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
+		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
+		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
+		/// to be relative to the new instaalation path to make things work.
+		/// </remarks>
+		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
+		/// <param name="p_strPath">The path to adjust</param>
+		/// <param name="p_booIgnoreIfPresent">Whether to ignore the path if the specific root is already present</param>
+		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
+		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
+		{
+			return p_strPath;
+		}
+
+		/// <summary>
+		/// Adjusts the given path to be relative to the installation path of the game mode.
+		/// </summary>
+		/// <remarks>
+		/// This is basically a hack to allow older FOMods to work. Older FOMods assumed
+		/// the installation path of Fallout games to be &lt;games>/data, but this new manager specifies
+		/// the installation path to be &lt;games>. This breaks the older FOMods, so this method can detect
+		/// the older FOMods (or other mod formats that needs massaging), and adjusts the given path
+		/// to be relative to the new instaalation path to make things work.
+		/// </remarks>
+		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_booIgnoreIfPresent">Whether to ignore the path if the specific root is already present</param>
+		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
+		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
+		{
+			string strPath = p_strPath;
+			string fileExtension = Path.GetExtension(strPath);
+
+			if (_unusedExtensions.Contains(fileExtension, StringComparer.InvariantCultureIgnoreCase))
+				return string.Empty;
+
+			if (!strPath.StartsWith("Tray", StringComparison.InvariantCultureIgnoreCase) && !strPath.StartsWith("Mods", StringComparison.InvariantCultureIgnoreCase))
+			{
+				int subCount = strPath.Count(c => c == Path.DirectorySeparatorChar);
+				if (subCount >= 2)
+				{
+					strPath = strPath.Substring(strPath.IndexOf(Path.DirectorySeparatorChar) + 1);
+				}
+
+				if (_trayExtensions.Contains(fileExtension, StringComparer.InvariantCultureIgnoreCase))
+					strPath = Path.Combine("Tray", strPath);
+				else
+					strPath = Path.Combine("Mods", strPath);
+			}
+
+			return strPath;
 		}
 
 		/// <summary>

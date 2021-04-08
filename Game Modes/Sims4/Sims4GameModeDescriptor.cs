@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Drawing;
-using Nexus.Client.Games.Sims4;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Games.Sims4
 {
@@ -12,6 +12,7 @@ namespace Nexus.Client.Games.Sims4
 	{
 		private static string[] EXECUTABLES = { @"Game\Bin\TS4_x64.exe" };
 		private const string MODE_ID = "TheSims4";
+		private static readonly List<string> STOP_FOLDERS = new List<string> { "Mods", "Tray" };
 
 		#region Properties
 
@@ -24,7 +25,7 @@ namespace Nexus.Client.Games.Sims4
 			get
 			{
 				string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-				strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4\Mods");
+				strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4");
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
 				return strPath;
@@ -64,6 +65,20 @@ namespace Nexus.Client.Games.Sims4
 			get
 			{
 				return EXECUTABLES;
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of possible folders that should be looked for in mod archives to determine
+		/// file structure.
+		/// </summary>
+		/// <value>A list of possible folders that should be looked for in mod archives to determine
+		/// file structure.</value>
+		public override IEnumerable<string> StopFolders
+		{
+			get
+			{
+				return STOP_FOLDERS;
 			}
 		}
 

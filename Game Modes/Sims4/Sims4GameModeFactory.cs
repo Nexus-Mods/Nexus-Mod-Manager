@@ -52,6 +52,7 @@ namespace Nexus.Client.Games.Sims4
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			m_gmdGameModeDescriptor = new Sims4GameModeDescriptor(p_eifEnvironmentInfo);
+			FixOldInstallationPath(p_eifEnvironmentInfo, m_gmdGameModeDescriptor.ModeId);
 		}
 
 		#endregion
@@ -80,7 +81,7 @@ namespace Nexus.Client.Games.Sims4
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
 			string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-			strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4\Mods");
+			strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4");
 			return strPath;
 		}
 
@@ -157,6 +158,27 @@ namespace Nexus.Client.Games.Sims4
 		public bool PerformInitialization(ShowViewDelegate p_dlgShowView, ShowMessageDelegate p_dlgShowMessage)
 		{
 			return true;
+		}
+
+		/// <summary>
+		/// This will fix the game's stored install path for people who were in the beta test of this game mode.
+		/// </summary>
+		/// <param name="environmentInfo"></param>
+		/// <param name="modeId"></param>
+		private void FixOldInstallationPath(IEnvironmentInfo environmentInfo, string modeId)
+		{
+			if (environmentInfo.Settings.InstallationPaths.ContainsKey(modeId))
+			{
+				string installPath = environmentInfo.Settings.InstallationPaths[modeId];
+				string newPath = GetInstallationPath(string.Empty);
+
+				if (!installPath.Equals(newPath))
+				{
+					environmentInfo.Settings.InstallationPaths[modeId] = newPath;
+					environmentInfo.Settings.Save();
+				}
+			}
+
 		}
 	}
 }
