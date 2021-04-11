@@ -31,6 +31,7 @@ namespace Nexus.Client.Games.Sims4
 		private Sims4Launcher m_glnGameLauncher = null;
 		private Sims4ToolLauncher m_gtlToolLauncher = null;
 		private List<string> _trayExtensions = new List<string>() {".householdbinary", ".trayitem", ".sgi", ".hhi", ".blueprint", ".bpi" };
+		private List<string> _saveExtensions = new List<string>() { ".save" };
 		private List<string> _unusedExtensions = new List<string>() { ".txt", ".png", ".jpg", ".pdf", ".doc", ".docx" };
 
 		#region Properties
@@ -332,7 +333,7 @@ namespace Nexus.Client.Games.Sims4
 			if (_unusedExtensions.Contains(fileExtension, StringComparer.InvariantCultureIgnoreCase))
 				return string.Empty;
 
-			if (!strPath.StartsWith("Tray", StringComparison.InvariantCultureIgnoreCase) && !strPath.StartsWith("Mods", StringComparison.InvariantCultureIgnoreCase))
+			if (!strPath.StartsWith("Tray", StringComparison.InvariantCultureIgnoreCase) && !strPath.StartsWith("Mods", StringComparison.InvariantCultureIgnoreCase) && !strPath.StartsWith("saves", StringComparison.InvariantCultureIgnoreCase))
 			{
 				int subCount = strPath.Count(c => c == Path.DirectorySeparatorChar);
 				if (subCount >= 2)
@@ -342,6 +343,8 @@ namespace Nexus.Client.Games.Sims4
 
 				if (_trayExtensions.Contains(fileExtension, StringComparer.InvariantCultureIgnoreCase))
 					strPath = Path.Combine("Tray", strPath);
+				else if (_saveExtensions.Contains(fileExtension, StringComparer.InvariantCultureIgnoreCase))
+					strPath = Path.Combine("saves", strPath);
 				else
 					strPath = Path.Combine("Mods", strPath);
 			}

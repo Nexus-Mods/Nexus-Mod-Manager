@@ -66,6 +66,23 @@ namespace Nexus.Client.Games.Sims4
 		{
             string strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("1222670", "The Sims 4", @"Game\Bin\TS4_x64.exe");
 
+			try
+			{
+				if (string.IsNullOrWhiteSpace(strValue))
+				{
+					Trace.TraceInformation("Getting Origin install path.");
+
+					string originPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Maxis\The Sims 4", "Install Dir", null)?.ToString();
+
+					if (!string.IsNullOrWhiteSpace(originPath) && Directory.Exists(originPath))
+						strValue = originPath;
+				}
+			}
+			catch
+			{
+				//if we can't read the registry or config.vdf, just return null
+			}
+
 			return strValue;
 		}
 
