@@ -135,10 +135,10 @@
                     }
                 }
 
-                var strMessage = $"Data file '{baseFilePath}' has already been installed by '{modCheck.ModName}'";
+                string strMessage = $"Data file '{baseFilePath}' has already been installed by '{modCheck.ModName}'";
                 strMessage += Environment.NewLine + "Activate this mod's file instead?";
 
-                switch (OverwriteForm.ShowDialog(string.Format(strMessage, baseFilePath), true, true))
+                switch (OverwriteForm.ShowDialog(strMessage, true, true))
                 {
                     case OverwriteResult.Yes:
                         return true;
@@ -151,7 +151,7 @@
                         _overwriteAll = true;
                         return true;
                     case OverwriteResult.NoToGroup:
-                        var folders = new Queue<string>();
+                        Queue<string> folders = new Queue<string>();
                         folders.Enqueue(Path.GetDirectoryName(loweredPath));
                         
                         while (folders.Count > 0)
