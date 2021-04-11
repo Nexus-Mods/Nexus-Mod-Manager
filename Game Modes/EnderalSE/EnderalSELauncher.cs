@@ -141,7 +141,7 @@ namespace Nexus.Client.Games.EnderalSE
 		/// <returns>The SKSE launch command.</returns>
 		private string GetSkseLaunchCommand()
 		{
-			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse_loader.exe");
+			return Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse64_loader.exe");
 		}
 
 		#endregion
@@ -166,7 +166,7 @@ namespace Nexus.Client.Games.EnderalSE
 		/// <returns>The plain launch command.</returns>
 		private string GetPlainLaunchCommand()
 		{
-			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "EnderalSE Launcher.exe");
+			string strCommand = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "Enderal Launcher.exe");
 			return strCommand;
 		}
 
@@ -179,7 +179,7 @@ namespace Nexus.Client.Games.EnderalSE
 		{
 			if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.CustomLaunchCommands[GameMode.ModeId]))
 				LaunchEnderalSECustom();
-			else if (File.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse_loader.exe")))
+			else if (File.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, "skse64_loader.exe")))
 				LaunchEnderalSESKSE();
 			else
 				LaunchEnderalSEPlain();
