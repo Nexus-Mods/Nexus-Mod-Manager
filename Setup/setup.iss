@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'NMM'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.80.7'
+#define MyAppVersion '0.80.8'
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'DuskDweller'
 
@@ -37,7 +37,7 @@ CreateAppDir=true
 OutputDir=..\Stage\Installer\
 SourceDir=.
 AllowNoIcons=true
-SignedUninstaller=true
+SignedUninstaller=false
 UsePreviousGroup=true
 UsePreviousAppDir=true
 LanguageDetectionMethod=uilanguage
