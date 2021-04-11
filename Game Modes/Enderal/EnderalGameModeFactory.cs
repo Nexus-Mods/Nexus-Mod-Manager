@@ -76,7 +76,7 @@ namespace Nexus.Client.Games.Enderal
 		/// <c>null</c> if the path could not be determined.</returns>
 		public override string GetInstallationPath()
 		{
-            string strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("933480", "Enderal", "Enderal Launcher.exe");
+            string strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("976620", "Enderal", "Enderal Launcher.exe");
 
 			if (string.IsNullOrEmpty(strValue))
 				strValue = base.GetInstallationPath();
