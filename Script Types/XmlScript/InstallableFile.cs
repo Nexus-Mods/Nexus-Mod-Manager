@@ -11,6 +11,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// </remarks>
 	public class InstallableFile : IComparable<InstallableFile>
 	{
+		string _destination = string.Empty;
+
 		#region Properties
 
 		/// <summary>
@@ -23,7 +25,21 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// Gets or sets where the file/folder should be installed.
 		/// </summary>
 		/// <value>Where the file/folder should be installed.</value>
-		public string Destination { get; set; }
+		public string Destination 
+		{ 
+			get
+			{
+				if (string.IsNullOrEmpty(_destination))
+					if (!string.IsNullOrEmpty(Source))
+						return Source;
+
+				return _destination;
+			}
+			set
+			{
+				_destination = value;
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets whether this item is a folder.
