@@ -41,7 +41,7 @@
 		private static readonly string ACTIVATOR_OVERWRITE = "_overwrites";
 		public static readonly string ACTIVATOR_FOLDER = "VirtualInstall";
 		public static readonly string ACTIVATOR_LINK_FOLDER = "NMMLink";
-		public static readonly IMod DummyMod = new InstallLog.DummyMod("ORIGINAL_VALUE", String.Format("Dummy Mod: {0}", "ORIGINAL_VALUE"));
+		public static readonly IMod DummyMod = new InstallLog.DummyMod("ORIGINAL_VALUE", string.Format("Dummy Mod: {0}", "ORIGINAL_VALUE"));
 
 		/// <summary>
 		/// Reads the virtual mod activator version from the given config file.
@@ -110,11 +110,11 @@
 		private bool m_booDisableLinkCreation = false;
 		private bool m_booDisableIniLogging = false;
 		private bool m_booForceHardLinks = false;
-		private string m_strGameDataPath = String.Empty;
-		private string m_strVirtualActivatorPath = String.Empty;
-		private string m_strVirtualActivatorConfigPath = String.Empty;
-		private string m_strVirtualActivatorIniEditsPath = String.Empty;
-		private string m_strVirtualActivatorOverwritePath = String.Empty;
+		private string m_strGameDataPath = string.Empty;
+		private string m_strVirtualActivatorPath = string.Empty;
+		private string m_strVirtualActivatorConfigPath = string.Empty;
+		private string m_strVirtualActivatorIniEditsPath = string.Empty;
+		private string m_strVirtualActivatorOverwritePath = string.Empty;
 
 		#region Properties
 
@@ -159,13 +159,13 @@
 			get
 			{
 				if (EnvironmentInfo != null)
-					if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId]))
+					if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId]))
 					{
 						string strVirtual = EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId];
 						return Path.Combine(strVirtual, ACTIVATOR_FOLDER);
 					}
 
-				return String.Empty;
+				return string.Empty;
 			}
 		}
 
@@ -178,19 +178,19 @@
 			get
 			{
 				if (EnvironmentInfo != null)
-					if (!String.IsNullOrWhiteSpace(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId]))
+					if (!string.IsNullOrWhiteSpace(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId]))
 					{
 						string strLink = EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId];
-						if (!String.IsNullOrWhiteSpace(strLink))
+						if (!string.IsNullOrWhiteSpace(strLink))
 							return Path.Combine(strLink, GameMode.ModeId, ACTIVATOR_LINK_FOLDER);
 						else
-							return String.Empty;
+							return string.Empty;
 					}
 
 				if (MultiHDMode == true)
 					throw new ArgumentNullException("It seems the MultiHD mode is enabled but the program is unable to retrieve the Link folder.");
 				else
-					return String.Empty;
+					return string.Empty;
 			}
 		}
 
@@ -290,7 +290,7 @@
 			}
 		}
 
-		public Int32 ModCount
+		public int ModCount
 		{
 			get
 			{
@@ -323,7 +323,7 @@
 			if (!Directory.Exists(m_strVirtualActivatorPath))
 				Directory.CreateDirectory(m_strVirtualActivatorPath);
 
-			if (!String.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId]))
+			if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId]))
 			{
 				string strHDLink = Path.Combine(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId], GameMode.ModeId), ACTIVATOR_LINK_FOLDER);
 
@@ -412,7 +412,7 @@
 
 		public void Reset()
 		{
-			if (!String.IsNullOrEmpty(NewVirtualFolder))
+			if (!string.IsNullOrEmpty(NewVirtualFolder))
 			{
 				m_strVirtualActivatorPath = Path.Combine(NewVirtualFolder, ACTIVATOR_FOLDER);
 				m_strVirtualActivatorConfigPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_FILE);
@@ -421,9 +421,9 @@
 					Directory.CreateDirectory(m_strVirtualActivatorPath);
 			}
 			
-			if (!String.IsNullOrEmpty(NewLinkFolder))
+			if (!string.IsNullOrEmpty(NewLinkFolder))
 			{
-				if (!String.IsNullOrEmpty(HDLinkFolder))
+				if (!string.IsNullOrEmpty(HDLinkFolder))
 					FileUtil.ForceDelete(HDLinkFolder);
 
 				string strHDLink = Path.Combine(NewLinkFolder, GameMode.ModeId, ACTIVATOR_LINK_FOLDER);
@@ -431,7 +431,7 @@
 				if (!Directory.Exists(strHDLink))
 					Directory.CreateDirectory(strHDLink);
 			}
-			else if (String.IsNullOrEmpty(NewLinkFolder) && !String.IsNullOrEmpty(HDLinkFolder))
+			else if (string.IsNullOrEmpty(NewLinkFolder) && !string.IsNullOrEmpty(HDLinkFolder))
 			{
 				if (Directory.Exists(HDLinkFolder))
 					FileUtil.ForceDelete(HDLinkFolder);
@@ -439,14 +439,14 @@
 
 			m_booForceHardLinks = NewMultiHD;
 
-			if (!String.IsNullOrWhiteSpace(NewVirtualFolder))
+			if (!string.IsNullOrWhiteSpace(NewVirtualFolder))
 			{
-				if (!String.Equals(EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId], NewVirtualFolder))
+				if (!string.Equals(EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId], NewVirtualFolder))
 				{
 					EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId] = NewVirtualFolder;
 				}
 			}
-			if (!String.Equals(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId], NewLinkFolder))
+			if (!string.Equals(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId], NewLinkFolder))
 			{
 				EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId] = NewLinkFolder;
 			}
@@ -507,14 +507,14 @@
 			xelRoot.Add(xelModList);
 			xelModList.Add(from mod in lstVirtualModInfo
 						   select new XElement("modInfo",
-							   new XAttribute("modId", mod.ModId ?? String.Empty),
-							   new XAttribute("downloadId", mod.DownloadId ?? String.Empty),
-							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? String.Empty),
+							   new XAttribute("modId", mod.ModId ?? string.Empty),
+							   new XAttribute("downloadId", mod.DownloadId ?? string.Empty),
+							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? string.Empty),
 							   new XAttribute("modName", mod.ModName),
 							   new XAttribute("modFileName", mod.ModFileName),
-							   new XAttribute("modNewFileName", mod.NewFileName ?? String.Empty),
+							   new XAttribute("modNewFileName", mod.NewFileName ?? string.Empty),
 							   new XAttribute("modFilePath", mod.ModFilePath),
-							   new XAttribute("FileVersion", mod.FileVersion ?? String.Empty),
+							   new XAttribute("FileVersion", mod.FileVersion ?? string.Empty),
 							   from link in m_tslVirtualModList.Where(x => x.ModInfo == mod)
 							   select new XElement("fileLink",
 								   new XAttribute("realPath", link.RealModPath),
@@ -564,14 +564,14 @@
 			xelRoot.Add(xelModList);
 			xelModList.Add(from mod in p_lstVirtualModInfo
 						   select new XElement("modInfo",
-							   new XAttribute("modId", mod.ModId ?? String.Empty),
-							   new XAttribute("downloadId", mod.DownloadId ?? String.Empty),
-							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? String.Empty),
+							   new XAttribute("modId", mod.ModId ?? string.Empty),
+							   new XAttribute("downloadId", mod.DownloadId ?? string.Empty),
+							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? string.Empty),
 							   new XAttribute("modName", mod.ModName),
 							   new XAttribute("modFileName", mod.ModFileName),
-							   new XAttribute("modNewFileName", mod.NewFileName ?? String.Empty),
+							   new XAttribute("modNewFileName", mod.NewFileName ?? string.Empty),
 							   new XAttribute("modFilePath", mod.ModFilePath),
-							   new XAttribute("FileVersion", mod.FileVersion ?? String.Empty),
+							   new XAttribute("FileVersion", mod.FileVersion ?? string.Empty),
 							   from link in p_lstVirtualModLink.Where(x => CheckModInfo(x.ModInfo, mod) == true)
 							   select new XElement("fileLink",
 									new XAttribute("realPath", link.RealModPath),
@@ -680,7 +680,7 @@
 
 				string strVersion = docVirtual.Element("virtualModActivator").Attribute("fileVersion").Value;
 				if (!PerformVersionCheck(new Version(strVersion)))
-					throw new Exception(String.Format("Invalid Virtual Mod Activator version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
+					throw new Exception(string.Format("Invalid Virtual Mod Activator version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
 
 				try
 				{
@@ -739,7 +739,7 @@
 							{
 								string strRealPath = xelLink.Attribute("realPath").Value;
 								string strVirtualPath = xelLink.Attribute("virtualPath").Value;
-								Int32 intPriority = 0;
+								int intPriority = 0;
 								try
 								{
 									intPriority = Convert.ToInt32(xelLink.Element("linkPriority").Value);
@@ -790,7 +790,7 @@
 				}
 				string strVersion = docVirtual.Element("virtualModActivator").Attribute("fileVersion").Value;
 				if (!PerformVersionCheck(new Version(strVersion)))
-					throw new Exception(String.Format("Invalid Virtual Mod Activator version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
+					throw new Exception(string.Format("Invalid Virtual Mod Activator version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
 
 				try
 				{
@@ -860,7 +860,7 @@
 							{
 								string strRealPath = xelLink.Attribute("realPath").Value;
 								string strVirtualPath = xelLink.Attribute("virtualPath").Value;
-								Int32 intPriority = 0;
+								int intPriority = 0;
 								try
 								{
 									intPriority = Convert.ToInt32(xelLink.Element("linkPriority").Value);
@@ -1065,20 +1065,20 @@
 			return strPath;
 		}
 
-		public Int32 CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
+		public int CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
 		{
 			return CheckFileLink(p_strFilePath, -1, out p_modMod, out p_lstFileLinks);
 		}
 
-		private Int32 CheckFileLink(string p_strFilePath, Int32 p_intCurrentPriority, out IMod p_modMod)
+		private int CheckFileLink(string p_strFilePath, int p_intCurrentPriority, out IMod p_modMod)
 		{
 			List<IVirtualModLink> lstDummy;
 			return CheckFileLink(p_strFilePath, p_intCurrentPriority, out p_modMod, out lstDummy);
 		}
 
-		private Int32 CheckFileLink(string p_strFilePath, Int32 p_intCurrentPriority, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
+		private int CheckFileLink(string p_strFilePath, int p_intCurrentPriority, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
 		{
-			Int32 intPriority = -1;
+			int intPriority = -1;
 			p_modMod = null;
 
 			List<IVirtualModLink> lstVirtualModLink = new List<IVirtualModLink>();
@@ -1094,7 +1094,7 @@
 					intPriority = ivlModLink.Priority;
 				ivlModLink = lstVirtualModLink.OrderBy(x => x.Priority).FirstOrDefault();
 				if (ivlModLink != null)
-					p_modMod = ModManager.ManagedMods.FirstOrDefault(x => String.Equals(Path.GetFileName(x.Filename), ivlModLink.ModInfo.ModFileName, StringComparison.InvariantCultureIgnoreCase));
+					p_modMod = ModManager.ManagedMods.FirstOrDefault(x => string.Equals(Path.GetFileName(x.Filename), ivlModLink.ModInfo.ModFileName, StringComparison.InvariantCultureIgnoreCase));
 			}
 			else if (File.Exists(p_strFilePath) && (p_intCurrentPriority >= 0))
 				intPriority = 0;
@@ -1158,7 +1158,7 @@
 			SaveList(false);
 		}
 
-		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, Int32 p_intPriority)
+		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, int p_intPriority)
 		{
 			IVirtualModInfo modInfo = m_tslVirtualModInfo.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant()).FirstOrDefault();
 			if (modInfo == null)
@@ -1171,7 +1171,7 @@
 			m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo));
 		}
 
-		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, Int32 p_intPriority)
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, int p_intPriority)
 		{
 			if (p_booIsSwitching)
 			{
@@ -1238,7 +1238,7 @@
 			return strRealFilePath;
 		}
 
-		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority)
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, int p_intPriority)
 		{
 			string strSourceFile = p_strSourceFile;
 
@@ -1251,7 +1251,7 @@
 			if (string.IsNullOrEmpty(strAdjustedFilePath))
 				return string.Empty;
 
-			string strVirtualFileLink = String.Empty;
+			string strVirtualFileLink = string.Empty;
 
 			if (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod))
 				strVirtualFileLink = Path.Combine(GameMode.SecondaryInstallationPath, strAdjustedFilePath);
@@ -1259,13 +1259,13 @@
 				strVirtualFileLink = Path.Combine(m_strGameDataPath, strAdjustedFilePath);
 
 			// This is the path we're using if the mod was installed in the base VirtualInstall folder
-			string strActivatorFilePath = String.IsNullOrWhiteSpace(strSourceFile) ? Path.Combine(m_strVirtualActivatorPath, strRealFilePath) : strSourceFile;
+			string strActivatorFilePath = string.IsNullOrWhiteSpace(strSourceFile) ? Path.Combine(m_strVirtualActivatorPath, strRealFilePath) : strSourceFile;
 
-			// We're using this path is MultiHD Mode is active and the file type requires a hardlink
-			string strLinkFilePath = String.Empty;
+			// We're using this path if MultiHD Mode is active and the file type requires a hardlink
+			string strLinkFilePath = string.Empty;
 			if (MultiHDMode)
 			{
-				strLinkFilePath = String.IsNullOrWhiteSpace(strSourceFile) ? Path.Combine(HDLinkFolder, strRealLinkFilePath) : strSourceFile;
+				strLinkFilePath = string.IsNullOrWhiteSpace(strSourceFile) ? Path.Combine(HDLinkFolder, strRealLinkFilePath) : strSourceFile;
 			}
 
 			if (!Directory.Exists(Path.GetDirectoryName(strVirtualFileLink)))
@@ -1297,10 +1297,10 @@
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
-							strVirtualFileLink = String.Empty;
+							strVirtualFileLink = string.Empty;
 					}
 					else
-						strVirtualFileLink = String.Empty;
+						strVirtualFileLink = string.Empty;
 				}
 				else if (GameMode.HardlinkRequiredFilesType(strVirtualFileLink))
 				{
@@ -1315,10 +1315,10 @@
 							if (!p_booIsRestoring)
 								m_tslVirtualModList.Add(new VirtualModLink(strRealLinkFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 							else
-								strVirtualFileLink = String.Empty;
+								strVirtualFileLink = string.Empty;
 						}
 						else
-							strVirtualFileLink = String.Empty;
+							strVirtualFileLink = string.Empty;
 					}
 					else
 					{
@@ -1331,10 +1331,10 @@
 							if (!p_booIsRestoring)
 								m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 							else
-								strVirtualFileLink = String.Empty;
+								strVirtualFileLink = string.Empty;
 						}
 						else
-							strVirtualFileLink = String.Empty;
+							strVirtualFileLink = string.Empty;
 					}
 				}
 				else if (!DisableLinkCreation)
@@ -1344,28 +1344,28 @@
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
-							strVirtualFileLink = String.Empty;
+							strVirtualFileLink = string.Empty;
 					}
 					else if (CreateSymbolicLink(strVirtualFileLink, strActivatorFilePath, 0))
 					{
 						if (!p_booIsRestoring)
 							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
-							strVirtualFileLink = String.Empty;
+							strVirtualFileLink = string.Empty;
 					}
 					else
-						strVirtualFileLink = String.Empty;
+						strVirtualFileLink = string.Empty;
 				}
 				else
-					strVirtualFileLink = String.Empty;
+					strVirtualFileLink = string.Empty;
 
 			}
 			catch
 			{
-				strVirtualFileLink = String.Empty;
+				strVirtualFileLink = string.Empty;
 			}
 
-			if (p_booIsSwitching && (PluginManager != null) && !String.IsNullOrEmpty(strVirtualFileLink) && !p_booIsRestoring)
+			if (p_booIsSwitching && (PluginManager != null) && !string.IsNullOrEmpty(strVirtualFileLink) && !p_booIsRestoring)
 				if (PluginManager.IsActivatiblePluginFile(strVirtualFileLink))
 				{
 					PluginManager.AddPlugin(strVirtualFileLink);
@@ -1383,7 +1383,7 @@
 
 		public void RemoveFileLink(string p_strFilePath, IMod p_modMod)
 		{
-			string strPathCheck = p_strFilePath.Replace(m_strVirtualActivatorPath + Path.DirectorySeparatorChar.ToString(), String.Empty);
+			string strPathCheck = p_strFilePath.Replace(m_strVirtualActivatorPath + Path.DirectorySeparatorChar.ToString(), string.Empty);
 			IVirtualModLink ivlVirtualModLink = VirtualLinks.Find(x => x.VirtualModPath == strPathCheck);
 			if (ivlVirtualModLink == null)
 				ivlVirtualModLink = VirtualLinks.Find(x => x.RealModPath == strPathCheck);
@@ -1615,7 +1615,7 @@
 		public void EnableMod(IMod p_modMod)
 		{
 			string strVirtualFolderPath = Path.Combine(m_strVirtualActivatorPath, Path.GetFileNameWithoutExtension(p_modMod.Filename));
-			string strLinkFolderPath = String.Empty;
+			string strLinkFolderPath = string.Empty;
 
 			if (MultiHDMode)
 				strLinkFolderPath = Path.Combine(HDLinkFolder, Path.GetFileNameWithoutExtension(p_modMod.Filename));
@@ -1633,9 +1633,9 @@
 
 				foreach (string File in lstFiles)
 				{
-					string strFile = File.Replace((strVirtualFolderPath + Path.DirectorySeparatorChar), String.Empty);
+					string strFile = File.Replace((strVirtualFolderPath + Path.DirectorySeparatorChar), string.Empty);
 					if (Path.IsPathRooted(strFile))
-						strFile = File.Replace((strLinkFolderPath + Path.DirectorySeparatorChar), String.Empty);
+						strFile = File.Replace((strLinkFolderPath + Path.DirectorySeparatorChar), string.Empty);
 
 					string strFileLink = ModLinkInstaller.AddFileLink(p_modMod, strFile, File, false);
 
@@ -1707,7 +1707,7 @@
 
 				string strVersion = docIniEdits.Element("virtualModActivator").Attribute("fileVersion").Value;
 				if (!(CURRENT_VERSION.ToString() == strVersion))
-					throw new Exception(String.Format("Invalid Ini Edits version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
+					throw new Exception(string.Format("Invalid Ini Edits version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
 
 				try
 				{
@@ -1747,7 +1747,7 @@
 
 				string strVersion = docIniEdits.Element("virtualModActivator").Attribute("fileVersion").Value;
 				if (!(CURRENT_VERSION.ToString() == strVersion))
-					throw new Exception(String.Format("Invalid Ini Edits version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
+					throw new Exception(string.Format("Invalid Ini Edits version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
 
 				try
 				{
@@ -1998,7 +1998,7 @@
 					(Directory.GetFiles(strEmptyDirectory).Length + Directory.GetDirectories(strEmptyDirectory).Length == 0) &&
 					!strEmptyDirectory.Equals(p_strStopDirectory, StringComparison.OrdinalIgnoreCase))
 				{
-					for (Int32 i = 0; i < 5 && Directory.Exists(strEmptyDirectory); i++)
+					for (int i = 0; i < 5 && Directory.Exists(strEmptyDirectory); i++)
 						FileUtil.ForceDelete(strEmptyDirectory);
 				}
 				else
@@ -2009,7 +2009,7 @@
 
 		public string GetCurrentFileOwner(string p_strPath)
 		{
-			string strOwner = String.Empty;
+			string strOwner = string.Empty;
 
 			if ((VirtualLinks != null) && (VirtualLinks.Count > 0))
 			{
