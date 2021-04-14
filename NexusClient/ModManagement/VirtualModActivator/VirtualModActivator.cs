@@ -115,6 +115,7 @@
 		private string m_strVirtualActivatorConfigPath = string.Empty;
 		private string m_strVirtualActivatorIniEditsPath = string.Empty;
 		private string m_strVirtualActivatorOverwritePath = string.Empty;
+		private static readonly object m_objLock = new object();
 
 		#region Properties
 
@@ -484,6 +485,8 @@
 		/// </summary>
 		private bool SaveModList(bool p_booModActivationChange)
 		{
+			bool writtenTo = false;
+
 			List<VirtualModInfo> lstVirtualModInfo = new List<VirtualModInfo>();
 
 			foreach (VirtualModInfo mod in m_tslVirtualModInfo)
@@ -524,18 +527,48 @@
 								   new XElement("isActive",
 									   new XText(link.Active.ToString())))));
 
-
-			using (StreamWriter streamWriter = File.CreateText(m_strVirtualActivatorConfigPath))
+			if (CheckConfigFileStatus(m_strVirtualActivatorConfigPath))
 			{
-				docVirtual.Save(streamWriter);
+				using (StreamWriter streamWriter = File.CreateText(m_strVirtualActivatorConfigPath))
+				{
+					docVirtual.Save(streamWriter);
+				}
+
+				writtenTo = true;
 			}
 
 			Thread.Sleep(250);
 			if (p_booModActivationChange)
 				ModActivationChanged(null, new EventArgs());
 
-			return true;
+			return writtenTo;
 		}
+
+		#region File IO Management
+
+		/// <summary>
+		/// Checks whether the xml file is ready to be written.
+		/// </summary>
+		private bool CheckConfigFileStatus(string filePath)
+		{
+			int intRepeat = 0;
+			bool booLocked = false;
+
+			while (!FileUtil.IsFileReady(filePath))
+			{
+				Thread.Sleep(100);
+				if (intRepeat++ > 50)
+				{
+					Trace.TraceWarning("Could not get access to \"{0}\".", filePath);
+					booLocked = true;
+					break;
+				}
+			}
+
+			return !booLocked;
+		}
+
+		#endregion
 
 		/// <summary>
 		/// Save the mod list into the XML file.

@@ -15,7 +15,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 	{
 		#region Fields
 
-		private static readonly Object m_objLock = new Object();
+		private static readonly object m_objLock = new object();
 		protected string FilePath { get; private set; }
 		protected string[] Plugins { get; private set; }
 		protected bool TimestampLoadOrder { get; private set; }
@@ -52,6 +52,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			base.OnTaskEnded(e);
 		}
+
 		#endregion
 
 		/// <summary>

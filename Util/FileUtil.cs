@@ -531,5 +531,23 @@
 			strNormalizedPath = strNormalizedPath.Trim(Path.DirectorySeparatorChar);
 			return strNormalizedPath;
 		}
+
+		/// <summary>
+		/// Checks whether the file to write to is currently free for use.
+		/// </summary>
+		public static bool IsFileReady(string p_strFilePath)
+		{
+			try
+			{
+				using (FileStream inputStream = File.Open(p_strFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+				{
+					return (inputStream.Length >= 0);
+				}
+			}
+			catch (Exception)
+			{
+				return false;
+			}
+		}
 	}
 }

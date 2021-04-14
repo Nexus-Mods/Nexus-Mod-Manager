@@ -79,5 +79,17 @@
             var key = RegistryKey.OpenBaseKey(hive, RegistryView.Default).OpenSubKey(registryKey, false);
             return key?.GetValue(value, string.Empty).ToString();
         }
+
+		public static void EnableBrowserEmulation(string appPath)
+		{
+			using (var key = Registry.CurrentUser.OpenSubKey(
+				@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION",
+				true))
+			{
+				var app = System.IO.Path.GetFileName(appPath);
+				key.SetValue(app, 11001, RegistryValueKind.DWord);
+				key.Close();
+			}
+		}
 	}
 }

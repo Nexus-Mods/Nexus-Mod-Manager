@@ -25,7 +25,7 @@ namespace Nexus.Client.ModManagement
 	{
 		#region Static Properties
 
-		private static readonly Object m_objLock = new Object();
+		private static readonly object m_objLock = new object();
 		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
 		public static readonly string PROFILE_FOLDER = "ModProfiles";
 		public static readonly string PROFILE_FILE = "ProfileManagerCfg.xml";
@@ -1127,29 +1127,41 @@ namespace Nexus.Client.ModManagement
 				try
 				{
 					if ((m_booUsesPlugin) && (p_bteLoadOrder != null) && (p_bteLoadOrder.Length > 0))
-						File.WriteAllBytes(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
+						WriteProfileFiles(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
+						//File.WriteAllBytes(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
 				}
 				catch (Exception ex)
 				{
 					return "Error: " + ex.Message;
 				}
 				if ((p_bteModList != null) && (p_bteModList.Length > 0))
-					File.WriteAllBytes(Path.Combine(strProfilePath, "modlist.xml"), p_bteModList);
+				{
+					WriteProfileFiles(Path.Combine(strProfilePath, "modlist.xml"), p_bteModList);
+					//File.WriteAllBytes(Path.Combine(strProfilePath, "modlist.xml"), p_bteModList);
+				}
 				else if (VirtualModActivator.VirtualLinks != null)
 				{
 					if (VirtualModActivator.ModCount > 0)
+					{
 						VirtualModActivator.SaveModList(Path.Combine(strProfilePath, "modlist.xml"));
+					}
 					else
 						FileUtil.ForceDelete(Path.Combine(strProfilePath, "modlist.xml"));
 				}
 
 				if ((p_bteIniList != null) && (p_bteIniList.Length > 0))
-					File.WriteAllBytes(Path.Combine(strProfilePath, "IniEdits.xml"), p_bteIniList);
+				{
+					WriteProfileFiles(Path.Combine(strProfilePath, "IniEdits.xml"), p_bteIniList);
+					//File.WriteAllBytes(Path.Combine(strProfilePath, "IniEdits.xml"), p_bteIniList);
+				}
 
 				byte[] bteProfileBytes = GetProfileBytes(p_impModProfile);
 
 				if ((bteProfileBytes != null) && (bteProfileBytes.Length > 0))
-					File.WriteAllBytes(Path.Combine(strProfilePath, "profile.xml"), GetProfileBytes(p_impModProfile));
+				{
+					WriteProfileFiles(Path.Combine(strProfilePath, "profile.xml"), GetProfileBytes(p_impModProfile));
+					//File.WriteAllBytes(Path.Combine(strProfilePath, "profile.xml"), GetProfileBytes(p_impModProfile));
+				}
 
 				string strOptionalFolder = Path.Combine(strProfilePath, "Optional");
 
@@ -1182,6 +1194,80 @@ namespace Nexus.Client.ModManagement
 
 			return null;
 		}
+
+		#region File IO Management
+
+		/// <summary>
+		/// Writes profile related file.
+		/// </summary>
+		private bool WriteProfileFiles(string filePath, byte[] content)
+		{
+			int intRepeat = 0;
+			bool booWritten = false;
+			bool booLocked = false;
+
+			while (!FileUtil.IsFileReady(filePath))
+			{
+				Thread.Sleep(100);
+				if (intRepeat++ > 50)
+				{
+					Trace.TraceWarning("Could not get access to \"{0}\".", filePath);
+					booLocked = true;
+					break;
+				}
+			}
+
+			if (!booLocked)
+			{
+				int intRetries = 0;
+
+				while (intRetries++ < 100)
+				{
+					try
+					{
+						lock (m_objLock)
+						{
+							File.WriteAllBytes(Path.Combine(filePath), content);
+
+							booWritten = true;
+						}
+
+						break;
+					}
+					catch (IOException e)
+					{
+						var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(e) & ((1 << 16) - 1);
+
+						if (errorCode == 32 || errorCode == 33)
+						{
+							if (intRetries >= 100)
+							{
+								throw e;
+							}
+
+							Thread.Sleep(100);
+						}
+						else
+						{
+							throw e;
+						}
+					}
+					catch (UnauthorizedAccessException e)
+					{
+						if (intRetries >= 100)
+						{
+							throw e;
+						}
+
+						Thread.Sleep(100);
+					}
+				}
+			}
+
+			return booWritten;
+		}
+
+		#endregion
 
 		private byte[] GetProfileBytes(IModProfile p_impModProfile)
 		{
@@ -1342,9 +1428,9 @@ namespace Nexus.Client.ModManagement
 			}
 			catch (Exception e)
 			{
-			    Trace.TraceWarning("NexusClient.ProfileManager.ImportProfile() - Encountered an ignored Exception.");
-			    TraceUtil.TraceException(e);
-            }
+				Trace.TraceWarning("NexusClient.ProfileManager.ImportProfile() - Encountered an ignored Exception.");
+				TraceUtil.TraceException(e);
+			}
 
 			return null;
 		}
