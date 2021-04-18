@@ -40,10 +40,10 @@ namespace Nexus.Client.Games.Witcher3
 		{
 			get
 			{
-				string strPath = null;
+				string strPath;
 				if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(ModeId))
 				{
-					strPath = (string)EnvironmentInfo.Settings.InstallationPaths[ModeId];
+					strPath = EnvironmentInfo.Settings.InstallationPaths[ModeId];
 					if (!strPath.Equals(ExecutablePath, StringComparison.InvariantCultureIgnoreCase))
 					{
 						strPath = ExecutablePath;

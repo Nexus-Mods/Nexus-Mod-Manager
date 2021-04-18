@@ -33,6 +33,33 @@ namespace Nexus.Client.Games.Sims4
 		}
 
 		/// <summary>
+		/// Gets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		public override string InstallationPath
+		{
+			get
+			{
+				string strPath = string.Empty;
+
+				if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(ModeId))
+				{
+					strPath = EnvironmentInfo.Settings.InstallationPaths[ModeId];
+				}
+
+				if (string.IsNullOrEmpty(strPath))
+				{
+					strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+					strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4");
+					EnvironmentInfo.Settings.InstallationPaths[ModeId] = strPath;
+					EnvironmentInfo.Settings.Save();
+				}
+
+				return strPath;
+			}
+		}
+
+		/// <summary>
 		/// Gets the display name of the game mode.
 		/// </summary>
 		/// <value>The display name of the game mode.</value>

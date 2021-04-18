@@ -97,9 +97,25 @@ namespace Nexus.Client.Games.Sims4
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
-			string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-			strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4");
+			string strPath = string.Empty;
+
+			if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(m_gmdGameModeDescriptor.ModeId))
+			{
+				strPath = EnvironmentInfo.Settings.InstallationPaths[m_gmdGameModeDescriptor.ModeId];
+			}
+
+			if (string.IsNullOrEmpty(strPath))
+			{
+				strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+				strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4");
+				EnvironmentInfo.Settings.InstallationPaths[m_gmdGameModeDescriptor.ModeId] = strPath;
+				EnvironmentInfo.Settings.Save();
+			}
+
 			return strPath;
+			//string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+			//strPath = Path.Combine(strPath, @"Electronic Arts\The Sims 4");
+			//return strPath;
 		}
 
 		/// <summary>
