@@ -29,10 +29,6 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{ 
 			get
 			{
-				if (string.IsNullOrEmpty(_destination))
-					if (!string.IsNullOrEmpty(Source))
-						return Source;
-
 				return _destination;
 			}
 			set

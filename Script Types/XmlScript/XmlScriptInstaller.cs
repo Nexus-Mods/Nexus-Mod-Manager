@@ -248,22 +248,33 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		protected bool InstallFileFromMod(string p_strFrom, string p_strTo)
 		{
 			bool booSuccess = false;
-			string strFileType = Path.GetExtension(p_strTo);
+			string installDestination = string.Empty;
+
+			if (string.IsNullOrEmpty(p_strTo))
+			{
+				installDestination = Path.GetFileName(p_strFrom);
+			}
+			else
+			{
+				installDestination = p_strTo;
+			}
+
+			string strFileType = Path.GetExtension(installDestination);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
-			bool booHardLinkFile = (m_ivaVirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(p_strTo) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
+			bool booHardLinkFile = (m_ivaVirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(installDestination) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
 
 			try
 			{
-				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), p_strTo);
-				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Mod.DownloadId, p_strTo);
+				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), installDestination);
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Mod.DownloadId, installDestination);
 				string strVirtualPath = strModFilenamePath;
 
 				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
 					strVirtualPath = strModDownloadIDPath;
 
 				Installers.FileInstaller.InstallFileFromMod(p_strFrom, strVirtualPath);
-				m_mliModLinkInstaller.AddFileLink(Mod, p_strTo, strVirtualPath, true);
+				m_mliModLinkInstaller.AddFileLink(Mod, installDestination, strVirtualPath, true);
 
 				booSuccess = true;
 			}
