@@ -172,15 +172,6 @@ namespace Nexus.Client.ModManagement
 				if (Directory.Exists(BackupDirectory))
 					FileUtil.ForceDelete(BackupDirectory);
 
-				string strPathToCreate = BackupDirectory;
-				Directory.CreateDirectory(strPathToCreate);
-				strPathToCreate = Path.Combine(BackupDirectory, Path.GetFileName(ModManager.GameMode.PluginDirectory));
-				Directory.CreateDirectory(strPathToCreate);
-				strPathToCreate = Path.Combine(BackupDirectory, "VIRTUAL INSTALL");
-				Directory.CreateDirectory(strPathToCreate);
-				strPathToCreate = Path.Combine(BackupDirectory, "PROFILE");
-				Directory.CreateDirectory(strPathToCreate);
-
 				bool PathLimit = CheckPathLimit(BackupDirectory);
 				if (PathLimit)
 				{
@@ -191,6 +182,15 @@ namespace Nexus.Client.ModManagement
 					MessageBox.Show(WarningMessage, "Create Backup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					BackupDirectory = NewBackupDirectory;
 				}
+
+				string strPathToCreate = BackupDirectory;
+				Directory.CreateDirectory(strPathToCreate);
+				strPathToCreate = Path.Combine(BackupDirectory, Path.GetFileName(ModManager.GameMode.PluginDirectory));
+				Directory.CreateDirectory(strPathToCreate);
+				strPathToCreate = Path.Combine(BackupDirectory, "VIRTUAL INSTALL");
+				Directory.CreateDirectory(strPathToCreate);
+				strPathToCreate = Path.Combine(BackupDirectory, "PROFILE");
+				Directory.CreateDirectory(strPathToCreate);
 
 				int i = 1;
 				string dir = string.Empty;
