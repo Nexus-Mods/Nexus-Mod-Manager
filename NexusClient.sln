@@ -149,6 +149,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderalSE", "Game Modes\End
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sims4", "Game Modes\Sims4\Sims4.csproj", "{8304CBAF-8303-48BC-90C3-1699665F1A02}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StardewValley", "Game Modes\StardewValley\StardewValley.csproj", "{97261168-965F-444E-9A20-836CFEEAC1EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -409,6 +411,10 @@ Global
 		{8304CBAF-8303-48BC-90C3-1699665F1A02}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8304CBAF-8303-48BC-90C3-1699665F1A02}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8304CBAF-8303-48BC-90C3-1699665F1A02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97261168-965F-444E-9A20-836CFEEAC1EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97261168-965F-444E-9A20-836CFEEAC1EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97261168-965F-444E-9A20-836CFEEAC1EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97261168-965F-444E-9A20-836CFEEAC1EC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -467,6 +473,7 @@ Global
 		{23CF6159-95B3-4880-B8D4-655558EA74BB} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{AD9DEB54-6470-4BA0-9E63-2C92CF7941EE} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{8304CBAF-8303-48BC-90C3-1699665F1A02} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{97261168-965F-444E-9A20-836CFEEAC1EC} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}
