@@ -1538,8 +1538,8 @@
 
                 if (ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase))
                 {
-                    changeCommand.Name = $"Reload {changeCommand.Id}";
-                    changeCommand.Description = $"Reload {changeCommand.Id}";
+                    changeCommand.Name = $"Reload {changeCommand.Name}";
+                    changeCommand.Description = $"Reload {changeCommand.Name}";
                     isReloadCommand = true;
                 }
 
