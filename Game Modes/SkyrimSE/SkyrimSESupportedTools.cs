@@ -31,7 +31,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		/// </summary>
 		public override void SetupCommands()
 		{
-			
+
 			Trace.TraceInformation("Launch Commands:");
 			Trace.Indent();
 			Image imgIcon = null;
@@ -50,7 +50,7 @@ namespace Nexus.Client.Games.SkyrimSE
 				imgIcon = null;
 				AddLaunchCommand(new Command("Config#BOSS", "Config BOSS", "Configures BOSS.", imgIcon, ConfigBOSS, true));
 			}
-			
+
 			strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("LOOT Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
@@ -116,6 +116,19 @@ namespace Nexus.Client.Games.SkyrimSE
 				AddLaunchCommand(new Command("Config#FNIS", "Config FNIS", "Configures FNIS.", imgIcon, ConfigFNIS, true));
 			}
 
+			strCommand = GetNemesisLaunchCommand();
+			Trace.TraceInformation("Nemesis Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("Nemesis", "Launch Nemesis", "Launches Nemesis.", imgIcon, LaunchNemesis, true));
+			}
+			else
+			{
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#Nemesis", "Config Nemesis", "Configures Nemesis.", imgIcon, ConfigNemesis, true));
+			}
+
 			strCommand = GetBSLaunchCommand();
 			Trace.TraceInformation("BodySlide Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
@@ -175,8 +188,8 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-            Launch(strCommand, "--game=\"Skyrim Special Edition\"");
-        }
+			Launch(strCommand, "--game=\"Skyrim Special Edition\"");
+		}
 
 		private void LaunchWryeBash()
 		{
@@ -204,12 +217,21 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
-
+		
 		private void LaunchFNIS()
 		{
 			Trace.TraceInformation("Launching FNIS");
 			Trace.Indent();
 			string strCommand = GetFNISLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchNemesis()
+		{
+			Trace.TraceInformation("Launching Nemesis");
+			Trace.Indent();
+			string strCommand = GetNemesisLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -337,7 +359,7 @@ namespace Nexus.Client.Games.SkyrimSE
 
 			if (!String.IsNullOrWhiteSpace(strLOOT))
 				strLOOT = Path.Combine(strLOOT, "LOOT.exe");
-		
+
 			return strLOOT;
 		}
 
@@ -352,10 +374,10 @@ namespace Nexus.Client.Games.SkyrimSE
 			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("WryeBash"))
 			{
 				strWryePath = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["WryeBash"];
-				if(!String.IsNullOrEmpty(strWryePath))
+				if (!String.IsNullOrEmpty(strWryePath))
 					strWryePath = Path.Combine(strWryePath, @"Wrye Bash.exe");
 			}
-	
+
 			return strWryePath;
 		}
 
@@ -429,6 +451,42 @@ namespace Nexus.Client.Games.SkyrimSE
 				strFNIS = Path.Combine(strFNIS, "GenerateFNISforUsers.exe");
 
 			return strFNIS;
+		}
+
+		/// <summary>
+		/// Gets the Nemesis launch command.
+		/// </summary>
+		/// <returns>The FNIS launch command.</returns>
+		private string GetNemesisLaunchCommand()
+		{
+			string strNemesis = String.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("Nemesis"))
+			{
+				strNemesis = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Nemesis"];
+				if (!String.IsNullOrWhiteSpace(strNemesis) && ((strNemesis.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strNemesis)))
+				{
+					strNemesis = String.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Nemesis"] = String.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+
+			if (String.IsNullOrEmpty(strNemesis))
+			{
+				string strNemesisPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\Nemesis_Engine");
+				if (Directory.Exists(strNemesisPath))
+				{
+					strNemesis = strNemesisPath;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Nemesis"] = strNemesis;
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+
+			if (!String.IsNullOrEmpty(strNemesis))
+				strNemesis = Path.Combine(strNemesis, "Nemesis Unlimited Behavior Engine.exe");
+
+			return strNemesis;
 		}
 
 		/// <summary>
@@ -588,6 +646,10 @@ namespace Nexus.Client.Games.SkyrimSE
 					ConfigFNIS();
 					break;
 
+				case "Nemesis":
+					ConfigNemesis();
+					break;
+
 				default:
 					break;
 			}
@@ -743,6 +805,36 @@ namespace Nexus.Client.Games.SkyrimSE
 				}
 		}
 
+		private void ConfigNemesis()
+		{
+			string p_strToolName = "Nemesis";
+			string p_strExecutableName = "Nemesis Unlimited Behavior Engine.exe";
+			string p_strToolID = "Nemesis";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
+
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!String.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
+				{
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
+				}
+		}
+
 		private void ConfigBS()
 		{
 			string p_strToolName = "BS2";
@@ -832,7 +924,7 @@ namespace Nexus.Client.Games.SkyrimSE
 					}
 				}
 		}
-		
+
 		#endregion
 	}
 }
