@@ -444,7 +444,9 @@
 
 				var myFontFamily = new FontFamily(toolStripLabelActivePluginsCounter.Font.Name);
 
-				if (ViewModel.PluginManagerVM.ActivePlugins.Count > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
+				int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => !x.IgnoreIndexing);
+
+				if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 				{
 					var icoIcon = new Icon(SystemIcons.Warning, 16, 16);
 					toolStripLabelActivePluginsCounter.Image = icoIcon.ToBitmap();
@@ -459,8 +461,8 @@
                         toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
                     }
 
-                    toolStripLabelActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
-					toolStripLabelActivePluginsCounter.ToolTipText = $"Too many active plugins! {ViewModel.CurrentGameModeName} won't start!";
+					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
+					toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!";
 				}
 				else
 				{
@@ -476,7 +478,7 @@
                         toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
                     }
 
-                    toolStripLabelActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
 				}
 
 			}
@@ -925,7 +927,9 @@
 			toolStripLabelPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
 			var myFontFamily = new FontFamily(toolStripLabelActivePluginsCounter.Font.Name);
 
-			if (ViewModel.PluginManagerVM.ActivePlugins.Count > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
+			int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => !x.IgnoreIndexing);
+
+			if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 			{
 				var icoIcon = new Icon(SystemIcons.Warning, 16, 16);
 				toolStripLabelActivePluginsCounter.Image = icoIcon.ToBitmap();
@@ -940,8 +944,8 @@
                     toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
                 }
 
-                toolStripLabelActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
-				toolStripLabelActivePluginsCounter.ToolTipText = $"Too many active plugins! {ViewModel.CurrentGameModeName} won't start!"; ;
+				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
+				toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!"; ;
 			}
 			else
 			{
@@ -957,7 +961,7 @@
                 }
 
                 toolStripLabelActivePluginsCounter.ForeColor = Color.Black;
-				toolStripLabelActivePluginsCounter.Text = ViewModel.PluginManagerVM.ActivePlugins.Count.ToString();
+				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
 			}
 		}
 
