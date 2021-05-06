@@ -303,7 +303,7 @@ namespace Nexus.Client.Games.Fallout4
 
             // Implement backup and autofix.  If that fails, warn the user
 
-            if (booNewLoose || booLoose)
+            if (booNewLoose)
             {
                 try
                 {
