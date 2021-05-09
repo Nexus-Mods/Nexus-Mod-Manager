@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="e:\Games\Nexus Mod Manager\MountAndBlade2Bannerlord\Mods\Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="Mount &amp;amp; Blade II: Bannerlord" ID="1">
+      <name>Mount &amp;amp; Blade II: Bannerlord</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Audio" ID="3">
+      <name>Audio</name>
+    </category>
+    <category path="Visuals and Graphics" ID="4">
+      <name>Visuals and Graphics</name>
+    </category>
+    <category path="Utilities" ID="6">
+      <name>Utilities</name>
+    </category>
+    <category path="Scenes and Maps" ID="7">
+      <name>Scenes and Maps</name>
+    </category>
+    <category path="Gameplay" ID="8">
+      <name>Gameplay</name>
+    </category>
+    <category path="Modders Resources" ID="14">
+      <name>Modders Resources</name>
+    </category>
+    <category path="User Interface" ID="15">
+      <name>User Interface</name>
+    </category>
+    <category path="Characters" ID="16">
+      <name>Characters</name>
+    </category>
+    <category path="Troops" ID="17">
+      <name>Troops</name>
+    </category>
+    <category path="Armour" ID="18">
+      <name>Armour</name>
+    </category>
+    <category path="Weapons and Shields" ID="19">
+      <name>Weapons and Shields</name>
+    </category>
+    <category path="Banners" ID="22">
+      <name>Banners</name>
+    </category>
+    <category path="Total Conversions" ID="23">
+      <name>Total Conversions</name>
+    </category>
+    <category path="Overhauls" ID="24">
+      <name>Overhauls</name>
+    </category>
+    <category path="Mounts" ID="29">
+      <name>Mounts</name>
+    </category>
+  </categoryList>
+</categoryManager>
