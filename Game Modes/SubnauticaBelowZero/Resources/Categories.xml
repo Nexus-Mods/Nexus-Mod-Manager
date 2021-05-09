@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="e:\Games\Nexus Mod Manager\SubnauticaBelowZero\Mods\Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="e:\Games\Nexus Mod Manager\SubnauticaBelowZero\Mods\Subnautica: Below Zero" ID="1">
+      <name>Subnautica: Below Zero</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Shader Presets" ID="3">
+      <name>Shader Presets</name>
+    </category>
+    <category path="Utilities" ID="4">
+      <name>Utilities</name>
+    </category>
+    <category path="User Interface" ID="5">
+      <name>User Interface</name>
+    </category>
+    <category path="Bug Fixes" ID="6">
+      <name>Bug Fixes</name>
+    </category>
+    <category path="Save Games" ID="7">
+      <name>Save Games</name>
+    </category>
+    <category path="Base Pieces" ID="8">
+      <name>Base Pieces</name>
+    </category>
+    <category path="Items" ID="9">
+      <name>Items</name>
+    </category>
+    <category path="Gameplay Effects and Changes" ID="10">
+      <name>Gameplay Effects and Changes</name>
+    </category>
+    <category path="Library" ID="11">
+      <name>Library</name>
+    </category>
+    <category path="Environment" ID="12">
+      <name>Environment</name>
+    </category>
+    <category path="Adventure" ID="13">
+      <name>Adventure</name>
+    </category>
+    <category path="ModLoader" ID="14">
+      <name>ModLoader</name>
+    </category>
+    <category path="Vehicles and Upgrades" ID="15">
+      <name>Vehicles and Upgrades</name>
+    </category>
+  </categoryList>
+</categoryManager>
