@@ -11,16 +11,16 @@
 [Setup]
 AppName=NMM
 AppID=6af12c54-643b-4752-87d0-8335503010de
-AppVersion=0.80.11
-AppVerName=NMM 0.80.11
+AppVersion=0.80.12
+AppVerName=NMM 0.80.12
 AppCopyright=Copyright � DuskDweller 2019-2021
-VersionInfoVersion=0.80.11
+VersionInfoVersion=0.80.12
 VersionInfoCompany=DuskDweller
 AppPublisher=DuskDweller
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
-OutputBaseFilename=NMM-0.80.11
+OutputBaseFilename=NMM-0.80.12
 DefaultGroupName=NMM
 DefaultDirName={pf}\NMM
 UninstallDisplayName=NMM
