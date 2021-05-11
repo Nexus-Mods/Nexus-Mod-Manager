@@ -55,7 +55,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			bool booIsPreviousMaster = true;
 			foreach (GamebryoPlugin plgPlugin in p_lstPlugins)
 			{
-				if (!booIsPreviousMaster && plgPlugin.IsMaster)
+				if (!booIsPreviousMaster && plgPlugin.IsMaster && !plgPlugin.IgnoreIndexing)
 					return false;
 				booIsPreviousMaster = plgPlugin.IsMaster;
 			}
