@@ -324,7 +324,7 @@ namespace Nexus.Client.Games.MonsterHunterWorld
 		{
 			string strPath = p_strPath;
 
-			if (!strPath.StartsWith("nativePC", StringComparison.InvariantCultureIgnoreCase))
+			if (!strPath.StartsWith("nativePC", StringComparison.InvariantCultureIgnoreCase) && !CheckIsLoaderFile(strPath))
 			{
 				strPath = Path.Combine("nativePC", strPath);
 			}
@@ -332,20 +332,9 @@ namespace Nexus.Client.Games.MonsterHunterWorld
 			return strPath;
 		}
 
-		static string CleanInput(string p_strIn)
+		private bool CheckIsLoaderFile(string file)
 		{
-			// Replace invalid characters with empty strings. 
-			try
-			{
-				return Regex.Replace(p_strIn, @"[^\w\.-]", "",
-									 RegexOptions.None, TimeSpan.FromSeconds(1.5));
-			}
-			// If we timeout when replacing invalid characters,
-			// we should return Empty. 
-			catch (RegexMatchTimeoutException)
-			{
-				return string.Empty;
-			}
+			return file.Equals("dtdata.dll") || file.Equals("loader.dll") || file.Equals("loader-config.json");
 		}
 
 		/// <summary>
