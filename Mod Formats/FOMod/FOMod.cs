@@ -1155,7 +1155,7 @@
 
             if (overwriteAllValues == true || CustomCategoryId != modInfo.CustomCategoryId)
 			{
-				CustomCategoryId = modInfo.CustomCategoryId <= 0 && CustomCategoryId > 0 ? CustomCategoryId : modInfo.CustomCategoryId;
+				CustomCategoryId = (modInfo.CustomCategoryId < 0 && CustomCategoryId > 0) ? CustomCategoryId : modInfo.CustomCategoryId;
 				booChangedValue = true;
 			}
 
