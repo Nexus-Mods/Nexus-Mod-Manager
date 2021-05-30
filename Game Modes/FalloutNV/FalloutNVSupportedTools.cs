@@ -63,7 +63,20 @@ namespace Nexus.Client.Games.FalloutNV
 				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
 			}
 
-            strCommand = GetFNVEditLaunchCommand();
+			strCommand = GetWryeBashLaunchCommand();
+			Trace.TraceInformation("Wrye Bash Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("WryeBash", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
+			}
+			else
+			{
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Bash", "Configures Wrye Bash.", imgIcon, ConfigWryeBash, true));
+			}
+
+			strCommand = GetFNVEditLaunchCommand();
             Trace.TraceInformation("FNVEdit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             if ((strCommand != null) && (File.Exists(strCommand)))
             {
@@ -99,7 +112,16 @@ namespace Nexus.Client.Games.FalloutNV
 			Launch(strCommand, "--game=FalloutNV");
 		}
 
-        private void LaunchFNVEdit()
+		private void LaunchWryeBash()
+		{
+			Trace.TraceInformation("Launching Wrye Bash");
+			Trace.Indent();
+			string strCommand = GetWryeBashLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchFNVEdit()
         {
             Trace.TraceInformation("Launching FNVEdit");
             Trace.Indent();
@@ -114,8 +136,8 @@ namespace Nexus.Client.Games.FalloutNV
 		/// <returns>The BOSS launch command.</returns>
 		private string GetBOSSLaunchCommand()
 		{
-			string strBOSS = String.Empty;
-			string strRegBoss = String.Empty;
+			string strBOSS = string.Empty;
+			string strRegBoss = string.Empty;
 			if (IntPtr.Size == 8)
 				strRegBoss = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
 			else
@@ -124,21 +146,21 @@ namespace Nexus.Client.Games.FalloutNV
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("BOSS"))
 			{
 				strBOSS = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"];
-				if (!String.IsNullOrWhiteSpace(strBOSS) && ((strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBOSS)))
+				if (!string.IsNullOrWhiteSpace(strBOSS) && ((strBOSS.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strBOSS)))
 				{
-					strBOSS = String.Empty;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = String.Empty;
+					strBOSS = string.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = string.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
 			}
 
-			if (String.IsNullOrEmpty(strBOSS))
+			if (string.IsNullOrEmpty(strBOSS))
 				if (RegistryUtil.CanReadKey(strRegBoss))
 				{
 					string strRegPath = (string)Registry.GetValue(strRegBoss, "Installed Path", null);
-					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					if (!string.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
 					{
-						strBOSS = String.Empty;
+						strBOSS = string.Empty;
 						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["BOSS"] = strBOSS;
 						EnvironmentInfo.Settings.Save();
 					}
@@ -146,7 +168,7 @@ namespace Nexus.Client.Games.FalloutNV
 						strBOSS = strRegPath;
 				}
 
-			if (!String.IsNullOrWhiteSpace(strBOSS))
+			if (!string.IsNullOrWhiteSpace(strBOSS))
 				strBOSS = Path.Combine(strBOSS, "boss.exe");
 
 			return strBOSS;
@@ -158,8 +180,8 @@ namespace Nexus.Client.Games.FalloutNV
 		/// <returns>The LOOT launch command.</returns>
 		private string GetLOOTLaunchCommand()
 		{
-			string strLOOT = String.Empty;
-			string strRegLOOT = String.Empty;
+			string strLOOT = string.Empty;
+			string strRegLOOT = string.Empty;
 			if (IntPtr.Size == 8)
 				strRegLOOT = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\LOOT\";
 			else
@@ -168,21 +190,21 @@ namespace Nexus.Client.Games.FalloutNV
 			if (EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) && EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("LOOT"))
 			{
 				strLOOT = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"];
-				if (!String.IsNullOrWhiteSpace(strLOOT) && ((strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strLOOT)))
+				if (!string.IsNullOrWhiteSpace(strLOOT) && ((strLOOT.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strLOOT)))
 				{
-					strLOOT = String.Empty;
-					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = String.Empty;
+					strLOOT = string.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = string.Empty;
 					EnvironmentInfo.Settings.Save();
 				}
 			}
 
-			if (String.IsNullOrEmpty(strLOOT))
+			if (string.IsNullOrEmpty(strLOOT))
 				if (RegistryUtil.CanReadKey(strRegLOOT))
 				{
 					string strRegPath = (string)Registry.GetValue(strRegLOOT, "Installed Path", null);
-					if (!String.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
+					if (!string.IsNullOrWhiteSpace(strRegPath) && ((strRegPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strRegPath)))
 					{
-						strLOOT = String.Empty;
+						strLOOT = string.Empty;
 						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["LOOT"] = strLOOT;
 						EnvironmentInfo.Settings.Save();
 					}
@@ -190,24 +212,42 @@ namespace Nexus.Client.Games.FalloutNV
 						strLOOT = strRegPath;
 				}
 
-			if (!String.IsNullOrWhiteSpace(strLOOT))
+			if (!string.IsNullOrWhiteSpace(strLOOT))
 				strLOOT = Path.Combine(strLOOT, "LOOT.exe");
 
 			return strLOOT;
 		}
 
-        /// <summary>
+		/// <summary>
+		/// Gets the Wrye Bash launch command.
+		/// </summary>
+		/// <returns>The Wrye Bash launch command.</returns>
+		private string GetWryeBashLaunchCommand()
+		{
+			string strWryePath = string.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("WryeBash"))
+			{
+				strWryePath = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["WryeBash"];
+				if (!string.IsNullOrEmpty(strWryePath))
+					strWryePath = Path.Combine(strWryePath, @"Wrye Bash.exe");
+			}
+
+			return strWryePath;
+		}
+
+		/// <summary>
 		/// Gets the FNVEdit launch command.
 		/// </summary>
 		/// <returns>The FNVEdit launch command.</returns>
 		private string GetFNVEditLaunchCommand()
         {
-            string strFNVEdit = String.Empty;
+            string strFNVEdit = string.Empty;
 
             if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("FNVEdit"))
             {
                 strFNVEdit = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["FNVEdit"];
-                if (!String.IsNullOrEmpty(strFNVEdit))
+                if (!string.IsNullOrEmpty(strFNVEdit))
                     strFNVEdit = Path.Combine(strFNVEdit, @"FNVEdit.exe");
             }
 
@@ -230,6 +270,10 @@ namespace Nexus.Client.Games.FalloutNV
 			{
 				case "LOOT":
 					ConfigLOOT();
+					break;
+
+				case "WryeBash":
+					ConfigWryeBash();
 					break;
 
 				case "BOSS":
@@ -257,7 +301,7 @@ private void ConfigBOSS()
 
 			string strPath = fbd.SelectedPath;
 
-			if (!String.IsNullOrEmpty(strPath))
+			if (!string.IsNullOrEmpty(strPath))
 				if (Directory.Exists(strPath))
 				{
 					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
@@ -287,7 +331,7 @@ private void ConfigBOSS()
 
 			string strPath = fbd.SelectedPath;
 
-			if (!String.IsNullOrEmpty(strPath))
+			if (!string.IsNullOrEmpty(strPath))
 				if (Directory.Exists(strPath))
 				{
 					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
@@ -301,7 +345,37 @@ private void ConfigBOSS()
 				}
 		}
 
-        private void ConfigFNVEdit()
+		private void ConfigWryeBash()
+		{
+			string p_strToolName = "WryeBash";
+			string p_strExecutableName = "Wrye Bash.exe";
+			string p_strToolID = "WryeBash";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
+
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!string.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
+				{
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
+				}
+		}
+
+		private void ConfigFNVEdit()
         {
             string p_strToolName = "FNVEdit";
             string p_strExecutableName = "FNVEdit.exe";
@@ -317,7 +391,7 @@ private void ConfigBOSS()
 
             string strPath = fbd.SelectedPath;
 
-            if (!String.IsNullOrEmpty(strPath))
+            if (!string.IsNullOrEmpty(strPath))
             {
                 if (Directory.Exists(strPath))
                 {

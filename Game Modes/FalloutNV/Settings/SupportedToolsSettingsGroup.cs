@@ -18,6 +18,7 @@ namespace Nexus.Client.Games.FalloutNV
 	{
 		private string m_strBOSSDirectory = null;
 		private string m_strLOOTDirectory = null;
+		private string m_strWryeBashDirectory = null;
 
 		#region Properties
 
@@ -80,6 +81,22 @@ namespace Nexus.Client.Games.FalloutNV
 			set
 			{
 				SetPropertyIfChanged(ref m_strLOOTDirectory, value, () => LOOTDirectory);
+			}
+		}
+
+		/// <summary>
+		/// Gets or sets the path of the directory where Wrye Bash is installed.
+		/// </summary>
+		/// <value>The path of the directory where Wrye Bash is installed.</value>
+		public string WryeBashDirectory
+		{
+			get
+			{
+				return m_strWryeBashDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strWryeBashDirectory, value, () => WryeBashDirectory);
 			}
 		}
 
@@ -160,13 +177,23 @@ namespace Nexus.Client.Games.FalloutNV
 		}
 
 		/// <summary>
+		/// Validates the selected Wrye Bash directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected Wrye Bash directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateWryeBashDirectory()
+		{
+			return ValidateDirectory(WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory));
+		}
+
+		/// <summary>
 		/// Validates the settings on this control.
 		/// </summary>
 		/// <returns><c>true</c> if the settings are valid;
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			return ValidateBOSSDirectory() && ValidateLOOTDirectory();
+			return ValidateBOSSDirectory() && ValidateLOOTDirectory() && ValidateWryeBashDirectory();
 		}
 
 		#endregion
@@ -180,6 +207,7 @@ namespace Nexus.Client.Games.FalloutNV
 			string strBOSSReg = String.Empty;
 			string strLOOTPath = String.Empty;
 			string strLOOTReg = String.Empty;
+			string strWryePath = String.Empty;
 
 			if (IntPtr.Size == 8)
 				strBOSSReg = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\BOSS\";
@@ -231,6 +259,12 @@ namespace Nexus.Client.Games.FalloutNV
 			if (!String.IsNullOrEmpty(strLOOTPath) && Directory.Exists(strLOOTPath))
 				LOOTDirectory = strLOOTPath;
 
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("WryeBash"))
+			{
+				strWryePath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["WryeBash"];
+				if (!String.IsNullOrEmpty(strWryePath) && Directory.Exists(strWryePath))
+					WryeBashDirectory = strWryePath;
+			}
 
 			ValidateSettings();
 		}
@@ -250,6 +284,9 @@ namespace Nexus.Client.Games.FalloutNV
 
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("LOOT") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], LOOTDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["LOOT"] = LOOTDirectory;
+
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("WryeBash") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], WryeBashDirectory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["WryeBash"] = WryeBashDirectory;
 
 			EnvironmentInfo.Settings.Save();
 			return true;
