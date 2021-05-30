@@ -95,7 +95,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
-				AddLaunchCommand(new Command("SSEEditQuickAutoClean", "Launch SSEEditQuickAutoClean", "Launches SSEEditQuickAutoClean.", imgIcon, LaunchSSEEdit, true));
+				AddLaunchCommand(new Command("SSEEditQuickAutoClean", "Launch SSEEditQuickAutoClean", "Launches SSEEditQuickAutoClean.", imgIcon, LaunchSSEEQAC, true));
 			}
 			else
 			{
