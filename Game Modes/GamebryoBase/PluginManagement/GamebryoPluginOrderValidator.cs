@@ -49,7 +49,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 		{
 			if (p_lstPlugins.Count < OrderedCriticalPluginNames.Length)
 				return false;
-			for (Int32 i = 0; i < OrderedCriticalPluginNames.Length; i++)
+			for (int i = 0; i < OrderedCriticalPluginNames.Length; i++)
 				if (!p_lstPlugins[i].Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
 					return false;
 			bool booIsPreviousMaster = true;
@@ -59,11 +59,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 					return false;
 				booIsPreviousMaster = plgPlugin.IsMaster;
 			}
-			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
+			for (int i = p_lstPlugins.Count - 1; i >= 0; i--)
 				if (p_lstPlugins[i].HasMasters)
 					foreach (string pluginName in p_lstPlugins[i].Masters)
 					{
-						Int32 masterIndex = p_lstPlugins.IndexOf(p => Path.GetFileName(p.Filename).Equals(pluginName, StringComparison.OrdinalIgnoreCase));
+						int masterIndex = p_lstPlugins.IndexOf(p => Path.GetFileName(p.Filename).Equals(pluginName, StringComparison.OrdinalIgnoreCase));
 						if (i < masterIndex)
 							return false;
 					}
@@ -84,11 +84,11 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			bool booHasMove = p_lstPlugins is ThreadSafeObservableList<Plugin>;
 
 			//make sure critical plugins are in order, at the top
-			for (Int32 i = 0; i < OrderedCriticalPluginNames.Length && i < p_lstPlugins.Count; i++)
+			for (int i = 0; i < OrderedCriticalPluginNames.Length && i < p_lstPlugins.Count; i++)
 				if (!p_lstPlugins[i].Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase))
 				{
 					//a critical plugin is not in the correct position
-					Int32 intCriticalIndex = p_lstPlugins.IndexOf(p => p.Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase));
+					int intCriticalIndex = p_lstPlugins.IndexOf(p => p.Filename.Equals(OrderedCriticalPluginNames[i], StringComparison.OrdinalIgnoreCase));
 					if (intCriticalIndex > -1)
 					{
 						if (booHasMove)
@@ -103,8 +103,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				}
 
 			bool booFoundMasters = false;
-			Int32 intFirstNonMasterIndex = p_lstPlugins.Count - 1;
-			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
+			int intFirstNonMasterIndex = p_lstPlugins.Count - 1;
+			for (int i = p_lstPlugins.Count - 1; i >= 0; i--)
 			{
 				if (!booFoundMasters)
 					booFoundMasters = ((GamebryoPlugin)p_lstPlugins[i]).IsMaster;
@@ -131,14 +131,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			}
 
 			// Makes sure no plugin is loaded before his master.
-			for (Int32 i = p_lstPlugins.Count - 1; i >= 0; i--)
+			for (int i = p_lstPlugins.Count - 1; i >= 0; i--)
 			{
 				if (p_lstPlugins[i].HasMasters)
 				{
-					Int32 highestMasterIndex = 0;
+					int highestMasterIndex = 0;
 					foreach (string pluginName in p_lstPlugins[i].Masters)
 					{
-						Int32 masterIndex = p_lstPlugins.IndexOf(p => Path.GetFileName(p.Filename).Equals(pluginName, StringComparison.OrdinalIgnoreCase));
+						int masterIndex = p_lstPlugins.IndexOf(p => Path.GetFileName(p.Filename).Equals(pluginName, StringComparison.OrdinalIgnoreCase));
 						highestMasterIndex = highestMasterIndex > masterIndex ? highestMasterIndex : masterIndex;
 					}
 

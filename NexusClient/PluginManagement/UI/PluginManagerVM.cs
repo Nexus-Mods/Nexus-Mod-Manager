@@ -545,12 +545,15 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <c>false</c> otherwise.</returns>
 		public bool CanMovePluginUp(Plugin p_plgPlugin)
 		{
-			Int32 intOldIndex = PluginManager.ManagedPlugins.IndexOf(p_plgPlugin);
+			int intOldIndex = PluginManager.ManagedPlugins.IndexOf(p_plgPlugin);
 			if (intOldIndex < 1)
 				return false;
 			List<Plugin> lstPlugins = new List<Plugin>(PluginManager.ManagedPlugins);
+
+			bool isOrderValid = PluginManager.ValidateOrder(lstPlugins);
+
 			lstPlugins.Swap(intOldIndex, intOldIndex - 1);
-			return PluginManager.ValidateOrder(lstPlugins);
+			return (PluginManager.ValidateOrder(lstPlugins) || !isOrderValid);
 		}
 
 		/// <summary>
@@ -561,8 +564,11 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <c>false</c> otherwise.</returns>
 		public bool CanMovePluginsDown(IList<Plugin> p_lstPlugins)
 		{
-			Int32 intNewIndex = -1;
+			int intNewIndex = -1;
 			List<Plugin> lstNewOrder = new List<Plugin>(PluginManager.ManagedPlugins);
+
+			bool isOrderValid = PluginManager.ValidateOrder(lstNewOrder);
+
 			foreach (Plugin plgPlugin in p_lstPlugins)
 			{
 				if (intNewIndex == -1)
@@ -579,7 +585,7 @@ namespace Nexus.Client.PluginManagement.UI
 				lstNewOrder.Remove(plgPlugin);
 				lstNewOrder.Insert(intNewIndex, plgPlugin);
 			}
-			return PluginManager.ValidateOrder(lstNewOrder);
+			return PluginManager.ValidateOrder(lstNewOrder) || !isOrderValid;
 		}
 
 		#endregion
