@@ -73,7 +73,7 @@ namespace Nexus.Client.Games.FalloutNV
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Bash", "Configures Wrye Bash.", imgIcon, ConfigWryeBash, true));
+				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Flash", "Configures Wrye Flash.", imgIcon, ConfigWryeBash, true));
 			}
 
 			strCommand = GetFNVEditLaunchCommand();
@@ -230,7 +230,7 @@ namespace Nexus.Client.Games.FalloutNV
 			{
 				strWryePath = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["WryeBash"];
 				if (!string.IsNullOrEmpty(strWryePath))
-					strWryePath = Path.Combine(strWryePath, @"Wrye Bash.exe");
+					strWryePath = Path.Combine(strWryePath, @"Wrye Flash.exe");
 			}
 
 			return strWryePath;
@@ -348,7 +348,7 @@ private void ConfigBOSS()
 		private void ConfigWryeBash()
 		{
 			string p_strToolName = "WryeBash";
-			string p_strExecutableName = "Wrye Bash.exe";
+			string p_strExecutableName = "Wrye Flash.exe";
 			string p_strToolID = "WryeBash";
 			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
 			Trace.Indent();
