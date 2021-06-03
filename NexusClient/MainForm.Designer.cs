@@ -56,7 +56,9 @@
 			this.toolStripTextBoxFind = new System.Windows.Forms.ToolStripTextBox();
 			this.tsbUpdate = new System.Windows.Forms.ToolStripButton();
 			this.tsbDiscord = new System.Windows.Forms.ToolStripButton();
-			this.tsbPatreon = new System.Windows.Forms.ToolStripButton();
+			this.spbSupportNMM = new System.Windows.Forms.ToolStripSplitButton();
+			this.tsbiPatreon = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsbiKofi = new System.Windows.Forms.ToolStripMenuItem();
 			this.dockPanel1 = new WeifenLuo.WinFormsUI.Docking.DockPanel();
 			this.tssDownload = new System.Windows.Forms.StatusStrip();
 			this.toolStripButtonOnlineStatus = new System.Windows.Forms.ToolStripButton();
@@ -93,7 +95,7 @@
             this.toolStripTextBoxFind,
             this.tsbUpdate,
             this.tsbDiscord,
-            this.tsbPatreon});
+            this.spbSupportNMM});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(804, 39);
@@ -209,17 +211,35 @@
 			this.tsbDiscord.ToolTipText = "Join the Official NMM Community Discord";
 			this.tsbDiscord.Click += new System.EventHandler(this.tsbDiscord_Click);
 			// 
-			// tsbPatreon
+			// spbSupportNMM
 			// 
-			this.tsbPatreon.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
-			this.tsbPatreon.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbPatreon.Image = global::Nexus.Client.Properties.Resources.Digital_Patreon_Logo_FieryCoral;
-			this.tsbPatreon.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbPatreon.Name = "tsbPatreon";
-			this.tsbPatreon.Size = new System.Drawing.Size(36, 36);
-			this.tsbPatreon.Text = "toolStripButton1";
-			this.tsbPatreon.ToolTipText = "Please support the NMM development!";
-			this.tsbPatreon.Click += new System.EventHandler(this.tsbPatreon_Click);
+			this.spbSupportNMM.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
+			this.spbSupportNMM.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.spbSupportNMM.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsbiPatreon,
+            this.tsbiKofi});
+			this.spbSupportNMM.Image = global::Nexus.Client.Properties.Resources.Digital_Patreon_Logo_FieryCoral;
+			this.spbSupportNMM.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.spbSupportNMM.Name = "spbSupportNMM";
+			this.spbSupportNMM.Size = new System.Drawing.Size(48, 36);
+			this.spbSupportNMM.Text = "Support the NMM development";
+			this.spbSupportNMM.ButtonClick += new System.EventHandler(this.spbSupportNMM_ButtonClick);
+			// 
+			// tsbiPatreon
+			// 
+			this.tsbiPatreon.Image = global::Nexus.Client.Properties.Resources.Digital_Patreon_Logo_FieryCoral;
+			this.tsbiPatreon.Name = "tsbiPatreon";
+			this.tsbiPatreon.Size = new System.Drawing.Size(196, 38);
+			this.tsbiPatreon.Text = "Donate on Patreon";
+			this.tsbiPatreon.Click += new System.EventHandler(this.tsbiPatreon_Click);
+			// 
+			// tsbiKofi
+			// 
+			this.tsbiKofi.Image = global::Nexus.Client.Properties.Resources.kofi_button;
+			this.tsbiKofi.Name = "tsbiKofi";
+			this.tsbiKofi.Size = new System.Drawing.Size(196, 38);
+			this.tsbiKofi.Text = "Donate on Ko-fi";
+			this.tsbiKofi.Click += new System.EventHandler(this.tsbiKofi_Click);
 			// 
 			// dockPanel1
 			// 
@@ -459,6 +479,8 @@
 		private System.Windows.Forms.ToolStripTextBox toolStripTextBoxFind;
         private System.Windows.Forms.ToolStripButton toolStripButtonRateLimit;
 		private System.Windows.Forms.ToolStripButton tsbDiscord;
-		private System.Windows.Forms.ToolStripButton tsbPatreon;
+		private System.Windows.Forms.ToolStripSplitButton spbSupportNMM;
+		private System.Windows.Forms.ToolStripMenuItem tsbiPatreon;
+		private System.Windows.Forms.ToolStripMenuItem tsbiKofi;
 	}
 }

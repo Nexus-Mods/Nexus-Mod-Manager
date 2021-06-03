@@ -547,6 +547,7 @@
     <None Include="Resources\delete-file.png" />
     <None Include="Resources\obsidian_checkmark.png" />
     <None Include="Resources\obsidianshade_checkmark.png" />
+    <None Include="Resources\kofi_button.png" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />

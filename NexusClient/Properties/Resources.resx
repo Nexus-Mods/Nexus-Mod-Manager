@@ -259,6 +259,9 @@
   <data name="update_check_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\update_check_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="unendorsed_small" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\unendorsed_small.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="add_mod_url_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\add_mod_url_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -298,8 +301,8 @@
   <data name="dialog_ok_4_24" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\dialog-ok-41.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="unendorsed_small" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\unendorsed_small.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="edit_delete_6" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\edit-delete-6.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="save_mod_loadorder_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\save_mod_loadorder_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -322,14 +325,11 @@
   <data name="dialog_cancel_4" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\dialog-cancel-4.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="switch_view" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\switch_view.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="activate_mod" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\activate_mod.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="check_updates_interval_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\check_updates_interval_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="delete-file" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\delete-file.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="disable_mod_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\disable_mod_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -345,9 +345,6 @@
   </data>
   <data name="Nmm-ce_800" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Nmm-ce_800.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="edit_delete_6" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\edit-delete-6.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="help_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\help_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -436,8 +433,8 @@
   <data name="edit_copy_6" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\edit-copy-6.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="RestoreProfile" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\RestoreProfile.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="switch_view" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\switch_view.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="endorsed_small" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\endorsed_small.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -447,6 +444,9 @@
   </data>
   <data name="TipsXML" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Tips.xml;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="backup" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\backup.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="media_playback_pause_7" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\media-playback-pause-7.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -520,6 +520,9 @@
   <data name="home_16x16" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\home-16x16.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="obsidianshade_checkmark" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\obsidianshade_checkmark.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="DeleteProfilePage" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\DeleteProfilePage.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -528,6 +531,9 @@
   </data>
   <data name="add_mod_file_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\add_mod_file_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="RestoreProfile" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\RestoreProfile.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="supported_tools_flat" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\supported_tools_flat.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -547,16 +553,13 @@
   <data name="dialog_ok_4_22" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\dialog-ok-42.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="backup" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\backup.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="activate_mod" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\activate_mod.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="folders_open" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\folders-open.png;System.Drawing.Bitmap, System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="delete-file" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\delete-file.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="obsidianshade_checkmark" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\obsidianshade_checkmark.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="kofi_button" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\kofi_button.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>
