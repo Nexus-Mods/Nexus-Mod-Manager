@@ -942,12 +942,20 @@ namespace Nexus.Client.Games
             return null;
         }
 
-        /// <summary>
-        /// Checks whether any of the files require SpecialFileInstall
-        /// </summary>
-        /// <param name="p_strFiles">List of files to check</param>
-        /// <returns>Whether any of the files need special installation</returns>
-        public virtual bool IsSpecialFile(IEnumerable<string> p_strFiles)
+		/// <summary>
+		/// Handles special file uninstallation
+		/// </summary>
+		/// <param name="p_modSelectedMod">The mod with special files to handle</param>
+		public virtual void SpecialFileUninstall(IMod p_modSelectedMod)
+		{ 
+		}
+
+		/// <summary>
+		/// Checks whether any of the files require SpecialFileInstall
+		/// </summary>
+		/// <param name="p_strFiles">List of files to check</param>
+		/// <returns>Whether any of the files need special installation</returns>
+		public virtual bool IsSpecialFile(IEnumerable<string> p_strFiles)
         {
             return false;
         }

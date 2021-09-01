@@ -32,7 +32,7 @@
 
         protected IMod Mod { get; }
 
-		protected bool Disabling { get; }
+		public bool Disabling { get; }
 
 		#endregion
 

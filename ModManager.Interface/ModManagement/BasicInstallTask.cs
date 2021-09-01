@@ -127,8 +127,13 @@ namespace Nexus.Client.ModManagement
 			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>();
 			OverallProgressMaximum = lstFiles.Count * 2;
 
-            if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
-                lstFiles = GameMode.SpecialFileInstall(Mod).Select(x => new KeyValuePair<string, string>(x, null)).ToList();
+			if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
+			{
+				List<KeyValuePair<string, string>> specialFiles = GameMode.SpecialFileInstall(Mod)?.Select(x => new KeyValuePair<string, string>(x, null)).ToList();
+
+				if (specialFiles != null)
+					lstFiles = specialFiles;
+			}
 
             if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);

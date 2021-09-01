@@ -157,6 +157,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubnauticaBelowZero", "Game
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MountAndBlade2Bannerlord", "Game Modes\MountAndBlade2Bannerlord\MountAndBlade2Bannerlord.csproj", "{22AFDD5E-007E-4F1E-A8CB-79B9C4534778}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BaldursGate3", "Game Modes\BaldursGate3\BaldursGate3.csproj", "{AC73C619-BACA-4229-8CF0-43188A3247FE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -433,6 +435,10 @@ Global
 		{22AFDD5E-007E-4F1E-A8CB-79B9C4534778}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{22AFDD5E-007E-4F1E-A8CB-79B9C4534778}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{22AFDD5E-007E-4F1E-A8CB-79B9C4534778}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC73C619-BACA-4229-8CF0-43188A3247FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC73C619-BACA-4229-8CF0-43188A3247FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC73C619-BACA-4229-8CF0-43188A3247FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC73C619-BACA-4229-8CF0-43188A3247FE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -495,6 +501,7 @@ Global
 		{66805DF4-0588-47E3-A88D-FE671B037B24} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{A0083668-F659-4371-B169-1BCA15119AFC} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{22AFDD5E-007E-4F1E-A8CB-79B9C4534778} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{AC73C619-BACA-4229-8CF0-43188A3247FE} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}

@@ -337,9 +337,9 @@
 			catch (InvalidOperationException)
 			{
 
-				const string message = "{0} has detected that it is running in a sandbox.{1}" +
-				                       "The sandbox is preventing {0} from performing{1}" +
-				                       "important operations. Please run {0} again,{1}" +
+				const string message = "{0} has detected that it is running in a sandbox. {1}" +
+				                       "The sandbox is preventing {0} from performing {1}" +
+				                       "important operations. Please run {0} again, {1}" +
 				                       "without the sandbox.";
 				const string details = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
 				                       "If you are running Comodo or any antivirus, please add {0} and its folders to the exception list.<br/><br/>";
@@ -349,9 +349,9 @@
 			}
 			catch (System.Runtime.InteropServices.ExternalException)
 			{
-			    const string message = "{0} has detected that it is running in a sandbox.{1}" +
-			                           "The sandbox is preventing {0} from performing{1}" +
-			                           "important operations. Please run {0} again,{1}" +
+			    const string message = "{0} has detected that it is running in a sandbox. {1}" +
+			                           "The sandbox is preventing {0} from performing {1}" +
+			                           "important operations. Please run {0} again, {1}" +
 			                           "without the sandbox.";
                 const string details = "This error commonly occurs on computers running Zone Alarm.<br/>" +
                                        "If you are running Zone Alarm or any similar security suite, please add {0} and its folders to the exception list.<br/><br/>";

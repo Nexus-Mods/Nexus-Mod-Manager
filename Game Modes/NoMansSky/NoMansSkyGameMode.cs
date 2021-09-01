@@ -156,7 +156,7 @@ namespace Nexus.Client.Games.NoMansSky
 			}
 		}
 
-        public override Boolean RequiresSpecialFileInstallation
+        public override bool RequiresSpecialFileInstallation
         {
             get
             {

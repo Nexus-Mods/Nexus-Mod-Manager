@@ -82,7 +82,7 @@
 			// 
 			// toolStrip1
 			// 
-			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
+			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(36, 36);
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.spbLaunch,
             this.spbProfiles,
@@ -98,7 +98,7 @@
             this.spbSupportNMM});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(804, 39);
+			this.toolStrip1.Size = new System.Drawing.Size(804, 43);
 			this.toolStrip1.TabIndex = 0;
 			this.toolStrip1.Text = "toolStrip1";
 			// 
@@ -107,7 +107,7 @@
 			this.spbLaunch.Image = ((System.Drawing.Image)(resources.GetObject("spbLaunch.Image")));
 			this.spbLaunch.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbLaunch.Name = "spbLaunch";
-			this.spbLaunch.Size = new System.Drawing.Size(165, 36);
+			this.spbLaunch.Size = new System.Drawing.Size(169, 40);
 			this.spbLaunch.Text = "toolStripSplitButton1";
 			this.spbLaunch.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbLaunch_DropDownItemClicked);
 			// 
@@ -115,7 +115,7 @@
 			// 
 			this.spbProfiles.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbProfiles.Name = "spbProfiles";
-			this.spbProfiles.Size = new System.Drawing.Size(62, 36);
+			this.spbProfiles.Size = new System.Drawing.Size(62, 40);
 			this.spbProfiles.Text = "Profiles";
 			this.spbProfiles.DropDownItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.spbProfiles_DropDownItemClicked);
 			// 
@@ -126,7 +126,7 @@
 			this.spbHelp.Image = global::Nexus.Client.Properties.Resources.help_flat;
 			this.spbHelp.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbHelp.Name = "spbHelp";
-			this.spbHelp.Size = new System.Drawing.Size(48, 36);
+			this.spbHelp.Size = new System.Drawing.Size(52, 40);
 			this.spbHelp.Text = "Help";
 			this.spbHelp.ButtonClick += new System.EventHandler(this.spbHelp_ButtonClick);
 			// 
@@ -137,7 +137,7 @@
 			this.spbChangeMode.Image = global::Nexus.Client.Properties.Resources.switch_game_flat;
 			this.spbChangeMode.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbChangeMode.Name = "spbChangeMode";
-			this.spbChangeMode.Size = new System.Drawing.Size(48, 36);
+			this.spbChangeMode.Size = new System.Drawing.Size(52, 40);
 			this.spbChangeMode.Text = "Change Game Mode";
 			this.spbChangeMode.ButtonClick += new System.EventHandler(this.spbChangeMode_ButtonClick);
 			// 
@@ -147,7 +147,7 @@
 			this.toolStripSplitButtonTools.Image = global::Nexus.Client.Properties.Resources.program_tools_flat;
 			this.toolStripSplitButtonTools.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.toolStripSplitButtonTools.Name = "toolStripSplitButtonTools";
-			this.toolStripSplitButtonTools.Size = new System.Drawing.Size(48, 36);
+			this.toolStripSplitButtonTools.Size = new System.Drawing.Size(52, 40);
 			this.toolStripSplitButtonTools.Text = "Tools";
 			this.toolStripSplitButtonTools.ButtonClick += new System.EventHandler(this.spbTools_ButtonClick);
 			// 
@@ -157,7 +157,7 @@
 			this.spbFolders.Image = global::Nexus.Client.Properties.Resources.folder_link_flat;
 			this.spbFolders.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbFolders.Name = "spbFolders";
-			this.spbFolders.Size = new System.Drawing.Size(48, 36);
+			this.spbFolders.Size = new System.Drawing.Size(52, 40);
 			this.spbFolders.Text = "Open folders";
 			this.spbFolders.ButtonClick += new System.EventHandler(this.spbFolders_ButtonClick);
 			// 
@@ -167,7 +167,7 @@
 			this.tsbSettings.Image = global::Nexus.Client.Properties.Resources.settings_flat;
 			this.tsbSettings.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbSettings.Name = "tsbSettings";
-			this.tsbSettings.Size = new System.Drawing.Size(36, 36);
+			this.tsbSettings.Size = new System.Drawing.Size(40, 40);
 			this.tsbSettings.Text = "Settings";
 			this.tsbSettings.Click += new System.EventHandler(this.tsbSettings_Click);
 			// 
@@ -177,7 +177,7 @@
 			this.spbSupportedTools.Image = global::Nexus.Client.Properties.Resources.supported_tools_flat;
 			this.spbSupportedTools.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.spbSupportedTools.Name = "spbSupportedTools";
-			this.spbSupportedTools.Size = new System.Drawing.Size(48, 36);
+			this.spbSupportedTools.Size = new System.Drawing.Size(52, 40);
 			this.spbSupportedTools.Text = "Supported Tools";
 			this.spbSupportedTools.ButtonClick += new System.EventHandler(this.spbSupportedTools_ButtonClick);
 			// 
@@ -186,7 +186,7 @@
 			this.toolStripTextBoxFind.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
 			this.toolStripTextBoxFind.Font = new System.Drawing.Font("Segoe UI", 9F);
 			this.toolStripTextBoxFind.Name = "toolStripTextBoxFind";
-			this.toolStripTextBoxFind.Size = new System.Drawing.Size(100, 39);
+			this.toolStripTextBoxFind.Size = new System.Drawing.Size(100, 43);
 			this.toolStripTextBoxFind.Visible = false;
 			this.toolStripTextBoxFind.KeyUp += new System.Windows.Forms.KeyEventHandler(this.tstFind_KeyUp);
 			// 
@@ -197,7 +197,7 @@
 			this.tsbUpdate.Image = global::Nexus.Client.Properties.Resources.update_check_flat;
 			this.tsbUpdate.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbUpdate.Name = "tsbUpdate";
-			this.tsbUpdate.Size = new System.Drawing.Size(36, 36);
+			this.tsbUpdate.Size = new System.Drawing.Size(40, 40);
 			this.tsbUpdate.Text = "toolStripButton1";
 			// 
 			// tsbDiscord
@@ -207,7 +207,7 @@
 			this.tsbDiscord.Image = global::Nexus.Client.Properties.Resources.discord_logo_512;
 			this.tsbDiscord.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbDiscord.Name = "tsbDiscord";
-			this.tsbDiscord.Size = new System.Drawing.Size(36, 36);
+			this.tsbDiscord.Size = new System.Drawing.Size(40, 40);
 			this.tsbDiscord.ToolTipText = "Join the Official NMM Community Discord";
 			this.tsbDiscord.Click += new System.EventHandler(this.tsbDiscord_Click);
 			// 
@@ -218,10 +218,11 @@
 			this.spbSupportNMM.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsbiPatreon,
             this.tsbiKofi});
-			this.spbSupportNMM.Image = global::Nexus.Client.Properties.Resources.Digital_Patreon_Logo_FieryCoral;
+			this.spbSupportNMM.Image = global::Nexus.Client.Properties.Resources.kofi_button;
 			this.spbSupportNMM.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.spbSupportNMM.Margin = new System.Windows.Forms.Padding(0);
 			this.spbSupportNMM.Name = "spbSupportNMM";
-			this.spbSupportNMM.Size = new System.Drawing.Size(48, 36);
+			this.spbSupportNMM.Size = new System.Drawing.Size(52, 43);
 			this.spbSupportNMM.Text = "Support the NMM development";
 			this.spbSupportNMM.ButtonClick += new System.EventHandler(this.spbSupportNMM_ButtonClick);
 			// 
@@ -229,7 +230,7 @@
 			// 
 			this.tsbiPatreon.Image = global::Nexus.Client.Properties.Resources.Digital_Patreon_Logo_FieryCoral;
 			this.tsbiPatreon.Name = "tsbiPatreon";
-			this.tsbiPatreon.Size = new System.Drawing.Size(196, 38);
+			this.tsbiPatreon.Size = new System.Drawing.Size(200, 42);
 			this.tsbiPatreon.Text = "Donate on Patreon";
 			this.tsbiPatreon.Click += new System.EventHandler(this.tsbiPatreon_Click);
 			// 
@@ -237,7 +238,7 @@
 			// 
 			this.tsbiKofi.Image = global::Nexus.Client.Properties.Resources.kofi_button;
 			this.tsbiKofi.Name = "tsbiKofi";
-			this.tsbiKofi.Size = new System.Drawing.Size(196, 38);
+			this.tsbiKofi.Size = new System.Drawing.Size(200, 42);
 			this.tsbiKofi.Text = "Donate on Ko-fi";
 			this.tsbiKofi.Click += new System.EventHandler(this.tsbiKofi_Click);
 			// 
@@ -246,9 +247,9 @@
 			this.dockPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.dockPanel1.DockBackColor = System.Drawing.SystemColors.Control;
 			this.dockPanel1.DocumentStyle = WeifenLuo.WinFormsUI.Docking.DocumentStyle.DockingWindow;
-			this.dockPanel1.Location = new System.Drawing.Point(0, 39);
+			this.dockPanel1.Location = new System.Drawing.Point(0, 43);
 			this.dockPanel1.Name = "dockPanel1";
-			this.dockPanel1.Size = new System.Drawing.Size(804, 458);
+			this.dockPanel1.Size = new System.Drawing.Size(804, 454);
 			dockPanelGradient1.EndColor = System.Drawing.SystemColors.ControlLight;
 			dockPanelGradient1.StartColor = System.Drawing.SystemColors.ControlLight;
 			autoHideStripSkin1.DockStripGradient = dockPanelGradient1;

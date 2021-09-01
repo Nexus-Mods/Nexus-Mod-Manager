@@ -1,31 +1,31 @@
 namespace Nexus.Client.ModManagement.UI
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Collections.Specialized;
-    using System.ComponentModel;
-    using System.Diagnostics;
-    using System.IO;
-    using System.Linq;
-    using System.Text;
-    using System.Windows.Forms;
+	using System;
+	using System.Collections.Generic;
+	using System.Collections.Specialized;
+	using System.ComponentModel;
+	using System.Diagnostics;
+	using System.IO;
+	using System.Linq;
+	using System.Text;
+	using System.Windows.Forms;
 
-    using BackgroundTasks;
-    using Nexus.Client.BackgroundTasks.UI;
-    using Commands;
-    using Commands.Generic;
-    using ModRepositories;
-    using Mods;
-    using Nexus.Client.UI;
-    using Nexus.Client.UI.Controls;
-    using Util;
-    using Util.Collections;
-    using Nexus.UI.Controls;
+	using BackgroundTasks;
+	using Nexus.Client.BackgroundTasks.UI;
+	using Commands;
+	using Commands.Generic;
+	using ModRepositories;
+	using Mods;
+	using Nexus.Client.UI;
+	using Nexus.Client.UI.Controls;
+	using Util;
+	using Util.Collections;
+	using Nexus.UI.Controls;
 
-    /// <summary>
-    /// The view that exposes mod management functionality.
-    /// </summary>
-    public partial class ModManagerControl : ManagedFontDockContent
+	/// <summary>
+	/// The view that exposes mod management functionality.
+	/// </summary>
+	public partial class ModManagerControl : ManagedFontDockContent
 	{
 		private ModManagerVM _viewModel = null;
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();
@@ -49,7 +49,7 @@ namespace Nexus.Client.ModManagement.UI
 		public ModManagerVM ViewModel
 		{
 			get => _viewModel;
-            set
+			set
 			{
 				_viewModel = value;
 
@@ -72,10 +72,10 @@ namespace Nexus.Client.ModManagement.UI
 				_viewModel.ManagedMods.CollectionChanged += ManagedMods_CollectionChanged;
 				_viewModel.ActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
 
-                _viewModel.ExportFailed += new EventHandler<ExportFailedEventArgs>(ViewModel_ExportFailed);
-                _viewModel.ExportSucceeded += new EventHandler<ExportSucceededEventArgs>(ViewModel_ExportSucceeded);
+				_viewModel.ExportFailed += new EventHandler<ExportFailedEventArgs>(ViewModel_ExportFailed);
+				_viewModel.ExportSucceeded += new EventHandler<ExportSucceededEventArgs>(ViewModel_ExportSucceeded);
 
-                foreach (var modMod in _viewModel.ManagedMods)
+				foreach (var modMod in _viewModel.ManagedMods)
 				{
 					modMod.PropertyChanged -= Mod_PropertyChanged;
 					modMod.PropertyChanged += Mod_PropertyChanged;
@@ -95,9 +95,9 @@ namespace Nexus.Client.ModManagement.UI
 				new ToolStripItemCommandBinding<List<IMod>>(tsbActivate, _viewModel.ActivateModCommand, GetSelectedMods);
 				new ToolStripItemCommandBinding<List<IMod>>(tsbDeactivate, _viewModel.DisableModCommand, GetSelectedMods);
 				new ToolStripItemCommandBinding<IMod>(tsbTagMod, _viewModel.TagModCommand, GetSelectedMod);
-                new ToolStripItemCommandBinding<string>(exportToTextFile, _viewModel.ExportModListToFileCommand, GetExportToFileArgs);
-                new ToolStripItemCommandBinding(exportToClipboard, _viewModel.ExportModListToClipboardCommand);
-                var cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
+				new ToolStripItemCommandBinding<string>(exportToTextFile, _viewModel.ExportModListToFileCommand, GetExportToFileArgs);
+				new ToolStripItemCommandBinding(exportToClipboard, _viewModel.ExportModListToClipboardCommand);
+				var cmdToggleEndorsement = new Command("Toggle Mod Endorsement", "Toggles the mod endorsement.", ToggleEndorsement);
 				new ToolStripItemCommandBinding(tsbToggleEndorse, cmdToggleEndorsement);
 				ViewModel.DeleteModCommand.CanExecute = false;
 				ViewModel.ActivateModCommand.CanExecute = false;
@@ -105,10 +105,10 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.TagModCommand.CanExecute = false;
 				ViewModel.ParentForm = this;
 
-                ViewModel.ExportModListToFileCommand.CanExecute = _viewModel.CanExecuteExportCommands();
-                ViewModel.ExportModListToClipboardCommand.CanExecute = _viewModel.CanExecuteExportCommands();
+				ViewModel.ExportModListToFileCommand.CanExecute = _viewModel.CanExecuteExportCommands();
+				ViewModel.ExportModListToClipboardCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 
-                LoadMetrics();
+				LoadMetrics();
 				HidePanels();
 			}
 		}
@@ -147,11 +147,11 @@ namespace Nexus.Client.ModManagement.UI
 
 			tsbResetCategories.DefaultItem = tsbResetCategories.DropDownItems[0];
 
-            // BUG: columns shrunk after manual resizing; disable column sizer timer
-            // m_tmrColumnSizer.Interval = 100;
-            // m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
-            m_tmrColumnSizer.Enabled = false;
-        }
+			// BUG: columns shrunk after manual resizing; disable column sizer timer
+			// m_tmrColumnSizer.Interval = 100;
+			// m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
+			m_tmrColumnSizer.Enabled = false;
+		}
 
 		#endregion
 
@@ -209,7 +209,7 @@ namespace Nexus.Client.ModManagement.UI
 					}
 					catch { }
 				}
-				
+
 				ViewModel.Settings.SplitterSizes.LoadSplitterSizes("modManager", sptMods);
 				ViewModel.Settings.ColumnWidths.LoadColumnWidths("modManager", clwCategoryView);
 
@@ -259,7 +259,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void tsbModOnlineChecks_ButtonClick(object sender, EventArgs e)
 		{
-			tsbModOnlineChecks.DropDown.Show(new System.Drawing.Point(1,1));
+			tsbModOnlineChecks.DropDown.Show(new System.Drawing.Point(1, 1));
 		}
 
 		/// <summary>
@@ -304,8 +304,8 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if (ex.Message != "Login required")
 				{
-                    var message = $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}";
-                    MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					var message = $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}";
+					MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				}
 			}
 		}
@@ -388,12 +388,12 @@ namespace Nexus.Client.ModManagement.UI
 			var stbModTypesFilter = new StringBuilder();
 			var i = 0;
 
-            foreach (var strFormat in lstExtensions)
+			foreach (var strFormat in lstExtensions)
 			{
 				stbModTypesDesc.Append("*").Append(strFormat);
 				stbModTypesFilter.Append("*").Append(strFormat);
 
-                if (i++ < intFormatCount - 1)
+				if (i++ < intFormatCount - 1)
 				{
 					stbModTypesDesc.Append(", ");
 					stbModTypesFilter.Append(";");
@@ -401,8 +401,8 @@ namespace Nexus.Client.ModManagement.UI
 			}
 
 			stbModTypesDesc.Append(")|");
-            ofdChooseMod.Filter = stbModTypesDesc + stbModTypesFilter.ToString() + "|All Files (*.*)|*.*";
-            ofdChooseMod.Multiselect = true;
+			ofdChooseMod.Filter = stbModTypesDesc + stbModTypesFilter.ToString() + "|All Files (*.*)|*.*";
+			ofdChooseMod.Multiselect = true;
 		}
 
 		/// <summary>
@@ -411,12 +411,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <returns>The mod that is currently selected in the view, or
 		/// <c>null</c> if no mod is selected.</returns>
 		private IMod GetSelectedMod()
-        {
-            return clwCategoryView.Visible && clwCategoryView.SelectedIndices.Count == 0 ||
-                   clwCategoryView.GetSelectedItem == null
-                ? null
-                : clwCategoryView.SelectedMod;
-        }
+		{
+			return clwCategoryView.Visible && clwCategoryView.SelectedIndices.Count == 0 ||
+				   clwCategoryView.GetSelectedItem == null
+				? null
+				: clwCategoryView.SelectedMod;
+		}
 
 		/// <summary>
 		/// Returns the mod that is currently selected in the view.
@@ -424,12 +424,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <returns>The mod that is currently selected in the view, or
 		/// <c>null</c> if no mod is selected.</returns>
 		private List<IMod> GetSelectedMods()
-        {
-            return clwCategoryView.Visible && clwCategoryView.SelectedIndices.Count == 0 ||
-                   clwCategoryView.GetSelectedItem == null
-                ? null
-                : clwCategoryView.GetSelectedItems.OfType<IMod>().ToList();
-        }
+		{
+			return clwCategoryView.Visible && clwCategoryView.SelectedIndices.Count == 0 ||
+				   clwCategoryView.GetSelectedItem == null
+				? null
+				: clwCategoryView.GetSelectedItems.OfType<IMod>().ToList();
+		}
 
 		/// <summary>
 		/// Sets the executable status of the commands.
@@ -439,11 +439,11 @@ namespace Nexus.Client.ModManagement.UI
 			if ((clwCategoryView.SelectedIndices.Count > 0 || clwCategoryView.SelectedObjects.Count > 0) && clwCategoryView.Visible && clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))
 			{
 				if (clwCategoryView.Visible)
-                {
-                    ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(GetSelectedMod().Filename).ToLowerInvariant());
-                }
+				{
+					ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(GetSelectedMod().Filename).ToLowerInvariant());
+				}
 
-                ViewModel.ActivateModCommand.CanExecute = !ViewModel.DisableModCommand.CanExecute;
+				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DisableModCommand.CanExecute;
 
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = true;
@@ -488,21 +488,21 @@ namespace Nexus.Client.ModManagement.UI
 			((IBackgroundTaskSet)sender).TaskStarted -= TaskSet_TaskStarted;
 			((IBackgroundTaskSet)sender).TaskSetCompleted -= TaskSet_TaskSetCompleted;
 
-            if (!string.IsNullOrEmpty(e.Message))
+			if (!string.IsNullOrEmpty(e.Message))
 			{
 				var modMod = (IMod)e.ReturnValue;
 				var booActiveLinksCheck = true;
 
 				if (sender.GetType() == typeof(ModInstaller) || sender.GetType() == typeof(ModUpgrader))
-                {
-                    booActiveLinksCheck = ViewModel.VirtualModActivator.CheckHasActiveLinks(modMod);
-                }
+				{
+					booActiveLinksCheck = ViewModel.VirtualModActivator.CheckHasActiveLinks(modMod);
+				}
 
-                if (e.Success && booActiveLinksCheck)
-                {
-                    MessageBox.Show(this, e.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
+				if (e.Success && booActiveLinksCheck)
+				{
+					MessageBox.Show(this, e.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+				else
 				{
 					var strMessage = String.Empty;
 
@@ -517,11 +517,11 @@ namespace Nexus.Client.ModManagement.UI
 					else
 					{
 						if (modMod != null)
-                        {
-                            ViewModel.VirtualModActivator.DisableMod(modMod);
-                        }
+						{
+							ViewModel.VirtualModActivator.DisableMod(modMod);
+						}
 
-                        strMessage = e.Message;
+						strMessage = e.Message;
 					}
 
 					MessageBox.Show(this, strMessage, "Failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -611,10 +611,10 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					var strResult = e.Argument.ReturnValue.ToString();
 					if (strResult.Length > 2)
-                    {
-                        ExtendedMessageBox.Show(this, strResult, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
-                }
+					{
+						ExtendedMessageBox.Show(this, strResult, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					}
+				}
 			}
 		}
 
@@ -631,11 +631,11 @@ namespace Nexus.Client.ModManagement.UI
 			m_booDisableSummary = false;
 
 			if (e.Argument.ReturnValue != null)
-            {
-                ExtendedMessageBox.Show(this, "Unable to update the category list online, it will use the base categories: " + Environment.NewLine + e.Argument.ReturnValue, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+			{
+				ExtendedMessageBox.Show(this, "Unable to update the category list online, it will use the base categories: " + Environment.NewLine + e.Argument.ReturnValue, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
 
-            ViewModel.ResetDefaultCategories(e.Argument.ReturnValue != null);
+			ViewModel.ResetDefaultCategories(e.Argument.ReturnValue != null);
 			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
 			clwCategoryView.RefreshContextMenuCategoryList();
@@ -719,11 +719,11 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			var lstEnabledMods = ViewModel.ActiveMods.Where(x => ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(x.Filename).ToLowerInvariant())).ToList();
 
-            if (lstEnabledMods.Count > 0)
-            {
-                ViewModel.DisableMultipleMods(lstEnabledMods, isSilent);
-            }
-        }
+			if (lstEnabledMods.Count > 0)
+			{
+				ViewModel.DisableMultipleMods(lstEnabledMods, isSilent);
+			}
+		}
 
 		/// <summary>
 		/// Uninstall all the currently installed mods.
@@ -771,18 +771,18 @@ namespace Nexus.Client.ModManagement.UI
 			clwCategoryView.ShowHiddenCategories = ViewModel.Settings.ShowEmptyCategory;
 			var sroDefaultSortOrder = SortOrder.Ascending;
 			if (Enum.IsDefined(typeof(SortOrder), ViewModel.Settings.CategoryViewDefaultSortOrder))
-            {
-                sroDefaultSortOrder = (SortOrder)ViewModel.Settings.CategoryViewDefaultSortOrder;
-            }
+			{
+				sroDefaultSortOrder = (SortOrder)ViewModel.Settings.CategoryViewDefaultSortOrder;
+			}
 
-            clwCategoryView.SetPrimarySortColumn(ViewModel.Settings.CategoryViewDefaultSortColumn, sroDefaultSortOrder);
+			clwCategoryView.SetPrimarySortColumn(ViewModel.Settings.CategoryViewDefaultSortColumn, sroDefaultSortOrder);
 
 			if (clwCategoryView.Tag == null)
 			{
 				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator, ViewModel.CategoryManager, ViewModel.Settings);
 
 				// handles the selectedindexchanged event of the cateogry view
-				clwCategoryView.SelectedIndexChanged += delegate(object sender, EventArgs e)
+				clwCategoryView.SelectedIndexChanged += delegate (object sender, EventArgs e)
 				{
 					if ((clwCategoryView.SelectedObjects.Count > 0) && !m_booDisableSummary && ViewModel.Settings.ShowSidePanel)
 					{
@@ -795,7 +795,7 @@ namespace Nexus.Client.ModManagement.UI
 				};
 
 				// Enables installing/uninstalling mods using the double click; if a category is clicked it will be expanded/collapsed
-				clwCategoryView.CellClick += delegate(object sender, BrightIdeasSoftware.CellClickEventArgs e)
+				clwCategoryView.CellClick += delegate (object sender, BrightIdeasSoftware.CellClickEventArgs e)
 				{
 					clwCategoryView.RetrieveVirtualItem += clwCategoryView_RetrieveVirtualItem;
 					if ((e.ClickCount == 2) && (e.Item != null))
@@ -817,7 +817,7 @@ namespace Nexus.Client.ModManagement.UI
 									SetCommandExecutableStatus();
 
 									if (ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(modMod.Filename).ToLowerInvariant()))
-										ViewModel.DisableModCommand.Execute(new List<IMod> {modMod});
+										ViewModel.DisableModCommand.Execute(new List<IMod> { modMod });
 									else
 										ViewModel.ActivateModCommand.Execute(new List<IMod> { modMod });
 								}
@@ -830,7 +830,7 @@ namespace Nexus.Client.ModManagement.UI
 				};
 
 				// The CRTL-F
-				clwCategoryView.KeyDown += delegate(object sender, KeyEventArgs e)
+				clwCategoryView.KeyDown += delegate (object sender, KeyEventArgs e)
 				{
 					if (e.KeyData == (Keys.Control | Keys.F))
 					{
@@ -849,7 +849,7 @@ namespace Nexus.Client.ModManagement.UI
 				};
 
 				// Enables removing categories or mods using the DEL key
-				clwCategoryView.KeyUp += delegate(object sender, KeyEventArgs e)
+				clwCategoryView.KeyUp += delegate (object sender, KeyEventArgs e)
 				{
 					if (e.KeyData == Keys.Delete)
 					{
@@ -878,7 +878,7 @@ namespace Nexus.Client.ModManagement.UI
 										}
 									}
 								}
-								catch {}
+								catch { }
 							}
 						}
 					}
@@ -886,7 +886,7 @@ namespace Nexus.Client.ModManagement.UI
 				};
 
 				// populates the context menu for the selected item
-				clwCategoryView.CellRightClick += delegate(object sender, BrightIdeasSoftware.CellRightClickEventArgs e)
+				clwCategoryView.CellRightClick += delegate (object sender, BrightIdeasSoftware.CellRightClickEventArgs e)
 				{
 					e.MenuStrip = e.Item != null ? clwCategoryView.CategoryViewContextMenu : null;
 				};
@@ -894,18 +894,18 @@ namespace Nexus.Client.ModManagement.UI
 				clwCategoryView.LoadData();
 
 				if (ViewModel.Settings.ShowExpandedCategories)
-                {
-                    clwCategoryView.ExpandAll();
-                }
+				{
+					clwCategoryView.ExpandAll();
+				}
 
 				SizeColumnsToFitClw();
-            }
+			}
 		}
 
 		/// <summary>
 		/// The Shift Key + mouse click event 
 		/// </summary>
-		void clwCategoryView_RetrieveVirtualItem(object sender,RetrieveVirtualItemEventArgs e)
+		void clwCategoryView_RetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
 		{
 			clwCategoryView.RetrieveVirtualItem -= clwCategoryView_RetrieveVirtualItem;
 			SetCommandExecutableStatus();
@@ -925,10 +925,10 @@ namespace Nexus.Client.ModManagement.UI
 		public void RefreshModList()
 		{
 			if (!clwCategoryView.CategoryModeEnabled)
-            {
-                clwCategoryView.LoadData();
-            }
-        }
+			{
+				clwCategoryView.LoadData();
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.CellToolTipShowing"/>.
@@ -964,20 +964,20 @@ namespace Nexus.Client.ModManagement.UI
 					var imcModCategory = (IModCategory)e.Item.RowObject;
 					var lstOutdatedMods = new List<IMod>(clwCategoryView.GetOutdatedModList(imcModCategory.Id));
 
-                    if (lstOutdatedMods.Count > 0)
+					if (lstOutdatedMods.Count > 0)
 					{
 						e.AutoPopDelay = 10000;
 						e.Title = "Some mods in this category could require an update";
 						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
 
-                        var strModlist = String.Empty;
+						var strModlist = String.Empty;
 
-                        foreach (var modMod in lstOutdatedMods)
-                        {
-                            strModlist += modMod.ModName + "\r\n";
-                        }
+						foreach (var modMod in lstOutdatedMods)
+						{
+							strModlist += modMod.ModName + "\r\n";
+						}
 
-                        e.Text = strModlist;
+						e.Text = strModlist;
 						e.IsBalloon = true;
 					}
 				}
@@ -1087,7 +1087,7 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						if (ViewModel.DisableModCommand.CanExecute)
 						{
-							ViewModel.DisableModCommand.Execute(new List<IMod> {e.Mod});
+							ViewModel.DisableModCommand.Execute(new List<IMod> { e.Mod });
 						}
 					}
 					break;
@@ -1289,9 +1289,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void clwCategoryView_CategoryShowEmptyToggled(object sender, EventArgs e)
 		{
-            ResetSearchBox?.Invoke(this, e);
-        }
-		
+			ResetSearchBox?.Invoke(this, e);
+		}
+
 		/// <summary>
 		/// Handles the <see cref="CategoryListView.FileDropped"/> of the switch
 		/// mod category context menu.
@@ -1569,12 +1569,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void addModToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-            
-            if (ofdChooseMod.ShowDialog() == DialogResult.OK)
-                foreach (var File in ofdChooseMod.FileNames)
-                {
-                    ViewModel.AddModCommand.Execute(File);
-                }
+
+			if (ofdChooseMod.ShowDialog() == DialogResult.OK)
+				foreach (var File in ofdChooseMod.FileNames)
+				{
+					ViewModel.AddModCommand.Execute(File);
+				}
 		}
 
 		/// <summary>
@@ -1678,7 +1678,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			var WarningMessage = string.Empty;
 
-			foreach(var mod in p_lstMod)
+			foreach (var mod in p_lstMod)
 			{
 				WarningMessage = WarningMessage + String.Format("- {0}", mod.ModName + "\r\n");
 			}
@@ -1878,8 +1878,8 @@ namespace Nexus.Client.ModManagement.UI
 			if (e.Argument.ReturnValue == null)
 			{
 				ViewModel.PurgeXMLInstalledFile();
-                UninstalledAllMods?.Invoke(this, new EventArgs());
-            }
+				UninstalledAllMods?.Invoke(this, new EventArgs());
+			}
 		}
 
 		/// <summary>
@@ -1920,33 +1920,51 @@ namespace Nexus.Client.ModManagement.UI
 
 			m_booDisableSummary = true;
 
-            try
-            {
-                ProgressDialog.ShowDialog(this, e.Argument);
-            }
-            catch (ArgumentNullException ex)
-            {
-                Trace.TraceError("Could not show ProgressDialog, parameter backgroundTask was null.");
-                TraceUtil.TraceException(ex);
-            }
+			try
+			{
+				ProgressDialog.ShowDialog(this, e.Argument);
+			}
+			catch (ArgumentNullException ex)
+			{
+				Trace.TraceError("Could not show ProgressDialog, parameter backgroundTask was null.");
+				TraceUtil.TraceException(ex);
+			}
 
-			var modMod = (IMod)sender;
-			if (sender != null)
-            {
-                clwCategoryView.RefreshObject(modMod);
-            }
+			IMod modMod = sender as IMod;
+			if (modMod != null)
+			{
+				LinkActivationTask task = e.Argument as LinkActivationTask;
+				if (task != null && !task.Disabling)
+				{
+					if (ViewModel.ModManager.GameMode.RequiresSpecialFileInstallation && ViewModel.ModManager.GameMode.IsSpecialFile(modMod.GetFileList()))
+					{
+						ViewModel.ModManager.GameMode.SpecialFileInstall(modMod);
+					}
+				}
+				else
+				{
+					if (ViewModel.ModManager.GameMode.RequiresSpecialFileInstallation)
+					{
+						if (ViewModel.ModManager.GameMode.IsSpecialFile(modMod.GetFileList()))
+						{
+							ViewModel.ModManager.GameMode.SpecialFileUninstall(modMod);
+						}
+					}
+				}
+				clwCategoryView.RefreshObject(modMod);
+			}
 
-            m_booDisableSummary = false;
+			m_booDisableSummary = false;
 		}
 
 		/// <summary>
 		/// Handles the <see cref="ModManagerVM.ReinstallingMod"/> event of the view model.
- 		/// </summary>
- 		/// <remarks>
- 		/// This displays the progress dialog.
- 		/// </remarks>
- 		/// <param name="sender">The object that raised the event.</param>
- 		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
+		/// </summary>
+		/// <remarks>
+		/// This displays the progress dialog.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
 		private void ViewModel_ReinstallingMod(object sender, EventArgs<IBackgroundTask> e)
 		{
 			if (InvokeRequired)
@@ -1954,21 +1972,21 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ReinstallingMod, sender, e);
 				return;
 			}
-			
+
 			ProgressDialog.ShowDialog(this, e.Argument);
 		}
 
-	    /// <summary>
-	    /// Sets the checked state of the given list view item.
-	    /// </summary>
-	    /// <remarks>
-	    /// This sets the flag indicating we are changing the checked state of the
-	    /// list view item (as opposed to the user making the change),
-	    /// thus preventing the execution of commands as a result.
-	    /// </remarks>
-	    /// <param name="p_lviPlugin">The list view item whose checked state is to be changed.</param>
-	    /// <param name="p_booIsActive">Whether the item should be active.</param>
-	    protected void SetModActivationCheck(ListViewItem p_lviPlugin, bool p_booIsActive)
+		/// <summary>
+		/// Sets the checked state of the given list view item.
+		/// </summary>
+		/// <remarks>
+		/// This sets the flag indicating we are changing the checked state of the
+		/// list view item (as opposed to the user making the change),
+		/// thus preventing the execution of commands as a result.
+		/// </remarks>
+		/// <param name="p_lviPlugin">The list view item whose checked state is to be changed.</param>
+		/// <param name="p_booIsActive">Whether the item should be active.</param>
+		protected void SetModActivationCheck(ListViewItem p_lviPlugin, bool p_booIsActive)
 		{
 			p_lviPlugin.Checked = p_booIsActive;
 		}
@@ -2038,15 +2056,15 @@ namespace Nexus.Client.ModManagement.UI
 			var orsResult = OverwriteResult.No;
 
 			if (InvokeRequired)
-            {
-                Invoke((MethodInvoker)(() => orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice, p_booAllowPerModChoice)));
-            }
-            else
-            {
-                orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice, p_booAllowPerModChoice);
-            }
+			{
+				Invoke((MethodInvoker)(() => orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice, p_booAllowPerModChoice)));
+			}
+			else
+			{
+				orsResult = OverwriteForm.ShowDialog(this, p_strItemMessage, p_booAllowPerGroupChoice, p_booAllowPerModChoice);
+			}
 
-            return orsResult;
+			return orsResult;
 		}
 
 		/// <summary>
@@ -2058,10 +2076,10 @@ namespace Nexus.Client.ModManagement.UI
 		private ConfirmUpgradeResult ConfirmModUpgrade(IMod p_modOld, IMod p_modNew)
 		{
 			if (InvokeRequired)
-            {
-                return (ConfirmUpgradeResult)Invoke((ConfirmModUpgradeDelegate)ConfirmModUpgrade, p_modOld, p_modNew);
-            }
-            else
+			{
+				return (ConfirmUpgradeResult)Invoke((ConfirmModUpgradeDelegate)ConfirmModUpgrade, p_modOld, p_modNew);
+			}
+			else
 			{
 				var strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will install the new Mod normally.";
 				strUpgradeMessage = String.Format(strUpgradeMessage, p_modOld.ModName, p_modOld.HumanReadableVersion, p_modNew.HumanReadableVersion);
@@ -2094,10 +2112,10 @@ namespace Nexus.Client.ModManagement.UI
 		private void ViewModel_TaggingMod(object sender, EventArgs<ModTaggerVM> e)
 		{
 			if (!ViewModel.ModRepository.IsOffline)
-            {
-                new ModTaggerForm(e.Argument).ShowDialog(this);
-            }
-        }
+			{
+				new ModTaggerForm(e.Argument).ShowDialog(this);
+			}
+		}
 
 		#endregion
 
@@ -2130,7 +2148,7 @@ namespace Nexus.Client.ModManagement.UI
 			var booCollapseDescription = String.IsNullOrEmpty(flbInfo.Text);
 			sptMods.Panel2Collapsed = booCollapseImage && booCollapseDescription;
 
-            if (!(booCollapseImage && booCollapseDescription))
+			if (!(booCollapseImage && booCollapseDescription))
 			{
 				sptSummaryInfo.Panel1Collapsed = booCollapseImage;
 				sptSummaryInfo.Panel2Collapsed = booCollapseDescription;
@@ -2141,9 +2159,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			ViewModel.DeactivateMod(p_modMod);
 
-            UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
-        }
-		
+			UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
+		}
+
 		#region Column Resizing
 
 		/// <summary>
@@ -2172,10 +2190,10 @@ namespace Nexus.Client.ModManagement.UI
 		protected void SizeColumnsToFit()
 		{
 			if (clwCategoryView.Visible)
-            {
-                SizeColumnsToFitClw();
-            }
-        }
+			{
+				SizeColumnsToFitClw();
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="Control.Resize"/> event of the plugin list.
@@ -2203,12 +2221,12 @@ namespace Nexus.Client.ModManagement.UI
 		private void clwCategoryView_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
 		{
 			if (m_booResizing)
-            {
-                return;
-            }
+			{
+				return;
+			}
 
-            var clmThis = clwCategoryView.Columns[e.ColumnIndex];
-            var clmOther = e.ColumnIndex == clwCategoryView.Columns.Count - 1 ? clwCategoryView.Columns[e.ColumnIndex - 1] : clwCategoryView.Columns[e.ColumnIndex + 1];
+			var clmThis = clwCategoryView.Columns[e.ColumnIndex];
+			var clmOther = e.ColumnIndex == clwCategoryView.Columns.Count - 1 ? clwCategoryView.Columns[e.ColumnIndex - 1] : clwCategoryView.Columns[e.ColumnIndex + 1];
 			m_booResizing = true;
 			clmOther.Width += clmThis.Width - e.NewWidth;
 			m_booResizing = false;
@@ -2225,11 +2243,11 @@ namespace Nexus.Client.ModManagement.UI
 		private void clwCategoryView_ColumnWidthChanged(object sender, ColumnWidthChangedEventArgs e)
 		{
 			if (m_booResizing)
-            {
-                return;
-            }
+			{
+				return;
+			}
 
-            ViewModel.Settings.ColumnWidths.SaveColumnWidths("modManager", clwCategoryView);
+			ViewModel.Settings.ColumnWidths.SaveColumnWidths("modManager", clwCategoryView);
 			ViewModel.Settings.Save();
 		}
 
@@ -2239,155 +2257,155 @@ namespace Nexus.Client.ModManagement.UI
 		protected void SizeColumnsToFitClw()
 		{
 			if (clwCategoryView.Columns.Count == 0)
-            {
-                return;
-            }
+			{
+				return;
+			}
 
-            m_booResizing = true;
+			m_booResizing = true;
 			clwCategoryView.SizeColumnsToFit();
 			m_booResizing = false;
 		}
 
-        #endregion
+		#endregion
 
-        #region Export
+		#region Export
 
-        /// <summary>
-        /// Returns the full path of the text file to export to.
-        /// </summary>
-        /// <returns>The full path of the text file to export to.</returns>
-        private string GetExportToFileArgs()
-        {
-            sfdChooseExport.FileName = ViewModel.GetDefaultExportFilename();
-            sfdChooseExport.Filter = ViewModel.GetExportFilterString();
+		/// <summary>
+		/// Returns the full path of the text file to export to.
+		/// </summary>
+		/// <returns>The full path of the text file to export to.</returns>
+		private string GetExportToFileArgs()
+		{
+			sfdChooseExport.FileName = ViewModel.GetDefaultExportFilename();
+			sfdChooseExport.Filter = ViewModel.GetExportFilterString();
 
-            if (sfdChooseExport.ShowDialog() == DialogResult.OK)
-                return sfdChooseExport.FileName;
+			if (sfdChooseExport.ShowDialog() == DialogResult.OK)
+				return sfdChooseExport.FileName;
 
-            return null;
-        }
+			return null;
+		}
 
-        /// <summary>
-        /// Handles the <see cref="ModManagement.ExportFailed"/> event of the view model.
-        /// </summary>
-        /// <remarks>
-        /// This displays a simple error message.
-        /// </remarks>
-        /// <param name="sender">The object that raised the event.</param>
-        /// <param name="e">An <see cref="ExportFailedEventArgs"/> describing the event arguments.</param>
-        private void ViewModel_ExportFailed(object sender, ExportFailedEventArgs e)
-        {
-            if (InvokeRequired)
-            {
-                Invoke((Action<object, ExportFailedEventArgs>)ViewModel_ExportFailed, sender, e);
-                return;
-            }
+		/// <summary>
+		/// Handles the <see cref="ModManagement.ExportFailed"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays a simple error message.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="ExportFailedEventArgs"/> describing the event arguments.</param>
+		private void ViewModel_ExportFailed(object sender, ExportFailedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, ExportFailedEventArgs>)ViewModel_ExportFailed, sender, e);
+				return;
+			}
 
-            BeginInvoke(new MethodInvoker(() =>
-            {
-                if (string.IsNullOrEmpty(e.Filename))
-                    Trace.TraceError("Failed to export the current mod list to the clipboard");
-                else
-                    Trace.TraceError("Failed to export the current mod list to: {0}", e.Filename);
-                Trace.Indent();
-                Trace.TraceError("Reason: {0}", e.Message);
-                if (e.Error != null)
-                    TraceUtil.TraceException(e.Error);
-                Trace.Unindent();
-            }));
+			BeginInvoke(new MethodInvoker(() =>
+			{
+				if (string.IsNullOrEmpty(e.Filename))
+					Trace.TraceError("Failed to export the current mod list to the clipboard");
+				else
+					Trace.TraceError("Failed to export the current mod list to: {0}", e.Filename);
+				Trace.Indent();
+				Trace.TraceError("Reason: {0}", e.Message);
+				if (e.Error != null)
+					TraceUtil.TraceException(e.Error);
+				Trace.Unindent();
+			}));
 
-            string message
-                = "An error was encountered trying to export the current mod list." + Environment.NewLine
-                + Environment.NewLine
-                + "Full details are available in the trace log.";
-            string details = "<b>Error:</b> " + e.Message;
-            ExtendedMessageBox.Show(this, message, Application.ProductName, details, MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+			string message
+				= "An error was encountered trying to export the current mod list." + Environment.NewLine
+				+ Environment.NewLine
+				+ "Full details are available in the trace log.";
+			string details = "<b>Error:</b> " + e.Message;
+			ExtendedMessageBox.Show(this, message, Application.ProductName, details, MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
 
-        /// <summary>
-        /// Handles the <see cref="ModManagement.ExportSucceeded"/> event of the view model.
-        /// </summary>
-        /// <remarks>
-        /// This displays a simple success message.
-        /// </remarks>
-        /// <param name="sender">The object that raised the event.</param>
-        /// <param name="e">An <see cref="EventArgs{String}"/> describing the event arguments.</param>
-        private void ViewModel_ExportSucceeded(object sender, ExportSucceededEventArgs e)
-        {
-            if (InvokeRequired)
-            {
-                Invoke((Action<object, ExportSucceededEventArgs>)ViewModel_ExportSucceeded, sender, e);
-                return;
-            }
+		/// <summary>
+		/// Handles the <see cref="ModManagement.ExportSucceeded"/> event of the view model.
+		/// </summary>
+		/// <remarks>
+		/// This displays a simple success message.
+		/// </remarks>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">An <see cref="EventArgs{String}"/> describing the event arguments.</param>
+		private void ViewModel_ExportSucceeded(object sender, ExportSucceededEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				Invoke((Action<object, ExportSucceededEventArgs>)ViewModel_ExportSucceeded, sender, e);
+				return;
+			}
 
-            string message = "The current mod list was successfully exported to";
-            if (string.IsNullOrEmpty(e.Filename))
-                message += " the clipboard.";
-            else
-                message += ":" + Environment.NewLine + Environment.NewLine + e.Filename;
+			string message = "The current mod list was successfully exported to";
+			if (string.IsNullOrEmpty(e.Filename))
+				message += " the clipboard.";
+			else
+				message += ":" + Environment.NewLine + Environment.NewLine + e.Filename;
 
-            string details = string.Format("{0} {1} successfully exported.", e.ExportedModCount, (e.ExportedModCount == 1) ? "mod was" : "mods were");
-            ExtendedMessageBox.Show(this, message, CommonData.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
+			string details = string.Format("{0} {1} successfully exported.", e.ExportedModCount, (e.ExportedModCount == 1) ? "mod was" : "mods were");
+			ExtendedMessageBox.Show(this, message, CommonData.ModManagerName, details.ToString(), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
 
-        #endregion
+		#endregion
 
-        #region Mod Sorting
-        private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
-        {
+		#region Mod Sorting
+		private void tsb_SaveModLoadOrder_Click(Object sender, EventArgs e)
+		{
 			if (ViewModel.ModManager.GameMode.UsesModLoadOrder)
-            {
-                ViewModel.SaveModLoadOrder();
-            }
-        }
+			{
+				ViewModel.SaveModLoadOrder();
+			}
+		}
 
-        private void tsb_ModUpLoadOrder_Click(Object sender, EventArgs e)
-        {
+		private void tsb_ModUpLoadOrder_Click(Object sender, EventArgs e)
+		{
 			if (ViewModel.ModManager.GameMode.UsesModLoadOrder)
 			{
 				if (clwCategoryView.SelectedMod != null)
-                {
-                    ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
-                }
-                else if (clwCategoryView.GetSelectedItems.Count > 0)
+				{
+					ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == -1 ? -1 : --clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
+				}
+				else if (clwCategoryView.GetSelectedItems.Count > 0)
 				{
 					var cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
 					foreach (var mod in cast)
-                    {
-                        ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == -1 ? -1 : --mod.NewPlaceInModLoadOrder);
-                    }
-                }
+					{
+						ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == -1 ? -1 : --mod.NewPlaceInModLoadOrder);
+					}
+				}
 
 				Refresh();
 			}
-        }
+		}
 
-        private void tsb_ModDownLoadOrder_Click(Object sender, EventArgs e)
-        {
+		private void tsb_ModDownLoadOrder_Click(Object sender, EventArgs e)
+		{
 			if (ViewModel.ModManager.GameMode.UsesModLoadOrder)
 			{
 				if (clwCategoryView.SelectedMod != null)
-                {
-                    ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
-                }
-                else if (clwCategoryView.GetSelectedItems.Count > 0)
+				{
+					ViewModel.UpdateModLoadOrder(clwCategoryView.SelectedMod, clwCategoryView.SelectedMod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++clwCategoryView.SelectedMod.NewPlaceInModLoadOrder);
+				}
+				else if (clwCategoryView.GetSelectedItems.Count > 0)
 				{
 					var cast = clwCategoryView.GetSelectedItems.Cast<IMod>();
 
-                    foreach (var mod in cast)
-                    {
-                        ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.NewPlaceInModLoadOrder);
-                    }
-                }
+					foreach (var mod in cast)
+					{
+						ViewModel.UpdateModLoadOrder(mod, mod.NewPlaceInModLoadOrder == int.MaxValue ? int.MaxValue : ++mod.NewPlaceInModLoadOrder);
+					}
+				}
 
 				Refresh();
 			}
-        }
+		}
 
-        private void tsbActivate_Click(object sender, EventArgs e)
-        {
+		private void tsbActivate_Click(object sender, EventArgs e)
+		{
 
-        }
+		}
 
 		private void checkForModsUpdatedWithinTheLastWeekToolStripMenuItem_Click(object sender, EventArgs e)
 		{

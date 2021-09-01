@@ -45,7 +45,7 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode.</value>
 		protected IInstallLog ModInstallLog { get; private set; }
 
- 		/// <summary>
+		/// <summary>
 		/// Gets the current virtual mod activator.
 		/// </summary>
 		/// <value>The current virtual mod activator.</value>
@@ -120,6 +120,14 @@ namespace Nexus.Client.ModManagement
 			if (GameMode.HasSecondaryInstallPath)
 				booSecondaryInstall = GameMode.CheckSecondaryInstall(Mod);
 
+			if (GameMode.RequiresSpecialFileInstallation)
+			{
+				if (GameMode.IsSpecialFile(Mod.GetFileList()))
+				{
+						GameMode.SpecialFileUninstall(Mod);
+				}
+			}
+
 			foreach (string strFile in lstFiles)
 			{
 				if (Status == TaskStatus.Cancelling)
@@ -162,7 +170,7 @@ namespace Nexus.Client.ModManagement
 					strPopupErrorMessageType = "Error";
 					return false;
 				}
-				catch(Exception ex)
+				catch (Exception ex)
 				{
 					string strDetails = ex.Message;
 					Installers.FileInstaller.InstallErrors.Add(strDetails);

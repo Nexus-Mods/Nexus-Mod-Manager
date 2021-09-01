@@ -3166,12 +3166,6 @@
 			Process.Start("https://discord.gg/JZ4tZ5KFQX");
 		}
 
-		private void tsbPatreon_Click(object sender, EventArgs e)
-		{
-			MessageBox.Show(this, "NMM will open the official NMM Patreon page in your default browser.", "NMM Official Patreon", MessageBoxButtons.OK, MessageBoxIcon.Information);
-			Process.Start("https://www.patreon.com/NMMCE");
-		}
-
 		private void tsbiPatreon_Click(object sender, EventArgs e)
 		{
 			MessageBox.Show(this, "NMM will open the official NMM Patreon page in your default browser.", "NMM Official Patreon", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -3186,8 +3180,8 @@
 
 		private void spbSupportNMM_ButtonClick(object sender, EventArgs e)
 		{
-			MessageBox.Show(this, "NMM will open the official NMM Patreon page in your default browser.", "NMM Official Patreon", MessageBoxButtons.OK, MessageBoxIcon.Information);
-			Process.Start("https://www.patreon.com/NMMCE");
+			MessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			Process.Start("https://ko-fi.com/duskdweller");
 		}
 	}
 }

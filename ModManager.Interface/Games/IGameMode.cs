@@ -297,6 +297,7 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
 		/// <param name="p_modMod">The mod to be installed.</param>
+		/// <param name="isInstalling">Whether the check is performed during a mod installation.</param>
 		bool CheckSecondaryInstall(IMod p_modMod);
 
 		/// <summary>
@@ -359,11 +360,17 @@ namespace Nexus.Client.Games
         /// <returns>The list of new files to install</returns>
         IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod);
 
-        /// <summary>
-        /// Checks whether any of the files require SpecialFileInstall
-        /// </summary>
-        /// <param name="p_strFiles">List of files to check</param>
-        /// <returns>Whether any of the files need special installation</returns>
-        bool IsSpecialFile(IEnumerable<string> p_strFiles);
+		/// <summary>
+		/// Handles special file uninstallation
+		/// </summary>
+		/// <param name="p_modSelectedMod">The mod with special files to handle</param>
+		void SpecialFileUninstall(IMod p_modSelectedMod);
+
+		/// <summary>
+		/// Checks whether any of the files require SpecialFileInstall
+		/// </summary>
+		/// <param name="p_strFiles">List of files to check</param>
+		/// <returns>Whether any of the files need special installation</returns>
+		bool IsSpecialFile(IEnumerable<string> p_strFiles);
 	}
 }
