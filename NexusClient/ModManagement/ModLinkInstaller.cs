@@ -44,7 +44,7 @@
         /// <inheritdoc />
 		public string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching, bool handlePlugin)
 		{
-            var booLink = (TestOverwriteFileLink(mod, baseFilePath, out var priority, out var fileLinks));
+            var booLink = (TestOverwriteFileLink(mod, string.IsNullOrEmpty(sourceFile) ? baseFilePath : Path.GetFileName(sourceFile), out var priority, out var fileLinks));
 
 			if (booLink != null)
             {

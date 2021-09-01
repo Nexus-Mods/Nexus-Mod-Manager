@@ -1234,6 +1234,13 @@
 					strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 					if (File.Exists(strActivatorFilePath))
 						strRealFilePath = strCheckPath;
+					else
+					{
+						strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, true));
+						strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
+						if (File.Exists(strActivatorFilePath))
+							strRealFilePath = strCheckPath;
+					}
 				}
 				else
 					strRealFilePath = strCheckPath;
@@ -1257,6 +1264,13 @@
 						strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 						if (File.Exists(strActivatorFilePath))
 							strRealFilePath = strCheckPath;
+						else
+						{
+							strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.DownloadId), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, true));
+							strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
+							if (File.Exists(strActivatorFilePath))
+								strRealFilePath = strCheckPath;
+						}
 					}
 					else
 						strRealFilePath = strCheckPath;
