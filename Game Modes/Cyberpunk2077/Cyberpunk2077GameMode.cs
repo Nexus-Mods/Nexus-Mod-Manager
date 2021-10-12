@@ -366,6 +366,10 @@ namespace Nexus.Client.Games.Cyberpunk2077
 				{
 					strPath = Path.Combine("archive", "pc", strPath);
 				}
+				if (strPath.StartsWith("engine", StringComparison.InvariantCultureIgnoreCase) || strPath.StartsWith("r6", StringComparison.InvariantCultureIgnoreCase))
+				{
+					// do nothing
+				}
 				else
 				{
 					strPath = Path.Combine("archive", "pc", modPath, strPath);

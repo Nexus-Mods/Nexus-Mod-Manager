@@ -12,7 +12,7 @@ namespace Nexus.Client.Games.Cyberpunk2077
 	public class Cyberpunk2077GameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { @"bin\\x64\\Cyberpunk2077.exe" };
-		private static readonly List<string> STOP_FOLDERS = new List<string>() { "archive" };
+		private static readonly List<string> STOP_FOLDERS = new List<string>() { "archive", "engine", "r6" };
 		private const string MODE_ID = "Cyberpunk2077";
 
 		#region Properties
