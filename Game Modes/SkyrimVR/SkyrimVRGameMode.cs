@@ -1,22 +1,22 @@
-﻿namespace Nexus.Client.Games.SkyrimVR
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+using Nexus.Client.Games.Fallout3;
+using Nexus.Client.Games.Gamebryo;
+using Nexus.Client.Games.SkyrimSE;
+using Nexus.Client.Games.SkyrimSE.Tools;
+using Nexus.Client.Games.Tools;
+using Nexus.Client.Util;
+
+namespace Nexus.Client.Games.SkyrimVR
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Text.RegularExpressions;
-
-    using Nexus.Client.Games.Fallout3;
-    using Nexus.Client.Games.Gamebryo;
-    using Nexus.Client.Games.SkyrimSE;
-    using Nexus.Client.Games.SkyrimSE.Tools;
-    using Nexus.Client.Games.Tools;
-    using Nexus.Client.Util;
-
-    /// <summary>
-    /// Provides information required for the program to manage SkyrimVR plugins and mods.
-    /// </summary>
-    public class SkyrimVRGameMode : SkyrimSEGameMode
+	/// <summary>
+	/// Provides information required for the program to manage SkyrimVR plugins and mods.
+	/// </summary>
+	public class SkyrimVRGameMode : SkyrimSEGameMode
 	{
 		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
 		private SkyrimVRGameModeDescriptor m_gmdGameModeInfo;
@@ -32,54 +32,66 @@
 		/// <value>The list of possible script extender executable files for the game.</value>
 		protected override string[] ScriptExtenderExecutables => SCRIPT_EXTENDER_EXECUTABLES;
 
-	    /// <summary>
+		/// <summary>
 		/// Gets the path to the per user SkyrimVR data.
 		/// </summary>
 		/// <value>The path to the per user SkyrimVR data.</value>
 		public override string UserGameDataPath => Path.Combine(EnvironmentInfo.PersonalDataFolderPath, @"My games\Skyrim VR");
 
-	    /// <summary>
+		/// <summary>
 		/// Gets the game launcher for the game mode.
 		/// </summary>
 		/// <value>The game launcher for the game mode.</value>
 		public override IGameLauncher GameLauncher => m_glnGameLauncher ?? (m_glnGameLauncher = new SkyrimVRLauncher(this, EnvironmentInfo));
 
-	    /// <summary>
+		/// <summary>
 		/// Gets the tool launcher for the game mode.
 		/// </summary>
 		/// <value>The tool launcher for the game mode.</value>
 		public override IToolLauncher GameToolLauncher => m_gtlToolLauncher ?? (m_gtlToolLauncher = new SkyrimSEToolLauncher(this, EnvironmentInfo));
 
-	    /// <summary>
+		/// <summary>
 		/// Gets the supported tool launcher for the game mode.
 		/// </summary>
 		/// <value>The supported tool launcher for the game mode.</value>
 		public override ISupportedToolsLauncher SupportedToolsLauncher => m_stlSupportedTools ?? (m_stlSupportedTools = new SkyrimVRSupportedTools(this, EnvironmentInfo));
 
-	    /// <summary>
+		/// <summary>
 		/// Gets the default game categories.
 		/// </summary>
 		/// <value>The default game categories stored in the resource file.</value>
-		public override string GameDefaultCategories => Properties.Resources.Categories;
+		public override string GameDefaultCategories
+		{
+			get
+			{
+				return Properties.Resources.Categories;
+			}
+		}
 
-	    /// <summary>
+		/// <summary>
 		/// Gets the game Base files.
 		/// </summary>
 		/// <value>The default game categories stored in the resource file.</value>
-		public override string BaseGameFiles => Properties.Resources.SkyrimVR_base;
+		public override string BaseGameFiles
+		{
+			get
+			{
+				return Properties.Resources.SkyrimSE_base;
+			}
+		}
 
-	    /// <summary>
+		/// <summary>
 		/// Whether the game requires the profile manager to save optional files.
 		/// </summary>
 		public override bool RequiresOptionalFilesCheckOnProfileSwitch => true;
 
-	    /// <summary>
+		/// <summary>
 		/// Gets whether the game mode supports the automatic sorting
 		/// functionality for plugins.
 		/// </summary>
 		public override bool SupportsPluginAutoSorting => false;
 
-	    #endregion
+		#endregion
 
 		#region Constructors
 
@@ -91,10 +103,10 @@
 		public SkyrimVRGameMode(IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility)
 			: base(p_eifEnvironmentInfo, p_futFileUtility)
 		{
-		    if (!File.Exists(SettingsFiles.IniPath))
-		    {
-		        File.Create(SettingsFiles.IniPath);
-		    }
+			if (!File.Exists(SettingsFiles.IniPath))
+			{
+				File.Create(SettingsFiles.IniPath);
+			}
 		}
 
 		#endregion
@@ -118,19 +130,19 @@
 			SettingsFiles.RendererFilePath = Path.Combine(UserGameDataPath, "RendererInfo.txt");
 			SettingsFiles.PluginsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Skyrim VR", "plugins.txt");
 
-		    if (!File.Exists(SettingsFiles.PluginsFilePath))
+			if (!File.Exists(SettingsFiles.PluginsFilePath))
 			{
 				var strDirectory = Path.GetDirectoryName(SettingsFiles.PluginsFilePath);
 
-			    if (!Directory.Exists(strDirectory))
-			    {
-			        Directory.CreateDirectory(strDirectory);
-			    }
+				if (!Directory.Exists(strDirectory))
+				{
+					Directory.CreateDirectory(strDirectory);
+				}
 
 				File.Create(SettingsFiles.PluginsFilePath).Close();
 			}
 
-		    SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "SkyrimVR.ini");
+			SettingsFiles.IniPath = Path.Combine(UserGameDataPath, "SkyrimVR.ini");
 			((FalloutSettingsFiles)SettingsFiles).FOPrefsIniPath = Path.Combine(UserGameDataPath, "SkyrimPrefs.ini");
 		}
 
@@ -177,7 +189,7 @@
 		/// <returns>A game mode descriptor for the current game mode.</returns>
 		protected override IGameModeDescriptor CreateGameModeDescriptor()
 		{
-		    return m_gmdGameModeInfo ?? (m_gmdGameModeInfo = new SkyrimVRGameModeDescriptor(EnvironmentInfo));
+			return m_gmdGameModeInfo ?? (m_gmdGameModeInfo = new SkyrimVRGameModeDescriptor(EnvironmentInfo));
 		}
 
 		/// <summary>
@@ -189,10 +201,10 @@
 		{
 			if ((p_strList != null) && (p_strList.Length > 0))
 			{
-			    foreach (var strFile in p_strList)
-			    {
-			        File.Copy(strFile, Path.Combine(PluginDirectory, Path.GetFileName(strFile)), true);
-			    }
+				foreach (var strFile in p_strList)
+				{
+					File.Copy(strFile, Path.Combine(PluginDirectory, Path.GetFileName(strFile)), true);
+				}
 			}
 		}
 
@@ -215,7 +227,7 @@
 				p_strMessage = "If you're installing a mod for the vanilla Skyrim containing a .BSA file please be aware that it won't work with the Skyrim VR. You will need to download a mod version made specifically for Skyrim VR/SE.";
 				return true;
 			}
-			
+
 			return false;
 		}
 	}

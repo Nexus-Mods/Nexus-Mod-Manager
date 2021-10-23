@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.Fallout4VR.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -86,33 +86,31 @@ namespace Nexus.Client.Games.Fallout4VR.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to DLCCoast - Geometry.csg
-        ///DLCCoast - Main.ba2
-        ///DLCCoast - Textures.ba2
-        ///DLCCoast - Voices_en.ba2
-        ///DLCCoast.cdx
-        ///DLCCoast.esm
-        ///DLCNukaWorld - Geometry.csg
-        ///DLCNukaWorld - Main.ba2
-        ///DLCNukaWorld - Textures.ba2
-        ///DLCNukaWorld - Voices_en.ba2
-        ///DLCNukaWorld.cdx
-        ///DLCNukaWorld.esm
-        ///DLCRobot - Geometry.csg
-        ///DLCRobot - Main.ba2
-        ///DLCRobot - Textures.ba2
-        ///DLCRobot - Voices_en.ba2
-        ///DLCRobot.cdx
-        ///DLCRobot.esm
-        ///DLCworkshop01 - Geometry.csg
-        ///DLCworkshop01 - Main.ba2
-        ///DLCworkshop01 - Textures.ba2
-        ///DLCworkshop01.cdx
-        ///DLCworks [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to Fallout4 - Animations.ba2
+        ///Fallout4 - Geometry.csg
+        ///Fallout4 - Interface.ba2
+        ///Fallout4 - Materials.ba2
+        ///Fallout4 - Meshes.ba2
+        ///Fallout4 - MeshesExtra.ba2
+        ///Fallout4 - Misc - Beta.ba2
+        ///Fallout4 - Misc - Debug.ba2
+        ///Fallout4 - Misc.ba2
+        ///Fallout4 - Shaders.ba2
+        ///Fallout4 - Sounds.ba2
+        ///Fallout4 - Startup.ba2
+        ///Fallout4 - Textures1.ba2
+        ///Fallout4 - Textures2.ba2
+        ///Fallout4 - Textures3.ba2
+        ///Fallout4 - Textures4.ba2
+        ///Fallout4 - Textures5.ba2
+        ///Fallout4 - Textures6.ba2
+        ///Fallout4 - Textures7.ba2
+        ///Fallout4 - Textures8.ba2
+        /// [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string fallout4vr_base {
+        internal static string fallout4_base {
             get {
-                return ResourceManager.GetString("fallout4vr_base", resourceCulture);
+                return ResourceManager.GetString("fallout4_base", resourceCulture);
             }
         }
         

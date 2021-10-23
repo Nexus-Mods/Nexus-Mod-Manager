@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client</RootNamespace>
     <AssemblyName>NexusClient.Interface</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -41,8 +41,8 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="SevenZipSharp, Version=1.3.283.0, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.3.283\lib\net45\SevenZipSharp.dll</HintPath>
+    <Reference Include="SevenZipSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.5.0.366\lib\net45\SevenZipSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">

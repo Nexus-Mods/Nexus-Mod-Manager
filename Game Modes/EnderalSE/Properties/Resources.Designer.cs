@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.EnderalSE.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -64,18 +64,21 @@ namespace Nexus.Client.Games.EnderalSE.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
         ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Abodes - Player homes&quot; ID=&quot;67&quot;&gt;
-        ///      &lt;name&gt;Abodes - Player homes&lt;/name&gt;
+        ///    &lt;category path=&quot;Animations&quot; ID=&quot;18&quot;&gt;
+        ///      &lt;name&gt;Animations&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Animals, creatures, mounts &amp;amp; horses&quot; ID=&quot;83&quot;&gt;
-        ///      &lt;name&gt;Animals, creatures, mounts &amp;amp; horses&lt;/name&gt;
+        ///    &lt;category path=&quot;Apparel&quot; ID=&quot;7&quot;&gt;
+        ///      &lt;name&gt;Apparel&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Animation&quot; ID=&quot;51&quot;&gt;
-        ///      &lt;name&gt;Animation&lt;/name&gt;
+        ///    &lt;category path=&quot;Audio&quot; ID=&quot;4&quot;&gt;
+        ///      &lt;name&gt;Audio&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Armour&quot; ID=&quot;54&quot;&gt;
-        ///      &lt;name&gt;Armour&lt;/name&gt;
-        /// [rest of string was truncated]&quot;;.
+        ///    &lt;category path=&quot;Characters&quot; ID=&quot;12&quot;&gt;
+        ///      &lt;name&gt;Characters&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Creatures&quot; ID=&quot;9&quot;&gt;
+        ///      &lt;name&gt;Creatures&lt;/name&gt;
+        ///  [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Categories {
             get {
@@ -84,7 +87,31 @@ namespace Nexus.Client.Games.EnderalSE.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Dawnguard.bsa
+        ///   Looks up a localized string similar to Interface\Translate_English.txt
+        ///E - Meshes.bsa
+        ///E - Music.bsa
+        ///E - Scripts.bsa
+        ///E - Sounds.bsa
+        ///E - Textures1.bsa
+        ///E - Textures2.bsa
+        ///E - Textures3.bsa
+        ///Enderal - Forgotten Stories.esm
+        ///L - Textures.bsa
+        ///L - Voices.bsa
+        ///Skyrim - Animations.bsa
+        ///Skyrim - Interface.bsa
+        ///Skyrim - Meshes.bsa
+        ///Skyrim - Misc.bsa
+        ///Skyrim - Shaders.bsa
+        ///Skyrim - Sounds.bsa
+        ///Skyrim - Textures.bsa
+        ///Skyrim.esm
+        ///Update.bsa
+        ///Update.esm
+        ///Video\Enderal_Credits.bik
+        ///Video\EnderalIntro.bik
+        ///Video\MQ17BlackGuardian.bik
+        ///Video\MQP03NearDeath [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string EnderalSE_base {
             get {

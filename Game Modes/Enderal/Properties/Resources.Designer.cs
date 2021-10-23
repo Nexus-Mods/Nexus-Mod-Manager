@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.Enderal.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -84,7 +84,31 @@ namespace Nexus.Client.Games.Enderal.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Dawnguard.bsa
+        ///   Looks up a localized string similar to Interface\Translate_English.txt
+        ///E - Meshes.bsa
+        ///E - Music.bsa
+        ///E - Scripts.bsa
+        ///E - Sounds.bsa
+        ///E - Textures1.bsa
+        ///E - Textures2.bsa
+        ///E - Textures3.bsa
+        ///Enderal - Forgotten Stories.esm
+        ///L - Textures.bsa
+        ///L - Voices.bsa
+        ///Skyrim - Animations.bsa
+        ///Skyrim - Interface.bsa
+        ///Skyrim - Meshes.bsa
+        ///Skyrim - Misc.bsa
+        ///Skyrim - Shaders.bsa
+        ///Skyrim - Sounds.bsa
+        ///Skyrim - Textures.bsa
+        ///Skyrim.esm
+        ///Update.bsa
+        ///Update.esm
+        ///Video\Enderal_Credits.bik
+        ///Video\EnderalIntro.bik
+        ///Video\MQ17BlackGuardian.bik
+        ///Video\MQP03NearDeath [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string enderal_base {
             get {

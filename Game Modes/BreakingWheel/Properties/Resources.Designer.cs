@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.BreakingWheel.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -61,37 +61,28 @@ namespace Nexus.Client.Games.BreakingWheel.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
-        ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
-        ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Modder resources&quot; ID=&quot;10&quot;&gt;
-        ///      &lt;name&gt;Modder resources&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Britain&quot; ID=&quot;7&quot;&gt;
-        ///      &lt;name&gt;Britain&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Japan&quot; ID=&quot;8&quot;&gt;
-        ///      &lt;name&gt;Japan&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Miscellaneous&quot; ID=&quot;2&quot;&gt;
-        ///      &lt;name&gt;Miscellaneous&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Luftwaffe&quot; ID=&quot;6&quot;&gt;
-        ///      &lt;name&gt;Lu [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string Categories {
-            get {
-                return ResourceManager.GetString("Categories", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon BreakingWheel_logo {
             get {
                 object obj = ResourceManager.GetObject("BreakingWheel_logo", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+        ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
+        ///  &lt;categoryList&gt;
+        ///    &lt;category path=&quot;Miscellaneous&quot; ID=&quot;2&quot;&gt;
+        ///      &lt;name&gt;Miscellaneous&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///  &lt;/categoryList&gt;
+        ///&lt;/categoryManager&gt;.
+        /// </summary>
+        internal static string Categories {
+            get {
+                return ResourceManager.GetString("Categories", resourceCulture);
             }
         }
     }

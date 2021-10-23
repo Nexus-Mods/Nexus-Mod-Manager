@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.Skyrim.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -96,8 +96,7 @@ namespace Nexus.Client.Games.Skyrim.Properties {
         ///HighResTexturePack02.esp
         ///HighResTexturePack03.bsa
         ///HighResTexturePack03.esp
-        ///Interface
-        ///Interface\Translate_ENGLISH.txt
+        ///Interface\Translate_English.txt
         ///Skyrim - Animations.bsa
         ///Skyrim - Interface.bsa
         ///Skyrim - Meshes.bsa
@@ -107,8 +106,8 @@ namespace Nexus.Client.Games.Skyrim.Properties {
         ///Skyrim - Textures.bsa
         ///Skyrim - Voices.bsa
         ///Skyrim.esm
-        ///Strings
-        ///Strings\Skyrim_Engl [rest of string was truncated]&quot;;.
+        ///Strings\Skyrim_English.DLStrings
+        ///Strin [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string skyrim_base {
             get {

@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.BaldursGate3.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -61,36 +61,35 @@ namespace Nexus.Client.Games.BaldursGate3.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
-        ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
-        ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Armour&quot; ID=&quot;115&quot;&gt;
-        ///      &lt;name&gt;Armour&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Audio, Sound and Music&quot; ID=&quot;111&quot;&gt;
-        ///      &lt;name&gt;Audio, Sound and Music&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Dungeons&quot; ID=&quot;118&quot;&gt;
-        ///      &lt;name&gt;Dungeons&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Miscellaneous&quot; ID=&quot;119&quot;&gt;
-        ///      &lt;name&gt;Miscellaneous&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Models and  [rest of string was truncated]&quot;;.
-        /// </summary>
-        internal static string Categories {
-            get {
-                return ResourceManager.GetString("Categories", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
         internal static System.Drawing.Icon BaldursGate3_logo {
             get {
                 object obj = ResourceManager.GetObject("BaldursGate3_logo", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+        ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
+        ///  &lt;categoryList&gt;
+        ///    &lt;category path=&quot;Unassigned&quot; ID=&quot;0&quot;&gt;
+        ///      &lt;name&gt;Unassigned&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;E:\Games\Nexus Mod Manager\BaldursGate3\Mods\Characters&quot; ID=&quot;3&quot;&gt;
+        ///      &lt;name&gt;Characters&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Baldur&apos;s Gate 3&quot; ID=&quot;1&quot;&gt;
+        ///      &lt;name&gt;Baldur&apos;s Gate 3&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Miscellaneous&quot; ID=&quot;2&quot;&gt;
+        ///      &lt;name&gt;Miscellaneous&lt;/name&gt;
+        ///    &lt;/categor [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string Categories {
+            get {
+                return ResourceManager.GetString("Categories", resourceCulture);
             }
         }
     }

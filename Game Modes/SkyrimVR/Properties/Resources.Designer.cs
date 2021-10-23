@@ -112,9 +112,9 @@ namespace Nexus.Client.Games.SkyrimVR.Properties {
         ///SkyrimVR.esm
         /// [rest of string was truncated]&quot;;.
         /// </summary>
-        public static string SkyrimVR_base {
+        public static string SkyrimSE_base {
             get {
-                return ResourceManager.GetString("SkyrimVR_base", resourceCulture);
+                return ResourceManager.GetString("SkyrimSE_base", resourceCulture);
             }
         }
         

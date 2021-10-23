@@ -64,20 +64,20 @@ namespace Nexus.Client.Games.StardewValley.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
         ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Appearance&quot; ID=&quot;13&quot;&gt;
-        ///      &lt;name&gt;Appearance&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Armour and Clothing&quot; ID=&quot;3&quot;&gt;
-        ///      &lt;name&gt;Armour and Clothing&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///	&lt;category path=&quot;Audio&quot; ID=&quot;4&quot;&gt;
+        ///    &lt;category path=&quot;Audio&quot; ID=&quot;12&quot;&gt;
         ///      &lt;name&gt;Audio&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Buildings&quot; ID=&quot;17&quot;&gt;
+        ///      &lt;name&gt;Buildings&lt;/name&gt;
         ///    &lt;/category&gt;
         ///    &lt;category path=&quot;Characters&quot; ID=&quot;5&quot;&gt;
         ///      &lt;name&gt;Characters&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Crafting&quot; ID=&quot;6&quot;&gt;
-        ///      &lt;name&gt; [rest of string was truncated]&quot;;.
+        ///    &lt;category path=&quot;New Characters&quot; ID=&quot;24&quot;&gt;
+        ///      &lt;name&gt;New Characters&lt;/name&gt;
+        ///    &lt;/category&gt;
+        ///    &lt;category path=&quot;Cheats&quot; ID=&quot;11&quot;&gt;
+        ///      &lt;name&gt;Cheats&lt;/ [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Categories {
             get {

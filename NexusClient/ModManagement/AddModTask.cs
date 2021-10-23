@@ -21,7 +21,7 @@
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
 
-    /// <summary>
+	/// <summary>
 	/// Adds, and downloads if required, a mod to the mod manager.
 	/// </summary>
 	public class AddModTask : BackgroundTask, IDisposable

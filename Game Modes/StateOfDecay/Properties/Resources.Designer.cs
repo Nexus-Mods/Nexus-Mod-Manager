@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.StateOfDecay.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -76,7 +76,7 @@ namespace Nexus.Client.Games.StateOfDecay.Properties {
         ///    &lt;category path=&quot;Character Replacement&quot; ID=&quot;4&quot;&gt;
         ///      &lt;name&gt;Character Replacement&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Cheats&quot; ID=&quot;10 [rest of string was truncated]&quot;;.
+        ///    &lt;category path= [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Categories {
             get {

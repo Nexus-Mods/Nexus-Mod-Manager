@@ -64,20 +64,16 @@ namespace Nexus.Client.Games.MountAndBlade2Bannerlord.Properties {
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;categoryManager fileVersion=&quot;0.1.0.0&quot;&gt;
         ///  &lt;categoryList&gt;
-        ///    &lt;category path=&quot;Appearance&quot; ID=&quot;13&quot;&gt;
-        ///      &lt;name&gt;Appearance&lt;/name&gt;
+        ///    &lt;category path=&quot;Unassigned&quot; ID=&quot;0&quot;&gt;
+        ///      &lt;name&gt;Unassigned&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Armour and Clothing&quot; ID=&quot;3&quot;&gt;
-        ///      &lt;name&gt;Armour and Clothing&lt;/name&gt;
+        ///    &lt;category path=&quot;e:\Games\Nexus Mod Manager\MountAndBlade2Bannerlord\Mods\Unassigned&quot; ID=&quot;0&quot;&gt;
+        ///      &lt;name&gt;Unassigned&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///	&lt;category path=&quot;Audio&quot; ID=&quot;4&quot;&gt;
-        ///      &lt;name&gt;Audio&lt;/name&gt;
+        ///    &lt;category path=&quot;Mount &amp;amp;amp; Blade II: Bannerlord&quot; ID=&quot;1&quot;&gt;
+        ///      &lt;name&gt;Mount &amp;amp;amp; Blade II: Bannerlord&lt;/name&gt;
         ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Characters&quot; ID=&quot;5&quot;&gt;
-        ///      &lt;name&gt;Characters&lt;/name&gt;
-        ///    &lt;/category&gt;
-        ///    &lt;category path=&quot;Crafting&quot; ID=&quot;6&quot;&gt;
-        ///      &lt;name&gt; [rest of string was truncated]&quot;;.
+        ///    &lt;category path=&quot;Miscellaneous&quot; ID [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Categories {
             get {
