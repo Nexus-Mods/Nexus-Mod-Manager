@@ -1283,12 +1283,12 @@ namespace Nexus.Client.UI.Controls
 				RenderContextMenuModReadme();
 
 				// if mod is active - then allow its deactivation, else - activation
-				if (!IsModInstalled(this.SelectedMod))
+				if (!IsModInstalled(SelectedMod))
 				{
 					m_mniModActivate.Text = @"Install and activate";
 					cmsContextMenu.Items.Add(m_mniModActivate);
 				}
-				else if (!IsModActive(this.SelectedMod))
+				else if (!IsModActive(SelectedMod))
 				{
 					m_mniModActivate.Text = @"Activate";
 					cmsContextMenu.Items.Add(m_mniModActivate);
@@ -1310,6 +1310,7 @@ namespace Nexus.Client.UI.Controls
 				// multi-mod management
 				// can:
 				// - move to another category
+				cmsContextMenu.Items.Add(m_mniModReinstall);
 			}
 
 			// for both single and multi-mod management can:
@@ -1464,7 +1465,6 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		#endregion
-
 
 		/// <summary>
 		/// Applies the default list filters

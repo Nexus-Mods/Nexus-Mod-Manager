@@ -1100,7 +1100,12 @@ namespace Nexus.Client.ModManagement.UI
 
 				case ModAction.Reinstall:
 					{
-						ViewModel.ReinstallMod(e.Mod, null);
+						var modList = GetSelectedMods();
+
+						if (modList.Count > 1)
+							ViewModel.ReinstallMultipleMods(modList);
+						else
+							ViewModel.ReinstallMod(e.Mod, null);
 					}
 					break;
 
@@ -1121,7 +1126,6 @@ namespace Nexus.Client.ModManagement.UI
 								{
 									DeactivateAllMods(modList, true, true, false);
 									DeleteAllMods(modList, true, true, false);
-
 								}
 							}
 						}
