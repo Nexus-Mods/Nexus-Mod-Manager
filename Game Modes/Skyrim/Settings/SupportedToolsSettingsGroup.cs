@@ -24,6 +24,7 @@ namespace Nexus.Client.Games.Skyrim
 		private string m_strBSDirectory = null;
 		private string m_strDSRPDirectory = null;
 		private string m_strPMDirectory = null;
+		private string m_strNemesisDirectory = null;
 
 		#region Properties
 
@@ -186,6 +187,22 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
+		/// Gets or sets the path of the directory where Nemesis is installed.
+		/// </summary>
+		/// <value>The path of the directory where Nemesis is installed.</value>
+		public string NemesisDirectory
+		{
+			get
+			{
+				return m_strNemesisDirectory;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strNemesisDirectory, value, () => NemesisDirectory);
+			}
+		}
+
+		/// <summary>
 		/// Gets the validation errors for the current values.
 		/// </summary>
 		/// <value>The validation errors for the current values.</value>
@@ -211,7 +228,10 @@ namespace Nexus.Client.Games.Skyrim
 		/// </summary>
 		/// <returns><c>true</c> if the specified directory are not equals;
 		/// <c>false</c> otherwise.</returns>
-		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBSPath, string p_strBSPathName, string p_strBSProperty, string p_strLOOTPath, string p_strLOOTPathName, string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty, string p_strDSRPPath, string p_strDSRPPathName, string p_strDSRPProperty, string p_strPMPath, string p_strPMPathName, string p_strPMProperty)
+		protected bool ValidateDirectory(string p_strBOSSPath, string p_strBOSSPathName, string p_strBOSSProperty, string p_strWryeBashPath, string p_strWryeBashPathName, string p_strWryeBashProperty, 
+			string p_strFNISPath, string p_strFNISPathName, string p_strFNISProperty, string p_strBSPath, string p_strBSPathName, string p_strBSProperty, string p_strLOOTPath, string p_strLOOTPathName, 
+			string p_strLOOTProperty, string p_strTES5EditPath, string p_strTES5EditPathName, string p_strTES5EditProperty, string p_strDSRPPath, string p_strDSRPPathName, string p_strDSRPProperty, 
+			string p_strPMPath, string p_strPMPathName, string p_strPMProperty, string p_strNemesisPath, string p_strNemesisPathName, string p_strNemesisProperty)
 		{
 			Errors.Clear(p_strBOSSProperty);
 			if (String.IsNullOrEmpty(p_strBOSSPath))
@@ -259,6 +279,12 @@ namespace Nexus.Client.Games.Skyrim
 			if (String.IsNullOrEmpty(p_strTES5EditPath))
 			{
 				Errors.SetError(p_strTES5EditProperty, String.Format("You must select a {0}.", p_strTES5EditPathName));
+				return false;
+			}
+			Errors.Clear(p_strNemesisProperty);
+			if (String.IsNullOrEmpty(p_strNemesisPath))
+			{
+				Errors.SetError(p_strNemesisProperty, String.Format("You must select a {0}.", p_strNemesisPathName));
 				return false;
 			}
 
@@ -390,13 +416,23 @@ namespace Nexus.Client.Games.Skyrim
 		}
 
 		/// <summary>
+		/// Validates the selected Nemesis directory.
+		/// </summary>
+		/// <returns><c>true</c> if the selected Nemesis directory is valid;
+		/// <c>false</c> otherwise.</returns>
+		protected bool ValidateNemesisDirectory()
+		{
+			return ValidateDirectory(NemesisDirectory, "Nemesis Directory", ObjectHelper.GetPropertyName(() => NemesisDirectory));
+		}
+
+		/// <summary>
 		/// Validates the settings on this control.
 		/// </summary>
 		/// <returns><c>true</c> if the settings are valid;
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			return ValidateBOSSDirectory() && ValidateLOOTDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory() && ValidateTES5EditDirectory() && ValidatePMDirectory() && ValidateDSRPDirectory() && ValidateBSDirectory();
+			return ValidateBOSSDirectory() && ValidateLOOTDirectory() && ValidateWryeBashDirectory() && ValidateFNISDirectory() && ValidateTES5EditDirectory() && ValidatePMDirectory() && ValidateDSRPDirectory() && ValidateBSDirectory() && ValidateNemesisDirectory();
 		}
 
 		#endregion
@@ -416,6 +452,7 @@ namespace Nexus.Client.Games.Skyrim
 			string strDSRPPath = String.Empty;
 			string strPMPath = String.Empty;
 			string strTES5EditPath = String.Empty;
+			string strNemesisPath = String.Empty;
 			bool booReset = false;
 
 			if (IntPtr.Size == 8)
@@ -605,7 +642,38 @@ namespace Nexus.Client.Games.Skyrim
 				if (!String.IsNullOrEmpty(strTES5EditPath) && Directory.Exists(strTES5EditPath))
 					TES5EditDirectory = strTES5EditPath;
 			}
-								
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("Nemesis"))
+			{
+				strNemesisPath = EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["Nemesis"];
+
+				if (String.IsNullOrEmpty(strNemesisPath))
+				{
+					booReset = true;
+				}
+				else if (Directory.Exists(strNemesisPath) || File.Exists(strNemesisPath))
+				{
+					FileAttributes attr = File.GetAttributes(strNemesisPath);
+					booReset = !attr.HasFlag(FileAttributes.Directory);
+				}
+				else
+					booReset = true;
+
+				if (booReset)
+				{
+					string strNemesis = Path.Combine(GameModeDescriptor.InstallationPath, @"Data\Nemesis_Engine");
+					if (Directory.Exists(strNemesis))
+						strNemesisPath = strNemesis;
+					else
+						strNemesisPath = String.Empty;
+
+					booReset = false;
+				}
+
+				if (!String.IsNullOrEmpty(strNemesisPath) && Directory.Exists(strNemesisPath))
+					NemesisDirectory = strNemesisPath;
+			}
+
 			ValidateSettings();
 		}
 
@@ -642,6 +710,9 @@ namespace Nexus.Client.Games.Skyrim
 
 			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("TES5Edit") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], TES5EditDirectory))
 				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["TES5Edit"] = TES5EditDirectory;
+
+			if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId].ContainsKey("Nemesis") || !String.Equals(EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId], NemesisDirectory))
+				EnvironmentInfo.Settings.SupportedTools[GameModeDescriptor.ModeId]["Nemesis"] = NemesisDirectory;
 
 			EnvironmentInfo.Settings.Save();
 			return true;

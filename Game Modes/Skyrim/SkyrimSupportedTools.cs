@@ -142,6 +142,19 @@ namespace Nexus.Client.Games.Skyrim
 				AddLaunchCommand(new Command("Config#Patchus Maximus", "Config Patchus Maximus", "Configures Patchus Maximus.", imgIcon, ConfigPM, true));
 			}
 
+			strCommand = GetNemesisLaunchCommand();
+			Trace.TraceInformation("Nemesis Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("Nemesis", "Launch Nemesis", "Launches Nemesis.", imgIcon, LaunchNemesis, true));
+			}
+			else
+			{
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#Nemesis", "Config Nemesis", "Configures Nemesis.", imgIcon, ConfigNemesis, true));
+			}
+
 			Trace.Unindent();
 		}
 
@@ -215,6 +228,15 @@ namespace Nexus.Client.Games.Skyrim
 			Trace.TraceInformation("Launching Patchus Maximus");
 			Trace.Indent();
 			string strCommand = GetPMLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchNemesis()
+		{
+			Trace.TraceInformation("Launching Nemesis");
+			Trace.Indent();
+			string strCommand = GetNemesisLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -506,6 +528,42 @@ namespace Nexus.Client.Games.Skyrim
 			return strPM;
 		}
 
+		/// <summary>
+		/// Gets the Nemesis launch command.
+		/// </summary>
+		/// <returns>The FNIS launch command.</returns>
+		private string GetNemesisLaunchCommand()
+		{
+			string strNemesis = String.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("Nemesis"))
+			{
+				strNemesis = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Nemesis"];
+				if (!String.IsNullOrWhiteSpace(strNemesis) && ((strNemesis.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strNemesis)))
+				{
+					strNemesis = String.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Nemesis"] = String.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+
+			if (String.IsNullOrEmpty(strNemesis))
+			{
+				string strNemesisPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\Nemesis_Engine");
+				if (Directory.Exists(strNemesisPath))
+				{
+					strNemesis = strNemesisPath;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Nemesis"] = strNemesis;
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+
+			if (!String.IsNullOrEmpty(strNemesis))
+				strNemesis = Path.Combine(strNemesis, "Nemesis Unlimited Behavior Engine.exe");
+
+			return strNemesis;
+		}
+
 		#endregion
 
 		#region Config Commands
@@ -546,6 +604,10 @@ namespace Nexus.Client.Games.Skyrim
 
 				case "FNIS":
 					ConfigFNIS();
+					break;
+
+				case "Nemesis":
+					ConfigNemesis();
 					break;
 
 				default:
@@ -792,7 +854,37 @@ namespace Nexus.Client.Games.Skyrim
 					}
 				}
 		}
-		
+
+		private void ConfigNemesis()
+		{
+			string p_strToolName = "Nemesis";
+			string p_strExecutableName = "Nemesis Unlimited Behavior Engine.exe";
+			string p_strToolID = "Nemesis";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
+
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!String.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
+				{
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
+				}
+		}
+
 		#endregion
 	}
 }
