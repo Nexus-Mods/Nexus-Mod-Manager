@@ -1845,7 +1845,12 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_DeletingMultipleMods, sender, e);
 				return;
 			}
+
+			m_booDisableSummary = true;
 			ProgressDialog.ShowDialog(this, e.Argument);
+			m_booDisableSummary = false;
+
+			clwCategoryView.SelectedItems.Clear();
 		}
 
 		/// <summary>
