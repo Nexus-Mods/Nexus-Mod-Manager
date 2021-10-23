@@ -9,8 +9,7 @@
     using System.Net;
     using System.ServiceModel;
     using System.Threading;
-
-    using ChinhDo.Transactions;
+	using ChinhDo.Transactions;
 
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.DownloadManagement;
@@ -990,6 +989,8 @@
 
 			try
 			{
+				CheckReadOnlyFlag(strPath);
+
 				faAttributes = File.GetAttributes(strPath);
 			}
 			catch (DirectoryNotFoundException)
@@ -1396,6 +1397,52 @@
 
 			base.OnTaskEnded(e);
 		}
+
+		#region I/O
+
+		private void CheckReadOnlyFlag(string fileName)
+		{
+			int retries = 0;
+			while (IsFileReadOnly(fileName) && (retries < 10))
+			{
+
+				RemoveFileReadOnly(fileName);
+				retries++;
+				System.Threading.Tasks.Task.Delay(100);
+			}
+		}
+
+		/// <summary>
+		/// Returns whether a file is read-only.
+		/// </summary>
+		private bool IsFileReadOnly(string fileName)
+		{
+			// Create a new FileInfo object.
+			FileInfo fiInfo = new FileInfo(fileName);
+
+			// Return the IsReadOnly property value.
+			return fiInfo.IsReadOnly;
+		}
+
+		/// <summary>
+		/// Sets the read-only value of a file.
+		/// </summary>
+		private void RemoveFileReadOnly(string fileName)
+		{
+			try
+			{
+				// Create a new FileInfo object.
+				FileInfo fInfo = new FileInfo(fileName);
+
+				// Set the IsReadOnly property.
+				fInfo.IsReadOnly = false;
+			}
+			catch
+			{
+			}
+		}
+
+		#endregion
 
 		#region IDisposable Members
 
