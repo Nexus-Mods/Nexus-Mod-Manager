@@ -315,6 +315,13 @@ namespace Nexus.Client.Games
 		bool HardlinkRequiredFilesType(string p_strFileName);
 
 		/// <summary>
+		/// Checks whether the file type is not compatible with the virtual install.
+		/// </summary>
+		/// <param name="fileExtension">The file extension starting with a "."</param>
+		/// <returns>True if it requires a real file copy.</returns>
+		bool RealFileRequired(string fileExtension);
+
+		/// <summary>
 		/// Whether to run a secondary tools if present.
 		/// </summary>
 		/// <returns>The path to the optional tool to run.</returns>

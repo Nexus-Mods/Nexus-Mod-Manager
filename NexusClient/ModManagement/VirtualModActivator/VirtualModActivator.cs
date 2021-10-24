@@ -1335,7 +1335,7 @@
 
 			try
 			{
-				if (strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase))
+				if (GameMode.RealFileRequired(strFileType))
 				{
 					File.Copy(MultiHDMode ? strLinkFilePath : strActivatorFilePath, strVirtualFileLink, true);
 

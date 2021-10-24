@@ -403,6 +403,20 @@ namespace Nexus.Client.Games.Cyberpunk2077
 		}
 
 		/// <summary>
+		/// Checks whether the file's type requires a hardlink for the current game mode.
+		/// </summary>
+		/// <returns>Whether the file's type requires a hardlink for the current game mode.</returns>
+		/// <param name="p_strFileName">The filename.</param>
+		public override bool HardlinkRequiredFilesType(string p_strFileName)
+		{
+			string strFileType = Path.GetExtension(p_strFileName);
+			return (strFileType.Equals(".lua", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".asi", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".toml", StringComparison.InvariantCultureIgnoreCase)
+				|| strFileType.Equals(".mp3", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".BGSM", StringComparison.InvariantCultureIgnoreCase)
+				|| strFileType.Equals(".BGEM", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".wav", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".ogg", StringComparison.InvariantCultureIgnoreCase)
+				|| strFileType.Equals(".xwm", StringComparison.InvariantCultureIgnoreCase));
+		}
+
+		/// <summary>
 		/// Disposes of the unamanged resources.
 		/// </summary>
 		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="IDisposable.Dispose()"/> method.</param>

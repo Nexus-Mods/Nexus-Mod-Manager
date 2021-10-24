@@ -883,6 +883,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Checks whether the file type is not compatible with the virtual install.
+		/// </summary>
+		/// <param name="fileExtension">The file extension starting with a "."</param>
+		/// <returns>True if it requires a real file copy.</returns>
+		public virtual bool RealFileRequired(string fileExtension)
+		{
+			return (fileExtension.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".jar", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".dll", StringComparison.InvariantCultureIgnoreCase));
+					//|| fileExtension.Equals(".json", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".sqlite3", StringComparison.InvariantCultureIgnoreCase)
+					//|| fileExtension.Equals(".asi", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".lua", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".toml", StringComparison.InvariantCultureIgnoreCase));
+		}
+
+		/// <summary>
 		/// Whether to run a secondary tools if present.
 		/// </summary>
 		/// <returns>The path to the optional tool to run.</returns>
