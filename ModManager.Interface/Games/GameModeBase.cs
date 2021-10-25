@@ -195,12 +195,12 @@ namespace Nexus.Client.Games
 				}
 			}
 
-            /// <summary>
-            /// A simple constructor that initializes the object with the required dependencies.
-            /// </summary>
-            /// <param name="p_gmdGameMode">The game mode to which this info belongs.</param>
-            /// <param name="p_eifEnvironmentInfo">The application's environement info.</param>
-            public GameModeInfo(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
+			/// <summary>
+			/// A simple constructor that initializes the object with the required dependencies.
+			/// </summary>
+			/// <param name="p_gmdGameMode">The game mode to which this info belongs.</param>
+			/// <param name="p_eifEnvironmentInfo">The application's environement info.</param>
+			public GameModeInfo(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo)
 			{
 				GameMode = p_gmdGameMode;
 				EnvironmentInfo = p_eifEnvironmentInfo;
@@ -354,23 +354,23 @@ namespace Nexus.Client.Games
 			}
 		}
 
-        /// <summary>
-        /// Gets the list of official unmanaged plugin names, ordered by load order.
-        /// </summary>
-        /// <value>The list of official unmanaged plugin names, ordered by load order.</value>
-        public string[] OrderedOfficialUnmanagedPluginNames
-        {
-            get
-            {
-                return m_gmdGameModeInfo.OrderedOfficialUnmanagedPluginNames;
-            }
-        }
+		/// <summary>
+		/// Gets the list of official unmanaged plugin names, ordered by load order.
+		/// </summary>
+		/// <value>The list of official unmanaged plugin names, ordered by load order.</value>
+		public string[] OrderedOfficialUnmanagedPluginNames
+		{
+			get
+			{
+				return m_gmdGameModeInfo.OrderedOfficialUnmanagedPluginNames;
+			}
+		}
 
-        /// <summary>
-        /// Gets the name of the required tool (if any) for the current game mode.
-        /// </summary>
-        /// <value>The name of the required tool (if any) for the current game mode.</value>
-        public string RequiredToolName
+		/// <summary>
+		/// Gets the name of the required tool (if any) for the current game mode.
+		/// </summary>
+		/// <value>The name of the required tool (if any) for the current game mode.</value>
+		public string RequiredToolName
 		{
 			get
 			{
@@ -461,7 +461,7 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>The exported settings groups specific to the game mode.</returns>
 		public IEnumerable<ISettingsGroupView> SettingsGroupViews { get; protected set; }
-        
+
 		/// <summary>
 		/// Gets the game launcher for the game mode.
 		/// </summary>
@@ -494,17 +494,17 @@ namespace Nexus.Client.Games
 		/// <value>Whether the game mode uses plugins.</value>
 		public abstract bool UsesPlugins { get; }
 
-        /// <summary>
-        /// Defines whether or not files use a special load order
-        /// </summary>
-        public virtual bool UsesModLoadOrder { get { return false; } }
+		/// <summary>
+		/// Defines whether or not files use a special load order
+		/// </summary>
+		public virtual bool UsesModLoadOrder { get { return false; } }
 
-        /// <summary>
-        /// Provides a method to sort mods in your own way
-        /// </summary>
-        public virtual void SortMods(Action<IMod, IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods)
-        {
-        }
+		/// <summary>
+		/// Provides a method to sort mods in your own way
+		/// </summary>
+		public virtual void SortMods(Action<IMod, IMod> p_actReinstallMethod, ReadOnlyObservableList<IMod> p_lstActiveMods)
+		{
+		}
 
 		/// <summary>
 		/// Gets whether the game mode supports the automatic sorting
@@ -522,8 +522,8 @@ namespace Nexus.Client.Games
 		/// Gets the plugin loadorder manager.
 		/// </summary>
 		/// <value>The plugin loadorder manager.</value>
-		public virtual ILoadOrderManager LoadOrderManager 
-		{ 
+		public virtual ILoadOrderManager LoadOrderManager
+		{
 			get
 			{
 				return null;
@@ -577,8 +577,8 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// Whether the game requires mod file merging.
 		/// </summary>
-		public virtual bool RequiresModFileMerge 
-		{ 
+		public virtual bool RequiresModFileMerge
+		{
 			get
 			{
 				return false;
@@ -588,7 +588,7 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// The name of the game's merged file.
 		/// </summary>
-		public virtual string MergedFileName 
+		public virtual string MergedFileName
 		{
 			get
 			{
@@ -633,12 +633,12 @@ namespace Nexus.Client.Games
 		/// <summary>
 		/// Whether the plugin sorter is properly initialized.
 		/// </summary>
-		public virtual bool PluginSorterInitialized 
-		{ 
+		public virtual bool PluginSorterInitialized
+		{
 			get
 			{
 				return false;
-			} 
+			}
 		}
 
 		public virtual List<string> SupportedFormats
@@ -649,23 +649,23 @@ namespace Nexus.Client.Games
 			}
 		}
 
-        public bool RequiresModSorting
-        {
-            get
-            {
-                return false;
-            }
-        }
+		public bool RequiresModSorting
+		{
+			get
+			{
+				return false;
+			}
+		}
 
-        #endregion
+		#endregion
 
-        #region Constructors
+		#region Constructors
 
-        /// <summary>
-        /// A simple constructor that initializes the object with the given values.
-        /// </summary>
-        /// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
-        public GameModeBase(IEnvironmentInfo p_eifEnvironmentInfo)
+		/// <summary>
+		/// A simple constructor that initializes the object with the given values.
+		/// </summary>
+		/// <param name="p_eifEnvironmentInfo">The application's environment info.</param>
+		public GameModeBase(IEnvironmentInfo p_eifEnvironmentInfo)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			m_gmdGameModeInfo = CreateGameModeDescriptor();
@@ -890,8 +890,6 @@ namespace Nexus.Client.Games
 		public virtual bool RealFileRequired(string fileExtension)
 		{
 			return (fileExtension.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".jar", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".dll", StringComparison.InvariantCultureIgnoreCase));
-					//|| fileExtension.Equals(".json", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".sqlite3", StringComparison.InvariantCultureIgnoreCase)
-					//|| fileExtension.Equals(".asi", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".lua", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".toml", StringComparison.InvariantCultureIgnoreCase));
 		}
 
 		/// <summary>
@@ -932,34 +930,34 @@ namespace Nexus.Client.Games
 		{
 		}
 
-        /// <summary>
-        /// Defines whether or not files require special installation instructions
-        /// </summary>
-        /// <returns>Whether or not files require special installation instructions</returns>
-        public virtual bool RequiresSpecialFileInstallation
-        {
-            get
-            {
-                return false;
-            }
-        }
+		/// <summary>
+		/// Defines whether or not files require special installation instructions
+		/// </summary>
+		/// <returns>Whether or not files require special installation instructions</returns>
+		public virtual bool RequiresSpecialFileInstallation
+		{
+			get
+			{
+				return false;
+			}
+		}
 
-        /// <summary>
-        /// Handles special file installation
-        /// </summary>
-        /// <param name="p_strFiles">List of files to handle</param>
-        /// <returns>The list of new files to install</returns>
-        public virtual IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)
-        {
-            return null;
-        }
+		/// <summary>
+		/// Handles special file installation
+		/// </summary>
+		/// <param name="p_strFiles">List of files to handle</param>
+		/// <returns>The list of new files to install</returns>
+		public virtual IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)
+		{
+			return null;
+		}
 
 		/// <summary>
 		/// Handles special file uninstallation
 		/// </summary>
 		/// <param name="p_modSelectedMod">The mod with special files to handle</param>
 		public virtual void SpecialFileUninstall(IMod p_modSelectedMod)
-		{ 
+		{
 		}
 
 		/// <summary>
@@ -968,8 +966,8 @@ namespace Nexus.Client.Games
 		/// <param name="p_strFiles">List of files to check</param>
 		/// <returns>Whether any of the files need special installation</returns>
 		public virtual bool IsSpecialFile(IEnumerable<string> p_strFiles)
-        {
-            return false;
-        }
-    }
+		{
+			return false;
+		}
+	}
 }
