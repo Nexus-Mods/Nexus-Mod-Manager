@@ -1854,7 +1854,12 @@ namespace Nexus.Client.ModManagement.UI
 			ProgressDialog.ShowDialog(this, e.Argument);
 			m_booDisableSummary = false;
 
-			clwCategoryView.SelectedItems.Clear();
+			// Hotfix for a crash I'm unable to replicate.
+			try
+			{
+				clwCategoryView.SelectedItems.Clear();
+			}
+			catch { }
 		}
 
 		/// <summary>
