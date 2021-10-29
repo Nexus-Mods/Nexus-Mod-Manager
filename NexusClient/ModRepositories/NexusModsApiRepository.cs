@@ -204,31 +204,89 @@
 		public List<IModInfo> GetFileListInfo(List<string> modFileList)
 		{
 			var list = new List<IModInfo>();
+			int modRequests = 0;
 
 			foreach (var mod in modFileList)
 			{
                 try
                 {
                     string modId = ParseModId(mod);
-                    var id = Convert.ToInt32(modId);
-                    var tmpMod = _apiCallManager.Mods?.GetMod(GameDomainName, id).Result;
+					string downloadId = ParseDownloadId(mod);
+                    int mid = Convert.ToInt32(modId);
+					string newFileName = string.Empty;
+
+					if (modRequests <= 10)
+						Task.Delay(100);
+					else
+					{
+						modRequests = 1;
+						Task.Delay(1000);
+					}
+                    var tmpMod = _apiCallManager.Mods?.GetMod(GameDomainName, mid).Result;
 
                     if (tmpMod == null)
                     {
+						list.Add(new ModInfo());
                         continue;
                     }
 
-                    list.Add(new ModInfo(tmpMod));
+					if (!string.IsNullOrEmpty(downloadId))
+					{
+						int did = Convert.ToInt32(downloadId);
+						Task.Delay(100);
+						var tmpModFile = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, mid, new FileCategory[0]).Result;
+
+						int newFileId = 0;
+						int tempNewFileId = did;
+
+						if (tmpModFile != null)
+						{
+							while (newFileId == 0)
+							{
+								var fileUpdate = tmpModFile.FileUpdates.Where(u => u.OldFileID == tempNewFileId).FirstOrDefault();
+
+								if (fileUpdate != null)
+									tempNewFileId = fileUpdate.NewFileID;
+								else
+									newFileId = tempNewFileId;
+							}
+						}
+
+						if (newFileId != did)
+						{
+							Task.Delay(100);
+							var newModFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, mid, newFileId).Result;
+
+							if (newModFile != null)
+							{
+								tmpMod.Version = newModFile.FileVersion;
+								newFileName = newModFile.FileName;
+							}
+						}
+					}
+
+					ModInfo modInfo = new ModInfo(tmpMod);
+					if (!string.IsNullOrEmpty(newFileName))
+						modInfo.FileName = newFileName;
+
+                    list.Add(modInfo);
                 }
                 catch (AggregateException a)
                 {
-                    if (ReactToAggregateException(a))
-                        break;
-                }
+					// We're no longer breaking the foreach, it will cause the updated list and the base list to lose their alignment.
+					// This will be tweaked in a future release.
+					list.Add(new ModInfo());
+					if (ReactToAggregateException(a))
+					{
+						Task.Delay(2500);
+					}
+					continue;
+				}
                 catch (Exception ex)
                 {
                     Trace.TraceError($"Exception while parsing mod ID from mod \"{mod}\".");
                     TraceUtil.TraceException(ex);
+					list.Add(new ModInfo());
                     continue;
                 }
 			}
@@ -597,16 +655,34 @@
 		/// <summary>
 		/// Catch'em all failsafe to try and avoid idiotic crashes when the modId is borked.
 		/// </summary>
-		/// <param name="modId"></param>
+		/// <param name="modSearchString"></param>
 		/// <returns></returns>
-		private string ParseModId(string modId)
+		private string ParseModId(string modSearchString)
 		{
-			var parsedId = "0";
+			string parsedId = "0";
 
-			if (!string.IsNullOrEmpty(modId))
+			if (!string.IsNullOrEmpty(modSearchString))
 			{
-				var modInfo = modId.Split('|');
+				var modInfo = modSearchString.Split('|');
 				parsedId = Regex.Replace(modInfo.Length == 1 ? modInfo[0] : modInfo[1], "[^0-9]", "");
+			}
+
+			return parsedId;
+		}
+
+		/// <summary>
+		/// Catch'em all failsafe to try and avoid idiotic crashes when the modId is borked.
+		/// </summary>
+		/// <param name="modSearchString"></param>
+		/// <returns></returns>
+		private string ParseDownloadId(string modSearchString)
+		{
+			string parsedId = "0";
+
+			if (!string.IsNullOrEmpty(modSearchString))
+			{
+				var modInfo = modSearchString.Split('|');
+				parsedId = Regex.Replace(modInfo.Length == 1 ? modInfo[0] : modInfo[2], "[^0-9]", "");
 			}
 
 			return parsedId;
