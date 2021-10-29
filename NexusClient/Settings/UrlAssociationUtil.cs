@@ -64,7 +64,7 @@
         {
             try
             {
-                var key = Registry.GetValue($"HKEY_CLASSES_ROOT\\{p_strUrlProtocol}\\shell\\open\\command\\", null, string.Empty) as string;
+                string key = Registry.GetValue($"HKEY_CLASSES_ROOT\\{p_strUrlProtocol}\\shell\\open\\command\\", null, string.Empty) as string;
 
                 return key.Equals(OpenWithNmmCommand);
             }
