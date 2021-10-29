@@ -94,8 +94,6 @@
 		/// <returns>Always null.</returns>
 		protected override object DoWork(object[] args)
 		{
-			const int modLimit = 75;
-
 			List<string> updatedMods = new List<string>();
 
 			var modList = new List<string>();
@@ -111,7 +109,7 @@
 			OverallProgressMaximum = 1;
 
 			OverallProgressMaximum = _modList.Count * 2;
-			ItemProgressMaximum = _modList.Count > modLimit ? modLimit : _modList.Count;
+			ItemProgressMaximum = _modList.Count;
 
 			if (!string.IsNullOrEmpty(_period))
 			{
@@ -188,21 +186,22 @@
 					break;
 
 				// Prevents the repository request string from becoming too long.
-				if (modList.Count == modLimit)
-				{
-					string strResult = CheckForModListUpdate(modList, modCheck);
+				// Since the system has been overhauled this is no longer required.
+				//if (modList.Count == modLimit)
+				//{
+				//	string strResult = CheckForModListUpdate(modList, modCheck);
 
-					if (!string.IsNullOrEmpty(strResult))
-					{
-						modList.Clear();
-						return strResult;
-					}
+				//	if (!string.IsNullOrEmpty(strResult))
+				//	{
+				//		modList.Clear();
+				//		return strResult;
+				//	}
 
-					modList.Clear();
-					OverallMessage = "Updating mods info: setup search..";
-					ItemProgress = 0;
-					ItemProgressMaximum = _modList.Count == modLimit ? 1 : _modList.Count - (i + 1);
-				}
+				//	modList.Clear();
+				//	OverallMessage = "Updating mods info: setup search..";
+				//	ItemProgress = 0;
+				//	ItemProgressMaximum = _modList.Count == modLimit ? 1 : _modList.Count - (i + 1);
+				//}
 			}
 
 			if (!_cancel && modList.Count > 0)
@@ -398,6 +397,9 @@
 						ItemProgress = 0;
 					}
 				}
+
+				if (modUpdates.Count() < modCheckList.Count())
+					Cancel();
 			}
 
 			return null;

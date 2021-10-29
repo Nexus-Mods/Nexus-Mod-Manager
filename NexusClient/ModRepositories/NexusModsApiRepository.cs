@@ -220,7 +220,7 @@
 					else
 					{
 						modRequests = 1;
-						Task.Delay(500);
+						Task.Delay(250);
 					}
                     var tmpMod = _apiCallManager.Mods?.GetMod(GameDomainName, mid).Result;
 
@@ -644,7 +644,7 @@
 		{
 			TraceUtil.TraceAggregateException(a);
 
-			if (a.InnerExceptions.Any(ex => ex.Message.Contains("Too Many Requests")))
+			if (a.InnerExceptions.Any(ex => ex.Message.Contains("Too Many Requests") || (a.InnerExceptions.Count > 0 && ((Pathoschild.Http.Client.ApiException)a.InnerException).Status == System.Net.HttpStatusCode.Forbidden)))
 			{
 				RateLimitExceeded?.Invoke(this, new RateLimitExceededArgs(RateLimit));
 				return true;
