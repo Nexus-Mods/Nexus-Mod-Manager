@@ -139,18 +139,19 @@
 					modId = modCurrent.Id;
 					isEndorsed = modCurrent.IsEndorsed == true ? 1 : modCurrent.IsEndorsed == false ? -1 : 0;
 				}
-				else
+				else if (_missingDownloadId == null || _missingDownloadId == true)
 				{
 					// Deprecated, too many useless request were being thrown, if users need to recognize a mod they can just use the mod tagger.
-					//IModInfo modInfoForFile = ModRepository.GetModInfoForFile(modCurrent.Filename);
+					// It is just active for the specific downloadId search.
+					IModInfo modInfoForFile = ModRepository.GetModInfoForFile(modCurrent.Filename);
 
-					//if (modInfoForFile != null)
-					//{
-					//	modCurrent.Id = modInfoForFile.Id;
-					//	modId = modInfoForFile.Id;
-					//	AutoUpdater.AddNewVersionNumberForMod(modCurrent, modInfoForFile);
-					//	modName = StripFileName(modCurrent.Filename, modInfoForFile.Id);
-					//}
+					if (modInfoForFile != null)
+					{
+						modCurrent.Id = modInfoForFile.Id;
+						modId = modInfoForFile.Id;
+						AutoUpdater.AddNewVersionNumberForMod(modCurrent, modInfoForFile);
+						modName = StripFileName(modCurrent.Filename, modInfoForFile.Id);
+					}
 				}
 
 				if (_missingDownloadId == null || _missingDownloadId == true && (string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1"))
@@ -171,9 +172,10 @@
 				else if (_missingDownloadId == false && !string.IsNullOrEmpty(modCurrent.DownloadId))
 				{
 					if (_overrideCategorySetup)
-						modList.Add(string.Format("{0}", modCurrent.DownloadId));
+						// TODO: This used to work with download ids, it requires a new method in the API, currently it did nothing cause it passed downloadId to a modId search.
+						modList.Add(string.Format("{0}", string.IsNullOrWhiteSpace(modId) ? "0" : modId));
 					else
-						modList.Add(string.Format("{0}|{1}|{2}|{3}|{4}", string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, string.IsNullOrWhiteSpace(modId) ? "0" : modId, Path.GetFileName(modName), string.IsNullOrWhiteSpace(modCurrent.HumanReadableVersion) ? "0" : modCurrent.HumanReadableVersion, isEndorsed));
+						modList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId));
 					modCheck.Add(modCurrent);
 				}
 
@@ -312,15 +314,12 @@
 					{
 						if (_missingDownloadId != false)
 						{
-							if (modCheckList.Count() == modUpdates.Count())
+							var modCheck = modCheckList[i];
+							if (!string.IsNullOrEmpty(modUpdate.Id) && modUpdate.Id != "0" && !string.IsNullOrEmpty(modCheck.Id) && modCheck.Id != "0")
 							{
-								var modCheck = modCheckList[i];
-								if (!string.IsNullOrEmpty(modUpdate.Id) && modUpdate.Id != "0" && !string.IsNullOrEmpty(modCheck.Id) && modCheck.Id != "0")
+								if (modUpdate.Id.Equals(modCheck.Id, StringComparison.OrdinalIgnoreCase))
 								{
-									if (modUpdate.Id.Equals(modCheck.Id, StringComparison.OrdinalIgnoreCase))
-									{
-										mod = modCheck;
-									}
+									mod = modCheck;
 								}
 							}
 						}

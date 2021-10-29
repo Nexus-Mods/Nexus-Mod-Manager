@@ -216,11 +216,11 @@
 					string newFileName = string.Empty;
 
 					if (modRequests <= 10)
-						Task.Delay(100);
+						Task.Delay(50);
 					else
 					{
 						modRequests = 1;
-						Task.Delay(1000);
+						Task.Delay(500);
 					}
                     var tmpMod = _apiCallManager.Mods?.GetMod(GameDomainName, mid).Result;
 
@@ -230,10 +230,10 @@
                         continue;
                     }
 
-					if (!string.IsNullOrEmpty(downloadId))
+					if (!string.IsNullOrEmpty(downloadId) && !downloadId.Equals("0"))
 					{
 						int did = Convert.ToInt32(downloadId);
-						Task.Delay(100);
+						Task.Delay(50);
 						var tmpModFile = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, mid, new FileCategory[0]).Result;
 
 						int newFileId = 0;
@@ -254,7 +254,7 @@
 
 						if (newFileId != did)
 						{
-							Task.Delay(100);
+							Task.Delay(50);
 							var newModFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, mid, newFileId).Result;
 
 							if (newModFile != null)
@@ -273,14 +273,15 @@
                 }
                 catch (AggregateException a)
                 {
-					// We're no longer breaking the foreach, it will cause the updated list and the base list to lose their alignment.
-					// This will be tweaked in a future release.
+					
 					list.Add(new ModInfo());
 					if (ReactToAggregateException(a))
 					{
-						Task.Delay(2500);
+						// Breaking the foreach will cause the updated list and the base list to lose their alignment.
+						break;
 					}
-					continue;
+					else
+						continue;
 				}
                 catch (Exception ex)
                 {

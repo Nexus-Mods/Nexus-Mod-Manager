@@ -970,7 +970,7 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				if (ManagedMods.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, period, false, null)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, period, false, false)));
 				}
 			}
 			else
