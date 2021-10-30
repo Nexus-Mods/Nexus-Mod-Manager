@@ -2,6 +2,7 @@
 {
 	using System;
 	using System.Collections.Generic;
+	using System.Diagnostics;
 	using System.Windows.Forms;
 
 	using Microsoft.Win32;
@@ -89,7 +90,9 @@
 			foreach (FileAssociationSetting fasFileAssociation in FileAssociations)
 			{
 				if (fasFileAssociation != null && !string.IsNullOrEmpty(fasFileAssociation.Extension))
+				{
 					fasFileAssociation.IsAssociated = IsAssociated(fasFileAssociation.Extension);
+				}
 			}
 
 			foreach (string extension in ShellExtensionUtil.Extensions)
