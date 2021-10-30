@@ -152,6 +152,7 @@
 					}
 				}
 
+				// If we're looking for missing download Ids
 				if (_missingDownloadId == null || _missingDownloadId == true && (string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1"))
 				{
 					if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Contains(modId, StringComparer.OrdinalIgnoreCase))
@@ -167,14 +168,22 @@
 						modCheck.Add(modCurrent);
 					}
 				}
-				else if (_missingDownloadId == false && !string.IsNullOrEmpty(modCurrent.DownloadId))
+				//  If we're performing a period-based update check or an update after a category reset
+				else if (_missingDownloadId == false && !string.IsNullOrEmpty(modId))
 				{
-					if (_overrideCategorySetup)
+					// If we're performing a category reset
+					if (_overrideCategorySetup && !string.IsNullOrEmpty(modCurrent.DownloadId))
+					{
 						// TODO: This used to work with download ids, it requires a new method in the API, currently it did nothing cause it passed downloadId to a modId search.
-						modList.Add(string.Format("{0}", string.IsNullOrWhiteSpace(modId) ? "0" : modId));
-					else
+						modList.Add(string.Format("{0}|{1}", string.IsNullOrWhiteSpace(modId) ? "0" : modId, modCurrent.DownloadId));
+						modCheck.Add(modCurrent);
+					}
+					// If we're performing a period-based update check
+					else if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Contains(modId, StringComparer.OrdinalIgnoreCase))
+					{
 						modList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId));
-					modCheck.Add(modCurrent);
+						modCheck.Add(modCurrent);
+					}
 				}
 
 				if (ItemProgress < ItemProgressMaximum)

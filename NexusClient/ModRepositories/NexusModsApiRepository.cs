@@ -644,7 +644,7 @@
 		{
 			TraceUtil.TraceAggregateException(a);
 
-			if (a.InnerExceptions.Any(ex => ex.Message.Contains("Too Many Requests") || (a.InnerExceptions.Count > 0 && ((Pathoschild.Http.Client.ApiException)a.InnerException).Status == System.Net.HttpStatusCode.Forbidden)))
+			if (a.InnerExceptions.Any(ex => ex.Message.Contains("Too Many Requests") || (a.InnerExceptions.Count > 0 && ((Pathoschild.Http.Client.ApiException)a.InnerException).Status == System.Net.HttpStatusCode.Forbidden && ((Pathoschild.Http.Client.ApiException)a.InnerException).Message.IndexOf("Mod not available", StringComparison.OrdinalIgnoreCase) < 0)))
 			{
 				RateLimitExceeded?.Invoke(this, new RateLimitExceededArgs(RateLimit));
 				return true;
