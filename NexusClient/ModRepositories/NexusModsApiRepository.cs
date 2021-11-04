@@ -212,6 +212,7 @@
                 {
                     string modId = ParseModId(mod);
 					string downloadId = ParseDownloadId(mod);
+					string currentFilename = ParseFilename(mod);
                     int mid = Convert.ToInt32(modId);
 					string newFileName = string.Empty;
 
@@ -230,6 +231,7 @@
                         continue;
                     }
 
+					// If we're looking for updates we're performing a search with the downloadId
 					if (!string.IsNullOrEmpty(downloadId) && !downloadId.Equals("0"))
 					{
 						int did = Convert.ToInt32(downloadId);
@@ -260,14 +262,40 @@
 							if (newModFile != null)
 							{
 								tmpMod.Version = newModFile.FileVersion;
-								newFileName = newModFile.FileName;
+							}
+						}
+					}
+					// If we're looking for downloadId then we're performing a search with the filename.
+					else if (!string.IsNullOrEmpty(currentFilename))
+					{
+						Task.Delay(50);
+						var tmpModFile = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, mid, new FileCategory[0]).Result;
+
+						int newFileId = 0;
+
+						if (tmpModFile != null)
+						{
+								var fileUpdate = tmpModFile.FileUpdates.Where(u => u.NewFileName == currentFilename).FirstOrDefault();
+
+								if (fileUpdate != null)
+									newFileId = fileUpdate.NewFileID;
+						}
+
+						if (newFileId != 0)
+						{
+							Task.Delay(50);
+							var newModFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, mid, newFileId).Result;
+
+							if (newModFile != null)
+							{
+								tmpMod.Version = newModFile.FileVersion;
 							}
 						}
 					}
 
 					ModInfo modInfo = new ModInfo(tmpMod);
-					if (!string.IsNullOrEmpty(newFileName))
-						modInfo.FileName = newFileName;
+					if (!string.IsNullOrEmpty(currentFilename))
+						modInfo.FileName = currentFilename;
 
                     list.Add(modInfo);
                 }
@@ -672,7 +700,7 @@
 		}
 
 		/// <summary>
-		/// Catch'em all failsafe to try and avoid idiotic crashes when the modId is borked.
+		/// Catch'em all failsafe to try and avoid idiotic crashes when the downloadId is borked.
 		/// </summary>
 		/// <param name="modSearchString"></param>
 		/// <returns></returns>
@@ -687,6 +715,24 @@
 			}
 
 			return parsedId;
+		}
+
+		/// <summary>
+		/// Catch'em all failsafe to try and avoid idiotic crashes when the filename is borked.
+		/// </summary>
+		/// <param name="modSearchString"></param>
+		/// <returns></returns>
+		private string ParseFilename(string modSearchString)
+		{
+			string filename = string.Empty;
+
+			if (!string.IsNullOrEmpty(modSearchString))
+			{
+				var modInfo = modSearchString.Split('|');
+				filename = modInfo.Length > 2 ? modInfo[3] : string.Empty;
+			}
+
+			return filename;
 		}
 	}
 }

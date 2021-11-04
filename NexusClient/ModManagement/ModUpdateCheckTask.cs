@@ -157,14 +157,12 @@
 				{
 					if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Contains(modId, StringComparer.OrdinalIgnoreCase))
 					{
-						//modList.Add(string.Format("{0}|{1}|{2}", modName, modId, Path.GetFileName(modCurrent.Filename)));
-						// We're passing the downloadId too so we can perform a better search when required.
-						modList.Add(string.Format("{0}|{1}|{2}", modName, modId, modCurrent.DownloadId));
+						modList.Add(string.Format("{0}|{1}|{2}|{3}", modName, modId, modCurrent.DownloadId, Path.GetFileName(modCurrent.Filename)));
 						modCheck.Add(modCurrent);
 					}
 					else if (updatedMods.Count == 0 || string.IsNullOrWhiteSpace(modId))
 					{
-						modList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId));
+						modList.Add(string.Format("{0}|{1}|{2}|{3}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, Path.GetFileName(modCurrent.Filename)));
 						modCheck.Add(modCurrent);
 					}
 				}
@@ -181,7 +179,7 @@
 					// If we're performing a period-based update check
 					else if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Contains(modId, StringComparer.OrdinalIgnoreCase))
 					{
-						modList.Add(string.Format("{0}|{1}|{2}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId));
+						modList.Add(string.Format("{0}|{1}|{2}|{3}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, Path.GetFileName(modCurrent.Filename)));
 						modCheck.Add(modCurrent);
 					}
 				}
@@ -308,9 +306,9 @@
 
 					ItemMessage = modUpdate.ModName;
 
-					var mod = _missingDownloadId != false ? _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) &&
-						(StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) ||
-						StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_", " ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase))) : _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) &&
+					var mod = _missingDownloadId != false ? _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) && (StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) ||
+						StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_", " ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase))) 
+						: _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) &&
 						modUpdate.FileName.Equals(Path.GetFileName(x.Filename)?.ToString(), StringComparison.OrdinalIgnoreCase));
 
 					if (mod == null && !string.IsNullOrEmpty(modUpdate.DownloadId) && modUpdate.DownloadId != "0" && modUpdate.DownloadId != "-1")
