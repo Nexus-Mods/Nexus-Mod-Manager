@@ -1094,7 +1094,15 @@ namespace Nexus.Client.ModManagement.UI
 
 				case ModAction.Uninstall:
 					{
-						ViewModel.DeactivateMod(e.Mod);
+						var modList = GetSelectedMods();
+
+						if (modList.Count > 1)
+						{
+							if (ConfirmModFileUninstall(modList))
+								ViewModel.DeactivateSelectedMods(modList);
+						}
+						else
+							ViewModel.DeactivateMod(e.Mod);
 					}
 					break;
 
@@ -1103,7 +1111,10 @@ namespace Nexus.Client.ModManagement.UI
 						var modList = GetSelectedMods();
 
 						if (modList.Count > 1)
-							ViewModel.ReinstallMultipleMods(modList);
+						{
+							if (ConfirmModFileReinstall(modList))
+								ViewModel.ReinstallMultipleMods(modList);
+						}
 						else
 							ViewModel.ReinstallMod(e.Mod, null);
 					}
@@ -1666,28 +1677,103 @@ namespace Nexus.Client.ModManagement.UI
 
 
 		/// <summary>
-		/// This asks the use to confirm the deleting of the given mod file.
+		/// This asks the user to confirm the deleting of the given mod files.
 		/// </summary>
-		/// <param name="p_modMod">The mod whose deletion is to be confirmed.</param>
-		/// <returns><c>true</c> if the mod should be deleted;
+		/// <param name="p_modMod">The mods whose deletion is to be confirmed.</param>
+		/// <returns><c>true</c> if the mods should be deleted;
 		/// <c>false</c> otherwise.</returns>
 		private bool ConfirmModFileDeletion(List<IMod> p_lstMod)
 		{
 			if (InvokeRequired)
 			{
-				var booResult = false;
+				bool booResult = false;
 				Invoke((MethodInvoker)(() => booResult = ConfirmModFileDeletion(p_lstMod)));
 				return booResult;
 			}
 
-			var WarningMessage = string.Empty;
+			string WarningMessage = string.Empty;
 
-			foreach (var mod in p_lstMod)
+			int modCount = 0;
+
+			foreach (IMod mod in p_lstMod)
 			{
-				WarningMessage = WarningMessage + String.Format("- {0}", mod.ModName + "\r\n");
+				if (++modCount > 25)
+				{
+					WarningMessage += string.Format("And {0} more mods.\r\n", p_lstMod.Count - 25);
+				}
+				else
+					WarningMessage += string.Format("- {0}", mod.ModName + "\r\n");
 			}
 
 			WarningMessage = WarningMessage + "\r\nThese mods will be uninstalled and all their files and their archives will be permanently deleted from your hard drive.\r\nAre you sure?\r\n\r\nThis operation cannot be undone.";
+
+			return ExtendedMessageBox.Show(this, WarningMessage, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+		}
+
+		/// <summary>
+		/// This asks the user to confirm the reinstall of the given mod files.
+		/// </summary>
+		/// <param name="p_lstMod">The mods whose reinstallation is to be confirmed.</param>
+		/// <returns><c>true</c> if the mods should be reinstalled;
+		/// <c>false</c> otherwise.</returns>
+		private bool ConfirmModFileReinstall(List<IMod> p_lstMod)
+		{
+			if (InvokeRequired)
+			{
+				bool booResult = false;
+				Invoke((MethodInvoker)(() => booResult = ConfirmModFileReinstall(p_lstMod)));
+				return booResult;
+			}
+
+			string WarningMessage = string.Empty;
+
+			int modCount = 0;
+
+			foreach (IMod mod in p_lstMod)
+			{
+				if (++modCount > 25)
+				{
+					WarningMessage += string.Format("And {0} more mods.\r\n", p_lstMod.Count - 25);
+				}
+				else
+					WarningMessage += string.Format("- {0}", mod.ModName + "\r\n");
+			}
+
+			WarningMessage = WarningMessage + "\r\nThese mods will be reinstalled.\r\nAre you sure?\r\n\r\nThis operation cannot be undone.";
+
+			return ExtendedMessageBox.Show(this, WarningMessage, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+		}
+
+		/// <summary>
+		/// This asks the user to confirm the uninstall of the given mod files.
+		/// </summary>
+		/// <param name="p_lstMod">The mods whose uninstallation is to be confirmed.</param>
+		/// <returns><c>true</c> if the mods should be uninstalled;
+		/// <c>false</c> otherwise.</returns>
+		private bool ConfirmModFileUninstall(List<IMod> p_lstMod)
+		{
+			if (InvokeRequired)
+			{
+				bool booResult = false;
+				Invoke((MethodInvoker)(() => booResult = ConfirmModFileReinstall(p_lstMod)));
+				return booResult;
+			}
+
+			string WarningMessage = string.Empty;
+
+			int modCount = 0;
+
+			foreach (IMod mod in p_lstMod)
+			{
+				if (++modCount > 25)
+				{
+					WarningMessage += string.Format("And {0} more mods.\r\n", p_lstMod.Count - 25);
+				}
+				else
+					WarningMessage += string.Format("- {0}", mod.ModName + "\r\n");
+			}
+
+			WarningMessage = WarningMessage + "\r\nThese mods will be uninstalled.\r\nAre you sure?\r\n\r\nThis operation cannot be undone.";
 
 			return ExtendedMessageBox.Show(this, WarningMessage, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
 		}

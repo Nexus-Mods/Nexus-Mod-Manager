@@ -1020,6 +1020,15 @@ namespace Nexus.Client.UI.Controls
 		/// <summary>
 		/// Populates "Deactivate -> ..." sub-items as appropriate.
 		/// </summary>
+		private void RenderContextMenuMultiModUninstall()
+		{
+			m_mniModUninstall.DropDownItems.Add("From active profile", null,
+				(s, e) => this.OnModActionRequested(ModAction.Uninstall));
+		}
+
+		/// <summary>
+		/// Populates "Deactivate -> ..." sub-items as appropriate.
+		/// </summary>
 		private void RenderContextMenuModUninstall()
 		{
 			m_mniModUninstall.DropDownItems.Add("From active profile", null,
@@ -1309,8 +1318,11 @@ namespace Nexus.Client.UI.Controls
 			{
 				// multi-mod management
 				// can:
-				// - move to another category
+				// - Reinstall
+				// - Uninstall
 				cmsContextMenu.Items.Add(m_mniModReinstall);
+				RenderContextMenuMultiModUninstall();
+				cmsContextMenu.Items.Add(m_mniModUninstall);
 			}
 
 			// for both single and multi-mod management can:
