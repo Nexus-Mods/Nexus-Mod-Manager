@@ -541,7 +541,12 @@
 			{
 				case "file":
 					ModInfo localInfo = null;
-					localInfo = new ModInfo(_modRepository.GetModInfoForFile(descriptor.DefaultSourcePath));
+					if (!_modRepository.IsOffline)
+					{
+						localInfo = new ModInfo(_modRepository.GetModInfoForFile(descriptor.DefaultSourcePath));
+					}
+					else
+						localInfo = new ModInfo();
 					localInfo.FileName = Path.GetFileName(descriptor.DefaultSourcePath);
 					return localInfo;
                 case "nxm":
