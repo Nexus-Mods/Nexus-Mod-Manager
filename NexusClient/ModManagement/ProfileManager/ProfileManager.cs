@@ -376,7 +376,7 @@ namespace Nexus.Client.ModManagement
 				catch (Exception e)
 				{
 					intRetries++;
-					Thread.Sleep(250);
+					Task.Delay(250);
 					if (intRetries >= 12)
 						throw e;
 				}
@@ -1128,7 +1128,6 @@ namespace Nexus.Client.ModManagement
 				{
 					if ((m_booUsesPlugin) && (p_bteLoadOrder != null) && (p_bteLoadOrder.Length > 0))
 						WriteProfileFiles(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
-						//File.WriteAllBytes(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
 				}
 				catch (Exception ex)
 				{
@@ -1137,7 +1136,6 @@ namespace Nexus.Client.ModManagement
 				if ((p_bteModList != null) && (p_bteModList.Length > 0))
 				{
 					WriteProfileFiles(Path.Combine(strProfilePath, "modlist.xml"), p_bteModList);
-					//File.WriteAllBytes(Path.Combine(strProfilePath, "modlist.xml"), p_bteModList);
 				}
 				else if (VirtualModActivator.VirtualLinks != null)
 				{
@@ -1152,7 +1150,6 @@ namespace Nexus.Client.ModManagement
 				if ((p_bteIniList != null) && (p_bteIniList.Length > 0))
 				{
 					WriteProfileFiles(Path.Combine(strProfilePath, "IniEdits.xml"), p_bteIniList);
-					//File.WriteAllBytes(Path.Combine(strProfilePath, "IniEdits.xml"), p_bteIniList);
 				}
 
 				byte[] bteProfileBytes = GetProfileBytes(p_impModProfile);
@@ -1160,7 +1157,6 @@ namespace Nexus.Client.ModManagement
 				if ((bteProfileBytes != null) && (bteProfileBytes.Length > 0))
 				{
 					WriteProfileFiles(Path.Combine(strProfilePath, "profile.xml"), GetProfileBytes(p_impModProfile));
-					//File.WriteAllBytes(Path.Combine(strProfilePath, "profile.xml"), GetProfileBytes(p_impModProfile));
 				}
 
 				string strOptionalFolder = Path.Combine(strProfilePath, "Optional");
@@ -1208,7 +1204,7 @@ namespace Nexus.Client.ModManagement
 
 			while (!FileUtil.IsFileReady(filePath))
 			{
-				Thread.Sleep(100);
+				Task.Delay(100);
 				if (intRepeat++ > 50)
 				{
 					Trace.TraceWarning("Could not get access to \"{0}\".", filePath);
@@ -1245,7 +1241,7 @@ namespace Nexus.Client.ModManagement
 								throw e;
 							}
 
-							Thread.Sleep(100);
+							Task.Delay(100);
 						}
 						else
 						{
@@ -1259,7 +1255,7 @@ namespace Nexus.Client.ModManagement
 							throw e;
 						}
 
-						Thread.Sleep(100);
+						Task.Delay(100);
 					}
 				}
 			}

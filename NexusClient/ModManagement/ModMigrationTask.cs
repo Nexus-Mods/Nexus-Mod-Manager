@@ -94,7 +94,7 @@ namespace Nexus.Client.ModManagement
 				if (ViewModel.GameMode.UsesPlugins)
 					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
 				OverallMessage = "Setup: Exporting Mod List (this could take a lot)";
-				Thread.Sleep(1);
+				System.Threading.Tasks.Task.Delay(10);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				bteModList = ViewModel.ModManager.InstallationLog.GetXmlModList();

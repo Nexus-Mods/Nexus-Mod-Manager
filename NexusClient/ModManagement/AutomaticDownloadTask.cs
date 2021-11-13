@@ -126,7 +126,7 @@ namespace Nexus.Client.ModManagement
 						i++;
 
 						ModManager.AddMod(URI, ConfirmOverwriteCallback);
-						Thread.Sleep(100);
+						System.Threading.Tasks.Task.Delay(100);
 					}
 				}
 			}

@@ -372,7 +372,7 @@
 					{
 						//we are trying to close the form at the exact moment it is being shown
 						// wait a moment and try again
-						Thread.Sleep(100);
+						System.Threading.Tasks.Task.Delay(100);
 					}
 				}
 			}

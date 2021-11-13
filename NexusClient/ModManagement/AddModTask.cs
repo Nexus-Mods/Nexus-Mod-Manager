@@ -1347,7 +1347,7 @@
                     }
                 }
 
-                Thread.Sleep(1000);
+				System.Threading.Tasks.Task.Delay(1000);
 
 				foreach (var strFile in Descriptor.DownloadedFiles)
                 {

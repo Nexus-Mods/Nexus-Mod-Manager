@@ -50,7 +50,7 @@
                     catch (IOException)
                     {
                         //If an IO Exception does occur wait a little between attempts
-                        Thread.Sleep(PauseBetweenAttemptsMilliseconds);
+                        System.Threading.Tasks.Task.Delay(PauseBetweenAttemptsMilliseconds);
                     }
                 }
                 

@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.SkyrimSE
 		{
 			get
 			{
-				return Path.Combine(EnvironmentInfo.PersonalDataFolderPath, "My games\\Skyrim Special Edition");
+				return Path.Combine(EnvironmentInfo.PersonalDataFolderPath, "My games", "Skyrim Special Edition");
 			}
 		}
 

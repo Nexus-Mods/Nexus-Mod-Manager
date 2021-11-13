@@ -373,7 +373,7 @@
 
 				while (!action.IsCompleted)
 				{
-					Thread.Sleep(250);
+					Task.Delay(250);
 					timeout -= 250;
 
 					if (timeout <= 0)

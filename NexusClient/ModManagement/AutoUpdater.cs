@@ -230,7 +230,7 @@
                         break;
                     }
 
-                    Thread.Sleep(1000);
+					System.Threading.Tasks.Task.Delay(1000);
                 }
             }
 

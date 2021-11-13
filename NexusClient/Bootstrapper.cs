@@ -216,7 +216,7 @@
 
 						//Messenger couldn't be created, so sleep for a few seconds to give time for opening
 						// the running copy of the mod manager to start up/shut down
-						Thread.Sleep(TimeSpan.FromSeconds(5.0d));
+						System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(5.0d));
 					}
 
 					if (!ownsMutex)

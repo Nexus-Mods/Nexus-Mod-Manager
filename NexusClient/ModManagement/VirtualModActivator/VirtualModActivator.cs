@@ -537,7 +537,7 @@
 				writtenTo = true;
 			}
 
-			Thread.Sleep(250);
+			Task.Delay(250);
 			if (p_booModActivationChange)
 				ModActivationChanged(null, new EventArgs());
 
@@ -556,7 +556,7 @@
 
 			while (!FileUtil.IsFileReady(filePath))
 			{
-				Thread.Sleep(100);
+				Task.Delay(100);
 				if (intRepeat++ > 50)
 				{
 					Trace.TraceWarning("Could not get access to \"{0}\".", filePath);
@@ -578,7 +578,46 @@
 		{
 			if (!Directory.Exists(Path.GetDirectoryName(p_strPath)))
 				Directory.CreateDirectory(Path.GetDirectoryName(p_strPath));
-			File.Copy(m_strVirtualActivatorConfigPath, p_strPath, true);
+			SafelyCopyModList(p_strPath);
+		}
+
+		private void SafelyCopyModList(string strPath)
+		{
+			int repeat = 0;
+			bool locked = false;
+
+			while (!FileUtil.IsFileReady(strPath))
+			{
+				Task.Delay(100);
+				if (repeat++ > 50)
+				{
+					Trace.TraceWarning("Could not get access to \"{0}\".", strPath);
+					locked = true;
+					break;
+				}
+			}
+
+			if (!locked)
+			{
+
+				using (var inputFile = new FileStream(
+				m_strVirtualActivatorConfigPath,
+				FileMode.Open,
+				FileAccess.Read,
+				FileShare.ReadWrite))
+				{
+					using (var outputFile = new FileStream(strPath, FileMode.Create))
+					{
+						var buffer = new byte[0x10000];
+						int bytes;
+
+						while ((bytes = inputFile.Read(buffer, 0, buffer.Length)) > 0)
+						{
+							outputFile.Write(buffer, 0, bytes);
+						}
+					}
+				}
+			}
 		}
 
 		/// <summary>
