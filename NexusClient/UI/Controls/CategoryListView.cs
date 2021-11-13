@@ -1560,16 +1560,15 @@ namespace Nexus.Client.UI.Controls
 		public void ResetColumns()
 		{
             // No one wants every column to be exactly the same width
-            /*
-			tlcModName.Width = 100;
-			tlcCategory.Width = 100;
-			tlcInstallDate.Width = 100;
+			tlcModName.Width = 400;
+			tlcCategory.Width = 200;
+			tlcInstallDate.Width = 200;
+			tlcDownloadDate.Width = 200;
 			tlcEndorsement.Width = 100;
 			tlcDownloadId.Width = 100;
-			tlcWebVersion.Width = 100;
+			tlcWebVersion.Width = 200;
 			tlcAuthor.Width = 100;
 			SizeColumnsToFit();
-            */
 		}
 
 		/// <summary>
