@@ -67,6 +67,7 @@
 			this.tsbExportModList = new System.Windows.Forms.ToolStripDropDownButton();
 			this.exportToTextFile = new System.Windows.Forms.ToolStripMenuItem();
 			this.exportToClipboard = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsbShowUpdatesOnly = new System.Windows.Forms.ToolStripButton();
 			this.checkModUpdates = new System.Windows.Forms.ToolStripMenuItem();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.clwCategoryView = new Nexus.Client.UI.Controls.CategoryListView();
@@ -105,7 +106,8 @@
             this.tsbToggleEndorse,
             this.tsbResetCategories,
             this.tsbSwitchView,
-            this.tsbExportModList});
+            this.tsbExportModList,
+            this.tsbShowUpdatesOnly});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(49, 642);
@@ -128,7 +130,7 @@
 			// 
 			this.addModToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod_file_flat;
 			this.addModToolStripMenuItem.Name = "addModToolStripMenuItem";
-			this.addModToolStripMenuItem.Size = new System.Drawing.Size(196, 38);
+			this.addModToolStripMenuItem.Size = new System.Drawing.Size(177, 22);
 			this.addModToolStripMenuItem.Text = "Add Mod from File";
 			this.addModToolStripMenuItem.Click += new System.EventHandler(this.addModToolStripMenuItem_Click);
 			// 
@@ -136,7 +138,7 @@
 			// 
 			this.addModFromURLToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod_url_flat;
 			this.addModFromURLToolStripMenuItem.Name = "addModFromURLToolStripMenuItem";
-			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(196, 38);
+			this.addModFromURLToolStripMenuItem.Size = new System.Drawing.Size(177, 22);
 			this.addModFromURLToolStripMenuItem.Text = "Add Mod from URL";
 			this.addModFromURLToolStripMenuItem.Click += new System.EventHandler(this.addModFromURLToolStripMenuItem_Click);
 			// 
@@ -222,7 +224,7 @@
             this.withinTheLastMonthToolStripMenuItem});
 			this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.check_updates_interval_flat;
 			this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Name = "checkForModUpdateWithinTheLastDayToolStripMenuItem";
-			this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Size = new System.Drawing.Size(330, 38);
+			this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Size = new System.Drawing.Size(314, 22);
 			this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Text = "Check for Mod Updates Interval ...";
 			// 
 			// withinTheLastDayToolStripMenuItem
@@ -250,7 +252,7 @@
 			// 
 			this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
 			this.checkFileDownloadId.Name = "checkFileDownloadId";
-			this.checkFileDownloadId.Size = new System.Drawing.Size(330, 38);
+			this.checkFileDownloadId.Size = new System.Drawing.Size(314, 22);
 			this.checkFileDownloadId.Text = "Fix download IDs and Check for mod updates";
 			this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
 			// 
@@ -258,7 +260,7 @@
 			// 
 			this.checkMissingDownloadId.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
 			this.checkMissingDownloadId.Name = "checkMissingDownloadId";
-			this.checkMissingDownloadId.Size = new System.Drawing.Size(330, 38);
+			this.checkMissingDownloadId.Size = new System.Drawing.Size(314, 22);
 			this.checkMissingDownloadId.Text = "Just check for missing download IDs";
 			this.checkMissingDownloadId.Click += new System.EventHandler(this.checkMissingDownloadId_Click);
 			// 
@@ -293,7 +295,7 @@
 			// 
 			this.addNewCategory.Image = global::Nexus.Client.Properties.Resources.categories_flat;
 			this.addNewCategory.Name = "addNewCategory";
-			this.addNewCategory.Size = new System.Drawing.Size(390, 38);
+			this.addNewCategory.Size = new System.Drawing.Size(374, 22);
 			this.addNewCategory.Text = "Categories: add new category";
 			this.addNewCategory.Click += new System.EventHandler(this.addNewCategory_Click);
 			// 
@@ -301,7 +303,7 @@
 			// 
 			this.collapseAllCategories.Image = global::Nexus.Client.Properties.Resources.collapse_all;
 			this.collapseAllCategories.Name = "collapseAllCategories";
-			this.collapseAllCategories.Size = new System.Drawing.Size(390, 38);
+			this.collapseAllCategories.Size = new System.Drawing.Size(374, 22);
 			this.collapseAllCategories.Text = "Categories: collapse all categories";
 			this.collapseAllCategories.Click += new System.EventHandler(this.collapseAllCategories_Click);
 			// 
@@ -309,7 +311,7 @@
 			// 
 			this.expandAllCategories.Image = global::Nexus.Client.Properties.Resources.expand_all;
 			this.expandAllCategories.Name = "expandAllCategories";
-			this.expandAllCategories.Size = new System.Drawing.Size(390, 38);
+			this.expandAllCategories.Size = new System.Drawing.Size(374, 22);
 			this.expandAllCategories.Text = "Categories: expand all categories";
 			this.expandAllCategories.Click += new System.EventHandler(this.expandAllCategories_Click);
 			// 
@@ -317,7 +319,7 @@
 			// 
 			this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
 			this.resetDefaultCategories.Name = "resetDefaultCategories";
-			this.resetDefaultCategories.Size = new System.Drawing.Size(390, 38);
+			this.resetDefaultCategories.Size = new System.Drawing.Size(374, 22);
 			this.resetDefaultCategories.Text = "Categories: Update and reset to Nexus site defaults";
 			this.resetDefaultCategories.Click += new System.EventHandler(this.resetDefaultCategories_Click);
 			// 
@@ -325,7 +327,7 @@
 			// 
 			this.resetUnassignedToDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
 			this.resetUnassignedToDefaultCategories.Name = "resetUnassignedToDefaultCategories";
-			this.resetUnassignedToDefaultCategories.Size = new System.Drawing.Size(390, 38);
+			this.resetUnassignedToDefaultCategories.Size = new System.Drawing.Size(374, 22);
 			this.resetUnassignedToDefaultCategories.Text = "Categories: reset Unassigned mods to Nexus site defaults";
 			this.resetUnassignedToDefaultCategories.Click += new System.EventHandler(this.resetUnassignedToDefaultCategories_Click);
 			// 
@@ -333,7 +335,7 @@
 			// 
 			this.resetModsCategory.Image = global::Nexus.Client.Properties.Resources.reset_unassigned;
 			this.resetModsCategory.Name = "resetModsCategory";
-			this.resetModsCategory.Size = new System.Drawing.Size(390, 38);
+			this.resetModsCategory.Size = new System.Drawing.Size(374, 22);
 			this.resetModsCategory.Text = "Categories: reset all mods to unassigned";
 			this.resetModsCategory.Click += new System.EventHandler(this.resetModsCategory_Click);
 			// 
@@ -341,7 +343,7 @@
 			// 
 			this.removeAllCategories.Image = global::Nexus.Client.Properties.Resources.remove_all_categories;
 			this.removeAllCategories.Name = "removeAllCategories";
-			this.removeAllCategories.Size = new System.Drawing.Size(390, 38);
+			this.removeAllCategories.Size = new System.Drawing.Size(374, 22);
 			this.removeAllCategories.Text = "Categories: remove all categories";
 			this.removeAllCategories.Click += new System.EventHandler(this.removeAllCategories_Click);
 			// 
@@ -349,7 +351,7 @@
 			// 
 			this.toggleHiddenCategories.Image = global::Nexus.Client.Properties.Resources.reset_categories;
 			this.toggleHiddenCategories.Name = "toggleHiddenCategories";
-			this.toggleHiddenCategories.Size = new System.Drawing.Size(390, 38);
+			this.toggleHiddenCategories.Size = new System.Drawing.Size(374, 22);
 			this.toggleHiddenCategories.Text = "Categories: toggle hidden categories";
 			this.toggleHiddenCategories.Click += new System.EventHandler(this.toggleHiddenCategories_Click);
 			// 
@@ -379,15 +381,26 @@
 			// 
 			this.exportToTextFile.Image = global::Nexus.Client.Properties.Resources.export_text_file_flat;
 			this.exportToTextFile.Name = "exportToTextFile";
-			this.exportToTextFile.Size = new System.Drawing.Size(196, 38);
+			this.exportToTextFile.Size = new System.Drawing.Size(169, 22);
 			this.exportToTextFile.Text = "Text file";
 			// 
 			// exportToClipboard
 			// 
 			this.exportToClipboard.Image = global::Nexus.Client.Properties.Resources.export_clipboard_flat;
 			this.exportToClipboard.Name = "exportToClipboard";
-			this.exportToClipboard.Size = new System.Drawing.Size(196, 38);
+			this.exportToClipboard.Size = new System.Drawing.Size(169, 22);
 			this.exportToClipboard.Text = "Copy to clipboard";
+			// 
+			// tsbShowUpdatesOnly
+			// 
+			this.tsbShowUpdatesOnly.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbShowUpdatesOnly.Image = global::Nexus.Client.Properties.Resources.update_warning;
+			this.tsbShowUpdatesOnly.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbShowUpdatesOnly.Name = "tsbShowUpdatesOnly";
+			this.tsbShowUpdatesOnly.Size = new System.Drawing.Size(46, 36);
+			this.tsbShowUpdatesOnly.Text = "Filters the mod list showing only mods requiring an update";
+			this.tsbShowUpdatesOnly.ToolTipText = "Toggles filtering the mod list showing only mods requiring an update";
+			this.tsbShowUpdatesOnly.Click += new System.EventHandler(this.tsbShowUpdatesOnly_Click);
 			// 
 			// checkModUpdates
 			// 
@@ -413,7 +426,7 @@
 			// 
 			this.sptMods.Panel2.Controls.Add(this.sptSummaryInfo);
 			this.sptMods.Size = new System.Drawing.Size(922, 642);
-			this.sptMods.SplitterDistance = 650;
+			this.sptMods.SplitterDistance = 653;
 			this.sptMods.SplitterWidth = 3;
 			this.sptMods.TabIndex = 1;
 			// 
@@ -435,7 +448,8 @@
 			this.clwCategoryView.ShowHiddenCategories = false;
 			this.clwCategoryView.ShowImagesOnSubItems = true;
 			this.clwCategoryView.ShowItemToolTips = true;
-			this.clwCategoryView.Size = new System.Drawing.Size(650, 642);
+			this.clwCategoryView.ShowModUpdatesOnly = false;
+			this.clwCategoryView.Size = new System.Drawing.Size(653, 642);
 			this.clwCategoryView.Sorting = System.Windows.Forms.SortOrder.Ascending;
 			this.clwCategoryView.TabIndex = 0;
 			this.clwCategoryView.UseCompatibleStateImageBehavior = false;
@@ -465,7 +479,7 @@
 			// sptSummaryInfo.Panel2
 			// 
 			this.sptSummaryInfo.Panel2.Controls.Add(this.flbInfo);
-			this.sptSummaryInfo.Size = new System.Drawing.Size(269, 642);
+			this.sptSummaryInfo.Size = new System.Drawing.Size(266, 642);
 			this.sptSummaryInfo.SplitterDistance = 142;
 			this.sptSummaryInfo.SplitterWidth = 3;
 			this.sptSummaryInfo.TabIndex = 0;
@@ -476,7 +490,7 @@
 			this.ipbScreenShot.Location = new System.Drawing.Point(0, 0);
 			this.ipbScreenShot.Margin = new System.Windows.Forms.Padding(2);
 			this.ipbScreenShot.Name = "ipbScreenShot";
-			this.ipbScreenShot.Size = new System.Drawing.Size(269, 142);
+			this.ipbScreenShot.Size = new System.Drawing.Size(266, 142);
 			this.ipbScreenShot.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
 			this.ipbScreenShot.TabIndex = 0;
 			this.ipbScreenShot.TabStop = false;
@@ -491,7 +505,7 @@
 			this.flbInfo.Margin = new System.Windows.Forms.Padding(2);
 			this.flbInfo.MinimumSize = new System.Drawing.Size(15, 15);
 			this.flbInfo.Name = "flbInfo";
-			this.flbInfo.Size = new System.Drawing.Size(269, 497);
+			this.flbInfo.Size = new System.Drawing.Size(266, 497);
 			this.flbInfo.TabIndex = 0;
 			this.flbInfo.Text = null;
 			// 
@@ -571,5 +585,6 @@
         private System.Windows.Forms.ToolStripMenuItem exportToTextFile;
         private System.Windows.Forms.ToolStripMenuItem exportToClipboard;
         private System.Windows.Forms.SaveFileDialog sfdChooseExport;
-    }
+		private System.Windows.Forms.ToolStripButton tsbShowUpdatesOnly;
+	}
 }

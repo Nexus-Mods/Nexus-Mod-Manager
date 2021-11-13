@@ -184,6 +184,9 @@ namespace Nexus.Client.ModManagement.UI
 					ResetSearchBox(this, e);
 				}
 
+				tsbShowUpdatesOnly.Visible = !clwCategoryView.CategoryModeEnabled;
+				tsbShowUpdatesOnly.Image = Properties.Resources.update_warning_disabled;
+
 				m_booDisableSummary = false;
 			}
 		}
@@ -1388,6 +1391,7 @@ namespace Nexus.Client.ModManagement.UI
 		private void tsbSwitchCategory_Click(object sender, EventArgs e)
 		{
 			clwCategoryView.CategoryModeEnabled = !clwCategoryView.CategoryModeEnabled;
+			tsbShowUpdatesOnly.Visible = !clwCategoryView.CategoryModeEnabled;
 			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
 			clwCategoryView.ReloadList(false);
@@ -2595,6 +2599,23 @@ namespace Nexus.Client.ModManagement.UI
 					MessageBox.Show(this, message, "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				}
 			}
+		}
+
+		private void tsbShowUpdatesOnly_Click(object sender, EventArgs e)
+		{
+			clwCategoryView.Visible = false;
+			clwCategoryView.ShowModUpdatesOnly = !clwCategoryView.ShowModUpdatesOnly;
+
+			if (clwCategoryView.ShowModUpdatesOnly)
+				tsbShowUpdatesOnly.Image = Properties.Resources.update_warning;
+			else
+				tsbShowUpdatesOnly.Image = Properties.Resources.update_warning_disabled;
+
+			clwCategoryView.LoadData();
+			clwCategoryView.ReloadList(false);
+			ResetSearchBox(this, e);
+			clwCategoryView.Visible = true;
+			SetCommandExecutableStatus();
 		}
 	}
 

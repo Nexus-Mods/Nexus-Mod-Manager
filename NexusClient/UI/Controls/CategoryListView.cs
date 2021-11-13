@@ -247,6 +247,8 @@ namespace Nexus.Client.UI.Controls
 		/// <value>The application and user settings.</value>
 		protected ISettings Settings;
 
+		public bool ShowModUpdatesOnly { get; set; } = false;
+
 		#endregion
 
 		#region Constructors
@@ -819,7 +821,10 @@ namespace Nexus.Client.UI.Controls
 			else
 			{
 				tlcCategory.IsVisible = true;
-				this.SetObjects(m_rolManagedMods);
+				if (!ShowModUpdatesOnly)
+					this.SetObjects(m_rolManagedMods);
+				else
+					this.SetObjects(m_rolManagedMods.Where(m => m.UpdateWarningEnabled && (!m.IsMatchingVersion())));
 			}
 		}
 
@@ -928,7 +933,7 @@ namespace Nexus.Client.UI.Controls
 			{
 				return new List<IMod>();
 			}
-			return m_rolManagedMods.Where(mod => mod != null && (mod.CustomCategoryId >= 0 ? mod.CustomCategoryId : mod.CategoryId) == p_imcCategory.Id).ToList();
+			return m_rolManagedMods.Where(mod => mod != null && (mod.CustomCategoryId >= 0 ? mod.CustomCategoryId : mod.CategoryId) == p_imcCategory.Id)?.ToList();
 		}
 
 		/// <summary>
