@@ -306,14 +306,23 @@
 
 					ItemMessage = modUpdate.ModName;
 
-					var mod = _missingDownloadId != false ? _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) && (StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) ||
-						StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_", " ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase))) 
-						: _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) &&
-						modUpdate.FileName.Equals(Path.GetFileName(x.Filename)?.ToString(), StringComparison.OrdinalIgnoreCase));
+					// Increasing readability
+					IMod mod = null;
+
+					if (_missingDownloadId == false)
+					{
+						mod = _modList.Where(x => x != null).FirstOrDefault(m => !string.IsNullOrEmpty(modUpdate.FileName) &&
+							modUpdate.FileName.Equals(Path.GetFileName(m.Filename), StringComparison.OrdinalIgnoreCase));
+					}
+					else
+					{
+						mod = _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) && (StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) ||
+							StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_", " ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase)));
+					}
 
 					if (mod == null && !string.IsNullOrEmpty(modUpdate.DownloadId) && modUpdate.DownloadId != "0" && modUpdate.DownloadId != "-1")
 					{
-						mod = _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(x.DownloadId) && modUpdate.DownloadId.Equals(x.DownloadId.ToString(), StringComparison.OrdinalIgnoreCase));
+						mod = _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(x.DownloadId) && modUpdate.DownloadId.Equals(x.DownloadId, StringComparison.OrdinalIgnoreCase));
 					}
 
 					if (mod == null)
