@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <?define ProductVersion=!(bind.FileVersion.AppExecutable) ?>
+  <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+
+  <Product
+    Id="*"
+    Name="Nexus Mod Manager: Community Edition"
+    Language="1033"
+    Version="$(var.ProductVersion)"
+    Manufacturer="Blacktree Gaming"
+    UpgradeCode="6af12c54-643b-4752-87d0-8335503010de">
+
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel='high' />
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="..\NexusClient\data\License.rtf" />
+    <UIRef Id="WixUI_InstallDir_Custom" />
+
+    <!-- Set pre-enabled values for additional tasks dialog -->
+    <Property Id="CREATE_DESKTOPSHORTCUT" Value="1" />
+    <Property Id="CREATE_STARTMENUSHORTCUTS" Value="1" />
+    <Property Id="ASSOCIATE_NXMFILES" Value="1" />
+    <Property Id="ASSOCIATE_NXMURLS" Value="1" />
+    <Property Id="ASSOCIATE_FOMODFILES" Value="1" />
+    <Property Id="ASSOCIATE_OMODFILES" Value="1" />
+
+    <!-- Add custom action to launch NMM after installation -->
+    <Property Id="WixShellExecTarget" Value="[#AppExecutable]" />
+    <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+
+    <!-- Add checkbox to launch NMM on completion -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch application" />
+
+    <Feature Id="ProductFeature" Title="Installer" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="NmmFiles" />
+      <ComponentGroupRef Id="ShortcutGroup" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="NxmUrlRegistryEntries" />
+      <ComponentRef Id="NxmFileRegistryEntries" />
+      <ComponentRef Id="FomodFileRegistryEntries" />
+      <ComponentRef Id="OmodFileRegistryEntries" />
+    </Feature>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="077d3c39-1aa5-4455-8edf-e1e7d5d895cd">
+        <Condition>CREATE_STARTMENUSHORTCUTS</Condition>
+        <Shortcut Id="NmmStartMenuShortcut"
+                  Name="Nexus Mod Manager"
+                  Description="Tool for managing mods for various games."
+                  Target="[#AppExecutable]"
+                  WorkingDirectory="APPLICATIONROOTDIRECTORY"/>
+        <Shortcut Id="NmmTraceStartMenuShortcut"
+                  Name="Nexus Mod Manager (Trace)"
+                  Description="Starts NMM with forced trace log creation."
+                  Target="[#AppExecutable]"
+                  Arguments="/Trace"
+                  WorkingDirectory="APPLICATIONROOTDIRECTORY"/>
+        <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\NexusModManager" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="TARGETDIR">
+      <Component Id="NxmUrlRegistryEntries" Guid="026bf88c-73c6-47e4-86b1-765fc750c8e3">
+        <Condition>ASSOCIATE_NXMURLS</Condition>
+        <RegistryKey Root="HKCR"
+                     Key="nxm">
+          <RegistryValue Type="string" Value="URL:Nexus Mod" KeyPath="yes"/>
+          <RegistryValue Type="string" Name="URL Protocol" Value=""/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="nxm\DefaultIcon">
+          <RegistryValue Type="string" Value="[#AppExecutable],0"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="nxm\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[#AppExecutable]&quot; &quot;%1&quot;"/>
+        </RegistryKey>
+      </Component>
+
+      <Component Id="NxmFileRegistryEntries" Guid="9099aff2-8f70-41ab-989e-4674f9271ae8">
+        <Condition>ASSOCIATE_NXMFILES</Condition>
+        <RegistryKey Root="HKCR"
+                     Key=".nxm">
+          <RegistryValue Type="string" Value="NXM_File_Type" KeyPath="yes"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="NXM_File_Type">
+          <RegistryValue Type="string" Value="[ProductName] Mod Archive"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="NXM_File_Type\DefaultIcon">
+          <RegistryValue Type="string" Value="[#AppExecutable],0"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="NXM_File_Type\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[#AppExecutable]&quot; &quot;%1&quot;"/>
+        </RegistryKey>
+      </Component>
+
+      <Component Id="FomodFileRegistryEntries" Guid="5e70952e-568d-409c-a4c4-c1ba6a8e02f7">
+        <Condition>ASSOCIATE_FOMODFILES</Condition>
+        <RegistryKey Root="HKCR"
+                     Key=".fomod">
+          <RegistryValue Type="string" Value="FOMOD_File_Type" KeyPath="yes"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="FOMOD_File_Type">
+          <RegistryValue Type="string" Value="Fallout Mod Archive"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="FOMOD_File_Type\DefaultIcon">
+          <RegistryValue Type="string" Value="[#AppExecutable],0"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="FOMOD_File_Type\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[#AppExecutable]&quot; &quot;%1&quot;"/>
+        </RegistryKey>
+      </Component>
+
+      <Component Id="OmodFileRegistryEntries" Guid="ca73f319-9aed-4d9a-bedb-14b46c81b760">
+        <Condition>ASSOCIATE_OMODFILES</Condition>
+        <RegistryKey Root="HKCR"
+                     Key=".omod">
+          <RegistryValue Type="string" Value="OMOD_File_Type" KeyPath="yes"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="OMOD_File_Type">
+          <RegistryValue Type="string" Value="Oblivion Mod Archive"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="OMOD_File_Type\DefaultIcon">
+          <RegistryValue Type="string" Value="[#AppExecutable],0"/>
+        </RegistryKey>
+        <RegistryKey Root="HKCR"
+                     Key="OMOD_File_Type\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[#AppExecutable]&quot; &quot;%1&quot;"/>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="$(var.PlatformProgramFilesFolder)">
+        <Directory Id="INSTALLFOLDER" Name="Nexus Mod Manager" />
+      </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop" />
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Nexus Mod Manager"/>
+      </Directory>
+      <Directory Id="AppDataFolder">
+        <Directory Id="MicrosoftFolder" Name="Microsoft">
+          <Directory Id="InternetExplorerFolder" Name="Internet Explorer">
+            <Directory Id="QuickLaunchFolder" Name="Quick Launch" />
+          </Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="ApplicationFiles" Guid="9df19338-3072-492a-a093-e14e32010f31">
+        <File Id="AppExecutable" Source="..\Stage\Release\NexusClient.exe" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ShortcutGroup" Directory="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="26380265-17d4-4566-a10e-98267c56dcc4">
+        <Condition>CREATE_DESKTOPSHORTCUT</Condition>
+        <RegistryKey Root="HKCU" Key="NexusModManager">
+          <RegistryValue Name="DesktopShortcut" Value="1" Type="integer" KeyPath="yes"/>
+        </RegistryKey>
+        <Shortcut
+          Id="DesktopShortcut"
+          Directory="DesktopFolder"
+          Name="[ProductName]"
+          Target="[#AppExecutable]" />
+      </Component>
+      <Component Id="QuickLaunchShortcut" Guid="1895f09a-14a6-4bd1-a308-0d97ebfdb515">
+        <Condition>CREATE_QUICKLAUNCHSHORTCUT</Condition>
+        <RegistryKey Root="HKCU" Key="NexusModManager">
+          <RegistryValue Name="QuickLaunchShortcut" Value="1" Type="integer" KeyPath="yes"/>
+        </RegistryKey>
+        <Shortcut Id="QuickLaunchShortcut"
+                  Name="[ProductName]"
+                  Directory="QuickLaunchFolder"
+                  Target="[#AppExecutable]" />
+        <RemoveFolder Id="CleanUpQuickLaunchShortCut" Directory="QuickLaunchFolder" On="uninstall"/>
+        <RemoveFolder Id="CleanUpQuickLaunchShortCut2" Directory="InternetExplorerFolder" On="uninstall"/>
+        <RemoveFolder Id="CleanUpQuickLaunchShortCut3" Directory="MicrosoftFolder" On="uninstall"/>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+  <Fragment>
+    <UI>
+      <Dialog Id="ReleaseNotesDlg" Width="370" Height="270" Title="!(loc.LicenseAgreementDlg_Title)">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.LicenseAgreementDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="Please read the following important information before continuing." />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Release Notes" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="LicenseText" Type="ScrollableText" X="20" Y="60" Width="330" Height="140" Sunken="yes" TabSkip="no">
+          <Text SourceFile="..\NexusClient\data\releasenotes.rtf" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="AdditionalTasksDlg" Width="370" Height="270" Title="!(loc.LicenseAgreementDlg_Title)">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.LicenseAgreementDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="Which additional tasks should be performed?" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Select Additional Tasks" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+
+        <Control Type="Text" Id="ExplanatoryText" Width="296" Height="23" X="30" Y="56" Text="Select the additional tasks you would like Setup to perform while installing [ProductName], then click Next." />
+
+        <Control Type="Text" Id="ShortcutsTitle" Width="50" Height="10" X="34" Y="85" Text="Shortcuts:" />
+        <Control Type="CheckBox" Id="CreateStartMenuShortcuts" Width="300" Height="12" X="38" Y="100" Text="Create start menu shortcuts" Property="CREATE_STARTMENUSHORTCUTS" CheckBoxValue="1" />
+        <Control Type="CheckBox" Id="CreateDesktopShortcut" Width="300" Height="12" X="38" Y="115" Text="Create a desktop shortcut" Property="CREATE_DESKTOPSHORTCUT" CheckBoxValue="1" />
+        <Control Type="CheckBox" Id="CreateQuickLaunchShortcut" Width="300" Height="12" X="38" Y="130" Text="Create a Quick Launch shortcut" Property="CREATE_QUICKLAUNCHSHORTCUT" CheckBoxValue="1" />
+
+        <Control Type="Text" Id="AssociationsTitle" Width="50" Height="10" X="34" Y="150" Text="Associations:" />
+        <Control Type="CheckBox" Id="AssociateNxmUrl" Width="300" Height="12" X="38" Y="165" Text="Associate NXM:// URL's with [ProductName]" Property="ASSOCIATE_NXMURLS" CheckBoxValue="1" />
+        <Control Type="CheckBox" Id="AssociateNxmFiles" Width="300" Height="12" X="38" Y="180" Text="Associate *.nxm files with [ProductName]" Property="ASSOCIATE_NXMFILES" CheckBoxValue="1" />
+        <Control Type="CheckBox" Id="AssociateFomodFiles" Width="300" Height="12" X="38" Y="195" Text="Associate *.fomod files with [ProductName]" Property="ASSOCIATE_FOMODFILES" CheckBoxValue="1" />
+        <Control Type="CheckBox" Id="AssociateOmodFiles" Width="300" Height="12" X="38" Y="210" Text="Associate *.omod files with [ProductName]" Property="ASSOCIATE_OMODFILES" CheckBoxValue="1" />
+      </Dialog>
+
+      <Dialog Id="CommunityEditionNoticeDlg" Width="370" Height="270" Title="!(loc.LicenseAgreementDlg_Title)">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.LicenseAgreementDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="Please read the following important information before continuing." />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Community Edition notice" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="LicenseText" Type="ScrollableText" X="20" Y="60" Width="330" Height="140" Sunken="yes" TabSkip="no">
+          <Text SourceFile="..\NexusClient\data\NewVersionDisclaimer.rtf" />
+        </Control>
+      </Dialog>
+    </UI>
+
+    <UI Id="WixUI_InstallDir_Custom">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="InstallDir" />
+
+      <DialogRef Id="BrowseDlg" />
+      <DialogRef Id="DiskCostDlg" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Publish Dialog="BrowseDlg" Control="OK" Event="DoAction" Value="WixUIValidatePath" Order="3">1</Publish>
+      <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4"><![CDATA[NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
+
+      <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="CommunityEditionNoticeDlg">LicenseAccepted = "1"</Publish>
+
+      <Publish Dialog="CommunityEditionNoticeDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+      <Publish Dialog="CommunityEditionNoticeDlg" Control="Next" Event="NewDialog" Value="ReleaseNotesDlg">1</Publish>
+
+      <Publish Dialog="ReleaseNotesDlg" Control="Back" Event="NewDialog" Value="CommunityEditionNoticeDlg">1</Publish>
+      <Publish Dialog="ReleaseNotesDlg" Control="Next" Event="NewDialog" Value="AdditionalTasksDlg">1</Publish>
+
+      <Publish Dialog="AdditionalTasksDlg" Control="Back" Event="NewDialog" Value="ReleaseNotesDlg">1</Publish>
+      <Publish Dialog="AdditionalTasksDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg">1</Publish>
+
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="AdditionalTasksDlg">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="DoAction" Value="WixUIValidatePath" Order="2">NOT WIXUI_DONTVALIDATEPATH</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="SpawnDialog" Value="InvalidDirDlg" Order="3"><![CDATA[NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
+
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1">NOT Installed</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2">Installed AND PATCH</Publish>
+
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
+
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg">1</Publish>
+
+      <Property Id="ARPNOMODIFY" Value="1" />
+    </UI>
+
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
+</Wix>

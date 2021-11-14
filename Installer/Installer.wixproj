@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" InitialTargets="EnsureWixToolsetInstalled" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration>Release</Configuration>
+    <Platform>x64</Platform>
+    <ProductVersion>3.11</ProductVersion>
+    <ProjectGuid>{c0a4d374-dcf8-478b-9c52-55d9dbdcfdb4}</ProjectGuid>
+    <SchemaVersion>2.0</SchemaVersion>
+    <OutputType>Package</OutputType>
+    <OutputName>NexusModManager</OutputName>
+    <OutputPath>..\Stage\Installer\</OutputPath>
+    <IntermediateOutputPath>..\Stage\obj\$(Configuration)\Installer\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <SuppressIces>ICE69</SuppressIces>
+    <SuppressValidation>False</SuppressValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+  </ItemGroup>
+  <Import Project="$(WixTargetsPath)" Condition=" '$(WixTargetsPath)' != '' " />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets" Condition=" '$(WixTargetsPath)' == '' AND Exists('$(MSBuildExtensionsPath32)\Microsoft\WiX\v3.x\Wix.targets') " />
+  <Target Name="EnsureWixToolsetInstalled" Condition=" '$(WixTargetsImported)' != 'true' ">
+    <Error Text="The WiX Toolset v3.11 (or newer) build tools must be installed to build this project. To download the WiX Toolset, see http://wixtoolset.org/releases/" />
+  </Target>
+  <Target Name="BeforeBuild">
+    <CallTarget Targets="SetVersionNumberForInstaller" />
+    <CallTarget Targets="CopyFilesToInstallerTemp" />
+  </Target>
+  <Target Name="SetVersionNumberForInstaller">
+    <GetAssemblyIdentity AssemblyFiles="..\Stage\Release\NexusClient.exe">
+      <Output TaskParameter="Assemblies" ItemName="AsmInfo" />
+    </GetAssemblyIdentity>
+    <CreateProperty Value="%(AsmInfo.Version)">
+      <Output TaskParameter="Value" PropertyName="VersionNumber" />
+    </CreateProperty>
+    <CreateProperty Value="$(OutputName).$(VersionNumber)_$(Platform)">
+      <Output TaskParameter="Value" PropertyName="TargetName" />
+    </CreateProperty>
+    <CreateProperty Value="$(TargetName)$(TargetExt)">
+      <Output TaskParameter="Value" PropertyName="TargetFileName" />
+    </CreateProperty>
+    <CreateProperty Value="$(TargetDir)$(TargetFileName)">
+      <Output TaskParameter="Value" PropertyName="TargetPath" />
+    </CreateProperty>
+  </Target>
+  <PropertyGroup>
+    <NmmFiles>..\Stage\InstallerTemp</NmmFiles>
+    <DefineConstants>NmmFiles=$(NmmFiles)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <HarvestDirectory Include="$(NmmFiles)">
+      <InProject>False</InProject>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressCom>true</SuppressCom>
+      <SuppressRegistry>true</SuppressRegistry>
+      <ComponentGroupName>NmmFiles</ComponentGroupName>
+      <DirectoryRefID>INSTALLFOLDER</DirectoryRefID>
+      <PreprocessorVariable>var.NmmFiles</PreprocessorVariable>
+    </HarvestDirectory>
+  </ItemGroup>
+  <ItemGroup>
+    <WixExtension Include="WixUIExtension">
+      <HintPath>$(WixExtDir)\WixUIExtension.dll</HintPath>
+      <Name>WixUIExtension</Name>
+    </WixExtension>
+    <WixExtension Include="WixUtilExtension">
+      <HintPath>$(WixExtDir)\WixUtilExtension.dll</HintPath>
+      <Name>WixUtilExtension</Name>
+    </WixExtension>
+  </ItemGroup>
+  <Target Name="CopyFilesToInstallerTemp">
+    <RemoveDir Directories="..\Release\InstallerTemp" />
+    <MakeDir Directories="..\Stage\InstallerTemp" />
+    <ItemGroup>
+      <SourceFiles Include="..\Stage\Release\**\*.dll;..\Stage\Release\**\*.config;..\Stage\Release\**\*.txt;..\Stage\Release\**\*.rtf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SourceFiles)" DestinationFiles="@(SourceFiles->'..\Stage\InstallerTemp\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+</Project>
