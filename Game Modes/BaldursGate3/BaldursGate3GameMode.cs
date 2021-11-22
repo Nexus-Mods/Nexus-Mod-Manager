@@ -36,7 +36,9 @@ namespace Nexus.Client.Games.BaldursGate3
 	{
 		public string Author;
 		public string Name;
+		public string modName;
 		public string Folder;
+		public string folderName;
 		public string Version;
 		public string Description;
 		public string UUID;
@@ -372,7 +374,7 @@ namespace Nexus.Client.Games.BaldursGate3
 									XmlElement attribute = XDoc.CreateElement("attribute");
 									attribute.SetAttribute("id", "Folder");
 									attribute.SetAttribute("type", "LSString");
-									attribute.SetAttribute("value", mod.Folder);
+									attribute.SetAttribute("value", mod.Folder ?? mod.folderName);
 									modDesc.AppendChild(attribute);
 									attribute = XDoc.CreateElement("attribute");
 									attribute.SetAttribute("id", "MD5");
@@ -382,7 +384,7 @@ namespace Nexus.Client.Games.BaldursGate3
 									attribute = XDoc.CreateElement("attribute");
 									attribute.SetAttribute("id", "Name");
 									attribute.SetAttribute("type", "LSString");
-									attribute.SetAttribute("value", mod.Name);
+									attribute.SetAttribute("value", mod.Name ?? mod.modName);
 									modDesc.AppendChild(attribute);
 									attribute = XDoc.CreateElement("attribute");
 									attribute.SetAttribute("id", "UUID");
