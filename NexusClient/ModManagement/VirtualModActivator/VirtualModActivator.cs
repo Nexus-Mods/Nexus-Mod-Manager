@@ -1376,7 +1376,7 @@
 			{
 				if (GameMode.RealFileRequired(strFileType))
 				{
-					File.Copy(MultiHDMode ? strLinkFilePath : strActivatorFilePath, strVirtualFileLink, true);
+					File.Copy(strActivatorFilePath, strVirtualFileLink, true);
 
 					if (File.Exists(strVirtualFileLink))
 					{
