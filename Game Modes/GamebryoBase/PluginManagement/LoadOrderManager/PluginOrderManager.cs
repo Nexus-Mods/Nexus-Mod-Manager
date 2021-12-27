@@ -355,7 +355,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					break;
 				case "enderalspecialedition":
 					AppDataGameFolderName = "Enderal Special Edition";
-					IgnoreOfficialPlugins = true;
+					IgnoreOfficialPlugins = false;
 					TimestampOrder = false;
 					SingleFileManagement = true;
 					Fallout4PluginManagement = true;

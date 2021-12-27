@@ -96,12 +96,12 @@
 
 			if (!Disabling)
 			{
-				var modFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim());
-				var linkFilenamePath = MultiHDMode ? Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim()) : string.Empty;
-				var modDownloadIdPath = string.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId.Length <= 1 || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId);
-				var linkDownloadIdPath = MultiHDMode ? string.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId.Length <= 1 || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId) : string.Empty;
-				var modFolderPath = modFilenamePath;
-				var linkFolderPath = linkFilenamePath;
+				string modFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim());
+				string linkFilenamePath = MultiHDMode ? Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim()) : string.Empty;
+				string modDownloadIdPath = string.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId.Length <= 1 || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId);
+				string linkDownloadIdPath = MultiHDMode ? string.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId.Length <= 1 || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId) : string.Empty;
+				string modFolderPath = modFilenamePath;
+				string linkFolderPath = linkFilenamePath;
 
 				if (!string.IsNullOrWhiteSpace(modDownloadIdPath) && Directory.Exists(modDownloadIdPath))
                 {
@@ -153,17 +153,17 @@
 
 					if (files.Length > 0)
 					{
-						var modLinkInstaller = VirtualModActivator.GetModLinkInstaller();
+						IModLinkInstaller modLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 
-						foreach (var file in files)
+						foreach (string file in files)
 						{
 							ItemMessage = $"{(Disabling ? "Disabling" : "Activating")}: {file}";
 
-                            var strFile = MultiHDMode && file.Contains(linkFolderPath)
+                            string strFile = MultiHDMode && file.Contains(linkFolderPath)
                                 ? file.Replace(linkFolderPath + Path.DirectorySeparatorChar, string.Empty)
                                 : file.Replace(modFolderPath + Path.DirectorySeparatorChar, string.Empty);
 
-                            var fileLink = string.Empty;
+							string fileLink = string.Empty;
 
                             try
                             {
