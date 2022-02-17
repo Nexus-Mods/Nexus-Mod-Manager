@@ -23,10 +23,37 @@ namespace Nexus.Client.Games.BaldursGate3
 		{
 			get
 			{
-				string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+				string strPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 				strPath = Path.Combine(strPath, @"Larian Studios\Baldur's Gate 3\Mods");
 				if (!Directory.Exists(strPath))
 					Directory.CreateDirectory(strPath);
+				return strPath;
+			}
+		}
+
+		/// <summary>
+		/// Gets the path to which mod files should be installed.
+		/// </summary>
+		/// <value>The path to which mod files should be installed.</value>
+		public override string InstallationPath
+		{
+			get
+			{
+				string strPath = string.Empty;
+
+				if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(ModeId))
+				{
+					strPath = EnvironmentInfo.Settings.InstallationPaths[ModeId];
+				}
+
+				if (strPath.Contains(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)))
+				{
+					strPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+					strPath = Path.Combine(strPath, @"Larian Studios\Baldur's Gate 3\Mods");
+					EnvironmentInfo.Settings.InstallationPaths[ModeId] = strPath;
+					EnvironmentInfo.Settings.Save();
+				}
+
 				return strPath;
 			}
 		}

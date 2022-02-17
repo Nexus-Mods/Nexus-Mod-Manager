@@ -79,8 +79,21 @@ namespace Nexus.Client.Games.BaldursGate3
 		/// <c>null</c> if the path could be be determined.</returns>
 		public string GetInstallationPath(string p_strGameInstallPath)
 		{
-			string strPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-			strPath = Path.Combine(strPath, @"Larian Studios\Baldur's Gate 3\Mods");
+			string strPath = string.Empty;
+
+			if (EnvironmentInfo.Settings.InstallationPaths.ContainsKey(m_gmdGameModeDescriptor.ModeId))
+			{
+				strPath = EnvironmentInfo.Settings.InstallationPaths[m_gmdGameModeDescriptor.ModeId];
+			}
+
+			if (strPath.Contains(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)))
+			{
+				strPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+				strPath = Path.Combine(strPath, @"Larian Studios\Baldur's Gate 3\Mods");
+				EnvironmentInfo.Settings.InstallationPaths[m_gmdGameModeDescriptor.ModeId] = strPath;
+				EnvironmentInfo.Settings.Save();
+			}
+
 			return strPath;
 		}
 

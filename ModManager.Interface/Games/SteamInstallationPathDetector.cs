@@ -60,6 +60,8 @@
                         foreach (var node in kv.Children)
 						{
 							var nodePath = node.Value;
+                            if (string.IsNullOrEmpty(nodePath))
+                                continue;
 							appPath = Path.Combine(nodePath, @"steamapps\common\" + folderName);
 							
                             if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
@@ -79,8 +81,8 @@
 							var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
 							kv = KeyValue.LoadAsText(steamConfig);
 							var node =
-								kv.Children[0].Children[0].Children[0].Children.Single(x => x.Name == "apps")
-									.Children.Single(x => x.Name == steamId);
+								kv.Children[0]?.Children[0]?.Children[0]?.Children?.Single(x => x.Name == "apps")?
+									.Children?.Single(x => x.Name == steamId);
 							
                             if (node != null)
 							{

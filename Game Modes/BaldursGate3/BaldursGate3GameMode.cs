@@ -30,6 +30,7 @@ namespace Nexus.Client.Games.BaldursGate3
 	{
 		public BG3Mod[] Mods;
 		public string MD5;
+		public bool IsBorked;
 	}
 
 	public class BG3Mod
@@ -323,6 +324,7 @@ namespace Nexus.Client.Games.BaldursGate3
 
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
 		{
+			//if (Path.GetFileName(p_strPath).Equals("info.json", StringComparison.InvariantCultureIgnoreCase) || Path.GetFileName(p_strPath).Equals("manifest.json", StringComparison.InvariantCultureIgnoreCase))
 			if (Path.GetFileName(p_strPath).Equals("info.json", StringComparison.InvariantCultureIgnoreCase))
 			{
 				return string.Empty;
@@ -333,6 +335,7 @@ namespace Nexus.Client.Games.BaldursGate3
 
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
+			//if (Path.GetFileName(p_strPath).Equals("info.json", StringComparison.InvariantCultureIgnoreCase) || Path.GetFileName(p_strPath).Equals("manifest.json", StringComparison.InvariantCultureIgnoreCase))
 			if (Path.GetFileName(p_strPath).Equals("info.json", StringComparison.InvariantCultureIgnoreCase))
 			{
 				return string.Empty;
@@ -343,7 +346,7 @@ namespace Nexus.Client.Games.BaldursGate3
 
 		private void AddManifest(IMod p_modMod)
 		{
-			string profilesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"Larian Studios\Baldur's Gate 3\PlayerProfiles");
+			string profilesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Larian Studios\Baldur's Gate 3\PlayerProfiles");
 
 			if (Directory.Exists(profilesDirectory))
 			{
@@ -361,7 +364,15 @@ namespace Nexus.Client.Games.BaldursGate3
 							XDoc.Load(manifest);
 							XmlNode xmlMods = XDoc.DocumentElement.SelectSingleNode("//*[@id='Mods']");
 							XmlNode xmlChildren = xmlMods.FirstChild;
-							BG3Json currentMod = LoadJson(Encoding.ASCII.GetString(p_modMod.GetFile("info.json")));
+							BG3Json currentMod = null;
+
+							if (p_modMod.GetFileList().Contains("info.json", StringComparer.CurrentCultureIgnoreCase))
+								currentMod = LoadJson(Encoding.ASCII.GetString(p_modMod.GetFile("info.json")), false);
+							//else if (p_modMod.GetFileList().Contains("manifest.json", StringComparer.CurrentCultureIgnoreCase))
+							//	currentMod = LoadJson(Encoding.ASCII.GetString(p_modMod.GetFile("manifest.json")), true);
+
+							if (currentMod == null || currentMod.Mods == null)
+								continue;
 
 							foreach (BG3Mod mod in currentMod.Mods)
 							{
@@ -415,7 +426,7 @@ namespace Nexus.Client.Games.BaldursGate3
 
 		private void RemoveManifest(IMod p_modMod)
 		{
-			string profilesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"Larian Studios\Baldur's Gate 3\PlayerProfiles");
+			string profilesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Larian Studios\Baldur's Gate 3\PlayerProfiles");
 
 			if (Directory.Exists(profilesDirectory))
 			{
@@ -433,11 +444,24 @@ namespace Nexus.Client.Games.BaldursGate3
 							XDoc.Load(manifest);
 							XmlNode xmlMods = XDoc.DocumentElement.SelectSingleNode("//*[@id='Mods']");
 							XmlNode xmlChildren = xmlMods.FirstChild;
-							BG3Json currentMod = LoadJson(Encoding.ASCII.GetString(p_modMod.GetFile("info.json")));
+							BG3Json currentMod = null;
+
+							if (p_modMod.GetFileList().Contains("info.json", StringComparer.CurrentCultureIgnoreCase))
+								currentMod = LoadJson(Encoding.ASCII.GetString(p_modMod.GetFile("info.json")), false);
+							//else if (p_modMod.GetFileList().Contains("manifest.json", StringComparer.CurrentCultureIgnoreCase))
+							//	currentMod = LoadJson(Encoding.ASCII.GetString(p_modMod.GetFile("manifest.json")), true);
+
+							if (currentMod == null || currentMod.Mods == null)
+								continue;
 
 							foreach (BG3Mod mod in currentMod.Mods)
 							{
-								XmlNode xmlMod = XDoc.DocumentElement.SelectSingleNode("//*[@value='" + mod.UUID + "']");
+								XmlNode xmlMod = null;
+								
+								if (!currentMod.IsBorked)
+									xmlMod = XDoc.DocumentElement.SelectSingleNode("//*[@value='" + mod.UUID + "']");
+								else
+									xmlMod = XDoc.DocumentElement.SelectSingleNode("//*[@value='" + mod.Name + "']");
 
 								if (xmlMod != null)
 								{
@@ -459,9 +483,28 @@ namespace Nexus.Client.Games.BaldursGate3
 			}
 		}
 
-		public BG3Json LoadJson(string json)
+		public BG3Json LoadJson(string json, bool isBorked)
 		{
-			BG3Json items = JsonConvert.DeserializeObject<BG3Json>(json);
+			BG3Json items = new BG3Json();
+			BG3BorkedJson borked = null;
+
+			if (!isBorked)
+				items = JsonConvert.DeserializeObject<BG3Json>(json);
+			else
+			{
+				borked = JsonConvert.DeserializeObject<BG3BorkedJson>(json);
+				items.MD5 = string.Empty;
+				BG3Mod[] mods = new BG3Mod[1];
+				BG3Mod borkedMod = new BG3Mod();
+				borkedMod.Folder = borked.name;
+				borkedMod.UUID = Guid.NewGuid().ToString();
+				borkedMod.Name = borked.name;
+				borkedMod.Version = borked.version_number;
+				mods[0] = borkedMod;
+				items.Mods = mods;
+			}
+
+			items.IsBorked = isBorked;
 
 			return items;
 		}

@@ -124,14 +124,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				for (int i = 0; i < p_strPlugins.Length; i++)
 				{
 					string strPluginFile = p_strPlugins[i];
-					if (!String.IsNullOrWhiteSpace(strPluginFile) && (File.Exists(strPluginFile)))
+					if (!string.IsNullOrWhiteSpace(strPluginFile) && (File.Exists(strPluginFile)))
 					{
 						int intRepeat = 0;
 						bool booLocked = false;
 
 						while (!IsFileReady(strPluginFile, false))
 						{
-							Thread.Sleep(100);
+							System.Threading.Tasks.Task.Delay(100);
 							if (intRepeat++ > 10)
 							{
 								booLocked = true;
