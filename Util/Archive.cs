@@ -592,7 +592,12 @@ namespace Nexus.Client.Util
 				if (IsReadonly)
 				{
 					if (m_szeReadOnlyExtractor == null)
-						bteFile = File.ReadAllBytes(Path.Combine(m_strReadOnlyTempDirectory, strPath));
+					{
+						string path = Path.Combine(m_strReadOnlyTempDirectory, strPath);
+						if (!File.Exists(path))
+							throw new FileNotFoundException("The requested file does not exist in the temp archive.", path);
+						bteFile = File.ReadAllBytes(path);
+					}
 					else
 						m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, msmFile);
 				}

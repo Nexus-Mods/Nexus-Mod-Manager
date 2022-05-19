@@ -128,8 +128,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <returns>The specified image from the mod against which the script is running.</returns>
 		public Image GetImage(string p_strPath)
 		{
-			if (String.IsNullOrEmpty(p_strPath))
-				return null;
+			if (string.IsNullOrEmpty(p_strPath))
+				return Properties.Resources.notFoundJPG;
 			if (!m_dicImageCache.ContainsKey(p_strPath))
 			{
 				try
