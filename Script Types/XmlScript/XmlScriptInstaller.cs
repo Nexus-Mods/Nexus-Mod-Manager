@@ -250,7 +250,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			bool booSuccess = false;
 			string installDestination = string.Empty;
 
-			if (string.IsNullOrEmpty(p_strTo))
+			if (string.IsNullOrEmpty(p_strTo) || p_strTo.Equals("."))
 			{
 				installDestination = Path.GetFileName(p_strFrom);
 			}

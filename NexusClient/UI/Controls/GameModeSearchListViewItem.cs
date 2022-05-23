@@ -127,7 +127,7 @@ namespace Nexus.Client.UI.Controls
 		private void Detector_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
 			if (lblProgressMessage.InvokeRequired)
-				lblProgressMessage.Invoke((Action<object, PropertyChangedEventArgs>)Detector_PropertyChanged, sender, e);
+				lblProgressMessage.BeginInvoke((Action<object, PropertyChangedEventArgs>)Detector_PropertyChanged, sender, e);
 			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)))
 				lblProgressMessage.Text = Discoverer.OverallMessage;
 		}

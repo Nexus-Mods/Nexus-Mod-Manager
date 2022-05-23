@@ -89,7 +89,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 								if (iflFile.Destination.Length == 0)
 									lstActivate.Add(iflFile);
 							}
-							else if (String.IsNullOrEmpty(iflFile.Destination))
+							else if (string.IsNullOrEmpty(iflFile.Destination))
 							{
 								if (iflFile.Source.ToLower().EndsWith(".esm") || iflFile.Source.ToLower().EndsWith(".esp"))
 									lstActivate.Add(iflFile);

@@ -29,6 +29,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{ 
 			get
 			{
+				if (_destination.Equals("."))
+					return string.Empty;
+
 				return _destination;
 			}
 			set
@@ -102,15 +105,15 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		///or a value greater than 0 if this PluginFile is greater than the given PluginFile.</returns>
 		public int CompareTo(InstallableFile other)
 		{
-			Int32 intResult = Priority.CompareTo(other.Priority);
+			int intResult = Priority.CompareTo(other.Priority);
 			if (intResult == 0)
 			{
 				intResult =IsFolder.CompareTo(other.IsFolder);
 				if (intResult == 0)
 				{
-					intResult = String.Compare(Source, other.Source, StringComparison.OrdinalIgnoreCase);
+					intResult = string.Compare(Source, other.Source, StringComparison.OrdinalIgnoreCase);
 					if (intResult == 0)
-						intResult = String.Compare(Destination, other.Destination, StringComparison.OrdinalIgnoreCase);
+						intResult = string.Compare(Destination, other.Destination, StringComparison.OrdinalIgnoreCase);
 				}
 			}
 			return intResult;
