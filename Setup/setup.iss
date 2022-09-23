@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'NMM'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.83.6'
+#define MyAppVersion '0.83.7'
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'DuskDweller'
 
@@ -17,7 +17,7 @@ AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
-AppCopyright=Copyright � {#MyPublisher} 2019-2021
+AppCopyright=Copyright � {#MyPublisher} 2019-2022
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyPublisher}
 AppPublisher={#MyPublisher}
