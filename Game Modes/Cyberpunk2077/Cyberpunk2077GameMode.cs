@@ -346,7 +346,7 @@ namespace Nexus.Client.Games.Cyberpunk2077
 					strPath = Path.Combine("bin", strPath);
 				}
 			}
-			else if (!strPath.StartsWith("archive", StringComparison.InvariantCultureIgnoreCase))
+			else if (!strPath.StartsWith("archive", StringComparison.InvariantCultureIgnoreCase) && !strPath.StartsWith("red4ext", StringComparison.InvariantCultureIgnoreCase))
 			{
 				string modPath = string.Empty;
 
