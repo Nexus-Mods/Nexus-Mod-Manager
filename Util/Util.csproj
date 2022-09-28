@@ -49,6 +49,7 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="WindowsBase">
@@ -87,6 +88,7 @@
     <Compile Include="TextUtil.cs" />
     <Compile Include="ThreadSafeSevenZipExtractor.cs" />
     <Compile Include="JSONSerializer.cs" />
+    <Compile Include="WebPWrapper.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CancelProgressEventArgs.cs" />
@@ -106,6 +108,7 @@
     <Compile Include="UriUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

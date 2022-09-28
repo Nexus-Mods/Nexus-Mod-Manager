@@ -1,4 +1,7 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
+using static System.Net.Mime.MediaTypeNames;
+using System.IO;
 
 namespace Nexus.Client.Util
 {
@@ -34,7 +37,15 @@ namespace Nexus.Client.Util
 					return;
 				}
 				ImageConverter cnvConverter = new ImageConverter();
-				Image = (Image)cnvConverter.ConvertFrom(m_bteImage);
+				try
+				{
+					Image = (System.Drawing.Image)cnvConverter.ConvertFrom(m_bteImage);
+				}
+				catch 
+				{
+					using (WebP webp = new WebP())
+						Image = webp.Decode(m_bteImage);
+				}
 			}
 		}
 
@@ -42,7 +53,7 @@ namespace Nexus.Client.Util
 		/// Gets the underlying <see cref="Image"/> of the object.
 		/// </summary>
 		/// <value>The underlying <see cref="Image"/> of the object.</value>
-		public Image Image { get; private set; }
+		public System.Drawing.Image Image { get; private set; }
 
 		#endregion
 
@@ -65,7 +76,7 @@ namespace Nexus.Client.Util
 		/// </summary>
 		/// <param name="p_eimImage">The <see cref="ExtendedImage"/> to convert.</param>
 		/// <returns>The underlying <see cref="Image"/> of the object.</returns>
-		public static implicit operator Image(ExtendedImage p_eimImage)
+		public static implicit operator System.Drawing.Image(ExtendedImage p_eimImage)
 		{
 			return (p_eimImage == null) ? null : p_eimImage.Image;
 		}

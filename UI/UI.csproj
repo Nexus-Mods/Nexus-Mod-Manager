@@ -247,6 +247,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="Resources\arrow_down_black_small.png" />
   </ItemGroup>
   <ItemGroup>

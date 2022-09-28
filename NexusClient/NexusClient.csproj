@@ -482,6 +482,12 @@
     <None Include="Resources\deleteProfile.png" />
     <None Include="Resources\createBackup.png" />
     <None Include="Resources\restoreBackup.png" />
+    <Content Include="data\libwebp_x64.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\libwebp_x86.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="data\Third-Party Licenses\AntlrBuildTask License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -779,8 +785,8 @@
       <HintPath>..\lib\ObjectListView.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Pathoschild.Http.Client, Version=4.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Pathoschild.Http.FluentClient.4.1.0\lib\net45\Pathoschild.Http.Client.dll</HintPath>
+    <Reference Include="Pathoschild.Http.Client, Version=4.1.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Pathoschild.Http.FluentClient.4.1.1\lib\net452\Pathoschild.Http.Client.dll</HintPath>
     </Reference>
     <Reference Include="SevenZipSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.5.0.366\lib\net45\SevenZipSharp.dll</HintPath>
