@@ -127,8 +127,21 @@
 				_balloonManager.ShowPreviousClick += BalloonManagerShowPreviousClick;
 				_balloonManager.CloseClick += BalloonManagerCloseClick;
 
+				tsbSkyrimDownloads.Visible = _viewModel.ModManagerVM.IsSkyrimSEGameMode;
+
+				if (_viewModel.ModManagerVM.IsSkyrimSEGameMode)
+				{
+					tsbSkyrimDownloads.Text = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
+					_modManagerControl.ViewModel.SwitchingSkyrimDownloadMode += ViewModel_SwitchingSkyrimDownloadMode;
+				}
+
 				BindCommands();
 			}
+		}
+
+		private void ViewModel_SwitchingSkyrimDownloadMode(object sender, EventArgs e)
+		{
+			tsbSkyrimDownloads.Text = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
 		}
 
 		private void ModManagerVM_ProfileSwitchSettingUp(object sender, EventArgs<IBackgroundTask> e)
@@ -568,8 +581,9 @@
 			{
 				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.loggedin_flat, 32, 30);
 				
-				if (ViewModel.UserStatus.IsPremium)
-				{
+				// We no longer give a damn about a user's Nexus status
+				//if (ViewModel.UserStatus.IsPremium)
+				//{
                     toolStripButtonGoPremium.Visible = false;
                     OptionalPremiumMessage = string.Empty;
                     toolStripButtonGoPremium.Enabled = false;
@@ -582,24 +596,24 @@
                         toolStripProgressBarDownloadSpeed.ShowOptionalProgress = true;
                     }
                     toolStripLabelDownloads.Tag = "Download Progress:";
-                }
-				else
-				{
-                    toolStripButtonGoPremium.Visible = true;
-                    toolStripButtonGoPremium.Enabled = true;
-                    OptionalPremiumMessage = " Not a Premium Member.";
+                //}
+				//else
+				//{
+				//                toolStripButtonGoPremium.Visible = true;
+				//                toolStripButtonGoPremium.Enabled = true;
+				//                OptionalPremiumMessage = " Not a Premium Member.";
 
-                    if (toolStripProgressBarDownloadSpeed != null)
-                    {
-						// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
-                        toolStripProgressBarDownloadSpeed.Maximum = (ViewModel.UserStatus.IsSupporter) ? 2048 : 2048;
-                        toolStripProgressBarDownloadSpeed.Value = 0;
-                        toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Descending;
-                        toolStripProgressBarDownloadSpeed.ShowOptionalProgress = false;
-                    }
+				//                if (toolStripProgressBarDownloadSpeed != null)
+				//                {
+				//		// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
+				//                    toolStripProgressBarDownloadSpeed.Maximum = (ViewModel.UserStatus.IsSupporter) ? 2048 : 2048;
+				//                    toolStripProgressBarDownloadSpeed.Value = 0;
+				//                    toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Descending;
+				//                    toolStripProgressBarDownloadSpeed.ShowOptionalProgress = false;
+				//                }
 
-                    toolStripLabelDownloads.Tag = "Download Speed:";
-				}
+				//                toolStripLabelDownloads.Tag = "Download Speed:";
+				//}
 
                 if (toolStripProgressBarDownloadSpeed != null && _downloadMonitorControl.ViewModel.ActiveTasks.Count > 0)
                 {

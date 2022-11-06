@@ -26,7 +26,12 @@
                 return "skyrimspecialedition";
             }
 
-            if (currentGameDomain.Equals("falloutnv", StringComparison.OrdinalIgnoreCase))
+			if (currentGameDomain.Equals("skyrimgog", StringComparison.OrdinalIgnoreCase))
+			{
+				return "skyrimspecialedition";
+			}
+
+			if (currentGameDomain.Equals("falloutnv", StringComparison.OrdinalIgnoreCase))
             {
                 return "newvegas";
             }

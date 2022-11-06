@@ -554,6 +554,8 @@
     <None Include="Resources\obsidian_checkmark.png" />
     <None Include="Resources\obsidianshade_checkmark.png" />
     <None Include="Resources\kofi_button.png" />
+    <None Include="Resources\SkyrimGOG_logo.ico" />
+    <None Include="Resources\SkyrimSE_logo.ico" />
     <Content Include="Resources\tes_logo.ico" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
@@ -833,6 +835,10 @@
       <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
       <Name>Commanding</Name>
       <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Game Modes\SkyrimGOG\SkyrimGOG.csproj">
+      <Project>{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}</Project>
+      <Name>SkyrimGOG</Name>
     </ProjectReference>
     <ProjectReference Include="..\Mod Formats\FOMod\FOMod.csproj">
       <Project>{34B04F6B-0D64-455F-B20F-1C3E080AE601}</Project>

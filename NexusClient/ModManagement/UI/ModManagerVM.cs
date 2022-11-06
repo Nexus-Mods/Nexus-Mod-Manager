@@ -14,6 +14,7 @@ using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Commands;
+using System.Drawing;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -127,6 +128,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// Raised when reinstalling a single mod.
 		/// </summary>
 		public event EventHandler<EventArgs<IBackgroundTask>> ReinstallingMod = delegate { };
+
+		/// <summary>
+		/// Raised when changing the Skyrim SE download game mode.
+		/// </summary>
+		public event EventHandler SwitchingSkyrimDownloadMode = delegate { };
 
 		#endregion
 
@@ -352,6 +358,71 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		public bool IsSkyrimSEGameMode
+		{
+			get
+			{
+				return ModManager.GameMode.ModeId.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase) || ModManager.GameMode.ModeId.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase);
+			}
+		}
+
+		public string SkyrimSEDownloadOverride
+		{
+			get
+			{
+				return Settings.SkyrimSEDownloadOverride ?? "SkyrimSE";
+			}
+		}
+
+		public string SkyrimSEDownloadModeDescriptor
+		{
+			get
+			{
+				if (string.IsNullOrEmpty(SkyrimSEDownloadOverride))
+					return string.Empty;
+				else if (SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
+					return "Skyrim SE Game Mode";
+				else if (SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+					return "Skyrim GOG Game Mode";
+				else
+					return string.Empty;
+			}
+		}
+
+		public string SkyrimSEDownloadFeedback
+		{
+			get
+			{
+				return $"Download Mode: {SkyrimSEDownloadModeDescriptor} (change with left bar's bottom button) |";
+			}
+		}
+
+		public Image SkyrimDownloadImage
+		{
+			get
+			{
+				if (IsSkyrimSEGameMode)
+				{
+					if (SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
+					{
+						if (ModManager.GameMode.ModeId.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
+							return new Icon(ModManager.GameMode.ModeTheme.Icon, 32, 32).ToBitmap();
+						else
+							return new Icon(Properties.Resources.SkyrimSE_logo, 32, 32).ToBitmap();
+					}
+					else if (SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+					{
+						if (ModManager.GameMode.ModeId.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+							return new Icon(ModManager.GameMode.ModeTheme.Icon, 32, 32).ToBitmap();
+						else
+							return new Icon(Properties.Resources.SkyrimGOG_logo, 32, 32).ToBitmap();
+					}
+				}
+
+				return null;
+			}
+		}
+
 		#endregion
 
 		#region Constructors
@@ -370,6 +441,10 @@ namespace Nexus.Client.ModManagement.UI
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
 			CategoryManager = new CategoryManager(ModManager.CurrentGameModeModDirectory, "categories");
+
+			if (string.IsNullOrEmpty(Settings.SkyrimSEDownloadOverride))
+				SetSkyrimSEDownloadMode(ModManager.GameMode.ModeId);
+
 			if (this.CategoryManager.IsValidPath)
 			{
 				this.CategoryManager.LoadCategories(String.Empty);
@@ -1436,5 +1511,29 @@ namespace Nexus.Client.ModManagement.UI
         {
             ModManager.GameMode.SortMods(ReinstallMod, ActiveMods);
         }
+
+		public void SetSkyrimSEDownloadMode(string downloadModeId)
+		{
+			Settings.SkyrimSEDownloadOverride = downloadModeId;
+			Settings.Save();
+		}
+
+		public bool ToggleSkyrimSEDownloadMode()
+		{
+			string newDownloadGameModeId = string.Empty;
+			if (SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
+				newDownloadGameModeId = "SkyrimGOG";
+			else if (SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+				newDownloadGameModeId = "SkyrimSE";
+
+			if (!string.IsNullOrEmpty(newDownloadGameModeId))
+			{
+				SetSkyrimSEDownloadMode(newDownloadGameModeId);
+				SwitchingSkyrimDownloadMode?.Invoke(this, EventArgs.Empty);
+				return true;
+			}
+
+			return false;
+		}
 	}
 }

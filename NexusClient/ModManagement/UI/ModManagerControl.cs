@@ -108,6 +108,14 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.ExportModListToFileCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 				ViewModel.ExportModListToClipboardCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 
+				tsbSkyrimDownloads.Visible = ViewModel.IsSkyrimSEGameMode;
+
+				if (ViewModel.IsSkyrimSEGameMode)
+				{
+					tsbSkyrimDownloads.Image = ViewModel.SkyrimDownloadImage;
+					tsbSkyrimDownloads.Text = tsbSkyrimDownloads.ToolTipText = $"Skyrim SE current download mode: {ViewModel.SkyrimSEDownloadModeDescriptor}";
+				}
+
 				LoadMetrics();
 				HidePanels();
 			}
@@ -221,6 +229,15 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		#endregion
+
+		public void SetSkyrimDownloadModeFeedback()
+		{
+			if (ViewModel.IsSkyrimSEGameMode)
+			{
+				tsbSkyrimDownloads.Image = ViewModel.SkyrimDownloadImage;
+				tsbSkyrimDownloads.Text = tsbSkyrimDownloads.ToolTipText = $"Skyrim SE current download mode: {ViewModel.SkyrimSEDownloadModeDescriptor}";
+			}
+		}
 
 		public void ToggleDisabledSummary(bool toggle)
 		{
@@ -2616,6 +2633,14 @@ namespace Nexus.Client.ModManagement.UI
 			ResetSearchBox(this, e);
 			clwCategoryView.Visible = true;
 			SetCommandExecutableStatus();
+		}
+
+		private void tsbSkyrimDownloads_Click(object sender, EventArgs e)
+		{
+			if (_viewModel.ToggleSkyrimSEDownloadMode())
+			{
+				SetSkyrimDownloadModeFeedback();
+			}
 		}
 	}
 

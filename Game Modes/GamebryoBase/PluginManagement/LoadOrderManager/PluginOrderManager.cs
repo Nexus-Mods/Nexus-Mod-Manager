@@ -338,7 +338,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Fallout4PluginManagement = true;
 					ForcedReadOnly = false;
 					break;
-			    case "SkyrimVR":
+				case "SkyrimGOG":
+					AppDataGameFolderName = "Skyrim Special Edition GOG";
+					IgnoreOfficialPlugins = true;
+					TimestampOrder = false;
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					ForcedReadOnly = false;
+					break;
+				case "SkyrimVR":
 			        AppDataGameFolderName = "Skyrim VR";
 			        IgnoreOfficialPlugins = true;
 			        TimestampOrder = false;

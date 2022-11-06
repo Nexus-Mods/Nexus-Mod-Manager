@@ -1,0 +1,24 @@
+Dawnguard.esm
+Dragonborn.esm
+HearthFires.esm
+Skyrim - Animations.bsa
+Skyrim - Interface.bsa
+Skyrim - Meshes0.bsa
+Skyrim - Meshes1.bsa
+Skyrim - Misc.bsa
+Skyrim - Patch.bsa
+Skyrim - Shaders.bsa
+Skyrim - Sounds.bsa
+Skyrim - Textures0.bsa
+Skyrim - Textures1.bsa
+Skyrim - Textures2.bsa
+Skyrim - Textures3.bsa
+Skyrim - Textures4.bsa
+Skyrim - Textures5.bsa
+Skyrim - Textures6.bsa
+Skyrim - Textures7.bsa
+Skyrim - Textures8.bsa
+Skyrim - Voices_en0.bsa
+Skyrim.esm
+Update.esm
+Video\BGS_Logo.bik

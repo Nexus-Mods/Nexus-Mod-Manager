@@ -68,6 +68,7 @@
 			this.exportToTextFile = new System.Windows.Forms.ToolStripMenuItem();
 			this.exportToClipboard = new System.Windows.Forms.ToolStripMenuItem();
 			this.tsbShowUpdatesOnly = new System.Windows.Forms.ToolStripButton();
+			this.tsbSkyrimDownloads = new System.Windows.Forms.ToolStripButton();
 			this.checkModUpdates = new System.Windows.Forms.ToolStripMenuItem();
 			this.sptMods = new System.Windows.Forms.SplitContainer();
 			this.clwCategoryView = new Nexus.Client.UI.Controls.CategoryListView();
@@ -107,7 +108,8 @@
             this.tsbResetCategories,
             this.tsbSwitchView,
             this.tsbExportModList,
-            this.tsbShowUpdatesOnly});
+            this.tsbShowUpdatesOnly,
+            this.tsbSkyrimDownloads});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(49, 642);
@@ -402,6 +404,17 @@
 			this.tsbShowUpdatesOnly.ToolTipText = "Toggles filtering the mod list showing only mods requiring an update";
 			this.tsbShowUpdatesOnly.Click += new System.EventHandler(this.tsbShowUpdatesOnly_Click);
 			// 
+			// tsbSkyrimDownloads
+			// 
+			this.tsbSkyrimDownloads.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+			this.tsbSkyrimDownloads.Image = ((System.Drawing.Image)(resources.GetObject("tsbSkyrimDownloads.Image")));
+			this.tsbSkyrimDownloads.ImageTransparentColor = System.Drawing.Color.Magenta;
+			this.tsbSkyrimDownloads.Name = "tsbSkyrimDownloads";
+			this.tsbSkyrimDownloads.Size = new System.Drawing.Size(46, 36);
+			this.tsbSkyrimDownloads.Text = "toolStripButton1";
+			this.tsbSkyrimDownloads.Visible = false;
+			this.tsbSkyrimDownloads.Click += new System.EventHandler(this.tsbSkyrimDownloads_Click);
+			// 
 			// checkModUpdates
 			// 
 			this.checkModUpdates.Image = global::Nexus.Client.Properties.Resources.change_game_mode;
@@ -426,7 +439,7 @@
 			// 
 			this.sptMods.Panel2.Controls.Add(this.sptSummaryInfo);
 			this.sptMods.Size = new System.Drawing.Size(922, 642);
-			this.sptMods.SplitterDistance = 653;
+			this.sptMods.SplitterDistance = 655;
 			this.sptMods.SplitterWidth = 3;
 			this.sptMods.TabIndex = 1;
 			// 
@@ -449,7 +462,7 @@
 			this.clwCategoryView.ShowImagesOnSubItems = true;
 			this.clwCategoryView.ShowItemToolTips = true;
 			this.clwCategoryView.ShowModUpdatesOnly = false;
-			this.clwCategoryView.Size = new System.Drawing.Size(653, 642);
+			this.clwCategoryView.Size = new System.Drawing.Size(655, 642);
 			this.clwCategoryView.Sorting = System.Windows.Forms.SortOrder.Ascending;
 			this.clwCategoryView.TabIndex = 0;
 			this.clwCategoryView.UseCompatibleStateImageBehavior = false;
@@ -479,7 +492,7 @@
 			// sptSummaryInfo.Panel2
 			// 
 			this.sptSummaryInfo.Panel2.Controls.Add(this.flbInfo);
-			this.sptSummaryInfo.Size = new System.Drawing.Size(266, 642);
+			this.sptSummaryInfo.Size = new System.Drawing.Size(264, 642);
 			this.sptSummaryInfo.SplitterDistance = 142;
 			this.sptSummaryInfo.SplitterWidth = 3;
 			this.sptSummaryInfo.TabIndex = 0;
@@ -490,7 +503,7 @@
 			this.ipbScreenShot.Location = new System.Drawing.Point(0, 0);
 			this.ipbScreenShot.Margin = new System.Windows.Forms.Padding(2);
 			this.ipbScreenShot.Name = "ipbScreenShot";
-			this.ipbScreenShot.Size = new System.Drawing.Size(266, 142);
+			this.ipbScreenShot.Size = new System.Drawing.Size(264, 142);
 			this.ipbScreenShot.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
 			this.ipbScreenShot.TabIndex = 0;
 			this.ipbScreenShot.TabStop = false;
@@ -505,7 +518,7 @@
 			this.flbInfo.Margin = new System.Windows.Forms.Padding(2);
 			this.flbInfo.MinimumSize = new System.Drawing.Size(15, 15);
 			this.flbInfo.Name = "flbInfo";
-			this.flbInfo.Size = new System.Drawing.Size(266, 497);
+			this.flbInfo.Size = new System.Drawing.Size(264, 497);
 			this.flbInfo.TabIndex = 0;
 			this.flbInfo.Text = null;
 			// 
@@ -586,5 +599,6 @@
         private System.Windows.Forms.ToolStripMenuItem exportToClipboard;
         private System.Windows.Forms.SaveFileDialog sfdChooseExport;
 		private System.Windows.Forms.ToolStripButton tsbShowUpdatesOnly;
+		private System.Windows.Forms.ToolStripButton tsbSkyrimDownloads;
 	}
 }

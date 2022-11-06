@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30907.101
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32922.545
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Game Modes", "Game Modes", "{512B02AB-C927-4F3F-A7BF-26E6EE4CF678}"
 EndProject
@@ -158,6 +158,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MountAndBlade2Bannerlord", "Game Modes\MountAndBlade2Bannerlord\MountAndBlade2Bannerlord.csproj", "{22AFDD5E-007E-4F1E-A8CB-79B9C4534778}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BaldursGate3", "Game Modes\BaldursGate3\BaldursGate3.csproj", "{AC73C619-BACA-4229-8CF0-43188A3247FE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimGOG", "Game Modes\SkyrimGOG\SkyrimGOG.csproj", "{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimGOG.CSharpScript", "Game Modes\SkyrimGOG.CSharpScript\SkyrimGOG.CSharpScript.csproj", "{75121BFE-C4E2-4670-A720-F42EC83BBEC6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimGOG.XmlScript", "Game Modes\SkyrimGOG.XmlScript\SkyrimGOG.XmlScript.csproj", "{EF392B86-9F2F-4776-9329-5C1018B263AC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -439,6 +445,18 @@ Global
 		{AC73C619-BACA-4229-8CF0-43188A3247FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC73C619-BACA-4229-8CF0-43188A3247FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC73C619-BACA-4229-8CF0-43188A3247FE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}.Release|Any CPU.Build.0 = Release|Any CPU
+		{75121BFE-C4E2-4670-A720-F42EC83BBEC6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{75121BFE-C4E2-4670-A720-F42EC83BBEC6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{75121BFE-C4E2-4670-A720-F42EC83BBEC6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{75121BFE-C4E2-4670-A720-F42EC83BBEC6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF392B86-9F2F-4776-9329-5C1018B263AC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF392B86-9F2F-4776-9329-5C1018B263AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF392B86-9F2F-4776-9329-5C1018B263AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF392B86-9F2F-4776-9329-5C1018B263AC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -502,6 +520,9 @@ Global
 		{A0083668-F659-4371-B169-1BCA15119AFC} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{22AFDD5E-007E-4F1E-A8CB-79B9C4534778} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{AC73C619-BACA-4229-8CF0-43188A3247FE} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{AC26DA17-3D3F-4F82-90C3-2D1E177F9994} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{75121BFE-C4E2-4670-A720-F42EC83BBEC6} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{EF392B86-9F2F-4776-9329-5C1018B263AC} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}

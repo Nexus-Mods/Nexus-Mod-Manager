@@ -455,5 +455,11 @@
         /// The API key used to authenticate user against Nexus Mods API.
         /// </summary>
         string ApiKey { get; set; }
+
+		/// <summary>
+		/// This setting is a workaround to allow users to download SkyrimSE nxm links from within the desired game mode
+		/// Either SkyrimSE or SkyrimGOG.
+		/// </summary>
+		string SkyrimSEDownloadOverride { get; set; }
 	}
 }

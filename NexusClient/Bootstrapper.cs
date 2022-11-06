@@ -67,7 +67,10 @@
 			// Work-around for new game ID's from Nexus.
             if (gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase))
 			{
-				return "SkyrimSE";
+				if (!string.IsNullOrEmpty(_environmentInfo.Settings.SkyrimSEDownloadOverride) && _environmentInfo.Settings.SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+					return "SkyrimGOG";
+				else
+					return "SkyrimSE";
 			}
 			else if (gameModeFromUri.Equals("newvegas", StringComparison.OrdinalIgnoreCase))
 			{
