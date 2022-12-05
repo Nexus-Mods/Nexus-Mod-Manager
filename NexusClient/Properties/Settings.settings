@@ -132,7 +132,7 @@
 			<Value Profile="(Default)" />
 		</Setting>
 		<Setting Name="SkyrimSEDownloadOverride" Type="System.String" Scope="User">
-			<Value Profile="(Default)" />
+			<Value Profile="(Default)">SkyrimSE</Value>
 		</Setting>
 		<Setting Name="AssociateWithUrl" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">False</Value>
