@@ -537,7 +537,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        [global::System.Configuration.DefaultSettingValueAttribute("SkyrimSE")]
         public string SkyrimSEDownloadOverride {
             get {
                 return ((string)(this["SkyrimSEDownloadOverride"]));
