@@ -561,7 +561,8 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions {
+		[global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfBoolean />")]
+		public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions {
             get {
                 return ((global::Nexus.Client.Settings.KeyedSettings<bool>)(this["AddShellExtensions"]));
             }
