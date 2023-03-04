@@ -132,9 +132,9 @@
 		/// Toggles the endorsement for the given mod.
 		/// </summary>
 		/// <param name="mod">The mod to endorse/unendorse.</param>
-		public void ToggleModEndorsement(IMod mod)
+		public async void ToggleModEndorsement(IMod mod)
 		{
-			var booEndorsementState = ModRepository.ToggleEndorsement(mod.Id, mod.IsEndorsed == true ? 1 : mod.IsEndorsed == false ? -1 : 0, mod.HumanReadableVersion);
+			var booEndorsementState = await ModRepository.ToggleEndorsement(mod.Id, mod.IsEndorsed == true ? 1 : mod.IsEndorsed == false ? -1 : 0, mod.HumanReadableVersion);
 
             if (booEndorsementState == null)
             {

@@ -347,7 +347,7 @@
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
-		public bool? ToggleEndorsement(string modId, int localState, string version)
+		public async Task<bool?> ToggleEndorsement(string modId, int localState, string version)
 		{
 			var id = Convert.ToInt32(modId);
 			var localStateAfterCompletion = localState != 1;
@@ -373,7 +373,7 @@
 
 				while (!action.IsCompleted)
 				{
-					Task.Delay(250);
+					await Task.Delay(250);
 					timeout -= 250;
 
 					if (timeout <= 0)

@@ -2,7 +2,8 @@
 {
     using System;
     using System.Collections.Generic;
-    using ModManagement;
+	using System.Threading.Tasks;
+	using ModManagement;
     using Mods;
     using Pathoschild.FluentNexus;
     using Pathoschild.FluentNexus.Models;
@@ -143,7 +144,7 @@
         /// <param name="localState">The local Endorsement state.</param>
         /// <param name="version">Version of the mod to endorse.</param>
         /// <returns>The updated online Endorsement state.</returns>
-        bool? ToggleEndorsement(string modId, int localState, string version);
+        Task<bool?> ToggleEndorsement(string modId, int localState, string version);
 
 		/// <summary>
 		/// Gets the list of files for the specified mod.
