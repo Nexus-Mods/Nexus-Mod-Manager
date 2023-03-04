@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="Audio" ID="8">
+      <name>Audio</name>
+    </category>
+    <category path="Brooms" ID="3">
+      <name>Brooms</name>
+    </category>
+    <category path="Characters" ID="7">
+      <name>Characters</name>
+    </category>
+    <category path="Clothing" ID="10">
+      <name>Clothing</name>
+    </category>
+    <category path="Creatures" ID="9">
+      <name>Creatures</name>
+    </category>
+    <category path="Environment" ID="14">
+      <name>Environment</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Spells" ID="4">
+      <name>Spells</name>
+    </category>
+    <category path="Tools and Utilities" ID="11">
+      <name>Tools and Utilities</name>
+    </category>
+    <category path="User Interface" ID="5">
+      <name>User Interface</name>
+    </category>
+    <category path="Visual" ID="3">
+      <name>Visual</name>
+    </category>
+    <category path="Wands" ID="12">
+      <name>Wands</name>
+    </category>
+  </categoryList>
+</categoryManager>
