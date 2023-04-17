@@ -756,7 +756,7 @@
 
                     foreach (var strExtension in PluginExtensions)
                     {
-                        if (_archiveFile.GetFiles(strSourcePath, "*" + strExtension, false).Length > 0)
+                        if (_archiveFile.GetFilesWithExtension(strSourcePath, "*" + strExtension, false).Length > 0)
                         {
                             booFound = true;
                             break;

@@ -558,6 +558,25 @@ namespace Nexus.Client.Util
 		}
 
 		/// <summary>
+		/// Gets a list of files that are in the specified directory and match the given pattern in this archive.
+		/// </summary>
+		/// <param name="p_strDirectory">The directory in the archive whose descendents are to be returned.</param>
+		/// <param name="p_strPattern">The filename pattern of the files to be returned.</param>
+		/// <param name="p_booRecurse">Whether to return files that are in subdirectories of the given directory.</param>
+		/// <returns>A list of files that are in the specified directory and match the given pattern in this archive.</returns>
+		public string[] GetFilesWithExtension(string p_strDirectory, string p_strPattern, bool p_booRecurse)
+		{
+			Set<string> lstFiles = new Set<string>(StringComparer.InvariantCultureIgnoreCase);
+			string[] strFiles = GetFiles(p_strDirectory, p_booRecurse);
+
+			foreach (string strFile in strFiles)
+				if (!string.IsNullOrEmpty(strFile) && !string.IsNullOrEmpty(Path.GetExtension(strFile)))
+					if (Path.GetExtension(strFile).EndsWith(p_strPattern))
+						lstFiles.Add(strFile);
+			return lstFiles.ToArray();
+		}
+
+		/// <summary>
 		/// Determins if the archive contains the specified file.
 		/// </summary>
 		/// <param name="p_strPath">The path of the file whose presence in the archive is to be determined.</param>
