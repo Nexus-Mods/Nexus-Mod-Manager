@@ -1527,6 +1527,11 @@ namespace Nexus.Client.ModManagement.UI
 				Settings.SkyrimSEDownloadOverride = "SkyrimSE";
 				Settings.Save();
 			}
+			else if (Settings.SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
+			{
+				Settings.SkyrimSEDownloadOverride = "SkyrimGOG";
+				Settings.Save();
+			}
 		}
 
 		public bool ToggleSkyrimSEDownloadMode()
