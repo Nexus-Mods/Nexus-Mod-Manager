@@ -442,7 +442,8 @@ namespace Nexus.Client.ModManagement.UI
 			CurrentTheme = p_thmTheme;
 			CategoryManager = new CategoryManager(ModManager.CurrentGameModeModDirectory, "categories");
 
-			SetSkyrimSEDownloadMode(ModManager.GameMode.ModeId);
+			if (string.IsNullOrEmpty(Settings.SkyrimSEDownloadOverride))
+				SetSkyrimSEDownloadMode(ModManager.GameMode.ModeId);
 
 			if (this.CategoryManager.IsValidPath)
 			{
