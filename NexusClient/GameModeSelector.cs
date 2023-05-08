@@ -95,6 +95,14 @@ namespace Nexus.Client
 					return null;
 			}
 			Trace.WriteLine(strSelectedGame);
+
+			if (!InstalledGameModes.IsRegistered(strSelectedGame) && strSelectedGame.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+			{
+				strSelectedGame = "SkyrimSE";
+				EnvironmentInfo.Settings.SkyrimSEDownloadOverride = "strSelectedGame";
+				EnvironmentInfo.Settings.Save();
+			}
+			
 			if (!InstalledGameModes.IsRegistered(strSelectedGame))
 			{
 				StringBuilder stbError = new StringBuilder();
