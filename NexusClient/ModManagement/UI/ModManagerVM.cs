@@ -1522,7 +1522,7 @@ namespace Nexus.Client.ModManagement.UI
 
 				Settings.Save();
 			}
-			else if (!Settings.SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase) && !Settings.SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+			else if (!Settings.SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
 			{
 				Settings.SkyrimSEDownloadOverride = "SkyrimSE";
 				Settings.Save();
