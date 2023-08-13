@@ -10,7 +10,7 @@ namespace Nexus.Client.Games.BaldursGate3
 	/// </summary>
 	public class BaldursGate3GameModeDescriptor : GameModeDescriptorBase
 	{
-		private static string[] EXECUTABLES = { "LariLauncher.exe" };
+		private static string[] EXECUTABLES = { @"Launcher\LariLauncher.exe" };
 		private const string MODE_ID = "BaldursGate3";
 
 		#region Properties
@@ -46,7 +46,7 @@ namespace Nexus.Client.Games.BaldursGate3
 					strPath = EnvironmentInfo.Settings.InstallationPaths[ModeId];
 				}
 
-				if (strPath.Contains(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)))
+				if (string.IsNullOrEmpty(strPath) || strPath.Contains(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)))
 				{
 					strPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 					strPath = Path.Combine(strPath, @"Larian Studios\Baldur's Gate 3\Mods");
