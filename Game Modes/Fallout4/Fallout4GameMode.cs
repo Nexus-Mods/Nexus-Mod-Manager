@@ -11,6 +11,7 @@ using Nexus.Client.Util;
 using Nexus.Client.Games.Fallout4.Settings;
 using Nexus.Client.Games.Fallout4.Settings.UI;
 using Nexus.Client.Settings.UI;
+using Nexus.Client.Mods;
 
 namespace Nexus.Client.Games.Fallout4
 {
@@ -224,6 +225,24 @@ namespace Nexus.Client.Games.Fallout4
 		}
 
 		#endregion
+
+		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
+		{
+			if (!string.IsNullOrEmpty(p_strPath) && p_strPath.Contains(Path.DirectorySeparatorChar) && p_strPath.Count(x => x == Path.DirectorySeparatorChar) == 1)
+			{
+				if (Array.IndexOf(m_gmdGameModeInfo.PluginExtensions.ToArray(), Path.GetExtension(p_strPath).ToLowerInvariant()) > -1)
+				{
+					string root = Path.GetDirectoryName(p_strPath);
+
+					if (!string.IsNullOrEmpty(root) && !root.Equals("Data", StringComparison.OrdinalIgnoreCase))
+					{
+						p_strPath = p_strPath.Replace(root, "Data");
+					}
+				}
+			}
+
+			return base.GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_booIgnoreIfPresent);
+		}
 
 		/// <summary>
 		/// Whether the profile manager should save extra files for the current game mode.
