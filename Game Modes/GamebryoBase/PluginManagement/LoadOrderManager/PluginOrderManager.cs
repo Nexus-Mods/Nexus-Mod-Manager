@@ -369,6 +369,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					Fallout4PluginManagement = true;
 					ForcedReadOnly = false;
 					break;
+				case "Starfield":
+					AppDataGameFolderName = "Starfield";
+					IgnoreOfficialPlugins = true;
+					TimestampOrder = false;
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					ForcedReadOnly = false;
+					break;
 				default:
 					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}

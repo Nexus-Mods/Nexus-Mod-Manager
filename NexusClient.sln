@@ -167,6 +167,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyrimGOG.XmlScript", "Game
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HogwartsLegacy", "Game Modes\HogwartsLegacy\HogwartsLegacy.csproj", "{E38AC356-D5BF-4A1F-98D7-56E8B7041E0C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Starfield.XmlScript", "Game Modes\Starfield.XmlScript\Starfield.XmlScript.csproj", "{6067A818-48D8-4C93-A0AA-E70F8EC04E63}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Starfield", "Game Modes\Starfield\Starfield.csproj", "{4C1004DA-9145-4F96-A6D9-0B1BAB3AF33A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -463,6 +467,14 @@ Global
 		{E38AC356-D5BF-4A1F-98D7-56E8B7041E0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E38AC356-D5BF-4A1F-98D7-56E8B7041E0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E38AC356-D5BF-4A1F-98D7-56E8B7041E0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6067A818-48D8-4C93-A0AA-E70F8EC04E63}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6067A818-48D8-4C93-A0AA-E70F8EC04E63}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6067A818-48D8-4C93-A0AA-E70F8EC04E63}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6067A818-48D8-4C93-A0AA-E70F8EC04E63}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C1004DA-9145-4F96-A6D9-0B1BAB3AF33A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C1004DA-9145-4F96-A6D9-0B1BAB3AF33A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C1004DA-9145-4F96-A6D9-0B1BAB3AF33A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C1004DA-9145-4F96-A6D9-0B1BAB3AF33A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -530,6 +542,8 @@ Global
 		{75121BFE-C4E2-4670-A720-F42EC83BBEC6} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{EF392B86-9F2F-4776-9329-5C1018B263AC} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 		{E38AC356-D5BF-4A1F-98D7-56E8B7041E0C} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{6067A818-48D8-4C93-A0AA-E70F8EC04E63} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
+		{4C1004DA-9145-4F96-A6D9-0B1BAB3AF33A} = {512B02AB-C927-4F3F-A7BF-26E6EE4CF678}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F86C40E-2D9A-4720-8C7D-E3252AA108CB}

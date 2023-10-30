@@ -81,9 +81,7 @@
     <Compile Include="UI\Controls\NodeEditor.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\Controls\NodeEditors\ConditionallyInstalledFileSetEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
+    <Compile Include="UI\Controls\NodeEditors\ConditionallyInstalledFileSetEditor.cs" />
     <Compile Include="UI\Controls\NodeEditors\ConditionallyInstalledFileSetEditor.Designer.cs">
       <DependentUpon>ConditionallyInstalledFileSetEditor.cs</DependentUpon>
     </Compile>

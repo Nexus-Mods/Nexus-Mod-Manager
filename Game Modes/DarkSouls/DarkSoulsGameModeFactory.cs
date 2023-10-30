@@ -64,7 +64,7 @@ namespace Nexus.Client.Games.DarkSouls
 		public string GetInstallationPath()
 		{
 
-            string strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("211420", "Dark Souls Prepare to Die Edition\\Data", "DARKSOULS.exe");
+            string strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("211420", "Dark Souls Prepare to Die Edition", @"Data\DARKSOULS.exe");
 
 			return strValue;
 		}

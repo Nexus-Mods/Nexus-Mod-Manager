@@ -63,7 +63,7 @@ namespace Nexus.Client.Games.BaldursGate3
 		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
-            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("1086940", @"Baldurs Gate 3\Launcher", "LariLauncher.exe");
+            var strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("1086940", @"Baldurs Gate 3", @"Launcher\LariLauncher.exe");
 
 			return strValue;
 		}

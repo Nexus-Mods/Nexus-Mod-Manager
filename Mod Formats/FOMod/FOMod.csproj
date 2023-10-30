@@ -41,15 +41,32 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="SevenZipSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
-      <HintPath>..\..\Stage\packages\Squid-Box.SevenZipSharp.1.5.0.366\lib\net45\SevenZipSharp.dll</HintPath>
+    <Reference Include="SevenZipSharp, Version=1.6.1.23, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\Squid-Box.SevenZipSharp.1.6.1.23\lib\netstandard2.0\SevenZipSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Configuration.ConfigurationManager, Version=4.0.1.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\System.Configuration.ConfigurationManager.4.5.0\lib\net461\System.Configuration.ConfigurationManager.dll</HintPath>
+    </Reference>
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Data" />
+    <Reference Include="System.Data.OracleClient" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Net" />
+    <Reference Include="System.Security.AccessControl, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\System.Security.AccessControl.4.5.0\lib\net461\System.Security.AccessControl.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Permissions, Version=4.0.1.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\System.Security.Permissions.4.5.0\lib\net461\System.Security.Permissions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Principal.Windows, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\System.Security.Principal.Windows.4.5.0\lib\net461\System.Security.Principal.Windows.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Transactions" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>

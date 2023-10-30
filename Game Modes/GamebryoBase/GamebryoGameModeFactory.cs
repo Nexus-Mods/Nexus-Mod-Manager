@@ -129,7 +129,12 @@ namespace Nexus.Client.Games.Gamebryo
                         File.Create(gmdGameMode.SettingsFiles.IniPath);
                         p_imsWarning = null;
                     }
-                    else
+					else if (gmdGameMode.ModeId.Equals("Starfield", StringComparison.OrdinalIgnoreCase))
+					{
+						File.Create(gmdGameMode.SettingsFiles.IniPath);
+						p_imsWarning = null;
+					}
+					else
                     {
                         p_imsWarning = new ViewMessage(String.Format("You have no {0} INI file. Please run {0} to initialize the file before installing any mods or turning on Archive Invalidation.", gmdGameMode.Name), null, "Missing INI", MessageBoxIcon.Warning);
                     }

@@ -78,19 +78,33 @@
 						{
 							Trace.TraceInformation(folderName + " is not installed in standard directory. Checking steam config.vdf...");
 
-							var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
+							var steamConfig = Path.Combine(Path.Combine(steamPath, "steamapps"), "libraryfolders.vdf");
+							//var steamConfig = Path.Combine(Path.Combine(steamPath, "config"), "config.vdf");
 							kv = KeyValue.LoadAsText(steamConfig);
-							var node =
-								kv.Children[0]?.Children[0]?.Children[0]?.Children?.Single(x => x.Name == "apps")?
-									.Children?.Single(x => x.Name == steamId);
-							
-                            if (node != null)
-							{
-								appPath = node.Children.Single(x => x.Name == "installdir").Value;
-								
-                                if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
+
+
+                            if (kv != null)
+                            {
+                                foreach (var children in kv.Children)
                                 {
-                                    value = appPath;
+                                    try
+                                    {
+                                        var node = children?.Children?.Single(x => x.Name == "apps")?
+                                                .Children?.Single(x => x.Name == steamId);
+
+                                        if (node != null)
+                                        {
+                                            appPath = children.Children[0].Value;
+                                            appPath = Path.Combine(Path.Combine(Path.Combine(appPath, @"steamapps\common"), folderName));
+
+											if (Directory.Exists(appPath) && File.Exists(Path.Combine(appPath, binaryName)))
+                                            {
+                                                value = appPath;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    catch { }
                                 }
                             }
 						}

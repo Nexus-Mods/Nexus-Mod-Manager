@@ -63,7 +63,7 @@ namespace Nexus.Client.Games.Witcher2
 		/// <c>null</c> if the path could not be determined.</returns>
 		public string GetInstallationPath()
 		{
-            string strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("20920", "the witcher 2\\bin", "witcher2.exe");
+            string strValue = SteamInstallationPathDetector.Instance.GetSteamInstallationPath("20920", "the witcher 2", @"bin\witcher2.exe");
 
 			if (strValue == null)
 			{
