@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'NMM'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.84.9'
+#define MyAppVersion '0.85.0'
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'DuskDweller'
 
