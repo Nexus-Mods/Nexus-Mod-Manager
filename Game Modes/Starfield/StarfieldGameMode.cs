@@ -290,31 +290,28 @@ namespace Nexus.Client.Games.Starfield
 			bool booNewLoose = false;
 			p_strMessage = string.Empty;
 
-			// Currently unsupported
-			return false;
-
 			if (m_booOldEditsWarning)
 				return false;
 
-			if (!File.Exists(m_strStarfieldIni))
-				return false;
+			//if (!File.Exists(m_strStarfieldPrefs))
+			//	return false;
 
-			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strStarfieldIni);
-			string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
+			//GamebryoIniReader girIniReader = new GamebryoIniReader(m_strStarfieldIni);
+			//string strLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
 
-			if (!File.Exists(m_strStarfieldPrefs))
-				return false;
+			//if (!File.Exists(m_strStarfieldPrefs))
+			//	return false;
 
 			if (!File.Exists(m_strStarfieldCustom))
-				return false;
+				File.Create(m_strStarfieldCustom);
 
-			girIniReader = new GamebryoIniReader(m_strStarfieldCustom);
+			GamebryoIniReader girIniReader = new GamebryoIniReader(m_strStarfieldCustom);
 			string strCustomLoose = girIniReader.GetValue("Archive", "sResourceDataDirsFinal", m_strLooseDefaultValue);
 			string strCustomInvalidate = girIniReader.GetValue("Archive", "bInvalidateOlderFiles", null);
 
-			if (!string.IsNullOrEmpty(strLoose))
-				if (!strLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
-					booLoose = true;
+			//if (!string.IsNullOrEmpty(strLoose))
+			//	if (!strLoose.Equals(m_strLooseDefaultValue, StringComparison.OrdinalIgnoreCase))
+			//		booLoose = true;
 
 			if (string.IsNullOrEmpty(strCustomInvalidate))
 				booNewLoose = true;
@@ -329,9 +326,7 @@ namespace Nexus.Client.Games.Starfield
             {
                 try
                 {
-                    string DesiredContent = @"[Display]
-iLocation X=0
-iLocation Y=0
+                    string DesiredContent = @"
 [Archive]
 bInvalidateOlderFiles=1
 sResourceDataDirsFinal=

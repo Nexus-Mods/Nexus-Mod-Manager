@@ -92,45 +92,13 @@
         {
             if (ConfirmAiReset())
             {
-                var pluginsPath = GameMode.PluginDirectory;
+                string pluginsPath = GameMode.PluginDirectory;
 
                 try
                 {
-                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("Starfield - *.ba2"))
-                    {
-                        fi.LastWriteTime = new DateTime(2008, 10, 1);
-                    }
+					GameMode.RequiresExternalConfig(out pluginsPath);
 
-                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCRobot - *.ba2"))
-                    {
-                        fi.LastWriteTime = new DateTime(2008, 10, 2);
-                    }
-
-                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCworkshop01 - *.ba2"))
-                    {
-                        fi.LastWriteTime = new DateTime(2008, 10, 3);
-                    }
-
-                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCCoast - *.ba2"))
-                    {
-                        fi.LastWriteTime = new DateTime(2008, 10, 4);
-                    }
-
-                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCworkshop02 - *.ba2"))
-                    {
-                        fi.LastWriteTime = new DateTime(2008, 10, 5);
-                    }
-
-                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCworkshop03 - *.ba2"))
-                    {
-                        fi.LastWriteTime = new DateTime(2008, 10, 6);
-                    }
-
-                    foreach (var fi in new DirectoryInfo(pluginsPath).GetFiles("DLCNukaWorld - *.ba2"))
-                    {
-                        fi.LastWriteTime = new DateTime(2008, 10, 7);
-                    }
-                }
+				}
                 catch (Exception ex)
                 {
                     Trace.TraceError("ApplyAI - Could not set LastWriteTime.");
