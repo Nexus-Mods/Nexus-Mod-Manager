@@ -46,7 +46,7 @@ namespace Nexus.Client.Games.Starfield
 			if (File.Exists(strCommand))
 			{
 				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
-				AddLaunchCommand(new Command("F4seLaunch", "Launch F4SE", "Launches Starfield with F4SE.", imgIcon, LaunchStarfieldSKSE, true));
+				AddLaunchCommand(new Command("SFSELaunch", "Launch SFSE", "Launches Starfield with F4SE.", imgIcon, LaunchStarfieldSKSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
@@ -111,7 +111,7 @@ namespace Nexus.Client.Games.Starfield
 		private void LaunchStarfieldSKSE()
 		{
 			ForceReadOnlyPluginsFile();
-			Trace.TraceInformation("Launching Starfield (F4SE)...");
+			Trace.TraceInformation("Launching Starfield (SFSE)...");
 			Trace.Indent();
 
 			string strCommand = GetSkseLaunchCommand();
@@ -119,9 +119,9 @@ namespace Nexus.Client.Games.Starfield
 
 			if (!File.Exists(strCommand))
 			{
-				Trace.TraceError("F4SE does not appear to be installed.");
+				Trace.TraceError("SFSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "F4SE does not appear to be installed.");
+				OnGameLaunched(false, "SFSE does not appear to be installed.");
 				return;
 			}
 			Launch(strCommand, null);

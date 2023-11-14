@@ -931,7 +931,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					offset = 2;
 					strOrderedPluginNames = new string[(strPlugins.Count() + offset)];
 					strOrderedPluginNames[0] = "# This file is used by the game to keep track of your downloaded content.";
-					strOrderedPluginNames[1] = "# Please do not modify this file.";
 				}
 				else
 				{
@@ -1196,7 +1195,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					offset = 2;
 					strPluginNames = new string[(strOrderedPluginNames.Count() + offset)];
 					strPluginNames[0] = "# This file is used by the game to keep track of your downloaded content.";
-					strPluginNames[1] = "# Please do not modify this file.";
 				}
 				else
 				{

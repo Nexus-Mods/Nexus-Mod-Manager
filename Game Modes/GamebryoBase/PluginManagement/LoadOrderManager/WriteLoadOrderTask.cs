@@ -198,7 +198,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 							foreach (string plugin in p_strPlugins)
 							{
-								sbPlugins.AppendLine(plugin);
+								if (!string.IsNullOrEmpty(plugin))
+									sbPlugins.AppendLine(plugin);
 							}
 
 							using (StreamWriter swFile = new StreamWriter(p_strFilePath))
