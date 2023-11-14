@@ -238,6 +238,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 		private void AddOption(ListViewGroup p_lvgGroup, Option p_optOption)
 		{
 			string strName = p_optOption.Name;
+
+			if (strName.Equals("Vortex", StringComparison.OrdinalIgnoreCase))
+				strName = "Vortex (Select MO2 for NMM CE)";
+
 			ListViewItem lviPlugin = null;
 			foreach (ListViewItem lviExistingPlugin in p_lvgGroup.Items)
 				if (lviExistingPlugin.Text.Equals(strName))

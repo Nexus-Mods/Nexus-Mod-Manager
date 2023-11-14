@@ -100,6 +100,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			else
 				m_scxSyncContext.Send(x => ofmOptions = new OptionsForm(xscScript, hifHeaderInfo, csmStateManager, lstSteps), null);
 			ofmOptions.Name = "OptionForm";
+
 			bool booPerformInstall = false;
 			if (lstSteps.Count == 0)
 				booPerformInstall = true;
