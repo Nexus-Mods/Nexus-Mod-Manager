@@ -118,7 +118,7 @@ namespace Nexus.Client.ModManagement
 			ItemMessage = "Uninstalling Files...";
 
 			if (GameMode.HasSecondaryInstallPath)
-				booSecondaryInstall = GameMode.CheckSecondaryInstall(Mod);
+				booSecondaryInstall = GameMode.CheckSecondaryInstall(Mod, string.Empty);
 
 			if (GameMode.RequiresSpecialFileInstallation)
 			{

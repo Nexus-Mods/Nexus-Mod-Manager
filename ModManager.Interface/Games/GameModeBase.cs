@@ -835,7 +835,7 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
 		/// <param name="p_modMod">The mod to be installed.</param>
-		public virtual bool CheckSecondaryInstall(IMod p_modMod)
+		public virtual bool CheckSecondaryInstall(IMod p_modMod, string optionalFileCheck)
 		{
 			return false;
 		}

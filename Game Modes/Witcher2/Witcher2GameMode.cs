@@ -317,7 +317,7 @@ namespace Nexus.Client.Games.Witcher2
 		/// <returns>The given path, adjusted to be relative to the installation path of the game mode.</returns>
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
-			if (CheckSecondaryInstall(p_modMod))
+			if (CheckSecondaryInstall(p_modMod, string.Empty))
 			{
 				string strPath = String.Empty;
 				string strModFileName = Path.GetFileNameWithoutExtension(p_modMod.Filename);
@@ -344,7 +344,7 @@ namespace Nexus.Client.Games.Witcher2
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
 		/// <param name="p_modMod">The mod to be installed.</param>
-		public override bool CheckSecondaryInstall(IMod p_modMod)
+		public override bool CheckSecondaryInstall(IMod p_modMod, string optionalFileCheck)
 		{
 			//string strPattern = String.Format(@"[^\{0}\{1}]+[\{0}\{1}]cook\.hash", Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 			string strPattern = String.Format(@"cook\.hash", Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

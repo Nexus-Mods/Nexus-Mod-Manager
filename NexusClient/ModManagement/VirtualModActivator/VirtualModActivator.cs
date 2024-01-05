@@ -1339,7 +1339,7 @@
 
 			string strVirtualFileLink = string.Empty;
 
-			if (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod))
+			if (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod, strAdjustedFilePath))
 				strVirtualFileLink = Path.Combine(GameMode.SecondaryInstallationPath, strAdjustedFilePath);
 			else
 				strVirtualFileLink = Path.Combine(m_strGameDataPath, strAdjustedFilePath);
@@ -1520,7 +1520,7 @@
 
 				string strPath;
 				string strStop = m_strGameDataPath;
-				if ((p_modMod != null) && (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod)))
+				if ((p_modMod != null) && GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod, strLinkPath))
 				{
 					strPath = Path.Combine(GameMode.SecondaryInstallationPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
 					strStop = GameMode.SecondaryInstallationPath;

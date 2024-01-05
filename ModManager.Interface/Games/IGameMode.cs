@@ -297,8 +297,8 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
 		/// <param name="p_modMod">The mod to be installed.</param>
-		/// <param name="isInstalling">Whether the check is performed during a mod installation.</param>
-		bool CheckSecondaryInstall(IMod p_modMod);
+		/// <param name="optionalFileCheck">If set the method will check the file instead of the mod.</param>
+		bool CheckSecondaryInstall(IMod p_modMod, string optionalFileCheck);
 
 		/// <summary>
 		/// Checks whether the system needs to uninstall secondary parameters.

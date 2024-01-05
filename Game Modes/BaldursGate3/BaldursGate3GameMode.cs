@@ -23,6 +23,7 @@ using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using System.Diagnostics;
 using Newtonsoft.Json;
+using System.Windows.Forms;
 
 namespace Nexus.Client.Games.BaldursGate3
 {
@@ -324,6 +325,7 @@ namespace Nexus.Client.Games.BaldursGate3
 
 		public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, bool p_booIgnoreIfPresent)
 		{
+			string pathDir = Path.GetDirectoryName(p_strPath).ToLowerInvariant();
 			//if (Path.GetFileName(p_strPath).Equals("info.json", StringComparison.InvariantCultureIgnoreCase) || Path.GetFileName(p_strPath).Equals("manifest.json", StringComparison.InvariantCultureIgnoreCase))
 			if (Path.GetFileName(p_strPath).Equals("info.json", StringComparison.InvariantCultureIgnoreCase))
 			{
@@ -529,6 +531,33 @@ namespace Nexus.Client.Games.BaldursGate3
 		{
 			return p_strFiles.Contains("info.json", StringComparer.OrdinalIgnoreCase);
 		}
+
+		/// <summary>
+		/// Checks whether to use the secondary mod install method.
+		/// </summary>
+		/// <returns>Whether to use the secondary mod install method.</returns>
+		/// <param name="p_modMod">The mod to be installed.</param>
+		public override bool CheckSecondaryInstall(IMod p_modMod, string optionalFileCheck)
+		{
+			if (string.IsNullOrEmpty(optionalFileCheck))
+				return false;	
+
+			optionalFileCheck = optionalFileCheck.ToLowerInvariant();
+
+			return optionalFileCheck.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar) || optionalFileCheck.StartsWith("bin" + Path.DirectorySeparatorChar) || optionalFileCheck.Contains(Path.DirectorySeparatorChar + "data" + Path.DirectorySeparatorChar) || optionalFileCheck.StartsWith("data" + Path.DirectorySeparatorChar);
+		}
+
+		/// <summary>
+		/// Checks whether the file type is not compatible with the virtual install.
+		/// </summary>
+		/// <param name="fileExtension">The file extension starting with a "."</param>
+		/// <returns>True if it requires a real file copy.</returns>
+		public override bool RealFileRequired(string fileExtension)
+		{
+			return fileExtension.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".jar", StringComparison.InvariantCultureIgnoreCase) || fileExtension.Equals(".dll", StringComparison.InvariantCultureIgnoreCase)
+				|| fileExtension.Equals(".gr2", StringComparison.InvariantCultureIgnoreCase);
+		}
+
 
 		/// <summary>
 		/// Gets the updaters used by the game mode.

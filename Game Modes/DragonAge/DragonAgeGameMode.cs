@@ -562,7 +562,7 @@ namespace Nexus.Client.Games.DragonAge
 		/// </summary>
 		/// <returns>Whether to use the secondary mod install method.</returns>
 		/// <param name="p_modMod">The mod to be installed.</param>
-		public override bool CheckSecondaryInstall(IMod p_modMod)
+		public override bool CheckSecondaryInstall(IMod p_modMod, string optionalFileCheck)
 		{
 			string strModFileName = Path.GetFileName(p_modMod.Filename);
 			if (!String.IsNullOrEmpty(strModFileName))

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Drawing;
 using Nexus.Client.Games.BaldursGate3;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Games.BaldursGate3
 {
@@ -11,6 +12,7 @@ namespace Nexus.Client.Games.BaldursGate3
 	public class BaldursGate3GameModeDescriptor : GameModeDescriptorBase
 	{
 		private static string[] EXECUTABLES = { @"Launcher\LariLauncher.exe" };
+		private static readonly List<string> STOP_FOLDERS = new List<string>() { "bin", "Data" };
 		private const string MODE_ID = "BaldursGate3";
 
 		#region Properties
@@ -59,6 +61,19 @@ namespace Nexus.Client.Games.BaldursGate3
 		}
 
 		/// <summary>
+		/// Gets the secondary path to which mod files should be installed.
+		/// </summary>
+		/// <value>The secondary path to which mod files should be installed.</value>
+		public override string SecondaryInstallationPath
+		{
+			get
+			{
+				string strPath = ExecutablePath;
+				return strPath;
+			}
+		}
+
+		/// <summary>
 		/// Gets the display name of the game mode.
 		/// </summary>
 		/// <value>The display name of the game mode.</value>
@@ -91,6 +106,20 @@ namespace Nexus.Client.Games.BaldursGate3
 			get
 			{
 				return EXECUTABLES;
+			}
+		}
+
+		/// <summary>
+		/// Gets a list of possible folders that should be looked for in mod archives to determine
+		/// file structure.
+		/// </summary>
+		/// <value>A list of possible folders that should be looked for in mod archives to determine
+		/// file structure.</value>
+		public override IEnumerable<string> StopFolders
+		{
+			get
+			{
+				return STOP_FOLDERS;
 			}
 		}
 
