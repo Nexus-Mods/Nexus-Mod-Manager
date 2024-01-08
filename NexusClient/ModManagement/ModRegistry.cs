@@ -59,12 +59,20 @@ namespace Nexus.Client.ModManagement
 				try
 				{
 					string strCachePath = p_frgCacheManager.GetCacheFilePath(strMod);
-					modMod = mdrRegistry.CreateMod(strMod, strCachePath, p_gmdGameMode, p_eiEnvironmentInfo);
+					modMod = mdrRegistry.CreateMod(strMod, strCachePath, p_gmdGameMode, p_eiEnvironmentInfo, false);
 				}
 				catch
 				{
-					modList.Add(strMod);
-					modMod = null;
+					try
+					{
+						string strCachePath = p_frgCacheManager.GetCacheFilePath(strMod);
+						modMod = mdrRegistry.CreateMod(strMod, strCachePath, p_gmdGameMode, p_eiEnvironmentInfo, true);
+					}
+					catch
+					{
+						modList.Add(strMod);
+						modMod = null;
+					}
 				}
 
 				if (modMod == null)
@@ -93,7 +101,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		private ThreadSafeObservableList<IMod> m_oclRegisteredMods = new ThreadSafeObservableList<IMod>();
-		
+
 		#region Properties
 
 		/// <summary>
@@ -142,7 +150,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_gmdGameMode">The game mode for which to create the plugin.</param>
 		/// <returns>A mod of the appropriate type from the specified file, if the type of hte mod
 		/// can be determined; <c>null</c> otherwise.</returns>
-		protected IMod CreateMod(string p_strModPath, string p_strCachePath, IGameMode p_gmdGameMode, IEnvironmentInfo p_eiEnvironmentInfo)
+		protected IMod CreateMod(string p_strModPath, string p_strCachePath, IGameMode p_gmdGameMode, IEnvironmentInfo p_eiEnvironmentInfo, bool isResetCheckPath)
 		{
 			if ((String.IsNullOrEmpty(p_strCachePath)) || (!Directory.Exists(p_strCachePath)))
 				p_strCachePath = p_strModPath;
@@ -153,7 +161,7 @@ namespace Nexus.Client.ModManagement
 			lstFormats.Sort((x, y) => -x.Key.CompareTo(y.Key));
 			if (lstFormats[0].Key <= FormatConfidence.Convertible)
 				return null;
-			return lstFormats[0].Value.CreateMod(p_strModPath, p_gmdGameMode);
+			return lstFormats[0].Value.CreateMod(p_strModPath, p_gmdGameMode, isResetCheckPath);
 		}
 
 		/// <summary>
@@ -181,7 +189,7 @@ namespace Nexus.Client.ModManagement
 			for (intExistingIndex = 0; intExistingIndex < m_oclRegisteredMods.Count; intExistingIndex++)
 				if (p_strModPath.Equals(m_oclRegisteredMods[intExistingIndex].Filename, StringComparison.OrdinalIgnoreCase))
 					break;
-			modMod = CreateMod(p_strModPath, string.Empty, GameMode, p_eiEnvironmentInfo);
+			modMod = CreateMod(p_strModPath, string.Empty, GameMode, p_eiEnvironmentInfo, false);
 			if (p_mifTagInfo != null)
 				modMod.UpdateInfo(p_mifTagInfo, true);
 			if (modMod == null)

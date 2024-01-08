@@ -1,48 +1,48 @@
 ﻿namespace Nexus.Client.Mods.Formats.FOMod
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Drawing;
-    using System.IO;
-    using System.Linq;
-    using System.Text;
-    using System.Text.RegularExpressions;
-    using System.Xml;
+	using System;
+	using System.Collections.Generic;
+	using System.Diagnostics;
+	using System.Drawing;
+	using System.IO;
+	using System.Linq;
+	using System.Text;
+	using System.Text.RegularExpressions;
+	using System.Xml;
 
-    using Nexus.Client.ModManagement.Scripting;
-    using Nexus.Client.Util;
+	using Nexus.Client.ModManagement.Scripting;
+	using Nexus.Client.Util;
 
-    /// <summary>
-    /// Encapsulates a FOMod mod archive.
-    /// </summary>
-    public class FOMod : ObservableObject, IMod
+	/// <summary>
+	/// Encapsulates a FOMod mod archive.
+	/// </summary>
+	public class FOMod : ObservableObject, IMod
 	{
 		#region Events
 
 		/// <inheritdoc />
 		public event CancelProgressEventHandler ReadOnlyInitProgressUpdated = delegate { };
 
-        #endregion
+		#endregion
 
-        private const bool AllowArchiveEdits = false;
+		private const bool AllowArchiveEdits = false;
 
-        #region Fields
+		#region Fields
 
-        private readonly string _nestedFilePath;
+		private readonly string _nestedFilePath;
 		private readonly Archive _archiveFile;
 		private readonly string _cachePath;
 		private readonly Dictionary<string, string> _movedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private readonly string _readmePath = null;
-        private readonly bool _usesPlugins;
-        private readonly IEnvironmentInfo _environmentInfo;
+		private readonly bool _usesPlugins;
+		private readonly IEnvironmentInfo _environmentInfo;
 
-        private string _prefixPath;
-        private string _installScriptPath;
+		private string _prefixPath;
+		private string _installScriptPath;
 		private IScriptType _installScriptType;
 		private string _modId;
 		private string _downloadId;
-        private DateTime? _downloadDate;
+		private DateTime? _downloadDate;
 		private string _modName;
 		private string _fileName;
 		private string _humanReadableVersion;
@@ -54,223 +54,223 @@
 		private string _author;
 		private string _description;
 		private string _installDate;
-        private int _placeInModLoadOrder = -1;
-        private int _newPlaceInModLoadOrder = -1;
+		private int _placeInModLoadOrder = -1;
+		private int _newPlaceInModLoadOrder = -1;
 		private Uri _website;
 		private ExtendedImage _screenshot;
 		private bool _updateWarningEnabled = true;
 		private bool _updateChecksEnabled = true;
 		private IScript _installScript;
-        private bool _movedArchiveInitialized;
+		private bool _movedArchiveInitialized;
 
-        protected List<string> IgnoreFolders = new List<string> { "__MACOSX" };
+		protected List<string> IgnoreFolders = new List<string> { "__MACOSX" };
 
-        #endregion
+		#endregion
 
-        #region Properties
+		#region Properties
 
-        #region IModInfo Members
+		#region IModInfo Members
 
-        /// <inheritdoc />
-        public string Id
+		/// <inheritdoc />
+		public string Id
 		{
 			get => _modId;
-            set
+			set
 			{
 				SetPropertyIfChanged(ref _modId, value, () => Id);
 			}
 		}
 
-        /// <inheritdoc />
-        public string DownloadId
+		/// <inheritdoc />
+		public string DownloadId
 		{
 			get => _downloadId;
-            set
+			set
 			{
 				SetPropertyIfChanged(ref _downloadId, value, () => DownloadId);
 			}
 		}
 
-        /// <inheritdoc />
-        public DateTime? DownloadDate
-        {
-            get => _downloadDate;
-            set
-            {
-                SetPropertyIfChanged(ref _downloadDate, value, () => DownloadDate);
-            }
-        }
+		/// <inheritdoc />
+		public DateTime? DownloadDate
+		{
+			get => _downloadDate;
+			set
+			{
+				SetPropertyIfChanged(ref _downloadDate, value, () => DownloadDate);
+			}
+		}
 
-        /// <inheritdoc />
-        public string FileName
+		/// <inheritdoc />
+		public string FileName
 		{
 			get => _fileName;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _fileName, value, () => FileName);
 			}
 		}
 
-        /// <inheritdoc />
-        public string ModName
+		/// <inheritdoc />
+		public string ModName
 		{
 			get => _modName;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _modName, value, () => ModName);
 			}
 		}
 
-        /// <inheritdoc />
-        public string HumanReadableVersion
+		/// <inheritdoc />
+		public string HumanReadableVersion
 		{
 			get => _humanReadableVersion;
-            set
+			set
 			{
 				SetPropertyIfChanged(ref _humanReadableVersion, value, () => HumanReadableVersion);
 			}
 		}
 
-        /// <inheritdoc />
-        public string LastKnownVersion
+		/// <inheritdoc />
+		public string LastKnownVersion
 		{
 			get => _lastKnownVersion;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _lastKnownVersion, value, () => LastKnownVersion);
 			}
 		}
 
-        /// <inheritdoc />
-        public int CategoryId
+		/// <inheritdoc />
+		public int CategoryId
 		{
 			get => _categoryId;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _categoryId, value, () => CategoryId);
 			}
 		}
 
-        /// <inheritdoc />
-        public int CustomCategoryId
+		/// <inheritdoc />
+		public int CustomCategoryId
 		{
 			get => _customCategoryId;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _customCategoryId, value, () => CustomCategoryId);
 			}
 		}
 
-        /// <inheritdoc />
-        public bool? IsEndorsed
+		/// <inheritdoc />
+		public bool? IsEndorsed
 		{
 			get => _isEndorsed;
-            set
+			set
 			{
 				SetPropertyIfChanged(ref _isEndorsed, value, () => IsEndorsed);
 			}
 		}
 
-        /// <inheritdoc />
-        public Version MachineVersion
+		/// <inheritdoc />
+		public Version MachineVersion
 		{
 			get => _machineVersion;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _machineVersion, value, () => MachineVersion);
 			}
 		}
 
-        /// <inheritdoc />
-        public string Author
+		/// <inheritdoc />
+		public string Author
 		{
 			get => _author;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _author, value, () => Author);
 			}
 		}
 
-        /// <inheritdoc />
-        public string Description
+		/// <inheritdoc />
+		public string Description
 		{
 			get => _description;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _description, value, () => Description);
 			}
 		}
 
-        /// <inheritdoc />
-        public string InstallDate
+		/// <inheritdoc />
+		public string InstallDate
 		{
 			get => _installDate;
-            set
+			set
 			{
 				SetPropertyIfChanged(ref _installDate, value, () => InstallDate);
 			}
 		}
 
-        /// <inheritdoc />
-        public Uri Website
+		/// <inheritdoc />
+		public Uri Website
 		{
 			get => _website;
-            private set
+			private set
 			{
 				SetPropertyIfChanged(ref _website, value, () => Website);
 			}
 		}
 
-        /// <inheritdoc />
-        public ExtendedImage Screenshot
+		/// <inheritdoc />
+		public ExtendedImage Screenshot
 		{
 			get
 			{
 				if (_screenshot == null && !string.IsNullOrEmpty(ScreenshotPath))
-                {
-                    _screenshot = new ExtendedImage(GetFile(ScreenshotPath));
-                }
+				{
+					_screenshot = new ExtendedImage(GetFile(ScreenshotPath));
+				}
 
-                return _screenshot;
+				return _screenshot;
 			}
 			private set
 			{
 				if (CheckIfChanged(_screenshot, value))
-                {
-                    ScreenshotPath = value == null ? null : "fomod/screenshot" + value.GetExtension();
-                    SetPropertyIfChanged(ref _screenshot, value, () => Screenshot);
-                }
+				{
+					ScreenshotPath = value == null ? null : "fomod/screenshot" + value.GetExtension();
+					SetPropertyIfChanged(ref _screenshot, value, () => Screenshot);
+				}
 			}
 		}
 
-        /// <inheritdoc />
-        public bool UpdateWarningEnabled
+		/// <inheritdoc />
+		public bool UpdateWarningEnabled
 		{
 			get => _updateWarningEnabled;
-            set
+			set
 			{
 				SetPropertyIfChanged(ref _updateWarningEnabled, value, () => UpdateWarningEnabled);
 			}
 		}
 
-        /// <inheritdoc />
-        public bool UpdateChecksEnabled
+		/// <inheritdoc />
+		public bool UpdateChecksEnabled
 		{
 			get => _updateChecksEnabled;
-            set
+			set
 			{
 				SetPropertyIfChanged(ref _updateChecksEnabled, value, () => UpdateChecksEnabled);
 			}
 		}
 
-        #endregion
+		#endregion
 
-        #region IScriptedMod Members
+		#region IScriptedMod Members
 
-        /// <inheritdoc />
-        public bool HasInstallScript => InstallScript != null;
+		/// <inheritdoc />
+		public bool HasInstallScript => InstallScript != null;
 
-        /// <summary>
+		/// <summary>
 		/// Gets or sets the mod's install script.
 		/// </summary>
 		/// <value>The mod's install script.</value>
@@ -279,17 +279,17 @@
 			get
 			{
 				if (_installScript == null && !string.IsNullOrEmpty(_installScriptPath))
-                {
-                    _installScript = _installScriptType.LoadScript(TextUtil.ByteToString(GetFile(_installScriptPath)));
-                }
+				{
+					_installScript = _installScriptType.LoadScript(TextUtil.ByteToString(GetFile(_installScriptPath)));
+				}
 
-                return _installScript;
+				return _installScript;
 			}
 			set
 			{
 				_installScript = value;
 
-                if (_installScript == null)
+				if (_installScript == null)
 				{
 					_installScriptType = null;
 					_installScriptPath = null;
@@ -302,34 +302,34 @@
 			}
 		}
 
-        #endregion
+		#endregion
 
-        /// <inheritdoc />
-        public string ScreenshotPath { get; private set; }
+		/// <inheritdoc />
+		public string ScreenshotPath { get; private set; }
 
-        /// <inheritdoc />
+		/// <inheritdoc />
 		public string Filename => string.IsNullOrEmpty(_nestedFilePath) ? ModArchivePath : _nestedFilePath;
 
-        /// <inheritdoc />
+		/// <inheritdoc />
 		public string ModArchivePath { get; }
 
-        public int PlaceInModLoadOrder
-        {
-            get => _placeInModLoadOrder;
-            set
-            {
-                SetPropertyIfChanged(ref _placeInModLoadOrder, value, () => PlaceInModLoadOrder);
-            }
-        }
+		public int PlaceInModLoadOrder
+		{
+			get => _placeInModLoadOrder;
+			set
+			{
+				SetPropertyIfChanged(ref _placeInModLoadOrder, value, () => PlaceInModLoadOrder);
+			}
+		}
 
-        public int NewPlaceInModLoadOrder
-        {
-            get => _newPlaceInModLoadOrder;
-            set
-            {
-                SetPropertyIfChanged(ref _newPlaceInModLoadOrder, value, () => NewPlaceInModLoadOrder);
-            }
-        }
+		public int NewPlaceInModLoadOrder
+		{
+			get => _newPlaceInModLoadOrder;
+			set
+			{
+				SetPropertyIfChanged(ref _newPlaceInModLoadOrder, value, () => NewPlaceInModLoadOrder);
+			}
+		}
 
 		/// <summary>
 		/// Gets the registry of supported script types.
@@ -337,48 +337,48 @@
 		/// <value>The registry of supported script types.</value>
 		protected IScriptTypeRegistry ScriptTypeRegistry { get; }
 
-        /// <inheritdoc />
-        public IModFormat Format { get; }
+		/// <inheritdoc />
+		public IModFormat Format { get; }
 
 		protected IList<string> StopFolders { get; }
 
-        protected string PluginsDirectoryName { get; }
+		protected string PluginsDirectoryName { get; }
 
-        protected IList<string> PluginExtensions { get; }
+		protected IList<string> PluginExtensions { get; }
 
-        #endregion
+		#endregion
 
-        #region Constructors
+		#region Constructors
 
-        /// <summary>
-        /// A simple constructor that initializes the FOMod from the specified file.
-        /// </summary>
-        /// <param name="filePath">The mod file from which to create the FOMod.</param>
-        /// <param name="modFormat">The format of the mod.</param>
-        /// <param name="stopFolders">A list of folders names that indicate the root of the mod file structure.</param>
-        /// <param name="pluginsDirectoryName">The name of the folder that contains plugins.</param>
-        /// <param name="modCacheManager">The manager for the current game mode's mod cache.</param>
-        /// <param name="scriptTypeRegistry">The registry of supported script types.</param>
-        public FOMod(string filePath, IModFormat modFormat, IEnumerable<string> stopFolders, string pluginsDirectoryName, IEnumerable<string> pluginExtensions, IModCacheManager modCacheManager, IScriptTypeRegistry scriptTypeRegistry, bool usePlugins, bool nestedArchives)
+		/// <summary>
+		/// A simple constructor that initializes the FOMod from the specified file.
+		/// </summary>
+		/// <param name="filePath">The mod file from which to create the FOMod.</param>
+		/// <param name="modFormat">The format of the mod.</param>
+		/// <param name="stopFolders">A list of folders names that indicate the root of the mod file structure.</param>
+		/// <param name="pluginsDirectoryName">The name of the folder that contains plugins.</param>
+		/// <param name="modCacheManager">The manager for the current game mode's mod cache.</param>
+		/// <param name="scriptTypeRegistry">The registry of supported script types.</param>
+		public FOMod(string filePath, IModFormat modFormat, IEnumerable<string> stopFolders, string pluginsDirectoryName, IEnumerable<string> pluginExtensions, IModCacheManager modCacheManager, IScriptTypeRegistry scriptTypeRegistry, bool usePlugins, bool nestedArchives, bool isResetCachePath = false)
 		{
-            _environmentInfo = modCacheManager.EnvironmentInfo;
+			_environmentInfo = modCacheManager.EnvironmentInfo;
 			StopFolders = new List<string>(stopFolders);
 
-            if (!StopFolders.Contains("fomod", StringComparer.OrdinalIgnoreCase))
-            {
-                StopFolders.Add("fomod");
-            }
+			if (!StopFolders.Contains("fomod", StringComparer.OrdinalIgnoreCase))
+			{
+				StopFolders.Add("fomod");
+			}
 
-            PluginsDirectoryName = pluginsDirectoryName;
+			PluginsDirectoryName = pluginsDirectoryName;
 			PluginExtensions = new List<string>(pluginExtensions);
 
-            const bool useCache = true;
+			bool useCache = !isResetCachePath;
 
-            Format = modFormat;
+			Format = modFormat;
 			ScriptTypeRegistry = scriptTypeRegistry;
 			_usesPlugins = usePlugins;
-            
-            var checkNested = nestedArchives;
+
+			var checkNested = nestedArchives;
 			var checkPrefix = true;
 			var checkScript = true;
 			var cacheInfo = false;
@@ -390,82 +390,85 @@
 			ModArchivePath = filePath;
 			_archiveFile = new Archive(filePath);
 
-            _downloadDate = File.GetLastWriteTime(ModArchivePath);
+			_downloadDate = File.GetLastWriteTime(ModArchivePath);
 
-            modCacheManager.MigrateCacheFile(this);
+			//modCacheManager.MigrateCacheFile(this);
 
 			#region Check for cacheInfo.txt file
 
 			var strCachePath = Path.Combine(modCacheManager.ModCacheDirectory, Path.GetFileNameWithoutExtension(filePath));
 			_cachePath = strCachePath;
-						
-			if (Directory.Exists(strCachePath))
+
+			if (useCache)
 			{
-				var strCacheInfoFile = Path.Combine(strCachePath, "cacheInfo.txt");
-
-				if (File.Exists(strCacheInfoFile))
+				if (Directory.Exists(strCachePath))
 				{
-					var bCacheInfo = File.ReadAllBytes(strCacheInfoFile);
-					var sCacheInfo = Encoding.UTF8.GetString(bCacheInfo, 0, bCacheInfo.Length);
-					var strPref = sCacheInfo.Split(new[] { "@@" }, StringSplitOptions.RemoveEmptyEntries);
+					var strCacheInfoFile = Path.Combine(strCachePath, "cacheInfo.txt");
 
-                    if (strPref.Length > 0)
+					if (File.Exists(strCacheInfoFile))
 					{
-						checkNested = Convert.ToBoolean(strPref[0]);
+						var bCacheInfo = File.ReadAllBytes(strCacheInfoFile);
+						var sCacheInfo = Encoding.UTF8.GetString(bCacheInfo, 0, bCacheInfo.Length);
+						var strPref = sCacheInfo.Split(new[] { "@@" }, StringSplitOptions.RemoveEmptyEntries);
 
-						if (strPref.Length > 1)
+						if (strPref.Length > 0)
 						{
-							strCheckPrefix = strPref[1];
+							checkNested = Convert.ToBoolean(strPref[0]);
 
-                            foreach (var folder in IgnoreFolders)
+							if (strPref.Length > 1)
 							{
-								if (strCheckPrefix.IndexOf(folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
+								strCheckPrefix = strPref[1];
+
+								foreach (var folder in IgnoreFolders)
 								{
-									checkNested = true;
-									strCheckPrefix = string.Empty;
-									dirtyCache = true;
-									break;
+									if (strCheckPrefix.IndexOf(folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
+									{
+										checkNested = true;
+										strCheckPrefix = string.Empty;
+										dirtyCache = true;
+										break;
+									}
 								}
-							}
 
-							if (string.IsNullOrEmpty(strCheckPrefix) || !strCheckPrefix.Equals("-"))
-							{
-								if (!stopFolders.Any() && !usePlugins)
+								if (string.IsNullOrEmpty(strCheckPrefix) || !strCheckPrefix.Equals("-"))
 								{
-									FileUtil.ForceDelete(_cachePath);
-									checkNested = true;
-									strCheckPrefix = string.Empty;
-									dirtyCache = true;
+									if (!stopFolders.Any() && !usePlugins)
+									{
+										FileUtil.ForceDelete(_cachePath);
+										checkNested = true;
+										strCheckPrefix = string.Empty;
+										dirtyCache = true;
+									}
 								}
-							}
 
-							if (!dirtyCache)
-							{
-
-								if (strCheckPrefix.Equals("-"))
-                                {
-                                    strCheckPrefix = string.Empty;
-                                }
-
-                                checkPrefix = false;
-
-								if (strPref.Length > 2)
+								if (!dirtyCache)
 								{
-									checkScriptPath = strPref[2];
 
-                                    if (checkScriptPath.Equals("-"))
-                                    {
-                                        checkScriptPath = string.Empty;
-                                    }
+									if (strCheckPrefix.Equals("-"))
+									{
+										strCheckPrefix = string.Empty;
+									}
 
-                                    checkScriptType = strPref[3];
+									checkPrefix = false;
 
-                                    if (checkScriptType.Equals("-"))
-                                    {
-                                        checkScriptType = string.Empty;
-                                    }
+									if (strPref.Length > 2)
+									{
+										checkScriptPath = strPref[2];
 
-                                    checkScript = false;
+										if (checkScriptPath.Equals("-"))
+										{
+											checkScriptPath = string.Empty;
+										}
+
+										checkScriptType = strPref[3];
+
+										if (checkScriptType.Equals("-"))
+										{
+											checkScriptType = string.Empty;
+										}
+
+										checkScript = false;
+									}
 								}
 							}
 						}
@@ -477,16 +480,16 @@
 
 			if (checkNested && nestedArchives)
 			{
-                #region Temporary fix for nested .dazip files
+				#region Temporary fix for nested .dazip files
 
-                var strNested = _archiveFile.GetFiles("", "*.dazip", true);
+				var strNested = _archiveFile.GetFiles("", "*.dazip", true);
 
-                if (strNested.Length == 1)
+				if (strNested.Length == 1)
 				{
 					var strFilePath = Path.Combine(Path.Combine(Path.GetTempPath(), "NMM"), strNested[0]);
 					FileUtil.WriteAllBytes(strFilePath, GetFile(strNested[0]));
 
-                    if (File.Exists(strFilePath))
+					if (File.Exists(strFilePath))
 					{
 						_archiveFile = new Archive(strFilePath);
 						_nestedFilePath = strFilePath;
@@ -501,7 +504,7 @@
 			if (checkPrefix)
 			{
 				FindPathPrefix();
-                cacheInfo = true;
+				cacheInfo = true;
 			}
 			else
 			{
@@ -517,7 +520,7 @@
 					{
 						var strScriptPath = Path.Combine("fomod", strScriptName);
 
-                        if (ContainsFile(strScriptPath))
+						if (ContainsFile(strScriptPath))
 						{
 							_installScriptPath = strScriptPath;
 							_installScriptType = stpScript;
@@ -526,12 +529,12 @@
 					}
 
 					if (!string.IsNullOrEmpty(_installScriptPath))
-                    {
-                        break;
-                    }
-                }
+					{
+						break;
+					}
+				}
 
-                cacheInfo = true;
+				cacheInfo = true;
 			}
 			else
 			{
@@ -540,62 +543,65 @@
 			}
 
 			_archiveFile.FilesChanged += Archive_FilesChanged;
-			
+
 			//check for screenshot
 			string[] strScreenshots;
 
-			if (Directory.Exists(_cachePath))
+			string pathToCheck = useCache ? _cachePath : Path.Combine(_cachePath, GetRealPath("fomod"));
+
+			if (Directory.Exists(pathToCheck))
 			{
 				var fileList = Directory.GetFiles(Path.Combine(_cachePath, GetRealPath("fomod")), "screenshot*", SearchOption.AllDirectories);
-                strScreenshots = fileList;
-            }
+				strScreenshots = fileList;
+			}
 			else
-            {
-                strScreenshots = _archiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
-            }
+			{
+				strScreenshots = _archiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
+			}
 
-            //TODO make sure the file is a valid image
+			//TODO make sure the file is a valid image
 			if (strScreenshots.Length > 0)
-            {
-                ScreenshotPath = strScreenshots[0];
-            }
+			{
+				ScreenshotPath = strScreenshots[0];
+			}
 
-            var cacheFile = Path.Combine(strCachePath, "cacheInfo.txt");
+			var cacheFile = Path.Combine(strCachePath, "cacheInfo.txt");
 
-			if (!File.Exists(cacheFile))
-            {
-                var strTmpInfo = modCacheManager.FileUtility.CreateTempDirectory();
+			if (!File.Exists(cacheFile) || !useCache)
+			{
+				var strTmpInfo = modCacheManager.FileUtility.CreateTempDirectory();
 
-                try
+				try
 				{
-					Directory.CreateDirectory(Path.Combine(strTmpInfo, GetRealPath("fomod")));
+					string pathModAdjustedCache = Path.Combine(strTmpInfo, GetRealPath("fomod"));
+					Directory.CreateDirectory(pathModAdjustedCache);
 
 					if (ContainsFile("fomod/info.xml"))
-                    {
-                        FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), GetFile("fomod/info.xml"));
-                    }
-                    else
-                    {
-                        FileUtil.WriteAllText(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), "<fomod/>");
-                    }
+					{
+						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), GetFile("fomod/info.xml"));
+					}
+					else
+					{
+						FileUtil.WriteAllText(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), "<fomod/>");
+					}
 
-                    if (!string.IsNullOrEmpty(_readmePath))
-                    {
-                        FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(_readmePath)), GetFile(_readmePath));
-                    }
+					if (!string.IsNullOrEmpty(_readmePath))
+					{
+						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(_readmePath)), GetFile(_readmePath));
+					}
 
-                    if (!string.IsNullOrEmpty(ScreenshotPath))
-                    {
-                        FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(ScreenshotPath)), GetFile(ScreenshotPath));
-                    }
+					if (!string.IsNullOrEmpty(ScreenshotPath))
+					{
+						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(ScreenshotPath)), GetFile(ScreenshotPath));
+					}
 
-                    modCacheManager.CreateCacheFile(this, strTmpInfo);
+					modCacheManager.CreateCacheFile(this, strTmpInfo);
 				}
 				finally
 				{
 					FileUtil.ForceDelete(strTmpInfo);
 				}
-            }
+			}
 
 			if (cacheInfo || !File.Exists(cacheFile))
 			{
@@ -614,11 +620,11 @@
 					}
 					catch (Exception e)
 					{
-					    Trace.TraceWarning("FOMod.FOMod() - Encountered an ignored Exception.");
-					    TraceUtil.TraceException(e);
-                    }
+						Trace.TraceWarning("FOMod.FOMod() - Encountered an ignored Exception.");
+						TraceUtil.TraceException(e);
+					}
 				}
-					
+
 			}
 
 			ModName = Path.GetFileNameWithoutExtension(ModArchivePath);
@@ -636,34 +642,34 @@
 		{
 			if (ContainsFile("fomod/info.xml"))
 			{
-                try
-                {
-                    var xmlInfo = new XmlDocument();
-                    xmlInfo.LoadXml(TextUtil.ByteToString(GetFile("fomod/info.xml")));
-                    LoadInfo(xmlInfo, false);
-                }
-                catch (XmlException e)
-                {
-                    Trace.TraceError("Error parsing FOMOD Info.xml file.");
-                    TraceUtil.TraceException(e);
+				try
+				{
+					var xmlInfo = new XmlDocument();
+					xmlInfo.LoadXml(TextUtil.ByteToString(GetFile("fomod/info.xml")));
+					LoadInfo(xmlInfo, false);
+				}
+				catch (XmlException e)
+				{
+					Trace.TraceError("Error parsing FOMOD Info.xml file.");
+					TraceUtil.TraceException(e);
 
-                    throw new InvalidDataException("Error parsing FOMOD Info.xml file.", e);
-                }
+					throw new InvalidDataException("Error parsing FOMOD Info.xml file.", e);
+				}
 			}
 		}
 
-        #endregion
+		#endregion
 
-        #region Read Transactions
+		#region Read Transactions
 
-        /// <inheritdoc />
-        public void BeginReadOnlyTransaction(FileUtil fileUtil)
+		/// <inheritdoc />
+		public void BeginReadOnlyTransaction(FileUtil fileUtil)
 		{
 			_archiveFile.BeginReadOnlyTransaction(fileUtil);
 		}
 
-        /// <inheritdoc />
-        public void EndReadOnlyTransaction()
+		/// <inheritdoc />
+		public void EndReadOnlyTransaction()
 		{
 			_archiveFile.EndReadOnlyTransaction();
 		}
@@ -706,64 +712,64 @@
 				var booFoundData = false;
 				var booFoundPrefix = false;
 
-                foreach (var strDirectory in directories)
+				foreach (var strDirectory in directories)
 				{
 					var booSkipFolder = false;
 
 					foreach (var folder in IgnoreFolders)
-                    {
-                        if (strDirectory.IndexOf(folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
-                        {
-                            booSkipFolder = true;
-                            break;
-                        }
-                    }
+					{
+						if (strDirectory.IndexOf(folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
+						{
+							booSkipFolder = true;
+							break;
+						}
+					}
 
-                    if (booSkipFolder)
-                    {
-                        continue;
-                    }
+					if (booSkipFolder)
+					{
+						continue;
+					}
 
-                    stkPaths.Push(strDirectory);
+					stkPaths.Push(strDirectory);
 
-                    if (StopFolders.Contains(Path.GetFileName(strDirectory), StringComparer.InvariantCultureIgnoreCase))
+					if (StopFolders.Contains(Path.GetFileName(strDirectory), StringComparer.InvariantCultureIgnoreCase))
 					{
 						booFoundPrefix = true;
 						break;
 					}
 
-                    if (_usesPlugins)
-                    {
-                        booFoundData |= Path.GetFileName(strDirectory).Equals(PluginsDirectoryName, StringComparison.OrdinalIgnoreCase);
-                    }
-                }
+					if (_usesPlugins)
+					{
+						booFoundData |= Path.GetFileName(strDirectory).Equals(PluginsDirectoryName, StringComparison.OrdinalIgnoreCase);
+					}
+				}
 
-                if (booFoundPrefix)
+				if (booFoundPrefix)
 				{
 					strPrefixPath = strSourcePath;
 					break;
 				}
 
-                if (booFoundData)
+				if (booFoundData)
 				{
 					strPrefixPath = Path.Combine(strSourcePath, PluginsDirectoryName);
 					break;
 				}
 
-                if (!booFoundData)
+				if (!booFoundData)
 				{
 					var booFound = false;
 
-                    foreach (var strExtension in PluginExtensions)
-                    {
-                        if (_archiveFile.GetFilesWithExtension(strSourcePath, "*" + strExtension, false).Length > 0)
-                        {
-                            booFound = true;
-                            break;
-                        }
-                    }
+					foreach (var strExtension in PluginExtensions)
+					{
+						if (_archiveFile.GetFilesWithExtension(strSourcePath, strExtension, false).Length > 0)
+						{
+							booFound = true;
+							break;
+						}
+					}
 
-                    if (booFound)
+					if (booFound)
 					{
 						strPrefixPath = strSourcePath;
 						break;
@@ -773,12 +779,12 @@
 
 			strPrefixPath = strPrefixPath == null ? "" : strPrefixPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 
-            if (!string.IsNullOrEmpty(strPrefixPath))
-            {
-                strPrefixPath = InitializeMovedArchive(strPrefixPath);
-            }
+			if (!string.IsNullOrEmpty(strPrefixPath))
+			{
+				strPrefixPath = InitializeMovedArchive(strPrefixPath);
+			}
 
-            _movedArchiveInitialized = true;
+			_movedArchiveInitialized = true;
 			_prefixPath = strPrefixPath;
 		}
 
@@ -790,34 +796,34 @@
 
 			_movedArchiveFiles.Clear();
 
-            var files = _archiveFile.GetFiles("/", true);
+			var files = _archiveFile.GetFiles("/", true);
 			var intTrimLength = pathPrefix.Length;
 
-            for (var i = files.Length - 1; i >= 0; i--)
+			for (var i = files.Length - 1; i >= 0; i--)
 			{
 				files[i] = files[i].Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				var file = files[i];
 
-                string newFileName;
+				string newFileName;
 
-                if (!file.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
+				if (!file.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
 				{
 					newFileName = file;
 					var directoryName = Path.GetDirectoryName(newFileName);
 					var fileName = Path.GetFileNameWithoutExtension(file);
 					var extension = Path.GetExtension(file);
 
-                    for (var j = 1; _movedArchiveFiles.ContainsKey(newFileName); j++)
-                    {
-                        newFileName = Path.Combine(directoryName, fileName + " " + j + extension);
-                    }
-                }
+					for (var j = 1; _movedArchiveFiles.ContainsKey(newFileName); j++)
+					{
+						newFileName = Path.Combine(directoryName, fileName + " " + j + extension);
+					}
+				}
 				else
-                {
-                    newFileName = file.Remove(0, intTrimLength);
-                }
+				{
+					newFileName = file.Remove(0, intTrimLength);
+				}
 
-                _movedArchiveFiles[newFileName] = file;
+				_movedArchiveFiles[newFileName] = file;
 			}
 
 			return pathPrefix;
@@ -858,17 +864,17 @@
 			strPath = strPath.Trim(Path.DirectorySeparatorChar);
 
 			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(strPath))))
-            {
-                return true;
-            }
+			{
+				return true;
+			}
 
-            if (cacheOnly)
-            {
-                return false;
-            }
+			if (cacheOnly)
+			{
+				return false;
+			}
 
-            return _movedArchiveFiles.ContainsKey(strPath) || _archiveFile.ContainsFile(GetRealPath(strPath));
-        }
+			return _movedArchiveFiles.ContainsKey(strPath) || _archiveFile.ContainsFile(GetRealPath(strPath));
+		}
 
 		/// <summary>
 		/// This method adjusts the given virtual path to the actual path to the
@@ -885,17 +891,17 @@
 			path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			path = path.Trim(Path.DirectorySeparatorChar);
 
-            if (_movedArchiveFiles.TryGetValue(path, out var strAdjustedPath))
-            {
-                return strAdjustedPath;
-            }
+			if (_movedArchiveFiles.TryGetValue(path, out var strAdjustedPath))
+			{
+				return strAdjustedPath;
+			}
 
-            if (string.IsNullOrEmpty(_prefixPath))
-            {
-                return path;
-            }
+			if (string.IsNullOrEmpty(_prefixPath))
+			{
+				return path;
+			}
 
-            return path.ToLowerInvariant().IndexOf(_prefixPath.ToLowerInvariant(), StringComparison.Ordinal) == 0 ? path : Path.Combine(_prefixPath, path);
+			return path.ToLowerInvariant().IndexOf(_prefixPath.ToLowerInvariant(), StringComparison.Ordinal) == 0 ? path : Path.Combine(_prefixPath, path);
 		}
 
 		/// <summary>
@@ -905,15 +911,15 @@
 		protected void DeleteFile(string path)
 		{
 			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
-            {
-                _archiveFile.DeleteFile(GetRealPath(path));
-            }
+			{
+				_archiveFile.DeleteFile(GetRealPath(path));
+			}
 
-            if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(path))))
-            {
-                FileUtil.ForceDelete(Path.Combine(_cachePath, GetRealPath(path)));
-            }
-        }
+			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(path))))
+			{
+				FileUtil.ForceDelete(Path.Combine(_cachePath, GetRealPath(path)));
+			}
+		}
 
 		/// <summary>
 		/// Replaces the specified file with the given data.
@@ -923,13 +929,13 @@
 		protected void ReplaceFile(string path, byte[] data)
 		{
 			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
-            {
-                _archiveFile.ReplaceFile(GetRealPath(path), data);
-            }
+			{
+				_archiveFile.ReplaceFile(GetRealPath(path), data);
+			}
 
-            var fileInfo = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
+			var fileInfo = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
 
-            if (Directory.Exists(_cachePath) && (File.Exists(Path.Combine(_cachePath, GetRealPath(path))) || fileInfo.IsReadOnly))
+			if (Directory.Exists(_cachePath) && (File.Exists(Path.Combine(_cachePath, GetRealPath(path))) || fileInfo.IsReadOnly))
 			{
 				File.WriteAllBytes(Path.Combine(_cachePath, GetRealPath(path)), data);
 			}
@@ -943,11 +949,11 @@
 		protected void CreateOrReplaceFile(string path, byte[] data)
 		{
 			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
-            {
-                _archiveFile.ReplaceFile(GetRealPath(path), data);
-            }
+			{
+				_archiveFile.ReplaceFile(GetRealPath(path), data);
+			}
 
-            if (Directory.Exists(_cachePath))
+			if (Directory.Exists(_cachePath))
 			{
 				FileUtil.ForceDelete(Path.Combine(_cachePath, GetRealPath(path)));
 				File.WriteAllBytes(Path.Combine(_cachePath, GetRealPath(path)), data);
@@ -962,12 +968,12 @@
 		protected void ReplaceFile(string path, string data)
 		{
 			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
-            {
-                _archiveFile.ReplaceFile(GetRealPath(path), data);
-            }
+			{
+				_archiveFile.ReplaceFile(GetRealPath(path), data);
+			}
 
-            var fiFile = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
-			
+			var fiFile = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
+
 			if (Directory.Exists(_cachePath) && (File.Exists(Path.Combine(_cachePath, GetRealPath(path))) || fiFile.IsReadOnly))
 			{
 				FileUtil.ForceDelete(Path.Combine(_cachePath, GetRealPath(path)));
@@ -975,54 +981,54 @@
 			}
 		}
 
-        #endregion
+		#endregion
 
-        #region File Management
+		#region File Management
 
-        /// <inheritdoc />
-        public byte[] GetFile(string file)
-        {
-            if (!ContainsFile(file))
-            {
-                return Path.GetFileNameWithoutExtension(file)?.ToLower() == "screenshot"
-                    ? (byte[]) new ImageConverter().ConvertTo(new Bitmap(1, 1), typeof(byte[]))
-                    : throw new FileNotFoundException("File doesn't exist in FOMod", file);
-            }
+		/// <inheritdoc />
+		public byte[] GetFile(string file)
+		{
+			if (!ContainsFile(file))
+			{
+				return Path.GetFileNameWithoutExtension(file)?.ToLower() == "screenshot"
+					? (byte[])new ImageConverter().ConvertTo(new Bitmap(1, 1), typeof(byte[]))
+					: throw new FileNotFoundException("File doesn't exist in FOMod", file);
+			}
 
-            return Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(file)))
-                ? File.ReadAllBytes(Path.Combine(_cachePath, GetRealPath(file)))
-                : _archiveFile.GetFileContents(GetRealPath(file));
-        }
+			return Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(file)))
+				? File.ReadAllBytes(Path.Combine(_cachePath, GetRealPath(file)))
+				: _archiveFile.GetFileContents(GetRealPath(file));
+		}
 
-        /// <inheritdoc />
-        public FileStream GetFileStream(string file)
-        {
-            // File is present in cache
-            if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(file))))
-            {
-                return new FileStream(file, FileMode.Open);
-            }
-            
-            // Otherwise grab file from archive.
-            return _archiveFile.GetFileStream(GetRealPath(file), _environmentInfo.TemporaryPath);
-        }
+		/// <inheritdoc />
+		public FileStream GetFileStream(string file)
+		{
+			// File is present in cache
+			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(file))))
+			{
+				return new FileStream(file, FileMode.Open);
+			}
 
-        /// <inheritdoc />
-        public List<string> GetFileList()
+			// Otherwise grab file from archive.
+			return _archiveFile.GetFileStream(GetRealPath(file), _environmentInfo.TemporaryPath);
+		}
+
+		/// <inheritdoc />
+		public List<string> GetFileList()
 		{
 			return GetFileList(null, true);
 		}
 
-        /// <inheritdoc />
-        public bool IsMatchingVersion()
+		/// <inheritdoc />
+		public bool IsMatchingVersion()
 		{
 			var rgxClean = new Regex(@"([v(ver)]\.?)|((\.0)+$)", RegexOptions.IgnoreCase);
 			var strThisVersion = rgxClean.Replace(_humanReadableVersion ?? "", "");
 			var strThatVersion = rgxClean.Replace(_lastKnownVersion ?? "", "");
 
-            return string.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion) ||
-                   string.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
-        }
+			return string.IsNullOrEmpty(strThisVersion) || string.IsNullOrEmpty(strThatVersion) ||
+				   string.Equals(strThisVersion, strThatVersion, StringComparison.OrdinalIgnoreCase);
+		}
 
 		/// <summary>
 		/// Retrieves the list of all files in the specified FOMod folder.
@@ -1034,53 +1040,53 @@
 		{
 			var files = new List<string>();
 
-            if (!_movedArchiveInitialized)
+			if (!_movedArchiveInitialized)
 			{
 				if (!string.IsNullOrEmpty(_prefixPath))
-                {
-                    InitializeMovedArchive(_prefixPath);
-                }
+				{
+					InitializeMovedArchive(_prefixPath);
+				}
 
-                _movedArchiveInitialized = true;
+				_movedArchiveInitialized = true;
 			}
 
-            foreach (var file in _archiveFile.GetFiles(folderPath, recurse))
-            {
-                if (!_movedArchiveFiles.ContainsValue(file))
-                {
-                    if (!file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
-                    {
-                        files.Add(file);
-                    }
-                }
-            }
+			foreach (var file in _archiveFile.GetFiles(folderPath, recurse))
+			{
+				if (!_movedArchiveFiles.ContainsValue(file))
+				{
+					if (!file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
+					{
+						files.Add(file);
+					}
+				}
+			}
 
-            var pathPrefix = folderPath ?? "";
+			var pathPrefix = folderPath ?? "";
 			pathPrefix = pathPrefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			pathPrefix = pathPrefix.Trim(Path.DirectorySeparatorChar);
 
-            if (pathPrefix.Length > 0)
-            {
-                pathPrefix += Path.DirectorySeparatorChar;
-            }
+			if (pathPrefix.Length > 0)
+			{
+				pathPrefix += Path.DirectorySeparatorChar;
+			}
 
-            foreach (var file in _movedArchiveFiles.Keys)
-            {
-                if (file.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase) && !file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
-                {
-                    files.Add(file);
-                }
-            }
+			foreach (var file in _movedArchiveFiles.Keys)
+			{
+				if (file.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase) && !file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
+				{
+					files.Add(file);
+				}
+			}
 
-            files.Sort(CompareOrderFoldersFirst);
+			files.Sort(CompareOrderFoldersFirst);
 
-            return files;
+			return files;
 		}
 
 		#endregion
 
 		#region Mod Info Management
-         
+
 		/// <summary>
 		/// Updates the object's properties to the values of the
 		/// given <see cref="IModInfo"/>.
@@ -1093,97 +1099,100 @@
 		{
 			var booChangedValue = false;
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(Id))
+			if (overwriteAllValues == true || string.IsNullOrEmpty(Id))
 			{
-				Id = modInfo.Id;
-				booChangedValue = true;
+				if (!string.IsNullOrEmpty(modInfo.Id))
+				{
+					Id = modInfo.Id;
+					booChangedValue = true;
+				}
 			}
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(DownloadId) || overwriteAllValues == null)
+			if (overwriteAllValues == true || string.IsNullOrEmpty(DownloadId) || overwriteAllValues == null)
 			{
 				DownloadId = modInfo.DownloadId;
 				booChangedValue = true;
 			}
 
-            if ((overwriteAllValues != false || string.IsNullOrEmpty(ModName) || ModName.Equals(Path.GetFileNameWithoutExtension(ModArchivePath))) && !string.IsNullOrEmpty(modInfo.ModName))
+			if ((overwriteAllValues != false || string.IsNullOrEmpty(ModName) || ModName.Equals(Path.GetFileNameWithoutExtension(ModArchivePath))) && !string.IsNullOrEmpty(modInfo.ModName))
 			{
 				ModName = modInfo.ModName;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(FileName))
+			if (overwriteAllValues == true || string.IsNullOrEmpty(FileName))
 			{
 				FileName = modInfo.FileName;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(HumanReadableVersion))
+			if (overwriteAllValues == true || string.IsNullOrEmpty(HumanReadableVersion))
 			{
 				HumanReadableVersion = modInfo.HumanReadableVersion ?? HumanReadableVersion;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(LastKnownVersion) || LastKnownVersion != modInfo.LastKnownVersion)
+			if (overwriteAllValues == true || string.IsNullOrEmpty(LastKnownVersion) || LastKnownVersion != modInfo.LastKnownVersion)
 			{
 				LastKnownVersion = modInfo.LastKnownVersion ?? LastKnownVersion;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || IsEndorsed != modInfo.IsEndorsed)
+			if (overwriteAllValues == true || IsEndorsed != modInfo.IsEndorsed)
 			{
 				IsEndorsed = modInfo.IsEndorsed;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || MachineVersion == null)
+			if (overwriteAllValues == true || MachineVersion == null)
 			{
 				MachineVersion = modInfo.MachineVersion;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(Author) || overwriteAllValues == null)
+			if (overwriteAllValues == true || string.IsNullOrEmpty(Author) || overwriteAllValues == null)
 			{
 				Author = modInfo.Author ?? Author;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || CategoryId != modInfo.CategoryId || overwriteAllValues == null)
+			if (overwriteAllValues == true || CategoryId != modInfo.CategoryId || overwriteAllValues == null)
 			{
 				CategoryId = modInfo.CategoryId <= 0 && CategoryId > 0 ? CategoryId : modInfo.CategoryId;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || CustomCategoryId != modInfo.CustomCategoryId)
+			if (overwriteAllValues == true || CustomCategoryId != modInfo.CustomCategoryId)
 			{
 				CustomCategoryId = (modInfo.CustomCategoryId < 0 && CustomCategoryId > 0) ? CustomCategoryId : modInfo.CustomCategoryId;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(Description) || overwriteAllValues == null)
+			if (overwriteAllValues == true || string.IsNullOrEmpty(Description) || overwriteAllValues == null)
 			{
 				Description = modInfo.Description ?? Description;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || string.IsNullOrEmpty(InstallDate))
+			if (overwriteAllValues == true || string.IsNullOrEmpty(InstallDate))
 			{
 				InstallDate = modInfo.InstallDate;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || Website == null || overwriteAllValues == null)
+			if (overwriteAllValues == true || Website == null || overwriteAllValues == null)
 			{
 				Website = modInfo.Website ?? Website;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || UpdateWarningEnabled != modInfo.UpdateWarningEnabled)
+			if (overwriteAllValues == true || UpdateWarningEnabled != modInfo.UpdateWarningEnabled)
 			{
 				UpdateWarningEnabled = modInfo.UpdateWarningEnabled;
 				booChangedValue = true;
 			}
 
-            if (overwriteAllValues == true || UpdateChecksEnabled != modInfo.UpdateChecksEnabled)
+			if (overwriteAllValues == true || UpdateChecksEnabled != modInfo.UpdateChecksEnabled)
 			{
 				UpdateChecksEnabled = modInfo.UpdateChecksEnabled;
 				booChangedValue = true;
@@ -1194,7 +1203,7 @@
 				var xmlInfo = new XmlDocument();
 				xmlInfo.AppendChild(SaveInfo(xmlInfo));
 
-                using (var mstInfo = new MemoryStream())
+				using (var mstInfo = new MemoryStream())
 				{
 					xmlInfo.Save(mstInfo);
 					ReplaceFile("fomod/info.xml", mstInfo.ToArray());
@@ -1233,12 +1242,12 @@
 			var xndVersion = xndInfo.AppendChild(xmlDocument.CreateElement("Version"));
 			xndVersion.InnerText = HumanReadableVersion;
 
-            if (MachineVersion != null)
-            {
-                xndVersion.Attributes.Append(xmlDocument.CreateAttribute("MachineVersion")).Value = MachineVersion.ToString();
-            }
+			if (MachineVersion != null)
+			{
+				xndVersion.Attributes.Append(xmlDocument.CreateAttribute("MachineVersion")).Value = MachineVersion.ToString();
+			}
 
-            xndInfo.AppendChild(xmlDocument.CreateElement("LatestKnownVersion")).InnerText = LastKnownVersion;
+			xndInfo.AppendChild(xmlDocument.CreateElement("LatestKnownVersion")).InnerText = LastKnownVersion;
 			xndInfo.AppendChild(xmlDocument.CreateElement("Id")).InnerText = Id;
 			xndInfo.AppendChild(xmlDocument.CreateElement("DownloadId")).InnerText = DownloadId;
 			xndInfo.AppendChild(xmlDocument.CreateElement("Author")).InnerText = Author;
@@ -1250,12 +1259,12 @@
 			xndInfo.AppendChild(xmlDocument.CreateElement("UpdateChecksEnabled")).InnerText = UpdateChecksEnabled.ToString();
 			xndInfo.AppendChild(xmlDocument.CreateElement("PlaceInLoadOrder")).InnerText = PlaceInModLoadOrder.ToString();
 
-            if (Website != null)
-            {
-                xndInfo.AppendChild(xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
-            }
+			if (Website != null)
+			{
+				xndInfo.AppendChild(xmlDocument.CreateElement("Website")).InnerText = Website.ToString();
+			}
 
-            return xndInfo;
+			return xndInfo;
 		}
 
 		/// <summary>
@@ -1268,23 +1277,23 @@
 			var xndRoot = p_xndInfo.SelectSingleNode("fomod");
 			var xndModName = xndRoot.SelectSingleNode("Name");
 
-            if (xndModName != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(ModName)))
-            {
-                ModName = xndModName.InnerText;
-            }
+			if (xndModName != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(ModName)))
+			{
+				ModName = xndModName.InnerText;
+			}
 
-            var xndVersion = xndRoot.SelectSingleNode("Version");
+			var xndVersion = xndRoot.SelectSingleNode("Version");
 
-            if (xndVersion != null)
+			if (xndVersion != null)
 			{
 				if (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(HumanReadableVersion))
-                {
-                    HumanReadableVersion = xndVersion.InnerText;
-                }
+				{
+					HumanReadableVersion = xndVersion.InnerText;
+				}
 
-                var xatMachineVersion = xndVersion.Attributes["MachineVersion"];
+				var xatMachineVersion = xndVersion.Attributes["MachineVersion"];
 
-                if (xatMachineVersion != null && (!p_booFillOnlyEmptyValues || MachineVersion == null))
+				if (xatMachineVersion != null && (!p_booFillOnlyEmptyValues || MachineVersion == null))
 				{
 					try
 					{
@@ -1299,84 +1308,84 @@
 
 			var xndLastKnownVersion = xndRoot.SelectSingleNode("LatestKnownVersion");
 
-            if (xndLastKnownVersion != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(LastKnownVersion)))
-            {
-                LastKnownVersion = xndLastKnownVersion.InnerText;
-            }
+			if (xndLastKnownVersion != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(LastKnownVersion)))
+			{
+				LastKnownVersion = xndLastKnownVersion.InnerText;
+			}
 
-            var xndId = xndRoot.SelectSingleNode("Id");
+			var xndId = xndRoot.SelectSingleNode("Id");
 
-            if (xndId != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Id)))
-            {
-                Id = xndId.InnerText;
-            }
+			if (xndId != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Id)))
+			{
+				Id = xndId.InnerText;
+			}
 
-            var xndDownloadId = xndRoot.SelectSingleNode("DownloadId");
+			var xndDownloadId = xndRoot.SelectSingleNode("DownloadId");
 
-            if (xndDownloadId != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(DownloadId)))
-            {
-                DownloadId = xndDownloadId.InnerText;
-            }
+			if (xndDownloadId != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(DownloadId)))
+			{
+				DownloadId = xndDownloadId.InnerText;
+			}
 
-            var xndAuthor = xndRoot.SelectSingleNode("Author");
+			var xndAuthor = xndRoot.SelectSingleNode("Author");
 
-            if (xndAuthor != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Author)))
-            {
-                Author = xndAuthor.InnerText;
-            }
+			if (xndAuthor != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Author)))
+			{
+				Author = xndAuthor.InnerText;
+			}
 
-            var xndCategory = xndRoot.SelectSingleNode("CategoryId");
+			var xndCategory = xndRoot.SelectSingleNode("CategoryId");
 
-            CategoryId =
-                xndCategory != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(xndCategory.InnerText))
-                    ? Convert.ToInt32(xndCategory.InnerText)
-                    : 0;
+			CategoryId =
+				xndCategory != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(xndCategory.InnerText))
+					? Convert.ToInt32(xndCategory.InnerText)
+					: 0;
 
-            var xndCustomCategory = xndRoot.SelectSingleNode("CustomCategoryId");
+			var xndCustomCategory = xndRoot.SelectSingleNode("CustomCategoryId");
 
-            CustomCategoryId =
-                xndCustomCategory != null &&
-                (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(xndCustomCategory.InnerText))
-                    ? Convert.ToInt32(xndCustomCategory.InnerText)
-                    : -1;
+			CustomCategoryId =
+				xndCustomCategory != null &&
+				(!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(xndCustomCategory.InnerText))
+					? Convert.ToInt32(xndCustomCategory.InnerText)
+					: -1;
 
-            var xndEndorsed = xndRoot.SelectSingleNode("IsEndorsed");
+			var xndEndorsed = xndRoot.SelectSingleNode("IsEndorsed");
 
-            if (xndEndorsed != null)
-            {
-                try
-                {
-                    IsEndorsed = bool.TryParse(xndEndorsed.InnerText, out var endorsed) ? (bool?)endorsed : null;
-                }
+			if (xndEndorsed != null)
+			{
+				try
+				{
+					IsEndorsed = bool.TryParse(xndEndorsed.InnerText, out var endorsed) ? (bool?)endorsed : null;
+				}
 				catch
 				{
 					IsEndorsed = null;
 				}
-            }
+			}
 
 			var xndDescription = xndRoot.SelectSingleNode("Description");
 
-            if (xndDescription != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Description)))
-            {
-                Description = xndDescription.InnerText;
-            }
-
-            var xndWebsite = xndRoot.SelectSingleNode("Website");
-
-            if (xndWebsite != null && !string.IsNullOrEmpty(xndWebsite.InnerText) && (!p_booFillOnlyEmptyValues || Website == null) && UriUtil.TryBuildUri(xndWebsite.InnerText, out var website))
+			if (xndDescription != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Description)))
 			{
-                Website = website;
-            }
+				Description = xndDescription.InnerText;
+			}
+
+			var xndWebsite = xndRoot.SelectSingleNode("Website");
+
+			if (xndWebsite != null && !string.IsNullOrEmpty(xndWebsite.InnerText) && (!p_booFillOnlyEmptyValues || Website == null) && UriUtil.TryBuildUri(xndWebsite.InnerText, out var website))
+			{
+				Website = website;
+			}
 
 			if (string.IsNullOrEmpty(LastKnownVersion))
-            {
-                UpdateWarningEnabled = false;
-            }
-            else
+			{
+				UpdateWarningEnabled = false;
+			}
+			else
 			{
 				var xndUpdateWarningEnabled = xndRoot.SelectSingleNode("UpdateWarningEnabled");
 
-                if (xndUpdateWarningEnabled != null)
+				if (xndUpdateWarningEnabled != null)
 				{
 					try
 					{
@@ -1391,7 +1400,7 @@
 
 			var xndUpdateChecksEnabled = xndRoot.SelectSingleNode("UpdateChecksEnabled");
 
-            if (xndUpdateChecksEnabled != null)
+			if (xndUpdateChecksEnabled != null)
 			{
 				try
 				{
@@ -1403,17 +1412,17 @@
 				}
 			}
 			else
-            {
-                UpdateChecksEnabled = true;
-            }
+			{
+				UpdateChecksEnabled = true;
+			}
 
-            var xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
+			var xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
 
-            if (xndPlaceInLoadOrder != null && !string.IsNullOrEmpty(xndPlaceInLoadOrder.InnerText) && (!p_booFillOnlyEmptyValues || PlaceInModLoadOrder == -1))
-            {
-                PlaceInModLoadOrder = int.Parse(xndPlaceInLoadOrder.InnerText);
-                NewPlaceInModLoadOrder = PlaceInModLoadOrder;
-            }
+			if (xndPlaceInLoadOrder != null && !string.IsNullOrEmpty(xndPlaceInLoadOrder.InnerText) && (!p_booFillOnlyEmptyValues || PlaceInModLoadOrder == -1))
+			{
+				PlaceInModLoadOrder = int.Parse(xndPlaceInLoadOrder.InnerText);
+				NewPlaceInModLoadOrder = PlaceInModLoadOrder;
+			}
 		}
 
 		#endregion
@@ -1428,26 +1437,26 @@
 		}
 
 		public static int CompareOrderFoldersFirst(string x, string y)
-        {
-            if (string.IsNullOrEmpty(x))
-            {
-                return string.IsNullOrEmpty(y) ? 0 : -1;
-            }
+		{
+			if (string.IsNullOrEmpty(x))
+			{
+				return string.IsNullOrEmpty(y) ? 0 : -1;
+			}
 
-            if (string.IsNullOrEmpty(y))
-            {
-                return 1;
-            }
+			if (string.IsNullOrEmpty(y))
+			{
+				return 1;
+			}
 
-            var xDir = Path.GetDirectoryName(x);
-            var yDir = Path.GetDirectoryName(y);
+			var xDir = Path.GetDirectoryName(x);
+			var yDir = Path.GetDirectoryName(y);
 
-            if (string.IsNullOrEmpty(xDir))
-            {
-                return string.IsNullOrEmpty(yDir) ? 0 : 1;
-            }
+			if (string.IsNullOrEmpty(xDir))
+			{
+				return string.IsNullOrEmpty(yDir) ? 0 : 1;
+			}
 
-            return string.IsNullOrEmpty(yDir) ? -1 : string.Compare(xDir, yDir, StringComparison.Ordinal);
-        }
+			return string.IsNullOrEmpty(yDir) ? -1 : string.Compare(xDir, yDir, StringComparison.Ordinal);
+		}
 	}
 }

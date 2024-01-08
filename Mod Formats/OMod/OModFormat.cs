@@ -132,7 +132,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_strPath">The path of the file from which to create an <see cref="IMod"/>.</param>
 		/// <param name="p_gmdGameMode">The game mode creating the mod.</param>
 		/// <returns>A mod from the specified file.</returns>
-		public IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode)
+		public IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode, bool isResetCachePath)
 		{
 			if (CheckFormatCompliance(p_strPath) <= FormatConfidence.Convertible)
 				throw new ModFormatException(this);

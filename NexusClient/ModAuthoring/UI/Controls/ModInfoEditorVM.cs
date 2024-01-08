@@ -15,6 +15,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 	public class ModInfoVM : ObservableObject
 	{
 		private string m_strModName = null;
+		private string m_strModId = null;
 		private string m_strDownloadId = null;
 		private string m_strHumanReadableVersion = null;
 		private string m_strLastKnownVersion = null;
@@ -34,6 +35,22 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		/// </summary>
 		/// <value>The <see cref="IModInfo"/> being edited.</value>
 		protected IModInfo ModInfo { get; private set; }
+
+		/// <summary>
+		/// Gets or sets the mod id of the mod file.
+		/// </summary>
+		/// <value>The mod id of the mod file.</value>
+		public string ModId
+		{
+			get
+			{
+				return m_strModId;
+			}
+			set
+			{
+				SetPropertyIfChanged(ref m_strModId, value, () => ModId);
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the download id of the mod file.
@@ -265,6 +282,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 			if (Validate() && (ModInfo != null))
 			{
 				ModInfo midInfo = new ModInfo(ModInfo);
+				midInfo.Id = ModId;
 				midInfo.DownloadId = DownloadId;
 				midInfo.Author = Author;
 				midInfo.Description = Description;
@@ -305,6 +323,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 			if (p_mifModInfo != null)
 			{
 				Author = p_mifModInfo.Author;
+				ModId = p_mifModInfo.Id;
 				DownloadId = p_mifModInfo.DownloadId;
 				Description = p_mifModInfo.Description;
 				HumanReadableVersion = p_mifModInfo.HumanReadableVersion;
