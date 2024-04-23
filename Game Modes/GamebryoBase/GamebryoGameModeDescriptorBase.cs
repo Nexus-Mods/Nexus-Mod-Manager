@@ -18,7 +18,7 @@
 																					"meshes", "music", "shaders", "video", "interface",
 																					"facegen", "menus", "lodsettings", "lsdata",
 																					"sound",
-                                                                                    "CalienteTools", "SKSE", "MWSE" };
+                                                                                    "CalienteTools", "SKSE", "MWSE", "NVSE", "F4SE", "FOSE", "OBSE" };
 		private string[] _criticalPlugins;
 		private string[] _officialPlugins;
         private string[] _officialUnmanagedPlugins;

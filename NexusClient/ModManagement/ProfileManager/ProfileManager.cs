@@ -1788,7 +1788,7 @@ namespace Nexus.Client.ModManagement
 				{ }
 			}
 
-			return null;
+			return null;    
 		}
 
 		/// <summary>
