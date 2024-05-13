@@ -339,7 +339,7 @@ namespace Nexus.Client.Games.Cyberpunk2077
 		{
 			string strPath = p_strPath;
 
-			if (strPath.StartsWith("bin") || strPath.StartsWith("x64"))
+			if (strPath.StartsWith("bin", StringComparison.InvariantCultureIgnoreCase) || strPath.StartsWith("x64", StringComparison.InvariantCultureIgnoreCase))
 			{
 				if (strPath.StartsWith("x64", StringComparison.InvariantCultureIgnoreCase))
 				{
