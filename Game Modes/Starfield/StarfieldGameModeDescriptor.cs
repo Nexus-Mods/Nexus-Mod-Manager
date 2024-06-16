@@ -13,8 +13,9 @@ namespace Nexus.Client.Games.Starfield
 		private static string[] EXECUTABLES = { "Starfield.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Starfield.esm" };
 		private static string[] OFFICIAL_PLUGINS = { "BlueprintShips-Starfield.esm", "Constellation.esm", "OldMars.esm" };
-        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
-        private const string MODE_ID = "Starfield";
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "SFBGS003.esm", "SFBGS006.esm", "SFBGS007.esm", "SFBGS008.esm" };
+
+		private const string MODE_ID = "Starfield";
 
         private bool m_booCheckedCccFile;
 

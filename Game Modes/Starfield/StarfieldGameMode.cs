@@ -43,22 +43,22 @@ namespace Nexus.Client.Games.Starfield
 		{
 			get
 			{
-				Version FO4Version = new Version("0.0.0.0");
+				Version SFVersion = new Version("0.0.0.0");
 				try
 				{
 					string strFullPath = null;
 					strFullPath = Path.Combine(GameModeEnvironmentInfo.InstallationPath, "Starfield.exe");
 					if (File.Exists(strFullPath))
 					{
-						FO4Version = new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
-						return FO4Version;
+						SFVersion = new Version(System.Diagnostics.FileVersionInfo.GetVersionInfo(strFullPath).FileVersion.Replace(", ", "."));
+						return SFVersion;
 					}
 					else
 						return null;
 				}
 				catch { }
 				
-				return FO4Version;
+				return SFVersion;
 			}
 		}
 

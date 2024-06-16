@@ -30,6 +30,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private IBackgroundTask RunningTask = null;
 		private IBackgroundTask ExternalTask = null;
 		private bool Fallout4PluginManagement = false;
+		private bool StarFieldCustomPluginsMessage = false;
 
 		#region Events
 
@@ -376,6 +377,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					SingleFileManagement = true;
 					Fallout4PluginManagement = true;
 					ForcedReadOnly = false;
+					try
+					{ 
+					if (GameMode.GameVersion >= new Version(1, 12, 30, 0))
+						StarFieldCustomPluginsMessage = true;
+					}
+					catch (ArgumentNullException e)
+					{
+						var ex = new FileNotFoundException("Could not initialize Starfield Game Mode: Could not find the Starfield executable.", Path.Combine(GameMode.ExecutablePath, "Starfield.exe"), e);
+						TraceUtil.TraceException(ex);
+						throw ex;
+					}
 					break;
 				default:
 					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
@@ -930,7 +942,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 					offset = 2;
 					strOrderedPluginNames = new string[(strPlugins.Count() + offset)];
-					strOrderedPluginNames[0] = "# This file is used by the game to keep track of your downloaded content.";
+					if (StarFieldCustomPluginsMessage)
+					{
+						strOrderedPluginNames[0] = "# This file is used by Starfield to keep track of your downloaded content.";
+						strOrderedPluginNames[1] = "# Please do not modify this file.";
+					}
+					else
+						strOrderedPluginNames[0] = "# This file is used by the game to keep track of your downloaded content.";
 				}
 				else
 				{
