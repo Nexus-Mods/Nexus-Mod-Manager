@@ -38,7 +38,9 @@ namespace Nexus.Client.Games.Cyberpunk2077
 			{
 				if (!_isOldGameVersion.HasValue)
 				{
-					_isOldGameVersion = GameVersion < new Version(1, 2);
+					Version gameVersion = GameVersion;
+					if (gameVersion != null)
+						_isOldGameVersion = gameVersion < new Version(1, 2);
 				}
 
 				return (_isOldGameVersion.HasValue ? _isOldGameVersion.Value : false);
