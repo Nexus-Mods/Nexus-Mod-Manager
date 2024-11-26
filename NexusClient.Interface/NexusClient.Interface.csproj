@@ -41,8 +41,8 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="SevenZipSharp, Version=1.6.1.23, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.6.1.23\lib\netstandard2.0\SevenZipSharp.dll</HintPath>
+    <Reference Include="SevenZipSharp, Version=1.6.2.24, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.6.2.24\lib\netstandard2.0\SevenZipSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
