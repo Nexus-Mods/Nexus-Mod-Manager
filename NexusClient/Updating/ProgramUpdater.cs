@@ -347,13 +347,21 @@ namespace Nexus.Client.Updating
 
             var latestReleaseInfo = Releases[0];
 
-            if (latestReleaseInfo != null)
+            try
             {
-                latestVersion = new Version(latestReleaseInfo["tag_name"].Value<string>());
-                downloadUrl = latestReleaseInfo["assets"][0]["browser_download_url"].Value<string>();
-            }
+				if (latestReleaseInfo != null)
+				{
+					latestVersion = new Version(latestReleaseInfo["tag_name"].Value<string>());
+					downloadUrl = latestReleaseInfo["assets"][0]["browser_download_url"].Value<string>();
+				}
+			}
+            catch
+			{
+				Trace.TraceError("Could not get version information from the update server.");
+                return new Tuple<Version, string>(null, null);
+			}
 
-            return new Tuple<Version, string>(latestVersion, downloadUrl);
+			return new Tuple<Version, string>(latestVersion, downloadUrl);
         }
     }
 }
