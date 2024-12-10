@@ -488,6 +488,7 @@
     <Content Include="data\boss64.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="data\FluentNexus.dll" />
     <Content Include="data\libwebp_x64.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -782,8 +783,9 @@
     <Reference Include="Accessibility">
       <Private>False</Private>
     </Reference>
-    <Reference Include="FluentNexus, Version=1.0.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Pathoschild.FluentNexus.1.0.5\lib\net45\FluentNexus.dll</HintPath>
+    <Reference Include="FluentNexus, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>data\FluentNexus.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
