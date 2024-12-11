@@ -774,6 +774,18 @@
 						strPrefixPath = strSourcePath;
 						break;
 					}
+					else
+					{
+						string strDummyPath = stkPaths.Pop();
+
+						if (stkPaths.Count == 0 && string.IsNullOrEmpty(strDummyPath))
+						{
+							strPrefixPath = strDummyPath;
+							break;
+						}
+						else
+							stkPaths.Push(strDummyPath);
+					}
 				}
 			}
 
