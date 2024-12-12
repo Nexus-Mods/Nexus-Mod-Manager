@@ -425,8 +425,12 @@ namespace Nexus.Client.Util
 					foreach (ArchiveFileInfo afiFile in szeExtractor.ArchiveFileData)
 						if (!afiFile.IsDirectory)
 						{
-							m_dicFileInfo[afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)] = afiFile;
-							m_strFiles.Add(afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+							string afiFileName = afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+							if (afiFileName.StartsWith(Path.DirectorySeparatorChar.ToString()))
+								afiFileName = afiFileName.Substring(1);
+
+							m_dicFileInfo[afiFileName] = afiFile;
+							m_strFiles.Add(afiFileName);
 						}
 				}
 				catch { }
