@@ -776,7 +776,9 @@
 					}
 					else
 					{
-						string strDummyPath = stkPaths.Pop();
+						string strDummyPath = null;
+						if (stkPaths.Count > 0)
+							strDummyPath = stkPaths.Pop();
 
 						if (stkPaths.Count == 0 && string.IsNullOrEmpty(strDummyPath))
 						{

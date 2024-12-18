@@ -426,7 +426,7 @@ namespace Nexus.Client.Util
 						if (!afiFile.IsDirectory)
 						{
 							string afiFileName = afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-							if (afiFileName.StartsWith(Path.DirectorySeparatorChar.ToString()))
+							if (afiFileName.StartsWith(Path.DirectorySeparatorChar.ToString()) && afiFileName.Length > 1)
 								afiFileName = afiFileName.Substring(1);
 
 							m_dicFileInfo[afiFileName] = afiFile;
