@@ -129,6 +129,19 @@ namespace Nexus.Client.Games.SkyrimGOG
 				AddLaunchCommand(new Command("Config#Nemesis", "Config Nemesis", "Configures Nemesis.", imgIcon, ConfigNemesis, true));
 			}
 
+			strCommand = GetPandoraLaunchCommand();
+			Trace.TraceInformation("Pandora Command: {0} (IsNull={1})", strCommand, (strCommand == null));
+			if ((strCommand != null) && (File.Exists(strCommand)))
+			{
+				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				AddLaunchCommand(new Command("Pandora", "Launch Pandora", "Launches Pandora.", imgIcon, LaunchPandora, true));
+			}
+			else
+			{
+				imgIcon = null;
+				AddLaunchCommand(new Command("Config#Pandora", "Config Pandora", "Configures Pandora.", imgIcon, ConfigPandora, true));
+			}
+
 			strCommand = GetBSLaunchCommand();
 			Trace.TraceInformation("BodySlide Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
@@ -232,6 +245,15 @@ namespace Nexus.Client.Games.SkyrimGOG
 			Trace.TraceInformation("Launching Nemesis");
 			Trace.Indent();
 			string strCommand = GetNemesisLaunchCommand();
+			Trace.TraceInformation("Command: " + strCommand);
+			Launch(strCommand, null);
+		}
+
+		private void LaunchPandora()
+		{
+			Trace.TraceInformation("Launching Pandora");
+			Trace.Indent();
+			string strCommand = GetPandoraLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
 			Launch(strCommand, null);
 		}
@@ -490,6 +512,44 @@ namespace Nexus.Client.Games.SkyrimGOG
 		}
 
 		/// <summary>
+		/// Gets the Pandora launch command.
+		/// </summary>
+		/// <returns>The Pandora launch command.</returns>
+		private string GetPandoraLaunchCommand()
+		{
+			string strPandora = string.Empty;
+
+			if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey("Pandora"))
+			{
+				strPandora = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Pandora"];
+				if (!string.IsNullOrWhiteSpace(strPandora) && ((strPandora.IndexOfAny(Path.GetInvalidPathChars()) >= 0) || !Directory.Exists(strPandora)))
+				{
+					strPandora = string.Empty;
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Pandora"] = string.Empty;
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+
+			if (string.IsNullOrEmpty(strPandora))
+			{
+				string strPandoraPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, @"Data\Pandora_Engine");
+				if (Directory.Exists(strPandoraPath))
+				{
+					strPandora = Path.GetDirectoryName(strPandoraPath);
+					EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId]["Pandora"] = strPandora;
+					EnvironmentInfo.Settings.Save();
+				}
+			}
+
+			if (!string.IsNullOrEmpty(strPandora))
+			{
+				strPandora = Path.Combine(strPandora, "Pandora Behaviour Engine+.exe");
+			}
+
+			return strPandora;
+		}
+
+		/// <summary>
 		/// Gets the BodySlide launch command.
 		/// </summary>
 		/// <returns>The BodySlide launch command.</returns>
@@ -648,6 +708,10 @@ namespace Nexus.Client.Games.SkyrimGOG
 
 				case "Nemesis":
 					ConfigNemesis();
+					break;
+
+				case "Pandora":
+					ConfigPandora();
 					break;
 
 				default:
@@ -822,6 +886,36 @@ namespace Nexus.Client.Games.SkyrimGOG
 			string strPath = fbd.SelectedPath;
 
 			if (!String.IsNullOrEmpty(strPath))
+				if (Directory.Exists(strPath))
+				{
+					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
+
+					if (!string.IsNullOrWhiteSpace(strExecutablePath) && File.Exists(strExecutablePath))
+					{
+						EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][p_strToolID] = strPath;
+						EnvironmentInfo.Settings.Save();
+						OnChangedToolPath(new EventArgs());
+					}
+				}
+		}
+
+		private void ConfigPandora()
+		{
+			string p_strToolName = "Pandora";
+			string p_strExecutableName = "Pandora Behaviour Engine+.exe";
+			string p_strToolID = "Pandora";
+			Trace.TraceInformation(string.Format("Configuring {0}", p_strToolName));
+			Trace.Indent();
+
+			FolderBrowserDialog fbd = new FolderBrowserDialog();
+			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.ShowNewFolderButton = false;
+
+			fbd.ShowDialog();
+
+			string strPath = fbd.SelectedPath;
+
+			if (!string.IsNullOrEmpty(strPath))
 				if (Directory.Exists(strPath))
 				{
 					string strExecutablePath = Path.Combine(strPath, p_strExecutableName);
