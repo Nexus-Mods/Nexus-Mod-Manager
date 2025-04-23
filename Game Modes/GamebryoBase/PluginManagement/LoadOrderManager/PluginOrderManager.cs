@@ -31,6 +31,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private IBackgroundTask ExternalTask = null;
 		private bool Fallout4PluginManagement = false;
 		private bool StarFieldCustomPluginsMessage = false;
+		private bool OblivionRemasteredPluginManagement = false;
 
 		#region Events
 
@@ -389,6 +390,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						throw ex;
 					}
 					break;
+				case "OblivionRemastered":
+					TimestampOrder = false;
+					IgnoreOfficialPlugins = false;
+					ForcedReadOnly = false;
+					SingleFileManagement = false;
+					Fallout4PluginManagement = true;
+					OblivionRemasteredPluginManagement = true;
+					break;
 				default:
 					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
 			}
@@ -409,7 +418,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			LastValidLoadOrder = RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()).ToList();
 			TaskList.CollectionChanged += new NotifyCollectionChangedEventHandler(TaskList_CollectionChanged);
 
-			if (!TimestampOrder && !SingleFileManagement)
+			if (!TimestampOrder && !SingleFileManagement && !OblivionRemasteredPluginManagement)
 			{
 				LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "loadorder.txt");
 				if (!File.Exists(LoadOrderFilePath))
@@ -421,7 +430,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					catch { }
 				}
 			}
-			else if (SingleFileManagement)
+			else if (SingleFileManagement || OblivionRemasteredPluginManagement)
 			{
 				LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
 			}
@@ -432,9 +441,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					m_dtiMasterDate = File.GetLastWriteTime(strMasterPlugin);
 			}
 
-			PluginsFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
+			if (!OblivionRemasteredPluginManagement)
+				PluginsFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
+			else
+				PluginsFilePath = Path.Combine(GameMode.PluginDirectory, "Plugins.txt");
 
-			Backup(strGameModeLocalAppData);
+				Backup(strGameModeLocalAppData);
 
 			SetupWatcher(strGameModeLocalAppData);
 		}
@@ -533,7 +545,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						}
 						else if (strFile.Equals("loadorder.txt", StringComparison.InvariantCultureIgnoreCase))
 						{
-							if (!TimestampOrder && !SingleFileManagement)
+							if (!TimestampOrder && !SingleFileManagement && !OblivionRemasteredPluginManagement)
 									LoadOrderUpdate?.Invoke(GetLoadOrder(), new EventArgs());
 						}
 					}
@@ -654,7 +666,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void Backup(string p_strDataFolder)
 		{
-			if (File.Exists(LoadOrderFilePath) && !SingleFileManagement)
+			if (File.Exists(LoadOrderFilePath) && !SingleFileManagement && !OblivionRemasteredPluginManagement)
 			{
 				string strBakFilePath = Path.Combine(p_strDataFolder, "loadorder.nmm.bak");
 				if (!File.Exists(strBakFilePath))
@@ -663,7 +675,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			if (File.Exists(PluginsFilePath))
 			{
-				string strBakFilePath = Path.Combine(p_strDataFolder, "plugins.nmm.bak");
+				string strBakFilePath = Path.Combine(OblivionRemasteredPluginManagement ? GameMode.PluginDirectory : p_strDataFolder, "plugins.nmm.bak");
 				if (!File.Exists(strBakFilePath))
 					File.Copy(PluginsFilePath, strBakFilePath, false);
 			}
@@ -1237,7 +1249,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				SetSortedListLoadOrder(strOrderedPluginNames);
 			}
 
-			if (!TimestampOrder && !SingleFileManagement && ((m_lstActivePlugins != null) && (m_lstActivePlugins.Count > 0)))
+			if (!TimestampOrder && !SingleFileManagement && !OblivionRemasteredPluginManagement && ((m_lstActivePlugins != null) && (m_lstActivePlugins.Count > 0)))
 			{
 				string[] strOrderedActivePluginNames = strOrderedPluginNames.Intersect(StripPluginDirectory(m_lstActivePlugins.ToArray()), StringComparer.InvariantCultureIgnoreCase).ToArray();
 				if ((strOrderedActivePluginNames != null) && (strOrderedActivePluginNames.Length > 0))
