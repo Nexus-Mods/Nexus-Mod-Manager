@@ -432,7 +432,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 			else if (SingleFileManagement || OblivionRemasteredPluginManagement)
 			{
-				LoadOrderFilePath = Path.Combine(strGameModeLocalAppData, "plugins.txt");
+				LoadOrderFilePath = Path.Combine(GameMode.PluginDirectory, "plugins.txt");
 			}
 			else
 			{
