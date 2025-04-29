@@ -14,7 +14,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		private static string[] EXECUTABLES = { "OblivionRemastered.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Oblivion.esm" };
 		private static string[] OFFICIAL_PLUGINS = { "DLCBattlehornCastle.esp", "DLCFrostcrag.esp", "DLCHorseArmor.esp", "DLCMehrunesRazor.esp", "DLCOrrery.esp"
-			, "DLCShiveringIsles.esp", "DLCSpellTomes.esp", "DLCThievesDen.esp", "DLCVileLair.esp", "Knights.esp", "AltarESPMain.esp", "AltarDeluxe.esp", "AltarESPLocal.esp" };
+			, "DLCShiveringIsles.esp", "DLCSpellTomes.esp", "DLCThievesDen.esp", "DLCVileLair.esp", "Knights.esp", "AltarESPMain.esp", "AltarDeluxe.esp", "AltarESPLocal.esp", "AltarGymNavigation.esp", "TamrielLeveledRegion.esp" };
         private static string[] OFFICIAL_UNMANAGED_PLUGINS = { };
         private const string MODE_ID = "OblivionRemastered";
 		private string _pluginPath = string.Empty;
