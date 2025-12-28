@@ -135,7 +135,12 @@
                     }
                 }
 
-                string strMessage = $"Data file '{baseFilePath}' has already been installed by '{modCheck.ModName}'";
+                if (Path.GetExtension(baseFilePath).Equals(".txt", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    return false;
+				}
+
+				string strMessage = $"Data file '{baseFilePath}' has already been installed by '{modCheck.ModName}'";
                 strMessage += Environment.NewLine + "Activate this mod's file instead?";
 
                 switch (OverwriteForm.ShowDialog(strMessage, true, true))
