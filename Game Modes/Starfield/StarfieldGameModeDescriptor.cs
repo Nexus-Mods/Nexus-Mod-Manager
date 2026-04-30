@@ -12,8 +12,8 @@ namespace Nexus.Client.Games.Starfield
 	{
 		private static string[] EXECUTABLES = { "Starfield.exe" };
 		private static string[] CRITICAL_PLUGINS = { "Starfield.esm" };
-		private static string[] OFFICIAL_PLUGINS = { "BlueprintShips-Starfield.esm", "Constellation.esm", "OldMars.esm", "ShatteredSpace.esm" };
-        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "SFBGS003.esm", "SFBGS004.esm", "SFBGS006.esm", "SFBGS007.esm", "SFBGS008.esm" };
+		private static string[] OFFICIAL_PLUGINS = { "ShatteredSpace.esm", "Constellation.esm", "OldMars.esm",  };
+        private static string[] OFFICIAL_UNMANAGED_PLUGINS = { "SFBGS007.esm", "SFBGS008.esm", "SFBGS006.esm", "SFBGS003.esm", "SFBGS004.esm", "SFBGS00D.esm", "SFBGS047.esm", "SFBGS050.esm", "BlueprintShips-Starfield.esm", "BlueprintShips-SFBGS050.esm" };
 
 		private const string MODE_ID = "Starfield";
 
