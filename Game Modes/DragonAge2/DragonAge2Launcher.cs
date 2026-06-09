@@ -38,19 +38,19 @@ namespace Nexus.Client.Games.DragonAge2
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Dragon Age 2", "Launches Dragon Age 2.", imgIcon, LaunchDragonAge2Plain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Dragon Age 2 Custom", "Launches Dragon Age 2 Custom.", imgIcon, LaunchDragonAge2Custom, true));
 
 			strCommand = GetLauncherLaunchCommand();
 			Trace.TraceInformation("Laucher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("LauncherLaunch", "Launch Dragon Age 2 Launcher", "Launches Dragon Age 2 Launcher.", imgIcon, LaunchDragonAge2Launcher, true));
 			}
 

@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.Subnautica
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Subnautica", "Launches default Subnautica.", imgIcon, LaunchSubnauticaPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Subnautica", "Launches Subnautica with custom command.", imgIcon, LaunchSubnauticaCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Subnautica", "Launches Subnautica.", LaunchGame);

@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.MountAndBlade2Bannerlord
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Mount & Blade II : Bannerlord", "Launches default Mount & Blade II : Bannerlord.", imgIcon, LaunchMountAndBlade2BannerlordPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Mount & Blade II : Bannerlord", "Launches Mount & Blade II : Bannerlord with custom command.", imgIcon, LaunchMountAndBlade2BannerlordCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Mount & Blade II : Bannerlord", "Launches Mount & Blade II : Bannerlord.", LaunchGame);

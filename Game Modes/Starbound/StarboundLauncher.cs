@@ -38,17 +38,17 @@ namespace Nexus.Client.Games.Starbound
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Starbound", "Launches default Starbound.", imgIcon, LaunchStarboundPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("OpenGLLaunch", "Launch OpenGL Starbound", "Launches OpenGL Starbound.", imgIcon, LaunchStarboundOpenGL, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Starbound", "Launches Starbound with custom command.", imgIcon, LaunchStarboundCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Starbound", "Launches Starbound.", LaunchGame);

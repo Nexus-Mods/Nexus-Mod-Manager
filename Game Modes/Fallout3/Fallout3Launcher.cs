@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -38,20 +38,20 @@ namespace Nexus.Client.Games.Fallout3
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Fallout 3", "Launches plain Fallout 3.", imgIcon, LaunchFallout3Plain, true));
 
 			strCommand = GetFoseLaunchCommand();
 			Trace.TraceInformation("FOSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("FoseLaunch", "Launch FOSE", "Launches Fallout 3 with FOSE.", imgIcon, LaunchFallout3FOSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Fallout 3", "Launches Fallout 3 with custom command.", imgIcon, LaunchFallout3Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch Fallout 3", "Launches Fallout 3.", LaunchGame);

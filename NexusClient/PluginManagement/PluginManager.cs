@@ -122,7 +122,7 @@ namespace Nexus.Client.PluginManagement
 		/// Gets the max allowed number of active plugins.
 		/// </summary>
 		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
-		public Int32 MaxAllowedActivePluginsCount 
+		public Int32 MaxAllowedActivePluginsCount
 		{
 			get
 			{
@@ -163,7 +163,7 @@ namespace Nexus.Client.PluginManagement
 					OrderValidator.CorrectOrder(lstPlugins);
 					PluginOrderLog.SetPluginOrder(lstPlugins);
 				}
-			}		
+			}
 		}
 
 		#endregion
@@ -180,7 +180,11 @@ namespace Nexus.Client.PluginManagement
 		{
 			bool booSuccess = ManagedPluginRegistry.RegisterPlugin(p_strPluginPath);
 			if (booSuccess)
-				PluginOrderLog.SetPluginOrderIndex(ManagedPluginRegistry.GetPlugin(p_strPluginPath), PluginOrderLog.OrderedPlugins.Count);
+			{
+				Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(p_strPluginPath);
+				if (plgPlugin != null)
+					PluginOrderLog.SetPluginOrderIndex(plgPlugin, PluginOrderLog.OrderedPlugins.Count);
+			}
 			return booSuccess;
 		}
 

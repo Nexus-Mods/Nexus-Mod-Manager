@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.Witcher3
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Witcher3", "Launches default Witcher3.", imgIcon, LaunchWitcher3Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Witcher3", "Launches Witcher3 with custom command.", imgIcon, LaunchWitcher3Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch Witcher3", "Launches Witcher3.", LaunchGame);

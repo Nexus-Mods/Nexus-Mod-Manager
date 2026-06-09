@@ -39,17 +39,17 @@ namespace Nexus.Client.Games.Witcher2
 			string strCommand = GetCMLaunchCommand();
 			string strCMIcon = Path.Combine(GameMode.ExecutablePath, "editor.release.exe");
 			Trace.TraceInformation("CM Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCMIcon) ? Icon.ExtractAssociatedIcon(strCMIcon).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCMIcon);
 			AddLaunchCommand(new Command("CMLaunch", "Launch The Witcher 2 CM", "Launches The Witcher 2 Content Manager.", imgIcon, LaunchWitcher2CM, true));
 
             strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher 2", "Launches The Witcher 2.", imgIcon, LaunchWitcher2Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("CustomLaunch", "Launch The Witcher 2 Custom", "Launches The Witcher 2 Custom.", imgIcon, LaunchWitcher2Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch The Witcher 2 Content Manager", "Launches The Witcher 2 Content Manager.", LaunchGame);

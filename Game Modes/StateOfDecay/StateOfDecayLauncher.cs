@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.StateOfDecay
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("PlainLaunch", "Launch State of Decay", "Launches plain State of Decay.", imgIcon, LaunchStateOfDecayPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("CustomLaunch", "Launch Custom State of Decay", "Launches State of Decay with custom command.", imgIcon, LaunchStateOfDecayCustom, true));
 
             DefaultLaunchCommand = new Command("Launch State of Decay", "Launches State of Decay.", LaunchGame);

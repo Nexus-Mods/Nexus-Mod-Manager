@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.WarThunder
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch War Thunder's Launcher", "Launches War Thunder's Launcher.", imgIcon, LaunchWarThunderPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom War Thunder", "Launches War Thunder with custom command.", imgIcon, LaunchWarThunderCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch War Thunder' Launcher", "Launches War Thunder's Launcher.", LaunchGame);

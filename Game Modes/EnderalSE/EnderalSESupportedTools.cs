@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -40,7 +40,7 @@ namespace Nexus.Client.Games.EnderalSE
 			Trace.TraceInformation("EnderalSEEdit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("EnderalSEEdit", "Launch EnderalSEEdit", "Launches EnderalSEEdit.", imgIcon, LaunchEnderalSEEdit, true));
 			}
 			else
@@ -53,7 +53,7 @@ namespace Nexus.Client.Games.EnderalSE
 			Trace.TraceInformation("BodySlide Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("BS2", "Launch BodySlide", "Launches BodySlide.", imgIcon, LaunchBS, true));
 			}
 			else

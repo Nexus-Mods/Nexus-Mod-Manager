@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.WorldOfTanks
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("PlainLaunch", "Launch WorldOfTanks", "Launches plain WorldOfTanks.", imgIcon, LaunchWoTPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("CustomLaunch", "Launch Custom WorldOfTanks", "Launches WorldOfTanks with custom command.", imgIcon, LaunchWoTCustom, true));
 
             DefaultLaunchCommand = new Command("Launch WorldOfTanks", "Launches WorldOfTanks.", LaunchGame);

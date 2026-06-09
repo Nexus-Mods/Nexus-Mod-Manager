@@ -32,7 +32,7 @@
 			private readonly InstalledItemDictionary<string, byte[]> _replacedGameSpecificValueEdits;
 			private readonly InstalledItemDictionary<string, byte[]> _uninstalledGameSpecificValueEdits;
 
-			private readonly Set<string> _removedModKeys = new Set<string>();
+			private readonly HashSet<string> _removedModKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			private bool _enlisted;
 
 			#region Properties
@@ -156,10 +156,7 @@
 				// doesn't get polluted with old entries.
 				foreach (var file in installedFiles)
 				{
-					foreach (var strRemovedModKey in _removedModKeys)
-                    {
-                        file.Installers.Remove(strRemovedModKey);
-                    }
+					file.Installers.RemoveAll(_removedModKeys);
 
                     if (file.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(file.Installers.Peek().InstallerKey))
                     {
@@ -232,10 +229,7 @@
 				// doesn't get polluted with old entries.
 				foreach (var insIniEdit in installedIniEdits)
 				{
-					foreach (var strRemovedModKey in _removedModKeys)
-                    {
-                        insIniEdit.Installers.Remove(strRemovedModKey);
-                    }
+					insIniEdit.Installers.RemoveAll(_removedModKeys);
 
                     if (insIniEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(insIniEdit.Installers.Peek().InstallerKey))
                     {
@@ -308,10 +302,7 @@
 				// doesn't get polluted with old entries.
 				foreach (var insGameSpecificValueEdit in gameSpecificValueEdits)
 				{
-					foreach (var strRemovedModKey in _removedModKeys)
-                    {
-                        insGameSpecificValueEdit.Installers.Remove(strRemovedModKey);
-                    }
+					insGameSpecificValueEdit.Installers.RemoveAll(_removedModKeys);
 
                     if (insGameSpecificValueEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(insGameSpecificValueEdit.Installers.Peek().InstallerKey))
                     {
@@ -569,7 +560,7 @@
                         installers.Remove(isvMod);
                 }
 
-                _removedModKeys.ForEach(x => installers.Remove(x));
+                installers.RemoveAll(_removedModKeys);
 				
                 return installers;
 			}
@@ -776,7 +767,7 @@
                     }
                 }
 
-                _removedModKeys.ForEach(x => installers.Remove(x));
+                installers.RemoveAll(_removedModKeys);
 				
                 return installers;
 			}
@@ -1028,7 +1019,7 @@
                     }
                 }
 
-                _removedModKeys.ForEach(x => installers.Remove(x));
+                installers.RemoveAll(_removedModKeys);
 				
                 return installers;
 			}

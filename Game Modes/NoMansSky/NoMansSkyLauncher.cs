@@ -38,20 +38,20 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch No Man's Sky", "Launches default No Man's Sky.", imgIcon, LaunchNoMansSkyPlain, true));
 
             strCommand = GetNmseLaunchCommand();
             Trace.TraceInformation("NMSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             if (File.Exists(strCommand))
             {
-                imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+                imgIcon = SafeExtractIcon(strCommand);
                 AddLaunchCommand(new Command("NMSELaunch", "Launch No Man's Sky using NMSE", "Launches No Man's Sky using the Extender", imgIcon, LaunchNoMansSkyExtender, true));
             }
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom No Man's Sky", "Launches No Man's Sky with custom command.", imgIcon, LaunchNoMansSkyCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch No Man's Sky", "Launches No Man's Sky.", LaunchGame);

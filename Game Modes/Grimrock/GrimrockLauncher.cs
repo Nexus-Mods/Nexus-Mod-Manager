@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.Grimrock
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Legend of Grimrock", "Launches plain Legend of Grimrock.", imgIcon, LaunchGrimrockPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Legend of Grimrock", "Launches Legend of Grimrock with custom command.", imgIcon, LaunchGrimrockCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Legend of Grimrock", "Launches Legend of Grimrock.", LaunchGame);

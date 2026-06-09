@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.DarkSouls2
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Dark Souls 2", "Launches plain Dark Souls 2.", imgIcon, LaunchDarkSouls2Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Dark Souls 2", "Launches Dark Souls 2 with custom command.", imgIcon, LaunchDarkSouls2Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch Dark Souls 2", "Launches Dark Souls 2.", LaunchGame);

@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.XCOM2
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch XCOM 2", "Launches default XCOM 2.", imgIcon, LaunchXCOM2Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("CustomLaunch", "Launch Custom XCOM 2", "Launches XCOM 2 with custom command.", imgIcon, LaunchXCOM2Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch XCOM 2", "Launches XCOM 2.", LaunchGame);
