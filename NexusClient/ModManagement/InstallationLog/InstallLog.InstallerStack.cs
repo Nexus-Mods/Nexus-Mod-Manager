@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
 
@@ -155,6 +156,17 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public bool Contains(string p_strInstallerKey)
 			{
 				return IndexOf(p_strInstallerKey) > -1;
+			}
+
+			/// <summary>
+			/// Removes all values whose installer key is in the given set. Single O(n) pass
+			/// using O(1) hash lookups — avoids the O(n×m) nested loop when removing many keys.
+			/// </summary>
+			public void RemoveAll(ISet<string> p_setKeys)
+			{
+				for (int i = Count - 1; i >= 0; i--)
+					if (p_setKeys.Contains(this[i].InstallerKey))
+						RemoveAt(i);
 			}
 		}
 	}
