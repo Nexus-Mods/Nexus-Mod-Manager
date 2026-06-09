@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.StardewValley
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Stardew Valley", "Launches default Stardew Valley.", imgIcon, LaunchStardewValleyPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Stardew Valley", "Launches Stardew Valley with custom command.", imgIcon, LaunchStardewValleyCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Stardew Valley", "Launches Stardew Valley.", LaunchGame);

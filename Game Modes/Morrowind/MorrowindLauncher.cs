@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -38,20 +38,20 @@ namespace Nexus.Client.Games.Morrowind
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("PlainLaunch", "Launch Morrowind", "Launches plain Morrowind.", imgIcon, LaunchMorrowindPlain, true));
 
             strCommand = GetMwseLaunchCommand();
             Trace.TraceInformation("MWSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             if (File.Exists(strCommand))
             {
-                imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+                imgIcon = SafeExtractIcon(strCommand);
                 AddLaunchCommand(new Command("MwseLaunch", "Launch MWSE", "Launches Morrowind with MWSE.", imgIcon, LaunchMorrowindMWSE, true));
             }
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
             AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Morrowind", "Launches Morrowind with custom command.", imgIcon, LaunchMorrowindCustom, true));
 
             DefaultLaunchCommand = new Command("Launch Morrowind", "Launches Morrowind.", LaunchGame);

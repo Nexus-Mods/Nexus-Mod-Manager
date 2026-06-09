@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -38,14 +38,14 @@ namespace Nexus.Client.Games.FalloutNV
 			
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Fallout: New Vegas", "Launches plain Fallout: New Vegas.", imgIcon, LaunchFalloutNVPlain, true));
 
 			strCommand = GetNvseLaunchCommand();
 			Trace.TraceInformation("NVSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("NvseLaunch", "Launch NVSE", "Launches Fallout: New Vegas with NVSE.", imgIcon, LaunchFalloutNVNVSE, true));
 			}
 
@@ -53,13 +53,13 @@ namespace Nexus.Client.Games.FalloutNV
 			Trace.TraceInformation("FNV4Gb Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("FNV4GbLaunch", "Launch FNV4Gb", "Launches Fallout: New Vegas with FNV4Gb.", imgIcon, LaunchFalloutNVFNV4Gb, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Fallout: New Vegas", "Launches Fallout: New Vegas with custom command.", imgIcon, LaunchFalloutNVCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Fallout: New Vegas", "Launches Fallout: New Vegas.", LaunchGame);

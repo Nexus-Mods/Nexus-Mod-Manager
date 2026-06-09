@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.HogwartsLegacy
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Hogwarts Legacy", "Launches default Hogwarts Legacy.", imgIcon, LaunchHogwartsLegacyPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Hogwarts Legacy", "Launches Hogwarts Legacy with custom command.", imgIcon, LaunchHogwartsLegacyCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Hogwarts Legacy", "Launches Hogwarts Legacy.", LaunchGame);

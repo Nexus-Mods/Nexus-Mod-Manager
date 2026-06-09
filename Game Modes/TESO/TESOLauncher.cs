@@ -40,20 +40,20 @@ namespace Nexus.Client.Games.TESO
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch The Elder Scrolls Online", "Launches plain The Elder Scrolls Online.", imgIcon, LaunchTESOPlain, true));
 
 			strCommand = GetESOLauncherLaunchCommand();
 			Trace.TraceInformation("ESO Launcher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("ESOLauncher", "Launch the ESO Launcher", "Launches the ESO Launcher.", imgIcon, LaunchESOLauncher, true));
 			}
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom The Elder Scrolls Online", "Launches The Elder Scrolls Online with custom command.", imgIcon, LaunchTESOCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch the ESO Launcher", "Launches the ESO Launcher.", LaunchGame);

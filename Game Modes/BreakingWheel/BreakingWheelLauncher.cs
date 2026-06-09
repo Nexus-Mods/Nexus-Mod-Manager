@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.BreakingWheel
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Breaking Wheel's Launcher", "Launches Breaking Wheel's Launcher.", imgIcon, LaunchBreakingWheelPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Breaking Wheel", "Launches Breaking Wheel with custom command.", imgIcon, LaunchBreakingWheelCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Breaking Wheel' Launcher", "Launches Breaking Wheel's Launcher.", LaunchGame);

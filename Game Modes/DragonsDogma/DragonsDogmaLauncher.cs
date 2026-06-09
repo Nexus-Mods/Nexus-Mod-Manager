@@ -38,12 +38,12 @@ public DragonsDogmaLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvir
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Dragon's Dogma", "Launches default Dragon's Dogma.", imgIcon, LaunchDragonsDogmaPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Dragon's Dogma", "Launches Dragon's Dogma with custom command.", imgIcon, LaunchDragonsDogmaCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Dragon's Dogma", "Launches Dragon' s Dogma.", LaunchGame);

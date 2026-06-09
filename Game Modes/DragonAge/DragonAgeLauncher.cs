@@ -38,17 +38,17 @@ namespace Nexus.Client.Games.DragonAge
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Dragon Age", "Launches Dragon Age.", imgIcon, LaunchDragonAgePlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Dragon Age Custom", "Launches Dragon Age Custom.", imgIcon, LaunchDragonAgeCustom, true));
 
 			strCommand = GetLauncherLaunchCommand();
 			Trace.TraceInformation("Launcher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("LauncherLaunch", "Launch Dragon Age Launcher", "Launches Dragon Age Launcher.", imgIcon, LaunchDragonAgeLauncher, true));
 
 			DefaultLaunchCommand = new Command("Launch Dragon Age", "Launches Dragon Age", LaunchGame);

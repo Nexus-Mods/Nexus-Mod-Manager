@@ -180,7 +180,11 @@ namespace Nexus.Client.PluginManagement
 		{
 			bool booSuccess = ManagedPluginRegistry.RegisterPlugin(p_strPluginPath);
 			if (booSuccess)
-				PluginOrderLog.SetPluginOrderIndex(ManagedPluginRegistry.GetPlugin(p_strPluginPath), PluginOrderLog.OrderedPlugins.Count);
+			{
+				Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(p_strPluginPath);
+				if (plgPlugin != null)
+					PluginOrderLog.SetPluginOrderIndex(plgPlugin, PluginOrderLog.OrderedPlugins.Count);
+			}
 			return booSuccess;
 		}
 

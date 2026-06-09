@@ -207,6 +207,8 @@ namespace Nexus.Client.PluginManagement.OrderLog
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>
 		public void SetPluginOrderIndex(Plugin p_plgPlugin, int p_intNewIndex)
 		{
+			if (p_plgPlugin == null)
+				return;
 			List<Plugin> lstPlugins = new List<Plugin>(OrderedPlugins);
 			lstPlugins.Remove(p_plgPlugin, PluginComparer.Filename);
 			if (p_intNewIndex > lstPlugins.Count)

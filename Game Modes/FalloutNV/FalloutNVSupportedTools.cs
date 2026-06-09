@@ -41,7 +41,7 @@ namespace Nexus.Client.Games.FalloutNV
 			Trace.TraceInformation("BOSS Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (strCommand != null)
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("BOSS", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
 			}
 			else
@@ -54,7 +54,7 @@ namespace Nexus.Client.Games.FalloutNV
 			Trace.TraceInformation("LOOT Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
 			}
 			else
@@ -67,7 +67,7 @@ namespace Nexus.Client.Games.FalloutNV
 			Trace.TraceInformation("Wrye Bash Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("WryeBash", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
 			}
 			else
@@ -80,7 +80,7 @@ namespace Nexus.Client.Games.FalloutNV
             Trace.TraceInformation("FNVEdit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             if ((strCommand != null) && (File.Exists(strCommand)))
             {
-                imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+                imgIcon = SafeExtractIcon(strCommand);
                 AddLaunchCommand(new Command("FNVEdit", "Launch FNVEdit", "Launches FNVEdit.", imgIcon, LaunchFNVEdit, true));
             }
             else

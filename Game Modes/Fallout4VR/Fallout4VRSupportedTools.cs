@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -42,7 +42,7 @@ namespace Nexus.Client.Games.Fallout4VR
 			Trace.TraceInformation("LOOT Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
 			}
 			else
@@ -55,7 +55,7 @@ namespace Nexus.Client.Games.Fallout4VR
 			Trace.TraceInformation("FO4Edit Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("FO4Edit", "Launch FO4Edit", "Launches FO4Edit.", imgIcon, LaunchFO4Edit, true));
 			}
 			else
@@ -68,7 +68,7 @@ namespace Nexus.Client.Games.Fallout4VR
 			Trace.TraceInformation("BodySlide Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
-				imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("BS2", "Launch BodySlide", "Launches BodySlide.", imgIcon, LaunchBS, true));
 			}
 			else

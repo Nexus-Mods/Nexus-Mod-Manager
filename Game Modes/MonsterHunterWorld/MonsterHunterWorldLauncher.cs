@@ -38,12 +38,12 @@ public MonsterHunterWorldLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_ei
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Monster Hunter: World", "Launches default Monster Hunter: World.", imgIcon, LaunchMonsterHunterWorldPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Monster Hunter: World", "Launches Monster Hunter: World with custom command.", imgIcon, LaunchMonsterHunterWorldCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Monster Hunter: World", "Launches Monster Hunter: World.", LaunchGame);

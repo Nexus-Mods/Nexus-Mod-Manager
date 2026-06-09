@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.BaldursGate3
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Baldur's Gate 3", "Launches plain Baldur's Gate 3.", imgIcon, LaunchBaldursGate3Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Baldur's Gate 3", "Launches Baldur's Gate 3 with custom command.", imgIcon, LaunchBaldursGate3Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch Baldur's Gate 3", "Launches Baldur's Gate 3.", LaunchGame);

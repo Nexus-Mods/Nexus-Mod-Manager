@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 
@@ -138,6 +139,23 @@ namespace Nexus.Client.Games
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Safely extracts the icon from an executable, returning null if the file has no
+		/// embedded icon or if extraction fails for any reason.
+		/// </summary>
+		protected static Image SafeExtractIcon(string path)
+		{
+			try
+			{
+				var icon = Icon.ExtractAssociatedIcon(path);
+				return icon?.ToBitmap();
+			}
+			catch
+			{
+				return null;
+			}
+		}
 
 		/// <summary>
 		/// Initializes the SupportedTools launch commands.

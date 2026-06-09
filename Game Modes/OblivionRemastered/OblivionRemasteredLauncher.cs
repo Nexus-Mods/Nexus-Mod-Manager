@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -38,20 +38,20 @@ namespace Nexus.Client.Games.OblivionRemastered
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Oblivion Remastered", "Launches plain Oblivion Remastered.", imgIcon, LaunchOblivionRemasteredPlain, true));
 		
 			strCommand = GetOrseLaunchCommand();
 			Trace.TraceInformation("ORSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("OrseLaunch", "Launch ORSE", "Launches Oblivion Remastered with ORSE.", imgIcon, LaunchOblivionRemasteredORSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Oblivion Remastered", "Launches Oblivion Remastered with custom command.", imgIcon, LaunchOblivionRemasteredCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch Oblivion Remastered", "Launches Oblivion Remastered.", LaunchGame);

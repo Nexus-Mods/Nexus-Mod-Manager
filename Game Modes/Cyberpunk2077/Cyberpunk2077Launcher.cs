@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.Cyberpunk2077
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Cyberpunk 2077", "Launches default Cyberpunk 2077.", imgIcon, LaunchCyberpunk2077Plain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Cyberpunk 2077", "Launches Cyberpunk 2077 with custom command.", imgIcon, LaunchCyberpunk2077Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch Cyberpunk 2077", "Launches Cyberpunk 2077.", LaunchGame);

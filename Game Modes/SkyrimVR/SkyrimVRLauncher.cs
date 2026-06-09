@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.Games.SkyrimVR
+namespace Nexus.Client.Games.SkyrimVR
 {
     using System;
     using System.Diagnostics;
@@ -39,20 +39,20 @@
 
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch Skyrim VR", "Launches plain Skyrim VR.", imgIcon, LaunchSkyrimVRPlain, true));
 		
 			strCommand = GetSkseLaunchCommand();
 			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
-				imgIcon = Icon.ExtractAssociatedIcon(strCommand).ToBitmap();
+				imgIcon = SafeExtractIcon(strCommand);
 				AddLaunchCommand(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim VR with SKSE.", imgIcon, LaunchSkyrimVRSKSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-			imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+			imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Skyrim VR", "Launches Skyrim VR with custom command.", imgIcon, LaunchSkyrimVRCustom, true));
 
 			DefaultLaunchCommand = new Command("Launch SkyrimVR", "Launches SkyrimVR.", LaunchGame);

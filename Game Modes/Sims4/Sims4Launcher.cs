@@ -38,12 +38,12 @@ namespace Nexus.Client.Games.Sims4
 
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            Image imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            Image imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("PlainLaunch", "Launch The Sims 4", "Launches plain The Sims 4.", imgIcon, LaunchSims4Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
-            imgIcon = File.Exists(strCommand) ? Icon.ExtractAssociatedIcon(strCommand).ToBitmap() : null;
+            imgIcon = SafeExtractIcon(strCommand);
 			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom The Sims 4", "Launches The Sims 4 with custom command.", imgIcon, LaunchSims4Custom, true));
 
 			DefaultLaunchCommand = new Command("Launch The Sims 4", "Launches The Sims 4.", LaunchGame);
