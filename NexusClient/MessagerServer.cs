@@ -38,7 +38,7 @@ namespace Nexus.Client
 
 			string strUri = String.Format("{0}-{1}IpcServer", CommonData.ModManagerName, p_gmdGameModeInfo.ModeId);
 			m_schMessagerChannel = new IpcServerChannel(strUri);
-			ChannelServices.RegisterChannel(m_schMessagerChannel, true);
+			RegisterIpcChannel(m_schMessagerChannel);
 			MessagerServer msgMessager = new MessagerServer(p_mmgModManager, p_frmMainForm);
 			string strEndpoint = String.Format("{0}Listener", p_gmdGameModeInfo.ModeId);
 			RemotingServices.Marshal(msgMessager, strEndpoint, typeof(IMessager));
@@ -50,6 +50,22 @@ namespace Nexus.Client
 			return msgMessager;
 		}
 
+
+		private static void RegisterIpcChannel(IChannel p_channel)
+		{
+			try
+			{
+				ChannelServices.RegisterChannel(p_channel, true);
+			}
+			catch (RemotingException e)
+			{
+				if (e.Message.IndexOf("not securable", StringComparison.OrdinalIgnoreCase) < 0)
+					throw;
+
+				Trace.TraceWarning("IPC channel security is unavailable; registering channel without secure remoting.");
+				ChannelServices.RegisterChannel(p_channel, false);
+			}
+		}
 		#endregion
 
 		#region Properties

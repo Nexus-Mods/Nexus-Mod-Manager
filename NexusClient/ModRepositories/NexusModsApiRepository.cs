@@ -139,12 +139,27 @@
 		{
             try
             {
-                var hash = Md5.CalculateMd5(fileName);
+                var hashResult = GetModHashResultForFile(fileName);
 
-                // TODO: Probably need to handle cases with multiple hits.
-                var mod = _apiCallManager.Mods?.GetModsByFileHash(GameDomainName, hash)?.Result[0]?.Mod;
+                if (hashResult?.Mod == null)
+                {
+                    return null;
+                }
 
-                return mod == null ? new ModInfo() : new ModInfo(mod);
+                var modInfo = new ModInfo(hashResult.Mod);
+
+                if (hashResult.File != null)
+                {
+                    modInfo.DownloadId = hashResult.File.FileID.ToString();
+                    modInfo.FileName = hashResult.File.FileName;
+
+                    if (!string.IsNullOrWhiteSpace(hashResult.File.ModVersion))
+                    {
+                        modInfo.HumanReadableVersion = hashResult.File.ModVersion;
+                    }
+                }
+
+                return modInfo;
             }
             catch (AggregateException a)
             {
@@ -163,10 +178,8 @@
         {
             try
             {
-                var hash = Md5.CalculateMd5(fileName);
-
-                // TODO: Probably need to handle cases with multiple hits.
-                return new ModFileInfo(_apiCallManager.Mods?.GetModsByFileHash(GameDomainName, hash).Result[0].File);
+                var hashResult = GetModHashResultForFile(fileName);
+                return hashResult?.File == null ? null : new ModFileInfo(hashResult.File);
             }
             catch (AggregateException a)
             {
@@ -178,6 +191,18 @@
                 TraceUtil.TraceException(ex);
                 return null;
             }
+        }
+
+        private ModHashResult GetModHashResultForFile(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
+            {
+                return null;
+            }
+
+            var hash = Md5.CalculateMd5(fileName);
+            var hashResults = _apiCallManager.Mods?.GetModsByFileHash(GameDomainName, hash)?.Result;
+            return hashResults?.FirstOrDefault(result => result?.Mod != null || result?.File != null);
         }
 
         /// <inheritdoc cref="IModRepository"/>
@@ -478,6 +503,13 @@
 		{
 			try
 			{
+				var hashFileInfo = GetModFileInfoForFile(fileName);
+
+                if (hashFileInfo != null)
+                {
+                    return hashFileInfo;
+                }
+
 				var modId = ParseModIdFromFilename(fileName);
 
 				if (modId == null)

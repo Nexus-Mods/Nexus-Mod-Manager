@@ -77,10 +77,22 @@ namespace Nexus.Client.Mods
 			string[] strCaches = Directory.GetFiles(ModCacheDirectory);
 			foreach (string strCache in strCaches)
 			{
+				// Shared cache files are maintained outside the per-archive loose cache cleanup.
+				if (IsSharedCacheFile(strCache))
+				{
+					continue;
+				}
+
 				string strModPath = Path.Combine(ModDirectory, Path.GetFileNameWithoutExtension(strCache));
 				if (!File.Exists(strModPath) || (File.GetLastWriteTimeUtc(strCache) < File.GetLastWriteTimeUtc(strModPath)))
 					FileUtil.ForceDelete(strCache);
 			}
+		}
+
+		private static bool IsSharedCacheFile(string p_strPath)
+		{
+			string fileName = Path.GetFileName(p_strPath);
+			return fileName.StartsWith("fomodArchiveMetadata.sqlite", StringComparison.OrdinalIgnoreCase);
 		}
 
 		/// <summary>

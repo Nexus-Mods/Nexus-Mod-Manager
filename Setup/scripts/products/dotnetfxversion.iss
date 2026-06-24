@@ -27,8 +27,8 @@ begin
 			NetFx45:
 			begin
 				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion);
-				// >= 4.5.0 and <= 4.6
-				Result := (regVersion >= 378389) and (regVersion <= 393295);
+				// >= .NET Framework 4.6.2
+				Result := (regVersion >= 394802);
 				Exit;
 			end;
 		end;
@@ -57,16 +57,8 @@ begin
 			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Servicing', regVersion)) then
 				regVersion := -1;
 		NetFx45:
-			if (RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion)) then begin
-				if (regVersion = 379893) or (regVersion = 393295) then
-					regVersion := 2 // 4.5.2
-				else if (regVersion = 378675) or (regVersion = 378758) then
-					regVersion := 1 // 4.5.1
-				else if (regVersion = 378389) then
-					regVersion := 0 // 4.5.0
-				else
-					regVersion := -1;
-			end;
+			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion)) then
+				regVersion := -1;
 	end;
 	Result := regVersion;
 end;

@@ -35,7 +35,7 @@ namespace Nexus.Client
 				System.Collections.IDictionary properties = new System.Collections.Hashtable();
 				properties["exclusiveAddressUse"] = false;
 				m_cchMessagerChannel = new IpcClientChannel();
-				ChannelServices.RegisterChannel(m_cchMessagerChannel, true);
+				RegisterIpcChannel(m_cchMessagerChannel);
 			}
 			else
 				throw new InvalidOperationException("The IPC Channel has already been created as a CLIENT.");
@@ -61,6 +61,22 @@ namespace Nexus.Client
 			return new MessagerClient(msgMessager);
 		}
 
+
+		private static void RegisterIpcChannel(IChannel p_channel)
+		{
+			try
+			{
+				ChannelServices.RegisterChannel(p_channel, true);
+			}
+			catch (RemotingException e)
+			{
+				if (e.Message.IndexOf("not securable", StringComparison.OrdinalIgnoreCase) < 0)
+					throw;
+
+				Trace.TraceWarning("IPC channel security is unavailable; registering channel without secure remoting.");
+				ChannelServices.RegisterChannel(p_channel, false);
+			}
+		}
 		#endregion
 
 		#region Properties

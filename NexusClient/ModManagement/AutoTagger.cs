@@ -49,27 +49,26 @@ namespace Nexus.Client.ModManagement
 
             try
 			{
-				if (!string.IsNullOrEmpty(mod.Id))
+                modInfo = ModRepository.GetModInfoForFile(mod.ModArchivePath);
+
+                if (modInfo == null && !string.IsNullOrEmpty(mod.Id))
                 {
                     modInfo = ModRepository.GetModInfo(mod.Id);
                 }
 
-                if (modInfo == null)
+                if (modInfo != null)
                 {
-                    modInfo = ModRepository.GetModInfoForFile(mod.Filename);
+                    mods.Add(modInfo);
                 }
-				
-				mods.Add(modInfo);
 
-                // If we don't know the mod Id, then we have no way of getting the
-                // file-specific info, so only look if we have one mod info candidate.
+                // If we have one mod info candidate, try to enrich it with file-specific info.
                 if (mods.Count == 1)
 				{
 					modInfo = mods[0];
 					mods.Clear();
 					
 					//get file specific info
-                    var mfiFileInfo = ModRepository.GetModFileInfoForFile(mod.Filename);
+                    var mfiFileInfo = ModRepository.GetModFileInfoForFile(mod.ModArchivePath);
 
                     if (mfiFileInfo == null)
 					{

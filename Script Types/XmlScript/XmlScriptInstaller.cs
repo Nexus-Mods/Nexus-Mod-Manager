@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using Nexus.Client.Games;
@@ -101,6 +102,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			IList<InstallableFile> lstRequiredFiles = p_xscScript.RequiredInstallFiles;
 			IList<ConditionallyInstalledFileSet> lstConditionallyInstalledFileSets = p_xscScript.ConditionallyInstalledFileSets;
+			ISet<string> setSelectableSources = GetSelectableOptionSources(p_xscScript);
 			OverallProgressMaximum = lstRequiredFiles.Count + p_colFilesToInstall.Count + lstConditionallyInstalledFileSets.Count;
 
 			foreach (InstallableFile iflRequiredFile in lstRequiredFiles)
@@ -126,6 +128,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				if (cisFileSet.Condition.GetIsFulfilled(p_csmStateManager))
 					foreach (InstallableFile ilfFile in cisFileSet.Files)
 					{
+						if (IsUnselectedOptionFallback(cisFileSet, ilfFile, setSelectableSources))
+							continue;
 						if (Status == TaskStatus.Cancelling)
 							return false;
 						if (!InstallFile(ilfFile, true))
@@ -134,6 +138,56 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				StepOverallProgress();
 			}
 			return true;
+		}
+
+		/// <summary>
+		/// Gets the file sources declared by selectable installer options.
+		/// </summary>
+		private ISet<string> GetSelectableOptionSources(XmlScript p_xscScript)
+		{
+			HashSet<string> setSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (InstallStep stpStep in p_xscScript.InstallSteps)
+				foreach (OptionGroup ogpGroup in stpStep.OptionGroups)
+					foreach (Option optOption in ogpGroup.Options)
+						foreach (InstallableFile ilfFile in optOption.Files)
+							if (!String.IsNullOrEmpty(ilfFile.Source))
+								setSources.Add(NormalizeInstallerPath(ilfFile.Source));
+
+			return setSources;
+		}
+
+		/// <summary>
+		/// Detects conditional files that only preserve an unselected option's archive contents.
+		/// </summary>
+		private bool IsUnselectedOptionFallback(ConditionallyInstalledFileSet p_cisFileSet, InstallableFile p_ilfFile, ISet<string> p_setSelectableSources)
+		{
+			if ((p_cisFileSet == null) || (p_ilfFile == null) || String.IsNullOrEmpty(p_ilfFile.Source))
+				return false;
+
+			return IsInactiveFlagCondition(p_cisFileSet.Condition) && p_setSelectableSources.Contains(NormalizeInstallerPath(p_ilfFile.Source));
+		}
+
+		/// <summary>
+		/// Identifies flag conditions that represent an option being left unselected.
+		/// </summary>
+		private bool IsInactiveFlagCondition(ICondition p_cndCondition)
+		{
+			if (p_cndCondition is FlagCondition)
+				return ((FlagCondition)p_cndCondition).Value.Equals("Inactive", StringComparison.OrdinalIgnoreCase);
+
+			CompositeCondition cpcCondition = p_cndCondition as CompositeCondition;
+			if (cpcCondition == null)
+				return false;
+
+			if (cpcCondition.Operator == ConditionOperator.Or)
+				return false;
+
+			return cpcCondition.Conditions.Count > 0 && cpcCondition.Conditions.All(IsInactiveFlagCondition);
+		}
+
+		private string NormalizeInstallerPath(string p_strPath)
+		{
+			return p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 		}
 
 		/// <summary>

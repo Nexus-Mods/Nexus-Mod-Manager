@@ -28,6 +28,18 @@
             HumanReadableVersion = modFile?.ModVersion;
         }
 
+        /// <summary>
+        /// Creates a <see cref="ModFileInfo"/> from a hash lookup file result.
+        /// </summary>
+        /// <param name="modFile">Mod file hash result to get information from.</param>
+        public ModFileInfo(ModFileWithHash modFile)
+        {
+            Id = modFile?.FileID.ToString();
+            Filename = modFile?.FileName;
+            Name = modFile?.Name;
+            HumanReadableVersion = modFile?.ModVersion;
+        }
+
         public ModFileInfo(string id, string filename, string name, string modVersion)
         {
             Id = id;

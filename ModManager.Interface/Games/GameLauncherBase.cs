@@ -138,19 +138,26 @@ namespace Nexus.Client.Games
 		#endregion
 
 		/// <summary>
-		/// Safely extracts the icon from an executable, returning null if the file has no
-		/// embedded icon or if extraction fails for any reason.
+		/// Safely extracts the icon from an executable, returning a fallback icon if extraction fails.
 		/// </summary>
 		protected static Image SafeExtractIcon(string path)
 		{
 			try
 			{
 				var icon = Icon.ExtractAssociatedIcon(path);
-				return icon?.ToBitmap();
+				return icon?.ToBitmap() ?? CreateFallbackIcon();
 			}
 			catch
 			{
-				return null;
+				return CreateFallbackIcon();
+			}
+		}
+
+		protected static Image CreateFallbackIcon()
+		{
+			using (var icon = new Icon(SystemIcons.Application, 16, 16))
+			{
+				return icon.ToBitmap();
 			}
 		}
 

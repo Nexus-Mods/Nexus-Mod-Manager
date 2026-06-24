@@ -325,17 +325,7 @@ namespace Nexus.Client.Games.NoMansSky
             
             if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
             {
-				if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
-				{
-					if (strPath.StartsWith("PCBANKS" + Path.DirectorySeparatorChar + "MODS", StringComparison.InvariantCultureIgnoreCase))
-						strPath = Path.Combine("GAMEDATA", strPath);
-					else
-						strPath = strPath.Replace("PCBANKS", Path.Combine("GAMEDATA", "PCBANKS", "MODS"));
-				}             
-				else if (strPath.StartsWith("MODS", StringComparison.InvariantCultureIgnoreCase))
-					strPath = Path.Combine("GAMEDATA", "PCBANKS", strPath);
-				else
-					strPath = Path.Combine("GAMEDATA", "PCBANKS", "MODS", Path.GetFileName(strPath));
+                strPath = GetPakInstallPath(strPath);
             }
             else if(strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
             {
@@ -372,18 +362,8 @@ namespace Nexus.Client.Games.NoMansSky
             // do normal stuff to the files
             if (strFileType.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
             {
-				if (strPath.StartsWith("PCBANKS", StringComparison.InvariantCultureIgnoreCase))
-				{
-					if (strPath.StartsWith("PCBANKS" + Path.DirectorySeparatorChar + "MODS", StringComparison.InvariantCultureIgnoreCase))
-						strPath = Path.Combine("GAMEDATA", strPath);
-					else
-						strPath = strPath.Replace("PCBANKS", Path.Combine("GAMEDATA", "PCBANKS", "MODS"));
-				}
-				else if (strPath.StartsWith("MODS", StringComparison.InvariantCultureIgnoreCase))
-					strPath = Path.Combine("GAMEDATA", "PCBANKS", strPath);
-				else
-					strPath = Path.Combine("GAMEDATA", "PCBANKS", "MODS", Path.GetFileName(strPath));
-			}
+                strPath = GetPakInstallPath(strPath);
+            }
             else if (strSpecialFiles.Any((s) => Path.GetFileName(strPath).Equals(s, StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase)))
             {
                 if (!strPath.StartsWith("Binaries"))
@@ -438,6 +418,25 @@ namespace Nexus.Client.Games.NoMansSky
             return strPath;
         }
 
+        private static string GetPakInstallPath(string p_strPath)
+        {
+            string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            string strModDirectory = Path.Combine("GAMEDATA", "MODS");
+
+            if (IsSamePathOrChild(strPath, strModDirectory))
+                return strPath;
+
+            return Path.Combine(strModDirectory, Path.GetFileName(strPath));
+        }
+
+        private static bool IsSamePathOrChild(string p_strPath, string p_strParentPath)
+        {
+            if (p_strPath.Equals(p_strParentPath, StringComparison.InvariantCultureIgnoreCase))
+                return true;
+
+            return p_strPath.StartsWith(p_strParentPath + Path.DirectorySeparatorChar, StringComparison.InvariantCultureIgnoreCase);
+        }
+
 		/// <summary>
 		/// Checks whether the file's type requires a hardlink for the current game mode.
 		/// </summary>
@@ -481,16 +480,22 @@ namespace Nexus.Client.Games.NoMansSky
         public override bool RequiresExternalConfig(out string p_strMessage)
         {
             p_strMessage = string.Empty;
+            string strModsPath = Path.Combine(InstallationPath, "GAMEDATA", "MODS");
 
-            bool booBanksExist = Directory.Exists(Path.Combine(InstallationPath, "GAMEDATA", "PCBANKS", "MODS"));
+            if (Directory.Exists(strModsPath))
+                return false;
 
-            if(!booBanksExist)
+            try
             {
-                Trace.TraceWarning(@"PCBANKS\MODS doesn't exist!");
-                p_strMessage = @"Could not find PCBANKS\MODS folder. The PCBANKS\MODS folder is required for mods to run.";
+                Directory.CreateDirectory(strModsPath);
+                return false;
             }
-
-            return !booBanksExist;
+            catch (Exception ex)
+            {
+                Trace.TraceWarning("Could not create No Man's Sky MODS folder: " + ex.Message);
+                p_strMessage = @"Could not create GAMEDATA\MODS folder. The GAMEDATA\MODS folder is required for mods to run.";
+                return true;
+            }
         }
 
         public override IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)

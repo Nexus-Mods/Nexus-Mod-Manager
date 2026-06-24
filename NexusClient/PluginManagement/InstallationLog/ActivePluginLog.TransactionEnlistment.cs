@@ -79,12 +79,15 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 				lock (EnlistedPluginLog.m_ostActivePlugins)
 				{
 					EnlistedPluginLog.m_ostActivePlugins.CollectionChanged -= MasterPlugins_CollectionChanged;
-					var desired = new HashSet<Plugin>(m_ostActivePlugins, PluginComparer.Filename);
+					var desired = new HashSet<Plugin>(PluginComparer.Filename);
+					foreach (Plugin plgDesired in m_ostActivePlugins)
+						if (plgDesired != null)
+							desired.Add(plgDesired);
 					for (Int32 i = EnlistedPluginLog.m_ostActivePlugins.Count - 1; i >= 0; i--)
 						if (!desired.Contains(EnlistedPluginLog.m_ostActivePlugins[i]))
 							EnlistedPluginLog.m_ostActivePlugins.RemoveAt(i);
 					foreach (Plugin plgNew in m_ostActivePlugins)
-						if (!EnlistedPluginLog.m_ostActivePlugins.Contains(plgNew))
+						if ((plgNew != null) && !EnlistedPluginLog.m_ostActivePlugins.Contains(plgNew))
 							EnlistedPluginLog.m_ostActivePlugins.Add(plgNew);
 				}
 				EnlistedPluginLog.SavePluginLog();

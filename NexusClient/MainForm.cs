@@ -38,22 +38,28 @@
     /// <summary>
     /// The main form of the mod manager.
     /// </summary>
-    public partial class MainForm : ManagedFontForm
+	public partial class MainForm : ManagedFontForm
 	{
 		private MainFormVM _viewModel;
 		private FormWindowState _lastWindowState = FormWindowState.Normal;
-		private readonly ModManagerControl _modManagerControl;
+		private readonly IModManagerView _modManagerControl;
 		private readonly PluginManagerControl _pluginManagerControl;
 		private readonly DownloadMonitorControl _downloadMonitorControl;
 		private readonly ModActivationMonitorControl _modActivationMonitorControl;
 		private double _defaultActivityManagerAutoHidePortion;
 		private double _defaultActivationMonitorAutoHidePortion;
+		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
+		private bool _activePluginsProfileSavePending;
 
-        public string OptionalPremiumMessage = string.Empty;
+		public string OptionalPremiumMessage = string.Empty;
 
 		FormWindowState LastWindowState = FormWindowState.Minimized;
 		private bool _showLastBalloon;
 		private BalloonManager _balloonManager;
+
+		/// <summary>Convenience cast — every IModManagerView implementation is a DockContent.</summary>
+		private WeifenLuo.WinFormsUI.Docking.DockContent ModManagerDock
+			=> (WeifenLuo.WinFormsUI.Docking.DockContent)_modManagerControl;
 		
 		#region Properties
 
@@ -173,14 +179,17 @@
             InitializeComponent();
 
 			FormClosing += CheckDownloadsOnClosing;
+			FormClosing += MainForm_FormClosing;
 
 			ResizeEnd += MainForm_ResizeEnd;
 			ResizeBegin += MainForm_ResizeBegin;
 			Resize += MainForm_Resize;
 			Shown += MainForm_Shown;
+			_activePluginsProfileSaveTimer.Interval = 250;
+			_activePluginsProfileSaveTimer.Tick += ActivePluginsProfileSaveTimer_Tick;
 
 			_pluginManagerControl = new PluginManagerControl();
-			_modManagerControl = new ModManagerControl();
+			_modManagerControl = new ModManagerDXControl();
 			_downloadMonitorControl = new DownloadMonitorControl();
 			_modActivationMonitorControl = new ModActivationMonitorControl();
 			dockPanel1.ActiveContentChanged += dockPanel1_ActiveContentChanged;
@@ -245,7 +254,7 @@
 		#region Startup Checks
 
 		/// <summary>
-		/// Checks whether we need to migrate from the old install method to the new one.
+		/// Checks whether legacy install-log state needs user attention.
 		/// </summary>
 		private void ModMigrationCheck()
 		{
@@ -263,28 +272,22 @@
 
             if (ViewModel.RequiresModMigration())
 			{
-				var strMigrationWarning = "This new version of NMM includes a major update to the way we store and install your mods which allows us to accommodate" + Environment.NewLine +
-					"mod profiling (different profiles for different playthroughs of your game)." + Environment.NewLine +
-					"In order for it to work NMM needs to REINSTALL or UNINSTALL all your currently installed mods." + Environment.NewLine + Environment.NewLine +
-					"Choose option 'YES' if you would like NMM to attempt to try and REINSTALL all your currently installed mods using the new method. " + Environment.NewLine +
-					"The migration procedure is a lengthy process and it could require several minutes or even hours depending on your PC speed and quantity and size " + Environment.NewLine +
-					"of your currently installed mods." + Environment.NewLine + "You may be required to interact with some scripted installers during the reinstall process." + Environment.NewLine +
-					"NMM will also backup the current Bashed/Perkus/DualSheat patches if presents, but you should rerun the various patchers should your game crash at startup." + Environment.NewLine + Environment.NewLine +
-					"Choose option 'NO' if you want NMM to UNINSTALL all your mods and leave you to activate the ones you use again. " + Environment.NewLine +
-					"(this doesn't delete your mods, it simply deactivates them)" + Environment.NewLine + Environment.NewLine +
-					"Choose the 'CANCEL' option if you would like to cancel this setup and not proceed with this new version." + Environment.NewLine +
-					"and you will need to reinstall the previous version of NMM you were using to be able to use NMM again." + Environment.NewLine;
+                var strMigrationWarning = "NMM found an old install-log setup for this game mode." + Environment.NewLine + Environment.NewLine +
+                    "The legacy migration tool used to reinstall or uninstall every active mod automatically. That process is no longer run at startup because it can remove working files without enough user control." + Environment.NewLine + Environment.NewLine +
+                    "Detected active install-log entries: " + ViewModel.ModManager.InstallationLog.ActiveMods.Count + Environment.NewLine +
+                    "Virtual install folder: " + ViewModel.ModManager.VirtualModActivator.VirtualPath + Environment.NewLine + Environment.NewLine +
+                    "NMM will keep the existing files in place. Some profile and virtual-install features may not work correctly until this setup is repaired manually." + Environment.NewLine + Environment.NewLine +
+                    "Recommended recovery path:" + Environment.NewLine +
+                    "1. Back up the game folder, NMM config folder, and mod archives." + Environment.NewLine +
+                    "2. Verify that the Mods folder and Virtual Install folder in Settings point to the correct locations." + Environment.NewLine +
+                    "3. Reinstall or reactivate the affected mods manually once the folders are correct.";
 
-				var drResult = ExtendedMessageBox.Show(this, strMigrationWarning, "New version setup", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                ExtendedMessageBox.Show(this, strMigrationWarning, "Legacy install setup detected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
-				if (drResult == DialogResult.Cancel)
+                if (!ViewModel.ModManager.VirtualModActivator.Initialized)
                 {
-                    Environment.Exit(0);
+                    ViewModel.ModManager.VirtualModActivator.Setup();
                 }
-                else
-				{
-					ViewModel.MigrateMods(_modManagerControl, drResult == DialogResult.Yes);
-				}
 			}
 		}
 
@@ -297,9 +300,6 @@
 			if (!string.IsNullOrEmpty(warning))
 			{
 				ExtendedMessageBox.Show(this, warning, "New game version disclaimer", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-				if (ViewModel.GameMode.ModeId.Equals("Cyberpunk2077", StringComparison.InvariantCultureIgnoreCase))
-					_modManagerControl.DeactivateAllMods(true, true);
 			}
 		}
 
@@ -362,7 +362,7 @@
                     _pluginManagerControl.DockState = DockState.Unknown;
                 }
 
-                _modManagerControl.DockState = DockState.Unknown;
+                ModManagerDock.DockState = DockState.Unknown;
 				_downloadMonitorControl.DockState = DockState.Unknown;
 				_downloadMonitorControl.ShowHint = DockState.DockBottomAutoHide;
 				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottomAutoHide);
@@ -394,11 +394,11 @@
 				catch { }
 
 				if (ViewModel.UsesPlugins)
-                {
-                    _pluginManagerControl.Show(dockPanel1);
-                }
+				{
+					_pluginManagerControl.Show(dockPanel1);
+				}
 
-                _modManagerControl.Show(dockPanel1);
+				ModManagerDock.Show(dockPanel1);
 			}
 
 			var strTab = dockPanel1.ActiveDocument.DockHandler.TabText;
@@ -414,7 +414,7 @@
             }
             else
             {
-                _modManagerControl.Show(dockPanel1);
+                ModManagerDock.Show(dockPanel1);
             }
 
             if (_downloadMonitorControl == null || _downloadMonitorControl.VisibleState == DockState.Unknown || _downloadMonitorControl.VisibleState == DockState.Hidden)
@@ -457,7 +457,7 @@
 
 				var myFontFamily = new FontFamily(toolStripLabelActivePluginsCounter.Font.Name);
 
-				int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => !x.IgnoreIndexing);
+				int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
 
 				if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 				{
@@ -474,7 +474,7 @@
                         toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
                     }
 
-					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
+					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 					toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!";
 				}
 				else
@@ -491,7 +491,7 @@
                         toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
                     }
 
-					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
+					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 				}
 
 			}
@@ -912,8 +912,8 @@
 		{
 			if (Visible && dockPanel1.ActiveDocument != null)
 			{
-				toolStripTextBoxFind.Visible = dockPanel1.ActiveDocument.DockHandler.TabText == "Mods";
-				toolStripTextBoxFind.Enabled = dockPanel1.ActiveDocument.DockHandler.TabText == "Mods";
+				toolStripTextBoxFind.Visible = false;
+				toolStripTextBoxFind.Enabled = false;
 			}
 		}
 
@@ -941,7 +941,7 @@
 			toolStripLabelPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
 			var myFontFamily = new FontFamily(toolStripLabelActivePluginsCounter.Font.Name);
 
-			int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => !x.IgnoreIndexing);
+			int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
 
 			if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 			{
@@ -958,7 +958,7 @@
                     toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
                 }
 
-				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
+				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 				toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!"; ;
 			}
 			else
@@ -975,7 +975,7 @@
                 }
 
                 toolStripLabelActivePluginsCounter.ForeColor = Color.Black;
-				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count.ToString() + ")";
+				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 			}
 		}
 
@@ -1051,9 +1051,9 @@
 		/// </summary>
 		private void DmcDownloadMonitorControlSetTextBoxFocus(object sender, EventArgs e)
 		{
-			if (_modManagerControl.Visible)
-            {
-                toolStripTextBoxFind.Focus();
+			if (ModManagerDock.Visible)
+			{
+				toolStripTextBoxFind.Focus();
             }
         }
 
@@ -1135,6 +1135,17 @@
                 Process.Start(ViewModel.ModsPath);
             }
         }
+
+		/// <summary>
+		/// Opens NMM's cache folder for the current game.
+		/// </summary>
+		protected void OpenCacheFolder()
+		{
+			if (FileUtil.IsValidPath(ViewModel.CachePath))
+			{
+				Process.Start(ViewModel.CachePath);
+			}
+		}
 
 		/// <summary>
 		/// The Find KeyUp event.
@@ -1246,26 +1257,63 @@
 				return;
 			}
 
+			ScheduleActivePluginsProfileSave();
+		}
+
+		private void ScheduleActivePluginsProfileSave()
+		{
+			_activePluginsProfileSavePending = true;
+			_activePluginsProfileSaveTimer.Stop();
+			_activePluginsProfileSaveTimer.Start();
+		}
+
+		private void ActivePluginsProfileSaveTimer_Tick(object sender, EventArgs e)
+		{
+			_activePluginsProfileSaveTimer.Stop();
+			SaveActivePluginsToCurrentProfile();
+		}
+
+		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+		{
+			_activePluginsProfileSaveTimer.Stop();
+			SaveActivePluginsToCurrentProfile();
+		}
+
+		private void SaveActivePluginsToCurrentProfile()
+		{
+			if (!_activePluginsProfileSavePending)
+				return;
+
+			_activePluginsProfileSavePending = false;
+
 			if (ViewModel.ProfileManager.CurrentProfile != null && !ViewModel.IsSwitching)
 			{
 				string[] strOptionalFiles = null;
 
-                if (ViewModel.GameMode.UsesPlugins)
+				if (ViewModel.GameMode.UsesPlugins)
 				{
 					if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-                    {
-                        if (ViewModel.PluginManager?.ActivePlugins != null && ViewModel.PluginManager.ActivePlugins.Count > 0)
-                        {
-                            strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Where(p => p != null).Select(x => x.Filename).ToArray());
-                        }
-                    }
-
-                    var bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-                    ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, strOptionalFiles, out var strError);
-
-					if (!string.IsNullOrEmpty(strError))
 					{
-						strError = strError + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
+						if (ViewModel.PluginManager?.ActivePlugins != null && ViewModel.PluginManager.ActivePlugins.Count > 0)
+						{
+							strOptionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Where(p => p != null).Select(x => x.Filename).ToArray());
+						}
+					}
+
+					try
+					{
+						var bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+						ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, strOptionalFiles, out var strError);
+
+						if (!string.IsNullOrEmpty(strError))
+						{
+							strError = strError + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
+							MessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						}
+					}
+					catch (IOException ex)
+					{
+						string strError = ex.Message + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
 						MessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 				}
@@ -1461,9 +1509,10 @@
                 return _pluginManagerControl;
             }
 
-            if (contentId == typeof(ModManagerControl).ToString())
+            if (contentId == typeof(ModManagerControl).ToString()
+                || contentId == typeof(ModManagerDXControl).ToString())
             {
-                return _modManagerControl;
+                return ModManagerDock;
             }
 
             if (contentId == typeof(DownloadMonitorControl).ToString())
@@ -1514,7 +1563,7 @@
 
             if (frmSettings.ShowDialog(this) == DialogResult.OK)
 			{
-				_modManagerControl.RefreshModList();
+				_modManagerControl.ForceListRefresh();
 
                 if (ViewModel.SupportedToolsLauncher != null)
 				{
@@ -1785,7 +1834,7 @@
 
 				case "ModManager.toolStrip1":
 					section = "toolStrip1";
-					root = _modManagerControl.Controls.Find(section, true)[0];
+					root = ModManagerDock.Controls.Find(section, true)[0];
 					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
 					coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 5;
 					coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 10;
@@ -1822,8 +1871,8 @@
 					break;
 
 				case "CLWCategoryListView":
-					coords.X = _modManagerControl.clwCategoryView.AccessibilityObject.Bounds.Location.X;
-					coords.Y = _modManagerControl.clwCategoryView.AccessibilityObject.Bounds.Location.Y - 40;
+					coords.X = ModManagerDock.AccessibilityObject.Bounds.Location.X;
+					coords.Y = ModManagerDock.AccessibilityObject.Bounds.Location.Y - 40;
 					break;
 					
 					case "ModActivationMonitorListView":
@@ -1886,6 +1935,11 @@
             var tmiModsFolder = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};
             new ToolStripItemCommandBinding(tmiModsFolder, cmdModsFolder);
 			spbFolders.DropDownItems.Add(tmiModsFolder);
+
+			var cmdCacheFolder = new Command("Open NMM's Cache Folder", "Open NMM's cache folder in the explorer window.", OpenCacheFolder);
+			var tmiCacheFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+			new ToolStripItemCommandBinding(tmiCacheFolder, cmdCacheFolder);
+			spbFolders.DropDownItems.Add(tmiCacheFolder);
 
 			var cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
             var tmiInstallFolder = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};

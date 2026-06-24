@@ -25,7 +25,7 @@ namespace Nexus.Client.ModManagement.UI
 	/// <summary>
 	/// The view that exposes mod management functionality.
 	/// </summary>
-	public partial class ModManagerControl : ManagedFontDockContent
+	public partial class ModManagerControl : ManagedFontDockContent, IModManagerView
 	{
 		private ModManagerVM _viewModel = null;
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();

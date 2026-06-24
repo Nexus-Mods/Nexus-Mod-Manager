@@ -123,7 +123,11 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 			if (LogSerializer != null)
 				foreach (string strPlugin in LogSerializer.LoadPluginLog())
 					if (!String.IsNullOrEmpty(strPlugin))
-						m_ostActivePlugins.Add(ManagedPluginRegistry.GetPlugin(strPlugin));
+					{
+						Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(strPlugin);
+						if (plgPlugin != null)
+							m_ostActivePlugins.Add(plgPlugin);
+					}
 		}
 
 		/// <summary>

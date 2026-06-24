@@ -6,16 +6,16 @@
 [Setup]
 AppName=NMM
 AppID=6af12c54-643b-4752-87d0-8335503010de
-AppVersion=0.88.5
-AppVerName=NMM 0.88.5
+AppVersion=0.90.1
+AppVerName=NMM 0.90.1
 AppCopyright=Copyright � DuskDweller 2019-2022
-VersionInfoVersion=0.88.5
+VersionInfoVersion=0.90.1
 VersionInfoCompany=DuskDweller
 AppPublisher=DuskDweller
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
-OutputBaseFilename=NMM-0.88.5
+OutputBaseFilename=NMM-0.90.1
 DefaultGroupName=NMM
 DefaultDirName={pf}\NMM
 UninstallDisplayName=NMM
@@ -519,7 +519,7 @@ begin
 			NetFx45:
 			begin
 				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion);
-				Result := (regVersion >= 378389) and (regVersion <= 393295);
+				Result := (regVersion >= 394802);
 				Exit;
 			end;
 		end;
@@ -547,16 +547,8 @@ begin
 			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Servicing', regVersion)) then
 				regVersion := -1;
 		NetFx45:
-			if (RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion)) then begin
-				if (regVersion = 379893) or (regVersion = 393295) then
-					regVersion := 2 // 4.5.2
-				else if (regVersion = 378675) or (regVersion = 378758) then
-					regVersion := 1 // 4.5.1
-				else if (regVersion = 378389) then
-					regVersion := 0 // 4.5.0
-				else
-					regVersion := -1;
-			end;
+			if (not RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion)) then
+				regVersion := -1;
 	end;
 	Result := regVersion;
 end;
@@ -585,7 +577,7 @@ end;
 
 
 [CustomMessages]
-dotnetfx45_title=.NET Framework 4.5.2
+dotnetfx45_title=.NET Framework 4.6.2
 
 dotnetfx45_size=1 MB - 68 MB
 
@@ -596,7 +588,7 @@ de.dotnetfx45_lcid='/lcid 1031 '
 
 [Code]
 const
-	dotnetfx45_url = 'http://download.microsoft.com/download/B/4/1/B4119C11-0423-477B-80EE-7A474314B347/NDP452-KB2901954-Web.exe';
+	dotnetfx45_url = 'https://go.microsoft.com/fwlink/?LinkId=780596';
 
 procedure dotnetfx45(MinVersion: integer);
 begin

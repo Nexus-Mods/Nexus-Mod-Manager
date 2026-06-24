@@ -26,6 +26,8 @@ namespace Nexus.Client.PluginManagement.UI
 		private bool m_booResizing = false;
 		private bool m_booSettingPluginActiveCheck = false;
 		private Timer m_tmrColumnSizer = new Timer();
+		private Timer m_tmrActivePluginRefresh = new Timer();
+		private bool m_booActivePluginRefreshPending = false;
 		private bool m_booControlIsLoaded = false;
 
 		#region Events
@@ -107,6 +109,8 @@ namespace Nexus.Client.PluginManagement.UI
 			clmIndex.Name = "Index";
 			m_tmrColumnSizer.Interval = 100;
 			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
+			m_tmrActivePluginRefresh.Interval = 100;
+			m_tmrActivePluginRefresh.Tick += new EventHandler(ActivePluginRefresh_Tick);
 		}
 
 		#endregion
@@ -156,6 +160,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="e">A <see cref="FormClosingEventArgs"/> describing the event arguments.</param>
 		private void PluginManagerControl_FormClosing(object sender, FormClosingEventArgs e)
 		{
+			FlushActivePluginRefresh();
 			ViewModel.Settings.SplitterSizes.SaveSplitterSizes("pluginManager", splitContainer1);
 			ViewModel.Settings.ColumnWidths.SaveColumnWidths("pluginManager", rlvPlugins);
 			ViewModel.Settings.Save();
@@ -623,8 +628,31 @@ namespace Nexus.Client.PluginManagement.UI
 					}
 					break;
 			}
+			ScheduleActivePluginRefresh();
+		}
+
+		private void ScheduleActivePluginRefresh()
+		{
+			m_booActivePluginRefreshPending = true;
+			m_tmrActivePluginRefresh.Stop();
+			m_tmrActivePluginRefresh.Start();
+		}
+
+		private void ActivePluginRefresh_Tick(object sender, EventArgs e)
+		{
+			m_tmrActivePluginRefresh.Stop();
+			FlushActivePluginRefresh();
+		}
+
+		private void FlushActivePluginRefresh()
+		{
+			if (!m_booActivePluginRefreshPending)
+				return;
+
+			m_booActivePluginRefreshPending = false;
 			SetCommandExecutableStatus();
-			UpdatePluginsCount(this, e);
+			if (UpdatePluginsCount != null)
+				UpdatePluginsCount(this, EventArgs.Empty);
 			RefreshPluginIndices();
 		}
 

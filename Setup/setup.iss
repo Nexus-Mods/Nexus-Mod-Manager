@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'NMM'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.88.5'
+#define MyAppVersion '0.90.1'
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'DuskDweller'
 
@@ -188,8 +188,7 @@ begin
 	msi31('3.1');
 #endif
 #ifdef use_dotnetfx45
-    //dotnetfx45(2); // min allowed version is .netfx 4.5.2
-    //dotnetfx45(0); // min allowed version is .netfx 4.5.0
+    dotnetfx45(394802); // min allowed version is .NET Framework 4.6.2
 #endif
 
   Result := True; // in case when no previous version is found

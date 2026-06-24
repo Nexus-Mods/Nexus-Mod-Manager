@@ -29,9 +29,10 @@
 
 		#region Fields
 
-		private readonly string _nestedFilePath;
-		private readonly Archive _archiveFile;
+		private string _nestedFilePath;
+		private Archive _archiveFile;
 		private readonly string _cachePath;
+		private readonly FOModArchiveMetadataCache _metadataCache;
 		private readonly Dictionary<string, string> _movedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private readonly string _readmePath = null;
 		private readonly bool _usesPlugins;
@@ -62,6 +63,8 @@
 		private bool _updateChecksEnabled = true;
 		private IScript _installScript;
 		private bool _movedArchiveInitialized;
+		private bool _archiveEventsAttached;
+		private byte[] _cachedInfoXml;
 
 		protected List<string> IgnoreFolders = new List<string> { "__MACOSX" };
 
@@ -360,7 +363,13 @@
 		/// <param name="modCacheManager">The manager for the current game mode's mod cache.</param>
 		/// <param name="scriptTypeRegistry">The registry of supported script types.</param>
 		public FOMod(string filePath, IModFormat modFormat, IEnumerable<string> stopFolders, string pluginsDirectoryName, IEnumerable<string> pluginExtensions, IModCacheManager modCacheManager, IScriptTypeRegistry scriptTypeRegistry, bool usePlugins, bool nestedArchives, bool isResetCachePath = false)
+			: this(filePath, modFormat, stopFolders, pluginsDirectoryName, pluginExtensions, modCacheManager, scriptTypeRegistry, usePlugins, nestedArchives, isResetCachePath, null)
 		{
+		}
+
+		internal FOMod(string filePath, IModFormat modFormat, IEnumerable<string> stopFolders, string pluginsDirectoryName, IEnumerable<string> pluginExtensions, IModCacheManager modCacheManager, IScriptTypeRegistry scriptTypeRegistry, bool usePlugins, bool nestedArchives, bool isResetCachePath, FOModArchiveMetadataCache metadataCache)
+		{
+
 			_environmentInfo = modCacheManager.EnvironmentInfo;
 			StopFolders = new List<string>(stopFolders);
 
@@ -386,22 +395,35 @@
 			string strCheckPrefix = null;
 			string checkScriptPath = null;
 			string checkScriptType = null;
+			FOModArchiveMetadata cachedMetadata = null;
+			bool metadataCacheHit = false;
 
 			ModArchivePath = filePath;
-			_archiveFile = new Archive(filePath);
-
-			_downloadDate = File.GetLastWriteTime(ModArchivePath);
-
 			//modCacheManager.MigrateCacheFile(this);
 
 			#region Check for cacheInfo.txt file
 
 			var strCachePath = Path.Combine(modCacheManager.ModCacheDirectory, Path.GetFileNameWithoutExtension(filePath));
 			_cachePath = strCachePath;
+			_metadataCache = metadataCache ?? new FOModArchiveMetadataCache(modCacheManager.ModCacheDirectory);
+			var allowLooseCacheFallback = !_metadataCache.IsUsable;
 
 			if (useCache)
 			{
-				if (Directory.Exists(strCachePath))
+				if (_metadataCache.TryGet(filePath, out cachedMetadata))
+				{
+					metadataCacheHit = true;
+					_downloadDate = cachedMetadata.ArchiveWriteTimeUtc.HasValue ? cachedMetadata.ArchiveWriteTimeUtc.Value.ToLocalTime() : (DateTime?)null;
+					checkNested = cachedMetadata.HasNestedArchive;
+					strCheckPrefix = cachedMetadata.PrefixPath;
+					checkScriptPath = cachedMetadata.InstallScriptPath;
+					checkScriptType = cachedMetadata.InstallScriptType;
+					_cachedInfoXml = cachedMetadata.InfoXml;
+					ScreenshotPath = cachedMetadata.ScreenshotPath;
+					checkPrefix = false;
+					checkScript = false;
+				}
+				else if (allowLooseCacheFallback && Directory.Exists(strCachePath))
 				{
 					var strCacheInfoFile = Path.Combine(strCachePath, "cacheInfo.txt");
 
@@ -473,16 +495,22 @@
 							}
 						}
 					}
+
 				}
 			}
 
 			#endregion
 
+			if (!metadataCacheHit)
+			{
+				_downloadDate = File.GetLastWriteTime(ModArchivePath);
+			}
+
 			if (checkNested && nestedArchives)
 			{
 				#region Temporary fix for nested .dazip files
 
-				var strNested = _archiveFile.GetFiles("", "*.dazip", true);
+				var strNested = ArchiveFile.GetFiles("", "*.dazip", true);
 
 				if (strNested.Length == 1)
 				{
@@ -493,13 +521,13 @@
 					{
 						_archiveFile = new Archive(strFilePath);
 						_nestedFilePath = strFilePath;
+						_archiveEventsAttached = false;
+						AttachArchiveEvents();
 					}
 				}
 
 				#endregion
 			}
-
-			_archiveFile.ReadOnlyInitProgressUpdated += ArchiveFile_ReadOnlyInitProgressUpdated;
 
 			if (checkPrefix)
 			{
@@ -542,21 +570,23 @@
 				_installScriptType = string.IsNullOrEmpty(checkScriptType) ? null : scriptTypeRegistry.Types.FirstOrDefault(x => x.TypeName.Equals(checkScriptType));
 			}
 
-			_archiveFile.FilesChanged += Archive_FilesChanged;
-
 			//check for screenshot
 			string[] strScreenshots;
 
 			string pathToCheck = useCache ? _cachePath : Path.Combine(_cachePath, GetRealPath("fomod"));
 
-			if (Directory.Exists(pathToCheck))
+			if (!string.IsNullOrEmpty(ScreenshotPath))
+			{
+				strScreenshots = new[] { ScreenshotPath };
+			}
+			else if (Directory.Exists(pathToCheck))
 			{
 				var fileList = Directory.GetFiles(Path.Combine(_cachePath, GetRealPath("fomod")), "screenshot*", SearchOption.AllDirectories);
 				strScreenshots = fileList;
 			}
 			else
 			{
-				strScreenshots = _archiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
+				strScreenshots = ArchiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
 			}
 
 			//TODO make sure the file is a valid image
@@ -567,7 +597,7 @@
 
 			var cacheFile = Path.Combine(strCachePath, "cacheInfo.txt");
 
-			if (!File.Exists(cacheFile) || !useCache)
+			if (!metadataCacheHit && (!allowLooseCacheFallback || !File.Exists(cacheFile) || !useCache))
 			{
 				var strTmpInfo = modCacheManager.FileUtility.CreateTempDirectory();
 
@@ -575,15 +605,20 @@
 				{
 					string pathModAdjustedCache = Path.Combine(strTmpInfo, GetRealPath("fomod"));
 					Directory.CreateDirectory(pathModAdjustedCache);
+					byte[] infoXml;
 
 					if (ContainsFile("fomod/info.xml"))
 					{
-						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), GetFile("fomod/info.xml"));
+						infoXml = GetFile("fomod/info.xml");
+						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
 					}
 					else
 					{
-						FileUtil.WriteAllText(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), "<fomod/>");
+						infoXml = Encoding.UTF8.GetBytes("<fomod/>");
+						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
 					}
+
+					_cachedInfoXml = infoXml;
 
 					if (!string.IsNullOrEmpty(_readmePath))
 					{
@@ -601,9 +636,10 @@
 				{
 					FileUtil.ForceDelete(strTmpInfo);
 				}
+
 			}
 
-			if (cacheInfo || !File.Exists(cacheFile))
+			if (allowLooseCacheFallback && (cacheInfo || !File.Exists(cacheFile)) && !metadataCacheHit)
 			{
 
 				var bteText = new UTF8Encoding(true).GetBytes(string.Format("{0}@@{1}@@{2}@@{3}",
@@ -629,11 +665,44 @@
 
 			ModName = Path.GetFileNameWithoutExtension(ModArchivePath);
 			LoadInfo();
+
+			if (!metadataCacheHit)
+			{
+				SaveMetadataCache();
+			}
+
 		}
 
 		#endregion
 
 		#region Initialization
+
+		private Archive ArchiveFile
+		{
+			get
+			{
+				// Archive index loading is deferred so startup can use SQLite metadata on warm cache hits.
+				if (_archiveFile == null)
+				{
+					_archiveFile = new Archive(string.IsNullOrEmpty(_nestedFilePath) ? ModArchivePath : _nestedFilePath);
+					AttachArchiveEvents();
+				}
+
+				return _archiveFile;
+			}
+		}
+
+		private void AttachArchiveEvents()
+		{
+			if (_archiveFile == null || _archiveEventsAttached)
+			{
+				return;
+			}
+
+			_archiveFile.ReadOnlyInitProgressUpdated += ArchiveFile_ReadOnlyInitProgressUpdated;
+			_archiveFile.FilesChanged += Archive_FilesChanged;
+			_archiveEventsAttached = true;
+		}
 
 		/// <summary>
 		/// Loads the mod metadata from the info file.
@@ -645,7 +714,9 @@
 				try
 				{
 					var xmlInfo = new XmlDocument();
-					xmlInfo.LoadXml(TextUtil.ByteToString(GetFile("fomod/info.xml")));
+					var infoXml = GetFile("fomod/info.xml");
+					_cachedInfoXml = infoXml;
+					xmlInfo.LoadXml(TextUtil.ByteToString(infoXml));
 					LoadInfo(xmlInfo, false);
 				}
 				catch (XmlException e)
@@ -658,6 +729,24 @@
 			}
 		}
 
+		private void SaveMetadataCache()
+		{
+			if (_metadataCache == null || _cachedInfoXml == null)
+			{
+				return;
+			}
+
+			_metadataCache.Save(ModArchivePath, new FOModArchiveMetadata
+			{
+				PrefixPath = string.IsNullOrEmpty(_prefixPath) ? null : _prefixPath,
+				InstallScriptPath = string.IsNullOrEmpty(_installScriptPath) ? null : _installScriptPath,
+				InstallScriptType = _installScriptType == null ? null : _installScriptType.TypeName,
+				HasNestedArchive = !string.IsNullOrEmpty(_nestedFilePath),
+				InfoXml = _cachedInfoXml,
+				ScreenshotPath = ScreenshotPath
+			});
+		}
+
 		#endregion
 
 		#region Read Transactions
@@ -665,13 +754,13 @@
 		/// <inheritdoc />
 		public void BeginReadOnlyTransaction(FileUtil fileUtil)
 		{
-			_archiveFile.BeginReadOnlyTransaction(fileUtil);
+			ArchiveFile.BeginReadOnlyTransaction(fileUtil);
 		}
 
 		/// <inheritdoc />
 		public void EndReadOnlyTransaction()
 		{
-			_archiveFile.EndReadOnlyTransaction();
+			ArchiveFile.EndReadOnlyTransaction();
 		}
 
 		/// <summary>
@@ -708,7 +797,7 @@
 			while (stkPaths.Count > 0)
 			{
 				var strSourcePath = stkPaths.Pop();
-				var directories = _archiveFile.GetDirectories(strSourcePath);
+				var directories = ArchiveFile.GetDirectories(strSourcePath);
 				var booFoundData = false;
 				var booFoundPrefix = false;
 
@@ -762,7 +851,7 @@
 
 					foreach (var strExtension in PluginExtensions)
 					{
-						if (_archiveFile.GetFilesWithExtension(strSourcePath, strExtension, false).Length > 0)
+						if (ArchiveFile.GetFilesWithExtension(strSourcePath, strExtension, false).Length > 0)
 						{
 							booFound = true;
 							break;
@@ -810,7 +899,7 @@
 
 			_movedArchiveFiles.Clear();
 
-			var files = _archiveFile.GetFiles("/", true);
+			var files = ArchiveFile.GetFiles("/", true);
 			var intTrimLength = pathPrefix.Length;
 
 			for (var i = files.Length - 1; i >= 0; i--)
@@ -877,6 +966,11 @@
 			var strPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			strPath = strPath.Trim(Path.DirectorySeparatorChar);
 
+			if (_cachedInfoXml != null && strPath.Equals("fomod" + Path.DirectorySeparatorChar + "info.xml", StringComparison.OrdinalIgnoreCase))
+			{
+				return true;
+			}
+
 			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(strPath))))
 			{
 				return true;
@@ -887,7 +981,7 @@
 				return false;
 			}
 
-			return _movedArchiveFiles.ContainsKey(strPath) || _archiveFile.ContainsFile(GetRealPath(strPath));
+			return _movedArchiveFiles.ContainsKey(strPath) || ArchiveFile.ContainsFile(GetRealPath(strPath));
 		}
 
 		/// <summary>
@@ -924,9 +1018,14 @@
 		/// <param name="path">The path of the file to delete.</param>
 		protected void DeleteFile(string path)
 		{
-			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
+			if (IsInfoFile(path))
 			{
-				_archiveFile.DeleteFile(GetRealPath(path));
+				_cachedInfoXml = null;
+			}
+
+			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)
+			{
+				ArchiveFile.DeleteFile(GetRealPath(path));
 			}
 
 			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(path))))
@@ -942,9 +1041,15 @@
 		/// <param name="data">The new file data.</param>
 		protected void ReplaceFile(string path, byte[] data)
 		{
-			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
+			if (IsInfoFile(path))
 			{
-				_archiveFile.ReplaceFile(GetRealPath(path), data);
+				_cachedInfoXml = data;
+				SaveMetadataCache();
+			}
+
+			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)
+			{
+				ArchiveFile.ReplaceFile(GetRealPath(path), data);
 			}
 
 			var fileInfo = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
@@ -962,9 +1067,15 @@
 		/// <param name="data">The new file data.</param>
 		protected void CreateOrReplaceFile(string path, byte[] data)
 		{
-			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
+			if (IsInfoFile(path))
 			{
-				_archiveFile.ReplaceFile(GetRealPath(path), data);
+				_cachedInfoXml = data;
+				SaveMetadataCache();
+			}
+
+			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)
+			{
+				ArchiveFile.ReplaceFile(GetRealPath(path), data);
 			}
 
 			if (Directory.Exists(_cachePath))
@@ -981,9 +1092,15 @@
 		/// <param name="data">The new file text.</param>
 		protected void ReplaceFile(string path, string data)
 		{
-			if (AllowArchiveEdits && !_archiveFile.ReadOnly && !_archiveFile.IsSolid)
+			if (IsInfoFile(path))
 			{
-				_archiveFile.ReplaceFile(GetRealPath(path), data);
+				_cachedInfoXml = Encoding.UTF8.GetBytes(data);
+				SaveMetadataCache();
+			}
+
+			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)
+			{
+				ArchiveFile.ReplaceFile(GetRealPath(path), data);
 			}
 
 			var fiFile = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
@@ -995,6 +1112,12 @@
 			}
 		}
 
+		private static bool IsInfoFile(string path)
+		{
+			var normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
+			return normalizedPath.Equals("fomod" + Path.DirectorySeparatorChar + "info.xml", StringComparison.OrdinalIgnoreCase);
+		}
+
 		#endregion
 
 		#region File Management
@@ -1002,6 +1125,12 @@
 		/// <inheritdoc />
 		public byte[] GetFile(string file)
 		{
+			var normalizedFile = file.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
+			if (_cachedInfoXml != null && normalizedFile.Equals("fomod" + Path.DirectorySeparatorChar + "info.xml", StringComparison.OrdinalIgnoreCase))
+			{
+				return _cachedInfoXml;
+			}
+
 			if (!ContainsFile(file))
 			{
 				return Path.GetFileNameWithoutExtension(file)?.ToLower() == "screenshot"
@@ -1011,7 +1140,7 @@
 
 			return Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(file)))
 				? File.ReadAllBytes(Path.Combine(_cachePath, GetRealPath(file)))
-				: _archiveFile.GetFileContents(GetRealPath(file));
+				: ArchiveFile.GetFileContents(GetRealPath(file));
 		}
 
 		/// <inheritdoc />
@@ -1024,7 +1153,7 @@
 			}
 
 			// Otherwise grab file from archive.
-			return _archiveFile.GetFileStream(GetRealPath(file), _environmentInfo.TemporaryPath);
+			return ArchiveFile.GetFileStream(GetRealPath(file), _environmentInfo.TemporaryPath);
 		}
 
 		/// <inheritdoc />
@@ -1064,7 +1193,7 @@
 				_movedArchiveInitialized = true;
 			}
 
-			foreach (var file in _archiveFile.GetFiles(folderPath, recurse))
+			foreach (var file in ArchiveFile.GetFiles(folderPath, recurse))
 			{
 				if (!_movedArchiveFiles.ContainsValue(file))
 				{

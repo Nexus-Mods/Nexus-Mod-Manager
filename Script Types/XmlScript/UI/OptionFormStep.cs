@@ -325,7 +325,6 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 						}
 					break;
 				case OptionType.NotUsable:
-				case OptionType.CouldBeUsable:
 					if (e.NewValue == CheckState.Checked)
 						if (MessageBox.Show(this, optOption.Name + " is not usable with your loaded mods. Enabling it may result in game instability. Are you sure you want to continue?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
 						{

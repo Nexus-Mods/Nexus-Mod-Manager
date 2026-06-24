@@ -130,27 +130,36 @@
 				ItemMessage = modCurrent.ModName;
 
 				string modName = StripFileName(modCurrent.Filename, modCurrent.Id);
+                // Prefer the archive hash because Nexus file names are no longer stable identifiers.
+                if (_missingDownloadId == null || _missingDownloadId == true)
+                {
+                    IModInfo modInfoForFile = ModRepository.GetModInfoForFile(modCurrent.ModArchivePath);
 
-				// If the know the modId we save the current Endorsment status. Otherwise we search for the mod Id on the Nexus.
-				if (!string.IsNullOrEmpty(modCurrent.Id))
-				{
-					modId = modCurrent.Id;
-					isEndorsed = modCurrent.IsEndorsed == true ? 1 : modCurrent.IsEndorsed == false ? -1 : 0;
-				}
-				else if (_missingDownloadId == null || _missingDownloadId == true)
-				{
-					// Deprecated, too many useless request were being thrown, if users need to recognize a mod they can just use the mod tagger.
-					// It is just active for the specific downloadId search.
-					IModInfo modInfoForFile = ModRepository.GetModInfoForFile(modCurrent.Filename);
+                    if (modInfoForFile != null)
+                    {
+                        modCurrent.Id = modInfoForFile.Id;
+                        modId = modInfoForFile.Id;
+                        AutoUpdater.AddNewVersionNumberForMod(modCurrent, modInfoForFile);
+                        modName = StripFileName(modCurrent.Filename, modInfoForFile.Id);
 
-					if (modInfoForFile != null)
-					{
-						modCurrent.Id = modInfoForFile.Id;
-						modId = modInfoForFile.Id;
-						AutoUpdater.AddNewVersionNumberForMod(modCurrent, modInfoForFile);
-						modName = StripFileName(modCurrent.Filename, modInfoForFile.Id);
-					}
-				}
+                        if ((string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1") &&
+                            !string.IsNullOrEmpty(modInfoForFile.DownloadId) && modInfoForFile.DownloadId != "0" && modInfoForFile.DownloadId != "-1")
+                        {
+                            var filename = Path.GetFileName(modCurrent.Filename);
+
+                            if (!_newDownloadID.ContainsKey(filename))
+                            {
+                                _newDownloadID.Add(filename, modInfoForFile.DownloadId);
+                            }
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(modId) && !string.IsNullOrEmpty(modCurrent.Id))
+                {
+                    modId = modCurrent.Id;
+                    isEndorsed = modCurrent.IsEndorsed == true ? 1 : modCurrent.IsEndorsed == false ? -1 : 0;
+                }
 
 				// If we're looking for missing download Ids
 				if (_missingDownloadId == null || _missingDownloadId == true && (string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1"))

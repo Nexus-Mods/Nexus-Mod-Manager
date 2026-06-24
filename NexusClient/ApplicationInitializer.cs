@@ -1080,81 +1080,20 @@
 		#endregion
 
 		/// <summary>
-		/// Uninstalls mods that have been manually removed since the last time the mod manager
-		/// ran.
+		/// Checks active mods whose archive files are no longer available.
 		/// </summary>
 		/// <param name="p_gmdGameMode">The game mode currently being managed.</param>
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
-		/// <param name="p_mmgModManager">The mod manager to use to uninstall any missing mods.</param>
+		/// <param name="p_mmgModManager">The mod manager whose active mods should be checked.</param>
 		protected bool UninstallMissingMods(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, ModManager p_mmgModManager)
 		{
-			Trace.TraceInformation("Uninstalling missing Mods...");
+			Trace.TraceInformation("Checking for missing mod archives...");
 			Trace.Indent();
 			foreach (var modMissing in new List<IMod>(p_mmgModManager.ActiveMods))
 			{
 				if (!File.Exists(modMissing.Filename))
 				{
-					Trace.TraceInformation("{0} is missing...", modMissing.Filename);
-					Trace.Indent();
-
-					//look for another version of the mod
-					var lstInactiveMods = new List<IMod>();
-					foreach (var modRegistered in p_mmgModManager.ManagedMods)
-						if (!p_mmgModManager.ActiveMods.Contains(modRegistered))
-							lstInactiveMods.Add(modRegistered);
-					var mmcMatcher = new ModMatcher(lstInactiveMods, false);
-					var modNewVersion = mmcMatcher.FindAlternateVersion(modMissing, true);
-					if (modNewVersion != null)
-					{
-						Trace.TraceInformation("Found alternate version...");
-						var strUpgradeMessage = string.Format("'{0}' cannot be found. " + Environment.NewLine +
-										"However, a different version has been detected. The installed, missing, version is {1}; the new version is {2}." + Environment.NewLine +
-										"You can either upgrade the mod or uninstall it. If you Cancel, {3} will close and you will " +
-										"have to put the Mod ({4}) back in the mods folder." + Environment.NewLine +
-										"Would you like to upgrade the mod?", modMissing.ModName, modMissing.HumanReadableVersion, modNewVersion.HumanReadableVersion, CommonData.ModManagerName, modMissing.Filename);
-
-						switch ((DialogResult)ShowMessage(new ViewMessage(strUpgradeMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No | ExtendedMessageBoxButtons.Cancel, MessageBoxIcon.Warning)))
-						{
-							case DialogResult.Yes:
-								Trace.TraceInformation("Upgrading.");
-								var btsUpgrader = p_mmgModManager.ForceUpgrade(modMissing, modNewVersion, ConfirmItemOverwrite);
-								WaitForSet(btsUpgrader, true);
-								Trace.Unindent();
-								continue;
-							case DialogResult.Cancel:
-								Trace.TraceInformation("Aborting.");
-								Trace.Unindent();
-								Trace.Unindent();
-								return false;
-							case DialogResult.No:
-								break;
-							default:
-								throw new Exception(string.Format("Unexpected value for cofnirmation of upgrading missing mod {0}.", modMissing.ModName));
-						}
-					}
-
-					var strMessage = string.Format("'{0}' cannot be found. " + Environment.NewLine + Environment.NewLine +
-										"This could be caused by setting the wrong 'Mods' folder or an old config file being used." + Environment.NewLine + Environment.NewLine +
-										"If you haven't deleted or moved any of your mods on your hard-drive and they're still on your hard-drive somewhere then select YES and input the proper location of your Mods folder." + Environment.NewLine + Environment.NewLine +
-										"If you select NO {1} will automatically uninstall the missing mod's files." + Environment.NewLine + Environment.NewLine +
-										"NOTE: The mods folder is where NMM stores your mod archives, it is not the same location as your game's mod folder.", modMissing.Filename, CommonData.ModManagerName);
-					if ((DialogResult)ShowMessage(new ViewMessage(strMessage, "Missing Mod", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Warning)) == DialogResult.No)
-					{
-						Trace.TraceInformation("Removing.");
-						var btsDeactivator = p_mmgModManager.DeactivateMod(modMissing, p_mmgModManager.ActiveMods);
-						WaitForSet(btsDeactivator, true);
-					}
-					else
-					{
-						Status = TaskStatus.Retrying;
-						Trace.TraceInformation("Reset Paths.");
-						Trace.Unindent();
-						Trace.Unindent();
-						return false;
-					}
-
-					Trace.TraceInformation("Uninstalled.");
-					Trace.Unindent();
+					Trace.TraceInformation("Archive missing for active mod: {0}", modMissing.Filename);
 				}
 			}
 			Trace.Unindent();

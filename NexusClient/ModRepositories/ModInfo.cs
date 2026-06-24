@@ -157,11 +157,7 @@
         {
             bool? endorsementState = null;
 
-            if (result.Endorsement == null || result.Endorsement.EndorseStatus == EndorsementStatus.Abstained)
-            {
-                endorsementState = false;
-            }
-            else if (result.Endorsement.EndorseStatus == EndorsementStatus.Endorsed)
+            if (result.Endorsement?.EndorseStatus == EndorsementStatus.Endorsed)
             {
                 endorsementState = true;
             }

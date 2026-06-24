@@ -5,7 +5,6 @@ using Nexus.Client.Mods;
 using Nexus.Client.Util;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Games;
-using System.IO;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript
 {
@@ -136,9 +135,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				{
 					m_dicImageCache[p_strPath] = new ExtendedImage(Mod.GetFile(p_strPath));
 				}
-				catch (FileNotFoundException)
+				catch (Exception)
 				{
-					return Properties.Resources.notFoundJPG;
+					m_dicImageCache[p_strPath] = Properties.Resources.notFoundJPG;
 				}
 			}
 			return m_dicImageCache[p_strPath];

@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client</RootNamespace>
     <AssemblyName>NexusClient</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ApplicationIcon>NMM_CE_P_Logo.ico</ApplicationIcon>
     <TargetZone>Internet</TargetZone>
@@ -82,6 +82,13 @@
     <Compile Include="ModManagement\ProfileSwitchSetupTask.cs" />
     <Compile Include="ModManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
     <Compile Include="ModManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
+    <Compile Include="ModManagement\UI\IModManagerView.cs" />
+    <Compile Include="ModManagement\UI\ModManagerDXControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModManagerDXControl.Designer.cs">
+      <DependentUpon>ModManagerDXControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="ModRepositories\AuthenticationStatus.cs" />
     <Compile Include="ModRepositories\RateLimitExceededArgs.cs" />
     <Compile Include="SSO\AuthenticationCancelledReason.cs" />
@@ -570,6 +577,24 @@
     <None Include="Resources\SkyrimGOG_logo.ico" />
     <None Include="Resources\SkyrimSE_logo.ico" />
     <Content Include="Resources\tes_logo.ico" />
+    <EmbeddedResource Include="Resources\inline_edit_pencil.svg" />
+    <EmbeddedResource Include="Resources\inline_edit_checkmark.svg" />
+    <EmbeddedResource Include="Resources\inline_edit_cancel.svg" />
+    <EmbeddedResource Include="Resources\toolbar_add_mod.svg" />
+    <EmbeddedResource Include="Resources\toolbar_install_enable.svg" />
+    <EmbeddedResource Include="Resources\toolbar_disable.svg" />
+    <EmbeddedResource Include="Resources\toolbar_tag.svg" />
+    <EmbeddedResource Include="Resources\toolbar_updates.svg" />
+    <EmbeddedResource Include="Resources\toolbar_endorse.svg" />
+    <EmbeddedResource Include="Resources\toolbar_categories.svg" />
+    <EmbeddedResource Include="Resources\toolbar_view.svg" />
+    <EmbeddedResource Include="Resources\toolbar_export.svg" />
+    <EmbeddedResource Include="Resources\toolbar_updates_only.svg" />
+    <EmbeddedResource Include="Resources\toolbar_skyrim.svg" />
+    <EmbeddedResource Include="Resources\toolbar_filters.svg" />
+    <EmbeddedResource Include="Resources\toolbar_group_by.svg" />
+    <EmbeddedResource Include="Resources\toolbar_sort_by.svg" />
+    <EmbeddedResource Include="Resources\toolbar_columns.svg" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
     <None Include="Resources\text-x-generic.png" />
@@ -804,6 +829,42 @@
       <HintPath>..\lib\ObjectListView.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="DevExpress.Data.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Data.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.Utils.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Utils.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.XtraEditors.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraEditors.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.XtraGrid.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraGrid.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.Drawing.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Drawing.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.Printing.v25.2.Core">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Printing.v25.2.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.WinterJoySkin">
+      <HintPath>..\Stage\packages\DevExpress.Win.WinterJoySkin.1.0.3\lib\net452\DevExpress.WinterJoySkin.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.BonusSkins.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.BonusSkins.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.Data.Desktop.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Data.Desktop.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Pathoschild.Http.Client, Version=4.4.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Pathoschild.Http.FluentClient.4.4.1\lib\net452\Pathoschild.Http.Client.dll</HintPath>
     </Reference>
@@ -840,8 +901,8 @@
     <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
     </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\System.Runtime.CompilerServices.Unsafe.4.5.3\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\Stage\packages\System.Runtime.CompilerServices.Unsafe.6.1.0\lib\net462\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
     </Reference>
     <Reference Include="System.Runtime.Remoting" />
     <Reference Include="System.Runtime.Serialization">

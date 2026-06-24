@@ -13,7 +13,7 @@ namespace Nexus.Client.ModManagement
 
 		protected ConfirmActionMethod ConfirmActionMethod { get; private set; }
 		protected MainFormVM ViewModel { get; private set; }
-		protected ModManagerControl ModManagerControl { get; private set; }
+		protected IModManagerView ModManagerControl { get; private set; }
 
 		#region Properties
 
@@ -28,7 +28,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModManager">The current ModManager.</param>
 		/// <param name="p_lstMods">The mod list.</param>
 		/// <param name="p_intNewValue">The new category id.</param>
-		public ModMigrationTask(MainFormVM p_fvmViewModel, ModManagerControl p_mmgModManagerControl, bool p_booMigrate, ConfirmActionMethod p_camConfirm)
+		public ModMigrationTask(MainFormVM p_fvmViewModel, IModManagerView p_mmgModManagerControl, bool p_booMigrate, ConfirmActionMethod p_camConfirm)
 		{
 			ViewModel = p_fvmViewModel;
 			ModManagerControl = p_mmgModManagerControl;

@@ -79,10 +79,11 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		}
 
 		private void TaskSet_TaskSetStarted(object sender, EventArgs<IBackgroundTask> e)
-		{			
-			if ((ListView != null) && ListView.InvokeRequired)
+		{
+			Control invokeTarget = (ListView != null) ? (Control)ListView : m_amcControl;
+			if ((invokeTarget != null) && invokeTarget.InvokeRequired)
 			{
-				ListView.Invoke((Action<IBackgroundTaskSet, EventArgs<IBackgroundTask>>)TaskSet_TaskSetStarted, sender, e);
+				invokeTarget.Invoke((Action<IBackgroundTaskSet, EventArgs<IBackgroundTask>>)TaskSet_TaskSetStarted, sender, e);
 				return;
 			}
 
@@ -127,10 +128,10 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 
 		private void TaskSet_TaskSetCompleted(object sender, TaskSetCompletedEventArgs e)
 		{
-
-			if ((ListView != null) && ListView.InvokeRequired)
+			Control invokeTarget = (ListView != null) ? (Control)ListView : m_amcControl;
+			if ((invokeTarget != null) && invokeTarget.InvokeRequired)
 			{
-				ListView.Invoke((Action<IBackgroundTaskSet, TaskSetCompletedEventArgs>)TaskSet_TaskSetCompleted, sender, e);
+				invokeTarget.Invoke((Action<IBackgroundTaskSet, TaskSetCompletedEventArgs>)TaskSet_TaskSetCompleted, sender, e);
 				return;
 			}
 
@@ -195,9 +196,10 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			try
 			{
 				string strPropertyName = e.PropertyName;
-				if ((ListView != null) && ListView.InvokeRequired)
+				Control invokeTarget = (ListView != null) ? (Control)ListView : m_amcControl;
+				if ((invokeTarget != null) && invokeTarget.InvokeRequired)
 				{
-					ListView.Invoke((Action<IBackgroundTask, string>)HandleChangedTaskProperty, (IBackgroundTask)sender, e.PropertyName);
+					invokeTarget.Invoke((Action<IBackgroundTask, string>)HandleChangedTaskProperty, (IBackgroundTask)sender, e.PropertyName);
 					return;
 				}
 				HandleChangedTaskProperty((IBackgroundTask)sender, e.PropertyName);

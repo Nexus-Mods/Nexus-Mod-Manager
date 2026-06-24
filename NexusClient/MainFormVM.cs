@@ -396,6 +396,12 @@
 		public string ModsPath => GameMode.GameModeEnvironmentInfo.ModDirectory;
 
 		/// <summary>
+		/// Gets NMM's cache folder.
+		/// </summary>
+		/// <value>The path to NMM's cache folder.</value>
+		public string CachePath => GameMode.GameModeEnvironmentInfo.ModCacheDirectory;
+
+		/// <summary>
 		/// Gets NMM's Install Info folder.
 		/// </summary>
 		/// <value>The path to NMM's Install Info folder.</value>
@@ -480,8 +486,8 @@
 
 						string strWarning = "We've detected that you are using Cyberpunk 2077 version 1.2 (or later) for the first time with NMM. In version 1.2, " + Environment.NewLine +
 							"CDPR changed the folder where mod files are installed." + Environment.NewLine + Environment.NewLine +
-							"Because of this, any mod you previously had enabled will be disabled in NMM and you will need to reactivate " + Environment.NewLine +
-							"them in order for your setup to work again." + Environment.NewLine;
+							"Older NMM versions tried to disable every active Cyberpunk 2077 mod at this point. NMM will no longer do that automatically." + Environment.NewLine + Environment.NewLine +
+							"Your existing files will be left in place. Please verify your Cyberpunk 2077 mod folder settings and reinstall or reactivate affected mods manually if your setup needs to be moved to the new folder." + Environment.NewLine;
 
 						return strWarning;
 					}
@@ -688,7 +694,7 @@
 		/// <summary>
 		/// Performs the startup mod migration.
 		/// </summary>
-		public void MigrateMods(ModManagerControl modManagerControl, bool migrate)
+		public void MigrateMods(IModManagerView modManagerControl, bool migrate)
 		{
 			MigratingMods(this, new EventArgs<IBackgroundTask>(ModMigration(modManagerControl, migrate)));
 		}
@@ -764,7 +770,7 @@
 		/// <summary>
 		/// Performs the restore backup form.
 		/// </summary>
-		public void RestoreBackup(ModManagerControl p_mmgModManager)
+		public void RestoreBackup(IModManagerView p_mmgModManager)
 		{
 			var rbfRestoreForm = new RestoreBackupForm(ModManager, ProfileManager);
 			rbfRestoreForm.ShowDialog();
@@ -830,7 +836,7 @@
 		/// <summary>
 		/// Sets up the mod migration task.
 		/// </summary>
-		private IBackgroundTask ModMigration(ModManagerControl modManagerControl, bool migrate)
+		private IBackgroundTask ModMigration(IModManagerView modManagerControl, bool migrate)
 		{
 			var mmtModMigrationTask = new ModMigrationTask(this, modManagerControl, migrate, ConfirmUpdaterAction);
 

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#5F6975"/>
+  <rect x="1.5" y="1.5" width="21" height="21" rx="5" stroke="#4A535D" stroke-width="1"/>
+  <!-- stylized Nordic/Skyrim-inspired mountain + sword crest, original artwork -->
+  <path d="M7.1 16.9L10.5 10.3L12.2 13L13.9 10.4L17 16.9H7.1Z" fill="white" fill-opacity="0.95"/>
+  <path d="M11.35 7.1H12.65V16.2H11.35V7.1Z" fill="white"/>
+  <path d="M10.2 8.15L12 6.55L13.8 8.15L12 9.05L10.2 8.15Z" fill="white"/>
+  <path d="M9.55 15.8H14.45V16.9H9.55V15.8Z" fill="white"/>
+  <path d="M8.5 9.45C8.95 8.55 9.85 7.95 10.9 7.8L9.95 6.95C8.7 7.2 7.7 8 7.15 9.15L8.5 9.45Z" fill="white" fill-opacity="0.9"/>
+  <path d="M15.5 9.45C15.05 8.55 14.15 7.95 13.1 7.8L14.05 6.95C15.3 7.2 16.3 8 16.85 9.15L15.5 9.45Z" fill="white" fill-opacity="0.9"/>
+</svg>

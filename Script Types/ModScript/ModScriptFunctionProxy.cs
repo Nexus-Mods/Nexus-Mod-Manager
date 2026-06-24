@@ -1131,7 +1131,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// </summary>
 		/// <param name="p_strGameVersion">The version to which to compare the script extender's version.</param>
 		/// <returns><c>true</c> if the script extender's version is greater than the given version.</returns>
-		public bool ScriptExtenderNewerThan(string p_strGameVersion)
+		public virtual bool ScriptExtenderNewerThan(string p_strGameVersion)
 		{
 			return true;
 		}

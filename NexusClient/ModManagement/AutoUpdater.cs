@@ -215,14 +215,11 @@
                 //get mod info
                 for (var i = 0; i <= 2; i++)
                 {
-                    if (!string.IsNullOrEmpty(mod.Id))
+                    modInfo = ModRepository.GetModInfoForFile(mod.ModArchivePath);
+
+                    if (modInfo == null && !string.IsNullOrEmpty(mod.Id))
                     {
                         modInfo = ModRepository.GetModInfo(mod.Id);
-                    }
-
-                    if (modInfo == null)
-                    {
-                        modInfo = ModRepository.GetModInfoForFile(mod.Filename);
                     }
 
                     if (modInfo != null)

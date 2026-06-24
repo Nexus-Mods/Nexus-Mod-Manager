@@ -73,6 +73,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <value>The manager for the current game mode's mod cache.</value>
 		protected IModCacheManager ModCacheManager { get; set; }
 
+		private FOModArchiveMetadataCache MetadataCache { get; set; }
+
 		/// <summary>
 		/// Gets the registry of supported script types.
 		/// </summary>
@@ -91,6 +93,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public FOModFormat(IModCacheManager p_mcmModCacheManager, IScriptTypeRegistry p_stgScriptTypeRegistry)
 		{
 			ModCacheManager = p_mcmModCacheManager;
+			MetadataCache = new FOModArchiveMetadataCache(p_mcmModCacheManager.ModCacheDirectory);
 			IScriptTypeRegistry = p_stgScriptTypeRegistry;
 		}
 
@@ -107,9 +110,23 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		{
 			if (Directory.Exists(p_strPath))
 			{
-				var fileList = Directory.EnumerateFiles(p_strPath, "info.xml", SearchOption.AllDirectories);
-				
-				if (fileList.Count() > 0)
+				if (IsModCachePath(p_strPath))
+				{
+					var archiveName = Path.GetFileName(NormalizeDirectoryPath(p_strPath));
+					if (MetadataCache.IsUsable)
+					{
+						return MetadataCache.ContainsArchiveFileNameWithoutExtension(archiveName)
+							? FormatConfidence.Match
+							: FormatConfidence.Compatible;
+					}
+
+					if (File.Exists(Path.Combine(p_strPath, "cacheInfo.txt")))
+					{
+						return FormatConfidence.Match;
+					}
+				}
+
+				if (Directory.EnumerateFiles(p_strPath, "info.xml", SearchOption.AllDirectories).Any())
 					return FormatConfidence.Match;
 			}
 			else
@@ -127,6 +144,22 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			return FormatConfidence.Compatible;
 		}
 
+		private bool IsModCachePath(string path)
+		{
+			if (string.IsNullOrEmpty(ModCacheManager.ModCacheDirectory) || string.IsNullOrEmpty(path))
+			{
+				return false;
+			}
+
+			var parentPath = Path.GetDirectoryName(NormalizeDirectoryPath(path));
+			return string.Equals(NormalizeDirectoryPath(parentPath), NormalizeDirectoryPath(ModCacheManager.ModCacheDirectory), StringComparison.OrdinalIgnoreCase);
+		}
+
+		private static string NormalizeDirectoryPath(string path)
+		{
+			return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+		}
+
 		/// <summary>
 		/// Creates a mod from the specified file.
 		/// </summary>
@@ -137,10 +170,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <returns>A mod from the specified file.</returns>
 		public IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode, bool isResetCachePath)
 		{
-			if (CheckFormatCompliance(p_strPath) <= FormatConfidence.Convertible)
-				throw new ModFormatException(this);
-
-			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins, (p_gmdGameMode.ModeId.StartsWith("DragonAge", StringComparison.InvariantCultureIgnoreCase)), isResetCachePath);
+			// Format compliance is checked by ModRegistry before creation; repeating it here opens every archive during startup.
+			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins, (p_gmdGameMode.ModeId.StartsWith("DragonAge", StringComparison.InvariantCultureIgnoreCase)), isResetCachePath, MetadataCache);
 		}
 
 		/// <summary>

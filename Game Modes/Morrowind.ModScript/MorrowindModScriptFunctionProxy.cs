@@ -68,7 +68,7 @@ namespace Nexus.Client.Games.Morrowind.Scripting.ModScript
         /// </summary>
         /// <param name="p_strGameVersion">The version to which to compare the script extender's version.</param>
         /// <returns><c>true</c> if the script extender's version is greater than the given version.</returns>
-        public bool ScriptExtenderNewerThan(string p_strGameVersion)
+        public override bool ScriptExtenderNewerThan(string p_strGameVersion)
         {
             Version verCompare = new Version(p_strGameVersion.Contains(".") ? p_strGameVersion : p_strGameVersion + ".0");
             return GetScriptExtenderVersion() > verCompare;

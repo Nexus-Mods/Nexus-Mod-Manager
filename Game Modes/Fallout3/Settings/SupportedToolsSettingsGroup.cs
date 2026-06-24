@@ -38,11 +38,6 @@ namespace Nexus.Client.Games.Fallout3
 		/// <value>The descriptor of the current game mode.</value>
 		public IGameModeDescriptor GameModeDescriptor { get; private set; }
 
-		/// <summary>
-		/// Gets the application's envrionment info.
-		/// </summary>
-		/// <value>The application's envrionment info.</value>
-		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
 		/// <summary>
 		/// Gets the name of the games mode currently being managed.
@@ -89,7 +84,6 @@ namespace Nexus.Client.Games.Fallout3
 		public SupportedToolsSettingsGroup(IEnvironmentInfo p_eifEnvironmentInfo, IGameMode p_gmGameMode)
 			: base(p_eifEnvironmentInfo)
 		{
-			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmGameMode;
 			Errors = new ErrorContainer();
 		}

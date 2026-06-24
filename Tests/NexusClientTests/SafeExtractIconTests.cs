@@ -24,25 +24,34 @@ namespace NexusClientTests
     public class SafeExtractIconTests
     {
         [Test]
-        public void NullPath_ReturnsNull()
+        public void NullPath_ReturnsFallbackIcon()
         {
-            Assert.IsNull(TestLauncher.CallSafeExtractIcon(null));
+            using (Image result = TestLauncher.CallSafeExtractIcon(null))
+            {
+                Assert.IsNotNull(result);
+            }
         }
 
         [Test]
-        public void EmptyPath_ReturnsNull()
+        public void EmptyPath_ReturnsFallbackIcon()
         {
-            Assert.IsNull(TestLauncher.CallSafeExtractIcon(string.Empty));
+            using (Image result = TestLauncher.CallSafeExtractIcon(string.Empty))
+            {
+                Assert.IsNotNull(result);
+            }
         }
 
         [Test]
-        public void NonExistentPath_ReturnsNull()
+        public void NonExistentPath_ReturnsFallbackIcon()
         {
-            Assert.IsNull(TestLauncher.CallSafeExtractIcon(@"C:\DoesNotExist\fake.exe"));
+            using (Image result = TestLauncher.CallSafeExtractIcon(@"C:\DoesNotExist\fake.exe"))
+            {
+                Assert.IsNotNull(result);
+            }
         }
 
         [Test]
-        public void PlainTextFileRenamedExe_DoesNotThrow_ReturnsNullOrImage()
+        public void PlainTextFileRenamedExe_DoesNotThrow_ReturnsImage()
         {
             // Simulates an exe-like file with no embedded icon resource.
             string tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".exe");
@@ -51,7 +60,7 @@ namespace NexusClientTests
             {
                 Image result = null;
                 Assert.DoesNotThrow(() => result = TestLauncher.CallSafeExtractIcon(tempPath));
-                // Result is either null (no icon) or a valid image — both are acceptable.
+                Assert.IsNotNull(result);
                 result?.Dispose();
             }
             finally
