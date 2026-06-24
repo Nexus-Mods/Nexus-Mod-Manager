@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -56,6 +56,7 @@ namespace Nexus.Client.GameStorage
         public GameStorageCandidateConfidence ConfidenceLevel { get; set; }
         public List<string> Evidence { get; set; } = new List<string>();
         public List<string> Warnings { get; set; } = new List<string>();
+        public bool LinkFolderRequired { get; set; }
         public bool RequiresUserConfirmation { get; set; }
     }
 }

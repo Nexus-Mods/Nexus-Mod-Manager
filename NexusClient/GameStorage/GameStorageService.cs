@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,7 +7,7 @@ using Nexus.Client.Games;
 
 namespace Nexus.Client.GameStorage
 {
-    public class GameStorageService
+    public partial class GameStorageService
     {
         private readonly IEnvironmentInfo _environmentInfo;
         private readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings { Formatting = Formatting.Indented };
@@ -112,7 +112,6 @@ namespace Nexus.Client.GameStorage
             var lastKnownGood = registry.KnownStorages.FirstOrDefault(x => string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) && x.LastKnownGood);
 
             ValidateFolder(result, paths, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, storageId, true);
-            ValidateInstallLog(result, paths.InstallInfoPath);
             ValidateFolder(result, paths, GameStorageFolderRole.Mods, paths.ModsPath, storageId, true);
             ValidateFolder(result, paths, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, storageId, true);
 

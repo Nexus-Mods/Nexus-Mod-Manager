@@ -14,6 +14,7 @@
     using Nexus.Client.ModActivationMonitoring;
     using Nexus.Client.Games;
     using Nexus.Client.GameStorage;
+    using Nexus.Client.GameStorage.UI;
     using Nexus.Client.ModManagement;
     using Nexus.Client.ModManagement.InstallationLog;
     using Nexus.Client.ModManagement.InstallationLog.Upgraders;
@@ -402,11 +403,18 @@
                 var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
                 if (!storageHealth.IsHealthy)
                 {
-                    p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null, "Game Storage validation", MessageBoxIcon.Warning);
-                    return false;
+                    var recoveryForm = new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth);
+                    var recoveryResult = ShowView(recoveryForm, true);
+                    if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
+                        storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
+
+                    if (!storageHealth.IsHealthy)
+                    {
+                        p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null, "Game Storage validation", MessageBoxIcon.Warning);
+                        return false;
+                    }
                 }
             }
-
 			if (!CreateEnvironmentPaths(gameMode, out p_vwmErrorMessage))
             {
                 return false;

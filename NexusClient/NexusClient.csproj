@@ -763,6 +763,10 @@
     <Compile Include="GameStorage\GameStorageHealth.cs" />
     <Compile Include="GameStorage\GameStorageModels.cs" />
     <Compile Include="GameStorage\GameStorageService.cs" />
+    <Compile Include="GameStorage\GameStorageRecoveryService.cs" />
+    <Compile Include="GameStorage\UI\GameStorageRecoveryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="GameStorage\UI\GameStorageSetupControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
