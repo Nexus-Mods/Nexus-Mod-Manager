@@ -944,12 +944,12 @@ namespace Nexus.Client.ModManagement.UI
                 case ColCategory:
                     if (_viewModel?.CategoryManager != null)
                     {
-                        var cat = _viewModel.CategoryManager.FindCategory(mod.CustomCategoryId > 0 ? mod.CustomCategoryId : mod.CategoryId);
+                        IModCategory cat = _viewModel.CategoryManager.FindCategory(mod.CustomCategoryId > 0 ? mod.CustomCategoryId : mod.CategoryId);
                         e.Value = cat != null ? cat.CategoryName : null;
                     }
                     else
                     {
-                        e.Value = mod.CategoryId.ToString();
+                        e.Value = mod.CategoryId;
                     }
                     break;
                 case ColEndorsed:
@@ -2018,7 +2018,7 @@ namespace Nexus.Client.ModManagement.UI
             if (_viewModel?.CategoryManager != null)
             {
                 var itemMoveTo = new ToolStripMenuItem("Move to");
-                foreach (var cat in _viewModel.CategoryManager.Categories
+                foreach (IModCategory cat in _viewModel.CategoryManager.Categories
                     .OrderBy(c => c.CategoryName))
                 {
                     var catId   = cat.Id;
