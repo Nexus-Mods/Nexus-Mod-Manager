@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client
+namespace Nexus.Client
 {
     using System;
     using System.Collections.Generic;
@@ -309,10 +309,11 @@
 			StepOverallProgress();
 
             bool hadCompletedSetup = EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) && EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
+            var gameStorageService = new GameStorageService(EnvironmentInfo);
 
 			if (!EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId])
 			{
-				if (!p_gmfGameModeFactory.PerformInitialSetup(ShowView, ShowMessage))
+                if (!PerformInitialGameStorageSetup(p_gmfGameModeFactory, gameStorageService, strUacCheckPath, out bool usedLegacySetup))
 				{
 					p_vwmErrorMessage = null;
 					return false;
@@ -320,6 +321,7 @@
 
                 EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = true;
 				EnvironmentInfo.Settings.Save();
+                hadCompletedSetup = !usedLegacySetup;
 			}
 
 			StepOverallProgress();
@@ -397,7 +399,6 @@
 			}
 			StepOverallProgress();
 
-            var gameStorageService = new GameStorageService(EnvironmentInfo);
             if (hadCompletedSetup)
             {
                 var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
@@ -445,7 +446,7 @@
 			IModRepository mrpModRepository = new NexusModsApiRepository(gameMode.ModeId, ApiCallManager.Instance(EnvironmentInfo));
 			Trace.Unindent();
 			StepOverallProgress();
-            
+
 			if (gameMode.GameModeEnvironmentInfo.ModCacheDirectory == null || gameMode.GameModeEnvironmentInfo.ModDirectory == null)
 			{
 				ShowMessage(new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", "Warning", MessageBoxIcon.Warning));
@@ -504,6 +505,88 @@
 		/// <param name="p_vwmErrorMessage">The error message if the application of settings fails.</param>
 		/// <returns><c>true</c> if the settings were applied successfully;
 		/// <c>false</c> otherwise.</returns>
+        private bool PerformInitialGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, out bool usedLegacySetup)
+        {
+            usedLegacySetup = false;
+            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
+            var healthCheck = gameStorageService.ValidateStorage(paths, false);
+
+            while (true)
+            {
+                var setupForm = new GameStorageSetupForm(gameStorageService, paths, healthCheck);
+                var result = ShowView(setupForm, true);
+                if (!(result is DialogResult) || (DialogResult)result != DialogResult.OK)
+                    return false;
+
+                if (setupForm.UseLegacySetup)
+                {
+                    usedLegacySetup = true;
+                    return gameModeFactory.PerformInitialSetup(ShowView, ShowMessage);
+                }
+
+                if (gameStorageService.ApplyInitialSetupCandidate(paths, setupForm.SelectedCandidate, out healthCheck))
+                    return true;
+
+                ShowMessage(new ViewMessage(healthCheck?.ToUserMessage() ?? "The selected Game Storage paths could not be validated.", null, "Game Storage setup", MessageBoxIcon.Warning));
+                paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
+            }
+        }
+
+        private GameStoragePathSet CreateInitialGameStoragePathSet(IGameModeFactory gameModeFactory, string gameInstallPath)
+        {
+            string gameId = gameModeFactory.GameModeDescriptor.ModeId;
+            string root = GetInitialGameStorageRoot(gameId);
+            string virtualPath = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
+            string linkPath = GetSettingValue(EnvironmentInfo.Settings.HDLinkFolder, gameId);
+            bool multiHd = GetBoolSettingValue(EnvironmentInfo.Settings.MultiHDInstall, gameId);
+
+            if (string.IsNullOrWhiteSpace(virtualPath))
+                virtualPath = Path.Combine(root, "VirtualInstall");
+            if (string.IsNullOrWhiteSpace(linkPath))
+                linkPath = Path.Combine(root, "LinkFolder");
+
+            bool linkRequired = multiHd || IsCrossDrivePath(virtualPath, gameInstallPath);
+            return new GameStoragePathSet
+            {
+                GameId = gameId,
+                GameName = gameModeFactory.GameModeDescriptor.Name,
+                GameInstallPath = gameInstallPath,
+                InstallInfoPath = GetSettingValue(EnvironmentInfo.Settings.InstallInfoFolder, gameId) ?? Path.Combine(root, "InstallInfo"),
+                ModsPath = GetSettingValue(EnvironmentInfo.Settings.ModFolder, gameId) ?? Path.Combine(root, "Mods"),
+                VirtualInstallPath = virtualPath,
+                LinkFolderPath = linkRequired ? linkPath : null,
+                LinkFolderRequired = linkRequired
+            };
+        }
+
+        private string GetInitialGameStorageRoot(string gameId)
+        {
+            return Path.Combine(EnvironmentInfo.ApplicationPersonalDataFolderPath, "Game Storage", gameId);
+        }
+
+        private string GetSettingValue(IDictionary<string, string> settings, string gameId)
+        {
+            return settings != null && settings.ContainsKey(gameId) && !string.IsNullOrWhiteSpace(settings[gameId]) ? settings[gameId] : null;
+        }
+
+        private bool GetBoolSettingValue(IDictionary<string, bool> settings, string gameId)
+        {
+            return settings != null && settings.ContainsKey(gameId) && settings[gameId];
+        }
+
+        private bool IsCrossDrivePath(string firstPath, string secondPath)
+        {
+            try
+            {
+                string firstRoot = string.IsNullOrWhiteSpace(firstPath) ? null : Path.GetPathRoot(firstPath);
+                string secondRoot = string.IsNullOrWhiteSpace(secondPath) ? null : Path.GetPathRoot(secondPath);
+                return !string.IsNullOrWhiteSpace(firstRoot) && !string.IsNullOrWhiteSpace(secondRoot) && !string.Equals(firstRoot, secondRoot, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 		protected bool ApplyDelayedSettings(string p_strGameModeId, out ViewMessage p_vwmErrorMessage)
 		{
 			if (EnvironmentInfo.Settings.DelayedSettings[p_strGameModeId] == null || EnvironmentInfo.Settings.DelayedSettings["ALL"] == null)
@@ -524,7 +607,7 @@
 		}
 
 		/// <summary>
-		/// Applies the specified setting that was deferred to the next application startup. 
+		/// Applies the specified setting that was deferred to the next application startup.
 		/// </summary>
 		/// <param name="p_strKey">The key of the setting to apply.</param>
 		/// <param name="p_strValue">The value of the setting to apply.</param>
@@ -779,7 +862,7 @@
 			}
 			return true;
 		}
-        
+
 		/// <summary>
 		/// This initializes the services required to run the client.
 		/// </summary>
@@ -941,7 +1024,7 @@
 			Trace.Indent();
 			var mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
 			Trace.Unindent();
-			
+
 			p_vwmErrorMessage = null;
 			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor);
 		}

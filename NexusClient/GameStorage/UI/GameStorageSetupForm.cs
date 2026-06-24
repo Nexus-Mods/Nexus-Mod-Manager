@@ -9,18 +9,18 @@ using Nexus.UI.Controls;
 
 namespace Nexus.Client.GameStorage.UI
 {
-    public class GameStorageRecoveryForm : ManagedFontForm, IView
+    public class GameStorageSetupForm : ManagedFontForm, IView
     {
         private readonly GameStorageService _service;
-        private readonly IGameMode _gameMode;
+        private readonly GameStoragePathSet _currentPaths;
         private readonly GameStorageSetupControl _control;
         private List<GameStorageCandidate> _candidates = new List<GameStorageCandidate>();
 
-        public GameStorageRecoveryForm(GameStorageService service, IGameMode gameMode, GameStorageHealthCheck healthCheck)
+        public GameStorageSetupForm(GameStorageService service, GameStoragePathSet currentPaths, GameStorageHealthCheck healthCheck)
         {
             _service = service;
-            _gameMode = gameMode;
-            Text = "Game Storage recovery";
+            _currentPaths = currentPaths;
+            Text = "Game Storage setup";
             Width = 1120;
             Height = 680;
             MinimizeBox = false;
@@ -28,10 +28,12 @@ namespace Nexus.Client.GameStorage.UI
             StartPosition = FormStartPosition.CenterParent;
 
             _control = new GameStorageSetupControl();
-            _control.ConfigureText("Game Storage recovery", "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery.", false);
+            _control.ConfigureText("Game Storage setup", "Select persistent folders for this game. These folders store mod archives, install records, and the virtual install staging area. NMM will create missing folders only for the paths you choose here.", true);
+            _control.SetManualPaths(currentPaths);
             _control.BrowseRootRequested += BrowseRootRequested;
             _control.RefreshRequested += RefreshRequested;
             _control.ApplyRequested += ApplyRequested;
+            _control.LegacySetupRequested += LegacySetupRequested;
             _control.CancelRequested += (sender, args) => DialogResult = DialogResult.Cancel;
             Controls.Add(_control);
 
@@ -40,7 +42,10 @@ namespace Nexus.Client.GameStorage.UI
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public GameStorageCandidate SelectedCandidate => _control.SelectedCandidate;
+        public GameStorageCandidate SelectedCandidate { get; private set; }
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool UseLegacySetup { get; private set; }
 
         private void BrowseRootRequested(object sender, EventArgs e)
         {
@@ -50,7 +55,7 @@ namespace Nexus.Client.GameStorage.UI
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return;
 
-                foreach (var candidate in _service.DiscoverRecoveryCandidatesFromRoot(_gameMode, dialog.SelectedPath))
+                foreach (var candidate in _service.DiscoverRecoveryCandidatesFromRoot(_currentPaths, dialog.SelectedPath))
                     AddCandidate(candidate);
                 _control.SetCandidates(_candidates);
             }
@@ -68,35 +73,36 @@ namespace Nexus.Client.GameStorage.UI
             var candidate = selectedCandidate ?? manualCandidate;
             if (manualCandidate != null)
             {
-                manualCandidate.GameId = _gameMode.ModeId;
-                manualCandidate.LinkFolderRequired = manualCandidate.LinkFolderRequired || _service.IsLinkFolderRequired(manualCandidate.VirtualInstallPath, _gameMode.GameModeEnvironmentInfo.InstallationPath);
+                manualCandidate.GameId = _currentPaths.GameId;
+                manualCandidate.LinkFolderRequired = manualCandidate.LinkFolderRequired || _service.IsLinkFolderRequired(manualCandidate.VirtualInstallPath, _currentPaths.GameInstallPath);
             }
 
             if (candidate == null)
             {
-                MessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             if (candidate.RequiresUserConfirmation)
             {
-                var result = MessageBox.Show(this, "Apply the selected Game Storage paths for this game? NMM will update only this game's folder settings and will not move or delete any files.", "Confirm Game Storage recovery", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                var result = MessageBox.Show(this, "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.", "Confirm Game Storage setup", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }
 
-            if (_service.ApplyRecoveryCandidate(_gameMode, candidate, out var healthCheck))
-            {
-                DialogResult = DialogResult.OK;
-                return;
-            }
-
-            SetHealth(healthCheck);
-            MessageBox.Show(this, healthCheck?.ToUserMessage() ?? "The selected Game Storage candidate could not be applied.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            SelectedCandidate = candidate;
+            DialogResult = DialogResult.OK;
         }
+
+        private void LegacySetupRequested(object sender, EventArgs e)
+        {
+            UseLegacySetup = true;
+            DialogResult = DialogResult.OK;
+        }
+
         private void RefreshCandidates()
         {
-            _candidates = _service.DiscoverRecoveryCandidates(_gameMode);
+            _candidates = _service.DiscoverRecoveryCandidates(_currentPaths);
             _control.SetCandidates(_candidates);
         }
 

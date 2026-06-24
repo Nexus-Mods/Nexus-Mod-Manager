@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -12,6 +12,8 @@ namespace Nexus.Client.GameStorage.UI
 {
     public class GameStorageSetupControl : XtraUserControl
     {
+        private readonly LabelControl _titleLabel;
+        private readonly MemoEdit _descriptionEdit;
         private readonly GridControl _healthGridControl;
         private readonly GridView _healthGridView;
         private readonly GridControl _candidateGridControl;
@@ -20,18 +22,20 @@ namespace Nexus.Client.GameStorage.UI
         private readonly TextEdit _manualModsEdit;
         private readonly TextEdit _manualVirtualInstallEdit;
         private readonly TextEdit _manualLinkFolderEdit;
+        private readonly SimpleButton _legacySetupButton;
 
         public event EventHandler BrowseRootRequested;
         public event EventHandler RefreshRequested;
         public event EventHandler ApplyRequested;
         public event EventHandler CancelRequested;
+        public event EventHandler LegacySetupRequested;
 
         public GameStorageSetupControl()
         {
             Dock = DockStyle.Fill;
             Padding = new Padding(10);
 
-            var titleLabel = new LabelControl
+            _titleLabel = new LabelControl
             {
                 Text = "Game Storage recovery",
                 Dock = DockStyle.Top,
@@ -39,14 +43,14 @@ namespace Nexus.Client.GameStorage.UI
                 Appearance = { Font = new Font("Segoe UI", 12f, FontStyle.Bold) }
             };
 
-            var descriptionEdit = new MemoEdit
+            _descriptionEdit = new MemoEdit
             {
                 Dock = DockStyle.Top,
                 Height = 78,
                 ReadOnly = true,
                 Text = "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery."
             };
-            descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
+            _descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 
             var manualPanel = new PanelControl { Dock = DockStyle.Top, Height = 116 };
             _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "InstallInfo", 8);
@@ -79,24 +83,27 @@ namespace Nexus.Client.GameStorage.UI
             splitContainer.Panel2.Controls.Add(_candidateGridControl);
 
             var buttonPanel = new PanelControl { Dock = DockStyle.Bottom, Height = 44, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
-            var browseRootButton = new SimpleButton { Text = "Browse...", Width = 90, Left = 0, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            var refreshButton = new SimpleButton { Text = "Refresh", Width = 90, Left = 98, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            var applyButton = new SimpleButton { Text = "Apply", Width = 120, Left = 196, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Left = 324, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            var browseRootButton = new SimpleButton { Text = "Browse root...", Width = 100, Left = 0, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            var refreshButton = new SimpleButton { Text = "Refresh", Width = 90, Left = 108, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            var applyButton = new SimpleButton { Text = "Apply", Width = 120, Left = 206, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            _legacySetupButton = new SimpleButton { Text = "Old setup...", Width = 104, Left = 334, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top, Visible = false };
+            var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Left = 446, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
             browseRootButton.Click += (sender, args) => BrowseRootRequested?.Invoke(this, EventArgs.Empty);
             refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
             applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
+            _legacySetupButton.Click += (sender, args) => LegacySetupRequested?.Invoke(this, EventArgs.Empty);
             cancelButton.Click += (sender, args) => CancelRequested?.Invoke(this, EventArgs.Empty);
             buttonPanel.Controls.Add(browseRootButton);
             buttonPanel.Controls.Add(refreshButton);
             buttonPanel.Controls.Add(applyButton);
+            buttonPanel.Controls.Add(_legacySetupButton);
             buttonPanel.Controls.Add(cancelButton);
 
             Controls.Add(splitContainer);
             Controls.Add(buttonPanel);
             Controls.Add(manualPanel);
-            Controls.Add(descriptionEdit);
-            Controls.Add(titleLabel);
+            Controls.Add(_descriptionEdit);
+            Controls.Add(_titleLabel);
         }
 
         public GameStorageCandidate SelectedCandidate => _candidateGridView.GetFocusedRow() as GameStorageCandidate;
@@ -123,6 +130,21 @@ namespace Nexus.Client.GameStorage.UI
             }
         }
 
+        public void ConfigureText(string title, string description, bool showLegacySetupButton)
+        {
+            _titleLabel.Text = title;
+            _descriptionEdit.Text = description;
+            _legacySetupButton.Visible = showLegacySetupButton;
+        }
+
+        public void SetManualPaths(GameStoragePathSet paths)
+        {
+            _manualInstallInfoEdit.Text = paths?.InstallInfoPath ?? string.Empty;
+            _manualModsEdit.Text = paths?.ModsPath ?? string.Empty;
+            _manualVirtualInstallEdit.Text = paths?.VirtualInstallPath ?? string.Empty;
+            _manualLinkFolderEdit.Text = paths?.LinkFolderPath ?? string.Empty;
+        }
+
         public void SetRows(IEnumerable<GameStorageSetupRow> rows)
         {
             _healthGridControl.DataSource = rows?.ToList() ?? new List<GameStorageSetupRow>();
@@ -138,10 +160,25 @@ namespace Nexus.Client.GameStorage.UI
         private TextEdit CreateManualPathEdit(Control parent, string caption, int top)
         {
             var label = new LabelControl { Text = caption, Left = 8, Top = top + 3, Width = 84 };
-            var edit = new TextEdit { Left = 96, Top = top, Width = 760, Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
+            var edit = new TextEdit { Left = 96, Top = top, Width = 724, Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
+            var button = new SimpleButton { Text = "...", Left = 828, Top = top - 1, Width = 28, Height = 22, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            button.Click += (sender, args) => BrowseForFolder(edit, caption);
             parent.Controls.Add(label);
             parent.Controls.Add(edit);
+            parent.Controls.Add(button);
             return edit;
+        }
+
+        private void BrowseForFolder(TextEdit edit, string caption)
+        {
+            using (var dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "Select " + caption + " folder.";
+                if (!string.IsNullOrWhiteSpace(edit.Text))
+                    dialog.SelectedPath = edit.Text;
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                    edit.Text = dialog.SelectedPath;
+            }
         }
 
         private void ConfigureHealthGrid()

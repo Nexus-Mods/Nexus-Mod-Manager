@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -75,14 +75,55 @@ namespace Nexus.Client.GameStorage
                 return false;
 
             var paths = CreatePathSetFromCandidate(currentPaths, candidate);
-            string gameId = gameMode.ModeId;
+            ApplyPathSet(paths);
+            return true;
+        }
+
+        public bool ApplyInitialSetupCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
+        {
+            healthCheck = null;
+            if (candidate == null || !string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+            CreateSetupFolders(paths);
+            string storageId = string.IsNullOrWhiteSpace(candidate.StorageId) ? ResolveStorageId(paths, LoadRegistry()) : candidate.StorageId;
+            var registry = LoadRegistry();
+            healthCheck = Validate(paths, storageId, registry);
+            if (!healthCheck.IsHealthy)
+                return false;
+
+            InitializeMetadata(paths, storageId, registry);
+            ApplyPathSet(paths);
+            healthCheck = Validate(paths, storageId, registry);
+            healthCheck.StorageId = storageId;
+            return healthCheck.IsHealthy;
+        }
+
+        private void ApplyPathSet(GameStoragePathSet paths)
+        {
+            string gameId = paths.GameId;
             _environmentInfo.Settings.InstallInfoFolder[gameId] = paths.InstallInfoPath;
             _environmentInfo.Settings.ModFolder[gameId] = paths.ModsPath;
             _environmentInfo.Settings.VirtualFolder[gameId] = paths.VirtualInstallPath;
             _environmentInfo.Settings.HDLinkFolder[gameId] = paths.LinkFolderRequired ? paths.LinkFolderPath : null;
             _environmentInfo.Settings.MultiHDInstall[gameId] = paths.LinkFolderRequired;
             _environmentInfo.Settings.Save();
-            return true;
+        }
+
+        private void CreateSetupFolders(GameStoragePathSet paths)
+        {
+            CreateFolder(paths.InstallInfoPath);
+            CreateFolder(paths.ModsPath);
+            CreateFolder(paths.VirtualInstallPath);
+            if (paths.LinkFolderRequired)
+                CreateFolder(paths.LinkFolderPath);
+        }
+
+        private void CreateFolder(string path)
+        {
+            if (!string.IsNullOrWhiteSpace(path) && !Directory.Exists(path))
+                Directory.CreateDirectory(path);
         }
 
         public bool ValidateRecoveryCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
