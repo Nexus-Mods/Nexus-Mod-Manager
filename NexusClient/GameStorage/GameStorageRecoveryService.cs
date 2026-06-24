@@ -11,22 +11,26 @@ namespace Nexus.Client.GameStorage
     {
         public List<GameStorageCandidate> DiscoverRecoveryCandidates(IGameMode gameMode)
         {
-            var currentPaths = FromGameMode(gameMode);
+            return DiscoverRecoveryCandidates(FromGameMode(gameMode));
+        }
+
+        public List<GameStorageCandidate> DiscoverRecoveryCandidates(GameStoragePathSet currentPaths)
+        {
             var registry = LoadRegistry();
             var candidates = new List<GameStorageCandidate>();
 
             AddCandidate(candidates, CreateCandidateFromPathSet("Current configuration", currentPaths, null, 45, GameStorageCandidateConfidence.Medium, true,
                 "Current per-game path settings."));
 
-            foreach (var entry in registry.KnownStorages.Where(x => string.Equals(x.GameId, gameMode.ModeId, StringComparison.OrdinalIgnoreCase)))
+            foreach (var entry in registry.KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
                 AddCandidate(candidates, CreateCandidateFromRegistry(entry, entry.LastKnownGood ? "Known good registry" : "Known registry", entry.LastKnownGood ? 95 : 75));
 
-            foreach (var entry in LoadLastKnownGoodRegistry().KnownStorages.Where(x => string.Equals(x.GameId, gameMode.ModeId, StringComparison.OrdinalIgnoreCase)))
+            foreach (var entry in LoadLastKnownGoodRegistry().KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
                 AddCandidate(candidates, CreateCandidateFromRegistry(entry, "Last-known-good backup", 98));
 
-            foreach (var root in GetLikelyRoots(currentPaths, registry, gameMode.ModeId))
+            foreach (var root in GetLikelyRoots(currentPaths, registry, currentPaths.GameId))
             {
-                foreach (var candidate in DiscoverRecoveryCandidatesFromRoot(gameMode, root))
+                foreach (var candidate in DiscoverRecoveryCandidatesFromRoot(currentPaths, root))
                     AddCandidate(candidates, candidate);
             }
 
@@ -39,38 +43,38 @@ namespace Nexus.Client.GameStorage
 
         public List<GameStorageCandidate> DiscoverRecoveryCandidatesFromRoot(IGameMode gameMode, string rootPath)
         {
+            return DiscoverRecoveryCandidatesFromRoot(FromGameMode(gameMode), rootPath);
+        }
+
+        public List<GameStorageCandidate> DiscoverRecoveryCandidatesFromRoot(GameStoragePathSet currentPaths, string rootPath)
+        {
             var candidates = new List<GameStorageCandidate>();
             if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
                 return candidates;
 
-            AddCandidate(candidates, TryCreateCandidateFromRootManifest(gameMode, rootPath, true));
+            AddCandidate(candidates, TryCreateCandidateFromRootManifest(currentPaths, rootPath, true));
 
             try
             {
                 foreach (var child in Directory.EnumerateDirectories(rootPath).Take(200))
-                    AddCandidate(candidates, TryCreateCandidateFromRootManifest(gameMode, child, false));
+                    AddCandidate(candidates, TryCreateCandidateFromRootManifest(currentPaths, child, false));
             }
             catch
             {
             }
 
-            AddFolderManifestCandidates(gameMode, rootPath, candidates);
+            AddFolderManifestCandidates(currentPaths, rootPath, candidates);
+            AddInstallLogOnlyCandidates(rootPath, candidates);
             return candidates.OrderByDescending(x => x.ConfidenceScore).ToList();
         }
 
         public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
         {
-            healthCheck = null;
-            if (candidate == null)
+            var currentPaths = FromGameMode(gameMode);
+            if (!ValidateRecoveryCandidate(currentPaths, candidate, out healthCheck))
                 return false;
 
-            var paths = CreatePathSetFromCandidate(gameMode, candidate);
-            string storageId = string.IsNullOrWhiteSpace(candidate.StorageId) ? ResolveStorageId(paths, LoadRegistry()) : candidate.StorageId;
-            var registry = LoadRegistry();
-            healthCheck = Validate(paths, storageId, registry);
-            if (!healthCheck.IsHealthy)
-                return false;
-
+            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
             string gameId = gameMode.ModeId;
             _environmentInfo.Settings.InstallInfoFolder[gameId] = paths.InstallInfoPath;
             _environmentInfo.Settings.ModFolder[gameId] = paths.ModsPath;
@@ -78,6 +82,21 @@ namespace Nexus.Client.GameStorage
             _environmentInfo.Settings.HDLinkFolder[gameId] = paths.LinkFolderRequired ? paths.LinkFolderPath : null;
             _environmentInfo.Settings.MultiHDInstall[gameId] = paths.LinkFolderRequired;
             _environmentInfo.Settings.Save();
+            return true;
+        }
+
+        public bool ValidateRecoveryCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
+        {
+            healthCheck = null;
+            if (candidate == null || !string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+            string storageId = string.IsNullOrWhiteSpace(candidate.StorageId) ? ResolveStorageId(paths, LoadRegistry()) : candidate.StorageId;
+            var registry = LoadRegistry();
+            healthCheck = Validate(paths, storageId, registry);
+            if (!healthCheck.IsHealthy)
+                return false;
 
             InitializeMetadata(paths, storageId, registry);
             healthCheck = Validate(paths, storageId, registry);
@@ -132,7 +151,7 @@ namespace Nexus.Client.GameStorage
             return candidate;
         }
 
-        private GameStorageCandidate TryCreateCandidateFromRootManifest(IGameMode gameMode, string rootPath, bool explicitRoot)
+        private GameStorageCandidate TryCreateCandidateFromRootManifest(GameStoragePathSet currentPaths, string rootPath, bool explicitRoot)
         {
             string manifestPath = Path.Combine(rootPath, GameStorageConstants.RootManifestFileName);
             if (!File.Exists(manifestPath))
@@ -144,7 +163,7 @@ namespace Nexus.Client.GameStorage
                 if (manifest == null)
                     return null;
 
-                bool gameMatches = string.Equals(manifest.GameId, gameMode.ModeId, StringComparison.OrdinalIgnoreCase);
+                bool gameMatches = string.Equals(manifest.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase);
                 var candidate = new GameStorageCandidate
                 {
                     CandidateKind = explicitRoot ? "Selected root manifest" : "Root manifest",
@@ -172,7 +191,7 @@ namespace Nexus.Client.GameStorage
             }
         }
 
-        private void AddFolderManifestCandidates(IGameMode gameMode, string rootPath, List<GameStorageCandidate> candidates)
+        private void AddFolderManifestCandidates(GameStoragePathSet currentPaths, string rootPath, List<GameStorageCandidate> candidates)
         {
             var manifests = new List<Tuple<string, GameStorageFolderManifest>>();
             foreach (var folder in EnumerateLikelyFolders(rootPath))
@@ -182,13 +201,13 @@ namespace Nexus.Client.GameStorage
                     manifests.Add(Tuple.Create(folder, manifest));
             }
 
-            foreach (var group in manifests.Where(x => string.Equals(x.Item2.GameId, gameMode.ModeId, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(x.Item2.StorageId)).GroupBy(x => x.Item2.StorageId))
+            foreach (var group in manifests.Where(x => string.Equals(x.Item2.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(x.Item2.StorageId)).GroupBy(x => x.Item2.StorageId))
             {
                 var candidate = new GameStorageCandidate
                 {
                     CandidateKind = "Folder manifests",
                     CandidateRoot = rootPath,
-                    GameId = gameMode.ModeId,
+                    GameId = currentPaths.GameId,
                     StorageId = group.Key,
                     ConfidenceScore = 80,
                     ConfidenceLevel = GameStorageCandidateConfidence.Medium,
@@ -213,6 +232,28 @@ namespace Nexus.Client.GameStorage
                 }
                 candidate.Evidence.Add("Found folder manifests with matching game ID and Storage ID.");
                 AddPathWarnings(candidate);
+                AddCandidate(candidates, candidate);
+            }
+        }
+
+        private void AddInstallLogOnlyCandidates(string rootPath, List<GameStorageCandidate> candidates)
+        {
+            foreach (var folder in EnumerateLikelyFolders(rootPath))
+            {
+                if (ReadFolderManifest(folder) != null || !File.Exists(Path.Combine(folder, "InstallLog.xml")))
+                    continue;
+
+                var candidate = new GameStorageCandidate
+                {
+                    CandidateKind = "Possible InstallInfo folder",
+                    CandidateRoot = rootPath,
+                    InstallInfoPath = folder,
+                    ConfidenceScore = 15,
+                    ConfidenceLevel = GameStorageCandidateConfidence.Low,
+                    RequiresUserConfirmation = true
+                };
+                candidate.Evidence.Add("Found InstallLog.xml, but no Game Storage manifest.");
+                candidate.Warnings.Add("This candidate is ambiguous. NMM cannot identify the game or Storage ID from InstallLog.xml alone.");
                 AddCandidate(candidates, candidate);
             }
         }
@@ -296,14 +337,14 @@ namespace Nexus.Client.GameStorage
             return Path.IsPathRooted(value) ? value : Path.Combine(rootPath, value);
         }
 
-        private GameStoragePathSet CreatePathSetFromCandidate(IGameMode gameMode, GameStorageCandidate candidate)
+        private GameStoragePathSet CreatePathSetFromCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
         {
-            bool linkRequired = candidate.LinkFolderRequired || IsLinkFolderRequired(candidate.VirtualInstallPath, gameMode.GameModeEnvironmentInfo.InstallationPath);
+            bool linkRequired = candidate.LinkFolderRequired || IsLinkFolderRequired(candidate.VirtualInstallPath, currentPaths.GameInstallPath);
             return new GameStoragePathSet
             {
-                GameId = gameMode.ModeId,
-                GameName = gameMode.Name,
-                GameInstallPath = gameMode.GameModeEnvironmentInfo.InstallationPath,
+                GameId = currentPaths.GameId,
+                GameName = currentPaths.GameName,
+                GameInstallPath = currentPaths.GameInstallPath,
                 InstallInfoPath = candidate.InstallInfoPath,
                 ModsPath = candidate.ModsPath,
                 VirtualInstallPath = candidate.VirtualInstallPath,

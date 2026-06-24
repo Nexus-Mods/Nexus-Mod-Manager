@@ -12,16 +12,14 @@ namespace Nexus.Client.GameStorage.UI
 {
     public class GameStorageSetupControl : XtraUserControl
     {
-        private readonly LabelControl _titleLabel;
-        private readonly MemoEdit _descriptionEdit;
         private readonly GridControl _healthGridControl;
         private readonly GridView _healthGridView;
         private readonly GridControl _candidateGridControl;
         private readonly GridView _candidateGridView;
-        private readonly SimpleButton _browseRootButton;
-        private readonly SimpleButton _refreshButton;
-        private readonly SimpleButton _applyButton;
-        private readonly SimpleButton _cancelButton;
+        private readonly TextEdit _manualInstallInfoEdit;
+        private readonly TextEdit _manualModsEdit;
+        private readonly TextEdit _manualVirtualInstallEdit;
+        private readonly TextEdit _manualLinkFolderEdit;
 
         public event EventHandler BrowseRootRequested;
         public event EventHandler RefreshRequested;
@@ -33,7 +31,7 @@ namespace Nexus.Client.GameStorage.UI
             Dock = DockStyle.Fill;
             Padding = new Padding(10);
 
-            _titleLabel = new LabelControl
+            var titleLabel = new LabelControl
             {
                 Text = "Game Storage recovery",
                 Dock = DockStyle.Top,
@@ -41,14 +39,20 @@ namespace Nexus.Client.GameStorage.UI
                 Appearance = { Font = new Font("Segoe UI", 12f, FontStyle.Bold) }
             };
 
-            _descriptionEdit = new MemoEdit
+            var descriptionEdit = new MemoEdit
             {
                 Dock = DockStyle.Top,
-                Height = 86,
+                Height = 78,
                 ReadOnly = true,
-                Text = "NMM could not validate the storage folders for this game. Select a known or discovered Game Storage candidate to restore the per-game paths. NMM will not move, rename, or delete folders during recovery."
+                Text = "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery."
             };
-            _descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
+            descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
+
+            var manualPanel = new PanelControl { Dock = DockStyle.Top, Height = 116 };
+            _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "InstallInfo", 8);
+            _manualModsEdit = CreateManualPathEdit(manualPanel, "Mods", 34);
+            _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "VirtualInstall", 60);
+            _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, "Link Folder", 86);
 
             var splitContainer = new SplitContainerControl
             {
@@ -75,26 +79,49 @@ namespace Nexus.Client.GameStorage.UI
             splitContainer.Panel2.Controls.Add(_candidateGridControl);
 
             var buttonPanel = new PanelControl { Dock = DockStyle.Bottom, Height = 44, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
-            _browseRootButton = new SimpleButton { Text = "Browse...", Width = 90, Left = 0, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            _refreshButton = new SimpleButton { Text = "Refresh", Width = 90, Left = 98, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            _applyButton = new SimpleButton { Text = "Apply selected", Width = 120, Left = 196, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            _cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Left = 324, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            _browseRootButton.Click += (sender, args) => BrowseRootRequested?.Invoke(this, EventArgs.Empty);
-            _refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
-            _applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
-            _cancelButton.Click += (sender, args) => CancelRequested?.Invoke(this, EventArgs.Empty);
-            buttonPanel.Controls.Add(_browseRootButton);
-            buttonPanel.Controls.Add(_refreshButton);
-            buttonPanel.Controls.Add(_applyButton);
-            buttonPanel.Controls.Add(_cancelButton);
+            var browseRootButton = new SimpleButton { Text = "Browse...", Width = 90, Left = 0, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            var refreshButton = new SimpleButton { Text = "Refresh", Width = 90, Left = 98, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            var applyButton = new SimpleButton { Text = "Apply", Width = 120, Left = 196, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Left = 324, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            browseRootButton.Click += (sender, args) => BrowseRootRequested?.Invoke(this, EventArgs.Empty);
+            refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
+            applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
+            cancelButton.Click += (sender, args) => CancelRequested?.Invoke(this, EventArgs.Empty);
+            buttonPanel.Controls.Add(browseRootButton);
+            buttonPanel.Controls.Add(refreshButton);
+            buttonPanel.Controls.Add(applyButton);
+            buttonPanel.Controls.Add(cancelButton);
 
             Controls.Add(splitContainer);
             Controls.Add(buttonPanel);
-            Controls.Add(_descriptionEdit);
-            Controls.Add(_titleLabel);
+            Controls.Add(manualPanel);
+            Controls.Add(descriptionEdit);
+            Controls.Add(titleLabel);
         }
 
         public GameStorageCandidate SelectedCandidate => _candidateGridView.GetFocusedRow() as GameStorageCandidate;
+
+        public GameStorageCandidate ManualCandidate
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_manualInstallInfoEdit.Text) && string.IsNullOrWhiteSpace(_manualModsEdit.Text) && string.IsNullOrWhiteSpace(_manualVirtualInstallEdit.Text))
+                    return null;
+
+                return new GameStorageCandidate
+                {
+                    CandidateKind = "Manual paths",
+                    InstallInfoPath = _manualInstallInfoEdit.Text,
+                    ModsPath = _manualModsEdit.Text,
+                    VirtualInstallPath = _manualVirtualInstallEdit.Text,
+                    LinkFolderPath = _manualLinkFolderEdit.Text,
+                    ConfidenceScore = 55,
+                    ConfidenceLevel = GameStorageCandidateConfidence.Medium,
+                    RequiresUserConfirmation = true,
+                    Evidence = { "User-entered custom Game Storage paths." }
+                };
+            }
+        }
 
         public void SetRows(IEnumerable<GameStorageSetupRow> rows)
         {
@@ -106,6 +133,15 @@ namespace Nexus.Client.GameStorage.UI
         {
             _candidateGridControl.DataSource = candidates?.ToList() ?? new List<GameStorageCandidate>();
             _candidateGridView.BestFitColumns();
+        }
+
+        private TextEdit CreateManualPathEdit(Control parent, string caption, int top)
+        {
+            var label = new LabelControl { Text = caption, Left = 8, Top = top + 3, Width = 84 };
+            var edit = new TextEdit { Left = 96, Top = top, Width = 760, Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
+            parent.Controls.Add(label);
+            parent.Controls.Add(edit);
+            return edit;
         }
 
         private void ConfigureHealthGrid()

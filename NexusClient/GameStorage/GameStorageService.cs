@@ -10,18 +10,27 @@ namespace Nexus.Client.GameStorage
     public partial class GameStorageService
     {
         private readonly IEnvironmentInfo _environmentInfo;
+        private readonly string _registryDirectory;
+        private readonly Version _applicationVersion;
         private readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings { Formatting = Formatting.Indented };
 
         public GameStorageService(IEnvironmentInfo environmentInfo)
         {
             _environmentInfo = environmentInfo;
+            _registryDirectory = Path.Combine(environmentInfo.ApplicationPersonalDataFolderPath, "Game Storage");
+            _applicationVersion = environmentInfo.ApplicationVersion;
         }
 
-        public string RegistryDirectory => Path.Combine(_environmentInfo.ApplicationPersonalDataFolderPath, "Game Storage");
+        public GameStorageService(string registryDirectory, Version applicationVersion)
+        {
+            _registryDirectory = registryDirectory;
+            _applicationVersion = applicationVersion ?? new Version(0, 0);
+        }
+
+        public string RegistryDirectory => _registryDirectory;
         public string RegistryPath => Path.Combine(RegistryDirectory, GameStorageConstants.RegistryFileName);
         public string LastKnownGoodPath => Path.Combine(RegistryDirectory, GameStorageConstants.LastKnownGoodFileName);
         public string BackupDirectory => Path.Combine(RegistryDirectory, "Backups");
-
         public GameStoragePathSet FromGameMode(IGameMode gameMode)
         {
             string gameId = gameMode.ModeId;
@@ -43,7 +52,11 @@ namespace Nexus.Client.GameStorage
 
         public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode, bool initializeIfValid)
         {
-            var paths = FromGameMode(gameMode);
+            return ValidateStorage(FromGameMode(gameMode), initializeIfValid);
+        }
+
+        public GameStorageHealthCheck ValidateStorage(GameStoragePathSet paths, bool initializeIfValid)
+        {
             var registry = LoadRegistry();
             string storageId = ResolveStorageId(paths, registry);
             var result = Validate(paths, storageId, registry);
@@ -59,14 +72,17 @@ namespace Nexus.Client.GameStorage
 
         public void InitializeMetadataForCurrentStorage(IGameMode gameMode)
         {
-            var paths = FromGameMode(gameMode);
+            InitializeMetadataForStorage(FromGameMode(gameMode));
+        }
+
+        public void InitializeMetadataForStorage(GameStoragePathSet paths)
+        {
             var registry = LoadRegistry();
             string storageId = ResolveStorageId(paths, registry);
             var result = Validate(paths, storageId, registry);
             if (result.IsHealthy)
                 InitializeMetadata(paths, storageId, registry);
         }
-
         public bool IsLinkFolderRequired(string virtualInstallPath, string gameInstallPath)
         {
             string virtualRoot = GetPathRoot(virtualInstallPath);
@@ -230,7 +246,7 @@ namespace Nexus.Client.GameStorage
             manifest.StorageId = storageId;
             manifest.GameId = paths.GameId;
             manifest.LastSeenUtc = now;
-            manifest.LastSeenByVersion = _environmentInfo.ApplicationVersion.ToString();
+            manifest.LastSeenByVersion = _applicationVersion.ToString();
             WriteJson(manifestPath, manifest);
             TryHideFile(manifestPath);
         }

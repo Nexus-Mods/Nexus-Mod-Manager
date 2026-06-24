@@ -62,10 +62,18 @@ namespace Nexus.Client.GameStorage.UI
 
         private void ApplyRequested(object sender, EventArgs e)
         {
-            var candidate = _control.SelectedCandidate;
+            var selectedCandidate = _control.SelectedCandidate;
+            var manualCandidate = selectedCandidate == null ? _control.ManualCandidate : null;
+            var candidate = selectedCandidate ?? manualCandidate;
+            if (manualCandidate != null)
+            {
+                manualCandidate.GameId = _gameMode.ModeId;
+                manualCandidate.LinkFolderRequired = manualCandidate.LinkFolderRequired || _service.IsLinkFolderRequired(manualCandidate.VirtualInstallPath, _gameMode.GameModeEnvironmentInfo.InstallationPath);
+            }
+
             if (candidate == null)
             {
-                MessageBox.Show(this, "Select a Game Storage candidate first.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -85,7 +93,6 @@ namespace Nexus.Client.GameStorage.UI
             SetHealth(healthCheck);
             MessageBox.Show(this, healthCheck?.ToUserMessage() ?? "The selected Game Storage candidate could not be applied.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
-
         private void RefreshCandidates()
         {
             _candidates = _service.DiscoverRecoveryCandidates(_gameMode);

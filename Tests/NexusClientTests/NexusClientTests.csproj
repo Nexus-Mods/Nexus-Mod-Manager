@@ -52,6 +52,7 @@
     <Compile Include="SafeExtractIconTests.cs" />
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
+    <Compile Include="GameStorageServiceTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
