@@ -13,6 +13,7 @@
     using Nexus.Client.DownloadMonitoring;
     using Nexus.Client.ModActivationMonitoring;
     using Nexus.Client.Games;
+    using Nexus.Client.GameStorage;
     using Nexus.Client.ModManagement;
     using Nexus.Client.ModManagement.InstallationLog;
     using Nexus.Client.ModManagement.InstallationLog.Upgraders;
@@ -306,6 +307,8 @@
 
 			StepOverallProgress();
 
+            bool hadCompletedSetup = EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) && EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
+
 			if (!EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId])
 			{
 				if (!p_gmfGameModeFactory.PerformInitialSetup(ShowView, ShowMessage))
@@ -393,10 +396,24 @@
 			}
 			StepOverallProgress();
 
+            var gameStorageService = new GameStorageService(EnvironmentInfo);
+            if (hadCompletedSetup)
+            {
+                var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
+                if (!storageHealth.IsHealthy)
+                {
+                    p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null, "Game Storage validation", MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+
 			if (!CreateEnvironmentPaths(gameMode, out p_vwmErrorMessage))
             {
                 return false;
             }
+
+            if (!hadCompletedSetup)
+                gameStorageService.InitializeMetadataForCurrentStorage(gameMode);
 
             StepOverallProgress();
 

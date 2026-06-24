@@ -758,6 +758,14 @@
     <Compile Include="PluginManagement\UI\PluginManagerVM.cs" />
     <Compile Include="DownloadManagement\FileDownloadTask.cs" />
     <Compile Include="ServiceManager.cs" />
+    <Compile Include="GameStorage\GameStorageConstants.cs" />
+    <Compile Include="GameStorage\GameStorageEnums.cs" />
+    <Compile Include="GameStorage\GameStorageHealth.cs" />
+    <Compile Include="GameStorage\GameStorageModels.cs" />
+    <Compile Include="GameStorage\GameStorageService.cs" />
+    <Compile Include="GameStorage\UI\GameStorageSetupControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Settings\ModOptionsSettingsGroup.cs" />
     <Compile Include="Settings\UI\ModOptionsPage.cs">
       <SubType>UserControl</SubType>
