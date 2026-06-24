@@ -945,11 +945,11 @@ namespace Nexus.Client.ModManagement.UI
                     if (_viewModel?.CategoryManager != null)
                     {
                         var cat = _viewModel.CategoryManager.FindCategory(mod.CustomCategoryId > 0 ? mod.CustomCategoryId : mod.CategoryId);
-                        e.Value = cat != null ? cat.CategoryName : (object)mod.CategoryId;
+                        e.Value = cat != null ? cat.CategoryName : null;
                     }
                     else
                     {
-                        e.Value = mod.CategoryId;
+                        e.Value = mod.CategoryId.ToString();
                     }
                     break;
                 case ColEndorsed:
