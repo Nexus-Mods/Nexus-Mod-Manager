@@ -20,7 +20,7 @@ namespace Nexus.Client.GameStorage.UI
         {
             _service = service;
             _currentPaths = currentPaths;
-            Text = "Game Storage setup";
+            Text = "Game Storage setup - " + currentPaths.GameName;
             Width = 1120;
             Height = 680;
             MinimizeBox = false;
@@ -28,7 +28,7 @@ namespace Nexus.Client.GameStorage.UI
             StartPosition = FormStartPosition.CenterParent;
 
             _control = new GameStorageSetupControl();
-            _control.ConfigureText("Game Storage setup", "Select persistent folders for this game. These folders store mod archives, install records, and the virtual install staging area. NMM will create missing folders only for the paths you choose here.", true);
+            _control.ConfigureText("Game Storage setup - " + currentPaths.GameName, "Select persistent folders for this game. These folders store mod archives, install records, and the virtual install staging area. NMM will create missing folders only for the paths you choose here.", true);
             _control.SetManualPaths(currentPaths);
             _control.BrowseRootRequested += BrowseRootRequested;
             _control.RefreshRequested += RefreshRequested;

@@ -52,11 +52,11 @@ namespace Nexus.Client.GameStorage.UI
             };
             _descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 
-            var manualPanel = new PanelControl { Dock = DockStyle.Top, Height = 116 };
-            _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "InstallInfo", 8);
-            _manualModsEdit = CreateManualPathEdit(manualPanel, "Mods", 34);
-            _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "VirtualInstall", 60);
-            _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, "Link Folder", 86);
+            var manualPanel = new GroupControl { Text = "Current folders", Dock = DockStyle.Top, Height = 138 };
+            _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "Install info", 30);
+            _manualModsEdit = CreateManualPathEdit(manualPanel, "Mod archives", 56);
+            _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "Virtual install", 82);
+            _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, "Link folder", 108);
 
             var splitContainer = new SplitContainerControl
             {
@@ -77,17 +77,19 @@ namespace Nexus.Client.GameStorage.UI
             _candidateGridControl.ViewCollection.Add(_candidateGridView);
             ConfigureCandidateGrid();
 
-            splitContainer.Panel1.Text = "Current validation";
-            splitContainer.Panel1.Controls.Add(_healthGridControl);
-            splitContainer.Panel2.Text = "Recovery candidates";
-            splitContainer.Panel2.Controls.Add(_candidateGridControl);
+            var healthGroup = new GroupControl { Text = "Current validation", Dock = DockStyle.Fill };
+            healthGroup.Controls.Add(_healthGridControl);
+            var candidateGroup = new GroupControl { Text = "Available setups", Dock = DockStyle.Fill };
+            candidateGroup.Controls.Add(_candidateGridControl);
+            splitContainer.Panel1.Controls.Add(healthGroup);
+            splitContainer.Panel2.Controls.Add(candidateGroup);
 
             var buttonPanel = new PanelControl { Dock = DockStyle.Bottom, Height = 44, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
             var browseRootButton = new SimpleButton { Text = "Browse root...", Width = 100, Left = 0, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
             var refreshButton = new SimpleButton { Text = "Refresh", Width = 90, Left = 108, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            var applyButton = new SimpleButton { Text = "Apply", Width = 120, Left = 206, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
-            _legacySetupButton = new SimpleButton { Text = "Old setup...", Width = 104, Left = 334, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top, Visible = false };
-            var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Left = 446, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            var applyButton = new SimpleButton { Text = "Apply selected", Width = 118, Left = 206, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
+            _legacySetupButton = new SimpleButton { Text = "Use old setup...", Width = 116, Left = 332, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top, Visible = false };
+            var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Left = 456, Top = 8, Anchor = AnchorStyles.Left | AnchorStyles.Top };
             browseRootButton.Click += (sender, args) => BrowseRootRequested?.Invoke(this, EventArgs.Empty);
             refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
             applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
@@ -188,6 +190,7 @@ namespace Nexus.Client.GameStorage.UI
             _healthGridView.OptionsView.ShowIndicator = false;
             _healthGridView.OptionsView.EnableAppearanceEvenRow = true;
             _healthGridView.OptionsView.EnableAppearanceOddRow = true;
+            _healthGridView.OptionsView.ColumnAutoWidth = false;
             _healthGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageSetupRow.Role), Caption = "Folder", Visible = true, VisibleIndex = 0, Width = 110 });
             _healthGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageSetupRow.Path), Caption = "Path", Visible = true, VisibleIndex = 1, Width = 360 });
             _healthGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageSetupRow.Status), Caption = "Status", Visible = true, VisibleIndex = 2, Width = 130 });
@@ -201,14 +204,15 @@ namespace Nexus.Client.GameStorage.UI
             _candidateGridView.OptionsView.ShowIndicator = false;
             _candidateGridView.OptionsView.EnableAppearanceEvenRow = true;
             _candidateGridView.OptionsView.EnableAppearanceOddRow = true;
+            _candidateGridView.OptionsView.ColumnAutoWidth = false;
             _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.CandidateKind), Caption = "Source", Visible = true, VisibleIndex = 0, Width = 130 });
             _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.ConfidenceScore), Caption = "Score", Visible = true, VisibleIndex = 1, Width = 60 });
             _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.ConfidenceLevel), Caption = "Confidence", Visible = true, VisibleIndex = 2, Width = 90 });
             _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.CandidateRoot), Caption = "Root", Visible = true, VisibleIndex = 3, Width = 260 });
-            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.InstallInfoPath), Caption = "InstallInfo", Visible = true, VisibleIndex = 4, Width = 260 });
-            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.ModsPath), Caption = "Mods", Visible = true, VisibleIndex = 5, Width = 260 });
-            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.VirtualInstallPath), Caption = "VirtualInstall", Visible = true, VisibleIndex = 6, Width = 260 });
-            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.LinkFolderPath), Caption = "Link Folder", Visible = true, VisibleIndex = 7, Width = 260 });
+            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.InstallInfoPath), Caption = "Install info", Visible = true, VisibleIndex = 4, Width = 260 });
+            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.ModsPath), Caption = "Mod archives", Visible = true, VisibleIndex = 5, Width = 260 });
+            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.VirtualInstallPath), Caption = "Virtual install", Visible = true, VisibleIndex = 6, Width = 260 });
+            _candidateGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageCandidate.LinkFolderPath), Caption = "Link folder", Visible = true, VisibleIndex = 7, Width = 260 });
         }
     }
 

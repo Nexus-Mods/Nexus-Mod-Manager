@@ -20,7 +20,7 @@ namespace Nexus.Client.GameStorage.UI
         {
             _service = service;
             _gameMode = gameMode;
-            Text = "Game Storage recovery";
+            Text = "Game Storage recovery - " + gameMode.Name;
             Width = 1120;
             Height = 680;
             MinimizeBox = false;
@@ -28,7 +28,7 @@ namespace Nexus.Client.GameStorage.UI
             StartPosition = FormStartPosition.CenterParent;
 
             _control = new GameStorageSetupControl();
-            _control.ConfigureText("Game Storage recovery", "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery.", false);
+            _control.ConfigureText("Game Storage recovery - " + gameMode.Name, "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery.", false);
             _control.BrowseRootRequested += BrowseRootRequested;
             _control.RefreshRequested += RefreshRequested;
             _control.ApplyRequested += ApplyRequested;

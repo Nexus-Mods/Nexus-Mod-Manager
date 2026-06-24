@@ -313,7 +313,9 @@ namespace Nexus.Client
 
 			if (!EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId])
 			{
-                if (!PerformInitialGameStorageSetup(p_gmfGameModeFactory, gameStorageService, strUacCheckPath, out bool usedLegacySetup))
+                bool usedLegacySetup = false;
+                if (!TryInitializeConfiguredGameStorageSetup(p_gmfGameModeFactory, gameStorageService, strUacCheckPath, out var setupHealth) &&
+                    !PerformInitialGameStorageSetup(p_gmfGameModeFactory, gameStorageService, strUacCheckPath, setupHealth, out usedLegacySetup))
 				{
 					p_vwmErrorMessage = null;
 					return false;
@@ -505,11 +507,22 @@ namespace Nexus.Client
 		/// <param name="p_vwmErrorMessage">The error message if the application of settings fails.</param>
 		/// <returns><c>true</c> if the settings were applied successfully;
 		/// <c>false</c> otherwise.</returns>
-        private bool PerformInitialGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, out bool usedLegacySetup)
+        private bool TryInitializeConfiguredGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, out GameStorageHealthCheck healthCheck)
+        {
+            healthCheck = null;
+            if (!HasConfiguredGameStoragePaths(gameModeFactory.GameModeDescriptor.ModeId, gameInstallPath))
+                return false;
+
+            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
+            healthCheck = gameStorageService.ValidateStorage(paths, true);
+            return healthCheck.IsHealthy;
+        }
+
+        private bool PerformInitialGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, GameStorageHealthCheck initialHealthCheck, out bool usedLegacySetup)
         {
             usedLegacySetup = false;
             var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
-            var healthCheck = gameStorageService.ValidateStorage(paths, false);
+            var healthCheck = initialHealthCheck ?? gameStorageService.ValidateStorage(paths, false);
 
             while (true)
             {
@@ -557,6 +570,20 @@ namespace Nexus.Client
                 LinkFolderPath = linkRequired ? linkPath : null,
                 LinkFolderRequired = linkRequired
             };
+        }
+
+        private bool HasConfiguredGameStoragePaths(string gameId, string gameInstallPath)
+        {
+            string installInfoPath = GetSettingValue(EnvironmentInfo.Settings.InstallInfoFolder, gameId);
+            string modsPath = GetSettingValue(EnvironmentInfo.Settings.ModFolder, gameId);
+            string virtualPath = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
+            string linkPath = GetSettingValue(EnvironmentInfo.Settings.HDLinkFolder, gameId);
+
+            if (string.IsNullOrWhiteSpace(installInfoPath) || string.IsNullOrWhiteSpace(modsPath) || string.IsNullOrWhiteSpace(virtualPath))
+                return false;
+
+            bool linkRequired = GetBoolSettingValue(EnvironmentInfo.Settings.MultiHDInstall, gameId) || IsCrossDrivePath(virtualPath, gameInstallPath);
+            return !linkRequired || !string.IsNullOrWhiteSpace(linkPath);
         }
 
         private string GetInitialGameStorageRoot(string gameId)
