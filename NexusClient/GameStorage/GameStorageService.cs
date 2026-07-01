@@ -371,7 +371,22 @@ namespace Nexus.Client.GameStorage
         private void WriteJson(string path, object value)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllText(path, JsonConvert.SerializeObject(value, _jsonSettings));
+            FileAttributes? originalAttributes = null;
+            if (File.Exists(path))
+            {
+                originalAttributes = File.GetAttributes(path);
+                File.SetAttributes(path, originalAttributes.Value & ~FileAttributes.Hidden & ~FileAttributes.ReadOnly);
+            }
+
+            try
+            {
+                File.WriteAllText(path, JsonConvert.SerializeObject(value, _jsonSettings));
+            }
+            finally
+            {
+                if (originalAttributes.HasValue && File.Exists(path))
+                    File.SetAttributes(path, originalAttributes.Value);
+            }
         }
 
         private void AddWriteFailure(GameStorageHealthCheck result, GameStoragePathSet paths, Exception exception)
