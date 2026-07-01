@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Use this">
+  <title>Use this</title>
+  <desc>Pastel green icon showing an arrow entering a rounded rectangle, meaning use or select this item.</desc>
+  <g fill="none" stroke="#A8E6A1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Open rounded rectangle / target field -->
+    <path d="M38 14h14a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H38" />
+    <path d="M26 14h-6a4 4 0 0 0-4 4v6" />
+    <path d="M16 40v6a4 4 0 0 0 4 4h6" />
+
+    <!-- Arrow entering the field -->
+    <path d="M8 32h30" />
+    <path d="M28 22l10 10-10 10" />
+  </g>
+</svg>

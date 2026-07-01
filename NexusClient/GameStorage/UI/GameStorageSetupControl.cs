@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using DevExpress.Utils;
 using DevExpress.XtraEditors;
 using DevExpress.XtraEditors.Controls;
 using DevExpress.XtraEditors.Repository;
@@ -222,6 +224,21 @@ namespace Nexus.Client.GameStorage.UI
             applyButton.Top = top;
         }
 
+        private static Image LoadSvgIcon(string resourceName, int size)
+        {
+            var assembly = typeof(GameStorageSetupControl).Assembly;
+            string fullName = assembly.GetManifestResourceNames()
+                .FirstOrDefault(name => name.EndsWith("." + resourceName, StringComparison.OrdinalIgnoreCase));
+            if (fullName == null) return null;
+
+            using (Stream stream = assembly.GetManifestResourceStream(fullName))
+            {
+                if (stream == null) return null;
+                var svgImage = DevExpress.Utils.Svg.SvgImage.FromStream(stream);
+                var svgBitmap = DevExpress.Utils.Svg.SvgBitmap.Create(svgImage);
+                return svgBitmap.Render(new Size(size, size), null, DefaultBoolean.False, DefaultBoolean.False);
+            }
+        }
         private TextEdit CreateManualPathEdit(Control parent, string caption, int top)
         {
             var label = new LabelControl { Text = caption, Left = 8, Top = top + 3, Width = 84 };
@@ -293,7 +310,13 @@ namespace Nexus.Client.GameStorage.UI
 
             var useButtonEdit = new RepositoryItemButtonEdit { TextEditStyle = TextEditStyles.HideTextEditor };
             useButtonEdit.Buttons.Clear();
-            useButtonEdit.Buttons.Add(new EditorButton(ButtonPredefines.Glyph) { Caption = "Use" });
+            var useButton = new EditorButton(ButtonPredefines.Glyph) { Caption = string.Empty };
+            Image useImage = LoadSvgIcon("game_storage_use.svg", 16);
+            if (useImage != null)
+                useButton.ImageOptions.Image = useImage;
+            else
+                useButton.Caption = "Use";
+            useButtonEdit.Buttons.Add(useButton);
             useButtonEdit.ButtonClick += (sender, args) => PreviewSelectedCandidate();
             _candidateGridControl.RepositoryItems.Add(useButtonEdit);
 
