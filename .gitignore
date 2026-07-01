@@ -166,6 +166,7 @@ AppPackages/
 # Others
 ClientBin/
 [Ss]tyle[Cc]op.*
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
 ~$*
 *~
 *.dbmdl
