@@ -329,6 +329,7 @@ namespace Nexus.Client.GameStorage
             AddCandidateRoot(roots, currentPaths.ModsPath);
             AddCandidateRoot(roots, currentPaths.VirtualInstallPath);
             AddCandidateRoot(roots, currentPaths.LinkFolderPath);
+            AddGameDriveRoots(roots, currentPaths);
 
             foreach (var entry in registry.KnownStorages.Where(x => string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase)))
             {
@@ -349,6 +350,16 @@ namespace Nexus.Client.GameStorage
             }
 
             return roots.Where(Directory.Exists).ToList();
+        }
+
+        private void AddGameDriveRoots(HashSet<string> roots, GameStoragePathSet currentPaths)
+        {
+            string gameDriveRoot = GetPathRoot(currentPaths.GameInstallPath);
+            if (string.IsNullOrWhiteSpace(gameDriveRoot))
+                return;
+
+            AddRoot(roots, Path.Combine(gameDriveRoot, "Games", "NMMCE", currentPaths.GameId));
+            AddRoot(roots, Path.Combine(gameDriveRoot, "Games", "Nexus Mod Manager", currentPaths.GameId));
         }
 
         private void AddCandidateRoot(HashSet<string> roots, string path)

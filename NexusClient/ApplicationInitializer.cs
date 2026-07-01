@@ -559,7 +559,7 @@ namespace Nexus.Client
         private GameStoragePathSet CreateInitialGameStoragePathSet(IGameModeFactory gameModeFactory, string gameInstallPath)
         {
             string gameId = gameModeFactory.GameModeDescriptor.ModeId;
-            string root = GetInitialGameStorageRoot(gameId);
+            string root = GetInitialGameStorageRoot(gameId, gameInstallPath);
             string virtualPath = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
             string linkPath = GetSettingValue(EnvironmentInfo.Settings.HDLinkFolder, gameId);
             bool multiHd = GetBoolSettingValue(EnvironmentInfo.Settings.MultiHDInstall, gameId);
@@ -597,8 +597,12 @@ namespace Nexus.Client
             return !linkRequired || !string.IsNullOrWhiteSpace(linkPath);
         }
 
-        private string GetInitialGameStorageRoot(string gameId)
+        private string GetInitialGameStorageRoot(string gameId, string gameInstallPath)
         {
+            string gameDriveRoot = GetPathRoot(gameInstallPath);
+            if (!string.IsNullOrWhiteSpace(gameDriveRoot) && Directory.Exists(gameDriveRoot))
+                return Path.Combine(gameDriveRoot, "Games", "NMMCE", gameId);
+
             return Path.Combine(EnvironmentInfo.ApplicationPersonalDataFolderPath, "Game Storage", gameId);
         }
 
@@ -616,13 +620,25 @@ namespace Nexus.Client
         {
             try
             {
-                string firstRoot = string.IsNullOrWhiteSpace(firstPath) ? null : Path.GetPathRoot(firstPath);
-                string secondRoot = string.IsNullOrWhiteSpace(secondPath) ? null : Path.GetPathRoot(secondPath);
+                string firstRoot = GetPathRoot(firstPath);
+                string secondRoot = GetPathRoot(secondPath);
                 return !string.IsNullOrWhiteSpace(firstRoot) && !string.IsNullOrWhiteSpace(secondRoot) && !string.Equals(firstRoot, secondRoot, StringComparison.OrdinalIgnoreCase);
             }
             catch
             {
                 return false;
+            }
+        }
+
+        private string GetPathRoot(string path)
+        {
+            try
+            {
+                return string.IsNullOrWhiteSpace(path) ? null : Path.GetPathRoot(path);
+            }
+            catch
+            {
+                return null;
             }
         }
 		protected bool ApplyDelayedSettings(string p_strGameModeId, out ViewMessage p_vwmErrorMessage)
