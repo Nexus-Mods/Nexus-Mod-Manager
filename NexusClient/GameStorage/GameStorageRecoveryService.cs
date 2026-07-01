@@ -20,7 +20,7 @@ namespace Nexus.Client.GameStorage
             var candidates = new List<GameStorageCandidate>();
 
             int currentScore = GetPathSetEvidenceScore(currentPaths, 5);
-            AddCandidate(candidates, CreateCandidateFromPathSet("Current configuration", currentPaths, null, currentScore, GetConfidenceLevel(currentScore), true,
+            AddCandidate(candidates, CreateCandidateFromPathSet("Proposed setup", currentPaths, null, currentScore, GetConfidenceLevel(currentScore), true,
                 "Current per-game path settings."));
 
             foreach (var entry in registry.KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
@@ -313,7 +313,7 @@ namespace Nexus.Client.GameStorage
         {
             foreach (var folder in EnumerateLikelyFolders(rootPath))
             {
-                if (ReadFolderManifest(folder) != null || !File.Exists(Path.Combine(folder, "InstallLog.xml")))
+                if (ReadFolderManifest(folder) != null || !File.Exists(Path.Combine(folder, "InstallLog.xml")) || HasCandidateInstallInfo(candidates, folder))
                     continue;
 
                 var candidate = new GameStorageCandidate
@@ -381,6 +381,10 @@ namespace Nexus.Client.GameStorage
             return paths?.FirstOrDefault(Directory.Exists);
         }
 
+        private bool HasCandidateInstallInfo(IEnumerable<GameStorageCandidate> candidates, string installInfoPath)
+        {
+            return candidates.Any(x => string.Equals(x.InstallInfoPath, installInfoPath, StringComparison.OrdinalIgnoreCase));
+        }
         private IEnumerable<string> EnumerateLikelyFolders(string rootPath)
         {
             yield return rootPath;

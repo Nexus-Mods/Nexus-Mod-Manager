@@ -161,7 +161,7 @@ namespace NexusClientTests
 
             var candidates = _service.DiscoverRecoveryCandidates(current);
 
-            var candidate = candidates.FirstOrDefault(x => x.CandidateKind == "Current configuration");
+            var candidate = candidates.FirstOrDefault(x => x.CandidateKind == "Proposed setup");
             Assert.IsNotNull(candidate);
             Assert.AreEqual(5, candidate.ConfidenceScore);
             Assert.AreEqual(GameStorageCandidateConfidence.Low, candidate.ConfidenceLevel);
@@ -187,6 +187,7 @@ namespace NexusClientTests
             Assert.AreEqual(installInfo, candidate.InstallInfoPath);
             Assert.Greater(candidate.ConfidenceScore, 15);
             Assert.AreEqual(GameStorageCandidateConfidence.High, candidate.ConfidenceLevel);
+            Assert.IsFalse(candidates.Any(x => x.CandidateKind == "Possible InstallInfo folder" && x.InstallInfoPath == installInfo));
         }
 
         private GameStoragePathSet CreateStorage(string gameId, string rootName, bool withArchive = false, bool withVirtualFile = false)

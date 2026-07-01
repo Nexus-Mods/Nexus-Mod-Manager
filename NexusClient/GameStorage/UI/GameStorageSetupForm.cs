@@ -33,6 +33,7 @@ namespace Nexus.Client.GameStorage.UI
             _control.BrowseRootRequested += BrowseRootRequested;
             _control.RefreshRequested += RefreshRequested;
             _control.ApplyRequested += ApplyRequested;
+            _control.CandidatePreviewRequested += CandidatePreviewRequested;
             _control.LegacySetupRequested += LegacySetupRequested;
             _control.CancelRequested += (sender, args) => DialogResult = DialogResult.Cancel;
             Controls.Add(_control);
@@ -66,6 +67,16 @@ namespace Nexus.Client.GameStorage.UI
             RefreshCandidates();
         }
 
+        private void CandidatePreviewRequested(object sender, EventArgs e)
+        {
+            var candidate = _control.SelectedCandidate;
+            if (candidate == null)
+                return;
+
+            var paths = CreatePathSetFromCandidate(candidate);
+            _control.SetManualPaths(paths);
+            SetHealth(_service.ValidateStorage(paths, false));
+        }
         private void ApplyRequested(object sender, EventArgs e)
         {
             var selectedCandidate = _control.SelectedCandidate;
@@ -118,6 +129,20 @@ namespace Nexus.Client.GameStorage.UI
             _control.SetRows(rows);
         }
 
+        private GameStoragePathSet CreatePathSetFromCandidate(GameStorageCandidate candidate)
+        {
+            return new GameStoragePathSet
+            {
+                GameId = _currentPaths.GameId,
+                GameName = _currentPaths.GameName,
+                GameInstallPath = _currentPaths.GameInstallPath,
+                InstallInfoPath = candidate.InstallInfoPath,
+                ModsPath = candidate.ModsPath,
+                VirtualInstallPath = candidate.VirtualInstallPath,
+                LinkFolderPath = candidate.LinkFolderPath,
+                LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _currentPaths.GameInstallPath)
+            };
+        }
         private void AddCandidate(GameStorageCandidate candidate)
         {
             if (candidate == null)
