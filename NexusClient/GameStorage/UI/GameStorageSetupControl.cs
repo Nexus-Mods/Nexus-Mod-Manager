@@ -95,6 +95,9 @@ namespace Nexus.Client.GameStorage.UI
             var applyButton = new SimpleButton { Text = "Apply selected", Width = 118, Top = 8 };
             _legacySetupButton = new SimpleButton { Text = "Keep legacy setup", Width = 128, Top = 8, Visible = false };
             var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Top = 8 };
+            StyleActionButton(applyButton);
+            StyleActionButton(_legacySetupButton);
+            StyleCancelButton(cancelButton);
             browseRootButton.Click += (sender, args) => BrowseRootRequested?.Invoke(this, EventArgs.Empty);
             refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
             applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
@@ -176,6 +179,28 @@ namespace Nexus.Client.GameStorage.UI
         {
             _candidateGridControl.DataSource = candidates?.ToList() ?? new List<GameStorageCandidate>();
             _candidateGridView.BestFitColumns();
+        }
+
+        private static void StyleActionButton(SimpleButton button)
+        {
+            button.LookAndFeel.UseDefaultLookAndFeel = false;
+            button.Appearance.BackColor = Color.FromArgb(218, 241, 220);
+            button.Appearance.BorderColor = Color.FromArgb(159, 205, 163);
+            button.Appearance.ForeColor = Color.FromArgb(35, 86, 42);
+            button.Appearance.Options.UseBackColor = true;
+            button.Appearance.Options.UseBorderColor = true;
+            button.Appearance.Options.UseForeColor = true;
+        }
+
+        private static void StyleCancelButton(SimpleButton button)
+        {
+            button.LookAndFeel.UseDefaultLookAndFeel = false;
+            button.Appearance.BackColor = Color.FromArgb(250, 224, 213);
+            button.Appearance.BorderColor = Color.FromArgb(222, 156, 132);
+            button.Appearance.ForeColor = Color.FromArgb(119, 53, 38);
+            button.Appearance.Options.UseBackColor = true;
+            button.Appearance.Options.UseBorderColor = true;
+            button.Appearance.Options.UseForeColor = true;
         }
 
         private static void LayoutButtons(PanelControl panel, SimpleButton browseRootButton, SimpleButton refreshButton, SimpleButton legacySetupButton, SimpleButton cancelButton, SimpleButton applyButton)
