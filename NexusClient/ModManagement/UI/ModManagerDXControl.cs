@@ -67,9 +67,15 @@ namespace Nexus.Client.ModManagement.UI
         private bool _suppressNextDoubleClick;
         private bool _updatingGridDisplayControls;
         private Timer _columnFillTimer;
+        private bool _pendingColumnSizing;
+        private bool _missingArchiveScanQueued;
         private string _gridFontFamilyName = DefaultGridFontFamily;
         private float _gridFontSizePt = DefaultGridFontSizePt;
         private string _gridDensity = DefaultGridDensity;
+        private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
+        private readonly Dictionary<string, bool> _missingArchiveByFileName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _missingArchiveLock = new object();
 
         /// <summary>
         /// Flat list that backs both the DevExpress grid and internal row lookups.
@@ -383,6 +389,7 @@ namespace Nexus.Client.ModManagement.UI
             foreach (IMod mod in _modList)
                 mod.PropertyChanged -= Mod_PropertyChanged;
             _modList.Clear();
+            ClearGridStateCaches();
             gridControl.RefreshDataSource();
         }
 
@@ -398,9 +405,11 @@ namespace Nexus.Client.ModManagement.UI
                 _modList.Add(mod);
             }
 
+            RebuildActivationStateCache();
+            QueueMissingArchiveScan();
             gridControl.RefreshDataSource();
             RestoreGridSort();
-            ApplyColumnSizing();
+            ScheduleColumnSizing();
             UpdateModCountLabel();
         }
 
@@ -438,6 +447,8 @@ namespace Nexus.Client.ModManagement.UI
                     _modList.Clear();
                     break;
             }
+            RebuildActivationStateCache();
+            QueueMissingArchiveScan();
             gridControl.RefreshDataSource();
             RestoreFocusAfterModListChange(focusedMod, focusedVisibleIndex, removedFocusedMod || e.Action == NotifyCollectionChangedAction.Reset);
             UpdateModCountLabel();
@@ -487,6 +498,7 @@ namespace Nexus.Client.ModManagement.UI
         private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (InvokeRequired) { Invoke(new Action(() => ActiveMods_CollectionChanged(sender, e))); return; }
+            RebuildActivationStateCache();
             RefreshActivationState();
         }
 
@@ -965,18 +977,99 @@ namespace Nexus.Client.ModManagement.UI
 
         // ── Grid event handlers ──────────────────────────────────────────────
 
+        private void ClearGridStateCaches()
+        {
+            _activeModFileNames.Clear();
+            _installedMods.Clear();
+            lock (_missingArchiveLock)
+                _missingArchiveByFileName.Clear();
+        }
+
+        private void RebuildActivationStateCache()
+        {
+            _activeModFileNames.Clear();
+            _installedMods.Clear();
+
+            if (_viewModel == null)
+                return;
+
+            foreach (string fileName in _viewModel.VirtualModActivator.ActiveModList)
+                if (!string.IsNullOrWhiteSpace(fileName))
+                    _activeModFileNames.Add(fileName);
+
+            foreach (IMod mod in _viewModel.ActiveMods)
+                if (mod != null)
+                    _installedMods.Add(mod);
+        }
+
         private bool IsModActive(IMod mod)
         {
-            if (_viewModel == null || mod == null || string.IsNullOrEmpty(mod.Filename)) return false;
-            return _viewModel.VirtualModActivator.CheckHasActiveLinks(mod);
+            if (mod == null || string.IsNullOrEmpty(mod.Filename)) return false;
+            return _activeModFileNames.Contains(Path.GetFileName(mod.Filename));
         }
 
         private bool IsModInstalled(IMod mod)
         {
-            if (_viewModel == null || mod == null) return false;
-            return _viewModel.ActiveMods.Contains(mod);
+            return mod != null && _installedMods.Contains(mod);
         }
 
+        private void QueueMissingArchiveScan()
+        {
+            if (_missingArchiveScanQueued)
+                return;
+
+            var snapshot = _modList
+                .Where(x => x != null && !string.IsNullOrEmpty(x.Filename))
+                .Select(x => x.Filename)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (snapshot.Count == 0)
+                return;
+
+            _missingArchiveScanQueued = true;
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                var results = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                foreach (string fileName in snapshot)
+                    results[fileName] = !File.Exists(fileName);
+
+                if (IsDisposed || !IsHandleCreated)
+                {
+                    _missingArchiveScanQueued = false;
+                    return;
+                }
+
+                try
+                {
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        lock (_missingArchiveLock)
+                        {
+                            foreach (var item in results)
+                                _missingArchiveByFileName[item.Key] = item.Value;
+                        }
+                        _missingArchiveScanQueued = false;
+                        gridView.InvalidateRows();
+                    }));
+                }
+                catch (InvalidOperationException)
+                {
+                    _missingArchiveScanQueued = false;
+                }
+            });
+        }
+
+        private bool IsModArchiveMissing(IMod mod)
+        {
+            if (mod == null || string.IsNullOrEmpty(mod.Filename)) return false;
+            lock (_missingArchiveLock)
+                return _missingArchiveByFileName.TryGetValue(mod.Filename, out bool missing) && missing;
+        }
+        private static bool IsModArchiveMissingOnDisk(IMod mod)
+        {
+            return mod != null && !string.IsNullOrEmpty(mod.Filename) && !File.Exists(mod.Filename);
+        }
         private void RefreshActivationState()
         {
             gridView.InvalidateRows();
@@ -1386,6 +1479,13 @@ namespace Nexus.Client.ModManagement.UI
             finally { gridView.EndUpdate(); }
         }
 
+        private void ScheduleColumnSizing()
+        {
+            _pendingColumnSizing = true;
+            _columnFillTimer.Stop();
+            _columnFillTimer.Start();
+        }
+
         private void ScheduleModNameFill()
         {
             _columnFillTimer.Stop();
@@ -1395,6 +1495,12 @@ namespace Nexus.Client.ModManagement.UI
         private void ColumnFillTimer_Tick(object sender, EventArgs e)
         {
             _columnFillTimer.Stop();
+            if (_pendingColumnSizing)
+            {
+                _pendingColumnSizing = false;
+                ApplyColumnSizing();
+                return;
+            }
             SetModNameFill();
         }
 
@@ -1573,11 +1679,6 @@ namespace Nexus.Client.ModManagement.UI
             button.FlatAppearance.BorderSize = 0;
             button.Click += handler;
             return button;
-        }
-
-        private static bool IsModArchiveMissing(IMod mod)
-        {
-            return mod != null && !string.IsNullOrEmpty(mod.Filename) && !File.Exists(mod.Filename);
         }
 
         private void DrawModNameCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
@@ -2633,7 +2734,7 @@ namespace Nexus.Client.ModManagement.UI
                 return r;
             }
 
-            var missingMods = mods.Where(IsModArchiveMissing).ToList();
+            var missingMods = mods.Where(IsModArchiveMissingOnDisk).ToList();
             if (missingMods.Count == 0) return true;
 
             var msg = new StringBuilder();
