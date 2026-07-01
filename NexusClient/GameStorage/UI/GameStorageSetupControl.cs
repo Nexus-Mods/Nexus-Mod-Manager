@@ -27,6 +27,8 @@ namespace Nexus.Client.GameStorage.UI
         private readonly TextEdit _manualVirtualInstallEdit;
         private readonly TextEdit _manualLinkFolderEdit;
         private readonly SimpleButton _legacySetupButton;
+        private GridColumn _candidateUseColumn;
+        private Image _candidateUseImage;
         private readonly List<Tuple<TextEdit, SimpleButton>> _manualPathRows = new List<Tuple<TextEdit, SimpleButton>>();
 
         public event EventHandler BrowseRootRequested;
@@ -82,6 +84,8 @@ namespace Nexus.Client.GameStorage.UI
             _candidateGridControl = new GridControl { Dock = DockStyle.Fill };
             _candidateGridView = new GridView(_candidateGridControl);
             _candidateGridView.MouseDown += CandidateGridViewMouseDown;
+            _candidateGridView.RowCellClick += CandidateGridViewRowCellClick;
+            _candidateGridView.CustomDrawCell += CandidateGridViewCustomDrawCell;
             _candidateGridView.DoubleClick += (sender, args) => PreviewSelectedCandidate();
             _candidateGridControl.MainView = _candidateGridView;
             _candidateGridControl.ViewCollection.Add(_candidateGridView);
@@ -299,6 +303,40 @@ namespace Nexus.Client.GameStorage.UI
             PreviewCandidate(candidate);
             CandidatePreviewRequested?.Invoke(this, EventArgs.Empty);
         }
+
+        private void CandidateGridViewRowCellClick(object sender, DevExpress.XtraGrid.Views.Grid.RowCellClickEventArgs e)
+        {
+            if (e.Column == _candidateUseColumn)
+                PreviewSelectedCandidate();
+        }
+
+        private void CandidateGridViewCustomDrawCell(object sender, DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
+        {
+            if (e.Column != _candidateUseColumn)
+                return;
+
+            e.Appearance.DrawBackground(e.Cache, e.Bounds);
+            Rectangle buttonBounds = new Rectangle(e.Bounds.Left + 13, e.Bounds.Top + 3, 28, Math.Max(18, e.Bounds.Height - 6));
+            using (var background = new SolidBrush(Color.White))
+            using (var border = new Pen(Color.FromArgb(177, 186, 196)))
+            {
+                e.Graphics.FillRectangle(background, buttonBounds);
+                e.Graphics.DrawRectangle(border, buttonBounds);
+            }
+
+            if (_candidateUseImage != null)
+            {
+                int left = buttonBounds.Left + (buttonBounds.Width - _candidateUseImage.Width) / 2;
+                int top = buttonBounds.Top + (buttonBounds.Height - _candidateUseImage.Height) / 2;
+                e.Graphics.DrawImage(_candidateUseImage, left, top, _candidateUseImage.Width, _candidateUseImage.Height);
+            }
+            else
+            {
+                TextRenderer.DrawText(e.Graphics, "Use", e.Appearance.Font, buttonBounds, Color.FromArgb(55, 85, 110), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            }
+
+            e.Handled = true;
+        }
         private void ConfigureHealthGrid()
         {
             ConfigureSetupGridLook(_healthGridView, false);
@@ -321,19 +359,19 @@ namespace Nexus.Client.GameStorage.UI
             var useButtonEdit = new RepositoryItemButtonEdit { TextEditStyle = TextEditStyles.HideTextEditor };
             useButtonEdit.Buttons.Clear();
             var useButton = new EditorButton(ButtonPredefines.Glyph) { Caption = string.Empty };
-            Image useImage = LoadSvgIcon("game_storage_use.svg", 16);
-            if (useImage != null)
-                useButton.ImageOptions.Image = useImage;
+            _candidateUseImage = LoadSvgIcon("game_storage_use.svg", 16);
+            if (_candidateUseImage != null)
+                useButton.ImageOptions.Image = _candidateUseImage;
             else
                 useButton.Caption = "Use";
             useButtonEdit.Buttons.Add(useButton);
             useButtonEdit.ButtonClick += (sender, args) => PreviewSelectedCandidate();
             _candidateGridControl.RepositoryItems.Add(useButtonEdit);
 
-            var useColumn = new GridColumn { Caption = "", Visible = true, VisibleIndex = 0, Width = 54, ColumnEdit = useButtonEdit };
-            useColumn.OptionsColumn.AllowEdit = true;
-            useColumn.OptionsColumn.FixedWidth = true;
-            _candidateGridView.Columns.Add(useColumn);
+            _candidateUseColumn = new GridColumn { Caption = "", Visible = true, VisibleIndex = 0, Width = 54, ColumnEdit = useButtonEdit };
+            _candidateUseColumn.OptionsColumn.AllowEdit = true;
+            _candidateUseColumn.OptionsColumn.FixedWidth = true;
+            _candidateGridView.Columns.Add(_candidateUseColumn);
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateKind), "Source", 1, 130));
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceScore), "Score", 2, 60));
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceLevel), "Confidence", 3, 90));
@@ -354,12 +392,27 @@ namespace Nexus.Client.GameStorage.UI
             view.OptionsView.ColumnAutoWidth = true;
             view.OptionsView.ShowHorizontalLines = DefaultBoolean.True;
             view.OptionsView.ShowVerticalLines = DefaultBoolean.False;
+            view.OptionsSelection.EnableAppearanceFocusedCell = false;
+            view.Appearance.Empty.BackColor = Color.FromArgb(245, 245, 248);
+            view.Appearance.Empty.Options.UseBackColor = true;
             view.Appearance.Row.BackColor = Color.FromArgb(248, 248, 251);
             view.Appearance.Row.Options.UseBackColor = true;
             view.Appearance.EvenRow.BackColor = Color.FromArgb(242, 242, 246);
             view.Appearance.EvenRow.Options.UseBackColor = true;
             view.Appearance.OddRow.BackColor = Color.FromArgb(248, 248, 251);
             view.Appearance.OddRow.Options.UseBackColor = true;
+            view.Appearance.FocusedRow.BackColor = Color.FromArgb(184, 207, 229);
+            view.Appearance.FocusedRow.ForeColor = Color.Black;
+            view.Appearance.FocusedRow.Options.UseBackColor = true;
+            view.Appearance.FocusedRow.Options.UseForeColor = true;
+            view.Appearance.SelectedRow.BackColor = Color.FromArgb(184, 207, 229);
+            view.Appearance.SelectedRow.ForeColor = Color.Black;
+            view.Appearance.SelectedRow.Options.UseBackColor = true;
+            view.Appearance.SelectedRow.Options.UseForeColor = true;
+            view.Appearance.HideSelectionRow.BackColor = Color.FromArgb(184, 207, 229);
+            view.Appearance.HideSelectionRow.ForeColor = Color.Black;
+            view.Appearance.HideSelectionRow.Options.UseBackColor = true;
+            view.Appearance.HideSelectionRow.Options.UseForeColor = true;
             view.Appearance.HeaderPanel.BackColor = Color.FromArgb(238, 238, 241);
             view.Appearance.HeaderPanel.ForeColor = Color.FromArgb(80, 80, 80);
             view.Appearance.HeaderPanel.Options.UseBackColor = true;
