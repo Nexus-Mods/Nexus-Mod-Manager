@@ -145,6 +145,50 @@ namespace NexusClientTests
             Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.True);
         }
 
+        [Test]
+        public void DiscoverRecoveryCandidates_CurrentMissingPaths_IsLowConfidence()
+        {
+            var current = new GameStoragePathSet
+            {
+                GameId = "Fallout3",
+                GameName = "Fallout 3",
+                GameInstallPath = Path.Combine(_tempRoot, "Fallout3"),
+                InstallInfoPath = Path.Combine(_tempRoot, "MissingNMMCE", "InstallInfo"),
+                ModsPath = Path.Combine(_tempRoot, "MissingNMMCE", "Mods"),
+                VirtualInstallPath = Path.Combine(_tempRoot, "MissingNMMCE", "VirtualInstall"),
+                LinkFolderRequired = false
+            };
+
+            var candidates = _service.DiscoverRecoveryCandidates(current);
+
+            var candidate = candidates.FirstOrDefault(x => x.CandidateKind == "Current configuration");
+            Assert.IsNotNull(candidate);
+            Assert.AreEqual(5, candidate.ConfidenceScore);
+            Assert.AreEqual(GameStorageCandidateConfidence.Low, candidate.ConfidenceLevel);
+        }
+
+        [Test]
+        public void DiscoverRecoveryCandidatesFromRoot_LegacyLayoutCreatesHigherConfidenceCandidate()
+        {
+            var current = CreateStorage("Fallout3", "CurrentStorage");
+            string legacyRoot = Path.Combine(_tempRoot, "Games", "Nexus Mod Manager", "Fallout3");
+            string installInfo = Path.Combine(legacyRoot, "Install Info");
+            string mods = Path.Combine(legacyRoot, "Mods");
+            Directory.CreateDirectory(installInfo);
+            Directory.CreateDirectory(mods);
+            File.WriteAllText(Path.Combine(installInfo, "InstallLog.xml"), "<installLog />");
+            File.WriteAllText(Path.Combine(mods, "ExampleMod.7z"), "archive");
+
+            var candidates = _service.DiscoverRecoveryCandidatesFromRoot(current, legacyRoot);
+
+            var candidate = candidates.FirstOrDefault(x => x.CandidateKind == "Legacy NMM setup");
+            Assert.IsNotNull(candidate);
+            Assert.AreEqual("Fallout3", candidate.GameId);
+            Assert.AreEqual(installInfo, candidate.InstallInfoPath);
+            Assert.Greater(candidate.ConfidenceScore, 15);
+            Assert.AreEqual(GameStorageCandidateConfidence.High, candidate.ConfidenceLevel);
+        }
+
         private GameStoragePathSet CreateStorage(string gameId, string rootName, bool withArchive = false, bool withVirtualFile = false)
         {
             string root = Path.Combine(_tempRoot, rootName);

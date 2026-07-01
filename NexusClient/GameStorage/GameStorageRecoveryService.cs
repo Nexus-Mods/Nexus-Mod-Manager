@@ -19,7 +19,8 @@ namespace Nexus.Client.GameStorage
             var registry = LoadRegistry();
             var candidates = new List<GameStorageCandidate>();
 
-            AddCandidate(candidates, CreateCandidateFromPathSet("Current configuration", currentPaths, null, 45, GameStorageCandidateConfidence.Medium, true,
+            int currentScore = GetPathSetEvidenceScore(currentPaths, 5);
+            AddCandidate(candidates, CreateCandidateFromPathSet("Current configuration", currentPaths, null, currentScore, GetConfidenceLevel(currentScore), true,
                 "Current per-game path settings."));
 
             foreach (var entry in registry.KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
@@ -64,6 +65,7 @@ namespace Nexus.Client.GameStorage
             }
 
             AddFolderManifestCandidates(currentPaths, rootPath, candidates);
+            AddLegacyLayoutCandidate(currentPaths, rootPath, candidates);
             AddInstallLogOnlyCandidates(rootPath, candidates);
             return candidates.OrderByDescending(x => x.ConfidenceScore).ToList();
         }
@@ -277,6 +279,36 @@ namespace Nexus.Client.GameStorage
             }
         }
 
+        private void AddLegacyLayoutCandidate(GameStoragePathSet currentPaths, string rootPath, List<GameStorageCandidate> candidates)
+        {
+            string installInfoPath = SelectExistingPath(Path.Combine(rootPath, "Install Info"), Path.Combine(rootPath, "InstallInfo"));
+            if (string.IsNullOrWhiteSpace(installInfoPath) || !File.Exists(Path.Combine(installInfoPath, "InstallLog.xml")))
+                return;
+
+            string modsPath = SelectExistingPath(Path.Combine(rootPath, "Mods"));
+            string virtualInstallPath = SelectExistingPath(Path.Combine(rootPath, "VirtualInstall"));
+            string linkFolderPath = SelectExistingPath(Path.Combine(rootPath, "LinkFolder"));
+
+            var candidate = new GameStorageCandidate
+            {
+                CandidateKind = "Legacy NMM setup",
+                CandidateRoot = rootPath,
+                GameId = currentPaths.GameId,
+                InstallInfoPath = installInfoPath,
+                ModsPath = modsPath ?? Path.Combine(rootPath, "Mods"),
+                VirtualInstallPath = virtualInstallPath ?? Path.Combine(rootPath, "VirtualInstall"),
+                LinkFolderPath = linkFolderPath,
+                LinkFolderRequired = false,
+                RequiresUserConfirmation = true
+            };
+
+            candidate.ConfidenceScore = GetPathSetEvidenceScore(CreatePathSetFromCandidate(currentPaths, candidate), 35);
+            candidate.ConfidenceLevel = GetConfidenceLevel(candidate.ConfidenceScore);
+            candidate.Evidence.Add("Found legacy NMM folder layout with InstallLog.xml.");
+            AddPathWarnings(candidate);
+            AddCandidate(candidates, candidate);
+        }
+
         private void AddInstallLogOnlyCandidates(string rootPath, List<GameStorageCandidate> candidates)
         {
             foreach (var folder in EnumerateLikelyFolders(rootPath))
@@ -297,6 +329,56 @@ namespace Nexus.Client.GameStorage
                 candidate.Warnings.Add("This candidate is ambiguous. NMM cannot identify the game or Storage ID from InstallLog.xml alone.");
                 AddCandidate(candidates, candidate);
             }
+        }
+
+        private int GetPathSetEvidenceScore(GameStoragePathSet paths, int baseScore)
+        {
+            if (paths == null)
+                return 0;
+
+            int score = baseScore;
+            if (Directory.Exists(paths.InstallInfoPath))
+                score += 15;
+            if (!string.IsNullOrWhiteSpace(paths.InstallInfoPath) && File.Exists(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
+                score += 20;
+            if (Directory.Exists(paths.ModsPath))
+                score += 10;
+            if (ContainsAnyFile(paths.ModsPath))
+                score += 10;
+            if (Directory.Exists(paths.VirtualInstallPath))
+                score += 10;
+            if (ContainsAnyFile(paths.VirtualInstallPath))
+                score += 10;
+            if (paths.LinkFolderRequired && Directory.Exists(paths.LinkFolderPath))
+                score += 5;
+
+            return Math.Min(score, 90);
+        }
+
+        private GameStorageCandidateConfidence GetConfidenceLevel(int score)
+        {
+            if (score >= 70)
+                return GameStorageCandidateConfidence.High;
+            if (score >= 35)
+                return GameStorageCandidateConfidence.Medium;
+            return GameStorageCandidateConfidence.Low;
+        }
+
+        private bool ContainsAnyFile(string path)
+        {
+            try
+            {
+                return !string.IsNullOrWhiteSpace(path) && Directory.Exists(path) && Directory.EnumerateFiles(path).Any();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string SelectExistingPath(params string[] paths)
+        {
+            return paths?.FirstOrDefault(Directory.Exists);
         }
 
         private IEnumerable<string> EnumerateLikelyFolders(string rootPath)
