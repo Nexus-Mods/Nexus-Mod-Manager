@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Appearance" ID="13">
+      <name>Appearance</name>
+    </category>
+    <category path="Armour and Clothing" ID="3">
+      <name>Armour and Clothing</name>
+    </category>
+	<category path="Audio" ID="4">
+      <name>Audio</name>
+    </category>
+    <category path="Characters" ID="5">
+      <name>Characters</name>
+    </category>
+    <category path="Crafting" ID="6">
+      <name>Crafting</name>
+    </category>
+    <category path="Visuals and Graphics" ID="10">
+      <name>Visuals and Graphics</name>
+    </category>
+    <category path="Gameplay" ID="7">
+      <name>Gameplay</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Modders Resources" ID="12">
+      <name>Modders Resources</name>
+    </category>
+    <category path="Utilities" ID="9">
+      <name>Utilities</name>
+    </category>
+	<category path="Vehicles" ID="14">
+      <name>Vehicles</name>
+    </category>
+	<category path="User Interface" ID="8">
+      <name>User Interface</name>
+    </category>
+	<category path="Weapons" ID="11">
+      <name>Weapons</name>
+    </category>
+  </categoryList>
+</categoryManager>

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -695,6 +695,22 @@
     <Compile Include="Games\GameDiscoverer.cs" />
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameLauncher.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeFactory.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeSettingsGroup.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Games\DataDriven\DataDrivenSetupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Games\DataDriven\DataDrivenToolLauncher.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionLoader.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionLoadResult.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionValidator.cs" />
     <Compile Include="UI\Controls\GameModeListViewItemBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -1036,11 +1052,37 @@
     <Folder Include="ModManagement\ProfileManager\UI\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Content Include="..\Game Modes\Definitions\Cyberpunk2077\game.json">
+      <Link>GameModes\Definitions\Cyberpunk2077\game.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Game Modes\Definitions\Cyberpunk2077\Cyberpunk2077_logo.ico">
+      <Link>GameModes\Definitions\Cyberpunk2077\Cyberpunk2077_logo.ico</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Game Modes\Definitions\Cyberpunk2077\Categories.xml">
+      <Link>GameModes\Definitions\Cyberpunk2077\Categories.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Game Modes\Definitions\SkyrimSE\game.json">
+      <Link>GameModes\Definitions\SkyrimSE\game.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Game Modes\Definitions\SkyrimSE\SkyrimSE_logo.ico">
+      <Link>GameModes\Definitions\SkyrimSE\SkyrimSE_logo.ico</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Game Modes\Definitions\SkyrimSE\Categories.xml">
+      <Link>GameModes\Definitions\SkyrimSE\Categories.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

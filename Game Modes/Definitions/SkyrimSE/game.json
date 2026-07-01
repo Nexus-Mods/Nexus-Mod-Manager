@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "modeId": "SkyrimSE",
+  "name": "Skyrim Special Edition",
+  "behaviorProfile": "gamebryo",
+  "installerProfile": "gamebryo",
+  "legacyFallback": true,
+  "gameExecutables": [ "SkyrimSELauncher.exe", "SkyrimSE.exe" ],
+  "resources": {
+    "iconPath": "SkyrimSE_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "discovery": {
+    "steamAppId": "489830",
+    "steamInstallFolderName": "SkyrimSE",
+    "steamExecutableName": "SkyrimSELauncher.exe"
+  },
+  "compatibilityNotes": [
+    "Gamebryo profile is validated here, but SkyrimSE still uses its legacy DLL because plugin, settings-file, script-extender, supported-tools and scripted-installer behavior are not fully data-driven yet."
+  ]
+}
