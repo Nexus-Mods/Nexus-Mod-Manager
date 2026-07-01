@@ -78,6 +78,8 @@ namespace Nexus.Client
 		/// <value>The delegate that displays a view.</value>
 		public ShowViewDelegate ShowView { get; set; }
 
+        public Func<Func<IView>, bool, object> ShowViewFactory { get; set; }
+
 		/// <summary>
 		/// Gets or sets the delegate that displays a message.
 		/// </summary>
@@ -147,6 +149,7 @@ namespace Nexus.Client
 			ShowMessage = delegate { return DialogResult.Cancel; };
 			ConfirmMakeWritable = delegate(IEnvironmentInfo eif, string file, out bool remember) { remember = false; return false; };
 			ShowView = delegate { return DialogResult.Cancel; };
+            ShowViewFactory = delegate { return DialogResult.Cancel; };
 		}
 
 		#endregion
@@ -406,8 +409,12 @@ namespace Nexus.Client
                 var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
                 if (!storageHealth.IsHealthy)
                 {
-                    var recoveryForm = new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth);
-                    var recoveryResult = ShowView(recoveryForm, true);
+                    GameStorageRecoveryForm recoveryForm = null;
+                    var recoveryResult = ShowViewFactory(() =>
+                    {
+                        recoveryForm = new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth);
+                        return recoveryForm;
+                    }, true);
                     if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
                         storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
 
@@ -526,8 +533,12 @@ namespace Nexus.Client
 
             while (true)
             {
-                var setupForm = new GameStorageSetupForm(gameStorageService, paths, healthCheck);
-                var result = ShowView(setupForm, true);
+                GameStorageSetupForm setupForm = null;
+                var result = ShowViewFactory(() =>
+                {
+                    setupForm = new GameStorageSetupForm(gameStorageService, paths, healthCheck);
+                    return setupForm;
+                }, true);
                 if (!(result is DialogResult) || (DialogResult)result != DialogResult.OK)
                     return false;
 
