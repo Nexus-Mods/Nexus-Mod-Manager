@@ -63,8 +63,8 @@ namespace Nexus.Client.GameStorage
 
             if (result.IsHealthy && initializeIfValid)
             {
-                InitializeMetadata(paths, storageId, registry);
-                result.StorageId = storageId;
+                if (TryInitializeMetadata(paths, storageId, registry, result))
+                    result.StorageId = storageId;
             }
 
             return result;
@@ -81,7 +81,7 @@ namespace Nexus.Client.GameStorage
             string storageId = ResolveStorageId(paths, registry);
             var result = Validate(paths, storageId, registry);
             if (result.IsHealthy)
-                InitializeMetadata(paths, storageId, registry);
+                TryInitializeMetadata(paths, storageId, registry, result);
         }
         public bool IsLinkFolderRequired(string virtualInstallPath, string gameInstallPath)
         {
@@ -213,6 +213,25 @@ namespace Nexus.Client.GameStorage
 
             if (lastKnownGood.LastKnownVirtualFileCount > 0 && Directory.Exists(paths.VirtualInstallPath) && CountFiles(paths.VirtualInstallPath) == 0)
                 Add(result, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, "The VirtualInstall folder is empty, but the previous known-good folder contained staged files.", $"Previous VirtualInstall folder: {lastKnownGood.VirtualInstallPath}");
+        }
+
+        private bool TryInitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry, GameStorageHealthCheck result)
+        {
+            try
+            {
+                InitializeMetadata(paths, storageId, registry);
+                return true;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                AddWriteFailure(result, paths, ex);
+                return false;
+            }
+            catch (IOException ex)
+            {
+                AddWriteFailure(result, paths, ex);
+                return false;
+            }
         }
 
         private void InitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
@@ -355,7 +374,61 @@ namespace Nexus.Client.GameStorage
             File.WriteAllText(path, JsonConvert.SerializeObject(value, _jsonSettings));
         }
 
-        private void Add(GameStorageHealthCheck result, GameStorageFolderRole role, string path, GameStorageHealthStatus status, bool required, bool recoverable, string message, params string[] fixes)
+        private void AddWriteFailure(GameStorageHealthCheck result, GameStoragePathSet paths, Exception exception)
+        {
+            string failedPath = TryGetPathFromException(exception) ?? string.Empty;
+            Add(result, ResolveFolderRole(paths, failedPath), failedPath, GameStorageHealthStatus.NotWritable, true, true,
+                "NMM could not write Game Storage metadata to this folder.",
+                exception.Message,
+                "Check folder permissions or select a writable Game Storage folder.");
+        }
+
+        private GameStorageFolderRole? ResolveFolderRole(GameStoragePathSet paths, string failedPath)
+        {
+            if (string.IsNullOrWhiteSpace(failedPath))
+                return null;
+
+            if (IsSameOrChildPath(paths.InstallInfoPath, failedPath))
+                return GameStorageFolderRole.InstallInfo;
+            if (IsSameOrChildPath(paths.ModsPath, failedPath))
+                return GameStorageFolderRole.Mods;
+            if (IsSameOrChildPath(paths.VirtualInstallPath, failedPath))
+                return GameStorageFolderRole.VirtualInstall;
+            if (IsSameOrChildPath(paths.LinkFolderPath, failedPath))
+                return GameStorageFolderRole.LinkFolder;
+            return null;
+        }
+
+        private bool IsSameOrChildPath(string parentPath, string childPath)
+        {
+            if (string.IsNullOrWhiteSpace(parentPath) || string.IsNullOrWhiteSpace(childPath))
+                return false;
+
+            try
+            {
+                string parent = Path.GetFullPath(parentPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string child = Path.GetFullPath(childPath);
+                return child.StartsWith(parent, StringComparison.OrdinalIgnoreCase) || string.Equals(parent.TrimEnd(Path.DirectorySeparatorChar), child.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string TryGetPathFromException(Exception exception)
+        {
+            if (exception == null || string.IsNullOrWhiteSpace(exception.Message))
+                return null;
+
+            int start = exception.Message.IndexOf('\'');
+            if (start < 0)
+                return null;
+            int end = exception.Message.IndexOf('\'', start + 1);
+            return end > start ? exception.Message.Substring(start + 1, end - start - 1) : null;
+        }
+
+        private void Add(GameStorageHealthCheck result, GameStorageFolderRole? role, string path, GameStorageHealthStatus status, bool required, bool recoverable, string message, params string[] fixes)
         {
             result.Items.Add(new GameStorageHealthItem
             {
