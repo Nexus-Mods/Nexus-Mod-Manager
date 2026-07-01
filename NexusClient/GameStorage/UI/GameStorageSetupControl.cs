@@ -27,6 +27,7 @@ namespace Nexus.Client.GameStorage.UI
         private readonly TextEdit _manualVirtualInstallEdit;
         private readonly TextEdit _manualLinkFolderEdit;
         private readonly SimpleButton _legacySetupButton;
+        private readonly List<Tuple<TextEdit, SimpleButton>> _manualPathRows = new List<Tuple<TextEdit, SimpleButton>>();
 
         public event EventHandler BrowseRootRequested;
         public event EventHandler RefreshRequested;
@@ -62,6 +63,8 @@ namespace Nexus.Client.GameStorage.UI
             _manualModsEdit = CreateManualPathEdit(manualPanel, "Mod archives", 56);
             _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "Virtual install", 82);
             _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, "Link folder", 108);
+            manualPanel.Resize += (sender, args) => LayoutManualPathRows(manualPanel);
+            LayoutManualPathRows(manualPanel);
 
             var splitContainer = new SplitContainerControl
             {
@@ -174,13 +177,11 @@ namespace Nexus.Client.GameStorage.UI
         public void SetRows(IEnumerable<GameStorageSetupRow> rows)
         {
             _healthGridControl.DataSource = rows?.ToList() ?? new List<GameStorageSetupRow>();
-            _healthGridView.BestFitColumns();
         }
 
         public void SetCandidates(IEnumerable<GameStorageCandidate> candidates)
         {
             _candidateGridControl.DataSource = candidates?.ToList() ?? new List<GameStorageCandidate>();
-            _candidateGridView.BestFitColumns();
         }
 
         private static void StyleActionButton(SimpleButton button)
@@ -242,13 +243,32 @@ namespace Nexus.Client.GameStorage.UI
         private TextEdit CreateManualPathEdit(Control parent, string caption, int top)
         {
             var label = new LabelControl { Text = caption, Left = 8, Top = top + 3, Width = 84 };
-            var edit = new TextEdit { Left = 96, Top = top, Width = 724, Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
-            var button = new SimpleButton { Text = "...", Left = 828, Top = top - 1, Width = 28, Height = 22, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            var edit = new TextEdit { Left = 96, Top = top, Width = 724 };
+            var button = new SimpleButton { Text = "...", Left = 828, Top = top - 1, Width = 28, Height = 22 };
             button.Click += (sender, args) => BrowseForFolder(edit, caption);
             parent.Controls.Add(label);
             parent.Controls.Add(edit);
             parent.Controls.Add(button);
+            _manualPathRows.Add(Tuple.Create(edit, button));
             return edit;
+        }
+
+        private void LayoutManualPathRows(Control parent)
+        {
+            const int editLeft = 96;
+            const int buttonWidth = 28;
+            const int rightPadding = 10;
+            const int gap = 6;
+
+            int buttonLeft = Math.Max(editLeft + 80, parent.ClientSize.Width - rightPadding - buttonWidth);
+            int editWidth = Math.Max(80, buttonLeft - gap - editLeft);
+
+            foreach (var row in _manualPathRows)
+            {
+                row.Item1.Left = editLeft;
+                row.Item1.Width = editWidth;
+                row.Item2.Left = buttonLeft;
+            }
         }
 
         private void BrowseForFolder(TextEdit edit, string caption)
@@ -281,16 +301,11 @@ namespace Nexus.Client.GameStorage.UI
         }
         private void ConfigureHealthGrid()
         {
-            _healthGridView.OptionsBehavior.Editable = false;
-            _healthGridView.OptionsView.ShowGroupPanel = false;
-            _healthGridView.OptionsView.ShowIndicator = false;
-            _healthGridView.OptionsView.EnableAppearanceEvenRow = true;
-            _healthGridView.OptionsView.EnableAppearanceOddRow = true;
-            _healthGridView.OptionsView.ColumnAutoWidth = false;
-            _healthGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageSetupRow.Role), Caption = "Folder", Visible = true, VisibleIndex = 0, Width = 110 });
-            _healthGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageSetupRow.Path), Caption = "Path", Visible = true, VisibleIndex = 1, Width = 360 });
-            _healthGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageSetupRow.Status), Caption = "Status", Visible = true, VisibleIndex = 2, Width = 130 });
-            _healthGridView.Columns.Add(new GridColumn { FieldName = nameof(GameStorageSetupRow.Message), Caption = "Message", Visible = true, VisibleIndex = 3, Width = 360 });
+            ConfigureSetupGridLook(_healthGridView, false);
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Role), "Folder", 0, 105));
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Path), "Path", 1, 330));
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Status), "Status", 2, 130));
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Message), "Message", 3, 360));
         }
 
         private GridColumn CreateReadOnlyColumn(string fieldName, string caption, int visibleIndex, int width)
@@ -301,12 +316,7 @@ namespace Nexus.Client.GameStorage.UI
         }
         private void ConfigureCandidateGrid()
         {
-            _candidateGridView.OptionsBehavior.Editable = true;
-            _candidateGridView.OptionsView.ShowGroupPanel = false;
-            _candidateGridView.OptionsView.ShowIndicator = false;
-            _candidateGridView.OptionsView.EnableAppearanceEvenRow = true;
-            _candidateGridView.OptionsView.EnableAppearanceOddRow = true;
-            _candidateGridView.OptionsView.ColumnAutoWidth = false;
+            ConfigureSetupGridLook(_candidateGridView, true);
 
             var useButtonEdit = new RepositoryItemButtonEdit { TextEditStyle = TextEditStyles.HideTextEditor };
             useButtonEdit.Buttons.Clear();
@@ -332,6 +342,28 @@ namespace Nexus.Client.GameStorage.UI
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ModsPath), "Mod archives", 6, 260));
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.VirtualInstallPath), "Virtual install", 7, 260));
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.LinkFolderPath), "Link folder", 8, 260));
+        }
+
+        private static void ConfigureSetupGridLook(GridView view, bool editable)
+        {
+            view.OptionsBehavior.Editable = editable;
+            view.OptionsView.ShowGroupPanel = false;
+            view.OptionsView.ShowIndicator = false;
+            view.OptionsView.EnableAppearanceEvenRow = true;
+            view.OptionsView.EnableAppearanceOddRow = true;
+            view.OptionsView.ColumnAutoWidth = true;
+            view.OptionsView.ShowHorizontalLines = DefaultBoolean.True;
+            view.OptionsView.ShowVerticalLines = DefaultBoolean.False;
+            view.Appearance.Row.BackColor = Color.FromArgb(248, 248, 251);
+            view.Appearance.Row.Options.UseBackColor = true;
+            view.Appearance.EvenRow.BackColor = Color.FromArgb(242, 242, 246);
+            view.Appearance.EvenRow.Options.UseBackColor = true;
+            view.Appearance.OddRow.BackColor = Color.FromArgb(248, 248, 251);
+            view.Appearance.OddRow.Options.UseBackColor = true;
+            view.Appearance.HeaderPanel.BackColor = Color.FromArgb(238, 238, 241);
+            view.Appearance.HeaderPanel.ForeColor = Color.FromArgb(80, 80, 80);
+            view.Appearance.HeaderPanel.Options.UseBackColor = true;
+            view.Appearance.HeaderPanel.Options.UseForeColor = true;
         }
     }
 
