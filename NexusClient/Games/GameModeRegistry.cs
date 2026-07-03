@@ -100,6 +100,8 @@ namespace Nexus.Client.Games
 			    Trace.Unindent();
 			}
 
+            registry.RegisterDataDrivenGameModes(environmentInfo, definitionsPath);
+
 		    Trace.Unindent();
 
 			return registry;
