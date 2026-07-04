@@ -104,6 +104,7 @@ namespace Nexus.Client.Games.DataDriven
     {
         public string Id { get; set; }
         public string Name { get; set; }
+        public string SettingsKey { get; set; }
         public string ExecutablePath { get; set; }
         public string ExecutableName { get; set; }
         public string[] ExecutableNames { get; set; }
@@ -144,4 +145,6 @@ namespace Nexus.Client.Games.DataDriven
         public bool SupportsGameRootInstall { get; set; }
     }
 }
+
+
 

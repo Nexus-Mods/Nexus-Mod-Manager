@@ -78,9 +78,10 @@ namespace Nexus.Client.Games.DataDriven
         {
             EnsureToolSettings();
 
+            string settingsKey = GetToolSettingsKey(tool);
             string folder = null;
-            if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey(tool.Id))
-                folder = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][tool.Id];
+            if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey(settingsKey))
+                folder = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][settingsKey];
 
             string command = FindExecutable(folder, tool);
             if (!string.IsNullOrWhiteSpace(command))
@@ -159,6 +160,11 @@ namespace Nexus.Client.Games.DataDriven
                 yield return Path.GetFileName(tool.ExecutablePath);
         }
 
+        private string GetToolSettingsKey(GameModeToolDefinition tool)
+        {
+            return string.IsNullOrWhiteSpace(tool.SettingsKey) ? tool.Id : tool.SettingsKey;
+        }
+
         private void ConfigTool(GameModeToolDefinition tool)
         {
             using (var dialog = new FolderBrowserDialog())
@@ -172,7 +178,7 @@ namespace Nexus.Client.Games.DataDriven
                     return;
 
                 EnsureToolSettings();
-                EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][tool.Id] = dialog.SelectedPath;
+                EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][GetToolSettingsKey(tool)] = dialog.SelectedPath;
                 EnvironmentInfo.Settings.Save();
                 OnChangedToolPath(EventArgs.Empty);
             }
@@ -199,3 +205,6 @@ namespace Nexus.Client.Games.DataDriven
         }
     }
 }
+
+
+

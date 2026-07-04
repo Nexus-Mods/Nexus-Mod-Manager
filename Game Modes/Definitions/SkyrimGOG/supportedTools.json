@@ -2,20 +2,122 @@
     "schemaVersion":  1,
     "supportedTools":  [
                            {
+                               "id":  "BOSS",
+                               "name":  "BOSS",
+                               "executableName":  "boss.exe",
+                               "discoveryRules":  [
+                                                      {
+                                                          "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\BOSS\\",
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
+                                                      },
+                                                      {
+                                                          "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\BOSS\\",
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
+                                                      }
+                                                  ]
+                           },
+                           {
                                "id":  "LOOT",
                                "name":  "LOOT",
                                "executableName":  "LOOT.exe",
-                               "arguments":  "",
+                               "arguments":  "--game=\"Skyrim Special Edition\"",
                                "discoveryRules":  [
                                                       {
-                                                          "source":  "Registry",
                                                           "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LOOT\\",
-                                                          "registryValueName":  "Installed Path"
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
                                                       },
                                                       {
-                                                          "source":  "Registry",
                                                           "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\LOOT\\",
-                                                          "registryValueName":  "Installed Path"
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "WryeBash",
+                               "name":  "Wrye Bash",
+                               "executableName":  "Wrye Bash.exe"
+                           },
+                           {
+                               "id":  "SSEEdit",
+                               "name":  "SSEEdit",
+                               "executableName":  "SSEEdit.exe"
+                           },
+                           {
+                               "id":  "SSEEditQuickAutoClean",
+                               "name":  "SSEEditQuickAutoClean",
+                               "settingsKey":  "SSEEdit",
+                               "executableName":  "SSEEditQuickAutoClean.exe"
+                           },
+                           {
+                               "id":  "FNIS",
+                               "name":  "FNIS",
+                               "executableName":  "GenerateFNISforUsers.exe",
+                               "discoveryRules":  [
+                                                      {
+                                                          "path":  "Data\\tools\\GenerateFNIS_for_Users",
+                                                          "source":  "GameRelative"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "Nemesis",
+                               "name":  "Nemesis",
+                               "executableName":  "Nemesis Unlimited Behavior Engine.exe",
+                               "discoveryRules":  [
+                                                      {
+                                                          "path":  "Data\\Nemesis_Engine",
+                                                          "source":  "GameRelative"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "Pandora",
+                               "name":  "Pandora",
+                               "executableName":  "Pandora Behaviour Engine+.exe",
+                               "discoveryRules":  [
+                                                      {
+                                                          "path":  "Data",
+                                                          "source":  "GameRelative"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "BS2",
+                               "name":  "BodySlide",
+                               "executableNames":  [
+                                                       "BodySlide x64.exe",
+                                                       "BodySlide.exe"
+                                                   ],
+                               "discoveryRules":  [
+                                                      {
+                                                          "path":  "Data\\CalienteTools\\BodySlide",
+                                                          "source":  "GameRelative"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "DSRP",
+                               "name":  "Dual Sheath Redux Patch",
+                               "executableName":  "Dual Sheath Redux Patch.jar",
+                               "discoveryRules":  [
+                                                      {
+                                                          "path":  "Data\\SkyProc Patchers\\Dual Sheath Redux Patch",
+                                                          "source":  "GameRelative"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "PM",
+                               "name":  "Patchus Maximus",
+                               "executableName":  "PatchusMaximus.jar",
+                               "discoveryRules":  [
+                                                      {
+                                                          "path":  "Data\\SkyProc Patchers\\T3nd0_PatchusMaximus",
+                                                          "source":  "GameRelative"
                                                       }
                                                   ]
                            }

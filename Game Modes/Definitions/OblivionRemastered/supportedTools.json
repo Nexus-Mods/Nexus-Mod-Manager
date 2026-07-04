@@ -5,17 +5,17 @@
                                "id":  "LOOT",
                                "name":  "LOOT",
                                "executableName":  "LOOT.exe",
-                               "arguments":  "",
+                               "arguments":  "--game=OblivionRemastered",
                                "discoveryRules":  [
                                                       {
-                                                          "source":  "Registry",
                                                           "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LOOT\\",
-                                                          "registryValueName":  "Installed Path"
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
                                                       },
                                                       {
-                                                          "source":  "Registry",
                                                           "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\LOOT\\",
-                                                          "registryValueName":  "Installed Path"
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
                                                       }
                                                   ]
                            }
