@@ -99,5 +99,6 @@ namespace Nexus.Client.Games.DataDriven
         public string PathAdjustmentProfile { get; set; }
         public string[] HardlinkRequiredExtensions { get; set; }
         public string[] RealFileRequiredExtensions { get; set; }
+        public bool SupportsGameRootInstall { get; set; }
     }
 }

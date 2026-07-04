@@ -57,6 +57,11 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, bool p_booOverrideUpgrade)
 		{
+			return Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_booOverrideUpgrade, ModInstallRoot.Default);
+		}
+
+		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, bool p_booOverrideUpgrade, ModInstallRoot p_mirInstallRoot)
+		{
 			ModMatcher mmcMatcher = new ModMatcher(InstallationLog.ActiveMods, true);
 			IMod modOldVersion = mmcMatcher.FindAlternateVersion(p_modMod, true);
 			ConfirmUpgradeResult curAction = ConfirmUpgradeResult.NormalActivation;
@@ -70,7 +75,7 @@ namespace Nexus.Client.ModManagement
 					ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(modOldVersion, p_modMod, p_dlgOverwriteConfirmationDelegate);
 					return muiUpgrader;
 				case ConfirmUpgradeResult.NormalActivation:
-					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
+					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_mirInstallRoot);
 					return minInstaller;
 				case ConfirmUpgradeResult.Cancel:
 					return null;

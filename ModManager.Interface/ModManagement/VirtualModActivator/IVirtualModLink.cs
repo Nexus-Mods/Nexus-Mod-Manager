@@ -11,6 +11,7 @@ namespace Nexus.Client.ModManagement
 		int Priority { get; set; }
 		bool Active { get; set; }
 		IVirtualModInfo ModInfo { get; set; }
+		ModInstallRoot InstallRoot { get; set; }
 
 		#endregion
 	}

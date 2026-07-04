@@ -74,6 +74,7 @@ namespace Nexus.Client.Games.DataDriven
         public override bool UsesPlugins => _definition.Plugin != null && _definition.Plugin.UsesPlugins;
         public override bool SupportsPluginAutoSorting => _definition.Plugin != null && _definition.Plugin.SupportsPluginAutoSorting;
         public override int MaxAllowedActivePluginsCount => _definition.Plugin?.MaxAllowedActivePluginsCount ?? 0;
+        public override bool SupportsGameRootModInstall => _definition.ModInstall != null && _definition.ModInstall.SupportsGameRootInstall;
 
         public override string GameDefaultCategories => _categories ?? (_categories = ReadResourceText(_definition.Resources?.CategoriesPath));
         public override string BaseGameFiles => _baseFiles ?? (_baseFiles = ReadResourceText(_definition.Resources?.BaseFilesPath));

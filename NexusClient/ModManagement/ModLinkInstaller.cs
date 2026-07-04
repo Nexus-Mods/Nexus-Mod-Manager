@@ -44,7 +44,12 @@
         /// <inheritdoc />
 		public string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching, bool handlePlugin)
 		{
-            var booLink = (TestOverwriteFileLink(mod, baseFilePath, out var priority, out var fileLinks));
+			return AddFileLink(mod, baseFilePath, sourceFile, isSwitching, handlePlugin, ModInstallRoot.Default);
+		}
+
+		public string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching, bool handlePlugin, ModInstallRoot installRoot)
+		{
+            var booLink = (TestOverwriteFileLink(mod, baseFilePath, installRoot, out var priority, out var fileLinks));
 
 			if (booLink != null)
             {
@@ -56,18 +61,18 @@
 						isSwitching = false;
 					}
 
-					return VirtualModActivator.AddFileLink(mod, baseFilePath, sourceFile, isSwitching, false, handlePlugin, 0);
+					return VirtualModActivator.AddFileLink(mod, baseFilePath, sourceFile, isSwitching, false, handlePlugin, 0, installRoot);
 				}
 
-                VirtualModActivator.AddInactiveLink(mod, baseFilePath, ++priority);
+                VirtualModActivator.AddInactiveLink(mod, baseFilePath, ++priority, installRoot);
             }
 
 			return string.Empty;
 		}
 
-		private bool? TestOverwriteFileLink(IMod mod, string baseFilePath, out int priority, out List<IVirtualModLink> modLinks)
+		private bool? TestOverwriteFileLink(IMod mod, string baseFilePath, ModInstallRoot installRoot, out int priority, out List<IVirtualModLink> modLinks)
 		{
-            var fileLinkPriority = VirtualModActivator.CheckFileLink(baseFilePath, out var modCheck, out modLinks);
+            var fileLinkPriority = VirtualModActivator.CheckFileLink(baseFilePath, installRoot, out var modCheck, out modLinks);
 			priority = fileLinkPriority;
 			var loweredPath = baseFilePath.ToLowerInvariant();
 

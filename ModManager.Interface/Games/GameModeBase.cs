@@ -657,6 +657,17 @@ namespace Nexus.Client.Games
 			}
 		}
 
+		/// <summary>
+		/// Whether mods can be explicitly installed relative to the game executable folder.
+		/// </summary>
+		public virtual bool SupportsGameRootModInstall
+		{
+			get
+			{
+				return false;
+			}
+		}
+
 		#endregion
 
 		#region Constructors

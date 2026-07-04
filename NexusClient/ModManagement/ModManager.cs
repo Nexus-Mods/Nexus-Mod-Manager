@@ -467,6 +467,14 @@
 			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, false);
 		}
 
+		public IBackgroundTaskSet ActivateModInGameRoot(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		{
+			if (InstallationLog.ActiveMods.Contains(p_modMod))
+				return null;
+			DeleteXMLInstalledFile(p_modMod);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, false, ModInstallRoot.GameRoot);
+		}
+
 		/// <summary>
 		/// Reinstalls the given mod.
 		/// </summary>

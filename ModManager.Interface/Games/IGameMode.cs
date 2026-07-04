@@ -150,6 +150,11 @@ namespace Nexus.Client.Games
         /// </summary>
         bool RequiresModSorting { get; }
 
+		/// <summary>
+		/// Whether mods can be explicitly installed relative to the game executable folder.
+		/// </summary>
+		bool SupportsGameRootModInstall { get; }
+
 		#endregion
 
 		#region Plugin Management

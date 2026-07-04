@@ -150,6 +150,7 @@
     <Compile Include="ModManagement\BasicInstallTask.cs" />
     <Compile Include="ModManagement\CategoryManager\ICategoryManager.cs" />
     <Compile Include="ModManagement\ConfirmUpgradeResult.cs" />
+    <Compile Include="ModManagement\ModInstallRoot.cs" />
     <Compile Include="ModManagement\IGameSpecificValueInstaller.cs" />
     <Compile Include="ModManagement\IIniInstaller.cs" />
     <Compile Include="ModManagement\IModFileInstaller.cs" />
