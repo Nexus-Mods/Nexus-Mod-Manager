@@ -147,12 +147,12 @@ namespace Nexus.Client.ModManagement
 
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, Mod, false);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, Mod, ModPathContext.GameInstall);
 				if (string.IsNullOrEmpty(strFixedPath))
 					continue;
 
-				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
-				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, ModPathContext.VirtualStorage));
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, ModPathContext.VirtualStorage));
 				string strVirtualPath = strModFilenamePath;
 
 				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
@@ -161,8 +161,8 @@ namespace Nexus.Client.ModManagement
 				string strLinkPath = string.Empty;
 				if (VirtualModActivator.MultiHDMode)
 				{
-					string strModFilenameLink = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
-					string strModDownloadIDLink = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+					string strModFilenameLink = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, ModPathContext.VirtualStorage));
+					string strModDownloadIDLink = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, ModPathContext.VirtualStorage));
 					 strLinkPath = strModFilenameLink;
 
 					if (!string.IsNullOrWhiteSpace(strModDownloadIDLink))

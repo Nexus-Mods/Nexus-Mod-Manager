@@ -781,6 +781,18 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Adjusts the given path for the requested path context.
+		/// </summary>
+		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <param name="p_mpcContext">The path context to target.</param>
+		/// <returns>The given path, adjusted for the requested path context.</returns>
+		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, ModPathContext p_mpcContext)
+		{
+			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath, IsVirtualStorageContext(p_mpcContext));
+		}
+
+		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.
 		/// </summary>
 		/// <remarks>
@@ -798,6 +810,29 @@ namespace Nexus.Client.Games
 		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
 		{
 			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_booIgnoreIfPresent);
+		}
+
+		/// <summary>
+		/// Adjusts the given path for the requested path context.
+		/// </summary>
+		/// <param name="p_mftModFormat">The mod format for which to adjust the path.</param>
+		/// <param name="p_strPath">The path to adjust.</param>
+		/// <param name="p_modMod">The mod.</param>
+		/// <param name="p_mpcContext">The path context to target.</param>
+		/// <returns>The given path, adjusted for the requested path context.</returns>
+		public virtual string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, ModPathContext p_mpcContext)
+		{
+			return GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_modMod, IsVirtualStorageContext(p_mpcContext));
+		}
+
+		/// <summary>
+		/// Maps named path contexts back to the legacy boolean path adjustment switch.
+		/// </summary>
+		/// <param name="p_mpcContext">The path context to map.</param>
+		/// <returns><c>true</c> if the context uses virtual storage path rules.</returns>
+		protected static bool IsVirtualStorageContext(ModPathContext p_mpcContext)
+		{
+			return p_mpcContext == ModPathContext.VirtualStorage;
 		}
 
 		/// <summary>

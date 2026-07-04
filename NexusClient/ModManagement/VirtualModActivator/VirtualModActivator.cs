@@ -1265,17 +1265,17 @@
 			string strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 			if (!File.Exists(strActivatorFilePath))
 			{
-				strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
+				strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, ModPathContext.GameInstall));
 				strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 				if (!File.Exists(strActivatorFilePath))
 				{
-					strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true));
+					strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, ModPathContext.VirtualStorage));
 					strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 					if (File.Exists(strActivatorFilePath))
 						strRealFilePath = strCheckPath;
 					else
 					{
-						strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, true));
+						strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, ModPathContext.VirtualStorage));
 						strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 						if (File.Exists(strActivatorFilePath))
 							strRealFilePath = strCheckPath;
@@ -1295,17 +1295,17 @@
 				strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 				if (!File.Exists(strActivatorFilePath))
 				{
-					strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.DownloadId), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, false));
+					strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.DownloadId), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, ModPathContext.GameInstall));
 					strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 					if (!File.Exists(strActivatorFilePath))
 					{
-						strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.DownloadId), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true));
+						strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.DownloadId), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, ModPathContext.VirtualStorage));
 						strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 						if (File.Exists(strActivatorFilePath))
 							strRealFilePath = strCheckPath;
 						else
 						{
-							strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.DownloadId), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, true));
+							strCheckPath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.DownloadId), GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, ModPathContext.VirtualStorage));
 							strActivatorFilePath = Path.Combine(p_strRootPath, strCheckPath);
 							if (File.Exists(strActivatorFilePath))
 								strRealFilePath = strCheckPath;
@@ -1332,7 +1332,7 @@
 			string strRealFilePath = GetRealFilePath(p_modMod, p_strBaseFilePath, m_strVirtualActivatorPath);
 			string strRealLinkFilePath = (MultiHDMode && !string.IsNullOrEmpty(HDLinkFolder)) ? GetRealFilePath(p_modMod, p_strBaseFilePath, HDLinkFolder) : string.Empty;
 
-			string strAdjustedFilePath = GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true);
+			string strAdjustedFilePath = GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, ModPathContext.VirtualStorage);
 
 			if (string.IsNullOrEmpty(strAdjustedFilePath))
 				return string.Empty;
@@ -1500,7 +1500,7 @@
 				int intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, intCurrentPriority, out modCheck, out lstOverwrites);
 				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
 				if ((!File.Exists(strLinkPath)) && (p_modMod != null))
-					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
+					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, ModPathContext.VirtualStorage));
 
 				if (GameMode.HasSecondaryInstallPath)
 					if (GameMode.CheckSecondaryUninstall(strLinkPath))
@@ -1522,7 +1522,7 @@
 				string strStop = m_strGameDataPath;
 				if ((p_modMod != null) && GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod, strLinkPath))
 				{
-					strPath = Path.Combine(GameMode.SecondaryInstallationPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
+					strPath = Path.Combine(GameMode.SecondaryInstallationPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, ModPathContext.VirtualStorage));
 					strStop = GameMode.SecondaryInstallationPath;
 				}
 				else

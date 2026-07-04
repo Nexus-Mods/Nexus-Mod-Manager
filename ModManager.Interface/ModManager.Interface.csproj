@@ -97,6 +97,7 @@
     <Compile Include="Games\ISetupVM.cs" />
     <Compile Include="Games\IGameModeDescriptor.cs" />
     <Compile Include="Games\IGameModeFactory.cs" />
+    <Compile Include="Games\ModPathContext.cs" />
     <Compile Include="Games\FileSet.cs" />
     <Compile Include="Games\GameLaunchEventArgs.cs" />
     <Compile Include="Games\GameModeBase.cs" />
