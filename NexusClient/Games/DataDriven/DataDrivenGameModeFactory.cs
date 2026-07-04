@@ -1,10 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Windows.Forms;
-using Microsoft.Win32;
 using Nexus.Client.Games.Settings;
-using Nexus.Client.Games.Steam;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 
@@ -27,28 +25,66 @@ namespace Nexus.Client.Games.DataDriven
 
         public string GetInstallationPath()
         {
-            string path = null;
-            var discovery = _definition.Discovery;
-            if (discovery != null && !string.IsNullOrWhiteSpace(discovery.SteamAppId))
-                path = SteamInstallationPathDetector.Instance.GetSteamInstallationPath(discovery.SteamAppId, discovery.SteamInstallFolderName, discovery.SteamExecutableName);
+            return GameStoreInstallationPathDetector.Instance.GetInstallationPath(BuildStoreDiscovery(_definition.Discovery));
+        }
 
-            if (string.IsNullOrWhiteSpace(path) && discovery != null && !string.IsNullOrWhiteSpace(discovery.GogRegistryKey))
+        private static IEnumerable<GameStoreInstallInfo> BuildStoreDiscovery(GameModeDiscoveryDefinition discovery)
+        {
+            if (discovery == null)
+                yield break;
+
+            if (discovery.Stores != null)
             {
-                try
+                foreach (GameModeStoreDiscoveryDefinition store in discovery.Stores)
                 {
-                    string valueName = string.IsNullOrWhiteSpace(discovery.GogPathValueName) ? "PATH" : discovery.GogPathValueName;
-                    string gogPath = Registry.GetValue(discovery.GogRegistryKey, valueName, null)?.ToString();
-                    if (!string.IsNullOrWhiteSpace(gogPath) && Directory.Exists(gogPath))
-                        path = gogPath;
-                }
-                catch
-                {
+                    GameStoreInstallInfo info = CreateStoreInfo(store);
+                    if (info != null)
+                        yield return info;
                 }
             }
 
-            return path;
+            if (!string.IsNullOrWhiteSpace(discovery.SteamAppId))
+            {
+                yield return new GameStoreInstallInfo
+                {
+                    Store = GameStore.Steam,
+                    Id = discovery.SteamAppId,
+                    InstallFolderName = discovery.SteamInstallFolderName,
+                    ExecutableName = discovery.SteamExecutableName
+                };
+            }
+
+            if (!string.IsNullOrWhiteSpace(discovery.GogRegistryKey))
+            {
+                yield return new GameStoreInstallInfo
+                {
+                    Store = GameStore.Gog,
+                    RegistryKey = discovery.GogRegistryKey,
+                    RegistryValueName = discovery.GogPathValueName
+                };
+            }
         }
 
+        private static GameStoreInstallInfo CreateStoreInfo(GameModeStoreDiscoveryDefinition store)
+        {
+            if (store == null || string.IsNullOrWhiteSpace(store.Store))
+                return null;
+
+            GameStore parsedStore;
+            if (!Enum.TryParse(store.Store, true, out parsedStore))
+                return null;
+
+            return new GameStoreInstallInfo
+            {
+                Store = parsedStore,
+                Id = store.Id,
+                InstallFolderName = store.InstallFolderName,
+                ExecutableName = store.ExecutableName,
+                RegistryKey = store.RegistryKey,
+                RegistryValueName = store.RegistryValueName,
+                PathSuffix = store.PathSuffix
+            };
+        }
         public string GetInstallationPath(string p_strGameInstallPath)
         {
             return p_strGameInstallPath;

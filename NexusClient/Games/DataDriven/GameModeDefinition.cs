@@ -42,6 +42,18 @@ namespace Nexus.Client.Games.DataDriven
         public string SteamExecutableName { get; set; }
         public string GogRegistryKey { get; set; }
         public string GogPathValueName { get; set; }
+        public List<GameModeStoreDiscoveryDefinition> Stores { get; set; } = new List<GameModeStoreDiscoveryDefinition>();
+    }
+
+    public class GameModeStoreDiscoveryDefinition
+    {
+        public string Store { get; set; }
+        public string Id { get; set; }
+        public string InstallFolderName { get; set; }
+        public string ExecutableName { get; set; }
+        public string RegistryKey { get; set; }
+        public string RegistryValueName { get; set; }
+        public string PathSuffix { get; set; }
     }
 
     public class GameModePluginDefinition

@@ -94,6 +94,9 @@
     <Compile Include="CategoriesInfo.cs" />
     <Compile Include="Games\GameLauncherBase.cs" />
     <Compile Include="Games\GameModeDescriptorBase.cs" />
+    <Compile Include="Games\GameStore.cs" />
+    <Compile Include="Games\GameStoreInstallInfo.cs" />
+    <Compile Include="Games\GameStoreInstallationPathDetector.cs" />
     <Compile Include="Games\ISetupVM.cs" />
     <Compile Include="Games\IGameModeDescriptor.cs" />
     <Compile Include="Games\IGameModeFactory.cs" />
