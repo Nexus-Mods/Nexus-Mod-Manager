@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "modeId":  "Fallout3",
     "name":  "Fallout 3",
@@ -53,16 +53,6 @@
     "supportedFormats":  [
                              "fomod"
                          ],
-    "supportedTools":  [
-                           {
-                               "id":  "LOOT",
-                               "name":  "LOOT",
-                               "executablePath":  "LOOT.exe",
-                               "arguments":  [
-
-                                             ]
-                           }
-                       ],
     "discovery":  {
                       "stores":  [
                                      {

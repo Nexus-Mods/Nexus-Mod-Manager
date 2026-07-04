@@ -9,6 +9,9 @@ namespace Nexus.Client.Games.DataDriven
 {
     public class GameModeDefinitionLoader
     {
+        private const string DefinitionFileName = "game.json";
+        private const string SupportedToolsFileName = "supportedTools.json";
+
         private readonly GameModeDefinitionValidator _validator = new GameModeDefinitionValidator();
 
         public GameModeDefinitionLoadResult LoadFromDirectory(string definitionsDirectory)
@@ -18,7 +21,7 @@ namespace Nexus.Client.Games.DataDriven
                 return result;
 
             var definitionsById = new Dictionary<string, GameModeDefinition>(StringComparer.OrdinalIgnoreCase);
-            foreach (string filePath in Directory.EnumerateFiles(definitionsDirectory, "*.json", SearchOption.AllDirectories))
+            foreach (string filePath in Directory.EnumerateFiles(definitionsDirectory, DefinitionFileName, SearchOption.AllDirectories))
             {
                 GameModeDefinition definition = null;
                 try
@@ -28,6 +31,7 @@ namespace Nexus.Client.Games.DataDriven
                     {
                         definition.DefinitionPath = filePath;
                         definition.DefinitionDirectory = Path.GetDirectoryName(filePath);
+                        LoadSupportedTools(definition, result);
                     }
                 }
                 catch (Exception ex)
@@ -62,6 +66,30 @@ namespace Nexus.Client.Games.DataDriven
                 Trace.WriteLine("GameMode definition " + issue);
 
             return result;
+        }
+
+        private void LoadSupportedTools(GameModeDefinition definition, GameModeDefinitionLoadResult result)
+        {
+            string toolsPath = Path.Combine(definition.DefinitionDirectory ?? string.Empty, SupportedToolsFileName);
+            if (!File.Exists(toolsPath))
+                return;
+
+            try
+            {
+                var toolsDefinition = JsonConvert.DeserializeObject<GameModeSupportedToolsDefinition>(File.ReadAllText(toolsPath));
+                if (toolsDefinition?.SupportedTools != null)
+                    definition.SupportedTools = toolsDefinition.SupportedTools;
+            }
+            catch (Exception ex)
+            {
+                result.AddIssue(new GameModeDefinitionIssue
+                {
+                    FilePath = toolsPath,
+                    GameModeId = definition.ModeId,
+                    Severity = GameModeDefinitionIssueSeverity.Error,
+                    Message = "Could not load supported tools: " + ex.Message
+                });
+            }
         }
     }
 }

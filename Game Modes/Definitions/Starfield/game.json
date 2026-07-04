@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "modeId":  "Starfield",
     "name":  "Starfield",
@@ -59,16 +59,6 @@
     "supportedFormats":  [
                              "fomod"
                          ],
-    "supportedTools":  [
-                           {
-                               "id":  "LOOT",
-                               "name":  "LOOT",
-                               "executablePath":  "LOOT.exe",
-                               "arguments":  [
-
-                                             ]
-                           }
-                       ],
     "discovery":  {
                       "stores":  [
                                      {

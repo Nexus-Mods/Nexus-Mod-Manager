@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "modeId":  "Skyrim",
     "name":  "Skyrim",
@@ -54,16 +54,6 @@
     "supportedFormats":  [
                              "fomod"
                          ],
-    "supportedTools":  [
-                           {
-                               "id":  "LOOT",
-                               "name":  "LOOT",
-                               "executablePath":  "LOOT.exe",
-                               "arguments":  [
-
-                                             ]
-                           }
-                       ],
     "discovery":  {
                       "stores":  [
                                      {

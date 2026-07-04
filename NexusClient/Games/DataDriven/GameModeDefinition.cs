@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -105,9 +105,26 @@ namespace Nexus.Client.Games.DataDriven
         public string Id { get; set; }
         public string Name { get; set; }
         public string ExecutablePath { get; set; }
+        public string ExecutableName { get; set; }
+        public string[] ExecutableNames { get; set; }
         public string Arguments { get; set; }
+        public List<GameModeToolDiscoveryRuleDefinition> DiscoveryRules { get; set; } = new List<GameModeToolDiscoveryRuleDefinition>();
     }
 
+    public class GameModeSupportedToolsDefinition
+    {
+        public int SchemaVersion { get; set; }
+        public List<GameModeToolDefinition> SupportedTools { get; set; } = new List<GameModeToolDefinition>();
+    }
+
+    public class GameModeToolDiscoveryRuleDefinition
+    {
+        public string Source { get; set; }
+        public string Path { get; set; }
+        public string RegistryKey { get; set; }
+        public string RegistryValueName { get; set; }
+        public string PathSuffix { get; set; }
+    }
     public class GameModeGamebryoDefinition
     {
         public string[] ScriptExtenderExecutables { get; set; }
@@ -127,3 +144,4 @@ namespace Nexus.Client.Games.DataDriven
         public bool SupportsGameRootInstall { get; set; }
     }
 }
+

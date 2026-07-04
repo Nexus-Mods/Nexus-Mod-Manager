@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "modeId":  "SkyrimGOG",
     "name":  "Skyrim Special Edition GOG",
@@ -52,16 +52,6 @@
     "supportedFormats":  [
                              "fomod"
                          ],
-    "supportedTools":  [
-                           {
-                               "id":  "LOOT",
-                               "name":  "LOOT",
-                               "executablePath":  "LOOT.exe",
-                               "arguments":  [
-
-                                             ]
-                           }
-                       ],
     "discovery":  {
                       "stores":  [
                                      {

@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "modeId":  "OblivionRemastered",
     "name":  "Oblivion Remastered",
@@ -60,16 +60,6 @@
     "supportedFormats":  [
                              "fomod"
                          ],
-    "supportedTools":  [
-                           {
-                               "id":  "LOOT",
-                               "name":  "LOOT",
-                               "executablePath":  "LOOT.exe",
-                               "arguments":  [
-
-                                             ]
-                           }
-                       ],
     "discovery":  {
                       "stores":  [
                                      {

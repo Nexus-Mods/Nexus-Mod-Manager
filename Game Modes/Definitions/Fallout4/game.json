@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "modeId":  "Fallout4",
     "name":  "Fallout 4",
@@ -56,16 +56,6 @@
                                                 "DLCNukaWorld.esm"
                                             ],
     "supportedFormats":  "Data",
-    "supportedTools":  [
-                           {
-                               "id":  "LOOT",
-                               "name":  "LOOT",
-                               "executablePath":  "LOOT.exe",
-                               "arguments":  [
-
-                                             ]
-                           }
-                       ],
     "discovery":  {
                       "stores":  [
                                      {
