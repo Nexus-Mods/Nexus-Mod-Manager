@@ -5,6 +5,7 @@ namespace Nexus.Client.Games
 		Steam,
 		Gog,
 		Epic,
+		Xbox,
 		Registry
 	}
 }

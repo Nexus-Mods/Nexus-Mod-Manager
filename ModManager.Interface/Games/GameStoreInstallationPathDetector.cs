@@ -46,6 +46,8 @@ namespace Nexus.Client.Games
 					return DetectGog(p_gsiStore);
 				case GameStore.Epic:
 					return DetectEpic(p_gsiStore);
+				case GameStore.Xbox:
+					return DetectXbox(p_gsiStore);
 				case GameStore.Registry:
 					return DetectRegistry(p_gsiStore);
 				default:
@@ -125,6 +127,139 @@ namespace Nexus.Client.Games
 			return null;
 		}
 
+		private string DetectXbox(GameStoreInstallInfo p_gsiStore)
+		{
+			if (!string.IsNullOrWhiteSpace(p_gsiStore.RegistryKey))
+			{
+				string valueName = string.IsNullOrWhiteSpace(p_gsiStore.RegistryValueName) ? "InstallLocation" : p_gsiStore.RegistryValueName;
+				string path = ValidatePath(ReadRegistryPath(p_gsiStore.RegistryKey, valueName), p_gsiStore);
+				if (!string.IsNullOrWhiteSpace(path))
+					return path;
+			}
+
+			foreach (string root in GetXboxInstallRoots())
+			{
+				string path = FindXboxPath(root, p_gsiStore);
+				if (!string.IsNullOrWhiteSpace(path))
+					return path;
+			}
+
+			return null;
+		}
+
+		private static IEnumerable<string> GetXboxInstallRoots()
+		{
+			HashSet<string> roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			AddXboxRoot(roots, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ModifiableWindowsApps"));
+
+			foreach (DriveInfo drive in DriveInfo.GetDrives())
+			{
+				if (!drive.IsReady)
+					continue;
+
+				AddXboxRoot(roots, Path.Combine(drive.RootDirectory.FullName, "XboxGames"));
+				AddXboxRoot(roots, Path.Combine(drive.RootDirectory.FullName, "ModifiableWindowsApps"));
+			}
+
+			return roots;
+		}
+
+		private static void AddXboxRoot(ISet<string> p_setRoots, string p_strPath)
+		{
+			try
+			{
+				if (!string.IsNullOrWhiteSpace(p_strPath) && Directory.Exists(p_strPath))
+					p_setRoots.Add(p_strPath);
+			}
+			catch
+			{
+			}
+		}
+
+		private static string FindXboxPath(string p_strRoot, GameStoreInstallInfo p_gsiStore)
+		{
+			foreach (string path in GetXboxCandidatePaths(p_strRoot, p_gsiStore))
+			{
+				string validPath = ValidatePath(path, p_gsiStore);
+				if (!string.IsNullOrWhiteSpace(validPath))
+					return validPath;
+			}
+
+			return null;
+		}
+
+		private static IEnumerable<string> GetXboxCandidatePaths(string p_strRoot, GameStoreInstallInfo p_gsiStore)
+		{
+			if (!string.IsNullOrWhiteSpace(p_gsiStore.InstallFolderName))
+			{
+				string path = Path.Combine(p_strRoot, p_gsiStore.InstallFolderName);
+				yield return path;
+				yield return Path.Combine(path, "Content");
+			}
+
+			if (!string.IsNullOrWhiteSpace(p_gsiStore.Id))
+			{
+				string path = Path.Combine(p_strRoot, p_gsiStore.Id);
+				yield return path;
+				yield return Path.Combine(path, "Content");
+			}
+
+			foreach (string directory in SafeEnumerateDirectories(p_strRoot))
+			{
+				if (MatchesXboxDirectory(directory, p_gsiStore))
+					yield return directory;
+
+				string contentPath = Path.Combine(directory, "Content");
+				if (MatchesXboxDirectory(contentPath, p_gsiStore))
+					yield return contentPath;
+			}
+		}
+
+		private static IEnumerable<string> SafeEnumerateDirectories(string p_strPath)
+		{
+			try
+			{
+				return Directory.GetDirectories(p_strPath);
+			}
+			catch
+			{
+				return Enumerable.Empty<string>();
+			}
+		}
+
+		private static bool MatchesXboxDirectory(string p_strPath, GameStoreInstallInfo p_gsiStore)
+		{
+			if (!Directory.Exists(p_strPath))
+				return false;
+
+			if (!string.IsNullOrWhiteSpace(p_gsiStore.InstallFolderName) &&
+				string.Equals(Path.GetFileName(p_strPath), p_gsiStore.InstallFolderName, StringComparison.OrdinalIgnoreCase))
+				return true;
+
+			if (string.IsNullOrWhiteSpace(p_gsiStore.Id))
+				return true;
+
+			if (string.Equals(Path.GetFileName(p_strPath), p_gsiStore.Id, StringComparison.OrdinalIgnoreCase))
+				return true;
+
+			string manifest = Path.Combine(p_strPath, "MicrosoftGame.config");
+			return FileContains(manifest, p_gsiStore.Id);
+		}
+
+		private static bool FileContains(string p_strPath, string p_strValue)
+		{
+			if (string.IsNullOrWhiteSpace(p_strPath) || string.IsNullOrWhiteSpace(p_strValue))
+				return false;
+
+			try
+			{
+				return File.Exists(p_strPath) && File.ReadAllText(p_strPath).IndexOf(p_strValue, StringComparison.OrdinalIgnoreCase) >= 0;
+			}
+			catch
+			{
+				return false;
+			}
+		}
 		private static bool MatchesEpicManifest(string p_strManifest, GameStoreInstallInfo p_gsiStore)
 		{
 			if (!string.IsNullOrWhiteSpace(p_gsiStore.Id))
