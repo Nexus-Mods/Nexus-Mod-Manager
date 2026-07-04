@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Default" ID="99">
+      <name>Default</name>
+    </category>
+    <category path="Animation" ID="56">
+      <name>Animation</name>
+    </category>
+    <category path="Armor" ID="69">
+      <name>Armor</name>
+    </category>
+    <category path="Buildings" ID="72">
+      <name>Buildings</name>
+    </category>
+    <category path="Cheats and God Items" ID="58">
+      <name>Cheats and God Items</name>
+    </category>
+    <category path="Clothing" ID="67">
+      <name>Clothing</name>
+    </category>
+    <category path="Companions" ID="73">
+      <name>Companions</name>
+    </category>
+    <category path="Gameplay Effects and Changes" ID="71">
+      <name>Gameplay Effects and Changes</name>
+    </category>
+    <category path="Guilds and Factions" ID="74">
+      <name>Guilds and Factions</name>
+    </category>
+    <category path="Hair and Face Models" ID="62">
+      <name>Hair and Face Models</name>
+    </category>
+	<category path="Millionth Member Competition" ID="79">
+      <name>Millionth Member Competition</name>
+    </category>
+    <category path="Miscellaneous" ID="64">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Models and Textures" ID="66">
+      <name>Models and Textures</name>
+    </category>
+    <category path="New Lands" ID="75">
+      <name>New Lands</name>
+    </category>
+    <category path="NPC" ID="76">
+      <name>NPC</name>
+    </category>
+    <category path="Official" ID="78">
+      <name>Official</name>
+    </category>
+    <category path="Poses" ID="90">
+      <name>Poses</name>
+    </category>
+    <category path="Quests and Adventures" ID="77">
+      <name>Quests and Adventures</name>
+    </category>
+    <category path="Radio stations" ID="88">
+      <name>Radio stations</name>
+    </category>
+    <category path="Saved Games and Characters" ID="61">
+      <name>Saved Games and Characters</name>
+    </category>
+    <category path="Sounds and Music" ID="70">
+      <name>Sounds and Music</name>
+    </category>
+    <category path="User Interfaces" ID="63">
+      <name>User Interafaces</name>
+    </category>
+    <category path="Utilities" ID="59">
+      <name>Utilities</name>
+    </category>
+    <category path="Videos and Trailers" ID="60">
+      <name>Landscape changes</name>
+    </category>
+    <category path="Weapons" ID="68">
+      <name>Weapons</name>
+    </category>
+    <category path="Requires - Broken Steel DLC" ID="84">
+      <name>Requires - Broken Steel DLC</name>
+    </category>
+    <category path="Requires - FOMM" ID="82">
+      <name>Requires - FOMM</name>
+    </category>
+    <category path="Requires - FOSE" ID="81">
+      <name>Requires - FOSE</name>
+    </category>
+    <category path="Requires - Mothership Zeta DLC" ID="87">
+      <name>Requires - Mothership Zeta DLC</name>
+    </category>
+    <category path="Requires - Operation Anchorage DLC" ID="83">
+      <name>Requires - Operation Anchorage DLC</name>
+    </category>
+    <category path="Requires - Point Lookout DLC" ID="86">
+      <name>Requires - Point Lookout DLC</name>
+    </category>
+    <category path="Requires - The Pitt DLC" ID="85">
+      <name>Requires - The Pitt DLC</name>
+    </category>
+    <category path="BABE Bodybase" ID="95">
+      <name>BABE Bodybase</name>
+    </category>
+    <category path="Breeze Bodybase" ID="94">
+      <name>Breeze Bodybase</name>
+    </category>
+    <category path="Cute Bodybase" ID="96">
+      <name>Cute Bodybase</name>
+    </category>
+    <category path="Exnem Female Bodybase" ID="98">
+      <name>Exnem Female Bodybase</name>
+    </category>
+    <category path="Robert Male Bodybase" ID="97">
+      <name>Robert Male Bodybase</name>
+    </category>
+    <category path="Type3-5 Bodybase" ID="92">
+      <name>Type3-5 Bodybase</name>
+    </category>
+  </categoryList>
+</categoryManager>

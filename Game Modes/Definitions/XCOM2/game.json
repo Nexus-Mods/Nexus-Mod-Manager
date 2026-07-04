@@ -1,0 +1,59 @@
+﻿{
+    "schemaVersion":  1,
+    "modeId":  "XCOM2",
+    "name":  "XCOM 2",
+    "behaviorProfile":  "generic",
+    "installerProfile":  "default",
+    "legacyFallback":  false,
+    "gameExecutables":  [
+                            "Binaries\\Win64\\XCOM2.exe"
+                        ],
+    "stopFolders":  [
+                        "Mods"
+                    ],
+    "supportedFormats":  [
+                             "fomod"
+                         ],
+    "discovery":  {
+                      "stores":  [
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "268500",
+                                         "installFolderName":  "XCOM 2",
+                                         "executableName":  "Binaries\\Win64\\XCOM2.exe"
+                                     }
+                                 ]
+                  },
+    "plugin":  {
+                   "usesPlugins":  false,
+                   "pluginDirectorySuffix":  ""
+               },
+    "launcher":  {
+                     "defaultExecutable":  "Binaries\\Win64\\XCOM2.exe",
+                     "plainCommandName":  "PlainLaunch",
+                     "plainCommandText":  "Launch XCOM 2",
+                     "customCommandName":  "CustomLaunch",
+                     "customCommandText":  "Launch Custom XCOM 2",
+                     "defaultCommandText":  "Launch XCOM 2",
+                     "allowCustomCommand":  true
+                 },
+    "resources":  {
+                      "iconPath":  "XCOM2_logo.ico",
+                      "categoriesPath":  "Categories.xml"
+                  },
+    "theme":  {
+                  "primaryColor":  "#502D17"
+              },
+    "setup":  {
+                  "useGenericSetup":  true
+              },
+    "settings":  {
+                     "useGenericSettings":  true,
+                     "allowCustomLaunchCommand":  true
+                 },
+    "modInstall":  {
+                       "pathAdjustmentProfile":  "none",
+                       "managedInstallationPath":  "{GamePath}\\XComGame\\Mods",
+                       "pluginDirectoryPath":  "{GamePath}\\XComGame\\Mods"
+                   }
+}

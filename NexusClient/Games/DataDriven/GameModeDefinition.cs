@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -30,6 +30,7 @@ namespace Nexus.Client.Games.DataDriven
         public GameModeSetupDefinition Setup { get; set; }
         public GameModeSettingsDefinition Settings { get; set; }
         public GameModeModInstallDefinition ModInstall { get; set; }
+        public GameModeGamebryoDefinition Gamebryo { get; set; }
         public List<string> CompatibilityNotes { get; set; } = new List<string>();
         public string DefinitionPath { get; set; }
         public string DefinitionDirectory { get; set; }
@@ -62,6 +63,7 @@ namespace Nexus.Client.Games.DataDriven
         public string PluginDirectorySuffix { get; set; }
         public bool SupportsPluginAutoSorting { get; set; }
         public int MaxAllowedActivePluginsCount { get; set; }
+        public string[] OfficialUnmanagedPluginListFiles { get; set; }
     }
 
     public class GameModeLauncherDefinition
@@ -106,9 +108,20 @@ namespace Nexus.Client.Games.DataDriven
         public string Arguments { get; set; }
     }
 
+    public class GameModeGamebryoDefinition
+    {
+        public string[] ScriptExtenderExecutables { get; set; }
+        public string UserGameDataPath { get; set; }
+        public string IniFilePath { get; set; }
+        public string RendererFilePath { get; set; }
+        public string PluginsFilePath { get; set; }
+        public Dictionary<string, string> AdditionalSettingsFiles { get; set; } = new Dictionary<string, string>();
+    }
     public class GameModeModInstallDefinition
     {
         public string PathAdjustmentProfile { get; set; }
+        public string ManagedInstallationPath { get; set; }
+        public string PluginDirectoryPath { get; set; }
         public string[] HardlinkRequiredExtensions { get; set; }
         public string[] RealFileRequiredExtensions { get; set; }
         public bool SupportsGameRootInstall { get; set; }

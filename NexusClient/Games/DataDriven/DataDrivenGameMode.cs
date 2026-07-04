@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -136,6 +136,101 @@ namespace Nexus.Client.Games.DataDriven
 
         protected override void Dispose(bool p_booDisposing)
         {
+        }
+    }
+
+
+    internal static class Sims4PathAdjuster
+    {
+        private static readonly string[] TrayExtensions = { ".householdbinary", ".trayitem", ".sgi", ".hhi", ".blueprint", ".bpi" };
+        private static readonly string[] SaveExtensions = { ".save" };
+        private static readonly string[] UnusedExtensions = { ".txt", ".png", ".jpg", ".pdf", ".doc", ".docx" };
+
+        public static string Adjust(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string result = path;
+            string extension = Path.GetExtension(result);
+            if (UnusedExtensions.Contains(extension, StringComparer.InvariantCultureIgnoreCase))
+                return string.Empty;
+
+            if (!result.StartsWith("Tray", StringComparison.InvariantCultureIgnoreCase) && !result.StartsWith("Mods", StringComparison.InvariantCultureIgnoreCase) && !result.StartsWith("saves", StringComparison.InvariantCultureIgnoreCase))
+            {
+                result = result.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                int subCount = result.Count(c => c == Path.DirectorySeparatorChar);
+                if (subCount >= 2)
+                    result = result.Substring(result.IndexOf(Path.DirectorySeparatorChar) + 1);
+
+                if (TrayExtensions.Contains(extension, StringComparer.InvariantCultureIgnoreCase))
+                    result = Path.Combine("Tray", result);
+                else if (SaveExtensions.Contains(extension, StringComparer.InvariantCultureIgnoreCase))
+                    result = Path.Combine("saves", result);
+                else
+                    result = Path.Combine("Mods", result);
+            }
+
+            return result;
+        }
+    }
+
+    internal static class NoMansSkyPathAdjuster
+    {
+        private static readonly string[] SpecialFiles = { "opengl32.dll", "NMSE_steam.dll", "NMSE_Core_1_0.dll" };
+
+        public static string Adjust(string path, IMod mod, string installationPath)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string result = path;
+            string extension = Path.GetExtension(result);
+            if (extension.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+                result = GetPakInstallPath(result);
+            else if (SpecialFiles.Any(s => Path.GetFileName(result).Equals(s, StringComparison.InvariantCultureIgnoreCase)) || extension.Equals(".exe", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!result.StartsWith("Binaries", StringComparison.InvariantCultureIgnoreCase))
+                    result = Path.Combine("Binaries", result);
+            }
+            else if (mod != null && extension.Equals(".dll", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!result.StartsWith("Binaries", StringComparison.InvariantCultureIgnoreCase))
+                    result = result.StartsWith("NMSE", StringComparison.InvariantCultureIgnoreCase) ? Path.Combine("Binaries", result) : Path.Combine("Binaries", "NMSE", result);
+            }
+
+            if (mod != null && extension.Equals(".pak", StringComparison.InvariantCultureIgnoreCase))
+                result = AdjustPakLoadOrder(result, mod, installationPath);
+
+            return result;
+        }
+
+        private static string GetPakInstallPath(string path)
+        {
+            string result = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            string modDirectory = Path.Combine("GAMEDATA", "MODS");
+            return IsSamePathOrChild(result, modDirectory) ? result : Path.Combine(modDirectory, Path.GetFileName(result));
+        }
+
+        private static string AdjustPakLoadOrder(string path, IMod mod, string installationPath)
+        {
+            string fileName = Path.GetFileName(path);
+            if (!fileName.Contains("_MOD"))
+                fileName = fileName.Insert(0, "_MOD");
+
+            string directory = Path.GetDirectoryName(path);
+            string oldFile = mod.PlaceInModLoadOrder != -1 ? Path.Combine(directory, fileName.Insert(1, mod.PlaceInModLoadOrder.ToString())) : Path.Combine(directory, fileName);
+            if (File.Exists(Path.Combine(installationPath ?? string.Empty, oldFile)))
+                return oldFile;
+
+            if (mod.NewPlaceInModLoadOrder != -1)
+                fileName = fileName.Insert(1, mod.NewPlaceInModLoadOrder.ToString());
+            return Path.Combine(directory, fileName);
+        }
+
+        private static bool IsSamePathOrChild(string path, string parentPath)
+        {
+            return path.Equals(parentPath, StringComparison.InvariantCultureIgnoreCase) || path.StartsWith(parentPath + Path.DirectorySeparatorChar, StringComparison.InvariantCultureIgnoreCase);
         }
     }
 

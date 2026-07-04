@@ -1,7 +1,7 @@
 ﻿{
     "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
+    "modeId":  "SkyrimGOG",
+    "name":  "Skyrim Special Edition GOG",
     "behaviorProfile":  "gamebryo",
     "installerProfile":  "gamebryo",
     "legacyFallback":  false,
@@ -65,10 +65,10 @@
     "discovery":  {
                       "stores":  [
                                      {
-                                         "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
+                                         "store":  "Gog",
+                                         "id":  "1711230643",
+                                         "installFolderName":  null,
+                                         "executableName":  null
                                      }
                                  ]
                   },
@@ -84,14 +84,14 @@
     "launcher":  {
                      "defaultExecutable":  "SkyrimSELauncher.exe",
                      "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
+                     "plainCommandText":  "Launch Skyrim Special Edition GOG",
                      "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
+                     "customCommandText":  "Launch Custom Skyrim Special Edition GOG",
+                     "defaultCommandText":  "Launch Skyrim Special Edition GOG",
                      "allowCustomCommand":  true
                  },
     "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
+                      "iconPath":  "SkyrimGOG_logo.ico",
                       "categoriesPath":  "Categories.xml",
                       "baseFilesPath":  "skyrimse_base.txt"
                   },
@@ -125,11 +125,11 @@
                      "scriptExtenderExecutables":  [
                                                        "skse_loader.exe"
                                                    ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
+                     "userGameDataPath":  "{PersonalData}\\My Games\\Skyrim Special Edition GOG",
                      "iniFilePath":  "{UserGameData}\\Skyrim.ini",
                      "additionalSettingsFiles":  {
                                                      "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
                                                  },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
+                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition GOG\\plugins.txt"
                  }
 }

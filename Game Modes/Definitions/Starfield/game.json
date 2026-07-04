@@ -1,12 +1,12 @@
 ﻿{
     "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
+    "modeId":  "Starfield",
+    "name":  "Starfield",
     "behaviorProfile":  "gamebryo",
     "installerProfile":  "gamebryo",
     "legacyFallback":  false,
     "gameExecutables":  [
-                            "SkyrimSELauncher.exe"
+                            "Starfield.exe"
                         ],
     "stopFolders":  [
                         "textures",
@@ -37,17 +37,24 @@
                              ".ba2"
                          ],
     "orderedCriticalPluginNames":  [
-                                       "Skyrim.esm",
-                                       "Update.esm",
-                                       "Dawnguard.esm",
-                                       "HearthFires.esm",
-                                       "Dragonborn.esm"
+                                       "Starfield.esm"
                                    ],
     "orderedOfficialPluginNames":  [
-
+                                       "ShatteredSpace.esm",
+                                       "Constellation.esm",
+                                       "OldMars.esm"
                                    ],
     "orderedOfficialUnmanagedPluginNames":  [
-
+                                                "SFBGS007.esm",
+                                                "SFBGS008.esm",
+                                                "SFBGS006.esm",
+                                                "SFBGS003.esm",
+                                                "SFBGS004.esm",
+                                                "SFBGS00D.esm",
+                                                "SFBGS047.esm",
+                                                "SFBGS050.esm",
+                                                "BlueprintShips-Starfield.esm",
+                                                "BlueprintShips-SFBGS050.esm"
                                             ],
     "supportedFormats":  [
                              "fomod"
@@ -66,9 +73,9 @@
                       "stores":  [
                                      {
                                          "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
+                                         "id":  "1716740",
+                                         "installFolderName":  "Starfield",
+                                         "executableName":  "Starfield.exe"
                                      }
                                  ]
                   },
@@ -78,25 +85,25 @@
                    "supportsPluginAutoSorting":  true,
                    "maxAllowedActivePluginsCount":  255,
                    "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Skyrim.ccc"
+                                                            "{GamePath}\\Starfield.ccc"
                                                         ]
                },
     "launcher":  {
-                     "defaultExecutable":  "SkyrimSELauncher.exe",
+                     "defaultExecutable":  "Starfield.exe",
                      "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
+                     "plainCommandText":  "Launch Starfield",
                      "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
+                     "customCommandText":  "Launch Custom Starfield",
+                     "defaultCommandText":  "Launch Starfield",
                      "allowCustomCommand":  true
                  },
     "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
+                      "iconPath":  "Starfield_logo.ico",
                       "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "skyrimse_base.txt"
+                      "baseFilesPath":  "Starfield_base.txt"
                   },
     "theme":  {
-                  "primaryColor":  "#32689E"
+                  "primaryColor":  "#3268FA"
               },
     "setup":  {
                   "useGenericSetup":  true
@@ -123,13 +130,12 @@
                    },
     "gamebryo":  {
                      "scriptExtenderExecutables":  [
-                                                       "skse_loader.exe"
+                                                       "sfse_loader.exe"
                                                    ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
-                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
+                     "userGameDataPath":  "{PersonalData}\\My games\\Starfield",
+                     "iniFilePath":  "{UserGameData}\\StarfieldCustom.ini",
                      "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
-                                                 },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
+                                                     "FOPrefsIniPath":  "{UserGameData}\\StarfieldPrefs.ini"
+                                                 }
                  }
 }

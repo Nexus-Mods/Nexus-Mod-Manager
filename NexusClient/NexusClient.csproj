@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -696,6 +696,8 @@
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameLauncher.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGamebryoGameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGamebryoGameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeFactory.cs" />
@@ -706,6 +708,7 @@
     <Compile Include="Games\DataDriven\DataDrivenSetupForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Games\DataDriven\DataDrivenSupportedToolsLauncher.cs" />
     <Compile Include="Games\DataDriven\DataDrivenToolLauncher.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinition.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinitionLoader.cs" />
@@ -966,6 +969,10 @@
       <Project>{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}</Project>
       <Name>SkyrimGOG</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Game Modes\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
+      <Name>GamebryoBase</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Mod Formats\FOMod\FOMod.csproj">
       <Project>{34B04F6B-0D64-455F-B20F-1C3E080AE601}</Project>
       <Name>FOMod</Name>
@@ -1060,28 +1067,8 @@
   </Target>
   -->
   <ItemGroup>
-    <Content Include="..\Game Modes\Definitions\Cyberpunk2077\game.json">
-      <Link>GameModes\Definitions\Cyberpunk2077\game.json</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\Game Modes\Definitions\Cyberpunk2077\Cyberpunk2077_logo.ico">
-      <Link>GameModes\Definitions\Cyberpunk2077\Cyberpunk2077_logo.ico</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\Game Modes\Definitions\Cyberpunk2077\Categories.xml">
-      <Link>GameModes\Definitions\Cyberpunk2077\Categories.xml</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\Game Modes\Definitions\SkyrimSE\game.json">
-      <Link>GameModes\Definitions\SkyrimSE\game.json</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\Game Modes\Definitions\SkyrimSE\SkyrimSE_logo.ico">
-      <Link>GameModes\Definitions\SkyrimSE\SkyrimSE_logo.ico</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\Game Modes\Definitions\SkyrimSE\Categories.xml">
-      <Link>GameModes\Definitions\SkyrimSE\Categories.xml</Link>
+    <Content Include="..\Game Modes\Definitions\**\*.*">
+      <Link>GameModes\Definitions\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

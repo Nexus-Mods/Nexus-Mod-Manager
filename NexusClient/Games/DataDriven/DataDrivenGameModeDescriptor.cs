@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -8,7 +8,7 @@ namespace Nexus.Client.Games.DataDriven
 {
     public class DataDrivenGameModeDescriptor : GameModeDescriptorBase
     {
-        private readonly GameModeDefinition _definition;
+        protected readonly GameModeDefinition _definition;
         private Theme _theme;
 
         public DataDrivenGameModeDescriptor(IEnvironmentInfo environmentInfo, GameModeDefinition definition)
@@ -31,12 +31,31 @@ namespace Nexus.Client.Games.DataDriven
         public override string RequiredToolErrorMessage => _definition.RequiredToolErrorMessage;
         public override string CriticalFilesErrorMessage => _definition.CriticalFilesErrorMessage;
 
+        public override string InstallationPath
+        {
+            get
+            {
+                string path = ResolvePath(_definition.ModInstall?.ManagedInstallationPath);
+                if (string.IsNullOrWhiteSpace(path))
+                    return base.InstallationPath;
+
+                if (!Directory.Exists(path))
+                    Directory.CreateDirectory(path);
+                return path;
+            }
+        }
+
         public override string PluginDirectory
         {
             get
             {
-                string suffix = _definition.Plugin?.PluginDirectorySuffix ?? string.Empty;
-                string path = string.IsNullOrWhiteSpace(suffix) ? InstallationPath : Path.Combine(InstallationPath ?? string.Empty, suffix);
+                string path = ResolvePath(_definition.ModInstall?.PluginDirectoryPath);
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    string suffix = _definition.Plugin?.PluginDirectorySuffix ?? string.Empty;
+                    path = string.IsNullOrWhiteSpace(suffix) ? InstallationPath : Path.Combine(InstallationPath ?? string.Empty, suffix);
+                }
+
                 if (!string.IsNullOrWhiteSpace(path) && !Directory.Exists(path))
                     Directory.CreateDirectory(path);
                 return path;
@@ -51,6 +70,19 @@ namespace Nexus.Client.Games.DataDriven
                     _theme = new Theme(LoadIcon(), ParseColor(_definition.Theme?.PrimaryColor, Color.FromArgb(80, 80, 80)), null);
                 return _theme;
             }
+        }
+
+        protected string ResolvePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string gamePath = base.InstallationPath ?? string.Empty;
+            return path.Replace("{GamePath}", gamePath)
+                       .Replace("{InstallationPath}", gamePath)
+                       .Replace("{Documents}", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
+                       .Replace("{LocalApplicationData}", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+                       .Replace("{ModeId}", ModeId ?? string.Empty);
         }
 
         private Icon LoadIcon()

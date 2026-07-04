@@ -1,12 +1,12 @@
 ﻿{
     "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
+    "modeId":  "Fallout4",
+    "name":  "Fallout 4",
     "behaviorProfile":  "gamebryo",
     "installerProfile":  "gamebryo",
     "legacyFallback":  false,
     "gameExecutables":  [
-                            "SkyrimSELauncher.exe"
+                            "Fallout4Launcher.exe"
                         ],
     "stopFolders":  [
                         "textures",
@@ -37,21 +37,25 @@
                              ".ba2"
                          ],
     "orderedCriticalPluginNames":  [
-                                       "Skyrim.esm",
-                                       "Update.esm",
-                                       "Dawnguard.esm",
-                                       "HearthFires.esm",
-                                       "Dragonborn.esm"
+                                       "Fallout4.esm"
                                    ],
     "orderedOfficialPluginNames":  [
-
+                                       "DLCRobot.esm",
+                                       "DLCworkshop01.esm",
+                                       "DLCCoast.esm",
+                                       "DLCworkshop02.esm",
+                                       "DLCworkshop03.esm",
+                                       "DLCNukaWorld.esm"
                                    ],
     "orderedOfficialUnmanagedPluginNames":  [
-
+                                                "DLCRobot.esm",
+                                                "DLCworkshop01.esm",
+                                                "DLCCoast.esm",
+                                                "DLCworkshop02.esm",
+                                                "DLCworkshop03.esm",
+                                                "DLCNukaWorld.esm"
                                             ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
+    "supportedFormats":  "Data",
     "supportedTools":  [
                            {
                                "id":  "LOOT",
@@ -66,37 +70,38 @@
                       "stores":  [
                                      {
                                          "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
+                                         "id":  "377160",
+                                         "installFolderName":  "Fallout4",
+                                         "executableName":  "Fallout4Launcher.exe"
                                      }
                                  ]
                   },
     "plugin":  {
                    "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "Data",
+                   "pluginDirectorySuffix":  [
+                                                 "{GamePath}\\Fallout4.ccc"
+                                             ],
                    "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255,
-                   "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Skyrim.ccc"
-                                                        ]
+                   "maxAllowedActivePluginsCount":  255
                },
     "launcher":  {
-                     "defaultExecutable":  "SkyrimSELauncher.exe",
+                     "defaultExecutable":  "Fallout4Launcher.exe",
                      "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
+                     "plainCommandText":  "Launch Fallout 4",
                      "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
+                     "customCommandText":  "Launch Custom Fallout 4",
+                     "defaultCommandText":  "Launch Fallout 4",
                      "allowCustomCommand":  true
                  },
     "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
+                      "iconPath":  "Fallout4_logo.ico",
                       "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "skyrimse_base.txt"
+                      "baseFilesPath":  "fallout4_base.txt"
                   },
     "theme":  {
-                  "primaryColor":  "#32689E"
+                  "primaryColor":  [
+                                       "fomod"
+                                   ]
               },
     "setup":  {
                   "useGenericSetup":  true
@@ -123,13 +128,13 @@
                    },
     "gamebryo":  {
                      "scriptExtenderExecutables":  [
-                                                       "skse_loader.exe"
+                                                       "f4se_loader.exe"
                                                    ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
-                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
+                     "userGameDataPath":  "{PersonalData}\\My games\\Fallout4",
+                     "iniFilePath":  "{UserGameData}\\Fallout4Custom.ini",
                      "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
+                                                     "FOPrefsIniPath":  "{UserGameData}\\Fallout4Prefs.ini"
                                                  },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
+                     "pluginsFilePath":  "#32689E"
                  }
 }

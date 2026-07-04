@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,7 +9,7 @@ namespace Nexus.Client.Games.DataDriven
     {
         private static readonly HashSet<string> ValidBehaviorProfiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "generic", "gamebryo" };
         private static readonly HashSet<string> ValidInstallerProfiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "default", "gamebryo" };
-        private static readonly HashSet<string> ValidPathAdjustmentProfiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "", "none", "cyberpunk2077" };
+        private static readonly HashSet<string> ValidPathAdjustmentProfiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "", "none", "cyberpunk2077", "subnautica", "stardewvalley", "sims4", "nomanssky" };
 
         public IEnumerable<GameModeDefinitionIssue> Validate(GameModeDefinition definition)
         {
@@ -41,8 +41,6 @@ namespace Nexus.Client.Games.DataDriven
             if (!ValidPathAdjustmentProfiles.Contains(pathProfile))
                 issues.Add(Error(definition, "Invalid modInstall.pathAdjustmentProfile '" + pathProfile + "'."));
 
-            if (string.Equals(behaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase) && !definition.LegacyFallback)
-                issues.Add(Error(definition, "gamebryo definitions must use legacyFallback until the Gamebryo runtime is fully data-driven."));
 
             ValidateRelativeResource(definition, definition.Resources?.IconPath, "resources.iconPath", issues);
             ValidateRelativeResource(definition, definition.Resources?.CategoriesPath, "resources.categoriesPath", issues);

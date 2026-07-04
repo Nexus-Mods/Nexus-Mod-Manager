@@ -1,12 +1,12 @@
 ﻿{
     "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
+    "modeId":  "OblivionRemastered",
+    "name":  "Oblivion Remastered",
     "behaviorProfile":  "gamebryo",
     "installerProfile":  "gamebryo",
     "legacyFallback":  false,
     "gameExecutables":  [
-                            "SkyrimSELauncher.exe"
+                            "OblivionRemastered.exe"
                         ],
     "stopFolders":  [
                         "textures",
@@ -37,14 +37,22 @@
                              ".ba2"
                          ],
     "orderedCriticalPluginNames":  [
-                                       "Skyrim.esm",
-                                       "Update.esm",
-                                       "Dawnguard.esm",
-                                       "HearthFires.esm",
-                                       "Dragonborn.esm"
+                                       "Oblivion.esm"
                                    ],
     "orderedOfficialPluginNames":  [
-
+                                       "DLCBattlehornCastle.esp",
+                                       "DLCFrostcrag.esp",
+                                       "DLCHorseArmor.esp",
+                                       "DLCMehrunesRazor.esp",
+                                       "DLCOrrery.esp",
+                                       "DLCShiveringIsles.esp",
+                                       "DLCSpellTomes.esp",
+                                       "DLCThievesDen.esp",
+                                       "DLCVileLair.esp",
+                                       "Knights.esp",
+                                       "AltarESPMain.esp",
+                                       "AltarDeluxe.esp",
+                                       "AltarESPLocal.esp"
                                    ],
     "orderedOfficialUnmanagedPluginNames":  [
 
@@ -66,34 +74,31 @@
                       "stores":  [
                                      {
                                          "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
+                                         "id":  "2623190",
+                                         "installFolderName":  "OblivionRemastered",
+                                         "executableName":  "OblivionRemastered.exe"
                                      }
                                  ]
                   },
     "plugin":  {
                    "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "Data",
+                   "pluginDirectorySuffix":  "OblivionRemastered\\Content\\Dev\\ObvData\\Data",
                    "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255,
-                   "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Skyrim.ccc"
-                                                        ]
+                   "maxAllowedActivePluginsCount":  255
                },
     "launcher":  {
-                     "defaultExecutable":  "SkyrimSELauncher.exe",
+                     "defaultExecutable":  "OblivionRemastered.exe",
                      "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
+                     "plainCommandText":  "Launch Oblivion Remastered",
                      "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
+                     "customCommandText":  "Launch Custom Oblivion Remastered",
+                     "defaultCommandText":  "Launch Oblivion Remastered",
                      "allowCustomCommand":  true
                  },
     "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
+                      "iconPath":  "OblivionRemastered_logo.ico",
                       "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "skyrimse_base.txt"
+                      "baseFilesPath":  "oblivionremastered_base.txt"
                   },
     "theme":  {
                   "primaryColor":  "#32689E"
@@ -125,11 +130,11 @@
                      "scriptExtenderExecutables":  [
                                                        "skse_loader.exe"
                                                    ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
-                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
+                     "userGameDataPath":  "{PersonalData}\\My Games\\Oblivion Remastered",
+                     "iniFilePath":  "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Oblivion.ini",
                      "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
+                                                     "FOPrefsIniPath":  "{UserGameData}\\OblivionPrefs.ini"
                                                  },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
+                     "pluginsFilePath":  "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Data\\Plugins.txt"
                  }
 }

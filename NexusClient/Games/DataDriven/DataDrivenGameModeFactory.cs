@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
@@ -99,6 +99,8 @@ namespace Nexus.Client.Games.DataDriven
         {
             Trace.TraceInformation("Building data-driven GameMode: {0} ({1})", _definition.Name, _definition.ModeId);
             p_imsWarning = null;
+            if (string.Equals(_definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
+                return new DataDrivenGamebryoGameMode(_environmentInfo, p_futFileUtility, _definition);
             return new DataDrivenGameMode(_environmentInfo, p_futFileUtility, _definition);
         }
 

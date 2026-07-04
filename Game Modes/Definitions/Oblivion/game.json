@@ -1,12 +1,12 @@
 ﻿{
     "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
+    "modeId":  "Oblivion",
+    "name":  "Oblivion",
     "behaviorProfile":  "gamebryo",
     "installerProfile":  "gamebryo",
     "legacyFallback":  false,
     "gameExecutables":  [
-                            "SkyrimSELauncher.exe"
+                            "oblivion.exe"
                         ],
     "stopFolders":  [
                         "textures",
@@ -37,14 +37,19 @@
                              ".ba2"
                          ],
     "orderedCriticalPluginNames":  [
-                                       "Skyrim.esm",
-                                       "Update.esm",
-                                       "Dawnguard.esm",
-                                       "HearthFires.esm",
-                                       "Dragonborn.esm"
+                                       "oblivion.esm"
                                    ],
     "orderedOfficialPluginNames":  [
-
+                                       "DLCHorseArmor.esp",
+                                       "DLCMehrunesRazor.esp",
+                                       "Knights.esp",
+                                       "DLCShiveringIsles.esp",
+                                       "DLCVileLair.esp",
+                                       "DLCFrostcrag.esp",
+                                       "DLCBattlehornCastle.esp",
+                                       "DLCSpellTomes.esp",
+                                       "DLCThievesDen.esp",
+                                       "DLCOrrery.esp"
                                    ],
     "orderedOfficialUnmanagedPluginNames":  [
 
@@ -66,9 +71,9 @@
                       "stores":  [
                                      {
                                          "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
+                                         "id":  "22330",
+                                         "installFolderName":  "Oblivion",
+                                         "executableName":  "oblivion.exe"
                                      }
                                  ]
                   },
@@ -76,27 +81,27 @@
                    "usesPlugins":  true,
                    "pluginDirectorySuffix":  "Data",
                    "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255,
-                   "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Skyrim.ccc"
-                                                        ]
+                   "maxAllowedActivePluginsCount":  255
                },
     "launcher":  {
-                     "defaultExecutable":  "SkyrimSELauncher.exe",
+                     "defaultExecutable":  "oblivion.exe",
                      "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
+                     "plainCommandText":  "Launch Oblivion",
                      "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
+                     "customCommandText":  "Launch Custom Oblivion",
+                     "defaultCommandText":  "Launch Oblivion",
                      "allowCustomCommand":  true
                  },
     "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
+                      "iconPath":  "oblivion_logo.ico",
                       "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "skyrimse_base.txt"
+                      "baseFilesPath":  "oblivion_base.txt"
                   },
     "theme":  {
-                  "primaryColor":  "#32689E"
+                  "primaryColor":  [
+                                       "fomod",
+                                       "omod"
+                                   ]
               },
     "setup":  {
                   "useGenericSetup":  true
@@ -123,13 +128,13 @@
                    },
     "gamebryo":  {
                      "scriptExtenderExecutables":  [
-                                                       "skse_loader.exe"
+                                                       "obse_loader.exe"
                                                    ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
-                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
+                     "userGameDataPath":  "{PersonalData}\\My games\\Oblivion",
+                     "iniFilePath":  "{UserGameData}\\oblivion.ini",
                      "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
+
                                                  },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
+                     "pluginsFilePath":  "#FAA740"
                  }
 }

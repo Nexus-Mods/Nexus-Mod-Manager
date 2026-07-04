@@ -1,12 +1,13 @@
 ﻿{
     "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
+    "modeId":  "FalloutNV",
+    "name":  "Fallout: New Vegas",
     "behaviorProfile":  "gamebryo",
     "installerProfile":  "gamebryo",
     "legacyFallback":  false,
     "gameExecutables":  [
-                            "SkyrimSELauncher.exe"
+                            "falloutNV.exe",
+                            "falloutNVng.exe"
                         ],
     "stopFolders":  [
                         "textures",
@@ -37,14 +38,18 @@
                              ".ba2"
                          ],
     "orderedCriticalPluginNames":  [
-                                       "Skyrim.esm",
-                                       "Update.esm",
-                                       "Dawnguard.esm",
-                                       "HearthFires.esm",
-                                       "Dragonborn.esm"
+                                       "falloutnv.esm"
                                    ],
     "orderedOfficialPluginNames":  [
-
+                                       "DeadMoney.esm",
+                                       "HonestHearts.esm",
+                                       "OldWorldBlues.esm",
+                                       "LonesomeRoad.esm",
+                                       "GunRunnersArsenal.esm",
+                                       "CaravanPack.esm",
+                                       "ClassicPack.esm",
+                                       "MercenaryPack.esm",
+                                       "TribalPack.esm"
                                    ],
     "orderedOfficialUnmanagedPluginNames":  [
 
@@ -66,9 +71,9 @@
                       "stores":  [
                                      {
                                          "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
+                                         "id":  "22380",
+                                         "installFolderName":  "Fallout New Vegas",
+                                         "executableName":  "falloutNV.exe"
                                      }
                                  ]
                   },
@@ -76,24 +81,21 @@
                    "usesPlugins":  true,
                    "pluginDirectorySuffix":  "Data",
                    "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255,
-                   "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Skyrim.ccc"
-                                                        ]
+                   "maxAllowedActivePluginsCount":  255
                },
     "launcher":  {
-                     "defaultExecutable":  "SkyrimSELauncher.exe",
+                     "defaultExecutable":  "falloutNV.exe",
                      "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
+                     "plainCommandText":  "Launch Fallout: New Vegas",
                      "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
+                     "customCommandText":  "Launch Custom Fallout: New Vegas",
+                     "defaultCommandText":  "Launch Fallout: New Vegas",
                      "allowCustomCommand":  true
                  },
     "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
+                      "iconPath":  "fonv_logo.ico",
                       "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "skyrimse_base.txt"
+                      "baseFilesPath":  "falloutNV_base.txt"
                   },
     "theme":  {
                   "primaryColor":  "#32689E"
@@ -123,13 +125,16 @@
                    },
     "gamebryo":  {
                      "scriptExtenderExecutables":  [
-                                                       "skse_loader.exe"
+                                                       "nvse_loader.exe"
                                                    ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
-                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
+                     "userGameDataPath":  "{PersonalData}\\My games\\FalloutNV",
+                     "iniFilePath":  "{UserGameData}\\fallout.ini",
                      "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
+                                                     "FOPrefsIniPath":  "{UserGameData}\\FalloutPrefs.ini",
+                                                     "GeckIniPath":  "{UserGameData}\\GECKCustom.ini",
+                                                     "GeckPrefsIniPath":  "{UserGameData}\\GECKPrefs.ini",
+                                                     "FODefaultIniPath":  "{GamePath}\\fallout_default.ini"
                                                  },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
+                     "pluginsFilePath":  "#FAA740"
                  }
 }

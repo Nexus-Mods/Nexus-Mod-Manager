@@ -1,12 +1,13 @@
 ﻿{
     "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
+    "modeId":  "Fallout3",
+    "name":  "Fallout 3",
     "behaviorProfile":  "gamebryo",
     "installerProfile":  "gamebryo",
     "legacyFallback":  false,
     "gameExecutables":  [
-                            "SkyrimSELauncher.exe"
+                            "fallout3.exe",
+                            "fallout3ng.exe"
                         ],
     "stopFolders":  [
                         "textures",
@@ -37,14 +38,14 @@
                              ".ba2"
                          ],
     "orderedCriticalPluginNames":  [
-                                       "Skyrim.esm",
-                                       "Update.esm",
-                                       "Dawnguard.esm",
-                                       "HearthFires.esm",
-                                       "Dragonborn.esm"
+                                       "fallout3.esm"
                                    ],
     "orderedOfficialPluginNames":  [
-
+                                       "Anchorage.esm",
+                                       "ThePitt.esm",
+                                       "BrokenSteel.esm",
+                                       "PointLookout.esm",
+                                       "Zeta.esm"
                                    ],
     "orderedOfficialUnmanagedPluginNames":  [
 
@@ -66,9 +67,15 @@
                       "stores":  [
                                      {
                                          "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
+                                         "id":  "22300",
+                                         "installFolderName":  "Fallout 3",
+                                         "executableName":  "fallout3.exe"
+                                     },
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "22370",
+                                         "installFolderName":  "Fallout 3 goty",
+                                         "executableName":  "Fallout3.exe"
                                      }
                                  ]
                   },
@@ -76,24 +83,21 @@
                    "usesPlugins":  true,
                    "pluginDirectorySuffix":  "Data",
                    "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255,
-                   "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Skyrim.ccc"
-                                                        ]
+                   "maxAllowedActivePluginsCount":  255
                },
     "launcher":  {
-                     "defaultExecutable":  "SkyrimSELauncher.exe",
+                     "defaultExecutable":  "fallout3.exe",
                      "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
+                     "plainCommandText":  "Launch Fallout 3",
                      "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
+                     "customCommandText":  "Launch Custom Fallout 3",
+                     "defaultCommandText":  "Launch Fallout 3",
                      "allowCustomCommand":  true
                  },
     "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
+                      "iconPath":  "fo3_logo.ico",
                       "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "skyrimse_base.txt"
+                      "baseFilesPath":  "fallout3_base.txt"
                   },
     "theme":  {
                   "primaryColor":  "#32689E"
@@ -123,13 +127,15 @@
                    },
     "gamebryo":  {
                      "scriptExtenderExecutables":  [
-                                                       "skse_loader.exe"
+                                                       "fose_loader.exe"
                                                    ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
-                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
+                     "userGameDataPath":  "{PersonalData}\\My games\\Fallout3",
+                     "iniFilePath":  "{UserGameData}\\fallout.ini",
                      "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
+                                                     "FOPrefsIniPath":  "{UserGameData}\\FalloutPrefs.ini",
+                                                     "GeckIniPath":  "{UserGameData}\\GECKCustom.ini",
+                                                     "GeckPrefsIniPath":  "{UserGameData}\\GECKPrefs.ini"
                                                  },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
+                     "pluginsFilePath":  "#A1B44B"
                  }
 }
