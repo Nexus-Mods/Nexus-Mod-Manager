@@ -76,6 +76,8 @@ namespace Nexus.Client.ModManagement.UI
         private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
         private readonly Dictionary<string, bool> _missingArchiveByFileName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         private readonly object _missingArchiveLock = new object();
+        private Image _modInstalledDisabledIcon;
+        private Image _modInstalledActiveIcon;
 
         /// <summary>
         /// Flat list that backs both the DevExpress grid and internal row lookups.
@@ -90,6 +92,7 @@ namespace Nexus.Client.ModManagement.UI
         private readonly List<IMod> _modList = new List<IMod>();
 
         // column field-name constants (used as column names, not as PropertyDescriptor field names)
+        private const string ColModStatus    = "ModStatus";
         private const string ColModName      = "ModName";
         private const string ColVersion      = "HumanReadableVersion";
         private const string ColLastKnown    = "LastKnownVersion";
@@ -107,6 +110,7 @@ namespace Nexus.Client.ModManagement.UI
         private const string DefaultGridFontFamily = "Segoe UI";
         private const float DefaultGridFontSizePt = 9f;
         private const string DefaultGridDensity = "Compact";
+        private const int ModStatusIconSize = 18;
         private const int InlineEditIconSize = 18;
         private static readonly string[] GridFontChoices = { "Segoe UI", "Corbel", "Calibri", "Tahoma", "Verdana" };
         private static readonly string[] GridFontSizeChoices = { "8 pt", "9 pt", "10 pt", "11 pt", "12 pt" };
@@ -883,6 +887,7 @@ namespace Nexus.Client.ModManagement.UI
 
         private void BuildColumns()
         {
+            AddCol(ColModStatus,    string.Empty,       28, HorzAlignment.Center,  true);
             AddCol(ColModName,      "MOD NAME",       220, HorzAlignment.Default, true);
             AddCol(ColVersion,      "VERSION",         70, HorzAlignment.Center,  false);
             AddCol(ColLastKnown,    "LATEST",          70, HorzAlignment.Center,  false);
@@ -946,6 +951,7 @@ namespace Nexus.Client.ModManagement.UI
             IMod mod = _modList[idx];
             switch (e.Column.FieldName)
             {
+                case ColModStatus:    e.Value = GetModStatusText(mod);    break;
                 case ColModName:      e.Value = mod.ModName;              break;
                 case ColVersion:      e.Value = mod.HumanReadableVersion; break;
                 case ColLastKnown:    e.Value = mod.LastKnownVersion;     break;
@@ -1005,12 +1011,37 @@ namespace Nexus.Client.ModManagement.UI
         private bool IsModActive(IMod mod)
         {
             if (mod == null || string.IsNullOrEmpty(mod.Filename)) return false;
+            try
+            {
+                if (_viewModel?.VirtualModActivator != null)
+                    return _viewModel.VirtualModActivator.CheckHasActiveLinks(mod);
+            }
+            catch
+            {
+                // Fall back to the cached profile list if the virtual link table is being rebuilt.
+            }
             return _activeModFileNames.Contains(Path.GetFileName(mod.Filename));
         }
 
         private bool IsModInstalled(IMod mod)
         {
             return mod != null && _installedMods.Contains(mod);
+        }
+        private string GetModStatusText(IMod mod)
+        {
+            if (IsModActive(mod)) return "Installed/Active";
+            if (IsModInstalled(mod)) return "Installed/Unlinked";
+            return "Uninstalled";
+        }
+
+        private Image GetModStatusIcon(IMod mod)
+        {
+            string status = GetModStatusText(mod);
+            if (status == "Installed/Active")
+                return _modInstalledActiveIcon ?? (_modInstalledActiveIcon = LoadSvgIcon("mod-installed-active.svg", ModStatusIconSize));
+            if (status == "Installed/Unlinked")
+                return _modInstalledDisabledIcon ?? (_modInstalledDisabledIcon = LoadSvgIcon("mod-installed-disabled.svg", ModStatusIconSize));
+            return null;
         }
 
         private void QueueMissingArchiveScan()
@@ -1072,6 +1103,8 @@ namespace Nexus.Client.ModManagement.UI
         }
         private void RefreshActivationState()
         {
+            RebuildActivationStateCache();
+            gridControl.RefreshDataSource();
             gridView.InvalidateRows();
             SetCommandExecutableStatus();
             UpdateModsCount?.Invoke(this, EventArgs.Empty);
@@ -1093,15 +1126,15 @@ namespace Nexus.Client.ModManagement.UI
             if (isActive)
             {
                 e.Appearance.BackColor = isSelected
-                    ? Color.FromArgb(140, 195, 140)   // darker green when active + selected
-                    : Color.FromArgb(210, 240, 210);   // light green when active, not selected
+                    ? Color.FromArgb(188, 225, 188)   // light green when active + selected
+                    : Color.FromArgb(236, 250, 236);   // very light green when active, not selected
                 e.Appearance.ForeColor = Color.Black;
             }
             else if (isInstalled)
             {
                 e.Appearance.BackColor = isSelected
-                    ? Color.FromArgb(216, 154, 69)     // stronger orange when installed + selected
-                    : Color.FromArgb(255, 226, 184);   // light orange when installed but disabled
+                    ? Color.FromArgb(238, 204, 158)     // light orange when installed + selected
+                    : Color.FromArgb(255, 244, 226);   // very light orange when installed but disabled
                 e.Appearance.ForeColor = Color.Black;
             }
             else if (isSelected)
@@ -1133,6 +1166,27 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
+        private void DrawModStatusCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
+        {
+            int src = gridView.GetDataSourceRowIndex(e.RowHandle);
+            if (src < 0 || src >= _modList.Count)
+                return;
+
+            Image icon = GetModStatusIcon(_modList[src]);
+            string displayText = e.DisplayText;
+            e.DisplayText = string.Empty;
+            e.DefaultDraw();
+            e.DisplayText = displayText;
+
+            if (icon != null)
+            {
+                int x = e.Bounds.Left + (e.Bounds.Width - icon.Width) / 2;
+                int y = e.Bounds.Top + (e.Bounds.Height - icon.Height) / 2;
+                e.Graphics.DrawImage(icon, x, y, icon.Width, icon.Height);
+            }
+
+            e.Handled = true;
+        }
         private void GridView_RowCellClick(object sender, RowCellClickEventArgs e)
         {
             if (e.Column.FieldName != ColLastKnown) return;
@@ -1149,6 +1203,12 @@ namespace Nexus.Client.ModManagement.UI
         private void GridView_CustomDrawCell(object sender, DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
         {
             bool handledByModName = false;
+            if (e.Column.FieldName == ColModStatus && e.RowHandle >= 0)
+            {
+                DrawModStatusCell(e);
+                return;
+            }
+
             if (e.Column.FieldName == ColModName)
             {
                 DrawModNameCell(e);
@@ -2811,3 +2871,5 @@ namespace Nexus.Client.ModManagement.UI
         }
     }
 }
+
+

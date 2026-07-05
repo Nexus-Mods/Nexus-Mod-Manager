@@ -595,6 +595,8 @@
     <EmbeddedResource Include="Resources\toolbar_group_by.svg" />
     <EmbeddedResource Include="Resources\toolbar_sort_by.svg" />
     <EmbeddedResource Include="Resources\toolbar_columns.svg" />
+    <EmbeddedResource Include="Resources\mod-installed-disabled.svg" />
+    <EmbeddedResource Include="Resources\mod-installed-active.svg" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
     <None Include="Resources\text-x-generic.png" />
