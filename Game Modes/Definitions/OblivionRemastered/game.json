@@ -73,7 +73,7 @@
     "plugin":  {
                    "usesPlugins":  true,
                    "pluginDirectorySuffix":  "OblivionRemastered\\Content\\Dev\\ObvData\\Data",
-                   "supportsPluginAutoSorting":  true,
+                   "supportsPluginAutoSorting":  false,
                    "maxAllowedActivePluginsCount":  255
                },
     "launcher":  {

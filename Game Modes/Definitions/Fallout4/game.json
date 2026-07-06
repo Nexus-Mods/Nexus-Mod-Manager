@@ -71,7 +71,7 @@
                    "pluginDirectorySuffix":  [
                                                  "{GamePath}\\Fallout4.ccc"
                                              ],
-                   "supportsPluginAutoSorting":  true,
+                   "supportsPluginAutoSorting":  false,
                    "maxAllowedActivePluginsCount":  255
                },
     "launcher":  {

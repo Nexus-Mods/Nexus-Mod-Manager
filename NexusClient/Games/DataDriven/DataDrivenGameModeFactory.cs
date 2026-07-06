@@ -18,10 +18,18 @@ namespace Nexus.Client.Games.DataDriven
         {
             _environmentInfo = environmentInfo;
             _definition = definition;
-            _descriptor = new DataDrivenGameModeDescriptor(environmentInfo, definition);
+            _descriptor = CreateDescriptor(environmentInfo, definition);
         }
 
         public IGameModeDescriptor GameModeDescriptor => _descriptor;
+
+        private static DataDrivenGameModeDescriptor CreateDescriptor(IEnvironmentInfo environmentInfo, GameModeDefinition definition)
+        {
+            if (string.Equals(definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
+                return new DataDrivenGamebryoGameModeDescriptor(environmentInfo, definition);
+
+            return new DataDrivenGameModeDescriptor(environmentInfo, definition);
+        }
 
         public string GetInstallationPath()
         {

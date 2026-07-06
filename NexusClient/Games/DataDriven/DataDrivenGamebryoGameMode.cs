@@ -95,12 +95,16 @@ namespace Nexus.Client.Games.DataDriven
             if (string.IsNullOrWhiteSpace(value))
                 return null;
 
-            return value.Replace("{PersonalData}", EnvironmentInfo.PersonalDataFolderPath ?? string.Empty)
-                        .Replace("{LocalApplicationData}", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
-                        .Replace("{GamePath}", GameModeEnvironmentInfo.InstallationPath ?? string.Empty)
-                        .Replace("{ExecutablePath}", GameModeEnvironmentInfo.ExecutablePath ?? string.Empty)
-                        .Replace("{UserGameData}", UserGameDataPath ?? string.Empty)
-                        .Replace("{ModeId}", ModeId ?? string.Empty);
+            string path = value.Replace("{PersonalData}", EnvironmentInfo.PersonalDataFolderPath ?? string.Empty)
+                               .Replace("{LocalApplicationData}", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+                               .Replace("{GamePath}", GameModeEnvironmentInfo.InstallationPath ?? string.Empty)
+                               .Replace("{ExecutablePath}", GameModeEnvironmentInfo.ExecutablePath ?? string.Empty)
+                               .Replace("{ModeId}", ModeId ?? string.Empty);
+
+            if (path.IndexOf("{UserGameData}", StringComparison.OrdinalIgnoreCase) >= 0)
+                path = path.Replace("{UserGameData}", UserGameDataPath ?? string.Empty);
+
+            return path;
         }
 
         private string ReadResourceText(string relativePath)

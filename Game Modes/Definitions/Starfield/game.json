@@ -72,7 +72,7 @@
     "plugin":  {
                    "usesPlugins":  true,
                    "pluginDirectorySuffix":  "Data",
-                   "supportsPluginAutoSorting":  true,
+                   "supportsPluginAutoSorting":  false,
                    "maxAllowedActivePluginsCount":  255,
                    "officialUnmanagedPluginListFiles":  [
                                                             "{GamePath}\\Starfield.ccc"
