@@ -367,6 +367,11 @@
 			{
 				Trace.TraceError("Could not build game mode!");
 				TraceUtil.TraceException(ex);
+				warningMessage = new ViewMessage(
+					$"Could not initialize {p_gmfGameModeFactory.GameModeDescriptor.Name} Game Mode." + Environment.NewLine + Environment.NewLine + ex.Message,
+					ex.ToString(),
+					"Game Mode Initialization Error",
+					MessageBoxIcon.Error);
 			}
 
             if (gameMode == null)

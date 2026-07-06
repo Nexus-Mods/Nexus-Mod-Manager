@@ -41,6 +41,7 @@ namespace Nexus.Client.Games.DataDriven
             if (!ValidPathAdjustmentProfiles.Contains(pathProfile))
                 issues.Add(Error(definition, "Invalid modInstall.pathAdjustmentProfile '" + pathProfile + "'."));
 
+            ValidatePluginSorting(definition, behaviorProfile, issues);
 
             ValidateRelativeResource(definition, definition.Resources?.IconPath, "resources.iconPath", issues);
             ValidateRelativeResource(definition, definition.Resources?.CategoriesPath, "resources.categoriesPath", issues);
@@ -54,6 +55,21 @@ namespace Nexus.Client.Games.DataDriven
             ValidateExtensions(definition, definition.ModInstall?.RealFileRequiredExtensions, "modInstall.realFileRequiredExtensions", issues);
 
             return issues;
+        }
+
+        private void ValidatePluginSorting(GameModeDefinition definition, string behaviorProfile, IList<GameModeDefinitionIssue> issues)
+        {
+            if (definition.Plugin == null || !definition.Plugin.SupportsPluginAutoSorting)
+                return;
+
+            if (!definition.Plugin.UsesPlugins)
+            {
+                issues.Add(Error(definition, "plugin.supportsPluginAutoSorting cannot be true when plugin.usesPlugins is false."));
+                return;
+            }
+
+            if (!string.Equals(behaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
+                issues.Add(Error(definition, "plugin.supportsPluginAutoSorting is only supported by data-driven Gamebryo modes."));
         }
 
         private void ValidateRelativeResource(GameModeDefinition definition, string resourcePath, string fieldName, IList<GameModeDefinitionIssue> issues)

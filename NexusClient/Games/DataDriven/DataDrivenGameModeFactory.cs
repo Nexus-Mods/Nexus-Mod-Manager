@@ -107,9 +107,29 @@ namespace Nexus.Client.Games.DataDriven
         {
             Trace.TraceInformation("Building data-driven GameMode: {0} ({1})", _definition.Name, _definition.ModeId);
             p_imsWarning = null;
-            if (string.Equals(_definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
-                return new DataDrivenGamebryoGameMode(_environmentInfo, p_futFileUtility, _definition);
-            return new DataDrivenGameMode(_environmentInfo, p_futFileUtility, _definition);
+            try
+            {
+                if (string.Equals(_definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
+                    return new DataDrivenGamebryoGameMode(_environmentInfo, p_futFileUtility, _definition);
+                return new DataDrivenGameMode(_environmentInfo, p_futFileUtility, _definition);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError("Could not build data-driven GameMode {0} ({1}).", _definition.Name, _definition.ModeId);
+                TraceUtil.TraceException(ex);
+                p_imsWarning = CreateBuildFailureMessage(ex);
+                return null;
+            }
+        }
+
+        private ViewMessage CreateBuildFailureMessage(Exception exception)
+        {
+            string message = "Could not initialize " + _definition.Name + " Game Mode." + Environment.NewLine + Environment.NewLine + exception.Message;
+            string details = "Mode ID: " + _definition.ModeId + Environment.NewLine +
+                             "Definition: " + (_definition.DefinitionPath ?? "unknown") + Environment.NewLine +
+                             "Behavior profile: " + (_definition.BehaviorProfile ?? "generic") + Environment.NewLine +
+                             Environment.NewLine + exception;
+            return new ViewMessage(message, details, "Game Mode Initialization Error", MessageBoxIcon.Error);
         }
 
         public bool PerformInitialSetup(ShowViewDelegate p_dlgShowView, ShowMessageDelegate p_dlgShowMessage)
