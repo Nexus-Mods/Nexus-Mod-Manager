@@ -6,6 +6,7 @@ namespace Nexus.Client.ModManagement.UI
     using System.ComponentModel;
     using System.Drawing;
     using System.Drawing.Drawing2D;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Text;
@@ -110,6 +111,8 @@ namespace Nexus.Client.ModManagement.UI
         private const string GridFontKey     = GridLayoutKey + ".Font";
         private const string GridFontSizeKey = GridLayoutKey + ".FontSize";
         private const string GridDensityKey  = GridLayoutKey + ".Density";
+        private const string GridCategoryViewKey = GridLayoutKey + ".CategoryView";
+        private const string GridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
         private const string DefaultGridFontFamily = "Segoe UI";
         private const float DefaultGridFontSizePt = 9f;
         private const string DefaultGridDensity = "Compact";
@@ -144,6 +147,7 @@ namespace Nexus.Client.ModManagement.UI
             InitializeInlineRenameEditor();
             SetupGrid();
             InitializeGridFontSelector();
+            UpdateSwitchViewText();
         }
 
         // ── IModManagerView : ViewModel ──────────────────────────────────────
@@ -213,6 +217,8 @@ namespace Nexus.Client.ModManagement.UI
                 _viewModel.Settings.DockPanelLayouts.Remove(GridFontKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridFontSizeKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridDensityKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridCategoryViewKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
                 _viewModel.Settings.Save();
             }
 
@@ -415,8 +421,13 @@ namespace Nexus.Client.ModManagement.UI
             RebuildActivationStateCache();
             QueueMissingArchiveScan();
             gridControl.RefreshDataSource();
+            bool restoredLayout = RestoreGridLayout();
             RestoreGridSort();
-            ScheduleColumnSizing();
+            RestoreGridCategoryView();
+            if (restoredLayout)
+                ScheduleModNameFill();
+            else
+                ScheduleColumnSizing();
             UpdateModCountLabel();
         }
 
@@ -868,7 +879,6 @@ namespace Nexus.Client.ModManagement.UI
 
             gridView.Columns.Clear();
             BuildColumns();
-            RestoreGridLayout();
             ApplyAutoFilterDefaults();
 
             gridView.CustomUnboundColumnData += GridView_CustomUnboundColumnData;
@@ -880,8 +890,11 @@ namespace Nexus.Client.ModManagement.UI
             gridView.SelectionChanged        += (s, e) => SetCommandExecutableStatus();
             gridView.CustomDrawCell          += GridView_CustomDrawCell;
             gridView.CustomDrawColumnHeader  += GridView_CustomDrawColumnHeader;
+            gridView.CustomColumnSort       += GridView_CustomColumnSort;
+            gridView.GroupRowExpanded       += (s, e) => SaveGridLayout();
+            gridView.GroupRowCollapsed      += (s, e) => SaveGridLayout();
             gridControl.SizeChanged          += (s, e) => ScheduleModNameFill();
-            gridView.ColumnWidthChanged      += (s, e) => { if (e.Column?.FieldName != ColModName) ScheduleModNameFill(); };
+            gridView.ColumnWidthChanged      += (s, e) => { if (_restoringGridLayout) return; if (e.Column?.FieldName != ColModName) ScheduleModNameFill(); SaveGridLayout(); };
             gridView.EndSorting              += (s, e) => SaveGridLayout();
             gridControl.MouseMove            += GridControl_MouseMove;
             gridControl.MouseLeave           += GridControl_MouseLeave;
@@ -925,6 +938,9 @@ namespace Nexus.Client.ModManagement.UI
                 AppearanceHeader = { TextOptions = { HAlignment = align } },
                 AppearanceCell   = { TextOptions = { HAlignment = align } },
             };
+            if (field == ColInstallDate || field == ColDownloadDate)
+                col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
+
             col.MinWidth = field == ColModName ? 100 : Math.Min(width, 70);
             ApplyAutoFilterDefaults(col);
             gridView.Columns.Add(col);
@@ -1128,6 +1144,42 @@ namespace Nexus.Client.ModManagement.UI
             UpdateModsCount?.Invoke(this, EventArgs.Empty);
         }
 
+        private void GridView_CustomColumnSort(object sender, DevExpress.XtraGrid.Views.Base.CustomColumnSortEventArgs e)
+        {
+            if (e.Column == null || (e.Column.FieldName != ColInstallDate && e.Column.FieldName != ColDownloadDate))
+                return;
+
+            DateTime left;
+            DateTime right;
+            bool hasLeft = TryParseGridDate(Convert.ToString(e.Value1, CultureInfo.CurrentCulture), out left);
+            bool hasRight = TryParseGridDate(Convert.ToString(e.Value2, CultureInfo.CurrentCulture), out right);
+
+            if (hasLeft && hasRight)
+                e.Result = left.CompareTo(right);
+            else if (hasLeft)
+                e.Result = 1;
+            else if (hasRight)
+                e.Result = -1;
+            else
+                e.Result = StringComparer.CurrentCultureIgnoreCase.Compare(Convert.ToString(e.Value1, CultureInfo.CurrentCulture), Convert.ToString(e.Value2, CultureInfo.CurrentCulture));
+
+            e.Handled = true;
+        }
+
+        private static bool TryParseGridDate(string value, out DateTime result)
+        {
+            if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out result))
+                return true;
+            if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+                return true;
+
+            string[] formats =
+            {
+                "dd.MM.yyyy", "d.M.yyyy", "dd.MM.yyyy HH:mm", "d.M.yyyy HH:mm", "dd.MM.yyyy HH:mm:ss", "d.M.yyyy HH:mm:ss",
+                "dd/MM/yyyy", "d/M/yyyy", "dd\\MM\\yyyy", "d\\M\\yyyy", "yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss"
+            };
+            return DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result);
+        }
         private void GridView_RowCellStyle(object sender, RowCellStyleEventArgs e)
         {
             if (_viewModel == null) return;
@@ -1603,11 +1655,11 @@ namespace Nexus.Client.ModManagement.UI
         }
 
         // Keep the grid layout with the existing UI layout settings so Reset UI can clear it.
-        private void RestoreGridLayout()
+        private bool RestoreGridLayout()
         {
             if (_viewModel?.Settings == null)
             {
-                return;
+                return false;
             }
 
             _restoringGridLayout = true;
@@ -1623,16 +1675,20 @@ namespace Nexus.Client.ModManagement.UI
                         {
                             gridView.RestoreLayoutFromStream(stream);
                         }
+                        ApplyAutoFilterDefaults();
+                        SetModNameFill();
+                        return true;
                     }
                 }
 
                 ApplyAutoFilterDefaults();
-                RestoreGridSort();
                 SetModNameFill();
+                return false;
             }
             catch
             {
                 _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+                return false;
             }
             finally
             {
@@ -1678,6 +1734,116 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
+        private void RestoreGridCategoryView()
+        {
+            bool wasRestoring = _restoringGridLayout;
+            _restoringGridLayout = true;
+            try
+            {
+                bool active = _viewModel?.Settings?.DockPanelLayouts.ContainsKey(GridCategoryViewKey) == true &&
+                              string.Equals(_viewModel.Settings.DockPanelLayouts[GridCategoryViewKey], bool.TrueString, StringComparison.OrdinalIgnoreCase);
+
+                ApplyCategoryView(active, true);
+                if (active)
+                    RestoreCollapsedCategoryGroups();
+            }
+            finally
+            {
+                _restoringGridLayout = wasRestoring;
+            }
+        }
+
+        private void ApplyCategoryView(bool active, bool expandAll)
+        {
+            _categoryViewActive = active;
+            var catCol = gridView.Columns[ColCategory];
+            if (_categoryViewActive && catCol != null)
+            {
+                gridView.OptionsView.ShowGroupPanel = true;
+                catCol.SortOrder = DevExpress.Data.ColumnSortOrder.Ascending;
+                catCol.GroupIndex = 0;
+                if (expandAll)
+                    gridView.ExpandAllGroups();
+            }
+            else
+            {
+                gridView.ClearGrouping();
+                gridView.OptionsView.ShowGroupPanel = false;
+            }
+
+            UpdateSwitchViewText();
+        }
+
+        private void SaveGridCategoryState()
+        {
+            if (_viewModel?.Settings == null)
+                return;
+
+            _viewModel.Settings.DockPanelLayouts[GridCategoryViewKey] = _categoryViewActive.ToString();
+            if (!_categoryViewActive)
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
+                return;
+            }
+
+            List<string> collapsed = GetCollapsedCategoryNames();
+            if (collapsed.Count == 0)
+                _viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
+            else
+                _viewModel.Settings.DockPanelLayouts[GridCollapsedCategoriesKey] = string.Join("\n", collapsed);
+        }
+
+        private List<string> GetCollapsedCategoryNames()
+        {
+            var categories = new List<string>();
+            for (int visibleIndex = 0; visibleIndex < gridView.RowCount; visibleIndex++)
+            {
+                int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
+                if (!gridView.IsGroupRow(rowHandle) || gridView.GetRowExpanded(rowHandle))
+                    continue;
+
+                object value = gridView.GetGroupRowValue(rowHandle);
+                string categoryName = Convert.ToString(value, CultureInfo.InvariantCulture);
+                if (!string.IsNullOrWhiteSpace(categoryName) && !categories.Contains(categoryName, StringComparer.OrdinalIgnoreCase))
+                    categories.Add(categoryName);
+            }
+            return categories;
+        }
+
+        private void RestoreCollapsedCategoryGroups()
+        {
+            if (_viewModel?.Settings?.DockPanelLayouts.ContainsKey(GridCollapsedCategoriesKey) != true)
+                return;
+
+            var collapsed = new HashSet<string>(
+                (_viewModel.Settings.DockPanelLayouts[GridCollapsedCategoriesKey] ?? string.Empty)
+                    .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries),
+                StringComparer.OrdinalIgnoreCase);
+
+            if (collapsed.Count == 0)
+                return;
+
+            for (int visibleIndex = 0; visibleIndex < gridView.RowCount; visibleIndex++)
+            {
+                int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
+                if (!gridView.IsGroupRow(rowHandle))
+                    continue;
+
+                object value = gridView.GetGroupRowValue(rowHandle);
+                string categoryName = Convert.ToString(value, CultureInfo.InvariantCulture);
+                if (collapsed.Contains(categoryName))
+                    gridView.CollapseGroupRow(rowHandle);
+            }
+        }
+
+        private void UpdateSwitchViewText()
+        {
+            if (tsbSwitchView == null)
+                return;
+
+            tsbSwitchView.Text = _categoryViewActive ? "Switch to Default View" : "Switch to Category View";
+            tsbSwitchView.ToolTipText = _categoryViewActive ? "Show the default flat mod list" : "Group the mod list by category";
+        }
         private void SaveGridLayout()
         {
             if (_restoringGridLayout || _viewModel?.Settings == null)
@@ -1685,13 +1851,21 @@ namespace Nexus.Client.ModManagement.UI
                 return;
             }
 
-            using (var stream = new MemoryStream())
+            try
             {
-                gridView.SaveLayoutToStream(stream);
-                _viewModel.Settings.DockPanelLayouts[GridLayoutKey] = Encoding.UTF8.GetString(stream.ToArray());
+                using (var stream = new MemoryStream())
+                {
+                    gridView.SaveLayoutToStream(stream);
+                    _viewModel.Settings.DockPanelLayouts[GridLayoutKey] = Encoding.UTF8.GetString(stream.ToArray());
+                }
+            }
+            catch
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
             }
 
             SaveGridSort();
+            SaveGridCategoryState();
             _viewModel.Settings.Save();
         }
 
@@ -2525,9 +2699,21 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.CategoryManager.AddCategory();
         }
 
-        private void collapseAllCategories_Click(object sender, EventArgs e) { /* no tree in flat view */ }
+        private void collapseAllCategories_Click(object sender, EventArgs e)
+        {
+            if (!_categoryViewActive)
+                ApplyCategoryView(true, true);
+            gridView.CollapseAllGroups();
+            SaveGridLayout();
+        }
 
-        private void expandAllCategories_Click(object sender, EventArgs e) { /* no tree in flat view */ }
+        private void expandAllCategories_Click(object sender, EventArgs e)
+        {
+            if (!_categoryViewActive)
+                ApplyCategoryView(true, false);
+            gridView.ExpandAllGroups();
+            SaveGridLayout();
+        }
 
         private void resetDefaultCategories_Click(object sender, EventArgs e)
         {
@@ -2581,25 +2767,8 @@ namespace Nexus.Client.ModManagement.UI
 
         private void tsbSwitchView_Click(object sender, EventArgs e)
         {
-            _categoryViewActive = !_categoryViewActive;
-
-            var catCol = gridView.Columns[ColCategory];
-            if (_categoryViewActive && catCol != null)
-            {
-                // Show group panel and group by Category ascending
-                gridView.OptionsView.ShowGroupPanel = true;
-                catCol.SortOrder  = DevExpress.Data.ColumnSortOrder.Ascending;
-                catCol.GroupIndex = 0;
-                gridView.ExpandAllGroups();
-            }
-            else
-            {
-                // Remove grouping and hide the group panel
-                gridView.ClearGrouping();
-                gridView.OptionsView.ShowGroupPanel = false;
-            }
-
-            // icon stays fixed; no image swap needed
+            ApplyCategoryView(!_categoryViewActive, true);
+            SaveGridLayout();
         }
 
         // ── VM event handlers (progress dialogs, dialogs) ────────────────────
