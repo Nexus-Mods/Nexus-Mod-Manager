@@ -14,6 +14,7 @@ namespace Nexus.Client.ModManagement.UI
 
     using DevExpress.Utils;
     using DevExpress.XtraEditors.Repository;
+    using DevExpress.XtraGrid;
     using DevExpress.XtraGrid.Columns;
     using DevExpress.XtraGrid.Views.Grid;
     using DevExpress.XtraGrid.Views.Grid.ViewInfo;
@@ -1775,6 +1776,7 @@ namespace Nexus.Client.ModManagement.UI
             if (_categoryViewActive && catCol != null)
             {
                 gridView.OptionsView.ShowGroupPanel = true;
+                ApplyCategoryGroupSummary();
                 catCol.SortOrder = DevExpress.Data.ColumnSortOrder.Ascending;
                 catCol.GroupIndex = 0;
                 if (expandAll)
@@ -1783,10 +1785,24 @@ namespace Nexus.Client.ModManagement.UI
             else
             {
                 gridView.ClearGrouping();
+                gridView.GroupSummary.Clear();
                 gridView.OptionsView.ShowGroupPanel = false;
             }
 
             UpdateSwitchViewText();
+        }
+
+        private void ApplyCategoryGroupSummary()
+        {
+            gridView.GroupSummary.Clear();
+            gridView.GroupSummary.Add(new GridGroupSummaryItem
+            {
+                SummaryType = DevExpress.Data.SummaryItemType.Count,
+                FieldName = string.Empty,
+                DisplayFormat = "{0} mods",
+                ShowInGroupColumnFooter = null
+            });
+            gridView.GroupFormat = "{0}: {1} ({2})";
         }
 
         private void SaveGridCategoryState()
