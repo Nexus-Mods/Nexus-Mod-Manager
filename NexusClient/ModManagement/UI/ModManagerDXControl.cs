@@ -14,6 +14,7 @@ namespace Nexus.Client.ModManagement.UI
 
     using DevExpress.Utils;
     using DevExpress.XtraEditors.Repository;
+    using DevExpress.XtraGrid;
     using DevExpress.XtraGrid.Columns;
     using DevExpress.XtraGrid.Views.Grid;
     using DevExpress.XtraGrid.Views.Grid.ViewInfo;
@@ -56,6 +57,9 @@ namespace Nexus.Client.ModManagement.UI
         private Button _renameAcceptButton;
         private Button _renameCancelButton;
         private ToolStripDropDownButton _displayButton;
+        private ToolStripDropDownButton _displayOptionsButton;
+        private ToolStripMenuItem _toggleColouredCategoriesMenuItem;
+        private ToolStripMenuItem _toggleRowHighlightsMenuItem;
         private ComboBox _gridFontCombo;
         private ComboBox _gridFontSizeCombo;
         private ComboBox _gridDensityCombo;
@@ -73,6 +77,8 @@ namespace Nexus.Client.ModManagement.UI
         private string _gridFontFamilyName = DefaultGridFontFamily;
         private float _gridFontSizePt = DefaultGridFontSizePt;
         private string _gridDensity = DefaultGridDensity;
+        private bool _showColouredCategories = true;
+        private bool _showRowHighlights = true;
         private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
         private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache = new Dictionary<IMod, ModVisualStatus>();
@@ -111,6 +117,8 @@ namespace Nexus.Client.ModManagement.UI
         private const string GridFontKey     = GridLayoutKey + ".Font";
         private const string GridFontSizeKey = GridLayoutKey + ".FontSize";
         private const string GridDensityKey  = GridLayoutKey + ".Density";
+        private const string GridColouredCategoriesKey = GridLayoutKey + ".ColouredCategories";
+        private const string GridRowHighlightsKey = GridLayoutKey + ".RowHighlights";
         private const string GridCategoryViewKey = GridLayoutKey + ".CategoryView";
         private const string GridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
         private const string DefaultGridFontFamily = "Segoe UI";
@@ -146,6 +154,7 @@ namespace Nexus.Client.ModManagement.UI
             Text = "Mods";
             InitializeInlineRenameEditor();
             SetupGrid();
+            InitializeGridDisplayOptions();
             InitializeGridFontSelector();
             UpdateSwitchViewText();
         }
@@ -168,6 +177,7 @@ namespace Nexus.Client.ModManagement.UI
                 {
                     HookViewModel();
                     RestoreGridFont();
+                    RestoreGridDisplayOptions();
                 }
             }
         }
@@ -217,6 +227,8 @@ namespace Nexus.Client.ModManagement.UI
                 _viewModel.Settings.DockPanelLayouts.Remove(GridFontKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridFontSizeKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridDensityKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridColouredCategoriesKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridRowHighlightsKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCategoryViewKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
                 _viewModel.Settings.Save();
@@ -228,6 +240,8 @@ namespace Nexus.Client.ModManagement.UI
             gridView.ClearSorting();
             _restoringGridLayout = false;
             SelectGridDisplay(DefaultGridFontFamily, DefaultGridFontSizePt, DefaultGridDensity, false);
+            SetColouredCategoriesVisible(true, false);
+            SetRowHighlightsVisible(true, false);
             ApplyColumnSizing();
         }
 
@@ -579,6 +593,35 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
+        private void InitializeGridDisplayOptions()
+        {
+            _displayOptionsButton = new ToolStripDropDownButton
+            {
+                Alignment = ToolStripItemAlignment.Right,
+                DisplayStyle = ToolStripItemDisplayStyle.Text,
+                Text = "Display Options",
+                ToolTipText = "Grid display options"
+            };
+
+            _toggleColouredCategoriesMenuItem = new ToolStripMenuItem("Toggle Coloured Categories")
+            {
+                CheckOnClick = true,
+                Checked = _showColouredCategories
+            };
+            _toggleColouredCategoriesMenuItem.Click += (s, e) => SetColouredCategoriesVisible(_toggleColouredCategoriesMenuItem.Checked, true);
+
+            _toggleRowHighlightsMenuItem = new ToolStripMenuItem("Toggle Row Highlights")
+            {
+                CheckOnClick = true,
+                Checked = _showRowHighlights
+            };
+            _toggleRowHighlightsMenuItem.Click += (s, e) => SetRowHighlightsVisible(_toggleRowHighlightsMenuItem.Checked, true);
+
+            _displayOptionsButton.DropDownItems.Add(_toggleColouredCategoriesMenuItem);
+            _displayOptionsButton.DropDownItems.Add(_toggleRowHighlightsMenuItem);
+            toolStrip1.Items.Add(_displayOptionsButton);
+        }
+
         private void InitializeGridFontSelector()
         {
             _displayButton = new ToolStripDropDownButton
@@ -673,6 +716,61 @@ namespace Nexus.Client.ModManagement.UI
         {
             if (_updatingGridDisplayControls) return;
             SelectGridDisplay(_gridFontCombo.SelectedItem as string, ParseGridFontSize(_gridFontSizeCombo.SelectedItem as string), _gridDensityCombo.SelectedItem as string, true);
+        }
+
+        private void RestoreGridDisplayOptions()
+        {
+            SetColouredCategoriesVisible(ReadGridDisplayOption(GridColouredCategoriesKey, true), false);
+            SetRowHighlightsVisible(ReadGridDisplayOption(GridRowHighlightsKey, true), false);
+        }
+
+        private bool ReadGridDisplayOption(string key, bool defaultValue)
+        {
+            if (_viewModel?.Settings?.DockPanelLayouts.ContainsKey(key) != true)
+                return defaultValue;
+
+            bool value;
+            return bool.TryParse(_viewModel.Settings.DockPanelLayouts[key], out value) ? value : defaultValue;
+        }
+
+        private void SetColouredCategoriesVisible(bool visible, bool save)
+        {
+            _showColouredCategories = visible;
+            if (_toggleColouredCategoriesMenuItem != null)
+                _toggleColouredCategoriesMenuItem.Checked = visible;
+
+            RefreshGridDisplayStyles();
+            SaveGridDisplayOption(GridColouredCategoriesKey, visible, save);
+        }
+
+        private void SetRowHighlightsVisible(bool visible, bool save)
+        {
+            _showRowHighlights = visible;
+            if (_toggleRowHighlightsMenuItem != null)
+                _toggleRowHighlightsMenuItem.Checked = visible;
+
+            RefreshGridDisplayStyles();
+            SaveGridDisplayOption(GridRowHighlightsKey, visible, save);
+        }
+
+        private void RefreshGridDisplayStyles()
+        {
+            if (gridView == null || gridControl == null || gridControl.IsDisposed)
+                return;
+
+            gridView.RefreshData();
+            gridView.InvalidateRows();
+            gridView.Invalidate();
+            gridControl.Refresh();
+        }
+
+        private void SaveGridDisplayOption(string key, bool value, bool save)
+        {
+            if (!save || _viewModel?.Settings == null)
+                return;
+
+            _viewModel.Settings.DockPanelLayouts[key] = value.ToString();
+            _viewModel.Settings.Save();
         }
 
         private void RestoreGridFont()
@@ -880,6 +978,7 @@ namespace Nexus.Client.ModManagement.UI
             gridView.Columns.Clear();
             BuildColumns();
             ApplyAutoFilterDefaults();
+            ApplyDateSortDefaults();
 
             gridView.CustomUnboundColumnData += GridView_CustomUnboundColumnData;
             gridView.RowCellStyle            += GridView_RowCellStyle;
@@ -953,6 +1052,17 @@ namespace Nexus.Client.ModManagement.UI
         {
             foreach (GridColumn col in gridView.Columns)
                 ApplyAutoFilterDefaults(col);
+        }
+
+        private void ApplyDateSortDefaults()
+        {
+            GridColumn installDateColumn = gridView.Columns[ColInstallDate];
+            if (installDateColumn != null)
+                installDateColumn.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
+
+            GridColumn downloadDateColumn = gridView.Columns[ColDownloadDate];
+            if (downloadDateColumn != null)
+                downloadDateColumn.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
         }
 
         private void ApplyAutoFilterDefaults(GridColumn col)
@@ -1194,18 +1304,23 @@ namespace Nexus.Client.ModManagement.UI
             bool isSelected  = gridView.IsRowSelected(e.RowHandle)
                             || e.RowHandle == gridView.FocusedRowHandle;
 
-            if (isActive)
+            if (_showRowHighlights && isActive)
             {
                 e.Appearance.BackColor = isSelected
                     ? Color.FromArgb(188, 225, 188)   // light green when active + selected
                     : Color.FromArgb(236, 250, 236);   // very light green when active, not selected
                 e.Appearance.ForeColor = Color.Black;
             }
-            else if (isInstalled)
+            else if (_showRowHighlights && isInstalled)
             {
                 e.Appearance.BackColor = isSelected
                     ? Color.FromArgb(238, 204, 158)     // light orange when installed + selected
                     : Color.FromArgb(255, 244, 226);   // very light orange when installed but disabled
+                e.Appearance.ForeColor = Color.Black;
+            }
+            else if (!_showRowHighlights && isInstalled && !isSelected)
+            {
+                e.Appearance.BackColor = GetDefaultRowBackColor(e.RowHandle);
                 e.Appearance.ForeColor = Color.Black;
             }
             else if (isSelected)
@@ -1235,6 +1350,14 @@ namespace Nexus.Client.ModManagement.UI
                 e.Appearance.ForeColor = Color.FromArgb(140, 140, 140);
                 e.Appearance.Font = new Font(_gridFontFamilyName, GetSecondaryGridFontSize(_gridFontSizePt), FontStyle.Regular, GraphicsUnit.Point);
             }
+        }
+
+        private Color GetDefaultRowBackColor(int rowHandle)
+        {
+            int visibleIndex = gridView.GetVisibleIndex(rowHandle);
+            return visibleIndex >= 0 && visibleIndex % 2 == 0
+                ? Color.FromArgb(242, 242, 246)
+                : Color.FromArgb(248, 248, 251);
         }
 
         private void DrawModStatusCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
@@ -1463,7 +1586,7 @@ namespace Nexus.Client.ModManagement.UI
         /// <summary>Draws a coloured pill badge for the category cell.</summary>
         private void DrawCategoryBadge(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
         {
-            if (e.RowHandle < 0) return;
+            if (e.RowHandle < 0 || !_showColouredCategories) return;
             int src = gridView.GetDataSourceRowIndex(e.RowHandle);
             if (src < 0 || src >= _modList.Count) return;
             IMod mod = _modList[src];
@@ -1606,6 +1729,7 @@ namespace Nexus.Client.ModManagement.UI
                 }
 
                 ApplyAutoFilterDefaults();
+                ApplyDateSortDefaults();
                 SetModNameFill();
             }
             finally { gridView.EndUpdate(); }
@@ -1676,12 +1800,14 @@ namespace Nexus.Client.ModManagement.UI
                             gridView.RestoreLayoutFromStream(stream);
                         }
                         ApplyAutoFilterDefaults();
+                        ApplyDateSortDefaults();
                         SetModNameFill();
                         return true;
                     }
                 }
 
                 ApplyAutoFilterDefaults();
+                ApplyDateSortDefaults();
                 SetModNameFill();
                 return false;
             }
@@ -1760,6 +1886,7 @@ namespace Nexus.Client.ModManagement.UI
             if (_categoryViewActive && catCol != null)
             {
                 gridView.OptionsView.ShowGroupPanel = true;
+                ApplyCategoryGroupSummary();
                 catCol.SortOrder = DevExpress.Data.ColumnSortOrder.Ascending;
                 catCol.GroupIndex = 0;
                 if (expandAll)
@@ -1768,10 +1895,24 @@ namespace Nexus.Client.ModManagement.UI
             else
             {
                 gridView.ClearGrouping();
+                gridView.GroupSummary.Clear();
                 gridView.OptionsView.ShowGroupPanel = false;
             }
 
             UpdateSwitchViewText();
+        }
+
+        private void ApplyCategoryGroupSummary()
+        {
+            gridView.GroupSummary.Clear();
+            gridView.GroupSummary.Add(new GridGroupSummaryItem
+            {
+                SummaryType = DevExpress.Data.SummaryItemType.Count,
+                FieldName = string.Empty,
+                DisplayFormat = "{0} mods",
+                ShowInGroupColumnFooter = null
+            });
+            gridView.GroupFormat = "{0}: {1} ({2})";
         }
 
         private void SaveGridCategoryState()
