@@ -74,6 +74,7 @@ namespace Nexus.Client.ModManagement.UI
         private string _gridDensity = DefaultGridDensity;
         private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
+        private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache = new Dictionary<IMod, ModVisualStatus>();
         private readonly Dictionary<string, bool> _missingArchiveByFileName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         private readonly object _missingArchiveLock = new object();
         private Image _modInstalledDisabledIcon;
@@ -92,6 +93,8 @@ namespace Nexus.Client.ModManagement.UI
         private readonly List<IMod> _modList = new List<IMod>();
 
         // column field-name constants (used as column names, not as PropertyDescriptor field names)
+        private enum ModVisualStatus { Uninstalled, InstalledUnlinked, InstalledActive }
+
         private const string ColModStatus    = "ModStatus";
         private const string ColModName      = "ModName";
         private const string ColVersion      = "HumanReadableVersion";
@@ -887,7 +890,7 @@ namespace Nexus.Client.ModManagement.UI
 
         private void BuildColumns()
         {
-            AddCol(ColModStatus,    string.Empty,       28, HorzAlignment.Center,  true);
+            AddCol(ColModStatus,    "Status",        58, HorzAlignment.Center,  true);
             AddCol(ColModName,      "MOD NAME",       220, HorzAlignment.Default, true);
             AddCol(ColVersion,      "VERSION",         70, HorzAlignment.Center,  false);
             AddCol(ColLastKnown,    "LATEST",          70, HorzAlignment.Center,  false);
@@ -987,6 +990,7 @@ namespace Nexus.Client.ModManagement.UI
         {
             _activeModFileNames.Clear();
             _installedMods.Clear();
+            _modVisualStatusCache.Clear();
             lock (_missingArchiveLock)
                 _missingArchiveByFileName.Clear();
         }
@@ -995,6 +999,7 @@ namespace Nexus.Client.ModManagement.UI
         {
             _activeModFileNames.Clear();
             _installedMods.Clear();
+            _modVisualStatusCache.Clear();
 
             if (_viewModel == null)
                 return;
@@ -1010,36 +1015,49 @@ namespace Nexus.Client.ModManagement.UI
 
         private bool IsModActive(IMod mod)
         {
-            if (mod == null || string.IsNullOrEmpty(mod.Filename)) return false;
-            try
-            {
-                if (_viewModel?.VirtualModActivator != null)
-                    return _viewModel.VirtualModActivator.CheckHasActiveLinks(mod);
-            }
-            catch
-            {
-                // Fall back to the cached profile list if the virtual link table is being rebuilt.
-            }
-            return _activeModFileNames.Contains(Path.GetFileName(mod.Filename));
+            return GetModVisualStatus(mod) == ModVisualStatus.InstalledActive;
         }
 
         private bool IsModInstalled(IMod mod)
         {
             return mod != null && _installedMods.Contains(mod);
         }
-        private string GetModStatusText(IMod mod)
+
+        private ModVisualStatus GetModVisualStatus(IMod mod)
         {
-            if (IsModActive(mod)) return "Installed/Active";
-            if (IsModInstalled(mod)) return "Installed/Unlinked";
-            return "Uninstalled";
+            if (mod == null)
+                return ModVisualStatus.Uninstalled;
+
+            ModVisualStatus status;
+            if (_modVisualStatusCache.TryGetValue(mod, out status))
+                return status;
+
+            bool installed = IsModInstalled(mod);
+            bool linked = installed && !string.IsNullOrEmpty(mod.Filename) && _activeModFileNames.Contains(Path.GetFileName(mod.Filename));
+
+            status = linked ? ModVisualStatus.InstalledActive : installed ? ModVisualStatus.InstalledUnlinked : ModVisualStatus.Uninstalled;
+            _modVisualStatusCache[mod] = status;
+            return status;
         }
 
-        private Image GetModStatusIcon(IMod mod)
+        private string GetModStatusText(IMod mod)
         {
-            string status = GetModStatusText(mod);
-            if (status == "Installed/Active")
+            switch (GetModVisualStatus(mod))
+            {
+                case ModVisualStatus.InstalledActive:
+                    return "Installed/Active";
+                case ModVisualStatus.InstalledUnlinked:
+                    return "Installed/Unlinked";
+                default:
+                    return "Uninstalled";
+            }
+        }
+
+        private Image GetModStatusIcon(ModVisualStatus status)
+        {
+            if (status == ModVisualStatus.InstalledActive)
                 return _modInstalledActiveIcon ?? (_modInstalledActiveIcon = LoadSvgIcon("mod-installed-active.svg", ModStatusIconSize));
-            if (status == "Installed/Unlinked")
+            if (status == ModVisualStatus.InstalledUnlinked)
                 return _modInstalledDisabledIcon ?? (_modInstalledDisabledIcon = LoadSvgIcon("mod-installed-disabled.svg", ModStatusIconSize));
             return null;
         }
@@ -1118,8 +1136,9 @@ namespace Nexus.Client.ModManagement.UI
             if (src < 0 || src >= _modList.Count) return;
             IMod mod = _modList[src];
 
-            bool isActive    = IsModActive(mod);
-            bool isInstalled = IsModInstalled(mod);
+            ModVisualStatus status = GetModVisualStatus(mod);
+            bool isActive = status == ModVisualStatus.InstalledActive;
+            bool isInstalled = status != ModVisualStatus.Uninstalled;
             bool isSelected  = gridView.IsRowSelected(e.RowHandle)
                             || e.RowHandle == gridView.FocusedRowHandle;
 
@@ -1172,7 +1191,8 @@ namespace Nexus.Client.ModManagement.UI
             if (src < 0 || src >= _modList.Count)
                 return;
 
-            Image icon = GetModStatusIcon(_modList[src]);
+            ModVisualStatus status = GetModVisualStatus(_modList[src]);
+            Image icon = GetModStatusIcon(status);
             string displayText = e.DisplayText;
             e.DisplayText = string.Empty;
             e.DefaultDraw();
