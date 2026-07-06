@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using Nexus.Client.Commands;
@@ -14,6 +15,11 @@ namespace Nexus.Client.Games.DataDriven
 {
     public class DataDrivenSupportedToolsLauncher : SupportedToolsLauncherBase
     {
+        private static readonly HashSet<string> BlockedToolExecutables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe"
+        };
+
         private readonly GameModeDefinition _definition;
 
         public DataDrivenSupportedToolsLauncher(IGameMode gameMode, IEnvironmentInfo environmentInfo, GameModeDefinition definition)
@@ -71,7 +77,17 @@ namespace Nexus.Client.Games.DataDriven
         {
             Trace.TraceInformation("Launching {0}", tool.Name);
             Trace.Indent();
-            Launch(GetToolLaunchCommand(tool), ResolvePath(tool.Arguments));
+
+            string command = GetToolLaunchCommand(tool);
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                Trace.TraceError("Failed: no safe executable path resolved.");
+                Trace.Unindent();
+                OnSupportedToolsLaunched(false, "Could not find a safe executable for '" + tool.Name + "'.");
+                return;
+            }
+
+            Launch(command, BuildArgumentString(tool.ArgumentTokens));
         }
 
         private string GetToolLaunchCommand(GameModeToolDefinition tool)
@@ -94,7 +110,7 @@ namespace Nexus.Client.Games.DataDriven
                     return command;
             }
 
-            return FindExecutable(ResolvePath(tool.ExecutablePath), tool);
+            return FindExecutable(ResolveSafePath(tool.ExecutablePath), tool);
         }
 
         private string ResolveDiscoveryPath(GameModeToolDiscoveryRuleDefinition rule)
@@ -110,29 +126,29 @@ namespace Nexus.Client.Games.DataDriven
             }
             else if (string.Equals(rule.Source, "GameRelative", StringComparison.OrdinalIgnoreCase))
             {
-                path = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath ?? string.Empty, rule.Path ?? string.Empty);
+                string relativePath = ResolveSafePath(rule.Path);
+                if (relativePath != null)
+                    path = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath ?? string.Empty, relativePath);
             }
             else
             {
-                path = ResolvePath(rule.Path);
+                path = ResolveSafePath(rule.Path);
             }
 
-            if (!string.IsNullOrWhiteSpace(path) && !string.IsNullOrWhiteSpace(rule.PathSuffix))
-                path = Path.Combine(path, ResolvePath(rule.PathSuffix));
+            string pathSuffix = ResolveSafePath(rule.PathSuffix);
+            if (!string.IsNullOrWhiteSpace(path) && !string.IsNullOrWhiteSpace(pathSuffix))
+                path = Path.Combine(path, pathSuffix);
 
             return path;
         }
 
-        private string FindExecutable(string path, GameModeToolDefinition tool)
+        private string FindExecutable(string folderPath, GameModeToolDefinition tool)
         {
-            if (string.IsNullOrWhiteSpace(path))
+            if (string.IsNullOrWhiteSpace(folderPath))
                 return null;
 
-            string expanded = ResolvePath(path);
-            if (File.Exists(expanded))
-                return expanded;
-
-            if (!Directory.Exists(expanded))
+            string expanded = ResolveSafePath(folderPath);
+            if (string.IsNullOrWhiteSpace(expanded) || !Directory.Exists(expanded))
                 return null;
 
             foreach (string executableName in GetExecutableNames(tool))
@@ -149,15 +165,12 @@ namespace Nexus.Client.Games.DataDriven
         {
             if (tool.ExecutableNames != null)
             {
-                foreach (string executableName in tool.ExecutableNames.Where(x => !string.IsNullOrWhiteSpace(x)))
+                foreach (string executableName in tool.ExecutableNames.Where(IsSafeToolExecutableName))
                     yield return executableName;
             }
 
-            if (!string.IsNullOrWhiteSpace(tool.ExecutableName))
+            if (IsSafeToolExecutableName(tool.ExecutableName))
                 yield return tool.ExecutableName;
-
-            if (!string.IsNullOrWhiteSpace(tool.ExecutablePath))
-                yield return Path.GetFileName(tool.ExecutablePath);
         }
 
         private string GetToolSettingsKey(GameModeToolDefinition tool)
@@ -184,10 +197,63 @@ namespace Nexus.Client.Games.DataDriven
             }
         }
 
-        private string ResolvePath(string value)
+        private string BuildArgumentString(IEnumerable<string> argumentTokens)
+        {
+            if (argumentTokens == null)
+                return string.Empty;
+
+            var arguments = new List<string>();
+            foreach (string token in argumentTokens.Where(x => !string.IsNullOrWhiteSpace(x)))
+            {
+                string resolved = ResolveSafePath(token);
+                if (resolved != null)
+                    arguments.Add(QuoteArgument(resolved));
+            }
+
+            return string.Join(" ", arguments.ToArray());
+        }
+
+        private string QuoteArgument(string argument)
+        {
+            if (string.IsNullOrEmpty(argument))
+                return "\"\"";
+            if (argument.IndexOfAny(new[] { ' ', '\t', '\n', '\r', '\"' }) < 0)
+                return argument;
+
+            var builder = new StringBuilder();
+            builder.Append('"');
+            int backslashes = 0;
+            foreach (char current in argument)
+            {
+                if (current == '\\')
+                {
+                    backslashes++;
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    builder.Append('\\', backslashes * 2 + 1);
+                    builder.Append(current);
+                }
+                else
+                {
+                    builder.Append('\\', backslashes);
+                    builder.Append(current);
+                }
+                backslashes = 0;
+            }
+            builder.Append('\\', backslashes * 2);
+            builder.Append('"');
+            return builder.ToString();
+        }
+
+        private string ResolveSafePath(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
                 return value;
+            if (ContainsParentTraversal(value))
+                return null;
 
             return value.Replace("{GamePath}", GameMode.GameModeEnvironmentInfo.InstallationPath ?? string.Empty)
                         .Replace("{ExecutablePath}", GameMode.GameModeEnvironmentInfo.ExecutablePath ?? string.Empty)
@@ -198,6 +264,25 @@ namespace Nexus.Client.Games.DataDriven
                         .Replace("{ProgramFilesX86}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86));
         }
 
+        private bool IsSafeToolExecutableName(string executableName)
+        {
+            return !string.IsNullOrWhiteSpace(executableName) &&
+                   string.Equals(executableName, Path.GetFileName(executableName), StringComparison.Ordinal) &&
+                   executableName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
+                   !Path.IsPathRooted(executableName) &&
+                   string.Equals(Path.GetExtension(executableName), ".exe", StringComparison.OrdinalIgnoreCase) &&
+                   !BlockedToolExecutables.Contains(executableName);
+        }
+
+        private bool ContainsParentTraversal(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            string[] segments = value.Replace('/', '\\').Split('\\');
+            return segments.Any(x => string.Equals(x.Trim(), "..", StringComparison.Ordinal));
+        }
+
         private void EnsureToolSettings()
         {
             if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId] == null)
@@ -205,6 +290,3 @@ namespace Nexus.Client.Games.DataDriven
         }
     }
 }
-
-
-

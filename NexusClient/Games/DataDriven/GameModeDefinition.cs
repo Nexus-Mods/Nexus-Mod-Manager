@@ -109,6 +109,7 @@ namespace Nexus.Client.Games.DataDriven
         public string ExecutableName { get; set; }
         public string[] ExecutableNames { get; set; }
         public string Arguments { get; set; }
+        public string[] ArgumentTokens { get; set; }
         public List<GameModeToolDiscoveryRuleDefinition> DiscoveryRules { get; set; } = new List<GameModeToolDiscoveryRuleDefinition>();
     }
 
