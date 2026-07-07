@@ -595,6 +595,10 @@
     <EmbeddedResource Include="Resources\toolbar_group_by.svg" />
     <EmbeddedResource Include="Resources\toolbar_sort_by.svg" />
     <EmbeddedResource Include="Resources\toolbar_columns.svg" />
+    <EmbeddedResource Include="Resources\mod-installed-disabled.svg" />
+    <EmbeddedResource Include="Resources\mod-installed-active.svg" />
+    <EmbeddedResource Include="Resources\mod-uninstall-from-profile.svg" />
+    <EmbeddedResource Include="Resources\mod-remove.svg" />
     <EmbeddedResource Include="Resources\game_storage_use.svg" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
