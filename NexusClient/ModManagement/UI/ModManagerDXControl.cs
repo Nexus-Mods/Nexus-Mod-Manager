@@ -149,6 +149,7 @@ namespace Nexus.Client.ModManagement.UI
         {
             InitializeComponent();
             InitializeToolbarIcons();
+            ApplyToolbarActionLabels();
             _columnFillTimer = new Timer(components) { Interval = 120 };
             _columnFillTimer.Tick += ColumnFillTimer_Tick;
             Text = "Mods";
@@ -369,7 +370,9 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.TagModCommand.CanExecute      = false;
 
             new ToolStripItemCommandBinding<List<IMod>>(tsbActivate,   _viewModel.ActivateModCommand, GetSelectedMods);
-            new ToolStripItemCommandBinding<List<IMod>>(tsbDeactivate, _viewModel.DisableModCommand,  GetSelectedMods);
+            tsbDeactivate.ButtonClick -= tsbDeactivate_ButtonClick;
+            tsbDeactivate.ButtonClick += tsbDeactivate_ButtonClick;
+            ConfigureDeactivateDropDown();
             new ToolStripItemCommandBinding<IMod>      (tsbTagMod,     _viewModel.TagModCommand,      GetSelectedMod);
             new ToolStripItemCommandBinding<string>    (exportToTextFile,    _viewModel.ExportModListToFileCommand,      GetExportToFileArgs);
             new ToolStripItemCommandBinding            (exportToClipboard,   _viewModel.ExportModListToClipboardCommand);
@@ -575,6 +578,15 @@ namespace Nexus.Client.ModManagement.UI
             item.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
             item.ImageScaling = ToolStripItemImageScaling.None;
             item.TextImageRelation = TextImageRelation.ImageBeforeText;
+        }
+        private void ApplyToolbarActionLabels()
+        {
+            tsbDeactivate.Text = "Disable Mod";
+            tsbDeactivate.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+            tsbDeactivate.TextImageRelation = TextImageRelation.ImageBeforeText;
+            tsbTagMod.Text = "Get Mod Info";
+            tsbTagMod.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+            tsbTagMod.TextImageRelation = TextImageRelation.ImageBeforeText;
         }
 
         private static Image LoadSvgIcon(string resourceName, int size)
@@ -2347,9 +2359,33 @@ namespace Nexus.Client.ModManagement.UI
         private void GridView_KeyDown(object sender, KeyEventArgs e)
         {
             if (_renamePanel?.Visible == true) return;
+            if (e.KeyCode == Keys.F2 && TryStartHoveredModNameRename()) { e.Handled = true; return; }
             if (e.KeyCode == Keys.Return) { e.Handled = true; ToggleSelectedMod(); }
             if (e.KeyCode == Keys.Delete) { e.Handled = true; DeleteSelectedModsFromKey(); }
             if (e.KeyData == (Keys.Control | Keys.F)) SetTextBoxFocus?.Invoke(this, e);
+        }
+
+        private bool TryStartHoveredModNameRename()
+        {
+            Point clientPoint = gridControl.PointToClient(Control.MousePosition);
+            var hit = gridView.CalcHitInfo(clientPoint);
+            if (!hit.InRowCell || hit.Column == null || hit.Column.FieldName != ColModName)
+                return false;
+
+            Rectangle cellBounds = _hoveredModNameCellBounds;
+            if (cellBounds.IsEmpty || !cellBounds.Contains(clientPoint))
+            {
+                GridViewInfo viewInfo = gridView.GetViewInfo() as GridViewInfo;
+                GridCellInfo cellInfo = viewInfo?.GetGridCellInfo(hit.RowHandle, hit.Column);
+                if (cellInfo != null)
+                    cellBounds = cellInfo.Bounds;
+            }
+
+            if (cellBounds.IsEmpty)
+                return false;
+
+            StartInlineRename(hit.RowHandle, cellBounds);
+            return true;
         }
 
         private void DeleteSelectedModsFromKey()
@@ -2619,9 +2655,39 @@ namespace Nexus.Client.ModManagement.UI
             return list.Count > 0 ? list : null;
         }
 
+        private void ConfigureDeactivateDropDown()
+        {
+            tsbDeactivate.DropDownItems.Clear();
+            AddDeactivateDropDownItem("Uninstall mod from current profile", "mod-uninstall-from-profile.svg", UninstallSelectedModsFromCurrentProfile);
+            AddDeactivateDropDownItem("Delete mod", "mod-remove.svg", DeleteSelectedModsFromKey);
+        }
+
+        private void AddDeactivateDropDownItem(string text, string iconResourceName, Action action)
+        {
+            var item = new ToolStripMenuItem(text, LoadSvgIcon(iconResourceName, 24), (s, e) => action())
+            {
+                ImageScaling = ToolStripItemImageScaling.None
+            };
+            tsbDeactivate.DropDownItems.Add(item);
+        }
+
+        private void UninstallSelectedModsFromCurrentProfile()
+        {
+            if (_viewModel == null) return;
+
+            List<IMod> mods = SelectedMods;
+            if (mods.Count == 0 || !ConfirmMissingArchiveUninstall(mods)) return;
+
+            if (mods.Count == 1)
+                _viewModel.DeactivateMod(mods[0]);
+            else
+                _viewModel.DeactivateSelectedMods(mods);
+        }
+
         private void UpdateToolbarState()
         {
-            // Enabled state is managed by ToolStripItemCommandBinding; no manual toggling needed.
+            tsbDeactivate.Enabled = SelectedMods.Count > 0;
+            ApplyToolbarActionLabels();
         }
 
         private void UpdateModCountLabel()
@@ -2631,6 +2697,15 @@ namespace Nexus.Client.ModManagement.UI
 
         // ── Toolbar button handlers ──────────────────────────────────────────
 
+        private void tsbDeactivate_ButtonClick(object sender, EventArgs e)
+        {
+            if (_viewModel == null || !_viewModel.DisableModCommand.CanExecute) return;
+
+            List<IMod> mods = GetSelectedMods();
+            if (mods == null) return;
+
+            _viewModel.DeactivateSelectedMods(mods);
+        }
         private void tsbAddMod_ButtonClick(object sender, EventArgs e)
         {
             addModToolStripMenuItem_Click(sender, e);

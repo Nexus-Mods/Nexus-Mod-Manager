@@ -25,7 +25,7 @@ namespace Nexus.Client.ModManagement.UI
 
             // Core mod actions
             this.tsbActivate   = new System.Windows.Forms.ToolStripButton();
-            this.tsbDeactivate = new System.Windows.Forms.ToolStripButton();
+            this.tsbDeactivate = new System.Windows.Forms.ToolStripSplitButton();
 
             // Load order
             this.tsb_SaveModLoadOrder = new System.Windows.Forms.ToolStripButton();
@@ -141,10 +141,10 @@ namespace Nexus.Client.ModManagement.UI
             this.tsbActivate.ToolTipText  = "Install / enable the selected mod(s)";
 
             // ── tsbDeactivate ────────────────────────────────────────────────
-            this.tsbDeactivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.tsbDeactivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.ImageAndText;
             this.tsbDeactivate.Image        = global::Nexus.Client.Properties.Resources.remove_download_flat;
             this.tsbDeactivate.Name         = "tsbDeactivate";
-            this.tsbDeactivate.Text         = "\u2715 Disable";
+            this.tsbDeactivate.Text         = "Disable Mod";
             this.tsbDeactivate.ToolTipText  = "Disable the selected mod(s)";
 
             // ── tsb_SaveModLoadOrder ─────────────────────────────────────────
@@ -175,7 +175,7 @@ namespace Nexus.Client.ModManagement.UI
             this.tsbTagMod.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.tsbTagMod.Image        = global::Nexus.Client.Properties.Resources.mad_tagger_flat;
             this.tsbTagMod.Name         = "tsbTagMod";
-            this.tsbTagMod.Text         = "Tag";
+            this.tsbTagMod.Text         = "Get Mod Info";
             this.tsbTagMod.ToolTipText  = "Get missing mod info";
 
             // ── tsbModOnlineChecks ───────────────────────────────────────────
@@ -373,7 +373,7 @@ namespace Nexus.Client.ModManagement.UI
         private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem addModFromURLToolStripMenuItem;
         private System.Windows.Forms.ToolStripButton tsbActivate;
-        private System.Windows.Forms.ToolStripButton tsbDeactivate;
+        private System.Windows.Forms.ToolStripSplitButton tsbDeactivate;
         private System.Windows.Forms.ToolStripButton tsb_SaveModLoadOrder;
         private System.Windows.Forms.ToolStripButton tsb_ModUpLoadOrder;
         private System.Windows.Forms.ToolStripButton tsb_ModDownLoadOrder;
