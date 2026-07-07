@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="Starfield" ID="1">
+      <name>Starfield</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Visuals" ID="3">
+      <name>Visuals</name>
+    </category>
+    <category path="Gameplay" ID="4">
+      <name>Gameplay</name>
+    </category>
+    <category path="Characters" ID="5">
+      <name>Characters</name>
+    </category>
+    <category path="Environment" ID="6">
+      <name>Environment</name>
+    </category>
+    <category path="Ships" ID="7">
+      <name>Ships</name>
+    </category>
+    <category path="Planets" ID="8">
+      <name>Planets</name>
+    </category>
+    <category path="Audio" ID="9">
+      <name>Audio</name>
+    </category>
+    <category path="Settlements" ID="10">
+      <name>Settlements</name>
+    </category>
+    <category path="Clothing" ID="11">
+      <name>Clothing</name>
+    </category>
+    <category path="Companions" ID="12">
+      <name>Companions</name>
+    </category>
+    <category path="Weapons" ID="13">
+      <name>Weapons</name>
+    </category>
+    <category path="Perks and Skills" ID="14">
+      <name>Perks and Skills</name>
+    </category>
+    <category path="User Interface" ID="15">
+      <name>User Interface</name>
+    </category>
+    <category path="Modders Resources" ID="16">
+      <name>Modders Resources</name>
+    </category>
+    <category path="Animations" ID="17">
+      <name>Animations</name>
+    </category>
+    <category path="Items" ID="18">
+      <name>Items</name>
+    </category>
+    <category path="Space Suits" ID="19">
+      <name>Space Suits</name>
+    </category>
+    <category path="Utilities" ID="20">
+      <name>Utilities</name>
+    </category>
+  </categoryList>
+</categoryManager>

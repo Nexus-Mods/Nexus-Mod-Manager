@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Nexus-Mods/Nexus-Mod-Manager/game-mode.schema.json",
+  "title": "Nexus Mod Manager CE Game Mode Definition",
+  "description": "Data-driven GameMode definition. Runtime definitions live under GameModes/Definitions/<GameId>/game.json after packaging; this schema documents the JSON contract used by Nexus.Client.Games.DataDriven.GameModeDefinition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "modeId", "name", "gameExecutables" ],
+  "properties": {
+    "$schema": { "type": "string", "description": "Editor-only schema hint. Ignored by NMM at runtime." },
+    "schemaVersion": { "type": "integer", "const": 1, "description": "Definition format version. Maps to GameModeDefinition.SchemaVersion." },
+    "modeId": { "type": "string", "minLength": 1, "description": "Stable GameMode id. Maps to GameModeDescriptor.ModeId and must not collide with another mode." },
+    "name": { "type": "string", "minLength": 1, "description": "Display name shown in game selection/detection. Maps to GameModeDescriptor.Name." },
+    "behaviorProfile": { "type": "string", "enum": [ "generic", "gamebryo" ], "default": "generic", "description": "Selects the runtime base class: generic maps to GameModeBase, gamebryo maps to GamebryoGameModeBase." },
+    "installerProfile": { "type": "string", "enum": [ "default", "gamebryo" ], "default": "default", "description": "Installer behavior profile. gamebryo preserves the old Data-folder/FOMOD behavior." },
+    "legacyFallback": { "type": "boolean", "default": false, "description": "If true, an already registered legacy DLL game mode wins over this JSON definition." },
+    "gameExecutables": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "description": "Executable names or relative paths used to validate installs and read game version. Maps to GameMode.GameExecutables." },
+    "stopFolders": { "type": "array", "items": { "type": "string" }, "description": "Archive root folder markers used by installers to detect the real mod root." },
+    "pluginExtensions": { "type": "array", "items": { "$ref": "#/$defs/fileExtension" }, "description": "Plugin/archive extensions recognized by plugin-capable modes." },
+    "orderedCriticalPluginNames": { "type": "array", "items": { "type": "string" }, "description": "Critical master/plugin names that must stay first in load order." },
+    "orderedOfficialPluginNames": { "type": "array", "items": { "type": "string" }, "description": "Official managed plugins ordered after critical files." },
+    "orderedOfficialUnmanagedPluginNames": { "type": "array", "items": { "type": "string" }, "description": "Official plugins that should be treated as unmanaged." },
+    "requiredToolName": { "type": "string", "description": "Legacy required tool label, where a game mode historically required an external executable." },
+    "orderedRequiredToolFileNames": { "type": "array", "items": { "type": "string" }, "description": "Legacy ordered required-tool filenames." },
+    "requiredToolErrorMessage": { "type": "string", "description": "User-facing message when a required tool is missing." },
+    "criticalFilesErrorMessage": { "type": "string", "description": "User-facing message when critical base files are missing." },
+    "supportedFormats": { "type": "array", "items": { "type": "string" }, "description": "Mod formats this game supports, usually fomod for modern modes." },
+    "discovery": { "$ref": "#/$defs/discovery" },
+    "plugin": { "$ref": "#/$defs/plugin" },
+    "launcher": { "$ref": "#/$defs/launcher" },
+    "resources": { "$ref": "#/$defs/resources" },
+    "theme": { "$ref": "#/$defs/theme" },
+    "setup": { "$ref": "#/$defs/setup" },
+    "settings": { "$ref": "#/$defs/settings" },
+    "modInstall": { "$ref": "#/$defs/modInstall" },
+    "gamebryo": { "$ref": "#/$defs/gamebryo" },
+    "supportedTools": { "type": "array", "items": { "$ref": "#/$defs/tool" }, "description": "Supported external tools. Can also be stored in supportedTools.json beside game.json." },
+    "compatibilityNotes": { "type": "array", "items": { "type": "string" }, "description": "Maintainer notes explaining intentionally preserved legacy behavior." }
+  },
+  "$defs": {
+    "fileExtension": { "type": "string", "pattern": "^\\.[^\\\\/]+$" },
+    "fileName": { "type": "string", "pattern": "^[^\\\\/:*?\"<>|]+$" },
+    "safeRelativePath": { "type": "string", "not": { "pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])" } },
+    "discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "steamAppId": { "type": "string", "description": "Legacy Steam app id shortcut." },
+        "steamInstallFolderName": { "type": "string", "description": "Legacy Steam library folder name shortcut." },
+        "steamExecutableName": { "$ref": "#/$defs/fileName" },
+        "gogRegistryKey": { "type": "string" },
+        "gogPathValueName": { "type": "string" },
+        "stores": { "type": "array", "items": { "$ref": "#/$defs/storeDiscovery" } }
+      }
+    },
+    "storeDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "store": { "type": "string", "enum": [ "Steam", "GOG", "Epic", "MicrosoftStore", "Xbox", "Custom" ] },
+        "id": { "type": "string" },
+        "installFolderName": { "type": "string" },
+        "executableName": { "$ref": "#/$defs/fileName" },
+        "registryKey": { "type": "string" },
+        "registryValueName": { "type": "string" },
+        "pathSuffix": { "$ref": "#/$defs/safeRelativePath" }
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "usesPlugins": { "type": "boolean" },
+        "pluginDirectorySuffix": { "$ref": "#/$defs/safeRelativePath" },
+        "supportsPluginAutoSorting": { "type": "boolean", "description": "Only valid for gamebryo behaviorProfile in the current implementation." },
+        "maxAllowedActivePluginsCount": { "type": "integer", "minimum": 0 },
+        "officialUnmanagedPluginListFiles": { "type": "array", "items": { "$ref": "#/$defs/safeRelativePath" } }
+      }
+    },
+    "launcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultExecutable": { "$ref": "#/$defs/safeRelativePath" },
+        "plainCommandName": { "type": "string" },
+        "plainCommandText": { "type": "string" },
+        "customCommandName": { "type": "string" },
+        "customCommandText": { "type": "string" },
+        "defaultCommandText": { "type": "string" },
+        "allowCustomCommand": { "type": "boolean" }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "iconPath": { "$ref": "#/$defs/fileName" },
+        "categoriesPath": { "$ref": "#/$defs/fileName" },
+        "baseFilesPath": { "$ref": "#/$defs/fileName" }
+      }
+    },
+    "theme": { "type": "object", "additionalProperties": false, "properties": { "primaryColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" } } },
+    "setup": { "type": "object", "additionalProperties": false, "properties": { "useGenericSetup": { "type": "boolean" } } },
+    "settings": { "type": "object", "additionalProperties": false, "properties": { "useGenericSettings": { "type": "boolean" }, "allowCustomLaunchCommand": { "type": "boolean" } } },
+    "modInstall": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pathAdjustmentProfile": { "type": "string", "enum": [ "", "none", "cyberpunk2077", "subnautica", "stardewvalley", "sims4", "nomanssky" ] },
+        "managedInstallationPath": { "$ref": "#/$defs/safeRelativePath" },
+        "pluginDirectoryPath": { "$ref": "#/$defs/safeRelativePath" },
+        "hardlinkRequiredExtensions": { "type": "array", "items": { "$ref": "#/$defs/fileExtension" } },
+        "realFileRequiredExtensions": { "type": "array", "items": { "$ref": "#/$defs/fileExtension" } },
+        "supportsGameRootInstall": { "type": "boolean" }
+      }
+    },
+    "gamebryo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scriptExtenderExecutables": { "type": "array", "items": { "$ref": "#/$defs/fileName" } },
+        "userGameDataPath": { "$ref": "#/$defs/safeRelativePath" },
+        "iniFilePath": { "$ref": "#/$defs/safeRelativePath" },
+        "rendererFilePath": { "$ref": "#/$defs/safeRelativePath" },
+        "pluginsFilePath": { "$ref": "#/$defs/safeRelativePath" },
+        "additionalSettingsFiles": { "type": "object", "additionalProperties": { "$ref": "#/$defs/safeRelativePath" } }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "settingsKey": { "type": "string" },
+        "executablePath": { "$ref": "#/$defs/safeRelativePath" },
+        "executableName": { "$ref": "#/$defs/fileName" },
+        "executableNames": { "type": "array", "items": { "$ref": "#/$defs/fileName" } },
+        "arguments": { "type": "string", "deprecated": true, "description": "Rejected by the runtime validator. Use argumentTokens." },
+        "argumentTokens": { "type": "array", "items": { "type": "string" } },
+        "discoveryRules": { "type": "array", "items": { "$ref": "#/$defs/toolDiscoveryRule" } }
+      }
+    },
+    "toolDiscoveryRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "enum": [ "GamePath", "Registry", "ConfiguredPath" ] },
+        "path": { "$ref": "#/$defs/safeRelativePath" },
+        "registryKey": { "type": "string" },
+        "registryValueName": { "type": "string" },
+        "pathSuffix": { "$ref": "#/$defs/safeRelativePath" }
+      }
+    }
+  }
+}

@@ -58,7 +58,12 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod installer for the given mod.</returns>
 		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods);
+			return CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, ModInstallRoot.Default);
+		}
+
+		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallRoot p_mirInstallRoot)
+		{
+			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_mirInstallRoot);
 		}
 
 		/// <summary>

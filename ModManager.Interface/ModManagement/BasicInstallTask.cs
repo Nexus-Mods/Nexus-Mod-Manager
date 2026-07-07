@@ -69,6 +69,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <value>The optional list of files to install.</value>
 		protected List<KeyValuePair<string, string>> FilesToInstall { get; private set; }
+		protected ModInstallRoot InstallRoot { get; private set; }
 
 		#endregion
 
@@ -85,6 +86,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		/// <param name="p_lstInstallFiles">The list of specific files to install, if null the mod will be installed as usual.</param>
 		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles)
+			: this(p_modMod, p_gmdGameMode, p_mfiFileInstaller, p_pmgPluginManager, p_ivaVirtualModActivator, p_booSkipReadme, p_rolActiveMods, p_dicInstallFiles, ModInstallRoot.Default)
+		{
+		}
+
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles, ModInstallRoot p_mirInstallRoot)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -94,6 +100,7 @@ namespace Nexus.Client.ModManagement
 			SkipReadme = p_booSkipReadme;
 			ActiveMods = p_rolActiveMods;
 			FilesToInstall = p_dicInstallFiles;
+			InstallRoot = p_mirInstallRoot;
 		}
 
 		#endregion
@@ -147,12 +154,12 @@ namespace Nexus.Client.ModManagement
 
 				if (Status == TaskStatus.Cancelling)
 					return false;
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, Mod, false);
+				string strFixedPath = GetAdjustedPath(strFileTo, ModPathContext.GameInstall);
 				if (string.IsNullOrEmpty(strFixedPath))
 					continue;
 
-				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
-				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId, GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
 				string strVirtualPath = strModFilenamePath;
 
 				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
@@ -161,8 +168,8 @@ namespace Nexus.Client.ModManagement
 				string strLinkPath = string.Empty;
 				if (VirtualModActivator.MultiHDMode)
 				{
-					string strModFilenameLink = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
-					string strModDownloadIDLink = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId, GameMode.GetModFormatAdjustedPath(Mod.Format, strFileTo, true));
+					string strModFilenameLink = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
+					string strModDownloadIDLink = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId, GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
 					 strLinkPath = strModFilenameLink;
 
 					if (!string.IsNullOrWhiteSpace(strModDownloadIDLink))
@@ -195,7 +202,7 @@ namespace Nexus.Client.ModManagement
 			{
 				if (!VirtualModActivator.DisableLinkCreation)
 				{
-					string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink.Key, strLink.Value, false);
+					string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink.Key, strLink.Value, false, false, InstallRoot);
 
 					if (!string.IsNullOrEmpty(strFileLink))
 						ActivatePlugin(strFileLink);
@@ -211,6 +218,17 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// If valid the current plugin file will be set as active.
 		/// </summary>
+		private string GetAdjustedPath(string path, ModPathContext context)
+		{
+			if (InstallRoot == ModInstallRoot.GameRoot)
+				return path ?? string.Empty;
+
+			if (context == ModPathContext.GameInstall)
+				return GameMode.GetModFormatAdjustedPath(Mod.Format, path, Mod, context);
+
+			return GameMode.GetModFormatAdjustedPath(Mod.Format, path, context);
+		}
+
 		protected void ActivatePlugin(string p_strPlugin)
 		{
 			if (FileInstaller.PluginCheck(p_strPlugin, false))

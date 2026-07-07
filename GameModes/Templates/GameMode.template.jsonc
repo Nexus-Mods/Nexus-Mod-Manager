@@ -1,0 +1,110 @@
+{
+  // Editor/schema hint. Runtime ignores this property.
+  "$schema": "../schema/game-mode.schema.json",
+
+  // Maps to GameModeDescriptor.ModeId. Keep stable forever once released.
+  "schemaVersion": 1,
+  "modeId": "ExampleGame",
+  "name": "Example Game",
+
+  // generic -> GameModeBase, gamebryo -> GamebryoGameModeBase.
+  "behaviorProfile": "generic",
+  "installerProfile": "default",
+  "legacyFallback": false,
+
+  // Old GameMode.GameExecutables and GetExecutableName-style checks.
+  "gameExecutables": [ "ExampleGame.exe" ],
+  "stopFolders": [ "Data", "Mods" ],
+  "supportedFormats": [ "fomod" ],
+
+  // Store discovery replaces per-game registry/Steam/GOG probing code.
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "000000",
+        "installFolderName": "ExampleGame",
+        "executableName": "ExampleGame.exe"
+      }
+    ]
+  },
+
+  // Maps to UsesPlugins, plugin folder, load-order limits and sorter support.
+  "plugin": {
+    "usesPlugins": false,
+    "pluginDirectorySuffix": "",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 0
+  },
+
+  // Maps to GameLauncher command names/text and optional custom launch command support.
+  "launcher": {
+    "defaultExecutable": "ExampleGame.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Example Game",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Example Game",
+    "defaultCommandText": "Launch Example Game",
+    "allowCustomCommand": true
+  },
+
+  // Files must live beside the runtime game.json. Use file names only, no paths.
+  "resources": {
+    "iconPath": "ExampleGame_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "example_base.txt"
+  },
+
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+
+  // Generic setup/settings pages replace simple per-game SetupForm/GeneralSettingsPage classes.
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true,
+    "allowCustomLaunchCommand": true
+  },
+
+  // Maps to GetModFormatAdjustedPath and file-link policy overrides.
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "hardlinkRequiredExtensions": [ ".esp" ],
+    "realFileRequiredExtensions": [ ".dll" ],
+    "supportsGameRootInstall": false
+  },
+
+  // Only for behaviorProfile: gamebryo. Maps to GamebryoSettingsFiles and script extender hooks.
+  "gamebryo": {
+    "scriptExtenderExecutables": [ "example_loader.exe" ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Example Game",
+    "iniFilePath": "{UserGameData}\\Example.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Example Game\\plugins.txt",
+    "additionalSettingsFiles": {
+      "PrefsIniPath": "{UserGameData}\\ExamplePrefs.ini"
+    }
+  },
+
+  // Can be inline here or split into supportedTools.json beside game.json.
+  "supportedTools": [
+    {
+      "id": "ExampleTool",
+      "name": "Example Tool",
+      "settingsKey": "ExampleToolPath",
+      "executableName": "ExampleTool.exe",
+      "argumentTokens": [ "{GamePath}" ],
+      "discoveryRules": [
+        {
+          "source": "GamePath",
+          "pathSuffix": "Tools"
+        }
+      ]
+    }
+  ],
+
+  "compatibilityNotes": [
+    "Document any intentionally preserved legacy behavior here."
+  ]
+}

@@ -11,6 +11,7 @@
 
     using Microsoft.Win32;
 
+    using Nexus.Client.Games.DataDriven;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Util;
     using Nexus.Client.Util.Threading;
@@ -29,6 +30,9 @@
 		[STAThread]
 		static void Main(string[] p_strArgs)
 		{
+            if (TryRunGameDefinitionValidationCommand(p_strArgs))
+                return;
+
 			Mutex mtxAppRunningMutex = null;
 			try
 			{
@@ -167,6 +171,63 @@
 			}
 		}
 
+        private static bool TryRunGameDefinitionValidationCommand(string[] args)
+        {
+            const string CommandName = "--validate-game-definitions";
+            const string ShortCommandName = "-validate-game-definitions";
+            const string SlashCommandName = "/validate-game-definitions";
+
+            if (args == null || args.Length == 0)
+                return false;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                string arg = args[i];
+                if (string.IsNullOrWhiteSpace(arg))
+                    continue;
+
+                string path = null;
+                string command = arg;
+                int separatorIndex = arg.IndexOf('=');
+                if (separatorIndex >= 0)
+                {
+                    command = arg.Substring(0, separatorIndex);
+                    path = arg.Substring(separatorIndex + 1).Trim('"');
+                }
+
+                if (!command.Equals(CommandName, StringComparison.OrdinalIgnoreCase) &&
+                    !command.Equals(ShortCommandName, StringComparison.OrdinalIgnoreCase) &&
+                    !command.Equals(SlashCommandName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(path) && i + 1 < args.Length && !args[i + 1].StartsWith("-") && !args[i + 1].StartsWith("/"))
+                    path = args[i + 1].Trim('"');
+
+                if (string.IsNullOrWhiteSpace(path))
+                    path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GameModes", "Definitions");
+
+                Environment.ExitCode = ValidateGameDefinitions(path);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static int ValidateGameDefinitions(string path)
+        {
+            GameModeDefinitionLoadResult result = new GameModeDefinitionLoader().LoadFromPath(path);
+            foreach (GameModeDefinitionIssue issue in result.Issues)
+            {
+                string location = string.IsNullOrWhiteSpace(issue.FilePath) ? path : issue.FilePath;
+                Console.WriteLine(location + ": " + issue);
+            }
+
+            if (result.HasErrors)
+                return 1;
+
+            Console.WriteLine("Validated " + result.Definitions.Count + " game definitions.");
+            return 0;
+        }
 		/// <summary>
 		/// This ensures that the settings have been upgraded to work with the current
 		/// version of the programme.

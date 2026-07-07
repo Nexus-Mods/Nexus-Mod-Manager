@@ -700,6 +700,25 @@
     <Compile Include="Games\GameDiscoverer.cs" />
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameLauncher.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGamebryoGameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGamebryoGameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeFactory.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeSettingsGroup.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Games\DataDriven\DataDrivenSetupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Games\DataDriven\DataDrivenSupportedToolsLauncher.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenToolLauncher.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionLoader.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionLoadResult.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionValidator.cs" />
     <Compile Include="UI\Controls\GameModeListViewItemBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -970,6 +989,10 @@
       <Project>{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}</Project>
       <Name>SkyrimGOG</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Game Modes\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
+      <Name>GamebryoBase</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Mod Formats\FOMod\FOMod.csproj">
       <Project>{34B04F6B-0D64-455F-B20F-1C3E080AE601}</Project>
       <Name>FOMod</Name>
@@ -1063,4 +1086,26 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Content Include="..\Game Modes\Definitions\**\*.*">
+      <Link>GameModes\Definitions\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Docs\GameModes\GameModeDefinition.md">
+      <Link>Docs\GameModes\GameModeDefinition.md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\GameModes\Cyberpunk2077.json">
+      <Link>GameModes\Cyberpunk2077.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\GameModes\Templates\GameMode.template.jsonc">
+      <Link>GameModes\Templates\GameMode.template.jsonc</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\GameModes\schema\game-mode.schema.json">
+      <Link>GameModes\schema\game-mode.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

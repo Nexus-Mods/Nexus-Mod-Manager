@@ -2518,6 +2518,14 @@ namespace Nexus.Client.ModManagement.UI
                     itemActivate.Click += (s, ev) =>
                         _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod });
                     menu.Items.Add(itemActivate);
+
+                    if (_viewModel?.ModManager?.GameMode?.SupportsGameRootModInstall == true)
+                    {
+                        var itemActivateRoot = new ToolStripMenuItem("Install to game folder",
+                            new System.Drawing.Bitmap(Properties.Resources.change_game_mode, 16, 16));
+                        itemActivateRoot.Click += (s, ev) => _viewModel?.ActivateModInGameRoot(mod);
+                        menu.Items.Add(itemActivateRoot);
+                    }
                 }
                 else if (!active)
                 {

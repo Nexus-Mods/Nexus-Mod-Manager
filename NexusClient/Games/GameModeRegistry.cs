@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.Games
+namespace Nexus.Client.Games
 {
     using System;
     using System.Collections.Generic;
@@ -9,6 +9,7 @@
     using System.Windows.Forms;
 
     using Exceptions;
+    using Nexus.Client.Games.DataDriven;
 
     /// <summary>
     /// A registry of all game modes whose mods can be managed by the application.
@@ -27,6 +28,7 @@
 
             var appDirectory = Path.GetDirectoryName(Application.ExecutablePath);
 			var gameModesPath = Path.Combine(appDirectory ?? string.Empty, "GameModes");
+            var definitionsPath = Path.Combine(gameModesPath, "Definitions");
 
 		    if (!Directory.Exists(gameModesPath))
             {
@@ -36,10 +38,11 @@
             Trace.TraceInformation("Looking in: {0}", gameModesPath);
 
 		    var assemblies = Directory.GetFiles(gameModesPath, "*.dll");
+            bool hasDefinitions = Directory.Exists(definitionsPath) && Directory.EnumerateFiles(definitionsPath, "*.json", SearchOption.AllDirectories).Any();
 
             //If there are no assemblies detected then an exception must be thrown
             //to prevent a divide by zero exception further along
-		    if (!assemblies.Any())
+		    if (!assemblies.Any() && !hasDefinitions)
 		    {
 #if DEBUG
 				throw new GameModeRegistryException(gameModesPath, "Compile the Game Modes directory in the solution.");
@@ -97,11 +100,33 @@
 			    Trace.Unindent();
 			}
 
+            registry.RegisterDataDrivenGameModes(environmentInfo, definitionsPath);
+
 		    Trace.Unindent();
 
 			return registry;
 		}
 
+        private void RegisterDataDrivenGameModes(EnvironmentInfo environmentInfo, string definitionsPath)
+        {
+            var result = new GameModeDefinitionLoader().LoadFromDirectory(definitionsPath);
+            foreach (var issue in result.Issues)
+                Trace.WriteLine("GameMode definition " + issue);
+
+            foreach (var definition in result.Definitions)
+            {
+                if (definition.LegacyFallback && IsRegistered(definition.ModeId))
+                {
+                    Trace.TraceInformation("Skipping data-driven definition for {0}; legacy fallback is active.", definition.ModeId);
+                    continue;
+                }
+
+                if (IsRegistered(definition.ModeId))
+                    Trace.TraceInformation("Data-driven definition for {0} replaces the legacy factory.", definition.ModeId);
+
+                RegisterGameMode(new DataDrivenGameModeFactory(environmentInfo, definition));
+            }
+        }
 		/// <summary>
 		/// Loads the factories for games that have been previously detected as installed.
 		/// </summary>
@@ -112,7 +137,7 @@
 		{
 			Trace.TraceInformation("Loading Game Mode Factories for Installed Games...");
 			Trace.Indent();
-			
+
 			var installedGameModes = new GameModeRegistry();
 
             foreach (var gameId in environmentInfo.Settings.InstalledGames)
@@ -129,7 +154,7 @@
                     Trace.WriteLine("Not Supported");
                 }
             }
-			
+
 			Trace.Unindent();
 			return installedGameModes;
 		}

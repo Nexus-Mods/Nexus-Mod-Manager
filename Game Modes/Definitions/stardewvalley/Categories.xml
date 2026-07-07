@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Audio" ID="12">
+      <name>Audio</name>
+    </category>
+    <category path="Buildings" ID="17">
+      <name>Buildings</name>
+    </category>
+    <category path="Characters" ID="5">
+      <name>Characters</name>
+    </category>
+    <category path="New Characters" ID="24">
+      <name>New Characters</name>
+    </category>
+    <category path="Cheats" ID="11">
+      <name>Cheats</name>
+    </category>
+    <category path="Clothing" ID="13">
+      <name>Clothing</name>
+    </category>
+    <category path="Crafting" ID="22">
+      <name>Crafting</name>
+    </category>
+    <category path="Crops" ID="14">
+      <name>Crops</name>
+    </category>
+    <category path="Dialogue" ID="20">
+      <name>Dialogue</name>
+    </category>
+	<category path="Events" ID="18">
+      <name>Events</name>
+    </category>
+	<category path="Fishing" ID="26">
+      <name>Fishing</name>
+    </category>
+	<category path="Furniture" ID="23">
+      <name>Furniture</name>
+    </category>
+	<category path="Gameplay Mechanics" ID="3">
+      <name>Gameplay Mechanics</name>
+    </category>
+	<category path="Interiors" ID="19">
+      <name>Interiors</name>
+    </category>
+	<category path="Items" ID="15">
+      <name>Items</name>
+    </category>
+	<category path="Livestock and Animals" ID="7">
+      <name>Livestock and Animals</name>
+    </category>
+	<category path="Locations" ID="16">
+      <name>Locations</name>
+    </category>
+	<category path="Maps" ID="21">
+      <name>Maps</name>
+    </category>
+	<category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+	<category path="Modding Tools" ID="9">
+      <name>Modding Tools</name>
+    </category>
+	<category path="Pets / Horses" ID="8">
+      <name>Pets / Horses</name>
+    </category>
+	<category path="Player" ID="4">
+      <name>Player</name>
+    </category>
+	<category path="Portraits" ID="6">
+      <name>Portraits</name>
+    </category>
+	<category path="User Interface" ID="10">
+      <name>User Interface</name>
+    </category>
+	<category path="Visuals and Graphics" ID="25">
+      <name>Visuals and Graphics</name>
+    </category>
+  </categoryList>
+</categoryManager>
