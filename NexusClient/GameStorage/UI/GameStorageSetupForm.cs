@@ -34,6 +34,7 @@ namespace Nexus.Client.GameStorage.UI
             _control.SetManualPaths(currentPaths);
             _control.BrowseRootRequested += BrowseRootRequested;
             _control.RefreshRequested += RefreshRequested;
+            _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ApplyRequested += ApplyRequested;
             _control.CandidatePreviewRequested += CandidatePreviewRequested;
             _control.LegacySetupRequested += LegacySetupRequested;
@@ -68,6 +69,11 @@ namespace Nexus.Client.GameStorage.UI
         private void RefreshRequested(object sender, EventArgs e)
         {
             RefreshCandidates();
+        }
+
+        private void ManualVirtualInstallPathChanged(object sender, EventArgs e)
+        {
+            _control.SetLinkFolderRequired(_service.IsLinkFolderRequired(_control.ManualVirtualInstallPath, _currentPaths.GameInstallPath));
         }
 
         private void CandidatePreviewRequested(object sender, EventArgs e)

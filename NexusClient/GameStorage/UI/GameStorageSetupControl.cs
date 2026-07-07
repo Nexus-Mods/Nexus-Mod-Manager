@@ -24,6 +24,7 @@ namespace Nexus.Client.GameStorage.UI
         private readonly TextEdit _manualModsEdit;
         private readonly TextEdit _manualVirtualInstallEdit;
         private readonly TextEdit _manualLinkFolderEdit;
+        private readonly SimpleButton _manualLinkFolderButton;
         private readonly SimpleButton _legacySetupButton;
         private GridColumn _candidateUseColumn;
         private Image _candidateUseImage;
@@ -33,6 +34,7 @@ namespace Nexus.Client.GameStorage.UI
         public event EventHandler RefreshRequested;
         public event EventHandler ApplyRequested;
         public event EventHandler CandidatePreviewRequested;
+        public event EventHandler ManualVirtualInstallPathChanged;
         public event EventHandler CancelRequested;
         public event EventHandler LegacySetupRequested;
 
@@ -62,7 +64,9 @@ namespace Nexus.Client.GameStorage.UI
             _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "Install info", 30);
             _manualModsEdit = CreateManualPathEdit(manualPanel, "Mod archives", 56);
             _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "Virtual install", 82);
+            _manualVirtualInstallEdit.EditValueChanged += (sender, args) => ManualVirtualInstallPathChanged?.Invoke(this, EventArgs.Empty);
             _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, "Link folder", 108);
+            _manualLinkFolderButton = _manualPathRows.Last().Item2;
             manualPanel.Resize += (sender, args) => LayoutManualPathRows(manualPanel);
             LayoutManualPathRows(manualPanel);
 
@@ -128,6 +132,8 @@ namespace Nexus.Client.GameStorage.UI
 
         public GameStorageCandidate SelectedCandidate => _candidateGridView.GetFocusedRow() as GameStorageCandidate;
 
+        public string ManualVirtualInstallPath => _manualVirtualInstallEdit.Text;
+
         public void PreviewCandidate(GameStorageCandidate candidate)
         {
             if (candidate == null)
@@ -152,7 +158,8 @@ namespace Nexus.Client.GameStorage.UI
                     InstallInfoPath = _manualInstallInfoEdit.Text,
                     ModsPath = _manualModsEdit.Text,
                     VirtualInstallPath = _manualVirtualInstallEdit.Text,
-                    LinkFolderPath = _manualLinkFolderEdit.Text,
+                    LinkFolderPath = _manualLinkFolderEdit.Enabled ? _manualLinkFolderEdit.Text : null,
+                    LinkFolderRequired = _manualLinkFolderEdit.Enabled,
                     ConfidenceScore = 55,
                     ConfidenceLevel = GameStorageCandidateConfidence.Medium,
                     RequiresUserConfirmation = true,
@@ -174,6 +181,14 @@ namespace Nexus.Client.GameStorage.UI
             _manualModsEdit.Text = paths?.ModsPath ?? string.Empty;
             _manualVirtualInstallEdit.Text = paths?.VirtualInstallPath ?? string.Empty;
             _manualLinkFolderEdit.Text = paths?.LinkFolderPath ?? string.Empty;
+            SetLinkFolderRequired(paths != null && paths.LinkFolderRequired);
+        }
+
+        public void SetLinkFolderRequired(bool required)
+        {
+            _manualLinkFolderEdit.Enabled = required;
+            if (_manualLinkFolderButton != null)
+                _manualLinkFolderButton.Enabled = required;
         }
 
         public void SetRows(IEnumerable<GameStorageSetupRow> rows)
