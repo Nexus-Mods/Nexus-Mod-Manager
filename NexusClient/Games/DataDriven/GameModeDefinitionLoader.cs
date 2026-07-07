@@ -14,36 +14,32 @@ namespace Nexus.Client.Games.DataDriven
 
         private readonly GameModeDefinitionValidator _validator = new GameModeDefinitionValidator();
 
+        public GameModeDefinitionLoadResult LoadFromPath(string path)
+        {
+            if (File.Exists(path))
+                return LoadFromFiles(new[] { path });
+            return LoadFromDirectory(path);
+        }
+
         public GameModeDefinitionLoadResult LoadFromDirectory(string definitionsDirectory)
         {
-            var result = new GameModeDefinitionLoadResult();
             if (string.IsNullOrWhiteSpace(definitionsDirectory) || !Directory.Exists(definitionsDirectory))
-                return result;
+                return new GameModeDefinitionLoadResult();
 
+            return LoadFromFiles(Directory.EnumerateFiles(definitionsDirectory, DefinitionFileName, SearchOption.AllDirectories));
+        }
+
+        private GameModeDefinitionLoadResult LoadFromFiles(IEnumerable<string> filePaths)
+        {
+            var result = new GameModeDefinitionLoadResult();
             var definitionsById = new Dictionary<string, GameModeDefinition>(StringComparer.OrdinalIgnoreCase);
-            foreach (string filePath in Directory.EnumerateFiles(definitionsDirectory, DefinitionFileName, SearchOption.AllDirectories))
+            foreach (string filePath in filePaths)
             {
-                GameModeDefinition definition = null;
-                try
-                {
-                    definition = JsonConvert.DeserializeObject<GameModeDefinition>(File.ReadAllText(filePath));
-                    if (definition != null)
-                    {
-                        definition.DefinitionPath = filePath;
-                        definition.DefinitionDirectory = Path.GetDirectoryName(filePath);
-                        LoadSupportedTools(definition, result);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    result.AddIssue(new GameModeDefinitionIssue { FilePath = filePath, Severity = GameModeDefinitionIssueSeverity.Error, Message = "Could not load definition: " + ex.Message });
-                    continue;
-                }
-
+                GameModeDefinition definition = LoadDefinition(filePath, result);
                 var issues = _validator.Validate(definition).ToList();
                 foreach (var issue in issues)
                     result.AddIssue(issue);
-                if (issues.Any(x => x.Severity == GameModeDefinitionIssueSeverity.Error))
+                if (definition == null || issues.Any(x => x.Severity == GameModeDefinitionIssueSeverity.Error))
                     continue;
 
                 if (definitionsById.ContainsKey(definition.ModeId))
@@ -66,6 +62,26 @@ namespace Nexus.Client.Games.DataDriven
                 Trace.WriteLine("GameMode definition " + issue);
 
             return result;
+        }
+
+        private GameModeDefinition LoadDefinition(string filePath, GameModeDefinitionLoadResult result)
+        {
+            try
+            {
+                GameModeDefinition definition = JsonConvert.DeserializeObject<GameModeDefinition>(File.ReadAllText(filePath));
+                if (definition != null)
+                {
+                    definition.DefinitionPath = filePath;
+                    definition.DefinitionDirectory = Path.GetDirectoryName(filePath);
+                    LoadSupportedTools(definition, result);
+                }
+                return definition;
+            }
+            catch (Exception ex)
+            {
+                result.AddIssue(new GameModeDefinitionIssue { FilePath = filePath, Severity = GameModeDefinitionIssueSeverity.Error, Message = "Could not load definition: " + ex.Message });
+                return null;
+            }
         }
 
         private void LoadSupportedTools(GameModeDefinition definition, GameModeDefinitionLoadResult result)
