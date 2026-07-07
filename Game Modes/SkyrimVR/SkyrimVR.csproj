@@ -100,11 +100,6 @@
       <Name>NexusClient.Interface</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\NexusClient\NexusClient.csproj">
-      <Project>{579b8f56-49f6-4b9d-8013-e11f69e5308c}</Project>
-      <Name>NexusClient</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\SkyrimSE\SkyrimSE.csproj">
       <Project>{c178b6ca-f72d-4af3-9797-baeba896ad09}</Project>
       <Name>SkyrimSE</Name>
