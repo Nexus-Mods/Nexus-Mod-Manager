@@ -975,9 +975,29 @@ namespace Nexus.Client.ModManagement.UI
             if (toolStrip1 == null || font == null) return;
 
             Font toolbarFont = new Font(font.FontFamily, font.Size, FontStyle.Regular, GraphicsUnit.Point);
-            toolStrip1.Font = toolbarFont;
-            foreach (ToolStripItem item in toolStrip1.Items)
-                item.Font = toolbarFont;
+            ApplyToolStripFont(toolStrip1, toolbarFont);
+        }
+
+        private static void ApplyToolStripFont(ToolStrip toolStrip, Font font)
+        {
+            if (toolStrip == null || font == null) return;
+
+            toolStrip.Font = font;
+            foreach (ToolStripItem item in toolStrip.Items)
+                ApplyToolStripItemFont(item, font);
+        }
+
+        private static void ApplyToolStripItemFont(ToolStripItem item, Font font)
+        {
+            if (item == null || font == null) return;
+
+            item.Font = font;
+            ToolStripDropDownItem dropDownItem = item as ToolStripDropDownItem;
+            if (dropDownItem == null) return;
+
+            dropDownItem.DropDown.Font = font;
+            foreach (ToolStripItem child in dropDownItem.DropDownItems)
+                ApplyToolStripItemFont(child, font);
         }
 
         private string GetSkyrimDownloadModeLabel()
@@ -2479,6 +2499,7 @@ namespace Nexus.Client.ModManagement.UI
             bool installed = active || IsModInstalled(mod);
 
             var menu = new ContextMenuStrip();
+            ApplyToolStripFont(menu, new Font(_gridFontFamilyName, _gridFontSizePt, FontStyle.Regular, GraphicsUnit.Point));
 
             // ── mod filename header (disabled, for identification) ────────────
             var itemHeader = new ToolStripMenuItem(Path.GetFileName(mod.Filename),
