@@ -13,6 +13,7 @@ namespace Nexus.Client.GameStorage.UI
     {
         private readonly GameStorageService _service;
         private readonly GameStoragePathSet _currentPaths;
+        private readonly GameStorageHealthCheck _currentHealthCheck;
         private readonly GameStorageSetupControl _control;
         private List<GameStorageCandidate> _candidates = new List<GameStorageCandidate>();
 
@@ -20,6 +21,7 @@ namespace Nexus.Client.GameStorage.UI
         {
             _service = service;
             _currentPaths = currentPaths;
+            _currentHealthCheck = healthCheck;
             Text = "Game Storage setup - " + currentPaths.GameName;
             Width = 1120;
             Height = 680;
@@ -59,6 +61,7 @@ namespace Nexus.Client.GameStorage.UI
                 foreach (var candidate in _service.DiscoverRecoveryCandidatesFromRoot(_currentPaths, dialog.SelectedPath))
                     AddCandidate(candidate);
                 _control.SetCandidates(_candidates);
+                PreviewBestCandidateIfCurrentIsNotUsable();
             }
         }
 
@@ -115,6 +118,31 @@ namespace Nexus.Client.GameStorage.UI
         {
             _candidates = _service.DiscoverRecoveryCandidates(_currentPaths);
             _control.SetCandidates(_candidates);
+            PreviewBestCandidateIfCurrentIsNotUsable();
+        }
+
+
+        private void PreviewBestCandidateIfCurrentIsNotUsable()
+        {
+            if (_currentHealthCheck != null && _currentHealthCheck.IsHealthy)
+                return;
+
+            GameStorageCandidate currentCandidate = _candidates.FirstOrDefault(x => string.Equals(x.CandidateKind, "Proposed setup", StringComparison.OrdinalIgnoreCase));
+            GameStorageCandidate bestCandidate = _candidates
+                .Where(x => x != null && !string.Equals(x.CandidateKind, "Proposed setup", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(x => x.ConfidenceScore)
+                .ThenBy(x => x.CandidateKind)
+                .FirstOrDefault();
+
+            if (bestCandidate == null)
+                return;
+            if (currentCandidate != null && currentCandidate.ConfidenceScore >= bestCandidate.ConfidenceScore)
+                return;
+
+            _control.SelectCandidate(bestCandidate);
+            GameStoragePathSet paths = CreatePathSetFromCandidate(bestCandidate);
+            _control.SetManualPaths(paths);
+            SetHealth(_service.ValidateStorage(paths, false));
         }
 
         private void SetHealth(GameStorageHealthCheck healthCheck)
