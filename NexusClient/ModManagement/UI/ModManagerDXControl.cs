@@ -60,6 +60,7 @@ namespace Nexus.Client.ModManagement.UI
         private ToolStripDropDownButton _displayOptionsButton;
         private ToolStripMenuItem _toggleColouredCategoriesMenuItem;
         private ToolStripMenuItem _toggleRowHighlightsMenuItem;
+        private ToolStripMenuItem _toggleActiveModsBoldMenuItem;
         private ComboBox _gridFontCombo;
         private ComboBox _gridFontSizeCombo;
         private ComboBox _gridDensityCombo;
@@ -79,6 +80,7 @@ namespace Nexus.Client.ModManagement.UI
         private string _gridDensity = DefaultGridDensity;
         private bool _showColouredCategories = true;
         private bool _showRowHighlights = true;
+        private bool _showActiveModsInBold;
         private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
         private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache = new Dictionary<IMod, ModVisualStatus>();
@@ -119,12 +121,13 @@ namespace Nexus.Client.ModManagement.UI
         private const string GridDensityKey  = GridLayoutKey + ".Density";
         private const string GridColouredCategoriesKey = GridLayoutKey + ".ColouredCategories";
         private const string GridRowHighlightsKey = GridLayoutKey + ".RowHighlights";
+        private const string GridActiveModsBoldKey = GridLayoutKey + ".ActiveModsBold";
         private const string GridCategoryViewKey = GridLayoutKey + ".CategoryView";
         private const string GridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
         private const string DefaultGridFontFamily = "Segoe UI";
         private const float DefaultGridFontSizePt = 9f;
         private const string DefaultGridDensity = "Compact";
-        private const int ModStatusIconSize = 18;
+        private const int ModStatusIconSize = 20;
         private const int InlineEditIconSize = 18;
         private static readonly string[] GridFontChoices = { "Segoe UI", "Corbel", "Calibri", "Tahoma", "Verdana" };
         private static readonly string[] GridFontSizeChoices = { "8 pt", "9 pt", "10 pt", "11 pt", "12 pt" };
@@ -149,6 +152,7 @@ namespace Nexus.Client.ModManagement.UI
         {
             InitializeComponent();
             InitializeToolbarIcons();
+            ApplyToolbarActionLabels();
             _columnFillTimer = new Timer(components) { Interval = 120 };
             _columnFillTimer.Tick += ColumnFillTimer_Tick;
             Text = "Mods";
@@ -229,6 +233,7 @@ namespace Nexus.Client.ModManagement.UI
                 _viewModel.Settings.DockPanelLayouts.Remove(GridDensityKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridColouredCategoriesKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridRowHighlightsKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridActiveModsBoldKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCategoryViewKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
                 _viewModel.Settings.Save();
@@ -242,6 +247,7 @@ namespace Nexus.Client.ModManagement.UI
             SelectGridDisplay(DefaultGridFontFamily, DefaultGridFontSizePt, DefaultGridDensity, false);
             SetColouredCategoriesVisible(true, false);
             SetRowHighlightsVisible(true, false);
+            SetActiveModsBold(false, false);
             ApplyColumnSizing();
         }
 
@@ -369,7 +375,9 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.TagModCommand.CanExecute      = false;
 
             new ToolStripItemCommandBinding<List<IMod>>(tsbActivate,   _viewModel.ActivateModCommand, GetSelectedMods);
-            new ToolStripItemCommandBinding<List<IMod>>(tsbDeactivate, _viewModel.DisableModCommand,  GetSelectedMods);
+            tsbDeactivate.ButtonClick -= tsbDeactivate_ButtonClick;
+            tsbDeactivate.ButtonClick += tsbDeactivate_ButtonClick;
+            ConfigureDeactivateDropDown();
             new ToolStripItemCommandBinding<IMod>      (tsbTagMod,     _viewModel.TagModCommand,      GetSelectedMod);
             new ToolStripItemCommandBinding<string>    (exportToTextFile,    _viewModel.ExportModListToFileCommand,      GetExportToFileArgs);
             new ToolStripItemCommandBinding            (exportToClipboard,   _viewModel.ExportModListToClipboardCommand);
@@ -576,6 +584,15 @@ namespace Nexus.Client.ModManagement.UI
             item.ImageScaling = ToolStripItemImageScaling.None;
             item.TextImageRelation = TextImageRelation.ImageBeforeText;
         }
+        private void ApplyToolbarActionLabels()
+        {
+            tsbDeactivate.Text = "Disable Mod";
+            tsbDeactivate.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+            tsbDeactivate.TextImageRelation = TextImageRelation.ImageBeforeText;
+            tsbTagMod.Text = "Get Mod Info";
+            tsbTagMod.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+            tsbTagMod.TextImageRelation = TextImageRelation.ImageBeforeText;
+        }
 
         private static Image LoadSvgIcon(string resourceName, int size)
         {
@@ -617,8 +634,16 @@ namespace Nexus.Client.ModManagement.UI
             };
             _toggleRowHighlightsMenuItem.Click += (s, e) => SetRowHighlightsVisible(_toggleRowHighlightsMenuItem.Checked, true);
 
+            _toggleActiveModsBoldMenuItem = new ToolStripMenuItem("Show Active Mods in Bold")
+            {
+                CheckOnClick = true,
+                Checked = _showActiveModsInBold
+            };
+            _toggleActiveModsBoldMenuItem.Click += (s, e) => SetActiveModsBold(_toggleActiveModsBoldMenuItem.Checked, true);
+
             _displayOptionsButton.DropDownItems.Add(_toggleColouredCategoriesMenuItem);
             _displayOptionsButton.DropDownItems.Add(_toggleRowHighlightsMenuItem);
+            _displayOptionsButton.DropDownItems.Add(_toggleActiveModsBoldMenuItem);
             toolStrip1.Items.Add(_displayOptionsButton);
         }
 
@@ -722,6 +747,7 @@ namespace Nexus.Client.ModManagement.UI
         {
             SetColouredCategoriesVisible(ReadGridDisplayOption(GridColouredCategoriesKey, true), false);
             SetRowHighlightsVisible(ReadGridDisplayOption(GridRowHighlightsKey, true), false);
+            SetActiveModsBold(ReadGridDisplayOption(GridActiveModsBoldKey, false), false);
         }
 
         private bool ReadGridDisplayOption(string key, bool defaultValue)
@@ -751,6 +777,16 @@ namespace Nexus.Client.ModManagement.UI
 
             RefreshGridDisplayStyles();
             SaveGridDisplayOption(GridRowHighlightsKey, visible, save);
+        }
+
+        private void SetActiveModsBold(bool visible, bool save)
+        {
+            _showActiveModsInBold = visible;
+            if (_toggleActiveModsBoldMenuItem != null)
+                _toggleActiveModsBoldMenuItem.Checked = visible;
+
+            RefreshGridDisplayStyles();
+            SaveGridDisplayOption(GridActiveModsBoldKey, visible, save);
         }
 
         private void RefreshGridDisplayStyles()
@@ -928,9 +964,40 @@ namespace Nexus.Client.ModManagement.UI
             gridView.Appearance.HeaderPanel.Font = headerFont;
             gridView.Appearance.FilterPanel.Font = rowFont;
             gridView.Appearance.GroupRow.Font = rowFont;
+            ApplyToolbarFont(rowFont);
             gridView.LayoutChanged();
             gridView.InvalidateRows();
             ScheduleModNameFill();
+        }
+
+        private void ApplyToolbarFont(Font font)
+        {
+            if (toolStrip1 == null || font == null) return;
+
+            Font toolbarFont = new Font(font.FontFamily, font.Size, FontStyle.Regular, GraphicsUnit.Point);
+            ApplyToolStripFont(toolStrip1, toolbarFont);
+        }
+
+        private static void ApplyToolStripFont(ToolStrip toolStrip, Font font)
+        {
+            if (toolStrip == null || font == null) return;
+
+            toolStrip.Font = font;
+            foreach (ToolStripItem item in toolStrip.Items)
+                ApplyToolStripItemFont(item, font);
+        }
+
+        private static void ApplyToolStripItemFont(ToolStripItem item, Font font)
+        {
+            if (item == null || font == null) return;
+
+            item.Font = font;
+            ToolStripDropDownItem dropDownItem = item as ToolStripDropDownItem;
+            if (dropDownItem == null) return;
+
+            dropDownItem.DropDown.Font = font;
+            foreach (ToolStripItem child in dropDownItem.DropDownItems)
+                ApplyToolStripItemFont(child, font);
         }
 
         private string GetSkyrimDownloadModeLabel()
@@ -1307,15 +1374,15 @@ namespace Nexus.Client.ModManagement.UI
             if (_showRowHighlights && isActive)
             {
                 e.Appearance.BackColor = isSelected
-                    ? Color.FromArgb(188, 225, 188)   // light green when active + selected
-                    : Color.FromArgb(236, 250, 236);   // very light green when active, not selected
+                    ? Color.FromArgb(218, 240, 218)
+                    : Color.FromArgb(249, 254, 249);
                 e.Appearance.ForeColor = Color.Black;
             }
             else if (_showRowHighlights && isInstalled)
             {
                 e.Appearance.BackColor = isSelected
-                    ? Color.FromArgb(238, 204, 158)     // light orange when installed + selected
-                    : Color.FromArgb(255, 244, 226);   // very light orange when installed but disabled
+                    ? Color.FromArgb(250, 230, 200)
+                    : Color.FromArgb(255, 251, 244);
                 e.Appearance.ForeColor = Color.Black;
             }
             else if (!_showRowHighlights && isInstalled && !isSelected)
@@ -1331,6 +1398,9 @@ namespace Nexus.Client.ModManagement.UI
                 e.Appearance.ForeColor = Color.Black;
             }
 
+            if (_showActiveModsInBold && isActive)
+                e.Appearance.Font = new Font(_gridFontFamilyName, _gridFontSizePt, FontStyle.Bold, GraphicsUnit.Point);
+
             // Latest: red (underline) when outdated, blue (underline) when current
             if (e.Column.FieldName == ColLastKnown && !string.IsNullOrEmpty(mod.LastKnownVersion))
             {
@@ -1338,7 +1408,7 @@ namespace Nexus.Client.ModManagement.UI
                 e.Appearance.ForeColor = outdated
                     ? Color.FromArgb(200, 40, 40)
                     : Color.FromArgb(37, 99, 235);
-                e.Appearance.Font = new Font(e.Appearance.GetFont(), FontStyle.Underline);
+                e.Appearance.Font = new Font(e.Appearance.GetFont(), e.Appearance.GetFont().Style | FontStyle.Underline);
             }
 
             // Secondary style: muted colour + compact font for non-priority info columns
@@ -1347,8 +1417,9 @@ namespace Nexus.Client.ModManagement.UI
                  e.Column.FieldName == ColDownloadDate ||
                  e.Column.FieldName == ColDownloadId))
             {
-                e.Appearance.ForeColor = Color.FromArgb(140, 140, 140);
-                e.Appearance.Font = new Font(_gridFontFamilyName, GetSecondaryGridFontSize(_gridFontSizePt), FontStyle.Regular, GraphicsUnit.Point);
+                e.Appearance.ForeColor = Color.FromArgb(90, 90, 90);
+                FontStyle dateStyle = _showActiveModsInBold && isActive ? FontStyle.Bold : FontStyle.Regular;
+                e.Appearance.Font = new Font(_gridFontFamilyName, GetSecondaryGridFontSize(_gridFontSizePt), dateStyle, GraphicsUnit.Point);
             }
         }
 
@@ -2076,8 +2147,15 @@ namespace Nexus.Client.ModManagement.UI
             return button;
         }
 
+        private bool IsDataRowHandle(int rowHandle)
+        {
+            return rowHandle >= 0 && !gridView.IsGroupRow(rowHandle);
+        }
+
         private void DrawModNameCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
         {
+            if (!IsDataRowHandle(e.RowHandle)) return;
+
             int sourceRow = gridView.GetDataSourceRowIndex(e.RowHandle);
             IMod mod = sourceRow >= 0 && sourceRow < _modList.Count ? _modList[sourceRow] : null;
             bool archiveMissing = IsModArchiveMissing(mod);
@@ -2134,7 +2212,7 @@ namespace Nexus.Client.ModManagement.UI
             }
 
             var hit = gridView.CalcHitInfo(e.Location);
-            int newHover = hit.InRowCell && hit.Column?.FieldName == ColModName
+            int newHover = hit.InRowCell && IsDataRowHandle(hit.RowHandle) && hit.Column?.FieldName == ColModName
                 ? hit.RowHandle
                 : DevExpress.XtraGrid.GridControl.InvalidRowHandle;
             if (newHover != _hoveredModNameRowHandle)
@@ -2172,7 +2250,7 @@ namespace Nexus.Client.ModManagement.UI
             }
 
             var hit = gridView.CalcHitInfo(e.Location);
-            if (hit.InRowCell && hit.Column?.FieldName == ColModName && _hoveredModNameIconBounds.Contains(e.Location))
+            if (hit.InRowCell && IsDataRowHandle(hit.RowHandle) && hit.Column?.FieldName == ColModName && _hoveredModNameIconBounds.Contains(e.Location))
             {
                 StartInlineRename(hit.RowHandle, _hoveredModNameCellBounds);
             }
@@ -2347,9 +2425,33 @@ namespace Nexus.Client.ModManagement.UI
         private void GridView_KeyDown(object sender, KeyEventArgs e)
         {
             if (_renamePanel?.Visible == true) return;
+            if (e.KeyCode == Keys.F2 && TryStartHoveredModNameRename()) { e.Handled = true; return; }
             if (e.KeyCode == Keys.Return) { e.Handled = true; ToggleSelectedMod(); }
             if (e.KeyCode == Keys.Delete) { e.Handled = true; DeleteSelectedModsFromKey(); }
             if (e.KeyData == (Keys.Control | Keys.F)) SetTextBoxFocus?.Invoke(this, e);
+        }
+
+        private bool TryStartHoveredModNameRename()
+        {
+            Point clientPoint = gridControl.PointToClient(Control.MousePosition);
+            var hit = gridView.CalcHitInfo(clientPoint);
+            if (!hit.InRowCell || !IsDataRowHandle(hit.RowHandle) || hit.Column == null || hit.Column.FieldName != ColModName)
+                return false;
+
+            Rectangle cellBounds = _hoveredModNameCellBounds;
+            if (cellBounds.IsEmpty || !cellBounds.Contains(clientPoint))
+            {
+                GridViewInfo viewInfo = gridView.GetViewInfo() as GridViewInfo;
+                GridCellInfo cellInfo = viewInfo?.GetGridCellInfo(hit.RowHandle, hit.Column);
+                if (cellInfo != null)
+                    cellBounds = cellInfo.Bounds;
+            }
+
+            if (cellBounds.IsEmpty)
+                return false;
+
+            StartInlineRename(hit.RowHandle, cellBounds);
+            return true;
         }
 
         private void DeleteSelectedModsFromKey()
@@ -2397,6 +2499,7 @@ namespace Nexus.Client.ModManagement.UI
             bool installed = active || IsModInstalled(mod);
 
             var menu = new ContextMenuStrip();
+            ApplyToolStripFont(menu, new Font(_gridFontFamilyName, _gridFontSizePt, FontStyle.Regular, GraphicsUnit.Point));
 
             // ── mod filename header (disabled, for identification) ────────────
             var itemHeader = new ToolStripMenuItem(Path.GetFileName(mod.Filename),
@@ -2627,9 +2730,39 @@ namespace Nexus.Client.ModManagement.UI
             return list.Count > 0 ? list : null;
         }
 
+        private void ConfigureDeactivateDropDown()
+        {
+            tsbDeactivate.DropDownItems.Clear();
+            AddDeactivateDropDownItem("Uninstall mod from current profile", "mod-uninstall-from-profile.svg", UninstallSelectedModsFromCurrentProfile);
+            AddDeactivateDropDownItem("Delete mod", "mod-remove.svg", DeleteSelectedModsFromKey);
+        }
+
+        private void AddDeactivateDropDownItem(string text, string iconResourceName, Action action)
+        {
+            var item = new ToolStripMenuItem(text, LoadSvgIcon(iconResourceName, 24), (s, e) => action())
+            {
+                ImageScaling = ToolStripItemImageScaling.None
+            };
+            tsbDeactivate.DropDownItems.Add(item);
+        }
+
+        private void UninstallSelectedModsFromCurrentProfile()
+        {
+            if (_viewModel == null) return;
+
+            List<IMod> mods = SelectedMods;
+            if (mods.Count == 0 || !ConfirmMissingArchiveUninstall(mods)) return;
+
+            if (mods.Count == 1)
+                _viewModel.DeactivateMod(mods[0]);
+            else
+                _viewModel.DeactivateSelectedMods(mods);
+        }
+
         private void UpdateToolbarState()
         {
-            // Enabled state is managed by ToolStripItemCommandBinding; no manual toggling needed.
+            tsbDeactivate.Enabled = SelectedMods.Count > 0;
+            ApplyToolbarActionLabels();
         }
 
         private void UpdateModCountLabel()
@@ -2639,6 +2772,15 @@ namespace Nexus.Client.ModManagement.UI
 
         // ── Toolbar button handlers ──────────────────────────────────────────
 
+        private void tsbDeactivate_ButtonClick(object sender, EventArgs e)
+        {
+            if (_viewModel == null || !_viewModel.DisableModCommand.CanExecute) return;
+
+            List<IMod> mods = GetSelectedMods();
+            if (mods == null) return;
+
+            _viewModel.DeactivateSelectedMods(mods);
+        }
         private void tsbAddMod_ButtonClick(object sender, EventArgs e)
         {
             addModToolStripMenuItem_Click(sender, e);

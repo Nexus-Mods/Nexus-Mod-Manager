@@ -597,6 +597,8 @@
     <EmbeddedResource Include="Resources\toolbar_columns.svg" />
     <EmbeddedResource Include="Resources\mod-installed-disabled.svg" />
     <EmbeddedResource Include="Resources\mod-installed-active.svg" />
+    <EmbeddedResource Include="Resources\mod-uninstall-from-profile.svg" />
+    <EmbeddedResource Include="Resources\mod-remove.svg" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
     <None Include="Resources\text-x-generic.png" />
