@@ -30,7 +30,6 @@ namespace Nexus.Client.GameStorage.UI
         private Image _candidateUseImage;
         private readonly List<Tuple<TextEdit, SimpleButton>> _manualPathRows = new List<Tuple<TextEdit, SimpleButton>>();
 
-        public event EventHandler BrowseRootRequested;
         public event EventHandler RefreshRequested;
         public event EventHandler ApplyRequested;
         public event EventHandler CandidatePreviewRequested;
@@ -54,13 +53,13 @@ namespace Nexus.Client.GameStorage.UI
             _descriptionEdit = new MemoEdit
             {
                 Dock = DockStyle.Top,
-                Height = 78,
+                Height = 150,
                 ReadOnly = true,
                 Text = "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery."
             };
             _descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 
-            var manualPanel = new GroupControl { Text = "Current folders", Dock = DockStyle.Top, Height = 138 };
+            var manualPanel = new GroupControl { Text = "Selected folders", Dock = DockStyle.Top, Height = 138 };
             _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "Install info", 30);
             _manualModsEdit = CreateManualPathEdit(manualPanel, "Mod archives", 56);
             _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "Virtual install", 82);
@@ -93,15 +92,14 @@ namespace Nexus.Client.GameStorage.UI
             _candidateGridControl.ViewCollection.Add(_candidateGridView);
             ConfigureCandidateGrid();
 
-            var healthGroup = new GroupControl { Text = "Current validation", Dock = DockStyle.Fill };
+            var healthGroup = new GroupControl { Text = "Selected folders check", Dock = DockStyle.Fill };
             healthGroup.Controls.Add(_healthGridControl);
-            var candidateGroup = new GroupControl { Text = "Available setups", Dock = DockStyle.Fill };
+            var candidateGroup = new GroupControl { Text = "Detected setup options", Dock = DockStyle.Fill };
             candidateGroup.Controls.Add(_candidateGridControl);
             splitContainer.Panel1.Controls.Add(healthGroup);
             splitContainer.Panel2.Controls.Add(candidateGroup);
 
             var buttonPanel = new PanelControl { Dock = DockStyle.Bottom, Height = 44, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
-            var browseRootButton = new SimpleButton { Text = "Browse root...", Width = 100, Top = 8 };
             var refreshButton = new SimpleButton { Text = "Refresh", Width = 90, Top = 8 };
             var applyButton = new SimpleButton { Text = "Apply selected", Width = 118, Top = 8 };
             _legacySetupButton = new SimpleButton { Text = "Keep legacy setup", Width = 128, Top = 8, Visible = false };
@@ -109,19 +107,17 @@ namespace Nexus.Client.GameStorage.UI
             StyleActionButton(applyButton);
             StyleActionButton(_legacySetupButton);
             StyleCancelButton(cancelButton);
-            browseRootButton.Click += (sender, args) => BrowseRootRequested?.Invoke(this, EventArgs.Empty);
             refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
             applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
             _legacySetupButton.Click += (sender, args) => LegacySetupRequested?.Invoke(this, EventArgs.Empty);
             cancelButton.Click += (sender, args) => CancelRequested?.Invoke(this, EventArgs.Empty);
-            buttonPanel.Controls.Add(browseRootButton);
             buttonPanel.Controls.Add(refreshButton);
             buttonPanel.Controls.Add(applyButton);
             buttonPanel.Controls.Add(_legacySetupButton);
             buttonPanel.Controls.Add(cancelButton);
-            buttonPanel.Resize += (sender, args) => LayoutButtons(buttonPanel, browseRootButton, refreshButton, _legacySetupButton, cancelButton, applyButton);
-            _legacySetupButton.VisibleChanged += (sender, args) => LayoutButtons(buttonPanel, browseRootButton, refreshButton, _legacySetupButton, cancelButton, applyButton);
-            LayoutButtons(buttonPanel, browseRootButton, refreshButton, _legacySetupButton, cancelButton, applyButton);
+            buttonPanel.Resize += (sender, args) => LayoutButtons(buttonPanel, refreshButton, _legacySetupButton, cancelButton, applyButton);
+            _legacySetupButton.VisibleChanged += (sender, args) => LayoutButtons(buttonPanel, refreshButton, _legacySetupButton, cancelButton, applyButton);
+            LayoutButtons(buttonPanel, refreshButton, _legacySetupButton, cancelButton, applyButton);
 
             Controls.Add(splitContainer);
             Controls.Add(buttonPanel);
@@ -259,19 +255,17 @@ namespace Nexus.Client.GameStorage.UI
             button.Appearance.Options.UseForeColor = true;
         }
 
-        private static void LayoutButtons(PanelControl panel, SimpleButton browseRootButton, SimpleButton refreshButton, SimpleButton legacySetupButton, SimpleButton cancelButton, SimpleButton applyButton)
+        private static void LayoutButtons(PanelControl panel, SimpleButton refreshButton, SimpleButton legacySetupButton, SimpleButton cancelButton, SimpleButton applyButton)
         {
             const int top = 8;
             const int gap = 8;
 
-            browseRootButton.Left = 0;
-            refreshButton.Left = browseRootButton.Right + gap;
+            refreshButton.Left = 0;
             legacySetupButton.Left = refreshButton.Right + gap;
 
             applyButton.Left = panel.ClientSize.Width - applyButton.Width;
             cancelButton.Left = applyButton.Left - gap - cancelButton.Width;
 
-            browseRootButton.Top = top;
             refreshButton.Top = top;
             legacySetupButton.Top = top;
             cancelButton.Top = top;

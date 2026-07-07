@@ -29,8 +29,8 @@ namespace Nexus.Client.GameStorage.UI
 
             _control = new GameStorageSetupControl();
             _control.ConfigureText("Game Storage recovery - " + gameMode.Name, "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery.", false);
-            _control.BrowseRootRequested += BrowseRootRequested;
             _control.RefreshRequested += RefreshRequested;
+            _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ApplyRequested += ApplyRequested;
             _control.CandidatePreviewRequested += CandidatePreviewRequested;
             _control.CancelRequested += (sender, args) => DialogResult = DialogResult.Cancel;
@@ -43,23 +43,14 @@ namespace Nexus.Client.GameStorage.UI
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public GameStorageCandidate SelectedCandidate => _control.SelectedCandidate;
 
-        private void BrowseRootRequested(object sender, EventArgs e)
-        {
-            using (var dialog = new FolderBrowserDialog())
-            {
-                dialog.Description = "Select a Game Storage folder or a folder that contains Game Storage folders.";
-                if (dialog.ShowDialog(this) != DialogResult.OK)
-                    return;
-
-                foreach (var candidate in _service.DiscoverRecoveryCandidatesFromRoot(_gameMode, dialog.SelectedPath))
-                    AddCandidate(candidate);
-                _control.SetCandidates(_candidates);
-            }
-        }
-
         private void RefreshRequested(object sender, EventArgs e)
         {
             RefreshCandidates();
+        }
+
+        private void ManualVirtualInstallPathChanged(object sender, EventArgs e)
+        {
+            _control.SetLinkFolderRequired(_service.IsLinkFolderRequired(_control.ManualVirtualInstallPath, _gameMode.GameModeEnvironmentInfo.InstallationPath));
         }
 
         private void CandidatePreviewRequested(object sender, EventArgs e)
@@ -136,16 +127,6 @@ namespace Nexus.Client.GameStorage.UI
                 LinkFolderPath = candidate.LinkFolderPath,
                 LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _gameMode.GameModeEnvironmentInfo.InstallationPath)
             };
-        }
-        private void AddCandidate(GameStorageCandidate candidate)
-        {
-            if (candidate == null)
-                return;
-            string key = string.Join("|", candidate.GameId, candidate.StorageId, candidate.InstallInfoPath, candidate.ModsPath, candidate.VirtualInstallPath, candidate.LinkFolderPath);
-            if (_candidates.Any(x => string.Equals(string.Join("|", x.GameId, x.StorageId, x.InstallInfoPath, x.ModsPath, x.VirtualInstallPath, x.LinkFolderPath), key, StringComparison.OrdinalIgnoreCase)))
-                return;
-            _candidates.Add(candidate);
-            _candidates = _candidates.OrderByDescending(x => x.ConfidenceScore).ToList();
         }
     }
 }

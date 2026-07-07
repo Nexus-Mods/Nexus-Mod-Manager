@@ -30,9 +30,12 @@ namespace Nexus.Client.GameStorage.UI
             StartPosition = FormStartPosition.CenterParent;
 
             _control = new GameStorageSetupControl();
-            _control.ConfigureText("Game Storage setup - " + currentPaths.GameName, "Select persistent folders for this game. These folders store mod archives, install records, and the virtual install staging area. NMM will create missing folders only for the paths you choose here.", true);
+            _control.ConfigureText("Game Storage setup - " + currentPaths.GameName,
+                "Choose where NMM should store this game's mod data. If NMM found an existing setup, use the recommended folders to preserve your current mods, install records, and mod archives. NMM will only create missing folders inside the paths selected below." + Environment.NewLine + Environment.NewLine +
+                "Selected folders are the directories NMM will use for this game. You can edit them manually or choose one of the detected setups below." + Environment.NewLine + Environment.NewLine +
+                "Selected folders check parses the selected folders for existing mod data, missing folders, invalid paths, and setup problems before applying the configuration." + Environment.NewLine + Environment.NewLine +
+                "Detected setup options are the possible folder setups on your system. You can select the recommended existing setup unless you intentionally want to use different folders.", true);
             _control.SetManualPaths(currentPaths);
-            _control.BrowseRootRequested += BrowseRootRequested;
             _control.RefreshRequested += RefreshRequested;
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ApplyRequested += ApplyRequested;
@@ -50,21 +53,6 @@ namespace Nexus.Client.GameStorage.UI
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool UseLegacySetup { get; private set; }
-
-        private void BrowseRootRequested(object sender, EventArgs e)
-        {
-            using (var dialog = new FolderBrowserDialog())
-            {
-                dialog.Description = "Select a Game Storage folder or a folder that contains Game Storage folders.";
-                if (dialog.ShowDialog(this) != DialogResult.OK)
-                    return;
-
-                foreach (var candidate in _service.DiscoverRecoveryCandidatesFromRoot(_currentPaths, dialog.SelectedPath))
-                    AddCandidate(candidate);
-                _control.SetCandidates(_candidates);
-                PreviewBestCandidateIfCurrentIsNotUsable();
-            }
-        }
 
         private void RefreshRequested(object sender, EventArgs e)
         {
@@ -176,16 +164,6 @@ namespace Nexus.Client.GameStorage.UI
                 LinkFolderPath = candidate.LinkFolderPath,
                 LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _currentPaths.GameInstallPath)
             };
-        }
-        private void AddCandidate(GameStorageCandidate candidate)
-        {
-            if (candidate == null)
-                return;
-            string key = string.Join("|", candidate.GameId, candidate.StorageId, candidate.InstallInfoPath, candidate.ModsPath, candidate.VirtualInstallPath, candidate.LinkFolderPath);
-            if (_candidates.Any(x => string.Equals(string.Join("|", x.GameId, x.StorageId, x.InstallInfoPath, x.ModsPath, x.VirtualInstallPath, x.LinkFolderPath), key, StringComparison.OrdinalIgnoreCase)))
-                return;
-            _candidates.Add(candidate);
-            _candidates = _candidates.OrderByDescending(x => x.ConfidenceScore).ToList();
         }
     }
 }
