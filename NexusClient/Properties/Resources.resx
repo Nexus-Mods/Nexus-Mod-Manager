@@ -568,4 +568,31 @@
   <data name="SkyrimSE_logo" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\SkyrimSE_logo.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="categories_add_new" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\categories_add_new.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="categories_rename" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\categories_rename.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="categories_remove" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\categories_remove.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="categories_update_reset_nexus" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\categories_update_reset_nexus.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="categories_reset_unassigned" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\categories_reset_unassigned.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="categories_delete_reset_unassigned" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\categories_delete_reset_unassigned.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="categories_reset_unassigned_nexus" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\categories_reset_unassigned_nexus.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toolbar_move_left" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toolbar_move_left.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toolbar_move_top" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toolbar_move_top.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

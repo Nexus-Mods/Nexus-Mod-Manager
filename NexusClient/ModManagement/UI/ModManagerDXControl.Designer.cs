@@ -245,13 +245,13 @@ namespace Nexus.Client.ModManagement.UI
                 this.removeAllCategories,
                 this.toggleHiddenCategories
             });
-            this.tsbResetCategories.Image       = global::Nexus.Client.Properties.Resources.categories_flat;
+            this.tsbResetCategories.Image       = global::Nexus.Client.Properties.Resources.categories_add_new;
             this.tsbResetCategories.Name        = "tsbResetCategories";
             this.tsbResetCategories.Text        = "Categories";
             this.tsbResetCategories.ToolTipText = "Categories: add new category - Click the small arrow for more options";
             this.tsbResetCategories.ButtonClick += new System.EventHandler(this.addNewCategory_Click);
 
-            this.addNewCategory.Image = global::Nexus.Client.Properties.Resources.categories_flat;
+            this.addNewCategory.Image = global::Nexus.Client.Properties.Resources.categories_add_new;
             this.addNewCategory.Name  = "addNewCategory";
             this.addNewCategory.Text  = "Categories: add new category";
             this.addNewCategory.Click += new System.EventHandler(this.addNewCategory_Click);
@@ -266,22 +266,22 @@ namespace Nexus.Client.ModManagement.UI
             this.expandAllCategories.Text  = "Categories: expand all categories";
             this.expandAllCategories.Click += new System.EventHandler(this.expandAllCategories_Click);
 
-            this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
+            this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
             this.resetDefaultCategories.Name  = "resetDefaultCategories";
             this.resetDefaultCategories.Text  = "Categories: Update and reset to Nexus site defaults";
             this.resetDefaultCategories.Click += new System.EventHandler(this.resetDefaultCategories_Click);
 
-            this.resetUnassignedToDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
+            this.resetUnassignedToDefaultCategories.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned_nexus;
             this.resetUnassignedToDefaultCategories.Name  = "resetUnassignedToDefaultCategories";
             this.resetUnassignedToDefaultCategories.Text  = "Categories: reset Unassigned mods to Nexus site defaults";
             this.resetUnassignedToDefaultCategories.Click += new System.EventHandler(this.resetUnassignedToDefaultCategories_Click);
 
-            this.resetModsCategory.Image = global::Nexus.Client.Properties.Resources.reset_unassigned;
+            this.resetModsCategory.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned;
             this.resetModsCategory.Name  = "resetModsCategory";
             this.resetModsCategory.Text  = "Categories: reset all mods to unassigned";
             this.resetModsCategory.Click += new System.EventHandler(this.resetModsCategory_Click);
 
-            this.removeAllCategories.Image = global::Nexus.Client.Properties.Resources.remove_all_categories;
+            this.removeAllCategories.Image = global::Nexus.Client.Properties.Resources.categories_delete_reset_unassigned;
             this.removeAllCategories.Name  = "removeAllCategories";
             this.removeAllCategories.Text  = "Categories: remove all categories";
             this.removeAllCategories.Click += new System.EventHandler(this.removeAllCategories_Click);

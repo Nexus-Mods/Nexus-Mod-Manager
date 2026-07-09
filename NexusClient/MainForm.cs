@@ -43,9 +43,10 @@
 		private MainFormVM _viewModel;
 		private FormWindowState _lastWindowState = FormWindowState.Normal;
 		private readonly IModManagerView _modManagerControl;
-		private readonly PluginManagerControl _pluginManagerControl;
-		private readonly DownloadMonitorControl _downloadMonitorControl;
-		private readonly ModActivationMonitorControl _modActivationMonitorControl;
+			private readonly PluginManagerControl _pluginManagerControl;
+			private readonly DownloadMonitorControl _downloadMonitorControl;
+			private readonly ModActivationMonitorControl _modActivationMonitorControl;
+			private readonly CategoryManagerControl _categoryManagerControl;
 		private double _defaultActivityManagerAutoHidePortion;
 		private double _defaultActivationMonitorAutoHidePortion;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
@@ -91,6 +92,8 @@
 				_viewModel.ConfigFilesFixing += ViewModel_ConfigFilesFixing;
 				_viewModel.ModManagerVM.ProfileSwitchSettingUp += ModManagerVM_ProfileSwitchSettingUp;
 				_modManagerControl.ViewModel = _viewModel.ModManagerVM;
+
+				_categoryManagerControl.ViewModel = _viewModel.ModManagerVM;
 
                 if (ViewModel.UsesPlugins)
 				{
@@ -192,6 +195,9 @@
 			_modManagerControl = new ModManagerDXControl();
 			_downloadMonitorControl = new DownloadMonitorControl();
 			_modActivationMonitorControl = new ModActivationMonitorControl();
+			_categoryManagerControl = new CategoryManagerControl();
+			_categoryManagerControl.CollapseAllCategoriesRequested += CategoryManagerControl_CollapseAllCategoriesRequested;
+			_categoryManagerControl.ExpandAllCategoriesRequested   += CategoryManagerControl_ExpandAllCategoriesRequested;
 			dockPanel1.ActiveContentChanged += dockPanel1_ActiveContentChanged;
 			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
 			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
@@ -398,6 +404,7 @@
 					_pluginManagerControl.Show(dockPanel1);
 				}
 
+				_categoryManagerControl.Show(dockPanel1);
 				ModManagerDock.Show(dockPanel1);
 			}
 
@@ -408,17 +415,18 @@
                 _pluginManagerControl.Show(dockPanel1);
             }
 
-            if (ViewModel.UsesPlugins && strTab == "Plugins")
-            {
-                _pluginManagerControl.Show(dockPanel1);
-            }
-            else
-            {
-                ModManagerDock.Show(dockPanel1);
-            }
-
-            if (_downloadMonitorControl == null || _downloadMonitorControl.VisibleState == DockState.Unknown || _downloadMonitorControl.VisibleState == DockState.Hidden)
+			if (ViewModel.UsesPlugins && strTab == "Plugins")
 			{
+				_pluginManagerControl.Show(dockPanel1);
+			}
+			else
+			{
+				_categoryManagerControl.Show(dockPanel1);
+				ModManagerDock.Show(dockPanel1);
+			}
+
+			if (_downloadMonitorControl == null || _downloadMonitorControl.VisibleState == DockState.Unknown || _downloadMonitorControl.VisibleState == DockState.Hidden)
+				{
 				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottom);
 
                 if (_defaultActivityManagerAutoHidePortion == 0)
@@ -1509,10 +1517,15 @@
                 return _pluginManagerControl;
             }
 
-            if (contentId == typeof(ModManagerControl).ToString()
+                if (contentId == typeof(ModManagerControl).ToString()
                 || contentId == typeof(ModManagerDXControl).ToString())
             {
                 return ModManagerDock;
+            }
+
+            if (contentId == typeof(CategoryManagerControl).ToString())
+            {
+                return _categoryManagerControl;
             }
 
             if (contentId == typeof(DownloadMonitorControl).ToString())
@@ -3250,6 +3263,16 @@
 		{
 			MessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://ko-fi.com/duskdweller");
+		}
+
+		private void CategoryManagerControl_CollapseAllCategoriesRequested(object sender, EventArgs e)
+		{
+			(_modManagerControl as ModManagerDXControl)?.CollapseAllCategories();
+		}
+
+		private void CategoryManagerControl_ExpandAllCategoriesRequested(object sender, EventArgs e)
+		{
+			(_modManagerControl as ModManagerDXControl)?.ExpandAllCategories();
 		}
 	}
 }
