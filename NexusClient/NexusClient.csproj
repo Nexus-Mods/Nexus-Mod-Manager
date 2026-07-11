@@ -181,10 +181,12 @@
     <Compile Include="ModManagement\ModRegistry.cs" />
     <Compile Include="ModManagement\LinkActivationTask.cs" />
     <Compile Include="ModManagement\IVirtualDeploymentService.cs" />
+    <Compile Include="ModManagement\IVirtualDeploymentSession.cs" />
     <Compile Include="ModManagement\VirtualDeploymentOptions.cs" />
     <Compile Include="ModManagement\VirtualDeploymentProgress.cs" />
     <Compile Include="ModManagement\VirtualDeploymentResult.cs" />
     <Compile Include="ModManagement\VirtualDeploymentService.cs" />
+    <Compile Include="ModManagement\VirtualDeploymentSession.cs" />
     <Compile Include="ModManagement\ModMigrationTask.cs" />
     <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />
@@ -210,6 +212,7 @@
     <Compile Include="ModManagement\VirtualModActivator\VirtualConfigFixTask.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
     <Compile Include="ModManagement\VirtualModInfo.cs" />
+    <Compile Include="ModManagement\VirtualLinkIndex.cs" />
     <Compile Include="ModManagement\VirtualModLink.cs" />
     <Compile Include="ModRepositories\ModFileInfo.cs" />
     <Compile Include="ModRepositories\ApiCallManager.cs" />
@@ -742,6 +745,7 @@
     <Compile Include="ModManagement\InstallationLog\InstallLog.InstallerStack.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.ActiveModRegistry.cs" />
     <Compile Include="ModManagement\ModInstallerBase.cs" />
+    <Compile Include="ModManagement\TaskSetWaiter.cs" />
     <Compile Include="ModManagement\ModMatcher.cs" />
     <Compile Include="ModManagement\ModUninstaller.cs" />
     <Compile Include="ModManagement\ModUpgrader.cs" />

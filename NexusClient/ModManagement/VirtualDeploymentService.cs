@@ -1,7 +1,6 @@
 namespace Nexus.Client.ModManagement
 {
     using System;
-    using System.Diagnostics;
     using System.IO;
     using System.Linq;
 
@@ -26,7 +25,7 @@ namespace Nexus.Client.ModManagement
 
             VirtualDeploymentOptions deploymentOptions = options ?? new VirtualDeploymentOptions();
             VirtualDeploymentResult result = new VirtualDeploymentResult();
-            Stopwatch stopwatch = Stopwatch.StartNew();
+            IVirtualDeploymentSession session = new VirtualDeploymentSession(mod);
 
             try
             {
@@ -47,20 +46,30 @@ namespace Nexus.Client.ModManagement
                     return result;
 
                 string[] files;
-                if (_virtualModActivator.MultiHDMode && Directory.Exists(linkFolderPath))
+                try
                 {
-                    files = Directory.Exists(modFolderPath)
-                        ? Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories).Concat(Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)).ToArray()
-                        : Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories);
-                    result.SourceRoot = linkFolderPath;
+                    if (_virtualModActivator.MultiHDMode && Directory.Exists(linkFolderPath))
+                    {
+                        files = Directory.Exists(modFolderPath)
+                            ? Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories).Concat(Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)).ToArray()
+                            : Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories);
+                        result.SourceRoot = linkFolderPath;
+                    }
+                    else
+                    {
+                        files = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
+                        result.SourceRoot = modFolderPath;
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    files = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
-                    result.SourceRoot = modFolderPath;
+                    result.Failure = ex;
+                    return result;
                 }
 
+                session.SetSourceRoot(result.SourceRoot);
                 result.FileCount = files.Length;
+                session.SetFileCount(result.FileCount);
                 ReportProgress(deploymentOptions, result.SourceRoot, result.FileCount, 0, null);
 
                 IModLinkInstaller modLinkInstaller = _virtualModActivator.GetModLinkInstaller();
@@ -70,13 +79,26 @@ namespace Nexus.Client.ModManagement
                     string relativeFilePath = _virtualModActivator.MultiHDMode && file.Contains(linkFolderPath)
                         ? file.Replace(linkFolderPath + Path.DirectorySeparatorChar, string.Empty)
                         : file.Replace(modFolderPath + Path.DirectorySeparatorChar, string.Empty);
-                    string linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, null, false);
+                    string linkedFilePath;
+                    try
+                    {
+                        linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, null, false);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Failure = ex;
+                        return result;
+                    }
 
                     if (!string.IsNullOrEmpty(linkedFilePath))
                     {
                         result.LinkedFileCount++;
-                        if (deploymentOptions.IsPluginCandidate != null && deploymentOptions.IsPluginCandidate(linkedFilePath))
+                        session.RecordLinkedFile(linkedFilePath);
+                        if (deploymentOptions.LinkedFileHandler != null && deploymentOptions.LinkedFileHandler(linkedFilePath))
+                        {
                             result.PluginCandidatePaths.Add(linkedFilePath);
+                            session.RecordPluginCandidate(linkedFilePath);
+                        }
                     }
 
                     ReportProgress(deploymentOptions, result.SourceRoot, result.FileCount, index + 1, file);
@@ -86,15 +108,7 @@ namespace Nexus.Client.ModManagement
             }
             finally
             {
-                stopwatch.Stop();
-                Trace.TraceInformation(
-                    "Virtual deployment activation: Mod={0}; SourceRoot={1}; Files={2}; Linked={3}; PluginCandidates={4}; InactiveLinks=unavailable; ElapsedMs={5}",
-                    mod.Filename ?? mod.ModName,
-                    result.SourceRoot ?? string.Empty,
-                    result.FileCount,
-                    result.LinkedFileCount,
-                    result.PluginCandidatePaths.Count,
-                    stopwatch.ElapsedMilliseconds);
+                session.TraceSummary();
             }
         }
 

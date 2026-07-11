@@ -1,5 +1,6 @@
 namespace Nexus.Client.ModManagement
 {
+    using System;
     using System.Collections.Generic;
 
     public sealed class VirtualDeploymentResult
@@ -12,6 +13,7 @@ namespace Nexus.Client.ModManagement
         public string SourceRoot { get; internal set; }
         public int FileCount { get; internal set; }
         public int LinkedFileCount { get; internal set; }
+        public Exception Failure { get; internal set; }
         public IList<string> PluginCandidatePaths { get; private set; }
     }
 }

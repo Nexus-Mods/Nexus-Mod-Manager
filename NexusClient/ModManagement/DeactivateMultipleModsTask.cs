@@ -133,8 +133,7 @@ namespace Nexus.Client.ModManagement
 					StepItemProgress();
 				}
 				
-				while (!munUninstaller.IsCompleted)
-				{ }
+				TaskSetWaiter.Wait(munUninstaller);
 
 				if (ItemProgress < ItemProgressMaximum)
 				{

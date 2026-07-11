@@ -68,6 +68,15 @@
 				StepItemProgress();
 			}
 		}
+		private bool HandleLinkedFile(string filePath)
+		{
+			if (PluginManager == null || !PluginManager.IsActivatiblePluginFile(filePath))
+				return false;
+
+			PluginManager.AddPlugin(filePath);
+			PluginManager.ActivatePlugin(filePath);
+			return true;
+		}
 		#region Constructors
 
 		/// <summary>
@@ -130,31 +139,23 @@
 
 			if (!Disabling)
 			{
-				try
+				VirtualDeploymentOptions deploymentOptions = new VirtualDeploymentOptions
 				{
-					VirtualDeploymentOptions deploymentOptions = new VirtualDeploymentOptions
-					{
-						IsPluginCandidate = filePath => PluginManager != null && PluginManager.IsActivatiblePluginFile(filePath),
-						Progress = UpdateActivationProgress,
-					};
-					VirtualDeploymentResult deploymentResult = VirtualDeploymentService.ActivateModLinks(Mod, deploymentOptions);
+					LinkedFileHandler = HandleLinkedFile,
+					Progress = UpdateActivationProgress,
+				};
+				VirtualDeploymentResult deploymentResult = VirtualDeploymentService.ActivateModLinks(Mod, deploymentOptions);
 
-					foreach (string pluginCandidatePath in deploymentResult.PluginCandidatePaths)
-					{
-						PluginManager.AddPlugin(pluginCandidatePath);
-						PluginManager.ActivatePlugin(pluginCandidatePath);
-					}
-
-					if (deploymentResult.FileCount > 0)
-						VirtualModActivator.FinalizeModActivation(Mod);
-				}
-				catch (Exception ex)
+				if (deploymentResult.Failure != null)
 				{
-					TraceUtil.TraceException(ex);
-					OverallMessage = $"{nameof(LinkActivationTask)} failed: {ex.Message}";
+					TraceUtil.TraceException(deploymentResult.Failure);
+					OverallMessage = $"{nameof(LinkActivationTask)} failed: {deploymentResult.Failure.Message}";
 					Status = TaskStatus.Error;
 					return null;
 				}
+
+				if (deploymentResult.FileCount > 0)
+					VirtualModActivator.FinalizeModActivation(Mod);
 			}
 			else
 			{

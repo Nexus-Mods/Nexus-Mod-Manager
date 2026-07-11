@@ -115,8 +115,7 @@ namespace Nexus.Client.ModManagement
 				ModInstaller minInstaller = m_mifModInstallerFactory.CreateInstaller(modMod, m_dlgOverwriteConfirmationDelegate, null);
 				minInstaller.Install();
 
-				while (!minInstaller.IsCompleted)
-				{ }
+				TaskSetWaiter.Wait(minInstaller);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 			}

@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Collections.Specialized;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
@@ -106,6 +107,10 @@
 		#endregion
 
 		private ThreadSafeObservableList<IVirtualModLink> m_tslVirtualModList = new ThreadSafeObservableList<IVirtualModLink>();
+		private VirtualLinkIndex m_vliVirtualLinkIndex = new VirtualLinkIndex();
+		private bool m_booVirtualLinkIndexDirty = true;
+		private int m_intVirtualLinkIndexRevision = 0;
+		private readonly object m_objVirtualLinkIndexLock = new object();
 		private ThreadSafeObservableList<IVirtualModInfo> m_tslVirtualModInfo = new ThreadSafeObservableList<IVirtualModInfo>();
 		private bool m_booInitialized = false;
 		private bool m_booDisableLinkCreation = false;
@@ -310,6 +315,7 @@
 
 		public VirtualModActivator(ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, IGameMode p_gmdGameMode, IInstallLog p_ilgModInstallLog, IEnvironmentInfo p_eifEnvironmentInfo, string p_strModFolder)
 		{
+			AttachVirtualLinkList(m_tslVirtualModList);
 			ModManager = p_mmgModManager;
 			PluginManager = p_pmgPluginManager;
 			GameMode = p_gmdGameMode;
@@ -538,26 +544,36 @@
 				writtenTo = true;
 			}
 
-			Task.Delay(250);
 			if (p_booModActivationChange)
 				ModActivationChanged(null, new EventArgs());
 
 			return writtenTo;
 		}
 
-		#region File IO Management
+        #region File IO Management
 
-		/// <summary>
-		/// Checks whether the xml file is ready to be written.
-		/// </summary>
-		private bool CheckConfigFileStatus(string filePath)
+        private static void WaitBeforeFileReadyRetry(int milliseconds)
+        {
+            if (milliseconds <= 0)
+                return;
+
+            using (ManualResetEventSlim retryWait = new ManualResetEventSlim(false))
+            {
+                retryWait.Wait(milliseconds);
+            }
+        }
+
+        /// <summary>
+        /// Checks whether the xml file is ready to be written.
+        /// </summary>
+        private bool CheckConfigFileStatus(string filePath)
 		{
 			int intRepeat = 0;
 			bool booLocked = false;
 
 			while (!FileUtil.IsFileReady(filePath))
 			{
-				Task.Delay(100);
+				WaitBeforeFileReadyRetry(100);
 				if (intRepeat++ > 50)
 				{
 					Trace.TraceWarning("Could not get access to \"{0}\".", filePath);
@@ -589,7 +605,7 @@
 
 			while (!FileUtil.IsFileReady(strPath))
 			{
-				Task.Delay(100);
+				WaitBeforeFileReadyRetry(100);
 				if (repeat++ > 50)
 				{
 					Trace.TraceWarning("Could not get access to \"{0}\".", strPath);
@@ -692,8 +708,8 @@
 					{
 						VirtualModLink UpdateLink = new VirtualModLink(ModLink);
 						UpdateLink.ModInfo = vmiModInfo;
-						m_tslVirtualModList.Remove(ModLink);
-						m_tslVirtualModList.Add(UpdateLink);
+						RemoveVirtualLink(ModLink);
+						AddVirtualLink(UpdateLink);
 					}
 
 					if (!booEdited)
@@ -727,10 +743,119 @@
 			return false;
 		}
 
+		private void AttachVirtualLinkList(ThreadSafeObservableList<IVirtualModLink> p_tslVirtualLinks)
+		{
+			if (p_tslVirtualLinks != null)
+				p_tslVirtualLinks.CollectionChanged += VirtualLinkListChanged;
+
+			MarkVirtualLinkIndexDirty();
+		}
+
+		private void DetachVirtualLinkList(ThreadSafeObservableList<IVirtualModLink> p_tslVirtualLinks)
+		{
+			if (p_tslVirtualLinks != null)
+				p_tslVirtualLinks.CollectionChanged -= VirtualLinkListChanged;
+		}
+
+		private void VirtualLinkListChanged(object p_objSender, NotifyCollectionChangedEventArgs p_nccEventArgs)
+		{
+			MarkVirtualLinkIndexDirty();
+		}
+
+		private void MarkVirtualLinkIndexDirty()
+		{
+			lock (m_objVirtualLinkIndexLock)
+			{
+				m_booVirtualLinkIndexDirty = true;
+				m_intVirtualLinkIndexRevision++;
+			}
+		}
+
+		private void RebuildVirtualLinkIndex()
+		{
+			while (true)
+			{
+				int intRevision;
+				lock (m_objVirtualLinkIndexLock)
+				{
+					if (!m_booVirtualLinkIndexDirty)
+						return;
+
+					intRevision = m_intVirtualLinkIndexRevision;
+				}
+
+				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>(m_tslVirtualModList);
+
+				lock (m_objVirtualLinkIndexLock)
+				{
+					if (intRevision != m_intVirtualLinkIndexRevision)
+						continue;
+
+					m_vliVirtualLinkIndex.Rebuild(lstVirtualLinks);
+					m_booVirtualLinkIndexDirty = false;
+					return;
+				}
+			}
+		}
+
+		private void EnsureVirtualLinkIndex()
+		{
+			bool booDirty;
+			lock (m_objVirtualLinkIndexLock)
+			{
+				booDirty = m_booVirtualLinkIndexDirty;
+			}
+
+			if (!booDirty)
+				return;
+
+			RebuildVirtualLinkIndex();
+		}
+
+		private List<IVirtualModLink> FindVirtualLinksByPath(string p_strVirtualPath)
+		{
+			EnsureVirtualLinkIndex();
+			lock (m_objVirtualLinkIndexLock)
+			{
+				return m_vliVirtualLinkIndex.FindByVirtualPath(p_strVirtualPath);
+			}
+		}
+
+		private void AddVirtualLink(IVirtualModLink p_vmlLink)
+		{
+			MarkVirtualLinkIndexDirty();
+			m_tslVirtualModList.Add(p_vmlLink);
+			MarkVirtualLinkIndexDirty();
+		}
+
+		private void RemoveVirtualLink(IVirtualModLink p_vmlLink)
+		{
+			MarkVirtualLinkIndexDirty();
+			m_tslVirtualModList.Remove(p_vmlLink);
+			MarkVirtualLinkIndexDirty();
+		}
+
+		private void RemoveVirtualLinks(IEnumerable<IVirtualModLink> p_enmLinks)
+		{
+			List<IVirtualModLink> lstLinks = new List<IVirtualModLink>(p_enmLinks);
+			foreach (IVirtualModLink vmlLink in lstLinks)
+				RemoveVirtualLink(vmlLink);
+		}
+
+		private void ClearVirtualLinks()
+		{
+			MarkVirtualLinkIndexDirty();
+			m_tslVirtualModList.Clear();
+			MarkVirtualLinkIndexDirty();
+		}
+
 		public void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks)
 		{
+			DetachVirtualLinkList(m_tslVirtualModList);
 			m_tslVirtualModList.Clear();
 			m_tslVirtualModList = new ThreadSafeObservableList<IVirtualModLink>(p_ilvVirtualLinks);
+			AttachVirtualLinkList(m_tslVirtualModList);
+			RebuildVirtualLinkIndex();
 		}
 
 		/// <summary>
@@ -1154,11 +1279,9 @@
 			int intPriority = -1;
 			p_modMod = null;
 
-			List<IVirtualModLink> lstVirtualModLink = new List<IVirtualModLink>();
+			List<IVirtualModLink> lstVirtualModLink = FindVirtualLinksByPath(p_strFilePath);
 			if (p_intCurrentPriority >= 0)
-				lstVirtualModLink = VirtualLinks.Where(x => (x.VirtualModPath.ToLowerInvariant() == p_strFilePath.ToLowerInvariant()) && (x.Priority != p_intCurrentPriority)).ToList();
-			else
-				lstVirtualModLink = VirtualLinks.Where(x => x.VirtualModPath.ToLowerInvariant() == p_strFilePath.ToLowerInvariant()).ToList();
+				lstVirtualModLink = lstVirtualModLink.Where(x => x.Priority != p_intCurrentPriority).ToList();
 
 			if ((lstVirtualModLink != null) && (lstVirtualModLink.Count > 0))
 			{
@@ -1194,7 +1317,7 @@
 					DisableMod(modMod, true);
 				}
 
-				VirtualLinks.Clear();
+				ClearVirtualLinks();
 				SaveList(false);
 			}
 			return true;
@@ -1241,7 +1364,7 @@
 				modInfo = vmiModInfo;
 			}
 			string strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
-			m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo));
+			AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo));
 		}
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, int p_intPriority)
@@ -1382,7 +1505,7 @@
 					if (File.Exists(strVirtualFileLink))
 					{
 						if (!p_booIsRestoring)
-							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
 							strVirtualFileLink = string.Empty;
 					}
@@ -1400,7 +1523,7 @@
 						if (booSuccess || File.Exists(strVirtualFileLink))
 						{
 							if (!p_booIsRestoring)
-								m_tslVirtualModList.Add(new VirtualModLink(strRealLinkFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+								AddVirtualLink(new VirtualModLink(strRealLinkFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 							else
 								strVirtualFileLink = string.Empty;
 						}
@@ -1416,7 +1539,7 @@
 						if (booSuccess || File.Exists(strVirtualFileLink))
 						{
 							if (!p_booIsRestoring)
-								m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+								AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 							else
 								strVirtualFileLink = string.Empty;
 						}
@@ -1429,14 +1552,14 @@
 					if (!MultiHDMode && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
 					{
 						if (!p_booIsRestoring)
-							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
 							strVirtualFileLink = string.Empty;
 					}
 					else if (CreateSymbolicLink(strVirtualFileLink, strActivatorFilePath, 0))
 					{
 						if (!p_booIsRestoring)
-							m_tslVirtualModList.Add(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
 						else
 							strVirtualFileLink = string.Empty;
 					}
@@ -1533,7 +1656,7 @@
 					if (File.Exists(strPath))
 						FileUtil.ForceDelete(strPath);
 
-				VirtualLinks.Remove(p_ivlVirtualLink);
+				RemoveVirtualLink(p_ivlVirtualLink);
 
 				if ((intPriority >= 0) && !p_booPurging && (modCheck != null))
 				{
@@ -1564,16 +1687,16 @@
 		public void UpdateLinkPriority(IVirtualModLink p_ivlFileLink)
 		{
 			VirtualModLink vmlUpdated = new VirtualModLink(p_ivlFileLink);
-			m_tslVirtualModList.Remove(p_ivlFileLink);
+			RemoveVirtualLink(p_ivlFileLink);
 
 			vmlUpdated.Priority = 0;
 			vmlUpdated.Active = true;
-			m_tslVirtualModList.Add(vmlUpdated);
+			AddVirtualLink(vmlUpdated);
 		}
 
 		private void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks, IMod p_modMod, bool p_booIncrement, bool p_booActivateFirst)
 		{
-			m_tslVirtualModList.RemoveRange(p_lstFileLinks);
+			RemoveVirtualLinks(p_lstFileLinks);
 
 			if (p_booActivateFirst)
 			{
@@ -1583,7 +1706,7 @@
 				if (vmlFirst.Priority > 0)
 					vmlFirst.Priority--;
 				vmlFirst.Active = true;
-				m_tslVirtualModList.Add(vmlFirst);
+				AddVirtualLink(vmlFirst);
 				AddFileLink(p_modMod, vmlFirst.VirtualModPath, false, true, vmlFirst.Priority);
 			}
 
@@ -1598,7 +1721,7 @@
 						vml.Priority--;
 
 					vml.Active = false;
-					m_tslVirtualModList.Add(vml);
+					AddVirtualLink(vml);
 				}
 			}
 

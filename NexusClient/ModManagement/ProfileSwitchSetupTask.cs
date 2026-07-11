@@ -159,8 +159,7 @@ namespace Nexus.Client.ModManagement
 					StepItemProgress();
 				}
 
-				while (!munUninstaller.IsCompleted)
-				{ }
+				TaskSetWaiter.Wait(munUninstaller);
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
@@ -205,8 +204,7 @@ namespace Nexus.Client.ModManagement
 				ModInstaller minInstaller = _modInstallerFactory.CreateInstaller(modMod, _overwriteConfirmationDelegate, null);
 				minInstaller.Install();
 
-				while (!minInstaller.IsCompleted)
-				{ }
+				TaskSetWaiter.Wait(minInstaller);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 			}
