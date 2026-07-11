@@ -73,8 +73,6 @@ namespace Nexus.Client.ModManagement.UI
         private Rectangle _hoveredModNameIconBounds = Rectangle.Empty;
         private bool _suppressNextDoubleClick;
         private bool _updatingGridDisplayControls;
-        private Timer _columnFillTimer;
-        private bool _pendingColumnSizing;
         private bool _missingArchiveScanQueued;
         private string _gridFontFamilyName = DefaultGridFontFamily;
         private float _gridFontSizePt = DefaultGridFontSizePt;
@@ -86,11 +84,11 @@ namespace Nexus.Client.ModManagement.UI
         private bool _toolbarPositionLeft;
         private ToolStripButton _toolbarPositionButton;
         private bool _restoringGridSort;
+        private string _lastGridSortSignature = string.Empty;
         private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
         private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache = new Dictionary<IMod, ModVisualStatus>();
         private readonly Dictionary<string, bool> _missingArchiveByFileName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, int> _columnAutoFitSavedWidths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly object _missingArchiveLock = new object();
         private Image _modInstalledDisabledIcon;
         private Image _modInstalledActiveIcon;
@@ -135,6 +133,28 @@ namespace Nexus.Client.ModManagement.UI
         private const string DefaultGridFontFamily = "Segoe UI";
         private const float DefaultGridFontSizePt = 9f;
         private const string DefaultGridDensity = "Compact";
+        private enum ColumnSizingRole
+        {
+            Fixed,
+            Bounded,
+            FlexiblePrimary,
+            FlexibleSecondary,
+        }
+
+        private sealed class ColumnSizingDefinition
+        {
+            public string FieldName { get; }
+            public ColumnSizingRole Role { get; }
+            public int DefaultWidth { get; }
+            public int MinimumWidth { get; }
+            public int MaximumWidth { get; }
+            public ColumnSizingDefinition(string fieldName, ColumnSizingRole role, int defaultWidth, int minimumWidth, int maximumWidth) { FieldName = fieldName; Role = role; DefaultWidth = defaultWidth; MinimumWidth = minimumWidth; MaximumWidth = maximumWidth; }
+        }
+
+        private static readonly ColumnSizingDefinition[] GridColumnSizingDefinitions =
+        {
+            new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 90, 80, 150), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 90, 80, 150), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
+        };
         private const int ModStatusIconSize = 20;
         private const int InlineEditIconSize = 18;
         private static readonly string[] GridFontChoices = { "Segoe UI", "Corbel", "Calibri", "Tahoma", "Verdana" };
@@ -161,8 +181,6 @@ namespace Nexus.Client.ModManagement.UI
             InitializeComponent();
             InitializeToolbarIcons();
             ApplyToolbarActionLabels();
-            _columnFillTimer = new Timer(components) { Interval = 120 };
-            _columnFillTimer.Tick += ColumnFillTimer_Tick;
             Text = "Mods";
             InitializeInlineRenameEditor();
             SetupGrid();
@@ -261,8 +279,8 @@ namespace Nexus.Client.ModManagement.UI
             SetActiveModsBold(false, false);
             SetFocusTopRowAfterSorting(true, false);
             SetToolbarPosition(false, false);
-            _columnAutoFitSavedWidths.Clear();
-            ApplyColumnSizing();
+            ApplyDefaultColumnSizing();
+            SaveGridLayout();
         }
 
         /// <inheritdoc/>
@@ -457,13 +475,10 @@ namespace Nexus.Client.ModManagement.UI
             RebuildActivationStateCache();
             QueueMissingArchiveScan();
             gridControl.RefreshDataSource();
-            bool restoredLayout = RestoreGridLayout();
+            RestoreGridLayout();
             RestoreGridSort();
             RestoreGridCategoryView();
-            if (restoredLayout)
-                ScheduleModNameFill();
-            else
-                ScheduleColumnSizing();
+            _lastGridSortSignature = GetGridSortSignature();
             UpdateModCountLabel();
         }
 
@@ -991,7 +1006,6 @@ namespace Nexus.Client.ModManagement.UI
             ApplyToolbarFont(rowFont);
             gridView.LayoutChanged();
             gridView.InvalidateRows();
-            ScheduleModNameFill();
         }
 
         private void ApplyToolbarFont(Font font)
@@ -1083,9 +1097,7 @@ namespace Nexus.Client.ModManagement.UI
             gridView.CustomColumnSort       += GridView_CustomColumnSort;
             gridView.GroupRowExpanded       += (s, e) => SaveGridLayout();
             gridView.GroupRowCollapsed      += (s, e) => SaveGridLayout();
-            gridControl.SizeChanged          += (s, e) => ScheduleModNameFill();
-            gridView.ColumnWidthChanged      += (s, e) => { if (_restoringGridLayout) return; if (e.Column?.FieldName != ColModName) ScheduleModNameFill(); SaveGridLayout(); };
-            gridView.EndSorting              += GridView_EndSorting;
+            gridView.ColumnWidthChanged += (s, e) => { if (!_restoringGridLayout) SaveGridLayout(); };            gridView.EndSorting              += GridView_EndSorting;
             gridControl.MouseMove            += GridControl_MouseMove;
             gridControl.MouseLeave           += GridControl_MouseLeave;
             gridControl.MouseDown            += GridControl_MouseDown;
@@ -1093,52 +1105,13 @@ namespace Nexus.Client.ModManagement.UI
 
         private void BuildColumns()
         {
-            AddCol(ColModStatus,    "Status",        58, HorzAlignment.Center,  true);
-            AddCol(ColModName,      "MOD NAME",       220, HorzAlignment.Default, true);
-            AddCol(ColVersion,      "VERSION",         70, HorzAlignment.Center,  false);
-            AddCol(ColLastKnown,    "LATEST",          70, HorzAlignment.Center,  false);
-            AddCol(ColAuthor,       "AUTHOR",         128, HorzAlignment.Default, false);
-            AddCol(ColCategory,     "CATEGORY",        90, HorzAlignment.Default, false);
-            AddCol(ColInstallDate,  "INSTALL DATE",    90, HorzAlignment.Center,  false);
-            AddCol(ColDownloadDate, "DOWNLOAD DATE",   90, HorzAlignment.Center,  false);
-            AddCol(ColDownloadId,   "DOWNLOAD ID",     80, HorzAlignment.Center,  false);
-
-            // Endorsed uses an image — attach a picture editor so DevExpress renders Image values
-            var endorsedCol = AddCol(ColEndorsed, "ENDORSED", 70, HorzAlignment.Center, false);
-            var picRepo = new RepositoryItemPictureEdit
-            {
-                ShowMenu = false,
-                SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom,
-                NullText = "",
-            };
-            endorsedCol.ColumnEdit = picRepo;
-            gridControl.RepositoryItems.Add(picRepo);
+            AddCol(ColModStatus, "Status", HorzAlignment.Center, true); AddCol(ColModName, "MOD NAME", HorzAlignment.Default, true); AddCol(ColVersion, "VERSION", HorzAlignment.Center, false); AddCol(ColLastKnown, "LATEST", HorzAlignment.Center, false); AddCol(ColAuthor, "AUTHOR", HorzAlignment.Default, false); AddCol(ColCategory, "CATEGORY", HorzAlignment.Default, false); AddCol(ColInstallDate, "INSTALL DATE", HorzAlignment.Center, false); AddCol(ColDownloadDate, "DOWNLOAD DATE", HorzAlignment.Center, false); AddCol(ColDownloadId, "DOWNLOAD ID", HorzAlignment.Center, false);
+            GridColumn endorsedCol = AddCol(ColEndorsed, "ENDORSED", HorzAlignment.Center, false); RepositoryItemPictureEdit picRepo = new RepositoryItemPictureEdit { ShowMenu = false, SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, NullText = "", }; endorsedCol.ColumnEdit = picRepo; gridControl.RepositoryItems.Add(picRepo);
         }
-
-        private GridColumn AddCol(string field, string caption, int width, HorzAlignment align, bool pin)
+        private GridColumn AddCol(string field, string caption, HorzAlignment align, bool pin)
         {
-            var col = new GridColumn
-            {
-                FieldName   = field,
-                Caption     = caption,
-                Width       = width,
-                Fixed       = pin ? FixedStyle.Left : FixedStyle.None,
-                UnboundType = field == ColEndorsed ? DevExpress.Data.UnboundColumnType.Object : DevExpress.Data.UnboundColumnType.String,
-                OptionsColumn = { AllowEdit = false, AllowSort = DefaultBoolean.True, ReadOnly = true, FixedWidth = field != ColModName },
-                AppearanceHeader = { TextOptions = { HAlignment = align } },
-                AppearanceCell   = { TextOptions = { HAlignment = align } },
-            };
-            if (field == ColInstallDate || field == ColDownloadDate)
-                col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
-
-            col.MinWidth = field == ColModName ? 100 : Math.Min(width, 70);
-            ApplyAutoFilterDefaults(col);
-            gridView.Columns.Add(col);
-            col.Visible      = true;
-            col.VisibleIndex = gridView.Columns.Count - 1;
-            return col;
+            ColumnSizingDefinition sizing = GetColumnSizingDefinition(field); GridColumn col = new GridColumn { FieldName = field, Caption = caption, Width = sizing.DefaultWidth, Fixed = pin ? FixedStyle.Left : FixedStyle.None, UnboundType = field == ColEndorsed ? DevExpress.Data.UnboundColumnType.Object : DevExpress.Data.UnboundColumnType.String, OptionsColumn = { AllowEdit = false, AllowSort = DefaultBoolean.True, ReadOnly = true, FixedWidth = false }, AppearanceHeader = { TextOptions = { HAlignment = align } }, AppearanceCell = { TextOptions = { HAlignment = align } }, }; ApplyColumnSizingDefinition(col, sizing); if (field == ColInstallDate || field == ColDownloadDate) col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom; ApplyAutoFilterDefaults(col); gridView.Columns.Add(col); col.Visible = true; col.VisibleIndex = gridView.Columns.Count - 1; return col;
         }
-
         private void ApplyAutoFilterDefaults()
         {
             foreach (GridColumn col in gridView.Columns)
@@ -1802,77 +1775,18 @@ namespace Nexus.Client.ModManagement.UI
         /// Sizes all columns to their content, pins Author at 128 px,
         /// and lets MOD NAME absorb the remaining grid width.
         /// </summary>
-        private void ApplyColumnSizing()
+        private static ColumnSizingDefinition GetColumnSizingDefinition(string fieldName)
         {
-            if (!IsHandleCreated) return;
-            gridView.BeginUpdate();
-            try
-            {
-                // Author: always 128 px
-                var authorCol = gridView.Columns[ColAuthor];
-                if (authorCol != null) authorCol.Width = 128;
-
-                // Best-fit every other visible column except Mod Name
-                if (_modList.Count > 0)
-                {
-                    for (int i = 0; i < gridView.VisibleColumns.Count; i++)
-                    {
-                        GridColumn col = gridView.VisibleColumns[i];
-                        if (col.FieldName == ColModName || col.FieldName == ColAuthor) continue;
-                        col.BestFit();
-                    }
-                }
-
-                ApplyAutoFilterDefaults();
-                ApplyDateSortDefaults();
-                SetModNameFill();
-            }
-            finally { gridView.EndUpdate(); }
+            foreach (ColumnSizingDefinition definition in GridColumnSizingDefinitions) if (string.Equals(definition.FieldName, fieldName, StringComparison.Ordinal)) return definition;
+            throw new ArgumentOutOfRangeException(nameof(fieldName), fieldName, "A sizing definition is required for every mod grid column.");
         }
-
-        private void ScheduleColumnSizing()
+        private static void ApplyColumnSizingDefinition(GridColumn column, ColumnSizingDefinition definition) { column.MinWidth = definition.MinimumWidth; column.MaxWidth = definition.MaximumWidth; column.Width = definition.DefaultWidth; }
+        private void ApplyDefaultColumnSizing() { gridView.BeginUpdate(); try { foreach (GridColumn column in gridView.Columns) ApplyColumnSizingDefinition(column, GetColumnSizingDefinition(column.FieldName)); } finally { gridView.EndUpdate(); } }
+        private void BestFitColumn(GridColumn column)
         {
-            _pendingColumnSizing = true;
-            _columnFillTimer.Stop();
-            _columnFillTimer.Start();
+            if (column == null) return;
+            ColumnSizingDefinition definition = GetColumnSizingDefinition(column.FieldName); gridView.BeginUpdate(); try { column.BestFit(); int width = Math.Max(definition.MinimumWidth, column.Width); if (definition.MaximumWidth > 0) width = Math.Min(definition.MaximumWidth, width); column.Width = width; } finally { gridView.EndUpdate(); } SaveGridLayout();
         }
-
-        private void ScheduleModNameFill()
-        {
-            _columnFillTimer.Stop();
-            _columnFillTimer.Start();
-        }
-
-        private void ColumnFillTimer_Tick(object sender, EventArgs e)
-        {
-            _columnFillTimer.Stop();
-            if (_pendingColumnSizing)
-            {
-                _pendingColumnSizing = false;
-                ApplyColumnSizing();
-                return;
-            }
-            SetModNameFill();
-        }
-
-        /// <summary>Sets MOD NAME width to whatever horizontal space is left after all other columns.</summary>
-        private void SetModNameFill()
-        {
-            var modNameCol = gridView.Columns[ColModName];
-            if (modNameCol == null || !IsHandleCreated) return;
-            int viewWidth = gridView.ViewRect.Width;
-            if (viewWidth <= 0) return;
-            int used = 0;
-            for (int i = 0; i < gridView.VisibleColumns.Count; i++)
-            {
-                GridColumn col = gridView.VisibleColumns[i];
-                if (col.FieldName != ColModName) used += col.Width;
-            }
-            int fill = Math.Max(modNameCol.MinWidth, viewWidth - used - SystemInformation.VerticalScrollBarWidth - 4);
-            if (Math.Abs(modNameCol.Width - fill) > 1)
-                modNameCol.Width = fill;
-        }
-
         // Keep the grid layout with the existing UI layout settings so Reset UI can clear it.
         private bool RestoreGridLayout()
         {
@@ -1896,14 +1810,12 @@ namespace Nexus.Client.ModManagement.UI
                         }
                         ApplyAutoFilterDefaults();
                         ApplyDateSortDefaults();
-                        SetModNameFill();
                         return true;
                     }
                 }
 
                 ApplyAutoFilterDefaults();
                 ApplyDateSortDefaults();
-                SetModNameFill();
                 return false;
             }
             catch
@@ -1953,6 +1865,7 @@ namespace Nexus.Client.ModManagement.UI
             finally
             {
                 gridView.SortInfo.EndUpdate();
+                _lastGridSortSignature = GetGridSortSignature();
                 _restoringGridSort = false;
             }
         }
@@ -2109,17 +2022,22 @@ namespace Nexus.Client.ModManagement.UI
 
         private void SaveGridSort()
         {
-            var parts = new List<string>();
+            string sortSignature = GetGridSortSignature();
+            if (string.IsNullOrEmpty(sortSignature))
+                _viewModel.Settings.DockPanelLayouts.Remove(GridSortKey);
+            else
+                _viewModel.Settings.DockPanelLayouts[GridSortKey] = sortSignature;
+        }
+
+        private string GetGridSortSignature()
+        {
+            List<string> parts = new List<string>();
             foreach (GridColumnSortInfo sortInfo in gridView.SortInfo)
             {
                 if (sortInfo.Column == null || sortInfo.SortOrder == DevExpress.Data.ColumnSortOrder.None) continue;
                 parts.Add(sortInfo.Column.FieldName + "|" + sortInfo.SortOrder);
             }
-
-            if (parts.Count == 0)
-                _viewModel.Settings.DockPanelLayouts.Remove(GridSortKey);
-            else
-                _viewModel.Settings.DockPanelLayouts[GridSortKey] = string.Join(";", parts);
+            return string.Join(";", parts);
         }
         protected override void OnClosed(EventArgs e)
         {
@@ -2439,7 +2357,7 @@ namespace Nexus.Client.ModManagement.UI
             var info = gridView.CalcHitInfo(gridView.GridControl.PointToClient(Control.MousePosition));
             if (info.HitTest == GridHitTest.ColumnEdge && info.Column != null)
             {
-                ToggleColumnAutoFit(info.Column);
+                BestFitColumn(info.Column);
                 return;
             }
 
@@ -2574,29 +2492,14 @@ namespace Nexus.Client.ModManagement.UI
         /// Toggles auto-fit for <paramref name="column"/>. First double-click saves the current
         /// width and applies BestFit; a second double-click restores the saved width.
         /// </summary>
-        private void ToggleColumnAutoFit(GridColumn column)
-        {
-            int savedWidth;
-            if (_columnAutoFitSavedWidths.TryGetValue(column.FieldName, out savedWidth))
-            {
-                _columnAutoFitSavedWidths.Remove(column.FieldName);
-                column.Width = savedWidth;
-            }
-            else
-            {
-                _columnAutoFitSavedWidths[column.FieldName] = column.Width;
-                column.BestFit();
-            }
-            if (column.FieldName != ColModName)
-                SetModNameFill();
-        }
-
-        // ── sort-focus behaviour ───────────────────────────────────────────────────
-
         private void GridView_EndSorting(object sender, EventArgs e)
         {
+            string sortSignature = GetGridSortSignature();
+            bool sortChanged = !string.Equals(_lastGridSortSignature, sortSignature, StringComparison.Ordinal);
+            _lastGridSortSignature = sortSignature;
+
             SaveGridLayout();
-            if (_focusTopRowAfterSorting && !_restoringGridLayout && !_restoringGridSort)
+            if (_focusTopRowAfterSorting && sortChanged && !_restoringGridLayout && !_restoringGridSort)
             {
                 int rowHandle = GetFirstVisibleDataRowHandle();
                 if (rowHandle >= 0)
