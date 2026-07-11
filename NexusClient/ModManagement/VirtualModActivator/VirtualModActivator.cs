@@ -23,6 +23,7 @@
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
 
+	// Phase 1 compatibility backend for virtual deployment; low-level link manipulation remains here during migration.
 	public class VirtualModActivator : IVirtualModActivator
 	{
 		[DllImport("kernel32.dll")]
@@ -2147,7 +2148,7 @@
 				if (!CheckIsModActive(p_modMod))
 					return null;
 
-			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, p_modMod, p_booDisabling, p_camConfirm);
+			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, new VirtualDeploymentService(this), p_modMod, p_booDisabling, p_camConfirm);
 			if (GameMode.LoadOrderManager != null)
 				GameMode.LoadOrderManager.MonitorExternalTask(latActivatingMod);
 			else

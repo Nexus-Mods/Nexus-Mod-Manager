@@ -180,6 +180,11 @@
     <Compile Include="ModManagement\ModProfile.cs" />
     <Compile Include="ModManagement\ModRegistry.cs" />
     <Compile Include="ModManagement\LinkActivationTask.cs" />
+    <Compile Include="ModManagement\IVirtualDeploymentService.cs" />
+    <Compile Include="ModManagement\VirtualDeploymentOptions.cs" />
+    <Compile Include="ModManagement\VirtualDeploymentProgress.cs" />
+    <Compile Include="ModManagement\VirtualDeploymentResult.cs" />
+    <Compile Include="ModManagement\VirtualDeploymentService.cs" />
     <Compile Include="ModManagement\ModMigrationTask.cs" />
     <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />

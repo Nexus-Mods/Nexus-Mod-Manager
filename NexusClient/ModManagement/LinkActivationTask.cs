@@ -26,6 +26,8 @@
 		/// <value>The current VirtualModActivator.</value>
 		protected IVirtualModActivator VirtualModActivator { get; }
 
+        protected IVirtualDeploymentService VirtualDeploymentService { get; }
+
 		protected ConfirmActionMethod ConfirmActionMethod { get; }
 
 		protected bool MultiHDMode => VirtualModActivator.MultiHDMode;
@@ -36,6 +38,36 @@
 
 		#endregion
 
+		private void UpdateActivationProgress(VirtualDeploymentProgress progress)
+		{
+			if (progress.IsStarting)
+			{
+				if (progress.FileCount <= 1000)
+				{
+					ItemProgressMaximum = progress.FileCount;
+					ItemProgressStepSize = 1;
+				}
+				else
+				{
+					ItemProgressMaximum = 1000;
+				}
+				return;
+			}
+
+			ItemMessage = $"Activating: {progress.CurrentFilePath}";
+			if (ItemProgress >= ItemProgressMaximum)
+				return;
+
+			if (progress.FileCount > 1000)
+			{
+				double ratio = 1000 / progress.FileCount;
+				ItemProgress = (int)Math.Floor(progress.ProcessedFileCount * ratio);
+			}
+			else
+			{
+				StepItemProgress();
+			}
+		}
 		#region Constructors
 
 		/// <summary>
@@ -43,13 +75,15 @@
 		/// </summary>
 		/// <param name="pluginManager">The current <see cref="IPluginManager"/>.</param>
 		/// <param name="virtualModActivator">The <see cref="IVirtualModActivator"/></param>
+		/// <param name="virtualDeploymentService">The virtual deployment service.</param>
 		/// <param name="mod">The mod.</param>
 		/// <param name="disable">Whether or not we're disabling the given mod.</param>
 		/// <param name="confirmActionMethod">The delegate to call to confirm an action.</param>
-		public LinkActivationTask(IPluginManager pluginManager, IVirtualModActivator virtualModActivator, IMod mod, bool disable, ConfirmActionMethod confirmActionMethod)
+		public LinkActivationTask(IPluginManager pluginManager, IVirtualModActivator virtualModActivator, IVirtualDeploymentService virtualDeploymentService, IMod mod, bool disable, ConfirmActionMethod confirmActionMethod)
 		{
 			PluginManager = pluginManager;
 			VirtualModActivator = virtualModActivator;
+            VirtualDeploymentService = virtualDeploymentService;
 			Mod = mod;
 			Disabling = disable;
 			ConfirmActionMethod = confirmActionMethod;
@@ -96,113 +130,31 @@
 
 			if (!Disabling)
 			{
-				string modFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim());
-				string linkFilenamePath = MultiHDMode ? Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim()) : string.Empty;
-				string modDownloadIdPath = string.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId.Length <= 1 || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId);
-				string linkDownloadIdPath = MultiHDMode ? string.IsNullOrWhiteSpace(Mod.DownloadId) || Mod.DownloadId.Length <= 1 || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId) : string.Empty;
-				string modFolderPath = modFilenamePath;
-				string linkFolderPath = linkFilenamePath;
-
-				if (!string.IsNullOrWhiteSpace(modDownloadIdPath) && Directory.Exists(modDownloadIdPath))
-                {
-                    modFolderPath = modDownloadIdPath;
-                }
-
-                if (MultiHDMode && !string.IsNullOrWhiteSpace(linkDownloadIdPath) && Directory.Exists(linkDownloadIdPath))
-                {
-                    linkFolderPath = linkDownloadIdPath;
-                }
-
-                if (Directory.Exists(modFolderPath) || MultiHDMode && Directory.Exists(linkFolderPath))
+				try
 				{
-					string[] files;
-
-                    try
-                    {
-                        if (MultiHDMode && Directory.Exists(linkFolderPath))
-                        {
-                            files = Directory.Exists(modFolderPath) ?
-                                Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories).Concat(Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)).ToArray() :
-                                Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories);
-                        }
-                        else
-                        {
-                            files = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
-                        }
-					}
-                    catch (Exception ex)
-                    {
-						TraceUtil.TraceException(ex);
-                        OverallMessage = $"{nameof(LinkActivationTask)} failed: {ex.Message}";
-                        Status = TaskStatus.Error;
-
-                        return null;
-					}
-
-                    if (files.Length <= 1000)
+					VirtualDeploymentOptions deploymentOptions = new VirtualDeploymentOptions
 					{
-						ItemProgressMaximum = files.Length;
-						ItemProgressStepSize = 1;
-					}
-					else
+						IsPluginCandidate = filePath => PluginManager != null && PluginManager.IsActivatiblePluginFile(filePath),
+						Progress = UpdateActivationProgress,
+					};
+					VirtualDeploymentResult deploymentResult = VirtualDeploymentService.ActivateModLinks(Mod, deploymentOptions);
+
+					foreach (string pluginCandidatePath in deploymentResult.PluginCandidatePaths)
 					{
-						ItemProgressMaximum = 1000;
-						lotsOfLinks = true;
-						dblRatio = 1000 / files.Length;
+						PluginManager.AddPlugin(pluginCandidatePath);
+						PluginManager.ActivatePlugin(pluginCandidatePath);
 					}
 
-					if (files.Length > 0)
-					{
-						IModLinkInstaller modLinkInstaller = VirtualModActivator.GetModLinkInstaller();
-
-						foreach (string file in files)
-						{
-							ItemMessage = $"{(Disabling ? "Disabling" : "Activating")}: {file}";
-
-                            string strFile = MultiHDMode && file.Contains(linkFolderPath)
-                                ? file.Replace(linkFolderPath + Path.DirectorySeparatorChar, string.Empty)
-                                : file.Replace(modFolderPath + Path.DirectorySeparatorChar, string.Empty);
-
-							string fileLink = string.Empty;
-
-                            try
-                            {
-                                fileLink = modLinkInstaller.AddFileLink(Mod, strFile, null, false);
-							}
-                            catch (Exception ex)
-                            {
-                                TraceUtil.TraceException(ex);
-                                OverallMessage = $"{nameof(LinkActivationTask)} failed: {ex.Message}";
-                                Status = TaskStatus.Error;
-
-                                return null;
-                            }
-
-                            if (!string.IsNullOrEmpty(fileLink) && PluginManager != null)
-                            {
-                                if (PluginManager.IsActivatiblePluginFile(fileLink))
-                                {
-                                    PluginManager.AddPlugin(fileLink);
-                                    PluginManager.ActivatePlugin(fileLink);
-                                }
-                            }
-
-                            if (ItemProgress < ItemProgressMaximum)
-							{
-								if (lotsOfLinks)
-                                {
-                                    ItemProgress = (int)Math.Floor(++intProgress * dblRatio);
-                                }
-                                else
-                                {
-                                    StepItemProgress();
-                                }
-                            }
-						}
-
+					if (deploymentResult.FileCount > 0)
 						VirtualModActivator.FinalizeModActivation(Mod);
-					}
-                }
+				}
+				catch (Exception ex)
+				{
+					TraceUtil.TraceException(ex);
+					OverallMessage = $"{nameof(LinkActivationTask)} failed: {ex.Message}";
+					Status = TaskStatus.Error;
+					return null;
+				}
 			}
 			else
 			{
