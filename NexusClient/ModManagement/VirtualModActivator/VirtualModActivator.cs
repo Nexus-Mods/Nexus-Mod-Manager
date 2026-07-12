@@ -7,7 +7,6 @@
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using System.Threading;
     using System.Threading.Tasks;
@@ -128,6 +127,7 @@
 		private string m_strVirtualActivatorIniEditsPath = string.Empty;
 		private string m_strVirtualActivatorOverwritePath = string.Empty;
 		private static readonly object m_objLock = new object();
+		private readonly IVirtualModStore m_vmsVirtualModStore;
 
 		#region Properties
 
@@ -348,6 +348,8 @@
 
 			if (!Directory.Exists(m_strVirtualActivatorOverwritePath))
 				Directory.CreateDirectory(m_strVirtualActivatorOverwritePath);
+
+			m_vmsVirtualModStore = new VirtualModStoreFactory().Create(m_strVirtualActivatorConfigPath, CURRENT_VERSION, PerformVersionCheck, GetModFileVersionForLoadList);
 		}
 
 		#endregion
@@ -500,9 +502,7 @@
 		private bool SaveModList(bool p_booModActivationChange)
 		{
 			bool writtenTo = false;
-
-			Dictionary<IVirtualModInfo, List<IVirtualModLink>> dicVirtualLinksByModInfo = BuildVirtualLinksByModInfo();
-			List<VirtualModInfo> lstVirtualModInfo = new List<VirtualModInfo>();
+			List<IVirtualModInfo> lstVirtualModInfo = new List<IVirtualModInfo>();
 
 			foreach (VirtualModInfo mod in m_tslVirtualModInfo)
 			{
@@ -517,34 +517,9 @@
 				lstVirtualModInfo.Add(mod);
 			}
 
-			XDocument docVirtual = new XDocument();
-			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", CURRENT_VERSION));
-			docVirtual.Add(xelRoot);
-
-			XElement xelModList = new XElement("modList");
-			xelRoot.Add(xelModList);
-			xelModList.Add(from mod in lstVirtualModInfo
-						   select new XElement("modInfo",
-							   new XAttribute("modId", mod.ModId ?? string.Empty),
-							   new XAttribute("downloadId", mod.DownloadId ?? string.Empty),
-							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? string.Empty),
-							   new XAttribute("modName", mod.ModName),
-							   new XAttribute("modFileName", mod.ModFileName),
-							   new XAttribute("modNewFileName", mod.NewFileName ?? string.Empty),
-							   new XAttribute("modFilePath", mod.ModFilePath),
-							   new XAttribute("FileVersion", mod.FileVersion ?? string.Empty),
-							   from link in GetVirtualLinksForMod(dicVirtualLinksByModInfo, mod)
-							   select new XElement("fileLink",
-								   new XAttribute("realPath", link.RealModPath),
-								   new XAttribute("virtualPath", link.VirtualModPath),
-								   new XElement("linkPriority",
-									   new XText(link.Priority.ToString())),
-								   new XElement("isActive",
-									   new XText(link.Active.ToString())))));
-
-			if (CheckConfigFileStatus(m_strVirtualActivatorConfigPath))
+			if (m_vmsVirtualModStore.IsReadyForWrite(m_strVirtualActivatorConfigPath))
 			{
-				SaveXmlDocumentSafely(docVirtual, m_strVirtualActivatorConfigPath);
+				m_vmsVirtualModStore.Save(CURRENT_VERSION, m_strVirtualActivatorConfigPath, lstVirtualModInfo, m_tslVirtualModList);
 				writtenTo = true;
 			}
 
@@ -554,125 +529,6 @@
 			return writtenTo;
 		}
 
-        #region File IO Management
-
-        private static void WaitBeforeFileReadyRetry(int milliseconds)
-        {
-            if (milliseconds <= 0)
-                return;
-
-            using (ManualResetEventSlim retryWait = new ManualResetEventSlim(false))
-            {
-                retryWait.Wait(milliseconds);
-            }
-        }
-
-		private static void SaveXmlDocumentSafely(XDocument document, string filePath)
-		{
-			string tempFilePath = GetTempFilePath(filePath);
-
-			try
-			{
-				using (StreamWriter streamWriter = File.CreateText(tempFilePath))
-				{
-					document.Save(streamWriter);
-				}
-
-				ReplaceFileWithTempFile(tempFilePath, filePath);
-				tempFilePath = null;
-			}
-			finally
-			{
-				DeleteTempFile(tempFilePath);
-			}
-		}
-
-		private static void CopyFileSafely(string sourcePath, string destinationPath)
-		{
-			string tempFilePath = GetTempFilePath(destinationPath);
-
-			try
-			{
-				using (FileStream inputFile = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-				using (FileStream outputFile = new FileStream(tempFilePath, FileMode.CreateNew))
-				{
-					byte[] buffer = new byte[0x10000];
-					int bytes;
-
-					while ((bytes = inputFile.Read(buffer, 0, buffer.Length)) > 0)
-					{
-						outputFile.Write(buffer, 0, bytes);
-					}
-				}
-
-				ReplaceFileWithTempFile(tempFilePath, destinationPath);
-				tempFilePath = null;
-			}
-			finally
-			{
-				DeleteTempFile(tempFilePath);
-			}
-		}
-
-		private static string GetTempFilePath(string filePath)
-		{
-			string fullPath = Path.GetFullPath(filePath);
-			string directory = Path.GetDirectoryName(fullPath);
-
-			return Path.Combine(directory, Path.GetFileName(fullPath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
-		}
-
-		private static void ReplaceFileWithTempFile(string tempFilePath, string filePath)
-		{
-			if (File.Exists(filePath))
-			{
-				File.Replace(tempFilePath, filePath, null, true);
-				return;
-			}
-
-			File.Move(tempFilePath, filePath);
-		}
-
-		private static void DeleteTempFile(string tempFilePath)
-		{
-			if (string.IsNullOrEmpty(tempFilePath))
-				return;
-
-			try
-			{
-				if (File.Exists(tempFilePath))
-					File.Delete(tempFilePath);
-			}
-			catch (Exception e)
-			{
-				Trace.TraceWarning("Could not delete temporary virtual mod list file \"{0}\": {1}", tempFilePath, e.Message);
-			}
-		}
-
-        /// <summary>
-        /// Checks whether the xml file is ready to be written.
-        /// </summary>
-        private bool CheckConfigFileStatus(string filePath)
-		{
-			int intRepeat = 0;
-			bool booLocked = false;
-
-			while (!FileUtil.IsFileReady(filePath))
-			{
-				WaitBeforeFileReadyRetry(100);
-				if (intRepeat++ > 50)
-				{
-					Trace.TraceWarning("Could not get access to \"{0}\".", filePath);
-					booLocked = true;
-					break;
-				}
-			}
-
-			return !booLocked;
-		}
-
-		#endregion
-
 		/// <summary>
 		/// Save the mod list into the XML file.
 		/// </summary>
@@ -681,27 +537,7 @@
 		{
 			if (!Directory.Exists(Path.GetDirectoryName(p_strPath)))
 				Directory.CreateDirectory(Path.GetDirectoryName(p_strPath));
-			SafelyCopyModList(p_strPath);
-		}
-
-		private void SafelyCopyModList(string strPath)
-		{
-			int repeat = 0;
-			bool locked = false;
-
-			while (!FileUtil.IsFileReady(strPath))
-			{
-				WaitBeforeFileReadyRetry(100);
-				if (repeat++ > 50)
-				{
-					Trace.TraceWarning("Could not get access to \"{0}\".", strPath);
-					locked = true;
-					break;
-				}
-			}
-
-			if (!locked)
-				CopyFileSafely(m_strVirtualActivatorConfigPath, strPath);
+			m_vmsVirtualModStore.Copy(m_strVirtualActivatorConfigPath, p_strPath);
 		}
 
 		/// <summary>
@@ -712,32 +548,7 @@
 		/// <param name="p_lstVirtualModLink">The IVirtualModLink object list.</param>
 		public void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModLink)
 		{
-			XDocument docVirtual = new XDocument();
-			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", CURRENT_VERSION));
-			docVirtual.Add(xelRoot);
-
-			XElement xelModList = new XElement("modList");
-			xelRoot.Add(xelModList);
-			xelModList.Add(from mod in p_lstVirtualModInfo
-						   select new XElement("modInfo",
-							   new XAttribute("modId", mod.ModId ?? string.Empty),
-							   new XAttribute("downloadId", mod.DownloadId ?? string.Empty),
-							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? string.Empty),
-							   new XAttribute("modName", mod.ModName),
-							   new XAttribute("modFileName", mod.ModFileName),
-							   new XAttribute("modNewFileName", mod.NewFileName ?? string.Empty),
-							   new XAttribute("modFilePath", mod.ModFilePath),
-							   new XAttribute("FileVersion", mod.FileVersion ?? string.Empty),
-							   from link in p_lstVirtualModLink.Where(x => CheckModInfo(x.ModInfo, mod) == true)
-							   select new XElement("fileLink",
-									new XAttribute("realPath", link.RealModPath),
-									new XAttribute("virtualPath", link.VirtualModPath),
-									new XElement("linkPriority",
-									new XText(link.Priority.ToString())),
-									new XElement("isActive",
-									new XText(link.Active.ToString())))));
-
-			SaveXmlDocumentSafely(docVirtual, p_strPath);
+			m_vmsVirtualModStore.SaveWithModInfoMatching(CURRENT_VERSION, p_strPath, p_lstVirtualModInfo, p_lstVirtualModLink);
 		}
 
 		public void UpdateDownloadId(string p_strCurrentProfilePath, Dictionary<string, string> p_dctNewDownloadID)
@@ -789,73 +600,6 @@
 			}
 		}
 
-		private Dictionary<IVirtualModInfo, List<IVirtualModLink>> BuildVirtualLinksByModInfo()
-		{
-			Dictionary<IVirtualModInfo, List<IVirtualModLink>> dicVirtualLinksByModInfo = new Dictionary<IVirtualModInfo, List<IVirtualModLink>>(VirtualModInfoReferenceComparer.Instance);
-
-			foreach (IVirtualModLink link in m_tslVirtualModList)
-			{
-				if (link.ModInfo == null)
-					continue;
-
-				List<IVirtualModLink> lstVirtualLinks;
-				if (!dicVirtualLinksByModInfo.TryGetValue(link.ModInfo, out lstVirtualLinks))
-				{
-					lstVirtualLinks = new List<IVirtualModLink>();
-					dicVirtualLinksByModInfo.Add(link.ModInfo, lstVirtualLinks);
-				}
-
-				lstVirtualLinks.Add(link);
-			}
-
-			return dicVirtualLinksByModInfo;
-		}
-
-		private static IEnumerable<IVirtualModLink> GetVirtualLinksForMod(Dictionary<IVirtualModInfo, List<IVirtualModLink>> p_dicVirtualLinksByModInfo, IVirtualModInfo p_vmiModInfo)
-		{
-			List<IVirtualModLink> lstVirtualLinks;
-			if (p_dicVirtualLinksByModInfo.TryGetValue(p_vmiModInfo, out lstVirtualLinks))
-				return lstVirtualLinks;
-
-			return Enumerable.Empty<IVirtualModLink>();
-		}
-
-		private sealed class VirtualModInfoReferenceComparer : IEqualityComparer<IVirtualModInfo>
-		{
-			public static readonly VirtualModInfoReferenceComparer Instance = new VirtualModInfoReferenceComparer();
-
-			private VirtualModInfoReferenceComparer()
-			{
-			}
-
-			public bool Equals(IVirtualModInfo p_vmiA, IVirtualModInfo p_vmiB)
-			{
-				return ReferenceEquals(p_vmiA, p_vmiB);
-			}
-
-			public int GetHashCode(IVirtualModInfo p_vmiModInfo)
-			{
-				return RuntimeHelpers.GetHashCode(p_vmiModInfo);
-			}
-		}
-
-		/// <summary>
-		/// Compare 2 IVirtualModInfo objects using the DownloadId or the ModFileName.
-		/// </summary>
-		/// <param name="p_vmiA">The first IVirtualModInfo.</param>
-		/// <param name="p_vmiB">The second IVirtualModInfo.</param>
-		private bool CheckModInfo(IVirtualModInfo p_vmiA, IVirtualModInfo p_vmiB)
-		{
-			if (!string.IsNullOrEmpty(p_vmiA.DownloadId) && !string.IsNullOrEmpty(p_vmiB.DownloadId))
-				if (p_vmiA.DownloadId.Equals(p_vmiB.DownloadId, StringComparison.OrdinalIgnoreCase))
-					return true;
-
-			if (!string.IsNullOrEmpty(p_vmiA.ModFileName) && !string.IsNullOrEmpty(p_vmiB.ModFileName))
-				if (p_vmiA.ModFileName.Equals(p_vmiB.ModFileName, StringComparison.OrdinalIgnoreCase))
-					return true;
-
-			return false;
-		}
 
 		internal ModInfoUpdateBatch BeginModInfoUpdateBatch()
 		{
@@ -1172,111 +916,13 @@
 		/// <param name="p_strXMLFilePath">The XML file path.</param>
 		public List<IVirtualModLink> LoadList(string p_strXMLFilePath)
 		{
-			List<string> lstAddedModInfo = new List<string>();
-			List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
-			List<IVirtualModInfo> lstVirtualMods = new List<IVirtualModInfo>();
+			VirtualModStoreData vmsData = m_vmsVirtualModStore.Load(p_strXMLFilePath, CURRENT_VERSION, PerformVersionCheck, GetModFileVersionForLoadList);
 
-			if (File.Exists(p_strXMLFilePath))
-			{
-				XDocument docVirtual;
-				using (var sr = new StreamReader(p_strXMLFilePath))
-				{
-					docVirtual = XDocument.Load(sr);
-				}
-
-				string strVersion = docVirtual.Element("virtualModActivator").Attribute("fileVersion").Value;
-				if (!PerformVersionCheck(new Version(strVersion)))
-					throw new Exception(string.Format("Invalid Virtual Mod Activator version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
-
-				try
-				{
-					XElement xelModList = docVirtual.Descendants("modList").FirstOrDefault();
-					if ((xelModList != null) && xelModList.HasElements)
-					{
-						foreach (XElement xelMod in xelModList.Elements("modInfo"))
-						{
-							string strModId = xelMod.Attribute("modId").Value;
-							string strDownloadId = string.Empty;
-							string strUpdatedDownloadId = string.Empty;
-							string strNewFileName = string.Empty;
-							string strFileVersion = string.Empty;
-
-							try
-							{
-								strDownloadId = xelMod.Attribute("downloadId").Value;
-							}
-							catch { }
-
-							try
-							{
-								strUpdatedDownloadId = xelMod.Attribute("updatedDownloadId").Value;
-							}
-							catch { }
-
-							string strModName = xelMod.Attribute("modName").Value;
-							string strModFileName = xelMod.Attribute("modFileName").Value;
-
-							if (lstAddedModInfo.Contains(strModFileName, StringComparer.InvariantCultureIgnoreCase))
-								continue;
-
-							try
-							{
-								strNewFileName = xelMod.Attribute("modNewFileName").Value;
-							}
-							catch { }
-
-							string strModFilePath = xelMod.Attribute("modFilePath").Value;
-
-							try
-							{
-								strFileVersion = xelMod.Attribute("FileVersion").Value;
-							}
-							catch
-							{
-								IMod mod = ModManager.GetModByFilename(strModFileName);
-								strFileVersion = mod.HumanReadableVersion;
-							}
-
-							VirtualModInfo vmiMod = new VirtualModInfo(strModId, strDownloadId, strUpdatedDownloadId, strModName, strModFileName, strNewFileName, strModFilePath, strFileVersion);
-
-							bool booNoFileLink = true;
-
-							foreach (XElement xelLink in xelMod.Elements("fileLink"))
-							{
-								string strRealPath = xelLink.Attribute("realPath").Value;
-								string strVirtualPath = xelLink.Attribute("virtualPath").Value;
-								int intPriority = 0;
-								try
-								{
-									intPriority = Convert.ToInt32(xelLink.Element("linkPriority").Value);
-								}
-								catch { }
-								bool booActive = false;
-								try
-								{
-									booActive = Convert.ToBoolean(xelLink.Element("isActive").Value);
-								}
-								catch { }
-
-								if (booNoFileLink)
-								{
-									booNoFileLink = false;
-									lstVirtualMods.Add(vmiMod);
-									lstAddedModInfo.Add(strModFileName);
-								}
-									
-								lstVirtualLinks.Add(new VirtualModLink(strRealPath, strVirtualPath, intPriority, booActive, vmiMod));
-							}
-						}
-					}
-				}
-				catch { }
-			}
 			DetachVirtualModInfoList(m_tslVirtualModInfo);
 			m_tslVirtualModInfo.Clear();
-			m_tslVirtualModInfo = new ThreadSafeObservableList<IVirtualModInfo>(lstVirtualMods);
+			m_tslVirtualModInfo = new ThreadSafeObservableList<IVirtualModInfo>(vmsData.VirtualMods);
 			AttachVirtualModInfoList(m_tslVirtualModInfo);
-			return lstVirtualLinks;
+			return vmsData.VirtualLinks;
 		}
 
 		/// <summary>
@@ -1285,120 +931,35 @@
 		/// <param name="p_strProfilePath">The XML file path.</param>
 		public bool LoadListOnDemand(string p_strProfilePath, out List<IVirtualModLink> p_lstVirtualLinks, out List<IVirtualModInfo> p_lstVirtualMods)
 		{
-			List<string> lstAddedModInfo = new List<string>();
-			p_lstVirtualLinks = new List<IVirtualModLink>();
-			p_lstVirtualMods = new List<IVirtualModInfo>();
+			VirtualModStoreData vmsData;
+			bool booLoaded = m_vmsVirtualModStore.TryLoad(p_strProfilePath, CURRENT_VERSION, PerformVersionCheck, GetModFileVersionForLoadListOnDemand, out vmsData);
 
-			if (File.Exists(p_strProfilePath))
+			p_lstVirtualLinks = vmsData.VirtualLinks;
+			p_lstVirtualMods = vmsData.VirtualMods;
+			return booLoaded;
+		}
+
+		private string GetModFileVersionForLoadList(string p_strModFileName, string p_strDownloadId)
+		{
+			IMod mod = ModManager.GetModByFilename(p_strModFileName);
+			return mod.HumanReadableVersion;
+		}
+
+		private string GetModFileVersionForLoadListOnDemand(string p_strModFileName, string p_strDownloadId)
+		{
+			IMod mod = ModManager.GetModByFilename(p_strModFileName);
+			if ((mod != null) && (!string.IsNullOrEmpty(mod.HumanReadableVersion)))
+				return mod.HumanReadableVersion;
+			else if (!string.IsNullOrEmpty(p_strDownloadId))
 			{
-				XDocument docVirtual;
-				using (var sr = new StreamReader(p_strProfilePath))
-				{
-					docVirtual = XDocument.Load(sr);
-				}
-				string strVersion = docVirtual.Element("virtualModActivator").Attribute("fileVersion").Value;
-				if (!PerformVersionCheck(new Version(strVersion)))
-					throw new Exception(string.Format("Invalid Virtual Mod Activator version: {0} Expecting {1}", strVersion, CURRENT_VERSION));
-
-				try
-				{
-					XElement xelModList = docVirtual.Descendants("modList").FirstOrDefault();
-					if ((xelModList != null) && xelModList.HasElements)
-					{
-						foreach (XElement xelMod in xelModList.Elements("modInfo"))
-						{
-							string strModId = xelMod.Attribute("modId").Value;
-							string strDownloadId = string.Empty;
-							string strUpdatedDownloadId = string.Empty;
-							string strNewFileName = string.Empty;
-							string strFileVersion = string.Empty;
-
-							try
-							{
-								strDownloadId = xelMod.Attribute("downloadId").Value;
-							}
-							catch { }
-
-							try
-							{
-								strUpdatedDownloadId = xelMod.Attribute("updatedDownloadId").Value;
-							}
-							catch { }
-
-							string strModName = xelMod.Attribute("modName").Value;
-							string strModFileName = xelMod.Attribute("modFileName").Value;
-
-							if (lstAddedModInfo.Contains(strModFileName, StringComparer.InvariantCultureIgnoreCase))
-								continue;
-
-							try
-							{
-								strNewFileName = xelMod.Attribute("modNewFileName").Value;
-							}
-							catch { }
-
-							string strModFilePath = xelMod.Attribute("modFilePath").Value;
-
-							try
-							{
-								strFileVersion = xelMod.Attribute("FileVersion").Value;
-							}
-							catch
-							{
-								IMod mod = ModManager.GetModByFilename(strModFileName);
-								if ((mod != null) && (!string.IsNullOrEmpty(mod.HumanReadableVersion)))
-									strFileVersion = mod.HumanReadableVersion;
-								else if (!string.IsNullOrEmpty(strDownloadId))
-								{
-									mod = ModManager.GetModByDownloadID(strDownloadId);
-									if ((mod != null) && (!string.IsNullOrEmpty(mod.HumanReadableVersion)))
-										strFileVersion = mod.HumanReadableVersion;
-									else
-										strFileVersion = "0";
-								}
-								else
-									strFileVersion = "0";
-
-							}
-
-							VirtualModInfo vmiMod = new VirtualModInfo(strModId, strDownloadId, strUpdatedDownloadId, strModName, strModFileName, strNewFileName, strModFilePath, strFileVersion);
-
-							bool booNoFileLink = true;
-							foreach (XElement xelLink in xelMod.Elements("fileLink"))
-							{
-								string strRealPath = xelLink.Attribute("realPath").Value;
-								string strVirtualPath = xelLink.Attribute("virtualPath").Value;
-								int intPriority = 0;
-								try
-								{
-									intPriority = Convert.ToInt32(xelLink.Element("linkPriority").Value);
-								}
-								catch { }
-								bool booActive = false;
-								try
-								{
-									booActive = Convert.ToBoolean(xelLink.Element("isActive").Value);
-								}
-								catch { }
-
-								if (booNoFileLink)
-								{
-									booNoFileLink = false;
-									p_lstVirtualMods.Add(vmiMod);
-									lstAddedModInfo.Add(strModFileName);
-								}
-
-								p_lstVirtualLinks.Add(new VirtualModLink(strRealPath, strVirtualPath, intPriority, booActive, vmiMod));
-							}
-						}
-
-						return true;
-					}
-				}
-				catch { }
+				mod = ModManager.GetModByDownloadID(p_strDownloadId);
+				if ((mod != null) && (!string.IsNullOrEmpty(mod.HumanReadableVersion)))
+					return mod.HumanReadableVersion;
+				else
+					return "0";
 			}
-
-			return false;
+			else
+				return "0";
 		}
 
 		/// <summary>
