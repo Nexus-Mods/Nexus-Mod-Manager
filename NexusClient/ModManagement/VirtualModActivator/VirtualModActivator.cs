@@ -544,11 +544,7 @@
 
 			if (CheckConfigFileStatus(m_strVirtualActivatorConfigPath))
 			{
-				using (StreamWriter streamWriter = File.CreateText(m_strVirtualActivatorConfigPath))
-				{
-					docVirtual.Save(streamWriter);
-				}
-
+				SaveXmlDocumentSafely(docVirtual, m_strVirtualActivatorConfigPath);
 				writtenTo = true;
 			}
 
@@ -570,6 +566,88 @@
                 retryWait.Wait(milliseconds);
             }
         }
+
+		private static void SaveXmlDocumentSafely(XDocument document, string filePath)
+		{
+			string tempFilePath = GetTempFilePath(filePath);
+
+			try
+			{
+				using (StreamWriter streamWriter = File.CreateText(tempFilePath))
+				{
+					document.Save(streamWriter);
+				}
+
+				ReplaceFileWithTempFile(tempFilePath, filePath);
+				tempFilePath = null;
+			}
+			finally
+			{
+				DeleteTempFile(tempFilePath);
+			}
+		}
+
+		private static void CopyFileSafely(string sourcePath, string destinationPath)
+		{
+			string tempFilePath = GetTempFilePath(destinationPath);
+
+			try
+			{
+				using (FileStream inputFile = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+				using (FileStream outputFile = new FileStream(tempFilePath, FileMode.CreateNew))
+				{
+					byte[] buffer = new byte[0x10000];
+					int bytes;
+
+					while ((bytes = inputFile.Read(buffer, 0, buffer.Length)) > 0)
+					{
+						outputFile.Write(buffer, 0, bytes);
+					}
+				}
+
+				ReplaceFileWithTempFile(tempFilePath, destinationPath);
+				tempFilePath = null;
+			}
+			finally
+			{
+				DeleteTempFile(tempFilePath);
+			}
+		}
+
+		private static string GetTempFilePath(string filePath)
+		{
+			string fullPath = Path.GetFullPath(filePath);
+			string directory = Path.GetDirectoryName(fullPath);
+
+			return Path.Combine(directory, Path.GetFileName(fullPath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+		}
+
+		private static void ReplaceFileWithTempFile(string tempFilePath, string filePath)
+		{
+			if (File.Exists(filePath))
+			{
+				File.Replace(tempFilePath, filePath, null, true);
+				return;
+			}
+
+			File.Move(tempFilePath, filePath);
+		}
+
+		private static void DeleteTempFile(string tempFilePath)
+		{
+			if (string.IsNullOrEmpty(tempFilePath))
+				return;
+
+			try
+			{
+				if (File.Exists(tempFilePath))
+					File.Delete(tempFilePath);
+			}
+			catch (Exception e)
+			{
+				Trace.TraceWarning("Could not delete temporary virtual mod list file \"{0}\": {1}", tempFilePath, e.Message);
+			}
+		}
 
         /// <summary>
         /// Checks whether the xml file is ready to be written.
@@ -623,26 +701,7 @@
 			}
 
 			if (!locked)
-			{
-
-				using (var inputFile = new FileStream(
-				m_strVirtualActivatorConfigPath,
-				FileMode.Open,
-				FileAccess.Read,
-				FileShare.ReadWrite))
-				{
-					using (var outputFile = new FileStream(strPath, FileMode.Create))
-					{
-						var buffer = new byte[0x10000];
-						int bytes;
-
-						while ((bytes = inputFile.Read(buffer, 0, buffer.Length)) > 0)
-						{
-							outputFile.Write(buffer, 0, bytes);
-						}
-					}
-				}
-			}
+				CopyFileSafely(m_strVirtualActivatorConfigPath, strPath);
 		}
 
 		/// <summary>
@@ -678,10 +737,7 @@
 									new XElement("isActive",
 									new XText(link.Active.ToString())))));
 
-			using (StreamWriter streamWriter = File.CreateText(p_strPath))
-			{
-				docVirtual.Save(streamWriter);
-			}
+			SaveXmlDocumentSafely(docVirtual, p_strPath);
 		}
 
 		public void UpdateDownloadId(string p_strCurrentProfilePath, Dictionary<string, string> p_dctNewDownloadID)
