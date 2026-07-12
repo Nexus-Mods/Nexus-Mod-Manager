@@ -2694,6 +2694,7 @@ namespace Nexus.Client.ModManagement.UI
                         if (_viewModel == null) return;
                         if (ConfirmModFileDeletion(mods) && ConfirmMissingArchiveUninstall(mods))
                         {
+                            _viewModel.VirtualModActivator.DisableMod(mod);
                             IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
                             if (btsDeactivate != null)
                             {
