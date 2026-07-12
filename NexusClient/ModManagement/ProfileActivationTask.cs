@@ -188,30 +188,53 @@ namespace Nexus.Client.ModManagement
 
 			if (InstallLinks.Count > 0)
 			{
-				foreach (IVirtualModLink vmlModLink in InstallLinks)
+				VirtualModActivator.ModInfoUpdateBatch modInfoUpdateBatch = ModManager.VirtualModActivator.BeginModInfoUpdateBatch();
+				Exception installException = null;
+
+				try
 				{
-					if (m_booCancel)
-						break;
-
-					if (m_booStartupMigration)
-						ItemMessage = "Restoring mods: " + vmlModLink.ModInfo.ModName;
-					else
-						ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
-					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename) == vmlModLink.ModInfo.ModFileName);
-					if (modMod != null)
+					foreach (IVirtualModLink vmlModLink in InstallLinks)
 					{
-						if (vmlModLink.Active)
-							ModManager.VirtualModActivator.AddFileLink(modMod, vmlModLink.VirtualModPath, true, false, vmlModLink.Priority);
+						if (m_booCancel)
+							break;
+
+						if (m_booStartupMigration)
+							ItemMessage = "Restoring mods: " + vmlModLink.ModInfo.ModName;
 						else
-							ModManager.VirtualModActivator.AddInactiveLink(modMod, vmlModLink.VirtualModPath, vmlModLink.Priority);
+							ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
+						IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename) == vmlModLink.ModInfo.ModFileName);
+						if (modMod != null)
+						{
+							if (vmlModLink.Active)
+								ModManager.VirtualModActivator.AddFileLink(modMod, vmlModLink.VirtualModPath, true, false, vmlModLink.Priority);
+							else
+								ModManager.VirtualModActivator.AddInactiveLink(modMod, vmlModLink.VirtualModPath, vmlModLink.Priority);
+						}
+
+						if (ItemProgress < ItemProgressMaximum)
+						{
+							if (booLotsOfLinks)
+								ItemProgress = (int)Math.Floor(++intProgress * dblRatio);
+							else
+								StepItemProgress();
+						}
 					}
-
-					if (ItemProgress < ItemProgressMaximum)
+				}
+				catch (Exception ex)
+				{
+					installException = ex;
+					throw;
+				}
+				finally
+				{
+					try
 					{
-						if (booLotsOfLinks)
-							ItemProgress = (int)Math.Floor(++intProgress * dblRatio);
-						else
-							StepItemProgress();
+						FlushModInfoUpdateBatch(modInfoUpdateBatch, installException, m_booCancel);
+					}
+					finally
+					{
+						if (modInfoUpdateBatch != null)
+							modInfoUpdateBatch.Dispose();
 					}
 				}
 			}
@@ -222,6 +245,24 @@ namespace Nexus.Client.ModManagement
 			ModManager.VirtualModActivator.SaveList();
 
 			return m_booRestoring;
+		}
+
+		private static void FlushModInfoUpdateBatch(VirtualModActivator.ModInfoUpdateBatch p_mubModInfoUpdateBatch, Exception p_expInstallException, bool p_booCancelling)
+		{
+			if (p_mubModInfoUpdateBatch == null)
+				return;
+
+			try
+			{
+				p_mubModInfoUpdateBatch.Flush();
+			}
+			catch
+			{
+				if (p_expInstallException != null || p_booCancelling)
+					return;
+
+				throw;
+			}
 		}
 	}
 }
