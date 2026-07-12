@@ -2278,9 +2278,22 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void UninstallModGlobally(IMod p_modMod)
 		{
-			ViewModel.DeactivateMod(p_modMod);
-
-			UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
+			IBackgroundTaskSet btsDeactivate = ViewModel.ModManager.DeactivateMod(p_modMod, ViewModel.ModManager.ActiveMods);
+			if (btsDeactivate != null)
+			{
+				btsDeactivate.TaskSetCompleted += (sender, e) =>
+				{
+					if (InvokeRequired)
+						Invoke((MethodInvoker)(() => UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod))));
+					else
+						UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
+				};
+				ViewModel.ModManager.ModActivationMonitor.AddActivity(btsDeactivate);
+			}
+			else
+			{
+				UninstallModFromProfiles?.Invoke(this, new ModEventArgs(p_modMod));
+			}
 		}
 
 		#region Column Resizing

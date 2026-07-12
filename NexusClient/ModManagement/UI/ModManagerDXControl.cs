@@ -383,6 +383,7 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.ActivatingMultipleMods+= VM_ActivatingMultipleMods;
             _viewModel.ActivatingMod         += VM_ActivatingMod;
             _viewModel.ReinstallingMod       += VM_ReinstallingMod;
+            _viewModel.ReinstallCompleted    += VM_ReinstallCompleted;
             _viewModel.DisablingMultipleMods += VM_DisablingMultipleMods;
             _viewModel.DeletingMultipleMods  += VM_DeletingMultipleMods;
             _viewModel.DeactivatingMultipleMods += VM_DeactivatingMultipleMods;
@@ -441,6 +442,7 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.ActivatingMultipleMods   -= VM_ActivatingMultipleMods;
             _viewModel.ActivatingMod            -= VM_ActivatingMod;
             _viewModel.ReinstallingMod          -= VM_ReinstallingMod;
+            _viewModel.ReinstallCompleted       -= VM_ReinstallCompleted;
             _viewModel.DisablingMultipleMods    -= VM_DisablingMultipleMods;
             _viewModel.DeletingMultipleMods     -= VM_DeletingMultipleMods;
             _viewModel.DeactivatingMultipleMods -= VM_DeactivatingMultipleMods;
@@ -2665,8 +2667,23 @@ namespace Nexus.Client.ModManagement.UI
                 itemUninstall.DropDownItems.Add("From all profiles", null, (s, ev) =>
                 {
                     if (_viewModel == null || !ConfirmMissingArchiveUninstall(mods)) return;
-                    _viewModel.DeactivateMod(mod);
-                    UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                    _viewModel.VirtualModActivator.DisableMod(mod);
+                    IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
+                    if (btsDeactivate != null)
+                    {
+                        btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
+                        {
+                            if (InvokeRequired)
+                                Invoke((MethodInvoker)(() => UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod))));
+                            else
+                                UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                        };
+                        _viewModel.ModManager.ModActivationMonitor.AddActivity(btsDeactivate);
+                    }
+                    else
+                    {
+                        UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                    }
                 });
                 itemUninstall.DropDownItems.Add(new ToolStripSeparator());
                 itemUninstall.DropDownItems.Add(
@@ -2677,10 +2694,35 @@ namespace Nexus.Client.ModManagement.UI
                         if (_viewModel == null) return;
                         if (ConfirmModFileDeletion(mods) && ConfirmMissingArchiveUninstall(mods))
                         {
-                            _viewModel.DeactivateMod(mod);
-                            UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
-                            var oclMods = new ThreadSafeObservableList<IMod>(mods);
-                            _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                            IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
+                            if (btsDeactivate != null)
+                            {
+                                btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
+                                {
+                                    if (InvokeRequired)
+                                    {
+                                        Invoke((MethodInvoker)(() =>
+                                        {
+                                            UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                                            var oclMods = new ThreadSafeObservableList<IMod>(mods);
+                                            _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                                        }));
+                                    }
+                                    else
+                                    {
+                                        UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                                        var oclMods = new ThreadSafeObservableList<IMod>(mods);
+                                        _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                                    }
+                                };
+                                _viewModel.ModManager.ModActivationMonitor.AddActivity(btsDeactivate);
+                            }
+                            else
+                            {
+                                UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                                var oclMods = new ThreadSafeObservableList<IMod>(mods);
+                                _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                            }
                         }
                     });
             }
@@ -3249,6 +3291,13 @@ namespace Nexus.Client.ModManagement.UI
         {
             if (InvokeRequired) { Invoke((Action<object, EventArgs<IBackgroundTask>>)VM_ReinstallingMod, sender, e); return; }
             ProgressDialog.ShowDialog(this, e.Argument);
+            RefreshActivationState();
+        }
+
+        private void VM_ReinstallCompleted(object sender, EventArgs e)
+        {
+            if (InvokeRequired) { Invoke((Action<object, EventArgs>)VM_ReinstallCompleted, sender, e); return; }
+            RefreshActivationState();
         }
 
         private void VM_DisablingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
