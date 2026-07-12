@@ -143,7 +143,17 @@
 
                 if (hashResult?.Mod == null)
                 {
-                    return null;
+                    var parsedModId = ParseModIdFromFilename(fileName);
+
+                    if (string.IsNullOrEmpty(parsedModId))
+                    {
+                        return null;
+                    }
+
+                    var parsedModInfo = GetModInfo(parsedModId);
+                    var parsedFileInfo = GetFileInfoForFile(fileName);
+
+                    return parsedFileInfo == null ? parsedModInfo : AutoTagger.CombineInfo(parsedModInfo, parsedFileInfo);
                 }
 
                 var modInfo = new ModInfo(hashResult.Mod);
@@ -519,9 +529,10 @@
 
 				var filename = Path.GetFileName(fileName);
 				var files = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
-                var fileInfo = (files.Find(x => x.Name.Equals(filename, StringComparison.OrdinalIgnoreCase)) ?? 
-                               files.Find(x => x.Name.Replace(' ', '_').Equals(filename, StringComparison.OrdinalIgnoreCase))) ??
-                               files.Find(x => x.Name.Replace(' ', '-').Equals(filename, StringComparison.OrdinalIgnoreCase));
+                var fileInfo = (((files.Find(x => string.Equals(x.FileName, filename, StringComparison.OrdinalIgnoreCase)) ??
+                               files.Find(x => string.Equals(x.Name, filename, StringComparison.OrdinalIgnoreCase))) ??
+                               files.Find(x => string.Equals(x.Name?.Replace(' ', '_'), filename, StringComparison.OrdinalIgnoreCase))) ??
+                               files.Find(x => string.Equals(x.Name?.Replace(' ', '-'), filename, StringComparison.OrdinalIgnoreCase)));
 
                 return new ModFileInfo(fileInfo);
 			}
@@ -544,32 +555,15 @@
 		/// <returns>The mod's id, if one was found; null otherwise.</returns>
 		private string ParseModIdFromFilename(string filePath)
 		{
-			var modIdRegex = new Regex(@"-((\d+)[-\.])+");
-
-			var numberOfDashes = filePath.Count(c => c == '-');
-
 			var filename = Path.GetFileName(filePath);
-
-			Match modId;
-
-			if (numberOfDashes > 3)
+			string newNexusModId;
+			if (TryParseNewNexusArchiveModIdFromFilename(filePath, out newNexusModId))
 			{
-				var strCheckName = Path.GetFileName(filePath);
-				strCheckName = strCheckName.Substring(strCheckName.IndexOf('-'));
-				modId = modIdRegex.Match(strCheckName);
+				var newNexusModInfo = GetModInfo(newNexusModId);
 
-				if (!modId.Success)
+				if (newNexusModInfo != null)
 				{
-					return null;
-				}
-			}
-			else
-			{
-				modId = modIdRegex.Match(filename);
-
-				if (!modId.Success)
-				{
-					return null;
+					return newNexusModInfo.Id;
 				}
 			}
 
@@ -577,10 +571,8 @@
 			var filenameWords = filename.Split(new[] { ' ', '_', '-' }, StringSplitOptions.RemoveEmptyEntries);
 			var candidates = new List<KeyValuePair<int, IModInfo>>();
 
-			foreach (Capture match in modId.Groups[2].Captures)
+			foreach (var id in GetModIdCandidatesFromFilename(filePath))
 			{
-				var id = match.Value;
-
 				// get the mod info to make sure the id is valid, and not
 				// just some random match from elsewhere in the filePath
 				var infoCandidate = GetModInfo(id);
@@ -646,6 +638,75 @@
 			}
 
 			return modInfo?.Id;
+		}
+
+		private static List<string> GetModIdCandidatesFromFilename(string filePath)
+		{
+			var ids = new List<string>();
+			var modIdRegex = new Regex(@"-((\d+)[-\.])+");
+			var numberOfDashes = filePath.Count(c => c == '-');
+			var filename = Path.GetFileName(filePath);
+			Match modId;
+
+			if (numberOfDashes > 3)
+			{
+				var strCheckName = Path.GetFileName(filePath);
+				strCheckName = strCheckName.Substring(strCheckName.IndexOf('-'));
+				modId = modIdRegex.Match(strCheckName);
+			}
+			else
+			{
+				modId = modIdRegex.Match(filename);
+			}
+
+			if (modId.Success)
+			{
+				foreach (Capture match in modId.Groups[2].Captures)
+				{
+					AddModIdCandidate(ids, match.Value);
+				}
+			}
+
+			return ids;
+		}
+
+		private static void AddModIdCandidate(List<string> ids, string id)
+		{
+			if (!string.IsNullOrWhiteSpace(id) && !ids.Contains(id))
+			{
+				ids.Add(id);
+			}
+		}
+
+		private static bool TryParseNewNexusArchiveModIdFromFilename(string filePath, out string modId)
+		{
+			modId = null;
+
+			var filename = Path.GetFileNameWithoutExtension(filePath);
+			if (string.IsNullOrWhiteSpace(filename))
+			{
+				return false;
+			}
+
+			var tokens = filename.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+			for (var i = 0; i < tokens.Length; i++)
+			{
+				if (!Regex.IsMatch(tokens[i], @"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}Z$", RegexOptions.IgnoreCase))
+				{
+					continue;
+				}
+
+				if (i < 2 || !Regex.IsMatch(tokens[i - 2], @"^\d+$"))
+				{
+					continue;
+				}
+
+				modId = tokens[i - 2];
+				return true;
+			}
+
+			return false;
 		}
 
 		/// <inheritdoc cref="IModRepository"/>

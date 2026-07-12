@@ -130,6 +130,11 @@ namespace Nexus.Client.ModManagement.UI
 		public event EventHandler<EventArgs<IBackgroundTask>> ReinstallingMod = delegate { };
 
 		/// <summary>
+		/// Raised when a reinstall task has fully completed.
+		/// </summary>
+		public event EventHandler ReinstallCompleted = delegate { };
+
+		/// <summary>
 		/// Raised when changing the Skyrim SE download game mode.
 		/// </summary>
 		public event EventHandler SwitchingSkyrimDownloadMode = delegate { };
@@ -713,8 +718,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void DeactivateMod(IMod p_modMod)
 		{
-			DeactivateMods(new List<IMod> { p_modMod });
-		}
+            VirtualModActivator.DisableMod(p_modMod);
+
+            IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
+            if (btsUninstall != null)
+                ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+        }
 
 		/// <summary>
 		/// Deactivates the given mod.
@@ -771,7 +780,10 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(p_modUpgrade ?? p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
 				if (btsReinstall != null)
+				{
+					btsReinstall.TaskSetCompleted += (s, ev) => ReinstallCompleted(this, EventArgs.Empty);
 					ModManager.ModActivationMonitor.AddActivity(btsReinstall);
+				}
 			}
 			else
 			{
