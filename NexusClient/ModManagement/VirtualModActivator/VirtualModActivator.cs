@@ -1610,11 +1610,11 @@
 
 		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, int p_intPriority)
 		{
-			IVirtualModInfo modInfo = m_tslVirtualModInfo.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant()).FirstOrDefault();
+			IVirtualModInfo modInfo = FindVirtualModInfoByFileName(Path.GetFileName(p_modMod.Filename));
 			if (modInfo == null)
 			{
 				VirtualModInfo vmiModInfo = new VirtualModInfo(p_modMod.Id, p_modMod.DownloadId, p_modMod.ModName, p_modMod.Filename, p_modMod.HumanReadableVersion);
-				m_tslVirtualModInfo.Add(vmiModInfo);
+				AddVirtualModInfo(vmiModInfo);
 				modInfo = vmiModInfo;
 			}
 			string strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
