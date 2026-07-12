@@ -79,10 +79,11 @@ namespace Nexus.Client.ModManagement
                     string relativeFilePath = _virtualModActivator.MultiHDMode && file.Contains(linkFolderPath)
                         ? file.Replace(linkFolderPath + Path.DirectorySeparatorChar, string.Empty)
                         : file.Replace(modFolderPath + Path.DirectorySeparatorChar, string.Empty);
+                    string sourceFilePath = GetKnownSourceFilePath(file, modFolderPath, _virtualModActivator.MultiHDMode);
                     string linkedFilePath;
                     try
                     {
-                        linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, null, false);
+                        linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, sourceFilePath, false);
                     }
                     catch (Exception ex)
                     {
@@ -110,6 +111,26 @@ namespace Nexus.Client.ModManagement
             {
                 session.TraceSummary();
             }
+        }
+
+        private static string GetKnownSourceFilePath(string filePath, string sourceRoot, bool multiHDMode)
+        {
+            if (multiHDMode || string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(sourceRoot) || !File.Exists(filePath))
+                return null;
+
+            try
+            {
+                string fullSourceRoot = Path.GetFullPath(sourceRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string fullFilePath = Path.GetFullPath(filePath);
+
+                if (fullFilePath.StartsWith(fullSourceRoot, StringComparison.OrdinalIgnoreCase))
+                    return filePath;
+            }
+            catch
+            {
+            }
+
+            return null;
         }
 
         private static void ReportProgress(VirtualDeploymentOptions options, string sourceRoot, int fileCount, int processedFileCount, string currentFilePath)
