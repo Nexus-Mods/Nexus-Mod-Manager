@@ -1,6 +1,7 @@
 namespace Nexus.Client.ModManagement
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
 
@@ -47,21 +48,21 @@ namespace Nexus.Client.ModManagement
                 if (!Directory.Exists(modFolderPath) && !(_virtualModActivator.MultiHDMode && Directory.Exists(linkFolderPath)))
                     return result;
 
-                string[] files;
+                IEnumerable<string> files;
                 try
                 {
                     if (_virtualModActivator.MultiHDMode && Directory.Exists(linkFolderPath))
                     {
-                        files = Directory.Exists(modFolderPath)
-                            ? Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories).Concat(Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories)).ToArray()
-                            : Directory.GetFiles(linkFolderPath, "*", SearchOption.AllDirectories);
+                        files = EnumerateDeploymentFiles(linkFolderPath, Directory.Exists(modFolderPath) ? modFolderPath : null);
                         result.SourceRoot = linkFolderPath;
                     }
                     else
                     {
-                        files = Directory.GetFiles(modFolderPath, "*", SearchOption.AllDirectories);
+                        files = EnumerateDeploymentFiles(modFolderPath, null);
                         result.SourceRoot = modFolderPath;
                     }
+
+                    result.FileCount = files.Count();
                 }
                 catch (Exception ex)
                 {
@@ -70,41 +71,58 @@ namespace Nexus.Client.ModManagement
                 }
 
                 session.SetSourceRoot(result.SourceRoot);
-                result.FileCount = files.Length;
                 session.SetFileCount(result.FileCount);
                 ReportProgress(deploymentOptions, result.SourceRoot, result.FileCount, 0, null);
 
                 IModLinkInstaller modLinkInstaller = _virtualModActivator.GetModLinkInstaller();
-                for (int index = 0; index < files.Length; index++)
+                int processedFileCount = 0;
+                using (IEnumerator<string> fileEnumerator = files.GetEnumerator())
                 {
-                    string file = files[index];
-                    string relativeFilePath = _virtualModActivator.MultiHDMode && file.Contains(linkFolderPath)
-                        ? file.Replace(linkFolderPath + Path.DirectorySeparatorChar, string.Empty)
-                        : file.Replace(modFolderPath + Path.DirectorySeparatorChar, string.Empty);
-                    string sourceFilePath = GetKnownSourceFilePath(file, modFolderPath, _virtualModActivator.MultiHDMode);
-                    string linkedFilePath;
-                    try
+                    while (true)
                     {
-                        linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, sourceFilePath, false);
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Failure = ex;
-                        return result;
-                    }
-
-                    if (!string.IsNullOrEmpty(linkedFilePath))
-                    {
-                        result.LinkedFileCount++;
-                        session.RecordLinkedFile(linkedFilePath);
-                        if (deploymentOptions.LinkedFileHandler != null && deploymentOptions.LinkedFileHandler(linkedFilePath))
+                        string file;
+                        try
                         {
-                            result.PluginCandidatePaths.Add(linkedFilePath);
-                            session.RecordPluginCandidate(linkedFilePath);
-                        }
-                    }
+                            if (!fileEnumerator.MoveNext())
+                                break;
 
-                    ReportProgress(deploymentOptions, result.SourceRoot, result.FileCount, index + 1, file);
+                            file = fileEnumerator.Current;
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Failure = ex;
+                            return result;
+                        }
+
+                        string relativeFilePath = _virtualModActivator.MultiHDMode && file.Contains(linkFolderPath)
+                            ? file.Replace(linkFolderPath + Path.DirectorySeparatorChar, string.Empty)
+                            : file.Replace(modFolderPath + Path.DirectorySeparatorChar, string.Empty);
+                        string sourceFilePath = GetKnownSourceFilePath(file, modFolderPath, _virtualModActivator.MultiHDMode);
+                        string linkedFilePath;
+                        try
+                        {
+                            linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, sourceFilePath, false);
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Failure = ex;
+                            return result;
+                        }
+
+                        if (!string.IsNullOrEmpty(linkedFilePath))
+                        {
+                            result.LinkedFileCount++;
+                            session.RecordLinkedFile(linkedFilePath);
+                            if (deploymentOptions.LinkedFileHandler != null && deploymentOptions.LinkedFileHandler(linkedFilePath))
+                            {
+                                result.PluginCandidatePaths.Add(linkedFilePath);
+                                session.RecordPluginCandidate(linkedFilePath);
+                            }
+                        }
+
+                        processedFileCount++;
+                        ReportProgress(deploymentOptions, result.SourceRoot, result.FileCount, processedFileCount, file);
+                    }
                 }
 
                 return result;
@@ -162,6 +180,17 @@ namespace Nexus.Client.ModManagement
             }
         }
 
+        private static IEnumerable<string> EnumerateDeploymentFiles(string primaryFolderPath, string secondaryFolderPath)
+        {
+            foreach (string file in Directory.EnumerateFiles(primaryFolderPath, "*", SearchOption.AllDirectories))
+                yield return file;
+
+            if (string.IsNullOrEmpty(secondaryFolderPath))
+                yield break;
+
+            foreach (string file in Directory.EnumerateFiles(secondaryFolderPath, "*", SearchOption.AllDirectories))
+                yield return file;
+        }
         private static string GetKnownSourceFilePath(string filePath, string sourceRoot, bool multiHDMode)
         {
             if (multiHDMode || string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(sourceRoot) || !File.Exists(filePath))
