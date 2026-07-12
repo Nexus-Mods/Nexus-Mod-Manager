@@ -26,6 +26,8 @@ namespace Nexus.Client.ModManagement
             VirtualDeploymentOptions deploymentOptions = options ?? new VirtualDeploymentOptions();
             VirtualDeploymentResult result = new VirtualDeploymentResult();
             IVirtualDeploymentSession session = new VirtualDeploymentSession(mod);
+            VirtualModActivator.ModInfoUpdateBatch modInfoUpdateBatch = BeginModInfoUpdateBatch(_virtualModActivator);
+            Exception deploymentException = null;
 
             try
             {
@@ -107,9 +109,56 @@ namespace Nexus.Client.ModManagement
 
                 return result;
             }
+            catch (Exception ex)
+            {
+                deploymentException = ex;
+                throw;
+            }
             finally
             {
-                session.TraceSummary();
+                try
+                {
+                    FlushModInfoUpdateBatch(modInfoUpdateBatch, result, deploymentException);
+                }
+                finally
+                {
+                    try
+                    {
+                        if (modInfoUpdateBatch != null)
+                            modInfoUpdateBatch.Dispose();
+                    }
+                    finally
+                    {
+                        session.TraceSummary();
+                    }
+                }
+            }
+        }
+
+        private static VirtualModActivator.ModInfoUpdateBatch BeginModInfoUpdateBatch(IVirtualModActivator virtualModActivator)
+        {
+            VirtualModActivator compatibilityActivator = virtualModActivator as VirtualModActivator;
+            if (compatibilityActivator == null)
+                return null;
+
+            return compatibilityActivator.BeginModInfoUpdateBatch();
+        }
+
+        private static void FlushModInfoUpdateBatch(VirtualModActivator.ModInfoUpdateBatch modInfoUpdateBatch, VirtualDeploymentResult result, Exception deploymentException)
+        {
+            if (modInfoUpdateBatch == null)
+                return;
+
+            try
+            {
+                modInfoUpdateBatch.Flush();
+            }
+            catch
+            {
+                if (deploymentException != null || (result != null && result.Failure != null))
+                    return;
+
+                throw;
             }
         }
 

@@ -112,6 +112,7 @@
 		private bool m_booVirtualModInfoLookupDirty = true;
 		private int m_intVirtualModInfoLookupRevision = 0;
 		private readonly object m_objVirtualModInfoLookupLock = new object();
+		private static readonly AsyncLocal<ModInfoUpdateBatch> m_alcCurrentModInfoUpdateBatch = new AsyncLocal<ModInfoUpdateBatch>();
 		private VirtualLinkIndex m_vliVirtualLinkIndex = new VirtualLinkIndex();
 		private bool m_booVirtualLinkIndexDirty = true;
 		private int m_intVirtualLinkIndexRevision = 0;
@@ -798,6 +799,90 @@
 					return true;
 
 			return false;
+		}
+
+		internal ModInfoUpdateBatch BeginModInfoUpdateBatch()
+		{
+			ModInfoUpdateBatch mubPreviousBatch = m_alcCurrentModInfoUpdateBatch.Value;
+			ModInfoUpdateBatch mubBatch = new ModInfoUpdateBatch(this, mubPreviousBatch);
+			m_alcCurrentModInfoUpdateBatch.Value = mubBatch;
+			return mubBatch;
+		}
+
+		private void UpdateModInfoNowOrDefer(IMod p_modMod)
+		{
+			if (p_modMod == null)
+				return;
+
+			p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder; // just adding it in, shhhh
+
+			ModInfoUpdateBatch mubBatch = m_alcCurrentModInfoUpdateBatch.Value;
+			if (mubBatch != null && mubBatch.BelongsTo(this))
+			{
+				mubBatch.Defer(p_modMod);
+				return;
+			}
+
+			UpdateModInfoNow(p_modMod);
+		}
+
+		private void UpdateModInfoNow(IMod p_modMod)
+		{
+			p_modMod.UpdateInfo(p_modMod, true);
+		}
+
+		internal sealed class ModInfoUpdateBatch : IDisposable
+		{
+			private readonly VirtualModActivator m_vmaVirtualModActivator;
+			private readonly ModInfoUpdateBatch m_mubPreviousBatch;
+			private readonly List<IMod> m_lstDeferredModInfoUpdates = new List<IMod>();
+			private bool m_booDisposed;
+
+			public ModInfoUpdateBatch(VirtualModActivator p_vmaVirtualModActivator, ModInfoUpdateBatch p_mubPreviousBatch)
+			{
+				m_vmaVirtualModActivator = p_vmaVirtualModActivator;
+				m_mubPreviousBatch = p_mubPreviousBatch;
+			}
+
+			public bool BelongsTo(VirtualModActivator p_vmaVirtualModActivator)
+			{
+				return ReferenceEquals(m_vmaVirtualModActivator, p_vmaVirtualModActivator);
+			}
+
+			public void Defer(IMod p_modMod)
+			{
+				if (!ContainsDeferredModInfoUpdate(p_modMod))
+					m_lstDeferredModInfoUpdates.Add(p_modMod);
+			}
+
+			public void Flush()
+			{
+				foreach (IMod mod in m_lstDeferredModInfoUpdates)
+					m_vmaVirtualModActivator.UpdateModInfoNow(mod);
+
+				m_lstDeferredModInfoUpdates.Clear();
+			}
+
+			public void Dispose()
+			{
+				if (m_booDisposed)
+					return;
+
+				m_booDisposed = true;
+				if (ReferenceEquals(m_alcCurrentModInfoUpdateBatch.Value, this))
+					m_alcCurrentModInfoUpdateBatch.Value = m_mubPreviousBatch;
+			}
+
+			private bool ContainsDeferredModInfoUpdate(IMod p_modMod)
+			{
+				foreach (IMod mod in m_lstDeferredModInfoUpdates)
+				{
+					if (ReferenceEquals(mod, p_modMod))
+						return true;
+				}
+
+				return false;
+			}
 		}
 
 		private void AttachVirtualModInfoList(ThreadSafeObservableList<IVirtualModInfo> p_tslVirtualModInfo)
@@ -1752,11 +1837,7 @@
 						PluginManager.ActivatePlugin(strVirtualFileLink);
 				}
 
-			if (p_modMod != null)
-			{ 
-				p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder; // just adding it in, shhhh
-				p_modMod.UpdateInfo(p_modMod, true);
-			}
+			UpdateModInfoNowOrDefer(p_modMod);
 			return strVirtualFileLink;
 		}
 
