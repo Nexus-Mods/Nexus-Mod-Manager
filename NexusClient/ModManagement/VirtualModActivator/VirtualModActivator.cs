@@ -108,6 +108,10 @@
 		#endregion
 
 		private ThreadSafeObservableList<IVirtualModLink> m_tslVirtualModList = new ThreadSafeObservableList<IVirtualModLink>();
+		private Dictionary<string, IVirtualModInfo> m_dicVirtualModInfoByFileName = new Dictionary<string, IVirtualModInfo>();
+		private bool m_booVirtualModInfoLookupDirty = true;
+		private int m_intVirtualModInfoLookupRevision = 0;
+		private readonly object m_objVirtualModInfoLookupLock = new object();
 		private VirtualLinkIndex m_vliVirtualLinkIndex = new VirtualLinkIndex();
 		private bool m_booVirtualLinkIndexDirty = true;
 		private int m_intVirtualLinkIndexRevision = 0;
@@ -316,6 +320,7 @@
 
 		public VirtualModActivator(ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, IGameMode p_gmdGameMode, IInstallLog p_ilgModInstallLog, IEnvironmentInfo p_eifEnvironmentInfo, string p_strModFolder)
 		{
+			AttachVirtualModInfoList(m_tslVirtualModInfo);
 			AttachVirtualLinkList(m_tslVirtualModList);
 			ModManager = p_mmgModManager;
 			PluginManager = p_pmgPluginManager;
@@ -795,6 +800,116 @@
 			return false;
 		}
 
+		private void AttachVirtualModInfoList(ThreadSafeObservableList<IVirtualModInfo> p_tslVirtualModInfo)
+		{
+			if (p_tslVirtualModInfo != null)
+				p_tslVirtualModInfo.CollectionChanged += VirtualModInfoListChanged;
+
+			MarkVirtualModInfoLookupDirty();
+		}
+
+		private void DetachVirtualModInfoList(ThreadSafeObservableList<IVirtualModInfo> p_tslVirtualModInfo)
+		{
+			if (p_tslVirtualModInfo != null)
+				p_tslVirtualModInfo.CollectionChanged -= VirtualModInfoListChanged;
+		}
+
+		private void VirtualModInfoListChanged(object p_objSender, NotifyCollectionChangedEventArgs p_nccEventArgs)
+		{
+			MarkVirtualModInfoLookupDirty();
+		}
+
+		private void MarkVirtualModInfoLookupDirty()
+		{
+			lock (m_objVirtualModInfoLookupLock)
+			{
+				m_booVirtualModInfoLookupDirty = true;
+				m_intVirtualModInfoLookupRevision++;
+			}
+		}
+
+		private void RebuildVirtualModInfoLookup()
+		{
+			while (true)
+			{
+				int intRevision;
+				lock (m_objVirtualModInfoLookupLock)
+				{
+					if (!m_booVirtualModInfoLookupDirty)
+						return;
+
+					intRevision = m_intVirtualModInfoLookupRevision;
+				}
+
+				List<IVirtualModInfo> lstVirtualModInfo = new List<IVirtualModInfo>(m_tslVirtualModInfo);
+				Dictionary<string, IVirtualModInfo> dicVirtualModInfoByFileName = new Dictionary<string, IVirtualModInfo>();
+
+				foreach (IVirtualModInfo modInfo in lstVirtualModInfo)
+				{
+					string strModFileName = GetVirtualModInfoLookupKey(modInfo.ModFileName);
+					if (!dicVirtualModInfoByFileName.ContainsKey(strModFileName))
+						dicVirtualModInfoByFileName.Add(strModFileName, modInfo);
+				}
+
+				lock (m_objVirtualModInfoLookupLock)
+				{
+					if (intRevision != m_intVirtualModInfoLookupRevision)
+						continue;
+
+					m_dicVirtualModInfoByFileName = dicVirtualModInfoByFileName;
+					m_booVirtualModInfoLookupDirty = false;
+					return;
+				}
+			}
+		}
+
+		private void EnsureVirtualModInfoLookup()
+		{
+			bool booDirty;
+			lock (m_objVirtualModInfoLookupLock)
+			{
+				booDirty = m_booVirtualModInfoLookupDirty;
+			}
+
+			if (!booDirty)
+				return;
+
+			RebuildVirtualModInfoLookup();
+		}
+
+		private IVirtualModInfo FindVirtualModInfoByFileName(string p_strModFileName)
+		{
+			string strModFileName = GetVirtualModInfoLookupKey(p_strModFileName);
+
+			while (true)
+			{
+				EnsureVirtualModInfoLookup();
+				lock (m_objVirtualModInfoLookupLock)
+				{
+					if (m_booVirtualModInfoLookupDirty)
+						continue;
+
+					IVirtualModInfo modInfo;
+					if (m_dicVirtualModInfoByFileName.TryGetValue(strModFileName, out modInfo))
+						return modInfo;
+				}
+
+				return null;
+			}
+		}
+
+		private static string GetVirtualModInfoLookupKey(string p_strModFileName)
+		{
+			return p_strModFileName.ToLowerInvariant();
+		}
+
+		private void AddVirtualModInfo(IVirtualModInfo p_vmiModInfo)
+		{
+			MarkVirtualModInfoLookupDirty();
+			m_tslVirtualModInfo.Add(p_vmiModInfo);
+			MarkVirtualModInfoLookupDirty();
+		}
+
 		private void AttachVirtualLinkList(ThreadSafeObservableList<IVirtualModLink> p_tslVirtualLinks)
 		{
 			if (p_tslVirtualLinks != null)
@@ -1016,8 +1131,10 @@
 				}
 				catch { }
 			}
+			DetachVirtualModInfoList(m_tslVirtualModInfo);
 			m_tslVirtualModInfo.Clear();
 			m_tslVirtualModInfo = new ThreadSafeObservableList<IVirtualModInfo>(lstVirtualMods);
+			AttachVirtualModInfoList(m_tslVirtualModInfo);
 			return lstVirtualLinks;
 		}
 
@@ -1540,11 +1657,11 @@
 			if (File.Exists(strVirtualFileLink))
 				FileUtil.ForceDelete(strVirtualFileLink);
 
-			IVirtualModInfo modInfo = m_tslVirtualModInfo.Where(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant()).FirstOrDefault();
+			IVirtualModInfo modInfo = FindVirtualModInfoByFileName(Path.GetFileName(p_modMod.Filename));
 			if (modInfo == null)
 			{
 				VirtualModInfo vmiModInfo = new VirtualModInfo(p_modMod.Id, p_modMod.DownloadId, p_modMod.ModName, p_modMod.Filename, p_modMod.HumanReadableVersion);
-				m_tslVirtualModInfo.Add(vmiModInfo);
+				AddVirtualModInfo(vmiModInfo);
 				modInfo = vmiModInfo;
 			}
 
