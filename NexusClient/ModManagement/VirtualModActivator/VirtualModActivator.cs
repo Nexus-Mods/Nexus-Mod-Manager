@@ -128,6 +128,7 @@
 		private string m_strVirtualActivatorOverwritePath = string.Empty;
 		private static readonly object m_objLock = new object();
 		private readonly IVirtualModStore m_vmsVirtualModStore;
+		private readonly IVirtualInstallReconciler m_vrcVirtualInstallReconciler = new VirtualInstallReconciler();
 
 		#region Properties
 
@@ -1223,6 +1224,126 @@
 				m_tslVirtualModInfo.RemoveRange(lstMissing);
 
 			SaveList(false);
+		}
+
+		public VirtualInstallReconciliationReport ValidateVirtualInstall()
+		{
+			RefreshVirtualInstallIndexes();
+			return InspectVirtualInstallState();
+		}
+
+		public VirtualInstallReconciliationReport RepairVirtualInstallMetadata()
+		{
+			RefreshVirtualInstallIndexes();
+
+			List<string> lstRepairs = new List<string>();
+			List<IVirtualModLink> lstLinksToRemove = m_tslVirtualModList.Where(CanRemoveInactiveMetadataLink).ToList();
+			if (lstLinksToRemove.Count > 0)
+			{
+				RemoveVirtualLinks(lstLinksToRemove);
+				lstRepairs.Add(string.Format("Removed {0} inactive virtual-link metadata entries with missing source/path/mod metadata.", lstLinksToRemove.Count));
+			}
+
+			List<IVirtualModInfo> lstModInfo = m_tslVirtualModList.Select(x => x.ModInfo).Where(x => x != null).Distinct().ToList();
+			List<IVirtualModInfo> lstMissing = m_tslVirtualModInfo.Except(lstModInfo, new VirtualModInfoEqualityComparer()).ToList();
+			if ((lstMissing != null) && (lstMissing.Count > 0))
+			{
+				MarkVirtualModInfoLookupDirty();
+				m_tslVirtualModInfo.RemoveRange(lstMissing);
+				MarkVirtualModInfoLookupDirty();
+				lstRepairs.Add(string.Format("Removed {0} unreferenced virtual-mod metadata entries.", lstMissing.Count));
+			}
+
+			if (lstRepairs.Count > 0)
+			{
+				RefreshVirtualInstallIndexes();
+				SaveList(false);
+			}
+
+			VirtualInstallReconciliationReport report = InspectVirtualInstallState();
+			foreach (string strRepair in lstRepairs)
+				report.AddRepair(strRepair);
+
+			return report;
+		}
+
+		private VirtualInstallReconciliationReport InspectVirtualInstallState()
+		{
+			return m_vrcVirtualInstallReconciler.Inspect(new List<IVirtualModInfo>(m_tslVirtualModInfo), new List<IVirtualModLink>(m_tslVirtualModList), GetVirtualInstallSourceRoots(), GetVirtualInstallGameDataRoots());
+		}
+
+		private void RefreshVirtualInstallIndexes()
+		{
+			MarkVirtualModInfoLookupDirty();
+			MarkVirtualLinkIndexDirty();
+			EnsureVirtualModInfoLookup();
+			EnsureVirtualLinkIndex();
+		}
+
+		private bool CanRemoveInactiveMetadataLink(IVirtualModLink p_vmlLink)
+		{
+			if (p_vmlLink == null || p_vmlLink.Active)
+				return false;
+
+			if (p_vmlLink.ModInfo == null)
+				return true;
+
+			if (string.IsNullOrWhiteSpace(p_vmlLink.RealModPath) || string.IsNullOrWhiteSpace(p_vmlLink.VirtualModPath))
+				return true;
+
+			return !VirtualInstallSourceFileExists(p_vmlLink.RealModPath);
+		}
+
+		private bool VirtualInstallSourceFileExists(string p_strRealModPath)
+		{
+			foreach (string strSourceRoot in GetVirtualInstallSourceRoots())
+			{
+				try
+				{
+					if (File.Exists(Path.Combine(strSourceRoot, p_strRealModPath)))
+						return true;
+				}
+				catch
+				{
+				}
+			}
+
+			return false;
+		}
+
+		private List<string> GetVirtualInstallGameDataRoots()
+		{
+			List<string> lstGameDataRoots = new List<string>();
+			if (!string.IsNullOrWhiteSpace(m_strGameDataPath))
+				lstGameDataRoots.Add(m_strGameDataPath);
+
+			if (GameMode != null && GameMode.HasSecondaryInstallPath && !string.IsNullOrWhiteSpace(GameMode.SecondaryInstallationPath) && !lstGameDataRoots.Contains(GameMode.SecondaryInstallationPath, StringComparer.OrdinalIgnoreCase))
+				lstGameDataRoots.Add(GameMode.SecondaryInstallationPath);
+
+			return lstGameDataRoots;
+		}
+
+		private List<string> GetVirtualInstallSourceRoots()
+		{
+			List<string> lstSourceRoots = new List<string>();
+			if (!string.IsNullOrWhiteSpace(m_strVirtualActivatorPath))
+				lstSourceRoots.Add(m_strVirtualActivatorPath);
+
+			if (MultiHDMode)
+			{
+				try
+				{
+					string strHDLinkFolder = HDLinkFolder;
+					if (!string.IsNullOrWhiteSpace(strHDLinkFolder) && !lstSourceRoots.Contains(strHDLinkFolder, StringComparer.OrdinalIgnoreCase))
+						lstSourceRoots.Add(strHDLinkFolder);
+				}
+				catch (Exception e)
+				{
+					Trace.TraceWarning("Unable to include the HD link folder in virtual install reconciliation: {0}", e.Message);
+				}
+			}
+
+			return lstSourceRoots;
 		}
 
 		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, int p_intPriority)

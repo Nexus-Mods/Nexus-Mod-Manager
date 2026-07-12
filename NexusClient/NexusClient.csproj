@@ -209,10 +209,13 @@
     <Compile Include="ModManagement\UI\OverwriteForm.Designer.cs">
       <DependentUpon>OverwriteForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="ModManagement\VirtualModActivator\IVirtualInstallReconciler.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModStore.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModStoreFactory.cs" />
     <Compile Include="ModManagement\VirtualModActivator\SQLiteVirtualModStore.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualConfigFixTask.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciliationReport.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciler.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModStoreFactory.cs" />
     <Compile Include="ModManagement\VirtualModActivator\XmlVirtualModStore.cs" />
