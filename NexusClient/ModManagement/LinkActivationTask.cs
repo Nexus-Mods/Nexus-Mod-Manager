@@ -77,6 +77,15 @@
 			PluginManager.ActivatePlugin(filePath);
 			return true;
 		}
+
+		/// <summary>
+		/// Completes activation after deployment and per-file plugin handling have finished.
+		/// </summary>
+		private void CompleteActivationAfterDeployment(VirtualDeploymentResult deploymentResult)
+		{
+			if (deploymentResult.FileCount > 0)
+				VirtualModActivator.FinalizeModActivation(Mod);
+		}
 		#region Constructors
 
 		/// <summary>
@@ -154,8 +163,7 @@
 					return null;
 				}
 
-				if (deploymentResult.FileCount > 0)
-					VirtualModActivator.FinalizeModActivation(Mod);
+				CompleteActivationAfterDeployment(deploymentResult);
 			}
 			else
 			{
