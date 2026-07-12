@@ -7,6 +7,7 @@
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using System.Threading;
     using System.Threading.Tasks;
@@ -494,6 +495,7 @@
 		{
 			bool writtenTo = false;
 
+			Dictionary<IVirtualModInfo, List<IVirtualModLink>> dicVirtualLinksByModInfo = BuildVirtualLinksByModInfo();
 			List<VirtualModInfo> lstVirtualModInfo = new List<VirtualModInfo>();
 
 			foreach (VirtualModInfo mod in m_tslVirtualModInfo)
@@ -525,7 +527,7 @@
 							   new XAttribute("modNewFileName", mod.NewFileName ?? string.Empty),
 							   new XAttribute("modFilePath", mod.ModFilePath),
 							   new XAttribute("FileVersion", mod.FileVersion ?? string.Empty),
-							   from link in m_tslVirtualModList.Where(x => x.ModInfo == mod)
+							   from link in GetVirtualLinksForMod(dicVirtualLinksByModInfo, mod)
 							   select new XElement("fileLink",
 								   new XAttribute("realPath", link.RealModPath),
 								   new XAttribute("virtualPath", link.VirtualModPath),
@@ -722,6 +724,56 @@
 				if (SaveList(false))
 					if (!string.IsNullOrWhiteSpace(p_strCurrentProfilePath))
 						SaveModList(p_strCurrentProfilePath);		
+			}
+		}
+
+		private Dictionary<IVirtualModInfo, List<IVirtualModLink>> BuildVirtualLinksByModInfo()
+		{
+			Dictionary<IVirtualModInfo, List<IVirtualModLink>> dicVirtualLinksByModInfo = new Dictionary<IVirtualModInfo, List<IVirtualModLink>>(VirtualModInfoReferenceComparer.Instance);
+
+			foreach (IVirtualModLink link in m_tslVirtualModList)
+			{
+				if (link.ModInfo == null)
+					continue;
+
+				List<IVirtualModLink> lstVirtualLinks;
+				if (!dicVirtualLinksByModInfo.TryGetValue(link.ModInfo, out lstVirtualLinks))
+				{
+					lstVirtualLinks = new List<IVirtualModLink>();
+					dicVirtualLinksByModInfo.Add(link.ModInfo, lstVirtualLinks);
+				}
+
+				lstVirtualLinks.Add(link);
+			}
+
+			return dicVirtualLinksByModInfo;
+		}
+
+		private static IEnumerable<IVirtualModLink> GetVirtualLinksForMod(Dictionary<IVirtualModInfo, List<IVirtualModLink>> p_dicVirtualLinksByModInfo, IVirtualModInfo p_vmiModInfo)
+		{
+			List<IVirtualModLink> lstVirtualLinks;
+			if (p_dicVirtualLinksByModInfo.TryGetValue(p_vmiModInfo, out lstVirtualLinks))
+				return lstVirtualLinks;
+
+			return Enumerable.Empty<IVirtualModLink>();
+		}
+
+		private sealed class VirtualModInfoReferenceComparer : IEqualityComparer<IVirtualModInfo>
+		{
+			public static readonly VirtualModInfoReferenceComparer Instance = new VirtualModInfoReferenceComparer();
+
+			private VirtualModInfoReferenceComparer()
+			{
+			}
+
+			public bool Equals(IVirtualModInfo p_vmiA, IVirtualModInfo p_vmiB)
+			{
+				return ReferenceEquals(p_vmiA, p_vmiB);
+			}
+
+			public int GetHashCode(IVirtualModInfo p_vmiModInfo)
+			{
+				return RuntimeHelpers.GetHashCode(p_vmiModInfo);
 			}
 		}
 
