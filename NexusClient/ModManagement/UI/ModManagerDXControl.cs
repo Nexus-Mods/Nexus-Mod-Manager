@@ -3406,12 +3406,16 @@ namespace Nexus.Client.ModManagement.UI
                 Invoke((MethodInvoker)(() => r = ConfirmModFileOverwrite(oldPath, newPath)));
                 return r;
             }
+
+            if (!File.Exists(oldPath))
+                return oldPath;
+
             switch (MessageBox.Show(this,
                 $"A mod archive already exists at:\r\n{oldPath}\r\n\r\nWould you like to overwrite it?",
                 "Overwrite?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
             {
-                case DialogResult.Yes:    return newPath;
-                case DialogResult.No:     return oldPath;
+                case DialogResult.Yes:    return oldPath;
+                case DialogResult.No:     return newPath;
                 default:                  return null;
             }
         }

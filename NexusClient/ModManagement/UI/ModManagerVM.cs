@@ -713,8 +713,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void DeactivateMod(IMod p_modMod)
 		{
-			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(new[] { p_modMod });
-			DeactivatingMultipleMods(true, new EventArgs<IBackgroundTask>(ModManager.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), false, ConfirmUpdaterAction)));
+			DeactivateMods(new List<IMod> { p_modMod });
 		}
 
 		/// <summary>
