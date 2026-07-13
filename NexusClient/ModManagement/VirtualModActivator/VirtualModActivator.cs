@@ -1760,6 +1760,146 @@
 
 		#endregion
 
+
+		internal VirtualFileOwnerSwitchResult SwitchFileOwner(string p_strRelativePath, string p_strSelectedOwnerKey)
+		{
+			string strRelativePath = NormalizeVirtualFileManagerPath(p_strRelativePath);
+			if (string.IsNullOrEmpty(strRelativePath))
+				return VirtualFileOwnerSwitchResult.Failed("The selected file path is empty.");
+
+			List<IVirtualModLink> lstFileLinks = m_tslVirtualModList
+				.Where(x => x != null && FileManagerQueryService.NormalizePath(x.VirtualModPath).Equals(FileManagerQueryService.NormalizePath(strRelativePath), StringComparison.OrdinalIgnoreCase))
+				.ToList();
+
+			if (lstFileLinks.Count == 0)
+				return VirtualFileOwnerSwitchResult.Failed("The selected file is not tracked by virtual install metadata.");
+
+			IVirtualModLink vmlCurrentOwner = lstFileLinks.OrderBy(x => x.Priority).FirstOrDefault(x => x.Active);
+			if (vmlCurrentOwner == null)
+				return VirtualFileOwnerSwitchResult.Failed("The selected file has no active NMM owner.");
+
+			IVirtualModLink vmlSelectedOwner = lstFileLinks.FirstOrDefault(x => FileManagerQueryService.CreateOwnerKey(x.ModInfo).Equals(p_strSelectedOwnerKey ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+			if (vmlSelectedOwner == null)
+				return VirtualFileOwnerSwitchResult.Failed("The selected owner is not a valid candidate for this file.");
+
+			if (ReferenceEquals(vmlCurrentOwner, vmlSelectedOwner) || FileManagerQueryService.CreateOwnerKey(vmlCurrentOwner.ModInfo).Equals(FileManagerQueryService.CreateOwnerKey(vmlSelectedOwner.ModInfo), StringComparison.OrdinalIgnoreCase))
+				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, FileManagerQueryService.CreateOwnerKey(vmlSelectedOwner.ModInfo));
+
+			IMod modSelected = FindManagedMod(vmlSelectedOwner.ModInfo);
+			if (modSelected == null)
+				return VirtualFileOwnerSwitchResult.Failed("The selected owner mod is no longer managed by NMM.");
+
+			if (!VirtualOwnerSourceExists(modSelected, strRelativePath))
+				return VirtualFileOwnerSwitchResult.Failed("The selected owner's staged source file is missing.");
+
+			string strAdjustedFilePath = GetAdjustedVirtualPath(modSelected, strRelativePath, vmlSelectedOwner.InstallRoot);
+			string strDeployedPath = Path.Combine(GetInstallRootPath(vmlSelectedOwner.InstallRoot), strAdjustedFilePath);
+			string strBackupPath = null;
+			bool booPluginWasActive = false;
+			bool booPluginWasRegistered = false;
+
+			if ((PluginManager != null) && PluginManager.IsActivatiblePluginFile(strDeployedPath))
+			{
+				booPluginWasActive = PluginManager.IsPluginActive(strDeployedPath);
+				booPluginWasRegistered = PluginManager.IsPluginRegistered(strDeployedPath);
+			}
+
+			try
+			{
+				if (File.Exists(strDeployedPath))
+				{
+					strBackupPath = Path.Combine(Path.GetTempPath(), "NMM_FileManager_" + Guid.NewGuid().ToString("N") + Path.GetExtension(strDeployedPath));
+					File.Copy(strDeployedPath, strBackupPath, true);
+				}
+
+				AddFileLink(modSelected, strRelativePath, null, true, true, false, vmlSelectedOwner.Priority, vmlSelectedOwner.InstallRoot);
+				if (!File.Exists(strDeployedPath))
+					throw new IOException("The selected owner file could not be deployed.");
+
+				NormalizeFileOwnerPriorities(lstFileLinks, vmlSelectedOwner);
+				SaveList(true);
+
+				if ((PluginManager != null) && PluginManager.IsActivatiblePluginFile(strDeployedPath))
+				{
+					if (booPluginWasRegistered && !PluginManager.IsPluginRegistered(strDeployedPath))
+						PluginManager.AddPlugin(strDeployedPath);
+					if (booPluginWasActive && !PluginManager.IsPluginActive(strDeployedPath))
+						PluginManager.ActivatePlugin(strDeployedPath);
+				}
+
+				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, FileManagerQueryService.CreateOwnerKey(vmlSelectedOwner.ModInfo));
+			}
+			catch (Exception ex)
+			{
+				try
+				{
+					if (!string.IsNullOrEmpty(strBackupPath) && File.Exists(strBackupPath))
+						File.Copy(strBackupPath, strDeployedPath, true);
+				}
+				catch { }
+
+				return VirtualFileOwnerSwitchResult.Failed(ex);
+			}
+			finally
+			{
+				try
+				{
+					if (!string.IsNullOrEmpty(strBackupPath) && File.Exists(strBackupPath))
+						File.Delete(strBackupPath);
+				}
+				catch { }
+			}
+		}
+
+		private static string NormalizeVirtualFileManagerPath(string p_strPath)
+		{
+			if (string.IsNullOrWhiteSpace(p_strPath))
+				return string.Empty;
+
+			return p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+		}
+
+		private IMod FindManagedMod(IVirtualModInfo p_vmiModInfo)
+		{
+			if (p_vmiModInfo == null)
+				return null;
+
+			return ModManager.ManagedMods.FirstOrDefault(x => VirtualModInfoMatchesMod(p_vmiModInfo, x, Path.GetFileName(x.Filename)));
+		}
+
+		private bool VirtualOwnerSourceExists(IMod p_modMod, string p_strRelativePath)
+		{
+			string strRealFilePath = GetRealFilePath(p_modMod, p_strRelativePath, m_strVirtualActivatorPath);
+			if (File.Exists(Path.Combine(m_strVirtualActivatorPath, strRealFilePath)))
+				return true;
+
+			if (MultiHDMode && !string.IsNullOrEmpty(HDLinkFolder))
+			{
+				string strRealLinkFilePath = GetRealFilePath(p_modMod, p_strRelativePath, HDLinkFolder);
+				return File.Exists(Path.Combine(HDLinkFolder, strRealLinkFilePath));
+			}
+
+			return false;
+		}
+
+		private void NormalizeFileOwnerPriorities(List<IVirtualModLink> p_lstFileLinks, IVirtualModLink p_vmlSelectedOwner)
+		{
+			List<IVirtualModLink> lstOrderedLinks = p_lstFileLinks
+				.OrderBy(x => ReferenceEquals(x, p_vmlSelectedOwner) ? 0 : 1)
+				.ThenBy(x => x.Priority)
+				.ThenBy(x => x.ModInfo == null ? string.Empty : x.ModInfo.ModName, StringComparer.OrdinalIgnoreCase)
+				.Select(x => new VirtualModLink(x))
+				.ToList<IVirtualModLink>();
+
+			RemoveVirtualLinks(p_lstFileLinks);
+			for (int i = 0; i < lstOrderedLinks.Count; i++)
+			{
+				lstOrderedLinks[i].Priority = i;
+				lstOrderedLinks[i].Active = i == 0;
+				AddVirtualLink(lstOrderedLinks[i]);
+			}
+		}
+
 		#region Mod Management
 
 		public void DisableMod(IMod p_modMod)

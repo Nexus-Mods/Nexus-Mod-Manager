@@ -8,5 +8,6 @@ namespace Nexus.Client.ModManagement
     public interface IVirtualDeploymentService
     {
         VirtualDeploymentResult ActivateModLinks(IMod mod, VirtualDeploymentOptions options);
+        VirtualFileOwnerSwitchResult SwitchFileOwner(string relativePath, string selectedOwnerKey);
     }
 }

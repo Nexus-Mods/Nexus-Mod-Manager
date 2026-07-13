@@ -47,6 +47,7 @@
 			private readonly DownloadMonitorControl _downloadMonitorControl;
 			private readonly ModActivationMonitorControl _modActivationMonitorControl;
 			private readonly CategoryManagerControl _categoryManagerControl;
+			private readonly FileManagerControl _fileManagerControl;
 		private double _defaultActivityManagerAutoHidePortion;
 		private double _defaultActivationMonitorAutoHidePortion;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
@@ -104,6 +105,7 @@
 				}
 
 				_modActivationMonitorControl.ViewModel = _viewModel.ModActivationMonitorVM;
+				_fileManagerControl.ViewModel = _viewModel.ModManagerVM;
 				_downloadMonitorControl.ViewModel = _viewModel.DownloadMonitorVM;
 				_downloadMonitorControl.ViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
 				_downloadMonitorControl.ViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
@@ -198,6 +200,7 @@
 			_categoryManagerControl = new CategoryManagerControl();
 			_categoryManagerControl.CollapseAllCategoriesRequested += CategoryManagerControl_CollapseAllCategoriesRequested;
 			_categoryManagerControl.ExpandAllCategoriesRequested   += CategoryManagerControl_ExpandAllCategoriesRequested;
+			_fileManagerControl = new FileManagerControl();
 			dockPanel1.ActiveContentChanged += dockPanel1_ActiveContentChanged;
 			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
 			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
@@ -405,6 +408,8 @@
 				}
 
 				_categoryManagerControl.Show(dockPanel1);
+				if (IsFileManagerAvailable())
+					_fileManagerControl.Show(dockPanel1);
 				ModManagerDock.Show(dockPanel1);
 			}
 
@@ -422,6 +427,8 @@
 			else
 			{
 				_categoryManagerControl.Show(dockPanel1);
+				if (IsFileManagerAvailable())
+					_fileManagerControl.Show(dockPanel1);
 				ModManagerDock.Show(dockPanel1);
 			}
 
@@ -1526,6 +1533,11 @@
             if (contentId == typeof(CategoryManagerControl).ToString())
             {
                 return _categoryManagerControl;
+            }
+
+            if (contentId == typeof(FileManagerControl).ToString() && IsFileManagerAvailable())
+            {
+                return _fileManagerControl;
             }
 
             if (contentId == typeof(DownloadMonitorControl).ToString())
@@ -3264,6 +3276,21 @@
 			MessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://ko-fi.com/duskdweller");
 		}
+
+		private bool IsFileManagerAvailable()
+		{
+			Type type = ViewModel == null || ViewModel.GameMode == null ? null : ViewModel.GameMode.GetType();
+			while (type != null)
+			{
+				if (String.Equals(type.Name, "GamebryoGameModeBase", StringComparison.OrdinalIgnoreCase))
+					return true;
+
+				type = type.BaseType;
+			}
+
+			return false;
+		}
+
 
 		private void CategoryManagerControl_CollapseAllCategoriesRequested(object sender, EventArgs e)
 		{

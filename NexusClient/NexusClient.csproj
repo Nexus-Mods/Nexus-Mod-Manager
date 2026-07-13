@@ -80,6 +80,12 @@
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
     <Compile Include="ModManagement\ProfileManager\WriteProfileTask.cs" />
     <Compile Include="ModManagement\ProfileSwitchSetupTask.cs" />
+    <Compile Include="ModManagement\FileManagerModels.cs" />
+    <Compile Include="ModManagement\FileManagerQueryService.cs" />
+    <Compile Include="ModManagement\UI\FileManagerVM.cs" />
+    <Compile Include="ModManagement\UI\FileManagerControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModManagement\UI\CategoryManagerControl.cs">
       <SubType>Form</SubType>
     </Compile>

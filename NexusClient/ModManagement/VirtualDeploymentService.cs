@@ -153,6 +153,22 @@ namespace Nexus.Client.ModManagement
             }
         }
 
+        public VirtualFileOwnerSwitchResult SwitchFileOwner(string relativePath, string selectedOwnerKey)
+        {
+            VirtualModActivator compatibilityActivator = _virtualModActivator as VirtualModActivator;
+            if (compatibilityActivator == null)
+                return VirtualFileOwnerSwitchResult.Failed("The current virtual mod activator does not support file-owner switching.");
+
+            try
+            {
+                return compatibilityActivator.SwitchFileOwner(relativePath, selectedOwnerKey);
+            }
+            catch (Exception ex)
+            {
+                return VirtualFileOwnerSwitchResult.Failed(ex);
+            }
+        }
+
         private static VirtualModActivator.ModInfoUpdateBatch BeginModInfoUpdateBatch(IVirtualModActivator virtualModActivator)
         {
             VirtualModActivator compatibilityActivator = virtualModActivator as VirtualModActivator;
