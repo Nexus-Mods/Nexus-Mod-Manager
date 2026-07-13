@@ -89,6 +89,9 @@ namespace Nexus.Client.ModManagement
 			{
 				OverallMessage = "Deleting: " + modMod.ModName;
 
+				if (m_ivaVirtualModActivator != null && m_ivaVirtualModActivator.CheckHasActiveLinks(modMod))
+					m_ivaVirtualModActivator.DisableMod(modMod);
+
 				ModDeleter mddDeleter = InstallerFactory.CreateDelete(modMod, ActiveMods);
 				mddDeleter.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(Deactivator_TaskSetCompleted);
 				mddDeleter.Install();

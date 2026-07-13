@@ -1753,9 +1753,8 @@
 
 						Parallel.ForEach(m_tslVirtualModList, (fileLink) =>
 						{
-							if (fileLink.ModInfo != null)
-								if (fileLink.ModInfo.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase))
-									cqLinks.Enqueue(fileLink);
+							if (VirtualModLinkMatchesMod(fileLink, p_modMod, modFileName))
+								cqLinks.Enqueue(fileLink);
 						});
 
 						if ((cqLinks != null) && (cqLinks.Count > 0))
@@ -1773,7 +1772,7 @@
 
 					RemoveIniEdits(p_modMod);
 
-					m_tslVirtualModInfo.RemoveAll(x => x.ModFileName.Equals(modFileName, StringComparison.CurrentCultureIgnoreCase));
+					m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
 
 					if (!p_booPurging)
 						SaveList(true);
@@ -1798,7 +1797,8 @@
 
 			RemoveIniEdits(p_modMod);
 
-			m_tslVirtualModInfo.RemoveAll(x => x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename).ToLowerInvariant());
+			string modFileName = Path.GetFileName(p_modMod.Filename);
+			m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
 
 			SaveList(true);
 
@@ -2168,18 +2168,45 @@
 
 		private bool CheckIsModActive(IMod p_modMod)
 		{
-			IVirtualModInfo ivlModInfo = null;
+			if (m_tslVirtualModInfo == null || m_tslVirtualModInfo.Count == 0 || p_modMod == null)
+				return false;
 
-			if ((m_tslVirtualModInfo != null && m_tslVirtualModInfo.Count > 0) && p_modMod != null)
-				ivlModInfo = m_tslVirtualModInfo.Where(x => (x != null) && x.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename.ToLowerInvariant())).FirstOrDefault();
-
-			return (ivlModInfo != null);
+			string modFileName = Path.GetFileName(p_modMod.Filename);
+			return m_tslVirtualModInfo.Any(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
 		}
 
 		public bool CheckHasActiveLinks(IMod p_modMod)
 		{
-			IVirtualModLink ivlModLink = m_tslVirtualModList.Where(x => x.ModInfo.ModFileName.ToLowerInvariant() == Path.GetFileName(p_modMod.Filename.ToLowerInvariant())).FirstOrDefault();
-			return (ivlModLink != null);
+			if (p_modMod == null || m_tslVirtualModList == null || m_tslVirtualModList.Count == 0)
+				return false;
+
+			string strModFileName = Path.GetFileName(p_modMod.Filename);
+			return m_tslVirtualModList.Any(x => x != null && x.Active && VirtualModLinkMatchesMod(x, p_modMod, strModFileName));
+		}
+
+		private static bool VirtualModInfoMatchesMod(IVirtualModInfo p_vmiModInfo, IMod p_modMod, string p_strModFileName)
+		{
+			if (p_vmiModInfo == null || p_modMod == null)
+				return false;
+
+			if (!string.IsNullOrEmpty(p_vmiModInfo.ModFileName) && !string.IsNullOrEmpty(p_strModFileName) && p_vmiModInfo.ModFileName.Equals(p_strModFileName, StringComparison.InvariantCultureIgnoreCase))
+				return true;
+
+			if (!string.IsNullOrEmpty(p_vmiModInfo.DownloadId) && !string.IsNullOrEmpty(p_modMod.DownloadId) && p_vmiModInfo.DownloadId.Equals(p_modMod.DownloadId, StringComparison.InvariantCultureIgnoreCase))
+				return true;
+
+			if (!string.IsNullOrEmpty(p_vmiModInfo.UpdatedDownloadId) && !string.IsNullOrEmpty(p_modMod.DownloadId) && p_vmiModInfo.UpdatedDownloadId.Equals(p_modMod.DownloadId, StringComparison.InvariantCultureIgnoreCase))
+				return true;
+
+			return false;
+		}
+
+		private static bool VirtualModLinkMatchesMod(IVirtualModLink p_vmlLink, IMod p_modMod, string p_strModFileName)
+		{
+			if (p_vmlLink == null)
+				return false;
+
+			return VirtualModInfoMatchesMod(p_vmlLink.ModInfo, p_modMod, p_strModFileName);
 		}
 
 		/// <summary>

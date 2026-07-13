@@ -718,8 +718,6 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void DeactivateMod(IMod p_modMod)
 		{
-            VirtualModActivator.DisableMod(p_modMod);
-
             IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
             if (btsUninstall != null)
                 ModManager.ModActivationMonitor.AddActivity(btsUninstall);
@@ -755,8 +753,6 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to reinstall.</param>
 		public void ReinstallMod(IMod p_modMod, IMod p_modUpgrade)
 		{
-			VirtualModActivator.DisableMod(p_modMod);
-
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			if (btsUninstall != null)
 				ModManager.ModActivationMonitor.AddActivity(btsUninstall);

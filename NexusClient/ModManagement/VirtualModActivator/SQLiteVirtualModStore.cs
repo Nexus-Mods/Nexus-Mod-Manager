@@ -3,6 +3,7 @@ namespace Nexus.Client.ModManagement
 	using System;
 	using System.Collections.Generic;
 	using System.Data;
+	using System.Diagnostics;
 	using System.Data.SQLite;
 	using System.IO;
 	using System.Linq;
@@ -75,6 +76,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			SaveRecords(fileVersion, BuildReferenceRecords(virtualModInfo, virtualModLink));
+			SaveXmlCompatibilityShadow(fileVersion, virtualModInfo, virtualModLink, false);
 		}
 
 		public void SaveWithModInfoMatching(Version fileVersion, string filePath, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink)
@@ -86,6 +88,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			SaveRecords(fileVersion, BuildMatchingRecords(virtualModInfo, virtualModLink));
+			SaveXmlCompatibilityShadow(fileVersion, virtualModInfo, virtualModLink, true);
 		}
 
 		public VirtualModStoreData Load(string filePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion)
@@ -121,6 +124,21 @@ namespace Nexus.Client.ModManagement
 		internal void SaveStoreData(Version fileVersion, VirtualModStoreData data)
 		{
 			SaveRecords(fileVersion, BuildReferenceRecords(data.VirtualMods, data.VirtualLinks));
+		}
+
+		private void SaveXmlCompatibilityShadow(Version fileVersion, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink, bool useModInfoMatching)
+		{
+			try
+			{
+				if (useModInfoMatching)
+					m_xmsXmlStore.SaveWithModInfoMatching(fileVersion, m_strXmlFilePath, virtualModInfo, virtualModLink);
+				else
+					m_xmsXmlStore.Save(fileVersion, m_strXmlFilePath, virtualModInfo, virtualModLink);
+			}
+			catch (Exception e)
+			{
+				Trace.TraceWarning("Could not update virtual mod XML compatibility shadow \"{0}\": {1}", m_strXmlFilePath, e.Message);
+			}
 		}
 
 		private void SaveRecords(Version fileVersion, IList<ModRecord> records)

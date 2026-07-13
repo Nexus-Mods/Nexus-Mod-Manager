@@ -423,6 +423,9 @@
 		/// or <c>null</c> if no long-running operation needs to be done.</returns>
 		public IBackgroundTaskSet DeleteMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
+			if (VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(p_modMod))
+				VirtualModActivator.DisableMod(p_modMod);
+
 			ModDeleter mddDeleter = InstallerFactory.CreateDelete(p_modMod, p_rolActiveMods);
 			mddDeleter.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(Deactivator_TaskSetCompleted);
 			mddDeleter.Install();
@@ -523,8 +526,14 @@
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTaskSet DeactivateMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			if (!InstallationLog.ActiveMods.Contains(p_modMod))
+			bool booIsInstallLogActive = InstallationLog.ActiveMods.Contains(p_modMod);
+			bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(p_modMod);
+			if (!booIsInstallLogActive && !booHasVirtualLinks)
 				return null;
+
+			if (booHasVirtualLinks)
+				VirtualModActivator.DisableMod(p_modMod);
+
 			ModUninstaller munUninstaller = InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods);
 			munUninstaller.Install();
 			DeleteXMLInstalledFile(p_modMod);

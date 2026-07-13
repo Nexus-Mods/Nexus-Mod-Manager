@@ -149,7 +149,15 @@ namespace Nexus.Client.ModManagement
 
 				modMod.InstallDate = null;
 				if (!_installLog.ActiveMods.Contains(modMod))
+				{
+					while (ItemProgress < ItemProgressMaximum)
+						StepItemProgress();
+
+					if (OverallProgress < OverallProgressMaximum)
+						StepOverallProgress();
+
 					continue;
+				}
 				ModUninstaller munUninstaller = _modInstallerFactory.CreateUninstaller(modMod, _modsToDeactivate);
 				munUninstaller.Install();
 
