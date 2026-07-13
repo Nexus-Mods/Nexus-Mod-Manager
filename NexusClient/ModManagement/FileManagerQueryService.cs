@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement
+namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
@@ -34,7 +34,7 @@
                 throw new DirectoryNotFoundException("The deployment root does not exist or is inaccessible: " + (deploymentRoot ?? String.Empty));
 
             Stopwatch stageWatch = Stopwatch.StartNew();
-            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator.VirtualLinks);
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator);
             diagnostics.VirtualLinkIndexMilliseconds = stageWatch.ElapsedMilliseconds;
 
             stageWatch.Restart();
@@ -85,6 +85,7 @@
                 {
                     FullPath = filePath,
                     FileName = Path.GetFileName(filePath),
+                    FileType = GetFileType(filePath),
                     RawSize = length,
                     SizeDisplay = FormatSize(length),
                     RelativePath = relativePath,
@@ -248,8 +249,10 @@
             return (modInfo.ModFileName ?? String.Empty).ToLowerInvariant() + "|" + (modInfo.DownloadId ?? String.Empty).ToLowerInvariant();
         }
 
-        private static Dictionary<string, FileManagerPathOwnership> BuildVirtualLinkLookup(IEnumerable<IVirtualModLink> links)
+        private static Dictionary<string, FileManagerPathOwnership> BuildVirtualLinkLookup(IVirtualModActivator virtualModActivator)
         {
+            IEnumerable<IVirtualModLink> links = virtualModActivator == null ? null : virtualModActivator.VirtualLinks;
+            List<string> sourceRoots = GetVirtualSourceRoots(virtualModActivator);
             Dictionary<string, List<IVirtualModLink>> linksByPath = new Dictionary<string, List<IVirtualModLink>>(StringComparer.OrdinalIgnoreCase);
             if (links == null)
                 return new Dictionary<string, FileManagerPathOwnership>(StringComparer.OrdinalIgnoreCase);
@@ -272,7 +275,7 @@
 
             Dictionary<string, FileManagerPathOwnership> ownershipByPath = new Dictionary<string, FileManagerPathOwnership>(linksByPath.Count, StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<string, List<IVirtualModLink>> pair in linksByPath)
-                ownershipByPath.Add(pair.Key, BuildOwnership(pair.Value));
+                ownershipByPath.Add(pair.Key, BuildOwnership(pair.Value, sourceRoots));
 
             return ownershipByPath;
         }
@@ -296,6 +299,11 @@
         }
 
         private static FileManagerPathOwnership BuildOwnership(IList<IVirtualModLink> pathLinks)
+        {
+            return BuildOwnership(pathLinks, null);
+        }
+
+        private static FileManagerPathOwnership BuildOwnership(IList<IVirtualModLink> pathLinks, IList<string> sourceRoots)
         {
             if (pathLinks == null || pathLinks.Count == 0)
                 return null;
@@ -333,13 +341,69 @@
                     if (!seenOwnerKeys.Add(ownerKey))
                         continue;
 
-                    candidates.Add(new FileManagerOwnerCandidate(ownerKey, link.ModInfo == null ? String.Empty : link.ModInfo.ModName, link.Priority));
+                    candidates.Add(new FileManagerOwnerCandidate(ownerKey, link.ModInfo == null ? String.Empty : link.ModInfo.ModName, link.Priority, ResolvePreviewFilePath(link, sourceRoots)));
                 }
             }
 
             return new FileManagerPathOwnership(activeOwner.Active, CreateOwnerKey(activeOwner.ModInfo), activeOwner.ModInfo == null ? String.Empty : activeOwner.ModInfo.ModName, candidates);
         }
 
+        private static List<string> GetVirtualSourceRoots(IVirtualModActivator virtualModActivator)
+        {
+            List<string> sourceRoots = new List<string>();
+            if (virtualModActivator == null)
+                return sourceRoots;
+
+            if (!String.IsNullOrWhiteSpace(virtualModActivator.VirtualPath))
+                sourceRoots.Add(virtualModActivator.VirtualPath);
+
+            if (virtualModActivator.MultiHDMode)
+            {
+                try
+                {
+                    if (!String.IsNullOrWhiteSpace(virtualModActivator.HDLinkFolder) && sourceRoots.FindIndex(x => String.Equals(x, virtualModActivator.HDLinkFolder, StringComparison.OrdinalIgnoreCase)) < 0)
+                        sourceRoots.Add(virtualModActivator.HDLinkFolder);
+                }
+                catch
+                {
+                }
+            }
+
+            return sourceRoots;
+        }
+
+        private static string ResolvePreviewFilePath(IVirtualModLink link, IList<string> sourceRoots)
+        {
+            if (link == null || String.IsNullOrWhiteSpace(link.RealModPath))
+                return String.Empty;
+
+            if (Path.IsPathRooted(link.RealModPath) && File.Exists(link.RealModPath))
+                return link.RealModPath;
+
+            if (sourceRoots != null)
+            {
+                foreach (string sourceRoot in sourceRoots)
+                {
+                    if (String.IsNullOrWhiteSpace(sourceRoot))
+                        continue;
+
+                    string filePath = Path.Combine(sourceRoot, link.RealModPath);
+                    if (File.Exists(filePath))
+                        return filePath;
+                }
+            }
+
+            return String.Empty;
+        }
+
+        private static string GetFileType(string filePath)
+        {
+            string extension = Path.GetExtension(filePath);
+            if (String.IsNullOrEmpty(extension))
+                return String.Empty;
+
+            return extension.TrimStart('.').ToLowerInvariant();
+        }
         private static int CompareVirtualLinksForOwnerDisplay(IVirtualModLink left, IVirtualModLink right)
         {
             int priorityComparison = left.Priority.CompareTo(right.Priority);

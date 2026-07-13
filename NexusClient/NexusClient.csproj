@@ -82,8 +82,12 @@
     <Compile Include="ModManagement\ProfileSwitchSetupTask.cs" />
     <Compile Include="ModManagement\FileManagerModels.cs" />
     <Compile Include="ModManagement\FileManagerManualSourceStore.cs" />
+    <Compile Include="ModManagement\FileManagerPreview.cs" />
     <Compile Include="ModManagement\FileManagerQueryService.cs" />
     <Compile Include="ModManagement\UI\FileManagerVM.cs" />
+    <Compile Include="ModManagement\UI\FilePreviewControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="ModManagement\UI\FileManagerControl.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -893,6 +897,9 @@
     <Reference Include="Newtonsoft.Json.Bson, Version=1.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Newtonsoft.Json.Bson.1.0.3\lib\net45\Newtonsoft.Json.Bson.dll</HintPath>
     </Reference>
+    <Reference Include="Pfim">
+      <HintPath>..\Stage\packages\Pfim.0.11.3\lib\netstandard2.0\Pfim.dll</HintPath>
+    </Reference>
     <Reference Include="ObjectListView, Version=2.8.0.20711, Culture=neutral, PublicKeyToken=b1c5bf581481bcd4, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\ObjectListView.dll</HintPath>
@@ -908,6 +915,10 @@
     </Reference>
     <Reference Include="DevExpress.XtraEditors.v25.2">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraEditors.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.XtraLayout.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraLayout.v25.2.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="DevExpress.XtraGrid.v25.2">

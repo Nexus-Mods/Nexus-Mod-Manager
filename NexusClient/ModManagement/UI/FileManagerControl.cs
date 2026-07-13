@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement.UI
+namespace Nexus.Client.ModManagement.UI
 {
     using System;
     using System.Collections.Generic;
@@ -9,20 +9,27 @@
     using System.Windows.Forms;
 
     using DevExpress.Utils;
+    using DevExpress.XtraEditors;
     using DevExpress.XtraEditors.Repository;
     using DevExpress.XtraGrid;
     using DevExpress.XtraGrid.Columns;
     using DevExpress.XtraGrid.Views.Base;
     using DevExpress.XtraGrid.Views.Grid;
 
+    using Nexus.Client.Settings;
     using Nexus.Client.UI;
 
     public sealed class FileManagerControl : ManagedFontDockContent
     {
+        private const int GridSplitterContentPadding = 36;
+        private const string FileManagerSplitterSizeKey = "fileManager";
+
         private readonly Label _deploymentRootLabel;
         private readonly Button _refreshButton;
+        private readonly SplitContainerControl _splitContainer;
         private readonly GridControl _gridControl;
         private readonly GridView _gridView;
+        private readonly FilePreviewControl _previewControl;
         private readonly Label _summaryLabel;
         private readonly Label _statusLabel;
         private readonly RepositoryItemLookUpEdit _emptyOwnerLookup;
@@ -36,6 +43,10 @@
         private ModManagerVM _viewModel;
         private bool _suppressOwnerChange;
         private bool _suppressSourceChange;
+        private bool _suppressPreviewSelection;
+        private bool _splitterUserDragActive;
+        private bool _restoringSplitter;
+        private bool _splitterPositionRestored;
 
         public FileManagerControl()
         {
@@ -69,6 +80,20 @@
             topPanel.Controls.Add(_deploymentRootLabel);
             topPanel.Controls.Add(_refreshButton);
 
+            _splitContainer = new SplitContainerControl
+            {
+                Dock = DockStyle.Fill,
+                Horizontal = true,
+                FixedPanel = SplitFixedPanel.None,
+                SplitterPosition = 720
+            };
+            _splitContainer.Panel1.MinSize = 360;
+            _splitContainer.Panel2.MinSize = 260;
+            _splitContainer.SizeChanged += SplitContainer_SizeChanged;
+            _splitContainer.BeginSplitterMoving += SplitContainer_BeginSplitterMoving;
+            _splitContainer.SplitterMoved += SplitContainer_SplitterMoved;
+            Shown += FileManagerControl_Shown;
+
             _gridControl = new GridControl { Dock = DockStyle.Fill };
             _gridView = new GridView(_gridControl);
             _gridControl.MainView = _gridView;
@@ -87,6 +112,7 @@
             _gridView.CellValueChanging += GridView_CellValueChanging;
             _gridView.CellValueChanged += GridView_CellValueChanged;
             _gridView.RowCellStyle += GridView_RowCellStyle;
+            _gridView.FocusedRowChanged += GridView_FocusedRowChanged;
             ConfigureColumns();
 
             _emptyOwnerLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
@@ -118,6 +144,10 @@
             _gridControl.RepositoryItems.Add(_sourceFilterLookup);
             _gridView.Columns["Source"].ColumnEdit = _sourceFilterLookup;
 
+            _previewControl = new FilePreviewControl { Dock = DockStyle.Fill };
+            _splitContainer.Panel1.Controls.Add(_gridControl);
+            _splitContainer.Panel2.Controls.Add(_previewControl);
+
             Panel bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 30, Padding = new Padding(10, 6, 10, 4) };
             _summaryLabel = new Label { AutoSize = true, Location = new Point(10, 7) };
             _statusLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(Width - 240, 7) };
@@ -125,7 +155,7 @@
             bottomPanel.Controls.Add(_summaryLabel);
             bottomPanel.Controls.Add(_statusLabel);
 
-            Controls.Add(_gridControl);
+            Controls.Add(_splitContainer);
             Controls.Add(bottomPanel);
             Controls.Add(topPanel);
         }
@@ -142,9 +172,11 @@
                     _fileManagerVM.Dispose();
                     _fileManagerVM = null;
                     ClearOwnerLookupCache();
+                    _previewControl.SetSelectedRow(null);
                 }
 
                 _viewModel = value;
+                _splitterPositionRestored = false;
                 if (_viewModel != null)
                 {
                     _fileManagerVM = new FileManagerVM(_viewModel);
@@ -159,7 +191,10 @@
         {
             base.OnVisibleChanged(e);
             if (Visible)
+            {
+                QueueFileManagerSplitterRestore();
                 await LoadIfNeededAsync().ConfigureAwait(true);
+            }
         }
 
         protected override void Dispose(bool disposing)
@@ -252,6 +287,7 @@
         private void BindRows(BindingList<FileManagerRow> rows)
         {
             ClearOwnerLookupCache();
+            _suppressPreviewSelection = true;
             _gridView.BeginUpdate();
             try
             {
@@ -260,9 +296,118 @@
             finally
             {
                 _gridView.EndUpdate();
+                _suppressPreviewSelection = false;
+            }
+
+            UpdatePreviewFromFocusedRow();
+            QueueFileManagerSplitterRestore();
+        }
+
+        private void FileManagerControl_Shown(object sender, EventArgs e)
+        {
+            RestoreFileManagerSplitterPosition();
+        }
+
+        private void SplitContainer_SizeChanged(object sender, EventArgs e)
+        {
+            RestoreFileManagerSplitterPosition();
+        }
+
+        private void QueueFileManagerSplitterRestore()
+        {
+            if (_splitterPositionRestored || !Visible || !IsHandleCreated || IsDisposed || Disposing)
+                return;
+
+            BeginInvoke((MethodInvoker)RestoreFileManagerSplitterPosition);
+        }
+
+        private void SplitContainer_BeginSplitterMoving(object sender, BeginSplitMovingEventArgs e)
+        {
+            _splitterUserDragActive = true;
+        }
+
+        private void SplitContainer_SplitterMoved(object sender, EventArgs e)
+        {
+            if (_restoringSplitter || !_splitterUserDragActive)
+                return;
+
+            _splitterUserDragActive = false;
+            SaveFileManagerSplitterPosition();
+        }
+
+        private void RestoreFileManagerSplitterPosition()
+        {
+            if (_splitterPositionRestored || !Visible || _splitContainer.ClientSize.Width <= 0)
+                return;
+
+            int splitterPosition = GetSavedSplitterPosition();
+            if (splitterPosition <= 0)
+            {
+                splitterPosition = GetDefaultSplitterPosition();
+                if (splitterPosition <= 0)
+                    return;
+            }
+
+            int minimum = _splitContainer.Panel1.MinSize;
+            int maximum = GetMaximumSplitterPosition();
+            if (maximum < minimum)
+                return;
+
+            int restoredPosition = Math.Max(minimum, Math.Min(splitterPosition, maximum));
+            _splitterPositionRestored = true;
+            _restoringSplitter = true;
+            try
+            {
+                _splitContainer.SplitterPosition = restoredPosition;
+            }
+            finally
+            {
+                _restoringSplitter = false;
             }
         }
 
+        private int GetSavedSplitterPosition()
+        {
+            if (_viewModel?.Settings?.SplitterSizes == null)
+                return 0;
+
+            SettingsList splitterSizes = _viewModel.Settings.SplitterSizes[FileManagerSplitterSizeKey];
+            if (splitterSizes == null || splitterSizes.Count == 0)
+                return 0;
+
+            int splitterPosition;
+            return Int32.TryParse(splitterSizes[0], out splitterPosition) ? splitterPosition : 0;
+        }
+
+        private int GetDefaultSplitterPosition()
+        {
+            int maximum = GetMaximumSplitterPosition();
+            if (maximum < _splitContainer.Panel1.MinSize)
+                return 0;
+
+            int gridContentWidth = GridSplitterContentPadding;
+            foreach (GridColumn column in _gridView.Columns)
+            {
+                if (column.Visible)
+                    gridContentWidth += column.Width;
+            }
+
+            return Math.Min(maximum, Math.Max(_splitContainer.Panel1.MinSize, gridContentWidth));
+        }
+
+        private int GetMaximumSplitterPosition()
+        {
+            return _splitContainer.ClientSize.Width - _splitContainer.Panel2.MinSize - _splitContainer.SplitterBounds.Width;
+        }
+
+        private void SaveFileManagerSplitterPosition()
+        {
+            if (_restoringSplitter || _viewModel?.Settings?.SplitterSizes == null)
+                return;
+
+            _viewModel.Settings.SplitterSizes[FileManagerSplitterSizeKey] = new List<Int32> { _splitContainer.SplitterPosition };
+            _viewModel.Settings.Save();
+        }
         private RepositoryItemLookUpEdit GetOwnerLookup(List<FileManagerOwnerCandidate> candidates)
         {
             if (candidates == null || candidates.Count == 0)
@@ -297,6 +442,7 @@
         private void ConfigureColumns()
         {
             AddColumn("FileName", "File Name", 220, false);
+            AddColumn("FileType", "File Type", 70, false);
             GridColumn size = AddColumn("RawSize", "Size", 90, false);
             size.DisplayFormat.FormatType = FormatType.Custom;
             size.DisplayFormat.Format = new FileSizeFormatter();
@@ -324,6 +470,22 @@
             return column;
         }
 
+        private void GridView_FocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
+        {
+            if (_suppressPreviewSelection)
+                return;
+
+            UpdatePreviewFromFocusedRow();
+        }
+
+        private void UpdatePreviewFromFocusedRow()
+        {
+            if (_previewControl == null)
+                return;
+
+            FileManagerRow row = _gridView.GetFocusedRow() as FileManagerRow;
+            _previewControl.SetSelectedRow(row);
+        }
         private void GridView_CustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
         {
             if (e.Column.FieldName == "Source" && e.Value is FileManagerSource)

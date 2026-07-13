@@ -1146,6 +1146,7 @@ namespace Nexus.Client.ModManagement.UI
             gridView.CustomDrawCell          += GridView_CustomDrawCell;
             gridView.CustomDrawColumnHeader  += GridView_CustomDrawColumnHeader;
             gridView.CustomColumnSort       += GridView_CustomColumnSort;
+            gridView.ColumnFilterChanged   += GridView_ColumnFilterChanged;
             gridView.GroupRowExpanded       += (s, e) => SaveGridLayout();
             gridView.GroupRowCollapsed      += (s, e) => SaveGridLayout();
             gridView.ColumnWidthChanged += (s, e) => { if (!_restoringGridLayout) SaveGridLayout(); };            gridView.EndSorting              += GridView_EndSorting;
@@ -1154,6 +1155,11 @@ namespace Nexus.Client.ModManagement.UI
             gridControl.MouseDown            += GridControl_MouseDown;
         }
 
+        private void GridView_ColumnFilterChanged(object sender, EventArgs e)
+        {
+            if (!_restoringGridLayout)
+                SaveGridLayout();
+        }
         private void BuildColumns()
         {
             AddCol(ColModStatus, "Status", HorzAlignment.Center, true); AddCol(ColModName, "MOD NAME", HorzAlignment.Default, true); AddCol(ColVersion, "VERSION", HorzAlignment.Center, false); AddCol(ColLastKnown, "LATEST", HorzAlignment.Center, false); AddCol(ColAuthor, "AUTHOR", HorzAlignment.Default, false); AddCol(ColCategory, "CATEGORY", HorzAlignment.Default, false); AddCol(ColInstallDate, "INSTALL DATE", HorzAlignment.Center, false); AddCol(ColDownloadDate, "DOWNLOAD DATE", HorzAlignment.Center, false); AddCol(ColDownloadId, "DOWNLOAD ID", HorzAlignment.Center, false);

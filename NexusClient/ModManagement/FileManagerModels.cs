@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement
+namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
@@ -28,15 +28,22 @@
     public sealed class FileManagerOwnerCandidate
     {
         public FileManagerOwnerCandidate(string ownerKey, string modName, int priority)
+            : this(ownerKey, modName, priority, String.Empty)
+        {
+        }
+
+        public FileManagerOwnerCandidate(string ownerKey, string modName, int priority, string previewFilePath)
         {
             OwnerKey = ownerKey;
             ModName = modName;
             Priority = priority;
+            PreviewFilePath = previewFilePath ?? String.Empty;
         }
 
         public string OwnerKey { get; private set; }
         public string ModName { get; private set; }
         public int Priority { get; private set; }
+        public string PreviewFilePath { get; private set; }
     }
 
     public sealed class FileManagerRow : INotifyPropertyChanged
@@ -53,6 +60,7 @@
 
         public string FullPath { get; set; }
         public string FileName { get; set; }
+        public string FileType { get; set; }
         public long RawSize { get; set; }
         public string SizeDisplay { get; set; }
         public string RelativePath { get; set; }
