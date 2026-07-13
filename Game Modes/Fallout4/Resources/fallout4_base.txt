@@ -1,36 +1,5 @@
-DLCCoast - Geometry.csg
-DLCCoast - Main.ba2
-DLCCoast - Textures.ba2
-DLCCoast - Voices_en.ba2
-DLCCoast.cdx
-DLCCoast.esm
-DLCNukaWorld - Geometry.csg
-DLCNukaWorld - Main.ba2
-DLCNukaWorld - Textures.ba2
-DLCNukaWorld - Voices_en.ba2
-DLCNukaWorld.cdx
-DLCNukaWorld.esm
-DLCRobot - Geometry.csg
-DLCRobot - Main.ba2
-DLCRobot - Textures.ba2
-DLCRobot - Voices_en.ba2
-DLCRobot.cdx
-DLCRobot.esm
-DLCworkshop01 - Geometry.csg
-DLCworkshop01 - Main.ba2
-DLCworkshop01 - Textures.ba2
-DLCworkshop01.cdx
-DLCworkshop01.esm
-DLCworkshop02 - Main.ba2
-DLCworkshop02 - Textures.ba2
-DLCworkshop02 - Voices_en.ba2
-DLCworkshop02.esm
-DLCworkshop03 - Geometry.csg
-DLCworkshop03 - Main.ba2
-DLCworkshop03 - Textures.ba2
-DLCworkshop03 - Voices_en.ba2
-DLCworkshop03.cdx
-DLCworkshop03.esm
+Fallout4.esm
+Fallout4.cdx
 Fallout4 - Animations.ba2
 Fallout4 - Geometry.csg
 Fallout4 - Interface.ba2
@@ -51,23 +20,122 @@ Fallout4 - Textures6.ba2
 Fallout4 - Textures7.ba2
 Fallout4 - Textures8.ba2
 Fallout4 - Textures9.ba2
+Fallout4 - TexturesPatch.ba2
 Fallout4 - Voices.ba2
-Fallout4.cdx
-Fallout4.esm
-Strings\Fallout4_en.DLSTRINGS
-Strings\Fallout4_en.ILSTRINGS
-Strings\Fallout4_en.STRINGS
+Fallout4 - Voices_de.ba2
+Fallout4 - Voices_es.ba2
+Fallout4 - Voices_fr.ba2
+Fallout4 - Voices_it.ba2
+Fallout4 - Voices_jp.ba2
+Fallout4 - Voices_rep_ja.ba2
+DLCRobot.esm
+DLCRobot.cdx
+DLCRobot - Geometry.csg
+DLCRobot - Main.ba2
+DLCRobot - Textures.ba2
+DLCRobot - Voices_de.ba2
+DLCRobot - Voices_en.ba2
+DLCRobot - Voices_es.ba2
+DLCRobot - Voices_fr.ba2
+DLCRobot - Voices_it.ba2
+DLCRobot - Voices_ja.ba2
+DLCworkshop01.esm
+DLCworkshop01.cdx
+DLCworkshop01 - Geometry.csg
+DLCworkshop01 - Main.ba2
+DLCworkshop01 - Textures.ba2
+DLCCoast.esm
+DLCCoast.cdx
+DLCCoast - Geometry.csg
+DLCCoast - Main.ba2
+DLCCoast - Textures.ba2
+DLCCoast - Voices_de.ba2
+DLCCoast - Voices_en.ba2
+DLCCoast - Voices_es.ba2
+DLCCoast - Voices_fr.ba2
+DLCCoast - Voices_it.ba2
+DLCCoast - Voices_ja.ba2
+DLCworkshop02.esm
+DLCworkshop02 - Main.ba2
+DLCworkshop02 - Textures.ba2
+DLCworkshop03.esm
+DLCworkshop03.cdx
+DLCworkshop03 - Geometry.csg
+DLCworkshop03 - Main.ba2
+DLCworkshop03 - Textures.ba2
+DLCworkshop03 - Voices_de.ba2
+DLCworkshop03 - Voices_en.ba2
+DLCworkshop03 - Voices_es.ba2
+DLCworkshop03 - Voices_fr.ba2
+DLCworkshop03 - Voices_it.ba2
+DLCworkshop03 - Voices_ja.ba2
+DLCNukaWorld.esm
+DLCNukaWorld.cdx
+DLCNukaWorld - Geometry.csg
+DLCNukaWorld - Main.ba2
+DLCNukaWorld - Textures.ba2
+DLCNukaWorld - Voices_de.ba2
+DLCNukaWorld - Voices_en.ba2
+DLCNukaWorld - Voices_es.ba2
+DLCNukaWorld - Voices_fr.ba2
+DLCNukaWorld - Voices_it.ba2
+DLCNukaWorld - Voices_ja.ba2
+DLCUltraHighResolution.esm
+DLCUltraHighResolution - Textures01.ba2
+DLCUltraHighResolution - Textures02.ba2
+DLCUltraHighResolution - Textures03.ba2
+DLCUltraHighResolution - Textures04.ba2
+DLCUltraHighResolution - Textures05.ba2
+DLCUltraHighResolution - Textures06.ba2
+DLCUltraHighResolution - Textures07.ba2
+DLCUltraHighResolution - Textures08.ba2
+DLCUltraHighResolution - Textures09.ba2
+DLCUltraHighResolution - Textures10.ba2
+DLCUltraHighResolution - Textures11.ba2
+DLCUltraHighResolution - Textures12.ba2
+DLCUltraHighResolution - Textures13.ba2
+DLCUltraHighResolution - Textures14.ba2
+DLCUltraHighResolution - Textures15.ba2
+DLCUltraHighResolution - Textures16.ba2
 Video\AGILITY.bk2
 Video\CHARISMA.bk2
-Video\Endgame_FEMALE_A.bk2
-Video\Endgame_FEMALE_B.bk2
-Video\Endgame_MALE_A.bk2
-Video\Endgame_MALE_B.bk2
 Video\ENDURANCE.bk2
 Video\GameIntro_V3_B.bk2
 Video\INTELLIGENCE.bk2
-Video\Intro.bk2
 Video\LUCK.bk2
 Video\MainMenuLoop.bk2
 Video\PERCEPTION.bk2
 Video\STRENGTH.bk2
+Video\Endgame_FEMALE_A.bk2
+Video\Endgame_FEMALE_B.bk2
+Video\Endgame_MALE_A.bk2
+Video\Endgame_MALE_B.bk2
+Video\Intro.bk2
+Video\Endgame_FEMALE_A_PL.bk2
+Video\Endgame_FEMALE_B_PL.bk2
+Video\Endgame_MALE_A_PL.bk2
+Video\Endgame_MALE_B_PL.bk2
+Video\Intro_pl.bk2
+Video\Endgame_FEMALE_A_RU.bk2
+Video\Endgame_FEMALE_B_RU.bk2
+Video\Endgame_MALE_A_RU.bk2
+Video\Endgame_MALE_B_RU.bk2
+Video\Intro_ru.bk2
+Video\Endgame_FEMALE_A_PTBR.bk2
+Video\Endgame_FEMALE_B_PTBR.bk2
+Video\Endgame_MALE_A_PTBR.bk2
+Video\Endgame_MALE_B_PTBR.bk2
+Video\Intro_ptbr.bk2
+Video\AGILITY_ja.bk2
+Video\CHARISMA_ja.bk2
+Video\ENDURANCE_ja.bk2
+Video\GameIntro_V3_B_ja.bk2
+Video\INTELLIGENCE_ja.bk2
+Video\LUCK_ja.bk2
+Video\PERCEPTION_ja.bk2
+Video\STRENGTH_ja.bk2
+Video\Endgame_FEMALE_A_ja.bk2
+Video\Endgame_FEMALE_B_ja.bk2
+Video\Endgame_MALE_A_ja.bk2
+Video\Endgame_MALE_B_ja.bk2
+Video\Intro_ja.bk2

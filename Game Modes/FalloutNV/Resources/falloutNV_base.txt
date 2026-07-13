@@ -1,38 +1,47 @@
-CaravanPack - Main.bsa
-CaravanPack.esm
-CARAVANPACK.NAM
-ClassicPack - Main.bsa
-ClassicPack.esm
-CLASSICPACK.NAM
-credits.txt
-CreditsWacky.txt
-DeadMoney - Main.bsa
-DeadMoney - Sounds.bsa
-DeadMoney.esm
-DEADMONEY.NAM
-Fallout - AI!.bsa
+FalloutNV.esm
+FalloutNV_lang.esp
 Fallout - Meshes.bsa
 Fallout - Misc.bsa
 Fallout - Sound.bsa
 Fallout - Textures.bsa
 Fallout - Textures2.bsa
 Fallout - Voices1.bsa
-FalloutNV.esm
-GunRunnersArsenal - Main.bsa
-GunRunnersArsenal - Sounds.bsa
-GunRunnersArsenal.esm
-GUNRUNNERSARSENAL.NAM
-HonestHearts - Main.bsa
-HonestHearts - Sounds.bsa
+Update.bsa
+Credits.txt
+CreditsWacky.txt
+Video\FNVIntro.bik
+CaravanPack.esm
+CaravanPack.nam
+CaravanPack - Main.bsa
+ClassicPack.esm
+ClassicPack.nam
+ClassicPack - Main.bsa
+MercenaryPack.esm
+MercenaryPack.nam
+MercenaryPack - Main.bsa
+TribalPack.esm
+TribalPack.nam
+TribalPack - Main.bsa
+DeadMoney.esm
+DEADMONEY.NAM
+DeadMoney - Main.bsa
+DeadMoney - Sounds.bsa
 HonestHearts.esm
 HONESTHEARTS.NAM
-LonesomeRoad - Main.bsa
-LonesomeRoad - Sounds.bsa
+HonestHearts - Main.bsa
+HonestHearts - Sounds.bsa
+OldWorldBlues.esm
+OLDWORLDBLUES.NAM
+OldWorldBlues - Main.bsa
+OldWorldBlues - Sounds.bsa
 LonesomeRoad.esm
 LONESOMEROAD.NAM
-MercenaryPack - Main.bsa
-MercenaryPack.esm
-MERCENARYPACK.NAM
+LonesomeRoad - Main.bsa
+LonesomeRoad - Sounds.bsa
+GunRunnersArsenal.esm
+GUNRUNNERSARSENAL.NAM
+GunRunnersArsenal - Main.bsa
+GunRunnersArsenal - Sounds.bsa
 Music\BTTL\Evil1\mus_BTTL_Lp_Evil1_City_Full.mp3
 Music\BTTL\Evil1\mus_BTTL_Lp_Evil1_City_Perc.mp3
 Music\BTTL\Evil1\mus_BTTL_Lp_Evil1_Rural_Full(alt1).mp3
@@ -232,26 +241,6 @@ Music\Special\MainTitle.mp3
 Music\Special\mus_endgameslideshow.mp3
 Music\Special\mus_endgametransitionstinger.mp3
 Music\Special\mus_hailchief.mp3
-OldWorldBlues - Main.bsa
-OldWorldBlues - Sounds.bsa
-OldWorldBlues.esm
-OLDWORLDBLUES.NAM
-Shaders\shaderpackage002.sdp
-Shaders\shaderpackage003.sdp
-Shaders\shaderpackage004.sdp
-Shaders\shaderpackage006.sdp
-Shaders\shaderpackage007.sdp
-Shaders\shaderpackage009.sdp
-Shaders\shaderpackage010.sdp
-Shaders\shaderpackage011.sdp
-Shaders\shaderpackage012.sdp
-Shaders\shaderpackage013.sdp
-Shaders\shaderpackage014.sdp
-Shaders\shaderpackage015.sdp
-Shaders\shaderpackage016.sdp
-Shaders\shaderpackage017.sdp
-Shaders\shaderpackage018.sdp
-Shaders\shaderpackage019.sdp
 Sound\songs\radionv\MUS_Aint_That_A_Kick_In_the_Head.mp3
 Sound\songs\radionv\MUS_American_Swing.mp3
 Sound\songs\radionv\MUS_Big_Iron.mp3
@@ -300,8 +289,19 @@ Sound\songs\radionv\MUS_StreetsOfNewReno.mp3
 Sound\songs\radionv\MUS_Von_Spanien_Nach_S_damerika.mp3
 Sound\songs\radionv\MUS_Where_Have_You_Been_All_My_Life.mp3
 Sound\songs\radionv\MUS_Why_Dont_You_Do_Right.mp3
-TribalPack - Main.bsa
-TribalPack.esm
-TRIBALPACK.NAM
-Update.bsa
-Video\FNVIntro.bik
+Shaders\shaderpackage002.sdp
+Shaders\shaderpackage003.sdp
+Shaders\shaderpackage004.sdp
+Shaders\shaderpackage006.sdp
+Shaders\shaderpackage007.sdp
+Shaders\shaderpackage009.sdp
+Shaders\shaderpackage010.sdp
+Shaders\shaderpackage011.sdp
+Shaders\shaderpackage012.sdp
+Shaders\shaderpackage013.sdp
+Shaders\shaderpackage014.sdp
+Shaders\shaderpackage015.sdp
+Shaders\shaderpackage016.sdp
+Shaders\shaderpackage017.sdp
+Shaders\shaderpackage018.sdp
+Shaders\shaderpackage019.sdp

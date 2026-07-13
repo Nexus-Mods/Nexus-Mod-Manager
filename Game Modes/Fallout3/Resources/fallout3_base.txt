@@ -1,18 +1,27 @@
-Anchorage - Main.bsa
-Anchorage - Sounds.bsa
-Anchorage.esm
-BrokenSteel - Main.bsa
-BrokenSteel - Sounds.bsa
-BrokenSteel.esm
-Credits.txt
-DLCList.txt
+Fallout3.esm
 Fallout - MenuVoices.bsa
 Fallout - Meshes.bsa
 Fallout - Misc.bsa
 Fallout - Sound.bsa
 Fallout - Textures.bsa
 Fallout - Voices.bsa
-Fallout3.esm
+Credits.txt
+DLCList.txt
+Anchorage.esm
+Anchorage - Main.bsa
+Anchorage - Sounds.bsa
+ThePitt.esm
+ThePitt - Main.bsa
+ThePitt - Sounds.bsa
+BrokenSteel.esm
+BrokenSteel - Main.bsa
+BrokenSteel - Sounds.bsa
+PointLookout.esm
+PointLookout - Main.bsa
+PointLookout - Sounds.bsa
+Zeta.esm
+Zeta - Main.bsa
+Zeta - Sounds.bsa
 Music\Base\Base_01.mp3
 Music\Base\Base_02.mp3
 Music\Base\Base_03.mp3
@@ -71,9 +80,6 @@ Music\Special\Success.mp3
 Music\Tension\Tension_01.mp3
 Music\TranquilityLane\MUS_TranquilityLane_01_LP.mp3
 Music\TranquilityLane\MUS_TranquilityLane_02_LP.mp3
-PointLookout - Main.bsa
-PointLookout - Sounds.bsa
-PointLookout.esm
 Shaders\shaderpackage002.sdp
 Shaders\shaderpackage003.sdp
 Shaders\shaderpackage004.sdp
@@ -90,9 +96,6 @@ Shaders\shaderpackage016.sdp
 Shaders\shaderpackage017.sdp
 Shaders\shaderpackage018.sdp
 Shaders\shaderpackage019.sdp
-ThePitt - Main.bsa
-ThePitt - Sounds.bsa
-ThePitt.esm
 Video\1 year later.bik
 Video\2 weeks later.bik
 Video\3 years later.bik
@@ -128,6 +131,3 @@ Video\B27.bik
 Video\B28.bik
 Video\B29.bik
 Video\Fallout INTRO Vsk.bik
-Zeta - Main.bsa
-Zeta - Sounds.bsa
-Zeta.esm

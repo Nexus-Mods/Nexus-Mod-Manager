@@ -1,12 +1,39 @@
 BlueprintShips-Starfield - Localization.ba2
 BlueprintShips-Starfield.esm
-Constellation - Localization.ba2
-Constellation - Textures.ba2
-Constellation.esm
-data.bin
-OldMars - Localization.ba2
-OldMars - Textures.ba2
-OldMars.esm
+SFBGS003 - Main.ba2
+SFBGS003 - Textures.ba2
+SFBGS003 - Voices_de.ba2
+SFBGS003 - Voices_en.ba2
+SFBGS003 - Voices_es.ba2
+SFBGS003 - Voices_fr.ba2
+SFBGS003 - Voices_ja.ba2
+SFBGS003.esm
+SFBGS004 - Main.ba2
+SFBGS004 - Textures.ba2
+SFBGS004 - Voices_de.ba2
+SFBGS004 - Voices_en.ba2
+SFBGS004 - Voices_es.ba2
+SFBGS004 - Voices_fr.ba2
+SFBGS004 - Voices_ja.ba2
+SFBGS004.esm
+SFBGS006 - Main.ba2
+SFBGS006 - Textures.ba2
+SFBGS006.esm
+SFBGS007 - Main.ba2
+SFBGS007.esm
+SFBGS008 - Main.ba2
+SFBGS008.esm
+SFBGS00D - Main.ba2
+SFBGS00D - Textures.ba2
+SFBGS00D - Voices_de.ba2
+SFBGS00D - Voices_en.ba2
+SFBGS00D - Voices_es.ba2
+SFBGS00D - Voices_fr.ba2
+SFBGS00D - Voices_ja.ba2
+SFBGS00D.esm
+SFBGS047 - Main.ba2
+SFBGS047 - Textures.ba2
+SFBGS047.esm
 Starfield - Animations.ba2
 Starfield - DensityMaps.ba2
 Starfield - FaceAnimation01.ba2
@@ -17,20 +44,19 @@ Starfield - FaceAnimationPatch.ba2
 Starfield - FaceMeshes.ba2
 Starfield - GeneratedTextures.ba2
 Starfield - Interface.ba2
-Starfield - Localization.ba2
 Starfield - LODMeshes.ba2
 Starfield - LODMeshesPatch.ba2
-Starfield - LODTextures.ba2
+Starfield - LODTextures01.ba2
+Starfield - LODTextures02.ba2
+Starfield - Localization.ba2
 Starfield - Materials.ba2
 Starfield - Meshes01.ba2
 Starfield - Meshes02.ba2
 Starfield - MeshesPatch.ba2
 Starfield - Misc.ba2
 Starfield - Particles.ba2
-Starfield - ParticlesTestData.ba2
 Starfield - PlanetData.ba2
 Starfield - Shaders.ba2
-Starfield - ShadersBeta.ba2
 Starfield - Terrain01.ba2
 Starfield - Terrain02.ba2
 Starfield - Terrain03.ba2
@@ -47,7 +73,8 @@ Starfield - Textures08.ba2
 Starfield - Textures09.ba2
 Starfield - Textures10.ba2
 Starfield - Textures11.ba2
-Starfield - TexturesPatch.ba2
+Starfield - TexturesPatch01.ba2
+Starfield - TexturesPatch02.ba2
 Starfield - Voices01.ba2
 Starfield - Voices02.ba2
 Starfield - VoicesPatch.ba2
@@ -58,6 +85,43 @@ Starfield - WwiseSounds04.ba2
 Starfield - WwiseSounds05.ba2
 Starfield - WwiseSoundsPatch.ba2
 Starfield.esm
+data.bin
+Starfield - Voices_de01.ba2
+Starfield - Voices_de02.ba2
+Starfield - Voices_de_Patch.ba2
+Starfield - Voices_fr01.ba2
+Starfield - Voices_fr02.ba2
+Starfield - Voices_fr_Patch.ba2
+Starfield - Voices_ja01.ba2
+Starfield - Voices_ja02.ba2
+Starfield - Voices_ja_Patch.ba2
+Starfield - Voices_es01.ba2
+Starfield - Voices_es02.ba2
+Starfield - Voices_es_Patch.ba2
+Constellation - Localization.ba2
+Constellation - Textures.ba2
+Constellation.esm
+OldMars - Localization.ba2
+OldMars - Textures.ba2
+OldMars.esm
+ShatteredSpace - Main01.ba2
+ShatteredSpace - Main02.ba2
+ShatteredSpace - Textures.ba2
+ShatteredSpace - Voices_en.ba2
+ShatteredSpace - Voices_de.ba2
+ShatteredSpace - Voices_es.ba2
+ShatteredSpace - Voices_fr.ba2
+ShatteredSpace - Voices_ja.ba2
+ShatteredSpace.esm
+BlueprintShips-SFBGS050.esm
+SFBGS050 - Main.ba2
+SFBGS050 - Textures.ba2
+SFBGS050 - Voices_en.ba2
+SFBGS050 - Voices_de.ba2
+SFBGS050 - Voices_es.ba2
+SFBGS050 - Voices_fr.ba2
+SFBGS050 - Voices_ja.ba2
+SFBGS050.esm
 video\ArtifactVision01.bk2
 video\ArtifactVision02.bk2
 video\ArtifactVision03.bk2

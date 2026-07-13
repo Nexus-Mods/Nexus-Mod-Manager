@@ -1,16 +1,8 @@
-Dawnguard.bsa
+Skyrim.esm
+Update.esm
 Dawnguard.esm
-Dragonborn.bsa
-Dragonborn.esm
-HearthFires.bsa
 HearthFires.esm
-HighResTexturePack01.bsa
-HighResTexturePack01.esp
-HighResTexturePack02.bsa
-HighResTexturePack02.esp
-HighResTexturePack03.bsa
-HighResTexturePack03.esp
-Interface\Translate_English.txt
+Dragonborn.esm
 Skyrim - Animations.bsa
 Skyrim - Interface.bsa
 Skyrim - Meshes.bsa
@@ -19,13 +11,88 @@ Skyrim - Shaders.bsa
 Skyrim - Sounds.bsa
 Skyrim - Textures.bsa
 Skyrim - Voices.bsa
-Skyrim.esm
-Strings\Skyrim_English.DLStrings
-Strings\Skyrim_English.ILStrings
-Strings\Skyrim_English.strings
+Skyrim - VoicesExtra.bsa
+Update.bsa
+Dawnguard.bsa
+HearthFires.bsa
+Dragonborn.bsa
+HighResTexturePack01.bsa
+HighResTexturePack01.esp
+HighResTexturePack02.bsa
+HighResTexturePack02.esp
+HighResTexturePack03.bsa
+HighResTexturePack03.esp
+Skyrim - Voices_PL.bsa
+Skyrim - VoicesExtra_PL.bsa
+Skyrim - VoicesUpdate_PL.bsa
+Interface\Translate_ENGLISH.txt
+Interface\Translate_FRENCH.txt
+Interface\Translate_ITALIAN.txt
+Interface\Translate_GERMAN.txt
+Interface\Translate_SPANISH.txt
+Interface\translate_polish.txt
+Interface\translate_czech.txt
+Interface\Translate_RUSSIAN.txt
+Interface\Translate_JAPANESE.txt
+Interface\Translate_Chinese.txt
+Strings\Skyrim_English.DLSTRINGS
+Strings\Skyrim_English.ILSTRINGS
+Strings\Skyrim_English.STRINGS
 Strings\Update_English.DLSTRINGS
 Strings\Update_English.ILSTRINGS
 Strings\Update_English.STRINGS
-Update.bsa
-Update.esm
+Strings\Skyrim_French.DLSTRINGS
+Strings\Skyrim_French.ILSTRINGS
+Strings\Skyrim_French.STRINGS
+Strings\Update_French.DLSTRINGS
+Strings\Update_French.ILSTRINGS
+Strings\Update_French.STRINGS
+Strings\Skyrim_Italian.DLSTRINGS
+Strings\Skyrim_Italian.ILSTRINGS
+Strings\Skyrim_Italian.STRINGS
+Strings\Update_Italian.DLSTRINGS
+Strings\Update_Italian.ILSTRINGS
+Strings\Update_Italian.STRINGS
+Strings\Skyrim_German.DLSTRINGS
+Strings\Skyrim_German.ILSTRINGS
+Strings\Skyrim_German.STRINGS
+Strings\Update_German.DLSTRINGS
+Strings\Update_German.ILSTRINGS
+Strings\Update_German.STRINGS
+Strings\Skyrim_Spanish.DLSTRINGS
+Strings\Skyrim_Spanish.ILSTRINGS
+Strings\Skyrim_Spanish.STRINGS
+Strings\Update_Spanish.DLSTRINGS
+Strings\Update_Spanish.ILSTRINGS
+Strings\Update_Spanish.STRINGS
+Strings\Skyrim_Polish.DLSTRINGS
+Strings\Skyrim_Polish.ILSTRINGS
+Strings\Skyrim_Polish.STRINGS
+Strings\Update_Polish.DLSTRINGS
+Strings\Update_Polish.ILSTRINGS
+Strings\Update_Polish.STRINGS
+Strings\Skyrim_Czech.DLSTRINGS
+Strings\Skyrim_Czech.ILSTRINGS
+Strings\Skyrim_Czech.STRINGS
+Strings\Update_Czech.DLSTRINGS
+Strings\Update_Czech.ILSTRINGS
+Strings\Update_Czech.STRINGS
+Strings\Skyrim_Russian.DLSTRINGS
+Strings\Skyrim_Russian.ILSTRINGS
+Strings\Skyrim_Russian.STRINGS
+Strings\Update_Russian.DLSTRINGS
+Strings\Update_Russian.ILSTRINGS
+Strings\Update_Russian.STRINGS
+Strings\Skyrim_Japanese.DLSTRINGS
+Strings\Skyrim_Japanese.ILSTRINGS
+Strings\Skyrim_Japanese.STRINGS
+Strings\Update_Japanese.DLSTRINGS
+Strings\Update_Japanese.ILSTRINGS
+Strings\Update_Japanese.STRINGS
+Strings\Skyrim_Chinese.DLSTRINGS
+Strings\Skyrim_Chinese.ILSTRINGS
+Strings\Skyrim_Chinese.STRINGS
+Strings\Update_Chinese.DLSTRINGS
+Strings\Update_Chinese.ILSTRINGS
+Strings\Update_Chinese.STRINGS
 Video\BGS_Logo.bik

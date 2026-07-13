@@ -7,6 +7,20 @@ DLCShiveringIsles - Voices.bsa
 DLCShiveringIsles.esp
 Knights.bsa
 Knights.esp
+DLCBattlehornCastle.bsa
+DLCBattlehornCastle.esp
+DLCFrostcrag.bsa
+DLCFrostcrag.esp
+DLCHorseArmor.bsa
+DLCHorseArmor.esp
+DLCMehrunesRazor.esp
+DLCOrrery.bsa
+DLCOrrery.esp
+DLCSpellTomes.esp
+DLCThievesDen.bsa
+DLCThievesDen.esp
+DLCVileLair.bsa
+DLCVileLair.esp
 Music\Battle\battle_01.mp3
 Music\Battle\battle_02.mp3
 Music\Battle\battle_03.mp3
@@ -63,11 +77,11 @@ Shaders\shaderpackage018.sdp
 Shaders\shaderpackage019.sdp
 Textures\Effects\TerrainNoise.dds
 Video\2k games.bik
-Video\bethesda softworks HD720p.bik
 Video\CreditsMenu.bik
-Video\game studios.bik
 Video\Map loop.bik
-Video\Oblivion iv logo.bik
 Video\Oblivion Legal.bik
+Video\Oblivion iv logo.bik
 Video\OblivionIntro.bik
 Video\OblivionOutro.bik
+Video\bethesda softworks HD720p.bik
+Video\game studios.bik

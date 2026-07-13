@@ -1,12 +1,16 @@
+_ResourcePack.bsa
+_ResourcePack.esl
+MarketplaceTextures.bsa
+Skyrim.esm
+Update.esm
 Dawnguard.esm
-Dragonborn.esm
 HearthFires.esm
+Dragonborn.esm
 Skyrim - Animations.bsa
 Skyrim - Interface.bsa
 Skyrim - Meshes0.bsa
 Skyrim - Meshes1.bsa
 Skyrim - Misc.bsa
-Skyrim - Patch.bsa
 Skyrim - Shaders.bsa
 Skyrim - Sounds.bsa
 Skyrim - Textures0.bsa
@@ -19,6 +23,12 @@ Skyrim - Textures6.bsa
 Skyrim - Textures7.bsa
 Skyrim - Textures8.bsa
 Skyrim - Voices_en0.bsa
-Skyrim.esm
-Update.esm
+Skyrim - Voices_fr0.bsa
+Skyrim - Voices_it0.bsa
+Skyrim - Voices_de0.bsa
+Skyrim - Voices_es0.bsa
+Skyrim - Voices_ru0.bsa
+Skyrim - Voices_pl0.bsa
+Skyrim - Voices_ja0.bsa
+Skyrim - Patch.bsa
 Video\BGS_Logo.bik
