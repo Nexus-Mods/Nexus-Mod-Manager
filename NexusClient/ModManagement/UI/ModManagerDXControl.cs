@@ -61,6 +61,8 @@ namespace Nexus.Client.ModManagement.UI
         private ToolStripMenuItem _toggleColouredCategoriesMenuItem;
         private ToolStripMenuItem _toggleRowHighlightsMenuItem;
         private ToolStripMenuItem _toggleActiveModsBoldMenuItem;
+        private ToolStripMenuItem _focusTopRowAfterSortingMenuItem;
+        private ToolStripMenuItem _focusTopRowAfterInstallDateChangeMenuItem;
         private ComboBox _gridFontCombo;
         private ComboBox _gridFontSizeCombo;
         private ComboBox _gridDensityCombo;
@@ -72,8 +74,6 @@ namespace Nexus.Client.ModManagement.UI
         private Rectangle _hoveredModNameIconBounds = Rectangle.Empty;
         private bool _suppressNextDoubleClick;
         private bool _updatingGridDisplayControls;
-        private Timer _columnFillTimer;
-        private bool _pendingColumnSizing;
         private bool _missingArchiveScanQueued;
         private string _gridFontFamilyName = DefaultGridFontFamily;
         private float _gridFontSizePt = DefaultGridFontSizePt;
@@ -81,6 +81,12 @@ namespace Nexus.Client.ModManagement.UI
         private bool _showColouredCategories = true;
         private bool _showRowHighlights = true;
         private bool _showActiveModsInBold;
+        private bool _focusTopRowAfterSorting = true;
+        private bool _focusTopRowAfterInstallDateChange = true;
+        private bool _toolbarPositionLeft;
+        private ToolStripButton _toolbarPositionButton;
+        private bool _restoringGridSort;
+        private string _lastGridSortSignature = string.Empty;
         private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
         private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache = new Dictionary<IMod, ModVisualStatus>();
@@ -124,9 +130,34 @@ namespace Nexus.Client.ModManagement.UI
         private const string GridActiveModsBoldKey = GridLayoutKey + ".ActiveModsBold";
         private const string GridCategoryViewKey = GridLayoutKey + ".CategoryView";
         private const string GridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
+        private const string GridFocusTopAfterSortKey   = GridLayoutKey + ".FocusTopAfterSort";
+        private const string GridFocusTopAfterInstallDateChangeKey = GridLayoutKey + ".FocusTopAfterInstallDateChange";
+        private const string GridToolbarPositionKey      = GridLayoutKey + ".ToolbarLeft";
         private const string DefaultGridFontFamily = "Segoe UI";
         private const float DefaultGridFontSizePt = 9f;
         private const string DefaultGridDensity = "Compact";
+        private enum ColumnSizingRole
+        {
+            Fixed,
+            Bounded,
+            FlexiblePrimary,
+            FlexibleSecondary,
+        }
+
+        private sealed class ColumnSizingDefinition
+        {
+            public string FieldName { get; }
+            public ColumnSizingRole Role { get; }
+            public int DefaultWidth { get; }
+            public int MinimumWidth { get; }
+            public int MaximumWidth { get; }
+            public ColumnSizingDefinition(string fieldName, ColumnSizingRole role, int defaultWidth, int minimumWidth, int maximumWidth) { FieldName = fieldName; Role = role; DefaultWidth = defaultWidth; MinimumWidth = minimumWidth; MaximumWidth = maximumWidth; }
+        }
+
+        private static readonly ColumnSizingDefinition[] GridColumnSizingDefinitions =
+        {
+            new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 90, 80, 150), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 90, 80, 150), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
+        };
         private const int ModStatusIconSize = 20;
         private const int InlineEditIconSize = 18;
         private static readonly string[] GridFontChoices = { "Segoe UI", "Corbel", "Calibri", "Tahoma", "Verdana" };
@@ -153,13 +184,12 @@ namespace Nexus.Client.ModManagement.UI
             InitializeComponent();
             InitializeToolbarIcons();
             ApplyToolbarActionLabels();
-            _columnFillTimer = new Timer(components) { Interval = 120 };
-            _columnFillTimer.Tick += ColumnFillTimer_Tick;
             Text = "Mods";
             InitializeInlineRenameEditor();
             SetupGrid();
             InitializeGridDisplayOptions();
             InitializeGridFontSelector();
+            InitializeToolbarPositionButton();
             UpdateSwitchViewText();
         }
 
@@ -236,6 +266,9 @@ namespace Nexus.Client.ModManagement.UI
                 _viewModel.Settings.DockPanelLayouts.Remove(GridActiveModsBoldKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCategoryViewKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterSortKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterInstallDateChangeKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridToolbarPositionKey);
                 _viewModel.Settings.Save();
             }
 
@@ -248,7 +281,11 @@ namespace Nexus.Client.ModManagement.UI
             SetColouredCategoriesVisible(true, false);
             SetRowHighlightsVisible(true, false);
             SetActiveModsBold(false, false);
-            ApplyColumnSizing();
+            SetFocusTopRowAfterSorting(true, false);
+            SetFocusTopRowAfterInstallDateChange(true, false);
+            SetToolbarPosition(false, false);
+            ApplyDefaultColumnSizing();
+            SaveGridLayout();
         }
 
         /// <inheritdoc/>
@@ -351,6 +388,7 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.ActivatingMultipleMods+= VM_ActivatingMultipleMods;
             _viewModel.ActivatingMod         += VM_ActivatingMod;
             _viewModel.ReinstallingMod       += VM_ReinstallingMod;
+            _viewModel.ReinstallCompleted    += VM_ReinstallCompleted;
             _viewModel.DisablingMultipleMods += VM_DisablingMultipleMods;
             _viewModel.DeletingMultipleMods  += VM_DeletingMultipleMods;
             _viewModel.DeactivatingMultipleMods += VM_DeactivatingMultipleMods;
@@ -409,6 +447,7 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.ActivatingMultipleMods   -= VM_ActivatingMultipleMods;
             _viewModel.ActivatingMod            -= VM_ActivatingMod;
             _viewModel.ReinstallingMod          -= VM_ReinstallingMod;
+            _viewModel.ReinstallCompleted       -= VM_ReinstallCompleted;
             _viewModel.DisablingMultipleMods    -= VM_DisablingMultipleMods;
             _viewModel.DeletingMultipleMods     -= VM_DeletingMultipleMods;
             _viewModel.DeactivatingMultipleMods -= VM_DeactivatingMultipleMods;
@@ -443,13 +482,10 @@ namespace Nexus.Client.ModManagement.UI
             RebuildActivationStateCache();
             QueueMissingArchiveScan();
             gridControl.RefreshDataSource();
-            bool restoredLayout = RestoreGridLayout();
+            RestoreGridLayout();
             RestoreGridSort();
             RestoreGridCategoryView();
-            if (restoredLayout)
-                ScheduleModNameFill();
-            else
-                ScheduleColumnSizing();
+            _lastGridSortSignature = GetGridSortSignature();
             UpdateModCountLabel();
         }
 
@@ -545,6 +581,7 @@ namespace Nexus.Client.ModManagement.UI
         private void Mod_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (InvokeRequired) { Invoke(new Action(() => Mod_PropertyChanged(sender, e))); return; }
+            bool focusTopAfterSortedPropertyChange = ShouldFocusTopAfterSortedPropertyChange(e.PropertyName);
             if (sender is IMod mod)
             {
                 int srcIdx = _modList.IndexOf(mod);
@@ -555,6 +592,40 @@ namespace Nexus.Client.ModManagement.UI
                         gridView.InvalidateRow(viewHandle);
                 }
             }
+
+            if (focusTopAfterSortedPropertyChange)
+                QueueFocusFirstVisibleDataRow();
+        }
+
+        private bool ShouldFocusTopAfterSortedPropertyChange(string propertyName)
+        {
+            return _focusTopRowAfterInstallDateChange &&
+                string.Equals(propertyName, ColInstallDate, StringComparison.Ordinal) &&
+                IsGridSortedByColumn(ColInstallDate);
+        }
+
+        private bool IsGridSortedByColumn(string fieldName)
+        {
+            foreach (GridColumnSortInfo sortInfo in gridView.SortInfo)
+            {
+                if (sortInfo.Column != null && string.Equals(sortInfo.Column.FieldName, fieldName, StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+
+        private void QueueFocusFirstVisibleDataRow()
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            BeginInvoke(new MethodInvoker(FocusFirstVisibleDataRow));
+        }
+
+        private void FocusFirstVisibleDataRow()
+        {
+            if (IsDisposed || gridView == null || gridView.RowCount <= 0) return;
+            int rowHandle = GetFirstVisibleDataRowHandle();
+            if (rowHandle >= 0)
+                FocusGridRow(rowHandle);
         }
 
         // ── Grid setup ───────────────────────────────────────────────────────
@@ -641,9 +712,25 @@ namespace Nexus.Client.ModManagement.UI
             };
             _toggleActiveModsBoldMenuItem.Click += (s, e) => SetActiveModsBold(_toggleActiveModsBoldMenuItem.Checked, true);
 
+            _focusTopRowAfterSortingMenuItem = new ToolStripMenuItem("Focus top row after sorting")
+            {
+                CheckOnClick = true,
+                Checked = _focusTopRowAfterSorting
+            };
+            _focusTopRowAfterSortingMenuItem.Click += (s, e) => SetFocusTopRowAfterSorting(_focusTopRowAfterSortingMenuItem.Checked, true);
+
+            _focusTopRowAfterInstallDateChangeMenuItem = new ToolStripMenuItem("Focus top row after install date changes")
+            {
+                CheckOnClick = true,
+                Checked = _focusTopRowAfterInstallDateChange
+            };
+            _focusTopRowAfterInstallDateChangeMenuItem.Click += (s, e) => SetFocusTopRowAfterInstallDateChange(_focusTopRowAfterInstallDateChangeMenuItem.Checked, true);
+
             _displayOptionsButton.DropDownItems.Add(_toggleColouredCategoriesMenuItem);
             _displayOptionsButton.DropDownItems.Add(_toggleRowHighlightsMenuItem);
             _displayOptionsButton.DropDownItems.Add(_toggleActiveModsBoldMenuItem);
+            _displayOptionsButton.DropDownItems.Add(_focusTopRowAfterSortingMenuItem);
+            _displayOptionsButton.DropDownItems.Add(_focusTopRowAfterInstallDateChangeMenuItem);
             toolStrip1.Items.Add(_displayOptionsButton);
         }
 
@@ -748,6 +835,9 @@ namespace Nexus.Client.ModManagement.UI
             SetColouredCategoriesVisible(ReadGridDisplayOption(GridColouredCategoriesKey, true), false);
             SetRowHighlightsVisible(ReadGridDisplayOption(GridRowHighlightsKey, true), false);
             SetActiveModsBold(ReadGridDisplayOption(GridActiveModsBoldKey, false), false);
+            SetFocusTopRowAfterSorting(ReadGridDisplayOption(GridFocusTopAfterSortKey, true), false);
+            SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, true), false);
+            SetToolbarPosition(ReadGridDisplayOption(GridToolbarPositionKey, false), false);
         }
 
         private bool ReadGridDisplayOption(string key, bool defaultValue)
@@ -967,7 +1057,6 @@ namespace Nexus.Client.ModManagement.UI
             ApplyToolbarFont(rowFont);
             gridView.LayoutChanged();
             gridView.InvalidateRows();
-            ScheduleModNameFill();
         }
 
         private void ApplyToolbarFont(Font font)
@@ -1059,9 +1148,7 @@ namespace Nexus.Client.ModManagement.UI
             gridView.CustomColumnSort       += GridView_CustomColumnSort;
             gridView.GroupRowExpanded       += (s, e) => SaveGridLayout();
             gridView.GroupRowCollapsed      += (s, e) => SaveGridLayout();
-            gridControl.SizeChanged          += (s, e) => ScheduleModNameFill();
-            gridView.ColumnWidthChanged      += (s, e) => { if (_restoringGridLayout) return; if (e.Column?.FieldName != ColModName) ScheduleModNameFill(); SaveGridLayout(); };
-            gridView.EndSorting              += (s, e) => SaveGridLayout();
+            gridView.ColumnWidthChanged += (s, e) => { if (!_restoringGridLayout) SaveGridLayout(); };            gridView.EndSorting              += GridView_EndSorting;
             gridControl.MouseMove            += GridControl_MouseMove;
             gridControl.MouseLeave           += GridControl_MouseLeave;
             gridControl.MouseDown            += GridControl_MouseDown;
@@ -1069,52 +1156,13 @@ namespace Nexus.Client.ModManagement.UI
 
         private void BuildColumns()
         {
-            AddCol(ColModStatus,    "Status",        58, HorzAlignment.Center,  true);
-            AddCol(ColModName,      "MOD NAME",       220, HorzAlignment.Default, true);
-            AddCol(ColVersion,      "VERSION",         70, HorzAlignment.Center,  false);
-            AddCol(ColLastKnown,    "LATEST",          70, HorzAlignment.Center,  false);
-            AddCol(ColAuthor,       "AUTHOR",         128, HorzAlignment.Default, false);
-            AddCol(ColCategory,     "CATEGORY",        90, HorzAlignment.Default, false);
-            AddCol(ColInstallDate,  "INSTALL DATE",    90, HorzAlignment.Center,  false);
-            AddCol(ColDownloadDate, "DOWNLOAD DATE",   90, HorzAlignment.Center,  false);
-            AddCol(ColDownloadId,   "DOWNLOAD ID",     80, HorzAlignment.Center,  false);
-
-            // Endorsed uses an image — attach a picture editor so DevExpress renders Image values
-            var endorsedCol = AddCol(ColEndorsed, "ENDORSED", 70, HorzAlignment.Center, false);
-            var picRepo = new RepositoryItemPictureEdit
-            {
-                ShowMenu = false,
-                SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom,
-                NullText = "",
-            };
-            endorsedCol.ColumnEdit = picRepo;
-            gridControl.RepositoryItems.Add(picRepo);
+            AddCol(ColModStatus, "Status", HorzAlignment.Center, true); AddCol(ColModName, "MOD NAME", HorzAlignment.Default, true); AddCol(ColVersion, "VERSION", HorzAlignment.Center, false); AddCol(ColLastKnown, "LATEST", HorzAlignment.Center, false); AddCol(ColAuthor, "AUTHOR", HorzAlignment.Default, false); AddCol(ColCategory, "CATEGORY", HorzAlignment.Default, false); AddCol(ColInstallDate, "INSTALL DATE", HorzAlignment.Center, false); AddCol(ColDownloadDate, "DOWNLOAD DATE", HorzAlignment.Center, false); AddCol(ColDownloadId, "DOWNLOAD ID", HorzAlignment.Center, false);
+            GridColumn endorsedCol = AddCol(ColEndorsed, "ENDORSED", HorzAlignment.Center, false); RepositoryItemPictureEdit picRepo = new RepositoryItemPictureEdit { ShowMenu = false, SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, NullText = "", }; endorsedCol.ColumnEdit = picRepo; gridControl.RepositoryItems.Add(picRepo);
         }
-
-        private GridColumn AddCol(string field, string caption, int width, HorzAlignment align, bool pin)
+        private GridColumn AddCol(string field, string caption, HorzAlignment align, bool pin)
         {
-            var col = new GridColumn
-            {
-                FieldName   = field,
-                Caption     = caption,
-                Width       = width,
-                Fixed       = pin ? FixedStyle.Left : FixedStyle.None,
-                UnboundType = field == ColEndorsed ? DevExpress.Data.UnboundColumnType.Object : DevExpress.Data.UnboundColumnType.String,
-                OptionsColumn = { AllowEdit = false, AllowSort = DefaultBoolean.True, ReadOnly = true, FixedWidth = field != ColModName },
-                AppearanceHeader = { TextOptions = { HAlignment = align } },
-                AppearanceCell   = { TextOptions = { HAlignment = align } },
-            };
-            if (field == ColInstallDate || field == ColDownloadDate)
-                col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
-
-            col.MinWidth = field == ColModName ? 100 : Math.Min(width, 70);
-            ApplyAutoFilterDefaults(col);
-            gridView.Columns.Add(col);
-            col.Visible      = true;
-            col.VisibleIndex = gridView.Columns.Count - 1;
-            return col;
+            ColumnSizingDefinition sizing = GetColumnSizingDefinition(field); GridColumn col = new GridColumn { FieldName = field, Caption = caption, Width = sizing.DefaultWidth, Fixed = pin ? FixedStyle.Left : FixedStyle.None, UnboundType = field == ColEndorsed ? DevExpress.Data.UnboundColumnType.Object : DevExpress.Data.UnboundColumnType.String, OptionsColumn = { AllowEdit = false, AllowSort = DefaultBoolean.True, ReadOnly = true, FixedWidth = false }, AppearanceHeader = { TextOptions = { HAlignment = align } }, AppearanceCell = { TextOptions = { HAlignment = align } }, }; ApplyColumnSizingDefinition(col, sizing); if (field == ColInstallDate || field == ColDownloadDate) col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom; ApplyAutoFilterDefaults(col); gridView.Columns.Add(col); col.Visible = true; col.VisibleIndex = gridView.Columns.Count - 1; return col;
         }
-
         private void ApplyAutoFilterDefaults()
         {
             foreach (GridColumn col in gridView.Columns)
@@ -1778,77 +1826,18 @@ namespace Nexus.Client.ModManagement.UI
         /// Sizes all columns to their content, pins Author at 128 px,
         /// and lets MOD NAME absorb the remaining grid width.
         /// </summary>
-        private void ApplyColumnSizing()
+        private static ColumnSizingDefinition GetColumnSizingDefinition(string fieldName)
         {
-            if (!IsHandleCreated) return;
-            gridView.BeginUpdate();
-            try
-            {
-                // Author: always 128 px
-                var authorCol = gridView.Columns[ColAuthor];
-                if (authorCol != null) authorCol.Width = 128;
-
-                // Best-fit every other visible column except Mod Name
-                if (_modList.Count > 0)
-                {
-                    for (int i = 0; i < gridView.VisibleColumns.Count; i++)
-                    {
-                        GridColumn col = gridView.VisibleColumns[i];
-                        if (col.FieldName == ColModName || col.FieldName == ColAuthor) continue;
-                        col.BestFit();
-                    }
-                }
-
-                ApplyAutoFilterDefaults();
-                ApplyDateSortDefaults();
-                SetModNameFill();
-            }
-            finally { gridView.EndUpdate(); }
+            foreach (ColumnSizingDefinition definition in GridColumnSizingDefinitions) if (string.Equals(definition.FieldName, fieldName, StringComparison.Ordinal)) return definition;
+            throw new ArgumentOutOfRangeException(nameof(fieldName), fieldName, "A sizing definition is required for every mod grid column.");
         }
-
-        private void ScheduleColumnSizing()
+        private static void ApplyColumnSizingDefinition(GridColumn column, ColumnSizingDefinition definition) { column.MinWidth = definition.MinimumWidth; column.MaxWidth = definition.MaximumWidth; column.Width = definition.DefaultWidth; }
+        private void ApplyDefaultColumnSizing() { gridView.BeginUpdate(); try { foreach (GridColumn column in gridView.Columns) ApplyColumnSizingDefinition(column, GetColumnSizingDefinition(column.FieldName)); } finally { gridView.EndUpdate(); } }
+        private void BestFitColumn(GridColumn column)
         {
-            _pendingColumnSizing = true;
-            _columnFillTimer.Stop();
-            _columnFillTimer.Start();
+            if (column == null) return;
+            ColumnSizingDefinition definition = GetColumnSizingDefinition(column.FieldName); gridView.BeginUpdate(); try { column.BestFit(); int width = Math.Max(definition.MinimumWidth, column.Width); if (definition.MaximumWidth > 0) width = Math.Min(definition.MaximumWidth, width); column.Width = width; } finally { gridView.EndUpdate(); } SaveGridLayout();
         }
-
-        private void ScheduleModNameFill()
-        {
-            _columnFillTimer.Stop();
-            _columnFillTimer.Start();
-        }
-
-        private void ColumnFillTimer_Tick(object sender, EventArgs e)
-        {
-            _columnFillTimer.Stop();
-            if (_pendingColumnSizing)
-            {
-                _pendingColumnSizing = false;
-                ApplyColumnSizing();
-                return;
-            }
-            SetModNameFill();
-        }
-
-        /// <summary>Sets MOD NAME width to whatever horizontal space is left after all other columns.</summary>
-        private void SetModNameFill()
-        {
-            var modNameCol = gridView.Columns[ColModName];
-            if (modNameCol == null || !IsHandleCreated) return;
-            int viewWidth = gridView.ViewRect.Width;
-            if (viewWidth <= 0) return;
-            int used = 0;
-            for (int i = 0; i < gridView.VisibleColumns.Count; i++)
-            {
-                GridColumn col = gridView.VisibleColumns[i];
-                if (col.FieldName != ColModName) used += col.Width;
-            }
-            int fill = Math.Max(modNameCol.MinWidth, viewWidth - used - SystemInformation.VerticalScrollBarWidth - 4);
-            if (Math.Abs(modNameCol.Width - fill) > 1)
-                modNameCol.Width = fill;
-        }
-
         // Keep the grid layout with the existing UI layout settings so Reset UI can clear it.
         private bool RestoreGridLayout()
         {
@@ -1872,14 +1861,12 @@ namespace Nexus.Client.ModManagement.UI
                         }
                         ApplyAutoFilterDefaults();
                         ApplyDateSortDefaults();
-                        SetModNameFill();
                         return true;
                     }
                 }
 
                 ApplyAutoFilterDefaults();
                 ApplyDateSortDefaults();
-                SetModNameFill();
                 return false;
             }
             catch
@@ -1906,6 +1893,7 @@ namespace Nexus.Client.ModManagement.UI
                 return;
             }
 
+            _restoringGridSort = true;
             gridView.SortInfo.BeginUpdate();
             try
             {
@@ -1928,6 +1916,8 @@ namespace Nexus.Client.ModManagement.UI
             finally
             {
                 gridView.SortInfo.EndUpdate();
+                _lastGridSortSignature = GetGridSortSignature();
+                _restoringGridSort = false;
             }
         }
 
@@ -2083,17 +2073,22 @@ namespace Nexus.Client.ModManagement.UI
 
         private void SaveGridSort()
         {
-            var parts = new List<string>();
+            string sortSignature = GetGridSortSignature();
+            if (string.IsNullOrEmpty(sortSignature))
+                _viewModel.Settings.DockPanelLayouts.Remove(GridSortKey);
+            else
+                _viewModel.Settings.DockPanelLayouts[GridSortKey] = sortSignature;
+        }
+
+        private string GetGridSortSignature()
+        {
+            List<string> parts = new List<string>();
             foreach (GridColumnSortInfo sortInfo in gridView.SortInfo)
             {
                 if (sortInfo.Column == null || sortInfo.SortOrder == DevExpress.Data.ColumnSortOrder.None) continue;
                 parts.Add(sortInfo.Column.FieldName + "|" + sortInfo.SortOrder);
             }
-
-            if (parts.Count == 0)
-                _viewModel.Settings.DockPanelLayouts.Remove(GridSortKey);
-            else
-                _viewModel.Settings.DockPanelLayouts[GridSortKey] = string.Join(";", parts);
+            return string.Join(";", parts);
         }
         protected override void OnClosed(EventArgs e)
         {
@@ -2413,8 +2408,7 @@ namespace Nexus.Client.ModManagement.UI
             var info = gridView.CalcHitInfo(gridView.GridControl.PointToClient(Control.MousePosition));
             if (info.HitTest == GridHitTest.ColumnEdge && info.Column != null)
             {
-                info.Column.BestFit();
-                if (info.Column.FieldName != ColModName) SetModNameFill();
+                BestFitColumn(info.Column);
                 return;
             }
 
@@ -2426,9 +2420,28 @@ namespace Nexus.Client.ModManagement.UI
         {
             if (_renamePanel?.Visible == true) return;
             if (e.KeyCode == Keys.F2 && TryStartHoveredModNameRename()) { e.Handled = true; return; }
-            if (e.KeyCode == Keys.Return) { e.Handled = true; ToggleSelectedMod(); }
-            if (e.KeyCode == Keys.Delete) { e.Handled = true; DeleteSelectedModsFromKey(); }
-            if (e.KeyData == (Keys.Control | Keys.F)) SetTextBoxFocus?.Invoke(this, e);
+            if (e.KeyCode == Keys.Return) { e.Handled = true; ToggleSelectedMod(); return; }
+            if (e.KeyCode == Keys.Delete) { e.Handled = true; DeleteSelectedModsFromKey(); return; }
+            if (e.KeyData == (Keys.Control | Keys.F)) { SetTextBoxFocus?.Invoke(this, e); return; }
+
+            if (!e.Control && !e.Alt && !e.Shift && e.KeyCode == Keys.Home)
+            {
+                int rowHandle = GetFirstVisibleDataRowHandle();
+                if (rowHandle >= 0) { FocusGridRow(rowHandle); e.Handled = true; }
+                return;
+            }
+            if (!e.Control && !e.Alt && !e.Shift && e.KeyCode == Keys.End)
+            {
+                int rowHandle = GetLastVisibleDataRowHandle();
+                if (rowHandle >= 0) { FocusGridRow(rowHandle); e.Handled = true; }
+                return;
+            }
+            if (!e.Control && !e.Alt && !e.Shift && e.KeyCode >= Keys.A && e.KeyCode <= Keys.Z)
+            {
+                char letter = (char)e.KeyCode;
+                if (NavigateToModByLetter(letter))
+                    e.Handled = true;
+            }
         }
 
         private bool TryStartHoveredModNameRename()
@@ -2467,6 +2480,147 @@ namespace Nexus.Client.ModManagement.UI
 
             var oclMods = new ThreadSafeObservableList<IMod>(mods);
             _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+        }
+
+        // ── keyboard navigation & row focus helpers ─────────────────────────────────────
+
+        private void FocusGridRow(int rowHandle)
+        {
+            if (rowHandle < 0) return;
+            gridView.ClearSelection();
+            gridView.FocusedRowHandle = rowHandle;
+            gridView.SelectRow(rowHandle);
+            gridView.MakeRowVisible(rowHandle, false);
+        }
+
+        private int GetFirstVisibleDataRowHandle()
+        {
+            for (int i = 0; i < gridView.RowCount; i++)
+            {
+                int h = gridView.GetVisibleRowHandle(i);
+                if (h >= 0 && !gridView.IsGroupRow(h))
+                    return h;
+            }
+            return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+        }
+
+        private int GetLastVisibleDataRowHandle()
+        {
+            for (int i = gridView.RowCount - 1; i >= 0; i--)
+            {
+                int h = gridView.GetVisibleRowHandle(i);
+                if (h >= 0 && !gridView.IsGroupRow(h))
+                    return h;
+            }
+            return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+        }
+
+        /// <summary>
+        /// Focuses the first visible data row whose mod name begins with <paramref name="letter"/>.
+        /// Group rows are skipped. Returns true when a match is found.
+        /// </summary>
+        private bool NavigateToModByLetter(char letter)
+        {
+            for (int i = 0; i < gridView.RowCount; i++)
+            {
+                int rowHandle = gridView.GetVisibleRowHandle(i);
+                if (rowHandle < 0 || gridView.IsGroupRow(rowHandle)) continue;
+                int src = gridView.GetDataSourceRowIndex(rowHandle);
+                if (src < 0 || src >= _modList.Count) continue;
+                string modName = _modList[src].ModName;
+                if (!string.IsNullOrEmpty(modName) && char.ToUpperInvariant(modName[0]) == letter)
+                {
+                    FocusGridRow(rowHandle);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // ── column auto-fit toggle ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Toggles auto-fit for <paramref name="column"/>. First double-click saves the current
+        /// width and applies BestFit; a second double-click restores the saved width.
+        /// </summary>
+        private void GridView_EndSorting(object sender, EventArgs e)
+        {
+            string sortSignature = GetGridSortSignature();
+            bool sortChanged = !string.Equals(_lastGridSortSignature, sortSignature, StringComparison.Ordinal);
+            _lastGridSortSignature = sortSignature;
+
+            SaveGridLayout();
+            if (_focusTopRowAfterSorting && sortChanged && !_restoringGridLayout && !_restoringGridSort)
+            {
+                int rowHandle = GetFirstVisibleDataRowHandle();
+                if (rowHandle >= 0)
+                    FocusGridRow(rowHandle);
+            }
+        }
+
+        private void SetFocusTopRowAfterSorting(bool enabled, bool save)
+        {
+            _focusTopRowAfterSorting = enabled;
+            if (_focusTopRowAfterSortingMenuItem != null)
+                _focusTopRowAfterSortingMenuItem.Checked = enabled;
+            SaveGridDisplayOption(GridFocusTopAfterSortKey, enabled, save);
+        }
+
+        private void SetFocusTopRowAfterInstallDateChange(bool enabled, bool save)
+        {
+            _focusTopRowAfterInstallDateChange = enabled;
+            if (_focusTopRowAfterInstallDateChangeMenuItem != null)
+                _focusTopRowAfterInstallDateChangeMenuItem.Checked = enabled;
+            SaveGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, enabled, save);
+        }
+
+        private void InitializeToolbarPositionButton()
+        {
+            _toolbarPositionButton = new ToolStripButton
+            {
+                Alignment    = ToolStripItemAlignment.Right,
+                DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+                Text         = "Toolbar Layout",
+                ToolTipText  = "Toolbar Layout – move to Left",
+                Name         = "tsbToolbarPosition",
+                Image        = Nexus.Client.Properties.Resources.toolbar_move_left
+            };
+            _toolbarPositionButton.Click += (s, e) => SetToolbarPosition(!_toolbarPositionLeft, true);
+            toolStrip1.Items.Add(_toolbarPositionButton);
+        }
+
+        private void SetToolbarPosition(bool left, bool save)
+        {
+            _toolbarPositionLeft = left;
+
+            if (left)
+            {
+                toolStrip1.Dock        = DockStyle.Left;
+                toolStrip1.LayoutStyle = ToolStripLayoutStyle.VerticalStackWithOverflow;
+                if (_toolbarPositionButton != null)
+                {
+                    _toolbarPositionButton.Text       = "Toolbar Layout";
+                    _toolbarPositionButton.ToolTipText = "Toolbar Layout – move to Top";
+                    _toolbarPositionButton.Image      = Nexus.Client.Properties.Resources.toolbar_move_top;
+                }
+            }
+            else
+            {
+                toolStrip1.Dock        = DockStyle.Top;
+                toolStrip1.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
+                if (_toolbarPositionButton != null)
+                {
+                    _toolbarPositionButton.Text       = "Toolbar Layout";
+                    _toolbarPositionButton.ToolTipText = "Toolbar Layout – move to Left";
+                    _toolbarPositionButton.Image      = Nexus.Client.Properties.Resources.toolbar_move_left;
+                }
+            }
+
+            // Ensure the right-aligned items (Alignment.Right) are shown in the
+            // correct overflow direction for the layout style.
+            toolStrip1.PerformLayout();
+
+            SaveGridDisplayOption(GridToolbarPositionKey, left, save);
         }
 
         private void ToggleSelectedMod()
@@ -2578,8 +2732,23 @@ namespace Nexus.Client.ModManagement.UI
                 itemUninstall.DropDownItems.Add("From all profiles", null, (s, ev) =>
                 {
                     if (_viewModel == null || !ConfirmMissingArchiveUninstall(mods)) return;
-                    _viewModel.DeactivateMod(mod);
-                    UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                    _viewModel.VirtualModActivator.DisableMod(mod);
+                    IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
+                    if (btsDeactivate != null)
+                    {
+                        btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
+                        {
+                            if (InvokeRequired)
+                                Invoke((MethodInvoker)(() => UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod))));
+                            else
+                                UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                        };
+                        _viewModel.ModManager.ModActivationMonitor.AddActivity(btsDeactivate);
+                    }
+                    else
+                    {
+                        UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                    }
                 });
                 itemUninstall.DropDownItems.Add(new ToolStripSeparator());
                 itemUninstall.DropDownItems.Add(
@@ -2590,10 +2759,36 @@ namespace Nexus.Client.ModManagement.UI
                         if (_viewModel == null) return;
                         if (ConfirmModFileDeletion(mods) && ConfirmMissingArchiveUninstall(mods))
                         {
-                            _viewModel.DeactivateMod(mod);
-                            UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
-                            var oclMods = new ThreadSafeObservableList<IMod>(mods);
-                            _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                            _viewModel.VirtualModActivator.DisableMod(mod);
+                            IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
+                            if (btsDeactivate != null)
+                            {
+                                btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
+                                {
+                                    if (InvokeRequired)
+                                    {
+                                        Invoke((MethodInvoker)(() =>
+                                        {
+                                            UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                                            var oclMods = new ThreadSafeObservableList<IMod>(mods);
+                                            _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                                        }));
+                                    }
+                                    else
+                                    {
+                                        UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                                        var oclMods = new ThreadSafeObservableList<IMod>(mods);
+                                        _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                                    }
+                                };
+                                _viewModel.ModManager.ModActivationMonitor.AddActivity(btsDeactivate);
+                            }
+                            else
+                            {
+                                UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+                                var oclMods = new ThreadSafeObservableList<IMod>(mods);
+                                _viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+                            }
                         }
                     });
             }
@@ -2991,6 +3186,13 @@ namespace Nexus.Client.ModManagement.UI
         }
 
         private void collapseAllCategories_Click(object sender, EventArgs e)
+            => CollapseAllCategories();
+
+        private void expandAllCategories_Click(object sender, EventArgs e)
+            => ExpandAllCategories();
+
+        /// <summary>Collapses all category groups in the mod grid (callable from CategoryManagerControl).</summary>
+        public void CollapseAllCategories()
         {
             if (!_categoryViewActive)
                 ApplyCategoryView(true, true);
@@ -2998,7 +3200,8 @@ namespace Nexus.Client.ModManagement.UI
             SaveGridLayout();
         }
 
-        private void expandAllCategories_Click(object sender, EventArgs e)
+        /// <summary>Expands all category groups in the mod grid (callable from CategoryManagerControl).</summary>
+        public void ExpandAllCategories()
         {
             if (!_categoryViewActive)
                 ApplyCategoryView(true, false);
@@ -3154,6 +3357,13 @@ namespace Nexus.Client.ModManagement.UI
         {
             if (InvokeRequired) { Invoke((Action<object, EventArgs<IBackgroundTask>>)VM_ReinstallingMod, sender, e); return; }
             ProgressDialog.ShowDialog(this, e.Argument);
+            RefreshActivationState();
+        }
+
+        private void VM_ReinstallCompleted(object sender, EventArgs e)
+        {
+            if (InvokeRequired) { Invoke((Action<object, EventArgs>)VM_ReinstallCompleted, sender, e); return; }
+            RefreshActivationState();
         }
 
         private void VM_DisablingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
@@ -3311,12 +3521,16 @@ namespace Nexus.Client.ModManagement.UI
                 Invoke((MethodInvoker)(() => r = ConfirmModFileOverwrite(oldPath, newPath)));
                 return r;
             }
+
+            if (!File.Exists(oldPath))
+                return oldPath;
+
             switch (MessageBox.Show(this,
                 $"A mod archive already exists at:\r\n{oldPath}\r\n\r\nWould you like to overwrite it?",
                 "Overwrite?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
             {
-                case DialogResult.Yes:    return newPath;
-                case DialogResult.No:     return oldPath;
+                case DialogResult.Yes:    return oldPath;
+                case DialogResult.No:     return newPath;
                 default:                  return null;
             }
         }

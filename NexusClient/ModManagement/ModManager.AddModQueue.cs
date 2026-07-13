@@ -92,35 +92,24 @@ namespace Nexus.Client.ModManagement
 			public IBackgroundTask AddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 			{
 				AddModTask amtModAdder = null;
-				
-				if (p_uriPath.Scheme.ToLowerInvariant().ToString() == "nxm")
-				{
-					if (m_dicActiveTasks.ContainsKey(p_uriPath))
-						return m_dicActiveTasks[p_uriPath];
-					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
-					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
-					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
-					amtModAdder.IsRemote = true;
-					m_dicActiveTasks[p_uriPath] = amtModAdder;
-					m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
-					amtModAdder.AddMod(true);
-				}
-				else
-				{
-					if (m_dicActiveTasks.ContainsKey(p_uriPath))
-						return m_dicActiveTasks[p_uriPath];
-					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
-					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
-					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
-					amtModAdder.IsRemote = false;
-					m_dicActiveTasks[p_uriPath] = amtModAdder;
-					m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
+				bool booIsRemote = p_uriPath.Scheme.ToLowerInvariant().ToString() == "nxm";
+				bool booQueueTask = false;
 
-					if (LocalTaskCount > 1)
-						amtModAdder.AddMod(true);
-					else
-						amtModAdder.AddMod(false);
+				lock (m_dicActiveTasks)
+				{
+					if (m_dicActiveTasks.ContainsKey(p_uriPath))
+						return m_dicActiveTasks[p_uriPath];
+
+					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
+					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
+					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
+					amtModAdder.IsRemote = booIsRemote;
+					m_dicActiveTasks[p_uriPath] = amtModAdder;
+					booQueueTask = booIsRemote || LocalTaskCount > 1;
 				}
+
+				m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
+				amtModAdder.AddMod(booQueueTask);
 				return amtModAdder;
 			}
 
