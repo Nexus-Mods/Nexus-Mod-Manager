@@ -62,6 +62,7 @@ namespace Nexus.Client.ModManagement.UI
         private ToolStripMenuItem _toggleRowHighlightsMenuItem;
         private ToolStripMenuItem _toggleActiveModsBoldMenuItem;
         private ToolStripMenuItem _focusTopRowAfterSortingMenuItem;
+        private ToolStripMenuItem _focusTopRowAfterInstallDateChangeMenuItem;
         private ComboBox _gridFontCombo;
         private ComboBox _gridFontSizeCombo;
         private ComboBox _gridDensityCombo;
@@ -81,6 +82,7 @@ namespace Nexus.Client.ModManagement.UI
         private bool _showRowHighlights = true;
         private bool _showActiveModsInBold;
         private bool _focusTopRowAfterSorting = true;
+        private bool _focusTopRowAfterInstallDateChange = true;
         private bool _toolbarPositionLeft;
         private ToolStripButton _toolbarPositionButton;
         private bool _restoringGridSort;
@@ -129,6 +131,7 @@ namespace Nexus.Client.ModManagement.UI
         private const string GridCategoryViewKey = GridLayoutKey + ".CategoryView";
         private const string GridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
         private const string GridFocusTopAfterSortKey   = GridLayoutKey + ".FocusTopAfterSort";
+        private const string GridFocusTopAfterInstallDateChangeKey = GridLayoutKey + ".FocusTopAfterInstallDateChange";
         private const string GridToolbarPositionKey      = GridLayoutKey + ".ToolbarLeft";
         private const string DefaultGridFontFamily = "Segoe UI";
         private const float DefaultGridFontSizePt = 9f;
@@ -264,6 +267,7 @@ namespace Nexus.Client.ModManagement.UI
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCategoryViewKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterSortKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterInstallDateChangeKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridToolbarPositionKey);
                 _viewModel.Settings.Save();
             }
@@ -278,6 +282,7 @@ namespace Nexus.Client.ModManagement.UI
             SetRowHighlightsVisible(true, false);
             SetActiveModsBold(false, false);
             SetFocusTopRowAfterSorting(true, false);
+            SetFocusTopRowAfterInstallDateChange(true, false);
             SetToolbarPosition(false, false);
             ApplyDefaultColumnSizing();
             SaveGridLayout();
@@ -576,6 +581,7 @@ namespace Nexus.Client.ModManagement.UI
         private void Mod_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (InvokeRequired) { Invoke(new Action(() => Mod_PropertyChanged(sender, e))); return; }
+            bool focusTopAfterSortedPropertyChange = ShouldFocusTopAfterSortedPropertyChange(e.PropertyName);
             if (sender is IMod mod)
             {
                 int srcIdx = _modList.IndexOf(mod);
@@ -586,6 +592,40 @@ namespace Nexus.Client.ModManagement.UI
                         gridView.InvalidateRow(viewHandle);
                 }
             }
+
+            if (focusTopAfterSortedPropertyChange)
+                QueueFocusFirstVisibleDataRow();
+        }
+
+        private bool ShouldFocusTopAfterSortedPropertyChange(string propertyName)
+        {
+            return _focusTopRowAfterInstallDateChange &&
+                string.Equals(propertyName, ColInstallDate, StringComparison.Ordinal) &&
+                IsGridSortedByColumn(ColInstallDate);
+        }
+
+        private bool IsGridSortedByColumn(string fieldName)
+        {
+            foreach (GridColumnSortInfo sortInfo in gridView.SortInfo)
+            {
+                if (sortInfo.Column != null && string.Equals(sortInfo.Column.FieldName, fieldName, StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+
+        private void QueueFocusFirstVisibleDataRow()
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            BeginInvoke(new MethodInvoker(FocusFirstVisibleDataRow));
+        }
+
+        private void FocusFirstVisibleDataRow()
+        {
+            if (IsDisposed || gridView == null || gridView.RowCount <= 0) return;
+            int rowHandle = GetFirstVisibleDataRowHandle();
+            if (rowHandle >= 0)
+                FocusGridRow(rowHandle);
         }
 
         // ── Grid setup ───────────────────────────────────────────────────────
@@ -679,10 +719,18 @@ namespace Nexus.Client.ModManagement.UI
             };
             _focusTopRowAfterSortingMenuItem.Click += (s, e) => SetFocusTopRowAfterSorting(_focusTopRowAfterSortingMenuItem.Checked, true);
 
+            _focusTopRowAfterInstallDateChangeMenuItem = new ToolStripMenuItem("Focus top row after install date changes")
+            {
+                CheckOnClick = true,
+                Checked = _focusTopRowAfterInstallDateChange
+            };
+            _focusTopRowAfterInstallDateChangeMenuItem.Click += (s, e) => SetFocusTopRowAfterInstallDateChange(_focusTopRowAfterInstallDateChangeMenuItem.Checked, true);
+
             _displayOptionsButton.DropDownItems.Add(_toggleColouredCategoriesMenuItem);
             _displayOptionsButton.DropDownItems.Add(_toggleRowHighlightsMenuItem);
             _displayOptionsButton.DropDownItems.Add(_toggleActiveModsBoldMenuItem);
             _displayOptionsButton.DropDownItems.Add(_focusTopRowAfterSortingMenuItem);
+            _displayOptionsButton.DropDownItems.Add(_focusTopRowAfterInstallDateChangeMenuItem);
             toolStrip1.Items.Add(_displayOptionsButton);
         }
 
@@ -788,6 +836,7 @@ namespace Nexus.Client.ModManagement.UI
             SetRowHighlightsVisible(ReadGridDisplayOption(GridRowHighlightsKey, true), false);
             SetActiveModsBold(ReadGridDisplayOption(GridActiveModsBoldKey, false), false);
             SetFocusTopRowAfterSorting(ReadGridDisplayOption(GridFocusTopAfterSortKey, true), false);
+            SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, true), false);
             SetToolbarPosition(ReadGridDisplayOption(GridToolbarPositionKey, false), false);
         }
 
@@ -2515,6 +2564,14 @@ namespace Nexus.Client.ModManagement.UI
             if (_focusTopRowAfterSortingMenuItem != null)
                 _focusTopRowAfterSortingMenuItem.Checked = enabled;
             SaveGridDisplayOption(GridFocusTopAfterSortKey, enabled, save);
+        }
+
+        private void SetFocusTopRowAfterInstallDateChange(bool enabled, bool save)
+        {
+            _focusTopRowAfterInstallDateChange = enabled;
+            if (_focusTopRowAfterInstallDateChangeMenuItem != null)
+                _focusTopRowAfterInstallDateChangeMenuItem.Checked = enabled;
+            SaveGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, enabled, save);
         }
 
         private void InitializeToolbarPositionButton()
