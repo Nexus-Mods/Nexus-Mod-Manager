@@ -1,4 +1,4 @@
-namespace NexusClientTests
+﻿namespace NexusClientTests
 {
     using System;
     using System.Collections.Generic;
@@ -177,6 +177,65 @@ namespace NexusClientTests
             Assert.AreEqual(FileManagerSource.Untracked, row.Source);
         }
 
+
+        [Test]
+        public void NmmOwnerCandidatesArePreorderedAndDeduplicated()
+        {
+            FileManagerRow row = CreateRow("textures\\owned.dds");
+            TestVirtualModInfo lowPriority = new TestVirtualModInfo("low.7z", "Low Priority");
+            TestVirtualModInfo highPriority = new TestVirtualModInfo("high.7z", "High Priority");
+            List<IVirtualModLink> links = new List<IVirtualModLink>
+            {
+                new TestVirtualModLink(row.RelativePath, true, 20, lowPriority),
+                new TestVirtualModLink(row.RelativePath, false, 10, highPriority),
+                new TestVirtualModLink(row.RelativePath, false, 30, lowPriority)
+            };
+
+            FileManagerQueryService.ApplySourceClassification(row, links, EmptyBaseFiles(), EmptyManualSources());
+
+            Assert.AreEqual(FileManagerSource.InstalledByNmm, row.Source);
+            Assert.AreEqual(FileManagerQueryService.CreateOwnerKey(lowPriority), row.OwnerKey);
+            Assert.AreEqual(2, row.OwnerCandidates.Count);
+            Assert.AreEqual(FileManagerQueryService.CreateOwnerKey(highPriority), row.OwnerCandidates[0].OwnerKey);
+            Assert.AreEqual(FileManagerQueryService.CreateOwnerKey(lowPriority), row.OwnerCandidates[1].OwnerKey);
+        }
+
+        [Test]
+        public void SelectedOwnerUpdateUsesPreparedCandidateList()
+        {
+            FileManagerQueryService service = new FileManagerQueryService();
+            FileManagerRow row = CreateRow("textures\\owned.dds");
+            row.Source = FileManagerSource.InstalledByNmm;
+            row.SourceEditable = false;
+            row.OwnerCandidates = new List<FileManagerOwnerCandidate>
+            {
+                new FileManagerOwnerCandidate("first|", "First Mod", 0),
+                new FileManagerOwnerCandidate("second|", "Second Mod", 1)
+            };
+            row.OwnerKey = "first|";
+            row.OwnerName = "First Mod";
+
+            service.ApplySelectedOwner(row, "second|");
+
+            Assert.AreEqual(FileManagerSource.InstalledByNmm, row.Source);
+            Assert.AreEqual("second|", row.OwnerKey);
+            Assert.AreEqual("Second Mod", row.OwnerName);
+        }
+
+        [Test]
+        public void SourceCountsUpdateWithoutRecountingRows()
+        {
+            FileManagerSourceCounts counts = new FileManagerSourceCounts();
+            counts.Add(FileManagerSource.Untracked);
+            counts.Add(FileManagerSource.InstalledByNmm);
+
+            counts.Change(FileManagerSource.Untracked, FileManagerSource.Creations);
+
+            Assert.AreEqual(2, counts.Total);
+            Assert.AreEqual(1, counts.InstalledByNmm);
+            Assert.AreEqual(1, counts.Creations);
+            Assert.AreEqual(0, counts.Untracked);
+        }
         private static FileManagerRow CreateRow(string relativePath)
         {
             return new FileManagerRow

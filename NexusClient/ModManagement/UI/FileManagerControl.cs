@@ -1,9 +1,10 @@
-namespace Nexus.Client.ModManagement.UI
+﻿namespace Nexus.Client.ModManagement.UI
 {
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Drawing;
+    using System.Diagnostics;
     using System.Threading.Tasks;
     using System.Windows.Forms;
 
@@ -30,6 +31,7 @@ namespace Nexus.Client.ModManagement.UI
         private readonly RepositoryItemLookUpEdit _sourceFilterLookup;
         private readonly Dictionary<FileManagerRow, string> _previousOwnerKeys = new Dictionary<FileManagerRow, string>();
         private readonly Dictionary<FileManagerRow, FileManagerSource> _previousSources = new Dictionary<FileManagerRow, FileManagerSource>();
+        private readonly Dictionary<List<FileManagerOwnerCandidate>, RepositoryItemLookUpEdit> _ownerLookupCache = new Dictionary<List<FileManagerOwnerCandidate>, RepositoryItemLookUpEdit>();
         private FileManagerVM _fileManagerVM;
         private ModManagerVM _viewModel;
         private bool _suppressOwnerChange;
@@ -73,7 +75,12 @@ namespace Nexus.Client.ModManagement.UI
             _gridControl.ViewCollection.Add(_gridView);
             _gridView.OptionsView.ShowGroupPanel = false;
             _gridView.OptionsView.ShowIndicator = false;
+            _gridView.OptionsDetail.EnableMasterViewMode = false;
             _gridView.OptionsBehavior.Editable = true;
+            _gridView.OptionsView.ColumnAutoWidth = false;
+            _gridView.OptionsView.BestFitMaxRowCount = 50;
+            _gridView.OptionsView.ShowAutoFilterRow = true;
+            _gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
             _gridView.CustomRowCellEdit += GridView_CustomRowCellEdit;
             _gridView.CustomColumnDisplayText += GridView_CustomColumnDisplayText;
             _gridView.ShowingEditor += GridView_ShowingEditor;
@@ -134,6 +141,7 @@ namespace Nexus.Client.ModManagement.UI
                     _fileManagerVM.PropertyChanged -= FileManagerVM_PropertyChanged;
                     _fileManagerVM.Dispose();
                     _fileManagerVM = null;
+                    ClearOwnerLookupCache();
                 }
 
                 _viewModel = value;
@@ -141,7 +149,7 @@ namespace Nexus.Client.ModManagement.UI
                 {
                     _fileManagerVM = new FileManagerVM(_viewModel);
                     _fileManagerVM.PropertyChanged += FileManagerVM_PropertyChanged;
-                    _gridControl.DataSource = _fileManagerVM.Rows;
+                    BindRows(_fileManagerVM.Rows);
                     UpdateLabels();
                 }
             }
@@ -210,6 +218,10 @@ namespace Nexus.Client.ModManagement.UI
                 else
                     _gridView.HideLoadingPanel();
             }
+            else if (e.PropertyName == "Rows")
+            {
+                BindRows(_fileManagerVM.Rows);
+            }
             else if (e.PropertyName == "CanChangeFileOwner")
             {
                 _gridView.RefreshData();
@@ -237,6 +249,51 @@ namespace Nexus.Client.ModManagement.UI
             _refreshButton.Enabled = !_fileManagerVM.IsScanning;
         }
 
+        private void BindRows(BindingList<FileManagerRow> rows)
+        {
+            ClearOwnerLookupCache();
+            _gridView.BeginUpdate();
+            try
+            {
+                _gridControl.DataSource = rows;
+            }
+            finally
+            {
+                _gridView.EndUpdate();
+            }
+        }
+
+        private RepositoryItemLookUpEdit GetOwnerLookup(List<FileManagerOwnerCandidate> candidates)
+        {
+            if (candidates == null || candidates.Count == 0)
+                return _emptyOwnerLookup;
+
+            RepositoryItemLookUpEdit ownerLookup;
+            if (_ownerLookupCache.TryGetValue(candidates, out ownerLookup))
+                return ownerLookup;
+
+            ownerLookup = new RepositoryItemLookUpEdit
+            {
+                DataSource = candidates,
+                DisplayMember = "ModName",
+                ValueMember = "OwnerKey",
+                NullText = String.Empty,
+                ShowHeader = false,
+                TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
+            };
+            ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", "Mod"));
+            _gridControl.RepositoryItems.Add(ownerLookup);
+            _ownerLookupCache[candidates] = ownerLookup;
+            return ownerLookup;
+        }
+
+        private void ClearOwnerLookupCache()
+        {
+            foreach (RepositoryItemLookUpEdit ownerLookup in _ownerLookupCache.Values)
+                _gridControl.RepositoryItems.Remove(ownerLookup);
+
+            _ownerLookupCache.Clear();
+        }
         private void ConfigureColumns()
         {
             AddColumn("FileName", "File Name", 220, false);
@@ -291,18 +348,11 @@ namespace Nexus.Client.ModManagement.UI
                 return;
             }
 
-            RepositoryItemLookUpEdit ownerLookup = new RepositoryItemLookUpEdit
-            {
-                DataSource = row.OwnerCandidates,
-                DisplayMember = "ModName",
-                ValueMember = "OwnerKey",
-                NullText = String.Empty,
-                ShowHeader = false,
-                TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
-            };
-            ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", "Mod"));
-            _gridControl.RepositoryItems.Add(ownerLookup);
-            e.RepositoryItem = ownerLookup;
+            Stopwatch editorWatch = Stopwatch.StartNew();
+            e.RepositoryItem = GetOwnerLookup(row.OwnerCandidates);
+            editorWatch.Stop();
+            if (editorWatch.ElapsedMilliseconds > 25)
+                Trace.TraceInformation("File Manager owner editor opened in {0}ms for {1} candidates.", editorWatch.ElapsedMilliseconds, row.OwnerCandidates.Count);
         }
 
         private void GridView_ShowingEditor(object sender, CancelEventArgs e)
@@ -385,7 +435,10 @@ namespace Nexus.Client.ModManagement.UI
                 if (!result.Success)
                     throw result.Failure ?? new InvalidOperationException(result.FailureMessage ?? "Unable to switch file owner.");
 
-                _fileManagerVM.RefreshRowOwnership(row);
+                Stopwatch updateWatch = Stopwatch.StartNew();
+                _fileManagerVM.ApplySelectedOwner(row, selectedOwnerKey);
+                updateWatch.Stop();
+                Trace.TraceInformation("File Manager owner update completed in {0}ms.", updateWatch.ElapsedMilliseconds);
                 _gridView.RefreshRow(e.RowHandle);
             }
             catch (Exception ex)
@@ -422,7 +475,10 @@ namespace Nexus.Client.ModManagement.UI
 
             try
             {
+                Stopwatch updateWatch = Stopwatch.StartNew();
                 _fileManagerVM.SetManualSource(row, selectedSource, previousSource);
+                updateWatch.Stop();
+                Trace.TraceInformation("File Manager source update completed in {0}ms.", updateWatch.ElapsedMilliseconds);
                 _gridView.RefreshRow(e.RowHandle);
                 UpdateLabels();
             }

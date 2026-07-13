@@ -1,9 +1,10 @@
-namespace Nexus.Client.ModManagement.UI
+﻿namespace Nexus.Client.ModManagement.UI
 {
     using System;
     using System.Collections.Generic;
     using System.Collections.Specialized;
     using System.ComponentModel;
+    using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -17,8 +18,12 @@ namespace Nexus.Client.ModManagement.UI
         private readonly IVirtualDeploymentService _deploymentService;
         private readonly HashSet<IBackgroundTaskSet> _watchedActivationTasks = new HashSet<IBackgroundTaskSet>();
         private CancellationTokenSource _scanCancellation;
+        private FileManagerSourceCounts _counts = new FileManagerSourceCounts();
+        private Dictionary<string, FileManagerRow> _rowsByNormalizedPath = new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
         private bool _loaded;
         private bool _scanning;
+        private bool _disposed;
+        private int _scanGeneration;
         private string _deploymentRoot;
         private string _statusMessage;
         private string _lastScannedDisplay;
@@ -142,7 +147,7 @@ namespace Nexus.Client.ModManagement.UI
 
         public async Task RefreshAsync()
         {
-            if (IsScanning)
+            if (_disposed || IsScanning)
                 return;
 
             if (!IsGamebryoMode)
@@ -151,8 +156,13 @@ namespace Nexus.Client.ModManagement.UI
                 return;
             }
 
+            CancellationTokenSource previousCancellation = _scanCancellation;
+            if (previousCancellation != null)
+                previousCancellation.Cancel();
+
             CancellationTokenSource cancellation = new CancellationTokenSource();
             _scanCancellation = cancellation;
+            int scanGeneration = Interlocked.Increment(ref _scanGeneration);
             IGameMode gameMode = GameMode;
             IsScanning = true;
             StatusMessage = "Scanning deployment files...";
@@ -160,10 +170,13 @@ namespace Nexus.Client.ModManagement.UI
             try
             {
                 FileManagerScanResult result = await Task.Run(() => _queryService.Scan(gameMode, _modManagerViewModel.VirtualModActivator, cancellation.Token), cancellation.Token).ConfigureAwait(true);
-                if (cancellation.IsCancellationRequested || !Object.ReferenceEquals(gameMode, GameMode))
+                if (_disposed || cancellation.IsCancellationRequested || scanGeneration != _scanGeneration || !Object.ReferenceEquals(gameMode, GameMode))
                     return;
 
+                Stopwatch publishWatch = Stopwatch.StartNew();
                 ApplyScanResult(result);
+                publishWatch.Stop();
+                Trace.TraceInformation("File Manager grid publication completed. Rows={0}, publish={1}ms, scan={2}", result.Rows.Count, publishWatch.ElapsedMilliseconds, result.Diagnostics);
                 _loaded = true;
                 StatusMessage = "Scan complete.";
             }
@@ -172,7 +185,11 @@ namespace Nexus.Client.ModManagement.UI
             }
             catch
             {
-                Rows.Clear();
+                Rows = new BindingList<FileManagerRow>();
+                _rowsByNormalizedPath = new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
+                _counts = new FileManagerSourceCounts();
+                ApplyCounts(_counts);
+                OnPropertyChanged("Rows");
                 throw;
             }
             finally
@@ -182,6 +199,8 @@ namespace Nexus.Client.ModManagement.UI
 
                 IsScanning = false;
                 cancellation.Dispose();
+                if (previousCancellation != null)
+                    previousCancellation.Dispose();
             }
         }
 
@@ -195,18 +214,33 @@ namespace Nexus.Client.ModManagement.UI
         {
             if (row == null) throw new ArgumentNullException("row");
 
+            FileManagerSource oldSource = row.Source;
             _queryService.ChangeManualSource(GameMode.ModeId, row, source, previousSource);
-            UpdateCountsFromRows();
+            ChangeCounts(oldSource, row.Source);
+        }
+
+        public void ApplySelectedOwner(FileManagerRow row, string selectedOwnerKey)
+        {
+            if (row == null) throw new ArgumentNullException("row");
+
+            FileManagerSource oldSource = row.Source;
+            _queryService.ApplySelectedOwner(row, selectedOwnerKey);
+            ChangeCounts(oldSource, row.Source);
         }
 
         public void RefreshRowOwnership(FileManagerRow row)
         {
+            if (row == null) throw new ArgumentNullException("row");
+
+            FileManagerSource oldSource = row.Source;
             _queryService.RefreshRowOwnership(row, _modManagerViewModel.VirtualModActivator);
-            UpdateCountsFromRows();
+            ChangeCounts(oldSource, row.Source);
         }
 
         public void Dispose()
         {
+            _disposed = true;
+            Interlocked.Increment(ref _scanGeneration);
             UnwatchModActivationQueue();
 
             CancellationTokenSource cancellation = _scanCancellation;
@@ -287,56 +321,30 @@ namespace Nexus.Client.ModManagement.UI
 
         private void ApplyScanResult(FileManagerScanResult result)
         {
-            Rows.RaiseListChangedEvents = false;
-            Rows.Clear();
-            foreach (FileManagerRow row in result.Rows)
-                Rows.Add(row);
-            Rows.RaiseListChangedEvents = true;
-            Rows.ResetBindings();
+            Rows = new BindingList<FileManagerRow>(result.Rows);
+            _rowsByNormalizedPath = result.RowsByNormalizedPath;
+            _counts = result.Counts.Clone();
+            OnPropertyChanged("Rows");
 
             DeploymentRoot = result.DeploymentRoot;
-            UpdateCountsFromRows();
+            ApplyCounts(_counts);
             LastScannedDisplay = result.ScannedAt.ToString("g");
         }
 
-        private void UpdateCountsFromRows()
+        private void ChangeCounts(FileManagerSource oldSource, FileManagerSource newSource)
         {
-            int total = 0;
-            int baseGame = 0;
-            int installed = 0;
-            int creations = 0;
-            int external = 0;
-            int untracked = 0;
+            _counts.Change(oldSource, newSource);
+            ApplyCounts(_counts);
+        }
 
-            foreach (FileManagerRow row in Rows)
-            {
-                total++;
-                switch (row.Source)
-                {
-                    case FileManagerSource.InstalledByNmm:
-                        installed++;
-                        break;
-                    case FileManagerSource.BaseGame:
-                        baseGame++;
-                        break;
-                    case FileManagerSource.Creations:
-                        creations++;
-                        break;
-                    case FileManagerSource.ExternalModManager:
-                        external++;
-                        break;
-                    default:
-                        untracked++;
-                        break;
-                }
-            }
-
-            TotalFiles = total;
-            BaseGameFiles = baseGame;
-            InstalledByNmmFiles = installed;
-            CreationsFiles = creations;
-            ExternalModManagerFiles = external;
-            UntrackedFiles = untracked;
+        private void ApplyCounts(FileManagerSourceCounts counts)
+        {
+            TotalFiles = counts.Total;
+            BaseGameFiles = counts.BaseGame;
+            InstalledByNmmFiles = counts.InstalledByNmm;
+            CreationsFiles = counts.Creations;
+            ExternalModManagerFiles = counts.ExternalModManager;
+            UntrackedFiles = counts.Untracked;
         }
 
         private static bool IsGamebryoGameMode(IGameMode gameMode)

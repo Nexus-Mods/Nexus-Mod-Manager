@@ -1,10 +1,9 @@
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
-    using System.Linq;
     using System.Threading;
 
     using Nexus.Client.Games;
@@ -28,51 +27,94 @@ namespace Nexus.Client.ModManagement
             if (gameMode == null) throw new ArgumentNullException("gameMode");
             if (virtualModActivator == null) throw new ArgumentNullException("virtualModActivator");
 
+            Stopwatch totalWatch = Stopwatch.StartNew();
+            FileManagerScanDiagnostics diagnostics = new FileManagerScanDiagnostics();
             string deploymentRoot = GetDeploymentRoot(gameMode);
             if (string.IsNullOrWhiteSpace(deploymentRoot) || !Directory.Exists(deploymentRoot))
                 throw new DirectoryNotFoundException("The deployment root does not exist or is inaccessible: " + (deploymentRoot ?? String.Empty));
 
-            Dictionary<string, List<IVirtualModLink>> linksByPath = BuildVirtualLinkLookup(virtualModActivator.VirtualLinks);
-            HashSet<string> baseFiles = BuildBaseFileSet(gameMode.BaseGameFiles);
-            IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
-            List<FileManagerRow> rows = new List<FileManagerRow>();
+            Stopwatch stageWatch = Stopwatch.StartNew();
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator.VirtualLinks);
+            diagnostics.VirtualLinkIndexMilliseconds = stageWatch.ElapsedMilliseconds;
 
-            foreach (string filePath in EnumerateFilesSafely(deploymentRoot, cancellationToken))
+            stageWatch.Restart();
+            HashSet<string> baseFiles = BuildBaseFileSet(gameMode.BaseGameFiles);
+            diagnostics.BaseFileIndexMilliseconds = stageWatch.ElapsedMilliseconds;
+
+            stageWatch.Restart();
+            IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
+            diagnostics.ManualSourceLoadMilliseconds = stageWatch.ElapsedMilliseconds;
+
+            List<FileManagerRow> rows = new List<FileManagerRow>();
+            Dictionary<string, FileManagerRow> rowsByPath = new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
+            FileManagerSourceCounts counts = new FileManagerSourceCounts();
+            string rootPrefix = GetNormalizedRootPrefix(deploymentRoot);
+            int skippedFiles = 0;
+            FileManagerEnumerationStats enumerationStats = new FileManagerEnumerationStats();
+            long metadataTicks = 0;
+            long classificationTicks = 0;
+            Stopwatch enumerationWatch = Stopwatch.StartNew();
+
+            foreach (string filePath in EnumerateFilesSafely(deploymentRoot, cancellationToken, enumerationStats))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                Stopwatch perFileWatch = Stopwatch.StartNew();
                 FileInfo fileInfo;
                 try
                 {
                     fileInfo = new FileInfo(filePath);
                     if (!fileInfo.Exists)
+                    {
+                        skippedFiles++;
                         continue;
+                    }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Trace.TraceWarning("File Manager skipped file '{0}': {1}", filePath, ex.Message);
+                    skippedFiles++;
                     continue;
                 }
 
-                string relativePath = GetRelativePath(deploymentRoot, filePath);
+                long length = fileInfo.Length;
+                metadataTicks += perFileWatch.ElapsedTicks;
+
+                string relativePath = GetRelativePath(rootPrefix, filePath);
                 string normalizedPath = NormalizePath(relativePath);
                 FileManagerRow row = new FileManagerRow
                 {
                     FullPath = filePath,
                     FileName = Path.GetFileName(filePath),
-                    RawSize = fileInfo.Length,
-                    SizeDisplay = FormatSize(fileInfo.Length),
+                    RawSize = length,
+                    SizeDisplay = FormatSize(length),
                     RelativePath = relativePath,
                     NormalizedRelativePath = normalizedPath
                 };
 
-                List<IVirtualModLink> pathLinks;
-                linksByPath.TryGetValue(normalizedPath, out pathLinks);
-                ApplySourceClassification(row, pathLinks, baseFiles, manualSources);
+                perFileWatch.Restart();
+                FileManagerPathOwnership ownership;
+                ownershipByPath.TryGetValue(normalizedPath, out ownership);
+                ApplySourceClassification(row, ownership, baseFiles, manualSources);
+                classificationTicks += perFileWatch.ElapsedTicks;
+
                 rows.Add(row);
+                if (!rowsByPath.ContainsKey(normalizedPath))
+                    rowsByPath.Add(normalizedPath, row);
+                counts.Add(row.Source);
             }
 
-            return new FileManagerScanResult(deploymentRoot, rows, DateTime.Now);
+            long enumerationTicks = Math.Max(0, enumerationWatch.ElapsedTicks - metadataTicks - classificationTicks);
+            diagnostics.FileEnumerationMilliseconds = TicksToMilliseconds(enumerationTicks);
+            diagnostics.FileMetadataMilliseconds = TicksToMilliseconds(metadataTicks);
+            diagnostics.ClassificationMilliseconds = TicksToMilliseconds(classificationTicks);
+            stageWatch.Restart();
+            rows.TrimExcess();
+            diagnostics.IndexConstructionMilliseconds = stageWatch.ElapsedMilliseconds;
+            totalWatch.Stop();
+            diagnostics.TotalMilliseconds = totalWatch.ElapsedMilliseconds;
+
+            Trace.TraceInformation("File Manager scan completed. Files={0}, skippedFiles={1}, skippedDirectories={2}, {3}", rows.Count, skippedFiles, enumerationStats.SkippedDirectories, diagnostics);
+            return new FileManagerScanResult(deploymentRoot, rows, rowsByPath, counts, DateTime.Now, diagnostics);
         }
 
         public void RefreshRowOwnership(FileManagerRow row, IVirtualModActivator virtualModActivator)
@@ -80,12 +122,21 @@ namespace Nexus.Client.ModManagement
             if (row == null || virtualModActivator == null)
                 return;
 
-            List<IVirtualModLink> links = virtualModActivator.VirtualLinks
-                .Where(x => x != null && String.Equals(NormalizePath(x.VirtualModPath), row.NormalizedRelativePath, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            FileManagerPathOwnership ownership = BuildOwnershipForPath(virtualModActivator.VirtualLinks, row.NormalizedRelativePath);
+            if (ownership != null && ownership.HasActiveOwner)
+                ApplyNmmOwnership(row, ownership);
+        }
 
-            if (links.Any(x => x.Active))
-                ApplyNmmOwnership(row, links);
+        public void ApplySelectedOwner(FileManagerRow row, string selectedOwnerKey)
+        {
+            if (row == null)
+                return;
+
+            FileManagerOwnerCandidate candidate = FindOwnerCandidate(row.OwnerCandidates, selectedOwnerKey);
+            row.SourceEditable = false;
+            row.Source = FileManagerSource.InstalledByNmm;
+            row.OwnerKey = selectedOwnerKey ?? String.Empty;
+            row.OwnerName = candidate == null ? String.Empty : candidate.ModName;
         }
 
         public void ApplyManualSource(FileManagerRow row, FileManagerSource source)
@@ -96,7 +147,7 @@ namespace Nexus.Client.ModManagement
             if (!FileManagerSourceDisplay.IsManualSource(source))
                 throw new InvalidOperationException("The selected source cannot be assigned manually.");
 
-            row.OwnerCandidates = new List<FileManagerOwnerCandidate>();
+            row.OwnerCandidates = FileManagerRow.EmptyOwnerCandidates;
             row.OwnerKey = String.Empty;
             row.OwnerName = String.Empty;
             row.Source = source;
@@ -137,18 +188,23 @@ namespace Nexus.Client.ModManagement
 
         public static void ApplySourceClassification(FileManagerRow row, IList<IVirtualModLink> pathLinks, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources)
         {
+            ApplySourceClassification(row, BuildOwnership(pathLinks), baseFiles, manualSources);
+        }
+
+        internal static void ApplySourceClassification(FileManagerRow row, FileManagerPathOwnership ownership, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources)
+        {
             if (row == null) throw new ArgumentNullException("row");
 
-            if (pathLinks != null && pathLinks.Any(x => x != null && x.Active))
+            if (ownership != null && ownership.HasActiveOwner)
             {
-                ApplyNmmOwnership(row, pathLinks.Where(x => x != null).ToList());
+                ApplyNmmOwnership(row, ownership);
                 return;
             }
 
             if (baseFiles != null && baseFiles.Contains(row.NormalizedRelativePath))
             {
                 row.SourceEditable = false;
-                row.OwnerCandidates = new List<FileManagerOwnerCandidate>();
+                row.OwnerCandidates = FileManagerRow.EmptyOwnerCandidates;
                 row.OwnerKey = String.Empty;
                 row.OwnerName = String.Empty;
                 row.Source = FileManagerSource.BaseGame;
@@ -157,7 +213,7 @@ namespace Nexus.Client.ModManagement
 
             FileManagerSource manualSource;
             row.SourceEditable = true;
-            row.OwnerCandidates = new List<FileManagerOwnerCandidate>();
+            row.OwnerCandidates = FileManagerRow.EmptyOwnerCandidates;
             row.OwnerKey = String.Empty;
             row.OwnerName = String.Empty;
             if (manualSources != null && manualSources.TryGetValue(row.NormalizedRelativePath, out manualSource) && FileManagerSourceDisplay.IsManualSource(manualSource) && manualSource != FileManagerSource.Untracked)
@@ -192,11 +248,11 @@ namespace Nexus.Client.ModManagement
             return (modInfo.ModFileName ?? String.Empty).ToLowerInvariant() + "|" + (modInfo.DownloadId ?? String.Empty).ToLowerInvariant();
         }
 
-        private static Dictionary<string, List<IVirtualModLink>> BuildVirtualLinkLookup(IEnumerable<IVirtualModLink> links)
+        private static Dictionary<string, FileManagerPathOwnership> BuildVirtualLinkLookup(IEnumerable<IVirtualModLink> links)
         {
-            Dictionary<string, List<IVirtualModLink>> lookup = new Dictionary<string, List<IVirtualModLink>>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, List<IVirtualModLink>> linksByPath = new Dictionary<string, List<IVirtualModLink>>(StringComparer.OrdinalIgnoreCase);
             if (links == null)
-                return lookup;
+                return new Dictionary<string, FileManagerPathOwnership>(StringComparer.OrdinalIgnoreCase);
 
             foreach (IVirtualModLink link in links)
             {
@@ -205,16 +261,94 @@ namespace Nexus.Client.ModManagement
 
                 string key = NormalizePath(link.VirtualModPath);
                 List<IVirtualModLink> fileLinks;
-                if (!lookup.TryGetValue(key, out fileLinks))
+                if (!linksByPath.TryGetValue(key, out fileLinks))
                 {
                     fileLinks = new List<IVirtualModLink>();
-                    lookup[key] = fileLinks;
+                    linksByPath.Add(key, fileLinks);
                 }
 
                 fileLinks.Add(link);
             }
 
-            return lookup;
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = new Dictionary<string, FileManagerPathOwnership>(linksByPath.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, List<IVirtualModLink>> pair in linksByPath)
+                ownershipByPath.Add(pair.Key, BuildOwnership(pair.Value));
+
+            return ownershipByPath;
+        }
+
+        private static FileManagerPathOwnership BuildOwnershipForPath(IEnumerable<IVirtualModLink> links, string normalizedPath)
+        {
+            if (links == null || String.IsNullOrWhiteSpace(normalizedPath))
+                return null;
+
+            List<IVirtualModLink> pathLinks = new List<IVirtualModLink>();
+            foreach (IVirtualModLink link in links)
+            {
+                if (link == null || String.IsNullOrWhiteSpace(link.VirtualModPath))
+                    continue;
+
+                if (String.Equals(NormalizePath(link.VirtualModPath), normalizedPath, StringComparison.OrdinalIgnoreCase))
+                    pathLinks.Add(link);
+            }
+
+            return pathLinks.Count == 0 ? null : BuildOwnership(pathLinks);
+        }
+
+        private static FileManagerPathOwnership BuildOwnership(IList<IVirtualModLink> pathLinks)
+        {
+            if (pathLinks == null || pathLinks.Count == 0)
+                return null;
+
+            List<IVirtualModLink> orderedLinks = new List<IVirtualModLink>();
+            foreach (IVirtualModLink link in pathLinks)
+                if (link != null)
+                    orderedLinks.Add(link);
+
+            if (orderedLinks.Count == 0)
+                return null;
+
+            orderedLinks.Sort(CompareVirtualLinksForOwnerDisplay);
+            IVirtualModLink activeOwner = null;
+            foreach (IVirtualModLink link in orderedLinks)
+            {
+                if (link.Active)
+                {
+                    activeOwner = link;
+                    break;
+                }
+            }
+
+            if (activeOwner == null)
+                activeOwner = orderedLinks[0];
+
+            List<FileManagerOwnerCandidate> candidates = FileManagerRow.EmptyOwnerCandidates;
+            if (activeOwner.Active)
+            {
+                candidates = new List<FileManagerOwnerCandidate>();
+                HashSet<string> seenOwnerKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (IVirtualModLink link in orderedLinks)
+                {
+                    string ownerKey = CreateOwnerKey(link.ModInfo);
+                    if (!seenOwnerKeys.Add(ownerKey))
+                        continue;
+
+                    candidates.Add(new FileManagerOwnerCandidate(ownerKey, link.ModInfo == null ? String.Empty : link.ModInfo.ModName, link.Priority));
+                }
+            }
+
+            return new FileManagerPathOwnership(activeOwner.Active, CreateOwnerKey(activeOwner.ModInfo), activeOwner.ModInfo == null ? String.Empty : activeOwner.ModInfo.ModName, candidates);
+        }
+
+        private static int CompareVirtualLinksForOwnerDisplay(IVirtualModLink left, IVirtualModLink right)
+        {
+            int priorityComparison = left.Priority.CompareTo(right.Priority);
+            if (priorityComparison != 0)
+                return priorityComparison;
+
+            string leftName = left.ModInfo == null ? String.Empty : left.ModInfo.ModName;
+            string rightName = right.ModInfo == null ? String.Empty : right.ModInfo.ModName;
+            return StringComparer.OrdinalIgnoreCase.Compare(leftName, rightName);
         }
 
         private static HashSet<string> BuildBaseFileSet(string baseGameFiles)
@@ -236,26 +370,28 @@ namespace Nexus.Client.ModManagement
             return files;
         }
 
-        private static void ApplyNmmOwnership(FileManagerRow row, List<IVirtualModLink> pathLinks)
+        private static void ApplyNmmOwnership(FileManagerRow row, FileManagerPathOwnership ownership)
         {
-            List<IVirtualModLink> orderedLinks = pathLinks
-                .OrderBy(x => x.Priority)
-                .ThenBy(x => x.ModInfo == null ? String.Empty : x.ModInfo.ModName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            IVirtualModLink activeOwner = orderedLinks.FirstOrDefault(x => x.Active) ?? orderedLinks.First();
             row.SourceEditable = false;
             row.Source = FileManagerSource.InstalledByNmm;
-            row.OwnerCandidates = orderedLinks
-                .Select(x => new FileManagerOwnerCandidate(CreateOwnerKey(x.ModInfo), x.ModInfo == null ? String.Empty : x.ModInfo.ModName, x.Priority))
-                .GroupBy(x => x.OwnerKey, StringComparer.OrdinalIgnoreCase)
-                .Select(x => x.First())
-                .ToList();
-            row.OwnerKey = CreateOwnerKey(activeOwner.ModInfo);
-            row.OwnerName = activeOwner.ModInfo == null ? String.Empty : activeOwner.ModInfo.ModName;
+            row.OwnerCandidates = ownership.OwnerCandidates;
+            row.OwnerKey = ownership.ActiveOwnerKey;
+            row.OwnerName = ownership.ActiveOwnerName;
         }
 
-        private static IEnumerable<string> EnumerateFilesSafely(string root, CancellationToken cancellationToken)
+        private static FileManagerOwnerCandidate FindOwnerCandidate(List<FileManagerOwnerCandidate> candidates, string ownerKey)
+        {
+            if (candidates == null)
+                return null;
+
+            foreach (FileManagerOwnerCandidate candidate in candidates)
+                if (String.Equals(candidate.OwnerKey, ownerKey, StringComparison.OrdinalIgnoreCase))
+                    return candidate;
+
+            return null;
+        }
+
+        private static IEnumerable<string> EnumerateFilesSafely(string root, CancellationToken cancellationToken, FileManagerEnumerationStats stats)
         {
             Stack<string> pending = new Stack<string>();
             pending.Push(root);
@@ -265,42 +401,88 @@ namespace Nexus.Client.ModManagement
                 cancellationToken.ThrowIfCancellationRequested();
                 string directory = pending.Pop();
 
-                string[] files;
+                IEnumerator<string> fileEnumerator = null;
                 try
                 {
-                    files = Directory.GetFiles(directory);
+                    fileEnumerator = Directory.EnumerateFiles(directory).GetEnumerator();
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Trace.TraceWarning("File Manager skipped directory '{0}': {1}", directory, ex.Message);
-                    continue;
+                    stats.SkippedDirectories++;
                 }
 
-                foreach (string file in files)
-                    yield return file;
+                if (fileEnumerator != null)
+                {
+                    using (fileEnumerator)
+                    {
+                        while (true)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            string file;
+                            try
+                            {
+                                if (!fileEnumerator.MoveNext())
+                                    break;
+                                file = fileEnumerator.Current;
+                            }
+                            catch
+                            {
+                                stats.SkippedDirectories++;
+                                break;
+                            }
 
-                string[] directories;
+                            yield return file;
+                        }
+                    }
+                }
+
+                IEnumerator<string> directoryEnumerator = null;
                 try
                 {
-                    directories = Directory.GetDirectories(directory);
+                    directoryEnumerator = Directory.EnumerateDirectories(directory).GetEnumerator();
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Trace.TraceWarning("File Manager skipped subdirectories under '{0}': {1}", directory, ex.Message);
-                    continue;
+                    stats.SkippedDirectories++;
                 }
 
-                for (int i = directories.Length - 1; i >= 0; i--)
-                    pending.Push(directories[i]);
+                if (directoryEnumerator == null)
+                    continue;
+
+                using (directoryEnumerator)
+                {
+                    while (true)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        string childDirectory;
+                        try
+                        {
+                            if (!directoryEnumerator.MoveNext())
+                                break;
+                            childDirectory = directoryEnumerator.Current;
+                        }
+                        catch
+                        {
+                            stats.SkippedDirectories++;
+                            break;
+                        }
+
+                        pending.Push(childDirectory);
+                    }
+                }
             }
         }
 
-        private static string GetRelativePath(string root, string filePath)
+        private static string GetNormalizedRootPrefix(string root)
         {
-            string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        }
+
+        private static string GetRelativePath(string fullRootPrefix, string filePath)
+        {
             string fullPath = Path.GetFullPath(filePath);
-            if (fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
-                return fullPath.Substring(fullRoot.Length);
+            if (fullPath.StartsWith(fullRootPrefix, StringComparison.OrdinalIgnoreCase))
+                return fullPath.Substring(fullRootPrefix.Length);
 
             return Path.GetFileName(filePath);
         }
@@ -312,5 +494,30 @@ namespace Nexus.Client.ModManagement
 
             return String.Format("{0:0.00} MB", bytes / 1024.0 / 1024.0);
         }
+
+        private static long TicksToMilliseconds(long ticks)
+        {
+            return ticks <= 0 ? 0 : (ticks * 1000L) / Stopwatch.Frequency;
+        }
+    }
+
+    internal sealed class FileManagerEnumerationStats
+    {
+        public int SkippedDirectories { get; set; }
+    }
+    internal sealed class FileManagerPathOwnership
+    {
+        public FileManagerPathOwnership(bool hasActiveOwner, string activeOwnerKey, string activeOwnerName, List<FileManagerOwnerCandidate> ownerCandidates)
+        {
+            HasActiveOwner = hasActiveOwner;
+            ActiveOwnerKey = activeOwnerKey ?? String.Empty;
+            ActiveOwnerName = activeOwnerName ?? String.Empty;
+            OwnerCandidates = ownerCandidates ?? FileManagerRow.EmptyOwnerCandidates;
+        }
+
+        public bool HasActiveOwner { get; private set; }
+        public string ActiveOwnerKey { get; private set; }
+        public string ActiveOwnerName { get; private set; }
+        public List<FileManagerOwnerCandidate> OwnerCandidates { get; private set; }
     }
 }

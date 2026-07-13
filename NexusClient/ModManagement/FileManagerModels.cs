@@ -1,9 +1,8 @@
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
-    using System.Linq;
 
     public enum FileManagerSource
     {
@@ -42,11 +41,13 @@ namespace Nexus.Client.ModManagement
 
     public sealed class FileManagerRow : INotifyPropertyChanged
     {
+        public static readonly List<FileManagerOwnerCandidate> EmptyOwnerCandidates = new List<FileManagerOwnerCandidate>(0);
+
         private FileManagerSource _source;
         private bool _sourceEditable;
         private string _ownerKey;
         private string _ownerName;
-        private List<FileManagerOwnerCandidate> _ownerCandidates = new List<FileManagerOwnerCandidate>();
+        private List<FileManagerOwnerCandidate> _ownerCandidates = EmptyOwnerCandidates;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -121,7 +122,7 @@ namespace Nexus.Client.ModManagement
             get { return _ownerCandidates; }
             set
             {
-                _ownerCandidates = value ?? new List<FileManagerOwnerCandidate>();
+                _ownerCandidates = value ?? EmptyOwnerCandidates;
                 OnPropertyChanged("OwnerCandidates");
                 OnPropertyChanged("OwnerEditable");
             }
@@ -178,28 +179,119 @@ namespace Nexus.Client.ModManagement
 
         public static bool IsManualSource(FileManagerSource source)
         {
-            return ManualSourceOptions.Any(x => x.Source == source);
+            return source == FileManagerSource.Untracked || source == FileManagerSource.BaseGame || source == FileManagerSource.Creations || source == FileManagerSource.ExternalModManager;
+        }
+    }
+
+    public sealed class FileManagerScanDiagnostics
+    {
+        public long VirtualLinkIndexMilliseconds { get; set; }
+        public long BaseFileIndexMilliseconds { get; set; }
+        public long ManualSourceLoadMilliseconds { get; set; }
+        public long FileEnumerationMilliseconds { get; set; }
+        public long FileMetadataMilliseconds { get; set; }
+        public long ClassificationMilliseconds { get; set; }
+        public long IndexConstructionMilliseconds { get; set; }
+        public long TotalMilliseconds { get; set; }
+
+        public override string ToString()
+        {
+            return String.Format("total={0}ms, links={1}ms, base={2}ms, manual={3}ms, enum={4}ms, metadata={5}ms, classify={6}ms, indexes={7}ms",
+                TotalMilliseconds,
+                VirtualLinkIndexMilliseconds,
+                BaseFileIndexMilliseconds,
+                ManualSourceLoadMilliseconds,
+                FileEnumerationMilliseconds,
+                FileMetadataMilliseconds,
+                ClassificationMilliseconds,
+                IndexConstructionMilliseconds);
         }
     }
 
     public sealed class FileManagerScanResult
     {
-        public FileManagerScanResult(string deploymentRoot, List<FileManagerRow> rows, DateTime scannedAt)
+        public FileManagerScanResult(string deploymentRoot, List<FileManagerRow> rows, Dictionary<string, FileManagerRow> rowsByNormalizedPath, FileManagerSourceCounts counts, DateTime scannedAt, FileManagerScanDiagnostics diagnostics)
         {
             DeploymentRoot = deploymentRoot;
             Rows = rows ?? new List<FileManagerRow>();
+            RowsByNormalizedPath = rowsByNormalizedPath ?? new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
+            Counts = counts ?? new FileManagerSourceCounts();
             ScannedAt = scannedAt;
+            Diagnostics = diagnostics ?? new FileManagerScanDiagnostics();
         }
 
         public string DeploymentRoot { get; private set; }
         public List<FileManagerRow> Rows { get; private set; }
+        public Dictionary<string, FileManagerRow> RowsByNormalizedPath { get; private set; }
+        public FileManagerSourceCounts Counts { get; private set; }
         public DateTime ScannedAt { get; private set; }
-        public int TotalFiles { get { return Rows.Count; } }
-        public int BaseGameFiles { get { return Rows.Count(x => x.Source == FileManagerSource.BaseGame); } }
-        public int InstalledByNmmFiles { get { return Rows.Count(x => x.Source == FileManagerSource.InstalledByNmm); } }
-        public int CreationsFiles { get { return Rows.Count(x => x.Source == FileManagerSource.Creations); } }
-        public int ExternalModManagerFiles { get { return Rows.Count(x => x.Source == FileManagerSource.ExternalModManager); } }
-        public int UntrackedFiles { get { return Rows.Count(x => x.Source == FileManagerSource.Untracked); } }
+        public FileManagerScanDiagnostics Diagnostics { get; private set; }
+        public int TotalFiles { get { return Counts.Total; } }
+        public int BaseGameFiles { get { return Counts.BaseGame; } }
+        public int InstalledByNmmFiles { get { return Counts.InstalledByNmm; } }
+        public int CreationsFiles { get { return Counts.Creations; } }
+        public int ExternalModManagerFiles { get { return Counts.ExternalModManager; } }
+        public int UntrackedFiles { get { return Counts.Untracked; } }
+    }
+
+    public sealed class FileManagerSourceCounts
+    {
+        public int Total { get; private set; }
+        public int BaseGame { get; private set; }
+        public int InstalledByNmm { get; private set; }
+        public int Creations { get; private set; }
+        public int ExternalModManager { get; private set; }
+        public int Untracked { get; private set; }
+
+        public void Add(FileManagerSource source)
+        {
+            Total++;
+            Increment(source, 1);
+        }
+
+        public void Change(FileManagerSource oldSource, FileManagerSource newSource)
+        {
+            if (oldSource == newSource)
+                return;
+
+            Increment(oldSource, -1);
+            Increment(newSource, 1);
+        }
+
+        public FileManagerSourceCounts Clone()
+        {
+            return new FileManagerSourceCounts
+            {
+                Total = Total,
+                BaseGame = BaseGame,
+                InstalledByNmm = InstalledByNmm,
+                Creations = Creations,
+                ExternalModManager = ExternalModManager,
+                Untracked = Untracked
+            };
+        }
+
+        private void Increment(FileManagerSource source, int amount)
+        {
+            switch (source)
+            {
+                case FileManagerSource.InstalledByNmm:
+                    InstalledByNmm += amount;
+                    break;
+                case FileManagerSource.BaseGame:
+                    BaseGame += amount;
+                    break;
+                case FileManagerSource.Creations:
+                    Creations += amount;
+                    break;
+                case FileManagerSource.ExternalModManager:
+                    ExternalModManager += amount;
+                    break;
+                default:
+                    Untracked += amount;
+                    break;
+            }
+        }
     }
 
     public sealed class VirtualFileOwnerSwitchResult
