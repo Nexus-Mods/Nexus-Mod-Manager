@@ -7,9 +7,23 @@ namespace Nexus.Client.ModManagement
 
     public enum FileManagerSource
     {
-        BaseGameFile,
         InstalledByNmm,
+        BaseGame,
+        Creations,
+        ExternalModManager,
         Untracked
+    }
+
+    public sealed class FileManagerSourceOption
+    {
+        public FileManagerSourceOption(FileManagerSource source, string displayText)
+        {
+            Source = source;
+            DisplayText = displayText;
+        }
+
+        public FileManagerSource Source { get; private set; }
+        public string DisplayText { get; private set; }
     }
 
     public sealed class FileManagerOwnerCandidate
@@ -29,6 +43,7 @@ namespace Nexus.Client.ModManagement
     public sealed class FileManagerRow : INotifyPropertyChanged
     {
         private FileManagerSource _source;
+        private bool _sourceEditable;
         private string _ownerKey;
         private string _ownerName;
         private List<FileManagerOwnerCandidate> _ownerCandidates = new List<FileManagerOwnerCandidate>();
@@ -57,20 +72,22 @@ namespace Nexus.Client.ModManagement
             }
         }
 
+        public bool SourceEditable
+        {
+            get { return _sourceEditable; }
+            set
+            {
+                if (_sourceEditable == value)
+                    return;
+
+                _sourceEditable = value;
+                OnPropertyChanged("SourceEditable");
+            }
+        }
+
         public string SourceDisplay
         {
-            get
-            {
-                switch (Source)
-                {
-                    case FileManagerSource.BaseGameFile:
-                        return "Base game file";
-                    case FileManagerSource.InstalledByNmm:
-                        return "Installed by NMM";
-                    default:
-                        return "Untracked";
-                }
-            }
+            get { return FileManagerSourceDisplay.GetDisplayText(Source); }
         }
 
         public string OwnerKey
@@ -123,6 +140,48 @@ namespace Nexus.Client.ModManagement
         }
     }
 
+    public static class FileManagerSourceDisplay
+    {
+        public static readonly IList<FileManagerSourceOption> ManualSourceOptions = new List<FileManagerSourceOption>
+        {
+            new FileManagerSourceOption(FileManagerSource.Untracked, "Untracked"),
+            new FileManagerSourceOption(FileManagerSource.BaseGame, "Base Game"),
+            new FileManagerSourceOption(FileManagerSource.Creations, "Creations"),
+            new FileManagerSourceOption(FileManagerSource.ExternalModManager, "External Mod Manager")
+        }.AsReadOnly();
+
+        public static readonly IList<FileManagerSourceOption> AllSourceOptions = new List<FileManagerSourceOption>
+        {
+            new FileManagerSourceOption(FileManagerSource.InstalledByNmm, "Installed by NMM"),
+            new FileManagerSourceOption(FileManagerSource.BaseGame, "Base Game"),
+            new FileManagerSourceOption(FileManagerSource.Creations, "Creations"),
+            new FileManagerSourceOption(FileManagerSource.ExternalModManager, "External Mod Manager"),
+            new FileManagerSourceOption(FileManagerSource.Untracked, "Untracked")
+        }.AsReadOnly();
+
+        public static string GetDisplayText(FileManagerSource source)
+        {
+            switch (source)
+            {
+                case FileManagerSource.InstalledByNmm:
+                    return "Installed by NMM";
+                case FileManagerSource.BaseGame:
+                    return "Base Game";
+                case FileManagerSource.Creations:
+                    return "Creations";
+                case FileManagerSource.ExternalModManager:
+                    return "External Mod Manager";
+                default:
+                    return "Untracked";
+            }
+        }
+
+        public static bool IsManualSource(FileManagerSource source)
+        {
+            return ManualSourceOptions.Any(x => x.Source == source);
+        }
+    }
+
     public sealed class FileManagerScanResult
     {
         public FileManagerScanResult(string deploymentRoot, List<FileManagerRow> rows, DateTime scannedAt)
@@ -136,8 +195,10 @@ namespace Nexus.Client.ModManagement
         public List<FileManagerRow> Rows { get; private set; }
         public DateTime ScannedAt { get; private set; }
         public int TotalFiles { get { return Rows.Count; } }
-        public int BaseGameFiles { get { return Rows.Count(x => x.Source == FileManagerSource.BaseGameFile); } }
+        public int BaseGameFiles { get { return Rows.Count(x => x.Source == FileManagerSource.BaseGame); } }
         public int InstalledByNmmFiles { get { return Rows.Count(x => x.Source == FileManagerSource.InstalledByNmm); } }
+        public int CreationsFiles { get { return Rows.Count(x => x.Source == FileManagerSource.Creations); } }
+        public int ExternalModManagerFiles { get { return Rows.Count(x => x.Source == FileManagerSource.ExternalModManager); } }
         public int UntrackedFiles { get { return Rows.Count(x => x.Source == FileManagerSource.Untracked); } }
     }
 

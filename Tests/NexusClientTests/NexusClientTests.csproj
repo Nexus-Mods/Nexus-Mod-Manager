@@ -53,6 +53,7 @@
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
+    <Compile Include="FileManagerManualSourceTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

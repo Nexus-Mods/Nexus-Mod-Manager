@@ -13,7 +13,7 @@ namespace Nexus.Client.ModManagement.UI
     public sealed class FileManagerVM : INotifyPropertyChanged, IDisposable
     {
         private readonly ModManagerVM _modManagerViewModel;
-        private readonly FileManagerQueryService _queryService = new FileManagerQueryService();
+        private readonly FileManagerQueryService _queryService;
         private readonly IVirtualDeploymentService _deploymentService;
         private readonly HashSet<IBackgroundTaskSet> _watchedActivationTasks = new HashSet<IBackgroundTaskSet>();
         private CancellationTokenSource _scanCancellation;
@@ -25,12 +25,20 @@ namespace Nexus.Client.ModManagement.UI
         private int _totalFiles;
         private int _baseGameFiles;
         private int _installedByNmmFiles;
+        private int _creationsFiles;
+        private int _externalModManagerFiles;
         private int _untrackedFiles;
 
         public FileManagerVM(ModManagerVM modManagerViewModel)
+            : this(modManagerViewModel, null)
+        {
+        }
+
+        public FileManagerVM(ModManagerVM modManagerViewModel, IFileManagerManualSourceStore manualSourceStore)
         {
             if (modManagerViewModel == null) throw new ArgumentNullException("modManagerViewModel");
             _modManagerViewModel = modManagerViewModel;
+            _queryService = new FileManagerQueryService(manualSourceStore ?? new SettingsFileManagerManualSourceStore(modManagerViewModel.Settings));
             _deploymentService = new VirtualDeploymentService(modManagerViewModel.VirtualModActivator);
             Rows = new BindingList<FileManagerRow>();
             StatusMessage = "Not scanned.";
@@ -80,6 +88,18 @@ namespace Nexus.Client.ModManagement.UI
         {
             get { return _installedByNmmFiles; }
             private set { if (_installedByNmmFiles != value) { _installedByNmmFiles = value; OnPropertyChanged("InstalledByNmmFiles"); } }
+        }
+
+        public int CreationsFiles
+        {
+            get { return _creationsFiles; }
+            private set { if (_creationsFiles != value) { _creationsFiles = value; OnPropertyChanged("CreationsFiles"); } }
+        }
+
+        public int ExternalModManagerFiles
+        {
+            get { return _externalModManagerFiles; }
+            private set { if (_externalModManagerFiles != value) { _externalModManagerFiles = value; OnPropertyChanged("ExternalModManagerFiles"); } }
         }
 
         public int UntrackedFiles
@@ -171,9 +191,18 @@ namespace Nexus.Client.ModManagement.UI
             return Task.Run(() => _deploymentService.SwitchFileOwner(row.RelativePath, selectedOwnerKey));
         }
 
+        public void SetManualSource(FileManagerRow row, FileManagerSource source, FileManagerSource previousSource)
+        {
+            if (row == null) throw new ArgumentNullException("row");
+
+            _queryService.ChangeManualSource(GameMode.ModeId, row, source, previousSource);
+            UpdateCountsFromRows();
+        }
+
         public void RefreshRowOwnership(FileManagerRow row)
         {
             _queryService.RefreshRowOwnership(row, _modManagerViewModel.VirtualModActivator);
+            UpdateCountsFromRows();
         }
 
         public void Dispose()
@@ -266,11 +295,48 @@ namespace Nexus.Client.ModManagement.UI
             Rows.ResetBindings();
 
             DeploymentRoot = result.DeploymentRoot;
-            TotalFiles = result.TotalFiles;
-            BaseGameFiles = result.BaseGameFiles;
-            InstalledByNmmFiles = result.InstalledByNmmFiles;
-            UntrackedFiles = result.UntrackedFiles;
+            UpdateCountsFromRows();
             LastScannedDisplay = result.ScannedAt.ToString("g");
+        }
+
+        private void UpdateCountsFromRows()
+        {
+            int total = 0;
+            int baseGame = 0;
+            int installed = 0;
+            int creations = 0;
+            int external = 0;
+            int untracked = 0;
+
+            foreach (FileManagerRow row in Rows)
+            {
+                total++;
+                switch (row.Source)
+                {
+                    case FileManagerSource.InstalledByNmm:
+                        installed++;
+                        break;
+                    case FileManagerSource.BaseGame:
+                        baseGame++;
+                        break;
+                    case FileManagerSource.Creations:
+                        creations++;
+                        break;
+                    case FileManagerSource.ExternalModManager:
+                        external++;
+                        break;
+                    default:
+                        untracked++;
+                        break;
+                }
+            }
+
+            TotalFiles = total;
+            BaseGameFiles = baseGame;
+            InstalledByNmmFiles = installed;
+            CreationsFiles = creations;
+            ExternalModManagerFiles = external;
+            UntrackedFiles = untracked;
         }
 
         private static bool IsGamebryoGameMode(IGameMode gameMode)

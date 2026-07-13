@@ -25,10 +25,15 @@ namespace Nexus.Client.ModManagement.UI
         private readonly Label _summaryLabel;
         private readonly Label _statusLabel;
         private readonly RepositoryItemLookUpEdit _emptyOwnerLookup;
+        private readonly RepositoryItemLookUpEdit _emptySourceLookup;
+        private readonly RepositoryItemLookUpEdit _sourceLookup;
+        private readonly RepositoryItemLookUpEdit _sourceFilterLookup;
         private readonly Dictionary<FileManagerRow, string> _previousOwnerKeys = new Dictionary<FileManagerRow, string>();
+        private readonly Dictionary<FileManagerRow, FileManagerSource> _previousSources = new Dictionary<FileManagerRow, FileManagerSource>();
         private FileManagerVM _fileManagerVM;
         private ModManagerVM _viewModel;
         private bool _suppressOwnerChange;
+        private bool _suppressSourceChange;
 
         public FileManagerControl()
         {
@@ -70,6 +75,7 @@ namespace Nexus.Client.ModManagement.UI
             _gridView.OptionsView.ShowIndicator = false;
             _gridView.OptionsBehavior.Editable = true;
             _gridView.CustomRowCellEdit += GridView_CustomRowCellEdit;
+            _gridView.CustomColumnDisplayText += GridView_CustomColumnDisplayText;
             _gridView.ShowingEditor += GridView_ShowingEditor;
             _gridView.CellValueChanging += GridView_CellValueChanging;
             _gridView.CellValueChanged += GridView_CellValueChanged;
@@ -78,6 +84,32 @@ namespace Nexus.Client.ModManagement.UI
 
             _emptyOwnerLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
             _gridControl.RepositoryItems.Add(_emptyOwnerLookup);
+            _emptySourceLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
+            _gridControl.RepositoryItems.Add(_emptySourceLookup);
+            _sourceLookup = new RepositoryItemLookUpEdit
+            {
+                DataSource = FileManagerSourceDisplay.ManualSourceOptions,
+                DisplayMember = "DisplayText",
+                ValueMember = "Source",
+                NullText = String.Empty,
+                ShowHeader = false,
+                TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
+            };
+            _sourceLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", "Source"));
+            _gridControl.RepositoryItems.Add(_sourceLookup);
+
+            _sourceFilterLookup = new RepositoryItemLookUpEdit
+            {
+                DataSource = FileManagerSourceDisplay.AllSourceOptions,
+                DisplayMember = "DisplayText",
+                ValueMember = "Source",
+                NullText = String.Empty,
+                ShowHeader = false,
+                TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
+            };
+            _sourceFilterLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", "Source"));
+            _gridControl.RepositoryItems.Add(_sourceFilterLookup);
+            _gridView.Columns["Source"].ColumnEdit = _sourceFilterLookup;
 
             Panel bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 30, Padding = new Padding(10, 6, 10, 4) };
             _summaryLabel = new Label { AutoSize = true, Location = new Point(10, 7) };
@@ -192,10 +224,12 @@ namespace Nexus.Client.ModManagement.UI
                 return;
 
             _deploymentRootLabel.Text = "Deployment root: " + (_fileManagerVM.DeploymentRoot ?? FileManagerQueryService.GetDeploymentRoot(_fileManagerVM.GameMode));
-            _summaryLabel.Text = String.Format("Total files: {0:N0}   |   Base game files: {1:N0}   |   Installed by NMM: {2:N0}   |   Untracked: {3:N0}",
+            _summaryLabel.Text = String.Format("Total files: {0:N0}   |   Base Game: {1:N0}   |   Installed by NMM: {2:N0}   |   Creations: {3:N0}   |   External: {4:N0}   |   Untracked: {5:N0}",
                 _fileManagerVM.TotalFiles,
                 _fileManagerVM.BaseGameFiles,
                 _fileManagerVM.InstalledByNmmFiles,
+                _fileManagerVM.CreationsFiles,
+                _fileManagerVM.ExternalModManagerFiles,
                 _fileManagerVM.UntrackedFiles);
             _statusLabel.Text = String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : "Last scanned: " + _fileManagerVM.LastScannedDisplay;
             if (_statusLabel.Parent != null)
@@ -211,7 +245,8 @@ namespace Nexus.Client.ModManagement.UI
             size.DisplayFormat.Format = new FileSizeFormatter();
             size.AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
             AddColumn("RelativePath", "Relative Path", 260, false);
-            AddColumn("SourceDisplay", "Source", 140, false);
+            GridColumn source = AddColumn("Source", "Source", 160, true);
+            source.OptionsColumn.AllowEdit = true;
             GridColumn owner = AddColumn("OwnerKey", "Owner", 260, true);
             owner.OptionsColumn.AllowEdit = true;
         }
@@ -232,12 +267,24 @@ namespace Nexus.Client.ModManagement.UI
             return column;
         }
 
+        private void GridView_CustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
+        {
+            if (e.Column.FieldName == "Source" && e.Value is FileManagerSource)
+                e.DisplayText = FileManagerSourceDisplay.GetDisplayText((FileManagerSource)e.Value);
+        }
+
         private void GridView_CustomRowCellEdit(object sender, CustomRowCellEditEventArgs e)
         {
+            FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
+            if (e.Column.FieldName == "Source")
+            {
+                e.RepositoryItem = row != null && row.SourceEditable ? _sourceLookup : _emptySourceLookup;
+                return;
+            }
+
             if (e.Column.FieldName != "OwnerKey")
                 return;
 
-            FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
             if (row == null || !row.OwnerEditable || _fileManagerVM == null || !_fileManagerVM.CanChangeFileOwner)
             {
                 e.RepositoryItem = _emptyOwnerLookup;
@@ -260,26 +307,52 @@ namespace Nexus.Client.ModManagement.UI
 
         private void GridView_ShowingEditor(object sender, CancelEventArgs e)
         {
-            if (_gridView.FocusedColumn == null || _gridView.FocusedColumn.FieldName != "OwnerKey")
+            if (_gridView.FocusedColumn == null)
                 return;
 
             FileManagerRow row = _gridView.GetFocusedRow() as FileManagerRow;
+            if (_gridView.FocusedColumn.FieldName == "Source")
+            {
+                if (row == null || !row.SourceEditable)
+                    e.Cancel = true;
+                return;
+            }
+
+            if (_gridView.FocusedColumn.FieldName != "OwnerKey")
+                return;
+
             if (row == null || !row.OwnerEditable || _fileManagerVM == null || !_fileManagerVM.CanChangeFileOwner)
                 e.Cancel = true;
         }
 
         private void GridView_CellValueChanging(object sender, CellValueChangedEventArgs e)
         {
+            FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
+            if (row == null)
+                return;
+
+            if (e.Column.FieldName == "Source")
+            {
+                if (!_previousSources.ContainsKey(row))
+                    _previousSources[row] = row.Source;
+                return;
+            }
+
             if (e.Column.FieldName != "OwnerKey")
                 return;
 
-            FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
-            if (row != null && !_previousOwnerKeys.ContainsKey(row))
+            if (!_previousOwnerKeys.ContainsKey(row))
                 _previousOwnerKeys[row] = row.OwnerKey;
         }
 
         private async void GridView_CellValueChanged(object sender, CellValueChangedEventArgs e)
         {
+            if (e.Column.FieldName == "Source")
+            {
+                HandleSourceValueChanged(e);
+                return;
+            }
+
             if (_suppressOwnerChange || e.Column.FieldName != "OwnerKey")
                 return;
 
@@ -329,19 +402,57 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
-        private void GridView_RowCellStyle(object sender, RowCellStyleEventArgs e)
+        private void HandleSourceValueChanged(CellValueChangedEventArgs e)
         {
-            if (e.Column.FieldName != "SourceDisplay")
+            if (_suppressSourceChange)
                 return;
 
             FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
             if (row == null)
                 return;
 
-            if (row.Source == FileManagerSource.BaseGameFile)
+            FileManagerSource selectedSource = e.Value is FileManagerSource ? (FileManagerSource)e.Value : row.Source;
+            FileManagerSource previousSource;
+            if (!_previousSources.TryGetValue(row, out previousSource))
+                previousSource = row.Source;
+            _previousSources.Remove(row);
+
+            if (previousSource == selectedSource)
+                return;
+
+            try
+            {
+                _fileManagerVM.SetManualSource(row, selectedSource, previousSource);
+                _gridView.RefreshRow(e.RowHandle);
+                UpdateLabels();
+            }
+            catch (Exception ex)
+            {
+                _suppressSourceChange = true;
+                row.Source = previousSource;
+                _gridView.RefreshRow(e.RowHandle);
+                _suppressSourceChange = false;
+                MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void GridView_RowCellStyle(object sender, RowCellStyleEventArgs e)
+        {
+            if (e.Column.FieldName != "Source")
+                return;
+
+            FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
+            if (row == null)
+                return;
+
+            if (row.Source == FileManagerSource.BaseGame)
                 e.Appearance.ForeColor = Color.RoyalBlue;
             else if (row.Source == FileManagerSource.InstalledByNmm)
                 e.Appearance.ForeColor = Color.ForestGreen;
+            else if (row.Source == FileManagerSource.Creations)
+                e.Appearance.ForeColor = Color.DarkViolet;
+            else if (row.Source == FileManagerSource.ExternalModManager)
+                e.Appearance.ForeColor = Color.DarkCyan;
             else
                 e.Appearance.ForeColor = Color.OrangeRed;
         }

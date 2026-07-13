@@ -14,6 +14,7 @@ namespace Nexus.Client.ModManagement
 	public interface IVirtualModActivator
 	{
 		event EventHandler ModActivationChanged;
+		event EventHandler VirtualStoreMutationEnded;
 
 		#region Properties
 		bool MultiHDMode { get; }
@@ -26,6 +27,7 @@ namespace Nexus.Client.ModManagement
 		ThreadSafeObservableList<IVirtualModInfo> VirtualMods { get; }
 		IEnumerable<string> ActiveModList { get; }
 		Int32 ModCount { get; }
+		bool IsVirtualStoreMutationInProgress { get; }
 		/// <summary>
 		/// Gets the current game mode.
 		/// </summary>

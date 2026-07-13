@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.Collections.Specialized;
     using System.ComponentModel;
+    using System.Data.SQLite;
     using System.Diagnostics;
     using System.Drawing;
     using System.IO;
@@ -84,6 +85,7 @@
 				_viewModel.ProfileSharing += ViewModel_ProfileSharing;
 				_viewModel.MigratingMods += ViewModel_MigratingMods;
 				_viewModel.ModManager.VirtualModActivator.ModActivationChanged += VirtualModActivator_ModActivationChanged;
+				_viewModel.ModManager.VirtualModActivator.VirtualStoreMutationEnded += VirtualModActivator_VirtualStoreMutationEnded;
 				_viewModel.CheckingOnlineProfileIntegrity += ViewModel_CheckingOnlineProfileIntegrity;
 				_viewModel.ProfileManager.CheckOnlineProfileIntegrityStarted += ViewModel_CheckingOnlineProfileIntegrity;
 				_viewModel.ApplyingImportedLoadOrder += ViewModel_ApplyingImportedLoadOrder;
@@ -1277,9 +1279,26 @@
 
 		private void ScheduleActivePluginsProfileSave()
 		{
+			DeferActivePluginsProfileSave();
+		}
+
+		private void DeferActivePluginsProfileSave()
+		{
 			_activePluginsProfileSavePending = true;
 			_activePluginsProfileSaveTimer.Stop();
 			_activePluginsProfileSaveTimer.Start();
+		}
+
+		private void VirtualModActivator_VirtualStoreMutationEnded(object sender, EventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				BeginInvoke((MethodInvoker)(() => VirtualModActivator_VirtualStoreMutationEnded(sender, e)));
+				return;
+			}
+
+			if (_activePluginsProfileSavePending)
+				DeferActivePluginsProfileSave();
 		}
 
 		private void ActivePluginsProfileSaveTimer_Tick(object sender, EventArgs e)
@@ -1299,9 +1318,15 @@
 			if (!_activePluginsProfileSavePending)
 				return;
 
+			if (ShouldDeferActivePluginsProfileSave())
+			{
+				DeferActivePluginsProfileSave();
+				return;
+			}
+
 			_activePluginsProfileSavePending = false;
 
-			if (ViewModel.ProfileManager.CurrentProfile != null && !ViewModel.IsSwitching)
+			if (ViewModel.ProfileManager.CurrentProfile != null)
 			{
 				string[] strOptionalFiles = null;
 
@@ -1326,6 +1351,14 @@
 							MessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						}
 					}
+					catch (SQLiteException ex)
+					{
+						if (!IsTransientSQLiteBusy(ex))
+							throw;
+
+						Trace.TraceWarning("Deferred automatic profile save because the virtual mod SQLite store is busy: {0}", ex.Message);
+						DeferActivePluginsProfileSave();
+					}
 					catch (IOException ex)
 					{
 						string strError = ex.Message + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
@@ -1333,6 +1366,22 @@
 					}
 				}
 			}
+		}
+
+		private bool ShouldDeferActivePluginsProfileSave()
+		{
+			if (ViewModel == null)
+				return false;
+
+			if (ViewModel.IsInstalling || ViewModel.IsSwitching)
+				return true;
+
+			return ViewModel.VirtualModActivator != null && ViewModel.VirtualModActivator.IsVirtualStoreMutationInProgress;
+		}
+
+		private static bool IsTransientSQLiteBusy(SQLiteException ex)
+		{
+			return ex.ResultCode == SQLiteErrorCode.Busy || ex.ResultCode == SQLiteErrorCode.Locked;
 		}
 
 		/// <summary>

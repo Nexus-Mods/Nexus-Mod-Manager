@@ -11,6 +11,18 @@ namespace Nexus.Client.ModManagement
 
     public sealed class FileManagerQueryService
     {
+        private readonly IFileManagerManualSourceStore _manualSourceStore;
+
+        public FileManagerQueryService()
+            : this(null)
+        {
+        }
+
+        public FileManagerQueryService(IFileManagerManualSourceStore manualSourceStore)
+        {
+            _manualSourceStore = manualSourceStore;
+        }
+
         public FileManagerScanResult Scan(IGameMode gameMode, IVirtualModActivator virtualModActivator, CancellationToken cancellationToken)
         {
             if (gameMode == null) throw new ArgumentNullException("gameMode");
@@ -22,6 +34,7 @@ namespace Nexus.Client.ModManagement
 
             Dictionary<string, List<IVirtualModLink>> linksByPath = BuildVirtualLinkLookup(virtualModActivator.VirtualLinks);
             HashSet<string> baseFiles = BuildBaseFileSet(gameMode.BaseGameFiles);
+            IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
             List<FileManagerRow> rows = new List<FileManagerRow>();
 
             foreach (string filePath in EnumerateFilesSafely(deploymentRoot, cancellationToken))
@@ -54,19 +67,8 @@ namespace Nexus.Client.ModManagement
                 };
 
                 List<IVirtualModLink> pathLinks;
-                if (linksByPath.TryGetValue(normalizedPath, out pathLinks) && pathLinks.Any(x => x.Active))
-                {
-                    ApplyNmmOwnership(row, pathLinks);
-                }
-                else if (baseFiles.Contains(normalizedPath))
-                {
-                    row.Source = FileManagerSource.BaseGameFile;
-                }
-                else
-                {
-                    row.Source = FileManagerSource.Untracked;
-                }
-
+                linksByPath.TryGetValue(normalizedPath, out pathLinks);
+                ApplySourceClassification(row, pathLinks, baseFiles, manualSources);
                 rows.Add(row);
             }
 
@@ -84,6 +86,84 @@ namespace Nexus.Client.ModManagement
 
             if (links.Any(x => x.Active))
                 ApplyNmmOwnership(row, links);
+        }
+
+        public void ApplyManualSource(FileManagerRow row, FileManagerSource source)
+        {
+            if (row == null) throw new ArgumentNullException("row");
+            if (!row.SourceEditable)
+                throw new InvalidOperationException("This file source was identified automatically and cannot be changed manually.");
+            if (!FileManagerSourceDisplay.IsManualSource(source))
+                throw new InvalidOperationException("The selected source cannot be assigned manually.");
+
+            row.OwnerCandidates = new List<FileManagerOwnerCandidate>();
+            row.OwnerKey = String.Empty;
+            row.OwnerName = String.Empty;
+            row.Source = source;
+        }
+
+        public IDictionary<string, FileManagerSource> LoadManualSources(string gameModeId)
+        {
+            if (_manualSourceStore == null)
+                return new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase);
+
+            return _manualSourceStore.Load(gameModeId) ?? new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public void SaveManualSource(string gameModeId, FileManagerRow row, FileManagerSource source)
+        {
+            if (_manualSourceStore == null)
+                return;
+            if (row == null) throw new ArgumentNullException("row");
+
+            _manualSourceStore.SetSource(gameModeId, row.NormalizedRelativePath, source);
+        }
+
+        public void ChangeManualSource(string gameModeId, FileManagerRow row, FileManagerSource source, FileManagerSource previousSource)
+        {
+            if (row == null) throw new ArgumentNullException("row");
+
+            try
+            {
+                SaveManualSource(gameModeId, row, source);
+                ApplyManualSource(row, source);
+            }
+            catch
+            {
+                row.Source = previousSource;
+                throw;
+            }
+        }
+
+        public static void ApplySourceClassification(FileManagerRow row, IList<IVirtualModLink> pathLinks, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources)
+        {
+            if (row == null) throw new ArgumentNullException("row");
+
+            if (pathLinks != null && pathLinks.Any(x => x != null && x.Active))
+            {
+                ApplyNmmOwnership(row, pathLinks.Where(x => x != null).ToList());
+                return;
+            }
+
+            if (baseFiles != null && baseFiles.Contains(row.NormalizedRelativePath))
+            {
+                row.SourceEditable = false;
+                row.OwnerCandidates = new List<FileManagerOwnerCandidate>();
+                row.OwnerKey = String.Empty;
+                row.OwnerName = String.Empty;
+                row.Source = FileManagerSource.BaseGame;
+                return;
+            }
+
+            FileManagerSource manualSource;
+            row.SourceEditable = true;
+            row.OwnerCandidates = new List<FileManagerOwnerCandidate>();
+            row.OwnerKey = String.Empty;
+            row.OwnerName = String.Empty;
+            if (manualSources != null && manualSources.TryGetValue(row.NormalizedRelativePath, out manualSource) && FileManagerSourceDisplay.IsManualSource(manualSource) && manualSource != FileManagerSource.Untracked)
+                row.Source = manualSource;
+            else
+                row.Source = FileManagerSource.Untracked;
         }
 
         public static string GetDeploymentRoot(IGameMode gameMode)
@@ -164,6 +244,7 @@ namespace Nexus.Client.ModManagement
                 .ToList();
 
             IVirtualModLink activeOwner = orderedLinks.FirstOrDefault(x => x.Active) ?? orderedLinks.First();
+            row.SourceEditable = false;
             row.Source = FileManagerSource.InstalledByNmm;
             row.OwnerCandidates = orderedLinks
                 .Select(x => new FileManagerOwnerCandidate(CreateOwnerKey(x.ModInfo), x.ModInfo == null ? String.Empty : x.ModInfo.ModName, x.Priority))

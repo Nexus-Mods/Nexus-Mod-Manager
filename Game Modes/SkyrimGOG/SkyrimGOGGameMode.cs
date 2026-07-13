@@ -113,7 +113,7 @@ namespace Nexus.Client.Games.SkyrimGOG
 		{
 			get
 			{
-				return Properties.Resources.skyrimse_base;
+				return Properties.Resources.skyrimgog_base;
 			}
 		}
 

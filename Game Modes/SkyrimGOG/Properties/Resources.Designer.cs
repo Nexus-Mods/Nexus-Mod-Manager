@@ -121,9 +121,9 @@ namespace Nexus.Client.Games.SkyrimGOG.Properties {
         ///Update.esm
         ///Video\BGS_Logo.bik.
         /// </summary>
-        public static string skyrimse_base {
+        public static string skyrimgog_base {
             get {
-                return ResourceManager.GetString("skyrimse_base", resourceCulture);
+                return ResourceManager.GetString("skyrimgog_base", resourceCulture);
             }
         }
     }

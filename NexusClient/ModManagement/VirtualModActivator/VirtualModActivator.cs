@@ -34,6 +34,7 @@
 		static extern bool CreateHardLink(string p_strLinkName, string p_strTargetPath, IntPtr lpSecurityAttributes);
 
 		public event EventHandler ModActivationChanged;
+		public event EventHandler VirtualStoreMutationEnded = delegate { };
 
 		#region Static Properties
 
@@ -116,6 +117,7 @@
 		private bool m_booVirtualLinkIndexDirty = true;
 		private int m_intVirtualLinkIndexRevision = 0;
 		private readonly object m_objVirtualLinkIndexLock = new object();
+		private int m_intVirtualStoreMutationCount = 0;
 		private ThreadSafeObservableList<IVirtualModInfo> m_tslVirtualModInfo = new ThreadSafeObservableList<IVirtualModInfo>();
 		private bool m_booInitialized = false;
 		private bool m_booDisableLinkCreation = false;
@@ -309,6 +311,14 @@
 			get
 			{
 				return m_tslVirtualModInfo.Count;
+			}
+		}
+
+		public bool IsVirtualStoreMutationInProgress
+		{
+			get
+			{
+				return Interlocked.CompareExchange(ref m_intVirtualStoreMutationCount, 0, 0) > 0;
 			}
 		}
 
@@ -520,8 +530,11 @@
 
 			if (m_vmsVirtualModStore.IsReadyForWrite(m_strVirtualActivatorConfigPath))
 			{
-				m_vmsVirtualModStore.Save(CURRENT_VERSION, m_strVirtualActivatorConfigPath, lstVirtualModInfo, m_tslVirtualModList);
-				writtenTo = true;
+				using (BeginVirtualStoreMutation())
+				{
+					m_vmsVirtualModStore.Save(CURRENT_VERSION, m_strVirtualActivatorConfigPath, lstVirtualModInfo, m_tslVirtualModList);
+					writtenTo = true;
+				}
 			}
 
 			if (p_booModActivationChange)
@@ -549,6 +562,15 @@
 		/// <param name="p_lstVirtualModLink">The IVirtualModLink object list.</param>
 		public void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModLink)
 		{
+			if (string.Equals(Path.GetFullPath(p_strPath), m_strVirtualActivatorConfigPath, StringComparison.OrdinalIgnoreCase))
+			{
+				using (BeginVirtualStoreMutation())
+				{
+					m_vmsVirtualModStore.SaveWithModInfoMatching(CURRENT_VERSION, p_strPath, p_lstVirtualModInfo, p_lstVirtualModLink);
+				}
+				return;
+			}
+
 			m_vmsVirtualModStore.SaveWithModInfoMatching(CURRENT_VERSION, p_strPath, p_lstVirtualModInfo, p_lstVirtualModLink);
 		}
 
@@ -601,6 +623,46 @@
 			}
 		}
 
+		private VirtualStoreMutationScope BeginVirtualStoreMutation()
+		{
+			Interlocked.Increment(ref m_intVirtualStoreMutationCount);
+			return new VirtualStoreMutationScope(this);
+		}
+
+		private void EndVirtualStoreMutation()
+		{
+			if (Interlocked.Decrement(ref m_intVirtualStoreMutationCount) != 0)
+				return;
+
+			try
+			{
+				VirtualStoreMutationEnded(this, EventArgs.Empty);
+			}
+			catch (Exception e)
+			{
+				Trace.TraceWarning("Could not notify virtual store mutation completion: {0}", e.Message);
+			}
+		}
+
+		private sealed class VirtualStoreMutationScope : IDisposable
+		{
+			private readonly VirtualModActivator m_vmaVirtualModActivator;
+			private bool m_booDisposed;
+
+			public VirtualStoreMutationScope(VirtualModActivator p_vmaVirtualModActivator)
+			{
+				m_vmaVirtualModActivator = p_vmaVirtualModActivator;
+			}
+
+			public void Dispose()
+			{
+				if (m_booDisposed)
+					return;
+
+				m_booDisposed = true;
+				m_vmaVirtualModActivator.EndVirtualStoreMutation();
+			}
+		}
 
 		internal ModInfoUpdateBatch BeginModInfoUpdateBatch()
 		{
