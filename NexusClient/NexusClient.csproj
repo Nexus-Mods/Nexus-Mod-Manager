@@ -621,6 +621,7 @@
     <EmbeddedResource Include="Resources\mod-installed-active.svg" />
     <EmbeddedResource Include="Resources\mod-uninstall-from-profile.svg" />
     <EmbeddedResource Include="Resources\mod-remove.svg" />
+    <EmbeddedResource Include="Resources\game_storage_use.svg" />
     <None Include="Resources\update_warning_disabled.png" />
     <None Include="Resources\update_warning.png" />
     <None Include="Resources\text-x-generic.png" />
@@ -721,6 +722,25 @@
     <Compile Include="Games\GameDiscoverer.cs" />
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameLauncher.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGamebryoGameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGamebryoGameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeFactory.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeSettingsGroup.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameModeSettingsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Games\DataDriven\DataDrivenSetupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Games\DataDriven\DataDrivenSupportedToolsLauncher.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenToolLauncher.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionLoader.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionLoadResult.cs" />
+    <Compile Include="Games\DataDriven\GameModeDefinitionValidator.cs" />
     <Compile Include="UI\Controls\GameModeListViewItemBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -785,6 +805,21 @@
     <Compile Include="PluginManagement\UI\PluginManagerVM.cs" />
     <Compile Include="DownloadManagement\FileDownloadTask.cs" />
     <Compile Include="ServiceManager.cs" />
+    <Compile Include="GameStorage\GameStorageConstants.cs" />
+    <Compile Include="GameStorage\GameStorageEnums.cs" />
+    <Compile Include="GameStorage\GameStorageHealth.cs" />
+    <Compile Include="GameStorage\GameStorageModels.cs" />
+    <Compile Include="GameStorage\GameStorageService.cs" />
+    <Compile Include="GameStorage\GameStorageRecoveryService.cs" />
+    <Compile Include="GameStorage\UI\GameStorageRecoveryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GameStorage\UI\GameStorageSetupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GameStorage\UI\GameStorageSetupControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Settings\ModOptionsSettingsGroup.cs" />
     <Compile Include="Settings\UI\ModOptionsPage.cs">
       <SubType>UserControl</SubType>
@@ -980,6 +1015,10 @@
       <Project>{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}</Project>
       <Name>SkyrimGOG</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Game Modes\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
+      <Name>GamebryoBase</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Mod Formats\FOMod\FOMod.csproj">
       <Project>{34B04F6B-0D64-455F-B20F-1C3E080AE601}</Project>
       <Name>FOMod</Name>
@@ -1074,4 +1113,26 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Content Include="..\Game Modes\Definitions\**\*.*">
+      <Link>GameModes\Definitions\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Docs\GameModes\GameModeDefinition.md">
+      <Link>Docs\GameModes\GameModeDefinition.md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\GameModes\Cyberpunk2077.json">
+      <Link>GameModes\Cyberpunk2077.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\GameModes\Templates\GameMode.template.jsonc">
+      <Link>GameModes\Templates\GameMode.template.jsonc</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\GameModes\schema\game-mode.schema.json">
+      <Link>GameModes\schema\game-mode.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

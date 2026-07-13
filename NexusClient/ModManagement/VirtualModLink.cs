@@ -12,18 +12,25 @@ namespace Nexus.Client.ModManagement
 		public int Priority { get; set; }
 		public bool Active { get; set; }
 		public IVirtualModInfo ModInfo { get; set; }
+		public ModInstallRoot InstallRoot { get; set; }
 		
 		#endregion
 
 		#region Constructors
 
 		public VirtualModLink(string p_strRealPath, string p_strVirtualPath, int p_intPriority, bool p_booActive, IVirtualModInfo p_vmiVirtualModInfo)
+			: this(p_strRealPath, p_strVirtualPath, p_intPriority, p_booActive, p_vmiVirtualModInfo, ModInstallRoot.Default)
+		{
+		}
+
+		public VirtualModLink(string p_strRealPath, string p_strVirtualPath, int p_intPriority, bool p_booActive, IVirtualModInfo p_vmiVirtualModInfo, ModInstallRoot p_mirInstallRoot)
 		{
 			VirtualModPath = p_strVirtualPath;
 			RealModPath = p_strRealPath;
 			Priority = p_intPriority;
 			Active = p_booActive;
 			ModInfo = p_vmiVirtualModInfo;
+			InstallRoot = p_mirInstallRoot;
 		}
 
 		public VirtualModLink(IVirtualModLink p_vmlLink)
@@ -33,6 +40,7 @@ namespace Nexus.Client.ModManagement
 			Priority = p_vmlLink.Priority;
 			Active = p_vmlLink.Active;
 			ModInfo = p_vmlLink.ModInfo;
+			InstallRoot = p_vmlLink.InstallRoot;
 		}
 
 	#endregion

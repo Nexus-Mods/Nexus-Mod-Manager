@@ -1,0 +1,124 @@
+{
+    "schemaVersion":  1,
+    "modeId":  "Skyrim",
+    "name":  "Skyrim",
+    "behaviorProfile":  "gamebryo",
+    "installerProfile":  "gamebryo",
+    "legacyFallback":  false,
+    "gameExecutables":  [
+                            "SkyrimLauncher.exe"
+                        ],
+    "stopFolders":  [
+                        "textures",
+                        "scripts",
+                        "meshes",
+                        "music",
+                        "shaders",
+                        "video",
+                        "interface",
+                        "facegen",
+                        "menus",
+                        "lodsettings",
+                        "lsdata",
+                        "sound",
+                        "CalienteTools",
+                        "SKSE",
+                        "MWSE",
+                        "NVSE",
+                        "F4SE",
+                        "FOSE",
+                        "OBSE"
+                    ],
+    "pluginExtensions":  [
+                             ".esm",
+                             ".esl",
+                             ".esp",
+                             ".bsa",
+                             ".ba2"
+                         ],
+    "orderedCriticalPluginNames":  [
+                                       "Skyrim.esm",
+                                       "Update.esm"
+                                   ],
+    "orderedOfficialPluginNames":  [
+                                       "Dawnguard.esm",
+                                       "Dragonborn.esm",
+                                       "HearthFires.esm",
+                                       "HighResTexturePack01.esp",
+                                       "HighResTexturePack02.esp",
+                                       "HighResTexturePack03.esp"
+                                   ],
+    "orderedOfficialUnmanagedPluginNames":  [
+
+                                            ],
+    "supportedFormats":  [
+                             "fomod"
+                         ],
+    "discovery":  {
+                      "stores":  [
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "72850",
+                                         "installFolderName":  "Skyrim",
+                                         "executableName":  "SkyrimLauncher.exe"
+                                     }
+                                 ]
+                  },
+    "plugin":  {
+                   "usesPlugins":  true,
+                   "pluginDirectorySuffix":  "Data",
+                   "supportsPluginAutoSorting":  true,
+                   "maxAllowedActivePluginsCount":  255
+               },
+    "launcher":  {
+                     "defaultExecutable":  "SkyrimLauncher.exe",
+                     "plainCommandName":  "PlainLaunch",
+                     "plainCommandText":  "Launch Skyrim",
+                     "customCommandName":  "CustomLaunch",
+                     "customCommandText":  "Launch Custom Skyrim",
+                     "defaultCommandText":  "Launch Skyrim",
+                     "allowCustomCommand":  true
+                 },
+    "resources":  {
+                      "iconPath":  "skyrim_logo.ico",
+                      "categoriesPath":  "Categories.xml",
+                      "baseFilesPath":  "skyrim_base.txt"
+                  },
+    "theme":  {
+                  "primaryColor":  "#32689E"
+              },
+    "setup":  {
+                  "useGenericSetup":  true
+              },
+    "settings":  {
+                     "useGenericSettings":  true,
+                     "allowCustomLaunchCommand":  true
+                 },
+    "modInstall":  {
+                       "pathAdjustmentProfile":  "none",
+                       "hardlinkRequiredExtensions":  [
+                                                          ".esp",
+                                                          ".esl",
+                                                          ".esm",
+                                                          ".bsa",
+                                                          ".mp3",
+                                                          ".BGSM",
+                                                          ".BGEM",
+                                                          ".wav",
+                                                          ".ogg",
+                                                          ".xwm"
+                                                      ],
+                       "supportsGameRootInstall":  true
+                   },
+    "gamebryo":  {
+                     "scriptExtenderExecutables":  [
+                                                       "skse_loader.exe"
+                                                   ],
+                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim",
+                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
+                     "additionalSettingsFiles":  {
+                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
+                                                 },
+                     "pluginsFilePath":  "#32689E"
+                 }
+}

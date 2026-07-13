@@ -420,6 +420,14 @@ namespace Nexus.Client.Games.Gamebryo
 			yield return pupUpdater;
 		}
 
+		public override bool SupportsGameRootModInstall
+		{
+			get
+			{
+				return true;
+			}
+		}
+
 		/// <summary>
 		/// Adjusts the given path to be relative to the installation path of the game mode.
 		/// </summary>

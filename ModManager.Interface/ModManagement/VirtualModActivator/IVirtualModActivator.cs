@@ -50,10 +50,13 @@ namespace Nexus.Client.ModManagement
 		void UpdateDownloadId(string p_strCurrentProfilePath, Dictionary<string, string> p_dctNewDownloadID);
 		string CheckVirtualLink(string p_strFilePath);
 		Int32 CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> lstFileLinks);
+		Int32 CheckFileLink(string p_strFilePath, ModInstallRoot p_mirInstallRoot, out IMod p_modMod, out List<IVirtualModLink> lstFileLinks);
 		bool PurgeLinks();
 		void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, Int32 p_intPriority);
+		void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, Int32 p_intPriority, ModInstallRoot p_mirInstallRoot);
 		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, Int32 p_intPriority);
 		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority);
+		string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, Int32 p_intPriority, ModInstallRoot p_mirInstallRoot);
 		void RemoveFileLink(string p_strFilePath, IMod p_modMod);
 		void RemoveFileLink(IVirtualModLink p_ivlVirtualLink, IMod p_modMod);
 		void UpdateLinkPriority(IVirtualModLink p_ivlFileLink);

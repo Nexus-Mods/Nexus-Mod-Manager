@@ -1,0 +1,50 @@
+{
+    "schemaVersion":  1,
+    "supportedTools":  [
+                           {
+                               "id":  "BOSS",
+                               "name":  "BOSS",
+                               "executableName":  "boss.exe",
+                               "discoveryRules":  [
+                                                      {
+                                                          "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\BOSS\\",
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
+                                                      },
+                                                      {
+                                                          "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\BOSS\\",
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "LOOT",
+                               "name":  "LOOT",
+                               "executableName":  "LOOT.exe",
+                               "arguments":  "--game=Oblivion",
+                               "discoveryRules":  [
+                                                      {
+                                                          "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LOOT\\",
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
+                                                      },
+                                                      {
+                                                          "registryKey":  "HKEY_LOCAL_MACHINE\\SOFTWARE\\LOOT\\",
+                                                          "registryValueName":  "Installed Path",
+                                                          "source":  "Registry"
+                                                      }
+                                                  ]
+                           },
+                           {
+                               "id":  "WryeBash",
+                               "name":  "Wrye Bash",
+                               "executableName":  "Wrye Bash.exe"
+                           },
+                           {
+                               "id":  "TES4Edit",
+                               "name":  "TES4Edit",
+                               "executableName":  "TES4Edit.exe"
+                           }
+                       ]
+}

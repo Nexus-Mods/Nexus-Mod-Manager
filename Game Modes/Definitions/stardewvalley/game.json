@@ -1,0 +1,57 @@
+﻿{
+    "schemaVersion":  1,
+    "modeId":  "stardewvalley",
+    "name":  "Stardew Valley",
+    "behaviorProfile":  "generic",
+    "installerProfile":  "default",
+    "legacyFallback":  false,
+    "gameExecutables":  [
+                            "Stardew Valley.exe"
+                        ],
+    "stopFolders":  [
+                        "Mods"
+                    ],
+    "supportedFormats":  [
+                             "fomod"
+                         ],
+    "discovery":  {
+                      "stores":  [
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "413150",
+                                         "installFolderName":  "Stardew Valley",
+                                         "executableName":  "Stardew Valley.exe"
+                                     }
+                                 ]
+                  },
+    "plugin":  {
+                   "usesPlugins":  false,
+                   "pluginDirectorySuffix":  ""
+               },
+    "launcher":  {
+                     "defaultExecutable":  "Stardew Valley.exe",
+                     "plainCommandName":  "PlainLaunch",
+                     "plainCommandText":  "Launch Stardew Valley",
+                     "customCommandName":  "CustomLaunch",
+                     "customCommandText":  "Launch Custom Stardew Valley",
+                     "defaultCommandText":  "Launch Stardew Valley",
+                     "allowCustomCommand":  true
+                 },
+    "resources":  {
+                      "iconPath":  "StardewValley_logo.ico",
+                      "categoriesPath":  "Categories.xml"
+                  },
+    "theme":  {
+                  "primaryColor":  "#502D17"
+              },
+    "setup":  {
+                  "useGenericSetup":  true
+              },
+    "settings":  {
+                     "useGenericSettings":  true,
+                     "allowCustomLaunchCommand":  true
+                 },
+    "modInstall":  {
+                       "pathAdjustmentProfile":  "stardewvalley"
+                   }
+}

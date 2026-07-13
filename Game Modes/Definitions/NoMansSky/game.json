@@ -1,0 +1,61 @@
+﻿{
+    "schemaVersion":  1,
+    "modeId":  "NoMansSky",
+    "name":  "No Man\u0027s Sky",
+    "behaviorProfile":  "generic",
+    "installerProfile":  "default",
+    "legacyFallback":  false,
+    "gameExecutables":  [
+                            "Binaries\\NMS.exe"
+                        ],
+    "stopFolders":  [
+
+                    ],
+    "supportedFormats":  [
+                             "fomod"
+                         ],
+    "discovery":  {
+                      "stores":  [
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "275850",
+                                         "installFolderName":  "No Man\u0027s Sky",
+                                         "executableName":  "Binaries\\NMS.exe"
+                                     }
+                                 ]
+                  },
+    "plugin":  {
+                   "usesPlugins":  false,
+                   "pluginDirectorySuffix":  ""
+               },
+    "launcher":  {
+                     "defaultExecutable":  "Binaries\\NMS.exe",
+                     "plainCommandName":  "PlainLaunch",
+                     "plainCommandText":  "Launch No Man\u0027s Sky",
+                     "customCommandName":  "CustomLaunch",
+                     "customCommandText":  "Launch Custom No Man\u0027s Sky",
+                     "defaultCommandText":  "Launch No Man\u0027s Sky",
+                     "allowCustomCommand":  true
+                 },
+    "resources":  {
+                      "iconPath":  "nomanssky_logo.ico",
+                      "categoriesPath":  "Categories.xml"
+                  },
+    "theme":  {
+                  "primaryColor":  "#502D17"
+              },
+    "setup":  {
+                  "useGenericSetup":  true
+              },
+    "settings":  {
+                     "useGenericSettings":  true,
+                     "allowCustomLaunchCommand":  true
+                 },
+    "modInstall":  {
+                       "pathAdjustmentProfile":  "nomanssky",
+                       "hardlinkRequiredExtensions":  [
+                                                          ".mp3",
+                                                          ".dll"
+                                                      ]
+                   }
+}

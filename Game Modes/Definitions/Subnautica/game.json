@@ -1,0 +1,57 @@
+﻿{
+    "schemaVersion":  1,
+    "modeId":  "Subnautica",
+    "name":  "Subnautica",
+    "behaviorProfile":  "generic",
+    "installerProfile":  "default",
+    "legacyFallback":  false,
+    "gameExecutables":  [
+                            "Subnautica.exe"
+                        ],
+    "stopFolders":  [
+                        "QMods"
+                    ],
+    "supportedFormats":  [
+                             "fomod"
+                         ],
+    "discovery":  {
+                      "stores":  [
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "264710",
+                                         "installFolderName":  "Subnautica",
+                                         "executableName":  "Subnautica.exe"
+                                     }
+                                 ]
+                  },
+    "plugin":  {
+                   "usesPlugins":  false,
+                   "pluginDirectorySuffix":  ""
+               },
+    "launcher":  {
+                     "defaultExecutable":  "Subnautica.exe",
+                     "plainCommandName":  "PlainLaunch",
+                     "plainCommandText":  "Launch Subnautica",
+                     "customCommandName":  "CustomLaunch",
+                     "customCommandText":  "Launch Custom Subnautica",
+                     "defaultCommandText":  "Launch Subnautica",
+                     "allowCustomCommand":  true
+                 },
+    "resources":  {
+                      "iconPath":  "Subnautica_logo.ico",
+                      "categoriesPath":  "Categories.xml"
+                  },
+    "theme":  {
+                  "primaryColor":  "#502D17"
+              },
+    "setup":  {
+                  "useGenericSetup":  true
+              },
+    "settings":  {
+                     "useGenericSettings":  true,
+                     "allowCustomLaunchCommand":  true
+                 },
+    "modInstall":  {
+                       "pathAdjustmentProfile":  "subnautica"
+                   }
+}

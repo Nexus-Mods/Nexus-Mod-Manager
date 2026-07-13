@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="e:\Games\Nexus Mod Manager\Subnautica\Mods\Environment" ID="12">
+      <name>Environment</name>
+    </category>
+    <category path="Subnautica" ID="1">
+      <name>Subnautica</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Visuals and Graphics" ID="3">
+      <name>Visuals and Graphics</name>
+    </category>
+    <category path="Utilities" ID="4">
+      <name>Utilities</name>
+    </category>
+    <category path="User Interface" ID="5">
+      <name>User Interface</name>
+    </category>
+    <category path="Buildables" ID="8">
+      <name>Buildables</name>
+    </category>
+    <category path="Items" ID="9">
+      <name>Items</name>
+    </category>
+    <category path="Gameplay" ID="10">
+      <name>Gameplay</name>
+    </category>
+    <category path="Libraries" ID="11">
+      <name>Libraries</name>
+    </category>
+    <category path="Adventure" ID="13">
+      <name>Adventure</name>
+    </category>
+    <category path="Crafting" ID="15">
+      <name>Crafting</name>
+    </category>
+    <category path="Vehicles and Upgrades" ID="16">
+      <name>Vehicles and Upgrades</name>
+    </category>
+    <category path="Multiplayer" ID="17">
+      <name>Multiplayer</name>
+    </category>
+    <category path="Audio" ID="18">
+      <name>Audio</name>
+    </category>
+  </categoryList>
+</categoryManager>

@@ -1,0 +1,60 @@
+﻿{
+    "schemaVersion":  1,
+    "modeId":  "TheSims4",
+    "name":  "The Sims 4",
+    "behaviorProfile":  "generic",
+    "installerProfile":  "default",
+    "legacyFallback":  false,
+    "gameExecutables":  [
+                            "Game\\Bin\\TS4_x64.exe"
+                        ],
+    "stopFolders":  [
+                        "Mods",
+                        "Tray"
+                    ],
+    "supportedFormats":  [
+                             "fomod"
+                         ],
+    "discovery":  {
+                      "stores":  [
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "1222670",
+                                         "installFolderName":  "The Sims 4",
+                                         "executableName":  "Game\\Bin\\TS4_x64.exe"
+                                     }
+                                 ]
+                  },
+    "plugin":  {
+                   "usesPlugins":  false,
+                   "pluginDirectorySuffix":  ""
+               },
+    "launcher":  {
+                     "defaultExecutable":  "Game\\Bin\\TS4_x64.exe",
+                     "plainCommandName":  "PlainLaunch",
+                     "plainCommandText":  "Launch The Sims 4",
+                     "customCommandName":  "CustomLaunch",
+                     "customCommandText":  "Launch Custom The Sims 4",
+                     "defaultCommandText":  "Launch The Sims 4",
+                     "allowCustomCommand":  true
+                 },
+    "resources":  {
+                      "iconPath":  "Sims4_logo.ico",
+                      "categoriesPath":  "Categories.xml"
+                  },
+    "theme":  {
+                  "primaryColor":  "#502D17"
+              },
+    "setup":  {
+                  "useGenericSetup":  true
+              },
+    "settings":  {
+                     "useGenericSettings":  true,
+                     "allowCustomLaunchCommand":  true
+                 },
+    "modInstall":  {
+                       "pathAdjustmentProfile":  "sims4",
+                       "managedInstallationPath":  "{Documents}\\Electronic Arts\\The Sims 4",
+                       "pluginDirectoryPath":  "{Documents}\\Electronic Arts\\The Sims 4"
+                   }
+}

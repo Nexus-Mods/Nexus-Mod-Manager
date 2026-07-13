@@ -49,6 +49,7 @@
 				m_vmlViewModel.LoginUser = Login;
 				m_vmlViewModel.ConfirmMakeWritable = ConfirmMakeWritable;
 				m_vmlViewModel.ShowView = ShowView;
+				m_vmlViewModel.ShowViewFactory = ShowView;
 				m_vmlViewModel.ShowMessage = ShowMessage;
 				m_vmlViewModel.ConfirmItemOverwrite = ConfirmItemOverwrite;
 				ColourImage = pbxLogo.Image;
@@ -448,6 +449,13 @@
 			if (frmView == null)
 				throw new ArgumentException(String.Format("The given view must be of type {0}. Type {1} found.", typeof(Form).FullName, p_ivwView.GetType().FullName), "p_ivwView");
 			return frmView.ShowDialog(this);
+		}
+
+		private object ShowView(Func<IView> p_fncViewFactory, bool p_booModal)
+		{
+			if (InvokeRequired)
+				return Invoke(new Func<Func<IView>, bool, object>(ShowView), p_fncViewFactory, p_booModal);
+			return ShowView(p_fncViewFactory(), p_booModal);
 		}
 
 		/// <summary>

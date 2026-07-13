@@ -1,0 +1,57 @@
+﻿{
+    "schemaVersion":  1,
+    "modeId":  "SubnauticaBelowZero",
+    "name":  "Subnautica Below Zero",
+    "behaviorProfile":  "generic",
+    "installerProfile":  "default",
+    "legacyFallback":  false,
+    "gameExecutables":  [
+                            "SubnauticaZero.exe"
+                        ],
+    "stopFolders":  [
+                        "QMods"
+                    ],
+    "supportedFormats":  [
+                             "fomod"
+                         ],
+    "discovery":  {
+                      "stores":  [
+                                     {
+                                         "store":  "Steam",
+                                         "id":  "848450",
+                                         "installFolderName":  "SubnauticaZero",
+                                         "executableName":  "SubnauticaZero.exe"
+                                     }
+                                 ]
+                  },
+    "plugin":  {
+                   "usesPlugins":  false,
+                   "pluginDirectorySuffix":  ""
+               },
+    "launcher":  {
+                     "defaultExecutable":  "SubnauticaZero.exe",
+                     "plainCommandName":  "PlainLaunch",
+                     "plainCommandText":  "Launch Subnautica Below Zero",
+                     "customCommandName":  "CustomLaunch",
+                     "customCommandText":  "Launch Custom Subnautica Below Zero",
+                     "defaultCommandText":  "Launch Subnautica Below Zero",
+                     "allowCustomCommand":  true
+                 },
+    "resources":  {
+                      "iconPath":  "SubnauticaBelowZero_logo.ico",
+                      "categoriesPath":  "Categories.xml"
+                  },
+    "theme":  {
+                  "primaryColor":  "#502D17"
+              },
+    "setup":  {
+                  "useGenericSetup":  true
+              },
+    "settings":  {
+                     "useGenericSettings":  true,
+                     "allowCustomLaunchCommand":  true
+                 },
+    "modInstall":  {
+                       "pathAdjustmentProfile":  "subnautica"
+                   }
+}

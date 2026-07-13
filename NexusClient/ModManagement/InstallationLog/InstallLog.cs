@@ -551,8 +551,8 @@
 					foreach (var item in lstItems)
                     {
                         var xelFile = new XElement("fileLink",
-							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(modFileName), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, true))),
-							new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, true)),
+							new XAttribute("realPath", Path.Combine(Path.GetFileNameWithoutExtension(modFileName), GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, ModPathContext.VirtualStorage))),
+							new XAttribute("virtualPath", GameMode.GetModFormatAdjustedPath(mod.Key.Format, item.Item, mod.Key, ModPathContext.VirtualStorage)),
                             new XElement("linkPriority", "0"),
 							new XElement("isActive", "true"));
 						xelMod.Add(xelFile);

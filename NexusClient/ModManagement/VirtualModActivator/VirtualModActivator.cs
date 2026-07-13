@@ -1135,23 +1135,41 @@
 			return strPath;
 		}
 
+		private string GetInstallRootPath(ModInstallRoot p_mirInstallRoot)
+		{
+			return p_mirInstallRoot == ModInstallRoot.GameRoot ? GameMode.InstallationPath : m_strGameDataPath;
+		}
+
+		private string GetAdjustedVirtualPath(IMod p_modMod, string p_strBaseFilePath, ModInstallRoot p_mirInstallRoot)
+		{
+			if (p_mirInstallRoot == ModInstallRoot.GameRoot)
+				return p_strBaseFilePath ?? string.Empty;
+
+			return GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true);
+		}
+
 		public int CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
 		{
-			return CheckFileLink(p_strFilePath, -1, out p_modMod, out p_lstFileLinks);
+			return CheckFileLink(p_strFilePath, ModInstallRoot.Default, out p_modMod, out p_lstFileLinks);
+		}
+
+		public int CheckFileLink(string p_strFilePath, ModInstallRoot p_mirInstallRoot, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
+		{
+			return CheckFileLink(p_strFilePath, p_mirInstallRoot, -1, out p_modMod, out p_lstFileLinks);
 		}
 
 		private int CheckFileLink(string p_strFilePath, int p_intCurrentPriority, out IMod p_modMod)
 		{
 			List<IVirtualModLink> lstDummy;
-			return CheckFileLink(p_strFilePath, p_intCurrentPriority, out p_modMod, out lstDummy);
+			return CheckFileLink(p_strFilePath, ModInstallRoot.Default, p_intCurrentPriority, out p_modMod, out lstDummy);
 		}
 
-		private int CheckFileLink(string p_strFilePath, int p_intCurrentPriority, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
+		private int CheckFileLink(string p_strFilePath, ModInstallRoot p_mirInstallRoot, int p_intCurrentPriority, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
 		{
 			int intPriority = -1;
 			p_modMod = null;
 
-			List<IVirtualModLink> lstVirtualModLink = FindVirtualLinksByPath(p_strFilePath);
+			List<IVirtualModLink> lstVirtualModLink = FindVirtualLinksByPath(p_strFilePath).Where(x => x.InstallRoot == p_mirInstallRoot).ToList();
 			if (p_intCurrentPriority >= 0)
 				lstVirtualModLink = lstVirtualModLink.Where(x => x.Priority != p_intCurrentPriority).ToList();
 
@@ -1168,7 +1186,7 @@
 				intPriority = 0;
 			else if (p_intCurrentPriority == -1)
 			{
-				string strLoosePath = Path.Combine(m_strGameDataPath, p_strFilePath);
+				string strLoosePath = Path.Combine(GetInstallRootPath(p_mirInstallRoot), p_strFilePath);
 				if (File.Exists(strLoosePath))
 					p_modMod = DummyMod;
 			}
@@ -1348,6 +1366,11 @@
 
 		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, int p_intPriority)
 		{
+			AddInactiveLink(p_modMod, p_strBaseFilePath, p_intPriority, ModInstallRoot.Default);
+		}
+
+		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, int p_intPriority, ModInstallRoot p_mirInstallRoot)
+		{
 			IVirtualModInfo modInfo = FindVirtualModInfoByFileName(Path.GetFileName(p_modMod.Filename));
 			if (modInfo == null)
 			{
@@ -1356,19 +1379,24 @@
 				modInfo = vmiModInfo;
 			}
 			string strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
-			AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo));
+			AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo, p_mirInstallRoot));
 		}
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, int p_intPriority)
 		{
+			return AddFileLink(p_modMod, p_strBaseFilePath, p_booIsSwitching, p_booIsRestoring, p_intPriority, ModInstallRoot.Default);
+		}
+
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, int p_intPriority, ModInstallRoot p_mirInstallRoot)
+		{
 			if (p_booIsSwitching)
 			{
-				string strLoosePath = Path.Combine(m_strGameDataPath, p_strBaseFilePath);
+				string strLoosePath = Path.Combine(GetInstallRootPath(p_mirInstallRoot), p_strBaseFilePath);
 				if (File.Exists(strLoosePath))
 					OverwriteLooseFile(p_strBaseFilePath, Path.GetFileName(p_modMod.Filename));
 			}
 
-			return AddFileLink(p_modMod, p_strBaseFilePath, null, p_booIsSwitching, p_booIsRestoring, false, p_intPriority);
+			return AddFileLink(p_modMod, p_strBaseFilePath, null, p_booIsSwitching, p_booIsRestoring, false, p_intPriority, p_mirInstallRoot);
 		}
 
 		private string GetRealFilePath(IMod p_modMod, string p_strBaseFilePath, string p_strRootPath)
@@ -1442,23 +1470,28 @@
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, int p_intPriority)
 		{
+			return AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, p_booIsRestoring, p_booHandlePlugin, p_intPriority, ModInstallRoot.Default);
+		}
+
+		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, int p_intPriority, ModInstallRoot p_mirInstallRoot)
+		{
 			string strSourceFile = p_strSourceFile;
 
 			// Checking whether the file has been stored using the filename or the downloadID
 			string strRealFilePath = GetRealFilePath(p_modMod, p_strBaseFilePath, m_strVirtualActivatorPath);
 			string strRealLinkFilePath = (MultiHDMode && !string.IsNullOrEmpty(HDLinkFolder)) ? GetRealFilePath(p_modMod, p_strBaseFilePath, HDLinkFolder) : string.Empty;
 
-			string strAdjustedFilePath = GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_strBaseFilePath, p_modMod, true);
+			string strAdjustedFilePath = GetAdjustedVirtualPath(p_modMod, p_strBaseFilePath, p_mirInstallRoot);
 
 			if (string.IsNullOrEmpty(strAdjustedFilePath))
 				return string.Empty;
 
 			string strVirtualFileLink = string.Empty;
 
-			if (GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod, strAdjustedFilePath))
+			if (p_mirInstallRoot == ModInstallRoot.Default && GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod, strAdjustedFilePath))
 				strVirtualFileLink = Path.Combine(GameMode.SecondaryInstallationPath, strAdjustedFilePath);
 			else
-				strVirtualFileLink = Path.Combine(m_strGameDataPath, strAdjustedFilePath);
+				strVirtualFileLink = Path.Combine(GetInstallRootPath(p_mirInstallRoot), strAdjustedFilePath);
 
 			// This is the path we're using if the mod was installed in the base VirtualInstall folder
 			string strActivatorFilePath = string.IsNullOrWhiteSpace(strSourceFile) ? Path.Combine(m_strVirtualActivatorPath, strRealFilePath) : strSourceFile;
@@ -1497,7 +1530,7 @@
 					if (File.Exists(strVirtualFileLink))
 					{
 						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
 						else
 							strVirtualFileLink = string.Empty;
 					}
@@ -1515,7 +1548,7 @@
 						if (booSuccess || File.Exists(strVirtualFileLink))
 						{
 							if (!p_booIsRestoring)
-								AddVirtualLink(new VirtualModLink(strRealLinkFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+								AddVirtualLink(new VirtualModLink(strRealLinkFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
 							else
 								strVirtualFileLink = string.Empty;
 						}
@@ -1531,7 +1564,7 @@
 						if (booSuccess || File.Exists(strVirtualFileLink))
 						{
 							if (!p_booIsRestoring)
-								AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+								AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
 							else
 								strVirtualFileLink = string.Empty;
 						}
@@ -1544,14 +1577,14 @@
 					if (!MultiHDMode && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
 					{
 						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
 						else
 							strVirtualFileLink = string.Empty;
 					}
 					else if (CreateSymbolicLink(strVirtualFileLink, strActivatorFilePath, 0))
 					{
 						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
 						else
 							strVirtualFileLink = string.Empty;
 					}
@@ -1609,7 +1642,7 @@
 				bool booActive = p_ivlVirtualLink.Active;
 				int intCurrentPriority = p_ivlVirtualLink.Priority;
 				List<IVirtualModLink> lstOverwrites;
-				int intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, intCurrentPriority, out modCheck, out lstOverwrites);
+				int intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, p_ivlVirtualLink.InstallRoot, intCurrentPriority, out modCheck, out lstOverwrites);
 				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
 				if ((!File.Exists(strLinkPath)) && (p_modMod != null))
 					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
@@ -1695,7 +1728,7 @@
 					vmlFirst.Priority--;
 				vmlFirst.Active = true;
 				AddVirtualLink(vmlFirst);
-				AddFileLink(p_modMod, vmlFirst.VirtualModPath, false, true, vmlFirst.Priority);
+				AddFileLink(p_modMod, vmlFirst.VirtualModPath, false, true, vmlFirst.Priority, vmlFirst.InstallRoot);
 			}
 
 			if (p_lstFileLinks.Count > 0)

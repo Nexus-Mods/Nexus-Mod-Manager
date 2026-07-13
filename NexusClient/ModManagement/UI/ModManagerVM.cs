@@ -586,6 +586,16 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		public void ActivateMod(IMod p_modMod)
 		{
+			ActivateMod(p_modMod, ModInstallRoot.Default);
+		}
+
+		public void ActivateModInGameRoot(IMod p_modMod)
+		{
+			ActivateMod(p_modMod, ModInstallRoot.GameRoot);
+		}
+
+		private void ActivateMod(IMod p_modMod, ModInstallRoot p_mirInstallRoot)
+		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
 				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -618,7 +628,7 @@ namespace Nexus.Client.ModManagement.UI
 								ReinstallMod(modOldVersion, p_modMod);
 								break;
 							case DialogResult.No:
-								IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+								IBackgroundTaskSet btsInstall = CreateActivateTask(p_modMod, p_mirInstallRoot);
 								if (btsInstall != null)
 									ModManager.ModActivationMonitor.AddActivity(btsInstall);
 								break;
@@ -630,7 +640,7 @@ namespace Nexus.Client.ModManagement.UI
 					}
 					else
 					{
-						IBackgroundTaskSet btsInstall = ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+						IBackgroundTaskSet btsInstall = CreateActivateTask(p_modMod, p_mirInstallRoot);
 						if (btsInstall != null)
 							ModManager.ModActivationMonitor.AddActivity(btsInstall);
 					}
@@ -643,6 +653,14 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
+		}
+
+		private IBackgroundTaskSet CreateActivateTask(IMod p_modMod, ModInstallRoot p_mirInstallRoot)
+		{
+			if (p_mirInstallRoot == ModInstallRoot.GameRoot)
+				return ModManager.ActivateModInGameRoot(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+
+			return ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
 		}
 
 		/// <summary>
@@ -718,10 +736,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void DeactivateMod(IMod p_modMod)
 		{
-            IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
-            if (btsUninstall != null)
-                ModManager.ModActivationMonitor.AddActivity(btsUninstall);
-        }
+			VirtualModActivator.DisableMod(p_modMod);
+
+			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
+			if (btsUninstall != null)
+				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+		}
 
 		/// <summary>
 		/// Deactivates the given mod.

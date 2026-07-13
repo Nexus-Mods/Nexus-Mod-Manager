@@ -27,5 +27,10 @@
         /// <param name="handlePlugin">Whether or not we'll handle the plugin.</param>
         /// <returns>Link to file.</returns>
         string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching, bool handlePlugin);
+
+        /// <summary>
+        /// Adds a file link using the specified install root.
+        /// </summary>
+        string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching, bool handlePlugin, ModInstallRoot installRoot);
     }
 }

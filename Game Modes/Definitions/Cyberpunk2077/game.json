@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "modeId": "Cyberpunk2077",
+  "name": "Cyberpunk 2077",
+  "behaviorProfile": "generic",
+  "installerProfile": "default",
+  "legacyFallback": false,
+  "gameExecutables": [ "bin\\x64\\Cyberpunk2077.exe" ],
+  "stopFolders": [ "archive", "engine", "r6", "red4ext", "mods", "x64" ],
+  "plugin": {
+    "usesPlugins": false,
+    "pluginDirectorySuffix": ""
+  },
+  "discovery": {
+    "steamAppId": "1091500",
+    "steamInstallFolderName": "Cyberpunk 2077",
+    "steamExecutableName": "Cyberpunk2077.exe",
+    "gogRegistryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1423049311",
+    "gogPathValueName": "PATH"
+  },
+  "launcher": {
+    "defaultExecutable": "bin\\x64\\Cyberpunk2077.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Cyberpunk 2077",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Cyberpunk 2077",
+    "defaultCommandText": "Launch Cyberpunk 2077",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "Cyberpunk2077_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#217893"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true,
+    "allowCustomLaunchCommand": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "cyberpunk2077",
+    "hardlinkRequiredExtensions": [ ".lua", ".asi", ".toml", ".mp3", ".BGSM", ".BGEM", ".wav", ".ogg", ".xwm" ],
+    "realFileRequiredExtensions": [ ".exe", ".jar", ".dll", ".asi", ".lua", ".toml" ]
+  }
+}
