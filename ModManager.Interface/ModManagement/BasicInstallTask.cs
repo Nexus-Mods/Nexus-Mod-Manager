@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -142,6 +142,9 @@ namespace Nexus.Client.ModManagement
 					lstFiles = specialFiles;
 			}
 
+			if (InstallRoot == ModInstallRoot.GameRoot)
+				lstFiles = StripGameRootWrapperFolder(lstFiles);
+
             if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);
 
@@ -158,8 +161,12 @@ namespace Nexus.Client.ModManagement
 				if (string.IsNullOrEmpty(strFixedPath))
 					continue;
 
-				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
-				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId, GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
+				if (InstallRoot == ModInstallRoot.GameRoot)
+					strFileTo = strFixedPath;
+
+				string strVirtualStoragePath = GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage);
+				string strModFilenamePath = Path.Combine(VirtualModActivator.VirtualPath, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), strVirtualStoragePath);
+				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.VirtualPath, Mod.DownloadId, strVirtualStoragePath);
 				string strVirtualPath = strModFilenamePath;
 
 				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
@@ -168,8 +175,8 @@ namespace Nexus.Client.ModManagement
 				string strLinkPath = string.Empty;
 				if (VirtualModActivator.MultiHDMode)
 				{
-					string strModFilenameLink = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
-					string strModDownloadIDLink = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId, GetAdjustedPath(strFileTo, ModPathContext.VirtualStorage));
+					string strModFilenameLink = Path.Combine(VirtualModActivator.HDLinkFolder, Path.GetFileNameWithoutExtension(Mod.Filename).Trim(), strVirtualStoragePath);
+					string strModDownloadIDLink = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(VirtualModActivator.HDLinkFolder, Mod.DownloadId, strVirtualStoragePath);
 					 strLinkPath = strModFilenameLink;
 
 					if (!string.IsNullOrWhiteSpace(strModDownloadIDLink))
@@ -218,10 +225,111 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// If valid the current plugin file will be set as active.
 		/// </summary>
+		private List<KeyValuePair<string, string>> StripGameRootWrapperFolder(List<KeyValuePair<string, string>> files)
+		{
+			if (files == null || files.Count == 0)
+				return files;
+
+			string commonTopFolder = null;
+			foreach (KeyValuePair<string, string> file in files)
+			{
+				string sourcePath = file.Key;
+				if (IsUnsafeGameRootArchivePath(sourcePath))
+					throw new InvalidDataException(string.Format("Game-root install path '{0}' cannot be installed safely.", sourcePath));
+
+				string topFolder = GetTopLevelFolder(sourcePath);
+				if (string.IsNullOrEmpty(topFolder))
+					return NormalizeGameRootFileMappings(files, false);
+
+				if (commonTopFolder == null)
+					commonTopFolder = topFolder;
+				else if (!commonTopFolder.Equals(topFolder, StringComparison.OrdinalIgnoreCase))
+					return NormalizeGameRootFileMappings(files, false);
+			}
+
+			bool hasRecognizableRootContent = files.Any(x => IsRecognizableGameRootContent(StripTopLevelFolder(x.Key)));
+			return NormalizeGameRootFileMappings(files, hasRecognizableRootContent);
+		}
+
+		private static List<KeyValuePair<string, string>> NormalizeGameRootFileMappings(List<KeyValuePair<string, string>> files, bool stripCommonWrapper)
+		{
+			return files.Select(x =>
+			{
+				string destination = stripCommonWrapper ? StripTopLevelFolder(x.Key) : x.Key;
+				return new KeyValuePair<string, string>(x.Key, NormalizeGameRootRelativePath(destination));
+			}).ToList();
+		}
+
+		private static string GetTopLevelFolder(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				return null;
+
+			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+			int separatorIndex = normalizedPath.IndexOf(Path.DirectorySeparatorChar);
+			return separatorIndex <= 0 ? null : normalizedPath.Substring(0, separatorIndex);
+		}
+
+		private static string StripTopLevelFolder(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				return path;
+
+			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+			int separatorIndex = normalizedPath.IndexOf(Path.DirectorySeparatorChar);
+			return separatorIndex < 0 || separatorIndex + 1 >= normalizedPath.Length ? normalizedPath : normalizedPath.Substring(separatorIndex + 1);
+		}
+
+		private static bool IsRecognizableGameRootContent(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				return false;
+
+			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+			if (normalizedPath.Equals("Data", StringComparison.OrdinalIgnoreCase) || normalizedPath.StartsWith("Data" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+				return true;
+
+			string fileName = Path.GetFileName(normalizedPath);
+			return fileName.Equals("skse64_loader.exe", StringComparison.OrdinalIgnoreCase) ||
+				(fileName.StartsWith("skse64_", StringComparison.OrdinalIgnoreCase) && fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+		}
+
+		private static bool IsUnsafeGameRootArchivePath(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path) || Path.IsPathRooted(path))
+				return true;
+
+			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			return normalizedPath.Split(Path.DirectorySeparatorChar).Any(x => x == "..");
+		}
+
+		private static string NormalizeGameRootRelativePath(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				return string.Empty;
+
+			if (Path.IsPathRooted(path))
+				throw new InvalidDataException(string.Format("Game-root install path '{0}' is rooted and cannot be installed safely.", path));
+
+			List<string> pathParts = new List<string>();
+			foreach (string part in path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Split(Path.DirectorySeparatorChar))
+			{
+				if (string.IsNullOrEmpty(part) || part == ".")
+					continue;
+
+				if (part == "..")
+					throw new InvalidDataException(string.Format("Game-root install path '{0}' escapes the selected game root.", path));
+
+				pathParts.Add(part);
+			}
+
+			return string.Join(Path.DirectorySeparatorChar.ToString(), pathParts.ToArray());
+		}
+
 		private string GetAdjustedPath(string path, ModPathContext context)
 		{
 			if (InstallRoot == ModInstallRoot.GameRoot)
-				return path ?? string.Empty;
+				return NormalizeGameRootRelativePath(path);
 
 			if (context == ModPathContext.GameInstall)
 				return GameMode.GetModFormatAdjustedPath(Mod.Format, path, Mod, context);

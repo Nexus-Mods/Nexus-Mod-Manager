@@ -248,8 +248,10 @@ namespace Nexus.Client.ModManagement
 		{
 			p_strErrorMessage = null;
 			IDataFileUtil dfuDataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
+			ModInstallRoot installRoot = ModInstallLog.GetModInstallRoot(Mod);
+			string installBasePath = installRoot == ModInstallRoot.GameRoot ? GameMode.InstallationPath : GameMode.GameModeEnvironmentInfo.InstallationPath;
 
-			IModFileInstaller mfiFileInstaller = new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, dfuDataFileUtility, p_tfmFileManager, null, GameMode.UsesPlugins, EnvironmentInfo);
+			IModFileInstaller mfiFileInstaller = new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, dfuDataFileUtility, p_tfmFileManager, null, GameMode.UsesPlugins, EnvironmentInfo, installBasePath);
 			IIniInstaller iniIniInstaller = new IniInstaller(Mod, ModInstallLog, VirtualModActivator, p_tfmFileManager, null);
 			IGameSpecificValueInstaller gviGameSpecificValueInstaller = GameMode.GetGameSpecificValueInstaller(Mod, ModInstallLog, p_tfmFileManager, new NexusFileUtil(EnvironmentInfo), null);
 

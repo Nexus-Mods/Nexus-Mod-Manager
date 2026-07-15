@@ -34,7 +34,7 @@ namespace Nexus.Client.ModManagement
                 throw new DirectoryNotFoundException("The deployment root does not exist or is inaccessible: " + (deploymentRoot ?? String.Empty));
 
             Stopwatch stageWatch = Stopwatch.StartNew();
-            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator);
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot);
             diagnostics.VirtualLinkIndexMilliseconds = stageWatch.ElapsedMilliseconds;
 
             stageWatch.Restart();
@@ -118,12 +118,37 @@ namespace Nexus.Client.ModManagement
             return new FileManagerScanResult(deploymentRoot, rows, rowsByPath, counts, DateTime.Now, diagnostics);
         }
 
-        public void RefreshRowOwnership(FileManagerRow row, IVirtualModActivator virtualModActivator)
+        public FileManagerSourceCounts ReclassifyRows(IList<FileManagerRow> rows, IGameMode gameMode, IVirtualModActivator virtualModActivator)
+        {
+            if (rows == null) throw new ArgumentNullException("rows");
+            if (gameMode == null) throw new ArgumentNullException("gameMode");
+            if (virtualModActivator == null) throw new ArgumentNullException("virtualModActivator");
+
+            string deploymentRoot = GetDeploymentRoot(gameMode);
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot);
+            HashSet<string> baseFiles = BuildBaseFileSet(gameMode.BaseGameFiles);
+            IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
+            FileManagerSourceCounts counts = new FileManagerSourceCounts();
+
+            foreach (FileManagerRow row in rows)
+            {
+                if (row == null)
+                    continue;
+
+                FileManagerPathOwnership ownership;
+                ownershipByPath.TryGetValue(row.NormalizedRelativePath, out ownership);
+                ApplySourceClassification(row, ownership, baseFiles, manualSources);
+                counts.Add(row.Source);
+            }
+
+            return counts;
+        }
+        public void RefreshRowOwnership(FileManagerRow row, IGameMode gameMode, IVirtualModActivator virtualModActivator)
         {
             if (row == null || virtualModActivator == null)
                 return;
 
-            FileManagerPathOwnership ownership = BuildOwnershipForPath(virtualModActivator.VirtualLinks, row.NormalizedRelativePath);
+            FileManagerPathOwnership ownership = BuildOwnershipForPath(virtualModActivator, gameMode, row.NormalizedRelativePath);
             if (ownership != null && ownership.HasActiveOwner)
                 ApplyNmmOwnership(row, ownership);
         }
@@ -249,7 +274,7 @@ namespace Nexus.Client.ModManagement
             return (modInfo.ModFileName ?? String.Empty).ToLowerInvariant() + "|" + (modInfo.DownloadId ?? String.Empty).ToLowerInvariant();
         }
 
-        private static Dictionary<string, FileManagerPathOwnership> BuildVirtualLinkLookup(IVirtualModActivator virtualModActivator)
+        private static Dictionary<string, FileManagerPathOwnership> BuildVirtualLinkLookup(IVirtualModActivator virtualModActivator, IGameMode gameMode, string deploymentRoot)
         {
             IEnumerable<IVirtualModLink> links = virtualModActivator == null ? null : virtualModActivator.VirtualLinks;
             List<string> sourceRoots = GetVirtualSourceRoots(virtualModActivator);
@@ -262,15 +287,8 @@ namespace Nexus.Client.ModManagement
                 if (link == null || String.IsNullOrWhiteSpace(link.VirtualModPath))
                     continue;
 
-                string key = NormalizePath(link.VirtualModPath);
-                List<IVirtualModLink> fileLinks;
-                if (!linksByPath.TryGetValue(key, out fileLinks))
-                {
-                    fileLinks = new List<IVirtualModLink>();
-                    linksByPath.Add(key, fileLinks);
-                }
-
-                fileLinks.Add(link);
+                foreach (string key in GetFileManagerOwnershipKeys(link, gameMode, deploymentRoot))
+                    AddLinkToOwnershipLookup(linksByPath, key, link);
             }
 
             Dictionary<string, FileManagerPathOwnership> ownershipByPath = new Dictionary<string, FileManagerPathOwnership>(linksByPath.Count, StringComparer.OrdinalIgnoreCase);
@@ -280,22 +298,67 @@ namespace Nexus.Client.ModManagement
             return ownershipByPath;
         }
 
-        private static FileManagerPathOwnership BuildOwnershipForPath(IEnumerable<IVirtualModLink> links, string normalizedPath)
+        private static FileManagerPathOwnership BuildOwnershipForPath(IVirtualModActivator virtualModActivator, IGameMode gameMode, string normalizedPath)
         {
-            if (links == null || String.IsNullOrWhiteSpace(normalizedPath))
+            if (virtualModActivator == null || String.IsNullOrWhiteSpace(normalizedPath))
                 return null;
 
-            List<IVirtualModLink> pathLinks = new List<IVirtualModLink>();
-            foreach (IVirtualModLink link in links)
-            {
-                if (link == null || String.IsNullOrWhiteSpace(link.VirtualModPath))
-                    continue;
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, GetDeploymentRoot(gameMode));
+            FileManagerPathOwnership ownership;
+            return ownershipByPath.TryGetValue(normalizedPath, out ownership) ? ownership : null;
+        }
 
-                if (String.Equals(NormalizePath(link.VirtualModPath), normalizedPath, StringComparison.OrdinalIgnoreCase))
-                    pathLinks.Add(link);
+        private static IEnumerable<string> GetFileManagerOwnershipKeys(IVirtualModLink link, IGameMode gameMode, string deploymentRoot)
+        {
+            if (link == null || String.IsNullOrWhiteSpace(link.VirtualModPath))
+                yield break;
+
+            string rawKey = NormalizePath(link.VirtualModPath);
+            if (!String.IsNullOrWhiteSpace(rawKey))
+                yield return rawKey;
+
+            string deployedRelativePath = GetDeploymentRelativePath(link, gameMode, deploymentRoot);
+            string deployedKey = NormalizePath(deployedRelativePath);
+            if (!String.IsNullOrWhiteSpace(deployedKey) && !String.Equals(rawKey, deployedKey, StringComparison.OrdinalIgnoreCase))
+                yield return deployedKey;
+        }
+
+        private static string GetDeploymentRelativePath(IVirtualModLink link, IGameMode gameMode, string deploymentRoot)
+        {
+            if (link == null || gameMode == null || String.IsNullOrWhiteSpace(deploymentRoot) || String.IsNullOrWhiteSpace(link.VirtualModPath))
+                return String.Empty;
+
+            string installRoot = link.InstallRoot == ModInstallRoot.GameRoot ? gameMode.InstallationPath : deploymentRoot;
+            if (String.IsNullOrWhiteSpace(installRoot))
+                return String.Empty;
+
+            try
+            {
+                string deployedPath = Path.GetFullPath(Path.Combine(installRoot, link.VirtualModPath));
+                string deploymentRootPrefix = GetNormalizedRootPrefix(deploymentRoot);
+                if (deployedPath.StartsWith(deploymentRootPrefix, StringComparison.OrdinalIgnoreCase))
+                    return deployedPath.Substring(deploymentRootPrefix.Length);
+            }
+            catch
+            {
             }
 
-            return pathLinks.Count == 0 ? null : BuildOwnership(pathLinks);
+            return String.Empty;
+        }
+
+        private static void AddLinkToOwnershipLookup(Dictionary<string, List<IVirtualModLink>> linksByPath, string key, IVirtualModLink link)
+        {
+            if (String.IsNullOrWhiteSpace(key))
+                return;
+
+            List<IVirtualModLink> fileLinks;
+            if (!linksByPath.TryGetValue(key, out fileLinks))
+            {
+                fileLinks = new List<IVirtualModLink>();
+                linksByPath.Add(key, fileLinks);
+            }
+
+            fileLinks.Add(link);
         }
 
         private static FileManagerPathOwnership BuildOwnership(IList<IVirtualModLink> pathLinks)

@@ -104,6 +104,34 @@ WHERE archive_path = @archive_path;";
 			}
 		}
 
+		public void Remove(string archivePath)
+		{
+			try
+			{
+				if (!_available)
+				{
+					return;
+				}
+
+				lock (_database.SyncRoot)
+				using (var command = _database.Connection.CreateCommand())
+				{
+					_database.EnsureTransaction();
+					command.Transaction = _database.Transaction;
+					command.CommandText = "DELETE FROM archive_metadata WHERE archive_path = @archive_path;";
+					command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+					command.ExecuteNonQuery();
+					_database.RemoveArchiveName(archivePath);
+					_database.PendingWrites++;
+					CommitDatabase(_database);
+				}
+			}
+			catch (Exception e)
+			{
+				Trace.TraceWarning("FOModArchiveMetadataCache.Remove() - Encountered an ignored Exception.");
+				TraceUtil.TraceException(e);
+			}
+		}
 		public bool IsUsable
 		{
 			get
@@ -336,6 +364,14 @@ VALUES
 				}
 			}
 
+			public void RemoveArchiveName(string archivePath)
+			{
+				var archiveFileName = Path.GetFileNameWithoutExtension(archivePath);
+				if (!string.IsNullOrEmpty(archiveFileName))
+				{
+					ArchiveNamesWithoutExtension.Remove(archiveFileName);
+				}
+			}
 			private static bool HasCurrentSchema(SQLiteConnection connection)
 			{
 				try

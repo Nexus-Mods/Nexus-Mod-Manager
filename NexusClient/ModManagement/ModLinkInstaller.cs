@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement
+namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
@@ -106,7 +106,7 @@
 
             if (modCheck == VirtualModActivator.DummyMod)
 			{
-				VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename));
+				VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename), installRoot);
 				return true;
 			}
 

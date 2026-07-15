@@ -101,7 +101,7 @@ namespace Nexus.Client.ModManagement
                         string linkedFilePath;
                         try
                         {
-                            linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, sourceFilePath, false);
+                            linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, sourceFilePath, false, false, deploymentOptions.InstallRoot);
                         }
                         catch (Exception ex)
                         {

@@ -2681,7 +2681,11 @@ namespace Nexus.Client.ModManagement.UI
 
                     if (_viewModel?.ModManager?.GameMode?.SupportsGameRootModInstall == true)
                     {
-                        var itemActivateRoot = new ToolStripMenuItem("Install to game folder",
+                        string gameModeName = _viewModel.ModManager.GameMode.Name;
+                        if (String.IsNullOrWhiteSpace(gameModeName))
+                            gameModeName = "game";
+
+                        var itemActivateRoot = new ToolStripMenuItem(String.Format("Install to {0} root (eg. SKSE)", gameModeName),
                             new System.Drawing.Bitmap(Properties.Resources.change_game_mode, 16, 16));
                         itemActivateRoot.Click += (s, ev) => _viewModel?.ActivateModInGameRoot(mod);
                         menu.Items.Add(itemActivateRoot);
@@ -2848,10 +2852,36 @@ namespace Nexus.Client.ModManagement.UI
                 }
             }
 
+            if (singleMod)
+            {
+                menu.Items.Add(new ToolStripSeparator());
+                var itemResetCache = new ToolStripMenuItem("Reset Mod Cache");
+                itemResetCache.Click += (s, ev) => ResetSelectedModCache(mod);
+                menu.Items.Add(itemResetCache);
+            }
             menu.Show(gridControl, gridControl.PointToClient(Control.MousePosition));
             e.Allow = false;
         }
 
+        private void ResetSelectedModCache(IMod mod)
+        {
+            if (_viewModel == null || mod == null) return;
+
+            try
+            {
+                _viewModel.ResetModCacheCommand.Execute(mod);
+                RebuildActivationStateCache();
+                gridView.RefreshData();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this,
+                    "Unable to reset the selected mod cache." + Environment.NewLine + Environment.NewLine + ex.Message,
+                    "Reset Mod Cache",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
         private void BuildUpdateWarningsSubmenu(ToolStripMenuItem parent, List<IMod> mods)
         {
             if (mods == null || mods.Count == 0) return;

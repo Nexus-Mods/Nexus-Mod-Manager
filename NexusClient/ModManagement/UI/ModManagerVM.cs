@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -218,6 +218,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// </remarks>
 		/// <value>The command to tag a mod.</value>
 		public Command<IMod> TagModCommand { get; private set; }
+
+		/// <summary>
+		/// Gets the command to reset generated cache data for a mod.
+		/// </summary>
+		public Command<IMod> ResetModCacheCommand { get; private set; }
 
 		#endregion
 
@@ -463,6 +468,7 @@ namespace Nexus.Client.ModManagement.UI
 			ActivateModCommand = new Command<List<IMod>>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMods);
 			DisableModCommand = new Command<List<IMod>>("Disable Mod", "Disables the selected mod.", DisableMods);
 			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
+			ResetModCacheCommand = new Command<IMod>("Reset Mod Cache", "Regenerates generated cache data for the selected mod.", ResetModCache);
 			ExportModListToFileCommand = new Command<string>("Export to a text file", "Exports the current mod list to a text file.", ExportModListToFile);
 			ExportModListToClipboardCommand = new Command("Export to the clipboard", "Exports the current mod list to the clipboard.", ExportModListToClipboard);
 
@@ -529,6 +535,14 @@ namespace Nexus.Client.ModManagement.UI
 			return booResult;
 		}
 
+		/// <summary>
+		/// Resets generated cache data for the given mod.
+		/// </summary>
+		/// <param name="p_modMod">The mod whose generated cache should be reset.</param>
+		public void ResetModCache(IMod p_modMod)
+		{
+			ModManager.ResetModCache(p_modMod);
+		}
 		#endregion
 
 		#region Mod Addition/Deletion

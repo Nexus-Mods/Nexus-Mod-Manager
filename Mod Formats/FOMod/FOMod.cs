@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.Mods.Formats.FOMod
+namespace Nexus.Client.Mods.Formats.FOMod
 {
 	using System;
 	using System.Collections.Generic;
@@ -16,7 +16,7 @@
 	/// <summary>
 	/// Encapsulates a FOMod mod archive.
 	/// </summary>
-	public class FOMod : ObservableObject, IMod
+	public class FOMod : ObservableObject, IMod, IModCacheResettable
 	{
 		#region Events
 
@@ -397,6 +397,7 @@
 			string checkScriptType = null;
 			FOModArchiveMetadata cachedMetadata = null;
 			bool metadataCacheHit = false;
+			bool metadataCacheDirty = false;
 
 			ModArchivePath = filePath;
 			//modCacheManager.MigrateCacheFile(this);
@@ -416,6 +417,12 @@
 					_downloadDate = cachedMetadata.ArchiveWriteTimeUtc.HasValue ? cachedMetadata.ArchiveWriteTimeUtc.Value.ToLocalTime() : (DateTime?)null;
 					checkNested = cachedMetadata.HasNestedArchive;
 					strCheckPrefix = cachedMetadata.PrefixPath;
+					string correctedPrefix = NormalizeGamebryoDataPrefix(strCheckPrefix);
+					if (!string.Equals(correctedPrefix, strCheckPrefix, StringComparison.Ordinal))
+					{
+						strCheckPrefix = correctedPrefix;
+						metadataCacheDirty = true;
+					}
 					checkScriptPath = cachedMetadata.InstallScriptPath;
 					checkScriptType = cachedMetadata.InstallScriptType;
 					_cachedInfoXml = cachedMetadata.InfoXml;
@@ -471,6 +478,12 @@
 										strCheckPrefix = string.Empty;
 									}
 
+									string correctedLoosePrefix = NormalizeGamebryoDataPrefix(strCheckPrefix);
+									if (!string.Equals(correctedLoosePrefix, strCheckPrefix, StringComparison.Ordinal))
+									{
+										strCheckPrefix = correctedLoosePrefix;
+										dirtyCache = true;
+									}
 									checkPrefix = false;
 
 									if (strPref.Length > 2)
@@ -666,7 +679,7 @@
 			ModName = Path.GetFileNameWithoutExtension(ModArchivePath);
 			LoadInfo();
 
-			if (!metadataCacheHit)
+			if (!metadataCacheHit || metadataCacheDirty)
 			{
 				SaveMetadataCache();
 			}
@@ -749,6 +762,120 @@
 
 		#endregion
 
+		/// <inheritdoc />
+		public void ResetCache(IModCacheManager modCacheManager)
+		{
+			if (modCacheManager == null)
+			{
+				throw new ArgumentNullException(nameof(modCacheManager));
+			}
+
+			modCacheManager.ResetCacheFile(this);
+			_metadataCache?.Remove(ModArchivePath);
+
+			_movedArchiveFiles.Clear();
+			_movedArchiveInitialized = false;
+			_prefixPath = string.Empty;
+			_installScriptPath = null;
+			_installScriptType = null;
+			_installScript = null;
+			ScreenshotPath = null;
+			_screenshot = null;
+			_cachedInfoXml = null;
+
+			FindPathPrefix();
+			DetectInstallScript();
+			DetectScreenshot(false);
+			RebuildGeneratedCacheFile(modCacheManager);
+			SaveMetadataCache();
+		}
+
+		private void DetectInstallScript()
+		{
+			_installScriptPath = null;
+			_installScriptType = null;
+
+			foreach (var stpScript in ScriptTypeRegistry.Types)
+			{
+				foreach (var strScriptName in stpScript.FileNames)
+				{
+					var strScriptPath = Path.Combine("fomod", strScriptName);
+
+					if (ContainsFile(strScriptPath))
+					{
+						_installScriptPath = strScriptPath;
+						_installScriptType = stpScript;
+						break;
+					}
+				}
+
+				if (!string.IsNullOrEmpty(_installScriptPath))
+				{
+					break;
+				}
+			}
+		}
+
+		private void DetectScreenshot(bool useCache)
+		{
+			string[] strScreenshots;
+			string pathToCheck = useCache ? _cachePath : Path.Combine(_cachePath, GetRealPath("fomod"));
+
+			if (Directory.Exists(pathToCheck))
+			{
+				strScreenshots = Directory.GetFiles(Path.Combine(_cachePath, GetRealPath("fomod")), "screenshot*", SearchOption.AllDirectories);
+			}
+			else
+			{
+				strScreenshots = ArchiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
+			}
+
+			if (strScreenshots.Length > 0)
+			{
+				ScreenshotPath = strScreenshots[0];
+			}
+		}
+
+		private void RebuildGeneratedCacheFile(IModCacheManager modCacheManager)
+		{
+			var strTmpInfo = modCacheManager.FileUtility.CreateTempDirectory();
+
+			try
+			{
+				string pathModAdjustedCache = Path.Combine(strTmpInfo, GetRealPath("fomod"));
+				Directory.CreateDirectory(pathModAdjustedCache);
+				byte[] infoXml;
+
+				if (ContainsFile("fomod/info.xml"))
+				{
+					infoXml = GetFile("fomod/info.xml");
+					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
+				}
+				else
+				{
+					infoXml = Encoding.UTF8.GetBytes("<fomod/>");
+					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
+				}
+
+				_cachedInfoXml = infoXml;
+
+				if (!string.IsNullOrEmpty(_readmePath))
+				{
+					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(_readmePath)), GetFile(_readmePath));
+				}
+
+				if (!string.IsNullOrEmpty(ScreenshotPath))
+				{
+					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(ScreenshotPath)), GetFile(ScreenshotPath));
+				}
+
+				modCacheManager.CreateCacheFile(this, strTmpInfo);
+			}
+			finally
+			{
+				FileUtil.ForceDelete(strTmpInfo);
+			}
+		}
 		#region Read Transactions
 
 		/// <inheritdoc />
@@ -841,7 +968,7 @@
 
 				if (booFoundData)
 				{
-					strPrefixPath = Path.Combine(strSourcePath, PluginsDirectoryName);
+					strPrefixPath = strSourcePath;
 					break;
 				}
 
@@ -889,6 +1016,23 @@
 
 			_movedArchiveInitialized = true;
 			_prefixPath = strPrefixPath;
+		}
+
+		private string NormalizeGamebryoDataPrefix(string prefixPath)
+		{
+			if (!_usesPlugins || string.IsNullOrEmpty(prefixPath) || string.IsNullOrEmpty(PluginsDirectoryName))
+			{
+				return prefixPath;
+			}
+
+			string normalizedPrefix = prefixPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
+			if (!Path.GetFileName(normalizedPrefix).Equals(PluginsDirectoryName, StringComparison.OrdinalIgnoreCase))
+			{
+				return prefixPath;
+			}
+
+			string parentPrefix = Path.GetDirectoryName(normalizedPrefix);
+			return string.IsNullOrEmpty(parentPrefix) ? string.Empty : parentPrefix;
 		}
 
 		private string InitializeMovedArchive(string pathPrefix)

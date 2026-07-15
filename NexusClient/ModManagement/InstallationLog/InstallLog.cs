@@ -154,7 +154,10 @@
 			}
         }
 
+		private const string GameRootInstallRootValue = "GameRoot";
+
 		private readonly ActiveModRegistry _activeModRegistry = new ActiveModRegistry();
+		private readonly Dictionary<string, ModInstallRoot> _modInstallRoots = new Dictionary<string, ModInstallRoot>(StringComparer.OrdinalIgnoreCase);
 
 		private readonly InstalledItemDictionary<string, object> _installedFiles;
 		private readonly InstalledItemDictionary<IniEdit, string> _installedIniEdits;
@@ -229,6 +232,39 @@
 		/// Gets the mod info that is currently in the install log, indexed by mod key.
 		/// </summary>
 		/// <returns>The mod info that is currently in the install log, indexed by mod key.</returns>
+		private static ModInstallRoot NormalizeInstallRoot(ModInstallRoot installRoot)
+		{
+			return installRoot == ModInstallRoot.GameRoot ? ModInstallRoot.GameRoot : ModInstallRoot.Data;
+		}
+
+		private static ModInstallRoot ParseInstallRoot(string installRoot)
+		{
+			return GameRootInstallRootValue.Equals(installRoot, StringComparison.OrdinalIgnoreCase) ? ModInstallRoot.GameRoot : ModInstallRoot.Data;
+		}
+
+		private static XAttribute CreateInstallRootAttribute(ModInstallRoot installRoot)
+		{
+			return NormalizeInstallRoot(installRoot) == ModInstallRoot.GameRoot ? new XAttribute("installRoot", GameRootInstallRootValue) : null;
+		}
+
+		private void SetModInstallRoot(string key, ModInstallRoot installRoot)
+		{
+			if (string.IsNullOrEmpty(key))
+				return;
+
+			installRoot = NormalizeInstallRoot(installRoot);
+			if (installRoot == ModInstallRoot.GameRoot)
+				_modInstallRoots[key] = installRoot;
+			else
+				_modInstallRoots.Remove(key);
+		}
+
+		private ModInstallRoot GetModInstallRootByKey(string key)
+		{
+			ModInstallRoot installRoot;
+			return !string.IsNullOrEmpty(key) && _modInstallRoots.TryGetValue(key, out installRoot) ? installRoot : ModInstallRoot.Data;
+		}
+
 		private IDictionary<string, IMod> GetInstallLogModInfo()
 		{
 			var loggedModInfo = new Dictionary<string, IMod>();
@@ -317,12 +353,16 @@
 					
                     if (OriginalValueMod.ModArchivePath.Equals(modPath))
 					{
-						_activeModRegistry.RegisterMod(OriginalValueMod, mod.Attribute("key")?.Value, true);
+						var key = mod.Attribute("key")?.Value;
+						_activeModRegistry.RegisterMod(OriginalValueMod, key, true);
+						SetModInstallRoot(key, ParseInstallRoot(mod.Attribute("installRoot")?.Value));
 						Trace.WriteLine("OK");
 					}
 					else if (ModManagerValueMod.ModArchivePath.Equals(modPath))
 					{
-						_activeModRegistry.RegisterMod(ModManagerValueMod, mod.Attribute("key")?.Value, true);
+						var key = mod.Attribute("key")?.Value;
+						_activeModRegistry.RegisterMod(ModManagerValueMod, key, true);
+						SetModInstallRoot(key, ParseInstallRoot(mod.Attribute("installRoot")?.Value));
 						Trace.WriteLine("OK");
 					}
 					else
@@ -347,7 +387,9 @@
 
 						try
 						{
-							_activeModRegistry.RegisterMod(modMod, mod.Attribute("key").Value);
+							var key = mod.Attribute("key").Value;
+							_activeModRegistry.RegisterMod(modMod, key);
+							SetModInstallRoot(key, ParseInstallRoot(mod.Attribute("installRoot")?.Value));
 						}
 						catch (ArgumentException) { }
 
@@ -420,6 +462,7 @@
 						select new XElement("mod",
 									new XAttribute("path", kvp.Key is DummyMod ? kvp.Key.ModArchivePath : kvp.Key.ModArchivePath.Substring(ModInstallDirectory.Length)),
 									new XAttribute("key", kvp.Value),
+									CreateInstallRootAttribute(GetModInstallRootByKey(kvp.Value)),
 									new XElement("version",
 										new XAttribute("machineVersion", kvp.Key.MachineVersion ?? new Version()),
 										new XText(kvp.Key.HumanReadableVersion ?? "")),
@@ -649,6 +692,12 @@
 			AddActiveMod(mod, false);
 		}
 
+		/// <inheritdoc />
+		public void AddActiveMod(IMod mod, ModInstallRoot installRoot)
+		{
+			AddActiveMod(mod, false, installRoot);
+		}
+
 		/// <summary>
 		/// Adds a mod to the install log.
 		/// </summary>
@@ -667,6 +716,11 @@
 			GetEnlistment().AddActiveMod(mod, isSpecial);
 		}
 
+		protected void AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot installRoot)
+		{
+			GetEnlistment().AddActiveMod(mod, isSpecial, installRoot);
+		}
+
         /// <inheritdoc />
 		public void ReplaceActiveMod(IMod oldMod, IMod newMod)
 		{
@@ -677,6 +731,12 @@
 		public string GetModKey(IMod mod)
 		{
 			return GetEnlistment().GetModKey(mod);
+		}
+
+		/// <inheritdoc />
+		public ModInstallRoot GetModInstallRoot(IMod mod)
+		{
+			return GetEnlistment().GetModInstallRoot(mod);
 		}
 
 		/// <summary>

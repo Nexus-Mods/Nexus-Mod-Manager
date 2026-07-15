@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement
+namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
@@ -57,11 +57,11 @@
 		/// <returns>The initialized mod manager.</returns>
 		/// <exception cref="InvalidOperationException">Thrown if the mod manager has already
 		/// been initialized.</exception>
-		public static ModManager Initialize(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, ModActivationMonitor p_mamMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mrgModRegistry, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
+		public static ModManager Initialize(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, ModActivationMonitor p_mamMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mrgModRegistry, IModCacheManager p_mcmModCacheManager, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
 		{
 			if (m_mmgCurrent != null)
 				throw new InvalidOperationException("The Mod Manager has already been initialized.");
-			m_mmgCurrent = new ModManager(p_gmdGameMode, p_eifEnvironmentInfo, p_mrpModRepository, p_dmrMonitor, p_mamMonitor, p_frgFormatRegistry, p_mrgModRegistry, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager);
+			m_mmgCurrent = new ModManager(p_gmdGameMode, p_eifEnvironmentInfo, p_mrpModRepository, p_dmrMonitor, p_mamMonitor, p_frgFormatRegistry, p_mrgModRegistry, p_mcmModCacheManager, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager);
 			return m_mmgCurrent;
 		}
 
@@ -173,6 +173,11 @@
 		/// <value>The <see cref="ModRegistry"/> that contains the list
 		/// of managed <see cref="IMod"/>s.</value>
 		protected ModRegistry ManagedModRegistry { get; private set; }
+
+		/// <summary>
+		/// Gets the cache manager for the current game mode.
+		/// </summary>
+		protected IModCacheManager ModCacheManager { get; private set; }
 
 		/// <summary>
 		/// Gets the <see cref="AddModQueue"/> that contains the list
@@ -325,7 +330,7 @@
 		/// <param name="p_scxUIContext">The <see cref="SynchronizationContext"/> to use to marshall UI interactions to the UI thread.</param>
 		/// <param name="p_ilgInstallLog">The install log tracking mod activations for the current game mode.</param>
 		/// <param name="p_pmgPluginManager">The plugin manager to use to work with plugins.</param>
-		private ModManager(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, ModActivationMonitor p_mamMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mdrManagedModRegistry, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
+		private ModManager(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IModRepository p_mrpModRepository, DownloadMonitor p_dmrMonitor, ModActivationMonitor p_mamMonitor, IModFormatRegistry p_frgFormatRegistry, ModRegistry p_mdrManagedModRegistry, IModCacheManager p_mcmModCacheManager, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager)
 		{
 			GameMode = p_gmdGameMode;
 			EnvironmentInfo = p_eifEnvironmentInfo;
@@ -333,6 +338,7 @@
 			ModRepository = p_mrpModRepository;
 			FormatRegistry = p_frgFormatRegistry;
 			ManagedModRegistry = p_mdrManagedModRegistry;
+			ModCacheManager = p_mcmModCacheManager;
 			InstallationLog = p_ilgInstallLog;
 			m_vmaVirtualModActivator = new VirtualModActivator(this, p_pmgPluginManager, p_gmdGameMode, p_ilgInstallLog, p_eifEnvironmentInfo, EnvironmentInfo.Settings.ModFolder[GameMode.ModeId]);
 			m_vmaVirtualModActivator.Initialize();
@@ -368,6 +374,25 @@
 			LoginTask.Reset();
 		}
 
+		/// <summary>
+		/// Resets generated cache data for the given mod without changing its installed state.
+		/// </summary>
+		/// <param name="p_modMod">The mod whose generated cache should be reset.</param>
+		public void ResetModCache(IMod p_modMod)
+		{
+			if (p_modMod == null)
+			{
+				throw new ArgumentNullException(nameof(p_modMod));
+			}
+
+			var resettableMod = p_modMod as IModCacheResettable;
+			if (resettableMod == null)
+			{
+				throw new NotSupportedException("The selected mod format does not support resetting generated cache data.");
+			}
+
+			resettableMod.ResetCache(ModCacheManager);
+		}
 		#endregion
 
 		#region Mod Addition

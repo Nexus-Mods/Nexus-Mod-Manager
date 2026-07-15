@@ -13,5 +13,10 @@ namespace Nexus.Client.ModManagement
         /// Receives deployment progress without taking ownership of UI presentation.
         /// </summary>
         public Action<VirtualDeploymentProgress> Progress { get; set; }
+
+        /// <summary>
+        /// Deployment root to use when linking staged files into the game.
+        /// </summary>
+        public ModInstallRoot InstallRoot { get; set; }
     }
 }

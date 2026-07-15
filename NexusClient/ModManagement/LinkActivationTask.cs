@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement
+namespace Nexus.Client.ModManagement
 {
     using System;
     using System.IO;
@@ -33,6 +33,8 @@
 		protected bool MultiHDMode => VirtualModActivator.MultiHDMode;
 
         protected IMod Mod { get; }
+
+        protected ModInstallRoot InstallRoot { get; }
 
 		public bool Disabling { get; }
 
@@ -97,12 +99,13 @@
 		/// <param name="mod">The mod.</param>
 		/// <param name="disable">Whether or not we're disabling the given mod.</param>
 		/// <param name="confirmActionMethod">The delegate to call to confirm an action.</param>
-		public LinkActivationTask(IPluginManager pluginManager, IVirtualModActivator virtualModActivator, IVirtualDeploymentService virtualDeploymentService, IMod mod, bool disable, ConfirmActionMethod confirmActionMethod)
+		public LinkActivationTask(IPluginManager pluginManager, IVirtualModActivator virtualModActivator, IVirtualDeploymentService virtualDeploymentService, IMod mod, bool disable, ConfirmActionMethod confirmActionMethod, ModInstallRoot installRoot)
 		{
 			PluginManager = pluginManager;
 			VirtualModActivator = virtualModActivator;
             VirtualDeploymentService = virtualDeploymentService;
 			Mod = mod;
+            InstallRoot = installRoot;
 			Disabling = disable;
 			ConfirmActionMethod = confirmActionMethod;
 		}
@@ -152,6 +155,7 @@
 				{
 					LinkedFileHandler = HandleLinkedFile,
 					Progress = UpdateActivationProgress,
+                    InstallRoot = InstallRoot,
 				};
 				VirtualDeploymentResult deploymentResult = VirtualDeploymentService.ActivateModLinks(Mod, deploymentOptions);
 

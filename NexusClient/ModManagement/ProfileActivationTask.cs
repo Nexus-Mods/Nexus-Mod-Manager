@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -206,9 +206,9 @@ namespace Nexus.Client.ModManagement
 						if (modMod != null)
 						{
 							if (vmlModLink.Active)
-								ModManager.VirtualModActivator.AddFileLink(modMod, vmlModLink.VirtualModPath, true, false, vmlModLink.Priority);
+								ModManager.VirtualModActivator.AddFileLink(modMod, vmlModLink.VirtualModPath, true, false, vmlModLink.Priority, vmlModLink.InstallRoot);
 							else
-								ModManager.VirtualModActivator.AddInactiveLink(modMod, vmlModLink.VirtualModPath, vmlModLink.Priority);
+								ModManager.VirtualModActivator.AddInactiveLink(modMod, vmlModLink.VirtualModPath, vmlModLink.Priority, vmlModLink.InstallRoot);
 						}
 
 						if (ItemProgress < ItemProgressMaximum)

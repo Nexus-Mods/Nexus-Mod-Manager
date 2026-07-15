@@ -2,7 +2,8 @@ namespace Nexus.Client.ModManagement
 {
 	public enum ModInstallRoot
 	{
-		Default,
-		GameRoot
+		Data = 0,
+		Default = Data,
+		GameRoot = 1
 	}
 }

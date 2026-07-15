@@ -384,7 +384,12 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The file installer to use to install the mod's files.</returns>
 		protected virtual IModFileInstaller CreateFileInstaller(TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			return new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo);
+			return new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo, GetInstallBasePath());
+		}
+
+		private string GetInstallBasePath()
+		{
+			return InstallRoot == ModInstallRoot.GameRoot ? GameMode.InstallationPath : GameMode.GameModeEnvironmentInfo.InstallationPath;
 		}
 
 		/// <summary>
@@ -481,7 +486,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected virtual void RegisterMod()
 		{
-			ModInstallLog.AddActiveMod(Mod);
+			ModInstallLog.AddActiveMod(Mod, InstallRoot);
 		}
 	}
 }

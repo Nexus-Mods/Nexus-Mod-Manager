@@ -1,4 +1,4 @@
-﻿namespace Nexus.Client.ModManagement
+namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Concurrent;
@@ -914,13 +914,16 @@
 				}
 
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>(m_tslVirtualModList);
+				Dictionary<IVirtualModInfo, IMod> dicManagedModsByModInfo = BuildManagedModLookupForVirtualLinks(lstVirtualLinks);
+				VirtualLinkIndex vliVirtualLinkIndex = new VirtualLinkIndex();
+				vliVirtualLinkIndex.Rebuild(lstVirtualLinks, x => GetVirtualLinkDeploymentPathKeys(x, dicManagedModsByModInfo));
 
 				lock (m_objVirtualLinkIndexLock)
 				{
 					if (intRevision != m_intVirtualLinkIndexRevision)
 						continue;
 
-					m_vliVirtualLinkIndex.Rebuild(lstVirtualLinks);
+					m_vliVirtualLinkIndex = vliVirtualLinkIndex;
 					m_booVirtualLinkIndexDirty = false;
 					return;
 				}
@@ -947,6 +950,75 @@
 			lock (m_objVirtualLinkIndexLock)
 			{
 				return m_vliVirtualLinkIndex.FindByVirtualPath(p_strVirtualPath);
+			}
+		}
+
+		private List<IVirtualModLink> FindVirtualLinksByDeploymentPath(string p_strVirtualPath, ModInstallRoot p_mirInstallRoot)
+		{
+			string strTargetPathKey = GetDeploymentPathKey(p_strVirtualPath, p_mirInstallRoot);
+			if (string.IsNullOrEmpty(strTargetPathKey))
+				return new List<IVirtualModLink>();
+
+			EnsureVirtualLinkIndex();
+			lock (m_objVirtualLinkIndexLock)
+			{
+				return m_vliVirtualLinkIndex.FindByDeploymentPath(strTargetPathKey);
+			}
+		}
+
+		private IEnumerable<string> GetVirtualLinkDeploymentPathKeys(IVirtualModLink p_vmlLink, IDictionary<IVirtualModInfo, IMod> p_dicManagedModsByModInfo)
+		{
+			if (p_vmlLink == null)
+				yield break;
+
+			string strRawPathKey = GetDeploymentPathKey(p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot);
+			if (!string.IsNullOrEmpty(strRawPathKey))
+				yield return strRawPathKey;
+
+			if (p_vmlLink.InstallRoot == ModInstallRoot.GameRoot)
+				yield break;
+
+			IMod modMod = null;
+			if (p_vmlLink.ModInfo != null && p_dicManagedModsByModInfo != null)
+				p_dicManagedModsByModInfo.TryGetValue(p_vmlLink.ModInfo, out modMod);
+
+			if (modMod == null)
+				yield break;
+
+			string strAdjustedPathKey = GetDeploymentPathKey(GetAdjustedVirtualPath(modMod, p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot), p_vmlLink.InstallRoot);
+			if (!string.IsNullOrEmpty(strAdjustedPathKey) && !strAdjustedPathKey.Equals(strRawPathKey, StringComparison.OrdinalIgnoreCase))
+				yield return strAdjustedPathKey;
+		}
+
+		private Dictionary<IVirtualModInfo, IMod> BuildManagedModLookupForVirtualLinks(IEnumerable<IVirtualModLink> p_enmVirtualLinks)
+		{
+			Dictionary<IVirtualModInfo, IMod> dicManagedModsByModInfo = new Dictionary<IVirtualModInfo, IMod>(ReferenceEqualityComparer<IVirtualModInfo>.Instance);
+			if (p_enmVirtualLinks == null)
+				return dicManagedModsByModInfo;
+
+			foreach (IVirtualModLink vmlLink in p_enmVirtualLinks)
+			{
+				if (vmlLink == null || vmlLink.ModInfo == null || dicManagedModsByModInfo.ContainsKey(vmlLink.ModInfo))
+					continue;
+
+				dicManagedModsByModInfo.Add(vmlLink.ModInfo, FindManagedMod(vmlLink.ModInfo));
+			}
+
+			return dicManagedModsByModInfo;
+		}
+
+		private string GetDeploymentPathKey(string p_strVirtualPath, ModInstallRoot p_mirInstallRoot)
+		{
+			if (string.IsNullOrWhiteSpace(p_strVirtualPath))
+				return null;
+
+			try
+			{
+				return Path.GetFullPath(Path.Combine(GetInstallRootPath(p_mirInstallRoot), p_strVirtualPath)).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+			}
+			catch
+			{
+				return null;
 			}
 		}
 
@@ -1205,7 +1277,7 @@
 			IVirtualModLink ivlVirtualModLink = VirtualLinks.Find(x => Path.Combine(m_strVirtualActivatorPath, x.RealModPath) == p_strFilePath);
 			if (ivlVirtualModLink != null)
 			{
-				strPath = Path.Combine(m_strGameDataPath, ivlVirtualModLink.VirtualModPath);
+				strPath = Path.Combine(GetInstallRootPath(ivlVirtualModLink.InstallRoot), ivlVirtualModLink.VirtualModPath);
 			}
 
 			return strPath;
@@ -1246,6 +1318,10 @@
 			p_modMod = null;
 
 			List<IVirtualModLink> lstVirtualModLink = FindVirtualLinksByPath(p_strFilePath).Where(x => x.InstallRoot == p_mirInstallRoot).ToList();
+			foreach (IVirtualModLink vmlDeploymentMatch in FindVirtualLinksByDeploymentPath(p_strFilePath, p_mirInstallRoot))
+				if (!lstVirtualModLink.Contains(vmlDeploymentMatch))
+					lstVirtualModLink.Add(vmlDeploymentMatch);
+
 			if (p_intCurrentPriority >= 0)
 				lstVirtualModLink = lstVirtualModLink.Where(x => x.Priority != p_intCurrentPriority).ToList();
 
@@ -1411,6 +1487,9 @@
 			if (!string.IsNullOrWhiteSpace(m_strGameDataPath))
 				lstGameDataRoots.Add(m_strGameDataPath);
 
+			if (GameMode != null && !string.IsNullOrWhiteSpace(GameMode.InstallationPath) && !lstGameDataRoots.Contains(GameMode.InstallationPath, StringComparer.OrdinalIgnoreCase))
+				lstGameDataRoots.Add(GameMode.InstallationPath);
+
 			if (GameMode != null && GameMode.HasSecondaryInstallPath && !string.IsNullOrWhiteSpace(GameMode.SecondaryInstallationPath) && !lstGameDataRoots.Contains(GameMode.SecondaryInstallationPath, StringComparer.OrdinalIgnoreCase))
 				lstGameDataRoots.Add(GameMode.SecondaryInstallationPath);
 
@@ -1469,7 +1548,7 @@
 			{
 				string strLoosePath = Path.Combine(GetInstallRootPath(p_mirInstallRoot), p_strBaseFilePath);
 				if (File.Exists(strLoosePath))
-					OverwriteLooseFile(p_strBaseFilePath, Path.GetFileName(p_modMod.Filename));
+					OverwriteLooseFile(p_strBaseFilePath, Path.GetFileName(p_modMod.Filename), p_mirInstallRoot);
 			}
 
 			return AddFileLink(p_modMod, p_strBaseFilePath, null, p_booIsSwitching, p_booIsRestoring, false, p_intPriority, p_mirInstallRoot);
@@ -1719,9 +1798,10 @@
 				int intCurrentPriority = p_ivlVirtualLink.Priority;
 				List<IVirtualModLink> lstOverwrites;
 				int intPriority = CheckFileLink(p_ivlVirtualLink.VirtualModPath, p_ivlVirtualLink.InstallRoot, intCurrentPriority, out modCheck, out lstOverwrites);
-				string strLinkPath = Path.Combine(m_strGameDataPath, p_ivlVirtualLink.VirtualModPath);
+				string strInstallRootPath = GetInstallRootPath(p_ivlVirtualLink.InstallRoot);
+				string strLinkPath = Path.Combine(strInstallRootPath, p_ivlVirtualLink.VirtualModPath);
 				if ((!File.Exists(strLinkPath)) && (p_modMod != null))
-					strLinkPath = Path.Combine(m_strGameDataPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
+					strLinkPath = Path.Combine(strInstallRootPath, GetAdjustedVirtualPath(p_modMod, p_ivlVirtualLink.VirtualModPath, p_ivlVirtualLink.InstallRoot));
 
 				if (GameMode.HasSecondaryInstallPath)
 					if (GameMode.CheckSecondaryUninstall(strLinkPath))
@@ -1740,8 +1820,8 @@
 				}
 
 				string strPath;
-				string strStop = m_strGameDataPath;
-				if ((p_modMod != null) && GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod, strLinkPath))
+				string strStop = strInstallRootPath;
+				if ((p_ivlVirtualLink.InstallRoot != ModInstallRoot.GameRoot) && (p_modMod != null) && GameMode.HasSecondaryInstallPath && GameMode.CheckSecondaryInstall(p_modMod, strLinkPath))
 				{
 					strPath = Path.Combine(GameMode.SecondaryInstallationPath, GameMode.GetModFormatAdjustedPath(p_modMod.Format, p_ivlVirtualLink.VirtualModPath, p_modMod, true));
 					strStop = GameMode.SecondaryInstallationPath;
@@ -2078,6 +2158,7 @@
 
 		public void EnableMod(IMod p_modMod)
 		{
+			ModInstallRoot installRoot = ModInstallLog == null ? ModInstallRoot.Default : ModInstallLog.GetModInstallRoot(p_modMod);
 			string strVirtualFolderPath = Path.Combine(m_strVirtualActivatorPath, Path.GetFileNameWithoutExtension(p_modMod.Filename));
 			string strLinkFolderPath = string.Empty;
 
@@ -2101,7 +2182,7 @@
 					if (Path.IsPathRooted(strFile))
 						strFile = File.Replace((strLinkFolderPath + Path.DirectorySeparatorChar), string.Empty);
 
-					string strFileLink = ModLinkInstaller.AddFileLink(p_modMod, strFile, File, false);
+					string strFileLink = ModLinkInstaller.AddFileLink(p_modMod, strFile, File, false, false, installRoot);
 
 					if (!string.IsNullOrEmpty(strFileLink))
 						if (PluginManager != null)
@@ -2515,9 +2596,14 @@
 
 		public bool OverwriteLooseFile(string p_strFilePath, string p_strModFileName)
 		{
+			return OverwriteLooseFile(p_strFilePath, p_strModFileName, ModInstallRoot.Default);
+		}
+
+		public bool OverwriteLooseFile(string p_strFilePath, string p_strModFileName, ModInstallRoot p_mirInstallRoot)
+		{
 			try
 			{
-				string strSource = Path.Combine(m_strGameDataPath, p_strFilePath);
+				string strSource = Path.Combine(GetInstallRootPath(p_mirInstallRoot), p_strFilePath);
 				string strDest = Path.Combine(m_strVirtualActivatorOverwritePath, Path.GetFileNameWithoutExtension(p_strModFileName), p_strFilePath);
 
 				if (File.Exists(strSource))
@@ -2552,7 +2638,8 @@
 				if (!CheckIsModActive(p_modMod))
 					return null;
 
-			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, new VirtualDeploymentService(this), p_modMod, p_booDisabling, p_camConfirm);
+			ModInstallRoot installRoot = p_booDisabling || ModInstallLog == null ? ModInstallRoot.Default : ModInstallLog.GetModInstallRoot(p_modMod);
+			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, new VirtualDeploymentService(this), p_modMod, p_booDisabling, p_camConfirm, installRoot);
 			if (GameMode.LoadOrderManager != null)
 				GameMode.LoadOrderManager.MonitorExternalTask(latActivatingMod);
 			else
@@ -2576,6 +2663,21 @@
 
 		#endregion
 
+		private sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T>
+			where T : class
+		{
+			public static readonly ReferenceEqualityComparer<T> Instance = new ReferenceEqualityComparer<T>();
+
+			public bool Equals(T x, T y)
+			{
+				return ReferenceEquals(x, y);
+			}
+
+			public int GetHashCode(T obj)
+			{
+				return obj == null ? 0 : System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+			}
+		}
 		#region VirtualModInfo EqualityComparer
 
 		private class VirtualModInfoEqualityComparer : IEqualityComparer<IVirtualModInfo>

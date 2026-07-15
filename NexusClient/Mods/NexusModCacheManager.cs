@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -214,6 +214,22 @@ namespace Nexus.Client.Mods
 			}
 		}
 
+		/// <summary>
+		/// Removes generated cache artifacts for the given mod archive.
+		/// </summary>
+		/// <param name="p_modMod">The mod whose generated cache should be removed.</param>
+		public void ResetCacheFile(IMod p_modMod)
+		{
+			if (p_modMod == null)
+			{
+				throw new ArgumentNullException(nameof(p_modMod));
+			}
+
+			string strCachePath = Path.Combine(ModCacheDirectory, Path.GetFileNameWithoutExtension(p_modMod.Filename));
+			string strArcCacheFile = Path.Combine(ModCacheDirectory, Path.GetFileName(p_modMod.Filename) + ".zip");
+			FileUtil.ForceDelete(strCachePath);
+			FileUtil.ForceDelete(strArcCacheFile);
+		}
 		/// <summary>
 		/// Migrates the cache zip file for the given mod to the cache folder.
 		/// </summary>

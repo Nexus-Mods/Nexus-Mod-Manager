@@ -41,6 +41,11 @@ namespace Nexus.Client.ModManagement
 		protected IGameModeEnvironmentInfo GameModeInfo { get; private set; }
 
 		/// <summary>
+		/// Gets the physical root used to resolve relative installed-file paths.
+		/// </summary>
+		protected string InstallBasePath { get; private set; }
+
+		/// <summary>
 		/// Gets or sets the utility class to use to work with data files.
 		/// </summary>
 		/// <value>The utility class to use to work with data files.</value>
@@ -98,6 +103,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		/// <param name="p_UsesPlugins">Whether the file is a mod or a plugin.</param>
 		public ModFileInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins, IEnvironmentInfo p_eifEnvironmentInfo)
+			: this(p_gmiGameModeInfo, p_modMod, p_ilgInstallLog, p_pmgPluginManager, p_dfuDataFileUtility, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, p_UsesPlugins, p_eifEnvironmentInfo, p_gmiGameModeInfo.InstallationPath)
+		{
+		}
+
+		public ModFileInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins, IEnvironmentInfo p_eifEnvironmentInfo, string p_strInstallBasePath)
 		{
 			GameModeInfo = p_gmiGameModeInfo;
 			Mod = p_modMod;
@@ -107,6 +117,7 @@ namespace Nexus.Client.ModManagement
 			TransactionalFileManager = p_tfmFileManager;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate ?? ((s, b, m) => OverwriteResult.No);
 			IsPlugin = p_UsesPlugins;
+			InstallBasePath = string.IsNullOrEmpty(p_strInstallBasePath) ? p_gmiGameModeInfo.InstallationPath : p_strInstallBasePath;
             m_eifEnvironmentInfo = p_eifEnvironmentInfo;
 		}
 
@@ -125,7 +136,7 @@ namespace Nexus.Client.ModManagement
 		/// can be written; <c>false</c> otherwise.</returns>
 		protected bool TestDoOverwrite(string p_strPath)
 		{
-			string strDataPath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+			string strDataPath = Path.Combine(InstallBasePath, p_strPath);
 			bool booFIDataPath = false;
 			if (!File.Exists(strDataPath))
 				return true;
@@ -325,7 +336,7 @@ namespace Nexus.Client.ModManagement
 		/// not safe.</exception>
 		public virtual bool GenerateDataFile(string p_strPath, byte[] p_bteData)
 		{ 
-			string strInstallFilePath = p_strPath;
+			string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
 			if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
 				TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
 			else
@@ -351,7 +362,7 @@ namespace Nexus.Client.ModManagement
 		/// not to overwrite an existing file.</returns>
         public virtual bool GenerateDataFile(string p_strPath, FileStream p_fstData)
         {
-            string strInstallFilePath = p_strPath;
+            string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
             if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
                 TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
             else
@@ -409,7 +420,7 @@ namespace Nexus.Client.ModManagement
 		public bool UninstallDataFile(string p_strPath)
 		{
 			string strUninstallingModKey = InstallLog.GetModKey(Mod);
-			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+			string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
 			string strBackupDirectory = Path.Combine(GameModeInfo.OverwriteDirectory, Path.GetDirectoryName(p_strPath));
 			string strFile;
 			string strRestoreFromPath = string.Empty;
@@ -463,7 +474,7 @@ namespace Nexus.Client.ModManagement
 						PluginCheck(strInstallFilePath, true);
 
 					//remove any empty directories from the data folder we may have created
-					TrimEmptyDirectories(Path.GetDirectoryName(strInstallFilePath), GameModeInfo.InstallationPath);
+					TrimEmptyDirectories(Path.GetDirectoryName(strInstallFilePath), InstallBasePath);
 				}
 			}
 
@@ -510,7 +521,7 @@ namespace Nexus.Client.ModManagement
 			if (p_booSecondaryInstallPath && !(String.IsNullOrEmpty(GameModeInfo.SecondaryInstallationPath)))
 				strInstallFilePath = Path.Combine(GameModeInfo.SecondaryInstallationPath, p_strPath);
 			else
-				strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+				strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
 
 			FileInfo Info = new FileInfo(strInstallFilePath);
 			if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
@@ -593,7 +604,7 @@ namespace Nexus.Client.ModManagement
 			if (p_booSecondaryInstallPath && !(String.IsNullOrEmpty(GameModeInfo.SecondaryInstallationPath)))
 				strInstallFilePath = Path.Combine(GameModeInfo.SecondaryInstallationPath, p_strPath);
 			else
-				strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath ?? "", p_strPath);
+				strInstallFilePath = Path.Combine(InstallBasePath ?? "", p_strPath);
 
 			string strBackupDirectory = Path.Combine(GameModeInfo.OverwriteDirectory, Path.GetDirectoryName(p_strPath));
 			string strFile;
@@ -650,7 +661,7 @@ namespace Nexus.Client.ModManagement
 					}
 
 					//remove any empty directories from the data folder we may have created
-					TrimEmptyDirectories(Path.GetDirectoryName(strInstallFilePath), GameModeInfo.InstallationPath);
+					TrimEmptyDirectories(Path.GetDirectoryName(strInstallFilePath), InstallBasePath);
 				}
 			}
 

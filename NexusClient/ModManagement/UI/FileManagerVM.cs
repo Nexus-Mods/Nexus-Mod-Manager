@@ -16,6 +16,7 @@
         private readonly ModManagerVM _modManagerViewModel;
         private readonly FileManagerQueryService _queryService;
         private readonly IVirtualDeploymentService _deploymentService;
+        private readonly SynchronizationContext _uiContext;
         private readonly HashSet<IBackgroundTaskSet> _watchedActivationTasks = new HashSet<IBackgroundTaskSet>();
         private CancellationTokenSource _scanCancellation;
         private FileManagerSourceCounts _counts = new FileManagerSourceCounts();
@@ -45,6 +46,7 @@
             _modManagerViewModel = modManagerViewModel;
             _queryService = new FileManagerQueryService(manualSourceStore ?? new SettingsFileManagerManualSourceStore(modManagerViewModel.Settings));
             _deploymentService = new VirtualDeploymentService(modManagerViewModel.VirtualModActivator);
+            _uiContext = SynchronizationContext.Current;
             Rows = new BindingList<FileManagerRow>();
             StatusMessage = "Not scanned.";
             WatchModActivationQueue();
@@ -232,7 +234,7 @@
             if (row == null) throw new ArgumentNullException("row");
 
             FileManagerSource oldSource = row.Source;
-            _queryService.RefreshRowOwnership(row, _modManagerViewModel.VirtualModActivator);
+            _queryService.RefreshRowOwnership(row, GameMode, _modManagerViewModel.VirtualModActivator);
             ChangeCounts(oldSource, row.Source);
         }
 
@@ -298,7 +300,31 @@
 
         private void ModActivationTaskSetCompleted(object sender, TaskSetCompletedEventArgs e)
         {
+            if (_uiContext != null)
+            {
+                _uiContext.Post(_ => RefreshRowsAfterActivationTask(), null);
+                return;
+            }
+
+            RefreshRowsAfterActivationTask();
+        }
+
+        private void RefreshRowsAfterActivationTask()
+        {
+            if (_disposed)
+                return;
+
+            RefreshExistingRowClassifications();
             OnPropertyChanged("CanChangeFileOwner");
+        }
+
+        private void RefreshExistingRowClassifications()
+        {
+            if (Rows == null || Rows.Count == 0)
+                return;
+
+            _counts = _queryService.ReclassifyRows(Rows, GameMode, _modManagerViewModel.VirtualModActivator);
+            ApplyCounts(_counts);
         }
 
         private bool HasActiveOrQueuedInstallUninstallTasks()

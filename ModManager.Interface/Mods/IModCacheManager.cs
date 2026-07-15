@@ -1,4 +1,4 @@
-﻿using Nexus.Client.Util;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.Mods
 {
@@ -59,6 +59,11 @@ namespace Nexus.Client.Mods
 		/// if there were no files to cache.</returns>
 		void CreateCacheFile(IMod p_modMod, string p_strFilesToCacheFolder);
 
+		/// <summary>
+		/// Removes generated cache artifacts for the given mod archive.
+		/// </summary>
+		/// <param name="p_modMod">The mod whose generated cache should be removed.</param>
+		void ResetCacheFile(IMod p_modMod);
 		/// <summary>
 		/// Migrates the cache zip file for the given mod to the cache folder.
 		/// </summary>

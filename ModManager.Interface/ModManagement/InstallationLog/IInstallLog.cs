@@ -56,6 +56,13 @@
 		/// <param name="mod">The <see cref="IMod"/> being added.</param>
 		void AddActiveMod(IMod mod);
 
+		/// <summary>
+		/// Adds a mod to the install log with the deployment root used by this activation.
+		/// </summary>
+		/// <param name="mod">The <see cref="IMod"/> being added.</param>
+		/// <param name="installRoot">The deployment root used by the mod activation.</param>
+		void AddActiveMod(IMod mod, ModInstallRoot installRoot);
+
 		IInstallLog ReInitialize(string logPath);
 
 		/// <summary>
@@ -75,6 +82,13 @@
 		/// <returns>The key that was assigned to the specified mod, or <c>null</c> if
 		/// the specified mod has no key.</returns>
 		string GetModKey(IMod mod);
+
+		/// <summary>
+		/// Gets the deployment root recorded for the specified mod.
+		/// </summary>
+		/// <param name="mod">The mod whose deployment root is to be retrieved.</param>
+		/// <returns>The recorded deployment root, or <see cref="ModInstallRoot.Data"/> for legacy records.</returns>
+		ModInstallRoot GetModInstallRoot(IMod mod);
 
 		/// <summary>
 		/// Gets the list of mods whose versions don't match the version in the install log.

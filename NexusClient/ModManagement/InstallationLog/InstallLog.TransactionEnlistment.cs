@@ -20,6 +20,7 @@
 		private class TransactionEnlistment : IEnlistmentNotification
 		{
 			private readonly ActiveModRegistry _activeModRegistry = new ActiveModRegistry();
+			private readonly Dictionary<string, ModInstallRoot> _modInstallRoots = new Dictionary<string, ModInstallRoot>(StringComparer.OrdinalIgnoreCase);
 
 			private readonly InstalledItemDictionary<string, object> _installedFiles;
 			private readonly InstalledItemDictionary<string, object> _uninstalledFiles;
@@ -87,6 +88,7 @@
 				foreach (var mod in _activeModRegistry.Registrations)
                 {
                     EnlistedInstallLog._activeModRegistry.RegisterMod(mod.Key, mod.Value, _activeModRegistry.IsModHidden(mod.Key));
+					EnlistedInstallLog.SetModInstallRoot(mod.Value, GetModInstallRootByKey(mod.Value));
                 }
 
                 CommitFileChanges();
@@ -97,12 +99,14 @@
 				foreach (var removedModKey in _removedModKeys)
                 {
                     EnlistedInstallLog._activeModRegistry.DeregisterMod(removedModKey);
+					EnlistedInstallLog._modInstallRoots.Remove(removedModKey);
                 }
 
                 EnlistedInstallLog.SaveInstallLog();
 
 				_enlisted = false;
 				_activeModRegistry.Clear();
+				_modInstallRoots.Clear();
 				_installedFiles.Clear();
 				_installedIniEdits.Clear();
 				_installedGameSpecificValueEdits.Clear();
@@ -345,6 +349,7 @@
 			{
 				_enlisted = false;
 				_activeModRegistry.Clear();
+				_modInstallRoots.Clear();
 				_installedFiles.Clear();
 				_installedIniEdits.Clear();
 				_installedGameSpecificValueEdits.Clear();
@@ -384,7 +389,18 @@
 			/// <returns>The key of the added mod.</returns>
 			public string AddActiveMod(IMod mod, bool isSpecial)
 			{
+				return AddActiveMod(mod, isSpecial, null);
+			}
+
+			public string AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot installRoot)
+			{
+				return AddActiveMod(mod, isSpecial, (ModInstallRoot?)installRoot);
+			}
+
+			private string AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot? installRoot)
+			{
 				var key = GetModKey(mod);
+				bool booChanged = false;
 				
                 if (string.IsNullOrEmpty(key))
 				{
@@ -395,16 +411,26 @@
 					
                     _activeModRegistry.RegisterMod(mod, key, isSpecial);
 					_removedModKeys.Remove(key);
-					
-                    if (CurrentTransaction == null)
-                    {
-                        Commit();
-                    }
-                    else
-                    {
-                        Enlist();
-                    }
+					booChanged = true;
                 }
+
+				if (installRoot.HasValue)
+				{
+					SetModInstallRoot(key, installRoot.Value);
+					booChanged = true;
+				}
+
+				if (booChanged)
+				{
+					if (CurrentTransaction == null)
+					{
+						Commit();
+					}
+					else
+					{
+						Enlist();
+					}
+				}
 
 				return key;
 			}
@@ -425,9 +451,11 @@
 					return;
 				}
 
+				ModInstallRoot installRoot = GetModInstallRoot(oldMod);
 				var key = GetModKey(oldMod);
 				_activeModRegistry.DeregisterMod(oldMod);
 				_activeModRegistry.RegisterMod(newMod, key, false);
+				SetModInstallRoot(key, installRoot);
 				_removedModKeys.Remove(key);
 				
                 if (CurrentTransaction == null)
@@ -449,6 +477,32 @@
 			public string GetModKey(IMod mod)
 			{
                 return _activeModRegistry.GetKey(mod) ?? EnlistedInstallLog._activeModRegistry.GetKey(mod);
+			}
+
+			public ModInstallRoot GetModInstallRoot(IMod mod)
+			{
+				return GetModInstallRootByKey(GetModKey(mod));
+			}
+
+			private void SetModInstallRoot(string key, ModInstallRoot installRoot)
+			{
+				if (string.IsNullOrEmpty(key))
+					return;
+
+				installRoot = NormalizeInstallRoot(installRoot);
+				if (installRoot == ModInstallRoot.GameRoot)
+					_modInstallRoots[key] = installRoot;
+				else
+					_modInstallRoots.Remove(key);
+			}
+
+			private ModInstallRoot GetModInstallRootByKey(string key)
+			{
+				ModInstallRoot installRoot;
+				if (!string.IsNullOrEmpty(key) && _modInstallRoots.TryGetValue(key, out installRoot))
+					return installRoot;
+
+				return EnlistedInstallLog.GetModInstallRootByKey(key);
 			}
 
 			/// <summary>
