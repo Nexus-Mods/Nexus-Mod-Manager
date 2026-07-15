@@ -109,6 +109,7 @@ namespace Nexus.Client.ModManagement.UI
             CancelPreview();
             ClearImage();
             BuildOwnerOptions(row);
+            SetOwnerSelectorVisible(false);
 
             if (row == null || String.IsNullOrWhiteSpace(row.FullPath))
             {
@@ -118,6 +119,7 @@ namespace Nexus.Client.ModManagement.UI
 
             FilePreviewOwnerOption selectedOwner = GetSelectedOwnerOption(row);
             string previewPath = GetPreviewPath(row, selectedOwner);
+            SetOwnerSelectorVisible(_ownerOptions.Count > 1 && _previewManager.CanPreview(previewPath));
 
             BeginPreview(previewPath);
         }
@@ -151,10 +153,14 @@ namespace Nexus.Client.ModManagement.UI
             _ownerSelector.Properties.DataSource = null;
             _ownerSelector.Properties.DataSource = _ownerOptions;
             _ownerSelector.EditValue = row == null ? null : row.OwnerKey;
-            _ownerSelector.Enabled = _ownerOptions.Count > 1;
-            _ownerSelector.Visible = _ownerOptions.Count > 1;
-            _layoutControl.GetItemByControl(_ownerSelector).Visibility = _ownerOptions.Count > 1 ? DevExpress.XtraLayout.Utils.LayoutVisibility.Always : DevExpress.XtraLayout.Utils.LayoutVisibility.Never;
             _suppressOwnerChange = false;
+        }
+
+        private void SetOwnerSelectorVisible(bool visible)
+        {
+            _ownerSelector.Enabled = visible;
+            _ownerSelector.Visible = visible;
+            _layoutControl.GetItemByControl(_ownerSelector).Visibility = visible ? DevExpress.XtraLayout.Utils.LayoutVisibility.Always : DevExpress.XtraLayout.Utils.LayoutVisibility.Never;
         }
 
         private FilePreviewOwnerOption GetSelectedOwnerOption(FileManagerRow row)

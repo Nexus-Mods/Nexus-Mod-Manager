@@ -103,39 +103,12 @@ namespace Nexus.Client.ModManagement
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Disabling: " + modMod.ModName;
-					StepItemProgress();
-				}
-
-				if ((VirtualModActivator != null) && (VirtualModActivator.ModCount > 0))
-				{
-					if (m_booFilesOnly)
-						VirtualModActivator.DisableModFiles(modMod);
-					else
-						VirtualModActivator.DisableMod(modMod);
-				}
-
-				if (ItemProgress < ItemProgressMaximum)
-				{
 					ItemMessage = "Setting up uninstall: " + modMod.ModName;
 					StepItemProgress();
 				}
 				
-				modMod.InstallDate = null;
-				if (!m_iilInstallLog.ActiveMods.Contains(modMod))
-				{
-					while (ItemProgress < ItemProgressMaximum)
-						StepItemProgress();
-
-					if (OverallProgress < OverallProgressMaximum)
-						StepOverallProgress();
-
-					if (m_booCancel)
-						return false;
-
-					continue;
-				}
 				ModUninstaller munUninstaller = m_mifModInstallerFactory.CreateUninstaller(modMod, m_rolModList);
+				munUninstaller.DisableVirtualFilesOnly = m_booFilesOnly;
 				munUninstaller.Install();
 
 				if (ItemProgress < ItemProgressMaximum)
@@ -145,14 +118,18 @@ namespace Nexus.Client.ModManagement
 				}
 				
 				TaskSetWaiter.Wait(munUninstaller);
+				if (!munUninstaller.Succeeded)
+				{
+					Status = TaskStatus.Error;
+					ItemMessage = munUninstaller.CompletionMessage;
+					return false;
+				}
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
 					ItemMessage = "Removing XML logs: " + modMod.ModName;
 					StepItemProgress();
 				}
-				
-				DeleteXMLInstalledFile(modMod);
 
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();

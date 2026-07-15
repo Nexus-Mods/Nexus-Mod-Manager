@@ -736,8 +736,6 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		public void DeactivateMod(IMod p_modMod)
 		{
-			VirtualModActivator.DisableMod(p_modMod);
-
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			if (btsUninstall != null)
 				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
@@ -775,8 +773,17 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			if (btsUninstall != null)
+			{
+				RunAfterUninstallCompletes(btsUninstall, () => StartReinstallMod(p_modMod, p_modUpgrade));
 				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
+				return;
+			}
 
+			StartReinstallMod(p_modMod, p_modUpgrade);
+		}
+
+		private void StartReinstallMod(IMod p_modMod, IMod p_modUpgrade)
+		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
 				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -807,6 +814,44 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		private void RunAfterUninstallCompletes(IBackgroundTaskSet p_btsUninstall, Action p_actSuccess)
+		{
+			bool booHandled = false;
+			object objLock = new object();
+			EventHandler<TaskSetCompletedEventArgs> handler = null;
+			handler = (sender, e) =>
+			{
+				lock (objLock)
+				{
+					if (booHandled)
+						return;
+
+					booHandled = true;
+				}
+
+				p_btsUninstall.TaskSetCompleted -= handler;
+				if (e.Success && p_actSuccess != null)
+					p_actSuccess();
+			};
+
+			p_btsUninstall.TaskSetCompleted += handler;
+			if (p_btsUninstall.IsCompleted)
+			{
+				ModUninstaller munUninstaller = p_btsUninstall as ModUninstaller;
+				lock (objLock)
+				{
+					if (booHandled)
+						return;
+
+					booHandled = true;
+				}
+
+				p_btsUninstall.TaskSetCompleted -= handler;
+				if ((munUninstaller == null || munUninstaller.Succeeded) && p_actSuccess != null)
+					p_actSuccess();
+			}
+		}
+
 		/// <summary>
 		/// Reinstall multiple mod.
 		/// </summary>
@@ -814,8 +859,23 @@ namespace Nexus.Client.ModManagement.UI
 		public void ReinstallMultipleMods(List<IMod> modList)
 		{
 			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(modList);
-			DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+			IBackgroundTask bgtDeactivate = ModManager.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), false, ConfirmUpdaterAction);
+			if (bgtDeactivate != null)
+			{
+				bgtDeactivate.TaskEnded += (sender, e) =>
+				{
+					if (e.Status == TaskStatus.Complete)
+						StartReinstallMultipleMods(modList);
+				};
+				DeactivatingMultipleMods(true, new EventArgs<IBackgroundTask>(bgtDeactivate));
+				return;
+			}
 
+			StartReinstallMultipleMods(modList);
+		}
+
+		private void StartReinstallMultipleMods(List<IMod> modList)
+		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
 				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);

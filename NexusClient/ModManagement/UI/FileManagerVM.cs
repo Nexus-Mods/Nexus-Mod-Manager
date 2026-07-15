@@ -214,9 +214,8 @@
         {
             if (row == null) throw new ArgumentNullException("row");
 
-            FileManagerSource oldSource = row.Source;
             _queryService.ChangeManualSource(GameMode.ModeId, row, source, previousSource);
-            ChangeCounts(oldSource, row.Source);
+            ChangeCounts(previousSource, row.Source);
         }
 
         public void ApplySelectedOwner(FileManagerRow row, string selectedOwnerKey)

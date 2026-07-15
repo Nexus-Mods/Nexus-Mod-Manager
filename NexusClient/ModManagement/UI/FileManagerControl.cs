@@ -15,6 +15,7 @@ namespace Nexus.Client.ModManagement.UI
     using DevExpress.XtraGrid.Columns;
     using DevExpress.XtraGrid.Views.Base;
     using DevExpress.XtraGrid.Views.Grid;
+    using DevExpress.XtraGrid.Views.Grid.ViewInfo;
 
     using Nexus.Client.Settings;
     using Nexus.Client.UI;
@@ -23,6 +24,8 @@ namespace Nexus.Client.ModManagement.UI
     {
         private const int GridSplitterContentPadding = 36;
         private const string FileManagerSplitterSizeKey = "fileManager";
+        private const int OwnerLookupMinimumPopupWidth = 480;
+        private const int OwnerLookupMaximumPopupWidth = 900;
 
         private readonly Label _deploymentRootLabel;
         private readonly Button _refreshButton;
@@ -36,6 +39,8 @@ namespace Nexus.Client.ModManagement.UI
         private readonly RepositoryItemLookUpEdit _emptySourceLookup;
         private readonly RepositoryItemLookUpEdit _sourceLookup;
         private readonly RepositoryItemLookUpEdit _sourceFilterLookup;
+        private readonly ContextMenuStrip _sourceContextMenu;
+        private readonly ToolStripMenuItem _switchSourceMenuItem;
         private readonly Dictionary<FileManagerRow, string> _previousOwnerKeys = new Dictionary<FileManagerRow, string>();
         private readonly Dictionary<FileManagerRow, FileManagerSource> _previousSources = new Dictionary<FileManagerRow, FileManagerSource>();
         private readonly Dictionary<List<FileManagerOwnerCandidate>, RepositoryItemLookUpEdit> _ownerLookupCache = new Dictionary<List<FileManagerOwnerCandidate>, RepositoryItemLookUpEdit>();
@@ -106,6 +111,8 @@ namespace Nexus.Client.ModManagement.UI
             _gridView.OptionsView.BestFitMaxRowCount = 50;
             _gridView.OptionsView.ShowAutoFilterRow = true;
             _gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
+            _gridView.OptionsSelection.MultiSelect = true;
+            _gridView.OptionsSelection.MultiSelectMode = GridMultiSelectMode.RowSelect;
             _gridView.CustomRowCellEdit += GridView_CustomRowCellEdit;
             _gridView.CustomColumnDisplayText += GridView_CustomColumnDisplayText;
             _gridView.ShowingEditor += GridView_ShowingEditor;
@@ -113,6 +120,7 @@ namespace Nexus.Client.ModManagement.UI
             _gridView.CellValueChanged += GridView_CellValueChanged;
             _gridView.RowCellStyle += GridView_RowCellStyle;
             _gridView.FocusedRowChanged += GridView_FocusedRowChanged;
+            _gridControl.MouseUp += GridControl_MouseUp;
             ConfigureColumns();
 
             _emptyOwnerLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
@@ -143,6 +151,17 @@ namespace Nexus.Client.ModManagement.UI
             _sourceFilterLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", "Source"));
             _gridControl.RepositoryItems.Add(_sourceFilterLookup);
             _gridView.Columns["Source"].ColumnEdit = _sourceFilterLookup;
+            _sourceContextMenu = new ContextMenuStrip();
+            _switchSourceMenuItem = new ToolStripMenuItem("Switch Source to");
+            foreach (FileManagerSourceOption option in FileManagerSourceDisplay.ManualSourceOptions)
+            {
+                FileManagerSource source = option.Source;
+                ToolStripMenuItem sourceItem = new ToolStripMenuItem(option.DisplayText);
+                sourceItem.Tag = source;
+                sourceItem.Click += SourceContextMenuItem_Click;
+                _switchSourceMenuItem.DropDownItems.Add(sourceItem);
+            }
+            _sourceContextMenu.Items.Add(_switchSourceMenuItem);
 
             _previewControl = new FilePreviewControl { Dock = DockStyle.Fill };
             _splitContainer.Panel1.Controls.Add(_gridControl);
@@ -199,10 +218,16 @@ namespace Nexus.Client.ModManagement.UI
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && _fileManagerVM != null)
+            if (disposing)
             {
-                _fileManagerVM.Dispose();
-                _fileManagerVM = null;
+                if (_fileManagerVM != null)
+                {
+                    _fileManagerVM.Dispose();
+                    _fileManagerVM = null;
+                }
+
+                if (_sourceContextMenu != null)
+                    _sourceContextMenu.Dispose();
             }
 
             base.Dispose(disposing);
@@ -417,6 +442,7 @@ namespace Nexus.Client.ModManagement.UI
             if (_ownerLookupCache.TryGetValue(candidates, out ownerLookup))
                 return ownerLookup;
 
+            int popupWidth = GetOwnerLookupPopupWidth(candidates);
             ownerLookup = new RepositoryItemLookUpEdit
             {
                 DataSource = candidates,
@@ -424,14 +450,30 @@ namespace Nexus.Client.ModManagement.UI
                 ValueMember = "OwnerKey",
                 NullText = String.Empty,
                 ShowHeader = false,
+                PopupWidth = popupWidth,
                 TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
             };
-            ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", "Mod"));
+            ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", "Mod", popupWidth - 24));
             _gridControl.RepositoryItems.Add(ownerLookup);
             _ownerLookupCache[candidates] = ownerLookup;
             return ownerLookup;
         }
 
+        private int GetOwnerLookupPopupWidth(List<FileManagerOwnerCandidate> candidates)
+        {
+            int width = OwnerLookupMinimumPopupWidth;
+            if (candidates != null)
+            {
+                foreach (FileManagerOwnerCandidate candidate in candidates)
+                {
+                    string modName = candidate == null ? String.Empty : candidate.ModName;
+                    int measuredWidth = TextRenderer.MeasureText(modName ?? String.Empty, Font).Width + 56;
+                    width = Math.Max(width, measuredWidth);
+                }
+            }
+
+            return Math.Min(OwnerLookupMaximumPopupWidth, width);
+        }
         private void ClearOwnerLookupCache()
         {
             foreach (RepositoryItemLookUpEdit ownerLookup in _ownerLookupCache.Values)
@@ -654,6 +696,157 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
+        private void GridControl_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right)
+                return;
+
+            GridHitInfo hitInfo = _gridView.CalcHitInfo(e.Location);
+            if (hitInfo == null || !hitInfo.InRow)
+                return;
+
+            FileManagerRow clickedRow = _gridView.GetRow(hitInfo.RowHandle) as FileManagerRow;
+            List<FileManagerRow> selectedRows = GetSelectedBulkSourceRows();
+            if (!IsBulkSourceEligible(clickedRow) || !selectedRows.Contains(clickedRow) || selectedRows.Count <= 1)
+                return;
+
+            _sourceContextMenu.Show(_gridControl, e.Location);
+        }
+
+        private void SourceContextMenuItem_Click(object sender, EventArgs e)
+        {
+            ToolStripMenuItem menuItem = sender as ToolStripMenuItem;
+            if (menuItem == null || !(menuItem.Tag is FileManagerSource))
+                return;
+
+            ApplySourceToSelectedRows((FileManagerSource)menuItem.Tag);
+        }
+
+        private void ApplySourceToSelectedRows(FileManagerSource selectedSource)
+        {
+            List<FileManagerSourceChange> sourceChanges = GetSelectedSourceChanges(selectedSource);
+            if (sourceChanges.Count == 0)
+                return;
+
+            List<FileManagerSourceChange> appliedChanges = new List<FileManagerSourceChange>();
+            try
+            {
+                Stopwatch updateWatch = Stopwatch.StartNew();
+                _suppressSourceChange = true;
+                try
+                {
+                    foreach (FileManagerSourceChange sourceChange in sourceChanges)
+                    {
+                        _fileManagerVM.SetManualSource(sourceChange.Row, selectedSource, sourceChange.PreviousSource);
+                        appliedChanges.Add(sourceChange);
+                    }
+                }
+                finally
+                {
+                    _suppressSourceChange = false;
+                }
+
+                updateWatch.Stop();
+                Trace.TraceInformation("File Manager source update completed for {0} selected file(s) in {1}ms.", appliedChanges.Count, updateWatch.ElapsedMilliseconds);
+                RefreshSourceRows(appliedChanges);
+                UpdateLabels();
+            }
+            catch (Exception ex)
+            {
+                RestoreSourceChanges(appliedChanges);
+                RefreshSourceRows(sourceChanges);
+                MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private List<FileManagerSourceChange> GetSelectedSourceChanges(FileManagerSource selectedSource)
+        {
+            List<FileManagerSourceChange> sourceChanges = new List<FileManagerSourceChange>();
+            List<FileManagerRow> selectedRows = GetSelectedBulkSourceRows();
+            foreach (FileManagerRow selectedRow in selectedRows)
+            {
+                if (selectedRow.Source == selectedSource)
+                    continue;
+
+                sourceChanges.Add(new FileManagerSourceChange(selectedRow, selectedRow.Source));
+            }
+
+            return sourceChanges;
+        }
+
+        private List<FileManagerRow> GetSelectedBulkSourceRows()
+        {
+            List<FileManagerRow> selectedRows = new List<FileManagerRow>();
+            int[] selectedRowHandles = _gridView.GetSelectedRows();
+            if (selectedRowHandles == null)
+                return selectedRows;
+
+            foreach (int rowHandle in selectedRowHandles)
+            {
+                if (rowHandle < 0)
+                    continue;
+
+                FileManagerRow selectedRow = _gridView.GetRow(rowHandle) as FileManagerRow;
+                if (!IsBulkSourceEligible(selectedRow) || selectedRows.Contains(selectedRow))
+                    continue;
+
+                selectedRows.Add(selectedRow);
+            }
+
+            return selectedRows;
+        }
+
+        private static bool IsBulkSourceEligible(FileManagerRow row)
+        {
+            return row != null && row.SourceEditable;
+        }
+
+        private void RestoreSourceChanges(List<FileManagerSourceChange> appliedChanges)
+        {
+            _suppressSourceChange = true;
+            try
+            {
+                for (int i = appliedChanges.Count - 1; i >= 0; i--)
+                {
+                    FileManagerSourceChange sourceChange = appliedChanges[i];
+                    try
+                    {
+                        _fileManagerVM.SetManualSource(sourceChange.Row, sourceChange.PreviousSource, sourceChange.Row.Source);
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.TraceWarning("File Manager failed to restore manual source for {0}: {1}", sourceChange.Row == null ? String.Empty : sourceChange.Row.RelativePath, ex.Message);
+                        if (sourceChange.Row != null)
+                            sourceChange.Row.Source = sourceChange.PreviousSource;
+                    }
+                }
+            }
+            finally
+            {
+                _suppressSourceChange = false;
+            }
+        }
+
+        private void RefreshSourceRows(IEnumerable<FileManagerSourceChange> sourceChanges)
+        {
+            foreach (FileManagerSourceChange sourceChange in sourceChanges)
+                RefreshSourceRow(sourceChange.Row);
+        }
+
+        private void RefreshSourceRow(FileManagerRow row)
+        {
+            if (row == null || _fileManagerVM == null || _fileManagerVM.Rows == null)
+                return;
+
+            int rowIndex = _fileManagerVM.Rows.IndexOf(row);
+            if (rowIndex < 0)
+                return;
+
+            int rowHandle = _gridView.GetRowHandle(rowIndex);
+            if (rowHandle >= 0)
+                _gridView.RefreshRow(rowHandle);
+        }
+
         private void GridView_RowCellStyle(object sender, RowCellStyleEventArgs e)
         {
             if (e.Column.FieldName != "Source")
@@ -675,6 +868,17 @@ namespace Nexus.Client.ModManagement.UI
                 e.Appearance.ForeColor = Color.OrangeRed;
         }
 
+        private sealed class FileManagerSourceChange
+        {
+            public FileManagerSourceChange(FileManagerRow row, FileManagerSource previousSource)
+            {
+                Row = row;
+                PreviousSource = previousSource;
+            }
+
+            public FileManagerRow Row { get; private set; }
+            public FileManagerSource PreviousSource { get; private set; }
+        }
         private sealed class FileSizeFormatter : IFormatProvider, ICustomFormatter
         {
             public object GetFormat(Type formatType)

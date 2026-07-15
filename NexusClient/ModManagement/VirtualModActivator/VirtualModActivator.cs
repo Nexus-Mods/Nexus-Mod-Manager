@@ -25,6 +25,20 @@
     using Nexus.Client.Util.Collections;
 
 	// Phase 1 compatibility backend for virtual deployment; low-level link manipulation remains here during migration.
+	public sealed class VirtualModDisableProgress
+	{
+		public VirtualModDisableProgress(string message, int current, int total)
+		{
+			Message = message;
+			Current = current;
+			Total = total;
+		}
+
+		public string Message { get; private set; }
+		public int Current { get; private set; }
+		public int Total { get; private set; }
+	}
+
 	public class VirtualModActivator : IVirtualModActivator
 	{
 		[DllImport("kernel32.dll")]
@@ -1266,7 +1280,7 @@
 				{
 					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename).ToLowerInvariant() == modInfo.ModFileName.ToLowerInvariant()
 						|| (!string.IsNullOrEmpty(modInfo.DownloadId) && !string.IsNullOrEmpty(x.DownloadId) && modInfo.DownloadId.Equals(x.DownloadId)));
-					DisableMod(modMod, true);
+					DisableMod(modMod, true, null);
 				}
 
 				ClearVirtualLinks();
@@ -1966,60 +1980,77 @@
 
 		public void DisableMod(IMod p_modMod)
 		{
-			DisableMod(p_modMod, false);
+			DisableMod(p_modMod, false, null);
 		}
 
 		public void DisableModFiles(IMod p_modMod)
 		{
-			DisableMod(p_modMod, true);
+			DisableMod(p_modMod, true, null);
 		}
 
-		private void DisableMod(IMod p_modMod, bool p_booPurging)
+		public bool DisableModWithProgress(IMod p_modMod, bool p_booPurging, Action<VirtualModDisableProgress> p_actProgress)
 		{
-			if (CheckIsModActive(p_modMod))
+			return DisableMod(p_modMod, p_booPurging, p_actProgress);
+		}
+
+		private bool DisableMod(IMod p_modMod, bool p_booPurging, Action<VirtualModDisableProgress> p_actProgress)
+		{
+			if (p_modMod == null)
+				return false;
+
+			string modFileName = Path.GetFileName(p_modMod.Filename);
+			bool booHasVirtualModInfo = CheckIsModActive(p_modMod);
+			ConcurrentQueue<IVirtualModLink> cqLinks = new ConcurrentQueue<IVirtualModLink>();
+
+			if (m_tslVirtualModList.Count > 0)
 			{
-				if (p_modMod != null)
+				Parallel.ForEach(m_tslVirtualModList, (fileLink) =>
 				{
-					string modFileName = Path.GetFileName(p_modMod.Filename);
-
-					if (m_tslVirtualModList.Count > 0)
-					{
-						ConcurrentQueue<IVirtualModLink> cqLinks = new ConcurrentQueue<IVirtualModLink>();
-
-						Parallel.ForEach(m_tslVirtualModList, (fileLink) =>
-						{
-							if (VirtualModLinkMatchesMod(fileLink, p_modMod, modFileName))
-								cqLinks.Enqueue(fileLink);
-						});
-
-						if ((cqLinks != null) && (cqLinks.Count > 0))
-						{
-							foreach (IVirtualModLink Link in cqLinks)
-								RemoveFileLink(Link, p_modMod, p_booPurging);
-						}
-					}
-
-					TxFileManager tfmFileManager = new TxFileManager();
-					IIniInstaller iniIniInstaller = new IniInstaller(p_modMod, ModInstallLog, null, tfmFileManager, null);
-					IList<IniEdit> lstIniEdits = ModInstallLog.GetInstalledIniEdits(p_modMod);
-					foreach (IniEdit iniEdit in lstIniEdits)
-						iniIniInstaller.UneditIni(iniEdit.File, iniEdit.Section, iniEdit.Key);
-
-					RemoveIniEdits(p_modMod);
-
-					m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
-
-					if (!p_booPurging)
-						SaveList(true);
-
-					if (GameMode.RequiresModFileMerge)
-					{
-						List<IMod> ActiveMods;
-						ActiveMods = ModManager.ActiveMods.Where(x => ActiveModList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
-						GameMode.ModFileMerge(ActiveMods, p_modMod, true);
-					}
-				}
+					if (VirtualModLinkMatchesMod(fileLink, p_modMod, modFileName))
+						cqLinks.Enqueue(fileLink);
+				});
 			}
+
+			if (!booHasVirtualModInfo && cqLinks.Count == 0)
+				return false;
+
+			ReportVirtualDisableProgress(p_actProgress, "Disabling deployed files...", 0, cqLinks.Count);
+
+			int intProcessed = 0;
+			foreach (IVirtualModLink Link in cqLinks)
+			{
+				RemoveFileLink(Link, p_modMod, p_booPurging);
+				intProcessed++;
+				ReportVirtualDisableProgress(p_actProgress, Link == null ? "Disabling deployed files..." : Link.VirtualModPath, intProcessed, cqLinks.Count);
+			}
+
+			TxFileManager tfmFileManager = new TxFileManager();
+			IIniInstaller iniIniInstaller = new IniInstaller(p_modMod, ModInstallLog, null, tfmFileManager, null);
+			IList<IniEdit> lstIniEdits = ModInstallLog.GetInstalledIniEdits(p_modMod);
+			foreach (IniEdit iniEdit in lstIniEdits)
+				iniIniInstaller.UneditIni(iniEdit.File, iniEdit.Section, iniEdit.Key);
+
+			RemoveIniEdits(p_modMod);
+
+			m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
+
+			if (!p_booPurging)
+				SaveList(true);
+
+			if (GameMode.RequiresModFileMerge)
+			{
+				List<IMod> ActiveMods;
+				ActiveMods = ModManager.ActiveMods.Where(x => ActiveModList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
+				GameMode.ModFileMerge(ActiveMods, p_modMod, true);
+			}
+
+			return true;
+		}
+
+		private static void ReportVirtualDisableProgress(Action<VirtualModDisableProgress> p_actProgress, string p_strMessage, int p_intCurrent, int p_intTotal)
+		{
+			if (p_actProgress != null)
+				p_actProgress(new VirtualModDisableProgress(p_strMessage, p_intCurrent, p_intTotal));
 		}
 
 		public void FinalizeModDeactivation(IMod p_modMod)

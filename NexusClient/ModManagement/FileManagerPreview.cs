@@ -116,6 +116,17 @@ namespace Nexus.Client.ModManagement
             return Task.Run(() => LoadPreview(request, cancellationToken), cancellationToken);
         }
 
+        public bool CanPreview(string filePath)
+        {
+            if (String.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                return false;
+
+            foreach (IFilePreviewProvider provider in _providers)
+                if (provider.CanPreview(filePath))
+                    return true;
+
+            return false;
+        }
         private FilePreviewResult LoadPreview(FilePreviewRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();

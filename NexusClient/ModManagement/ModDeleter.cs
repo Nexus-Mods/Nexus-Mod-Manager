@@ -47,12 +47,26 @@ namespace Nexus.Client.ModManagement
 		protected override void OnTaskSetCompleted(TaskSetCompletedEventArgs e)
 		{
 			string strMessage = null;
-			if (e.Success)
-				DeleteModFile((IMod)e.ReturnValue);
-			else
-				strMessage = "Could not delete mod." + e.Message;
-			base.OnTaskSetCompleted(new TaskSetCompletedEventArgs(e.Success, strMessage, e.ReturnValue));
+			bool booSuccess = e.Success;
 
+			if (booSuccess)
+			{
+				try
+				{
+					DeleteModFile((IMod)e.ReturnValue);
+				}
+				catch (Exception ex)
+				{
+					booSuccess = false;
+					strMessage = "Could not delete mod." + ex.Message;
+				}
+			}
+			else
+			{
+				strMessage = "Could not delete mod." + e.Message;
+			}
+
+			base.OnTaskSetCompleted(new TaskSetCompletedEventArgs(booSuccess, strMessage, e.ReturnValue));
 		}
 
 		/// <summary>

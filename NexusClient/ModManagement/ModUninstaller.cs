@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO;
 using ChinhDo.Transactions;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Scripting;
@@ -87,6 +89,12 @@ namespace Nexus.Client.ModManagement
 		/// <value>The current virtual mod activator.</value>
 		protected IVirtualModActivator VirtualModActivator { get; private set; }
 
+		public bool DisableVirtualFilesOnly { get; set; }
+
+		public bool Succeeded { get; private set; }
+
+		public string CompletionMessage { get; private set; }
+
 		protected ReadOnlyObservableList<IMod> ActiveMods { get; set; }
 
 		#endregion
@@ -121,11 +129,14 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public void Install()
 		{
-			if (!ModInstallLog.ActiveMods.Contains(Mod))
+			bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
+			bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
+			if (!booIsInstallLogActive && !booHasVirtualLinks)
 			{
 				OnTaskSetCompleted(true, "The mod was successfully deactivated.", Mod);
 				return;
 			}
+
 			TrackedThread thdWorker = new TrackedThread(RunTasks);
 			thdWorker.Thread.IsBackground = false;
 			thdWorker.Start();
@@ -147,22 +158,63 @@ namespace Nexus.Client.ModManagement
 			// hence the lock.
 			bool booSuccess = false;
 			string strErrorMessage = String.Empty;
-			lock (objUninstallLock)
+			try
 			{
-				using (TransactionScope tsTransaction = new TransactionScope())
+				lock (objUninstallLock)
 				{
-					TxFileManager tfmFileManager = new TxFileManager();
+					bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
+					bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
 
-					booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
-					if (booSuccess)
+					if (booHasVirtualLinks)
+					{
+						VirtualModDisableTask vdtDisableTask = new VirtualModDisableTask(Mod, VirtualModActivator, DisableVirtualFilesOnly);
+						OnTaskStarted(vdtDisableTask);
+						if (!vdtDisableTask.Execute())
+						{
+							strErrorMessage = vdtDisableTask.ErrorMessage;
+							OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
+							return;
+						}
+
+						if (vdtDisableTask.Status == TaskStatus.Cancelled || vdtDisableTask.Status == TaskStatus.Cancelling)
+						{
+							OnTaskSetCompleted(false, "The mod deactivation was cancelled.", Mod);
+							return;
+						}
+					}
+
+					if (!booIsInstallLogActive)
 					{
 						Mod.InstallDate = null;
-						ModInstallLog.RemoveMod(Mod);
-						tsTransaction.Complete();
-						GC.GetTotalMemory(true);
+						booSuccess = true;
 					}
+					else
+					{
+						using (TransactionScope tsTransaction = new TransactionScope())
+						{
+							TxFileManager tfmFileManager = new TxFileManager();
+
+							booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
+							if (booSuccess)
+							{
+								Mod.InstallDate = null;
+								ModInstallLog.RemoveMod(Mod);
+								tsTransaction.Complete();
+								GC.GetTotalMemory(true);
+							}
+						}
+					}
+
+					if (booSuccess)
+						DeleteXMLInstalledFile(Mod);
 				}
 			}
+			catch (Exception ex)
+			{
+				strErrorMessage = ex.Message;
+				booSuccess = false;
+			}
+
 			if (booSuccess)
 				OnTaskSetCompleted(booSuccess, "The mod was successfully deactivated." + Environment.NewLine + strErrorMessage, Mod);
 			else
@@ -178,6 +230,20 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_tfmFileManager">The transactional file manager to use to interact with the file system.</param>
 		/// <returns><c>true</c> if the uninstallation was successful;
 		/// <c>false</c> otherwise.</returns>
+		protected override void OnTaskSetCompleted(TaskSetCompletedEventArgs e)
+		{
+			Succeeded = e.Success;
+			CompletionMessage = e.Message;
+			base.OnTaskSetCompleted(e);
+		}
+
+		private void DeleteXMLInstalledFile(IMod p_modMod)
+		{
+			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
+			if (File.Exists(strInstallFilesPath))
+				FileUtil.ForceDelete(strInstallFilesPath);
+		}
+
 		protected bool RunBasicUninstallScript(TxFileManager p_tfmFileManager, out string p_strErrorMessage)
 		{
 			p_strErrorMessage = null;
@@ -209,6 +275,81 @@ namespace Nexus.Client.ModManagement
 				gviGameSpecificValueInstaller.FinalizeInstall();
 
 			return booResult;
+		}
+	}
+
+	internal sealed class VirtualModDisableTask : BackgroundTask
+	{
+		private readonly IMod m_modMod;
+		private readonly IVirtualModActivator m_ivaVirtualModActivator;
+		private readonly bool m_booFilesOnly;
+
+		public VirtualModDisableTask(IMod p_modMod, IVirtualModActivator p_ivaVirtualModActivator, bool p_booFilesOnly)
+		{
+			m_modMod = p_modMod;
+			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
+			m_booFilesOnly = p_booFilesOnly;
+		}
+
+		public string ErrorMessage { get; private set; }
+
+		public bool Execute()
+		{
+			OverallMessage = "Disabling deployed files: " + (m_modMod == null ? String.Empty : m_modMod.ModName);
+			ItemMessage = "Disabling deployed files...";
+			ShowItemProgress = true;
+			ShowItemProgressAsMarquee = true;
+			ItemProgress = 0;
+			ItemProgressStepSize = 1;
+
+			try
+			{
+				VirtualModActivator vmaCompatibility = m_ivaVirtualModActivator as VirtualModActivator;
+				if (vmaCompatibility != null)
+				{
+					vmaCompatibility.DisableModWithProgress(m_modMod, m_booFilesOnly, UpdateProgress);
+				}
+				else if (m_ivaVirtualModActivator != null)
+				{
+					if (m_booFilesOnly)
+						m_ivaVirtualModActivator.DisableModFiles(m_modMod);
+					else
+						m_ivaVirtualModActivator.DisableMod(m_modMod);
+				}
+
+				if (Status == TaskStatus.Cancelling)
+				{
+					Status = TaskStatus.Cancelled;
+					OnTaskEnded("Cancelled", m_modMod);
+					return false;
+				}
+
+				ShowItemProgressAsMarquee = false;
+				Status = TaskStatus.Complete;
+				OnTaskEnded("Disabled deployed files.", m_modMod);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = ex.Message;
+				Status = TaskStatus.Error;
+				OnTaskEnded(ex.Message, m_modMod);
+				return false;
+			}
+		}
+
+		private void UpdateProgress(VirtualModDisableProgress p_vdpProgress)
+		{
+			if (p_vdpProgress == null)
+				return;
+
+			ItemMessage = String.IsNullOrEmpty(p_vdpProgress.Message) ? "Disabling deployed files..." : p_vdpProgress.Message;
+			if (p_vdpProgress.Total > 0)
+			{
+				ShowItemProgressAsMarquee = false;
+				ItemProgressMaximum = p_vdpProgress.Total;
+				ItemProgress = p_vdpProgress.Current;
+			}
 		}
 	}
 }

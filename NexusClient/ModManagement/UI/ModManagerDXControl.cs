@@ -2743,6 +2743,9 @@ namespace Nexus.Client.ModManagement.UI
                     {
                         btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
                         {
+                            if (!taskArgs.Success)
+                                return;
+
                             if (InvokeRequired)
                                 Invoke((MethodInvoker)(() => UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod))));
                             else
@@ -2769,6 +2772,9 @@ namespace Nexus.Client.ModManagement.UI
                             {
                                 btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
                                 {
+                                    if (!taskArgs.Success)
+                                        return;
+
                                     if (InvokeRequired)
                                     {
                                         Invoke((MethodInvoker)(() =>
