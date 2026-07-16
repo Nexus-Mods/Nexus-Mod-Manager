@@ -1,14 +1,5 @@
 namespace Nexus.Client.PluginManagement.UI
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Collections.Specialized;
-    using System.ComponentModel;
-    using System.Drawing;
-    using System.IO;
-    using System.Linq;
-    using System.Windows.Forms;
-
     using DevExpress.Utils;
     using DevExpress.XtraEditors;
     using DevExpress.XtraEditors.Repository;
@@ -17,10 +8,18 @@ namespace Nexus.Client.PluginManagement.UI
     using DevExpress.XtraGrid.Views.Base;
     using DevExpress.XtraGrid.Views.Grid;
     using DevExpress.XtraGrid.Views.Grid.ViewInfo;
-
     using Nexus.Client.Plugins;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Specialized;
+    using System.ComponentModel;
+    using System.Drawing;
+    using System.IO;
+    using System.Linq;
+	using System.Text;
+	using System.Windows.Forms;
     using WeifenLuo.WinFormsUI.Docking;
 
     /// <summary>
@@ -43,18 +42,21 @@ namespace Nexus.Client.PluginManagement.UI
         private readonly ToolStripButton _enableAllButton;
         private readonly ToolStripDropDownButton _exportButton;
         private readonly ToolStripDropDownButton _importButton;
+        private readonly ToolStripButton _restoreLoadOrderButton;
         private readonly GridControl _gridControl;
         private readonly GridView _gridView;
         private readonly PictureEdit _pictureEdit;
         private readonly LabelControl _infoLabel;
         private readonly SplitContainerControl _splitContainer;
+        private readonly XtraScrollableControl _infoScroll;
         private readonly BindingList<PluginManagerDXRow> _rows = new BindingList<PluginManagerDXRow>();
         private readonly Dictionary<Plugin, PluginManagerDXRow> _rowsByPlugin = new Dictionary<Plugin, PluginManagerDXRow>();
         private readonly RepositoryItemCheckEdit _activeCheckEdit;
         private Point _dragStartPoint = Point.Empty;
         private int _dragSourceRowHandle = GridControl.InvalidRowHandle;
         private bool _updatingActiveCell;
-        private PluginManagerVM _viewModel;
+		private bool _suppressManagedPluginsRefresh;
+		private PluginManagerVM _viewModel;
         private IPluginManager _pluginManager;
 
         public event EventHandler UpdatePluginsCount;
@@ -69,6 +71,14 @@ namespace Nexus.Client.PluginManagement.UI
             _toolStrip = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
             _moveUpButton = new ToolStripButton("Up", null, MoveSelectedUp) { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _moveDownButton = new ToolStripButton("Down", null, MoveSelectedDown) { DisplayStyle = ToolStripItemDisplayStyle.Text };
+            _restoreLoadOrderButton = new ToolStripButton(
+                "Load Order Sorting",
+                null,
+                RestoreLoadOrderView)
+            {
+                DisplayStyle = ToolStripItemDisplayStyle.Text,
+                ToolTipText = "Clear column sorting and restore the actual plugin load order."
+            };
             _disableAllButton = new ToolStripButton("Disable All", null, DisableAll) { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _enableAllButton = new ToolStripButton("Enable All", null, EnableAll) { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _exportButton = new ToolStripDropDownButton("Export") { DisplayStyle = ToolStripItemDisplayStyle.Text };
@@ -77,7 +87,18 @@ namespace Nexus.Client.PluginManagement.UI
             _exportButton.DropDownItems.Add("To File...", null, ExportToFile);
             _importButton.DropDownItems.Add("From Clipboard", null, ImportFromClipboard);
             _importButton.DropDownItems.Add("From File...", null, ImportFromFile);
-            _toolStrip.Items.AddRange(new ToolStripItem[] { _moveUpButton, _moveDownButton, new ToolStripSeparator(), _disableAllButton, _enableAllButton, new ToolStripSeparator(), _exportButton, _importButton });
+            _toolStrip.Items.AddRange(new ToolStripItem[]
+            {
+                _moveUpButton,
+                _moveDownButton,
+                _restoreLoadOrderButton,
+                new ToolStripSeparator(),
+                _disableAllButton,
+                _enableAllButton,
+                new ToolStripSeparator(),
+                _exportButton,
+                _importButton
+            });
 
             _gridControl = new GridControl { Dock = DockStyle.Fill };
             _gridView = new GridView(_gridControl);
@@ -94,10 +115,40 @@ namespace Nexus.Client.PluginManagement.UI
                 Height = 150,
                 Properties = { SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, ShowMenu = false, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder }
             };
-            _infoLabel = new LabelControl { Dock = DockStyle.Fill, AutoSizeMode = LabelAutoSizeMode.None, Padding = new Padding(8), Appearance = { TextOptions = { VAlignment = VertAlignment.Top } } };
 
-            PanelControl infoPanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
-            infoPanel.Controls.Add(_infoLabel);
+            _infoLabel = new LabelControl
+            {
+                Dock = DockStyle.Top,
+                AutoSizeMode = LabelAutoSizeMode.Vertical,
+                Padding = new Padding(8),
+                AllowHtmlString = true,
+                UseMnemonic = false,
+                Appearance =
+                {
+                    TextOptions =
+                    {
+                        VAlignment = VertAlignment.Top,
+                        WordWrap = WordWrap.Wrap
+                    }
+                }
+            };
+			_infoLabel.Appearance.Options.UseTextOptions = true;
+
+			_infoScroll = new XtraScrollableControl
+            {
+                Dock = DockStyle.Fill
+            };
+
+            _infoScroll.Controls.Add(_infoLabel);
+
+            PanelControl infoPanel = new PanelControl
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle =
+                    DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
+            };
+
+            infoPanel.Controls.Add(_infoScroll);
             infoPanel.Controls.Add(_pictureEdit);
 
             _splitContainer = new SplitContainerControl { Dock = DockStyle.Fill, FixedPanel = SplitFixedPanel.None, SplitterPosition = 660 };
@@ -148,7 +199,8 @@ namespace Nexus.Client.PluginManagement.UI
             _gridView.OptionsNavigation.AutoFocusNewRow = false;
             _gridView.RowCellClick += GridViewRowCellClick;
             _gridView.FocusedRowChanged += GridViewFocusedRowChanged;
-            _gridView.CellValueChanging += GridViewCellValueChanging;
+			_gridView.SelectionChanged += GridViewSelectionChanged;
+			_gridView.CellValueChanging += GridViewCellValueChanging;
             _gridView.CustomColumnDisplayText += GridViewCustomColumnDisplayText;
             _gridView.RowCellStyle += GridViewRowCellStyle;
             _gridControl.AllowDrop = true;
@@ -156,6 +208,7 @@ namespace Nexus.Client.PluginManagement.UI
             _gridControl.MouseMove += GridControlMouseMove;
             _gridControl.DragOver += GridControlDragOver;
             _gridControl.DragDrop += GridControlDragDrop;
+            _gridView.EndSorting += GridViewEndSorting;
 
             AddColumn(ColActive, "Active", 58, true).ColumnEdit = _activeCheckEdit;
             AddColumn(ColLoadOrder, "Load Order", 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
@@ -178,6 +231,23 @@ namespace Nexus.Client.PluginManagement.UI
             };
             _gridView.Columns.Add(column);
             return column;
+        }
+
+        private void RestoreLoadOrderView(object sender, EventArgs e)
+        {
+            _gridView.BeginUpdate();
+
+            try
+            {
+                _gridView.ClearSorting();
+            }
+            finally
+            {
+                _gridView.EndUpdate();
+            }
+
+            _gridView.RefreshData();
+            UpdateCommandState();
         }
 
         private void HookViewModel()
@@ -207,21 +277,43 @@ namespace Nexus.Client.PluginManagement.UI
             _viewModel.ImportSucceeded -= ViewModelImportSucceeded;
         }
 
-        private void RebuildRows()
-        {
-            _rows.Clear();
-            _rowsByPlugin.Clear();
-            if (_viewModel == null)
-                return;
+		private void RebuildRows()
+		{
+			GridViewState state = CaptureGridViewState();
 
-            PluginSnapshot snapshot = _pluginManager == null ? null : _pluginManager.CurrentSnapshot;
-            foreach (Plugin plugin in _viewModel.ManagedPlugins)
-                AddOrUpdateRow(plugin, snapshot);
+			_gridView.BeginDataUpdate();
 
-            UpdateCommandState();
-        }
+			try
+			{
+				_rows.RaiseListChangedEvents = false;
 
-        private void AddOrUpdateRow(Plugin plugin, PluginSnapshot snapshot)
+				_rows.Clear();
+				_rowsByPlugin.Clear();
+
+				if (_viewModel != null)
+				{
+					PluginSnapshot snapshot =
+						_pluginManager == null
+							? null
+							: _pluginManager.CurrentSnapshot;
+
+					foreach (Plugin plugin in _viewModel.ManagedPlugins)
+						AddOrUpdateRow(plugin, snapshot);
+				}
+			}
+			finally
+			{
+				_rows.RaiseListChangedEvents = true;
+				_rows.ResetBindings();
+				_gridView.EndDataUpdate();
+			}
+
+			RestoreGridViewState(state);
+			UpdatePluginInfo();
+			UpdateCommandState();
+		}
+
+		private void AddOrUpdateRow(Plugin plugin, PluginSnapshot snapshot)
         {
             if (plugin == null)
                 return;
@@ -245,9 +337,121 @@ namespace Nexus.Client.PluginManagement.UI
             row.NotifyAll();
         }
 
+		#region Helpers
+
+		private void ApplyPluginOrderChange(Action changeAction)
+		{
+			if (changeAction == null)
+				return;
+
+			_suppressManagedPluginsRefresh = true;
+
+			try
+			{
+				changeAction();
+			}
+			finally
+			{
+				_suppressManagedPluginsRefresh = false;
+
+				// Perform exactly one UI rebuild after the backend finishes.
+				RebuildRows();
+			}
+
+			PluginMoved?.Invoke(this, EventArgs.Empty);
+			UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
+		}
+
+		private static string HtmlEncode(string value)
+		{
+			if (String.IsNullOrEmpty(value))
+				return String.Empty;
+
+			return value
+				.Replace("&", "&amp;")
+				.Replace("<", "&lt;")
+				.Replace(">", "&gt;")
+				.Replace("\"", "&quot;");
+		}
+
+		private bool IsPluginLocked(Plugin plugin)
+        {
+            return plugin != null
+                && _viewModel != null
+                && !_viewModel.CanChangeActiveState(plugin);
+        }
+
+        private bool ContainsLockedPlugin(IEnumerable<Plugin> plugins)
+        {
+            return plugins != null && plugins.Any(IsPluginLocked);
+        }
+
+        private bool PreservesLockedPluginPositions(
+            IList<Plugin> currentOrder,
+            IList<Plugin> proposedOrder)
+        {
+            for (int index = 0; index < currentOrder.Count; index++)
+            {
+                Plugin plugin = currentOrder[index];
+
+                if (IsPluginLocked(plugin) &&
+                    proposedOrder.IndexOf(plugin) != index)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool CanMoveSelectionAcrossOneRow(
+            IList<Plugin> selectedPlugins,
+            int direction)
+        {
+            if (selectedPlugins == null ||
+                selectedPlugins.Count == 0 ||
+                ContainsLockedPlugin(selectedPlugins))
+            {
+                return false;
+            }
+
+            List<Plugin> currentOrder =
+                new List<Plugin>(_viewModel.ManagedPlugins);
+
+            HashSet<Plugin> selection =
+                new HashSet<Plugin>(selectedPlugins);
+
+            if (direction < 0)
+            {
+                for (int index = 1; index < currentOrder.Count; index++)
+                {
+                    if (selection.Contains(currentOrder[index]) &&
+                        !selection.Contains(currentOrder[index - 1]) &&
+                        IsPluginLocked(currentOrder[index - 1]))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                for (int index = currentOrder.Count - 2; index >= 0; index--)
+                {
+                    if (selection.Contains(currentOrder[index]) &&
+                        !selection.Contains(currentOrder[index + 1]) &&
+                        IsPluginLocked(currentOrder[index + 1]))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         private string GetStatus(Plugin plugin, PluginSnapshotEntry entry)
         {
-            if (!_viewModel.CanChangeActiveState(plugin))
+            if (IsPluginLocked(plugin))
                 return "Locked";
             if (entry != null && entry.HasErrors)
                 return String.Join("; ", entry.Diagnostics.Where(x => x.Severity == PluginValidationSeverity.Error).Select(x => x.Message).ToArray());
@@ -257,6 +461,8 @@ namespace Nexus.Client.PluginManagement.UI
                 return "Inactive master";
             return String.Empty;
         }
+
+        #endregion
 
         private Plugin GetFocusedPlugin()
         {
@@ -280,18 +486,29 @@ namespace Nexus.Client.PluginManagement.UI
             UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
         }
 
-        private void ManagedPluginsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            if (InvokeRequired)
-            {
-                BeginInvoke((Action<object, NotifyCollectionChangedEventArgs>)ManagedPluginsCollectionChanged, sender, e);
-                return;
-            }
-            RebuildRows();
-            UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
-        }
+		private void ManagedPluginsCollectionChanged(
+			object sender,
+			NotifyCollectionChangedEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				BeginInvoke(
+					(Action<object, NotifyCollectionChangedEventArgs>)
+						ManagedPluginsCollectionChanged,
+					sender,
+					e);
 
-        private void ActivePluginsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+				return;
+			}
+
+			if (_suppressManagedPluginsRefresh)
+				return;
+
+			RebuildRows();
+			UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
+		}
+
+		private void ActivePluginsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (InvokeRequired)
             {
@@ -329,16 +546,24 @@ namespace Nexus.Client.PluginManagement.UI
         private void GridControlMouseDown(object sender, MouseEventArgs e)
         {
             GridHitInfo hit = _gridView.CalcHitInfo(e.Location);
-            if (e.Button == MouseButtons.Left && hit.InRow && hit.RowHandle >= 0)
+
+            if (e.Button == MouseButtons.Left &&
+                hit.InRow &&
+                hit.RowHandle >= 0)
             {
-                _dragStartPoint = e.Location;
-                _dragSourceRowHandle = hit.RowHandle;
+                PluginManagerDXRow row =
+                    _gridView.GetRow(hit.RowHandle) as PluginManagerDXRow;
+
+                if (row != null && !IsPluginLocked(row.Plugin))
+                {
+                    _dragStartPoint = e.Location;
+                    _dragSourceRowHandle = hit.RowHandle;
+                    return;
+                }
             }
-            else
-            {
-                _dragStartPoint = Point.Empty;
-                _dragSourceRowHandle = GridControl.InvalidRowHandle;
-            }
+
+            _dragStartPoint = Point.Empty;
+            _dragSourceRowHandle = GridControl.InvalidRowHandle;
         }
 
         private void GridControlMouseMove(object sender, MouseEventArgs e)
@@ -355,7 +580,7 @@ namespace Nexus.Client.PluginManagement.UI
             if (!dragRectangle.Contains(e.Location))
             {
                 PluginManagerDXRow row = _gridView.GetRow(_dragSourceRowHandle) as PluginManagerDXRow;
-                if (row != null)
+                if (row != null && !IsPluginLocked(row.Plugin))
                     _gridControl.DoDragDrop(row, DragDropEffects.Move);
                 _dragSourceRowHandle = GridControl.InvalidRowHandle;
             }
@@ -363,32 +588,83 @@ namespace Nexus.Client.PluginManagement.UI
 
         private void GridControlDragOver(object sender, DragEventArgs e)
         {
-            e.Effect = e.Data.GetDataPresent(typeof(PluginManagerDXRow)) ? DragDropEffects.Move : DragDropEffects.None;
+            PluginManagerDXRow draggedRow =
+                e.Data.GetData(typeof(PluginManagerDXRow))
+                    as PluginManagerDXRow;
+
+            e.Effect =
+                draggedRow != null &&
+                !IsPluginLocked(draggedRow.Plugin)
+                    ? DragDropEffects.Move
+                    : DragDropEffects.None;
         }
 
         private void GridControlDragDrop(object sender, DragEventArgs e)
         {
-            PluginManagerDXRow draggedRow = e.Data.GetData(typeof(PluginManagerDXRow)) as PluginManagerDXRow;
-            if (draggedRow == null || _pluginManager == null)
-                return;
+            PluginManagerDXRow draggedRow =
+                e.Data.GetData(typeof(PluginManagerDXRow))
+                    as PluginManagerDXRow;
 
-            Point clientPoint = _gridControl.PointToClient(new Point(e.X, e.Y));
+            if (draggedRow == null ||
+                _pluginManager == null ||
+                IsPluginLocked(draggedRow.Plugin))
+            {
+                RebuildRows();
+                return;
+            }
+
+            Point clientPoint =
+                _gridControl.PointToClient(new Point(e.X, e.Y));
+
             GridHitInfo hit = _gridView.CalcHitInfo(clientPoint);
-            int targetRowHandle = hit.RowHandle >= 0 ? hit.RowHandle : _gridView.RowCount - 1;
-            PluginManagerDXRow targetRow = _gridView.GetRow(targetRowHandle) as PluginManagerDXRow;
+
+            int targetRowHandle =
+                hit.RowHandle >= 0
+                    ? hit.RowHandle
+                    : _gridView.RowCount - 1;
+
+            PluginManagerDXRow targetRow =
+                _gridView.GetRow(targetRowHandle)
+                    as PluginManagerDXRow;
+
             if (targetRow == null || targetRow == draggedRow)
                 return;
 
-            List<Plugin> plugins = new List<Plugin>(_viewModel.ManagedPlugins);
-            int targetIndex = plugins.IndexOf(targetRow.Plugin);
-            plugins.Remove(draggedRow.Plugin);
-            targetIndex = Math.Max(0, Math.Min(targetIndex, plugins.Count));
-            plugins.Insert(targetIndex, draggedRow.Plugin);
+            List<Plugin> currentOrder =
+                new List<Plugin>(_viewModel.ManagedPlugins);
 
-            _pluginManager.SetPluginOrder(plugins);
-            RebuildRows();
-            PluginMoved?.Invoke(this, EventArgs.Empty);
-            UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
+            List<Plugin> proposedOrder =
+                new List<Plugin>(currentOrder);
+
+            int sourceIndex =
+                proposedOrder.IndexOf(draggedRow.Plugin);
+
+            int targetIndex =
+                proposedOrder.IndexOf(targetRow.Plugin);
+
+            proposedOrder.RemoveAt(sourceIndex);
+
+            if (sourceIndex < targetIndex)
+                targetIndex--;
+
+            targetIndex =
+                Math.Max(0, Math.Min(targetIndex, proposedOrder.Count));
+
+            proposedOrder.Insert(targetIndex, draggedRow.Plugin);
+
+            if (!PreservesLockedPluginPositions(currentOrder, proposedOrder))
+            {
+                RebuildRows();
+                return;
+            }
+
+			ApplyPluginOrderChange(
+				() => _pluginManager.SetPluginOrder(proposedOrder));
+		}
+
+        private void GridViewEndSorting(object sender, EventArgs e)
+        {
+            UpdateCommandState();
         }
 
         private void GridViewRowCellClick(object sender, RowCellClickEventArgs e)
@@ -406,19 +682,26 @@ namespace Nexus.Client.PluginManagement.UI
             }
         }
 
-        private void GridViewFocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
-        {
-            UpdatePluginInfo();
-            UpdateCommandState();
-        }
+		private void GridViewFocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
+		{
+			UpdatePluginInfo();
+		}
 
-        private void GridViewCustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
+		private void GridViewCustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
         {
             if (e.Column != null && e.Column.FieldName == ColActive && e.Value is bool)
                 e.DisplayText = (bool)e.Value ? "Active" : "Inactive";
         }
 
-        private void GridViewRowCellStyle(object sender, RowCellStyleEventArgs e)
+		private void GridViewSelectionChanged(object sender, DevExpress.Data.SelectionChangedEventArgs e)
+		{
+			if (IsDisposed || Disposing)
+				return;
+
+			BeginInvoke((Action)UpdateCommandState);
+		}
+
+		private void GridViewRowCellStyle(object sender, RowCellStyleEventArgs e)
         {
             PluginManagerDXRow row = _gridView.GetRow(e.RowHandle) as PluginManagerDXRow;
             if (row == null || String.IsNullOrEmpty(row.Status))
@@ -430,28 +713,64 @@ namespace Nexus.Client.PluginManagement.UI
                 e.Appearance.ForeColor = Color.DarkRed;
         }
 
-        private void UpdatePluginInfo()
-        {
-            Plugin plugin = GetFocusedPlugin();
-            if (plugin == null)
-            {
-                _pictureEdit.Image = null;
-                _infoLabel.Text = String.Empty;
-                return;
-            }
+		private void UpdatePluginInfo()
+		{
+			Plugin plugin = GetFocusedPlugin();
 
-            _pictureEdit.Image = plugin.Picture;
-            string owner = _viewModel.GetPluginOwner(plugin);
-            _infoLabel.Text = (String.IsNullOrWhiteSpace(owner) ? String.Empty : "Mod: " + owner + Environment.NewLine + Environment.NewLine) + _viewModel.GetPluginDescription(plugin.Filename);
-        }
+			if (plugin == null)
+			{
+				_pictureEdit.Image = null;
+				_pictureEdit.Visible = false;
+				_infoLabel.Text = String.Empty;
+				return;
+			}
 
-        private void UpdateCommandState()
+			_pictureEdit.Image = plugin.Picture;
+			_pictureEdit.Visible = plugin.Picture != null;
+
+			string owner = _viewModel.GetPluginOwner(plugin);
+			string description =
+				_viewModel.GetPluginDescription(plugin.Filename);
+
+			StringBuilder details = new StringBuilder();
+
+			if (!String.IsNullOrWhiteSpace(owner))
+			{
+				details.AppendFormat(
+					"<b>Mod:</b> {0}<br/><br/>",
+					HtmlEncode(owner));
+			}
+
+			if (!String.IsNullOrWhiteSpace(description))
+				details.Append(description);
+
+			_infoLabel.Text = details.ToString();
+		}
+
+		private void UpdateCommandState()
         {
-            bool hasSelection = GetFocusedPlugin() != null;
-            IList<Plugin> selected = GetSelectedPlugins();
-            Plugin focused = GetFocusedPlugin();
-            _moveUpButton.Enabled = hasSelection && _viewModel != null && _viewModel.CanMovePluginUp(focused);
-            _moveDownButton.Enabled = selected.Count > 0 && _viewModel != null && _viewModel.CanMovePluginsDown(selected);
+			IList<Plugin> selected = GetSelectedPlugins();
+			Plugin focused = GetFocusedPlugin();
+
+			if (selected.Count == 0 && focused != null)
+				selected = new List<Plugin> { focused };
+
+			bool canMoveUp =
+                _viewModel != null &&
+                selected.Count > 0 &&
+                CanMoveSelectionAcrossOneRow(selected, -1) &&
+                _viewModel.CanMovePluginUp(focused);
+
+            bool canMoveDown =
+                _viewModel != null &&
+                selected.Count > 0 &&
+                CanMoveSelectionAcrossOneRow(selected, 1) &&
+                _viewModel.CanMovePluginsDown(selected);
+            _moveUpButton.Enabled = canMoveUp;
+            _moveDownButton.Enabled = canMoveDown;
+
+            _restoreLoadOrderButton.Enabled = _gridView != null && _gridView.SortInfo.Count > 0;
+
             _disableAllButton.Enabled = _viewModel != null && _viewModel.ActivePlugins.Count > 0;
             _enableAllButton.Enabled = _viewModel != null && _viewModel.ManagedPlugins.Count > _viewModel.ActivePlugins.Count;
             _exportButton.Enabled = _viewModel != null && _viewModel.CanExecuteExportCommands();
@@ -461,22 +780,28 @@ namespace Nexus.Client.PluginManagement.UI
         private void MoveSelectedUp(object sender, EventArgs e)
         {
             IList<Plugin> selected = GetSelectedPlugins();
-            if (selected.Count > 0)
+
+            if (!CanMoveSelectionAcrossOneRow(selected, -1))
             {
-                _viewModel.MoveUpCommand.Execute(selected);
                 RebuildRows();
+                return;
             }
-        }
+
+			ApplyPluginOrderChange(() => _viewModel.MoveUpCommand.Execute(selected));
+		}
 
         private void MoveSelectedDown(object sender, EventArgs e)
         {
             IList<Plugin> selected = GetSelectedPlugins();
-            if (selected.Count > 0)
+
+            if (!CanMoveSelectionAcrossOneRow(selected, 1))
             {
-                _viewModel.MoveDownCommand.Execute(selected);
                 RebuildRows();
+                return;
             }
-        }
+
+			ApplyPluginOrderChange(() => _viewModel.MoveDownCommand.Execute(selected));
+		}
 
         private void DisableAll(object sender, EventArgs e)
         {
@@ -547,7 +872,75 @@ namespace Nexus.Client.PluginManagement.UI
             RefreshSnapshotRows();
         }
 
-        private sealed class PluginManagerDXRow : INotifyPropertyChanged
+		private GridViewState CaptureGridViewState()
+		{
+			PluginManagerDXRow topRow =
+				_gridView.GetRow(_gridView.TopRowIndex)
+					as PluginManagerDXRow;
+
+			return new GridViewState
+			{
+				FocusedPlugin = GetFocusedPlugin(),
+				SelectedPlugins = GetSelectedPlugins().ToList(),
+				TopPlugin = topRow == null ? null : topRow.Plugin,
+				TopRowIndex = _gridView.TopRowIndex
+			};
+		}
+
+		private int GetPluginRowHandle(Plugin plugin)
+		{
+			if (plugin == null)
+				return GridControl.InvalidRowHandle;
+
+			PluginManagerDXRow row;
+
+			if (!_rowsByPlugin.TryGetValue(plugin, out row))
+				return GridControl.InvalidRowHandle;
+
+			int dataSourceIndex = _rows.IndexOf(row);
+
+			return dataSourceIndex < 0
+				? GridControl.InvalidRowHandle
+				: _gridView.GetRowHandle(dataSourceIndex);
+		}
+
+		private void RestoreGridViewState(GridViewState state)
+		{
+			if (state == null)
+				return;
+
+			_gridView.ClearSelection();
+
+			foreach (Plugin plugin in state.SelectedPlugins ?? new List<Plugin>())
+			{
+				int rowHandle = GetPluginRowHandle(plugin);
+
+				if (rowHandle >= 0)
+					_gridView.SelectRow(rowHandle);
+			}
+
+			int focusedRowHandle =
+				GetPluginRowHandle(state.FocusedPlugin);
+
+			if (focusedRowHandle >= 0)
+				_gridView.FocusedRowHandle = focusedRowHandle;
+
+			int topRowHandle =
+				GetPluginRowHandle(state.TopPlugin);
+
+			if (topRowHandle >= 0)
+			{
+				_gridView.TopRowIndex = topRowHandle;
+			}
+			else if (_gridView.RowCount > 0)
+			{
+				_gridView.TopRowIndex = Math.Max(
+					0,
+					Math.Min(state.TopRowIndex, _gridView.RowCount - 1));
+			}
+		}
+
+		private sealed class PluginManagerDXRow : INotifyPropertyChanged
         {
             public PluginManagerDXRow(Plugin plugin)
             {
@@ -580,5 +973,13 @@ namespace Nexus.Client.PluginManagement.UI
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
-    }
+
+		private sealed class GridViewState
+		{
+			public Plugin FocusedPlugin { get; set; }
+			public List<Plugin> SelectedPlugins { get; set; }
+			public Plugin TopPlugin { get; set; }
+			public int TopRowIndex { get; set; }
+		}
+	}
 }

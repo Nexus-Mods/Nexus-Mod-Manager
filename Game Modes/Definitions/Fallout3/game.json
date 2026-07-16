@@ -33,9 +33,7 @@
     "pluginExtensions":  [
                              ".esm",
                              ".esl",
-                             ".esp",
-                             ".bsa",
-                             ".ba2"
+                             ".esp"
                          ],
     "orderedCriticalPluginNames":  [
                                        "fallout3.esm"

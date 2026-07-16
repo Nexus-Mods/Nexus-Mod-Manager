@@ -406,11 +406,16 @@ namespace Nexus.Client.PluginManagement
         private static PluginAddressClass GetDefaultAddressClass(string extension)
         {
             if (String.IsNullOrWhiteSpace(extension))
-                return PluginAddressClass.Full;
+                return PluginAddressClass.None;
+
             extension = extension.TrimStart('.').ToLowerInvariant();
+
+            // A native .esl always uses the light address space.
             if (extension == "esl")
                 return PluginAddressClass.Light;
-            return PluginAddressClass.Full;
+
+            // .esp and .esm may be Full or Light depending on their header flags.
+            return PluginAddressClass.None;
         }
 
         private static PluginAddressClass GetAddressClassFromFlags(PluginHeaderFlags flags)

@@ -32,9 +32,7 @@
     "pluginExtensions":  [
                              ".esm",
                              ".esl",
-                             ".esp",
-                             ".bsa",
-                             ".ba2"
+                             ".esp"
                          ],
     "orderedCriticalPluginNames":  [
                                        "Oblivion.esm"

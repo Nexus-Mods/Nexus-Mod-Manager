@@ -275,13 +275,22 @@ namespace Nexus.Client.PluginManagement
             {
                 string normalizedMasterName = NormalizePluginName(masterName);
                 Plugin master;
-                if (!pluginsByName.TryGetValue(normalizedMasterName, out master))
-                {
-                    AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.MissingMaster, PluginValidationSeverity.Error, "Missing master: " + masterName);
-                    continue;
-                }
+				if (!pluginsByName.TryGetValue(normalizedMasterName, out master))
+				{
+					AddDiagnostic(
+						diagnostics,
+						diagnosticsByPlugin,
+						plugin,
+						PluginValidationIssueKind.MissingMaster,
+						active
+							? PluginValidationSeverity.Error
+							: PluginValidationSeverity.Warning,
+						"Missing master: " + masterName);
 
-                if (active && !activePlugins.Contains(master))
+					continue;
+				}
+
+				if (active && !activePlugins.Contains(master))
                     AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.InactiveRequiredMaster, PluginValidationSeverity.Error, "Required master is inactive: " + masterName);
 
                 int masterPriority;

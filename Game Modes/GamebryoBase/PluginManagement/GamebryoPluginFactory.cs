@@ -116,51 +116,60 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			if (tpgPlugin.Records[0].Name == "TES4")
 			{
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (!booHeaderLight))
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></span><br/><br/>");
+					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></color><br/><br/>");
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (!booHeaderMaster))
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag!</b></span><br/><br/>");
+					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag!</b></color><br/><br/>");
 				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
 				{
 					if (booHeaderMaster && booHeaderLight)
-						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></span><br/><br/>");
+						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></color><br/><br/>");
 					else if (booHeaderMaster)
-						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></color><br/><br/>");
 					else if (booHeaderLight)
-						stbDescription.Append(@"<span style='color:#00662d;'>This file is marked as a light plugin (so it doesn't use a full load order slot).</span><br/><br/>");
+						stbDescription.Append(@"<color=#00662d>This file is marked as a light plugin (so it doesn't use a full load order slot).</color><br><br>");
 				}
 			}
 
 			uint intFormVersion = ((Record)tpgPlugin.Records[0]).Flags3;
 			PluginMetadata metadata = m_pmpPluginPolicy.Classify(p_strPluginPath, parsedFlags, unchecked((int)intFormVersion), masters, PluginParseStatus.Parsed);
 
-			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br/>", strPluginName);
+			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br>", strPluginName);
 			if ((name != null) && (name != string.Empty))
 				stbDescription.AppendFormat(@"<b>Author:</b> {0}<br/>", name);
 			if ((desc != null) && (desc != string.Empty))
 			{
-				desc = desc.Replace("\r\n", "\n").Replace("\n\r", "\n").Replace("\n", "<br/>");
+				desc = desc.Replace("\r\n", "\n").Replace("\n\r", "\n").Replace("\n", "<br>");
 				stbDescription.AppendFormat(@"<b>Description:</b><br/>{0}<br/>", desc);
 			}
 			if (masters.Count > 0)
 			{
-				stbDescription.Append(@"<b>Masters:</b><ul>");
+				stbDescription.Append("<b>Masters:</b><br>");
+
 				for (int i = 0; i < masters.Count; i++)
 				{
-					if (File.Exists(Path.Combine(m_strPluginDirectory, masters[i])))
+					string masterPath = Path.Combine(m_strPluginDirectory, masters[i]);
+
+					if (!File.Exists(masterPath))
 					{
-						if (LoadOrderManager.IsPluginActive(masters[i]))
-							stbDescription.AppendFormat("<li>{0}</li>", masters[i]);
-						else
-						{
-							stbDescription.AppendFormat("<span style='color:#ffa500;'><li>{0} - DISABLED</li></span>", masters[i]);
-						}
+						stbDescription.AppendFormat(
+							"<color=#ff1100>• {0} - MISSING</color><br>",
+							masters[i]);
+					}
+					else if (!LoadOrderManager.IsPluginActive(masters[i]))
+					{
+						stbDescription.AppendFormat(
+							"<color=#ffa500>• {0} - DISABLED</color><br>",
+							masters[i]);
 					}
 					else
 					{
-						stbDescription.AppendFormat("<span style='color:#ff1100;'><li>{0} - MISSING</li></span>", masters[i]);
+						stbDescription.AppendFormat(
+							"• {0}<br>",
+							masters[i]);
 					}
 				}
-				stbDescription.Append(@"</ul>");
+
+				stbDescription.Append("<br>");
 			}
 
 			Image imgPicture = null;
@@ -233,48 +242,57 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			if (tpgPlugin.Records[0].Name == "TES4")
 			{
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (!booHeaderLight))
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></span><br/><br/>");
+					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></color><br/><br/>");
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (!booHeaderMaster))
-					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag which marks it as an esp!</b></span><br/><br/>");
+					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag which marks it as an esp!</b></color><br/><br/>");
 				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
 				{
 					if (booHeaderMaster && booHeaderLight)
-						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></span><br/><br/>");
+						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></color><br/><br/>");
 					else if (booHeaderMaster)
-						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
+						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></color><br/><br/>");
 					else if (booHeaderLight)
-						stbDescription.Append(@"<span style='color:#00662d;'>This file is marked as a light plugin (so it doesn't use a full load order slot).</span><br/><br/>");
+						stbDescription.Append(@"<color=#00662d>This file is marked as a light plugin (so it doesn't use a full load order slot).</color><br><br>");
 				}
 			}
 
-			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br/>", strPluginName);
+			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br>", strPluginName);
 			if ((name != null) && (name != string.Empty))
 				stbDescription.AppendFormat(@"<b>Author:</b> {0}<br/>", name);
 			if ((desc != null) && (desc != string.Empty))
 			{
-				desc = desc.Replace("\r\n", "\n").Replace("\n\r", "\n").Replace("\n", "<br/>");
+				desc = desc.Replace("\r\n", "\n").Replace("\n\r", "\n").Replace("\n", "<br>");
 				stbDescription.AppendFormat(@"<b>Description:</b><br/>{0}<br/>", desc);
 			}
 			if (masters.Count > 0)
 			{
-				stbDescription.Append(@"<b>Masters:</b><ul>");
+				stbDescription.Append("<b>Masters:</b><br>");
+
 				for (int i = 0; i < masters.Count; i++)
 				{
-					if (File.Exists(Path.Combine(m_strPluginDirectory, masters[i])))
+					string masterPath = Path.Combine(m_strPluginDirectory, masters[i]);
+
+					if (!File.Exists(masterPath))
 					{
-						if (LoadOrderManager.IsPluginActive(masters[i]))
-							stbDescription.AppendFormat("<li>{0}</li>", masters[i]);
-						else
-						{
-							stbDescription.AppendFormat("<span style='color:#ffa500;'><li>{0} - DISABLED</li></span>", masters[i]);
-						}
+						stbDescription.AppendFormat(
+							"<color=#ff1100>• {0} - MISSING</color><br>",
+							masters[i]);
+					}
+					else if (!LoadOrderManager.IsPluginActive(masters[i]))
+					{
+						stbDescription.AppendFormat(
+							"<color=#ffa500>• {0} - DISABLED</color><br>",
+							masters[i]);
 					}
 					else
 					{
-						stbDescription.AppendFormat("<span style='color:#ff1100;'><li>{0} - MISSING</li></span>", masters[i]);
+						stbDescription.AppendFormat(
+							"• {0}<br>",
+							masters[i]);
 					}
 				}
-				stbDescription.Append(@"</ul>");
+
+				stbDescription.Append("<br>");
 			}
 
 			m_pmpPluginPolicy.Classify(p_strPluginPath, parsedFlags, unchecked((int)((Record)tpgPlugin.Records[0]).Flags3), masters, PluginParseStatus.Parsed);
