@@ -884,6 +884,8 @@
     <Reference Include="Accessibility">
       <Private>False</Private>
     </Reference>
+    <Reference Include="DevExpress.XtraBars.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.XtraDialogs.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
     <Reference Include="FluentNexus, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>data\FluentNexus.dll</HintPath>

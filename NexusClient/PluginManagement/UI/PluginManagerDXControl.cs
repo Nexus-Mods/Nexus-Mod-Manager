@@ -1,13 +1,16 @@
 namespace Nexus.Client.PluginManagement.UI
 {
     using DevExpress.Utils;
-    using DevExpress.XtraEditors;
+	using DevExpress.XtraBars;
+	using DevExpress.XtraEditors;
+	using DevExpress.XtraEditors.Controls;
     using DevExpress.XtraEditors.Repository;
     using DevExpress.XtraGrid;
     using DevExpress.XtraGrid.Columns;
     using DevExpress.XtraGrid.Views.Base;
     using DevExpress.XtraGrid.Views.Grid;
     using DevExpress.XtraGrid.Views.Grid.ViewInfo;
+	using Nexus.Client.Games.Gamebryo.ModManagement.Scripting;
     using Nexus.Client.Plugins;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
@@ -22,9 +25,9 @@ namespace Nexus.Client.PluginManagement.UI
 	using System.Windows.Forms;
     using WeifenLuo.WinFormsUI.Docking;
 
-    /// <summary>
-    /// DevExpress-based plugin manager surface. The legacy PluginManagerControl remains available as a compatibility fallback.
-    /// </summary>
+	/// <summary>
+	/// DevExpress-based plugin manager surface. The legacy PluginManagerControl remains available as a compatibility fallback.
+	/// </summary>
     public sealed class PluginManagerDXControl : ManagedFontDockContent
     {
         private const string ColActive = "Active";
@@ -35,15 +38,18 @@ namespace Nexus.Client.PluginManagement.UI
         private const string ColOwner = "Owner";
         private const string ColStatus = "Status";
 
-        private readonly ToolStrip _toolStrip;
-        private readonly ToolStripButton _moveUpButton;
-        private readonly ToolStripButton _moveDownButton;
-        private readonly ToolStripButton _disableAllButton;
-        private readonly ToolStripButton _enableAllButton;
-        private readonly ToolStripDropDownButton _exportButton;
-        private readonly ToolStripDropDownButton _importButton;
-        private readonly ToolStripButton _restoreLoadOrderButton;
-        private readonly GridControl _gridControl;
+		private readonly BarManager _barManager;
+		private readonly StandaloneBarDockControl _toolbarHost;
+		private readonly Bar _toolbar;
+		private readonly BarButtonItem _moveUpButton;
+		private readonly BarButtonItem _moveDownButton;
+		private readonly BarButtonItem _disableAllButton;
+		private readonly BarButtonItem _enableAllButton;
+		private readonly BarButtonItem _restoreLoadOrderButton;
+		private readonly BarSubItem _exportButton;
+		private readonly BarSubItem _importButton;
+
+		private readonly GridControl _gridControl;
         private readonly GridView _gridView;
         private readonly PictureEdit _pictureEdit;
         private readonly LabelControl _infoLabel;
@@ -68,39 +74,106 @@ namespace Nexus.Client.PluginManagement.UI
             Name = "PluginManagerDXControl";
             DockAreas = DockAreas.Document;
 
-            _toolStrip = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
-            _moveUpButton = new ToolStripButton("Up", null, MoveSelectedUp) { DisplayStyle = ToolStripItemDisplayStyle.Text };
-            _moveDownButton = new ToolStripButton("Down", null, MoveSelectedDown) { DisplayStyle = ToolStripItemDisplayStyle.Text };
-            _restoreLoadOrderButton = new ToolStripButton(
-                "Load Order Sorting",
-                null,
-                RestoreLoadOrderView)
-            {
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                ToolTipText = "Clear column sorting and restore the actual plugin load order."
-            };
-            _disableAllButton = new ToolStripButton("Disable All", null, DisableAll) { DisplayStyle = ToolStripItemDisplayStyle.Text };
-            _enableAllButton = new ToolStripButton("Enable All", null, EnableAll) { DisplayStyle = ToolStripItemDisplayStyle.Text };
-            _exportButton = new ToolStripDropDownButton("Export") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-            _importButton = new ToolStripDropDownButton("Import") { DisplayStyle = ToolStripItemDisplayStyle.Text };
-            _exportButton.DropDownItems.Add("To Clipboard", null, ExportToClipboard);
-            _exportButton.DropDownItems.Add("To File...", null, ExportToFile);
-            _importButton.DropDownItems.Add("From Clipboard", null, ImportFromClipboard);
-            _importButton.DropDownItems.Add("From File...", null, ImportFromFile);
-            _toolStrip.Items.AddRange(new ToolStripItem[]
-            {
-                _moveUpButton,
-                _moveDownButton,
-                _restoreLoadOrderButton,
-                new ToolStripSeparator(),
-                _disableAllButton,
-                _enableAllButton,
-                new ToolStripSeparator(),
-                _exportButton,
-                _importButton
-            });
+			_barManager = new BarManager
+			{
+				Form = this
+			};
 
-            _gridControl = new GridControl { Dock = DockStyle.Fill };
+			_toolbarHost = new StandaloneBarDockControl
+			{
+				Dock = DockStyle.Top,
+				Height = 28,
+				CausesValidation = false,
+				Manager = _barManager
+			};
+
+			_toolbar = new Bar(_barManager, "Plugin Commands")
+			{
+				DockStyle = BarDockStyle.Standalone,
+				StandaloneBarDockControl = _toolbarHost
+			};
+
+			_toolbar.OptionsBar.AllowQuickCustomization = false;
+			_toolbar.OptionsBar.DrawDragBorder = false;
+			_toolbar.OptionsBar.UseWholeRow = true;
+
+			_moveUpButton = new BarButtonItem(_barManager, "Up");
+			_moveUpButton.ItemClick +=
+				(sender, args) => MoveSelectedUp(sender, args);
+
+			_moveDownButton = new BarButtonItem(_barManager, "Down");
+			_moveDownButton.ItemClick +=
+				(sender, args) => MoveSelectedDown(sender, args);
+
+			_restoreLoadOrderButton =
+				new BarButtonItem(_barManager, "Load Order Sorting")
+				{
+					Hint =
+						"Clear column sorting and restore the actual plugin load order."
+				};
+
+			_restoreLoadOrderButton.ItemClick +=
+				(sender, args) => RestoreLoadOrderView(sender, args);
+
+			_disableAllButton =
+				new BarButtonItem(_barManager, "Disable All");
+
+			_disableAllButton.ItemClick +=
+				(sender, args) => DisableAll(sender, args);
+
+			_enableAllButton =
+				new BarButtonItem(_barManager, "Enable All");
+
+			_enableAllButton.ItemClick +=
+				(sender, args) => EnableAll(sender, args);
+
+			_exportButton =
+				new BarSubItem(_barManager, "Export");
+
+			_importButton =
+				new BarSubItem(_barManager, "Import");
+
+			BarButtonItem exportToClipboardItem =
+				new BarButtonItem(_barManager, "To Clipboard");
+
+			exportToClipboardItem.ItemClick +=
+				(sender, args) => ExportToClipboard(sender, args);
+
+			BarButtonItem exportToFileItem =
+				new BarButtonItem(_barManager, "To File...");
+
+			exportToFileItem.ItemClick +=
+				(sender, args) => ExportToFile(sender, args);
+
+			BarButtonItem importFromClipboardItem =
+				new BarButtonItem(_barManager, "From Clipboard");
+
+			importFromClipboardItem.ItemClick +=
+				(sender, args) => ImportFromClipboard(sender, args);
+
+			BarButtonItem importFromFileItem =
+				new BarButtonItem(_barManager, "From File...");
+
+			importFromFileItem.ItemClick +=
+				(sender, args) => ImportFromFile(sender, args);
+
+			_exportButton.AddItem(exportToClipboardItem);
+			_exportButton.AddItem(exportToFileItem);
+
+			_importButton.AddItem(importFromClipboardItem);
+			_importButton.AddItem(importFromFileItem);
+
+			_toolbar.AddItem(_moveUpButton);
+			_toolbar.AddItem(_moveDownButton);
+			_toolbar.AddItem(_restoreLoadOrderButton);
+
+			_toolbar.AddItem(_disableAllButton).BeginGroup = true;
+			_toolbar.AddItem(_enableAllButton);
+
+			_toolbar.AddItem(_exportButton).BeginGroup = true;
+			_toolbar.AddItem(_importButton);
+
+			_gridControl = new GridControl { Dock = DockStyle.Fill };
             _gridView = new GridView(_gridControl);
             _gridControl.MainView = _gridView;
             _gridControl.ViewCollection.Add(_gridView);
@@ -115,8 +188,9 @@ namespace Nexus.Client.PluginManagement.UI
                 Height = 150,
                 Properties = { SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, ShowMenu = false, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder }
             };
+			_pictureEdit.LookAndFeel.UseDefaultLookAndFeel = true;
 
-            _infoLabel = new LabelControl
+			_infoLabel = new LabelControl
             {
                 Dock = DockStyle.Top,
                 AutoSizeMode = LabelAutoSizeMode.Vertical,
@@ -133,31 +207,56 @@ namespace Nexus.Client.PluginManagement.UI
                 }
             };
 			_infoLabel.Appearance.Options.UseTextOptions = true;
+			_infoLabel.LookAndFeel.UseDefaultLookAndFeel = true;
+			_infoLabel.Appearance.Options.UseBackColor = false;
 
 			_infoScroll = new XtraScrollableControl
-            {
-                Dock = DockStyle.Fill
-            };
+			{
+				Dock = DockStyle.Fill
+			};
 
-            _infoScroll.Controls.Add(_infoLabel);
+			_infoScroll.LookAndFeel.UseDefaultLookAndFeel = true;
 
-            PanelControl infoPanel = new PanelControl
-            {
-                Dock = DockStyle.Fill,
-                BorderStyle =
-                    DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
-            };
+			_infoScroll.Controls.Add(_infoLabel);
 
-            infoPanel.Controls.Add(_infoScroll);
-            infoPanel.Controls.Add(_pictureEdit);
+			PanelControl infoPanel = new PanelControl
+			{
+				Dock = DockStyle.Fill,
+				BorderStyle = BorderStyles.NoBorder
+			};
 
-            _splitContainer = new SplitContainerControl { Dock = DockStyle.Fill, FixedPanel = SplitFixedPanel.None, SplitterPosition = 660 };
-            _splitContainer.Panel1.Controls.Add(_gridControl);
+			infoPanel.LookAndFeel.UseDefaultLookAndFeel = true;
+
+			infoPanel.Controls.Add(_infoScroll);
+			infoPanel.Controls.Add(_pictureEdit);
+
+			_splitContainer = new SplitContainerControl
+			{
+				Dock = DockStyle.Fill,
+				FixedPanel = SplitFixedPanel.None,
+				SplitterPosition = 660,
+				BorderStyle = BorderStyles.NoBorder
+			};
+
+			_splitContainer.LookAndFeel.UseDefaultLookAndFeel = true;
+
+			_splitContainer.Panel1.Controls.Add(_gridControl);
             _splitContainer.Panel2.Controls.Add(infoPanel);
 
-            Controls.Add(_splitContainer);
-            Controls.Add(_toolStrip);
-            SetupGrid();
+			PanelControl rootPanel = new PanelControl
+			{
+				Dock = DockStyle.Fill,
+				BorderStyle = BorderStyles.NoBorder
+			};
+
+			rootPanel.LookAndFeel.UseDefaultLookAndFeel = true;
+			rootPanel.Appearance.Options.UseBackColor = false;
+
+			rootPanel.Controls.Add(_splitContainer);
+			rootPanel.Controls.Add(_toolbarHost);
+
+			Controls.Add(rootPanel);
+			SetupGrid();
             UpdateCommandState();
         }
 
@@ -805,13 +904,13 @@ namespace Nexus.Client.PluginManagement.UI
 
         private void DisableAll(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Do you want to disable all the active plugins?", "Disable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (XtraMessageBox.Show("Do you want to disable all the active plugins?", "Disable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 _viewModel.PluginsDisableAll();
         }
 
         private void EnableAll(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Do you want to enable all the inactive plugins?", "Enable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (XtraMessageBox.Show("Do you want to enable all the inactive plugins?", "Enable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 _viewModel.PluginsEnableAll();
         }
 
@@ -822,7 +921,7 @@ namespace Nexus.Client.PluginManagement.UI
 
         private void ExportToFile(object sender, EventArgs e)
         {
-            using (SaveFileDialog dialog = new SaveFileDialog())
+            using (XtraSaveFileDialog dialog = new XtraSaveFileDialog())
             {
                 dialog.FileName = _viewModel.GetDefaultExportFilename();
                 dialog.Filter = _viewModel.GetExportFilterString();
@@ -838,7 +937,7 @@ namespace Nexus.Client.PluginManagement.UI
 
         private void ImportFromFile(object sender, EventArgs e)
         {
-            using (OpenFileDialog dialog = new OpenFileDialog())
+            using (XtraOpenFileDialog dialog = new XtraOpenFileDialog())
             {
                 dialog.Filter = _viewModel.GetImportFilterString();
                 if (dialog.ShowDialog(this) == DialogResult.OK)
@@ -885,6 +984,14 @@ namespace Nexus.Client.PluginManagement.UI
 				TopPlugin = topRow == null ? null : topRow.Plugin,
 				TopRowIndex = _gridView.TopRowIndex
 			};
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing)
+				_barManager?.Dispose();
+
+			base.Dispose(disposing);
 		}
 
 		private int GetPluginRowHandle(Plugin plugin)

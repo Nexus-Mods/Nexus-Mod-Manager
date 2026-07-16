@@ -34,7 +34,10 @@
     using Nexus.Client.Util.Collections;
     using Nexus.UI.Controls;
 
-    using WeifenLuo.WinFormsUI.Docking;
+	using DevExpress.LookAndFeel;
+	using DevExpress.Skins;
+
+	using WeifenLuo.WinFormsUI.Docking;
 
     /// <summary>
     /// The main form of the mod manager.
@@ -44,15 +47,21 @@
 		private MainFormVM _viewModel;
 		private FormWindowState _lastWindowState = FormWindowState.Normal;
 		private readonly IModManagerView _modManagerControl;
-			private readonly PluginManagerDXControl _pluginManagerControl;
-			private readonly DownloadMonitorControl _downloadMonitorControl;
-			private readonly ModActivationMonitorControl _modActivationMonitorControl;
-			private readonly CategoryManagerControl _categoryManagerControl;
-			private readonly FileManagerControl _fileManagerControl;
+		private readonly PluginManagerDXControl _pluginManagerControl;
+		private readonly DownloadMonitorControl _downloadMonitorControl;
+		private readonly ModActivationMonitorControl _modActivationMonitorControl;
+		private readonly CategoryManagerControl _categoryManagerControl;
+		private readonly FileManagerControl _fileManagerControl;
 		private double _defaultActivityManagerAutoHidePortion;
 		private double _defaultActivationMonitorAutoHidePortion;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
 		private bool _activePluginsProfileSavePending;
+
+		private const string DevExpressSkinSettingsKey = "mainForm.DevExpressSkin";
+
+		private ToolStripLabel _devExpressSkinLabel;
+		private ToolStripComboBox _devExpressSkinComboBox;
+		private bool _updatingDevExpressSkinSelector;
 
 		public string OptionalPremiumMessage = string.Empty;
 
@@ -182,9 +191,13 @@
 		/// <param name="viewModel">The view model that provides the data and operations for this view.</param>
 		public MainForm(MainFormVM viewModel)
 		{
-            _defaultActivityManagerAutoHidePortion = 0;
+			_defaultActivityManagerAutoHidePortion = 0;
 
-            InitializeComponent();
+			// Restore the global skin before any DevExpress controls are created.
+			InitializeDevExpressLookAndFeel(viewModel);
+
+			InitializeComponent();
+			InitializeDevExpressSkinSelector();
 
 			FormClosing += CheckDownloadsOnClosing;
 			FormClosing += MainForm_FormClosing;
@@ -339,6 +352,164 @@
                 ViewModel.FixConfigFiles(lstConfigFiles, null);
             }
         }
+
+		#endregion
+
+		#region DevExpress Skin
+
+		private static void InitializeDevExpressLookAndFeel(MainFormVM viewModel)
+		{
+			SkinManager.EnableFormSkins();
+
+			if (viewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null)
+				return;
+
+			if (!viewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey(
+					DevExpressSkinSettingsKey))
+			{
+				return;
+			}
+
+			string savedSkin =
+				viewModel.EnvironmentInfo.Settings.DockPanelLayouts[
+					DevExpressSkinSettingsKey];
+
+			if (String.IsNullOrWhiteSpace(savedSkin))
+				return;
+
+			bool skinExists = SkinManager.Default.Skins
+				.Cast<SkinContainer>()
+				.Any(
+					skin => String.Equals(
+						skin.SkinName,
+						savedSkin,
+						StringComparison.OrdinalIgnoreCase));
+
+			if (skinExists)
+				UserLookAndFeel.Default.SetSkinStyle(savedSkin);
+		}
+
+		private void InitializeDevExpressSkinSelector()
+		{
+			_devExpressSkinLabel = new ToolStripLabel
+			{
+				Text = "UI Skin:"
+			};
+
+			_devExpressSkinComboBox = new ToolStripComboBox
+			{
+				Name = "toolStripComboBoxDevExpressSkin",
+				AutoSize = false,
+				Width = 165,
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				ToolTipText = "Select the appearance of DevExpress controls"
+			};
+
+			_updatingDevExpressSkinSelector = true;
+
+			try
+			{
+				IEnumerable<string> availableSkins =
+					SkinManager.Default.Skins
+						.Cast<SkinContainer>()
+						.Select(skin => skin.SkinName)
+						.Where(name => !String.IsNullOrWhiteSpace(name))
+						.Distinct(StringComparer.OrdinalIgnoreCase)
+						.OrderBy(
+							name => name,
+							StringComparer.CurrentCultureIgnoreCase);
+
+				foreach (string skinName in availableSkins)
+					_devExpressSkinComboBox.Items.Add(skinName);
+
+				string currentSkin =
+					UserLookAndFeel.Default.SkinName;
+
+				for (int i = 0;
+					 i < _devExpressSkinComboBox.Items.Count;
+					 i++)
+				{
+					string item =
+						_devExpressSkinComboBox.Items[i] as string;
+
+					if (!String.Equals(
+							item,
+							currentSkin,
+							StringComparison.OrdinalIgnoreCase))
+					{
+						continue;
+					}
+
+					_devExpressSkinComboBox.SelectedIndex = i;
+					break;
+				}
+
+				if (_devExpressSkinComboBox.SelectedIndex < 0 &&
+					_devExpressSkinComboBox.Items.Count > 0)
+				{
+					_devExpressSkinComboBox.SelectedIndex = 0;
+				}
+			}
+			finally
+			{
+				_updatingDevExpressSkinSelector = false;
+			}
+
+			_devExpressSkinComboBox.SelectedIndexChanged +=
+				DevExpressSkinComboBox_SelectedIndexChanged;
+
+			// Place it directly after Settings in the main toolbar.
+			int insertionIndex =
+				toolStrip1.Items.IndexOf(tsbSettings) + 1;
+
+			toolStrip1.Items.Insert(
+				insertionIndex++,
+				new ToolStripSeparator());
+
+			toolStrip1.Items.Insert(
+				insertionIndex++,
+				_devExpressSkinLabel);
+
+			toolStrip1.Items.Insert(
+				insertionIndex++,
+				_devExpressSkinComboBox);
+
+			toolStrip1.Items.Insert(insertionIndex, new ToolStripSeparator());
+		}
+
+		private void DevExpressSkinComboBox_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			if (_updatingDevExpressSkinSelector)
+				return;
+
+			string skinName =
+				_devExpressSkinComboBox.SelectedItem as string;
+
+			if (String.IsNullOrWhiteSpace(skinName))
+				return;
+
+			if (String.Equals(
+					UserLookAndFeel.Default.SkinName,
+					skinName,
+					StringComparison.OrdinalIgnoreCase))
+			{
+				return;
+			}
+
+			UserLookAndFeel.Default.SetSkinStyle(skinName);
+			_modManagerControl?.ForceListRefresh();
+
+			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts != null)
+			{
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[
+					DevExpressSkinSettingsKey] = skinName;
+
+				ViewModel.EnvironmentInfo.Settings.Save();
+			}
+
+			_devExpressSkinComboBox.ToolTipText =
+				"Current skin: " + skinName;
+		}
 
 		#endregion
 

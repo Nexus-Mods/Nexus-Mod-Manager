@@ -12,7 +12,8 @@ namespace Nexus.Client.ModManagement.UI
     using System.Text;
     using System.Windows.Forms;
 
-    using DevExpress.Utils;
+	using DevExpress.LookAndFeel;
+	using DevExpress.Utils;
     using DevExpress.XtraEditors.Repository;
     using DevExpress.XtraGrid;
     using DevExpress.XtraGrid.Columns;
@@ -681,7 +682,22 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
-        private void InitializeGridDisplayOptions()
+		private static bool UsesLegacyLightRowPalette()
+		{
+			string skinName = UserLookAndFeel.Default.SkinName;
+
+			return
+				String.Equals(
+					skinName,
+					"Basic",
+					StringComparison.OrdinalIgnoreCase) ||
+				String.Equals(
+					skinName,
+					"DevExpress Style",
+					StringComparison.OrdinalIgnoreCase);
+		}
+
+		private void InitializeGridDisplayOptions()
         {
             _displayOptionsButton = new ToolStripDropDownButton
             {
@@ -1108,13 +1124,9 @@ namespace Nexus.Client.ModManagement.UI
             gridView.OptionsView.ShowVerticalLines       = DefaultBoolean.False;
             gridView.OptionsView.EnableAppearanceEvenRow = true;
             gridView.OptionsView.EnableAppearanceOddRow  = true;
-            gridView.Appearance.Empty.BackColor    = Color.FromArgb(245, 245, 248);
-            gridView.Appearance.Row.BackColor      = Color.FromArgb(248, 248, 251);
-            gridView.Appearance.EvenRow.BackColor  = Color.FromArgb(242, 242, 246);
-            gridView.Appearance.OddRow.BackColor   = Color.FromArgb(248, 248, 251);
+
             // Compact uppercase header: small font, muted foreground
             gridView.Appearance.HeaderPanel.Font      = new Font(_gridFontFamilyName, GetSecondaryGridFontSize(_gridFontSizePt), FontStyle.Regular, GraphicsUnit.Point);
-            gridView.Appearance.HeaderPanel.ForeColor = Color.FromArgb(100, 100, 100);
             gridView.OptionsBehavior.Editable            = false;
             gridView.OptionsBehavior.ReadOnly            = true;
             gridView.OptionsSelection.MultiSelect        = true;
@@ -1411,79 +1423,137 @@ namespace Nexus.Client.ModManagement.UI
             };
             return DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result);
         }
-        private void GridView_RowCellStyle(object sender, RowCellStyleEventArgs e)
-        {
-            if (_viewModel == null) return;
-            if (e.RowHandle < 0) return;
-            int src = gridView.GetDataSourceRowIndex(e.RowHandle);
-            if (src < 0 || src >= _modList.Count) return;
-            IMod mod = _modList[src];
+		private void GridView_RowCellStyle(
+			object sender,
+			RowCellStyleEventArgs e)
+		{
+			if (_viewModel == null || e.RowHandle < 0)
+				return;
 
-            ModVisualStatus status = GetModVisualStatus(mod);
-            bool isActive = status == ModVisualStatus.InstalledActive;
-            bool isInstalled = status != ModVisualStatus.Uninstalled;
-            bool isSelected  = gridView.IsRowSelected(e.RowHandle)
-                            || e.RowHandle == gridView.FocusedRowHandle;
+			int sourceIndex =
+				gridView.GetDataSourceRowIndex(e.RowHandle);
 
-            if (_showRowHighlights && isActive)
-            {
-                e.Appearance.BackColor = isSelected
-                    ? Color.FromArgb(218, 240, 218)
-                    : Color.FromArgb(249, 254, 249);
-                e.Appearance.ForeColor = Color.Black;
-            }
-            else if (_showRowHighlights && isInstalled)
-            {
-                e.Appearance.BackColor = isSelected
-                    ? Color.FromArgb(250, 230, 200)
-                    : Color.FromArgb(255, 251, 244);
-                e.Appearance.ForeColor = Color.Black;
-            }
-            else if (!_showRowHighlights && isInstalled && !isSelected)
-            {
-                e.Appearance.BackColor = GetDefaultRowBackColor(e.RowHandle);
-                e.Appearance.ForeColor = Color.Black;
-            }
-            else if (isSelected)
-            {
-                // Not active but selected/focused - pin an explicit colour so the
-                // DevExpress HideSelectionRow dark-grey never shows.
-                e.Appearance.BackColor = Color.FromArgb(184, 207, 229);  // standard Windows selection blue
-                e.Appearance.ForeColor = Color.Black;
-            }
+			if (sourceIndex < 0 || sourceIndex >= _modList.Count)
+				return;
 
-            if (_showActiveModsInBold && isActive)
-                e.Appearance.Font = new Font(_gridFontFamilyName, _gridFontSizePt, FontStyle.Bold, GraphicsUnit.Point);
+			IMod mod = _modList[sourceIndex];
 
-            // Latest: red (underline) when outdated, blue (underline) when current
-            if (e.Column.FieldName == ColLastKnown && !string.IsNullOrEmpty(mod.LastKnownVersion))
-            {
-                bool outdated = IsVersionOutdated(mod.HumanReadableVersion, mod.LastKnownVersion);
-                e.Appearance.ForeColor = outdated
-                    ? Color.FromArgb(200, 40, 40)
-                    : Color.FromArgb(37, 99, 235);
-                e.Appearance.Font = new Font(e.Appearance.GetFont(), e.Appearance.GetFont().Style | FontStyle.Underline);
-            }
+			ModVisualStatus status =
+				GetModVisualStatus(mod);
 
-            // Secondary style: muted colour + compact font for non-priority info columns
-            if (!isSelected &&
-                (e.Column.FieldName == ColInstallDate  ||
-                 e.Column.FieldName == ColDownloadDate ||
-                 e.Column.FieldName == ColDownloadId))
-            {
-                e.Appearance.ForeColor = Color.FromArgb(90, 90, 90);
-                FontStyle dateStyle = _showActiveModsInBold && isActive ? FontStyle.Bold : FontStyle.Regular;
-                e.Appearance.Font = new Font(_gridFontFamilyName, GetSecondaryGridFontSize(_gridFontSizePt), dateStyle, GraphicsUnit.Point);
-            }
-        }
+			bool isActive =
+				status == ModVisualStatus.InstalledActive;
 
-        private Color GetDefaultRowBackColor(int rowHandle)
-        {
-            int visibleIndex = gridView.GetVisibleIndex(rowHandle);
-            return visibleIndex >= 0 && visibleIndex % 2 == 0
-                ? Color.FromArgb(242, 242, 246)
-                : Color.FromArgb(248, 248, 251);
-        }
+			bool isInstalled =
+				status != ModVisualStatus.Uninstalled;
+
+			bool isSelected =
+				gridView.IsRowSelected(e.RowHandle) ||
+				e.RowHandle == gridView.FocusedRowHandle;
+
+			bool useLegacyPalette =
+				UsesLegacyLightRowPalette();
+
+			/*
+			 * Preserve the tested light green/light orange highlighting only
+			 * for Basic and DevExpress Style.
+			 *
+			 * For every other skin, do not assign row backgrounds or normal
+			 * foreground colours. DevExpress must draw them from the skin.
+			 */
+			if (useLegacyPalette &&
+				_showRowHighlights &&
+				isActive)
+			{
+				e.Appearance.BackColor =
+					isSelected
+						? Color.FromArgb(218, 240, 218)
+						: Color.FromArgb(249, 254, 249);
+
+				e.Appearance.ForeColor = Color.Black;
+			}
+			else if (useLegacyPalette &&
+					 _showRowHighlights &&
+					 isInstalled)
+			{
+				e.Appearance.BackColor =
+					isSelected
+						? Color.FromArgb(250, 230, 200)
+						: Color.FromArgb(255, 251, 244);
+
+				e.Appearance.ForeColor = Color.Black;
+			}
+
+			/*
+			 * Deliberately do not assign a custom selected-row colour here.
+			 * The old fixed Windows-blue selection and black text break dark
+			 * and high-contrast skins.
+			 */
+
+			if (_showActiveModsInBold && isActive)
+			{
+				e.Appearance.Font =
+					new Font(
+						_gridFontFamilyName,
+						_gridFontSizePt,
+						FontStyle.Bold,
+						GraphicsUnit.Point);
+			}
+
+			// Keep the semantic latest-version link styling.
+			if (e.Column.FieldName == ColLastKnown &&
+				!String.IsNullOrEmpty(mod.LastKnownVersion))
+			{
+				bool outdated =
+					IsVersionOutdated(
+						mod.HumanReadableVersion,
+						mod.LastKnownVersion);
+
+				if (!isSelected)
+				{
+					e.Appearance.ForeColor =
+						outdated
+							? Color.FromArgb(200, 40, 40)
+							: Color.FromArgb(37, 99, 235);
+				}
+
+				e.Appearance.Font =
+					new Font(
+						e.Appearance.GetFont(),
+						e.Appearance.GetFont().Style |
+						FontStyle.Underline);
+			}
+
+			bool isSecondaryColumn =
+				e.Column.FieldName == ColInstallDate ||
+				e.Column.FieldName == ColDownloadDate ||
+				e.Column.FieldName == ColDownloadId;
+
+			if (!isSelected && isSecondaryColumn)
+			{
+				/*
+				 * The muted gray is safe only with the two tested light
+				 * palettes. Other skins retain their own foreground colour.
+				 */
+				if (useLegacyPalette)
+				{
+					e.Appearance.ForeColor =
+						Color.FromArgb(90, 90, 90);
+				}
+
+				FontStyle secondaryStyle =
+					_showActiveModsInBold && isActive
+						? FontStyle.Bold
+						: FontStyle.Regular;
+
+				e.Appearance.Font =
+					new Font(
+						_gridFontFamilyName,
+						GetSecondaryGridFontSize(_gridFontSizePt),
+						secondaryStyle,
+						GraphicsUnit.Point);
+			}
+		}
 
         private void DrawModStatusCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
         {
@@ -1696,20 +1766,26 @@ namespace Nexus.Client.ModManagement.UI
             return _warningIcon = bmp;
         }
 
-        /// <summary>Highlights the active sort column header in blue.</summary>
-        private void GridView_CustomDrawColumnHeader(object sender, DevExpress.XtraGrid.Views.Grid.ColumnHeaderCustomDrawEventArgs e)
-        {
-            if (e.Column == null || e.Column.SortOrder == DevExpress.Data.ColumnSortOrder.None)
-                return;
-            e.Appearance.BackColor  = Color.FromArgb(219, 234, 254);
-            e.Appearance.BackColor2 = Color.FromArgb(219, 234, 254);
-            e.Appearance.ForeColor  = Color.FromArgb(37, 99, 235);
-            e.DefaultDraw();
-            e.Handled = true;
-        }
+		/// <summary>Highlights the active sort column header in blue.</summary>
+		private void GridView_CustomDrawColumnHeader(object sender, ColumnHeaderCustomDrawEventArgs e)
+		{
+			if (!UsesLegacyLightRowPalette() ||
+				e.Column == null ||
+				e.Column.SortOrder == DevExpress.Data.ColumnSortOrder.None)
+			{
+				return;
+			}
 
-        /// <summary>Draws a coloured pill badge for the category cell.</summary>
-        private void DrawCategoryBadge(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
+			e.Appearance.BackColor = Color.FromArgb(219, 234, 254);
+			e.Appearance.BackColor2 = Color.FromArgb(219, 234, 254);
+			e.Appearance.ForeColor = Color.FromArgb(37, 99, 235);
+
+			e.DefaultDraw();
+			e.Handled = true;
+		}
+
+		/// <summary>Draws a coloured pill badge for the category cell.</summary>
+		private void DrawCategoryBadge(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
         {
             if (e.RowHandle < 0 || !_showColouredCategories) return;
             int src = gridView.GetDataSourceRowIndex(e.RowHandle);
@@ -1724,13 +1800,14 @@ namespace Nexus.Client.ModManagement.UI
                 catName = cat?.CategoryName ?? string.Empty;
             }
 
-            // Paint row background (inherits selection / active-mod colour set by RowCellStyle)
-            Color bg = e.Appearance.BackColor;
-            if (bg == Color.Empty) bg = SystemColors.Window;
-            using (var bgBrush = new SolidBrush(bg))
-                e.Graphics.FillRectangle(bgBrush, e.Bounds);
+			// Paint row background (inherits selection / active-mod colour set by RowCellStyle)
+			string originalDisplayText = e.DisplayText;
 
-            if (!string.IsNullOrEmpty(catName))
+			e.DisplayText = String.Empty;
+			e.DefaultDraw();
+			e.DisplayText = originalDisplayText;
+
+			if (!string.IsNullOrEmpty(catName))
             {
                 Color badgeColor = GetCategoryColor(catName);
                 const int padH = 6, padV = 2, radius = 4;
