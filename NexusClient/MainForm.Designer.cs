@@ -55,6 +55,7 @@
 			this.spbSupportedTools = new System.Windows.Forms.ToolStripSplitButton();
 			this.toolStripTextBoxFind = new System.Windows.Forms.ToolStripTextBox();
 			this.tsbUpdate = new System.Windows.Forms.ToolStripButton();
+			this.tsbYouTube = new System.Windows.Forms.ToolStripButton();
 			this.tsbDiscord = new System.Windows.Forms.ToolStripButton();
 			this.spbSupportNMM = new System.Windows.Forms.ToolStripSplitButton();
 			this.tsbiPatreon = new System.Windows.Forms.ToolStripMenuItem();
@@ -96,7 +97,8 @@
             this.toolStripTextBoxFind,
             this.tsbUpdate,
             this.tsbDiscord,
-            this.spbSupportNMM});
+			this.tsbYouTube,
+			this.spbSupportNMM});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
 			this.toolStrip1.Size = new System.Drawing.Size(1134, 43);
@@ -211,6 +213,29 @@
 			this.tsbDiscord.Size = new System.Drawing.Size(40, 40);
 			this.tsbDiscord.ToolTipText = "Join the Official NMM Community Discord";
 			this.tsbDiscord.Click += new System.EventHandler(this.tsbDiscord_Click);
+			// 
+			// tsbYouTube
+			// 
+			this.tsbYouTube.Alignment =
+				System.Windows.Forms.ToolStripItemAlignment.Right;
+
+			this.tsbYouTube.DisplayStyle =
+				System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+
+			this.tsbYouTube.Image =
+				global::Nexus.Client.Properties.Resources.youtube_logo_512;
+
+			this.tsbYouTube.ImageTransparentColor =
+				System.Drawing.Color.Magenta;
+
+			this.tsbYouTube.Name = "tsbYouTube";
+			this.tsbYouTube.Size = new System.Drawing.Size(40, 40);
+
+			this.tsbYouTube.ToolTipText =
+				"Watch the official NMM Community Edition YouTube channel";
+
+			this.tsbYouTube.Click +=
+				new System.EventHandler(this.tsbYouTube_Click);
 			// 
 			// spbSupportNMM
 			// 
@@ -469,6 +494,7 @@
 		private System.Windows.Forms.ToolStripSplitButton spbChangeMode;
 		private System.Windows.Forms.ToolStripSplitButton toolStripSplitButtonTools;
 		private System.Windows.Forms.ToolStripSplitButton spbFolders;
+		private System.Windows.Forms.ToolStripButton tsbYouTube;
 		private System.Windows.Forms.ToolStripButton tsbUpdate;
 		private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanel1;
 		private System.Windows.Forms.ToolStripSplitButton spbHelp;

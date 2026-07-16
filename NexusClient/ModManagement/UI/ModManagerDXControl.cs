@@ -84,7 +84,9 @@ namespace Nexus.Client.ModManagement.UI
         private bool _showActiveModsInBold;
         private bool _focusTopRowAfterSorting = true;
         private bool _focusTopRowAfterInstallDateChange = true;
-        private bool _toolbarPositionLeft;
+		private bool _lastFindPanelVisible;
+		private bool _restoringFindPanelVisibility;
+		private bool _toolbarPositionLeft;
         private ToolStripButton _toolbarPositionButton;
         private bool _restoringGridSort;
         private string _lastGridSortSignature = string.Empty;
@@ -122,7 +124,8 @@ namespace Nexus.Client.ModManagement.UI
         private const string ColEndorsed     = "IsEndorsed";
         private const string ColDownloadId   = "DownloadId";
         private const string GridLayoutKey   = "modManagerDXGrid";
-        private const string GridSortKey     = GridLayoutKey + ".Sort";
+		private const string GridFindPanelVisibleKey = GridLayoutKey + ".FindPanelVisible";
+		private const string GridSortKey     = GridLayoutKey + ".Sort";
         private const string GridFontKey     = GridLayoutKey + ".Font";
         private const string GridFontSizeKey = GridLayoutKey + ".FontSize";
         private const string GridDensityKey  = GridLayoutKey + ".Density";
@@ -178,26 +181,29 @@ namespace Nexus.Client.ModManagement.UI
         /// <inheritdoc/>
         public event EventHandler UninstalledAllMods;
 
-        // ── constructor ──────────────────────────────────────────────────────
+		// ── constructor ──────────────────────────────────────────────────────
 
-        public ModManagerDXControl()
-        {
-            InitializeComponent();
-            InitializeToolbarIcons();
-            ApplyToolbarActionLabels();
-            Text = "Mods";
-            InitializeInlineRenameEditor();
-            SetupGrid();
-            InitializeGridDisplayOptions();
-            InitializeGridFontSelector();
-            InitializeToolbarPositionButton();
-            UpdateSwitchViewText();
-        }
+		public ModManagerDXControl()
+		{
+			InitializeComponent();
+			InitializeToolbarIcons();
+			ApplyToolbarActionLabels();
+			Text = "Mods";
+			InitializeInlineRenameEditor();
+			SetupGrid();
+			InitializeGridDisplayOptions();
+			InitializeGridFontSelector();
+			InitializeToolbarPositionButton();
+			UpdateSwitchViewText();
 
-        // ── IModManagerView : ViewModel ──────────────────────────────────────
+			Shown += (sender, args) =>
+				RestoreFindPanelVisibility();
+		}
 
-        /// <inheritdoc/>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+		// ── IModManagerView : ViewModel ──────────────────────────────────────
+
+		/// <inheritdoc/>
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public ModManagerVM ViewModel
         {
             get => _viewModel;
@@ -270,7 +276,8 @@ namespace Nexus.Client.ModManagement.UI
                 _viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterSortKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterInstallDateChangeKey);
                 _viewModel.Settings.DockPanelLayouts.Remove(GridToolbarPositionKey);
-                _viewModel.Settings.Save();
+				_viewModel.Settings.DockPanelLayouts.Remove(GridFindPanelVisibleKey);
+				_viewModel.Settings.Save();
             }
 
             _restoringGridLayout = true;
@@ -483,10 +490,17 @@ namespace Nexus.Client.ModManagement.UI
             RebuildActivationStateCache();
             QueueMissingArchiveScan();
             gridControl.RefreshDataSource();
-            RestoreGridLayout();
-            RestoreGridSort();
-            RestoreGridCategoryView();
-            _lastGridSortSignature = GetGridSortSignature();
+			RestoreGridLayout();
+			RestoreGridSort();
+			RestoreGridCategoryView();
+
+			if (IsHandleCreated)
+			{
+				BeginInvoke(
+					(MethodInvoker)RestoreFindPanelVisibility);
+			}
+
+			_lastGridSortSignature = GetGridSortSignature();
             UpdateModCountLabel();
         }
 
@@ -1148,7 +1162,9 @@ namespace Nexus.Client.ModManagement.UI
             ApplyAutoFilterDefaults();
             ApplyDateSortDefaults();
 
-            gridView.CustomUnboundColumnData += GridView_CustomUnboundColumnData;
+			_lastFindPanelVisible = gridView.IsFindPanelVisible;
+			gridView.Layout += GridView_Layout;
+			gridView.CustomUnboundColumnData += GridView_CustomUnboundColumnData;
             gridView.RowCellStyle            += GridView_RowCellStyle;
             gridView.RowCellClick            += GridView_RowCellClick;
             gridView.DoubleClick             += GridView_DoubleClick;
@@ -1167,7 +1183,71 @@ namespace Nexus.Client.ModManagement.UI
             gridControl.MouseDown            += GridControl_MouseDown;
         }
 
-        private void GridView_ColumnFilterChanged(object sender, EventArgs e)
+		private void GridView_Layout(object sender, EventArgs e)
+		{
+			if (_restoringGridLayout ||
+				_restoringFindPanelVisibility ||
+				_viewModel?.Settings == null)
+			{
+				return;
+			}
+
+			bool visible = gridView.IsFindPanelVisible;
+
+			if (visible == _lastFindPanelVisible)
+				return;
+
+			_lastFindPanelVisible = visible;
+
+			_viewModel.Settings.DockPanelLayouts[
+				GridFindPanelVisibleKey] = visible.ToString();
+
+			_viewModel.Settings.Save();
+		}
+
+		private void RestoreFindPanelVisibility()
+		{
+			if (_viewModel?.Settings == null)
+				return;
+
+			bool visible = gridView.IsFindPanelVisible;
+
+			if (_viewModel.Settings.DockPanelLayouts.ContainsKey(
+					GridFindPanelVisibleKey))
+			{
+				bool persistedVisibility;
+
+				if (Boolean.TryParse(
+						_viewModel.Settings.DockPanelLayouts[
+							GridFindPanelVisibleKey],
+						out persistedVisibility))
+				{
+					visible = persistedVisibility;
+				}
+			}
+
+			_restoringFindPanelVisibility = true;
+
+			try
+			{
+				// Never allow the serialized grid layout to make it permanently
+				// visible and prevent the user's Hide action from taking effect.
+				gridView.OptionsFind.AlwaysVisible = false;
+
+				if (visible)
+					gridView.ShowFindPanel();
+				else
+					gridView.HideFindPanel();
+
+				_lastFindPanelVisible = visible;
+			}
+			finally
+			{
+				_restoringFindPanelVisibility = false;
+			}
+		}
+
+		private void GridView_ColumnFilterChanged(object sender, EventArgs e)
         {
             if (!_restoringGridLayout)
                 SaveGridLayout();
@@ -2136,7 +2216,11 @@ namespace Nexus.Client.ModManagement.UI
                 return;
             }
 
-            try
+			bool findPanelVisible = gridView.IsFindPanelVisible;
+
+			gridView.OptionsFind.AlwaysVisible = false;
+
+			try
             {
                 using (var stream = new MemoryStream())
                 {
@@ -2149,7 +2233,9 @@ namespace Nexus.Client.ModManagement.UI
                 _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
             }
 
-            SaveGridSort();
+			_viewModel.Settings.DockPanelLayouts[GridFindPanelVisibleKey] =	findPanelVisible.ToString();
+
+			SaveGridSort();
             SaveGridCategoryState();
             _viewModel.Settings.Save();
         }

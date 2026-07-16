@@ -3513,6 +3513,11 @@
 			return false;
 		}
 
+		private void tsbYouTube_Click(object sender, EventArgs e)
+		{
+			Process.Start(
+				"https://www.youtube.com/channel/UCguaVgGHs4Xeknas--3YUsQ/videos");
+		}
 
 		private void CategoryManagerControl_CollapseAllCategoriesRequested(object sender, EventArgs e)
 		{
