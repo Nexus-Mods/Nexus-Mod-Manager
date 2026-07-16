@@ -6,8 +6,13 @@ namespace Nexus.Client.ModManagement.UI
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
-                components.Dispose();
+            if (disposing)
+            {
+                DisposePerformanceResources();
+                if (components != null)
+                    components.Dispose();
+            }
+
             base.Dispose(disposing);
         }
 

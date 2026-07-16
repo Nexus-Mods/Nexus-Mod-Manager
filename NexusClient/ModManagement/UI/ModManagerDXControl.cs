@@ -98,6 +98,33 @@ namespace Nexus.Client.ModManagement.UI
         private Image _modInstalledDisabledIcon;
         private Image _modInstalledActiveIcon;
 
+        // Cached resources used by hot grid paint/data callbacks.
+        private Font _gridRegularFont;
+        private Font _gridBoldFont;
+        private Font _gridUnderlineFont;
+        private Font _gridBoldUnderlineFont;
+        private Font _gridSecondaryFont;
+        private Font _gridSecondaryBoldFont;
+        private Font _gridHeaderFont;
+        private Font _gridBadgeFont;
+        private Font _toolbarFont;
+        private Image _endorsedYesImage;
+        private Image _endorsedNoImage;
+        private Image _endorsedEmptyImage;
+        private bool _usesLegacyLightRowPalette;
+        private Timer _gridLayoutSaveTimer;
+
+        private readonly Dictionary<IMod, bool> _outdatedModCache =
+            new Dictionary<IMod, bool>();
+        private readonly Dictionary<IMod, string> _categoryNameCache =
+            new Dictionary<IMod, string>();
+        private readonly Dictionary<string, Color> _categoryColorCache =
+            new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Size> _categoryTextSizeCache =
+            new Dictionary<string, Size>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<int, SolidBrush> _categoryBrushCache =
+            new Dictionary<int, SolidBrush>();
+
         /// <summary>
         /// Flat list that backs both the DevExpress grid and internal row lookups.
         /// Using a plain List&lt;IMod&gt; (not BindingList) is intentional:
@@ -164,6 +191,7 @@ namespace Nexus.Client.ModManagement.UI
         };
         private const int ModStatusIconSize = 20;
         private const int InlineEditIconSize = 18;
+        private const int GridLayoutSaveDelayMs = 400;
         private static readonly string[] GridFontChoices = { "Segoe UI", "Corbel", "Calibri", "Tahoma", "Verdana" };
         private static readonly string[] GridFontSizeChoices = { "8 pt", "9 pt", "10 pt", "11 pt", "12 pt" };
         private static readonly string[] GridDensityChoices = { "Compact", "Comfortable", "Spacious" };
@@ -186,6 +214,8 @@ namespace Nexus.Client.ModManagement.UI
 		public ModManagerDXControl()
 		{
 			InitializeComponent();
+			InitializePerformanceResources();
+			UpdateSkinPaletteCache();
 			InitializeToolbarIcons();
 			ApplyToolbarActionLabels();
 			Text = "Mods";
@@ -255,7 +285,11 @@ namespace Nexus.Client.ModManagement.UI
         public void ForceListRefresh()
         {
             if (InvokeRequired) { Invoke((MethodInvoker)ForceListRefresh); return; }
+
+            UpdateSkinPaletteCache();
             gridView.InvalidateRows();
+            gridView.Invalidate();
+            gridControl.Invalidate();
         }
 
         /// <inheritdoc/>
@@ -480,6 +514,8 @@ namespace Nexus.Client.ModManagement.UI
             foreach (IMod mod in _modList)
                 mod.PropertyChanged -= Mod_PropertyChanged;
             _modList.Clear();
+            _outdatedModCache.Clear();
+            _categoryNameCache.Clear();
 
             foreach (IMod mod in _viewModel.ManagedMods)
             {
@@ -538,6 +574,9 @@ namespace Nexus.Client.ModManagement.UI
                     _modList.Clear();
                     break;
             }
+
+            _outdatedModCache.Clear();
+            _categoryNameCache.Clear();
             RebuildActivationStateCache();
             QueueMissingArchiveScan();
             gridControl.RefreshDataSource();
@@ -599,6 +638,9 @@ namespace Nexus.Client.ModManagement.UI
             bool focusTopAfterSortedPropertyChange = ShouldFocusTopAfterSortedPropertyChange(e.PropertyName);
             if (sender is IMod mod)
             {
+                _outdatedModCache.Remove(mod);
+                _categoryNameCache.Remove(mod);
+
                 int srcIdx = _modList.IndexOf(mod);
                 if (srcIdx >= 0)
                 {
@@ -696,20 +738,27 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
-		private static bool UsesLegacyLightRowPalette()
-		{
-			string skinName = UserLookAndFeel.Default.SkinName;
+        private void InitializePerformanceResources()
+        {
+            _endorsedYesImage = new Bitmap(Properties.Resources.thumb_up, 16, 16);
+            _endorsedNoImage = new Bitmap(Properties.Resources.thumb_no, 16, 16);
+            _endorsedEmptyImage = new Bitmap(16, 16);
 
-			return
-				String.Equals(
-					skinName,
-					"Basic",
-					StringComparison.OrdinalIgnoreCase) ||
-				String.Equals(
-					skinName,
-					"DevExpress Style",
-					StringComparison.OrdinalIgnoreCase);
-		}
+            _gridLayoutSaveTimer = new Timer(components)
+            {
+                Interval = GridLayoutSaveDelayMs
+            };
+            _gridLayoutSaveTimer.Tick += GridLayoutSaveTimer_Tick;
+        }
+
+        private void UpdateSkinPaletteCache()
+        {
+            string skinName = UserLookAndFeel.Default.SkinName;
+
+            _usesLegacyLightRowPalette =
+                String.Equals(skinName, "Basic", StringComparison.OrdinalIgnoreCase) ||
+                String.Equals(skinName, "DevExpress Style", StringComparison.OrdinalIgnoreCase);
+        }
 
 		private void InitializeGridDisplayOptions()
         {
@@ -1067,34 +1116,119 @@ namespace Nexus.Client.ModManagement.UI
 
         private void ApplyGridFont(string fontName)
         {
-            if (gridControl == null || gridView == null) return;
-            _gridFontFamilyName = ResolveGridFontFamily(fontName);
-            var rowFont = new Font(_gridFontFamilyName, _gridFontSizePt, FontStyle.Regular, GraphicsUnit.Point);
-            var headerFont = new Font(_gridFontFamilyName, GetSecondaryGridFontSize(_gridFontSizePt), FontStyle.Regular, GraphicsUnit.Point);
+            if (gridControl == null || gridView == null)
+                return;
 
-            gridControl.Font = rowFont;
+            _gridFontFamilyName = ResolveGridFontFamily(fontName);
+
+            Font newRegularFont = new Font(
+                _gridFontFamilyName,
+                _gridFontSizePt,
+                FontStyle.Regular,
+                GraphicsUnit.Point);
+            Font newBoldFont = new Font(
+                _gridFontFamilyName,
+                _gridFontSizePt,
+                FontStyle.Bold,
+                GraphicsUnit.Point);
+            Font newUnderlineFont = new Font(
+                _gridFontFamilyName,
+                _gridFontSizePt,
+                FontStyle.Underline,
+                GraphicsUnit.Point);
+            Font newBoldUnderlineFont = new Font(
+                _gridFontFamilyName,
+                _gridFontSizePt,
+                FontStyle.Bold | FontStyle.Underline,
+                GraphicsUnit.Point);
+            Font newSecondaryFont = new Font(
+                _gridFontFamilyName,
+                GetSecondaryGridFontSize(_gridFontSizePt),
+                FontStyle.Regular,
+                GraphicsUnit.Point);
+            Font newSecondaryBoldFont = new Font(
+                _gridFontFamilyName,
+                GetSecondaryGridFontSize(_gridFontSizePt),
+                FontStyle.Bold,
+                GraphicsUnit.Point);
+            Font newHeaderFont = new Font(
+                _gridFontFamilyName,
+                GetSecondaryGridFontSize(_gridFontSizePt),
+                FontStyle.Regular,
+                GraphicsUnit.Point);
+            Font newBadgeFont = new Font(
+                _gridFontFamilyName,
+                GetBadgeGridFontSize(_gridFontSizePt),
+                FontStyle.Regular,
+                GraphicsUnit.Point);
+            Font newToolbarFont = new Font(
+                _gridFontFamilyName,
+                _gridFontSizePt,
+                FontStyle.Regular,
+                GraphicsUnit.Point);
+
+            Font oldRegularFont = _gridRegularFont;
+            Font oldBoldFont = _gridBoldFont;
+            Font oldUnderlineFont = _gridUnderlineFont;
+            Font oldBoldUnderlineFont = _gridBoldUnderlineFont;
+            Font oldSecondaryFont = _gridSecondaryFont;
+            Font oldSecondaryBoldFont = _gridSecondaryBoldFont;
+            Font oldHeaderFont = _gridHeaderFont;
+            Font oldBadgeFont = _gridBadgeFont;
+            Font oldToolbarFont = _toolbarFont;
+
+            _gridRegularFont = newRegularFont;
+            _gridBoldFont = newBoldFont;
+            _gridUnderlineFont = newUnderlineFont;
+            _gridBoldUnderlineFont = newBoldUnderlineFont;
+            _gridSecondaryFont = newSecondaryFont;
+            _gridSecondaryBoldFont = newSecondaryBoldFont;
+            _gridHeaderFont = newHeaderFont;
+            _gridBadgeFont = newBadgeFont;
+            _toolbarFont = newToolbarFont;
+
+            _categoryTextSizeCache.Clear();
+
+            gridControl.Font = _gridRegularFont;
             gridView.RowHeight = GetGridRowHeight(_gridDensity, _gridFontSizePt);
             gridView.ColumnPanelRowHeight = GetGridColumnHeaderHeight(_gridDensity, _gridFontSizePt);
-            gridView.Appearance.Row.Font = rowFont;
-            gridView.Appearance.EvenRow.Font = rowFont;
-            gridView.Appearance.OddRow.Font = rowFont;
-            gridView.Appearance.FocusedRow.Font = rowFont;
-            gridView.Appearance.SelectedRow.Font = rowFont;
-            gridView.Appearance.HideSelectionRow.Font = rowFont;
-            gridView.Appearance.HeaderPanel.Font = headerFont;
-            gridView.Appearance.FilterPanel.Font = rowFont;
-            gridView.Appearance.GroupRow.Font = rowFont;
-            ApplyToolbarFont(rowFont);
+            gridView.Appearance.Row.Font = _gridRegularFont;
+            gridView.Appearance.EvenRow.Font = _gridRegularFont;
+            gridView.Appearance.OddRow.Font = _gridRegularFont;
+            gridView.Appearance.FocusedRow.Font = _gridRegularFont;
+            gridView.Appearance.SelectedRow.Font = _gridRegularFont;
+            gridView.Appearance.HideSelectionRow.Font = _gridRegularFont;
+            gridView.Appearance.HeaderPanel.Font = _gridHeaderFont;
+            gridView.Appearance.FilterPanel.Font = _gridRegularFont;
+            gridView.Appearance.GroupRow.Font = _gridRegularFont;
+            ApplyToolbarFont(_toolbarFont);
+
             gridView.LayoutChanged();
             gridView.InvalidateRows();
+
+            DisposeFont(oldRegularFont);
+            DisposeFont(oldBoldFont);
+            DisposeFont(oldUnderlineFont);
+            DisposeFont(oldBoldUnderlineFont);
+            DisposeFont(oldSecondaryFont);
+            DisposeFont(oldSecondaryBoldFont);
+            DisposeFont(oldHeaderFont);
+            DisposeFont(oldBadgeFont);
+            DisposeFont(oldToolbarFont);
+        }
+
+        private static void DisposeFont(Font font)
+        {
+            if (font != null)
+                font.Dispose();
         }
 
         private void ApplyToolbarFont(Font font)
         {
-            if (toolStrip1 == null || font == null) return;
+            if (toolStrip1 == null || font == null)
+                return;
 
-            Font toolbarFont = new Font(font.FontFamily, font.Size, FontStyle.Regular, GraphicsUnit.Point);
-            ApplyToolStripFont(toolStrip1, toolbarFont);
+            ApplyToolStripFont(toolStrip1, font);
         }
 
         private static void ApplyToolStripFont(ToolStrip toolStrip, Font font)
@@ -1139,8 +1273,7 @@ namespace Nexus.Client.ModManagement.UI
             gridView.OptionsView.EnableAppearanceEvenRow = true;
             gridView.OptionsView.EnableAppearanceOddRow  = true;
 
-            // Compact uppercase header: small font, muted foreground
-            gridView.Appearance.HeaderPanel.Font      = new Font(_gridFontFamilyName, GetSecondaryGridFontSize(_gridFontSizePt), FontStyle.Regular, GraphicsUnit.Point);
+            // Font resources are assigned once by ApplyGridFont().
             gridView.OptionsBehavior.Editable            = false;
             gridView.OptionsBehavior.ReadOnly            = true;
             gridView.OptionsSelection.MultiSelect        = true;
@@ -1175,9 +1308,10 @@ namespace Nexus.Client.ModManagement.UI
             gridView.CustomDrawColumnHeader  += GridView_CustomDrawColumnHeader;
             gridView.CustomColumnSort       += GridView_CustomColumnSort;
             gridView.ColumnFilterChanged   += GridView_ColumnFilterChanged;
-            gridView.GroupRowExpanded       += (s, e) => SaveGridLayout();
-            gridView.GroupRowCollapsed      += (s, e) => SaveGridLayout();
-            gridView.ColumnWidthChanged += (s, e) => { if (!_restoringGridLayout) SaveGridLayout(); };            gridView.EndSorting              += GridView_EndSorting;
+            gridView.GroupRowExpanded       += (s, e) => QueueGridLayoutSave();
+            gridView.GroupRowCollapsed      += (s, e) => QueueGridLayoutSave();
+            gridView.ColumnWidthChanged     += (s, e) => QueueGridLayoutSave();
+            gridView.EndSorting             += GridView_EndSorting;
             gridControl.MouseMove            += GridControl_MouseMove;
             gridControl.MouseLeave           += GridControl_MouseLeave;
             gridControl.MouseDown            += GridControl_MouseDown;
@@ -1302,25 +1436,44 @@ namespace Nexus.Client.ModManagement.UI
                 case ColDownloadDate: e.Value = mod.DownloadDate;         break;
                 case ColDownloadId:   e.Value = mod.DownloadId;           break;
                 case ColCategory:
-                    if (_viewModel?.CategoryManager != null)
-                    {
-                        IModCategory cat = _viewModel.CategoryManager.FindCategory(mod.CustomCategoryId > 0 ? mod.CustomCategoryId : mod.CategoryId);
-                        e.Value = cat != null ? cat.CategoryName : null;
-                    }
-                    else
-                    {
-                        e.Value = mod.CategoryId;
-                    }
+                    e.Value = GetCachedCategoryName(mod);
                     break;
                 case ColEndorsed:
-                    if (mod.IsEndorsed == true)
-                        e.Value = new System.Drawing.Bitmap(Properties.Resources.thumb_up,  16, 16);
-                    else if (mod.IsEndorsed == false)
-                        e.Value = new System.Drawing.Bitmap(Properties.Resources.thumb_no, 16, 16);
-                    else
-                        e.Value = new System.Drawing.Bitmap(16, 16); // transparent — renders as empty cell
+                    e.Value = mod.IsEndorsed == true
+                        ? _endorsedYesImage
+                        : mod.IsEndorsed == false
+                            ? _endorsedNoImage
+                            : _endorsedEmptyImage;
                     break;
             }
+        }
+
+        private string GetCachedCategoryName(IMod mod)
+        {
+            if (mod == null)
+                return String.Empty;
+
+            string categoryName;
+            if (_categoryNameCache.TryGetValue(mod, out categoryName))
+                return categoryName;
+
+            if (_viewModel?.CategoryManager != null)
+            {
+                IModCategory category = _viewModel.CategoryManager.FindCategory(
+                    mod.CustomCategoryId > 0
+                        ? mod.CustomCategoryId
+                        : mod.CategoryId);
+                categoryName = category?.CategoryName ?? String.Empty;
+            }
+            else
+            {
+                categoryName = Convert.ToString(
+                    mod.CategoryId,
+                    CultureInfo.InvariantCulture);
+            }
+
+            _categoryNameCache[mod] = categoryName;
+            return categoryName;
         }
 
         // ── Grid event handlers ──────────────────────────────────────────────
@@ -1330,6 +1483,8 @@ namespace Nexus.Client.ModManagement.UI
             _activeModFileNames.Clear();
             _installedMods.Clear();
             _modVisualStatusCache.Clear();
+            _outdatedModCache.Clear();
+            _categoryNameCache.Clear();
             lock (_missingArchiveLock)
                 _missingArchiveByFileName.Clear();
         }
@@ -1377,6 +1532,23 @@ namespace Nexus.Client.ModManagement.UI
             status = linked ? ModVisualStatus.InstalledActive : installed ? ModVisualStatus.InstalledUnlinked : ModVisualStatus.Uninstalled;
             _modVisualStatusCache[mod] = status;
             return status;
+        }
+
+        private bool IsModOutdated(IMod mod)
+        {
+            if (mod == null)
+                return false;
+
+            bool outdated;
+            if (!_outdatedModCache.TryGetValue(mod, out outdated))
+            {
+                outdated = IsVersionOutdated(
+                    mod.HumanReadableVersion,
+                    mod.LastKnownVersion);
+                _outdatedModCache[mod] = outdated;
+            }
+
+            return outdated;
         }
 
         private string GetModStatusText(IMod mod)
@@ -1503,137 +1675,79 @@ namespace Nexus.Client.ModManagement.UI
             };
             return DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result);
         }
-		private void GridView_RowCellStyle(
-			object sender,
-			RowCellStyleEventArgs e)
-		{
-			if (_viewModel == null || e.RowHandle < 0)
-				return;
+        private void GridView_RowCellStyle(
+            object sender,
+            RowCellStyleEventArgs e)
+        {
+            if (_viewModel == null || e.RowHandle < 0)
+                return;
 
-			int sourceIndex =
-				gridView.GetDataSourceRowIndex(e.RowHandle);
+            int sourceIndex = gridView.GetDataSourceRowIndex(e.RowHandle);
+            if (sourceIndex < 0 || sourceIndex >= _modList.Count)
+                return;
 
-			if (sourceIndex < 0 || sourceIndex >= _modList.Count)
-				return;
+            IMod mod = _modList[sourceIndex];
+            ModVisualStatus status = GetModVisualStatus(mod);
+            bool isActive = status == ModVisualStatus.InstalledActive;
+            bool isInstalled = status != ModVisualStatus.Uninstalled;
+            bool isSelected =
+                gridView.IsRowSelected(e.RowHandle) ||
+                e.RowHandle == gridView.FocusedRowHandle;
 
-			IMod mod = _modList[sourceIndex];
+            if (_usesLegacyLightRowPalette &&
+                _showRowHighlights &&
+                isActive)
+            {
+                e.Appearance.BackColor = isSelected
+                    ? Color.FromArgb(218, 240, 218)
+                    : Color.FromArgb(249, 254, 249);
+                e.Appearance.ForeColor = Color.Black;
+            }
+            else if (_usesLegacyLightRowPalette &&
+                     _showRowHighlights &&
+                     isInstalled)
+            {
+                e.Appearance.BackColor = isSelected
+                    ? Color.FromArgb(250, 230, 200)
+                    : Color.FromArgb(255, 251, 244);
+                e.Appearance.ForeColor = Color.Black;
+            }
 
-			ModVisualStatus status =
-				GetModVisualStatus(mod);
+            if (_showActiveModsInBold && isActive)
+                e.Appearance.Font = _gridBoldFont;
 
-			bool isActive =
-				status == ModVisualStatus.InstalledActive;
+            if (e.Column.FieldName == ColLastKnown &&
+                !String.IsNullOrEmpty(mod.LastKnownVersion))
+            {
+                bool outdated = IsModOutdated(mod);
 
-			bool isInstalled =
-				status != ModVisualStatus.Uninstalled;
+                if (!isSelected)
+                {
+                    e.Appearance.ForeColor = outdated
+                        ? Color.FromArgb(200, 40, 40)
+                        : Color.FromArgb(37, 99, 235);
+                }
 
-			bool isSelected =
-				gridView.IsRowSelected(e.RowHandle) ||
-				e.RowHandle == gridView.FocusedRowHandle;
+                e.Appearance.Font = _showActiveModsInBold && isActive
+                    ? _gridBoldUnderlineFont
+                    : _gridUnderlineFont;
+            }
 
-			bool useLegacyPalette =
-				UsesLegacyLightRowPalette();
+            bool isSecondaryColumn =
+                e.Column.FieldName == ColInstallDate ||
+                e.Column.FieldName == ColDownloadDate ||
+                e.Column.FieldName == ColDownloadId;
 
-			/*
-			 * Preserve the tested light green/light orange highlighting only
-			 * for Basic and DevExpress Style.
-			 *
-			 * For every other skin, do not assign row backgrounds or normal
-			 * foreground colours. DevExpress must draw them from the skin.
-			 */
-			if (useLegacyPalette &&
-				_showRowHighlights &&
-				isActive)
-			{
-				e.Appearance.BackColor =
-					isSelected
-						? Color.FromArgb(218, 240, 218)
-						: Color.FromArgb(249, 254, 249);
+            if (!isSelected && isSecondaryColumn)
+            {
+                if (_usesLegacyLightRowPalette)
+                    e.Appearance.ForeColor = Color.FromArgb(90, 90, 90);
 
-				e.Appearance.ForeColor = Color.Black;
-			}
-			else if (useLegacyPalette &&
-					 _showRowHighlights &&
-					 isInstalled)
-			{
-				e.Appearance.BackColor =
-					isSelected
-						? Color.FromArgb(250, 230, 200)
-						: Color.FromArgb(255, 251, 244);
-
-				e.Appearance.ForeColor = Color.Black;
-			}
-
-			/*
-			 * Deliberately do not assign a custom selected-row colour here.
-			 * The old fixed Windows-blue selection and black text break dark
-			 * and high-contrast skins.
-			 */
-
-			if (_showActiveModsInBold && isActive)
-			{
-				e.Appearance.Font =
-					new Font(
-						_gridFontFamilyName,
-						_gridFontSizePt,
-						FontStyle.Bold,
-						GraphicsUnit.Point);
-			}
-
-			// Keep the semantic latest-version link styling.
-			if (e.Column.FieldName == ColLastKnown &&
-				!String.IsNullOrEmpty(mod.LastKnownVersion))
-			{
-				bool outdated =
-					IsVersionOutdated(
-						mod.HumanReadableVersion,
-						mod.LastKnownVersion);
-
-				if (!isSelected)
-				{
-					e.Appearance.ForeColor =
-						outdated
-							? Color.FromArgb(200, 40, 40)
-							: Color.FromArgb(37, 99, 235);
-				}
-
-				e.Appearance.Font =
-					new Font(
-						e.Appearance.GetFont(),
-						e.Appearance.GetFont().Style |
-						FontStyle.Underline);
-			}
-
-			bool isSecondaryColumn =
-				e.Column.FieldName == ColInstallDate ||
-				e.Column.FieldName == ColDownloadDate ||
-				e.Column.FieldName == ColDownloadId;
-
-			if (!isSelected && isSecondaryColumn)
-			{
-				/*
-				 * The muted gray is safe only with the two tested light
-				 * palettes. Other skins retain their own foreground colour.
-				 */
-				if (useLegacyPalette)
-				{
-					e.Appearance.ForeColor =
-						Color.FromArgb(90, 90, 90);
-				}
-
-				FontStyle secondaryStyle =
-					_showActiveModsInBold && isActive
-						? FontStyle.Bold
-						: FontStyle.Regular;
-
-				e.Appearance.Font =
-					new Font(
-						_gridFontFamilyName,
-						GetSecondaryGridFontSize(_gridFontSizePt),
-						secondaryStyle,
-						GraphicsUnit.Point);
-			}
-		}
+                e.Appearance.Font = _showActiveModsInBold && isActive
+                    ? _gridSecondaryBoldFont
+                    : _gridSecondaryFont;
+            }
+        }
 
         private void DrawModStatusCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
         {
@@ -1696,7 +1810,7 @@ namespace Nexus.Client.ModManagement.UI
             {
                 int src = gridView.GetDataSourceRowIndex(e.RowHandle);
                 if (src >= 0 && src < _modList.Count)
-                    drawsLatestWarning = IsVersionOutdated(_modList[src].HumanReadableVersion, _modList[src].LastKnownVersion);
+                    drawsLatestWarning = IsModOutdated(_modList[src]);
             }
 
             if (handledByModName)
@@ -1849,7 +1963,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>Highlights the active sort column header in blue.</summary>
 		private void GridView_CustomDrawColumnHeader(object sender, ColumnHeaderCustomDrawEventArgs e)
 		{
-			if (!UsesLegacyLightRowPalette() ||
+			if (!_usesLegacyLightRowPalette ||
 				e.Column == null ||
 				e.Column.SortOrder == DevExpress.Data.ColumnSortOrder.None)
 			{
@@ -1865,61 +1979,122 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>Draws a coloured pill badge for the category cell.</summary>
-		private void DrawCategoryBadge(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
+        private void DrawCategoryBadge(
+            DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
         {
-            if (e.RowHandle < 0 || !_showColouredCategories) return;
-            int src = gridView.GetDataSourceRowIndex(e.RowHandle);
-            if (src < 0 || src >= _modList.Count) return;
-            IMod mod = _modList[src];
+            if (e.RowHandle < 0 || !_showColouredCategories)
+                return;
 
-            string catName = string.Empty;
-            if (_viewModel?.CategoryManager != null)
+            int sourceIndex = gridView.GetDataSourceRowIndex(e.RowHandle);
+            if (sourceIndex < 0 || sourceIndex >= _modList.Count)
+                return;
+
+            // Do not depend on e.DisplayText here. During row invalidation (for
+            // example when the mouse enters/leaves the Mod Name cell), DevExpress
+            // may repaint the category cell before its unbound display text has
+            // been refreshed. Resolve the stable cached value from the row instead.
+            string categoryName = GetCachedCategoryName(_modList[sourceIndex]);
+
+            string originalDisplayText = e.DisplayText;
+            e.DisplayText = String.Empty;
+            e.DefaultDraw();
+            e.DisplayText = originalDisplayText;
+
+            if (String.IsNullOrEmpty(categoryName) || _gridBadgeFont == null)
             {
-                var cat = _viewModel.CategoryManager.FindCategory(
-                    mod.CustomCategoryId > 0 ? mod.CustomCategoryId : mod.CategoryId);
-                catName = cat?.CategoryName ?? string.Empty;
+                e.Handled = true;
+                return;
             }
 
-			// Paint row background (inherits selection / active-mod colour set by RowCellStyle)
-			string originalDisplayText = e.DisplayText;
+            const int horizontalPadding = 6;
+            const int verticalPadding = 2;
+            const int radius = 4;
 
-			e.DisplayText = String.Empty;
-			e.DefaultDraw();
-			e.DisplayText = originalDisplayText;
+            Size textSize = GetCachedCategoryTextSize(categoryName);
+            int availableWidth = Math.Max(0, e.Bounds.Width - 4);
+            int availableHeight = Math.Max(0, e.Bounds.Height - 2);
+            int badgeWidth = Math.Min(
+                textSize.Width + horizontalPadding * 2,
+                availableWidth);
+            int badgeHeight = Math.Min(
+                textSize.Height + verticalPadding * 2,
+                availableHeight);
 
-			if (!string.IsNullOrEmpty(catName))
+            if (badgeWidth <= 0 || badgeHeight <= 0)
             {
-                Color badgeColor = GetCategoryColor(catName);
-                const int padH = 6, padV = 2, radius = 4;
-                using (var badgeFont = new Font(_gridFontFamilyName, GetBadgeGridFontSize(_gridFontSizePt), FontStyle.Regular, GraphicsUnit.Point))
-                {
-                    SizeF textSize = e.Graphics.MeasureString(catName, badgeFont);
-                    int badgeW = Math.Min((int)textSize.Width + padH * 2, e.Bounds.Width - 4);
-                    int badgeH = (int)textSize.Height + padV * 2;
-                    int bx = e.Bounds.Left + (e.Bounds.Width  - badgeW) / 2;
-                    int by = e.Bounds.Top  + (e.Bounds.Height - badgeH) / 2;
-                    var badgeRect = new Rectangle(bx, by, badgeW, badgeH);
-
-                    var savedMode = e.Graphics.SmoothingMode;
-                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                    using (var path = GetRoundedRectPath(badgeRect, radius))
-                    using (var fill = new SolidBrush(badgeColor))
-                        e.Graphics.FillPath(fill, path);
-                    e.Graphics.SmoothingMode = savedMode;
-
-                    var sf = new StringFormat
-                    {
-                        Alignment     = StringAlignment.Center,
-                        LineAlignment = StringAlignment.Center,
-                        Trimming      = StringTrimming.EllipsisCharacter,
-                        FormatFlags   = StringFormatFlags.NoWrap,
-                    };
-                    using (var white = new SolidBrush(Color.White))
-                        e.Graphics.DrawString(catName, badgeFont, white, (RectangleF)badgeRect, sf);
-                }
+                e.Handled = true;
+                return;
             }
+
+            Rectangle badgeBounds = new Rectangle(
+                e.Bounds.Left + (e.Bounds.Width - badgeWidth) / 2,
+                e.Bounds.Top + (e.Bounds.Height - badgeHeight) / 2,
+                badgeWidth,
+                badgeHeight);
+
+            Color badgeColor = GetCachedCategoryColor(categoryName);
+            SolidBrush badgeBrush = GetCachedCategoryBrush(badgeColor);
+
+            SmoothingMode originalSmoothingMode = e.Graphics.SmoothingMode;
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath path = GetRoundedRectPath(badgeBounds, radius))
+                e.Graphics.FillPath(badgeBrush, path);
+            e.Graphics.SmoothingMode = originalSmoothingMode;
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                categoryName,
+                _gridBadgeFont,
+                badgeBounds,
+                Color.White,
+                TextFormatFlags.HorizontalCenter |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.EndEllipsis |
+                TextFormatFlags.SingleLine |
+                TextFormatFlags.NoPadding);
 
             e.Handled = true;
+        }
+
+        private Size GetCachedCategoryTextSize(string categoryName)
+        {
+            Size size;
+            if (!_categoryTextSizeCache.TryGetValue(categoryName, out size))
+            {
+                size = TextRenderer.MeasureText(
+                    categoryName,
+                    _gridBadgeFont,
+                    new Size(Int32.MaxValue, Int32.MaxValue),
+                    TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+                _categoryTextSizeCache[categoryName] = size;
+            }
+
+            return size;
+        }
+
+        private Color GetCachedCategoryColor(string categoryName)
+        {
+            Color color;
+            if (!_categoryColorCache.TryGetValue(categoryName, out color))
+            {
+                color = GetCategoryColor(categoryName);
+                _categoryColorCache[categoryName] = color;
+            }
+
+            return color;
+        }
+
+        private SolidBrush GetCachedCategoryBrush(Color color)
+        {
+            int key = color.ToArgb();
+            SolidBrush brush;
+            if (!_categoryBrushCache.TryGetValue(key, out brush))
+            {
+                brush = new SolidBrush(color);
+                _categoryBrushCache[key] = brush;
+            }
+
+            return brush;
         }
 
         private static GraphicsPath GetRoundedRectPath(Rectangle r, int radius)
@@ -2209,12 +2384,34 @@ namespace Nexus.Client.ModManagement.UI
             tsbSwitchView.Text = _categoryViewActive ? "Switch to Default View" : "Switch to Category View";
             tsbSwitchView.ToolTipText = _categoryViewActive ? "Show the default flat mod list" : "Group the mod list by category";
         }
+        private void QueueGridLayoutSave()
+        {
+            if (_restoringGridLayout ||
+                _viewModel?.Settings == null ||
+                _gridLayoutSaveTimer == null ||
+                IsDisposed)
+            {
+                return;
+            }
+
+            _gridLayoutSaveTimer.Stop();
+            _gridLayoutSaveTimer.Start();
+        }
+
+        private void GridLayoutSaveTimer_Tick(object sender, EventArgs e)
+        {
+            _gridLayoutSaveTimer.Stop();
+            SaveGridLayout();
+        }
+
         private void SaveGridLayout()
         {
             if (_restoringGridLayout || _viewModel?.Settings == null)
             {
                 return;
             }
+
+            _gridLayoutSaveTimer?.Stop();
 
 			bool findPanelVisible = gridView.IsFindPanelVisible;
 
@@ -2261,8 +2458,66 @@ namespace Nexus.Client.ModManagement.UI
         }
         protected override void OnClosed(EventArgs e)
         {
+            _gridLayoutSaveTimer?.Stop();
             SaveGridLayout();
             base.OnClosed(e);
+        }
+
+        private void DisposePerformanceResources()
+        {
+            if (_gridLayoutSaveTimer != null)
+            {
+                _gridLayoutSaveTimer.Stop();
+                _gridLayoutSaveTimer.Tick -= GridLayoutSaveTimer_Tick;
+            }
+
+            DisposeFont(_gridRegularFont);
+            DisposeFont(_gridBoldFont);
+            DisposeFont(_gridUnderlineFont);
+            DisposeFont(_gridBoldUnderlineFont);
+            DisposeFont(_gridSecondaryFont);
+            DisposeFont(_gridSecondaryBoldFont);
+            DisposeFont(_gridHeaderFont);
+            DisposeFont(_gridBadgeFont);
+            DisposeFont(_toolbarFont);
+
+            _gridRegularFont = null;
+            _gridBoldFont = null;
+            _gridUnderlineFont = null;
+            _gridBoldUnderlineFont = null;
+            _gridSecondaryFont = null;
+            _gridSecondaryBoldFont = null;
+            _gridHeaderFont = null;
+            _gridBadgeFont = null;
+            _toolbarFont = null;
+
+            _endorsedYesImage?.Dispose();
+            _endorsedNoImage?.Dispose();
+            _endorsedEmptyImage?.Dispose();
+            _modInstalledDisabledIcon?.Dispose();
+            _modInstalledActiveIcon?.Dispose();
+            _warningIcon?.Dispose();
+            _inlineEditIcon?.Dispose();
+            _inlineAcceptIcon?.Dispose();
+            _inlineCancelIcon?.Dispose();
+
+            _endorsedYesImage = null;
+            _endorsedNoImage = null;
+            _endorsedEmptyImage = null;
+            _modInstalledDisabledIcon = null;
+            _modInstalledActiveIcon = null;
+            _warningIcon = null;
+            _inlineEditIcon = null;
+            _inlineAcceptIcon = null;
+            _inlineCancelIcon = null;
+
+            foreach (SolidBrush brush in _categoryBrushCache.Values)
+                brush.Dispose();
+            _categoryBrushCache.Clear();
+            _categoryColorCache.Clear();
+            _categoryTextSizeCache.Clear();
+            _categoryNameCache.Clear();
+            _outdatedModCache.Clear();
         }
 
         private enum InlineEditGlyph
@@ -2718,7 +2973,7 @@ namespace Nexus.Client.ModManagement.UI
             bool sortChanged = !string.Equals(_lastGridSortSignature, sortSignature, StringComparison.Ordinal);
             _lastGridSortSignature = sortSignature;
 
-            SaveGridLayout();
+            QueueGridLayoutSave();
             if (_focusTopRowAfterSorting && sortChanged && !_restoringGridLayout && !_restoringGridSort)
             {
                 int rowHandle = GetFirstVisibleDataRowHandle();
