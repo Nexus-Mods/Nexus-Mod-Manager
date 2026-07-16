@@ -71,21 +71,31 @@ namespace Nexus.Client.ModManagement.UI
                 Text = "Deployment root:",
                 Location = new Point(10, 38)
             };
-            _refreshButton = new Button
-            {
-                Text = "Refresh",
-                Width = 92,
-                Height = 27,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(Width - 112, 34)
-            };
-            _refreshButton.Click += RefreshButton_Click;
-            topPanel.Resize += (sender, args) => _refreshButton.Left = topPanel.ClientSize.Width - _refreshButton.Width - 10;
-            topPanel.Controls.Add(descriptionLabel);
-            topPanel.Controls.Add(_deploymentRootLabel);
-            topPanel.Controls.Add(_refreshButton);
 
-            _splitContainer = new SplitContainerControl
+			_refreshButton = new Button
+			{
+				Text = "Refresh",
+				Width = 92,
+				Height = 27,
+				Margin = new Padding(0)
+			};
+			_refreshButton.Click += RefreshButton_Click;
+
+			topPanel.Controls.Add(descriptionLabel);
+			topPanel.Controls.Add(_deploymentRootLabel);
+
+			FlowLayoutPanel fileListToolbar = new FlowLayoutPanel
+			{
+				Dock = DockStyle.Top,
+				Height = 37,
+				FlowDirection = FlowDirection.RightToLeft,
+				WrapContents = false,
+				Padding = new Padding(0, 5, 8, 5)
+			};
+
+			fileListToolbar.Controls.Add(_refreshButton);
+
+			_splitContainer = new SplitContainerControl
             {
                 Dock = DockStyle.Fill,
                 Horizontal = true,
@@ -120,7 +130,8 @@ namespace Nexus.Client.ModManagement.UI
             _gridView.CellValueChanged += GridView_CellValueChanged;
             _gridView.RowCellStyle += GridView_RowCellStyle;
             _gridView.FocusedRowChanged += GridView_FocusedRowChanged;
-            _gridControl.MouseUp += GridControl_MouseUp;
+			_gridView.CustomUnboundColumnData += GridView_CustomUnboundColumnData;
+			_gridControl.MouseUp += GridControl_MouseUp;
             ConfigureColumns();
 
             _emptyOwnerLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
@@ -163,11 +174,23 @@ namespace Nexus.Client.ModManagement.UI
             }
             _sourceContextMenu.Items.Add(_switchSourceMenuItem);
 
-            _previewControl = new FilePreviewControl { Dock = DockStyle.Fill };
-            _splitContainer.Panel1.Controls.Add(_gridControl);
-            _splitContainer.Panel2.Controls.Add(_previewControl);
+			_previewControl = new FilePreviewControl
+			{
+				Dock = DockStyle.Fill
+			};
 
-            Panel bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 30, Padding = new Padding(10, 6, 10, 4) };
+			Panel fileListPanel = new Panel
+			{
+				Dock = DockStyle.Fill
+			};
+
+			fileListPanel.Controls.Add(_gridControl);
+			fileListPanel.Controls.Add(fileListToolbar);
+
+			_splitContainer.Panel1.Controls.Add(fileListPanel);
+			_splitContainer.Panel2.Controls.Add(_previewControl);
+
+			Panel bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 30, Padding = new Padding(10, 6, 10, 4) };
             _summaryLabel = new Label { AutoSize = true, Location = new Point(10, 7) };
             _statusLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(Width - 240, 7) };
             bottomPanel.Resize += (sender, args) => _statusLabel.Left = Math.Max(10, bottomPanel.ClientSize.Width - _statusLabel.Width - 10);
@@ -492,9 +515,29 @@ namespace Nexus.Client.ModManagement.UI
             AddColumn("RelativePath", "Relative Path", 260, false);
             GridColumn source = AddColumn("Source", "Source", 160, true);
             source.OptionsColumn.AllowEdit = true;
-            GridColumn owner = AddColumn("OwnerKey", "Owner", 260, true);
-            owner.OptionsColumn.AllowEdit = true;
-        }
+			GridColumn owners = AddColumn(
+				"OwnerCount",
+				"Owners",
+				68,
+				false);
+
+			owners.UnboundType =
+				DevExpress.Data.UnboundColumnType.Integer;
+
+			owners.AppearanceCell.TextOptions.HAlignment =
+				HorzAlignment.Center;
+
+			owners.AppearanceHeader.TextOptions.HAlignment =
+				HorzAlignment.Center;
+
+			GridColumn owner = AddColumn(
+				"OwnerKey",
+				"Owner",
+				260,
+				true);
+
+			owner.OptionsColumn.AllowEdit = true;
+		}
 
         private GridColumn AddColumn(string fieldName, string caption, int width, bool allowEdit)
         {
@@ -528,13 +571,47 @@ namespace Nexus.Client.ModManagement.UI
             FileManagerRow row = _gridView.GetFocusedRow() as FileManagerRow;
             _previewControl.SetSelectedRow(row);
         }
-        private void GridView_CustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
-        {
-            if (e.Column.FieldName == "Source" && e.Value is FileManagerSource)
-                e.DisplayText = FileManagerSourceDisplay.GetDisplayText((FileManagerSource)e.Value);
-        }
+		private void GridView_CustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
+		{
+			if (e.Column == null)
+				return;
 
-        private void GridView_CustomRowCellEdit(object sender, CustomRowCellEditEventArgs e)
+			if (e.Column.FieldName == "Source" &&
+				e.Value is FileManagerSource)
+			{
+				e.DisplayText =
+					FileManagerSourceDisplay.GetDisplayText(
+						(FileManagerSource)e.Value);
+
+				return;
+			}
+
+			if (e.Column.FieldName == "OwnerCount" &&
+				e.Value != null &&
+				Convert.ToInt32(e.Value) == 0)
+			{
+				e.DisplayText = String.Empty;
+			}
+		}
+
+		private void GridView_CustomUnboundColumnData(object sender, CustomColumnDataEventArgs e)
+		{
+			if (!e.IsGetData ||
+				e.Column == null ||
+				e.Column.FieldName != "OwnerCount")
+			{
+				return;
+			}
+
+			FileManagerRow row = e.Row as FileManagerRow;
+
+			e.Value =
+				row == null || row.OwnerCandidates == null
+					? 0
+					: row.OwnerCandidates.Count;
+		}
+
+		private void GridView_CustomRowCellEdit(object sender, CustomRowCellEditEventArgs e)
         {
             FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
             if (e.Column.FieldName == "Source")
