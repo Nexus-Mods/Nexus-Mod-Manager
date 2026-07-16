@@ -74,6 +74,7 @@ namespace Nexus.Client.Games.DataDriven
         public override bool UsesPlugins => _definition.Plugin != null && _definition.Plugin.UsesPlugins;
         public override bool SupportsPluginAutoSorting => _definition.Plugin != null && _definition.Plugin.SupportsPluginAutoSorting;
         public override int MaxAllowedActivePluginsCount => _definition.Plugin?.MaxAllowedActivePluginsCount ?? 0;
+        public override PluginManagementPolicy PluginManagementPolicy => DataDrivenPluginPolicyBuilder.Build(_definition, PluginExtensions, OrderedCriticalPluginNames, OrderedOfficialPluginNames, OrderedOfficialUnmanagedPluginNames, MaxAllowedActivePluginsCount);
         public override bool SupportsGameRootModInstall => _definition.ModInstall != null && _definition.ModInstall.SupportsGameRootInstall;
 
         public override string GameDefaultCategories => _categories ?? (_categories = ReadResourceText(_definition.Resources?.CategoriesPath));
@@ -140,6 +141,105 @@ namespace Nexus.Client.Games.DataDriven
     }
 
 
+    internal static class DataDrivenPluginPolicyBuilder
+    {
+        public static PluginManagementPolicy Build(GameModeDefinition gameModeDefinition, IEnumerable<string> pluginExtensions, IEnumerable<string> criticalPlugins, IEnumerable<string> officialPlugins, IEnumerable<string> officialUnmanagedPlugins, int fullSlotLimit)
+        {
+            PluginManagementPolicy policy = Nexus.Client.PluginManagement.PluginManagementPolicy.CreateDefault(pluginExtensions, criticalPlugins, officialPlugins, officialUnmanagedPlugins, fullSlotLimit);
+            GameModePluginPolicyDefinition definition = gameModeDefinition == null || gameModeDefinition.Plugin == null ? null : gameModeDefinition.Plugin.Policy;
+            if (definition == null)
+                return policy;
+
+            if (definition.SchemaVersion <= 0)
+                throw new InvalidOperationException("plugin.policy.schemaVersion must be specified for data-driven plugin policies.");
+
+            if (!string.IsNullOrWhiteSpace(definition.ParserStrategy))
+                policy.ParserStrategy = definition.ParserStrategy;
+            if (!string.IsNullOrWhiteSpace(definition.PersistenceStrategy))
+                policy.PersistenceStrategy = definition.PersistenceStrategy;
+            if (definition.MasterPluginsMustLoadBeforeNonMasters.HasValue)
+                policy.MasterPluginsMustLoadBeforeNonMasters = definition.MasterPluginsMustLoadBeforeNonMasters.Value;
+            if (definition.ValidateDependencies.HasValue)
+                policy.ValidateDependencies = definition.ValidateDependencies.Value;
+
+            policy.PluginsFilePath = definition.PluginsFilePath ?? policy.PluginsFilePath;
+            policy.LoadOrderFilePath = definition.LoadOrderFilePath ?? policy.LoadOrderFilePath;
+            policy.EncodingName = definition.EncodingName ?? policy.EncodingName;
+            policy.ActiveMarker = definition.ActiveMarker ?? policy.ActiveMarker;
+            policy.InactiveMarker = definition.InactiveMarker ?? policy.InactiveMarker;
+            policy.AppDataGameFolderName = definition.AppDataGameFolderName ?? policy.AppDataGameFolderName;
+            policy.UseTimestampOrder = definition.UseTimestampOrder ?? policy.UseTimestampOrder;
+            policy.IgnoreOfficialPlugins = definition.IgnoreOfficialPlugins ?? policy.IgnoreOfficialPlugins;
+            policy.ForcedReadOnly = definition.ForcedReadOnly ?? policy.ForcedReadOnly;
+            policy.SingleFileManagement = definition.SingleFileManagement ?? policy.SingleFileManagement;
+            policy.OfficialPluginsAreImplicitlyActive = definition.OfficialPluginsAreImplicitlyActive ?? policy.OfficialPluginsAreImplicitlyActive;
+            policy.LoadOrderInPluginDirectory = definition.LoadOrderInPluginDirectory ?? policy.LoadOrderInPluginDirectory;
+            policy.ShowStarfieldCustomPluginsHeader = definition.ShowStarfieldCustomPluginsHeader ?? policy.ShowStarfieldCustomPluginsHeader;
+
+            foreach (GameModePluginExtensionPolicyDefinition extension in definition.Extensions ?? new List<GameModePluginExtensionPolicyDefinition>())
+                policy.AddExtension(new PluginExtensionPolicy(extension.Extension, ParseHeaderFlags(extension.ForcedFlags), ParseAddressClass(extension.ForcedAddressClass)));
+
+            foreach (GameModePluginHeaderFlagMappingDefinition mapping in definition.HeaderFlagMappings ?? new List<GameModePluginHeaderFlagMappingDefinition>())
+                policy.AddHeaderFlagMapping(new PluginHeaderFlagMapping(ParseHeaderFlagSource(mapping.Source), ParseUInt32(mapping.Mask), ParseHeaderFlags(mapping.Flags)));
+
+            foreach (GameModePluginAddressSpaceDefinition addressSpace in definition.AddressSpaces ?? new List<GameModePluginAddressSpaceDefinition>())
+                policy.AddAddressSpace(new PluginAddressSpacePolicy(ParseAddressClass(addressSpace.AddressClass), addressSpace.FirstIndex, addressSpace.MaxCount, addressSpace.DisplayFormat));
+
+            foreach (string plugin in definition.OfficialPlugins ?? new string[0])
+                policy.AddOfficialPlugin(plugin);
+            foreach (string plugin in definition.CriticalPlugins ?? new string[0])
+                policy.AddCriticalPlugin(plugin);
+            foreach (string plugin in definition.FixedOrderPlugins ?? new string[0])
+                policy.AddFixedOrderPlugin(plugin);
+            foreach (string plugin in definition.ForcedActivePlugins ?? new string[0])
+                policy.AddForcedActivePlugin(plugin);
+            foreach (string plugin in definition.BlueprintPlugins ?? new string[0])
+                policy.AddBlueprintPlugin(plugin);
+            foreach (string prefix in definition.BlueprintPluginPrefixes ?? new string[0])
+                policy.AddBlueprintPluginPrefix(prefix);
+
+            return policy;
+        }
+
+        private static PluginHeaderFlags ParseHeaderFlags(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return PluginHeaderFlags.None;
+
+            PluginHeaderFlags flags;
+            return Enum.TryParse(value.Replace("|", ","), true, out flags) ? flags : PluginHeaderFlags.None;
+        }
+
+        private static PluginAddressClass ParseAddressClass(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return PluginAddressClass.None;
+
+            PluginAddressClass addressClass;
+            return Enum.TryParse(value, true, out addressClass) ? addressClass : PluginAddressClass.None;
+        }
+
+        private static PluginHeaderFlagSource ParseHeaderFlagSource(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return PluginHeaderFlagSource.RecordFlags1;
+
+            PluginHeaderFlagSource source;
+            return Enum.TryParse(value, true, out source) ? source : PluginHeaderFlagSource.RecordFlags1;
+        }
+
+        private static uint ParseUInt32(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return 0;
+
+            value = value.Trim();
+            if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                return Convert.ToUInt32(value.Substring(2), 16);
+
+            return Convert.ToUInt32(value);
+        }
+    }
     internal static class Sims4PathAdjuster
     {
         private static readonly string[] TrayExtensions = { ".householdbinary", ".trayitem", ".sgi", ".hhi", ".blueprint", ".bpi" };

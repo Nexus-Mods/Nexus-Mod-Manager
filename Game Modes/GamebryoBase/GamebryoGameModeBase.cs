@@ -119,6 +119,145 @@ namespace Nexus.Client.Games.Gamebryo
 		/// Gets whether the game mode supports the automatic sorting
 		/// functionality for plugins.
 		/// </summary>
+		/// <summary>
+		/// Gets the plugin-management policy used by Gamebryo plugin discovery, validation, and persistence.
+		/// </summary>
+		public override PluginManagementPolicy PluginManagementPolicy
+		{
+			get
+			{
+				PluginManagementPolicy policy = base.PluginManagementPolicy;
+				ApplyGamebryoPersistencePolicy(policy);
+				return policy;
+			}
+		}
+
+		private void ApplyGamebryoPersistencePolicy(PluginManagementPolicy policy)
+		{
+			if (policy == null)
+				return;
+
+			policy.AppDataGameFolderName = ModeId;
+			policy.UseTimestampOrder = false;
+			policy.IgnoreOfficialPlugins = false;
+			policy.ForcedReadOnly = false;
+			policy.SingleFileManagement = false;
+			policy.OfficialPluginsAreImplicitlyActive = false;
+			policy.LoadOrderInPluginDirectory = false;
+			policy.ShowStarfieldCustomPluginsHeader = false;
+			if (String.IsNullOrEmpty(policy.ActiveMarker))
+				policy.ActiveMarker = "*";
+
+			switch (ModeId)
+			{
+				case "Oblivion":
+				case "Fallout3":
+				case "FalloutNV":
+					policy.PersistenceStrategy = "timestamp";
+					policy.UseTimestampOrder = true;
+					break;
+				case "Skyrim":
+				case "Enderal":
+					policy.PersistenceStrategy = "loadorder";
+					break;
+				case "Fallout4":
+					ApplyFallout4PersistencePolicy(policy);
+					break;
+				case "Fallout4VR":
+					policy.PersistenceStrategy = "singleFile";
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					break;
+				case "SkyrimSE":
+					policy.PersistenceStrategy = "singleFile";
+					policy.AppDataGameFolderName = "Skyrim Special Edition";
+					policy.IgnoreOfficialPlugins = true;
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					break;
+				case "SkyrimGOG":
+					policy.PersistenceStrategy = "singleFile";
+					policy.AppDataGameFolderName = "Skyrim Special Edition GOG";
+					policy.IgnoreOfficialPlugins = true;
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					break;
+				case "SkyrimVR":
+					policy.PersistenceStrategy = "singleFile";
+					policy.AppDataGameFolderName = "Skyrim VR";
+					policy.IgnoreOfficialPlugins = true;
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					break;
+				case "enderalspecialedition":
+					policy.PersistenceStrategy = "singleFile";
+					policy.AppDataGameFolderName = "Enderal Special Edition";
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					break;
+				case "Starfield":
+					policy.PersistenceStrategy = "singleFile";
+					policy.AppDataGameFolderName = "Starfield";
+					policy.IgnoreOfficialPlugins = true;
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					ApplyStarfieldPersistencePolicy(policy);
+					break;
+				case "OblivionRemastered":
+					policy.PersistenceStrategy = "pluginDirectory";
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					policy.LoadOrderInPluginDirectory = true;
+					break;
+			}
+		}
+
+		private void ApplyFallout4PersistencePolicy(PluginManagementPolicy policy)
+		{
+			try
+			{
+				policy.PersistenceStrategy = "singleFile";
+				policy.IgnoreOfficialPlugins = true;
+				if (GameVersion >= new Version(1, 5, 0, 0))
+				{
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = GameVersion >= new Version(1, 5, 154, 0);
+					policy.ForcedReadOnly = GameVersion < new Version(1, 5, 154, 0);
+				}
+				else if (GameVersion < new Version(1, 0, 0, 0))
+				{
+					policy.SingleFileManagement = true;
+					policy.OfficialPluginsAreImplicitlyActive = true;
+					policy.ForcedReadOnly = false;
+				}
+				else
+				{
+					policy.PersistenceStrategy = "loadorder";
+					policy.SingleFileManagement = false;
+					policy.OfficialPluginsAreImplicitlyActive = false;
+					policy.ForcedReadOnly = true;
+				}
+			}
+			catch (ArgumentNullException e)
+			{
+				FileNotFoundException ex = new FileNotFoundException("Could not initialize Fallout4 Game Mode: Could not find the Fallout 4 executable.", Path.Combine(ExecutablePath, "Fallout4.exe"), e);
+				TraceUtil.TraceException(ex);
+				throw ex;
+			}
+		}
+
+		private void ApplyStarfieldPersistencePolicy(PluginManagementPolicy policy)
+		{
+			try
+			{
+				policy.ShowStarfieldCustomPluginsHeader = GameVersion >= new Version(1, 12, 30, 0);
+			}
+			catch (ArgumentNullException e)
+			{
+				FileNotFoundException ex = new FileNotFoundException("Could not initialize Starfield Game Mode: Could not find the Starfield executable.", Path.Combine(ExecutablePath, "Starfield.exe"), e);
+				TraceUtil.TraceException(ex);
+				throw ex;
+			}
+		}
 		public override bool SupportsPluginAutoSorting
 		{
 			get
@@ -321,7 +460,7 @@ namespace Nexus.Client.Games.Gamebryo
 		public override IPluginFactory GetPluginFactory()
 		{
 			if (m_pgfPluginFactory == null)
-				m_pgfPluginFactory = new GamebryoPluginFactory(PluginDirectory, LoadOrderManager);
+				m_pgfPluginFactory = new GamebryoPluginFactory(PluginDirectory, LoadOrderManager, PluginManagementPolicy);
 			return m_pgfPluginFactory;
 		}
 

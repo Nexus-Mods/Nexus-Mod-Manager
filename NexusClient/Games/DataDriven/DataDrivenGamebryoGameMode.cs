@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Tools;
+using Nexus.Client.PluginManagement;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Util;
 
@@ -50,6 +51,7 @@ namespace Nexus.Client.Games.DataDriven
         public override string GameDefaultCategories => _categories ?? (_categories = ReadResourceText(GetDefinition().Resources?.CategoriesPath));
         public override string BaseGameFiles => _baseFiles ?? (_baseFiles = ReadResourceText(GetDefinition().Resources?.BaseFilesPath));
         public override bool SupportsPluginAutoSorting => GetDefinition().Plugin == null || GetDefinition().Plugin.SupportsPluginAutoSorting;
+        public override PluginManagementPolicy PluginManagementPolicy => DataDrivenPluginPolicyBuilder.Build(GetDefinition(), PluginExtensions, OrderedCriticalPluginNames, OrderedOfficialPluginNames, OrderedOfficialUnmanagedPluginNames, MaxAllowedActivePluginsCount);
 
         protected override GamebryoSettingsFiles CreateSettingsFileContainer()
         {

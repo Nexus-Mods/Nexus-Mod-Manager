@@ -44,7 +44,7 @@
 		private MainFormVM _viewModel;
 		private FormWindowState _lastWindowState = FormWindowState.Normal;
 		private readonly IModManagerView _modManagerControl;
-			private readonly PluginManagerControl _pluginManagerControl;
+			private readonly PluginManagerDXControl _pluginManagerControl;
 			private readonly DownloadMonitorControl _downloadMonitorControl;
 			private readonly ModActivationMonitorControl _modActivationMonitorControl;
 			private readonly CategoryManagerControl _categoryManagerControl;
@@ -101,6 +101,7 @@
                 if (ViewModel.UsesPlugins)
 				{
 					_pluginManagerControl.ViewModel = _viewModel.PluginManagerVM;
+					_pluginManagerControl.PluginManager = _viewModel.PluginManager;
 					_viewModel.PluginManager.ActivePlugins.CollectionChanged += ActivePlugins_CollectionChanged;
 					_pluginManagerControl.ViewModel.PluginMoved += pmcPluginManager_PluginMoved;
 					_pluginManagerControl.ViewModel.ApplyingImportedLoadOrder += ViewModel_ApplyingImportedLoadOrder;
@@ -195,7 +196,7 @@
 			_activePluginsProfileSaveTimer.Interval = 250;
 			_activePluginsProfileSaveTimer.Tick += ActivePluginsProfileSaveTimer_Tick;
 
-			_pluginManagerControl = new PluginManagerControl();
+			_pluginManagerControl = new PluginManagerDXControl();
 			_modManagerControl = new ModManagerDXControl();
 			_downloadMonitorControl = new DownloadMonitorControl();
 			_modActivationMonitorControl = new ModActivationMonitorControl();
@@ -211,6 +212,7 @@
 			_modManagerControl.UninstalledAllMods += MmgModManagerControlUninstalledAllMods;
 			_downloadMonitorControl.SetTextBoxFocus += DmcDownloadMonitorControlSetTextBoxFocus;
 			_pluginManagerControl.UpdatePluginsCount += PmcPluginManagerControlUpdatePluginsCount;
+			_pluginManagerControl.PluginMoved += pmcPluginManager_PluginMoved;
 			_modActivationMonitorControl = new ModActivationMonitorControl();
 			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
 			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
@@ -1568,7 +1570,7 @@
 		/// <returns>The component to return to be positioned.</returns>
 		protected IDockContent LoadDockedContent(string contentId)
         {
-            if (contentId == typeof(PluginManagerControl).ToString())
+            if (contentId == typeof(PluginManagerControl).ToString() || contentId == typeof(PluginManagerDXControl).ToString())
             {
                 return _pluginManagerControl;
             }

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -64,6 +64,60 @@ namespace Nexus.Client.Games.DataDriven
         public bool SupportsPluginAutoSorting { get; set; }
         public int MaxAllowedActivePluginsCount { get; set; }
         public string[] OfficialUnmanagedPluginListFiles { get; set; }
+        public GameModePluginPolicyDefinition Policy { get; set; }
+    }
+
+    public class GameModePluginPolicyDefinition
+    {
+        public int SchemaVersion { get; set; }
+        public string ParserStrategy { get; set; }
+        public string PersistenceStrategy { get; set; }
+        public bool? MasterPluginsMustLoadBeforeNonMasters { get; set; }
+        public bool? ValidateDependencies { get; set; }
+        public string PluginsFilePath { get; set; }
+        public string LoadOrderFilePath { get; set; }
+        public string EncodingName { get; set; }
+        public string ActiveMarker { get; set; }
+        public string InactiveMarker { get; set; }
+        public string AppDataGameFolderName { get; set; }
+        public bool? UseTimestampOrder { get; set; }
+        public bool? IgnoreOfficialPlugins { get; set; }
+        public bool? ForcedReadOnly { get; set; }
+        public bool? SingleFileManagement { get; set; }
+        public bool? OfficialPluginsAreImplicitlyActive { get; set; }
+        public bool? LoadOrderInPluginDirectory { get; set; }
+        public bool? ShowStarfieldCustomPluginsHeader { get; set; }
+        public List<GameModePluginExtensionPolicyDefinition> Extensions { get; set; } = new List<GameModePluginExtensionPolicyDefinition>();
+        public List<GameModePluginHeaderFlagMappingDefinition> HeaderFlagMappings { get; set; } = new List<GameModePluginHeaderFlagMappingDefinition>();
+        public List<GameModePluginAddressSpaceDefinition> AddressSpaces { get; set; } = new List<GameModePluginAddressSpaceDefinition>();
+        public string[] OfficialPlugins { get; set; }
+        public string[] CriticalPlugins { get; set; }
+        public string[] FixedOrderPlugins { get; set; }
+        public string[] ForcedActivePlugins { get; set; }
+        public string[] BlueprintPlugins { get; set; }
+        public string[] BlueprintPluginPrefixes { get; set; }
+    }
+
+    public class GameModePluginExtensionPolicyDefinition
+    {
+        public string Extension { get; set; }
+        public string ForcedFlags { get; set; }
+        public string ForcedAddressClass { get; set; }
+    }
+
+    public class GameModePluginHeaderFlagMappingDefinition
+    {
+        public string Source { get; set; }
+        public string Mask { get; set; }
+        public string Flags { get; set; }
+    }
+
+    public class GameModePluginAddressSpaceDefinition
+    {
+        public string AddressClass { get; set; }
+        public int FirstIndex { get; set; }
+        public int MaxCount { get; set; }
+        public string DisplayFormat { get; set; }
     }
 
     public class GameModeLauncherDefinition

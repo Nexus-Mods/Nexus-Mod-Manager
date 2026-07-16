@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="PluginManagement\GamebryoPluginOrderValidatorTests.cs" />
+    <Compile Include="PluginManagement\PluginManagementPolicyTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

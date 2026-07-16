@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -18,6 +18,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 	public class GamebryoPluginFactory : IPluginFactory
 	{
 		private string m_strPluginDirectory = null;
+		private readonly PluginManagementPolicy m_pmpPluginPolicy;
 
 		#region Properties
 
@@ -37,9 +38,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 		/// <param name="p_strPluginDirectory">The directory where the plugins are installed.</param>
 		/// <param name="p_bstLoadOrder">The LoadOrder instance to use to set the plugin order.</param>
 		public GamebryoPluginFactory(string p_strPluginDirectory, ILoadOrderManager p_bstLoadOrder)
+			: this(p_strPluginDirectory, p_bstLoadOrder, null)
+		{
+		}
+
+		public GamebryoPluginFactory(string p_strPluginDirectory, ILoadOrderManager p_bstLoadOrder, PluginManagementPolicy p_pmpPluginPolicy)
 		{
 			m_strPluginDirectory = p_strPluginDirectory;
 			LoadOrderManager = p_bstLoadOrder;
+			m_pmpPluginPolicy = p_pmpPluginPolicy ?? new PluginManagementPolicy();
 		}
 
 		#endregion
@@ -74,7 +81,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			if (tpgPlugin == null || tpgPlugin.Records.Count == 0 || (tpgPlugin.Records[0].Name != "TES4" && tpgPlugin.Records[0].Name != "TES3"))
 			{
 				string strDescription = strPluginName + Environment.NewLine + "Warning: Plugin appears corrupt";
-				return new GamebryoPlugin(p_strPluginPath, strDescription, null, false, false);
+				return new GamebryoPlugin(p_strPluginPath, strDescription, null, m_pmpPluginPolicy.Classify(p_strPluginPath, PluginHeaderFlags.None, 0, null, PluginParseStatus.Corrupt));
 			}
 
 			StringBuilder stbDescription = new StringBuilder();
@@ -102,52 +109,29 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				}
 			}
 
-			uint intIsMaster = 0;
-			uint intIsLightMaster = 0;
-			if (tpgPlugin.Records[0].Name == "TES4")
-			{
-				intIsMaster = ((Record)tpgPlugin.Records[0]).Flags1 & 1;
-			    intIsLightMaster = ((Record)tpgPlugin.Records[0]).Flags1 & 512;
-			}
-			else if (tpgPlugin.Records[0].Name == "TES3")
-				intIsMaster = Convert.ToUInt32(TesPlugin.GetIsEsm(p_strPluginPath));
+			PluginHeaderFlags parsedFlags = GetParsedHeaderFlags(p_strPluginPath, tpgPlugin);
+			bool booHeaderMaster = (parsedFlags & PluginHeaderFlags.Master) == PluginHeaderFlags.Master;
+			bool booHeaderLight = (parsedFlags & PluginHeaderFlags.Light) == PluginHeaderFlags.Light;
 
 			if (tpgPlugin.Records[0].Name == "TES4")
 			{
-				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (intIsLightMaster == 0))
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (!booHeaderLight))
 					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></span><br/><br/>");
-				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (intIsMaster == 0))
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (!booHeaderMaster))
 					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag!</b></span><br/><br/>");
 				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
 				{
-					if ((intIsMaster == 1) && (intIsLightMaster == 512))
+					if (booHeaderMaster && booHeaderLight)
 						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></span><br/><br/>");
-					else if (intIsMaster == 1)
+					else if (booHeaderMaster)
 						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
-					else if (intIsLightMaster == 512)
+					else if (booHeaderLight)
 						stbDescription.Append(@"<span style='color:#00662d;'>This file is marked as a light plugin (so it doesn't use a full load order slot).</span><br/><br/>");
 				}
 			}
 
-			// ugly hack for determining game for sorting and FormID purposes
-			// .esl and .esm files are assumed by SSE/FO4 engine to have ESM flags
-			// even if they aren't present in the file. Issue #613
 			uint intFormVersion = ((Record)tpgPlugin.Records[0]).Flags3;
-			switch (intFormVersion)
-			{
-				case 44:  // Skyrim SE
-				case 131: // Fallout 4
-					if (Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0)
-					{
-						intIsMaster = 1;
-						intIsLightMaster = 512;
-					}
-					if (Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0)
-					{
-						intIsMaster = 1;
-					}
-					break;
-			}
+			PluginMetadata metadata = m_pmpPluginPolicy.Classify(p_strPluginPath, parsedFlags, unchecked((int)intFormVersion), masters, PluginParseStatus.Parsed);
 
 			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br/>", strPluginName);
 			if ((name != null) && (name != string.Empty))
@@ -189,8 +173,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				catch { }
 			}
 
-			Plugin pifInfo = new GamebryoPlugin(p_strPluginPath, stbDescription.ToString(), imgPicture, (intIsMaster == 1), (intIsLightMaster == 512));
-			pifInfo.SetMasters(masters);
+			Plugin pifInfo = new GamebryoPlugin(p_strPluginPath, stbDescription.ToString(), imgPicture, metadata);
 
 			return pifInfo;
 		}
@@ -243,29 +226,23 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				}
 			}
 
-			uint intIsMaster = 0;
-			uint intIsLightMaster = 0;
-			if (tpgPlugin.Records[0].Name == "TES4")
-			{
-			    intIsMaster = ((Record)tpgPlugin.Records[0]).Flags1 & 1;
-			    intIsLightMaster = ((Record)tpgPlugin.Records[0]).Flags1 & 512;
-			}
-			else if (tpgPlugin.Records[0].Name == "TES3")
-				intIsMaster = Convert.ToUInt32(TesPlugin.GetIsEsm(p_strPluginPath));
+			PluginHeaderFlags parsedFlags = GetParsedHeaderFlags(p_strPluginPath, tpgPlugin);
+			bool booHeaderMaster = (parsedFlags & PluginHeaderFlags.Master) == PluginHeaderFlags.Master;
+			bool booHeaderLight = (parsedFlags & PluginHeaderFlags.Light) == PluginHeaderFlags.Light;
 
 			if (tpgPlugin.Records[0].Name == "TES4")
 			{
-				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (intIsLightMaster == 0))
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (!booHeaderLight))
 					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></span><br/><br/>");
-				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (intIsMaster == 0))
+				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (!booHeaderMaster))
 					stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag which marks it as an esp!</b></span><br/><br/>");
 				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
 				{
-					if ((intIsMaster == 1) && (intIsLightMaster == 512))
+					if (booHeaderMaster && booHeaderLight)
 						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></span><br/><br/>");
-					else if (intIsMaster == 1)
+					else if (booHeaderMaster)
 						stbDescription.Append(@"<span style='color:#ff1100;'><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></span><br/><br/>");
-					else if (intIsLightMaster == 512)
+					else if (booHeaderLight)
 						stbDescription.Append(@"<span style='color:#00662d;'>This file is marked as a light plugin (so it doesn't use a full load order slot).</span><br/><br/>");
 				}
 			}
@@ -300,7 +277,20 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 				stbDescription.Append(@"</ul>");
 			}
 
+			m_pmpPluginPolicy.Classify(p_strPluginPath, parsedFlags, unchecked((int)((Record)tpgPlugin.Records[0]).Flags3), masters, PluginParseStatus.Parsed);
 			return stbDescription.ToString();
+		}
+
+		private PluginHeaderFlags GetParsedHeaderFlags(string p_strPluginPath, TesPlugin p_tpgPlugin)
+		{
+			if (p_tpgPlugin == null || p_tpgPlugin.Records.Count == 0)
+				return PluginHeaderFlags.None;
+
+			Record header = (Record)p_tpgPlugin.Records[0];
+			PluginHeaderFlags flags = m_pmpPluginPolicy.MapHeaderFlags(header.Flags1, header.Flags2, header.Flags3);
+			if (p_tpgPlugin.Records[0].Name == "TES3" && TesPlugin.GetIsEsm(p_strPluginPath))
+				flags |= PluginHeaderFlags.Master;
+			return flags;
 		}
 
 		/// <summary>

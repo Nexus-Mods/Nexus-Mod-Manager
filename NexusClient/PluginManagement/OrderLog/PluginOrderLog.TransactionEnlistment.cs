@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -110,7 +110,6 @@ namespace Nexus.Client.PluginManagement.OrderLog
 					// and should be removed form the master list
 					for (Int32 i = oclUnorderedList.Count - 1; i >= lstOrderedList.Count; i--)
 						oclUnorderedList.RemoveAt(i);
-					EnlistedPluginOrderLog.OrderValidator.CorrectOrder(oclUnorderedList);
 				//}
 				EnlistedPluginOrderLog.SavePluginLog();
 				m_booEnlisted = false;
@@ -297,7 +296,6 @@ namespace Nexus.Client.PluginManagement.OrderLog
 						if (intNewIndex + 1 != i)
 							oclUnorderedList.Move(i, intNewIndex + 1);
 					}
-					EnlistedPluginOrderLog.OrderValidator.CorrectOrder(oclUnorderedList);
 
 					if (CurrentTransaction == null)
 						Commit();

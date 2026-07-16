@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -571,6 +571,17 @@ namespace Nexus.Client.Games
 			get
 			{
 				return m_intMaxAllowedPlugins;
+			}
+		}
+
+		/// <summary>
+		/// Gets the game-specific plugin management policy.
+		/// </summary>
+		public virtual PluginManagementPolicy PluginManagementPolicy
+		{
+			get
+			{
+				return Nexus.Client.PluginManagement.PluginManagementPolicy.CreateDefault(PluginExtensions, OrderedCriticalPluginNames, OrderedOfficialPluginNames, OrderedOfficialUnmanagedPluginNames, MaxAllowedActivePluginsCount);
 			}
 		}
 

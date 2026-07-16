@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Plugins;
@@ -31,6 +31,11 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
 		Int32  MaxAllowedActivePluginsCount { get; }
+
+		/// <summary>
+		/// Gets the current authoritative plugin snapshot.
+		/// </summary>
+		PluginSnapshot CurrentSnapshot { get; }
 
 		#endregion
 
@@ -114,6 +119,16 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		/// <param name="p_strPath">The path to the plugin to deactivate.</param>
 		void DeactivatePlugin(string p_strPath);
+
+		/// <summary>
+		/// Sets multiple plugin activations through the authoritative policy pipeline.
+		/// </summary>
+		void SetPluginActivation(IList<Plugin> p_lstPlugins, bool p_booActive);
+
+		/// <summary>
+		/// Applies a complete ordered plugin state through the authoritative policy pipeline.
+		/// </summary>
+		void ApplyPluginState(IList<Plugin> p_lstOrderedPlugins, IList<Plugin> p_lstActivePlugins);
 
 		/// <summary>
 		/// Determines if the specified plugin is active.

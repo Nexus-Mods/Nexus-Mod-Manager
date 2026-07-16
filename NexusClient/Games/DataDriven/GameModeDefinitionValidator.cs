@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Nexus.Client.PluginManagement;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -46,6 +47,7 @@ namespace Nexus.Client.Games.DataDriven
                 issues.Add(Error(definition, "Invalid modInstall.pathAdjustmentProfile '" + pathProfile + "'."));
 
             ValidatePluginSorting(definition, behaviorProfile, issues);
+            ValidatePluginPolicy(definition, issues);
 
             ValidateResourceFileName(definition, definition.Resources?.IconPath, "resources.iconPath", issues);
             ValidateResourceFileName(definition, definition.Resources?.CategoriesPath, "resources.categoriesPath", issues);
@@ -75,6 +77,33 @@ namespace Nexus.Client.Games.DataDriven
 
             if (!string.Equals(behaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
                 issues.Add(Error(definition, "plugin.supportsPluginAutoSorting is only supported by data-driven Gamebryo modes."));
+        }
+
+        private void ValidatePluginPolicy(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
+        {
+            GameModePluginPolicyDefinition policy = definition.Plugin == null ? null : definition.Plugin.Policy;
+            if (policy == null)
+                return;
+
+            if (policy.SchemaVersion != 1)
+                issues.Add(Error(definition, "plugin.policy.schemaVersion must be 1."));
+
+            foreach (GameModePluginExtensionPolicyDefinition extension in policy.Extensions ?? Enumerable.Empty<GameModePluginExtensionPolicyDefinition>())
+            {
+                ValidateExtensions(definition, new[] { extension.Extension }, "plugin.policy.extensions[].extension", issues);
+                if (!string.IsNullOrWhiteSpace(extension.ForcedAddressClass) && !Enum.TryParse(extension.ForcedAddressClass, true, out PluginAddressClass _))
+                    issues.Add(Error(definition, "plugin.policy.extensions[].forcedAddressClass is invalid: " + extension.ForcedAddressClass));
+                if (!string.IsNullOrWhiteSpace(extension.ForcedFlags) && !Enum.TryParse(extension.ForcedFlags, true, out PluginHeaderFlags _))
+                    issues.Add(Error(definition, "plugin.policy.extensions[].forcedFlags is invalid: " + extension.ForcedFlags));
+            }
+
+            foreach (GameModePluginAddressSpaceDefinition addressSpace in policy.AddressSpaces ?? Enumerable.Empty<GameModePluginAddressSpaceDefinition>())
+            {
+                if (!Enum.TryParse(addressSpace.AddressClass, true, out PluginAddressClass addressClass) || addressClass == PluginAddressClass.None)
+                    issues.Add(Error(definition, "plugin.policy.addressSpaces[].addressClass is invalid: " + addressSpace.AddressClass));
+                if (addressSpace.MaxCount < 0)
+                    issues.Add(Error(definition, "plugin.policy.addressSpaces[].maxCount cannot be negative."));
+            }
         }
 
         private void ValidateResourceFileName(GameModeDefinition definition, string resourcePath, string fieldName, IList<GameModeDefinitionIssue> issues)

@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Nexus.Client.BackgroundTasks;
@@ -59,6 +60,8 @@ namespace Nexus.Client.PluginManagement
 		}
 
 		#endregion
+
+		private readonly PluginSnapshotBuilder m_psbSnapshotBuilder = new PluginSnapshotBuilder();
 
 		#region Properties
 
@@ -130,7 +133,103 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
+		public PluginSnapshot CurrentSnapshot
+		{
+			get
+			{
+				return BuildPluginSnapshot();
+			}
+		}
+
 		#endregion
+
+		private PluginManagementPolicy Policy
+		{
+			get
+			{
+				return GameMode.PluginManagementPolicy ?? new PluginManagementPolicy();
+			}
+		}
+
+		private PluginSnapshot BuildPluginSnapshot()
+		{
+			return BuildPluginSnapshot(new List<Plugin>(ManagedPlugins), new HashSet<Plugin>(ActivePlugins));
+		}
+
+		private PluginSnapshot BuildPluginSnapshot(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins)
+		{
+			return m_psbSnapshotBuilder.Build(Policy, p_lstOrderedPlugins, p_setActivePlugins);
+		}
+
+		private List<Plugin> GetPolicyCorrectedOrder(IList<Plugin> p_lstPlugins)
+		{
+			List<Plugin> plugins = p_lstPlugins == null ? new List<Plugin>() : new List<Plugin>(p_lstPlugins.Where(x => x != null));
+			foreach (Plugin plugin in ManagedPlugins)
+				if (plugin != null && !plugins.Contains(plugin))
+					plugins.Add(plugin);
+			return m_psbSnapshotBuilder.CorrectStable(Policy, plugins);
+		}
+
+		private bool TryApplyPluginState(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins)
+		{
+			List<Plugin> correctedOrder = GetPolicyCorrectedOrder(p_lstOrderedPlugins);
+			HashSet<Plugin> desiredActivePlugins = new HashSet<Plugin>(p_setActivePlugins == null ? new List<Plugin>() : p_setActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			PluginSnapshot snapshot = BuildPluginSnapshot(correctedOrder, desiredActivePlugins);
+			if (snapshot.HasErrors)
+			{
+				TracePluginDiagnostics(snapshot);
+				return false;
+			}
+
+			Transactions.TransactionScope tsTransaction = null;
+			try
+			{
+				tsTransaction = new Transactions.TransactionScope();
+				PluginOrderLog.SetPluginOrder(correctedOrder);
+
+				List<Plugin> currentActivePlugins = new List<Plugin>(ActivePlugins.Where(x => x != null));
+				List<Plugin> pluginsToDeactivate = currentActivePlugins.Where(x => !desiredActivePlugins.Contains(x)).ToList();
+				List<Plugin> pluginsToActivate = desiredActivePlugins.Where(x => !currentActivePlugins.Contains(x, PluginComparer.Filename)).ToList();
+
+				if (pluginsToDeactivate.Count > 0)
+					ActivePluginLog.DeactivatePlugins(pluginsToDeactivate);
+				if (pluginsToActivate.Count > 0)
+					ActivePluginLog.ActivatePlugins(pluginsToActivate);
+
+				tsTransaction.Complete();
+				return true;
+			}
+			finally
+			{
+				if (tsTransaction != null)
+					tsTransaction.Dispose();
+			}
+		}
+
+		private void TracePluginDiagnostics(PluginSnapshot snapshot)
+		{
+			foreach (PluginValidationDiagnostic diagnostic in snapshot.Diagnostics)
+				if (diagnostic.Severity == PluginValidationSeverity.Error)
+					Trace.TraceWarning("Plugin state rejected: {0} - {1}", diagnostic.Plugin == null ? String.Empty : diagnostic.Plugin.Filename, diagnostic.Message);
+		}
+
+		private Plugin ResolvePluginPath(string p_strPath)
+		{
+			if (String.IsNullOrWhiteSpace(p_strPath))
+				return null;
+
+			string strPath = p_strPath;
+			if (!Path.IsPathRooted(strPath))
+				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, strPath);
+
+			Plugin plugin = ManagedPluginRegistry.GetPlugin(strPath);
+			if (plugin == null && ManagedPluginRegistry.IsActivatiblePluginFile(strPath))
+			{
+				AddPlugin(strPath);
+				plugin = ManagedPluginRegistry.GetPlugin(strPath);
+			}
+			return plugin;
+		}
 
 		#region Constructors
 
@@ -155,14 +254,14 @@ namespace Nexus.Client.PluginManagement
 
 			if (GameMode.OrderedCriticalPluginNames != null)
 			{
+				HashSet<Plugin> activePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
 				foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
-					ActivePluginLog.ActivatePlugin(strPlugin);
-				List<Plugin> lstPlugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
-				if (!OrderValidator.ValidateOrder(lstPlugins))
 				{
-					OrderValidator.CorrectOrder(lstPlugins);
-					PluginOrderLog.SetPluginOrder(lstPlugins);
+					Plugin plugin = ResolvePluginPath(strPlugin);
+					if (plugin != null)
+						activePlugins.Add(plugin);
 				}
+				TryApplyPluginState(new List<Plugin>(PluginOrderLog.OrderedPlugins), activePlugins);
 			}
 		}
 
@@ -183,7 +282,12 @@ namespace Nexus.Client.PluginManagement
 			{
 				Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(p_strPluginPath);
 				if (plgPlugin != null)
-					PluginOrderLog.SetPluginOrderIndex(plgPlugin, PluginOrderLog.OrderedPlugins.Count);
+				{
+					List<Plugin> plugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
+					plugins.Remove(plgPlugin);
+					plugins.Add(plgPlugin);
+					TryApplyPluginState(plugins, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename));
+				}
 			}
 			return booSuccess;
 		}
@@ -194,8 +298,14 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_plgPlugin">The plugin to remove.</param>
 		public void RemovePlugin(Plugin p_plgPlugin)
 		{
-			ActivePluginLog.DeactivatePlugin(p_plgPlugin);
-			PluginOrderLog.RemovePlugin(p_plgPlugin);
+			if (p_plgPlugin == null)
+				return;
+
+			List<Plugin> plugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
+			plugins.Remove(p_plgPlugin);
+			HashSet<Plugin> activePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			activePlugins.Remove(p_plgPlugin);
+			TryApplyPluginState(plugins, activePlugins);
 			ManagedPluginRegistry.UnregisterPlugin(p_plgPlugin);
 		}
 
@@ -277,7 +387,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_plgPlugin">The plugin to activate.</param>
 		public void ActivatePlugin(Plugin p_plgPlugin)
 		{
-			ActivePluginLog.ActivatePlugin(p_plgPlugin);
+			SetPluginActivation(new List<Plugin> { p_plgPlugin }, true);
 		}
 
 		/// <summary>
@@ -286,10 +396,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_strPath">The path to the plugin to activate.</param>
 		public void ActivatePlugin(string p_strPath)
 		{
-			string strPath = p_strPath;
-			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
-			ActivePluginLog.ActivatePlugin(strPath);
+			ActivatePlugin(ResolvePluginPath(p_strPath));
 		}
 
 		/// <summary>
@@ -298,7 +405,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_plgPlugin">The plugin to deactivate.</param>
 		public void DeactivatePlugin(Plugin p_plgPlugin)
 		{
-			ActivePluginLog.DeactivatePlugin(p_plgPlugin);
+			SetPluginActivation(new List<Plugin> { p_plgPlugin }, false);
 		}
 
 		/// <summary>
@@ -307,10 +414,30 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_strPath">The path to the plugin to deactivate.</param>
 		public void DeactivatePlugin(string p_strPath)
 		{
-			string strPath = p_strPath;
-			if (!Path.IsPathRooted(p_strPath))
-				strPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, p_strPath);
-			ActivePluginLog.DeactivatePlugin(strPath);
+			DeactivatePlugin(ResolvePluginPath(p_strPath));
+		}
+
+		public void SetPluginActivation(IList<Plugin> p_lstPlugins, bool p_booActive)
+		{
+			HashSet<Plugin> activePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			foreach (Plugin plugin in p_lstPlugins ?? new List<Plugin>())
+			{
+				if (plugin == null || !CanChangeActiveState(plugin))
+					continue;
+				if (p_booActive)
+					activePlugins.Add(plugin);
+				else
+					activePlugins.Remove(plugin);
+			}
+
+			TryApplyPluginState(new List<Plugin>(PluginOrderLog.OrderedPlugins), activePlugins);
+		}
+
+		public void ApplyPluginState(IList<Plugin> p_lstOrderedPlugins, IList<Plugin> p_lstActivePlugins)
+		{
+			HashSet<Plugin> activePlugins = new HashSet<Plugin>(p_lstActivePlugins == null ? new List<Plugin>() : p_lstActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			if (!TryApplyPluginState(p_lstOrderedPlugins, activePlugins))
+				throw new InvalidOperationException("The requested plugin state is invalid for the current game policy.");
 		}
 
 		/// <summary>
@@ -359,7 +486,14 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>
 		public void SetPluginOrderIndex(Plugin p_plgPlugin, int p_intNewIndex)
 		{
-			PluginOrderLog.SetPluginOrderIndex(p_plgPlugin, p_intNewIndex);
+			if (p_plgPlugin == null)
+				return;
+
+			List<Plugin> plugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
+			plugins.Remove(p_plgPlugin);
+			p_intNewIndex = Math.Max(0, Math.Min(p_intNewIndex, plugins.Count));
+			plugins.Insert(p_intNewIndex, p_plgPlugin);
+			TryApplyPluginState(plugins, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename));
 		}
 
 		/// <summary>
@@ -372,7 +506,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_lstOrderedPlugins">The list indicating the desired order of the plugins.</param>
 		public void SetPluginOrder(IList<Plugin> p_lstOrderedPlugins)
 		{
-			PluginOrderLog.SetPluginOrder(p_lstOrderedPlugins);
+			TryApplyPluginState(p_lstOrderedPlugins, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename));
 		}
 
 		/// <summary>
@@ -383,7 +517,7 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateOrder(IList<Plugin> p_lstPlugins)
 		{
-			return OrderValidator.ValidateOrder(p_lstPlugins);
+			return !BuildPluginSnapshot(GetPolicyCorrectedOrder(p_lstPlugins), new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename)).HasErrors;
 		}
 
 		#endregion
@@ -397,7 +531,7 @@ namespace Nexus.Client.PluginManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask ManageMultiplePluginsTask(List<Plugin> p_lstPlugins, bool p_booEnable, ConfirmActionMethod p_camConfirm)
 		{
-			ManageMultiplePluginsTask mptManageMultiplePlugins = new ManageMultiplePluginsTask(p_lstPlugins, ActivePluginLog, p_booEnable);
+			ManageMultiplePluginsTask mptManageMultiplePlugins = new ManageMultiplePluginsTask(p_lstPlugins, this, p_booEnable);
 			mptManageMultiplePlugins.Update(p_camConfirm);
 			return mptManageMultiplePlugins;
 		}
@@ -424,6 +558,14 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool CanActivatePlugins()
 		{
+			foreach (PluginAddressSpacePolicy addressSpace in Policy.AddressSpaces)
+			{
+				if (addressSpace == null || addressSpace.MaxCount <= 0 || addressSpace.AddressClass == PluginAddressClass.None)
+					continue;
+				int activePlugins = ActivePlugins.Count(x => x != null && x.Metadata.AddressClass == addressSpace.AddressClass);
+				if (activePlugins >= addressSpace.MaxCount)
+					return false;
+			}
 			return true;
 		}
 

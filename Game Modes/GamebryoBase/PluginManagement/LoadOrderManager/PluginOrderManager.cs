@@ -32,6 +32,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private bool Fallout4PluginManagement = false;
 		private bool StarFieldCustomPluginsMessage = false;
 		private bool OblivionRemasteredPluginManagement = false;
+		private string ActiveMarker = "*";
 
 		#region Events
 
@@ -254,153 +255,18 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void InitializeManager()
 		{
-			AppDataGameFolderName = GameMode.ModeId;
+			PluginManagementPolicy policy = GameMode.PluginManagementPolicy ?? new PluginManagementPolicy();
+			string persistenceStrategy = policy.PersistenceStrategy ?? String.Empty;
 
-			switch (GameMode.ModeId)
-			{
-				case "Oblivion":
-					TimestampOrder = true;
-					IgnoreOfficialPlugins = false;
-					ForcedReadOnly = false;
-					SingleFileManagement = false;
-					Fallout4PluginManagement = false;
-					break;
-				case "Fallout3":
-					TimestampOrder = true;
-					IgnoreOfficialPlugins = false;
-					ForcedReadOnly = false;
-					SingleFileManagement = false;
-					Fallout4PluginManagement = false;
-					break;
-				case "FalloutNV":
-					TimestampOrder = true;
-					IgnoreOfficialPlugins = false;
-					ForcedReadOnly = false;
-					SingleFileManagement = false;
-					Fallout4PluginManagement = false;
-					break;
-				case "Skyrim":
-					TimestampOrder = false;
-					IgnoreOfficialPlugins = false;
-					ForcedReadOnly = false;
-					SingleFileManagement = false;
-					Fallout4PluginManagement = false;
-					break;
-				case "Fallout4":
-					try
-					{
-						if (GameMode.GameVersion >= new Version(1, 5, 0, 0))
-						{
-							TimestampOrder = false;
-							SingleFileManagement = true;
-							if (GameMode.GameVersion >= new Version(1, 5, 154, 0))
-							{
-								Fallout4PluginManagement = true;
-								ForcedReadOnly = false;
-							}
-							else
-							{
-								ForcedReadOnly = true;
-							}
-						}
-						else if (GameMode.GameVersion < new Version(1, 0, 0, 0))
-						{
-							TimestampOrder = false;
-							SingleFileManagement = true;
-							Fallout4PluginManagement = true;
-							ForcedReadOnly = false;
-						}
-						else
-						{
-							TimestampOrder = false;
-							ForcedReadOnly = true;
-							SingleFileManagement = false;
-							Fallout4PluginManagement = false;
-						}
-						IgnoreOfficialPlugins = true;
-                    }
-                    catch (ArgumentNullException e)
-                    {
-                        var ex = new FileNotFoundException("Could not initialize Fallout4 Game Mode: Could not find the Fallout 4 executable.", Path.Combine(GameMode.ExecutablePath, "Fallout4.exe"), e);
-                        TraceUtil.TraceException(ex);
-                        throw ex;
-                    }
-					break;
-                case "Fallout4VR":
-                    TimestampOrder = false;
-                    SingleFileManagement = true;
-                    Fallout4PluginManagement = true;
-                    ForcedReadOnly = false;
-                    break;
-                case "SkyrimSE":
-					AppDataGameFolderName = "Skyrim Special Edition";
-					IgnoreOfficialPlugins = true;
-					TimestampOrder = false;
-					SingleFileManagement = true;
-					Fallout4PluginManagement = true;
-					ForcedReadOnly = false;
-					break;
-				case "SkyrimGOG":
-					AppDataGameFolderName = "Skyrim Special Edition GOG";
-					IgnoreOfficialPlugins = true;
-					TimestampOrder = false;
-					SingleFileManagement = true;
-					Fallout4PluginManagement = true;
-					ForcedReadOnly = false;
-					break;
-				case "SkyrimVR":
-			        AppDataGameFolderName = "Skyrim VR";
-			        IgnoreOfficialPlugins = true;
-			        TimestampOrder = false;
-			        SingleFileManagement = true;
-			        Fallout4PluginManagement = true;
-			        ForcedReadOnly = false;
-			        break;
-				case "Enderal":
-					TimestampOrder = false;
-					IgnoreOfficialPlugins = false;
-					ForcedReadOnly = false;
-					SingleFileManagement = false;
-					Fallout4PluginManagement = false;
-					break;
-				case "enderalspecialedition":
-					AppDataGameFolderName = "Enderal Special Edition";
-					IgnoreOfficialPlugins = false;
-					TimestampOrder = false;
-					SingleFileManagement = true;
-					Fallout4PluginManagement = true;
-					ForcedReadOnly = false;
-					break;
-				case "Starfield":
-					AppDataGameFolderName = "Starfield";
-					IgnoreOfficialPlugins = true;
-					TimestampOrder = false;
-					SingleFileManagement = true;
-					Fallout4PluginManagement = true;
-					ForcedReadOnly = false;
-					try
-					{ 
-					if (GameMode.GameVersion >= new Version(1, 12, 30, 0))
-						StarFieldCustomPluginsMessage = true;
-					}
-					catch (ArgumentNullException e)
-					{
-						var ex = new FileNotFoundException("Could not initialize Starfield Game Mode: Could not find the Starfield executable.", Path.Combine(GameMode.ExecutablePath, "Starfield.exe"), e);
-						TraceUtil.TraceException(ex);
-						throw ex;
-					}
-					break;
-				case "OblivionRemastered":
-					TimestampOrder = false;
-					IgnoreOfficialPlugins = false;
-					ForcedReadOnly = false;
-					SingleFileManagement = false;
-					Fallout4PluginManagement = true;
-					OblivionRemasteredPluginManagement = true;
-					break;
-				default:
-					throw new NotImplementedException(string.Format("Unsupported game: {0} ({1})", GameMode.Name, GameMode.ModeId));
-			}
+			AppDataGameFolderName = String.IsNullOrWhiteSpace(policy.AppDataGameFolderName) ? GameMode.ModeId : policy.AppDataGameFolderName;
+			TimestampOrder = policy.UseTimestampOrder ?? persistenceStrategy.Equals("timestamp", StringComparison.OrdinalIgnoreCase);
+			SingleFileManagement = policy.SingleFileManagement ?? (persistenceStrategy.Equals("singleFile", StringComparison.OrdinalIgnoreCase) || persistenceStrategy.Equals("plugins", StringComparison.OrdinalIgnoreCase) || persistenceStrategy.Equals("pluginsTxt", StringComparison.OrdinalIgnoreCase));
+			OblivionRemasteredPluginManagement = policy.LoadOrderInPluginDirectory ?? persistenceStrategy.Equals("pluginDirectory", StringComparison.OrdinalIgnoreCase);
+			IgnoreOfficialPlugins = policy.IgnoreOfficialPlugins ?? false;
+			ForcedReadOnly = policy.ForcedReadOnly ?? false;
+			Fallout4PluginManagement = policy.OfficialPluginsAreImplicitlyActive ?? false;
+			StarFieldCustomPluginsMessage = policy.ShowStarfieldCustomPluginsHeader ?? false;
+			ActiveMarker = String.IsNullOrEmpty(policy.ActiveMarker) ? "*" : policy.ActiveMarker;
 
 			string strLocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 			string strGameModeLocalAppData = Path.Combine(strLocalAppData, AppDataGameFolderName);
@@ -451,11 +317,34 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			else
 				PluginsFilePath = Path.Combine(GameMode.PluginDirectory, "Plugins.txt");
 
+			if (!String.IsNullOrWhiteSpace(policy.LoadOrderFilePath))
+				LoadOrderFilePath = ResolvePolicyPersistencePath(policy.LoadOrderFilePath, OblivionRemasteredPluginManagement ? GameMode.PluginDirectory : strGameModeLocalAppData);
+			if (!String.IsNullOrWhiteSpace(policy.PluginsFilePath))
+				PluginsFilePath = ResolvePolicyPersistencePath(policy.PluginsFilePath, OblivionRemasteredPluginManagement ? GameMode.PluginDirectory : strGameModeLocalAppData);
+
 				Backup(strGameModeLocalAppData);
 
 			SetupWatcher(strGameModeLocalAppData);
 		}
 
+		private string ResolvePolicyPersistencePath(string policyPath, string baseDirectory)
+		{
+			if (String.IsNullOrWhiteSpace(policyPath))
+				return policyPath;
+			if (Path.IsPathRooted(policyPath))
+				return policyPath;
+			return Path.Combine(baseDirectory, policyPath);
+		}
+
+		private bool LineHasActiveMarker(string line)
+		{
+			return !String.IsNullOrEmpty(ActiveMarker) && !String.IsNullOrEmpty(line) && line.StartsWith(ActiveMarker, StringComparison.Ordinal);
+		}
+
+		private string StripActiveMarker(string line)
+		{
+			return LineHasActiveMarker(line) ? line.Substring(ActiveMarker.Length) : line;
+		}
 		#region FileWatcher
 
 		/// <summary>
@@ -796,9 +685,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 								if (SingleFileManagement)
 								{
 									intPlugins++;
-									if (line.StartsWith("*"))
+									if (LineHasActiveMarker(line))
 									{
-										string strPlugin = line.Substring(1);
+										string strPlugin = line.Substring(ActiveMarker.Length);
 										if (Fallout4PluginManagement)
 											if (GameMode.OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 												continue;
@@ -893,9 +782,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 								if (SingleFileManagement)
 								{
-									if (line.StartsWith("*"))
+									if (LineHasActiveMarker(line))
 									{
-										string strPlugin = line.Substring(1);
+										string strPlugin = line.Substring(ActiveMarker.Length);
 										if (Fallout4PluginManagement)
 											if (GameMode.OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 												continue;
@@ -977,7 +866,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					string strPlugin = strPlugins[i];
 					if (strActivePluginNames.Contains(strPlugin))
-						strOrderedPluginNames[(i + offset)] = "*" + strPlugin;
+						strOrderedPluginNames[(i + offset)] = ActiveMarker + strPlugin;
 					else
 						strOrderedPluginNames[(i + offset)] = strPlugin;
 				}
@@ -1080,7 +969,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 								if (SingleFileManagement)
 								{
-									string strPlugin = line.StartsWith("*") ? line.Substring(1) : line;
+									string strPlugin = LineHasActiveMarker(line) ? line.Substring(ActiveMarker.Length) : line;
 									if (Fallout4PluginManagement)
 										if (GameMode.OrderedOfficialPluginNames.Concat(GameMode.OrderedOfficialUnmanagedPluginNames).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 											continue;
@@ -1241,7 +1130,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					string strPlugin = strOrderedPluginNames[i];
 					if (lstActiveList.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
-						strPluginNames[(i + offset)] = "*" + strPlugin;
+						strPluginNames[(i + offset)] = ActiveMarker + strPlugin;
 					else
 						strPluginNames[(i + offset)] = strPlugin;
 				}
@@ -1331,9 +1220,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 							if (SingleFileManagement)
 							{
 								string strCurrent = line;
-								if (strCurrent.StartsWith("*"))
+								if (LineHasActiveMarker(strCurrent))
 								{
-									strCurrent = strCurrent.Substring(1);
+									strCurrent = strCurrent.Substring(ActiveMarker.Length);
 									if (m_rgxPluginFile.IsMatch(strCurrent))
 										if (strCurrent.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
 											return true;

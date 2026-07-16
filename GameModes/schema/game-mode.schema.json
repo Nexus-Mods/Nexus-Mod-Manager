@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Nexus-Mods/Nexus-Mod-Manager/game-mode.schema.json",
   "title": "Nexus Mod Manager CE Game Mode Definition",
@@ -74,7 +74,72 @@
         "pluginDirectorySuffix": { "$ref": "#/$defs/safeRelativePath" },
         "supportsPluginAutoSorting": { "type": "boolean", "description": "Only valid for gamebryo behaviorProfile in the current implementation." },
         "maxAllowedActivePluginsCount": { "type": "integer", "minimum": 0 },
-        "officialUnmanagedPluginListFiles": { "type": "array", "items": { "$ref": "#/$defs/safeRelativePath" } }
+        "officialUnmanagedPluginListFiles": { "type": "array", "items": { "$ref": "#/$defs/safeRelativePath" } },
+        "policy": { "$ref": "#/$defs/pluginPolicy" }
+      }
+    },
+    "pluginPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "schemaVersion" ],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "parserStrategy": { "type": "string" },
+        "persistenceStrategy": { "type": "string" },
+        "masterPluginsMustLoadBeforeNonMasters": { "type": "boolean" },
+        "validateDependencies": { "type": "boolean" },
+        "pluginsFilePath": { "$ref": "#/$defs/safeRelativePath" },
+        "loadOrderFilePath": { "$ref": "#/$defs/safeRelativePath" },
+        "encodingName": { "type": "string" },
+        "activeMarker": { "type": "string" },
+        "inactiveMarker": { "type": "string" },
+        "appDataGameFolderName": { "type": "string" },
+        "useTimestampOrder": { "type": "boolean" },
+        "ignoreOfficialPlugins": { "type": "boolean" },
+        "forcedReadOnly": { "type": "boolean" },
+        "singleFileManagement": { "type": "boolean" },
+        "officialPluginsAreImplicitlyActive": { "type": "boolean" },
+        "loadOrderInPluginDirectory": { "type": "boolean" },
+        "showStarfieldCustomPluginsHeader": { "type": "boolean" },
+        "extensions": { "type": "array", "items": { "$ref": "#/$defs/pluginExtensionPolicy" } },
+        "headerFlagMappings": { "type": "array", "items": { "$ref": "#/$defs/pluginHeaderFlagMapping" } },
+        "addressSpaces": { "type": "array", "items": { "$ref": "#/$defs/pluginAddressSpace" } },
+        "officialPlugins": { "type": "array", "items": { "type": "string" } },
+        "criticalPlugins": { "type": "array", "items": { "type": "string" } },
+        "fixedOrderPlugins": { "type": "array", "items": { "type": "string" } },
+        "forcedActivePlugins": { "type": "array", "items": { "type": "string" } },
+        "blueprintPlugins": { "type": "array", "items": { "type": "string" } },
+        "blueprintPluginPrefixes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "pluginExtensionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "extension" ],
+      "properties": {
+        "extension": { "$ref": "#/$defs/fileExtension" },
+        "forcedFlags": { "type": "string" },
+        "forcedAddressClass": { "type": "string", "enum": [ "None", "Full", "Light", "Medium", "Small" ] }
+      }
+    },
+    "pluginHeaderFlagMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "source", "mask", "flags" ],
+      "properties": {
+        "source": { "type": "string", "enum": [ "RecordFlags1", "RecordFlags2", "RecordFlags3" ] },
+        "mask": { "type": "string" },
+        "flags": { "type": "string" }
+      }
+    },    "pluginAddressSpace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "addressClass", "firstIndex", "maxCount" ],
+      "properties": {
+        "addressClass": { "type": "string", "enum": [ "Full", "Light", "Medium", "Small" ] },
+        "firstIndex": { "type": "integer", "minimum": 0 },
+        "maxCount": { "type": "integer", "minimum": 0 },
+        "displayFormat": { "type": "string" }
       }
     },
     "launcher": {

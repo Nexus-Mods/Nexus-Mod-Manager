@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using ChinhDo.Transactions;
@@ -113,6 +113,11 @@ namespace Nexus.Client.Games
 		/// </summary>
 		/// <value>The max allowed number of active plugins (0 if there's no limit).</value>
 		Int32 MaxAllowedActivePluginsCount { get; }
+
+		/// <summary>
+		/// Gets the game-specific plugin management policy.
+		/// </summary>
+		PluginManagementPolicy PluginManagementPolicy { get; }
 
 		/// <summary>
 		/// Whether the game requires mod file merging.

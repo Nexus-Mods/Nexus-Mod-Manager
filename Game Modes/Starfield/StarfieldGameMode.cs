@@ -10,6 +10,7 @@ using Nexus.Client.Games.Tools;
 using Nexus.Client.Util;
 using Nexus.Client.Games.Starfield.Settings;
 using Nexus.Client.Games.Starfield.Settings.UI;
+using Nexus.Client.PluginManagement;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.Mods;
 
@@ -172,6 +173,20 @@ namespace Nexus.Client.Games.Starfield
 			get
 			{
 				return false;
+			}
+		}
+
+		public override PluginManagementPolicy PluginManagementPolicy
+		{
+			get
+			{
+				PluginManagementPolicy policy = base.PluginManagementPolicy;
+				policy.AddHeaderFlagMapping(new PluginHeaderFlagMapping(PluginHeaderFlagSource.RecordFlags1, 0x00000400, PluginHeaderFlags.Medium));
+				policy.AddHeaderFlagMapping(new PluginHeaderFlagMapping(PluginHeaderFlagSource.RecordFlags1, 0x00000800, PluginHeaderFlags.Small));
+				policy.AddBlueprintPluginPrefix("BlueprintShips-");
+				policy.AddAddressSpace(new PluginAddressSpacePolicy(PluginAddressClass.Medium, 0, 256, "FD:{0:X2}"));
+				policy.AddAddressSpace(new PluginAddressSpacePolicy(PluginAddressClass.Small, 0, 4096, "FE:{0:X3}"));
+				return policy;
 			}
 		}
 

@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Drawing;
 using System.IO;
+using Nexus.Client.PluginManagement;
 
 namespace Nexus.Client.Plugins
 {
@@ -37,6 +38,28 @@ namespace Nexus.Client.Plugins
 		/// <value>The list of the plugin's masters.</value>
 		public List<string> Masters { get; private set; }
 
+		public PluginMetadata Metadata { get; private set; }
+
+		public string EffectiveTypeDisplay
+		{
+			get
+			{
+				switch (Metadata.AddressClass)
+				{
+					case PluginAddressClass.Light:
+						return Metadata.EffectiveMaster ? "Light Master" : "Light Plugin";
+					case PluginAddressClass.Medium:
+						return "Medium Master";
+					case PluginAddressClass.Small:
+						return "Small Master";
+					case PluginAddressClass.Full:
+						return Metadata.EffectiveMaster ? "Full Master" : "Full Plugin";
+					default:
+						return "Unsupported";
+				}
+			}
+		}
+
 		/// Gets whether the plugin has masters.
 		/// </summary>
 		/// <value>Whether the plugin has masters.</value>
@@ -55,7 +78,7 @@ namespace Nexus.Client.Plugins
         {
             get
             {
-                return false;
+                return Metadata != null && Metadata.AddressClass != PluginAddressClass.Full;
             }
         }
 
@@ -75,6 +98,7 @@ namespace Nexus.Client.Plugins
 			Description = p_strDescription;
 			Picture = p_imgPicture;
 			Masters = new List<string>();
+			Metadata = PluginMetadata.Unknown(p_strPath);
 		}
 
 		#endregion
@@ -94,6 +118,13 @@ namespace Nexus.Client.Plugins
 				foreach (string plugin in p_lstMasters)
 					if (!String.IsNullOrEmpty(plugin) && !Masters.Contains(plugin, StringComparer.CurrentCultureIgnoreCase))
 						Masters.Add(plugin);
+		}
+
+		public void SetMetadata(PluginMetadata p_pmdMetadata)
+		{
+			Metadata = p_pmdMetadata ?? PluginMetadata.Unknown(Filename);
+			Masters.Clear();
+			SetMasters(Metadata.Masters);
 		}
 	}
 }

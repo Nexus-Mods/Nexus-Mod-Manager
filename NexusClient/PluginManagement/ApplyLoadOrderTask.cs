@@ -84,47 +84,35 @@ namespace Nexus.Client.PluginManagement
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = RegisteredPlugins.Count;
 
-			Transactions.TransactionScope tsTransaction = null;
-			try
+			if (SortingOnly)
 			{
-				tsTransaction = new Transactions.TransactionScope();
-
-				if (!SortingOnly)
+				PluginManager.SetPluginOrder(RegisteredPlugins.Keys.ToList());
+			}
+			else
+			{
+				List<Plugin> activePlugins = new List<Plugin>(PluginManager.ActivePlugins);
+				foreach (KeyValuePair<Plugin, string> kvp in RegisteredPlugins)
 				{
-					foreach (KeyValuePair<Plugin, string> kvp in RegisteredPlugins)
+					if (kvp.Value == "1")
 					{
-						if (kvp.Value == "1")
-						{
-							if (PluginManager.CanChangeActiveState(kvp.Key))
-								PluginManager.ActivatePlugin(kvp.Key);
-						}
-						if (kvp.Value == "0")
-						{
-							if (PluginManager.CanChangeActiveState(kvp.Key))
-								PluginManager.DeactivatePlugin(kvp.Key);
-						}
-
-						if (OverallProgress < OverallProgressMaximum)
-							StepOverallProgress();
+						if (PluginManager.CanChangeActiveState(kvp.Key) && !activePlugins.Contains(kvp.Key))
+							activePlugins.Add(kvp.Key);
 					}
+					if (kvp.Value == "0")
+					{
+						if (PluginManager.CanChangeActiveState(kvp.Key))
+							activePlugins.Remove(kvp.Key);
+					}
+
+					if (OverallProgress < OverallProgressMaximum)
+						StepOverallProgress();
 				}
 
-				PluginManager.SetPluginOrder(RegisteredPlugins.Keys.ToList());
+				PluginManager.ApplyPluginState(RegisteredPlugins.Keys.ToList(), activePlugins);
+			}
 
-				if (OverallProgress < OverallProgressMaximum)
-					OverallProgress = OverallProgressMaximum;
-
-				tsTransaction.Complete();
-			}
-			catch
-			{
-				throw;
-			}
-			finally
-			{
-				if (tsTransaction != null)
-					tsTransaction.Dispose();
-			}
+			if (OverallProgress < OverallProgressMaximum)
+				OverallProgress = OverallProgressMaximum;
 
 			return null;
 		}

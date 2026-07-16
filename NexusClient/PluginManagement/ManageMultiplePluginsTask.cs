@@ -12,7 +12,7 @@ namespace Nexus.Client.PluginManagement
 		#region Fields
 
 		protected IList<Plugin> PluginList { get; private set; }
-		protected ActivePluginLog APL { get; private set; }
+		protected IPluginManager PluginManager { get; private set; }
 		protected bool EnablePlugins { get; private set; }
 
 		#endregion
@@ -22,10 +22,10 @@ namespace Nexus.Client.PluginManagement
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public ManageMultiplePluginsTask(List<Plugin> p_lstPlugins, ActivePluginLog p_aplLog, bool p_booEnable)
+		public ManageMultiplePluginsTask(List<Plugin> p_lstPlugins, IPluginManager p_pmgPluginManager, bool p_booEnable)
 		{
 			PluginList = p_lstPlugins;
-			APL = p_aplLog;
+			PluginManager = p_pmgPluginManager;
 			EnablePlugins = p_booEnable;
 		}
 
@@ -81,12 +81,12 @@ namespace Nexus.Client.PluginManagement
 			{
 				if (EnablePlugins)
 				{
-					if (!APL.IsPluginActive(plugin))
+					if (!PluginManager.ActivePlugins.Contains(plugin))
 						lstPlugins.Add(plugin);
 				}
 				else
 				{
-					if (APL.IsPluginActive(plugin))
+					if (PluginManager.ActivePlugins.Contains(plugin))
 						lstPlugins.Add(plugin);
 				}
 
@@ -94,10 +94,7 @@ namespace Nexus.Client.PluginManagement
 					StepOverallProgress();
 			}
 
-			if (EnablePlugins)
-				APL.ActivatePlugins(lstPlugins);
-			else
-				APL.DeactivatePlugins(lstPlugins);
+			PluginManager.SetPluginActivation(lstPlugins, EnablePlugins);
 
 			return null;
 		}
