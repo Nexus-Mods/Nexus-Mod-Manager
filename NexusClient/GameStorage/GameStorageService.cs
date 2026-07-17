@@ -31,59 +31,299 @@ namespace Nexus.Client.GameStorage
         public string RegistryPath => Path.Combine(RegistryDirectory, GameStorageConstants.RegistryFileName);
         public string LastKnownGoodPath => Path.Combine(RegistryDirectory, GameStorageConstants.LastKnownGoodFileName);
         public string BackupDirectory => Path.Combine(RegistryDirectory, "Backups");
-        public GameStoragePathSet FromGameMode(IGameMode gameMode)
-        {
-            string gameId = gameMode.ModeId;
-            string linkFolder = GetSettingValue(_environmentInfo.Settings.HDLinkFolder, gameId);
-            bool multiHd = GetBoolSettingValue(_environmentInfo.Settings.MultiHDInstall, gameId);
+		public GameStoragePathSet FromGameMode(IGameMode gameMode)
+		{
+			string gameId = gameMode.ModeId;
+			string linkFolder = GetSettingValue(_environmentInfo.Settings.HDLinkFolder, gameId);
+			bool multiHd = GetBoolSettingValue(_environmentInfo.Settings.MultiHDInstall, gameId);
 
-            return new GameStoragePathSet
-            {
-                GameId = gameId,
-                GameName = gameMode.Name,
-                GameInstallPath = gameMode.GameModeEnvironmentInfo.InstallationPath,
-                InstallInfoPath = gameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
-                ModsPath = gameMode.GameModeEnvironmentInfo.ModDirectory,
-                VirtualInstallPath = GetSettingValue(_environmentInfo.Settings.VirtualFolder, gameId),
-                LinkFolderPath = linkFolder,
-                LinkFolderRequired = multiHd || IsLinkFolderRequired(GetSettingValue(_environmentInfo.Settings.VirtualFolder, gameId), gameMode.GameModeEnvironmentInfo.InstallationPath)
-            };
-        }
+			// VirtualFolder historically stores the parent of the actual
+			// VirtualInstall directory. VirtualModActivator appends
+			// "VirtualInstall" to this setting.
+			string virtualFolderSetting =
+				GetSettingValue(_environmentInfo.Settings.VirtualFolder, gameId);
 
-        public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode, bool initializeIfValid)
+			string virtualInstallPath =
+				NormalizeVirtualInstallDirectory(virtualFolderSetting);
+
+			return new GameStoragePathSet
+			{
+				GameId = gameId,
+				GameName = gameMode.Name,
+				GameInstallPath = gameMode.GameModeEnvironmentInfo.InstallationPath,
+				InstallInfoPath = gameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
+				ModsPath = gameMode.GameModeEnvironmentInfo.ModDirectory,
+				VirtualInstallPath = virtualInstallPath,
+				LinkFolderPath = linkFolder,
+				LinkFolderRequired =
+					multiHd ||
+					IsLinkFolderRequired(
+						virtualInstallPath,
+						gameMode.GameModeEnvironmentInfo.InstallationPath)
+			};
+		}
+
+		/// <summary>
+		/// Converts either a legacy VirtualFolder root or an already resolved
+		/// VirtualInstall directory into the actual VirtualInstall directory.
+		///
+		/// Examples:
+		/// C:\NMM\Skyrim
+		///     becomes C:\NMM\Skyrim\VirtualInstall
+		///
+		/// C:\NMM\Skyrim\VirtualInstall
+		///     remains C:\NMM\Skyrim\VirtualInstall
+		/// </summary>
+		public string NormalizeVirtualInstallDirectory(string pathOrRoot)
+		{
+			if (string.IsNullOrWhiteSpace(pathOrRoot))
+				return null;
+
+			string normalizedPath = NormalizeDirectoryPath(pathOrRoot);
+
+			if (string.Equals(
+				Path.GetFileName(normalizedPath),
+				GameStorageConstants.VirtualInstallDirectoryName,
+				StringComparison.OrdinalIgnoreCase))
+			{
+				return normalizedPath;
+			}
+
+			return Path.Combine(
+				normalizedPath,
+				GameStorageConstants.VirtualInstallDirectoryName);
+		}
+
+		/// <summary>
+		/// Converts the actual VirtualInstall directory back into the legacy
+		/// VirtualFolder setting expected by VirtualModActivator.
+		/// </summary>
+		private string GetVirtualFolderSettingPath(string virtualInstallPath)
+		{
+			if (string.IsNullOrWhiteSpace(virtualInstallPath))
+				return null;
+
+			string normalizedPath = NormalizeDirectoryPath(virtualInstallPath);
+
+			if (!string.Equals(
+				Path.GetFileName(normalizedPath),
+				GameStorageConstants.VirtualInstallDirectoryName,
+				StringComparison.OrdinalIgnoreCase))
+			{
+				// Defensive fallback. The legacy runtime will append
+				// VirtualInstall to this value.
+				return normalizedPath;
+			}
+
+			string parentPath = Path.GetDirectoryName(normalizedPath);
+			return string.IsNullOrWhiteSpace(parentPath)
+				? normalizedPath
+				: parentPath;
+		}
+
+		private string NormalizeDirectoryPath(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				return null;
+
+			try
+			{
+				string fullPath = Path.GetFullPath(path);
+				string root = Path.GetPathRoot(fullPath);
+
+				if (string.Equals(fullPath, root, StringComparison.OrdinalIgnoreCase))
+					return fullPath;
+
+				return fullPath.TrimEnd(
+					Path.DirectorySeparatorChar,
+					Path.AltDirectorySeparatorChar);
+			}
+			catch
+			{
+				return path.TrimEnd(
+					Path.DirectorySeparatorChar,
+					Path.AltDirectorySeparatorChar);
+			}
+		}
+
+		private bool AreSamePaths(string left, string right)
+		{
+			if (string.IsNullOrWhiteSpace(left) ||
+				string.IsNullOrWhiteSpace(right))
+			{
+				return false;
+			}
+
+			return string.Equals(
+				NormalizeDirectoryPath(left),
+				NormalizeDirectoryPath(right),
+				StringComparison.OrdinalIgnoreCase);
+		}
+
+		/// <summary>
+		/// Repairs the specific 0.91.0 migration issue where the legacy
+		/// VirtualFolder root was treated as the actual VirtualInstall folder.
+		///
+		/// Broken layout:
+		///
+		/// ModsPath:
+		///     C:\...\MODdatas
+		///     .nmm-folder.json says VirtualInstall
+		///
+		/// Actual VirtualInstall:
+		///     C:\...\MODdatas\VirtualInstall
+		///     no .nmm-folder.json
+		///
+		/// The repair is intentionally conservative and only runs when the
+		/// complete known corruption pattern is present.
+		/// </summary>
+		private bool TryRepairLegacyVirtualInstallManifestCollision(
+			GameStoragePathSet paths,
+			GameStorageRegistry registry)
+		{
+			if (paths == null ||
+				registry == null ||
+				string.IsNullOrWhiteSpace(paths.ModsPath) ||
+				string.IsNullOrWhiteSpace(paths.InstallInfoPath) ||
+				string.IsNullOrWhiteSpace(paths.VirtualInstallPath))
+			{
+				return false;
+			}
+
+			if (!Directory.Exists(paths.ModsPath) ||
+				!Directory.Exists(paths.InstallInfoPath) ||
+				!Directory.Exists(paths.VirtualInstallPath))
+			{
+				return false;
+			}
+
+			string expectedVirtualInstallPath = Path.Combine(
+				NormalizeDirectoryPath(paths.ModsPath),
+				GameStorageConstants.VirtualInstallDirectoryName);
+
+			// Only repair the known layout where VirtualInstall is the direct
+			// child of the Mods/archive root.
+			if (!AreSamePaths(
+				expectedVirtualInstallPath,
+				paths.VirtualInstallPath))
+			{
+				return false;
+			}
+
+			GameStorageFolderManifest misplacedManifest =
+				ReadFolderManifest(paths.ModsPath);
+
+			if (misplacedManifest == null ||
+				misplacedManifest.FolderRole !=
+					GameStorageFolderRole.VirtualInstall ||
+				!string.Equals(
+					misplacedManifest.GameId,
+					paths.GameId,
+					StringComparison.OrdinalIgnoreCase) ||
+				string.IsNullOrWhiteSpace(misplacedManifest.StorageId))
+			{
+				return false;
+			}
+
+			string actualVirtualManifestPath = Path.Combine(
+				paths.VirtualInstallPath,
+				GameStorageConstants.FolderManifestFileName);
+
+			// Do not overwrite an existing manifest in the real folder. An
+			// existing manifest could represent a different recovery problem.
+			if (File.Exists(actualVirtualManifestPath))
+				return false;
+
+			GameStorageFolderManifest installInfoManifest =
+				ReadFolderManifest(paths.InstallInfoPath);
+
+			// Requiring the matching InstallInfo manifest makes this repair
+			// specific to the metadata set generated by the broken migration.
+			if (installInfoManifest == null ||
+				installInfoManifest.FolderRole !=
+					GameStorageFolderRole.InstallInfo ||
+				!string.Equals(
+					installInfoManifest.GameId,
+					paths.GameId,
+					StringComparison.OrdinalIgnoreCase) ||
+				!string.Equals(
+					installInfoManifest.StorageId,
+					misplacedManifest.StorageId,
+					StringComparison.OrdinalIgnoreCase))
+			{
+				return false;
+			}
+
+			try
+			{
+				// This overwrites the incorrect manifest in Mods with role Mods,
+				// creates the missing manifest inside VirtualInstall, and updates
+				// the registry and last-known-good metadata.
+				InitializeMetadata(
+					paths,
+					misplacedManifest.StorageId,
+					registry);
+
+				return true;
+			}
+			catch (UnauthorizedAccessException)
+			{
+				return false;
+			}
+			catch (IOException)
+			{
+				return false;
+			}
+		}
+
+		public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode, bool initializeIfValid)
         {
             return ValidateStorage(FromGameMode(gameMode), initializeIfValid);
         }
 
-        public GameStorageHealthCheck ValidateStorage(GameStoragePathSet paths, bool initializeIfValid)
-        {
-            var registry = LoadRegistry();
-            string storageId = ResolveStorageId(paths, registry);
-            var result = Validate(paths, storageId, registry);
+		public GameStorageHealthCheck ValidateStorage(
+			GameStoragePathSet paths,
+			bool initializeIfValid)
+		{
+			var registry = LoadRegistry();
 
-            if (result.IsHealthy && initializeIfValid)
-            {
-                if (TryInitializeMetadata(paths, storageId, registry, result))
-                    result.StorageId = storageId;
-            }
+			TryRepairLegacyVirtualInstallManifestCollision(
+				paths,
+				registry);
 
-            return result;
-        }
+			string storageId = ResolveStorageId(paths, registry);
+			var result = Validate(paths, storageId, registry);
 
-        public void InitializeMetadataForCurrentStorage(IGameMode gameMode)
+			if (result.IsHealthy && initializeIfValid)
+			{
+				if (TryInitializeMetadata(paths, storageId, registry, result))
+					result.StorageId = storageId;
+			}
+
+			return result;
+		}
+
+		public void InitializeMetadataForCurrentStorage(IGameMode gameMode)
         {
             InitializeMetadataForStorage(FromGameMode(gameMode));
         }
 
-        public void InitializeMetadataForStorage(GameStoragePathSet paths)
-        {
-            var registry = LoadRegistry();
-            string storageId = ResolveStorageId(paths, registry);
-            var result = Validate(paths, storageId, registry);
-            if (result.IsHealthy)
-                TryInitializeMetadata(paths, storageId, registry, result);
-        }
-        public bool IsLinkFolderRequired(string virtualInstallPath, string gameInstallPath)
+		public void InitializeMetadataForStorage(GameStoragePathSet paths)
+		{
+			var registry = LoadRegistry();
+
+			TryRepairLegacyVirtualInstallManifestCollision(
+				paths,
+				registry);
+
+			string storageId = ResolveStorageId(paths, registry);
+			var result = Validate(paths, storageId, registry);
+
+			if (result.IsHealthy)
+				TryInitializeMetadata(paths, storageId, registry, result);
+		}
+
+		public bool IsLinkFolderRequired(string virtualInstallPath, string gameInstallPath)
         {
             string virtualRoot = GetPathRoot(virtualInstallPath);
             string gameRoot = GetPathRoot(gameInstallPath);
@@ -469,16 +709,52 @@ namespace Nexus.Client.GameStorage
             }
         }
 
-        private string TryGetSharedStorageRoot(GameStoragePathSet paths)
-        {
-            var required = new List<string> { paths.InstallInfoPath, paths.ModsPath, paths.VirtualInstallPath };
-            if (paths.LinkFolderRequired && !string.IsNullOrWhiteSpace(paths.LinkFolderPath))
-                required.Add(paths.LinkFolderPath);
-            var parents = required.Where(x => !string.IsNullOrWhiteSpace(x)).Select(Path.GetDirectoryName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            return parents.Count == 1 ? parents[0] : null;
-        }
+		private string TryGetSharedStorageRoot(GameStoragePathSet paths)
+		{
+			if (paths == null ||
+				string.IsNullOrWhiteSpace(paths.InstallInfoPath) ||
+				string.IsNullOrWhiteSpace(paths.ModsPath) ||
+				string.IsNullOrWhiteSpace(paths.VirtualInstallPath))
+			{
+				return null;
+			}
 
-        private string ToManifestPath(string root, string path)
+			var corePaths = new[]
+			{
+		NormalizeDirectoryPath(paths.InstallInfoPath),
+		NormalizeDirectoryPath(paths.ModsPath),
+		NormalizeDirectoryPath(paths.VirtualInstallPath)
+	};
+
+			string modsPath =
+				NormalizeDirectoryPath(paths.ModsPath);
+
+			// Traditional NMM layout:
+			//
+			// MODdatas\
+			//     archives
+			//     instinfo\
+			//     VirtualInstall\
+			//
+			// In this layout, ModsPath is also the storage root.
+			if (corePaths.All(
+				path => IsSameOrChildPath(modsPath, path)))
+			{
+				return modsPath;
+			}
+
+			var parents = corePaths
+				.Select(Path.GetDirectoryName)
+				.Where(path => !string.IsNullOrWhiteSpace(path))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToList();
+
+			return parents.Count == 1
+				? parents[0]
+				: null;
+		}
+
+		private string ToManifestPath(string root, string path)
         {
             if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(path))
                 return path;

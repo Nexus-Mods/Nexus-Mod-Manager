@@ -81,39 +81,90 @@ namespace Nexus.Client.GameStorage
             return true;
         }
 
-        public bool ApplyInitialSetupCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
-        {
-            healthCheck = null;
-            if (candidate == null || !string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
-                return false;
+		public bool ApplyInitialSetupCandidate(
+			GameStoragePathSet currentPaths,
+			GameStorageCandidate candidate,
+			out GameStorageHealthCheck healthCheck)
+		{
+			healthCheck = null;
 
-            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
-            CreateSetupFolders(paths);
-            string storageId = string.IsNullOrWhiteSpace(candidate.StorageId) ? ResolveStorageId(paths, LoadRegistry()) : candidate.StorageId;
-            var registry = LoadRegistry();
-            healthCheck = Validate(paths, storageId, registry);
-            if (!healthCheck.IsHealthy)
-                return false;
+			if (candidate == null ||
+				!string.Equals(
+					candidate.GameId,
+					currentPaths.GameId,
+					StringComparison.OrdinalIgnoreCase))
+			{
+				return false;
+			}
 
-            InitializeMetadata(paths, storageId, registry);
-            ApplyPathSet(paths);
-            healthCheck = Validate(paths, storageId, registry);
-            healthCheck.StorageId = storageId;
-            return healthCheck.IsHealthy;
-        }
+			var paths = CreatePathSetFromCandidate(
+				currentPaths,
+				candidate);
 
-        private void ApplyPathSet(GameStoragePathSet paths)
-        {
-            string gameId = paths.GameId;
-            _environmentInfo.Settings.InstallInfoFolder[gameId] = paths.InstallInfoPath;
-            _environmentInfo.Settings.ModFolder[gameId] = paths.ModsPath;
-            _environmentInfo.Settings.VirtualFolder[gameId] = paths.VirtualInstallPath;
-            _environmentInfo.Settings.HDLinkFolder[gameId] = paths.LinkFolderRequired ? paths.LinkFolderPath : null;
-            _environmentInfo.Settings.MultiHDInstall[gameId] = paths.LinkFolderRequired;
-            _environmentInfo.Settings.Save();
-        }
+			CreateSetupFolders(paths);
 
-        private void CreateSetupFolders(GameStoragePathSet paths)
+			var registry = LoadRegistry();
+
+			TryRepairLegacyVirtualInstallManifestCollision(
+				paths,
+				registry);
+
+			string storageId =
+				string.IsNullOrWhiteSpace(candidate.StorageId)
+					? ResolveStorageId(paths, registry)
+					: candidate.StorageId;
+
+			healthCheck = Validate(
+				paths,
+				storageId,
+				registry);
+
+			if (!healthCheck.IsHealthy)
+				return false;
+
+			InitializeMetadata(
+				paths,
+				storageId,
+				registry);
+
+			ApplyPathSet(paths);
+
+			healthCheck = Validate(
+				paths,
+				storageId,
+				registry);
+
+			healthCheck.StorageId = storageId;
+			return healthCheck.IsHealthy;
+		}
+
+		private void ApplyPathSet(GameStoragePathSet paths)
+		{
+			string gameId = paths.GameId;
+
+			_environmentInfo.Settings.InstallInfoFolder[gameId] =
+				paths.InstallInfoPath;
+
+			_environmentInfo.Settings.ModFolder[gameId] =
+				paths.ModsPath;
+
+			// VirtualModActivator expects the parent directory and appends
+			// "VirtualInstall" itself.
+			_environmentInfo.Settings.VirtualFolder[gameId] =
+				GetVirtualFolderSettingPath(paths.VirtualInstallPath);
+
+			_environmentInfo.Settings.HDLinkFolder[gameId] =
+				paths.LinkFolderRequired
+					? paths.LinkFolderPath
+					: null;
+
+			_environmentInfo.Settings.MultiHDInstall[gameId] =
+				paths.LinkFolderRequired;
+
+			_environmentInfo.Settings.Save();
+		}
+
+		private void CreateSetupFolders(GameStoragePathSet paths)
         {
             CreateFolder(paths.InstallInfoPath);
             CreateFolder(paths.ModsPath);
@@ -128,26 +179,60 @@ namespace Nexus.Client.GameStorage
                 Directory.CreateDirectory(path);
         }
 
-        public bool ValidateRecoveryCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
-        {
-            healthCheck = null;
-            if (candidate == null || !string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
-                return false;
+		public bool ValidateRecoveryCandidate(
+			GameStoragePathSet currentPaths,
+			GameStorageCandidate candidate,
+			out GameStorageHealthCheck healthCheck)
+		{
+			healthCheck = null;
 
-            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
-            string storageId = string.IsNullOrWhiteSpace(candidate.StorageId) ? ResolveStorageId(paths, LoadRegistry()) : candidate.StorageId;
-            var registry = LoadRegistry();
-            healthCheck = Validate(paths, storageId, registry);
-            if (!healthCheck.IsHealthy)
-                return false;
+			if (candidate == null ||
+				!string.Equals(
+					candidate.GameId,
+					currentPaths.GameId,
+					StringComparison.OrdinalIgnoreCase))
+			{
+				return false;
+			}
 
-            InitializeMetadata(paths, storageId, registry);
-            healthCheck = Validate(paths, storageId, registry);
-            healthCheck.StorageId = storageId;
-            return healthCheck.IsHealthy;
-        }
+			var paths = CreatePathSetFromCandidate(
+				currentPaths,
+				candidate);
 
-        private GameStorageCandidate CreateCandidateFromRegistry(GameStorageRegistryEntry entry, string kind, int score)
+			var registry = LoadRegistry();
+
+			TryRepairLegacyVirtualInstallManifestCollision(
+				paths,
+				registry);
+
+			string storageId =
+				string.IsNullOrWhiteSpace(candidate.StorageId)
+					? ResolveStorageId(paths, registry)
+					: candidate.StorageId;
+
+			healthCheck = Validate(
+				paths,
+				storageId,
+				registry);
+
+			if (!healthCheck.IsHealthy)
+				return false;
+
+			InitializeMetadata(
+				paths,
+				storageId,
+				registry);
+
+			healthCheck = Validate(
+				paths,
+				storageId,
+				registry);
+
+			healthCheck.StorageId = storageId;
+			return healthCheck.IsHealthy;
+		}
+
+		private GameStorageCandidate CreateCandidateFromRegistry(GameStorageRegistryEntry entry, string kind, int score)
         {
             if (entry == null)
                 return null;
@@ -160,8 +245,8 @@ namespace Nexus.Client.GameStorage
                 StorageId = entry.StorageId,
                 InstallInfoPath = entry.InstallInfoPath,
                 ModsPath = entry.ModsPath,
-                VirtualInstallPath = entry.VirtualInstallPath,
-                LinkFolderPath = entry.LinkFolderPath,
+				VirtualInstallPath = NormalizeVirtualInstallDirectory(entry.VirtualInstallPath),
+				LinkFolderPath = entry.LinkFolderPath,
                 LinkFolderRequired = entry.LinkFolderRequired,
                 ConfidenceScore = score,
                 ConfidenceLevel = score >= 85 ? GameStorageCandidateConfidence.High : GameStorageCandidateConfidence.Medium,
@@ -215,8 +300,8 @@ namespace Nexus.Client.GameStorage
                     StorageId = manifest.StorageId,
                     InstallInfoPath = ResolveManifestFolder(rootPath, manifest, GameStorageFolderRole.InstallInfo),
                     ModsPath = ResolveManifestFolder(rootPath, manifest, GameStorageFolderRole.Mods),
-                    VirtualInstallPath = ResolveManifestFolder(rootPath, manifest, GameStorageFolderRole.VirtualInstall),
-                    LinkFolderPath = ResolveManifestFolder(rootPath, manifest, GameStorageFolderRole.LinkFolder),
+					VirtualInstallPath = NormalizeVirtualInstallDirectory(ResolveManifestFolder(rootPath, manifest,	GameStorageFolderRole.VirtualInstall)),
+					LinkFolderPath = ResolveManifestFolder(rootPath, manifest, GameStorageFolderRole.LinkFolder),
                     LinkFolderRequired = manifest.LinkFolderRequired,
                     ConfidenceScore = gameMatches ? 92 : 30,
                     ConfidenceLevel = gameMatches ? GameStorageCandidateConfidence.High : GameStorageCandidateConfidence.Low,
@@ -263,8 +348,8 @@ namespace Nexus.Client.GameStorage
                     {
                         case GameStorageFolderRole.InstallInfo: candidate.InstallInfoPath = item.Item1; break;
                         case GameStorageFolderRole.Mods: candidate.ModsPath = item.Item1; break;
-                        case GameStorageFolderRole.VirtualInstall: candidate.VirtualInstallPath = item.Item1; break;
-                        case GameStorageFolderRole.LinkFolder: candidate.LinkFolderPath = item.Item1; candidate.LinkFolderRequired = true; break;
+						case GameStorageFolderRole.VirtualInstall: candidate.VirtualInstallPath = NormalizeVirtualInstallDirectory(item.Item1); break;
+						case GameStorageFolderRole.LinkFolder: candidate.LinkFolderPath = item.Item1; candidate.LinkFolderRequired = true; break;
                     }
                 }
 
@@ -281,12 +366,23 @@ namespace Nexus.Client.GameStorage
 
         private void AddLegacyLayoutCandidate(GameStoragePathSet currentPaths, string rootPath, List<GameStorageCandidate> candidates)
         {
-            string installInfoPath = SelectExistingPath(Path.Combine(rootPath, "Install Info"), Path.Combine(rootPath, "InstallInfo"));
-            if (string.IsNullOrWhiteSpace(installInfoPath) || !File.Exists(Path.Combine(installInfoPath, "InstallLog.xml")))
+			string installInfoPath = SelectExistingPath(
+				Path.Combine(rootPath, "Install Info"),
+				Path.Combine(rootPath, "InstallInfo"),
+				Path.Combine(rootPath, "instinfo"));
+			if (string.IsNullOrWhiteSpace(installInfoPath) || !File.Exists(Path.Combine(installInfoPath, "InstallLog.xml")))
                 return;
 
-            string modsPath = SelectExistingPath(Path.Combine(rootPath, "Mods"));
-            string virtualInstallPath = SelectExistingPath(Path.Combine(rootPath, "VirtualInstall"));
+			string modsPath = SelectExistingPath(Path.Combine(rootPath, "Mods"));
+
+			// Traditional NMM configurations frequently stored archives directly
+			// in the selected root rather than inside a "Mods" child directory.
+			if (string.IsNullOrWhiteSpace(modsPath) &&
+				CountModArchives(rootPath) > 0)
+			{
+				modsPath = rootPath;
+			}
+			string virtualInstallPath = SelectExistingPath(Path.Combine(rootPath, "VirtualInstall"));
             string linkFolderPath = SelectExistingPath(Path.Combine(rootPath, "LinkFolder"));
 
             var candidate = new GameStorageCandidate
@@ -475,23 +571,34 @@ namespace Nexus.Client.GameStorage
             return Path.IsPathRooted(value) ? value : Path.Combine(rootPath, value);
         }
 
-        private GameStoragePathSet CreatePathSetFromCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
-        {
-            bool linkRequired = candidate.LinkFolderRequired || IsLinkFolderRequired(candidate.VirtualInstallPath, currentPaths.GameInstallPath);
-            return new GameStoragePathSet
-            {
-                GameId = currentPaths.GameId,
-                GameName = currentPaths.GameName,
-                GameInstallPath = currentPaths.GameInstallPath,
-                InstallInfoPath = candidate.InstallInfoPath,
-                ModsPath = candidate.ModsPath,
-                VirtualInstallPath = candidate.VirtualInstallPath,
-                LinkFolderPath = candidate.LinkFolderPath,
-                LinkFolderRequired = linkRequired
-            };
-        }
+		private GameStoragePathSet CreatePathSetFromCandidate(
+			GameStoragePathSet currentPaths,
+			GameStorageCandidate candidate)
+		{
+			string virtualInstallPath =
+				NormalizeVirtualInstallDirectory(
+					candidate.VirtualInstallPath);
 
-        private GameStorageRegistry LoadLastKnownGoodRegistry()
+			bool linkRequired =
+				candidate.LinkFolderRequired ||
+				IsLinkFolderRequired(
+					virtualInstallPath,
+					currentPaths.GameInstallPath);
+
+			return new GameStoragePathSet
+			{
+				GameId = currentPaths.GameId,
+				GameName = currentPaths.GameName,
+				GameInstallPath = currentPaths.GameInstallPath,
+				InstallInfoPath = candidate.InstallInfoPath,
+				ModsPath = candidate.ModsPath,
+				VirtualInstallPath = virtualInstallPath,
+				LinkFolderPath = candidate.LinkFolderPath,
+				LinkFolderRequired = linkRequired
+			};
+		}
+
+		private GameStorageRegistry LoadLastKnownGoodRegistry()
         {
             try
             {
