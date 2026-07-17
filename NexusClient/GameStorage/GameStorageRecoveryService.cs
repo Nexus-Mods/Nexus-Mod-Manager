@@ -35,8 +35,7 @@ namespace Nexus.Client.GameStorage
                     AddCandidate(candidates, candidate);
             }
 
-            return candidates
-                .Where(x => x != null)
+            return NormalizeAndMergeCandidates(currentPaths, candidates)
                 .OrderByDescending(x => x.ConfidenceScore)
                 .ThenBy(x => x.CandidateKind)
                 .ToList();
@@ -67,7 +66,10 @@ namespace Nexus.Client.GameStorage
             AddFolderManifestCandidates(currentPaths, rootPath, candidates);
             AddLegacyLayoutCandidate(currentPaths, rootPath, candidates);
             AddInstallLogOnlyCandidates(rootPath, candidates);
-            return candidates.OrderByDescending(x => x.ConfidenceScore).ToList();
+            return NormalizeAndMergeCandidates(currentPaths, candidates)
+                .OrderByDescending(x => x.ConfidenceScore)
+                .ThenBy(x => x.CandidateKind)
+                .ToList();
         }
 
         public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
@@ -215,13 +217,60 @@ namespace Nexus.Client.GameStorage
 				storageId,
 				registry);
 
-			if (!healthCheck.IsHealthy)
+			if (!CanRecoverExistingStorage(healthCheck))
 				return false;
 
-			InitializeMetadata(
+			if (paths.LinkFolderRequired &&
+				(string.IsNullOrWhiteSpace(paths.LinkFolderPath) ||
+				 !IsLinkFolderOnGameDrive(
+					 paths.LinkFolderPath,
+					 paths.GameInstallPath)))
+			{
+				return false;
+			}
+
+			bool virtualInstallWasMissing =
+				!Directory.Exists(paths.VirtualInstallPath);
+
+			try
+			{
+				CreateRecoveryFolders(paths);
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				AddWriteFailure(healthCheck, paths, ex);
+				return false;
+			}
+			catch (IOException ex)
+			{
+				AddWriteFailure(healthCheck, paths, ex);
+				return false;
+			}
+
+			TryRepairLegacyVirtualInstallManifestCollision(
+				paths,
+				registry);
+
+			healthCheck = Validate(
 				paths,
 				storageId,
 				registry);
+
+			if (!CanFinalizeRecoveredStorage(
+				healthCheck,
+				virtualInstallWasMissing))
+			{
+				return false;
+			}
+
+			if (!TryInitializeMetadata(
+				paths,
+				storageId,
+				registry,
+				healthCheck))
+			{
+				return false;
+			}
 
 			healthCheck = Validate(
 				paths,
@@ -230,6 +279,81 @@ namespace Nexus.Client.GameStorage
 
 			healthCheck.StorageId = storageId;
 			return healthCheck.IsHealthy;
+		}
+
+		private void CreateRecoveryFolders(GameStoragePathSet paths)
+		{
+			CreateFolder(paths.VirtualInstallPath);
+
+			if (paths.LinkFolderRequired)
+				CreateFolder(paths.LinkFolderPath);
+		}
+
+		private bool CanRecoverExistingStorage(GameStorageHealthCheck healthCheck)
+		{
+			if (healthCheck == null)
+				return false;
+
+			foreach (var item in healthCheck.Items)
+			{
+				if (item.Role == GameStorageFolderRole.InstallInfo ||
+					item.Role == GameStorageFolderRole.Mods)
+				{
+					if (item.Status != GameStorageHealthStatus.Healthy &&
+						item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization)
+					{
+						return false;
+					}
+				}
+
+				if (item.Role == GameStorageFolderRole.VirtualInstall &&
+					item.Status != GameStorageHealthStatus.Healthy &&
+					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
+					item.Status != GameStorageHealthStatus.MissingVirtualInstall)
+				{
+					return false;
+				}
+
+				if (item.Role == GameStorageFolderRole.LinkFolder &&
+					item.Status != GameStorageHealthStatus.Healthy &&
+					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
+					item.Status != GameStorageHealthStatus.MissingLinkFolder &&
+					item.Status != GameStorageHealthStatus.LinkFolderNotRequired)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		private bool CanFinalizeRecoveredStorage(
+			GameStorageHealthCheck healthCheck,
+			bool virtualInstallWasMissing)
+		{
+			if (healthCheck == null)
+				return false;
+
+			foreach (var item in healthCheck.Items)
+			{
+				if (item.Status == GameStorageHealthStatus.Healthy ||
+					item.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization ||
+					item.Status == GameStorageHealthStatus.LinkFolderNotRequired)
+				{
+					continue;
+				}
+
+				if (virtualInstallWasMissing &&
+					item.Role == GameStorageFolderRole.VirtualInstall &&
+					item.Status == GameStorageHealthStatus.SuspiciousEmptyFolder)
+				{
+					continue;
+				}
+
+				return false;
+			}
+
+			return true;
 		}
 
 		private GameStorageCandidate CreateCandidateFromRegistry(GameStorageRegistryEntry entry, string kind, int score)
@@ -585,17 +709,54 @@ namespace Nexus.Client.GameStorage
 					virtualInstallPath,
 					currentPaths.GameInstallPath);
 
+			string linkFolderPath = ResolveLinkFolderPath(
+				currentPaths,
+				candidate.LinkFolderPath,
+				linkRequired);
+
 			return new GameStoragePathSet
 			{
 				GameId = currentPaths.GameId,
 				GameName = currentPaths.GameName,
 				GameInstallPath = currentPaths.GameInstallPath,
-				InstallInfoPath = candidate.InstallInfoPath,
-				ModsPath = candidate.ModsPath,
+				InstallInfoPath = NormalizeDirectoryPath(candidate.InstallInfoPath),
+				ModsPath = NormalizeDirectoryPath(candidate.ModsPath),
 				VirtualInstallPath = virtualInstallPath,
-				LinkFolderPath = candidate.LinkFolderPath,
+				LinkFolderPath = linkFolderPath,
 				LinkFolderRequired = linkRequired
 			};
+		}
+
+		private string ResolveLinkFolderPath(
+			GameStoragePathSet currentPaths,
+			string candidateLinkFolderPath,
+			bool linkRequired)
+		{
+			if (!linkRequired)
+				return null;
+
+			if (!string.IsNullOrWhiteSpace(candidateLinkFolderPath))
+				return NormalizeDirectoryPath(candidateLinkFolderPath);
+
+			if (!string.IsNullOrWhiteSpace(currentPaths.LinkFolderPath) &&
+				IsLinkFolderOnGameDrive(
+					currentPaths.LinkFolderPath,
+					currentPaths.GameInstallPath))
+			{
+				return NormalizeDirectoryPath(currentPaths.LinkFolderPath);
+			}
+
+			string gameDriveRoot = GetPathRoot(currentPaths.GameInstallPath);
+			if (string.IsNullOrWhiteSpace(gameDriveRoot))
+				return null;
+
+			return NormalizeDirectoryPath(
+				Path.Combine(
+					gameDriveRoot,
+					"Games",
+					"NMMCE",
+					currentPaths.GameId,
+					"LinkFolder"));
 		}
 
 		private GameStorageRegistry LoadLastKnownGoodRegistry()
@@ -625,6 +786,207 @@ namespace Nexus.Client.GameStorage
                 candidates.Remove(existing);
                 candidates.Add(candidate);
             }
+        }
+
+        private List<GameStorageCandidate> NormalizeAndMergeCandidates(
+            GameStoragePathSet currentPaths,
+            IEnumerable<GameStorageCandidate> candidates)
+        {
+            var merged = new List<GameStorageCandidate>();
+
+            foreach (var candidate in candidates.Where(x => x != null))
+            {
+                CompleteCandidatePaths(currentPaths, candidate);
+
+                var existing = merged.FirstOrDefault(x =>
+                    CandidatesRepresentSameStorage(x, candidate));
+
+                if (existing == null)
+                {
+                    merged.Add(candidate);
+                    continue;
+                }
+
+                GameStorageCandidate preferred = SelectPreferredCandidate(
+                    existing,
+                    candidate);
+                GameStorageCandidate other =
+                    ReferenceEquals(preferred, existing)
+                        ? candidate
+                        : existing;
+
+                MergeCandidateMetadata(preferred, other);
+
+                if (!ReferenceEquals(preferred, existing))
+                {
+                    int index = merged.IndexOf(existing);
+                    merged[index] = preferred;
+                }
+            }
+
+            return merged;
+        }
+
+        private void CompleteCandidatePaths(
+            GameStoragePathSet currentPaths,
+            GameStorageCandidate candidate)
+        {
+            candidate.GameId = string.IsNullOrWhiteSpace(candidate.GameId)
+                ? currentPaths.GameId
+                : candidate.GameId;
+            candidate.InstallInfoPath = NormalizeDirectoryPath(
+                candidate.InstallInfoPath);
+            candidate.ModsPath = NormalizeDirectoryPath(
+                candidate.ModsPath);
+            candidate.VirtualInstallPath = NormalizeVirtualInstallDirectory(
+                candidate.VirtualInstallPath);
+
+            candidate.LinkFolderRequired =
+                candidate.LinkFolderRequired ||
+                IsLinkFolderRequired(
+                    candidate.VirtualInstallPath,
+                    currentPaths.GameInstallPath);
+
+            candidate.LinkFolderPath = ResolveLinkFolderPath(
+                currentPaths,
+                candidate.LinkFolderPath,
+                candidate.LinkFolderRequired);
+
+            if (string.IsNullOrWhiteSpace(candidate.CandidateRoot))
+            {
+                candidate.CandidateRoot = TryGetSharedStorageRoot(
+                    CreatePathSetFromCandidate(currentPaths, candidate));
+            }
+            else
+            {
+                candidate.CandidateRoot = NormalizeDirectoryPath(
+                    candidate.CandidateRoot);
+            }
+
+            RemoveGeneratedPathWarnings(candidate);
+            AddPathWarnings(candidate);
+        }
+
+        private bool CandidatesRepresentSameStorage(
+            GameStorageCandidate left,
+            GameStorageCandidate right)
+        {
+            if (!string.Equals(
+                left.GameId,
+                right.GameId,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(left.StorageId) &&
+                !string.IsNullOrWhiteSpace(right.StorageId) &&
+                !string.Equals(
+                    left.StorageId,
+                    right.StorageId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return CandidatePathsEqual(
+                    left.InstallInfoPath,
+                    right.InstallInfoPath) &&
+                CandidatePathsEqual(
+                    left.ModsPath,
+                    right.ModsPath) &&
+                CandidatePathsEqual(
+                    left.VirtualInstallPath,
+                    right.VirtualInstallPath) &&
+                CandidatePathsEqual(
+                    left.LinkFolderPath,
+                    right.LinkFolderPath) &&
+                left.LinkFolderRequired == right.LinkFolderRequired;
+        }
+
+        private bool CandidatePathsEqual(string left, string right)
+        {
+            string normalizedLeft = NormalizeDirectoryPath(left) ?? string.Empty;
+            string normalizedRight = NormalizeDirectoryPath(right) ?? string.Empty;
+
+            return string.Equals(
+                normalizedLeft,
+                normalizedRight,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private GameStorageCandidate SelectPreferredCandidate(
+            GameStorageCandidate left,
+            GameStorageCandidate right)
+        {
+            if (right.ConfidenceScore > left.ConfidenceScore)
+                return right;
+            if (left.ConfidenceScore > right.ConfidenceScore)
+                return left;
+
+            bool leftIsProposed = string.Equals(
+                left.CandidateKind,
+                "Proposed setup",
+                StringComparison.OrdinalIgnoreCase);
+            bool rightIsProposed = string.Equals(
+                right.CandidateKind,
+                "Proposed setup",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (leftIsProposed != rightIsProposed)
+                return leftIsProposed ? right : left;
+
+            return left;
+        }
+
+        private void MergeCandidateMetadata(
+            GameStorageCandidate target,
+            GameStorageCandidate source)
+        {
+            if (string.IsNullOrWhiteSpace(target.StorageId))
+                target.StorageId = source.StorageId;
+            if (string.IsNullOrWhiteSpace(target.CandidateRoot))
+                target.CandidateRoot = source.CandidateRoot;
+
+            target.LinkFolderRequired =
+                target.LinkFolderRequired || source.LinkFolderRequired;
+            target.RequiresUserConfirmation =
+                target.RequiresUserConfirmation || source.RequiresUserConfirmation;
+
+            foreach (string evidence in source.Evidence)
+            {
+                if (!target.Evidence.Contains(
+                    evidence,
+                    StringComparer.OrdinalIgnoreCase))
+                {
+                    target.Evidence.Add(evidence);
+                }
+            }
+
+            foreach (string warning in source.Warnings)
+            {
+                if (!target.Warnings.Contains(
+                    warning,
+                    StringComparer.OrdinalIgnoreCase))
+                {
+                    target.Warnings.Add(warning);
+                }
+            }
+        }
+
+        private void RemoveGeneratedPathWarnings(GameStorageCandidate candidate)
+        {
+            string[] generatedWarnings =
+            {
+                "InstallInfo folder is missing.",
+                "Mods folder is missing.",
+                "VirtualInstall folder is missing.",
+                "Required Link Folder is missing."
+            };
+
+            candidate.Warnings.RemoveAll(x => generatedWarnings.Contains(
+                x,
+                StringComparer.OrdinalIgnoreCase));
         }
 
         private void AddPathWarnings(GameStorageCandidate candidate)

@@ -1,128 +1,133 @@
 {
-    "schemaVersion":  1,
-    "modeId":  "FalloutNV",
-    "name":  "Fallout: New Vegas",
-    "behaviorProfile":  "gamebryo",
-    "installerProfile":  "gamebryo",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "falloutNV.exe",
-                            "falloutNVng.exe"
-                        ],
-    "stopFolders":  [
-                        "textures",
-                        "scripts",
-                        "meshes",
-                        "music",
-                        "shaders",
-                        "video",
-                        "interface",
-                        "facegen",
-                        "menus",
-                        "lodsettings",
-                        "lsdata",
-                        "sound",
-                        "CalienteTools",
-                        "SKSE",
-                        "MWSE",
-                        "NVSE",
-                        "F4SE",
-                        "FOSE",
-                        "OBSE"
-                    ],
-    "pluginExtensions":  [
-                             ".esm",
-                             ".esl",
-                             ".esp"
-                         ],
-    "orderedCriticalPluginNames":  [
-                                       "falloutnv.esm"
-                                   ],
-    "orderedOfficialPluginNames":  [
-                                       "DeadMoney.esm",
-                                       "HonestHearts.esm",
-                                       "OldWorldBlues.esm",
-                                       "LonesomeRoad.esm",
-                                       "GunRunnersArsenal.esm",
-                                       "CaravanPack.esm",
-                                       "ClassicPack.esm",
-                                       "MercenaryPack.esm",
-                                       "TribalPack.esm"
-                                   ],
-    "orderedOfficialUnmanagedPluginNames":  [
-
-                                            ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "22380",
-                                         "installFolderName":  "Fallout New Vegas",
-                                         "executableName":  "falloutNV.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "Data",
-                   "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255
-               },
-    "launcher":  {
-                     "defaultExecutable":  "falloutNV.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Fallout: New Vegas",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Fallout: New Vegas",
-                     "defaultCommandText":  "Launch Fallout: New Vegas",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "fonv_logo.ico",
-                      "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "falloutNV_base.txt"
-                  },
-    "theme":  {
-                  "primaryColor":  "#32689E"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".esp",
-                                                          ".esl",
-                                                          ".esm",
-                                                          ".bsa",
-                                                          ".mp3",
-                                                          ".BGSM",
-                                                          ".BGEM",
-                                                          ".wav",
-                                                          ".ogg",
-                                                          ".xwm"
-                                                      ],
-                       "supportsGameRootInstall":  true
-                   },
-    "gamebryo":  {
-                     "scriptExtenderExecutables":  [
-                                                       "nvse_loader.exe"
-                                                   ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\FalloutNV",
-                     "iniFilePath":  "{UserGameData}\\fallout.ini",
-                     "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\FalloutPrefs.ini",
-                                                     "GeckIniPath":  "{UserGameData}\\GECKCustom.ini",
-                                                     "GeckPrefsIniPath":  "{UserGameData}\\GECKPrefs.ini",
-                                                     "FODefaultIniPath":  "{GamePath}\\fallout_default.ini"
-                                                 },
-                     "pluginsFilePath":  "#FAA740"
-                 }
+  "schemaVersion": 2,
+  "modeId": "FalloutNV",
+  "name": "Fallout: New Vegas",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "FalloutNV.exe",
+    "FalloutNVng.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "BaseObjectSwapper",
+    "CalienteTools",
+    "config",
+    "distantlod",
+    "fonts",
+    "keywords",
+    "NVSE",
+    "racemenupresets",
+    "trees",
+    "UIO"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "FalloutNV.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "DeadMoney.esm",
+    "HonestHearts.esm",
+    "OldWorldBlues.esm",
+    "LonesomeRoad.esm",
+    "GunRunnersArsenal.esm",
+    "CaravanPack.esm",
+    "ClassicPack.esm",
+    "MercenaryPack.esm",
+    "TribalPack.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "22380",
+        "installFolderName": "Fallout New Vegas",
+        "executableName": "FalloutNV.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1454587428",
+        "executableName": "FalloutNV.exe",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1454587428",
+        "registryValueName": "PATH"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": true,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "FalloutNV.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Fallout: New Vegas",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Fallout: New Vegas",
+    "defaultCommandText": "Launch Fallout: New Vegas",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "fonv_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "falloutNV_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#FAA740"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "nvse_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\FalloutNV",
+    "iniFilePath": "{UserGameData}\\Fallout.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\FalloutNV\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\FalloutPrefs.ini",
+      "GeckIniPath": "{UserGameData}\\GECKCustom.ini",
+      "GeckPrefsIniPath": "{UserGameData}\\GECKPrefs.ini",
+      "FODefaultIniPath": "{GamePath}\\fallout_default.ini"
+    }
+  },
+  "compatibilityNotes": [
+    "FalloutNVng.exe remains a vanilla fallback for the German No Gore edition; current xNVSE does not support that executable.",
+    "Epic and Microsoft Store discovery are intentionally omitted until stable detector identifiers and supported installation layouts are defined."
+  ]
 }

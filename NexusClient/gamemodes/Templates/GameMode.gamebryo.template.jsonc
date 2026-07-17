@@ -1,0 +1,144 @@
+{
+  // Editor-only schema hint. NMM ignores this property at runtime.
+  "$schema": "../schema/game-mode.schema.json",
+
+  "schemaVersion": 2,
+  "modeId": "ExampleGamebryo",
+  "name": "Example Gamebryo",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+
+  // Safe paths relative to the detected game installation directory.
+  "gameExecutables": [
+    "ExampleGame.exe",
+    "ExampleLauncher.exe"
+  ],
+
+  "stopFolders": [
+    "Data"
+  ],
+
+  "supportedFormats": [
+    "fomod"
+  ],
+
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "000000",
+        "installFolderName": "ExampleGame",
+        "executableName": "ExampleGame.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "0000000000",
+        "executableName": "ExampleGame.exe"
+      }
+    ]
+  },
+
+  // Physical plugin extensions recognized by this Gamebryo mode.
+  "pluginExtensions": [
+    ".esm",
+    ".esp",
+    ".esl"
+  ],
+
+  // Optional fixed plugin groups. Use file names, not paths.
+  "orderedCriticalPluginNames": [
+    "ExampleGame.esm"
+  ],
+  // "orderedOfficialPluginNames": [ "ExampleUpdate.esm" ],
+  // "orderedOfficialUnmanagedPluginNames": [ "ExampleCreation.esl" ],
+
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 255,
+
+    // Optional text files containing additional unmanaged official plugin names.
+    // Placeholders are resolved by the Game Mode.
+    // "officialUnmanagedPluginListFiles": [ "{GamePath}\\ExampleGame.ccc" ],
+
+    // Omit policy when the default plugin policy is sufficient.
+    "policy": {
+      "schemaVersion": 1
+
+      // Advanced examples; enable only when the game genuinely needs them.
+      // "parserStrategy": "bethesda",
+      // "persistenceStrategy": "plugins-file",
+      // "masterPluginsMustLoadBeforeNonMasters": true,
+      // "validateDependencies": true,
+      // "pluginsFilePath": "{LocalApplicationData}\\Example Game\\plugins.txt",
+      // "loadOrderFilePath": "{LocalApplicationData}\\Example Game\\loadorder.txt",
+      // "encodingName": "utf-8",
+      // "extensions": [
+      //   { "extension": ".esl", "forcedAddressClass": "Light" }
+      // ],
+      // "headerFlagMappings": [
+      //   { "source": "RecordFlags1", "mask": "0x00000200", "flags": "Light" }
+      // ],
+      // "addressSpaces": [
+      //   { "addressClass": "Full", "firstIndex": 0, "maxCount": 255, "displayFormat": "X2" },
+      //   { "addressClass": "Light", "firstIndex": 0, "maxCount": 4096, "displayFormat": "X3" }
+      // ]
+    }
+  },
+
+  "launcher": {
+    "defaultExecutable": "ExampleGame.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Example Gamebryo",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Example Gamebryo",
+    "defaultCommandText": "Launch Example Gamebryo",
+    "allowCustomCommand": true
+  },
+
+  // Resource file names only. These files must live beside game.json.
+  "resources": {
+    "iconPath": "ExampleGame_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "examplegame_base.txt"
+  },
+
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+
+  "setup": {
+    "useGenericSetup": true
+  },
+
+  "settings": {
+    "useGenericSettings": true
+  },
+
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    // "hardlinkRequiredExtensions": [ ".esp", ".esm", ".esl" ],
+    // "realFileRequiredExtensions": [ ".dll" ],
+    "supportsGameRootInstall": false
+  },
+
+  // Gamebryo-specific settings-file and script-extender configuration.
+  // Omit individual properties that are not needed; omit the object if none are needed.
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "ExampleScriptExtender_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Example Game",
+    "iniFilePath": "{UserGameData}\\Example.ini",
+    "rendererFilePath": "{UserGameData}\\RendererInfo.txt",
+    "pluginsFilePath": "{LocalApplicationData}\\Example Game\\plugins.txt",
+    "additionalSettingsFiles": {
+      "PrefsIniPath": "{UserGameData}\\ExamplePrefs.ini"
+    }
+  },
+
+  "compatibilityNotes": [
+    "Document intentionally preserved legacy behavior here."
+  ]
+}

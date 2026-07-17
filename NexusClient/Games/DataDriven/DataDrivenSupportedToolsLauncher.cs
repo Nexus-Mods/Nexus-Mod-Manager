@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -15,29 +15,30 @@ namespace Nexus.Client.Games.DataDriven
 {
     public class DataDrivenSupportedToolsLauncher : SupportedToolsLauncherBase
     {
-        private static readonly HashSet<string> BlockedToolExecutables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe"
-        };
-
         private readonly GameModeDefinition _definition;
 
         public DataDrivenSupportedToolsLauncher(IGameMode gameMode, IEnvironmentInfo environmentInfo, GameModeDefinition definition)
             : base(gameMode, environmentInfo)
         {
-            _definition = definition;
+            _definition = definition ?? throw new ArgumentNullException(nameof(definition));
             SetupCommands();
         }
 
         public override void SetupCommands()
         {
             ClearLaunchCommands();
+            DefaultLaunchCommand = null;
             EnsureToolSettings();
 
-            if (_definition?.SupportedTools == null)
+            // SupportedToolsLauncherBase calls this virtual method from its
+            // constructor, before this derived constructor can assign
+            // _definition. The explicit SetupCommands() call in this
+            // constructor rebuilds the commands after assignment.
+            GameModeDefinition definition = _definition;
+            if (definition == null || definition.SupportedTools == null)
                 return;
 
-            foreach (GameModeToolDefinition tool in _definition.SupportedTools)
+            foreach (GameModeToolDefinition tool in definition.SupportedTools)
             {
                 if (tool == null || string.IsNullOrWhiteSpace(tool.Id))
                     continue;
@@ -59,18 +60,20 @@ namespace Nexus.Client.Games.DataDriven
 
         public override void ConfigCommand(string p_strCommandID)
         {
-            if (string.IsNullOrWhiteSpace(p_strCommandID) || _definition?.SupportedTools == null)
-                return;
-
-            string toolId = p_strCommandID.StartsWith("Config#", StringComparison.OrdinalIgnoreCase) ? p_strCommandID.Substring(7) : p_strCommandID;
-            foreach (GameModeToolDefinition tool in _definition.SupportedTools)
+            GameModeDefinition definition = _definition;
+            if (string.IsNullOrWhiteSpace(p_strCommandID) ||
+                definition == null ||
+                definition.SupportedTools == null)
             {
-                if (string.Equals(tool.Id, toolId, StringComparison.OrdinalIgnoreCase))
-                {
-                    ConfigTool(tool);
-                    return;
-                }
+                return;
             }
+
+            string toolId = p_strCommandID.StartsWith("Config#", StringComparison.OrdinalIgnoreCase)
+                ? p_strCommandID.Substring(7)
+                : p_strCommandID;
+            GameModeToolDefinition tool = definition.SupportedTools.FirstOrDefault(x => x != null && string.Equals(x.Id, toolId, StringComparison.OrdinalIgnoreCase));
+            if (tool != null)
+                ConfigTool(tool);
         }
 
         private void LaunchTool(GameModeToolDefinition tool)
@@ -94,52 +97,70 @@ namespace Nexus.Client.Games.DataDriven
         {
             EnsureToolSettings();
 
+            string configuredDirectory;
             string settingsKey = GetToolSettingsKey(tool);
-            string folder = null;
-            if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId].ContainsKey(settingsKey))
-                folder = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][settingsKey];
-
-            string command = FindExecutable(folder, tool);
-            if (!string.IsNullOrWhiteSpace(command))
-                return command;
+            KeyedSettings<string> settings = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId];
+            if (settings != null && settings.TryGetValue(settingsKey, out configuredDirectory))
+            {
+                string configuredCommand = FindExecutable(configuredDirectory, tool);
+                if (!string.IsNullOrWhiteSpace(configuredCommand))
+                    return configuredCommand;
+            }
 
             foreach (GameModeToolDiscoveryRuleDefinition rule in tool.DiscoveryRules ?? Enumerable.Empty<GameModeToolDiscoveryRuleDefinition>())
             {
-                command = FindExecutable(ResolveDiscoveryPath(rule), tool);
+                string command = FindExecutable(ResolveDiscoveryPath(rule), tool);
                 if (!string.IsNullOrWhiteSpace(command))
                     return command;
             }
 
-            return FindExecutable(ResolveSafePath(tool.ExecutablePath), tool);
+            return FindExecutable(ResolveCandidateDirectory(tool.ExecutableDirectory), tool);
         }
 
         private string ResolveDiscoveryPath(GameModeToolDiscoveryRuleDefinition rule)
         {
-            if (rule == null)
+            if (rule == null || string.IsNullOrWhiteSpace(rule.Source))
                 return null;
 
-            string path = null;
-            if (string.Equals(rule.Source, "Registry", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(rule.Source, "Registry", StringComparison.Ordinal))
             {
-                if (!string.IsNullOrWhiteSpace(rule.RegistryKey) && RegistryUtil.CanReadKey(rule.RegistryKey))
-                    path = Convert.ToString(Registry.GetValue(rule.RegistryKey, rule.RegistryValueName ?? string.Empty, null));
-            }
-            else if (string.Equals(rule.Source, "GameRelative", StringComparison.OrdinalIgnoreCase))
-            {
-                string relativePath = ResolveSafePath(rule.Path);
-                if (relativePath != null)
-                    path = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath ?? string.Empty, relativePath);
-            }
-            else
-            {
-                path = ResolveSafePath(rule.Path);
+                if (string.IsNullOrWhiteSpace(rule.RegistryKey) || !RegistryUtil.CanReadKey(rule.RegistryKey))
+                    return null;
+
+                string path = Convert.ToString(Registry.GetValue(rule.RegistryKey, rule.RegistryValueName ?? string.Empty, null));
+                if (string.IsNullOrWhiteSpace(path))
+                    return null;
+
+                path = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
+                if (!Path.IsPathRooted(path))
+                {
+                    Trace.TraceWarning("Registry discovery returned a non-rooted path for '{0}': {1}", rule.RegistryKey, path);
+                    return null;
+                }
+                if (!string.IsNullOrWhiteSpace(rule.PathSuffix))
+                    path = Path.Combine(path, rule.PathSuffix);
+                return Path.GetFullPath(path);
             }
 
-            string pathSuffix = ResolveSafePath(rule.PathSuffix);
-            if (!string.IsNullOrWhiteSpace(path) && !string.IsNullOrWhiteSpace(pathSuffix))
-                path = Path.Combine(path, pathSuffix);
+            if (string.Equals(rule.Source, "GameRelative", StringComparison.Ordinal))
+            {
+                return DataDrivenPathResolver.ResolvePath(rule.Path, CreatePathContext(), GetGameRootPath());
+            }
 
-            return path;
+            if (string.Equals(rule.Source, "Path", StringComparison.Ordinal))
+            {
+                return ResolveCandidateDirectory(rule.Path);
+            }
+
+            Trace.TraceWarning("Unsupported data-driven tool discovery source '{0}' for tool definition '{1}'.", rule.Source, _definition.ModeId);
+            return null;
+        }
+
+        private string ResolveCandidateDirectory(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+            return DataDrivenPathResolver.ResolvePath(value, CreatePathContext(), GetGameRootPath());
         }
 
         private string FindExecutable(string folderPath, GameModeToolDefinition tool)
@@ -147,15 +168,15 @@ namespace Nexus.Client.Games.DataDriven
             if (string.IsNullOrWhiteSpace(folderPath))
                 return null;
 
-            string expanded = ResolveSafePath(folderPath);
-            if (string.IsNullOrWhiteSpace(expanded) || !Directory.Exists(expanded))
+            string expanded = Environment.ExpandEnvironmentVariables(folderPath.Trim().Trim('"'));
+            if (!Path.IsPathRooted(expanded) || !Directory.Exists(expanded))
                 return null;
 
             foreach (string executableName in GetExecutableNames(tool))
             {
                 string command = Path.Combine(expanded, executableName);
                 if (File.Exists(command))
-                    return command;
+                    return Path.GetFullPath(command);
             }
 
             return null;
@@ -165,12 +186,13 @@ namespace Nexus.Client.Games.DataDriven
         {
             if (tool.ExecutableNames != null)
             {
-                foreach (string executableName in tool.ExecutableNames.Where(IsSafeToolExecutableName))
+                foreach (string executableName in tool.ExecutableNames.Where(DataDrivenDefinitionRules.IsSafeToolExecutableName))
                     yield return executableName;
             }
-
-            if (IsSafeToolExecutableName(tool.ExecutableName))
+            else if (DataDrivenDefinitionRules.IsSafeToolExecutableName(tool.ExecutableName))
+            {
                 yield return tool.ExecutableName;
+            }
         }
 
         private string GetToolSettingsKey(GameModeToolDefinition tool)
@@ -184,11 +206,19 @@ namespace Nexus.Client.Games.DataDriven
             {
                 dialog.Description = string.Format("Select the folder where the {0} executable is located.", tool.Name);
                 dialog.ShowNewFolderButton = false;
+
+                string current;
+                KeyedSettings<string> settings = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId];
+                if (settings != null && settings.TryGetValue(GetToolSettingsKey(tool), out current) && Directory.Exists(current))
+                    dialog.SelectedPath = current;
+
                 if (dialog.ShowDialog() != DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
                     return;
-
                 if (string.IsNullOrWhiteSpace(FindExecutable(dialog.SelectedPath, tool)))
+                {
+                    MessageBox.Show("The selected folder does not contain a supported executable for " + tool.Name + ".", "Tool not found", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
+                }
 
                 EnsureToolSettings();
                 EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId][GetToolSettingsKey(tool)] = dialog.SelectedPath;
@@ -205,19 +235,18 @@ namespace Nexus.Client.Games.DataDriven
             var arguments = new List<string>();
             foreach (string token in argumentTokens.Where(x => !string.IsNullOrWhiteSpace(x)))
             {
-                string resolved = ResolveSafePath(token);
-                if (resolved != null)
-                    arguments.Add(QuoteArgument(resolved));
+                string resolved = DataDrivenPathResolver.Expand(token, CreatePathContext());
+                arguments.Add(QuoteArgument(resolved));
             }
 
             return string.Join(" ", arguments.ToArray());
         }
 
-        private string QuoteArgument(string argument)
+        private static string QuoteArgument(string argument)
         {
             if (string.IsNullOrEmpty(argument))
                 return "\"\"";
-            if (argument.IndexOfAny(new[] { ' ', '\t', '\n', '\r', '\"' }) < 0)
+            if (argument.IndexOfAny(new[] { ' ', '\t', '\n', '\r', '"' }) < 0)
                 return argument;
 
             var builder = new StringBuilder();
@@ -248,44 +277,31 @@ namespace Nexus.Client.Games.DataDriven
             return builder.ToString();
         }
 
-        private string ResolveSafePath(string value)
+        private DataDrivenPathContext CreatePathContext()
         {
-            if (string.IsNullOrWhiteSpace(value))
-                return value;
-            if (ContainsParentTraversal(value))
-                return null;
+            string userGameDataPath = null;
+            DataDrivenGamebryoGameMode gamebryoMode = GameMode as DataDrivenGamebryoGameMode;
+            if (gamebryoMode != null)
+                userGameDataPath = gamebryoMode.UserGameDataPath;
 
-            return value.Replace("{GamePath}", GameMode.GameModeEnvironmentInfo.InstallationPath ?? string.Empty)
-                        .Replace("{ExecutablePath}", GameMode.GameModeEnvironmentInfo.ExecutablePath ?? string.Empty)
-                        .Replace("{ModeId}", GameMode.ModeId ?? string.Empty)
-                        .Replace("{LocalApplicationData}", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
-                        .Replace("{PersonalData}", Environment.GetFolderPath(Environment.SpecialFolder.Personal))
-                        .Replace("{ProgramFiles}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles))
-                        .Replace("{ProgramFilesX86}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86));
+            string gameRootPath = GetGameRootPath();
+            return new DataDrivenPathContext(
+                EnvironmentInfo,
+                gameRootPath,
+                GameMode.GameModeEnvironmentInfo.ExecutablePath ?? gameRootPath,
+                GameMode.ModeId,
+                userGameDataPath);
         }
 
-        private bool IsSafeToolExecutableName(string executableName)
+        private string GetGameRootPath()
         {
-            return !string.IsNullOrWhiteSpace(executableName) &&
-                   string.Equals(executableName, Path.GetFileName(executableName), StringComparison.Ordinal) &&
-                   executableName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
-                   !Path.IsPathRooted(executableName) &&
-                   string.Equals(Path.GetExtension(executableName), ".exe", StringComparison.OrdinalIgnoreCase) &&
-                   !BlockedToolExecutables.Contains(executableName);
-        }
-
-        private bool ContainsParentTraversal(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            string[] segments = value.Replace('/', '\\').Split('\\');
-            return segments.Any(x => string.Equals(x.Trim(), "..", StringComparison.Ordinal));
+            return GameMode.GameModeEnvironmentInfo.ExecutablePath ??
+                   GameMode.GameModeEnvironmentInfo.InstallationPath;
         }
 
         private void EnsureToolSettings()
         {
-            if (EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId] == null)
+            if (!EnvironmentInfo.Settings.SupportedTools.ContainsKey(GameMode.ModeId) || EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId] == null)
                 EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId] = new KeyedSettings<string>();
         }
     }

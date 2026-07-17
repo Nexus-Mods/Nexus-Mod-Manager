@@ -1,0 +1,226 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://github.com/Nexus-Mods/Nexus-Mod-Manager/schemas/supported-tools.schema.json",
+	"title": "Nexus Mod Manager CE Supported Tools Definition",
+	"description": "Schema for the optional supportedTools.json companion file stored beside a game.json definition.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"schemaVersion",
+		"supportedTools"
+	],
+	"properties": {
+		"$schema": {
+			"type": "string",
+			"description": "Editor-only schema hint."
+		},
+		"schemaVersion": {
+			"type": "integer",
+			"const": 1
+		},
+		"supportedTools": {
+			"type": "array",
+			"minItems": 1,
+			"items": {
+				"$ref": "#/$defs/tool"
+			},
+			"uniqueItems": true,
+			"$comment": "JSON Schema cannot enforce case-insensitive uniqueness of tool.id or uniqueness of discovery identities; the runtime validator must do so."
+		}
+	},
+	"$defs": {
+		"nonEmptyString": {
+			"type": "string",
+			"minLength": 1,
+			"pattern": "\\S"
+		},
+		"identifier": {
+			"type": "string",
+			"pattern": "^[A-Za-z][A-Za-z0-9._-]*$"
+		},
+		"relativePath": {
+			"type": "string",
+			"minLength": 1,
+			"allOf": [
+				{
+					"not": {
+						"pattern": "^[\\\\/]"
+					}
+				},
+				{
+					"not": {
+						"pattern": "^[A-Za-z]:"
+					}
+				},
+				{
+					"not": {
+						"pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])"
+					}
+				},
+				{
+					"not": {
+						"pattern": "[<>:\\\"|?*\\u0000-\\u001F]"
+					}
+				}
+			]
+		},
+		"pathTemplate": {
+			"type": "string",
+			"minLength": 1,
+			"pattern": "\\S",
+			"not": {
+				"pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])"
+			}
+		},
+		"safeExecutableFileName": {
+			"type": "string",
+			"pattern": "^(?!(?:[cC][mM][dD]|[pP][oO][wW][eE][rR][sS][hH][eE][lL][lL]|[pP][wW][sS][hH]|[wW][sS][cC][rR][iI][pP][tT]|[cC][sS][cC][rR][iI][pP][tT]|[mM][sS][hH][tT][aA]|[rR][uU][nN][dD][lL][lL]32|[rR][eE][gG][sS][vV][rR]32)\\.[eE][xX][eE]$)(?!\\.{1,2}$)(?!.*[ .]$)[^\\\\/:*?\\\"<>|\\u0000-\\u001F]+\\.[eE][xX][eE]$",
+			"description": "A direct .exe target. Shells, script hosts and common LOLBin executables are blocked. JAR/file-association launching is not part of this contract."
+		},
+		"tool": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"id",
+				"name"
+			],
+			"properties": {
+				"id": {
+					"$ref": "#/$defs/identifier"
+				},
+				"name": {
+					"$ref": "#/$defs/nonEmptyString"
+				},
+				"settingsKey": {
+					"$ref": "#/$defs/identifier",
+					"description": "Optional shared configured-directory key. Multiple launch variants may intentionally share it."
+				},
+				"executableDirectory": {
+					"$ref": "#/$defs/pathTemplate",
+					"description": "Optional fixed or placeholder-based directory containing the executable."
+				},
+				"executableName": {
+					"$ref": "#/$defs/safeExecutableFileName"
+				},
+				"executableNames": {
+					"type": "array",
+					"minItems": 1,
+					"items": {
+						"$ref": "#/$defs/safeExecutableFileName"
+					},
+					"uniqueItems": true
+				},
+				"argumentTokens": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"not": {
+							"pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])"
+						}
+					},
+					"description": "Each entry is one process argument after placeholder expansion. The launcher performs quoting; do not embed command-line quoting to group tokens."
+				},
+				"discoveryRules": {
+					"type": "array",
+					"minItems": 1,
+					"items": {
+						"$ref": "#/$defs/toolDiscoveryRule"
+					},
+					"uniqueItems": true
+				}
+			},
+			"oneOf": [
+				{
+					"required": [
+						"executableName"
+					],
+					"not": {
+						"required": [
+							"executableNames"
+						]
+					}
+				},
+				{
+					"required": [
+						"executableNames"
+					],
+					"not": {
+						"required": [
+							"executableName"
+						]
+					}
+				}
+			]
+		},
+		"toolDiscoveryRule": {
+			"oneOf": [
+				{
+					"$ref": "#/$defs/gameRelativeRule"
+				},
+				{
+					"$ref": "#/$defs/registryRule"
+				},
+				{
+					"$ref": "#/$defs/pathRule"
+				}
+			]
+		},
+		"gameRelativeRule": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"source",
+				"path"
+			],
+			"properties": {
+				"source": {
+					"const": "GameRelative"
+				},
+				"path": {
+					"$ref": "#/$defs/relativePath",
+					"description": "Directory relative to the game installation directory."
+				}
+			}
+		},
+		"registryRule": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"source",
+				"registryKey"
+			],
+			"properties": {
+				"source": {
+					"const": "Registry"
+				},
+				"registryKey": {
+					"$ref": "#/$defs/nonEmptyString"
+				},
+				"registryValueName": {
+					"type": "string"
+				},
+				"pathSuffix": {
+					"$ref": "#/$defs/relativePath"
+				}
+			}
+		},
+		"pathRule": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"source",
+				"path"
+			],
+			"properties": {
+				"source": {
+					"const": "Path"
+				},
+				"path": {
+					"$ref": "#/$defs/pathTemplate",
+					"description": "Fixed or placeholder-based candidate directory."
+				}
+			}
+		}
+	}
+}

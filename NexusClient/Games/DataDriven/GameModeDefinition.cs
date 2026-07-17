@@ -1,14 +1,17 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Nexus.Client.Games.DataDriven
 {
     public class GameModeDefinition
     {
+        [JsonProperty("$schema")]
+        public string Schema { get; set; }
+
         public int SchemaVersion { get; set; }
         public string ModeId { get; set; }
         public string Name { get; set; }
         public string BehaviorProfile { get; set; }
-        public string InstallerProfile { get; set; }
         public bool LegacyFallback { get; set; }
         public string[] GameExecutables { get; set; }
         public string[] StopFolders { get; set; }
@@ -21,7 +24,6 @@ namespace Nexus.Client.Games.DataDriven
         public string RequiredToolErrorMessage { get; set; }
         public string CriticalFilesErrorMessage { get; set; }
         public string[] SupportedFormats { get; set; }
-        public List<GameModeToolDefinition> SupportedTools { get; set; } = new List<GameModeToolDefinition>();
         public GameModeDiscoveryDefinition Discovery { get; set; }
         public GameModePluginDefinition Plugin { get; set; }
         public GameModeLauncherDefinition Launcher { get; set; }
@@ -32,7 +34,14 @@ namespace Nexus.Client.Games.DataDriven
         public GameModeModInstallDefinition ModInstall { get; set; }
         public GameModeGamebryoDefinition Gamebryo { get; set; }
         public List<string> CompatibilityNotes { get; set; } = new List<string>();
+
+        [JsonIgnore]
+        public List<GameModeToolDefinition> SupportedTools { get; set; } = new List<GameModeToolDefinition>();
+
+        [JsonIgnore]
         public string DefinitionPath { get; set; }
+
+        [JsonIgnore]
         public string DefinitionDirectory { get; set; }
     }
 
@@ -43,7 +52,7 @@ namespace Nexus.Client.Games.DataDriven
         public string SteamExecutableName { get; set; }
         public string GogRegistryKey { get; set; }
         public string GogPathValueName { get; set; }
-        public List<GameModeStoreDiscoveryDefinition> Stores { get; set; } = new List<GameModeStoreDiscoveryDefinition>();
+        public List<GameModeStoreDiscoveryDefinition> Stores { get; set; }
     }
 
     public class GameModeStoreDiscoveryDefinition
@@ -59,10 +68,10 @@ namespace Nexus.Client.Games.DataDriven
 
     public class GameModePluginDefinition
     {
-        public bool UsesPlugins { get; set; }
+        public bool? UsesPlugins { get; set; }
         public string PluginDirectorySuffix { get; set; }
-        public bool SupportsPluginAutoSorting { get; set; }
-        public int MaxAllowedActivePluginsCount { get; set; }
+        public bool? SupportsPluginAutoSorting { get; set; }
+        public int? MaxAllowedActivePluginsCount { get; set; }
         public string[] OfficialUnmanagedPluginListFiles { get; set; }
         public GameModePluginPolicyDefinition Policy { get; set; }
     }
@@ -108,15 +117,15 @@ namespace Nexus.Client.Games.DataDriven
     public class GameModePluginHeaderFlagMappingDefinition
     {
         public string Source { get; set; }
-        public string Mask { get; set; }
+        public object Mask { get; set; }
         public string Flags { get; set; }
     }
 
     public class GameModePluginAddressSpaceDefinition
     {
         public string AddressClass { get; set; }
-        public int FirstIndex { get; set; }
-        public int MaxCount { get; set; }
+        public int? FirstIndex { get; set; }
+        public int? MaxCount { get; set; }
         public string DisplayFormat { get; set; }
     }
 
@@ -128,7 +137,7 @@ namespace Nexus.Client.Games.DataDriven
         public string CustomCommandName { get; set; }
         public string CustomCommandText { get; set; }
         public string DefaultCommandText { get; set; }
-        public bool AllowCustomCommand { get; set; }
+        public bool? AllowCustomCommand { get; set; }
     }
 
     public class GameModeResourcesDefinition
@@ -145,13 +154,12 @@ namespace Nexus.Client.Games.DataDriven
 
     public class GameModeSetupDefinition
     {
-        public bool UseGenericSetup { get; set; }
+        public bool? UseGenericSetup { get; set; }
     }
 
     public class GameModeSettingsDefinition
     {
-        public bool UseGenericSettings { get; set; }
-        public bool AllowCustomLaunchCommand { get; set; }
+        public bool? UseGenericSettings { get; set; }
     }
 
     public class GameModeToolDefinition
@@ -159,18 +167,23 @@ namespace Nexus.Client.Games.DataDriven
         public string Id { get; set; }
         public string Name { get; set; }
         public string SettingsKey { get; set; }
-        public string ExecutablePath { get; set; }
+        public string ExecutableDirectory { get; set; }
         public string ExecutableName { get; set; }
         public string[] ExecutableNames { get; set; }
-        public string Arguments { get; set; }
         public string[] ArgumentTokens { get; set; }
-        public List<GameModeToolDiscoveryRuleDefinition> DiscoveryRules { get; set; } = new List<GameModeToolDiscoveryRuleDefinition>();
+        public List<GameModeToolDiscoveryRuleDefinition> DiscoveryRules { get; set; }
     }
 
     public class GameModeSupportedToolsDefinition
     {
+        [JsonProperty("$schema")]
+        public string Schema { get; set; }
+
         public int SchemaVersion { get; set; }
         public List<GameModeToolDefinition> SupportedTools { get; set; } = new List<GameModeToolDefinition>();
+
+        [JsonIgnore]
+        public string DefinitionPath { get; set; }
     }
 
     public class GameModeToolDiscoveryRuleDefinition
@@ -181,25 +194,28 @@ namespace Nexus.Client.Games.DataDriven
         public string RegistryValueName { get; set; }
         public string PathSuffix { get; set; }
     }
+
     public class GameModeGamebryoDefinition
     {
         public string[] ScriptExtenderExecutables { get; set; }
+        public string[] ScriptExtenderAutoLoadFiles { get; set; }
+        public bool? RequiresOptionalFilesCheckOnProfileSwitch { get; set; }
+        public string[] OptionalFileNamePrefixes { get; set; }
+        public string PostProfileSwitchToolPath { get; set; }
+        public string PostProfileSwitchToolMessage { get; set; }
         public string UserGameDataPath { get; set; }
         public string IniFilePath { get; set; }
         public string RendererFilePath { get; set; }
         public string PluginsFilePath { get; set; }
-        public Dictionary<string, string> AdditionalSettingsFiles { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> AdditionalSettingsFiles { get; set; }
     }
+
     public class GameModeModInstallDefinition
     {
         public string PathAdjustmentProfile { get; set; }
         public string ManagedInstallationPath { get; set; }
-        public string PluginDirectoryPath { get; set; }
         public string[] HardlinkRequiredExtensions { get; set; }
         public string[] RealFileRequiredExtensions { get; set; }
-        public bool SupportsGameRootInstall { get; set; }
+        public bool? SupportsGameRootInstall { get; set; }
     }
 }
-
-
-

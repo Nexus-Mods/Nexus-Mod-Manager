@@ -1,57 +1,60 @@
 ﻿{
-    "schemaVersion":  1,
-    "modeId":  "Grimrock",
-    "name":  "Legend of Grimrock",
-    "behaviorProfile":  "generic",
-    "installerProfile":  "default",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "grimrock.exe"
-                        ],
-    "stopFolders":  [
-
-                    ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "207170",
-                                         "installFolderName":  "Legend of Grimrock",
-                                         "executableName":  "grimrock.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  false,
-                   "pluginDirectorySuffix":  ""
-               },
-    "launcher":  {
-                     "defaultExecutable":  "grimrock.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Legend of Grimrock",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Legend of Grimrock",
-                     "defaultCommandText":  "Launch Legend of Grimrock",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "grimrock_logo.ico",
-                      "categoriesPath":  "Categories.xml"
-                  },
-    "theme":  {
-                  "primaryColor":  "#502D17"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none"
-                   }
+  "schemaVersion": 2,
+  "modeId": "Grimrock",
+  "name": "Legend of Grimrock",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "grimrock.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "207170",
+        "installFolderName": "Legend of Grimrock",
+        "executableName": "grimrock.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1207659016",
+        "executableName": "grimrock.exe",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1207659016",
+        "registryValueName": "PATH"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "grimrock.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Legend of Grimrock",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Legend of Grimrock",
+    "defaultCommandText": "Launch Legend of Grimrock",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "grimrock_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "managedInstallationPath": "{PersonalData}\\Almost Human\\Legend of Grimrock\\Dungeons",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Mods are managed in Documents\\Almost Human\\Legend of Grimrock\\Dungeons, while the executable remains in the detected Steam or GOG game directory."
+  ]
 }

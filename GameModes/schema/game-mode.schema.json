@@ -1,221 +1,969 @@
 ﻿{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Nexus-Mods/Nexus-Mod-Manager/game-mode.schema.json",
+  "$id": "https://github.com/Nexus-Mods/Nexus-Mod-Manager/schemas/game-mode.schema.json",
   "title": "Nexus Mod Manager CE Game Mode Definition",
-  "description": "Data-driven GameMode definition. Runtime definitions live under GameModes/Definitions/<GameId>/game.json after packaging; this schema documents the JSON contract used by Nexus.Client.Games.DataDriven.GameModeDefinition.",
+  "description": "Authoritative schema for GameModes/Definitions/<ModeId>/game.json. Supported external tools are declared only in the optional supportedTools.json companion file.",
   "type": "object",
   "additionalProperties": false,
-  "required": [ "schemaVersion", "modeId", "name", "gameExecutables" ],
+  "required": [
+    "schemaVersion",
+    "modeId",
+    "name",
+    "behaviorProfile",
+    "gameExecutables"
+  ],
   "properties": {
-    "$schema": { "type": "string", "description": "Editor-only schema hint. Ignored by NMM at runtime." },
-    "schemaVersion": { "type": "integer", "const": 1, "description": "Definition format version. Maps to GameModeDefinition.SchemaVersion." },
-    "modeId": { "type": "string", "minLength": 1, "description": "Stable GameMode id. Maps to GameModeDescriptor.ModeId and must not collide with another mode." },
-    "name": { "type": "string", "minLength": 1, "description": "Display name shown in game selection/detection. Maps to GameModeDescriptor.Name." },
-    "behaviorProfile": { "type": "string", "enum": [ "generic", "gamebryo" ], "default": "generic", "description": "Selects the runtime base class: generic maps to GameModeBase, gamebryo maps to GamebryoGameModeBase." },
-    "installerProfile": { "type": "string", "enum": [ "default", "gamebryo" ], "default": "default", "description": "Installer behavior profile. gamebryo preserves the old Data-folder/FOMOD behavior." },
-    "legacyFallback": { "type": "boolean", "default": false, "description": "If true, an already registered legacy DLL game mode wins over this JSON definition." },
-    "gameExecutables": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "description": "Executable names or relative paths used to validate installs and read game version. Maps to GameMode.GameExecutables." },
-    "stopFolders": { "type": "array", "items": { "type": "string" }, "description": "Archive root folder markers used by installers to detect the real mod root." },
-    "pluginExtensions": { "type": "array", "items": { "$ref": "#/$defs/fileExtension" }, "description": "Plugin/archive extensions recognized by plugin-capable modes." },
-    "orderedCriticalPluginNames": { "type": "array", "items": { "type": "string" }, "description": "Critical master/plugin names that must stay first in load order." },
-    "orderedOfficialPluginNames": { "type": "array", "items": { "type": "string" }, "description": "Official managed plugins ordered after critical files." },
-    "orderedOfficialUnmanagedPluginNames": { "type": "array", "items": { "type": "string" }, "description": "Official plugins that should be treated as unmanaged." },
-    "requiredToolName": { "type": "string", "description": "Legacy required tool label, where a game mode historically required an external executable." },
-    "orderedRequiredToolFileNames": { "type": "array", "items": { "type": "string" }, "description": "Legacy ordered required-tool filenames." },
-    "requiredToolErrorMessage": { "type": "string", "description": "User-facing message when a required tool is missing." },
-    "criticalFilesErrorMessage": { "type": "string", "description": "User-facing message when critical base files are missing." },
-    "supportedFormats": { "type": "array", "items": { "type": "string" }, "description": "Mod formats this game supports, usually fomod for modern modes." },
-    "discovery": { "$ref": "#/$defs/discovery" },
-    "plugin": { "$ref": "#/$defs/plugin" },
-    "launcher": { "$ref": "#/$defs/launcher" },
-    "resources": { "$ref": "#/$defs/resources" },
-    "theme": { "$ref": "#/$defs/theme" },
-    "setup": { "$ref": "#/$defs/setup" },
-    "settings": { "$ref": "#/$defs/settings" },
-    "modInstall": { "$ref": "#/$defs/modInstall" },
-    "gamebryo": { "$ref": "#/$defs/gamebryo" },
-    "supportedTools": { "type": "array", "items": { "$ref": "#/$defs/tool" }, "description": "Supported external tools. Can also be stored in supportedTools.json beside game.json." },
-    "compatibilityNotes": { "type": "array", "items": { "type": "string" }, "description": "Maintainer notes explaining intentionally preserved legacy behavior." }
+    "$schema": {
+      "type": "string",
+      "description": "Editor-only schema hint. NMM does not use this value as runtime configuration."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 2,
+      "description": "Game-mode definition contract version. Version 2 removes inert/duplicated fields and separates supported tools into their own document."
+    },
+    "modeId": {
+      "$ref": "#/$defs/identifier",
+      "description": "Stable, globally unique game-mode identifier. Do not change after release."
+    },
+    "name": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Display name shown by NMM."
+    },
+    "behaviorProfile": {
+      "type": "string",
+      "enum": [
+        "generic",
+        "gamebryo"
+      ],
+      "description": "Selects the runtime behavior base. Plugin management is currently part of the gamebryo profile."
+    },
+    "legacyFallback": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, an already registered legacy DLL game mode with the same id takes precedence."
+    },
+    "gameExecutables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/executableRelativePath"
+      },
+      "uniqueItems": true,
+      "description": "Executable names or game-relative executable paths used for install validation and version detection."
+    },
+    "stopFolders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      },
+      "uniqueItems": true,
+      "description": "Archive folder markers used to locate the effective mod root."
+    },
+    "supportedFormats": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+      },
+      "uniqueItems": true,
+      "description": "Supported mod format identifiers. When omitted, the runtime may use its normal fallback."
+    },
+    "discovery": {
+      "$ref": "#/$defs/discovery"
+    },
+    "pluginExtensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/fileExtension"
+      },
+      "uniqueItems": true,
+      "description": "Physical plugin extensions recognized by a plugin-capable Gamebryo mode."
+    },
+    "orderedCriticalPluginNames": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileName"
+      },
+      "uniqueItems": true,
+      "description": "Critical plugins in fixed leading order."
+    },
+    "orderedOfficialPluginNames": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileName"
+      },
+      "uniqueItems": true,
+      "description": "Official managed plugins in their fixed relative order."
+    },
+    "orderedOfficialUnmanagedPluginNames": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileName"
+      },
+      "uniqueItems": true,
+      "description": "Official plugins treated as unmanaged."
+    },
+    "plugin": {
+      "$ref": "#/$defs/plugin"
+    },
+    "launcher": {
+      "$ref": "#/$defs/launcher"
+    },
+    "resources": {
+      "$ref": "#/$defs/resources"
+    },
+    "theme": {
+      "$ref": "#/$defs/theme"
+    },
+    "setup": {
+      "$ref": "#/$defs/setup"
+    },
+    "settings": {
+      "$ref": "#/$defs/settings"
+    },
+    "modInstall": {
+      "$ref": "#/$defs/modInstall"
+    },
+    "gamebryo": {
+      "$ref": "#/$defs/gamebryo"
+    },
+    "requiredToolName": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Legacy mandatory-tool display label. This is separate from optional supportedTools.json entries."
+    },
+    "orderedRequiredToolFileNames": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      },
+      "uniqueItems": true,
+      "description": "Legacy files used to verify that a mandatory external tool is installed."
+    },
+    "requiredToolErrorMessage": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Message displayed when the mandatory external tool is missing."
+    },
+    "criticalFilesErrorMessage": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Message displayed when required base-game files are missing."
+    },
+    "compatibilityNotes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "uniqueItems": true,
+      "description": "Maintainer-facing notes for intentionally preserved legacy behavior."
+    }
   },
+  "dependentRequired": {
+    "requiredToolName": [
+      "orderedRequiredToolFileNames",
+      "requiredToolErrorMessage"
+    ],
+    "orderedRequiredToolFileNames": [
+      "requiredToolName",
+      "requiredToolErrorMessage"
+    ],
+    "requiredToolErrorMessage": [
+      "requiredToolName",
+      "orderedRequiredToolFileNames"
+    ]
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "behaviorProfile": {
+            "const": "gamebryo"
+          }
+        },
+        "required": [
+          "behaviorProfile"
+        ]
+      },
+      "then": {
+        "required": [
+          "plugin",
+          "pluginExtensions"
+        ],
+        "properties": {
+          "plugin": {
+            "properties": {
+              "usesPlugins": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "plugin"
+              ]
+            },
+            {
+              "required": [
+                "pluginExtensions"
+              ]
+            },
+            {
+              "required": [
+                "orderedCriticalPluginNames"
+              ]
+            },
+            {
+              "required": [
+                "orderedOfficialPluginNames"
+              ]
+            },
+            {
+              "required": [
+                "orderedOfficialUnmanagedPluginNames"
+              ]
+            },
+            {
+              "required": [
+                "gamebryo"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
   "$defs": {
-    "fileExtension": { "type": "string", "pattern": "^\\.[^\\\\/]+$" },
-    "fileName": { "type": "string", "pattern": "^[^\\\\/:*?\"<>|]+$" },
-    "safeRelativePath": { "type": "string", "not": { "pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])" } },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._-]*$"
+    },
+    "fileName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\.{1,2}$)(?!.*[ .]$)[^\\\\/:*?\\\"<>|\\u0000-\\u001F]+$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        {
+          "not": {
+            "pattern": "^[\\\\/]"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^[A-Za-z]:"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])"
+          }
+        },
+        {
+          "not": {
+            "pattern": "[<>:\\\"|?*\\u0000-\\u001F]"
+          }
+        }
+      ]
+    },
+    "relativePathOrEmpty": {
+      "oneOf": [
+        {
+          "const": ""
+        },
+        {
+          "$ref": "#/$defs/relativePath"
+        }
+      ]
+    },
+    "pathTemplate": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "not": {
+        "pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])"
+      }
+    },
+    "fileExtension": {
+      "type": "string",
+      "pattern": "^\\.[A-Za-z0-9][A-Za-z0-9._+-]*$"
+    },
+    "executableRelativePath": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/relativePath"
+        },
+        {
+          "pattern": "\\.[eE][xX][eE]$"
+        }
+      ]
+    },
     "discovery": {
       "type": "object",
       "additionalProperties": false,
+      "minProperties": 1,
       "properties": {
-        "steamAppId": { "type": "string", "description": "Legacy Steam app id shortcut." },
-        "steamInstallFolderName": { "type": "string", "description": "Legacy Steam library folder name shortcut." },
-        "steamExecutableName": { "$ref": "#/$defs/fileName" },
-        "gogRegistryKey": { "type": "string" },
-        "gogPathValueName": { "type": "string" },
-        "stores": { "type": "array", "items": { "$ref": "#/$defs/storeDiscovery" } }
+        "steamAppId": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Legacy Steam app-id shortcut."
+        },
+        "steamInstallFolderName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "steamExecutableName": {
+          "$ref": "#/$defs/executableRelativePath",
+          "description": "Game-relative executable path used to validate a detected Steam installation."
+        },
+        "gogRegistryKey": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Legacy GOG registry shortcut."
+        },
+        "gogPathValueName": {
+          "type": "string"
+        },
+        "stores": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/storeDiscovery"
+          },
+          "description": "Ordered discovery candidates. Prefer this form over the legacy shortcuts."
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "steamAppId"
+          ]
+        },
+        {
+          "required": [
+            "gogRegistryKey"
+          ]
+        },
+        {
+          "required": [
+            "stores"
+          ]
+        }
+      ],
+      "dependentRequired": {
+        "steamInstallFolderName": [
+          "steamAppId"
+        ],
+        "steamExecutableName": [
+          "steamAppId"
+        ],
+        "gogPathValueName": [
+          "gogRegistryKey"
+        ]
       }
     },
     "storeDiscovery": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "store"
+      ],
       "properties": {
-        "store": { "type": "string", "enum": [ "Steam", "GOG", "Epic", "MicrosoftStore", "Xbox", "Custom" ] },
-        "id": { "type": "string" },
-        "installFolderName": { "type": "string" },
-        "executableName": { "$ref": "#/$defs/fileName" },
-        "registryKey": { "type": "string" },
-        "registryValueName": { "type": "string" },
-        "pathSuffix": { "$ref": "#/$defs/safeRelativePath" }
-      }
+        "store": {
+          "type": "string",
+          "enum": [
+            "Steam",
+            "GOG",
+            "Epic",
+            "MicrosoftStore",
+            "Xbox",
+            "Custom"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "installFolderName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "executableName": {
+          "$ref": "#/$defs/executableRelativePath",
+          "description": "Game-relative executable path used to validate the detected store installation."
+        },
+        "registryKey": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "registryValueName": {
+          "type": "string"
+        },
+        "pathSuffix": {
+          "$ref": "#/$defs/relativePath"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "id"
+          ]
+        },
+        {
+          "required": [
+            "installFolderName"
+          ]
+        },
+        {
+          "required": [
+            "executableName"
+          ]
+        },
+        {
+          "required": [
+            "registryKey"
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "store": {
+                "enum": [
+                  "Steam",
+                  "Epic",
+                  "MicrosoftStore",
+                  "Xbox"
+                ]
+              }
+            },
+            "required": [
+              "store"
+            ]
+          },
+          "then": {
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "store": {
+                "const": "GOG"
+              }
+            },
+            "required": [
+              "store"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "id"
+                ]
+              },
+              {
+                "required": [
+                  "registryKey"
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     "plugin": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "usesPlugins",
+        "pluginDirectorySuffix",
+        "supportsPluginAutoSorting",
+        "maxAllowedActivePluginsCount"
+      ],
       "properties": {
-        "usesPlugins": { "type": "boolean" },
-        "pluginDirectorySuffix": { "$ref": "#/$defs/safeRelativePath" },
-        "supportsPluginAutoSorting": { "type": "boolean", "description": "Only valid for gamebryo behaviorProfile in the current implementation." },
-        "maxAllowedActivePluginsCount": { "type": "integer", "minimum": 0 },
-        "officialUnmanagedPluginListFiles": { "type": "array", "items": { "$ref": "#/$defs/safeRelativePath" } },
-        "policy": { "$ref": "#/$defs/pluginPolicy" }
+        "usesPlugins": {
+          "type": "boolean",
+          "const": true,
+          "description": "Explicitly true for the current Gamebryo plugin-management profile."
+        },
+        "pluginDirectorySuffix": {
+          "$ref": "#/$defs/relativePathOrEmpty",
+          "description": "Plugin directory relative to the managed installation path, for example Data."
+        },
+        "supportsPluginAutoSorting": {
+          "type": "boolean"
+        },
+        "maxAllowedActivePluginsCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 means no additional global limit; address-space limits may still apply."
+        },
+        "officialUnmanagedPluginListFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pathTemplate"
+          },
+          "uniqueItems": true,
+          "description": "Text files containing additional official unmanaged plugin names. Path placeholders are allowed."
+        },
+        "policy": {
+          "$ref": "#/$defs/pluginPolicy"
+        }
       }
     },
     "pluginPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": [ "schemaVersion" ],
+      "required": [
+        "schemaVersion"
+      ],
       "properties": {
-        "schemaVersion": { "type": "integer", "const": 1 },
-        "parserStrategy": { "type": "string" },
-        "persistenceStrategy": { "type": "string" },
-        "masterPluginsMustLoadBeforeNonMasters": { "type": "boolean" },
-        "validateDependencies": { "type": "boolean" },
-        "pluginsFilePath": { "$ref": "#/$defs/safeRelativePath" },
-        "loadOrderFilePath": { "$ref": "#/$defs/safeRelativePath" },
-        "encodingName": { "type": "string" },
-        "activeMarker": { "type": "string" },
-        "inactiveMarker": { "type": "string" },
-        "appDataGameFolderName": { "type": "string" },
-        "useTimestampOrder": { "type": "boolean" },
-        "ignoreOfficialPlugins": { "type": "boolean" },
-        "forcedReadOnly": { "type": "boolean" },
-        "singleFileManagement": { "type": "boolean" },
-        "officialPluginsAreImplicitlyActive": { "type": "boolean" },
-        "loadOrderInPluginDirectory": { "type": "boolean" },
-        "showStarfieldCustomPluginsHeader": { "type": "boolean" },
-        "extensions": { "type": "array", "items": { "$ref": "#/$defs/pluginExtensionPolicy" } },
-        "headerFlagMappings": { "type": "array", "items": { "$ref": "#/$defs/pluginHeaderFlagMapping" } },
-        "addressSpaces": { "type": "array", "items": { "$ref": "#/$defs/pluginAddressSpace" } },
-        "officialPlugins": { "type": "array", "items": { "type": "string" } },
-        "criticalPlugins": { "type": "array", "items": { "type": "string" } },
-        "fixedOrderPlugins": { "type": "array", "items": { "type": "string" } },
-        "forcedActivePlugins": { "type": "array", "items": { "type": "string" } },
-        "blueprintPlugins": { "type": "array", "items": { "type": "string" } },
-        "blueprintPluginPrefixes": { "type": "array", "items": { "type": "string" } }
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "parserStrategy": {
+          "$ref": "#/$defs/strategyName"
+        },
+        "persistenceStrategy": {
+          "$ref": "#/$defs/strategyName"
+        },
+        "masterPluginsMustLoadBeforeNonMasters": {
+          "type": "boolean"
+        },
+        "validateDependencies": {
+          "type": "boolean"
+        },
+        "pluginsFilePath": {
+          "$ref": "#/$defs/pathTemplate"
+        },
+        "loadOrderFilePath": {
+          "$ref": "#/$defs/pathTemplate"
+        },
+        "encodingName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "activeMarker": {
+          "type": "string"
+        },
+        "inactiveMarker": {
+          "type": "string"
+        },
+        "appDataGameFolderName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "useTimestampOrder": {
+          "type": "boolean"
+        },
+        "ignoreOfficialPlugins": {
+          "type": "boolean"
+        },
+        "forcedReadOnly": {
+          "type": "boolean"
+        },
+        "singleFileManagement": {
+          "type": "boolean"
+        },
+        "officialPluginsAreImplicitlyActive": {
+          "type": "boolean"
+        },
+        "loadOrderInPluginDirectory": {
+          "type": "boolean"
+        },
+        "showStarfieldCustomPluginsHeader": {
+          "type": "boolean"
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pluginExtensionPolicy"
+          },
+          "uniqueItems": true
+        },
+        "headerFlagMappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pluginHeaderFlagMapping"
+          },
+          "uniqueItems": true
+        },
+        "addressSpaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pluginAddressSpace"
+          },
+          "uniqueItems": true
+        },
+        "officialPlugins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileName"
+          },
+          "uniqueItems": true
+        },
+        "criticalPlugins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileName"
+          },
+          "uniqueItems": true
+        },
+        "fixedOrderPlugins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileName"
+          },
+          "uniqueItems": true
+        },
+        "forcedActivePlugins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileName"
+          },
+          "uniqueItems": true
+        },
+        "blueprintPlugins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileName"
+          },
+          "uniqueItems": true
+        },
+        "blueprintPluginPrefixes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        }
       }
+    },
+    "strategyName": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
+      "description": "Registered strategy identifier. The runtime validator must reject unknown strategies."
+    },
+    "enumFlags": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9]*(?:\\s*\\|\\s*[A-Za-z][A-Za-z0-9]*)*$",
+      "description": "One or more runtime enum names separated by |."
     },
     "pluginExtensionPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": [ "extension" ],
+      "required": [
+        "extension"
+      ],
       "properties": {
-        "extension": { "$ref": "#/$defs/fileExtension" },
-        "forcedFlags": { "type": "string" },
-        "forcedAddressClass": { "type": "string", "enum": [ "None", "Full", "Light", "Medium", "Small" ] }
+        "extension": {
+          "$ref": "#/$defs/fileExtension"
+        },
+        "forcedFlags": {
+          "$ref": "#/$defs/enumFlags"
+        },
+        "forcedAddressClass": {
+          "type": "string",
+          "enum": [
+            "None",
+            "Full",
+            "Light",
+            "Medium",
+            "Small"
+          ]
+        }
       }
     },
     "pluginHeaderFlagMapping": {
       "type": "object",
       "additionalProperties": false,
-      "required": [ "source", "mask", "flags" ],
+      "required": [
+        "source",
+        "mask",
+        "flags"
+      ],
       "properties": {
-        "source": { "type": "string", "enum": [ "RecordFlags1", "RecordFlags2", "RecordFlags3" ] },
-        "mask": { "type": "string" },
-        "flags": { "type": "string" }
+        "source": {
+          "type": "string",
+          "enum": [
+            "RecordFlags1",
+            "RecordFlags2",
+            "RecordFlags3"
+          ]
+        },
+        "mask": {
+          "$ref": "#/$defs/uint32Value"
+        },
+        "flags": {
+          "$ref": "#/$defs/enumFlags"
+        }
       }
-    },    "pluginAddressSpace": {
+    },
+    "pluginAddressSpace": {
       "type": "object",
       "additionalProperties": false,
-      "required": [ "addressClass", "firstIndex", "maxCount" ],
+      "required": [
+        "addressClass",
+        "firstIndex",
+        "maxCount"
+      ],
       "properties": {
-        "addressClass": { "type": "string", "enum": [ "Full", "Light", "Medium", "Small" ] },
-        "firstIndex": { "type": "integer", "minimum": 0 },
-        "maxCount": { "type": "integer", "minimum": 0 },
-        "displayFormat": { "type": "string" }
+        "addressClass": {
+          "type": "string",
+          "enum": [
+            "Full",
+            "Light",
+            "Medium",
+            "Small"
+          ]
+        },
+        "firstIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 means unlimited."
+        },
+        "displayFormat": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": ".NET numeric composite format used to display the allocated index."
+        }
       }
     },
     "launcher": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "defaultExecutable",
+        "allowCustomCommand"
+      ],
       "properties": {
-        "defaultExecutable": { "$ref": "#/$defs/safeRelativePath" },
-        "plainCommandName": { "type": "string" },
-        "plainCommandText": { "type": "string" },
-        "customCommandName": { "type": "string" },
-        "customCommandText": { "type": "string" },
-        "defaultCommandText": { "type": "string" },
-        "allowCustomCommand": { "type": "boolean" }
+        "defaultExecutable": {
+          "$ref": "#/$defs/executableRelativePath"
+        },
+        "plainCommandName": {
+          "$ref": "#/$defs/identifier"
+        },
+        "plainCommandText": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "customCommandName": {
+          "$ref": "#/$defs/identifier"
+        },
+        "customCommandText": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "defaultCommandText": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "allowCustomCommand": {
+          "type": "boolean",
+          "description": "Single source of truth for both custom-launch availability and its settings UI."
+        }
       }
     },
     "resources": {
       "type": "object",
       "additionalProperties": false,
+      "minProperties": 1,
       "properties": {
-        "iconPath": { "$ref": "#/$defs/fileName" },
-        "categoriesPath": { "$ref": "#/$defs/fileName" },
-        "baseFilesPath": { "$ref": "#/$defs/fileName" }
+        "iconPath": {
+          "$ref": "#/$defs/fileName"
+        },
+        "categoriesPath": {
+          "$ref": "#/$defs/fileName"
+        },
+        "baseFilesPath": {
+          "$ref": "#/$defs/fileName"
+        }
+      },
+      "description": "Resource file names relative to the definition directory. Subdirectories are not allowed."
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primaryColor"
+      ],
+      "properties": {
+        "primaryColor": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        }
       }
     },
-    "theme": { "type": "object", "additionalProperties": false, "properties": { "primaryColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" } } },
-    "setup": { "type": "object", "additionalProperties": false, "properties": { "useGenericSetup": { "type": "boolean" } } },
-    "settings": { "type": "object", "additionalProperties": false, "properties": { "useGenericSettings": { "type": "boolean" }, "allowCustomLaunchCommand": { "type": "boolean" } } },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "useGenericSetup"
+      ],
+      "properties": {
+        "useGenericSetup": {
+          "type": "boolean"
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "useGenericSettings"
+      ],
+      "properties": {
+        "useGenericSettings": {
+          "type": "boolean"
+        }
+      },
+      "description": "Custom-launch settings visibility follows launcher.allowCustomCommand; there is no duplicate flag here."
+    },
     "modInstall": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "pathAdjustmentProfile",
+        "supportsGameRootInstall"
+      ],
       "properties": {
-        "pathAdjustmentProfile": { "type": "string", "enum": [ "", "none", "cyberpunk2077", "subnautica", "stardewvalley", "sims4", "nomanssky" ] },
-        "managedInstallationPath": { "$ref": "#/$defs/safeRelativePath" },
-        "pluginDirectoryPath": { "$ref": "#/$defs/safeRelativePath" },
-        "hardlinkRequiredExtensions": { "type": "array", "items": { "$ref": "#/$defs/fileExtension" } },
-        "realFileRequiredExtensions": { "type": "array", "items": { "$ref": "#/$defs/fileExtension" } },
-        "supportsGameRootInstall": { "type": "boolean" }
+        "pathAdjustmentProfile": {
+          "type": "string",
+          "enum": [
+            "none",
+            "cyberpunk2077",
+            "fallout4",
+            "oblivionremastered",
+            "starfield",
+            "stardewvalley",
+            "subnautica",
+            "sims4",
+            "nomanssky"
+          ],
+          "description": "Only profiles with an implementation in the supplied source are part of schema v2."
+        },
+        "managedInstallationPath": {
+          "$ref": "#/$defs/pathTemplate",
+          "description": "Overrides the directory managed by the mod installer."
+        },
+        "hardlinkRequiredExtensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileExtension"
+          },
+          "uniqueItems": true,
+          "description": "Complete authoritative hardlink-required extension list for this Game Mode. Omit the property to inherit the runtime default."
+        },
+        "realFileRequiredExtensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileExtension"
+          },
+          "uniqueItems": true
+        },
+        "supportsGameRootInstall": {
+          "type": "boolean"
+        }
       }
     },
     "gamebryo": {
       "type": "object",
       "additionalProperties": false,
+      "minProperties": 1,
       "properties": {
-        "scriptExtenderExecutables": { "type": "array", "items": { "$ref": "#/$defs/fileName" } },
-        "userGameDataPath": { "$ref": "#/$defs/safeRelativePath" },
-        "iniFilePath": { "$ref": "#/$defs/safeRelativePath" },
-        "rendererFilePath": { "$ref": "#/$defs/safeRelativePath" },
-        "pluginsFilePath": { "$ref": "#/$defs/safeRelativePath" },
-        "additionalSettingsFiles": { "type": "object", "additionalProperties": { "$ref": "#/$defs/safeRelativePath" } }
+        "scriptExtenderExecutables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/executableRelativePath"
+          },
+          "uniqueItems": true
+        },
+        "scriptExtenderAutoLoadFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "uniqueItems": true,
+          "description": "Game-relative marker files whose presence means the script extender auto-loads when the normal game executable is started."
+        },
+        "requiresOptionalFilesCheckOnProfileSwitch": {
+          "type": "boolean",
+          "description": "Preserves additional plugin-directory files selected by the profile manager during profile switches."
+        },
+        "optionalFileNamePrefixes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true,
+          "description": "Case-insensitive filename prefixes used to select generated plugin-directory files for profile preservation."
+        },
+        "postProfileSwitchToolPath": {
+          "$ref": "#/$defs/pathTemplate",
+          "description": "Optional executable path offered after a profile switch."
+        },
+        "postProfileSwitchToolMessage": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Prompt shown before launching the configured post-profile-switch tool."
+        },
+        "userGameDataPath": {
+          "$ref": "#/$defs/pathTemplate"
+        },
+        "iniFilePath": {
+          "$ref": "#/$defs/pathTemplate"
+        },
+        "rendererFilePath": {
+          "$ref": "#/$defs/pathTemplate"
+        },
+        "pluginsFilePath": {
+          "$ref": "#/$defs/pathTemplate"
+        },
+        "additionalSettingsFiles": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/identifier"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/pathTemplate"
+          }
+        }
+      },
+      "dependentRequired": {
+        "postProfileSwitchToolPath": [
+          "postProfileSwitchToolMessage"
+        ],
+        "postProfileSwitchToolMessage": [
+          "postProfileSwitchToolPath"
+        ]
       }
     },
-    "tool": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "settingsKey": { "type": "string" },
-        "executablePath": { "$ref": "#/$defs/safeRelativePath" },
-        "executableName": { "$ref": "#/$defs/fileName" },
-        "executableNames": { "type": "array", "items": { "$ref": "#/$defs/fileName" } },
-        "arguments": { "type": "string", "deprecated": true, "description": "Rejected by the runtime validator. Use argumentTokens." },
-        "argumentTokens": { "type": "array", "items": { "type": "string" } },
-        "discoveryRules": { "type": "array", "items": { "$ref": "#/$defs/toolDiscoveryRule" } }
-      }
-    },
-    "toolDiscoveryRule": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "source": { "type": "string", "enum": [ "GamePath", "Registry", "ConfiguredPath" ] },
-        "path": { "$ref": "#/$defs/safeRelativePath" },
-        "registryKey": { "type": "string" },
-        "registryValueName": { "type": "string" },
-        "pathSuffix": { "$ref": "#/$defs/safeRelativePath" }
-      }
+    "uint32Value": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        {
+          "type": "string",
+          "pattern": "^0[xX](?=[0-9A-Fa-f]{1,8}$)(?!0+$)[0-9A-Fa-f]+$"
+        }
+      ],
+      "description": "Non-zero UInt32 written as a JSON integer or a 0x-prefixed hexadecimal string."
     }
   }
 }

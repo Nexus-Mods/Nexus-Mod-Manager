@@ -1,129 +1,125 @@
 {
-    "schemaVersion":  1,
-    "modeId":  "Fallout3",
-    "name":  "Fallout 3",
-    "behaviorProfile":  "gamebryo",
-    "installerProfile":  "gamebryo",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "fallout3.exe",
-                            "fallout3ng.exe"
-                        ],
-    "stopFolders":  [
-                        "textures",
-                        "scripts",
-                        "meshes",
-                        "music",
-                        "shaders",
-                        "video",
-                        "interface",
-                        "facegen",
-                        "menus",
-                        "lodsettings",
-                        "lsdata",
-                        "sound",
-                        "CalienteTools",
-                        "SKSE",
-                        "MWSE",
-                        "NVSE",
-                        "F4SE",
-                        "FOSE",
-                        "OBSE"
-                    ],
-    "pluginExtensions":  [
-                             ".esm",
-                             ".esl",
-                             ".esp"
-                         ],
-    "orderedCriticalPluginNames":  [
-                                       "fallout3.esm"
-                                   ],
-    "orderedOfficialPluginNames":  [
-                                       "Anchorage.esm",
-                                       "ThePitt.esm",
-                                       "BrokenSteel.esm",
-                                       "PointLookout.esm",
-                                       "Zeta.esm"
-                                   ],
-    "orderedOfficialUnmanagedPluginNames":  [
-
-                                            ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "22300",
-                                         "installFolderName":  "Fallout 3",
-                                         "executableName":  "fallout3.exe"
-                                     },
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "22370",
-                                         "installFolderName":  "Fallout 3 goty",
-                                         "executableName":  "Fallout3.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "Data",
-                   "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255
-               },
-    "launcher":  {
-                     "defaultExecutable":  "fallout3.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Fallout 3",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Fallout 3",
-                     "defaultCommandText":  "Launch Fallout 3",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "fo3_logo.ico",
-                      "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "fallout3_base.txt"
-                  },
-    "theme":  {
-                  "primaryColor":  "#32689E"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".esp",
-                                                          ".esl",
-                                                          ".esm",
-                                                          ".bsa",
-                                                          ".mp3",
-                                                          ".BGSM",
-                                                          ".BGEM",
-                                                          ".wav",
-                                                          ".ogg",
-                                                          ".xwm"
-                                                      ],
-                       "supportsGameRootInstall":  true
-                   },
-    "gamebryo":  {
-                     "scriptExtenderExecutables":  [
-                                                       "fose_loader.exe"
-                                                   ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Fallout3",
-                     "iniFilePath":  "{UserGameData}\\fallout.ini",
-                     "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\FalloutPrefs.ini",
-                                                     "GeckIniPath":  "{UserGameData}\\GECKCustom.ini",
-                                                     "GeckPrefsIniPath":  "{UserGameData}\\GECKPrefs.ini"
-                                                 },
-                     "pluginsFilePath":  "#A1B44B"
-                 }
+  "schemaVersion": 2,
+  "modeId": "Fallout3",
+  "name": "Fallout 3",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Fallout3.exe",
+    "Fallout3ng.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "CalienteTools",
+    "FOSE"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Fallout3.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "Anchorage.esm",
+    "ThePitt.esm",
+    "BrokenSteel.esm",
+    "PointLookout.esm",
+    "Zeta.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "22300",
+        "installFolderName": "Fallout 3",
+        "executableName": "Fallout3.exe"
+      },
+      {
+        "store": "Steam",
+        "id": "22370",
+        "installFolderName": "Fallout 3 goty",
+        "executableName": "Fallout3.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1454315831",
+        "executableName": "Fallout3.exe",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1454315831",
+        "registryValueName": "PATH"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": true,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "Fallout3.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Fallout 3",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Fallout 3",
+    "defaultCommandText": "Launch Fallout 3",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "fo3_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "fallout3_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "fose_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Fallout3",
+    "iniFilePath": "{UserGameData}\\Fallout.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Fallout3\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\FalloutPrefs.ini",
+      "GeckIniPath": "{UserGameData}\\GECKCustom.ini",
+      "GeckPrefsIniPath": "{UserGameData}\\GECKPrefs.ini"
+    }
+  },
+  "compatibilityNotes": [
+    "The legacy Games for Windows Live DLC relocation prompt is intentionally not reproduced. Current digital releases install DLC with the game and no longer require that migration."
+  ]
 }

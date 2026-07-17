@@ -37,7 +37,7 @@ namespace Nexus.Client.GameStorage
                     message.AppendLine($"- {fix}");
                 message.AppendLine();
             }
-            message.AppendLine("NMM will not create empty replacement folders for an existing Game Storage. Please restore or repair the paths for this game and launch it again.");
+            message.AppendLine("NMM will not create replacement InstallInfo or Mods folders for an existing Game Storage. Missing VirtualInstall and required Link Folder directories may be created during recovery after the selected paths are confirmed.");
             return message.ToString();
         }
     }

@@ -1,0 +1,98 @@
+{
+  // Editor-only schema hint. NMM ignores this property at runtime.
+  "$schema": "../schema/game-mode.schema.json",
+
+  // Main game-mode contract version.
+  "schemaVersion": 2,
+
+  // Stable identifier. Do not change after the Game Mode has been released.
+  "modeId": "ExampleGame",
+  "name": "Example Game",
+
+  // Use "generic" for games that do not use NMM's Gamebryo plugin-management stack.
+  "behaviorProfile": "generic",
+
+  // Set this only while a legacy DLL mode with the same modeId must take precedence.
+  "legacyFallback": false,
+
+  // Safe paths relative to the detected game installation directory.
+  // The first entry should normally be the principal game executable.
+  "gameExecutables": [
+    "ExampleGame.exe"
+  ],
+
+  // Optional archive-root markers used to remove unnecessary wrapper folders.
+  "stopFolders": [
+    "Mods"
+  ],
+
+  // Optional mod-format identifiers. Omit this property to use the runtime fallback.
+  "supportedFormats": [
+    "fomod"
+  ],
+
+  // Ordered store-discovery candidates. Prefer this form over legacy Steam/GOG shortcuts.
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "000000",
+        "installFolderName": "ExampleGame",
+        "executableName": "ExampleGame.exe"
+      }
+    ]
+  },
+
+  // Omit this entire object only when the runtime's default launch behavior is sufficient.
+  "launcher": {
+    "defaultExecutable": "ExampleGame.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Example Game",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Example Game",
+    "defaultCommandText": "Launch Example Game",
+
+    // Single source of truth for both custom launching and its settings UI.
+    "allowCustomCommand": true
+  },
+
+  // Resource file names only. These files must live beside game.json.
+  "resources": {
+    "iconPath": "ExampleGame_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "examplegame_base.txt"
+  },
+
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+
+  // Generic initial directory setup.
+  "setup": {
+    "useGenericSetup": true
+  },
+
+  // Generic settings page for installation/mod directories and launcher configuration.
+  "settings": {
+    "useGenericSettings": true
+  },
+
+  "modInstall": {
+    // Available schema-v2 profiles: none, cyberpunk2077, sims4, nomanssky.
+    "pathAdjustmentProfile": "none",
+
+    // Optional: use when NMM must manage a location other than the detected game root.
+    // "managedInstallationPath": "{PersonalData}\\Example Game",
+
+    // Optional file-link policy overrides. Omit empty arrays.
+    // "hardlinkRequiredExtensions": [ ".archive" ],
+    // "realFileRequiredExtensions": [ ".dll" ],
+
+    "supportsGameRootInstall": false
+  },
+
+  // Maintainer-facing notes only. Omit when there is nothing exceptional to document.
+  "compatibilityNotes": [
+    "Document intentionally preserved legacy behavior here."
+  ]
+}

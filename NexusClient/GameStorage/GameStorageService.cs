@@ -365,7 +365,13 @@ namespace Nexus.Client.GameStorage
         private GameStorageHealthCheck Validate(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
         {
             var result = new GameStorageHealthCheck { GameId = paths.GameId, StorageId = storageId };
-            var lastKnownGood = registry.KnownStorages.FirstOrDefault(x => string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) && x.LastKnownGood);
+            var lastKnownGood = registry.KnownStorages.FirstOrDefault(x =>
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase) &&
+                x.LastKnownGood)
+                ?? registry.KnownStorages.FirstOrDefault(x =>
+                    string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                    x.LastKnownGood);
 
             ValidateFolder(result, paths, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, storageId, true);
             ValidateFolder(result, paths, GameStorageFolderRole.Mods, paths.ModsPath, storageId, true);

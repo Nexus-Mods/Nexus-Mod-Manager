@@ -1,129 +1,219 @@
 {
-    "schemaVersion":  1,
-    "modeId":  "Starfield",
-    "name":  "Starfield",
-    "behaviorProfile":  "gamebryo",
-    "installerProfile":  "gamebryo",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "Starfield.exe"
-                        ],
-    "stopFolders":  [
-                        "textures",
-                        "scripts",
-                        "meshes",
-                        "music",
-                        "shaders",
-                        "video",
-                        "interface",
-                        "facegen",
-                        "menus",
-                        "lodsettings",
-                        "lsdata",
-                        "sound",
-                        "CalienteTools",
-                        "SKSE",
-                        "MWSE",
-                        "NVSE",
-                        "F4SE",
-                        "FOSE",
-                        "OBSE"
-                    ],
-    "pluginExtensions":  [
-                             ".esm",
-                             ".esl",
-                             ".esp"
-                         ],
-    "orderedCriticalPluginNames":  [
-                                       "Starfield.esm"
-                                   ],
-    "orderedOfficialPluginNames":  [
-                                       "ShatteredSpace.esm",
-                                       "Constellation.esm",
-                                       "OldMars.esm"
-                                   ],
-    "orderedOfficialUnmanagedPluginNames":  [
-                                                "SFBGS007.esm",
-                                                "SFBGS008.esm",
-                                                "SFBGS006.esm",
-                                                "SFBGS003.esm",
-                                                "SFBGS004.esm",
-                                                "SFBGS00D.esm",
-                                                "SFBGS047.esm",
-                                                "SFBGS050.esm",
-                                                "BlueprintShips-Starfield.esm",
-                                                "BlueprintShips-SFBGS050.esm"
-                                            ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "1716740",
-                                         "installFolderName":  "Starfield",
-                                         "executableName":  "Starfield.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "Data",
-                   "supportsPluginAutoSorting":  false,
-                   "maxAllowedActivePluginsCount":  255,
-                   "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Starfield.ccc"
-                                                        ]
-               },
-    "launcher":  {
-                     "defaultExecutable":  "Starfield.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Starfield",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Starfield",
-                     "defaultCommandText":  "Launch Starfield",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "Starfield_logo.ico",
-                      "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "Starfield_base.txt"
-                  },
-    "theme":  {
-                  "primaryColor":  "#3268FA"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".esp",
-                                                          ".esl",
-                                                          ".esm",
-                                                          ".bsa",
-                                                          ".mp3",
-                                                          ".BGSM",
-                                                          ".BGEM",
-                                                          ".wav",
-                                                          ".ogg",
-                                                          ".xwm"
-                                                      ],
-                       "supportsGameRootInstall":  true
-                   },
-    "gamebryo":  {
-                     "scriptExtenderExecutables":  [
-                                                       "sfse_loader.exe"
-                                                   ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Starfield",
-                     "iniFilePath":  "{UserGameData}\\StarfieldCustom.ini",
-                     "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\StarfieldPrefs.ini"
-                                                 }
-                 }
+  "schemaVersion": 2,
+  "modeId": "Starfield",
+  "name": "Starfield",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Starfield.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "geometries",
+    "materials",
+    "meshes",
+    "scripts",
+    "sound",
+    "sounds",
+    "strings",
+    "interface",
+    "video",
+    "shaders",
+    "shadersfx",
+    "planetdata",
+    "particles",
+    "lod",
+    "lodsettings",
+    "facegen",
+    "music",
+    "grass",
+    "misc",
+    "maxheights",
+    "vis",
+    "space",
+    "geoexporter",
+    "noise",
+    "terrain",
+    "programs",
+    "tools",
+    "CalienteTools",
+    "SFSE"
+  ],
+  "pluginExtensions": [
+    ".esm"
+  ],
+  "orderedCriticalPluginNames": [
+    "Starfield.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "Constellation.esm",
+    "OldMars.esm",
+    "ShatteredSpace.esm"
+  ],
+  "orderedOfficialUnmanagedPluginNames": [
+    "BlueprintShips-Starfield.esm",
+    "BlueprintShips-SFBGS050.esm",
+    "SFBGS003.esm",
+    "SFBGS004.esm",
+    "SFBGS005.esm",
+    "SFBGS006.esm",
+    "SFBGS007.esm",
+    "SFBGS008.esm",
+    "SFBGS00D.esm",
+    "SFBGS047.esm",
+    "SFBGS050.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "1716740",
+        "installFolderName": "Starfield",
+        "executableName": "Starfield.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 0,
+    "officialUnmanagedPluginListFiles": [
+      "{GamePath}\\Starfield.ccc"
+    ],
+    "policy": {
+      "schemaVersion": 1,
+      "parserStrategy": "gamebryo",
+      "persistenceStrategy": "singleFile",
+      "masterPluginsMustLoadBeforeNonMasters": true,
+      "validateDependencies": true,
+      "pluginsFilePath": "{LocalApplicationData}\\Starfield\\plugins.txt",
+      "loadOrderFilePath": "{LocalApplicationData}\\Starfield\\plugins.txt",
+      "activeMarker": "*",
+      "appDataGameFolderName": "Starfield",
+      "useTimestampOrder": false,
+      "ignoreOfficialPlugins": true,
+      "forcedReadOnly": false,
+      "singleFileManagement": true,
+      "officialPluginsAreImplicitlyActive": true,
+      "showStarfieldCustomPluginsHeader": true,
+      "headerFlagMappings": [
+        {
+          "source": "RecordFlags1",
+          "mask": "0x00000200",
+          "flags": "Small"
+        },
+        {
+          "source": "RecordFlags1",
+          "mask": "0x00000400",
+          "flags": "Medium"
+        }
+      ],
+      "addressSpaces": [
+        {
+          "addressClass": "Full",
+          "firstIndex": 0,
+          "maxCount": 253,
+          "displayFormat": "{0:X2}"
+        },
+        {
+          "addressClass": "Medium",
+          "firstIndex": 0,
+          "maxCount": 256,
+          "displayFormat": "FD:{0:X2}"
+        },
+        {
+          "addressClass": "Small",
+          "firstIndex": 0,
+          "maxCount": 4096,
+          "displayFormat": "FE:{0:X3}"
+        }
+      ],
+      "fixedOrderPlugins": [
+        "BlueprintShips-Starfield.esm",
+        "BlueprintShips-SFBGS050.esm",
+        "SFBGS003.esm",
+        "SFBGS004.esm",
+        "SFBGS005.esm",
+        "SFBGS006.esm",
+        "SFBGS007.esm",
+        "SFBGS008.esm",
+        "SFBGS00D.esm",
+        "SFBGS047.esm",
+        "SFBGS050.esm"
+      ],
+      "forcedActivePlugins": [
+        "BlueprintShips-Starfield.esm"
+      ],
+      "blueprintPlugins": [
+        "BlueprintShips-Starfield.esm",
+        "BlueprintShips-SFBGS050.esm"
+      ],
+      "blueprintPluginPrefixes": [
+        "BlueprintShips-"
+      ]
+    }
+  },
+  "launcher": {
+    "defaultExecutable": "Starfield.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Starfield",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Starfield",
+    "defaultCommandText": "Launch Starfield",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "Starfield_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "Starfield_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#3268FA"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "starfield",
+    "hardlinkRequiredExtensions": [
+      ".esm",
+      ".ba2",
+      ".mp3",
+      ".bgsm",
+      ".bgem",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe",
+      ".asi"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "sfse_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Starfield",
+    "iniFilePath": "{UserGameData}\\StarfieldCustom.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Starfield\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\StarfieldPrefs.ini"
+    }
+  },
+  "compatibilityNotes": [
+    "This definition targets the Steam release. Microsoft Store/Xbox discovery remains omitted until the data-driven discoverer has a package-aware Starfield detector.",
+    "Current Starfield load orders contain .esm masters only. Full, Medium and Small master classes use independent address spaces.",
+    "Official Creation content is discovered through Starfield.ccc; known native plugins are also retained in fixed order.",
+    "StarfieldCustom.ini is normalized before mod installation so loose files are enabled and obsolete sTestFile plugin-loading entries are removed."
+  ]
 }

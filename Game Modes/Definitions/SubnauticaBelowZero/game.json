@@ -1,57 +1,66 @@
 ﻿{
-    "schemaVersion":  1,
-    "modeId":  "SubnauticaBelowZero",
-    "name":  "Subnautica Below Zero",
-    "behaviorProfile":  "generic",
-    "installerProfile":  "default",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "SubnauticaZero.exe"
-                        ],
-    "stopFolders":  [
-                        "QMods"
-                    ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "848450",
-                                         "installFolderName":  "SubnauticaZero",
-                                         "executableName":  "SubnauticaZero.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  false,
-                   "pluginDirectorySuffix":  ""
-               },
-    "launcher":  {
-                     "defaultExecutable":  "SubnauticaZero.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Subnautica Below Zero",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Subnautica Below Zero",
-                     "defaultCommandText":  "Launch Subnautica Below Zero",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "SubnauticaBelowZero_logo.ico",
-                      "categoriesPath":  "Categories.xml"
-                  },
-    "theme":  {
-                  "primaryColor":  "#502D17"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "subnautica"
-                   }
+  "schemaVersion": 2,
+  "modeId": "SubnauticaBelowZero",
+  "name": "Subnautica Below Zero",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "SubnauticaZero.exe"
+  ],
+  "stopFolders": [
+    "BepInEx",
+    "plugins",
+    "patchers",
+    "config",
+    "QMods",
+    "SubnauticaZero_Data"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "848450",
+        "installFolderName": "SubnauticaZero",
+        "executableName": "SubnauticaZero.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "SubnauticaZero.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Subnautica Below Zero",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Subnautica Below Zero",
+    "defaultCommandText": "Launch Subnautica Below Zero",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "SubnauticaBelowZero_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#66FAFA"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "subnautica",
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "compatibilityNotes": [
+    "Current Subnautica: Below Zero modding uses BepInEx. Rootless mod archives are deployed under BepInEx\\plugins, while correctly rooted BepInEx framework and plugin archives keep their existing layout.",
+    "Explicit QMods archives remain supported for legacy compatibility, but modern BepInEx placement is the default.",
+    "The Steam definition remains the only declared store because no current package-specific Epic or Microsoft Store detector was supplied."
+  ]
 }

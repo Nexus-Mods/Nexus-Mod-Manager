@@ -1,0 +1,10 @@
+{
+	"schemaVersion": 1,
+	"supportedTools": [
+		{
+			"id": "AML",
+			"name": "Alternative Mod Launcher",
+			"executableName": "XCOM2 Launcher.exe"
+		}
+	]
+}

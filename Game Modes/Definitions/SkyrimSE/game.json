@@ -1,125 +1,161 @@
 {
-    "schemaVersion":  1,
-    "modeId":  "SkyrimSE",
-    "name":  "Skyrim Special Edition",
-    "behaviorProfile":  "gamebryo",
-    "installerProfile":  "gamebryo",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "SkyrimSELauncher.exe"
-                        ],
-    "stopFolders":  [
-                        "textures",
-                        "scripts",
-                        "meshes",
-                        "music",
-                        "shaders",
-                        "video",
-                        "interface",
-                        "facegen",
-                        "menus",
-                        "lodsettings",
-                        "lsdata",
-                        "sound",
-                        "CalienteTools",
-                        "SKSE",
-                        "MWSE",
-                        "NVSE",
-                        "F4SE",
-                        "FOSE",
-                        "OBSE"
-                    ],
-    "pluginExtensions":  [
-                             ".esm",
-                             ".esl",
-                             ".esp",
-                             ".bsa",
-                             ".ba2"
-                         ],
-    "orderedCriticalPluginNames":  [
-                                       "Skyrim.esm",
-                                       "Update.esm",
-                                       "Dawnguard.esm",
-                                       "HearthFires.esm",
-                                       "Dragonborn.esm"
-                                   ],
-    "orderedOfficialPluginNames":  [
-
-                                   ],
-    "orderedOfficialUnmanagedPluginNames":  [
-
-                                            ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "489830",
-                                         "installFolderName":  "SkyrimSE",
-                                         "executableName":  "SkyrimSELauncher.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "Data",
-                   "supportsPluginAutoSorting":  false,
-                   "maxAllowedActivePluginsCount":  255,
-                   "officialUnmanagedPluginListFiles":  [
-                                                            "{GamePath}\\Skyrim.ccc"
-                                                        ]
-               },
-    "launcher":  {
-                     "defaultExecutable":  "SkyrimSELauncher.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Skyrim Special Edition",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Skyrim Special Edition",
-                     "defaultCommandText":  "Launch Skyrim Special Edition",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "SkyrimSE_logo.ico",
-                      "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "skyrimse_base.txt"
-                  },
-    "theme":  {
-                  "primaryColor":  "#32689E"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".esp",
-                                                          ".esl",
-                                                          ".esm",
-                                                          ".bsa",
-                                                          ".mp3",
-                                                          ".BGSM",
-                                                          ".BGEM",
-                                                          ".wav",
-                                                          ".ogg",
-                                                          ".xwm"
-                                                      ],
-                       "supportsGameRootInstall":  true
-                   },
-    "gamebryo":  {
-                     "scriptExtenderExecutables":  [
-                                                       "skse_loader.exe"
-                                                   ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Skyrim Special Edition",
-                     "iniFilePath":  "{UserGameData}\\Skyrim.ini",
-                     "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\SkyrimPrefs.ini"
-                                                 },
-                     "pluginsFilePath":  "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt"
-                 }
+  "schemaVersion": 2,
+  "modeId": "SkyrimSE",
+  "name": "Skyrim Special Edition",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "SkyrimSE.exe",
+    "SkyrimSELauncher.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "strings",
+    "seq",
+    "grass",
+    "tools",
+    "CalienteTools",
+    "SKSE",
+    "Nemesis_Engine",
+    "Pandora_Engine"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esl",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Skyrim.esm",
+    "Update.esm",
+    "Dawnguard.esm",
+    "HearthFires.esm",
+    "Dragonborn.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "489830",
+        "installFolderName": "Skyrim Special Edition",
+        "executableName": "SkyrimSE.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 255,
+    "officialUnmanagedPluginListFiles": [
+      "{GamePath}\\Skyrim.ccc"
+    ],
+    "policy": {
+      "schemaVersion": 1,
+      "addressSpaces": [
+        {
+          "addressClass": "Full",
+          "firstIndex": 0,
+          "maxCount": 254,
+          "displayFormat": "{0:X2}"
+        },
+        {
+          "addressClass": "Light",
+          "firstIndex": 0,
+          "maxCount": 4096,
+          "displayFormat": "FE:{0:X3}"
+        }
+      ],
+      "persistenceStrategy": "singleFile",
+      "pluginsFilePath": "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt",
+      "loadOrderFilePath": "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt",
+      "activeMarker": "*",
+      "appDataGameFolderName": "Skyrim Special Edition",
+      "useTimestampOrder": false,
+      "ignoreOfficialPlugins": true,
+      "forcedReadOnly": false,
+      "singleFileManagement": true,
+      "officialPluginsAreImplicitlyActive": true
+    }
+  },
+  "launcher": {
+    "defaultExecutable": "SkyrimSE.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Skyrim Special Edition",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Skyrim Special Edition",
+    "defaultCommandText": "Launch Skyrim Special Edition",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "SkyrimSE_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "skyrimse_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esl",
+      ".esm",
+      ".bsa",
+      ".ba2",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "skse64_loader.exe"
+    ],
+    "requiresOptionalFilesCheckOnProfileSwitch": true,
+    "optionalFileNamePrefixes": [
+      "Bashed Patch",
+      "PatchusMaximus",
+      "Dual Sheath Redux Patch"
+    ],
+    "postProfileSwitchToolPath": "{GamePath}\\Data\\tools\\GenerateFNIS_for_Users\\GenerateFNISforUsers.exe",
+    "postProfileSwitchToolMessage": "It seems that FNIS is installed: switching mod profiles while using FNIS could require you to run it to prevent broken ingame animations, do you want to run it?",
+    "userGameDataPath": "{PersonalData}\\My Games\\Skyrim Special Edition",
+    "iniFilePath": "{UserGameData}\\Skyrim.ini",
+    "rendererFilePath": "{UserGameData}\\RendererInfo.txt",
+    "pluginsFilePath": "{LocalApplicationData}\\Skyrim Special Edition\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\SkyrimPrefs.ini"
+    }
+  },
+  "compatibilityNotes": [
+    "This single Steam Game Mode supports both Skyrim Special Edition and Skyrim Anniversary Edition. Anniversary Edition uses the same app, executable, Data directory and user-data directories as Special Edition.",
+    "The current Steam 1.6.x runtime requires the Anniversary Edition build of SKSE64, while deliberately downgraded 1.5.97 installations require the older Special Edition SKSE64 build.",
+    "Official Creation content is discovered through Skyrim.ccc and protected from purge by skyrimse_base.txt."
+  ]
 }

@@ -1,128 +1,129 @@
 {
-    "schemaVersion":  1,
-    "modeId":  "Oblivion",
-    "name":  "Oblivion",
-    "behaviorProfile":  "gamebryo",
-    "installerProfile":  "gamebryo",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "oblivion.exe"
-                        ],
-    "stopFolders":  [
-                        "textures",
-                        "scripts",
-                        "meshes",
-                        "music",
-                        "shaders",
-                        "video",
-                        "interface",
-                        "facegen",
-                        "menus",
-                        "lodsettings",
-                        "lsdata",
-                        "sound",
-                        "CalienteTools",
-                        "SKSE",
-                        "MWSE",
-                        "NVSE",
-                        "F4SE",
-                        "FOSE",
-                        "OBSE"
-                    ],
-    "pluginExtensions":  [
-                             ".esm",
-                             ".esl",
-                             ".esp"
-                         ],
-    "orderedCriticalPluginNames":  [
-                                       "oblivion.esm"
-                                   ],
-    "orderedOfficialPluginNames":  [
-                                       "DLCHorseArmor.esp",
-                                       "DLCMehrunesRazor.esp",
-                                       "Knights.esp",
-                                       "DLCShiveringIsles.esp",
-                                       "DLCVileLair.esp",
-                                       "DLCFrostcrag.esp",
-                                       "DLCBattlehornCastle.esp",
-                                       "DLCSpellTomes.esp",
-                                       "DLCThievesDen.esp",
-                                       "DLCOrrery.esp"
-                                   ],
-    "orderedOfficialUnmanagedPluginNames":  [
-
-                                            ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "22330",
-                                         "installFolderName":  "Oblivion",
-                                         "executableName":  "oblivion.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "Data",
-                   "supportsPluginAutoSorting":  true,
-                   "maxAllowedActivePluginsCount":  255
-               },
-    "launcher":  {
-                     "defaultExecutable":  "oblivion.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Oblivion",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Oblivion",
-                     "defaultCommandText":  "Launch Oblivion",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "oblivion_logo.ico",
-                      "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "oblivion_base.txt"
-                  },
-    "theme":  {
-                  "primaryColor":  [
-                                       "fomod",
-                                       "omod"
-                                   ]
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".esp",
-                                                          ".esl",
-                                                          ".esm",
-                                                          ".bsa",
-                                                          ".mp3",
-                                                          ".BGSM",
-                                                          ".BGEM",
-                                                          ".wav",
-                                                          ".ogg",
-                                                          ".xwm"
-                                                      ],
-                       "supportsGameRootInstall":  true
-                   },
-    "gamebryo":  {
-                     "scriptExtenderExecutables":  [
-                                                       "obse_loader.exe"
-                                                   ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Oblivion",
-                     "iniFilePath":  "{UserGameData}\\oblivion.ini",
-                     "additionalSettingsFiles":  {
-
-                                                 },
-                     "pluginsFilePath":  "#FAA740"
-                 }
+  "schemaVersion": 2,
+  "modeId": "Oblivion",
+  "name": "Oblivion",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Oblivion.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "baseobjectswapper",
+    "config",
+    "distantlod",
+    "fonts",
+    "mapmarkers",
+    "obse",
+    "pluggy",
+    "trees"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Oblivion.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "DLCHorseArmor.esp",
+    "DLCMehrunesRazor.esp",
+    "Knights.esp",
+    "DLCShiveringIsles.esp",
+    "DLCVileLair.esp",
+    "DLCFrostcrag.esp",
+    "DLCBattlehornCastle.esp",
+    "DLCSpellTomes.esp",
+    "DLCThievesDen.esp",
+    "DLCOrrery.esp"
+  ],
+  "supportedFormats": [
+    "fomod",
+    "omod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "22330",
+        "installFolderName": "Oblivion",
+        "executableName": "Oblivion.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1458058109",
+        "executableName": "Oblivion.exe",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1458058109",
+        "registryValueName": "PATH"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": true,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "Oblivion.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Oblivion",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Oblivion",
+    "defaultCommandText": "Launch Oblivion",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "oblivion_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "oblivion_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#FAA740"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "obse_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Oblivion",
+    "iniFilePath": "{UserGameData}\\Oblivion.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Oblivion\\plugins.txt",
+    "scriptExtenderAutoLoadFiles": [
+      "obse_steam_loader.dll"
+    ]
+  },
+  "compatibilityNotes": [
+    "This definition targets the original 2006/2009 Oblivion release, not Oblivion Remastered.",
+    "On Steam, xOBSE normally loads through obse_steam_loader.dll when Oblivion.exe is started; obse_loader.exe remains the non-Steam launcher and an explicit launcher command when present.",
+    "Windows Store discovery is omitted until a stable package-specific detector is defined."
+  ]
 }

@@ -1,61 +1,80 @@
 ﻿{
-    "schemaVersion":  1,
-    "modeId":  "NoMansSky",
-    "name":  "No Man\u0027s Sky",
-    "behaviorProfile":  "generic",
-    "installerProfile":  "default",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "Binaries\\NMS.exe"
-                        ],
-    "stopFolders":  [
-
-                    ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "275850",
-                                         "installFolderName":  "No Man\u0027s Sky",
-                                         "executableName":  "Binaries\\NMS.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  false,
-                   "pluginDirectorySuffix":  ""
-               },
-    "launcher":  {
-                     "defaultExecutable":  "Binaries\\NMS.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch No Man\u0027s Sky",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom No Man\u0027s Sky",
-                     "defaultCommandText":  "Launch No Man\u0027s Sky",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "nomanssky_logo.ico",
-                      "categoriesPath":  "Categories.xml"
-                  },
-    "theme":  {
-                  "primaryColor":  "#502D17"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "nomanssky",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".mp3",
-                                                          ".dll"
-                                                      ]
-                   }
+  "schemaVersion": 2,
+  "modeId": "NoMansSky",
+  "name": "No Man's Sky",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Binaries\\NMS.exe"
+  ],
+  "stopFolders": [
+    "Binaries",
+    "GAMEDATA",
+    "MODS",
+    "METADATA",
+    "MODELS",
+    "TEXTURES",
+    "LANGUAGE",
+    "AUDIO",
+    "UI",
+    "GLOBALS",
+    "SCENES",
+    "MATERIALS",
+    "FONTS",
+    "SHADERS"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "275850",
+        "installFolderName": "No Man's Sky",
+        "executableName": "Binaries\\NMS.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1446213994",
+        "executableName": "Binaries\\NMS.exe",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1446213994",
+        "registryValueName": "PATH"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "Binaries\\NMS.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch No Man's Sky",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom No Man's Sky",
+    "defaultCommandText": "Launch No Man's Sky",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "nomanssky_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "nomanssky",
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "compatibilityNotes": [
+    "No Man's Sky 5.50 and later use loose mod folders under GAMEDATA\\MODS; legacy .pak and NMSE-specific routing are intentionally unsupported.",
+    "Microsoft Store and Xbox PC discovery are omitted until package-specific installation-root and executable detection is implemented."
+  ]
 }

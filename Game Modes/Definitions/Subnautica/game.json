@@ -1,57 +1,66 @@
 ﻿{
-    "schemaVersion":  1,
-    "modeId":  "Subnautica",
-    "name":  "Subnautica",
-    "behaviorProfile":  "generic",
-    "installerProfile":  "default",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "Subnautica.exe"
-                        ],
-    "stopFolders":  [
-                        "QMods"
-                    ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "264710",
-                                         "installFolderName":  "Subnautica",
-                                         "executableName":  "Subnautica.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  false,
-                   "pluginDirectorySuffix":  ""
-               },
-    "launcher":  {
-                     "defaultExecutable":  "Subnautica.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Subnautica",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Subnautica",
-                     "defaultCommandText":  "Launch Subnautica",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "Subnautica_logo.ico",
-                      "categoriesPath":  "Categories.xml"
-                  },
-    "theme":  {
-                  "primaryColor":  "#502D17"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "subnautica"
-                   }
+  "schemaVersion": 2,
+  "modeId": "Subnautica",
+  "name": "Subnautica",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Subnautica.exe"
+  ],
+  "stopFolders": [
+    "BepInEx",
+    "plugins",
+    "patchers",
+    "config",
+    "QMods",
+    "Subnautica_Data"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "264710",
+        "installFolderName": "Subnautica",
+        "executableName": "Subnautica.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "Subnautica.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Subnautica",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Subnautica",
+    "defaultCommandText": "Launch Subnautica",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "Subnautica_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#5198EA"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "subnautica",
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "compatibilityNotes": [
+    "Current Subnautica modding uses BepInEx. Rootless mod archives are deployed under BepInEx\\plugins, while correctly rooted BepInEx framework and plugin archives keep their existing layout.",
+    "QModManager is deprecated and only applies to Steam's Legacy branch. Archives that explicitly contain a QMods root remain supported, but modern BepInEx placement is the default.",
+    "The Steam definition remains the only declared store because no current package-specific Epic or Microsoft Store detector was supplied."
+  ]
 }

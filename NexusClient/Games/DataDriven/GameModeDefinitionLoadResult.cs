@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -14,12 +15,14 @@ namespace Nexus.Client.Games.DataDriven
 
         public void AddDefinition(GameModeDefinition definition)
         {
-            _definitions.Add(definition);
+            if (definition != null)
+                _definitions.Add(definition);
         }
 
         public void AddIssue(GameModeDefinitionIssue issue)
         {
-            _issues.Add(issue);
+            if (issue != null)
+                _issues.Add(issue);
         }
     }
 
@@ -27,13 +30,16 @@ namespace Nexus.Client.Games.DataDriven
     {
         public string FilePath { get; set; }
         public string GameModeId { get; set; }
+        public string PropertyPath { get; set; }
         public GameModeDefinitionIssueSeverity Severity { get; set; }
         public string Message { get; set; }
 
         public override string ToString()
         {
+            string file = string.IsNullOrWhiteSpace(FilePath) ? string.Empty : " " + FilePath;
             string id = string.IsNullOrWhiteSpace(GameModeId) ? string.Empty : " [" + GameModeId + "]";
-            return Severity + id + ": " + Message;
+            string property = string.IsNullOrWhiteSpace(PropertyPath) ? string.Empty : " (" + PropertyPath + ")";
+            return Severity + id + file + property + ": " + Message;
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
@@ -256,26 +256,23 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private void InitializeManager()
 		{
 			PluginManagementPolicy policy = GameMode.PluginManagementPolicy ?? new PluginManagementPolicy();
-			string persistenceStrategy = policy.PersistenceStrategy ?? String.Empty;
 
-			AppDataGameFolderName = String.IsNullOrWhiteSpace(policy.AppDataGameFolderName) ? GameMode.ModeId : policy.AppDataGameFolderName;
-			TimestampOrder = policy.UseTimestampOrder ?? persistenceStrategy.Equals("timestamp", StringComparison.OrdinalIgnoreCase);
-			SingleFileManagement = policy.SingleFileManagement ?? (persistenceStrategy.Equals("singleFile", StringComparison.OrdinalIgnoreCase) || persistenceStrategy.Equals("plugins", StringComparison.OrdinalIgnoreCase) || persistenceStrategy.Equals("pluginsTxt", StringComparison.OrdinalIgnoreCase));
-			OblivionRemasteredPluginManagement = policy.LoadOrderInPluginDirectory ?? persistenceStrategy.Equals("pluginDirectory", StringComparison.OrdinalIgnoreCase);
-			IgnoreOfficialPlugins = policy.IgnoreOfficialPlugins ?? false;
-			ForcedReadOnly = policy.ForcedReadOnly ?? false;
-			Fallout4PluginManagement = policy.OfficialPluginsAreImplicitlyActive ?? false;
-			StarFieldCustomPluginsMessage = policy.ShowStarfieldCustomPluginsHeader ?? false;
-			ActiveMarker = String.IsNullOrEmpty(policy.ActiveMarker) ? "*" : policy.ActiveMarker;
+			// Keep the legacy ModeId behavior as a compatibility fallback. This is
+			// essential during base-constructor initialization, where a data-driven
+			// definition may not yet be available to the virtual policy getter.
+			ApplyLegacyPersistenceDefaults();
+
+			// A non-legacy or explicitly populated policy is authoritative.
+			ApplyPluginManagementPolicy(policy);
 
 			string strLocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 			string strGameModeLocalAppData = Path.Combine(strLocalAppData, AppDataGameFolderName);
 
-			if (!Directory.Exists(AppDataGameFolderName))
+			if (!Directory.Exists(strGameModeLocalAppData))
 			{
 				try
 				{
-					FileUtil.CreateDirectory(AppDataGameFolderName);
+					FileUtil.CreateDirectory(strGameModeLocalAppData);
 				}
 				catch { }
 			}
@@ -325,6 +322,213 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				Backup(strGameModeLocalAppData);
 
 			SetupWatcher(strGameModeLocalAppData);
+		}
+
+		private void ApplyLegacyPersistenceDefaults()
+		{
+			AppDataGameFolderName = GameMode.ModeId;
+			TimestampOrder = false;
+			IgnoreOfficialPlugins = false;
+			ForcedReadOnly = false;
+			SingleFileManagement = false;
+			Fallout4PluginManagement = false;
+			OblivionRemasteredPluginManagement = false;
+			StarFieldCustomPluginsMessage = false;
+			ActiveMarker = "*";
+
+			switch (GameMode.ModeId)
+			{
+				case "Oblivion":
+				case "Fallout3":
+				case "FalloutNV":
+					TimestampOrder = true;
+					break;
+
+				case "Skyrim":
+				case "Enderal":
+					break;
+
+				case "Fallout4":
+					ApplyLegacyFallout4Defaults();
+					break;
+
+				case "Fallout4VR":
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					break;
+
+				case "SkyrimSE":
+					AppDataGameFolderName = "Skyrim Special Edition";
+					IgnoreOfficialPlugins = true;
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					break;
+
+				case "SkyrimGOG":
+					AppDataGameFolderName = "Skyrim Special Edition GOG";
+					IgnoreOfficialPlugins = true;
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					break;
+
+				case "SkyrimVR":
+					AppDataGameFolderName = "Skyrim VR";
+					IgnoreOfficialPlugins = true;
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					break;
+
+				case "enderalspecialedition":
+					AppDataGameFolderName = "Enderal Special Edition";
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					break;
+
+				case "Starfield":
+					AppDataGameFolderName = "Starfield";
+					IgnoreOfficialPlugins = true;
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					ApplyLegacyStarfieldHeaderDefaults();
+					break;
+
+				case "OblivionRemastered":
+					Fallout4PluginManagement = true;
+					OblivionRemasteredPluginManagement = true;
+					break;
+
+				default:
+					// New data-driven modes are allowed when they provide an explicit
+					// persistence policy. The policy application below will configure
+					// them; otherwise they retain the neutral separate-file fallback.
+					break;
+			}
+		}
+
+		private void ApplyLegacyFallout4Defaults()
+		{
+			try
+			{
+				Version version = GameMode.GameVersion;
+				if (version == null || version < new Version(1, 0, 0, 0))
+				{
+					SingleFileManagement = true;
+					Fallout4PluginManagement = true;
+					return;
+				}
+
+				if (version >= new Version(1, 5, 0, 0))
+				{
+					SingleFileManagement = true;
+					if (version >= new Version(1, 5, 154, 0))
+						Fallout4PluginManagement = true;
+					else
+						ForcedReadOnly = true;
+					return;
+				}
+
+				ForcedReadOnly = true;
+			}
+			catch (ArgumentNullException e)
+			{
+				var ex = new FileNotFoundException(
+					"Could not initialize Fallout4 Game Mode: Could not find the Fallout 4 executable.",
+					Path.Combine(GameMode.ExecutablePath, "Fallout4.exe"),
+					e);
+				TraceUtil.TraceException(ex);
+				throw ex;
+			}
+			finally
+			{
+				IgnoreOfficialPlugins = true;
+			}
+		}
+
+		private void ApplyLegacyStarfieldHeaderDefaults()
+		{
+			try
+			{
+				Version version = GameMode.GameVersion;
+				if (version != null && version >= new Version(1, 12, 30, 0))
+					StarFieldCustomPluginsMessage = true;
+			}
+			catch (ArgumentNullException e)
+			{
+				var ex = new FileNotFoundException(
+					"Could not initialize Starfield Game Mode: Could not find the Starfield executable.",
+					Path.Combine(GameMode.ExecutablePath, "Starfield.exe"),
+					e);
+				TraceUtil.TraceException(ex);
+				throw ex;
+			}
+		}
+
+		private void ApplyPluginManagementPolicy(PluginManagementPolicy policy)
+		{
+			if (policy == null)
+				return;
+
+			string strategy = String.IsNullOrWhiteSpace(policy.PersistenceStrategy)
+				? "legacy"
+				: policy.PersistenceStrategy.Trim();
+
+			if (!strategy.Equals("legacy", StringComparison.OrdinalIgnoreCase))
+			{
+				if (strategy.Equals("timestamp", StringComparison.OrdinalIgnoreCase))
+				{
+					TimestampOrder = true;
+					SingleFileManagement = false;
+					OblivionRemasteredPluginManagement = false;
+				}
+				else if (strategy.Equals("separateFiles", StringComparison.OrdinalIgnoreCase))
+				{
+					TimestampOrder = false;
+					SingleFileManagement = false;
+					OblivionRemasteredPluginManagement = false;
+				}
+				else if (strategy.Equals("singleFile", StringComparison.OrdinalIgnoreCase) ||
+				         strategy.Equals("plugins", StringComparison.OrdinalIgnoreCase) ||
+				         strategy.Equals("pluginsTxt", StringComparison.OrdinalIgnoreCase))
+				{
+					TimestampOrder = false;
+					SingleFileManagement = true;
+					OblivionRemasteredPluginManagement = false;
+				}
+				else if (strategy.Equals("pluginDirectory", StringComparison.OrdinalIgnoreCase))
+				{
+					TimestampOrder = false;
+					SingleFileManagement = false;
+					OblivionRemasteredPluginManagement = true;
+				}
+				else
+				{
+					throw new NotSupportedException(
+						"Unsupported plugin persistence strategy: " +
+						policy.PersistenceStrategy);
+				}
+			}
+
+			if (!String.IsNullOrWhiteSpace(policy.AppDataGameFolderName))
+				AppDataGameFolderName = policy.AppDataGameFolderName;
+			if (policy.UseTimestampOrder.HasValue)
+				TimestampOrder = policy.UseTimestampOrder.Value;
+			if (policy.IgnoreOfficialPlugins.HasValue)
+				IgnoreOfficialPlugins = policy.IgnoreOfficialPlugins.Value;
+			if (policy.ForcedReadOnly.HasValue)
+				ForcedReadOnly = policy.ForcedReadOnly.Value;
+			if (policy.SingleFileManagement.HasValue)
+				SingleFileManagement = policy.SingleFileManagement.Value;
+			if (policy.OfficialPluginsAreImplicitlyActive.HasValue)
+				Fallout4PluginManagement =
+					policy.OfficialPluginsAreImplicitlyActive.Value;
+			if (policy.LoadOrderInPluginDirectory.HasValue)
+				OblivionRemasteredPluginManagement =
+					policy.LoadOrderInPluginDirectory.Value;
+			if (policy.ShowStarfieldCustomPluginsHeader.HasValue)
+				StarFieldCustomPluginsMessage =
+					policy.ShowStarfieldCustomPluginsHeader.Value;
+			if (!String.IsNullOrEmpty(policy.ActiveMarker))
+				ActiveMarker = policy.ActiveMarker;
 		}
 
 		private string ResolvePolicyPersistencePath(string policyPath, string baseDirectory)

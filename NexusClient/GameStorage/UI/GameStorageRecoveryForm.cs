@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -33,7 +33,7 @@ namespace Nexus.Client.GameStorage.UI
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ApplyRequested += ApplyRequested;
             _control.CandidatePreviewRequested += CandidatePreviewRequested;
-            _control.CancelRequested += (sender, args) => DialogResult = DialogResult.Cancel;
+            _control.CancelRequested += CancelRequested;
             Controls.Add(_control);
 
             SetHealth(healthCheck);
@@ -43,9 +43,26 @@ namespace Nexus.Client.GameStorage.UI
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public GameStorageCandidate SelectedCandidate => _control.SelectedCandidate;
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool WasCancelled { get; private set; }
+
         private void RefreshRequested(object sender, EventArgs e)
         {
             RefreshCandidates();
+        }
+
+        private void CancelRequested(object sender, EventArgs e)
+        {
+            WasCancelled = true;
+            DialogResult = DialogResult.Cancel;
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (DialogResult != DialogResult.OK)
+                WasCancelled = true;
+
+            base.OnFormClosing(e);
         }
 
         private void ManualVirtualInstallPathChanged(object sender, EventArgs e)
@@ -59,10 +76,9 @@ namespace Nexus.Client.GameStorage.UI
             if (candidate == null)
                 return;
 
-            var paths = CreatePathSetFromCandidate(candidate);
-            _control.SetManualPaths(paths);
-            SetHealth(_service.ValidateStorage(paths, false));
+            PreviewCandidate(candidate);
         }
+
         private void ApplyRequested(object sender, EventArgs e)
         {
             var selectedCandidate = _control.SelectedCandidate;
@@ -96,10 +112,34 @@ namespace Nexus.Client.GameStorage.UI
             SetHealth(healthCheck);
             MessageBox.Show(this, healthCheck?.ToUserMessage() ?? "The selected Game Storage candidate could not be applied.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
+
         private void RefreshCandidates()
         {
             _candidates = _service.DiscoverRecoveryCandidates(_gameMode);
             _control.SetCandidates(_candidates);
+            PreviewBestCandidate();
+        }
+
+        private void PreviewBestCandidate()
+        {
+            GameStorageCandidate bestCandidate = _candidates
+                .Where(x => x != null)
+                .OrderByDescending(x => x.ConfidenceScore)
+                .ThenBy(x => x.CandidateKind)
+                .FirstOrDefault();
+
+            if (bestCandidate == null)
+                return;
+
+            _control.SelectCandidate(bestCandidate);
+            PreviewCandidate(bestCandidate);
+        }
+
+        private void PreviewCandidate(GameStorageCandidate candidate)
+        {
+            var paths = CreatePathSetFromCandidate(candidate);
+            _control.SetManualPaths(paths);
+            SetHealth(_service.ValidateStorage(paths, false));
         }
 
         private void SetHealth(GameStorageHealthCheck healthCheck)

@@ -1,22 +1,36 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "modeId": "Cyberpunk2077",
   "name": "Cyberpunk 2077",
   "behaviorProfile": "generic",
-  "installerProfile": "default",
   "legacyFallback": false,
-  "gameExecutables": [ "bin\\x64\\Cyberpunk2077.exe" ],
-  "stopFolders": [ "archive", "engine", "r6", "red4ext", "mods", "x64" ],
-  "plugin": {
-    "usesPlugins": false,
-    "pluginDirectorySuffix": ""
-  },
+  "gameExecutables": [
+    "bin\\x64\\Cyberpunk2077.exe"
+  ],
+  "stopFolders": [
+    "archive",
+    "bin",
+    "engine",
+    "mods",
+    "r6",
+    "red4ext"
+  ],
   "discovery": {
-    "steamAppId": "1091500",
-    "steamInstallFolderName": "Cyberpunk 2077",
-    "steamExecutableName": "Cyberpunk2077.exe",
-    "gogRegistryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1423049311",
-    "gogPathValueName": "PATH"
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "1091500",
+        "installFolderName": "Cyberpunk 2077",
+        "executableName": "bin\\x64\\Cyberpunk2077.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1423049311",
+        "executableName": "bin\\x64\\Cyberpunk2077.exe",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1423049311",
+        "registryValueName": "PATH"
+      }
+    ]
   },
   "launcher": {
     "defaultExecutable": "bin\\x64\\Cyberpunk2077.exe",
@@ -38,12 +52,23 @@
     "useGenericSetup": true
   },
   "settings": {
-    "useGenericSettings": true,
-    "allowCustomLaunchCommand": true
+    "useGenericSettings": true
   },
   "modInstall": {
     "pathAdjustmentProfile": "cyberpunk2077",
-    "hardlinkRequiredExtensions": [ ".lua", ".asi", ".toml", ".mp3", ".BGSM", ".BGEM", ".wav", ".ogg", ".xwm" ],
-    "realFileRequiredExtensions": [ ".exe", ".jar", ".dll", ".asi", ".lua", ".toml" ]
+    "hardlinkRequiredExtensions": [
+      ".mp3",
+      ".wav",
+      ".ogg"
+    ],
+    "realFileRequiredExtensions": [
+      ".exe",
+      ".jar",
+      ".dll",
+      ".asi",
+      ".lua",
+      ".toml"
+    ],
+    "supportsGameRootInstall": true
   }
 }

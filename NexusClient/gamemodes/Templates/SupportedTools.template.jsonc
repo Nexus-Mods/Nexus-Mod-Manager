@@ -1,0 +1,76 @@
+{
+  // Editor-only schema hint. This file must be named supportedTools.json
+  // and stored beside the Game Mode's game.json.
+  "$schema": "../schema/supported-tools.schema.json",
+
+  "schemaVersion": 1,
+
+  "supportedTools": [
+    {
+      "id": "RegistryTool",
+      "name": "Example Registry Tool",
+      "settingsKey": "RegistryTool",
+      "executableName": "ExampleTool.exe",
+
+      // Each entry is one process argument. Do not add grouping quotes manually.
+      "argumentTokens": [
+        "--game=Example Game"
+      ],
+
+      // Discovery rules are evaluated after the user-configured directory.
+      "discoveryRules": [
+        {
+          "source": "Registry",
+          "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Example Tool",
+          "registryValueName": "Installed Path"
+        },
+        {
+          "source": "Registry",
+          "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Example Tool",
+          "registryValueName": "Installed Path",
+          "pathSuffix": "bin"
+        },
+        {
+          "source": "Path",
+          "path": "{ProgramFiles}\\Example Tool"
+        }
+      ]
+    },
+    {
+      "id": "GameRelativeTool",
+      "name": "Example Game-Relative Tool",
+      "executableName": "ExampleGameTool.exe",
+      "discoveryRules": [
+        {
+          "source": "GameRelative",
+          "path": "Data\\Tools\\ExampleGameTool"
+        }
+      ]
+    },
+    {
+      "id": "MultiExecutableTool",
+      "name": "Example Multi-Executable Tool",
+
+      // Use executableNames when a tool has multiple valid executable variants.
+      "executableNames": [
+        "ExampleTool x64.exe",
+        "ExampleTool.exe"
+      ],
+
+      // Direct candidate directory checked after the configured folder and discovery rules.
+      "executableDirectory": "{ProgramFiles}\\Example Tool"
+    },
+    {
+      "id": "SharedConfigurationVariant",
+      "name": "Example Tool - Alternate Mode",
+
+      // Multiple launch variants may intentionally share one configured directory.
+      "settingsKey": "MultiExecutableTool",
+      "executableName": "ExampleToolClean.exe",
+      "argumentTokens": [
+        "--clean",
+        "{GamePath}"
+      ]
+    }
+  ]
+}

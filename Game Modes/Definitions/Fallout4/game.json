@@ -1,128 +1,145 @@
 {
-    "schemaVersion":  1,
-    "modeId":  "Fallout4",
-    "name":  "Fallout 4",
-    "behaviorProfile":  "gamebryo",
-    "installerProfile":  "gamebryo",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "Fallout4Launcher.exe"
-                        ],
-    "stopFolders":  [
-                        "textures",
-                        "scripts",
-                        "meshes",
-                        "music",
-                        "shaders",
-                        "video",
-                        "interface",
-                        "facegen",
-                        "menus",
-                        "lodsettings",
-                        "lsdata",
-                        "sound",
-                        "CalienteTools",
-                        "SKSE",
-                        "MWSE",
-                        "NVSE",
-                        "F4SE",
-                        "FOSE",
-                        "OBSE"
-                    ],
-    "pluginExtensions":  [
-                             ".esm",
-                             ".esl",
-                             ".esp"
-                         ],
-    "orderedCriticalPluginNames":  [
-                                       "Fallout4.esm"
-                                   ],
-    "orderedOfficialPluginNames":  [
-                                       "DLCRobot.esm",
-                                       "DLCworkshop01.esm",
-                                       "DLCCoast.esm",
-                                       "DLCworkshop02.esm",
-                                       "DLCworkshop03.esm",
-                                       "DLCNukaWorld.esm"
-                                   ],
-    "orderedOfficialUnmanagedPluginNames":  [
-                                                "DLCRobot.esm",
-                                                "DLCworkshop01.esm",
-                                                "DLCCoast.esm",
-                                                "DLCworkshop02.esm",
-                                                "DLCworkshop03.esm",
-                                                "DLCNukaWorld.esm"
-                                            ],
-    "supportedFormats":  "Data",
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "377160",
-                                         "installFolderName":  "Fallout4",
-                                         "executableName":  "Fallout4Launcher.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  true,
-                   "pluginDirectorySuffix":  [
-                                                 "{GamePath}\\Fallout4.ccc"
-                                             ],
-                   "supportsPluginAutoSorting":  false,
-                   "maxAllowedActivePluginsCount":  255
-               },
-    "launcher":  {
-                     "defaultExecutable":  "Fallout4Launcher.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Fallout 4",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Fallout 4",
-                     "defaultCommandText":  "Launch Fallout 4",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "Fallout4_logo.ico",
-                      "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "fallout4_base.txt"
-                  },
-    "theme":  {
-                  "primaryColor":  [
-                                       "fomod"
-                                   ]
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".esp",
-                                                          ".esl",
-                                                          ".esm",
-                                                          ".bsa",
-                                                          ".mp3",
-                                                          ".BGSM",
-                                                          ".BGEM",
-                                                          ".wav",
-                                                          ".ogg",
-                                                          ".xwm"
-                                                      ],
-                       "supportsGameRootInstall":  true
-                   },
-    "gamebryo":  {
-                     "scriptExtenderExecutables":  [
-                                                       "f4se_loader.exe"
-                                                   ],
-                     "userGameDataPath":  "{PersonalData}\\My games\\Fallout4",
-                     "iniFilePath":  "{UserGameData}\\Fallout4Custom.ini",
-                     "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\Fallout4Prefs.ini"
-                                                 },
-                     "pluginsFilePath":  "#32689E"
-                 }
+  "schemaVersion": 2,
+  "modeId": "Fallout4",
+  "name": "Fallout 4",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Fallout4.exe",
+    "Fallout4Launcher.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "shadersfx",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "materials",
+    "strings",
+    "tools",
+    "F4SE"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esl",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Fallout4.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "DLCRobot.esm",
+    "DLCworkshop01.esm",
+    "DLCCoast.esm",
+    "DLCworkshop02.esm",
+    "DLCworkshop03.esm",
+    "DLCNukaWorld.esm"
+  ],
+  "orderedOfficialUnmanagedPluginNames": [
+    "DLCRobot.esm",
+    "DLCworkshop01.esm",
+    "DLCCoast.esm",
+    "DLCworkshop02.esm",
+    "DLCworkshop03.esm",
+    "DLCNukaWorld.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "377160",
+        "installFolderName": "Fallout 4",
+        "executableName": "Fallout4.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1998527297",
+        "executableName": "Fallout4.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 255,
+    "officialUnmanagedPluginListFiles": [
+      "{GamePath}\\Fallout4.ccc"
+    ],
+    "policy": {
+      "schemaVersion": 1,
+      "persistenceStrategy": "singleFile",
+      "pluginsFilePath": "{LocalApplicationData}\\Fallout4\\plugins.txt",
+      "loadOrderFilePath": "{LocalApplicationData}\\Fallout4\\plugins.txt",
+      "activeMarker": "*",
+      "appDataGameFolderName": "Fallout4",
+      "useTimestampOrder": false,
+      "ignoreOfficialPlugins": true,
+      "forcedReadOnly": false,
+      "singleFileManagement": true,
+      "officialPluginsAreImplicitlyActive": true
+    }
+  },
+  "launcher": {
+    "defaultExecutable": "Fallout4Launcher.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Fallout 4",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Fallout 4",
+    "defaultCommandText": "Launch Fallout 4",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "Fallout4_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "fallout4_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "fallout4",
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esl",
+      ".esm",
+      ".ba2",
+      ".bsa",
+      ".mp3",
+      ".bgsm",
+      ".bgem",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "f4se_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Fallout4",
+    "iniFilePath": "{UserGameData}\\Fallout4Custom.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Fallout4\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\Fallout4Prefs.ini"
+    }
+  }
 }

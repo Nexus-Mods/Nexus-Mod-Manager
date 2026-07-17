@@ -1,128 +1,163 @@
 {
-    "schemaVersion":  1,
-    "modeId":  "OblivionRemastered",
-    "name":  "Oblivion Remastered",
-    "behaviorProfile":  "gamebryo",
-    "installerProfile":  "gamebryo",
-    "legacyFallback":  false,
-    "gameExecutables":  [
-                            "OblivionRemastered.exe"
-                        ],
-    "stopFolders":  [
-                        "textures",
-                        "scripts",
-                        "meshes",
-                        "music",
-                        "shaders",
-                        "video",
-                        "interface",
-                        "facegen",
-                        "menus",
-                        "lodsettings",
-                        "lsdata",
-                        "sound",
-                        "CalienteTools",
-                        "SKSE",
-                        "MWSE",
-                        "NVSE",
-                        "F4SE",
-                        "FOSE",
-                        "OBSE"
-                    ],
-    "pluginExtensions":  [
-                             ".esm",
-                             ".esl",
-                             ".esp"
-                         ],
-    "orderedCriticalPluginNames":  [
-                                       "Oblivion.esm"
-                                   ],
-    "orderedOfficialPluginNames":  [
-                                       "DLCBattlehornCastle.esp",
-                                       "DLCFrostcrag.esp",
-                                       "DLCHorseArmor.esp",
-                                       "DLCMehrunesRazor.esp",
-                                       "DLCOrrery.esp",
-                                       "DLCShiveringIsles.esp",
-                                       "DLCSpellTomes.esp",
-                                       "DLCThievesDen.esp",
-                                       "DLCVileLair.esp",
-                                       "Knights.esp",
-                                       "AltarESPMain.esp",
-                                       "AltarDeluxe.esp",
-                                       "AltarESPLocal.esp"
-                                   ],
-    "orderedOfficialUnmanagedPluginNames":  [
-
-                                            ],
-    "supportedFormats":  [
-                             "fomod"
-                         ],
-    "discovery":  {
-                      "stores":  [
-                                     {
-                                         "store":  "Steam",
-                                         "id":  "2623190",
-                                         "installFolderName":  "OblivionRemastered",
-                                         "executableName":  "OblivionRemastered.exe"
-                                     }
-                                 ]
-                  },
-    "plugin":  {
-                   "usesPlugins":  true,
-                   "pluginDirectorySuffix":  "OblivionRemastered\\Content\\Dev\\ObvData\\Data",
-                   "supportsPluginAutoSorting":  false,
-                   "maxAllowedActivePluginsCount":  255
-               },
-    "launcher":  {
-                     "defaultExecutable":  "OblivionRemastered.exe",
-                     "plainCommandName":  "PlainLaunch",
-                     "plainCommandText":  "Launch Oblivion Remastered",
-                     "customCommandName":  "CustomLaunch",
-                     "customCommandText":  "Launch Custom Oblivion Remastered",
-                     "defaultCommandText":  "Launch Oblivion Remastered",
-                     "allowCustomCommand":  true
-                 },
-    "resources":  {
-                      "iconPath":  "OblivionRemastered_logo.ico",
-                      "categoriesPath":  "Categories.xml",
-                      "baseFilesPath":  "oblivionremastered_base.txt"
-                  },
-    "theme":  {
-                  "primaryColor":  "#32689E"
-              },
-    "setup":  {
-                  "useGenericSetup":  true
-              },
-    "settings":  {
-                     "useGenericSettings":  true,
-                     "allowCustomLaunchCommand":  true
-                 },
-    "modInstall":  {
-                       "pathAdjustmentProfile":  "none",
-                       "hardlinkRequiredExtensions":  [
-                                                          ".esp",
-                                                          ".esl",
-                                                          ".esm",
-                                                          ".bsa",
-                                                          ".mp3",
-                                                          ".BGSM",
-                                                          ".BGEM",
-                                                          ".wav",
-                                                          ".ogg",
-                                                          ".xwm"
-                                                      ],
-                       "supportsGameRootInstall":  true
-                   },
-    "gamebryo":  {
-                     "scriptExtenderExecutables":  [
-                                                       "skse_loader.exe"
-                                                   ],
-                     "userGameDataPath":  "{PersonalData}\\My Games\\Oblivion Remastered",
-                     "iniFilePath":  "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Oblivion.ini",
-                     "additionalSettingsFiles":  {
-                                                     "FOPrefsIniPath":  "{UserGameData}\\OblivionPrefs.ini"
-                                                 },
-                     "pluginsFilePath":  "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Data\\Plugins.txt"
-                 }
+  "schemaVersion": 2,
+  "modeId": "OblivionRemastered",
+  "name": "Oblivion Remastered",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "OblivionRemastered\\Binaries\\Win64\\OblivionRemastered-Win64-Shipping.exe",
+    "OblivionRemastered.exe"
+  ],
+  "stopFolders": [
+    "OblivionRemastered",
+    "Engine",
+    "Data",
+    "Binaries",
+    "Content",
+    "Paks",
+    "~mods",
+    "LogicMods",
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "baseobjectswapper",
+    "config",
+    "distantlod",
+    "fonts",
+    "magicloader",
+    "mapmarkers",
+    "obse",
+    "syncmap",
+    "trees"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Oblivion.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "DLCBattlehornCastle.esp",
+    "DLCFrostcrag.esp",
+    "DLCHorseArmor.esp",
+    "DLCMehrunesRazor.esp",
+    "DLCOrrery.esp",
+    "DLCShiveringIsles.esp",
+    "DLCSpellTomes.esp",
+    "DLCThievesDen.esp",
+    "DLCVileLair.esp",
+    "Knights.esp",
+    "AltarESPMain.esp",
+    "AltarDeluxe.esp",
+    "AltarESPLocal.esp"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "2623190",
+        "installFolderName": "Oblivion Remastered",
+        "executableName": "OblivionRemastered.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "OblivionRemastered\\Content\\Dev\\ObvData\\Data",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 255,
+    "policy": {
+      "schemaVersion": 1,
+      "pluginsFilePath": "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Data\\Plugins.txt",
+      "loadOrderInPluginDirectory": true,
+      "forcedActivePlugins": [
+        "Oblivion.esm"
+      ],
+      "officialPlugins": [
+        "AltarGymNavigation.esp",
+        "TamrielLeveledRegion.esp"
+      ],
+      "persistenceStrategy": "pluginDirectory",
+      "loadOrderFilePath": "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Data\\Plugins.txt",
+      "appDataGameFolderName": "OblivionRemastered",
+      "useTimestampOrder": false,
+      "ignoreOfficialPlugins": false,
+      "forcedReadOnly": false,
+      "singleFileManagement": false,
+      "officialPluginsAreImplicitlyActive": true
+    }
+  },
+  "launcher": {
+    "defaultExecutable": "OblivionRemastered.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Oblivion Remastered",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Oblivion Remastered",
+    "defaultCommandText": "Launch Oblivion Remastered",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "OblivionRemastered_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "oblivionremastered_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "oblivionremastered",
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe",
+      ".asi"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "OblivionRemastered\\Binaries\\Win64\\obse64_loader.exe"
+    ],
+    "requiresOptionalFilesCheckOnProfileSwitch": true,
+    "userGameDataPath": "{PersonalData}\\My Games\\Oblivion Remastered",
+    "iniFilePath": "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Oblivion.ini",
+    "rendererFilePath": "{UserGameData}\\RendererInfo.txt",
+    "pluginsFilePath": "{GamePath}\\OblivionRemastered\\Content\\Dev\\ObvData\\Data\\Plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\OblivionPrefs.ini"
+    }
+  },
+  "compatibilityNotes": [
+    "This definition targets The Elder Scrolls IV: Oblivion Remastered and is separate from the original Oblivion Game Mode.",
+    "Steam installations use OblivionRemastered.exe as the storefront launcher and OblivionRemastered\\Binaries\\Win64\\OblivionRemastered-Win64-Shipping.exe for runtime version detection.",
+    "OBSE64 is detected at OblivionRemastered\\Binaries\\Win64\\obse64_loader.exe and currently supports the Steam build only.",
+    "Microsoft Store, Game Pass and Epic discovery are omitted until stable package-specific detection is implemented."
+  ]
 }
