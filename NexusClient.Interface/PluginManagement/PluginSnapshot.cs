@@ -137,9 +137,9 @@ namespace Nexus.Client.PluginManagement
                 }
 
                 ValidatePlugin(policy, plugin, active, i, pluginsByName, priorityByName, activePlugins, diagnostics, diagnosticsByPlugin);
-                ValidateFixedPluginPlacement(policy, plugin, i, priorityByName, diagnostics, diagnosticsByPlugin);
+				ValidateFixedPluginPlacement(policy, plugin, i, orderedPlugins,	pluginsByName, diagnostics,	diagnosticsByPlugin);
 
-                List<PluginValidationDiagnostic> entryDiagnostics = null;
+				List<PluginValidationDiagnostic> entryDiagnostics = null;
                 if (plugin != null)
                     diagnosticsByPlugin.TryGetValue(plugin, out entryDiagnostics);
                 entries.Add(new PluginSnapshotEntry(plugin, active, i, allocatedIndex, modIndex, entryDiagnostics));
@@ -171,26 +171,87 @@ namespace Nexus.Client.PluginManagement
             return corrected;
         }
 
-        private static void StableMoveFixedPlugins(PluginManagementPolicy policy, List<Plugin> plugins)
-        {
-            int targetIndex = 0;
-            foreach (string fixedPluginName in policy.FixedOrderPlugins)
-            {
-                int pluginIndex = plugins.FindIndex(x => x != null && String.Equals(NormalizePluginName(x.Filename), NormalizePluginName(fixedPluginName), StringComparison.OrdinalIgnoreCase));
-                if (pluginIndex < 0)
-                    continue;
+		private static void StableMoveFixedPlugins(
+			PluginManagementPolicy policy,
+			List<Plugin> plugins)
+		{
+			if (policy == null || plugins == null || plugins.Count < 2)
+				return;
 
-                Plugin plugin = plugins[pluginIndex];
-                plugins.RemoveAt(pluginIndex);
-                if (targetIndex > plugins.Count)
-                    plugins.Add(plugin);
-                else
-                    plugins.Insert(targetIndex, plugin);
-                targetIndex++;
-            }
-        }
+			if (!policy.MasterPluginsMustLoadBeforeNonMasters)
+			{
+				StableMoveFixedPluginsWithinSection(policy, plugins);
+				return;
+			}
 
-        private static void StableMoveMastersBeforeNonMasters(PluginManagementPolicy policy, List<Plugin> plugins)
+			List<Plugin> masters = plugins
+				.Where(
+					x =>
+						x != null &&
+						x.Metadata != null &&
+						x.Metadata.EffectiveMaster)
+				.ToList();
+
+			List<Plugin> nonMasters = plugins
+				.Where(
+					x =>
+						x == null ||
+						x.Metadata == null ||
+						!x.Metadata.EffectiveMaster)
+				.ToList();
+
+			/*
+			 * Fixed masters are pinned to the beginning of the master section.
+			 * Fixed non-masters are pinned to the beginning of the non-master
+			 * section.
+			 */
+			StableMoveFixedPluginsWithinSection(policy, masters);
+			StableMoveFixedPluginsWithinSection(policy, nonMasters);
+
+			plugins.Clear();
+			plugins.AddRange(masters);
+			plugins.AddRange(nonMasters);
+		}
+
+		private static void StableMoveFixedPluginsWithinSection(
+			PluginManagementPolicy policy,
+			List<Plugin> plugins)
+		{
+			int targetIndex = 0;
+
+			foreach (string fixedPluginName in policy.FixedOrderPlugins)
+			{
+				string normalizedFixedName =
+					NormalizePluginName(fixedPluginName);
+
+				int pluginIndex = plugins.FindIndex(
+					x =>
+						x != null &&
+						String.Equals(
+							NormalizePluginName(x.Filename),
+							normalizedFixedName,
+							StringComparison.OrdinalIgnoreCase));
+
+				/*
+				 * A fixed plugin belonging to the other section simply will not
+				 * be present in this list.
+				 */
+				if (pluginIndex < 0)
+					continue;
+
+				Plugin plugin = plugins[pluginIndex];
+
+				if (pluginIndex != targetIndex)
+				{
+					plugins.RemoveAt(pluginIndex);
+					plugins.Insert(targetIndex, plugin);
+				}
+
+				targetIndex++;
+			}
+		}
+
+		private static void StableMoveMastersBeforeNonMasters(PluginManagementPolicy policy, List<Plugin> plugins)
         {
             if (!policy.MasterPluginsMustLoadBeforeNonMasters)
                 return;
@@ -245,25 +306,114 @@ namespace Nexus.Client.PluginManagement
             plugins.AddRange(blueprintPlugins);
         }
 
-        private static void ValidateFixedPluginPlacement(PluginManagementPolicy policy, Plugin plugin, int priority, Dictionary<string, int> priorityByName, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
-        {
-            if (plugin == null || !policy.IsFixedOrderPlugin(Path.GetFileName(plugin.Filename)))
-                return;
+		private static void ValidateFixedPluginPlacement(
+			PluginManagementPolicy policy,
+			Plugin plugin,
+			int priority,
+			IList<Plugin> orderedPlugins,
+			Dictionary<string, Plugin> pluginsByName,
+			List<PluginValidationDiagnostic> diagnostics,
+			Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
+		{
+			if (policy == null ||
+				plugin == null ||
+				plugin.Metadata == null ||
+				!policy.IsFixedOrderPlugin(
+					Path.GetFileName(plugin.Filename)))
+			{
+				return;
+			}
 
-            int expectedIndex = 0;
-            foreach (string fixedPluginName in policy.FixedOrderPlugins)
-            {
-                int actualIndex;
-                if (priorityByName.TryGetValue(NormalizePluginName(fixedPluginName), out actualIndex))
-                {
-                    if (String.Equals(NormalizePluginName(plugin.Filename), NormalizePluginName(fixedPluginName), StringComparison.OrdinalIgnoreCase) && actualIndex != expectedIndex)
-                        AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.InvalidFixedPluginPlacement, PluginValidationSeverity.Error, "Fixed-order plugin is not in its configured position.");
-                    expectedIndex++;
-                }
-            }
-        }
+			bool useMasterSections =
+				policy.MasterPluginsMustLoadBeforeNonMasters;
 
-        private static void ValidatePlugin(PluginManagementPolicy policy, Plugin plugin, bool active, int priority, Dictionary<string, Plugin> pluginsByName, Dictionary<string, int> priorityByName, ISet<Plugin> activePlugins, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
+			bool pluginIsMaster =
+				plugin.Metadata.EffectiveMaster;
+
+			/*
+			 * Master fixed plugins begin at absolute index zero.
+			 *
+			 * Non-master fixed plugins begin immediately after the complete
+			 * master section, including third-party masters.
+			 */
+			int sectionStartIndex = 0;
+
+			if (useMasterSections && !pluginIsMaster)
+			{
+				sectionStartIndex = orderedPlugins.Count(
+					x =>
+						x != null &&
+						x.Metadata != null &&
+						x.Metadata.EffectiveMaster);
+			}
+
+			int expectedSectionOffset = 0;
+			string normalizedPluginName =
+				NormalizePluginName(plugin.Filename);
+
+			foreach (string fixedPluginName in policy.FixedOrderPlugins)
+			{
+				string normalizedFixedName =
+					NormalizePluginName(fixedPluginName);
+
+				Plugin fixedPlugin;
+
+				/*
+				 * Missing fixed plugins are ignored. The remaining installed fixed
+				 * plugins remain consecutive within their section.
+				 */
+				if (!pluginsByName.TryGetValue(
+						normalizedFixedName,
+						out fixedPlugin) ||
+					fixedPlugin == null ||
+					fixedPlugin.Metadata == null)
+				{
+					continue;
+				}
+
+				/*
+				 * When masters must load first, compare only against fixed plugins
+				 * belonging to the same section.
+				 */
+				if (useMasterSections &&
+					fixedPlugin.Metadata.EffectiveMaster != pluginIsMaster)
+				{
+					continue;
+				}
+
+				if (String.Equals(
+						normalizedPluginName,
+						normalizedFixedName,
+						StringComparison.OrdinalIgnoreCase))
+				{
+					int expectedIndex =
+						sectionStartIndex + expectedSectionOffset;
+
+					if (priority != expectedIndex)
+					{
+						string sectionName =
+							pluginIsMaster
+								? "master"
+								: "non-master";
+
+						AddDiagnostic(
+							diagnostics,
+							diagnosticsByPlugin,
+							plugin,
+							PluginValidationIssueKind.InvalidFixedPluginPlacement,
+							PluginValidationSeverity.Error,
+							"Fixed-order plugin is not in its configured position " +
+							"within the " + sectionName + " section.");
+					}
+
+					return;
+				}
+
+				expectedSectionOffset++;
+			}
+		}
+
+		private static void ValidatePlugin(PluginManagementPolicy policy, Plugin plugin, bool active, int priority, Dictionary<string, Plugin> pluginsByName, Dictionary<string, int> priorityByName, ISet<Plugin> activePlugins, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
         {
             if (plugin == null)
                 return;
