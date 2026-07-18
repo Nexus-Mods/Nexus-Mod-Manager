@@ -13,6 +13,7 @@ namespace Nexus.Client
     using Nexus.Client.DownloadMonitoring;
     using Nexus.Client.ModActivationMonitoring;
     using Nexus.Client.Games;
+    using Nexus.Client.Games.DataDriven;
     using Nexus.Client.GameStorage;
     using Nexus.Client.GameStorage.UI;
     using Nexus.Client.ModManagement;
@@ -118,6 +119,11 @@ namespace Nexus.Client
 		/// </summary>
 		/// <value>The service manager that was created during the initalization process.</value>
 		public ServiceManager Services { get; private set; }
+
+        /// <summary>
+        /// Gets whether the user intentionally cancelled Game Storage setup or recovery.
+        /// </summary>
+        public bool GameStorageSetupWasCancelled { get; private set; }
 
         /// <summary>
 		/// Gets the application's environment info.
@@ -420,6 +426,18 @@ namespace Nexus.Client
                         recoveryForm = new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth);
                         return recoveryForm;
                     }, true);
+
+                    if (recoveryResult is DialogResult &&
+                        (DialogResult)recoveryResult == DialogResult.Cancel &&
+                        recoveryForm != null &&
+                        recoveryForm.WasCancelled)
+                    {
+                        GameStorageSetupWasCancelled = true;
+                        gameMode.Dispose();
+                        p_vwmErrorMessage = null;
+                        return false;
+                    }
+
                     if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
                         storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
 
@@ -545,7 +563,14 @@ namespace Nexus.Client
                     return setupForm;
                 }, true);
                 if (!(result is DialogResult) || (DialogResult)result != DialogResult.OK)
+                {
+                    GameStorageSetupWasCancelled =
+                        result is DialogResult &&
+                        (DialogResult)result == DialogResult.Cancel &&
+                        setupForm != null &&
+                        setupForm.WasCancelled;
                     return false;
+                }
 
                 if (setupForm.UseLegacySetup)
                 {
@@ -584,7 +609,8 @@ namespace Nexus.Client
                 ModsPath = GetSettingValue(EnvironmentInfo.Settings.ModFolder, gameId) ?? Path.Combine(root, "Mods"),
                 VirtualInstallPath = virtualPath,
                 LinkFolderPath = linkRequired ? linkPath : null,
-                LinkFolderRequired = linkRequired
+                LinkFolderRequired = linkRequired,
+                CompatibleSharedModsGameIds = GameModeStorageSharingRegistry.GetMutuallyCompatibleModsStorageModeIds(gameId)
             };
         }
 

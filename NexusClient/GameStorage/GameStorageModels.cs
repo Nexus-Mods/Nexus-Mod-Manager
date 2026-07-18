@@ -3,6 +3,15 @@ using System.Collections.Generic;
 
 namespace Nexus.Client.GameStorage
 {
+    public class GameStorageFolderBinding
+    {
+        public string StorageId { get; set; }
+        public string GameId { get; set; }
+        public DateTime CreatedUtc { get; set; }
+        public DateTime LastSeenUtc { get; set; }
+        public string LastSeenByVersion { get; set; }
+    }
+
     public class GameStorageFolderManifest
     {
         public int SchemaVersion { get; set; } = 1;
@@ -13,6 +22,7 @@ namespace Nexus.Client.GameStorage
         public DateTime CreatedUtc { get; set; }
         public DateTime LastSeenUtc { get; set; }
         public string LastSeenByVersion { get; set; }
+        public List<GameStorageFolderBinding> Bindings { get; set; } = new List<GameStorageFolderBinding>();
     }
 
     public class GameStorageRootManifest
@@ -63,5 +73,6 @@ namespace Nexus.Client.GameStorage
         public string VirtualInstallPath { get; set; }
         public string LinkFolderPath { get; set; }
         public bool LinkFolderRequired { get; set; }
+        public List<string> CompatibleSharedModsGameIds { get; set; } = new List<string>();
     }
 }

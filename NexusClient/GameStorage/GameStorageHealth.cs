@@ -19,7 +19,7 @@ namespace Nexus.Client.GameStorage
     {
         public string GameId { get; set; }
         public string StorageId { get; set; }
-        public bool IsHealthy => Items.All(x => x.Status == GameStorageHealthStatus.Healthy || x.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization || x.Status == GameStorageHealthStatus.LinkFolderNotRequired);
+        public bool IsHealthy => Items.All(x => x.Status == GameStorageHealthStatus.Healthy || x.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization || x.Status == GameStorageHealthStatus.CompatibleSharedModsLibrary || x.Status == GameStorageHealthStatus.LinkFolderNotRequired);
         public bool NeedsInitialization => Items.Any(x => x.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization);
         public List<GameStorageHealthItem> Items { get; } = new List<GameStorageHealthItem>();
 
@@ -58,5 +58,8 @@ namespace Nexus.Client.GameStorage
         public List<string> Warnings { get; set; } = new List<string>();
         public bool LinkFolderRequired { get; set; }
         public bool RequiresUserConfirmation { get; set; }
+        public bool IsSharedModsLibrary { get; set; }
+        public List<string> SharedModsGameIds { get; set; } = new List<string>();
+        public string SharedModsDescription { get; set; }
     }
 }

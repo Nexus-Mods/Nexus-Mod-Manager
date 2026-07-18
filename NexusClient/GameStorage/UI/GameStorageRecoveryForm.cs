@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -28,7 +28,7 @@ namespace Nexus.Client.GameStorage.UI
             StartPosition = FormStartPosition.CenterParent;
 
             _control = new GameStorageSetupControl();
-            _control.ConfigureText("Game Storage recovery - " + gameMode.Name, "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery.", false);
+            _control.ConfigureText("Game Storage recovery - " + gameMode.Name, "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. Compatible shared Mods libraries are allowed only when both Game Mode definitions opt in. NMM will not move, rename, or delete folders during recovery.", false);
             _control.RefreshRequested += RefreshRequested;
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ApplyRequested += ApplyRequested;
@@ -98,7 +98,12 @@ namespace Nexus.Client.GameStorage.UI
 
             if (candidate.RequiresUserConfirmation)
             {
-                var result = MessageBox.Show(this, "Apply the selected Game Storage paths for this game? NMM will update only this game's folder settings and will not move or delete any files.", "Confirm Game Storage recovery", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                string confirmationMessage = candidate.IsSharedModsLibrary
+                    ? (candidate.SharedModsDescription ?? "This Mods folder is already used by a compatible Game Mode.") + Environment.NewLine + Environment.NewLine +
+                      "Use it as a shared Mods library for " + _gameMode.Name + "? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode."
+                    : "Apply the selected Game Storage paths for this game? NMM will update only this game's folder settings and will not move or delete any files.";
+
+                var result = MessageBox.Show(this, confirmationMessage, "Confirm Game Storage recovery", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }
@@ -156,16 +161,20 @@ namespace Nexus.Client.GameStorage.UI
 
         private GameStoragePathSet CreatePathSetFromCandidate(GameStorageCandidate candidate)
         {
+            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
             return new GameStoragePathSet
             {
-                GameId = _gameMode.ModeId,
-                GameName = _gameMode.Name,
-                GameInstallPath = _gameMode.GameModeEnvironmentInfo.InstallationPath,
+                GameId = currentPaths.GameId,
+                GameName = currentPaths.GameName,
+                GameInstallPath = currentPaths.GameInstallPath,
                 InstallInfoPath = candidate.InstallInfoPath,
                 ModsPath = candidate.ModsPath,
                 VirtualInstallPath = candidate.VirtualInstallPath,
                 LinkFolderPath = candidate.LinkFolderPath,
-                LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _gameMode.GameModeEnvironmentInfo.InstallationPath)
+                LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, currentPaths.GameInstallPath),
+                CompatibleSharedModsGameIds = currentPaths.CompatibleSharedModsGameIds == null
+                    ? new List<string>()
+                    : new List<string>(currentPaths.CompatibleSharedModsGameIds)
             };
         }
     }

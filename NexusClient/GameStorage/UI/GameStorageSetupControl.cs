@@ -287,6 +287,7 @@ namespace Nexus.Client.GameStorage.UI
                 return svgBitmap.Render(new Size(size, size), null, DefaultBoolean.False, DefaultBoolean.False);
             }
         }
+
         private TextEdit CreateManualPathEdit(Control parent, string caption, int top)
         {
             var label = new LabelControl { Text = caption, Left = 8, Top = top + 3, Width = 84 };
@@ -388,6 +389,7 @@ namespace Nexus.Client.GameStorage.UI
             column.OptionsColumn.AllowEdit = false;
             return column;
         }
+
         private void ConfigureCandidateGrid()
         {
             ConfigureSetupGridLook(_candidateGridView, false);
@@ -398,13 +400,14 @@ namespace Nexus.Client.GameStorage.UI
             _candidateUseColumn.OptionsColumn.FixedWidth = true;
             _candidateGridView.Columns.Add(_candidateUseColumn);
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateKind), "Source", 1, 130));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceScore), "Score", 2, 60));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceLevel), "Confidence", 3, 90));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateRoot), "Root", 4, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.InstallInfoPath), "Install info", 5, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ModsPath), "Mod archives", 6, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.VirtualInstallPath), "Virtual install", 7, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.LinkFolderPath), "Link folder", 8, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.SharedModsDescription), "Shared Mods library", 2, 280));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceScore), "Score", 3, 60));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceLevel), "Confidence", 4, 90));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateRoot), "Root", 5, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.InstallInfoPath), "Install info", 6, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ModsPath), "Mod archives", 7, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.VirtualInstallPath), "Virtual install", 8, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.LinkFolderPath), "Link folder", 9, 260));
         }
 
         private static void ConfigureSetupGridLook(GridView view, bool editable)

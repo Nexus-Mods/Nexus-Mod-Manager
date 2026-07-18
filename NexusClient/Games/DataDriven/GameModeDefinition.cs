@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace Nexus.Client.Games.DataDriven
@@ -31,6 +33,7 @@ namespace Nexus.Client.Games.DataDriven
         public GameModeThemeDefinition Theme { get; set; }
         public GameModeSetupDefinition Setup { get; set; }
         public GameModeSettingsDefinition Settings { get; set; }
+        public GameModeStorageDefinition Storage { get; set; }
         public GameModeModInstallDefinition ModInstall { get; set; }
         public GameModeGamebryoDefinition Gamebryo { get; set; }
         public List<string> CompatibilityNotes { get; set; } = new List<string>();
@@ -160,6 +163,89 @@ namespace Nexus.Client.Games.DataDriven
     public class GameModeSettingsDefinition
     {
         public bool? UseGenericSettings { get; set; }
+    }
+
+    public class GameModeStorageDefinition
+    {
+        public string[] ShareModsStorageWith { get; set; }
+    }
+
+    internal static class GameModeStorageSharingRegistry
+    {
+        private static readonly object SyncRoot = new object();
+        private static Dictionary<string, GameModeDefinition> _definitions =
+            new Dictionary<string, GameModeDefinition>(StringComparer.OrdinalIgnoreCase);
+
+        public static void ReplaceDefinitions(IEnumerable<GameModeDefinition> definitions)
+        {
+            var replacement = (definitions ?? Enumerable.Empty<GameModeDefinition>())
+                .Where(x => x != null && !string.IsNullOrWhiteSpace(x.ModeId))
+                .GroupBy(x => x.ModeId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+            lock (SyncRoot)
+                _definitions = replacement;
+        }
+
+        public static List<string> GetMutuallyCompatibleModsStorageModeIds(string modeId)
+        {
+            lock (SyncRoot)
+            {
+                GameModeDefinition definition;
+                if (string.IsNullOrWhiteSpace(modeId) || !_definitions.TryGetValue(modeId, out definition))
+                    return new List<string>();
+
+                return GetDeclaredModeIds(definition)
+                    .Where(otherModeId => IsMutuallyDeclared(definition.ModeId, otherModeId))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+        }
+
+        public static bool CanShareModsStorage(string leftModeId, string rightModeId)
+        {
+            lock (SyncRoot)
+                return IsMutuallyDeclared(leftModeId, rightModeId);
+        }
+
+        public static string GetGameModeName(string modeId)
+        {
+            lock (SyncRoot)
+            {
+                GameModeDefinition definition;
+                return !string.IsNullOrWhiteSpace(modeId) && _definitions.TryGetValue(modeId, out definition)
+                    ? definition.Name
+                    : modeId;
+            }
+        }
+
+        private static bool IsMutuallyDeclared(string leftModeId, string rightModeId)
+        {
+            if (string.IsNullOrWhiteSpace(leftModeId) ||
+                string.IsNullOrWhiteSpace(rightModeId) ||
+                string.Equals(leftModeId, rightModeId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            GameModeDefinition left;
+            GameModeDefinition right;
+            if (!_definitions.TryGetValue(leftModeId, out left) || !_definitions.TryGetValue(rightModeId, out right))
+                return false;
+
+            return GetDeclaredModeIds(left).Contains(right.ModeId, StringComparer.Ordinal) &&
+                   GetDeclaredModeIds(right).Contains(left.ModeId, StringComparer.Ordinal);
+        }
+
+        private static IEnumerable<string> GetDeclaredModeIds(GameModeDefinition definition)
+        {
+            return definition == null ||
+                   definition.Storage == null ||
+                   definition.Storage.ShareModsStorageWith == null
+                ? Enumerable.Empty<string>()
+                : definition.Storage.ShareModsStorageWith.Where(x => !string.IsNullOrWhiteSpace(x));
+        }
     }
 
     public class GameModeToolDefinition

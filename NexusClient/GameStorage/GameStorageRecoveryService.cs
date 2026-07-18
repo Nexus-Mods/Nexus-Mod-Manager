@@ -26,8 +26,13 @@ namespace Nexus.Client.GameStorage
             foreach (var entry in registry.KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
                 AddCandidate(candidates, CreateCandidateFromRegistry(entry, entry.LastKnownGood ? "Known good registry" : "Known registry", entry.LastKnownGood ? 95 : 75));
 
-            foreach (var entry in LoadLastKnownGoodRegistry().KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
+            AddSharedModsRegistryCandidates(currentPaths, registry, candidates, "Shared Mods library", 84);
+
+            var lastKnownGoodRegistry = LoadLastKnownGoodRegistry();
+            foreach (var entry in lastKnownGoodRegistry.KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
                 AddCandidate(candidates, CreateCandidateFromRegistry(entry, "Last-known-good backup", 98));
+
+            AddSharedModsRegistryCandidates(currentPaths, lastKnownGoodRegistry, candidates, "Shared Mods library backup", 88);
 
             foreach (var root in GetLikelyRoots(currentPaths, registry, currentPaths.GameId))
             {
@@ -124,10 +129,14 @@ namespace Nexus.Client.GameStorage
 			if (!healthCheck.IsHealthy)
 				return false;
 
-			InitializeMetadata(
+			if (!TryInitializeMetadata(
 				paths,
 				storageId,
-				registry);
+				registry,
+				healthCheck))
+			{
+				return false;
+			}
 
 			ApplyPathSet(paths);
 
@@ -300,7 +309,8 @@ namespace Nexus.Client.GameStorage
 					item.Role == GameStorageFolderRole.Mods)
 				{
 					if (item.Status != GameStorageHealthStatus.Healthy &&
-						item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization)
+						item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
+						item.Status != GameStorageHealthStatus.CompatibleSharedModsLibrary)
 					{
 						return false;
 					}
@@ -338,6 +348,7 @@ namespace Nexus.Client.GameStorage
 			{
 				if (item.Status == GameStorageHealthStatus.Healthy ||
 					item.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization ||
+					item.Status == GameStorageHealthStatus.CompatibleSharedModsLibrary ||
 					item.Status == GameStorageHealthStatus.LinkFolderNotRequired)
 				{
 					continue;
@@ -355,6 +366,72 @@ namespace Nexus.Client.GameStorage
 
 			return true;
 		}
+
+        private void AddSharedModsRegistryCandidates(
+            GameStoragePathSet currentPaths,
+            GameStorageRegistry registry,
+            List<GameStorageCandidate> candidates,
+            string kind,
+            int score)
+        {
+            if (currentPaths == null || registry == null)
+                return;
+
+            foreach (var group in registry.KnownStorages
+                .Where(x => IsCompatibleSharedModsGame(currentPaths, x.GameId))
+                .Where(x => !string.IsNullOrWhiteSpace(x.ModsPath))
+                .GroupBy(x => NormalizeDirectoryPath(x.ModsPath), StringComparer.OrdinalIgnoreCase))
+            {
+                var entry = group.OrderByDescending(x => x.LastKnownGood).ThenByDescending(x => x.LastSeenUtc).First();
+                AddCandidate(candidates, CreateSharedModsCandidate(
+                    currentPaths,
+                    entry.ModsPath,
+                    group.Select(x => x.GameId),
+                    kind,
+                    score + (entry.LastKnownGood ? 3 : 0),
+                    "Compatible shared Mods storage found in the Game Storage registry."));
+            }
+        }
+
+        private GameStorageCandidate CreateSharedModsCandidate(
+            GameStoragePathSet currentPaths,
+            string modsPath,
+            IEnumerable<string> knownGameIds,
+            string kind,
+            int score,
+            string evidence)
+        {
+            if (currentPaths == null || string.IsNullOrWhiteSpace(modsPath))
+                return null;
+
+            var manifest = ReadFolderManifest(modsPath);
+            var sharedGameIds = GetManifestBindings(manifest)
+                .Select(x => x.GameId)
+                .Concat(knownGameIds ?? Enumerable.Empty<string>())
+                .Where(x => IsCompatibleSharedModsGame(currentPaths, x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (sharedGameIds.Count == 0)
+                return null;
+
+            var candidate = CreateCandidateFromPathSet(
+                kind,
+                currentPaths,
+                null,
+                score,
+                score >= 70 ? GameStorageCandidateConfidence.High : GameStorageCandidateConfidence.Medium,
+                true,
+                evidence);
+            candidate.ModsPath = NormalizeDirectoryPath(modsPath);
+            candidate.IsSharedModsLibrary = true;
+            candidate.SharedModsGameIds = sharedGameIds;
+            candidate.SharedModsDescription = GetSharedModsDescription(sharedGameIds);
+            if (!string.IsNullOrWhiteSpace(candidate.SharedModsDescription))
+                candidate.Evidence.Add(candidate.SharedModsDescription);
+            candidate.RequiresUserConfirmation = true;
+            return candidate;
+        }
 
 		private GameStorageCandidate CreateCandidateFromRegistry(GameStorageRegistryEntry entry, string kind, int score)
         {
@@ -416,6 +493,18 @@ namespace Nexus.Client.GameStorage
                     return null;
 
                 bool gameMatches = string.Equals(manifest.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase);
+                if (!gameMatches && IsCompatibleSharedModsGame(currentPaths, manifest.GameId))
+                {
+                    string sharedModsPath = ResolveManifestFolder(rootPath, manifest, GameStorageFolderRole.Mods);
+                    return CreateSharedModsCandidate(
+                        currentPaths,
+                        sharedModsPath,
+                        new[] { manifest.GameId },
+                        "Shared Mods library",
+                        78,
+                        "Found a compatible Game Storage root whose Mods library can be shared.");
+                }
+
                 var candidate = new GameStorageCandidate
                 {
                     CandidateKind = explicitRoot ? "Selected root manifest" : "Root manifest",
@@ -453,7 +542,13 @@ namespace Nexus.Client.GameStorage
                     manifests.Add(Tuple.Create(folder, manifest));
             }
 
-            foreach (var group in manifests.Where(x => string.Equals(x.Item2.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(x.Item2.StorageId)).GroupBy(x => x.Item2.StorageId))
+            var currentBindings = manifests
+                .SelectMany(x => GetManifestBindings(x.Item2)
+                    .Where(binding => string.Equals(binding.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
+                    .Select(binding => new { Folder = x.Item1, Manifest = x.Item2, Binding = binding }))
+                .Where(x => !string.IsNullOrWhiteSpace(x.Binding.StorageId));
+
+            foreach (var group in currentBindings.GroupBy(x => x.Binding.StorageId, StringComparer.OrdinalIgnoreCase))
             {
                 var candidate = new GameStorageCandidate
                 {
@@ -468,12 +563,17 @@ namespace Nexus.Client.GameStorage
 
                 foreach (var item in group)
                 {
-                    switch (item.Item2.FolderRole)
+                    switch (item.Manifest.FolderRole)
                     {
-                        case GameStorageFolderRole.InstallInfo: candidate.InstallInfoPath = item.Item1; break;
-                        case GameStorageFolderRole.Mods: candidate.ModsPath = item.Item1; break;
-						case GameStorageFolderRole.VirtualInstall: candidate.VirtualInstallPath = NormalizeVirtualInstallDirectory(item.Item1); break;
-						case GameStorageFolderRole.LinkFolder: candidate.LinkFolderPath = item.Item1; candidate.LinkFolderRequired = true; break;
+                        case GameStorageFolderRole.InstallInfo: candidate.InstallInfoPath = item.Folder; break;
+                        case GameStorageFolderRole.Mods:
+                            candidate.ModsPath = item.Folder;
+                            candidate.SharedModsGameIds = GetSharedModsGameIds(currentPaths, item.Manifest);
+                            candidate.IsSharedModsLibrary = candidate.SharedModsGameIds.Count > 0;
+                            candidate.SharedModsDescription = GetSharedModsDescription(candidate.SharedModsGameIds);
+                            break;
+                        case GameStorageFolderRole.VirtualInstall: candidate.VirtualInstallPath = NormalizeVirtualInstallDirectory(item.Folder); break;
+                        case GameStorageFolderRole.LinkFolder: candidate.LinkFolderPath = item.Folder; candidate.LinkFolderRequired = true; break;
                     }
                 }
 
@@ -483,11 +583,29 @@ namespace Nexus.Client.GameStorage
                     candidate.ConfidenceLevel = GameStorageCandidateConfidence.High;
                 }
                 candidate.Evidence.Add("Found folder manifests with matching game ID and Storage ID.");
+                if (!string.IsNullOrWhiteSpace(candidate.SharedModsDescription))
+                    candidate.Evidence.Add(candidate.SharedModsDescription);
                 AddPathWarnings(candidate);
                 AddCandidate(candidates, candidate);
             }
-        }
 
+            foreach (var item in manifests.Where(x => x.Item2.FolderRole == GameStorageFolderRole.Mods))
+            {
+                var bindings = GetManifestBindings(item.Item2);
+                if (bindings.Any(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                if (bindings.Count == 0 || bindings.Any(x => !IsCompatibleSharedModsGame(currentPaths, x.GameId)))
+                    continue;
+
+                AddCandidate(candidates, CreateSharedModsCandidate(
+                    currentPaths,
+                    item.Item1,
+                    bindings.Select(x => x.GameId),
+                    "Shared Mods library",
+                    82,
+                    "Found a Mods folder manifest bound only to mutually compatible Game Modes."));
+            }
+        }
         private void AddLegacyLayoutCandidate(GameStoragePathSet currentPaths, string rootPath, List<GameStorageCandidate> candidates)
         {
 			string installInfoPath = SelectExistingPath(
@@ -646,7 +764,11 @@ namespace Nexus.Client.GameStorage
                 AddCandidateRoot(roots, entry.LinkFolderPath);
             }
 
-            foreach (var entry in LoadLastKnownGoodRegistry().KnownStorages.Where(x => string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase)))
+            foreach (var entry in registry.KnownStorages.Where(x => IsCompatibleSharedModsGame(currentPaths, x.GameId)))
+                AddCandidateRoot(roots, entry.ModsPath);
+
+            var lastKnownGoodRegistry = LoadLastKnownGoodRegistry();
+            foreach (var entry in lastKnownGoodRegistry.KnownStorages.Where(x => string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase)))
             {
                 AddRoot(roots, entry.StorageRootPath);
                 AddCandidateRoot(roots, entry.InstallInfoPath);
@@ -654,6 +776,9 @@ namespace Nexus.Client.GameStorage
                 AddCandidateRoot(roots, entry.VirtualInstallPath);
                 AddCandidateRoot(roots, entry.LinkFolderPath);
             }
+
+            foreach (var entry in lastKnownGoodRegistry.KnownStorages.Where(x => IsCompatibleSharedModsGame(currentPaths, x.GameId)))
+                AddCandidateRoot(roots, entry.ModsPath);
 
             return roots.Where(Directory.Exists).ToList();
         }
@@ -723,7 +848,10 @@ namespace Nexus.Client.GameStorage
 				ModsPath = NormalizeDirectoryPath(candidate.ModsPath),
 				VirtualInstallPath = virtualInstallPath,
 				LinkFolderPath = linkFolderPath,
-				LinkFolderRequired = linkRequired
+				LinkFolderRequired = linkRequired,
+				CompatibleSharedModsGameIds = currentPaths.CompatibleSharedModsGameIds == null
+					? new List<string>()
+					: new List<string>(currentPaths.CompatibleSharedModsGameIds)
 			};
 		}
 
@@ -831,7 +959,7 @@ namespace Nexus.Client.GameStorage
             GameStoragePathSet currentPaths,
             GameStorageCandidate candidate)
         {
-            candidate.GameId = string.IsNullOrWhiteSpace(candidate.GameId)
+            candidate.GameId = candidate.IsSharedModsLibrary || string.IsNullOrWhiteSpace(candidate.GameId)
                 ? currentPaths.GameId
                 : candidate.GameId;
             candidate.InstallInfoPath = NormalizeDirectoryPath(
@@ -861,6 +989,15 @@ namespace Nexus.Client.GameStorage
             {
                 candidate.CandidateRoot = NormalizeDirectoryPath(
                     candidate.CandidateRoot);
+            }
+
+            if (candidate.IsSharedModsLibrary)
+            {
+                candidate.SharedModsGameIds = (candidate.SharedModsGameIds ?? new List<string>())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                candidate.SharedModsDescription = GetSharedModsDescription(candidate.SharedModsGameIds);
             }
 
             RemoveGeneratedPathWarnings(candidate);
@@ -952,6 +1089,15 @@ namespace Nexus.Client.GameStorage
                 target.LinkFolderRequired || source.LinkFolderRequired;
             target.RequiresUserConfirmation =
                 target.RequiresUserConfirmation || source.RequiresUserConfirmation;
+            target.IsSharedModsLibrary =
+                target.IsSharedModsLibrary || source.IsSharedModsLibrary;
+            target.SharedModsGameIds = (target.SharedModsGameIds ?? new List<string>())
+                .Concat(source.SharedModsGameIds ?? new List<string>())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (string.IsNullOrWhiteSpace(target.SharedModsDescription))
+                target.SharedModsDescription = source.SharedModsDescription;
 
             foreach (string evidence in source.Evidence)
             {

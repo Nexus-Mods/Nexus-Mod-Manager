@@ -27,6 +27,7 @@ namespace Nexus.Client.GameStorage
         SuspiciousEmptyFolder,
         PartialMatch,
         LegacyValidNeedsInitialization,
+        CompatibleSharedModsLibrary,
         NotWritable,
         Unknown
     }

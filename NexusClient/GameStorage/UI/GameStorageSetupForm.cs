@@ -34,14 +34,14 @@ namespace Nexus.Client.GameStorage.UI
                 "Choose where NMM should store this game's mod data. If NMM found an existing setup, use the recommended folders to preserve your current mods, install records, and mod archives. NMM will only create missing folders inside the paths selected below." + Environment.NewLine + Environment.NewLine +
                 "Selected folders are the directories NMM will use for this game. You can edit them manually or choose one of the detected setups below." + Environment.NewLine + Environment.NewLine +
                 "Selected folders check parses the selected folders for existing mod data, missing folders, invalid paths, and setup problems before applying the configuration." + Environment.NewLine + Environment.NewLine +
-                "Detected setup options are the possible folder setups on your system. You can select the recommended existing setup unless you intentionally want to use different folders.", true);
+                "Detected setup options are the possible folder setups on your system. Compatible shared Mods libraries are listed separately and never replace this game's InstallInfo, VirtualInstall, overwrite state, or Link Folder.", true);
             _control.SetManualPaths(currentPaths);
             _control.RefreshRequested += RefreshRequested;
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ApplyRequested += ApplyRequested;
             _control.CandidatePreviewRequested += CandidatePreviewRequested;
             _control.LegacySetupRequested += LegacySetupRequested;
-            _control.CancelRequested += (sender, args) => DialogResult = DialogResult.Cancel;
+            _control.CancelRequested += CancelRequested;
             Controls.Add(_control);
 
             SetHealth(healthCheck);
@@ -54,9 +54,26 @@ namespace Nexus.Client.GameStorage.UI
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool UseLegacySetup { get; private set; }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool WasCancelled { get; private set; }
+
         private void RefreshRequested(object sender, EventArgs e)
         {
             RefreshCandidates();
+        }
+
+        private void CancelRequested(object sender, EventArgs e)
+        {
+            WasCancelled = true;
+            DialogResult = DialogResult.Cancel;
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (DialogResult != DialogResult.OK)
+                WasCancelled = true;
+
+            base.OnFormClosing(e);
         }
 
         private void ManualVirtualInstallPathChanged(object sender, EventArgs e)
@@ -74,6 +91,7 @@ namespace Nexus.Client.GameStorage.UI
             _control.SetManualPaths(paths);
             SetHealth(_service.ValidateStorage(paths, false));
         }
+
         private void ApplyRequested(object sender, EventArgs e)
         {
             var selectedCandidate = _control.SelectedCandidate;
@@ -93,7 +111,12 @@ namespace Nexus.Client.GameStorage.UI
 
             if (candidate.RequiresUserConfirmation)
             {
-                var result = MessageBox.Show(this, "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.", "Confirm Game Storage setup", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                string confirmationMessage = candidate.IsSharedModsLibrary
+                    ? (candidate.SharedModsDescription ?? "This Mods folder is already used by a compatible Game Mode.") + Environment.NewLine + Environment.NewLine +
+                      "Use it as a shared Mods library for " + _currentPaths.GameName + "? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode."
+                    : "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.";
+
+                var result = MessageBox.Show(this, confirmationMessage, "Confirm Game Storage setup", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }
@@ -114,7 +137,6 @@ namespace Nexus.Client.GameStorage.UI
             _control.SetCandidates(_candidates);
             PreviewBestCandidateIfCurrentIsNotUsable();
         }
-
 
         private void PreviewBestCandidateIfCurrentIsNotUsable()
         {
@@ -162,7 +184,10 @@ namespace Nexus.Client.GameStorage.UI
                 ModsPath = candidate.ModsPath,
                 VirtualInstallPath = candidate.VirtualInstallPath,
                 LinkFolderPath = candidate.LinkFolderPath,
-                LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _currentPaths.GameInstallPath)
+                LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _currentPaths.GameInstallPath),
+                CompatibleSharedModsGameIds = _currentPaths.CompatibleSharedModsGameIds == null
+                    ? new List<string>()
+                    : new List<string>(_currentPaths.CompatibleSharedModsGameIds)
             };
         }
     }

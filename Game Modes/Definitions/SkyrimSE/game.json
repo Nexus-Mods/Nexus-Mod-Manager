@@ -114,6 +114,11 @@
   "settings": {
     "useGenericSettings": true
   },
+  "storage": {
+    "shareModsStorageWith": [
+      "SkyrimGOG"
+    ]
+  },
   "modInstall": {
     "pathAdjustmentProfile": "none",
     "hardlinkRequiredExtensions": [

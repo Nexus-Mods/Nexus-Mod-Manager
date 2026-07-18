@@ -79,11 +79,32 @@ namespace Nexus.Client.Games.DataDriven
             ValidateLauncher(definition, issues);
             ValidateTheme(definition, issues);
             ValidateSetupAndSettings(definition, issues);
+            ValidateStorage(definition, issues);
             ValidateModInstall(definition, issues);
             ValidateProfile(definition, issues);
             ValidateGamebryo(definition, issues);
 
             return issues;
+        }
+
+        private void ValidateStorage(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
+        {
+            if (definition.Storage == null || definition.Storage.ShareModsStorageWith == null)
+                return;
+
+            var unique = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < definition.Storage.ShareModsStorageWith.Length; i++)
+            {
+                string modeId = definition.Storage.ShareModsStorageWith[i];
+                string path = "storage.shareModsStorageWith[" + i + "]";
+
+                if (!DataDrivenDefinitionRules.IsIdentifier(modeId))
+                    issues.Add(Error(definition, path, "Value must be an exact Game Mode modeId."));
+                else if (string.Equals(modeId, definition.ModeId, StringComparison.OrdinalIgnoreCase))
+                    issues.Add(Error(definition, path, "A Game Mode cannot share its Mods storage with itself."));
+                else if (!unique.Add(modeId))
+                    issues.Add(Error(definition, path, "Duplicate modeId: " + modeId));
+            }
         }
 
         private void ValidateProfile(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)

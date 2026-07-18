@@ -76,6 +76,8 @@ namespace Nexus.Client.Games.DataDriven
                 result.AddDefinition(definition);
             }
 
+            GameModeStorageSharingRegistry.ReplaceDefinitions(result.Definitions);
+
             foreach (GameModeDefinitionIssue issue in result.Issues)
                 Trace.WriteLine("GameMode definition " + issue);
 

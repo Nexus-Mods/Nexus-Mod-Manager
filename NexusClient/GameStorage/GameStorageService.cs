@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using Nexus.Client.Games;
+using Nexus.Client.Games.DataDriven;
 
 namespace Nexus.Client.GameStorage
 {
@@ -59,7 +60,9 @@ namespace Nexus.Client.GameStorage
 					multiHd ||
 					IsLinkFolderRequired(
 						virtualInstallPath,
-						gameMode.GameModeEnvironmentInfo.InstallationPath)
+						gameMode.GameModeEnvironmentInfo.InstallationPath),
+				CompatibleSharedModsGameIds =
+					GameModeStorageSharingRegistry.GetMutuallyCompatibleModsStorageModeIds(gameId)
 			};
 		}
 
@@ -276,6 +279,76 @@ namespace Nexus.Client.GameStorage
 			}
 		}
 
+        private List<GameStorageFolderBinding> GetManifestBindings(GameStorageFolderManifest manifest)
+        {
+            var bindings = new List<GameStorageFolderBinding>();
+            if (manifest == null)
+                return bindings;
+
+            foreach (var binding in manifest.Bindings ?? new List<GameStorageFolderBinding>())
+            {
+                if (binding == null || string.IsNullOrWhiteSpace(binding.GameId) || string.IsNullOrWhiteSpace(binding.StorageId))
+                    continue;
+
+                if (!bindings.Any(x =>
+                    string.Equals(x.GameId, binding.GameId, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.StorageId, binding.StorageId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    bindings.Add(binding);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(manifest.GameId) &&
+                !string.IsNullOrWhiteSpace(manifest.StorageId) &&
+                !bindings.Any(x =>
+                    string.Equals(x.GameId, manifest.GameId, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.StorageId, manifest.StorageId, StringComparison.OrdinalIgnoreCase)))
+            {
+                bindings.Add(new GameStorageFolderBinding
+                {
+                    GameId = manifest.GameId,
+                    StorageId = manifest.StorageId,
+                    CreatedUtc = manifest.CreatedUtc,
+                    LastSeenUtc = manifest.LastSeenUtc,
+                    LastSeenByVersion = manifest.LastSeenByVersion
+                });
+            }
+
+            return bindings;
+        }
+
+        private bool IsCompatibleSharedModsGame(GameStoragePathSet paths, string otherGameId)
+        {
+            return paths != null &&
+                   !string.IsNullOrWhiteSpace(otherGameId) &&
+                   paths.CompatibleSharedModsGameIds != null &&
+                   paths.CompatibleSharedModsGameIds.Contains(otherGameId, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private List<string> GetSharedModsGameIds(GameStoragePathSet paths, GameStorageFolderManifest manifest)
+        {
+            return GetManifestBindings(manifest)
+                .Select(x => x.GameId)
+                .Where(x => !string.Equals(x, paths.GameId, StringComparison.OrdinalIgnoreCase))
+                .Where(x => IsCompatibleSharedModsGame(paths, x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private string GetSharedModsDescription(IEnumerable<string> gameIds)
+        {
+            var labels = (gameIds ?? Enumerable.Empty<string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(x => GameModeStorageSharingRegistry.GetGameModeName(x) + " (" + x + ")")
+                .ToList();
+
+            return labels.Count == 0
+                ? null
+                : "Shared Mods library currently used by: " + string.Join(", ", labels);
+        }
+
 		public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode, bool initializeIfValid)
         {
             return ValidateStorage(FromGameMode(gameMode), initializeIfValid);
@@ -359,6 +432,33 @@ namespace Nexus.Client.GameStorage
                     Evidence = { "Known Game Storage registry entry for this game." }
                 });
             }
+            foreach (var entry in registry.KnownStorages.Where(x =>
+                GameModeStorageSharingRegistry.CanShareModsStorage(gameId, x.GameId) &&
+                !string.IsNullOrWhiteSpace(x.ModsPath)))
+            {
+                var sharedGameIds = GetManifestBindings(ReadFolderManifest(entry.ModsPath))
+                    .Select(x => x.GameId)
+                    .Where(x => GameModeStorageSharingRegistry.CanShareModsStorage(gameId, x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (sharedGameIds.Count == 0)
+                    sharedGameIds.Add(entry.GameId);
+
+                candidates.Add(new GameStorageCandidate
+                {
+                    CandidateKind = "Shared Mods library",
+                    CandidateRoot = entry.ModsPath,
+                    GameId = gameId,
+                    ModsPath = entry.ModsPath,
+                    ConfidenceScore = entry.LastKnownGood ? 85 : 72,
+                    ConfidenceLevel = entry.LastKnownGood ? GameStorageCandidateConfidence.High : GameStorageCandidateConfidence.Medium,
+                    RequiresUserConfirmation = true,
+                    IsSharedModsLibrary = true,
+                    SharedModsGameIds = sharedGameIds,
+                    SharedModsDescription = GetSharedModsDescription(sharedGameIds),
+                    Evidence = { "Compatible shared Mods storage found in the Game Storage registry." }
+                });
+            }
             return candidates;
         }
 
@@ -411,21 +511,80 @@ namespace Nexus.Client.GameStorage
                 return;
             }
 
-            if (!string.Equals(manifest.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase))
+            if (manifest.FolderRole != role)
+            {
+                Add(result, role, path, GameStorageHealthStatus.PartialMatch, required, true, $"The folder manifest role is {manifest.FolderRole}, but NMM expected {role}.", "Select the folder with the correct Game Storage role.");
+                return;
+            }
+
+            var bindings = GetManifestBindings(manifest);
+            var currentBinding = bindings.FirstOrDefault(x =>
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase));
+
+            if (role == GameStorageFolderRole.Mods)
+            {
+                var unrelatedBindings = bindings.Where(x =>
+                    !string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                    !IsCompatibleSharedModsGame(paths, x.GameId)).ToList();
+
+                if (unrelatedBindings.Count > 0)
+                {
+                    Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true,
+                        "The Mods folder is already bound to an unrelated Game Mode.",
+                        "Select a different Mods folder or add reciprocal shareModsStorageWith declarations only for compatible Game Modes.");
+                    return;
+                }
+
+                if (currentBinding != null)
+                {
+                    if (!string.Equals(currentBinding.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Add(result, role, path, GameStorageHealthStatus.MismatchedStorageId, required, true,
+                            "The Mods folder binding for this Game Mode belongs to a different Game Storage.",
+                            "Use folders from the same Game Storage or confirm a recovery candidate.");
+                        return;
+                    }
+
+                    var sharedGameIds = GetSharedModsGameIds(paths, manifest);
+                    string description = GetSharedModsDescription(sharedGameIds);
+                    Add(result, role, path, GameStorageHealthStatus.Healthy, required, true,
+                        string.IsNullOrWhiteSpace(description) ? "The Mods folder is valid." : description);
+                    return;
+                }
+
+                var compatibleGameIds = GetSharedModsGameIds(paths, manifest);
+                if (bindings.Count > 0 && compatibleGameIds.Count == bindings.Count)
+                {
+                    string description = GetSharedModsDescription(compatibleGameIds);
+                    Add(result, role, path, GameStorageHealthStatus.CompatibleSharedModsLibrary, required, true,
+                        string.IsNullOrWhiteSpace(description)
+                            ? "This is a compatible shared Mods library."
+                            : description,
+                        "Confirm that this Game Mode should also use this Mods library.");
+                    return;
+                }
+
+                Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true,
+                    "The Mods folder manifest belongs to another or unknown Game Mode.",
+                    "Select the correct folder for this game.");
+                return;
+            }
+
+            if (currentBinding == null)
             {
                 Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, $"The {GetRoleName(role)} manifest belongs to another game.", "Select the correct folder for this game.");
                 return;
             }
 
-            if (!string.Equals(manifest.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(currentBinding.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
             {
                 Add(result, role, path, GameStorageHealthStatus.MismatchedStorageId, required, true, $"The {GetRoleName(role)} manifest belongs to a different Game Storage.", "Use folders from the same Game Storage or confirm a recovery candidate.");
                 return;
             }
 
-            if (manifest.FolderRole != role)
+            if (bindings.Any(x => !string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase)))
             {
-                Add(result, role, path, GameStorageHealthStatus.PartialMatch, required, true, $"The folder manifest role is {manifest.FolderRole}, but NMM expected {role}.", "Select the folder with the correct Game Storage role.");
+                Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, $"The {GetRoleName(role)} folder cannot be shared between Game Modes.", "Select an exclusive folder for this Game Mode.");
                 return;
             }
 
@@ -478,6 +637,11 @@ namespace Nexus.Client.GameStorage
                 AddWriteFailure(result, paths, ex);
                 return false;
             }
+            catch (InvalidOperationException ex)
+            {
+                AddWriteFailure(result, paths, ex);
+                return false;
+            }
         }
 
         private void InitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
@@ -505,13 +669,42 @@ namespace Nexus.Client.GameStorage
             string manifestPath = Path.Combine(folderPath, GameStorageConstants.FolderManifestFileName);
             var existing = ReadFolderManifest(folderPath);
             var manifest = existing ?? new GameStorageFolderManifest { CreatedUtc = now };
-            manifest.SchemaVersion = 1;
+            var bindings = role == GameStorageFolderRole.Mods
+                ? GetManifestBindings(manifest)
+                : new List<GameStorageFolderBinding>();
+
+            if (role == GameStorageFolderRole.Mods && bindings.Any(x =>
+                !string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                !IsCompatibleSharedModsGame(paths, x.GameId)))
+            {
+                throw new InvalidOperationException("The selected Mods folder is bound to an unrelated Game Mode.");
+            }
+
+            var binding = bindings.FirstOrDefault(x =>
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase));
+            if (binding == null)
+            {
+                binding = new GameStorageFolderBinding
+                {
+                    GameId = paths.GameId,
+                    StorageId = storageId,
+                    CreatedUtc = now
+                };
+                bindings.Add(binding);
+            }
+
+            binding.StorageId = storageId;
+            binding.LastSeenUtc = now;
+            binding.LastSeenByVersion = _applicationVersion.ToString();
+
+            manifest.SchemaVersion = 2;
             manifest.App = GameStorageConstants.ApplicationName;
             manifest.FolderRole = role;
             manifest.StorageId = storageId;
             manifest.GameId = paths.GameId;
             manifest.LastSeenUtc = now;
             manifest.LastSeenByVersion = _applicationVersion.ToString();
+            manifest.Bindings = bindings;
             WriteJson(manifestPath, manifest);
             TryHideFile(manifestPath);
         }
@@ -563,14 +756,115 @@ namespace Nexus.Client.GameStorage
             if (registry.ActiveStorageByGame.TryGetValue(paths.GameId, out string activeId) && !string.IsNullOrWhiteSpace(activeId))
                 return activeId;
 
-            foreach (var path in new[] { paths.InstallInfoPath, paths.ModsPath, paths.VirtualInstallPath, paths.LinkFolderPath })
+            foreach (var path in new[] { paths.InstallInfoPath, paths.VirtualInstallPath, paths.LinkFolderPath, paths.ModsPath })
             {
                 var manifest = ReadFolderManifest(path);
-                if (manifest != null && string.Equals(manifest.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(manifest.StorageId))
-                    return manifest.StorageId;
+                var binding = GetManifestBindings(manifest).FirstOrDefault(x =>
+                    string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(x.StorageId));
+                if (binding != null)
+                    return binding.StorageId;
             }
 
             return Guid.NewGuid().ToString("D");
+        }
+
+        public bool RemoveStorageBinding(string gameId, string storageId)
+        {
+            if (string.IsNullOrWhiteSpace(gameId) || string.IsNullOrWhiteSpace(storageId))
+                return false;
+
+            var registry = LoadRegistry();
+            var entries = registry.KnownStorages.Where(x =>
+                string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (entries.Count == 0)
+                return false;
+
+            foreach (var entry in entries)
+            {
+                RemoveFolderManifestBinding(entry.ModsPath, GameStorageFolderRole.Mods, gameId, storageId);
+                RemoveFolderManifestBinding(entry.InstallInfoPath, GameStorageFolderRole.InstallInfo, gameId, storageId);
+                RemoveFolderManifestBinding(entry.VirtualInstallPath, GameStorageFolderRole.VirtualInstall, gameId, storageId);
+                RemoveFolderManifestBinding(entry.LinkFolderPath, GameStorageFolderRole.LinkFolder, gameId, storageId);
+
+                if (!string.IsNullOrWhiteSpace(entry.StorageRootPath))
+                {
+                    string rootManifestPath = Path.Combine(entry.StorageRootPath, GameStorageConstants.RootManifestFileName);
+                    try
+                    {
+                        if (File.Exists(rootManifestPath))
+                        {
+                            var rootManifest = JsonConvert.DeserializeObject<GameStorageRootManifest>(File.ReadAllText(rootManifestPath));
+                            if (rootManifest != null &&
+                                string.Equals(rootManifest.GameId, gameId, StringComparison.OrdinalIgnoreCase) &&
+                                string.Equals(rootManifest.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                File.Delete(rootManifestPath);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            registry.KnownStorages.RemoveAll(x =>
+                string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase));
+
+            string activeStorageId;
+            if (registry.ActiveStorageByGame.TryGetValue(gameId, out activeStorageId) &&
+                string.Equals(activeStorageId, storageId, StringComparison.OrdinalIgnoreCase))
+            {
+                registry.ActiveStorageByGame.Remove(gameId);
+            }
+
+            SaveRegistryWithBackup(registry);
+            return true;
+        }
+
+        private void RemoveFolderManifestBinding(string folderPath, GameStorageFolderRole role, string gameId, string storageId)
+        {
+            var manifest = ReadFolderManifest(folderPath);
+            if (manifest == null || manifest.FolderRole != role)
+                return;
+
+            var bindings = GetManifestBindings(manifest);
+            int removed = bindings.RemoveAll(x =>
+                string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase));
+            if (removed == 0)
+                return;
+
+            string manifestPath = Path.Combine(folderPath, GameStorageConstants.FolderManifestFileName);
+            if (bindings.Count == 0)
+            {
+                try
+                {
+                    if (File.Exists(manifestPath))
+                    {
+                        File.SetAttributes(manifestPath, FileAttributes.Normal);
+                        File.Delete(manifestPath);
+                    }
+                }
+                catch
+                {
+                }
+                return;
+            }
+
+            var primary = bindings.OrderByDescending(x => x.LastSeenUtc).First();
+            manifest.SchemaVersion = 2;
+            manifest.Bindings = bindings;
+            manifest.GameId = primary.GameId;
+            manifest.StorageId = primary.StorageId;
+            manifest.CreatedUtc = primary.CreatedUtc;
+            manifest.LastSeenUtc = primary.LastSeenUtc;
+            manifest.LastSeenByVersion = primary.LastSeenByVersion;
+            WriteJson(manifestPath, manifest);
+            TryHideFile(manifestPath);
         }
 
         private GameStorageRegistry LoadRegistry()

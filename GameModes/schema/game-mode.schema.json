@@ -123,6 +123,9 @@
     "settings": {
       "$ref": "#/$defs/settings"
     },
+    "storage": {
+      "$ref": "#/$defs/storage"
+    },
     "modInstall": {
       "$ref": "#/$defs/modInstall"
     },
@@ -830,6 +833,24 @@
         }
       },
       "description": "Custom-launch settings visibility follows launcher.allowCustomCommand; there is no duplicate flag here."
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shareModsStorageWith"
+      ],
+      "properties": {
+        "shareModsStorageWith": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "uniqueItems": true,
+          "description": "Exact modeId values with which this Game Mode may share only its Mods archive/cache folder. Sharing is enabled only when both definitions list each other."
+        }
+      }
     },
     "modInstall": {
       "type": "object",

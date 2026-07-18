@@ -115,6 +115,11 @@
   "settings": {
     "useGenericSettings": true
   },
+  "storage": {
+    "shareModsStorageWith": [
+      "SkyrimSE"
+    ]
+  },
   "modInstall": {
     "pathAdjustmentProfile": "none",
     "hardlinkRequiredExtensions": [
