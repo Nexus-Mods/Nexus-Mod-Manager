@@ -320,10 +320,25 @@
 
         private void RefreshExistingRowClassifications()
         {
-            if (Rows == null || Rows.Count == 0)
+            if (Rows == null || !_loaded)
                 return;
 
-            _counts = _queryService.ReclassifyRows(Rows, GameMode, _modManagerViewModel.VirtualModActivator);
+            Rows.RaiseListChangedEvents = false;
+            try
+            {
+                _counts = _queryService.SynchronizeRowsAfterActivation(
+                    Rows,
+                    _rowsByNormalizedPath,
+                    GameMode,
+                    _modManagerViewModel.VirtualModActivator);
+            }
+            finally
+            {
+                Rows.RaiseListChangedEvents = true;
+                Rows.ResetBindings();
+            }
+
+            OnPropertyChanged("Rows");
             ApplyCounts(_counts);
         }
 

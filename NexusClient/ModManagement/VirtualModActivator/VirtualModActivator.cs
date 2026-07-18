@@ -131,6 +131,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booVirtualLinkIndexDirty = true;
 		private int m_intVirtualLinkIndexRevision = 0;
 		private readonly object m_objVirtualLinkIndexLock = new object();
+		private readonly AsyncLocal<int> m_alcVirtualLinkIndexMutationNesting = new AsyncLocal<int>();
 		private int m_intVirtualStoreMutationCount = 0;
 		private ThreadSafeObservableList<IVirtualModInfo> m_tslVirtualModInfo = new ThreadSafeObservableList<IVirtualModInfo>();
 		private bool m_booInitialized = false;
@@ -686,6 +687,63 @@ namespace Nexus.Client.ModManagement
 			return mubBatch;
 		}
 
+		public IDisposable BeginVirtualLinkUpdateBatch(int p_intExpectedAdditionalLinks)
+		{
+			EnsureVirtualLinkIndex();
+			int intExpectedTotal = m_tslVirtualModList.Count + Math.Max(0, p_intExpectedAdditionalLinks);
+			m_tslVirtualModList.EnsureCapacity(intExpectedTotal);
+			if (p_intExpectedAdditionalLinks >= 256)
+			{
+				lock (m_objVirtualLinkIndexLock)
+				{
+					if (!m_booVirtualLinkIndexDirty)
+						m_vliVirtualLinkIndex.EnsureCapacity(intExpectedTotal);
+				}
+			}
+
+			m_alcVirtualLinkIndexMutationNesting.Value++;
+			try
+			{
+				return new VirtualLinkUpdateBatch(this, m_tslVirtualModList.BeginUpdate());
+			}
+			catch
+			{
+				m_alcVirtualLinkIndexMutationNesting.Value--;
+				throw;
+			}
+		}
+
+		private sealed class VirtualLinkUpdateBatch : IDisposable
+		{
+			private VirtualModActivator m_vmaOwner;
+			private IDisposable m_dspListUpdate;
+
+			public VirtualLinkUpdateBatch(VirtualModActivator p_vmaOwner, IDisposable p_dspListUpdate)
+			{
+				m_vmaOwner = p_vmaOwner;
+				m_dspListUpdate = p_dspListUpdate;
+			}
+
+			public void Dispose()
+			{
+				VirtualModActivator owner = m_vmaOwner;
+				if (owner == null)
+					return;
+
+				m_vmaOwner = null;
+				try
+				{
+					if (m_dspListUpdate != null)
+						m_dspListUpdate.Dispose();
+				}
+				finally
+				{
+					m_dspListUpdate = null;
+					owner.m_alcVirtualLinkIndexMutationNesting.Value--;
+				}
+			}
+		}
+
 		private void UpdateModInfoNowOrDefer(IMod p_modMod)
 		{
 			if (p_modMod == null)
@@ -748,6 +806,18 @@ namespace Nexus.Client.ModManagement
 				m_booDisposed = true;
 				if (ReferenceEquals(m_alcCurrentModInfoUpdateBatch.Value, this))
 					m_alcCurrentModInfoUpdateBatch.Value = m_mubPreviousBatch;
+
+				if (m_mubPreviousBatch != null && m_mubPreviousBatch.BelongsTo(m_vmaVirtualModActivator))
+				{
+					foreach (IMod mod in m_lstDeferredModInfoUpdates)
+						m_mubPreviousBatch.Defer(mod);
+
+					m_lstDeferredModInfoUpdates.Clear();
+				}
+				else
+				{
+					Flush();
+				}
 			}
 
 			private bool ContainsDeferredModInfoUpdate(IMod p_modMod)
@@ -888,6 +958,9 @@ namespace Nexus.Client.ModManagement
 
 		private void VirtualLinkListChanged(object p_objSender, NotifyCollectionChangedEventArgs p_nccEventArgs)
 		{
+			if (m_alcVirtualLinkIndexMutationNesting.Value > 0)
+				return;
+
 			MarkVirtualLinkIndexDirty();
 		}
 
@@ -915,7 +988,7 @@ namespace Nexus.Client.ModManagement
 
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>(m_tslVirtualModList);
 				Dictionary<IVirtualModInfo, IMod> dicManagedModsByModInfo = BuildManagedModLookupForVirtualLinks(lstVirtualLinks);
-				VirtualLinkIndex vliVirtualLinkIndex = new VirtualLinkIndex();
+				VirtualLinkIndex vliVirtualLinkIndex = new VirtualLinkIndex(lstVirtualLinks.Count);
 				vliVirtualLinkIndex.Rebuild(lstVirtualLinks, x => GetVirtualLinkDeploymentPathKeys(x, dicManagedModsByModInfo));
 
 				lock (m_objVirtualLinkIndexLock)
@@ -944,50 +1017,78 @@ namespace Nexus.Client.ModManagement
 			RebuildVirtualLinkIndex();
 		}
 
-		private List<IVirtualModLink> FindVirtualLinksByPath(string p_strVirtualPath)
-		{
-			EnsureVirtualLinkIndex();
-			lock (m_objVirtualLinkIndexLock)
-			{
-				return m_vliVirtualLinkIndex.FindByVirtualPath(p_strVirtualPath);
-			}
-		}
-
-		private List<IVirtualModLink> FindVirtualLinksByDeploymentPath(string p_strVirtualPath, ModInstallRoot p_mirInstallRoot)
+		private void CollectIndexedFileLinkMatches(
+			string p_strVirtualPath,
+			ModInstallRoot p_mirInstallRoot,
+			int p_intCurrentPriority,
+			ref List<IVirtualModLink> p_lstMatches,
+			ref int p_intHighestPriority,
+			ref IVirtualModLink p_vmlLowestPriorityLink)
 		{
 			string strTargetPathKey = GetDeploymentPathKey(p_strVirtualPath, p_mirInstallRoot);
-			if (string.IsNullOrEmpty(strTargetPathKey))
-				return new List<IVirtualModLink>();
-
 			EnsureVirtualLinkIndex();
+
 			lock (m_objVirtualLinkIndexLock)
 			{
-				return m_vliVirtualLinkIndex.FindByDeploymentPath(strTargetPathKey);
+				CollectFileLinkMatches(
+					m_vliVirtualLinkIndex.FindByVirtualPath(p_strVirtualPath),
+					p_mirInstallRoot,
+					true,
+					p_intCurrentPriority,
+					ref p_lstMatches,
+					ref p_intHighestPriority,
+					ref p_vmlLowestPriorityLink);
+
+				if (!string.IsNullOrEmpty(strTargetPathKey))
+				{
+					CollectFileLinkMatches(
+						m_vliVirtualLinkIndex.FindByDeploymentPath(strTargetPathKey),
+						p_mirInstallRoot,
+						false,
+						p_intCurrentPriority,
+						ref p_lstMatches,
+						ref p_intHighestPriority,
+						ref p_vmlLowestPriorityLink);
+				}
 			}
 		}
 
 		private IEnumerable<string> GetVirtualLinkDeploymentPathKeys(IVirtualModLink p_vmlLink, IDictionary<IVirtualModInfo, IMod> p_dicManagedModsByModInfo)
 		{
-			if (p_vmlLink == null)
-				yield break;
-
-			string strRawPathKey = GetDeploymentPathKey(p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot);
-			if (!string.IsNullOrEmpty(strRawPathKey))
-				yield return strRawPathKey;
-
-			if (p_vmlLink.InstallRoot == ModInstallRoot.GameRoot)
-				yield break;
-
 			IMod modMod = null;
-			if (p_vmlLink.ModInfo != null && p_dicManagedModsByModInfo != null)
+			if (p_vmlLink != null && p_vmlLink.ModInfo != null && p_dicManagedModsByModInfo != null)
 				p_dicManagedModsByModInfo.TryGetValue(p_vmlLink.ModInfo, out modMod);
 
-			if (modMod == null)
-				yield break;
+			foreach (string strDeploymentPathKey in GetVirtualLinkDeploymentPathKeys(p_vmlLink, modMod))
+				yield return strDeploymentPathKey;
+		}
 
-			string strAdjustedPathKey = GetDeploymentPathKey(GetAdjustedVirtualPath(modMod, p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot), p_vmlLink.InstallRoot);
-			if (!string.IsNullOrEmpty(strAdjustedPathKey) && !strAdjustedPathKey.Equals(strRawPathKey, StringComparison.OrdinalIgnoreCase))
+		private IEnumerable<string> GetVirtualLinkDeploymentPathKeys(IVirtualModLink p_vmlLink, IMod p_modMod)
+		{
+			string strRawPathKey;
+			string strAdjustedPathKey;
+			GetVirtualLinkDeploymentPathKeys(p_vmlLink, p_modMod, out strRawPathKey, out strAdjustedPathKey);
+
+			if (!string.IsNullOrEmpty(strRawPathKey))
+				yield return strRawPathKey;
+			if (!string.IsNullOrEmpty(strAdjustedPathKey))
 				yield return strAdjustedPathKey;
+		}
+
+		private void GetVirtualLinkDeploymentPathKeys(IVirtualModLink p_vmlLink, IMod p_modMod, out string p_strRawPathKey, out string p_strAdjustedPathKey)
+		{
+			p_strRawPathKey = null;
+			p_strAdjustedPathKey = null;
+			if (p_vmlLink == null)
+				return;
+
+			p_strRawPathKey = GetDeploymentPathKey(p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot);
+			if (p_vmlLink.InstallRoot == ModInstallRoot.GameRoot || p_modMod == null)
+				return;
+
+			string strAdjustedPathKey = GetDeploymentPathKey(GetAdjustedVirtualPath(p_modMod, p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot), p_vmlLink.InstallRoot);
+			if (!string.IsNullOrEmpty(strAdjustedPathKey) && !strAdjustedPathKey.Equals(p_strRawPathKey, StringComparison.OrdinalIgnoreCase))
+				p_strAdjustedPathKey = strAdjustedPathKey;
 		}
 
 		private Dictionary<IVirtualModInfo, IMod> BuildManagedModLookupForVirtualLinks(IEnumerable<IVirtualModLink> p_enmVirtualLinks)
@@ -1022,18 +1123,158 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		internal string GetDeployedFilePath(IVirtualModLink p_vmlLink)
+		{
+			return GetDeployedFilePath(p_vmlLink, p_vmlLink == null ? null : FindManagedMod(p_vmlLink.ModInfo));
+		}
+
+		internal Dictionary<IVirtualModLink, string> GetDeployedFilePaths(IEnumerable<IVirtualModLink> p_enmLinks)
+		{
+			List<IVirtualModLink> lstLinks = p_enmLinks == null
+				? new List<IVirtualModLink>()
+				: p_enmLinks.Where(x => x != null).ToList();
+			Dictionary<IVirtualModInfo, IMod> dicManagedMods = BuildManagedModLookupForVirtualLinks(lstLinks);
+			Dictionary<IVirtualModLink, string> dicPaths = new Dictionary<IVirtualModLink, string>(lstLinks.Count);
+
+			foreach (IVirtualModLink vmlLink in lstLinks)
+			{
+				IMod modMod = null;
+				if (vmlLink.ModInfo != null)
+					dicManagedMods.TryGetValue(vmlLink.ModInfo, out modMod);
+				dicPaths[vmlLink] = GetDeployedFilePath(vmlLink, modMod);
+			}
+
+			return dicPaths;
+		}
+
+		private string GetDeployedFilePath(IVirtualModLink p_vmlLink, IMod p_modMod)
+		{
+			if (p_vmlLink == null || string.IsNullOrWhiteSpace(p_vmlLink.VirtualModPath))
+				return string.Empty;
+
+			try
+			{
+				string strAdjustedPath = p_vmlLink.VirtualModPath;
+
+				if (p_vmlLink.InstallRoot != ModInstallRoot.GameRoot)
+				{
+					if (p_modMod != null)
+						strAdjustedPath = GetAdjustedVirtualPath(p_modMod, p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot);
+					else
+						strAdjustedPath = GameMode.GetModFormatAdjustedPath(null, p_vmlLink.VirtualModPath, true);
+				}
+
+				if (string.IsNullOrWhiteSpace(strAdjustedPath))
+					return string.Empty;
+
+				string strInstallRoot = GetInstallRootPath(p_vmlLink.InstallRoot);
+				if (p_vmlLink.InstallRoot == ModInstallRoot.Default &&
+					p_modMod != null &&
+					GameMode.HasSecondaryInstallPath &&
+					GameMode.CheckSecondaryInstall(p_modMod, strAdjustedPath))
+				{
+					strInstallRoot = GameMode.SecondaryInstallationPath;
+				}
+
+				if (string.IsNullOrWhiteSpace(strInstallRoot))
+					return string.Empty;
+
+				return Path.GetFullPath(Path.Combine(strInstallRoot, strAdjustedPath));
+			}
+			catch
+			{
+				return string.Empty;
+			}
+		}
+
 		private void AddVirtualLink(IVirtualModLink p_vmlLink)
 		{
-			MarkVirtualLinkIndexDirty();
-			m_tslVirtualModList.Add(p_vmlLink);
-			MarkVirtualLinkIndexDirty();
+			AddVirtualLink(p_vmlLink, null);
+		}
+
+		private void AddVirtualLink(IVirtualModLink p_vmlLink, IMod p_modMod)
+		{
+			if (p_vmlLink == null)
+				return;
+
+			bool booOwnIndexMutationScope = m_alcVirtualLinkIndexMutationNesting.Value == 0;
+			if (booOwnIndexMutationScope)
+				EnsureVirtualLinkIndex();
+
+			if (p_modMod == null && p_vmlLink.ModInfo != null)
+				p_modMod = FindManagedMod(p_vmlLink.ModInfo);
+
+			string strRawDeploymentPathKey;
+			string strAdjustedDeploymentPathKey;
+			GetVirtualLinkDeploymentPathKeys(p_vmlLink, p_modMod, out strRawDeploymentPathKey, out strAdjustedDeploymentPathKey);
+
+			if (booOwnIndexMutationScope)
+				m_alcVirtualLinkIndexMutationNesting.Value++;
+			try
+			{
+				m_tslVirtualModList.Add(p_vmlLink);
+			}
+			finally
+			{
+				if (booOwnIndexMutationScope)
+					m_alcVirtualLinkIndexMutationNesting.Value--;
+			}
+
+			lock (m_objVirtualLinkIndexLock)
+			{
+				if (!m_booVirtualLinkIndexDirty)
+				{
+					m_vliVirtualLinkIndex.Add(p_vmlLink, strRawDeploymentPathKey, strAdjustedDeploymentPathKey);
+					m_intVirtualLinkIndexRevision++;
+				}
+			}
 		}
 
 		private void RemoveVirtualLink(IVirtualModLink p_vmlLink)
 		{
-			MarkVirtualLinkIndexDirty();
-			m_tslVirtualModList.Remove(p_vmlLink);
-			MarkVirtualLinkIndexDirty();
+			RemoveVirtualLink(p_vmlLink, null);
+		}
+
+		private void RemoveVirtualLink(IVirtualModLink p_vmlLink, IMod p_modMod)
+		{
+			if (p_vmlLink == null)
+				return;
+
+			bool booOwnIndexMutationScope = m_alcVirtualLinkIndexMutationNesting.Value == 0;
+			if (booOwnIndexMutationScope)
+				EnsureVirtualLinkIndex();
+
+			if (p_modMod == null && p_vmlLink.ModInfo != null)
+				p_modMod = FindManagedMod(p_vmlLink.ModInfo);
+
+			string strRawDeploymentPathKey;
+			string strAdjustedDeploymentPathKey;
+			GetVirtualLinkDeploymentPathKeys(p_vmlLink, p_modMod, out strRawDeploymentPathKey, out strAdjustedDeploymentPathKey);
+			bool booRemoved;
+
+			if (booOwnIndexMutationScope)
+				m_alcVirtualLinkIndexMutationNesting.Value++;
+			try
+			{
+				booRemoved = m_tslVirtualModList.Remove(p_vmlLink);
+			}
+			finally
+			{
+				if (booOwnIndexMutationScope)
+					m_alcVirtualLinkIndexMutationNesting.Value--;
+			}
+
+			if (!booRemoved)
+				return;
+
+			lock (m_objVirtualLinkIndexLock)
+			{
+				if (!m_booVirtualLinkIndexDirty)
+				{
+					m_vliVirtualLinkIndex.Remove(p_vmlLink, strRawDeploymentPathKey, strAdjustedDeploymentPathKey);
+					m_intVirtualLinkIndexRevision++;
+				}
+			}
 		}
 
 		private void RemoveVirtualLinks(IEnumerable<IVirtualModLink> p_enmLinks)
@@ -1045,9 +1286,22 @@ namespace Nexus.Client.ModManagement
 
 		private void ClearVirtualLinks()
 		{
-			MarkVirtualLinkIndexDirty();
-			m_tslVirtualModList.Clear();
-			MarkVirtualLinkIndexDirty();
+			m_alcVirtualLinkIndexMutationNesting.Value++;
+			try
+			{
+				m_tslVirtualModList.Clear();
+			}
+			finally
+			{
+				m_alcVirtualLinkIndexMutationNesting.Value--;
+			}
+
+			lock (m_objVirtualLinkIndexLock)
+			{
+				m_vliVirtualLinkIndex.Clear();
+				m_intVirtualLinkIndexRevision++;
+				m_booVirtualLinkIndexDirty = false;
+			}
 		}
 
 		public void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks)
@@ -1315,26 +1569,24 @@ namespace Nexus.Client.ModManagement
 		private int CheckFileLink(string p_strFilePath, ModInstallRoot p_mirInstallRoot, int p_intCurrentPriority, out IMod p_modMod, out List<IVirtualModLink> p_lstFileLinks)
 		{
 			int intPriority = -1;
+			IVirtualModLink vmlLowestPriorityLink = null;
 			p_modMod = null;
+			p_lstFileLinks = null;
 
-			List<IVirtualModLink> lstVirtualModLink = FindVirtualLinksByPath(p_strFilePath).Where(x => x.InstallRoot == p_mirInstallRoot).ToList();
-			foreach (IVirtualModLink vmlDeploymentMatch in FindVirtualLinksByDeploymentPath(p_strFilePath, p_mirInstallRoot))
-				if (!lstVirtualModLink.Contains(vmlDeploymentMatch))
-					lstVirtualModLink.Add(vmlDeploymentMatch);
+			CollectIndexedFileLinkMatches(
+				p_strFilePath,
+				p_mirInstallRoot,
+				p_intCurrentPriority,
+				ref p_lstFileLinks,
+				ref intPriority,
+				ref vmlLowestPriorityLink);
 
-			if (p_intCurrentPriority >= 0)
-				lstVirtualModLink = lstVirtualModLink.Where(x => x.Priority != p_intCurrentPriority).ToList();
-
-			if ((lstVirtualModLink != null) && (lstVirtualModLink.Count > 0))
+			if (p_lstFileLinks != null && p_lstFileLinks.Count > 0)
 			{
-				IVirtualModLink ivlModLink = lstVirtualModLink.OrderByDescending(x => x.Priority).FirstOrDefault();
-				if (ivlModLink != null)
-					intPriority = ivlModLink.Priority;
-				ivlModLink = lstVirtualModLink.OrderBy(x => x.Priority).FirstOrDefault();
-				if (ivlModLink != null)
-					p_modMod = ModManager.ManagedMods.FirstOrDefault(x => string.Equals(Path.GetFileName(x.Filename), ivlModLink.ModInfo.ModFileName, StringComparison.InvariantCultureIgnoreCase));
+				if (vmlLowestPriorityLink != null)
+					p_modMod = FindManagedMod(vmlLowestPriorityLink.ModInfo);
 			}
-			else if (File.Exists(p_strFilePath) && (p_intCurrentPriority >= 0))
+			else if (File.Exists(p_strFilePath) && p_intCurrentPriority >= 0)
 				intPriority = 0;
 			else if (p_intCurrentPriority == -1)
 			{
@@ -1343,9 +1595,42 @@ namespace Nexus.Client.ModManagement
 					p_modMod = DummyMod;
 			}
 
-			p_lstFileLinks = lstVirtualModLink;
-
 			return intPriority;
+		}
+
+		private static void CollectFileLinkMatches(
+			VirtualLinkIndexBucket p_vlbBucket,
+			ModInstallRoot p_mirInstallRoot,
+			bool p_booFilterInstallRoot,
+			int p_intCurrentPriority,
+			ref List<IVirtualModLink> p_lstMatches,
+			ref int p_intHighestPriority,
+			ref IVirtualModLink p_vmlLowestPriorityLink)
+		{
+			if (p_vlbBucket == null)
+				return;
+
+			for (int i = 0; i < p_vlbBucket.Count; i++)
+			{
+				IVirtualModLink vmlLink = p_vlbBucket[i];
+				if (vmlLink == null)
+					continue;
+				if (p_booFilterInstallRoot && vmlLink.InstallRoot != p_mirInstallRoot)
+					continue;
+				if (p_intCurrentPriority >= 0 && vmlLink.Priority == p_intCurrentPriority)
+					continue;
+				if (p_lstMatches != null && p_lstMatches.Contains(vmlLink))
+					continue;
+
+				if (p_lstMatches == null)
+					p_lstMatches = new List<IVirtualModLink>(p_vlbBucket.Count);
+				p_lstMatches.Add(vmlLink);
+
+				if (vmlLink.Priority > p_intHighestPriority)
+					p_intHighestPriority = vmlLink.Priority;
+				if (p_vmlLowestPriorityLink == null || vmlLink.Priority < p_vmlLowestPriorityLink.Priority)
+					p_vmlLowestPriorityLink = vmlLink;
+			}
 		}
 
 		public bool PurgeLinks()
@@ -1534,7 +1819,7 @@ namespace Nexus.Client.ModManagement
 				modInfo = vmiModInfo;
 			}
 			string strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
-			AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo, p_mirInstallRoot));
+			AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo, p_mirInstallRoot), p_modMod);
 		}
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, bool p_booIsSwitching, bool p_booIsRestoring, int p_intPriority)
@@ -1623,6 +1908,42 @@ namespace Nexus.Client.ModManagement
 			return strRealFilePath;
 		}
 
+		private string GetRealFilePathFromSource(string p_strSourceFile)
+		{
+			string strRelativePath;
+			if (TryGetPathRelativeToRoot(p_strSourceFile, m_strVirtualActivatorPath, out strRelativePath))
+				return strRelativePath;
+
+			if (MultiHDMode && !string.IsNullOrEmpty(HDLinkFolder) && TryGetPathRelativeToRoot(p_strSourceFile, HDLinkFolder, out strRelativePath))
+				return strRelativePath;
+
+			return null;
+		}
+
+		private static bool TryGetPathRelativeToRoot(string p_strFilePath, string p_strRootPath, out string p_strRelativePath)
+		{
+			p_strRelativePath = null;
+			if (string.IsNullOrWhiteSpace(p_strFilePath) || string.IsNullOrWhiteSpace(p_strRootPath))
+				return false;
+
+			try
+			{
+				string strFullRootPath = Path.GetFullPath(p_strRootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+				string strFullFilePath = Path.GetFullPath(p_strFilePath);
+				string strRootPrefix = strFullRootPath + Path.DirectorySeparatorChar;
+
+				if (!strFullFilePath.StartsWith(strRootPrefix, StringComparison.OrdinalIgnoreCase))
+					return false;
+
+				p_strRelativePath = strFullFilePath.Substring(strRootPrefix.Length);
+				return !string.IsNullOrWhiteSpace(p_strRelativePath);
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, int p_intPriority)
 		{
 			return AddFileLink(p_modMod, p_strBaseFilePath, p_strSourceFile, p_booIsSwitching, p_booIsRestoring, p_booHandlePlugin, p_intPriority, ModInstallRoot.Default);
@@ -1632,9 +1953,17 @@ namespace Nexus.Client.ModManagement
 		{
 			string strSourceFile = p_strSourceFile;
 
-			// Checking whether the file has been stored using the filename or the downloadID
-			string strRealFilePath = GetRealFilePath(p_modMod, p_strBaseFilePath, m_strVirtualActivatorPath);
-			string strRealLinkFilePath = (MultiHDMode && !string.IsNullOrEmpty(HDLinkFolder)) ? GetRealFilePath(p_modMod, p_strBaseFilePath, HDLinkFolder) : string.Empty;
+			// When the installer provides the exact extracted source, derive the persisted
+			// path directly instead of probing both VirtualInstall and NMMLink for every file.
+			string strSourceRelativePath = GetRealFilePathFromSource(strSourceFile);
+			string strRealFilePath = strSourceRelativePath;
+			string strRealLinkFilePath = strSourceRelativePath;
+
+			if (string.IsNullOrEmpty(strRealFilePath))
+				strRealFilePath = GetRealFilePath(p_modMod, p_strBaseFilePath, m_strVirtualActivatorPath);
+
+			if (MultiHDMode && !string.IsNullOrEmpty(HDLinkFolder) && string.IsNullOrEmpty(strRealLinkFilePath))
+				strRealLinkFilePath = GetRealFilePath(p_modMod, p_strBaseFilePath, HDLinkFolder);
 
 			string strAdjustedFilePath = GetAdjustedVirtualPath(p_modMod, p_strBaseFilePath, p_mirInstallRoot);
 
@@ -1665,6 +1994,10 @@ namespace Nexus.Client.ModManagement
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;
 
+			bool booHardLinkRequired = GameMode.HardlinkRequiredFilesType(strVirtualFileLink) ||
+				strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) ||
+				strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase);
+
 			if (File.Exists(strVirtualFileLink))
 				FileUtil.ForceDelete(strVirtualFileLink);
 
@@ -1685,14 +2018,14 @@ namespace Nexus.Client.ModManagement
 					if (File.Exists(strVirtualFileLink))
 					{
 						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
 						else
 							strVirtualFileLink = string.Empty;
 					}
 					else
 						strVirtualFileLink = string.Empty;
 				}
-				else if (GameMode.HardlinkRequiredFilesType(strVirtualFileLink))
+				else if (booHardLinkRequired)
 				{
 					if (MultiHDMode)
 					{
@@ -1703,7 +2036,7 @@ namespace Nexus.Client.ModManagement
 						if (booSuccess || File.Exists(strVirtualFileLink))
 						{
 							if (!p_booIsRestoring)
-								AddVirtualLink(new VirtualModLink(strRealLinkFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
+								AddVirtualLink(new VirtualModLink(strRealLinkFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
 							else
 								strVirtualFileLink = string.Empty;
 						}
@@ -1719,7 +2052,7 @@ namespace Nexus.Client.ModManagement
 						if (booSuccess || File.Exists(strVirtualFileLink))
 						{
 							if (!p_booIsRestoring)
-								AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
+								AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
 							else
 								strVirtualFileLink = string.Empty;
 						}
@@ -1732,14 +2065,14 @@ namespace Nexus.Client.ModManagement
 					if (!MultiHDMode && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
 					{
 						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
 						else
 							strVirtualFileLink = string.Empty;
 					}
 					else if (CreateSymbolicLink(strVirtualFileLink, strActivatorFilePath, 0))
 					{
 						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot));
+							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
 						else
 							strVirtualFileLink = string.Empty;
 					}
@@ -1833,7 +2166,7 @@ namespace Nexus.Client.ModManagement
 					if (File.Exists(strPath))
 						FileUtil.ForceDelete(strPath);
 
-				RemoveVirtualLink(p_ivlVirtualLink);
+				RemoveVirtualLink(p_ivlVirtualLink, p_modMod);
 
 				if ((intPriority >= 0) && !p_booPurging && (modCheck != null))
 				{
@@ -1923,8 +2256,19 @@ namespace Nexus.Client.ModManagement
 			if (string.IsNullOrEmpty(strRelativePath))
 				return VirtualFileOwnerSwitchResult.Failed("The selected file path is empty.");
 
+			string strDeploymentRoot = FileManagerQueryService.GetDeploymentRoot(GameMode);
+			string strSelectedDeployedPath;
+			try
+			{
+				strSelectedDeployedPath = Path.GetFullPath(Path.Combine(strDeploymentRoot, strRelativePath));
+			}
+			catch (Exception ex)
+			{
+				return VirtualFileOwnerSwitchResult.Failed(ex);
+			}
+
 			List<IVirtualModLink> lstFileLinks = m_tslVirtualModList
-				.Where(x => x != null && FileManagerQueryService.NormalizePath(x.VirtualModPath).Equals(FileManagerQueryService.NormalizePath(strRelativePath), StringComparison.OrdinalIgnoreCase))
+				.Where(x => x != null && string.Equals(GetDeployedFilePath(x), strSelectedDeployedPath, StringComparison.OrdinalIgnoreCase))
 				.ToList();
 
 			if (lstFileLinks.Count == 0)
@@ -1945,11 +2289,12 @@ namespace Nexus.Client.ModManagement
 			if (modSelected == null)
 				return VirtualFileOwnerSwitchResult.Failed("The selected owner mod is no longer managed by NMM.");
 
-			if (!VirtualOwnerSourceExists(modSelected, strRelativePath))
+			if (!VirtualOwnerSourceExists(modSelected, vmlSelectedOwner.VirtualModPath))
 				return VirtualFileOwnerSwitchResult.Failed("The selected owner's staged source file is missing.");
 
-			string strAdjustedFilePath = GetAdjustedVirtualPath(modSelected, strRelativePath, vmlSelectedOwner.InstallRoot);
-			string strDeployedPath = Path.Combine(GetInstallRootPath(vmlSelectedOwner.InstallRoot), strAdjustedFilePath);
+			string strDeployedPath = GetDeployedFilePath(vmlSelectedOwner);
+			if (string.IsNullOrWhiteSpace(strDeployedPath))
+				return VirtualFileOwnerSwitchResult.Failed("The selected owner's deployment path could not be resolved.");
 			string strBackupPath = null;
 			bool booPluginWasActive = false;
 			bool booPluginWasRegistered = false;
@@ -1968,7 +2313,7 @@ namespace Nexus.Client.ModManagement
 					File.Copy(strDeployedPath, strBackupPath, true);
 				}
 
-				AddFileLink(modSelected, strRelativePath, null, true, true, false, vmlSelectedOwner.Priority, vmlSelectedOwner.InstallRoot);
+				AddFileLink(modSelected, vmlSelectedOwner.VirtualModPath, null, true, true, false, vmlSelectedOwner.Priority, vmlSelectedOwner.InstallRoot);
 				if (!File.Exists(strDeployedPath))
 					throw new IOException("The selected owner file could not be deployed.");
 

@@ -131,7 +131,7 @@ namespace Nexus.Client.ModManagement
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
 			List<KeyValuePair<string, string>> lstFiles = (FilesToInstall == null) ? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList() : FilesToInstall;
-			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>();
+			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>(lstFiles.Count);
 			OverallProgressMaximum = lstFiles.Count * 2;
 
 			if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
@@ -206,6 +206,7 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidDataException(string.Format("This mod does not have the correct file structure for a {0} mod that NMM can use. It will not work with NMM.", GameMode.Name));
 
 			using (VirtualModActivator.BeginModInfoUpdateBatch())
+			using (VirtualModActivator.BeginVirtualLinkUpdateBatch(lstFilesToLink.Count))
 			{
 				foreach (KeyValuePair<string, string> strLink in lstFilesToLink)
 				{

@@ -51,6 +51,7 @@ namespace Nexus.Client.ModManagement
 		void SaveModList(string p_strPath, List<IVirtualModInfo> p_lstVirtualModInfo, List<IVirtualModLink> p_lstVirtualModList);
 		void UpdateDownloadId(string p_strCurrentProfilePath, Dictionary<string, string> p_dctNewDownloadID);
 		IDisposable BeginModInfoUpdateBatch();
+		IDisposable BeginVirtualLinkUpdateBatch(Int32 p_intExpectedAdditionalLinks);
 		string CheckVirtualLink(string p_strFilePath);
 		Int32 CheckFileLink(string p_strFilePath, out IMod p_modMod, out List<IVirtualModLink> lstFileLinks);
 		Int32 CheckFileLink(string p_strFilePath, ModInstallRoot p_mirInstallRoot, out IMod p_modMod, out List<IVirtualModLink> lstFileLinks);

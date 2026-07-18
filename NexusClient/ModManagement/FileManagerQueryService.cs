@@ -143,6 +143,85 @@ namespace Nexus.Client.ModManagement
 
             return counts;
         }
+        public FileManagerSourceCounts SynchronizeRowsAfterActivation(IList<FileManagerRow> rows, IDictionary<string, FileManagerRow> rowsByNormalizedPath, IGameMode gameMode, IVirtualModActivator virtualModActivator)
+        {
+            if (rows == null) throw new ArgumentNullException("rows");
+            if (rowsByNormalizedPath == null) throw new ArgumentNullException("rowsByNormalizedPath");
+            if (gameMode == null) throw new ArgumentNullException("gameMode");
+            if (virtualModActivator == null) throw new ArgumentNullException("virtualModActivator");
+
+            string deploymentRoot = GetDeploymentRoot(gameMode);
+            if (String.IsNullOrWhiteSpace(deploymentRoot) || !Directory.Exists(deploymentRoot))
+                return ReclassifyRows(rows, gameMode, virtualModActivator);
+
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot);
+            HashSet<string> baseFiles = BuildBaseFileSet(gameMode.BaseGameFiles);
+            IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
+            string rootPrefix = GetNormalizedRootPrefix(deploymentRoot);
+
+            rowsByNormalizedPath.Clear();
+            for (int index = rows.Count - 1; index >= 0; index--)
+            {
+                FileManagerRow row = rows[index];
+                if (row == null || String.IsNullOrWhiteSpace(row.NormalizedRelativePath))
+                {
+                    rows.RemoveAt(index);
+                    continue;
+                }
+
+                FileManagerPathOwnership ownership;
+                bool hasActiveOwnership = ownershipByPath.TryGetValue(row.NormalizedRelativePath, out ownership) && ownership != null && ownership.HasActiveOwner;
+
+                if (hasActiveOwnership)
+                {
+                    ApplyNmmOwnership(row, ownership);
+                }
+                else if (row.Source == FileManagerSource.InstalledByNmm)
+                {
+                    if (String.IsNullOrWhiteSpace(row.FullPath) || !File.Exists(row.FullPath))
+                    {
+                        rows.RemoveAt(index);
+                        continue;
+                    }
+
+                    ApplySourceClassification(row, (FileManagerPathOwnership)null, baseFiles, manualSources);
+                }
+
+                if (!rowsByNormalizedPath.ContainsKey(row.NormalizedRelativePath))
+                    rowsByNormalizedPath.Add(row.NormalizedRelativePath, row);
+            }
+
+            foreach (KeyValuePair<string, FileManagerPathOwnership> pair in ownershipByPath)
+            {
+                FileManagerPathOwnership ownership = pair.Value;
+                if (ownership == null || !ownership.HasActiveOwner || rowsByNormalizedPath.ContainsKey(pair.Key))
+                    continue;
+
+                string fullPath = GetSafeDeploymentFilePath(deploymentRoot, rootPrefix, pair.Key);
+                if (String.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath))
+                    continue;
+
+                FileManagerRow row = CreateRow(fullPath, rootPrefix);
+                if (row == null || rowsByNormalizedPath.ContainsKey(row.NormalizedRelativePath))
+                    continue;
+
+                FileManagerPathOwnership canonicalOwnership;
+                if (!ownershipByPath.TryGetValue(row.NormalizedRelativePath, out canonicalOwnership))
+                    canonicalOwnership = ownership;
+
+                ApplySourceClassification(row, canonicalOwnership, baseFiles, manualSources);
+                rows.Add(row);
+                rowsByNormalizedPath.Add(row.NormalizedRelativePath, row);
+            }
+
+            FileManagerSourceCounts counts = new FileManagerSourceCounts();
+            foreach (FileManagerRow row in rows)
+                if (row != null)
+                    counts.Add(row.Source);
+
+            return counts;
+        }
+
         public void RefreshRowOwnership(FileManagerRow row, IGameMode gameMode, IVirtualModActivator virtualModActivator)
         {
             if (row == null || virtualModActivator == null)
@@ -282,12 +361,23 @@ namespace Nexus.Client.ModManagement
             if (links == null)
                 return new Dictionary<string, FileManagerPathOwnership>(StringComparer.OrdinalIgnoreCase);
 
+            List<IVirtualModLink> linkSnapshot = new List<IVirtualModLink>();
             foreach (IVirtualModLink link in links)
-            {
-                if (link == null || String.IsNullOrWhiteSpace(link.VirtualModPath))
-                    continue;
+                if (link != null && !String.IsNullOrWhiteSpace(link.VirtualModPath))
+                    linkSnapshot.Add(link);
 
-                foreach (string key in GetFileManagerOwnershipKeys(link, gameMode, deploymentRoot))
+            Dictionary<IVirtualModLink, string> deployedPaths = null;
+            VirtualModActivator concreteActivator = virtualModActivator as VirtualModActivator;
+            if (concreteActivator != null)
+                deployedPaths = concreteActivator.GetDeployedFilePaths(linkSnapshot);
+
+            foreach (IVirtualModLink link in linkSnapshot)
+            {
+                string deployedPath = String.Empty;
+                if (deployedPaths != null)
+                    deployedPaths.TryGetValue(link, out deployedPath);
+
+                foreach (string key in GetFileManagerOwnershipKeys(link, gameMode, deploymentRoot, deployedPath))
                     AddLinkToOwnershipLookup(linksByPath, key, link);
             }
 
@@ -308,7 +398,7 @@ namespace Nexus.Client.ModManagement
             return ownershipByPath.TryGetValue(normalizedPath, out ownership) ? ownership : null;
         }
 
-        private static IEnumerable<string> GetFileManagerOwnershipKeys(IVirtualModLink link, IGameMode gameMode, string deploymentRoot)
+        private static IEnumerable<string> GetFileManagerOwnershipKeys(IVirtualModLink link, IGameMode gameMode, string deploymentRoot, string deployedPath)
         {
             if (link == null || String.IsNullOrWhiteSpace(link.VirtualModPath))
                 yield break;
@@ -317,24 +407,32 @@ namespace Nexus.Client.ModManagement
             if (!String.IsNullOrWhiteSpace(rawKey))
                 yield return rawKey;
 
-            string deployedRelativePath = GetDeploymentRelativePath(link, gameMode, deploymentRoot);
+            string deployedRelativePath = GetDeploymentRelativePath(link, gameMode, deploymentRoot, deployedPath);
             string deployedKey = NormalizePath(deployedRelativePath);
             if (!String.IsNullOrWhiteSpace(deployedKey) && !String.Equals(rawKey, deployedKey, StringComparison.OrdinalIgnoreCase))
                 yield return deployedKey;
         }
 
-        private static string GetDeploymentRelativePath(IVirtualModLink link, IGameMode gameMode, string deploymentRoot)
+        private static string GetDeploymentRelativePath(IVirtualModLink link, IGameMode gameMode, string deploymentRoot, string deployedPath)
         {
             if (link == null || gameMode == null || String.IsNullOrWhiteSpace(deploymentRoot) || String.IsNullOrWhiteSpace(link.VirtualModPath))
                 return String.Empty;
 
-            string installRoot = link.InstallRoot == ModInstallRoot.GameRoot ? gameMode.InstallationPath : deploymentRoot;
-            if (String.IsNullOrWhiteSpace(installRoot))
-                return String.Empty;
-
             try
             {
-                string deployedPath = Path.GetFullPath(Path.Combine(installRoot, link.VirtualModPath));
+                if (String.IsNullOrWhiteSpace(deployedPath))
+                {
+                    string adjustedPath = link.VirtualModPath;
+                    if (link.InstallRoot != ModInstallRoot.GameRoot)
+                        adjustedPath = gameMode.GetModFormatAdjustedPath(null, link.VirtualModPath, true);
+
+                    string installRoot = link.InstallRoot == ModInstallRoot.GameRoot ? gameMode.InstallationPath : deploymentRoot;
+                    if (String.IsNullOrWhiteSpace(installRoot) || String.IsNullOrWhiteSpace(adjustedPath))
+                        return String.Empty;
+
+                    deployedPath = Path.GetFullPath(Path.Combine(installRoot, adjustedPath));
+                }
+
                 string deploymentRootPrefix = GetNormalizedRootPrefix(deploymentRoot);
                 if (deployedPath.StartsWith(deploymentRootPrefix, StringComparison.OrdinalIgnoreCase))
                     return deployedPath.Substring(deploymentRootPrefix.Length);
@@ -457,6 +555,52 @@ namespace Nexus.Client.ModManagement
             }
 
             return String.Empty;
+        }
+
+        private static string GetSafeDeploymentFilePath(string deploymentRoot, string rootPrefix, string normalizedRelativePath)
+        {
+            if (String.IsNullOrWhiteSpace(deploymentRoot) || String.IsNullOrWhiteSpace(rootPrefix) || String.IsNullOrWhiteSpace(normalizedRelativePath))
+                return String.Empty;
+
+            try
+            {
+                string fullPath = Path.GetFullPath(Path.Combine(deploymentRoot, normalizedRelativePath));
+                return fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) ? fullPath : String.Empty;
+            }
+            catch
+            {
+                return String.Empty;
+            }
+        }
+
+        private static FileManagerRow CreateRow(string filePath, string rootPrefix)
+        {
+            try
+            {
+                FileInfo fileInfo = new FileInfo(filePath);
+                if (!fileInfo.Exists)
+                    return null;
+
+                string relativePath = GetRelativePath(rootPrefix, filePath);
+                string normalizedPath = NormalizePath(relativePath);
+                if (String.IsNullOrWhiteSpace(normalizedPath))
+                    return null;
+
+                return new FileManagerRow
+                {
+                    FullPath = filePath,
+                    FileName = Path.GetFileName(filePath),
+                    FileType = GetFileType(filePath),
+                    RawSize = fileInfo.Length,
+                    SizeDisplay = FormatSize(fileInfo.Length),
+                    RelativePath = relativePath,
+                    NormalizedRelativePath = normalizedPath
+                };
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string GetFileType(string filePath)

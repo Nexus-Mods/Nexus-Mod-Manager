@@ -19,6 +19,9 @@ namespace Nexus.Client.Util.Collections
 		protected ReaderWriterLockSlim m_rwlLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 		private List<T> m_lstItems = null;
 		private IComparer<T> m_cmpComparer = null;
+		private int m_intUpdateNesting;
+		private int m_intCollectionChangedDuringUpdate;
+		private int m_intPropertyChangedDuringUpdate;
 
 		#region Constructors
 
@@ -60,6 +63,68 @@ namespace Nexus.Client.Util.Collections
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Reserves backing-list capacity without changing the list contents.
+		/// </summary>
+		public void EnsureCapacity(int p_intCapacity)
+		{
+			if (p_intCapacity <= 0)
+				return;
+
+			try
+			{
+				m_rwlLock.EnterWriteLock();
+				if (p_intCapacity > m_lstItems.Capacity)
+					m_lstItems.Capacity = p_intCapacity;
+			}
+			finally
+			{
+				if (m_rwlLock.IsWriteLockHeld)
+					m_rwlLock.ExitWriteLock();
+			}
+		}
+
+		/// <summary>
+		/// Suppresses per-item notifications until the returned scope is disposed.
+		/// The list remains updated and one reset notification is raised at the end.
+		/// </summary>
+		public IDisposable BeginUpdate()
+		{
+			Interlocked.Increment(ref m_intUpdateNesting);
+			return new UpdateScope(this);
+		}
+
+		private void EndUpdate()
+		{
+			if (Interlocked.Decrement(ref m_intUpdateNesting) != 0)
+				return;
+
+			bool collectionChanged = Interlocked.Exchange(ref m_intCollectionChangedDuringUpdate, 0) != 0;
+			bool propertyChanged = Interlocked.Exchange(ref m_intPropertyChangedDuringUpdate, 0) != 0;
+
+			if (collectionChanged)
+				CollectionChanged(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+			if (propertyChanged)
+				PropertyChanged(this, new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Count)));
+		}
+
+		private sealed class UpdateScope : IDisposable
+		{
+			private ThreadSafeObservableList<T> m_lstOwner;
+
+			public UpdateScope(ThreadSafeObservableList<T> p_lstOwner)
+			{
+				m_lstOwner = p_lstOwner;
+			}
+
+			public void Dispose()
+			{
+				ThreadSafeObservableList<T> owner = Interlocked.Exchange(ref m_lstOwner, null);
+				if (owner != null)
+					owner.EndUpdate();
+			}
+		}
 
 		#region IList<T> Members
 
@@ -384,6 +449,12 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		protected virtual void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
 		{
+			if (Interlocked.CompareExchange(ref m_intUpdateNesting, 0, 0) > 0)
+			{
+				Interlocked.Exchange(ref m_intCollectionChangedDuringUpdate, 1);
+				return;
+			}
+
 			CollectionChanged(this, e);
 		}
 
@@ -393,6 +464,12 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
 		protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
 		{
+			if (Interlocked.CompareExchange(ref m_intUpdateNesting, 0, 0) > 0)
+			{
+				Interlocked.Exchange(ref m_intPropertyChangedDuringUpdate, 1);
+				return;
+			}
+
 			PropertyChanged(this, e);
 		}
 
