@@ -500,7 +500,7 @@ namespace Nexus.Client.GameStorage
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
-                Add(result, role, path, MissingStatus(role), required, true, $"The {GetRoleName(role)} folder is missing or not configured.", "Restore the previous folder or select the correct folder for this game.");
+                Add(result, role, path, MissingStatus(role), required, true, $"The {GetRoleName(role)} folder is does not exist yet. It will be created when this setup is applied.", "Restore the previous folder or create a new one.");
                 return;
             }
 

@@ -40,6 +40,8 @@ namespace Nexus.Client.GameStorage
                     AddCandidate(candidates, candidate);
             }
 
+            AddSharedModsSiblingCandidates(currentPaths, candidates);
+
             return NormalizeAndMergeCandidates(currentPaths, candidates)
                 .OrderByDescending(x => x.ConfidenceScore)
                 .ThenBy(x => x.CandidateKind)
@@ -71,6 +73,7 @@ namespace Nexus.Client.GameStorage
             AddFolderManifestCandidates(currentPaths, rootPath, candidates);
             AddLegacyLayoutCandidate(currentPaths, rootPath, candidates);
             AddInstallLogOnlyCandidates(rootPath, candidates);
+            AddSharedModsSiblingCandidates(currentPaths, candidates);
             return NormalizeAndMergeCandidates(currentPaths, candidates)
                 .OrderByDescending(x => x.ConfidenceScore)
                 .ThenBy(x => x.CandidateKind)
@@ -393,6 +396,314 @@ namespace Nexus.Client.GameStorage
             }
         }
 
+        private void AddSharedModsSiblingCandidates(
+            GameStoragePathSet currentPaths,
+            List<GameStorageCandidate> candidates)
+        {
+            if (currentPaths == null || candidates == null)
+                return;
+
+            var sharedCandidates = candidates
+                .Where(x => x != null &&
+                    x.IsSharedModsLibrary &&
+                    !string.IsNullOrWhiteSpace(x.ModsPath) &&
+                    !string.Equals(
+                        x.CandidateKind,
+                        "Existing shared-root setup",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(
+                        x.CandidateKind,
+                        "Shared root + game-drive staging",
+                        StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var sharedCandidate in sharedCandidates)
+            {
+                var siblingCandidate = TryCreateSharedModsSiblingSetupCandidate(
+                    currentPaths,
+                    sharedCandidate);
+                if (siblingCandidate == null)
+                    continue;
+
+                AddCandidate(candidates, siblingCandidate);
+
+                var gameDriveCandidate = TryCreateGameDriveVirtualInstallCandidate(
+                    currentPaths,
+                    siblingCandidate);
+                AddCandidate(candidates, gameDriveCandidate);
+            }
+        }
+
+        private GameStorageCandidate TryCreateSharedModsSiblingSetupCandidate(
+            GameStoragePathSet currentPaths,
+            GameStorageCandidate sharedCandidate)
+        {
+            string rootPath = GetSharedModsSiblingRoot(sharedCandidate.ModsPath);
+            if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
+                return null;
+
+            string installInfoPath = SelectExistingPath(
+                Path.Combine(rootPath, "InstallInfo"),
+                Path.Combine(rootPath, "Install Info"),
+                Path.Combine(rootPath, "instinfo"));
+            string virtualInstallPath = SelectExistingPath(
+                Path.Combine(rootPath, GameStorageConstants.VirtualInstallDirectoryName));
+
+            if (string.IsNullOrWhiteSpace(installInfoPath) ||
+                string.IsNullOrWhiteSpace(virtualInstallPath))
+            {
+                return null;
+            }
+
+            string storageId = null;
+            if (!TryGetExclusiveFolderStorageId(
+                    currentPaths,
+                    installInfoPath,
+                    GameStorageFolderRole.InstallInfo,
+                    out string installInfoStorageId) ||
+                !TryMergeStorageId(ref storageId, installInfoStorageId))
+            {
+                return null;
+            }
+
+            if (!TryGetExclusiveFolderStorageId(
+                    currentPaths,
+                    virtualInstallPath,
+                    GameStorageFolderRole.VirtualInstall,
+                    out string virtualInstallStorageId) ||
+                !TryMergeStorageId(ref storageId, virtualInstallStorageId))
+            {
+                return null;
+            }
+
+            string currentModsStorageId = GetCurrentGameFolderStorageId(
+                currentPaths,
+                sharedCandidate.ModsPath,
+                GameStorageFolderRole.Mods);
+            if (!TryMergeStorageId(ref storageId, currentModsStorageId))
+                return null;
+
+            bool linkFolderRequired = IsLinkFolderRequired(
+                virtualInstallPath,
+                currentPaths.GameInstallPath);
+            string linkFolderPath = SelectExistingPath(
+                Path.Combine(rootPath, "LinkFolder"));
+            if (linkFolderRequired &&
+                !string.IsNullOrWhiteSpace(linkFolderPath) &&
+                !IsLinkFolderOnGameDrive(linkFolderPath, currentPaths.GameInstallPath))
+            {
+                linkFolderPath = null;
+            }
+
+            var paths = new GameStoragePathSet
+            {
+                GameId = currentPaths.GameId,
+                GameName = currentPaths.GameName,
+                GameInstallPath = currentPaths.GameInstallPath,
+                InstallInfoPath = installInfoPath,
+                ModsPath = sharedCandidate.ModsPath,
+                VirtualInstallPath = virtualInstallPath,
+                LinkFolderPath = linkFolderPath,
+                LinkFolderRequired = linkFolderRequired,
+                CompatibleSharedModsGameIds = currentPaths.CompatibleSharedModsGameIds == null
+                    ? new List<string>()
+                    : new List<string>(currentPaths.CompatibleSharedModsGameIds)
+            };
+
+            int score = Math.Min(
+                99,
+                Math.Max(
+                    sharedCandidate.ConfidenceScore + 7,
+                    GetPathSetEvidenceScore(paths, 45) + 8));
+
+            var candidate = CreateCandidateFromPathSet(
+                "Existing shared-root setup",
+                paths,
+                storageId,
+                score,
+                GetConfidenceLevel(score),
+                true,
+                "Found existing InstallInfo and VirtualInstall folders beside the compatible shared Mods library.");
+            candidate.CandidateRoot = rootPath;
+            candidate.IsSharedModsLibrary = true;
+            candidate.SharedModsGameIds = new List<string>(
+                sharedCandidate.SharedModsGameIds ?? new List<string>());
+            candidate.SharedModsDescription = sharedCandidate.SharedModsDescription;
+            candidate.Recommendation = linkFolderRequired
+                ? "Preserves the existing InstallInfo and VirtualInstall folders beside the shared Mods library. VirtualInstall is on a different drive from the game, so a Link Folder on the game drive is required."
+                : "Uses this Game Mode's existing InstallInfo and VirtualInstall folders beside the shared Mods library.";
+            candidate.RequiresUserConfirmation = true;
+            return candidate;
+        }
+
+        private GameStorageCandidate TryCreateGameDriveVirtualInstallCandidate(
+            GameStoragePathSet currentPaths,
+            GameStorageCandidate existingCandidate)
+        {
+            if (existingCandidate == null ||
+                !existingCandidate.LinkFolderRequired)
+            {
+                return null;
+            }
+
+            string virtualInstallPath = GetSuggestedGameDriveVirtualInstallPath(
+                currentPaths);
+            if (string.IsNullOrWhiteSpace(virtualInstallPath) ||
+                CandidatePathsEqual(
+                    virtualInstallPath,
+                    existingCandidate.VirtualInstallPath))
+            {
+                return null;
+            }
+
+            int score = Math.Max(0, existingCandidate.ConfidenceScore - 4);
+            var candidate = new GameStorageCandidate
+            {
+                CandidateKind = "Shared root + game-drive staging",
+                CandidateRoot = existingCandidate.CandidateRoot,
+                GameId = currentPaths.GameId,
+                StorageId = existingCandidate.StorageId,
+                InstallInfoPath = existingCandidate.InstallInfoPath,
+                ModsPath = existingCandidate.ModsPath,
+                VirtualInstallPath = virtualInstallPath,
+                LinkFolderPath = null,
+                LinkFolderRequired = false,
+                ConfidenceScore = score,
+                ConfidenceLevel = GetConfidenceLevel(score),
+                RequiresUserConfirmation = true,
+                IsSharedModsLibrary = true,
+                SharedModsGameIds = new List<string>(
+                    existingCandidate.SharedModsGameIds ?? new List<string>()),
+                SharedModsDescription = existingCandidate.SharedModsDescription,
+                Recommendation = "Suggested because the existing VirtualInstall is on a different drive from the game. This keeps the detected InstallInfo and shared Mods paths, but places VirtualInstall on the game drive and avoids a Link Folder."
+            };
+            candidate.Evidence.Add(
+                "Generated a same-game-drive VirtualInstall alternative for the detected existing setup.");
+            return candidate;
+        }
+
+        private string GetSuggestedGameDriveVirtualInstallPath(
+            GameStoragePathSet currentPaths)
+        {
+            if (!string.IsNullOrWhiteSpace(currentPaths.VirtualInstallPath) &&
+                !IsLinkFolderRequired(
+                    currentPaths.VirtualInstallPath,
+                    currentPaths.GameInstallPath))
+            {
+                return NormalizeVirtualInstallDirectory(
+                    currentPaths.VirtualInstallPath);
+            }
+
+            string gameDriveRoot = GetPathRoot(currentPaths.GameInstallPath);
+            if (string.IsNullOrWhiteSpace(gameDriveRoot))
+                return null;
+
+            return NormalizeVirtualInstallDirectory(
+                Path.Combine(
+                    gameDriveRoot,
+                    "Games",
+                    "NMMCE",
+                    currentPaths.GameId,
+                    GameStorageConstants.VirtualInstallDirectoryName));
+        }
+
+        private string GetSharedModsSiblingRoot(string modsPath)
+        {
+            try
+            {
+                string normalizedModsPath = NormalizeDirectoryPath(modsPath);
+                if (string.IsNullOrWhiteSpace(normalizedModsPath))
+                    return null;
+
+                if (string.Equals(
+                    Path.GetFileName(normalizedModsPath),
+                    "Mods",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    return Path.GetDirectoryName(normalizedModsPath);
+                }
+
+                return normalizedModsPath;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private bool TryGetExclusiveFolderStorageId(
+            GameStoragePathSet currentPaths,
+            string folderPath,
+            GameStorageFolderRole role,
+            out string storageId)
+        {
+            storageId = null;
+            var manifest = ReadFolderManifest(folderPath);
+            if (manifest == null)
+                return true;
+
+            if (manifest.FolderRole != role)
+                return false;
+
+            var bindings = GetManifestBindings(manifest);
+            var currentBinding = bindings.FirstOrDefault(x =>
+                string.Equals(
+                    x.GameId,
+                    currentPaths.GameId,
+                    StringComparison.OrdinalIgnoreCase));
+            if (currentBinding == null)
+                return false;
+
+            if (bindings.Any(x =>
+                !string.Equals(
+                    x.GameId,
+                    currentPaths.GameId,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            storageId = currentBinding.StorageId;
+            return true;
+        }
+
+        private string GetCurrentGameFolderStorageId(
+            GameStoragePathSet currentPaths,
+            string folderPath,
+            GameStorageFolderRole role)
+        {
+            var manifest = ReadFolderManifest(folderPath);
+            if (manifest == null || manifest.FolderRole != role)
+                return null;
+
+            return GetManifestBindings(manifest)
+                .Where(x => string.Equals(
+                    x.GameId,
+                    currentPaths.GameId,
+                    StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.StorageId)
+                .FirstOrDefault();
+        }
+
+        private bool TryMergeStorageId(
+            ref string storageId,
+            string candidateStorageId)
+        {
+            if (string.IsNullOrWhiteSpace(candidateStorageId))
+                return true;
+
+            if (string.IsNullOrWhiteSpace(storageId))
+            {
+                storageId = candidateStorageId;
+                return true;
+            }
+
+            return string.Equals(
+                storageId,
+                candidateStorageId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
         private GameStorageCandidate CreateSharedModsCandidate(
             GameStoragePathSet currentPaths,
             string modsPath,
@@ -427,6 +738,7 @@ namespace Nexus.Client.GameStorage
             candidate.IsSharedModsLibrary = true;
             candidate.SharedModsGameIds = sharedGameIds;
             candidate.SharedModsDescription = GetSharedModsDescription(sharedGameIds);
+            candidate.Recommendation = "Shares only the Mods folder. InstallInfo and VirtualInstall remain on the current proposed paths.";
             if (!string.IsNullOrWhiteSpace(candidate.SharedModsDescription))
                 candidate.Evidence.Add(candidate.SharedModsDescription);
             candidate.RequiresUserConfirmation = true;
@@ -1098,6 +1410,8 @@ namespace Nexus.Client.GameStorage
                 .ToList();
             if (string.IsNullOrWhiteSpace(target.SharedModsDescription))
                 target.SharedModsDescription = source.SharedModsDescription;
+            if (string.IsNullOrWhiteSpace(target.Recommendation))
+                target.Recommendation = source.Recommendation;
 
             foreach (string evidence in source.Evidence)
             {

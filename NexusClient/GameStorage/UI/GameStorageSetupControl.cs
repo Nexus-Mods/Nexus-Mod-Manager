@@ -28,12 +28,15 @@ namespace Nexus.Client.GameStorage.UI
         private readonly SimpleButton _legacySetupButton;
         private GridColumn _candidateUseColumn;
         private Image _candidateUseImage;
+        private bool _suppressManualPathChanged;
+        private bool _manualPathsEdited;
         private readonly List<Tuple<TextEdit, SimpleButton>> _manualPathRows = new List<Tuple<TextEdit, SimpleButton>>();
 
         public event EventHandler RefreshRequested;
         public event EventHandler ApplyRequested;
         public event EventHandler CandidatePreviewRequested;
         public event EventHandler ManualVirtualInstallPathChanged;
+        public event EventHandler ManualPathsChanged;
         public event EventHandler CancelRequested;
         public event EventHandler LegacySetupRequested;
 
@@ -63,8 +66,11 @@ namespace Nexus.Client.GameStorage.UI
             _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "Install info", 30);
             _manualModsEdit = CreateManualPathEdit(manualPanel, "Mod archives", 56);
             _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "Virtual install", 82);
-            _manualVirtualInstallEdit.EditValueChanged += (sender, args) => ManualVirtualInstallPathChanged?.Invoke(this, EventArgs.Empty);
             _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, "Link folder", 108);
+            _manualInstallInfoEdit.EditValueChanged += ManualPathEditValueChanged;
+            _manualModsEdit.EditValueChanged += ManualPathEditValueChanged;
+            _manualVirtualInstallEdit.EditValueChanged += ManualVirtualInstallEditValueChanged;
+            _manualLinkFolderEdit.EditValueChanged += ManualPathEditValueChanged;
             _manualLinkFolderButton = _manualPathRows.Last().Item2;
             manualPanel.Resize += (sender, args) => LayoutManualPathRows(manualPanel);
             LayoutManualPathRows(manualPanel);
@@ -126,7 +132,7 @@ namespace Nexus.Client.GameStorage.UI
             Controls.Add(_titleLabel);
         }
 
-        public GameStorageCandidate SelectedCandidate => _candidateGridView.GetFocusedRow() as GameStorageCandidate;
+        public GameStorageCandidate SelectedCandidate => _manualPathsEdited ? null : _candidateGridView.GetFocusedRow() as GameStorageCandidate;
 
         public string ManualVirtualInstallPath => _manualVirtualInstallEdit.Text;
 
@@ -135,10 +141,11 @@ namespace Nexus.Client.GameStorage.UI
             if (candidate == null)
                 return;
 
-            _manualInstallInfoEdit.Text = candidate.InstallInfoPath ?? string.Empty;
-            _manualModsEdit.Text = candidate.ModsPath ?? string.Empty;
-            _manualVirtualInstallEdit.Text = candidate.VirtualInstallPath ?? string.Empty;
-            _manualLinkFolderEdit.Text = candidate.LinkFolderPath ?? string.Empty;
+            SetManualPathValues(
+                candidate.InstallInfoPath,
+                candidate.ModsPath,
+                candidate.VirtualInstallPath,
+                candidate.LinkFolderPath);
         }
 
         public GameStorageCandidate ManualCandidate
@@ -164,6 +171,48 @@ namespace Nexus.Client.GameStorage.UI
             }
         }
 
+        private void SetManualPathValues(string installInfoPath, string modsPath, string virtualInstallPath, string linkFolderPath)
+        {
+            _suppressManualPathChanged = true;
+            try
+            {
+                _manualInstallInfoEdit.Text = installInfoPath ?? string.Empty;
+                _manualModsEdit.Text = modsPath ?? string.Empty;
+                _manualVirtualInstallEdit.Text = virtualInstallPath ?? string.Empty;
+                _manualLinkFolderEdit.Text = linkFolderPath ?? string.Empty;
+                _manualPathsEdited = false;
+            }
+            finally
+            {
+                _suppressManualPathChanged = false;
+            }
+        }
+
+        private void ManualPathEditValueChanged(object sender, EventArgs e)
+        {
+            OnManualPathsChanged(false);
+        }
+
+        private void ManualVirtualInstallEditValueChanged(object sender, EventArgs e)
+        {
+            OnManualPathsChanged(true);
+        }
+
+        private void OnManualPathsChanged(bool virtualInstallChanged)
+        {
+            if (_suppressManualPathChanged)
+                return;
+
+            _manualPathsEdited = true;
+            _candidateGridView.ClearSelection();
+            _candidateGridView.FocusedRowHandle = GridControl.InvalidRowHandle;
+
+            if (virtualInstallChanged)
+                ManualVirtualInstallPathChanged?.Invoke(this, EventArgs.Empty);
+
+            ManualPathsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         public void ConfigureText(string title, string description, bool showLegacySetupButton)
         {
             _titleLabel.Text = title;
@@ -173,10 +222,11 @@ namespace Nexus.Client.GameStorage.UI
 
         public void SetManualPaths(GameStoragePathSet paths)
         {
-            _manualInstallInfoEdit.Text = paths?.InstallInfoPath ?? string.Empty;
-            _manualModsEdit.Text = paths?.ModsPath ?? string.Empty;
-            _manualVirtualInstallEdit.Text = paths?.VirtualInstallPath ?? string.Empty;
-            _manualLinkFolderEdit.Text = paths?.LinkFolderPath ?? string.Empty;
+            SetManualPathValues(
+                paths?.InstallInfoPath,
+                paths?.ModsPath,
+                paths?.VirtualInstallPath,
+                paths?.LinkFolderPath);
             SetLinkFolderRequired(paths != null && paths.LinkFolderRequired);
         }
 
@@ -400,14 +450,15 @@ namespace Nexus.Client.GameStorage.UI
             _candidateUseColumn.OptionsColumn.FixedWidth = true;
             _candidateGridView.Columns.Add(_candidateUseColumn);
             _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateKind), "Source", 1, 130));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.SharedModsDescription), "Shared Mods library", 2, 280));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceScore), "Score", 3, 60));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceLevel), "Confidence", 4, 90));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateRoot), "Root", 5, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.InstallInfoPath), "Install info", 6, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ModsPath), "Mod archives", 7, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.VirtualInstallPath), "Virtual install", 8, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.LinkFolderPath), "Link folder", 9, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.SharedModsDescription), "Shared Mods library", 2, 250));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.Recommendation), "Reason / recommendation", 3, 330));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceScore), "Score", 4, 60));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceLevel), "Confidence", 5, 90));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateRoot), "Root", 6, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.InstallInfoPath), "Install info", 7, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ModsPath), "Mod archives", 8, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.VirtualInstallPath), "Virtual install", 9, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.LinkFolderPath), "Link folder", 10, 260));
         }
 
         private static void ConfigureSetupGridLook(GridView view, bool editable)

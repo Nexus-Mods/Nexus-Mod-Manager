@@ -61,5 +61,6 @@ namespace Nexus.Client.GameStorage
         public bool IsSharedModsLibrary { get; set; }
         public List<string> SharedModsGameIds { get; set; } = new List<string>();
         public string SharedModsDescription { get; set; }
+        public string Recommendation { get; set; }
     }
 }

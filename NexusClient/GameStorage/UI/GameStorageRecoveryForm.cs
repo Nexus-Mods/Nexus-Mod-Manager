@@ -31,6 +31,7 @@ namespace Nexus.Client.GameStorage.UI
             _control.ConfigureText("Game Storage recovery - " + gameMode.Name, "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. Compatible shared Mods libraries are allowed only when both Game Mode definitions opt in. NMM will not move, rename, or delete folders during recovery.", false);
             _control.RefreshRequested += RefreshRequested;
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
+            _control.ManualPathsChanged += ManualPathsChanged;
             _control.ApplyRequested += ApplyRequested;
             _control.CandidatePreviewRequested += CandidatePreviewRequested;
             _control.CancelRequested += CancelRequested;
@@ -68,6 +69,22 @@ namespace Nexus.Client.GameStorage.UI
         private void ManualVirtualInstallPathChanged(object sender, EventArgs e)
         {
             _control.SetLinkFolderRequired(_service.IsLinkFolderRequired(_control.ManualVirtualInstallPath, _gameMode.GameModeEnvironmentInfo.InstallationPath));
+        }
+
+        private void ManualPathsChanged(object sender, EventArgs e)
+        {
+            var candidate = _control.ManualCandidate;
+            if (candidate == null)
+                return;
+
+            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
+            candidate.GameId = currentPaths.GameId;
+            candidate.LinkFolderRequired = candidate.LinkFolderRequired ||
+                _service.IsLinkFolderRequired(candidate.VirtualInstallPath, currentPaths.GameInstallPath);
+
+            var paths = CreatePathSetFromCandidate(candidate);
+            _control.SetLinkFolderRequired(paths.LinkFolderRequired);
+            SetHealth(_service.ValidateStorage(paths, false));
         }
 
         private void CandidatePreviewRequested(object sender, EventArgs e)
