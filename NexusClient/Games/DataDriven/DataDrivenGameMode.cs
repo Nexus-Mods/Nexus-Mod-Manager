@@ -32,6 +32,8 @@ namespace Nexus.Client.Games.DataDriven
         private ISupportedToolsLauncher _supportedToolsLauncher;
         private string _categories;
         private string _baseFiles;
+        private bool _gameVersionResolved;
+        private Version _gameVersion;
 
         public DataDrivenGameMode(IEnvironmentInfo environmentInfo, FileUtil fileUtility, GameModeDefinition definition)
             : this(environmentInfo, fileUtility, PushDefinition(definition), true)
@@ -56,6 +58,10 @@ namespace Nexus.Client.Games.DataDriven
         {
             get
             {
+                if (_gameVersionResolved)
+                    return _gameVersion;
+
+                Version resolvedVersion = null;
                 string executableRoot = GameModeEnvironmentInfo.ExecutablePath ??
                                         GameModeEnvironmentInfo.InstallationPath ??
                                         string.Empty;
@@ -68,9 +74,15 @@ namespace Nexus.Client.Games.DataDriven
                     string version = FileVersionInfo.GetVersionInfo(fullPath).ProductVersion;
                     Version parsed;
                     if (!string.IsNullOrWhiteSpace(version) && Version.TryParse(version.Replace(", ", "."), out parsed))
-                        return parsed;
+                    {
+                        resolvedVersion = parsed;
+                        break;
+                    }
                 }
-                return null;
+
+                _gameVersion = resolvedVersion;
+                _gameVersionResolved = true;
+                return _gameVersion;
             }
         }
 

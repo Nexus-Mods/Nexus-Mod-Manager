@@ -175,7 +175,7 @@ namespace Nexus.Client.ModManagement
             if (compatibilityActivator == null)
                 return null;
 
-            return compatibilityActivator.BeginModInfoUpdateBatch();
+            return (VirtualModActivator.ModInfoUpdateBatch)compatibilityActivator.BeginModInfoUpdateBatch();
         }
 
         private static void FlushModInfoUpdateBatch(VirtualModActivator.ModInfoUpdateBatch modInfoUpdateBatch, VirtualDeploymentResult result, Exception deploymentException)

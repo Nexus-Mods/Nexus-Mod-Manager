@@ -26,6 +26,8 @@ namespace Nexus.Client.Games.DataDriven
         private ISupportedToolsLauncher _supportedToolsLauncher;
         private string _categories;
         private string _baseFiles;
+        private bool _gameVersionResolved;
+        private Version _gameVersion;
 
         public DataDrivenGamebryoGameMode(IEnvironmentInfo environmentInfo, FileUtil fileUtility, GameModeDefinition definition)
             : this(environmentInfo, fileUtility, PushDefinition(definition), true)
@@ -55,6 +57,10 @@ namespace Nexus.Client.Games.DataDriven
         {
             get
             {
+                if (_gameVersionResolved)
+                    return _gameVersion;
+
+                Version resolvedVersion = null;
                 string executableRoot = GameModeEnvironmentInfo.ExecutablePath ??
                                         GameModeEnvironmentInfo.InstallationPath ??
                                         string.Empty;
@@ -71,14 +77,17 @@ namespace Nexus.Client.Games.DataDriven
                     FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(fullPath);
                     Version parsedVersion;
 
-                    if (TryParseExecutableVersion(versionInfo.ProductVersion, out parsedVersion))
-                        return parsedVersion;
-
-                    if (TryParseExecutableVersion(versionInfo.FileVersion, out parsedVersion))
-                        return parsedVersion;
+                    if (TryParseExecutableVersion(versionInfo.ProductVersion, out parsedVersion) ||
+                        TryParseExecutableVersion(versionInfo.FileVersion, out parsedVersion))
+                    {
+                        resolvedVersion = parsedVersion;
+                        break;
+                    }
                 }
 
-                return null;
+                _gameVersion = resolvedVersion;
+                _gameVersionResolved = true;
+                return _gameVersion;
             }
         }
 
@@ -160,14 +169,31 @@ namespace Nexus.Client.Games.DataDriven
 
         public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
         {
-            string baseAdjusted = base.GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_modMod, p_booIgnoreIfPresent);
-            return DataDrivenPathAdjustmentDispatcher.Adjust(
-                GetDefinition().ModInstall == null ? null : GetDefinition().ModInstall.PathAdjustmentProfile,
+            string baseAdjusted = base.GetModFormatAdjustedPath(
+                p_mftModFormat,
+                p_strPath,
+                p_modMod,
+                p_booIgnoreIfPresent);
+
+            string adjusted = DataDrivenPathAdjustmentDispatcher.Adjust(
+                GetDefinition().ModInstall == null
+                    ? null
+                    : GetDefinition().ModInstall.PathAdjustmentProfile,
                 p_strPath,
                 baseAdjusted,
                 p_modMod,
                 GameVersion,
                 GameModeEnvironmentInfo.InstallationPath);
+
+            // Normal Gamebryo activation is rooted at PluginDirectory, not at
+            // the game directory. Custom data-driven adjusters return
+            // game-root-relative paths so that they can also describe explicit
+            // game-root installations. When the caller asks to ignore an
+            // already present install root, remove the configured plugin
+            // directory suffix exactly once.
+            return p_booIgnoreIfPresent
+                ? MakePluginDirectoryRelative(adjusted)
+                : adjusted;
         }
 
         public override bool HardlinkRequiredFilesType(string p_strFileName)
@@ -296,6 +322,55 @@ namespace Nexus.Client.Games.DataDriven
         private GameModeDefinition GetDefinition()
         {
             return _definition ?? _pendingDefinition;
+        }
+
+        private string MakePluginDirectoryRelative(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string normalizedPath = path
+                .Replace(
+                    Path.AltDirectorySeparatorChar,
+                    Path.DirectorySeparatorChar)
+                .TrimStart(Path.DirectorySeparatorChar);
+
+            GameModeDefinition definition = GetDefinition();
+            string suffix =
+                definition == null || definition.Plugin == null
+                    ? null
+                    : definition.Plugin.PluginDirectorySuffix;
+
+            if (string.IsNullOrWhiteSpace(suffix))
+                return normalizedPath;
+
+            string normalizedSuffix = suffix
+                .Replace(
+                    Path.AltDirectorySeparatorChar,
+                    Path.DirectorySeparatorChar)
+                .Trim(Path.DirectorySeparatorChar);
+
+            if (string.IsNullOrWhiteSpace(normalizedSuffix))
+                return normalizedPath;
+
+            if (normalizedPath.Equals(
+                    normalizedSuffix,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            string prefix =
+                normalizedSuffix + Path.DirectorySeparatorChar;
+
+            if (normalizedPath.StartsWith(
+                    prefix,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return normalizedPath.Substring(prefix.Length);
+            }
+
+            return normalizedPath;
         }
 
         private bool IsStarfieldProfile

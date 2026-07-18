@@ -153,7 +153,9 @@ namespace Nexus.Client.PluginManagement
 
 		private PluginSnapshot BuildPluginSnapshot()
 		{
-			return BuildPluginSnapshot(new List<Plugin>(ManagedPlugins), new HashSet<Plugin>(ActivePlugins));
+			return BuildPluginSnapshot(
+				new List<Plugin>(ManagedPlugins),
+				new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename));
 		}
 
 		private PluginSnapshot BuildPluginSnapshot(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins)
@@ -165,7 +167,7 @@ namespace Nexus.Client.PluginManagement
 		{
 			List<Plugin> plugins = p_lstPlugins == null ? new List<Plugin>() : new List<Plugin>(p_lstPlugins.Where(x => x != null));
 			foreach (Plugin plugin in ManagedPlugins)
-				if (plugin != null && !plugins.Contains(plugin))
+				if (plugin != null && !plugins.Contains(plugin, PluginComparer.Filename))
 					plugins.Add(plugin);
 			return m_psbSnapshotBuilder.CorrectStable(Policy, plugins);
 		}
@@ -277,19 +279,54 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool AddPlugin(string p_strPluginPath)
 		{
-			bool booSuccess = ManagedPluginRegistry.RegisterPlugin(p_strPluginPath);
-			if (booSuccess)
+			if (String.IsNullOrWhiteSpace(p_strPluginPath))
+				return false;
+
+			Transactions.TransactionScope tsTransaction = null;
+			try
 			{
+				tsTransaction = new Transactions.TransactionScope();
+
 				Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(p_strPluginPath);
-				if (plgPlugin != null)
+				bool booRegisteredNow = false;
+				if (plgPlugin == null)
 				{
-					List<Plugin> plugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
-					plugins.Remove(plgPlugin);
-					plugins.Add(plgPlugin);
-					TryApplyPluginState(plugins, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename));
+					if (!ManagedPluginRegistry.RegisterPlugin(p_strPluginPath))
+						return false;
+
+					plgPlugin = ManagedPluginRegistry.GetPlugin(p_strPluginPath);
+					if (plgPlugin == null)
+						return false;
+
+					booRegisteredNow = true;
 				}
+
+				List<Plugin> plugins = new List<Plugin>(PluginOrderLog.OrderedPlugins.Where(x => x != null));
+				List<Plugin> matchingPlugins = plugins.Where(x => PluginComparer.Filename.Equals(x, plgPlugin)).ToList();
+				bool booOrderNeedsRepair = matchingPlugins.Count != 1 || !ReferenceEquals(matchingPlugins[0], plgPlugin);
+
+				if (booRegisteredNow || booOrderNeedsRepair)
+				{
+					plugins.RemoveAll(x => PluginComparer.Filename.Equals(x, plgPlugin));
+					plugins.Add(plgPlugin);
+					PluginOrderLog.SetPluginOrder(m_psbSnapshotBuilder.CorrectStable(Policy, plugins));
+				}
+
+				Plugin plgActiveMatch = ActivePlugins.FirstOrDefault(x => x != null && PluginComparer.Filename.Equals(x, plgPlugin));
+				if (plgActiveMatch != null && !ReferenceEquals(plgActiveMatch, plgPlugin))
+				{
+					ActivePluginLog.DeactivatePlugin(plgActiveMatch);
+					ActivePluginLog.ActivatePlugin(plgPlugin);
+				}
+
+				tsTransaction.Complete();
+				return booRegisteredNow || booOrderNeedsRepair;
 			}
-			return booSuccess;
+			finally
+			{
+				if (tsTransaction != null)
+					tsTransaction.Dispose();
+			}
 		}
 
 		/// <summary>
@@ -301,12 +338,25 @@ namespace Nexus.Client.PluginManagement
 			if (p_plgPlugin == null)
 				return;
 
-			List<Plugin> plugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
-			plugins.Remove(p_plgPlugin);
-			HashSet<Plugin> activePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
-			activePlugins.Remove(p_plgPlugin);
-			TryApplyPluginState(plugins, activePlugins);
-			ManagedPluginRegistry.UnregisterPlugin(p_plgPlugin);
+			Transactions.TransactionScope tsTransaction = null;
+			try
+			{
+				tsTransaction = new Transactions.TransactionScope();
+
+				// Registration lifecycle changes must not go through TryApplyPluginState().
+				// That method preserves omitted managed plugins and validates the final state,
+				// both of which are incorrect while physically adding or removing a plugin.
+				ActivePluginLog.DeactivatePlugin(p_plgPlugin);
+				PluginOrderLog.RemovePlugin(p_plgPlugin);
+				ManagedPluginRegistry.UnregisterPlugin(p_plgPlugin);
+
+				tsTransaction.Complete();
+			}
+			finally
+			{
+				if (tsTransaction != null)
+					tsTransaction.Dispose();
+			}
 		}
 
 		/// <summary>
@@ -315,7 +365,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_strPluginPath">The path to the plugin to remove.</param>
 		public void RemovePlugin(string p_strPluginPath)
 		{
-			RemovePlugin(ManagedPluginRegistry.GetPlugin(p_strPluginPath));
+			RemovePlugin(GetRegisteredPlugin(p_strPluginPath));
 		}
 
 		/// <summary>

@@ -302,22 +302,53 @@ namespace Nexus.Client.ModManagement
 		/// not to overwrite an existing file.</returns>
 		public bool InstallFileFromMod(string p_strModFilePath, string p_strInstallPath)
 		{
+			FileStream fstModFile = null;
+			string strTemporaryFilePath = null;
+
 			try
 			{
-                var modFile = Mod.GetFileStream(p_strModFilePath);
-                var result = GenerateDataFile(p_strInstallPath, modFile);
-
-                // Clean up (potentially huge) temp files.
-                foreach (var tempFile in Directory.GetFiles(m_eifEnvironmentInfo.TemporaryPath, "tempfile_*"))
-                {
-                    File.Delete(tempFile);
-                }
-
-                return result;
+				fstModFile = Mod.GetFileStream(p_strModFilePath);
+				strTemporaryFilePath = fstModFile == null ? null : fstModFile.Name;
+				return GenerateDataFile(p_strInstallPath, fstModFile);
 			}
 			catch (FileNotFoundException)
 			{
 				return false;
+			}
+			finally
+			{
+				if (fstModFile != null)
+					fstModFile.Dispose();
+
+				DeleteTemporaryModStreamFile(strTemporaryFilePath);
+			}
+		}
+
+		private void DeleteTemporaryModStreamFile(string p_strFilePath)
+		{
+			if (string.IsNullOrWhiteSpace(p_strFilePath) || m_eifEnvironmentInfo == null || string.IsNullOrWhiteSpace(m_eifEnvironmentInfo.TemporaryPath))
+				return;
+
+			try
+			{
+				string strTemporaryRoot = Path.GetFullPath(m_eifEnvironmentInfo.TemporaryPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+				string strFullFilePath = Path.GetFullPath(p_strFilePath);
+				string strTemporaryRootPrefix = strTemporaryRoot + Path.DirectorySeparatorChar;
+
+				if (!strFullFilePath.StartsWith(strTemporaryRootPrefix, StringComparison.OrdinalIgnoreCase))
+					return;
+
+				if (!Path.GetFileName(strFullFilePath).StartsWith("tempfile_", StringComparison.OrdinalIgnoreCase))
+					return;
+
+				if (File.Exists(strFullFilePath))
+					File.Delete(strFullFilePath);
+			}
+			catch (IOException)
+			{
+			}
+			catch (UnauthorizedAccessException)
+			{
 			}
 		}
 

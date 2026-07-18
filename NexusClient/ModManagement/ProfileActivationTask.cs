@@ -188,7 +188,7 @@ namespace Nexus.Client.ModManagement
 
 			if (InstallLinks.Count > 0)
 			{
-				VirtualModActivator.ModInfoUpdateBatch modInfoUpdateBatch = ModManager.VirtualModActivator.BeginModInfoUpdateBatch();
+				VirtualModActivator.ModInfoUpdateBatch modInfoUpdateBatch = (VirtualModActivator.ModInfoUpdateBatch)ModManager.VirtualModActivator.BeginModInfoUpdateBatch();
 				Exception installException = null;
 
 				try

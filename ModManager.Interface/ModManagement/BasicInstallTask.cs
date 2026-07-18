@@ -205,16 +205,19 @@ namespace Nexus.Client.ModManagement
 			if ((lstFiles.Count > 0) && (lstFilesToLink.Count <= 0))
 				throw new InvalidDataException(string.Format("This mod does not have the correct file structure for a {0} mod that NMM can use. It will not work with NMM.", GameMode.Name));
 
-			foreach (KeyValuePair<string, string> strLink in lstFilesToLink)
+			using (VirtualModActivator.BeginModInfoUpdateBatch())
 			{
-				if (!VirtualModActivator.DisableLinkCreation)
+				foreach (KeyValuePair<string, string> strLink in lstFilesToLink)
 				{
-					string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink.Key, strLink.Value, false, false, InstallRoot);
+					if (!VirtualModActivator.DisableLinkCreation)
+					{
+						string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink.Key, strLink.Value, false, false, InstallRoot);
 
-					if (!string.IsNullOrEmpty(strFileLink))
-						ActivatePlugin(strFileLink);
+						if (!string.IsNullOrEmpty(strFileLink))
+							ActivatePlugin(strFileLink);
+					}
+					StepOverallProgress();
 				}
-				StepOverallProgress();
 			}
 
 			VirtualModActivator.SaveList();
