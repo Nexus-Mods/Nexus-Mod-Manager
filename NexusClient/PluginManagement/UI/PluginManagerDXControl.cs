@@ -58,6 +58,7 @@ namespace Nexus.Client.PluginManagement.UI
         private readonly BindingList<PluginManagerDXRow> _rows = new BindingList<PluginManagerDXRow>();
         private readonly Dictionary<Plugin, PluginManagerDXRow> _rowsByPlugin = new Dictionary<Plugin, PluginManagerDXRow>();
         private readonly RepositoryItemCheckEdit _activeCheckEdit;
+        private readonly RepositoryItemCheckEdit _lockedActiveCheckEdit;
         private Point _dragStartPoint = Point.Empty;
         private int _dragSourceRowHandle = GridControl.InvalidRowHandle;
         private bool _updatingActiveCell;
@@ -180,7 +181,16 @@ namespace Nexus.Client.PluginManagement.UI
             _gridControl.DataSource = _rows;
 
             _activeCheckEdit = new RepositoryItemCheckEdit { AllowGrayed = false };
-            _gridControl.RepositoryItems.Add(_activeCheckEdit);
+            _activeCheckEdit.EditValueChanging +=
+                ActiveCheckEditEditValueChanging;
+
+            _lockedActiveCheckEdit =
+                new RepositoryItemCheckEdit
+                {
+                    AllowGrayed = false,
+                    ReadOnly = true
+                };            _gridControl.RepositoryItems.Add(_activeCheckEdit);
+            _gridControl.RepositoryItems.Add(_lockedActiveCheckEdit);
 
             _pictureEdit = new PictureEdit
             {
@@ -300,7 +310,8 @@ namespace Nexus.Client.PluginManagement.UI
             _gridView.FocusedRowChanged += GridViewFocusedRowChanged;
 			_gridView.SelectionChanged += GridViewSelectionChanged;
 			_gridView.CellValueChanging += GridViewCellValueChanging;
-            _gridView.CustomColumnDisplayText += GridViewCustomColumnDisplayText;
+            _gridView.CustomRowCellEdit += GridViewCustomRowCellEdit;
+            _gridView.ShowingEditor += GridViewShowingEditor;            _gridView.CustomColumnDisplayText += GridViewCustomColumnDisplayText;
             _gridView.RowCellStyle += GridViewRowCellStyle;
             _gridControl.AllowDrop = true;
             _gridControl.MouseDown += GridControlMouseDown;
@@ -480,6 +491,204 @@ namespace Nexus.Client.PluginManagement.UI
                 && !_viewModel.CanChangeActiveState(plugin);
         }
 
+        private List<Plugin> GetActiveDependentPlugins(Plugin plugin)
+        {
+            if (plugin == null || _viewModel == null)
+                return new List<Plugin>();
+
+            string pluginName = Path.GetFileName(plugin.Filename);
+
+            return _viewModel.ActivePlugins
+                .Where(candidate =>
+                    candidate != null &&
+                    candidate.Masters != null &&
+                    !String.Equals(
+                        Path.GetFileName(candidate.Filename),
+                        pluginName,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    candidate.Masters.Any(master =>
+                        String.Equals(
+                            Path.GetFileName(master),
+                            pluginName,
+                            StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(
+                    candidate =>
+                        _viewModel.ManagedPlugins.IndexOf(candidate))
+                .ToList();
+        }
+
+        private List<string> GetMissingMasters(Plugin plugin)
+        {
+            if (plugin == null ||
+                plugin.Masters == null ||
+                _viewModel == null)
+            {
+                return new List<string>();
+            }
+
+            return plugin.Masters
+                .Where(master => !_viewModel.PluginExists(master))
+                .Select(Path.GetFileName)
+                .Where(master => !String.IsNullOrWhiteSpace(master))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private List<string> GetInactiveMasters(Plugin plugin)
+        {
+            if (plugin == null ||
+                plugin.Masters == null ||
+                _viewModel == null)
+            {
+                return new List<string>();
+            }
+
+            return plugin.Masters
+                .Where(
+                    master =>
+                        _viewModel.PluginExists(master) &&
+                        !_viewModel.PluginIsActive(master))
+                .Select(Path.GetFileName)
+                .Where(master => !String.IsNullOrWhiteSpace(master))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private bool CanApplyRequestedActiveState(
+            Plugin plugin,
+            bool requestedActive,
+            bool showMessage)
+        {
+            if (plugin == null ||
+                _viewModel == null ||
+                IsPluginLocked(plugin))
+            {
+                return false;
+            }
+
+            bool currentlyActive =
+                _viewModel.ActivePlugins.Contains(plugin);
+
+            if (currentlyActive == requestedActive)
+                return true;
+
+            if (requestedActive)
+            {
+                List<string> missingMasters =
+                    GetMissingMasters(plugin);
+
+                List<string> inactiveMasters =
+                    GetInactiveMasters(plugin);
+
+                if (missingMasters.Count == 0 &&
+                    inactiveMasters.Count == 0)
+                {
+                    return true;
+                }
+
+                if (showMessage)
+                {
+                    ShowActivationBlockedMessage(
+                        plugin,
+                        missingMasters,
+                        inactiveMasters);
+                }
+
+                return false;
+            }
+
+            List<Plugin> activeDependents =
+                GetActiveDependentPlugins(plugin);
+
+            if (activeDependents.Count == 0)
+                return true;
+
+            if (showMessage)
+            {
+                ShowDeactivationBlockedMessage(
+                    plugin,
+                    activeDependents);
+            }
+
+            return false;
+        }
+
+        private void ShowActivationBlockedMessage(
+            Plugin plugin,
+            IList<string> missingMasters,
+            IList<string> inactiveMasters)
+        {
+            StringBuilder message = new StringBuilder();
+
+            message.AppendFormat(
+                "The plugin \"{0}\" cannot be enabled because one or more required masters are missing or inactive.",
+                Path.GetFileName(plugin.Filename));
+
+            if (missingMasters != null &&
+                missingMasters.Count > 0)
+            {
+                message.AppendLine();
+                message.AppendLine();
+                message.AppendLine("Missing masters:");
+
+                foreach (string master in missingMasters)
+                    message.AppendLine("- " + master);
+            }
+
+            if (inactiveMasters != null &&
+                inactiveMasters.Count > 0)
+            {
+                message.AppendLine();
+                message.AppendLine();
+                message.AppendLine("Inactive masters:");
+
+                foreach (string master in inactiveMasters)
+                    message.AppendLine("- " + master);
+            }
+
+            message.AppendLine();
+            message.AppendLine();
+            message.Append(
+                "Install or enable the required masters before enabling this plugin.");
+
+            XtraMessageBox.Show(
+                this,
+                message.ToString(),
+                "Plugin activation blocked",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+
+        private void ShowDeactivationBlockedMessage(
+            Plugin plugin,
+            IList<Plugin> activeDependents)
+        {
+            StringBuilder message = new StringBuilder();
+
+            message.AppendFormat(
+                "The plugin \"{0}\" cannot be disabled because these active plugins depend on it:",
+                Path.GetFileName(plugin.Filename));
+
+            message.AppendLine();
+            message.AppendLine();
+
+            foreach (Plugin dependent in activeDependents)
+            {
+                message.AppendLine(
+                    "- " + Path.GetFileName(dependent.Filename));
+            }
+
+            message.AppendLine();
+            message.Append(
+                "Disable the dependent plugins first.");
+
+            XtraMessageBox.Show(
+                this,
+                message.ToString(),
+                "Plugin deactivation blocked",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
         private bool ContainsLockedPlugin(IEnumerable<Plugin> plugins)
         {
             return plugins != null && plugins.Any(IsPluginLocked);
@@ -617,6 +826,80 @@ namespace Nexus.Client.PluginManagement.UI
             RefreshSnapshotRows();
         }
 
+        private void GridViewCustomRowCellEdit(
+            object sender,
+            CustomRowCellEditEventArgs e)
+        {
+            if (e.Column == null ||
+                e.Column.FieldName != ColActive)
+            {
+                return;
+            }
+
+            PluginManagerDXRow row =
+                _gridView.GetRow(e.RowHandle)
+                    as PluginManagerDXRow;
+
+            if (row != null && IsPluginLocked(row.Plugin))
+                e.RepositoryItem = _lockedActiveCheckEdit;
+        }
+
+        private void GridViewShowingEditor(
+            object sender,
+            CancelEventArgs e)
+        {
+            if (_gridView.FocusedColumn == null ||
+                _gridView.FocusedColumn.FieldName != ColActive)
+            {
+                return;
+            }
+
+            PluginManagerDXRow row =
+                _gridView.GetFocusedRow()
+                    as PluginManagerDXRow;
+
+            if (row == null || IsPluginLocked(row.Plugin))
+                e.Cancel = true;
+        }
+
+        private void ActiveCheckEditEditValueChanging(
+            object sender,
+            ChangingEventArgs e)
+        {
+            if (_updatingActiveCell)
+                return;
+
+            PluginManagerDXRow row =
+                _gridView.GetFocusedRow()
+                    as PluginManagerDXRow;
+
+            if (row == null || IsPluginLocked(row.Plugin))
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            bool requestedActive;
+
+            try
+            {
+                requestedActive =
+                    Convert.ToBoolean(e.NewValue);
+            }
+            catch
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            if (!CanApplyRequestedActiveState(
+                    row.Plugin,
+                    requestedActive,
+                    true))
+            {
+                e.Cancel = true;
+            }
+        }
         private void GridViewCellValueChanging(object sender, CellValueChangedEventArgs e)
         {
             if (_updatingActiveCell || e.Column == null || e.Column.FieldName != ColActive)
@@ -766,21 +1049,43 @@ namespace Nexus.Client.PluginManagement.UI
             UpdateCommandState();
         }
 
-        private void GridViewRowCellClick(object sender, RowCellClickEventArgs e)
+        private void GridViewRowCellClick(
+            object sender,
+            RowCellClickEventArgs e)
         {
-            if (e.Clicks == 2 && e.Column != null && e.Column.FieldName != ColActive)
+            if (e.Clicks != 2 ||
+                e.Column == null ||
+                e.Column.FieldName == ColActive)
             {
-                Plugin plugin = GetFocusedPlugin();
-                if (plugin == null || !_viewModel.CanChangeActiveState(plugin))
-                    return;
-                if (_viewModel.ActivePlugins.Contains(plugin))
-                    _viewModel.DeactivatePlugin(plugin);
-                else
-                    _viewModel.ActivatePlugin(plugin);
-                RefreshSnapshotRows();
+                return;
             }
-        }
 
+            Plugin plugin = GetFocusedPlugin();
+
+            if (plugin == null ||
+                !_viewModel.CanChangeActiveState(plugin))
+            {
+                return;
+            }
+
+            bool requestedActive =
+                !_viewModel.ActivePlugins.Contains(plugin);
+
+            if (!CanApplyRequestedActiveState(
+                    plugin,
+                    requestedActive,
+                    true))
+            {
+                return;
+            }
+
+            if (requestedActive)
+                _viewModel.ActivatePlugin(plugin);
+            else
+                _viewModel.DeactivatePlugin(plugin);
+
+            RefreshSnapshotRows();
+        }
 		private void GridViewFocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
 		{
 			UpdatePluginInfo();
@@ -843,6 +1148,24 @@ namespace Nexus.Client.PluginManagement.UI
 			if (!String.IsNullOrWhiteSpace(description))
 				details.Append(description);
 
+            List<Plugin> activeDependents =
+            GetActiveDependentPlugins(plugin);
+            if (activeDependents.Count > 0)
+            {
+                if (details.Length > 0)
+                    details.Append("<br/><br/>");
+                details.Append(
+                    "<b>Active plugins depending on this plugin:</b><br/>");
+                foreach (Plugin dependent in activeDependents)
+                {
+
+					details.AppendFormat(
+						"• {0}<br>",
+						HtmlEncode(
+							Path.GetFileName(
+								dependent.Filename)));
+				}
+            }
 			_infoLabel.Text = details.ToString();
 		}
 
