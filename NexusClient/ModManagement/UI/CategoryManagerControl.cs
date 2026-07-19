@@ -38,6 +38,14 @@ namespace Nexus.Client.ModManagement.UI
             HideOnClose  = true;
         }
 
+        internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
+        {
+            if (settings == null) return;
+
+            DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+            gridControl.Invalidate();
+        }
+
         // ── ViewModel ─────────────────────────────────────────────────────────────
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]

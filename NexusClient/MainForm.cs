@@ -198,6 +198,7 @@
 
 			InitializeComponent();
 			InitializeDevExpressSkinSelector();
+			InitializeDevExpressDisplaySelector(viewModel);
 
 			FormClosing += CheckDownloadsOnClosing;
 			FormClosing += MainForm_FormClosing;
@@ -238,6 +239,7 @@
             }
 
             ViewModel = viewModel;
+            ApplyDevExpressDisplaySettingsToSurfaces();
 
 			try
 			{
@@ -498,6 +500,7 @@
 
 			UserLookAndFeel.Default.SetSkinStyle(skinName);
 			_modManagerControl?.ForceListRefresh();
+			ApplyDevExpressDisplaySettingsToSurfaces();
 
 			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts != null)
 			{

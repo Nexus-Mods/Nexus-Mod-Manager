@@ -221,12 +221,26 @@ namespace Nexus.Client.ModManagement.UI
 			InitializeInlineRenameEditor();
 			SetupGrid();
 			InitializeGridDisplayOptions();
-			InitializeGridFontSelector();
 			InitializeToolbarPositionButton();
 			UpdateSwitchViewText();
 
 			Shown += (sender, args) =>
 				RestoreFindPanelVisibility();
+		}
+
+		/// <summary>
+		/// Applies the MainForm-level Aa Display selection through the existing
+		/// Mod Manager font, density and cached drawing resources.
+		/// </summary>
+		internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
+		{
+			if (settings == null) return;
+
+			SelectGridDisplay(
+				settings.FontFamilyName,
+				settings.FontSizePt,
+				settings.Density,
+				false);
 		}
 
 		// ── IModManagerView : ViewModel ──────────────────────────────────────
@@ -298,9 +312,6 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				_viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridSortKey);
-				_viewModel.Settings.DockPanelLayouts.Remove(GridFontKey);
-				_viewModel.Settings.DockPanelLayouts.Remove(GridFontSizeKey);
-				_viewModel.Settings.DockPanelLayouts.Remove(GridDensityKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridColouredCategoriesKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridRowHighlightsKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridActiveModsBoldKey);
@@ -318,7 +329,6 @@ namespace Nexus.Client.ModManagement.UI
 			BuildColumns();
 			gridView.ClearSorting();
 			_restoringGridLayout = false;
-			SelectGridDisplay(DefaultGridFontFamily, DefaultGridFontSizePt, DefaultGridDensity, false);
 			SetColouredCategoriesVisible(true, false);
 			SetRowHighlightsVisible(true, false);
 			SetActiveModsBold(false, false);

@@ -270,6 +270,17 @@ namespace Nexus.Client.PluginManagement.UI
             UpdateCommandState();
         }
 
+        internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
+        {
+            if (settings == null) return;
+
+            DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+            DevExpressDisplaySettingsApplier.ApplyToBarManager(
+                _barManager,
+                settings);
+            _gridControl.Invalidate();
+        }
+
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public PluginManagerVM ViewModel
         {

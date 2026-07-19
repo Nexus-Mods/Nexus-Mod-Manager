@@ -52,6 +52,7 @@ namespace Nexus.Client.ModManagement.UI
         private bool _splitterUserDragActive;
         private bool _restoringSplitter;
         private bool _splitterPositionRestored;
+        private DevExpressDisplaySettings _displaySettings;
 
         public FileManagerControl()
         {
@@ -200,6 +201,15 @@ namespace Nexus.Client.ModManagement.UI
             Controls.Add(_splitContainer);
             Controls.Add(bottomPanel);
             Controls.Add(topPanel);
+        }
+
+        internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
+        {
+            if (settings == null) return;
+
+            _displaySettings = settings;
+            DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+            _gridControl.Invalidate();
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -478,6 +488,9 @@ namespace Nexus.Client.ModManagement.UI
             };
             ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", "Mod", popupWidth - 24));
             _gridControl.RepositoryItems.Add(ownerLookup);
+            DevExpressDisplaySettingsApplier.ApplyToRepositoryItem(
+                ownerLookup,
+                _displaySettings);
             _ownerLookupCache[candidates] = ownerLookup;
             return ownerLookup;
         }
@@ -490,7 +503,12 @@ namespace Nexus.Client.ModManagement.UI
                 foreach (FileManagerOwnerCandidate candidate in candidates)
                 {
                     string modName = candidate == null ? String.Empty : candidate.ModName;
-                    int measuredWidth = TextRenderer.MeasureText(modName ?? String.Empty, Font).Width + 56;
+                    Font measurementFont = _displaySettings == null
+                        ? Font
+                        : _displaySettings.Font;
+                    int measuredWidth = TextRenderer.MeasureText(
+                        modName ?? string.Empty,
+                        measurementFont).Width + 56;
                     width = Math.Max(width, measuredWidth);
                 }
             }
