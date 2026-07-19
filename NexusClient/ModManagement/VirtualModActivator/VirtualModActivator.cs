@@ -2442,11 +2442,15 @@ namespace Nexus.Client.ModManagement
 			ReportVirtualDisableProgress(p_actProgress, "Disabling deployed files...", 0, cqLinks.Count);
 
 			int intProcessed = 0;
-			foreach (IVirtualModLink Link in cqLinks)
+			using (BeginModInfoUpdateBatch())
+			using (BeginVirtualLinkUpdateBatch(0))
 			{
-				RemoveFileLink(Link, p_modMod, p_booPurging);
-				intProcessed++;
-				ReportVirtualDisableProgress(p_actProgress, Link == null ? "Disabling deployed files..." : Link.VirtualModPath, intProcessed, cqLinks.Count);
+				foreach (IVirtualModLink Link in cqLinks)
+				{
+					RemoveFileLink(Link, p_modMod, p_booPurging);
+					intProcessed++;
+					ReportVirtualDisableProgress(p_actProgress, Link == null ? "Disabling deployed files..." : Link.VirtualModPath, intProcessed, cqLinks.Count);
+				}
 			}
 
 			TxFileManager tfmFileManager = new TxFileManager();
@@ -2909,17 +2913,16 @@ namespace Nexus.Client.ModManagement
 		protected void TrimEmptyDirectories(string p_strStartPath, string p_strStopDirectory)
 		{
 			string strEmptyDirectory = p_strStartPath;
-			while (true)
+			while (!string.IsNullOrEmpty(strEmptyDirectory) &&
+				!strEmptyDirectory.Equals(p_strStopDirectory, StringComparison.OrdinalIgnoreCase))
 			{
-				if (Directory.Exists(strEmptyDirectory) &&
-					(Directory.GetFiles(strEmptyDirectory).Length + Directory.GetDirectories(strEmptyDirectory).Length == 0) &&
-					!strEmptyDirectory.Equals(p_strStopDirectory, StringComparison.OrdinalIgnoreCase))
-				{
-					for (int i = 0; i < 5 && Directory.Exists(strEmptyDirectory); i++)
-						FileUtil.ForceDelete(strEmptyDirectory);
-				}
-				else
+				if (!Directory.Exists(strEmptyDirectory) ||
+					Directory.EnumerateFileSystemEntries(strEmptyDirectory).Any())
 					break;
+
+				for (int i = 0; i < 5 && Directory.Exists(strEmptyDirectory); i++)
+					FileUtil.ForceDelete(strEmptyDirectory);
+
 				strEmptyDirectory = Path.GetDirectoryName(strEmptyDirectory);
 			}
 		}

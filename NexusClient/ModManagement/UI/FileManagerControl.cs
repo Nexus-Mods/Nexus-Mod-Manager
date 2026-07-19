@@ -239,14 +239,23 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
-        protected override async void OnVisibleChanged(EventArgs e)
+        protected override async void OnActivated(EventArgs e)
         {
-            base.OnVisibleChanged(e);
-            if (Visible)
-            {
-                QueueFileManagerSplitterRestore();
-                await LoadIfNeededAsync().ConfigureAwait(true);
-            }
+            base.OnActivated(e);
+
+            // Dock layout restoration can make this document visible without
+            // leaving it as the selected tab. Only load when it remains active.
+            await Task.Yield();
+            if (!IsActiveDocument())
+                return;
+
+            QueueFileManagerSplitterRestore();
+            await LoadIfNeededAsync().ConfigureAwait(true);
+        }
+
+        private bool IsActiveDocument()
+        {
+            return DockPanel != null && Object.ReferenceEquals(DockPanel.ActiveDocument, this);
         }
 
         protected override void Dispose(bool disposing)
@@ -336,7 +345,23 @@ namespace Nexus.Client.ModManagement.UI
                 _fileManagerVM.CreationsFiles,
                 _fileManagerVM.ExternalModManagerFiles,
                 _fileManagerVM.UntrackedFiles);
-            _statusLabel.Text = String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : "Last scanned: " + _fileManagerVM.LastScannedDisplay;
+            if (_fileManagerVM.IsStale)
+            {
+                _statusLabel.Text = String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay)
+                    ? "Refresh required"
+                    : "Refresh required - last scanned: " + _fileManagerVM.LastScannedDisplay;
+                _refreshButton.Text = "Refresh *";
+                _refreshButton.UseVisualStyleBackColor = false;
+                _refreshButton.BackColor = Color.Khaki;
+            }
+            else
+            {
+                _statusLabel.Text = String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : "Last scanned: " + _fileManagerVM.LastScannedDisplay;
+                _refreshButton.Text = "Refresh";
+                _refreshButton.BackColor = SystemColors.Control;
+                _refreshButton.UseVisualStyleBackColor = true;
+            }
+
             if (_statusLabel.Parent != null)
                 _statusLabel.Left = Math.Max(10, _statusLabel.Parent.ClientSize.Width - _statusLabel.Width - 10);
             _refreshButton.Enabled = !_fileManagerVM.IsScanning;

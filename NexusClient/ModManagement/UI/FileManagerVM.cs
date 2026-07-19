@@ -20,11 +20,12 @@
         private readonly HashSet<IBackgroundTaskSet> _watchedActivationTasks = new HashSet<IBackgroundTaskSet>();
         private CancellationTokenSource _scanCancellation;
         private FileManagerSourceCounts _counts = new FileManagerSourceCounts();
-        private Dictionary<string, FileManagerRow> _rowsByNormalizedPath = new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
         private bool _loaded;
+        private bool _stale;
         private bool _scanning;
         private bool _disposed;
         private int _scanGeneration;
+        private int _dataChangeRevision;
         private string _deploymentRoot;
         private string _statusMessage;
         private string _lastScannedDisplay;
@@ -129,6 +130,19 @@
             }
         }
 
+        public bool IsStale
+        {
+            get { return _stale; }
+            private set
+            {
+                if (_stale != value)
+                {
+                    _stale = value;
+                    OnPropertyChanged("IsStale");
+                }
+            }
+        }
+
         public bool CanChangeFileOwner
         {
             get { return !IsScanning && !HasActiveOrQueuedInstallUninstallTasks(); }
@@ -165,6 +179,7 @@
             CancellationTokenSource cancellation = new CancellationTokenSource();
             _scanCancellation = cancellation;
             int scanGeneration = Interlocked.Increment(ref _scanGeneration);
+            int dataChangeRevision = Interlocked.CompareExchange(ref _dataChangeRevision, 0, 0);
             IGameMode gameMode = GameMode;
             IsScanning = true;
             StatusMessage = "Scanning deployment files...";
@@ -180,7 +195,10 @@
                 publishWatch.Stop();
                 Trace.TraceInformation("File Manager grid publication completed. Rows={0}, publish={1}ms, scan={2}", result.Rows.Count, publishWatch.ElapsedMilliseconds, result.Diagnostics);
                 _loaded = true;
-                StatusMessage = "Scan complete.";
+                IsStale = dataChangeRevision != Interlocked.CompareExchange(ref _dataChangeRevision, 0, 0);
+                StatusMessage = IsStale
+                    ? "Data changed while the scan was running. Click Refresh to update."
+                    : "Scan complete.";
             }
             catch (OperationCanceledException)
             {
@@ -188,7 +206,6 @@
             catch
             {
                 Rows = new BindingList<FileManagerRow>();
-                _rowsByNormalizedPath = new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
                 _counts = new FileManagerSourceCounts();
                 ApplyCounts(_counts);
                 OnPropertyChanged("Rows");
@@ -300,46 +317,29 @@
 
         private void ModActivationTaskSetCompleted(object sender, TaskSetCompletedEventArgs e)
         {
+            Interlocked.Increment(ref _dataChangeRevision);
+
             if (_uiContext != null)
             {
-                _uiContext.Post(_ => RefreshRowsAfterActivationTask(), null);
+                _uiContext.Post(_ => MarkStaleAfterActivationTask(), null);
                 return;
             }
 
-            RefreshRowsAfterActivationTask();
+            MarkStaleAfterActivationTask();
         }
 
-        private void RefreshRowsAfterActivationTask()
+        private void MarkStaleAfterActivationTask()
         {
             if (_disposed)
                 return;
 
-            RefreshExistingRowClassifications();
+            if (_loaded)
+            {
+                IsStale = true;
+                StatusMessage = "Data changed since the last scan. Click Refresh to update.";
+            }
+
             OnPropertyChanged("CanChangeFileOwner");
-        }
-
-        private void RefreshExistingRowClassifications()
-        {
-            if (Rows == null || !_loaded)
-                return;
-
-            Rows.RaiseListChangedEvents = false;
-            try
-            {
-                _counts = _queryService.SynchronizeRowsAfterActivation(
-                    Rows,
-                    _rowsByNormalizedPath,
-                    GameMode,
-                    _modManagerViewModel.VirtualModActivator);
-            }
-            finally
-            {
-                Rows.RaiseListChangedEvents = true;
-                Rows.ResetBindings();
-            }
-
-            OnPropertyChanged("Rows");
-            ApplyCounts(_counts);
         }
 
         private bool HasActiveOrQueuedInstallUninstallTasks()
@@ -362,7 +362,6 @@
         private void ApplyScanResult(FileManagerScanResult result)
         {
             Rows = new BindingList<FileManagerRow>(result.Rows);
-            _rowsByNormalizedPath = result.RowsByNormalizedPath;
             _counts = result.Counts.Clone();
             OnPropertyChanged("Rows");
 

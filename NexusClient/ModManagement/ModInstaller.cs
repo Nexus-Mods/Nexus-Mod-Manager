@@ -208,7 +208,6 @@ namespace Nexus.Client.ModManagement
 							tsTransaction.Complete();
 							VirtualModActivator.SaveList(true);
 							strMessage = "The mod was successfully activated.";
-							GC.GetTotalMemory(true);
 						}
 					}
 				}

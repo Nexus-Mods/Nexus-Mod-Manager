@@ -200,7 +200,6 @@ namespace Nexus.Client.ModManagement
 								Mod.InstallDate = null;
 								ModInstallLog.RemoveMod(Mod);
 								tsTransaction.Complete();
-								GC.GetTotalMemory(true);
 							}
 						}
 					}
