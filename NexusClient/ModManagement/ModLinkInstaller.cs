@@ -3,6 +3,7 @@ namespace Nexus.Client.ModManagement
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Windows.Forms;
     using Nexus.Client.Mods;
     using Nexus.Client.ModManagement.UI;
 
@@ -31,6 +32,42 @@ namespace Nexus.Client.ModManagement
 		public ModLinkInstaller(IVirtualModActivator virtualModActivator)
 		{
 			VirtualModActivator = (VirtualModActivator)virtualModActivator;
+		}
+
+		private static OverwriteResult ShowOwnedOverwriteDialog(string message, bool allowPerGroup, bool allowPerMod)
+		{
+			Form owner = FindMainForm();
+			if (owner == null || owner.IsDisposed || !owner.IsHandleCreated)
+				return OverwriteForm.ShowDialog(message, allowPerGroup, allowPerMod);
+
+			if (owner.InvokeRequired)
+			{
+				OverwriteResult result = OverwriteResult.No;
+				owner.Invoke((MethodInvoker)(() =>
+					result = OverwriteForm.ShowDialog(owner, message, allowPerGroup, allowPerMod)));
+				return result;
+			}
+
+			return OverwriteForm.ShowDialog(owner, message, allowPerGroup, allowPerMod);
+		}
+
+		private static Form FindMainForm()
+		{
+			Form fallback = null;
+			for (int index = 0; index < Application.OpenForms.Count; index++)
+			{
+				Form form = Application.OpenForms[index];
+				if (form == null || form.IsDisposed)
+					continue;
+
+				if (fallback == null)
+					fallback = form;
+
+				if (String.Equals(form.GetType().Name, "MainForm", StringComparison.Ordinal))
+					return form;
+			}
+
+			return fallback;
 		}
 
 		#endregion
@@ -148,7 +185,7 @@ namespace Nexus.Client.ModManagement
 				string strMessage = $"Data file '{baseFilePath}' has already been installed by '{modCheck.ModName}'";
                 strMessage += Environment.NewLine + "Activate this mod's file instead?";
 
-                switch (OverwriteForm.ShowDialog(strMessage, true, true))
+                switch (ShowOwnedOverwriteDialog(strMessage, true, true))
                 {
                     case OverwriteResult.Yes:
                         return true;
