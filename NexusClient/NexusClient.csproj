@@ -437,6 +437,9 @@
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="GameModes\Definitions\Enderal\Categories.xml" />
+    <Content Include="GameModes\Definitions\Enderal\enderal_base.txt" />
+    <Content Include="GameModes\Definitions\Enderal\enderal_logo.ico" />
     <Content Include="GameModes\schema\supported-tools.schema.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -449,6 +452,8 @@
     <Content Include="GameModes\Templates\SupportedTools.template.jsonc">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="GameModes\Definitions\Enderal\game.json" />
+    <None Include="GameModes\Definitions\Enderal\supportedTools.json" />
     <None Include="GameModes\Definitions\XCOM2\supportedTools.json" />
     <None Include="Resources\token_info.png" />
     <None Include="Resources\update_check_flat.png" />
