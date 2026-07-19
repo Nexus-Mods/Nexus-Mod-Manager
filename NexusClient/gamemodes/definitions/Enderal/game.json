@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "modeId": "Enderal",
+  "name": "Enderal: Forgotten Stories",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Enderal Launcher.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "strings",
+    "seq",
+    "grass",
+    "tools",
+    "CalienteTools",
+    "SKSE",
+    "SkyProc Patchers",
+    "Nemesis_Engine"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Skyrim.esm",
+    "Update.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "Enderal - Forgotten Stories.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "933480",
+        "installFolderName": "Enderal",
+        "executableName": "Enderal Launcher.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "Enderal Launcher.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Enderal",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Enderal",
+    "defaultCommandText": "Launch Enderal",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "enderal_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "enderal_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "supportsGameRootInstall": true
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "skse_loader.exe"
+    ],
+    "requiresOptionalFilesCheckOnProfileSwitch": true,
+    "optionalFileNamePrefixes": [
+      "Bashed Patch",
+      "PatchusMaximus",
+      "Dual Sheath Redux Patch"
+    ],
+    "postProfileSwitchToolPath": "{GamePath}\\Data\\tools\\GenerateFNIS_for_Users\\GenerateFNISforUsers.exe",
+    "postProfileSwitchToolMessage": "It seems that FNIS is installed: switching mod profiles while using FNIS could require you to run it to prevent broken ingame animations, do you want to run it?",
+    "userGameDataPath": "{PersonalData}\\My Games\\Enderal",
+    "iniFilePath": "{UserGameData}\\Enderal.ini",
+    "rendererFilePath": "{UserGameData}\\RendererInfo.txt",
+    "pluginsFilePath": "{LocalApplicationData}\\Enderal\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\EnderalPrefs.ini"
+    }
+  },
+  "compatibilityNotes": [
+    "This definition targets the original 32-bit Enderal: Forgotten Stories release based on Skyrim Classic, not Enderal Special Edition.",
+    "The correct Steam application ID for the classic release is 933480. Steam app 976620 belongs to Enderal Special Edition.",
+    "Enderal is installed in its own Steam directory and uses its own user-data and plugin files.",
+    "NMM internal plugin auto-sorting remains disabled; LOOT is exposed as an external supported tool."
+  ]
+}

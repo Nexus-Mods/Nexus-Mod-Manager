@@ -1,0 +1,20 @@
+Skyrim.esm
+Update.esm
+Update.bsa
+Skyrim - Animations.bsa
+Skyrim - Interface.bsa
+Skyrim - Meshes.bsa
+Skyrim - Misc.bsa
+Skyrim - Shaders.bsa
+Skyrim - Sounds.bsa
+Skyrim - Textures.bsa
+Enderal - Forgotten Stories.esm
+E - Meshes.bsa
+E - Music.bsa
+E - Scripts.bsa
+E - Sounds.bsa
+E - Textures1.bsa
+E - Textures2.bsa
+E - Textures3.bsa
+L - Textures.bsa
+L - Voices.bsa
