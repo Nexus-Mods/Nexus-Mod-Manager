@@ -125,6 +125,11 @@ namespace Nexus.Client.ModManagement
             }
         }
 
+        public int OwnerCount
+        {
+            get { return OwnerCandidates.Count; }
+        }
+
         public List<FileManagerOwnerCandidate> OwnerCandidates
         {
             get { return _ownerCandidates; }
@@ -132,6 +137,7 @@ namespace Nexus.Client.ModManagement
             {
                 _ownerCandidates = value ?? EmptyOwnerCandidates;
                 OnPropertyChanged("OwnerCandidates");
+                OnPropertyChanged("OwnerCount");
                 OnPropertyChanged("OwnerEditable");
             }
         }

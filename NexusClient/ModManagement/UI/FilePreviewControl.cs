@@ -119,7 +119,21 @@ namespace Nexus.Client.ModManagement.UI
 
             FilePreviewOwnerOption selectedOwner = GetSelectedOwnerOption(row);
             string previewPath = GetPreviewPath(row, selectedOwner);
-            SetOwnerSelectorVisible(_ownerOptions.Count > 1 && _previewManager.CanPreview(previewPath));
+            if (String.IsNullOrWhiteSpace(previewPath) || !File.Exists(previewPath))
+            {
+                SetOwnerSelectorVisible(false);
+                SetError("Preview file is missing.");
+                return;
+            }
+
+            bool canPreview = _previewManager.CanPreview(previewPath);
+            SetOwnerSelectorVisible(_ownerOptions.Count > 1 && canPreview);
+
+            if (!canPreview)
+            {
+                SetUnsupported("Preview is not available for this file type.");
+                return;
+            }
 
             BeginPreview(previewPath);
         }

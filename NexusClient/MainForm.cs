@@ -1101,12 +1101,15 @@
 		/// <summary>
 		/// This will check whether the SearchBox should be visible.
 		/// </summary>
-		private void dockPanel1_ActiveContentChanged(object sender, EventArgs e)
+		private async void dockPanel1_ActiveContentChanged(object sender, EventArgs e)
 		{
 			if (Visible && dockPanel1.ActiveDocument != null)
 			{
 				toolStripTextBoxFind.Visible = false;
 				toolStripTextBoxFind.Enabled = false;
+
+				if (Object.ReferenceEquals(dockPanel1.ActiveDocument, _fileManagerControl))
+					await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
 			}
 		}
 
