@@ -3068,8 +3068,8 @@ namespace Nexus.Client.ModManagement.UI
 			if (mods.Count == 0) mods = new List<IMod> { mod };
 			bool singleMod = mods.Count == 1;
 
-			bool active = _viewModel?.ActiveMods.Contains(mod) ?? false;
-			bool installed = active || IsModInstalled(mod);
+			bool active = IsModActive(mod);
+			bool installed = IsModInstalled(mod);
 
 			var menu = new ContextMenuStrip();
 			ApplyToolStripFont(menu, new Font(_gridFontFamilyName, _gridFontSizePt, FontStyle.Regular, GraphicsUnit.Point));
@@ -3427,7 +3427,7 @@ namespace Nexus.Client.ModManagement.UI
 			List<IMod> mods = GetSelectedMods();
 			if (mods == null) return;
 
-			_viewModel.DeactivateSelectedMods(mods);
+			_viewModel.DisableModCommand.Execute(mods);
 		}
 		private void tsbAddMod_ButtonClick(object sender, EventArgs e)
 		{
