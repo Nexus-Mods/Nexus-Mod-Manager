@@ -5,6 +5,8 @@ namespace Nexus.Client.ModManagement.UI
     using System.ComponentModel;
     using System.Drawing;
     using System.Diagnostics;
+    using System.IO;
+    using System.Text;
     using System.Threading.Tasks;
     using System.Windows.Forms;
 
@@ -24,6 +26,8 @@ namespace Nexus.Client.ModManagement.UI
     {
         private const int GridSplitterContentPadding = 36;
         private const string FileManagerSplitterSizeKey = "fileManager";
+        private const string GridLayoutKey = "fileManagerGrid";
+        private const int GridLayoutSaveDelayMs = 400;
         private const int OwnerLookupMinimumPopupWidth = 480;
         private const int OwnerLookupMaximumPopupWidth = 900;
 
@@ -43,6 +47,7 @@ namespace Nexus.Client.ModManagement.UI
         private readonly ContextMenuStrip _sourceContextMenu;
         private readonly ToolStripMenuItem _switchSourceMenuItem;
         private readonly Timer _previewSelectionTimer;
+        private readonly Timer _gridLayoutSaveTimer;
         private readonly Dictionary<FileManagerRow, string> _previousOwnerKeys = new Dictionary<FileManagerRow, string>();
         private readonly Dictionary<FileManagerRow, FileManagerSource> _previousSources = new Dictionary<FileManagerRow, FileManagerSource>();
         private FileManagerVM _fileManagerVM;
@@ -53,6 +58,7 @@ namespace Nexus.Client.ModManagement.UI
         private bool _splitterUserDragActive;
         private bool _restoringSplitter;
         private bool _splitterPositionRestored;
+        private bool _restoringGridLayout;
         private DevExpressDisplaySettings _displaySettings;
 
         public FileManagerControl()
@@ -134,6 +140,22 @@ namespace Nexus.Client.ModManagement.UI
             _gridView.RowCellStyle += GridView_RowCellStyle;
             _gridView.FocusedRowChanged += GridView_FocusedRowChanged;
 			_gridControl.MouseUp += GridControl_MouseUp;
+
+            _gridLayoutSaveTimer = new Timer
+            {
+                Interval = GridLayoutSaveDelayMs
+            };
+            _gridLayoutSaveTimer.Tick += GridLayoutSaveTimer_Tick;
+
+            _gridView.ColumnWidthChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            _gridView.ColumnPositionChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            _gridView.ColumnFilterChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            _gridView.EndSorting +=
+                (sender, args) => QueueGridLayoutSave();
+
             ConfigureColumns();
 
             _emptyOwnerLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
@@ -252,6 +274,7 @@ namespace Nexus.Client.ModManagement.UI
                     _fileManagerVM.PropertyChanged += FileManagerVM_PropertyChanged;
                     BindRows(_fileManagerVM.Rows);
                     UpdateLabels();
+                    RestoreGridLayout();
                 }
             }
         }
@@ -266,6 +289,15 @@ namespace Nexus.Client.ModManagement.UI
         {
             if (disposing)
             {
+                _gridLayoutSaveTimer?.Stop();
+                SaveGridLayout();
+
+                if (_gridLayoutSaveTimer != null)
+                {
+                    _gridLayoutSaveTimer.Tick -= GridLayoutSaveTimer_Tick;
+                    _gridLayoutSaveTimer.Dispose();
+                }
+
                 if (_fileManagerVM != null)
                 {
                     _fileManagerVM.Dispose();
@@ -297,7 +329,6 @@ namespace Nexus.Client.ModManagement.UI
                 MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
-
         private async void RefreshButton_Click(object sender, EventArgs e)
         {
             if (_fileManagerVM == null)
@@ -392,6 +423,88 @@ namespace Nexus.Client.ModManagement.UI
 
             UpdatePreviewFromFocusedRow();
             QueueFileManagerSplitterRestore();
+        }
+
+        private void QueueGridLayoutSave()
+        {
+            if (_restoringGridLayout ||
+                _viewModel?.Settings == null ||
+                _gridLayoutSaveTimer == null ||
+                IsDisposed)
+            {
+                return;
+            }
+
+            _gridLayoutSaveTimer.Stop();
+            _gridLayoutSaveTimer.Start();
+        }
+
+        private void GridLayoutSaveTimer_Tick(
+            object sender,
+            EventArgs e)
+        {
+            _gridLayoutSaveTimer.Stop();
+            SaveGridLayout();
+        }
+
+        private void RestoreGridLayout()
+        {
+            if (_viewModel?.Settings == null)
+                return;
+
+            _restoringGridLayout = true;
+            try
+            {
+                if (!_viewModel.Settings.DockPanelLayouts.ContainsKey(
+                        GridLayoutKey))
+                {
+                    return;
+                }
+
+                string layout =
+                    _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
+
+                if (String.IsNullOrWhiteSpace(layout))
+                    return;
+
+                byte[] bytes = Encoding.UTF8.GetBytes(layout);
+                using (MemoryStream stream = new MemoryStream(bytes))
+                {
+                    _gridView.RestoreLayoutFromStream(stream);
+                }
+            }
+            catch
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+            }
+            finally
+            {
+                _restoringGridLayout = false;
+            }
+        }
+
+        private void SaveGridLayout()
+        {
+            if (_restoringGridLayout || _viewModel?.Settings == null)
+                return;
+
+            _gridLayoutSaveTimer?.Stop();
+
+            try
+            {
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    _gridView.SaveLayoutToStream(stream);
+                    _viewModel.Settings.DockPanelLayouts[GridLayoutKey] =
+                        Encoding.UTF8.GetString(stream.ToArray());
+                }
+            }
+            catch
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+            }
+
+            _viewModel.Settings.Save();
         }
 
         private void FileManagerControl_Shown(object sender, EventArgs e)
@@ -529,6 +642,7 @@ namespace Nexus.Client.ModManagement.UI
 
             return Math.Min(OwnerLookupMaximumPopupWidth, width);
         }
+
         private void ConfigureColumns()
         {
             AddColumn("FileName", "File Name", 220, false);
@@ -597,10 +711,10 @@ namespace Nexus.Client.ModManagement.UI
             _previewSelectionTimer.Stop();
             if (_previewControl == null)
                 return;
-
             FileManagerRow row = _gridView.GetFocusedRow() as FileManagerRow;
             _previewControl.SetSelectedRow(row);
         }
+
 		private void GridView_CustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
 		{
 			if (e.Column == null)
@@ -995,6 +1109,7 @@ namespace Nexus.Client.ModManagement.UI
             public FileManagerRow Row { get; private set; }
             public FileManagerSource PreviousSource { get; private set; }
         }
+
         private sealed class FileSizeFormatter : IFormatProvider, ICustomFormatter
         {
             public object GetFormat(Type formatType)

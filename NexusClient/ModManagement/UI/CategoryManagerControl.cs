@@ -4,6 +4,8 @@ namespace Nexus.Client.ModManagement.UI
     using System.Collections.Generic;
     using System.Collections.Specialized;
     using System.ComponentModel;
+    using System.IO;
+    using System.Text;
     using System.Windows.Forms;
 
     using Nexus.Client.BackgroundTasks;
@@ -19,7 +21,12 @@ namespace Nexus.Client.ModManagement.UI
     /// </summary>
     public partial class CategoryManagerControl : ManagedFontDockContent
     {
+        private const string GridLayoutKey = "categoryManagerGrid";
+        private const int GridLayoutSaveDelayMs = 400;
+
         private ModManagerVM _viewModel;
+        private bool _restoringGridLayout;
+        private readonly Timer _gridLayoutSaveTimer;
 
         // ── Events ───────────────────────────────────────────────────────────────
 
@@ -34,8 +41,23 @@ namespace Nexus.Client.ModManagement.UI
         public CategoryManagerControl()
         {
             InitializeComponent();
-            Text         = "Categories";
-            HideOnClose  = true;
+            Text        = "Categories";
+            HideOnClose = true;
+
+            _gridLayoutSaveTimer = new Timer
+            {
+                Interval = GridLayoutSaveDelayMs
+            };
+            _gridLayoutSaveTimer.Tick += GridLayoutSaveTimer_Tick;
+
+            gridView.ColumnWidthChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            gridView.ColumnPositionChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            gridView.ColumnFilterChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            gridView.EndSorting +=
+                (sender, args) => QueueGridLayoutSave();
         }
 
         internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
@@ -63,6 +85,7 @@ namespace Nexus.Client.ModManagement.UI
                 {
                     HookViewModel();
                     RefreshCategoryList();
+                    RestoreGridLayout();
                 }
             }
         }
@@ -88,8 +111,14 @@ namespace Nexus.Client.ModManagement.UI
         /// <summary>Reloads the category grid. Safe to call from a background thread.</summary>
         public void RefreshCategoryList()
         {
-            if (InvokeRequired) { Invoke((MethodInvoker)RefreshCategoryList); return; }
-            if (_viewModel?.CategoryManager == null) return;
+            if (InvokeRequired)
+            {
+                Invoke((MethodInvoker)RefreshCategoryList);
+                return;
+            }
+
+            if (_viewModel?.CategoryManager == null)
+                return;
 
             gridControl.DataSource = null;
             gridControl.DataSource = _viewModel.CategoryManager.Categories;
@@ -130,15 +159,22 @@ namespace Nexus.Client.ModManagement.UI
 
             if (selected.Id == 0)
             {
-                MessageBox.Show("The Unassigned category cannot be removed.",
-                    "Remove Category", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "The Unassigned category cannot be removed.",
+                    "Remove Category",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
             if (MessageBox.Show(
                     $"Remove category \"{selected.CategoryName}\"?\nMods in this category will be moved to Unassigned.",
-                    "Remove Category", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    "Remove Category",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question) != DialogResult.Yes)
+            {
                 return;
+            }
 
             _viewModel.SwitchModsToUnassigned(selected);
             _viewModel.CategoryManager.RemoveCategory(selected);
@@ -157,6 +193,7 @@ namespace Nexus.Client.ModManagement.UI
         private void tsbUpdateFromNexus_Click(object sender, EventArgs e)
         {
             if (_viewModel == null) return;
+
             try
             {
                 _viewModel.CheckCategoriesUpdates();
@@ -164,23 +201,30 @@ namespace Nexus.Client.ModManagement.UI
             catch (Exception ex)
             {
                 if (ex.Message != "Login required")
+                {
                     MessageBox.Show(
                         $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-                        "Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        "Update check",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
             }
         }
 
         private void tsbResetUnassigned_Click(object sender, EventArgs e)
         {
             if (_viewModel == null) return;
+
             List<IMod> mods = new List<IMod>();
             foreach (IMod mod in _viewModel.ManagedMods)
             {
                 if (mod.CategoryId > 0 && mod.CustomCategoryId == 0)
                     mods.Add(mod);
             }
+
             if (mods.Count > 0)
                 _viewModel.SwitchModsToCategory(mods, -1);
+
             _viewModel.CheckForUpdates(true);
         }
 
@@ -201,24 +245,130 @@ namespace Nexus.Client.ModManagement.UI
         private void gridView_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode != Keys.F2) return;
+
             e.Handled = true;
             tsbRenameCategory_Click(sender, EventArgs.Empty);
         }
 
-
-
         private void VM_UpdatingCategory(object sender, EventArgs<IBackgroundTask> e)
         {
-            if (InvokeRequired) { Invoke((Action<object, EventArgs<IBackgroundTask>>)VM_UpdatingCategory, sender, e); return; }
+            if (InvokeRequired)
+            {
+                Invoke(
+                    (Action<object, EventArgs<IBackgroundTask>>)VM_UpdatingCategory,
+                    sender,
+                    e);
+                return;
+            }
+
             ProgressDialog.ShowDialog(this, e.Argument);
             RefreshCategoryList();
         }
 
         private void VM_UpdatingCategories(object sender, EventArgs<IBackgroundTask> e)
         {
-            if (InvokeRequired) { Invoke((Action<object, EventArgs<IBackgroundTask>>)VM_UpdatingCategories, sender, e); return; }
+            if (InvokeRequired)
+            {
+                Invoke(
+                    (Action<object, EventArgs<IBackgroundTask>>)VM_UpdatingCategories,
+                    sender,
+                    e);
+                return;
+            }
+
             ProgressDialog.ShowDialog(this, e.Argument);
             RefreshCategoryList();
+        }
+
+        // ── Grid persistence ──────────────────────────────────────────────────────
+
+        private void QueueGridLayoutSave()
+        {
+            if (_restoringGridLayout ||
+                _viewModel?.Settings == null ||
+                _gridLayoutSaveTimer == null ||
+                IsDisposed)
+            {
+                return;
+            }
+
+            _gridLayoutSaveTimer.Stop();
+            _gridLayoutSaveTimer.Start();
+        }
+
+        private void GridLayoutSaveTimer_Tick(object sender, EventArgs e)
+        {
+            _gridLayoutSaveTimer.Stop();
+            SaveGridLayout();
+        }
+
+        private void RestoreGridLayout()
+        {
+            if (_viewModel?.Settings == null)
+                return;
+
+            _restoringGridLayout = true;
+            try
+            {
+                if (!_viewModel.Settings.DockPanelLayouts.ContainsKey(GridLayoutKey))
+                    return;
+
+                string layout = _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
+                if (string.IsNullOrWhiteSpace(layout))
+                    return;
+
+                byte[] bytes = Encoding.UTF8.GetBytes(layout);
+                using (MemoryStream stream = new MemoryStream(bytes))
+                {
+                    gridView.RestoreLayoutFromStream(stream);
+                }
+            }
+            catch
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+            }
+            finally
+            {
+                _restoringGridLayout = false;
+            }
+        }
+
+        private void SaveGridLayout()
+        {
+            if (_restoringGridLayout || _viewModel?.Settings == null)
+                return;
+
+            _gridLayoutSaveTimer?.Stop();
+
+            try
+            {
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    gridView.SaveLayoutToStream(stream);
+                    _viewModel.Settings.DockPanelLayouts[GridLayoutKey] =
+                        Encoding.UTF8.GetString(stream.ToArray());
+                }
+            }
+            catch
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+            }
+
+            _viewModel.Settings.Save();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _gridLayoutSaveTimer?.Stop();
+            SaveGridLayout();
+
+            if (_gridLayoutSaveTimer != null)
+            {
+                _gridLayoutSaveTimer.Tick -= GridLayoutSaveTimer_Tick;
+                _gridLayoutSaveTimer.Dispose();
+            }
+
+            base.OnClosed(e);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
@@ -245,16 +395,48 @@ namespace Nexus.Client.ModManagement.UI
                 form.MaximizeBox     = false;
                 form.MinimizeBox     = false;
 
-                Label   label     = new Label   { Text = prompt,        Left = 10, Top = 12, Width = 340 };
-                TextBox textBox   = new TextBox { Text = defaultValue,  Left = 10, Top = 32, Width = 340 };
-                Button  btnOk     = new Button  { Text = "OK",     Left = 195, Top = 60, Width = 75, DialogResult = DialogResult.OK };
-                Button  btnCancel = new Button  { Text = "Cancel", Left = 275, Top = 60, Width = 75, DialogResult = DialogResult.Cancel };
+                Label label = new Label
+                {
+                    Text = prompt,
+                    Left = 10,
+                    Top = 12,
+                    Width = 340
+                };
 
-                form.Controls.AddRange(new Control[] { label, textBox, btnOk, btnCancel });
+                TextBox textBox = new TextBox
+                {
+                    Text = defaultValue,
+                    Left = 10,
+                    Top = 32,
+                    Width = 340
+                };
+
+                Button btnOk = new Button
+                {
+                    Text = "OK",
+                    Left = 195,
+                    Top = 60,
+                    Width = 75,
+                    DialogResult = DialogResult.OK
+                };
+
+                Button btnCancel = new Button
+                {
+                    Text = "Cancel",
+                    Left = 275,
+                    Top = 60,
+                    Width = 75,
+                    DialogResult = DialogResult.Cancel
+                };
+
+                form.Controls.AddRange(
+                    new Control[] { label, textBox, btnOk, btnCancel });
                 form.AcceptButton = btnOk;
                 form.CancelButton = btnCancel;
 
-                return form.ShowDialog() == DialogResult.OK ? textBox.Text.Trim() : null;
+                return form.ShowDialog() == DialogResult.OK
+                    ? textBox.Text.Trim()
+                    : null;
             }
         }
     }

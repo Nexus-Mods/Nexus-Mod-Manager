@@ -37,6 +37,9 @@ namespace Nexus.Client.PluginManagement.UI
         private const string ColType = "PluginType";
         private const string ColOwner = "Owner";
         private const string ColStatus = "Status";
+        private const string GridLayoutKey = "pluginManagerDXGrid";
+        private const string SplitterSizeKey = "pluginManagerDX";
+        private const int GridLayoutSaveDelayMs = 400;
 
 		private readonly BarManager _barManager;
 		private readonly StandaloneBarDockControl _toolbarHost;
@@ -68,6 +71,11 @@ namespace Nexus.Client.PluginManagement.UI
 		private bool _pluginRefreshScheduled;
 		private PluginManagerVM _viewModel;
         private IPluginManager _pluginManager;
+        private readonly Timer _gridLayoutSaveTimer;
+        private bool _restoringGridLayout;
+        private bool _splitterUserDragActive;
+        private bool _restoringSplitter;
+        private bool _splitterPositionRestored;
 
         public event EventHandler UpdatePluginsCount;
         public event EventHandler PluginMoved;
@@ -252,6 +260,12 @@ namespace Nexus.Client.PluginManagement.UI
 			};
 
 			_splitContainer.LookAndFeel.UseDefaultLookAndFeel = true;
+            _splitContainer.Panel1.MinSize = 280;
+            _splitContainer.Panel2.MinSize = 220;
+            _splitContainer.SizeChanged += SplitContainerSizeChanged;
+            _splitContainer.BeginSplitterMoving += SplitContainerBeginSplitterMoving;
+            _splitContainer.SplitterMoved += SplitContainerSplitterMoved;
+            Shown += PluginManagerDXControlShown;
 
 			_splitContainer.Panel1.Controls.Add(_gridControl);
             _splitContainer.Panel2.Controls.Add(infoPanel);
@@ -269,6 +283,13 @@ namespace Nexus.Client.PluginManagement.UI
 			rootPanel.Controls.Add(_toolbarHost);
 
 			Controls.Add(rootPanel);
+
+            _gridLayoutSaveTimer = new Timer
+            {
+                Interval = GridLayoutSaveDelayMs
+            };
+            _gridLayoutSaveTimer.Tick += GridLayoutSaveTimerTick;
+
 			SetupGrid();
             UpdateCommandState();
         }
@@ -294,9 +315,15 @@ namespace Nexus.Client.PluginManagement.UI
                     UnhookViewModel();
 
                 _viewModel = value;
+                _splitterPositionRestored = false;
 
                 if (_viewModel != null)
+                {
                     HookViewModel();
+                    RestoreGridLayout();
+                    QueuePluginManagerSplitterRestore();
+                    UpdateCommandState();
+                }
             }
         }
 
@@ -333,6 +360,12 @@ namespace Nexus.Client.PluginManagement.UI
             _gridControl.DragOver += GridControlDragOver;
             _gridControl.DragDrop += GridControlDragDrop;
             _gridView.EndSorting += GridViewEndSorting;
+            _gridView.ColumnWidthChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            _gridView.ColumnPositionChanged +=
+                (sender, args) => QueueGridLayoutSave();
+            _gridView.ColumnFilterChanged +=
+                (sender, args) => QueueGridLayoutSave();
 
             AddColumn(ColActive, "Active", 58, true).ColumnEdit = _activeCheckEdit;
             AddColumn(ColLoadOrder, "Load Order", 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
@@ -372,6 +405,7 @@ namespace Nexus.Client.PluginManagement.UI
 
             _gridView.RefreshData();
             UpdateCommandState();
+            QueueGridLayoutSave();
         }
 
         private void HookViewModel()
@@ -597,7 +631,6 @@ namespace Nexus.Client.PluginManagement.UI
 
                 List<string> inactiveMasters =
                     GetInactiveMasters(plugin);
-
                 if (missingMasters.Count == 0 &&
                     inactiveMasters.Count == 0)
                 {
@@ -707,6 +740,7 @@ namespace Nexus.Client.PluginManagement.UI
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
+
         private bool ContainsLockedPlugin(IEnumerable<Plugin> plugins)
         {
             return plugins != null && plugins.Any(IsPluginLocked);
@@ -971,6 +1005,7 @@ namespace Nexus.Client.PluginManagement.UI
                 e.Cancel = true;
             }
         }
+
         private void GridViewCellValueChanging(object sender, CellValueChangedEventArgs e)
         {
             if (_updatingActiveCell || e.Column == null || e.Column.FieldName != ColActive)
@@ -1118,6 +1153,7 @@ namespace Nexus.Client.PluginManagement.UI
         private void GridViewEndSorting(object sender, EventArgs e)
         {
             UpdateCommandState();
+            QueueGridLayoutSave();
         }
 
         private void GridViewRowCellClick(
@@ -1157,6 +1193,7 @@ namespace Nexus.Client.PluginManagement.UI
 
             RequestActivePluginsRefresh();
         }
+
 		private void GridViewFocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
 		{
 			UpdatePluginInfo();
@@ -1220,7 +1257,7 @@ namespace Nexus.Client.PluginManagement.UI
 				details.Append(description);
 
             List<Plugin> activeDependents =
-            GetActiveDependentPlugins(plugin);
+                GetActiveDependentPlugins(plugin);
             if (activeDependents.Count > 0)
             {
                 if (details.Length > 0)
@@ -1365,6 +1402,202 @@ namespace Nexus.Client.PluginManagement.UI
             RequestManagedPluginsRefresh();
         }
 
+        private void QueueGridLayoutSave()
+        {
+            if (_restoringGridLayout ||
+                _viewModel?.Settings == null ||
+                _gridLayoutSaveTimer == null ||
+                IsDisposed)
+            {
+                return;
+            }
+
+            _gridLayoutSaveTimer.Stop();
+            _gridLayoutSaveTimer.Start();
+        }
+
+        private void GridLayoutSaveTimerTick(object sender, EventArgs e)
+        {
+            _gridLayoutSaveTimer.Stop();
+            SaveGridLayout();
+        }
+
+        private void RestoreGridLayout()
+        {
+            if (_viewModel?.Settings == null)
+                return;
+
+            _restoringGridLayout = true;
+            try
+            {
+                if (!_viewModel.Settings.DockPanelLayouts.ContainsKey(
+                        GridLayoutKey))
+                {
+                    return;
+                }
+
+                string layout =
+                    _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
+
+                if (String.IsNullOrWhiteSpace(layout))
+                    return;
+
+                byte[] bytes = Encoding.UTF8.GetBytes(layout);
+                using (MemoryStream stream = new MemoryStream(bytes))
+                {
+                    _gridView.RestoreLayoutFromStream(stream);
+                }
+            }
+            catch
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+            }
+            finally
+            {
+                _restoringGridLayout = false;
+            }
+        }
+
+        private void SaveGridLayout()
+        {
+            if (_restoringGridLayout || _viewModel?.Settings == null)
+                return;
+
+            _gridLayoutSaveTimer?.Stop();
+
+            try
+            {
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    _gridView.SaveLayoutToStream(stream);
+                    _viewModel.Settings.DockPanelLayouts[GridLayoutKey] =
+                        Encoding.UTF8.GetString(stream.ToArray());
+                }
+            }
+            catch
+            {
+                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+            }
+
+            _viewModel.Settings.Save();
+        }
+
+        private void PluginManagerDXControlShown(
+            object sender,
+            EventArgs e)
+        {
+            RestorePluginManagerSplitterPosition();
+        }
+
+        private void SplitContainerSizeChanged(
+            object sender,
+            EventArgs e)
+        {
+            RestorePluginManagerSplitterPosition();
+        }
+
+        private void QueuePluginManagerSplitterRestore()
+        {
+            if (_splitterPositionRestored ||
+                !Visible ||
+                !IsHandleCreated ||
+                IsDisposed ||
+                Disposing)
+            {
+                return;
+            }
+
+            BeginInvoke(
+                (MethodInvoker)RestorePluginManagerSplitterPosition);
+        }
+
+        private void SplitContainerBeginSplitterMoving(
+            object sender,
+            BeginSplitMovingEventArgs e)
+        {
+            _splitterUserDragActive = true;
+        }
+
+        private void SplitContainerSplitterMoved(
+            object sender,
+            EventArgs e)
+        {
+            if (_restoringSplitter || !_splitterUserDragActive)
+                return;
+
+            _splitterUserDragActive = false;
+            SavePluginManagerSplitterPosition();
+        }
+
+        private void RestorePluginManagerSplitterPosition()
+        {
+            if (_splitterPositionRestored ||
+                !Visible ||
+                _splitContainer.ClientSize.Width <= 0)
+            {
+                return;
+            }
+
+            int splitterPosition = GetSavedSplitterPosition();
+            if (splitterPosition <= 0)
+                return;
+
+            int minimum = _splitContainer.Panel1.MinSize;
+            int maximum =
+                _splitContainer.ClientSize.Width -
+                _splitContainer.Panel2.MinSize -
+                _splitContainer.SplitterBounds.Width;
+
+            if (maximum < minimum)
+                return;
+
+            int restoredPosition =
+                Math.Max(minimum, Math.Min(splitterPosition, maximum));
+
+            _splitterPositionRestored = true;
+            _restoringSplitter = true;
+            try
+            {
+                _splitContainer.SplitterPosition = restoredPosition;
+            }
+            finally
+            {
+                _restoringSplitter = false;
+            }
+        }
+
+        private int GetSavedSplitterPosition()
+        {
+            if (_viewModel?.Settings?.SplitterSizes == null)
+                return 0;
+
+            var splitterSizes =
+                _viewModel.Settings.SplitterSizes[SplitterSizeKey];
+
+            if (splitterSizes == null || splitterSizes.Count == 0)
+                return 0;
+
+            int splitterPosition;
+            return Int32.TryParse(
+                splitterSizes[0],
+                out splitterPosition)
+                ? splitterPosition
+                : 0;
+        }
+
+        private void SavePluginManagerSplitterPosition()
+        {
+            if (_restoringSplitter ||
+                _viewModel?.Settings?.SplitterSizes == null)
+            {
+                return;
+            }
+
+            _viewModel.Settings.SplitterSizes[SplitterSizeKey] =
+                new List<Int32> { _splitContainer.SplitterPosition };
+            _viewModel.Settings.Save();
+        }
+
 		private GridViewState CaptureGridViewState()
 		{
 			PluginManagerDXRow topRow =
@@ -1383,7 +1616,19 @@ namespace Nexus.Client.PluginManagement.UI
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing)
+            {
+                _gridLayoutSaveTimer?.Stop();
+                SaveGridLayout();
+
+                if (_gridLayoutSaveTimer != null)
+                {
+                    _gridLayoutSaveTimer.Tick -=
+                        GridLayoutSaveTimerTick;
+                    _gridLayoutSaveTimer.Dispose();
+                }
+
 				_barManager?.Dispose();
+            }
 
 			base.Dispose(disposing);
 		}
