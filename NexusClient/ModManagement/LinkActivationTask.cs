@@ -1,6 +1,7 @@
 namespace Nexus.Client.ModManagement
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using BackgroundTasks;
@@ -40,6 +41,9 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
+		private readonly HashSet<string> m_hstDeployedPluginPaths =
+			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
 		private void UpdateActivationProgress(VirtualDeploymentProgress progress)
 		{
 			if (progress.IsStarting)
@@ -75,16 +79,21 @@ namespace Nexus.Client.ModManagement
 			if (PluginManager == null || !PluginManager.IsActivatiblePluginFile(filePath))
 				return false;
 
-			PluginManager.AddPlugin(filePath);
-			PluginManager.ActivatePlugin(filePath);
+			m_hstDeployedPluginPaths.Add(filePath);
 			return true;
 		}
 
 		/// <summary>
-		/// Completes activation after deployment and per-file plugin handling have finished.
+		/// Completes activation after deployment and plugin collection have finished.
 		/// </summary>
 		private void CompleteActivationAfterDeployment(VirtualDeploymentResult deploymentResult)
 		{
+			if (PluginManager != null && m_hstDeployedPluginPaths.Count > 0)
+			{
+				ItemMessage = "Updating plugin state...";
+				PluginManager.IntegrateDeployedPlugins(m_hstDeployedPluginPaths.ToList());
+			}
+
 			if (deploymentResult.FileCount > 0)
 				VirtualModActivator.FinalizeModActivation(Mod);
 		}
@@ -151,6 +160,8 @@ namespace Nexus.Client.ModManagement
 
 			if (!Disabling)
 			{
+				m_hstDeployedPluginPaths.Clear();
+
 				VirtualDeploymentOptions deploymentOptions = new VirtualDeploymentOptions
 				{
 					LinkedFileHandler = HandleLinkedFile,

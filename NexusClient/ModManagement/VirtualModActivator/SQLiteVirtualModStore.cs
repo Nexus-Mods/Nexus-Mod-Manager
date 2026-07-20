@@ -128,6 +128,7 @@ namespace Nexus.Client.ModManagement
 
 		private void SaveXmlCompatibilityShadow(Version fileVersion, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink, bool useModInfoMatching)
 		{
+			Stopwatch shadowWatch = Stopwatch.StartNew();
 			try
 			{
 				if (useModInfoMatching)
@@ -139,35 +140,394 @@ namespace Nexus.Client.ModManagement
 			{
 				Trace.TraceWarning("Could not update virtual mod XML compatibility shadow \"{0}\": {1}", m_strXmlFilePath, e.Message);
 			}
+			finally
+			{
+				shadowWatch.Stop();
+				Trace.TraceInformation("Virtual mod XML compatibility shadow completed in {0}ms.", shadowWatch.ElapsedMilliseconds);
+			}
 		}
 
 		private void SaveRecords(Version fileVersion, IList<ModRecord> records)
 		{
 			EnsureDatabaseDirectory();
+			Stopwatch syncWatch = Stopwatch.StartNew();
+			StoreSyncStatistics statistics = new StoreSyncStatistics();
+
 			using (SQLiteConnection connection = OpenConnection())
 			{
 				EnsureSchema(connection);
 				using (SQLiteTransaction transaction = connection.BeginTransaction())
 				{
-					ExecuteNonQuery(connection, transaction, "DELETE FROM VirtualLinks;");
-					ExecuteNonQuery(connection, transaction, "DELETE FROM VirtualMods;");
+					List<PersistedModRecord> storedRecords = LoadPersistedRecords(connection, transaction);
+					SynchronizeRecords(connection, transaction, storedRecords, records, statistics);
 					SetMetadata(connection, transaction, "schema_version", SCHEMA_VERSION.ToString());
 					SetMetadata(connection, transaction, "file_version", fileVersion.ToString());
-
-					for (int intModIndex = 0; intModIndex < records.Count; intModIndex++)
-					{
-						ModRecord record = records[intModIndex];
-						long modKey = InsertMod(connection, transaction, intModIndex, record.ModInfo);
-
-						for (int intLinkIndex = 0; intLinkIndex < record.Links.Count; intLinkIndex++)
-						{
-							InsertLink(connection, transaction, modKey, intLinkIndex, record.Links[intLinkIndex]);
-						}
-					}
-
 					transaction.Commit();
 				}
 			}
+
+			syncWatch.Stop();
+			Trace.TraceInformation(
+				"Virtual mod SQLite synchronization completed in {0}ms. Mods: +{1}/~{2}/-{3}; Links: +{4}/~{5}/-{6}.",
+				syncWatch.ElapsedMilliseconds,
+				statistics.InsertedMods,
+				statistics.UpdatedMods,
+				statistics.DeletedMods,
+				statistics.InsertedLinks,
+				statistics.UpdatedLinks,
+				statistics.DeletedLinks);
+		}
+
+		private static void SynchronizeRecords(SQLiteConnection connection, SQLiteTransaction transaction, IList<PersistedModRecord> storedRecords, IList<ModRecord> records, StoreSyncStatistics statistics)
+		{
+			PersistedModRecord[] matchedRecords = MatchStoredRecords(storedRecords, records);
+			HashSet<long> matchedModKeys = new HashSet<long>();
+
+			for (int incomingIndex = 0; incomingIndex < matchedRecords.Length; incomingIndex++)
+			{
+				if (matchedRecords[incomingIndex] != null)
+					matchedModKeys.Add(matchedRecords[incomingIndex].ModKey);
+			}
+
+			for (int storedIndex = 0; storedIndex < storedRecords.Count; storedIndex++)
+			{
+				PersistedModRecord storedRecord = storedRecords[storedIndex];
+				if (matchedModKeys.Contains(storedRecord.ModKey))
+					continue;
+
+				DeleteMod(connection, transaction, storedRecord.ModKey);
+				statistics.DeletedMods++;
+				statistics.DeletedLinks += storedRecord.Links.Count;
+			}
+
+			for (int incomingIndex = 0; incomingIndex < records.Count; incomingIndex++)
+			{
+				ModRecord incomingRecord = records[incomingIndex];
+				PersistedModRecord storedRecord = matchedRecords[incomingIndex];
+
+				if (storedRecord == null)
+				{
+					long modKey = InsertMod(connection, transaction, incomingIndex, incomingRecord.ModInfo);
+					statistics.InsertedMods++;
+
+					for (int linkIndex = 0; linkIndex < incomingRecord.Links.Count; linkIndex++)
+					{
+						InsertLink(connection, transaction, modKey, linkIndex, incomingRecord.Links[linkIndex]);
+						statistics.InsertedLinks++;
+					}
+
+					continue;
+				}
+
+				if (UpdateModIfChanged(connection, transaction, storedRecord, incomingIndex, incomingRecord.ModInfo))
+					statistics.UpdatedMods++;
+
+				SynchronizeLinks(connection, transaction, storedRecord, incomingRecord.Links, statistics);
+			}
+		}
+
+		private static PersistedModRecord[] MatchStoredRecords(IList<PersistedModRecord> storedRecords, IList<ModRecord> records)
+		{
+			PersistedModRecord[] matches = new PersistedModRecord[records.Count];
+			HashSet<long> matchedModKeys = new HashSet<long>();
+			Dictionary<string, Queue<PersistedModRecord>> storedByFileName = new Dictionary<string, Queue<PersistedModRecord>>(StringComparer.OrdinalIgnoreCase);
+
+			for (int storedIndex = 0; storedIndex < storedRecords.Count; storedIndex++)
+			{
+				PersistedModRecord storedRecord = storedRecords[storedIndex];
+				if (String.IsNullOrWhiteSpace(storedRecord.ModFileName))
+					continue;
+
+				Queue<PersistedModRecord> matchingRecords;
+				if (!storedByFileName.TryGetValue(storedRecord.ModFileName.Trim(), out matchingRecords))
+				{
+					matchingRecords = new Queue<PersistedModRecord>();
+					storedByFileName.Add(storedRecord.ModFileName.Trim(), matchingRecords);
+				}
+
+				matchingRecords.Enqueue(storedRecord);
+			}
+
+			for (int incomingIndex = 0; incomingIndex < records.Count; incomingIndex++)
+			{
+				string modFileName = records[incomingIndex].ModInfo.ModFileName;
+				Queue<PersistedModRecord> matchingRecords;
+				if (String.IsNullOrWhiteSpace(modFileName)
+					|| !storedByFileName.TryGetValue(modFileName.Trim(), out matchingRecords)
+					|| matchingRecords.Count == 0)
+				{
+					continue;
+				}
+
+				PersistedModRecord match = matchingRecords.Dequeue();
+				matches[incomingIndex] = match;
+				matchedModKeys.Add(match.ModKey);
+			}
+
+			Dictionary<string, List<PersistedModRecord>> storedByDownloadId = new Dictionary<string, List<PersistedModRecord>>(StringComparer.OrdinalIgnoreCase);
+			for (int storedIndex = 0; storedIndex < storedRecords.Count; storedIndex++)
+			{
+				PersistedModRecord storedRecord = storedRecords[storedIndex];
+				if (matchedModKeys.Contains(storedRecord.ModKey) || String.IsNullOrWhiteSpace(storedRecord.DownloadId))
+					continue;
+
+				List<PersistedModRecord> matchingRecords;
+				if (!storedByDownloadId.TryGetValue(storedRecord.DownloadId.Trim(), out matchingRecords))
+				{
+					matchingRecords = new List<PersistedModRecord>();
+					storedByDownloadId.Add(storedRecord.DownloadId.Trim(), matchingRecords);
+				}
+
+				matchingRecords.Add(storedRecord);
+			}
+
+			Dictionary<string, List<int>> incomingByDownloadId = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+			for (int incomingIndex = 0; incomingIndex < records.Count; incomingIndex++)
+			{
+				if (matches[incomingIndex] != null)
+					continue;
+
+				string downloadId = records[incomingIndex].ModInfo.DownloadId;
+				if (String.IsNullOrWhiteSpace(downloadId))
+					continue;
+
+				List<int> matchingIndexes;
+				if (!incomingByDownloadId.TryGetValue(downloadId.Trim(), out matchingIndexes))
+				{
+					matchingIndexes = new List<int>();
+					incomingByDownloadId.Add(downloadId.Trim(), matchingIndexes);
+				}
+
+				matchingIndexes.Add(incomingIndex);
+			}
+
+			foreach (KeyValuePair<string, List<int>> pair in incomingByDownloadId)
+			{
+				List<PersistedModRecord> matchingRecords;
+				if (pair.Value.Count != 1
+					|| !storedByDownloadId.TryGetValue(pair.Key, out matchingRecords)
+					|| matchingRecords.Count != 1)
+				{
+					continue;
+				}
+
+				matches[pair.Value[0]] = matchingRecords[0];
+			}
+
+			return matches;
+		}
+
+		private static void SynchronizeLinks(SQLiteConnection connection, SQLiteTransaction transaction, PersistedModRecord storedRecord, IList<IVirtualModLink> incomingLinks, StoreSyncStatistics statistics)
+		{
+			Dictionary<string, Queue<PersistedLinkRecord>> storedByIdentity = new Dictionary<string, Queue<PersistedLinkRecord>>(StringComparer.OrdinalIgnoreCase);
+			for (int storedIndex = 0; storedIndex < storedRecord.Links.Count; storedIndex++)
+			{
+				PersistedLinkRecord storedLink = storedRecord.Links[storedIndex];
+				string identity = BuildLinkIdentity(storedLink.RealPath, storedLink.VirtualPath);
+				Queue<PersistedLinkRecord> matchingLinks;
+				if (!storedByIdentity.TryGetValue(identity, out matchingLinks))
+				{
+					matchingLinks = new Queue<PersistedLinkRecord>();
+					storedByIdentity.Add(identity, matchingLinks);
+				}
+
+				matchingLinks.Enqueue(storedLink);
+			}
+
+			HashSet<long> matchedLinkKeys = new HashSet<long>();
+			for (int incomingIndex = 0; incomingIndex < incomingLinks.Count; incomingIndex++)
+			{
+				IVirtualModLink incomingLink = incomingLinks[incomingIndex];
+				Queue<PersistedLinkRecord> matchingLinks;
+				if (!storedByIdentity.TryGetValue(BuildLinkIdentity(incomingLink.RealModPath, incomingLink.VirtualModPath), out matchingLinks)
+					|| matchingLinks.Count == 0)
+				{
+					InsertLink(connection, transaction, storedRecord.ModKey, incomingIndex, incomingLink);
+					statistics.InsertedLinks++;
+					continue;
+				}
+
+				PersistedLinkRecord storedLink = matchingLinks.Dequeue();
+				matchedLinkKeys.Add(storedLink.LinkKey);
+				if (UpdateLinkIfChanged(connection, transaction, storedLink, incomingIndex, incomingLink))
+					statistics.UpdatedLinks++;
+			}
+
+			for (int storedIndex = 0; storedIndex < storedRecord.Links.Count; storedIndex++)
+			{
+				PersistedLinkRecord storedLink = storedRecord.Links[storedIndex];
+				if (matchedLinkKeys.Contains(storedLink.LinkKey))
+					continue;
+
+				DeleteLink(connection, transaction, storedLink.LinkKey);
+				statistics.DeletedLinks++;
+			}
+		}
+
+		private static List<PersistedModRecord> LoadPersistedRecords(SQLiteConnection connection, SQLiteTransaction transaction)
+		{
+			List<PersistedModRecord> records = new List<PersistedModRecord>();
+			Dictionary<long, PersistedModRecord> recordsByKey = new Dictionary<long, PersistedModRecord>();
+
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "SELECT VirtualModId, ModOrder, ModId, DownloadId, UpdatedDownloadId, ModName, ModFileName, ModNewFileName, ModFilePath, FileVersion FROM VirtualMods ORDER BY ModOrder;";
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
+					{
+						PersistedModRecord record = new PersistedModRecord(
+							reader.GetInt64(0),
+							reader.GetInt32(1),
+							GetString(reader, 2),
+							GetString(reader, 3),
+							GetString(reader, 4),
+							GetString(reader, 5),
+							GetString(reader, 6),
+							GetString(reader, 7),
+							GetString(reader, 8),
+							GetString(reader, 9));
+
+						records.Add(record);
+						recordsByKey.Add(record.ModKey, record);
+					}
+				}
+			}
+
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "SELECT VirtualLinkId, VirtualModId, LinkOrder, RealPath, VirtualPath, Priority, IsActive FROM VirtualLinks ORDER BY VirtualModId, LinkOrder;";
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
+					{
+						PersistedModRecord record;
+						if (!recordsByKey.TryGetValue(reader.GetInt64(1), out record))
+							throw new InvalidOperationException("Virtual link references a missing virtual mod.");
+
+						record.Links.Add(new PersistedLinkRecord(
+							reader.GetInt64(0),
+							reader.GetInt32(2),
+							GetString(reader, 3),
+							GetString(reader, 4),
+							reader.GetInt32(5),
+							reader.GetInt32(6) != 0));
+					}
+				}
+			}
+
+			return records;
+		}
+
+		private static bool UpdateModIfChanged(SQLiteConnection connection, SQLiteTransaction transaction, PersistedModRecord storedRecord, int modOrder, IVirtualModInfo modInfo)
+		{
+			string modId = OptionalString(modInfo.ModId);
+			string downloadId = OptionalString(modInfo.DownloadId);
+			string updatedDownloadId = OptionalString(modInfo.UpdatedDownloadId);
+			string modName = RequiredString(modInfo.ModName, "modName");
+			string modFileName = RequiredString(modInfo.ModFileName, "modFileName");
+			string modNewFileName = OptionalString(modInfo.NewFileName);
+			string modFilePath = RequiredString(modInfo.ModFilePath, "modFilePath");
+			string fileVersion = OptionalString(modInfo.FileVersion);
+
+			if (storedRecord.ModOrder == modOrder
+				&& String.Equals(storedRecord.ModId, modId, StringComparison.Ordinal)
+				&& String.Equals(storedRecord.DownloadId, downloadId, StringComparison.Ordinal)
+				&& String.Equals(storedRecord.UpdatedDownloadId, updatedDownloadId, StringComparison.Ordinal)
+				&& String.Equals(storedRecord.ModName, modName, StringComparison.Ordinal)
+				&& String.Equals(storedRecord.ModFileName, modFileName, StringComparison.Ordinal)
+				&& String.Equals(storedRecord.ModNewFileName, modNewFileName, StringComparison.Ordinal)
+				&& String.Equals(storedRecord.ModFilePath, modFilePath, StringComparison.Ordinal)
+				&& String.Equals(storedRecord.FileVersion, fileVersion, StringComparison.Ordinal))
+			{
+				return false;
+			}
+
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "UPDATE VirtualMods SET ModOrder = @modOrder, ModId = @modId, DownloadId = @downloadId, UpdatedDownloadId = @updatedDownloadId, ModName = @modName, ModFileName = @modFileName, ModNewFileName = @modNewFileName, ModFilePath = @modFilePath, FileVersion = @fileVersion WHERE VirtualModId = @virtualModId;";
+				command.Parameters.AddWithValue("@modOrder", modOrder);
+				command.Parameters.AddWithValue("@modId", modId);
+				command.Parameters.AddWithValue("@downloadId", downloadId);
+				command.Parameters.AddWithValue("@updatedDownloadId", updatedDownloadId);
+				command.Parameters.AddWithValue("@modName", modName);
+				command.Parameters.AddWithValue("@modFileName", modFileName);
+				command.Parameters.AddWithValue("@modNewFileName", modNewFileName);
+				command.Parameters.AddWithValue("@modFilePath", modFilePath);
+				command.Parameters.AddWithValue("@fileVersion", fileVersion);
+				command.Parameters.AddWithValue("@virtualModId", storedRecord.ModKey);
+				command.ExecuteNonQuery();
+			}
+
+			return true;
+		}
+
+		private static bool UpdateLinkIfChanged(SQLiteConnection connection, SQLiteTransaction transaction, PersistedLinkRecord storedLink, int linkOrder, IVirtualModLink link)
+		{
+			string realPath = RequiredString(link.RealModPath, "realPath");
+			string virtualPath = RequiredString(link.VirtualModPath, "virtualPath");
+			int isActive = link.Active ? 1 : 0;
+
+			if (storedLink.LinkOrder == linkOrder
+				&& String.Equals(storedLink.RealPath, realPath, StringComparison.Ordinal)
+				&& String.Equals(storedLink.VirtualPath, virtualPath, StringComparison.Ordinal)
+				&& storedLink.Priority == link.Priority
+				&& storedLink.IsActive == (isActive != 0))
+			{
+				return false;
+			}
+
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "UPDATE VirtualLinks SET LinkOrder = @linkOrder, RealPath = @realPath, VirtualPath = @virtualPath, Priority = @priority, IsActive = @isActive WHERE VirtualLinkId = @virtualLinkId;";
+				command.Parameters.AddWithValue("@linkOrder", linkOrder);
+				command.Parameters.AddWithValue("@realPath", realPath);
+				command.Parameters.AddWithValue("@virtualPath", virtualPath);
+				command.Parameters.AddWithValue("@priority", link.Priority);
+				command.Parameters.AddWithValue("@isActive", isActive);
+				command.Parameters.AddWithValue("@virtualLinkId", storedLink.LinkKey);
+				command.ExecuteNonQuery();
+			}
+
+			return true;
+		}
+
+		private static void DeleteMod(SQLiteConnection connection, SQLiteTransaction transaction, long modKey)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "DELETE FROM VirtualMods WHERE VirtualModId = @virtualModId;";
+				command.Parameters.AddWithValue("@virtualModId", modKey);
+				command.ExecuteNonQuery();
+			}
+		}
+
+		private static void DeleteLink(SQLiteConnection connection, SQLiteTransaction transaction, long linkKey)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "DELETE FROM VirtualLinks WHERE VirtualLinkId = @virtualLinkId;";
+				command.Parameters.AddWithValue("@virtualLinkId", linkKey);
+				command.ExecuteNonQuery();
+			}
+		}
+
+		private static string BuildLinkIdentity(string realPath, string virtualPath)
+		{
+			return NormalizeIdentityPath(realPath) + "\u001f" + NormalizeIdentityPath(virtualPath);
+		}
+
+		private static string NormalizeIdentityPath(string path)
+		{
+			return (path ?? String.Empty)
+				.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+				.Trim();
 		}
 
 		private SQLiteLoadResult LoadStoreData(bool reportStoredMods)
@@ -297,7 +657,7 @@ namespace Nexus.Client.ModManagement
 			return false;
 		}
 
-		private long InsertMod(SQLiteConnection connection, SQLiteTransaction transaction, int modOrder, IVirtualModInfo modInfo)
+		private static long InsertMod(SQLiteConnection connection, SQLiteTransaction transaction, int modOrder, IVirtualModInfo modInfo)
 		{
 			using (SQLiteCommand command = connection.CreateCommand())
 			{
@@ -501,6 +861,66 @@ namespace Nexus.Client.ModManagement
 				throw new ArgumentNullException(name);
 
 			return value;
+		}
+
+		private sealed class PersistedModRecord
+		{
+			public PersistedModRecord(long modKey, int modOrder, string modId, string downloadId, string updatedDownloadId, string modName, string modFileName, string modNewFileName, string modFilePath, string fileVersion)
+			{
+				ModKey = modKey;
+				ModOrder = modOrder;
+				ModId = modId;
+				DownloadId = downloadId;
+				UpdatedDownloadId = updatedDownloadId;
+				ModName = modName;
+				ModFileName = modFileName;
+				ModNewFileName = modNewFileName;
+				ModFilePath = modFilePath;
+				FileVersion = fileVersion;
+				Links = new List<PersistedLinkRecord>();
+			}
+
+			public long ModKey { get; private set; }
+			public int ModOrder { get; private set; }
+			public string ModId { get; private set; }
+			public string DownloadId { get; private set; }
+			public string UpdatedDownloadId { get; private set; }
+			public string ModName { get; private set; }
+			public string ModFileName { get; private set; }
+			public string ModNewFileName { get; private set; }
+			public string ModFilePath { get; private set; }
+			public string FileVersion { get; private set; }
+			public List<PersistedLinkRecord> Links { get; private set; }
+		}
+
+		private sealed class PersistedLinkRecord
+		{
+			public PersistedLinkRecord(long linkKey, int linkOrder, string realPath, string virtualPath, int priority, bool isActive)
+			{
+				LinkKey = linkKey;
+				LinkOrder = linkOrder;
+				RealPath = realPath;
+				VirtualPath = virtualPath;
+				Priority = priority;
+				IsActive = isActive;
+			}
+
+			public long LinkKey { get; private set; }
+			public int LinkOrder { get; private set; }
+			public string RealPath { get; private set; }
+			public string VirtualPath { get; private set; }
+			public int Priority { get; private set; }
+			public bool IsActive { get; private set; }
+		}
+
+		private sealed class StoreSyncStatistics
+		{
+			public int InsertedMods { get; set; }
+			public int UpdatedMods { get; set; }
+			public int DeletedMods { get; set; }
+			public int InsertedLinks { get; set; }
+			public int UpdatedLinks { get; set; }
+			public int DeletedLinks { get; set; }
 		}
 
 		private sealed class ModRecord

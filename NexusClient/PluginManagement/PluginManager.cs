@@ -330,6 +330,116 @@ namespace Nexus.Client.PluginManagement
 		}
 
 		/// <summary>
+		/// Registers all deployed plugins before applying the valid requested
+		/// activation subset through the authoritative policy pipeline.
+		/// </summary>
+		public void IntegrateDeployedPlugins(IList<string> p_lstPluginPaths)
+		{
+			List<string> pluginPaths = (p_lstPluginPaths ?? new List<string>())
+				.Where(x => !String.IsNullOrWhiteSpace(x) && IsActivatiblePluginFile(x))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToList();
+
+			if (pluginPaths.Count == 0)
+				return;
+
+			List<Plugin> requestedPlugins = new List<Plugin>();
+
+			// Register every deployed plugin before activation is evaluated. This
+			// prevents activation success from depending on archive enumeration order.
+			foreach (string pluginPath in pluginPaths)
+			{
+				AddPlugin(pluginPath);
+
+				Plugin plugin = GetRegisteredPlugin(pluginPath);
+				if (plugin != null &&
+					!requestedPlugins.Any(x => PluginComparer.Filename.Equals(x, plugin)))
+				{
+					requestedPlugins.Add(plugin);
+				}
+			}
+
+			if (requestedPlugins.Count == 0)
+				return;
+
+			List<Plugin> correctedOrder =
+				GetPolicyCorrectedOrder(new List<Plugin>(PluginOrderLog.OrderedPlugins));
+
+			HashSet<Plugin> currentActive =
+				new HashSet<Plugin>(
+					ActivePlugins.Where(x => x != null),
+					PluginComparer.Filename);
+
+			List<Plugin> requestedInactive = requestedPlugins
+				.Where(x => !currentActive.Contains(x) && CanChangeActiveState(x))
+				.ToList();
+
+			if (requestedInactive.Count == 0)
+				return;
+
+			HashSet<Plugin> requestedActive =
+				new HashSet<Plugin>(currentActive, PluginComparer.Filename);
+			requestedActive.UnionWith(requestedInactive);
+
+			PluginSnapshot requestedSnapshot =
+				BuildPluginSnapshot(correctedOrder, requestedActive);
+
+			if (!requestedSnapshot.HasErrors)
+			{
+				TryApplyPluginState(correctedOrder, requestedActive);
+				return;
+			}
+
+			// Keep genuinely invalid plugins registered but inactive. Iterate in the
+			// corrected order so newly deployed masters are considered before their
+			// dependants, independently of archive file order.
+			HashSet<Plugin> validActive =
+				new HashSet<Plugin>(currentActive, PluginComparer.Filename);
+			HashSet<Plugin> pending =
+				new HashSet<Plugin>(requestedInactive, PluginComparer.Filename);
+
+			bool stateExpanded;
+			do
+			{
+				stateExpanded = false;
+
+				foreach (Plugin candidate in
+					correctedOrder.Where(x => pending.Contains(x)).ToList())
+				{
+					HashSet<Plugin> testActive =
+						new HashSet<Plugin>(validActive, PluginComparer.Filename);
+					testActive.Add(candidate);
+
+					if (BuildPluginSnapshot(correctedOrder, testActive).HasErrors)
+						continue;
+
+					validActive.Add(candidate);
+					pending.Remove(candidate);
+					stateExpanded = true;
+				}
+			}
+			while (stateExpanded);
+
+			if (!validActive.SetEquals(currentActive))
+				TryApplyPluginState(correctedOrder, validActive);
+
+			if (pending.Count > 0)
+			{
+				Trace.TraceWarning(
+					"Some deployed plugins remain inactive because their requested state is invalid: {0}",
+					String.Join(
+						", ",
+						pending.Select(x => Path.GetFileName(x.Filename)).ToArray()));
+
+				HashSet<Plugin> rejectedActive =
+					new HashSet<Plugin>(validActive, PluginComparer.Filename);
+				rejectedActive.UnionWith(pending);
+				TracePluginDiagnostics(
+					BuildPluginSnapshot(correctedOrder, rejectedActive));
+			}
+		}
+
+		/// <summary>
 		/// Removes the given plugin from the list of managed plugins.
 		/// </summary>
 		/// <param name="p_plgPlugin">The plugin to remove.</param>

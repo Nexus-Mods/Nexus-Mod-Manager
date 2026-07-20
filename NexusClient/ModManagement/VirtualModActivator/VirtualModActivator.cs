@@ -2142,13 +2142,10 @@ namespace Nexus.Client.ModManagement
 
 				if ((PluginManager != null) && ((intPriority < 0) || (modCheck == null)))
 				{
-					if (PluginManager.IsActivatiblePluginFile(strLinkPath))
+					if (PluginManager.IsActivatiblePluginFile(strLinkPath) &&
+						PluginManager.IsPluginRegistered(strLinkPath))
 					{
-						if (PluginManager.IsPluginActive(strLinkPath))
-							PluginManager.DeactivatePlugin(strLinkPath);
-
-						if (PluginManager.IsPluginRegistered(strLinkPath))
-							PluginManager.RemovePlugin(strLinkPath);
+						PluginManager.RemovePlugin(strLinkPath);
 					}
 				}
 
@@ -2524,6 +2521,7 @@ namespace Nexus.Client.ModManagement
 
 
 				IModLinkInstaller ModLinkInstaller = GetModLinkInstaller();
+				List<string> deployedPluginPaths = new List<string>();
 
 				foreach (string File in lstFiles)
 				{
@@ -2533,14 +2531,17 @@ namespace Nexus.Client.ModManagement
 
 					string strFileLink = ModLinkInstaller.AddFileLink(p_modMod, strFile, File, false, false, installRoot);
 
-					if (!string.IsNullOrEmpty(strFileLink))
-						if (PluginManager != null)
-							if (PluginManager.IsActivatiblePluginFile(strFileLink))
-							{
-								PluginManager.AddPlugin(strFileLink);
-								PluginManager.ActivatePlugin(strFileLink);
-							}
+					if (!string.IsNullOrEmpty(strFileLink) &&
+						PluginManager != null &&
+						PluginManager.IsActivatiblePluginFile(strFileLink))
+					{
+						deployedPluginPaths.Add(strFileLink);
+					}
 				}
+
+				if (PluginManager != null && deployedPluginPaths.Count > 0)
+					PluginManager.IntegrateDeployedPlugins(deployedPluginPaths);
+
 				LoadIniEdits(p_modMod);
 				SaveList(true);
 			}

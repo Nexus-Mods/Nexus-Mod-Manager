@@ -63,6 +63,9 @@ namespace Nexus.Client.PluginManagement.UI
         private int _dragSourceRowHandle = GridControl.InvalidRowHandle;
         private bool _updatingActiveCell;
 		private bool _suppressManagedPluginsRefresh;
+		private bool _managedPluginsRefreshPending;
+		private bool _activePluginsRefreshPending;
+		private bool _pluginRefreshScheduled;
 		private PluginManagerVM _viewModel;
         private IPluginManager _pluginManager;
 
@@ -396,6 +399,10 @@ namespace Nexus.Client.PluginManagement.UI
             _viewModel.ImportFailed -= ViewModelImportFailed;
             _viewModel.ImportPartiallySucceeded -= ViewModelImportSucceeded;
             _viewModel.ImportSucceeded -= ViewModelImportSucceeded;
+
+			_managedPluginsRefreshPending = false;
+			_activePluginsRefreshPending = false;
+			_pluginRefreshScheduled = false;
         }
 
 		private void RebuildRows()
@@ -805,6 +812,59 @@ namespace Nexus.Client.PluginManagement.UI
             UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
         }
 
+        private void RequestManagedPluginsRefresh()
+        {
+            if (IsDisposed || Disposing)
+                return;
+
+            _managedPluginsRefreshPending = true;
+            SchedulePluginRefresh();
+        }
+
+        private void RequestActivePluginsRefresh()
+        {
+            if (IsDisposed || Disposing)
+                return;
+
+            _activePluginsRefreshPending = true;
+            SchedulePluginRefresh();
+        }
+
+        private void SchedulePluginRefresh()
+        {
+            if (_pluginRefreshScheduled || IsDisposed || Disposing)
+                return;
+
+            if (!IsHandleCreated)
+                return;
+
+            _pluginRefreshScheduled = true;
+            BeginInvoke((Action)FlushPluginRefresh);
+        }
+
+        private void FlushPluginRefresh()
+        {
+            bool rebuildRows = _managedPluginsRefreshPending;
+            bool refreshRows = _activePluginsRefreshPending;
+
+            _pluginRefreshScheduled = false;
+            _managedPluginsRefreshPending = false;
+            _activePluginsRefreshPending = false;
+
+            if (IsDisposed || Disposing || _viewModel == null)
+                return;
+
+            if (rebuildRows)
+            {
+                RebuildRows();
+                UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
+            }
+            else if (refreshRows)
+            {
+                RefreshSnapshotRows();
+            }
+        }
+
 		private void ManagedPluginsCollectionChanged(
 			object sender,
 			NotifyCollectionChangedEventArgs e)
@@ -823,8 +883,7 @@ namespace Nexus.Client.PluginManagement.UI
 			if (_suppressManagedPluginsRefresh)
 				return;
 
-			RebuildRows();
-			UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
+			RequestManagedPluginsRefresh();
 		}
 
 		private void ActivePluginsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -834,7 +893,8 @@ namespace Nexus.Client.PluginManagement.UI
                 BeginInvoke((Action<object, NotifyCollectionChangedEventArgs>)ActivePluginsCollectionChanged, sender, e);
                 return;
             }
-            RefreshSnapshotRows();
+
+            RequestActivePluginsRefresh();
         }
 
         private void GridViewCustomRowCellEdit(
@@ -932,7 +992,7 @@ namespace Nexus.Client.PluginManagement.UI
             finally
             {
                 _updatingActiveCell = false;
-                RefreshSnapshotRows();
+                RequestActivePluginsRefresh();
             }
         }
 
@@ -1095,7 +1155,7 @@ namespace Nexus.Client.PluginManagement.UI
             else
                 _viewModel.DeactivatePlugin(plugin);
 
-            RefreshSnapshotRows();
+            RequestActivePluginsRefresh();
         }
 		private void GridViewFocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
 		{
@@ -1282,7 +1342,7 @@ namespace Nexus.Client.PluginManagement.UI
         private void ViewModelTaskStarted(object sender, EventArgs<BackgroundTasks.IBackgroundTask> e)
         {
             BackgroundTasks.UI.ProgressDialog.ShowDialog(this, e.Argument);
-            RefreshSnapshotRows();
+            RequestManagedPluginsRefresh();
         }
 
         private void ViewModelExportFailed(object sender, EventArgs e)
@@ -1302,7 +1362,7 @@ namespace Nexus.Client.PluginManagement.UI
 
         private void ViewModelImportSucceeded(object sender, EventArgs e)
         {
-            RefreshSnapshotRows();
+            RequestManagedPluginsRefresh();
         }
 
 		private GridViewState CaptureGridViewState()

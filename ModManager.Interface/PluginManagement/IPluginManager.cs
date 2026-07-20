@@ -59,6 +59,13 @@ namespace Nexus.Client.PluginManagement
 		bool AddPlugin(string p_strPluginPath);
 
 		/// <summary>
+		/// Registers all deployed plugin files before applying their requested
+		/// activation state through the authoritative policy pipeline.
+		/// </summary>
+		/// <param name="p_lstPluginPaths">The deployed plugin paths to integrate.</param>
+		void IntegrateDeployedPlugins(IList<string> p_lstPluginPaths);
+
+		/// <summary>
 		/// Removes the given plugin from the list of managed plugins.
 		/// </summary>
 		/// <param name="p_plgPlugin">The plugin to remove.</param>
