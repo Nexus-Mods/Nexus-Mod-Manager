@@ -220,6 +220,7 @@ namespace Nexus.Client.ModManagement.UI
 			Text = "Mods";
 			InitializeInlineRenameEditor();
 			SetupGrid();
+			InitializeNewModCategoryView();
 			InitializeGridDisplayOptions();
 			InitializeToolbarPositionButton();
 			UpdateSwitchViewText();
@@ -253,7 +254,10 @@ namespace Nexus.Client.ModManagement.UI
 			set
 			{
 				if (_viewModel != null)
+				{
+					DetachNewModCategoryTracking();
 					UnhookViewModel();
+				}
 
 				_viewModel = value;
 
@@ -262,6 +266,7 @@ namespace Nexus.Client.ModManagement.UI
 					HookViewModel();
 					RestoreGridFont();
 					RestoreGridDisplayOptions();
+					AttachNewModCategoryTracking();
 				}
 			}
 		}

@@ -103,6 +103,10 @@
     <Compile Include="ModManagement\UI\ModManagerDXControl.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="ModManagement\UI\ModManagerDXControl.NewMods.cs">
+      <DependentUpon>ModManagerDXControl.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModManagement\UI\ModManagerDXControl.Designer.cs">
       <DependentUpon>ModManagerDXControl.cs</DependentUpon>
     </Compile>
