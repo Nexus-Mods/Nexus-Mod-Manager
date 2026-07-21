@@ -6,16 +6,16 @@
 [Setup]
 AppName=NMM
 AppID=6af12c54-643b-4752-87d0-8335503010de
-AppVersion=0.91.0
-AppVerName=NMM 0.91.0
-AppCopyright=Copyright ÔøΩ DuskDweller 2019-2022
-VersionInfoVersion=0.91.0
+AppVersion=0.91.5
+AppVerName=NMM 0.91.5
+AppCopyright=Copyright ÔøΩ DuskDweller 2019-2026
+VersionInfoVersion=0.91.5
 VersionInfoCompany=DuskDweller
 AppPublisher=DuskDweller
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
-OutputBaseFilename=NMM-0.91.0
+OutputBaseFilename=NMM-0.91.5
 DefaultGroupName=NMM
 DefaultDirName={pf}\NMM
 UninstallDisplayName=NMM
@@ -39,10 +39,10 @@ ChangesAssociations=true
 LicenseFile=..\Stage\Release\data\License.rtf
 InfoBeforeFile=..\Stage\Release\data\NewVersionDisclaimer.rtf
 InfoAfterFile=..\Stage\Release\data\releasenotes.rtf
-MinVersion=0,6.0
+MinVersion=0,6.7
 PrivilegesRequired=admin
-ArchitecturesAllowed=x86 x64 ia64
-ArchitecturesInstallIn64BitMode=x64 ia64
+ArchitecturesAllowed=x86 x64 
+ArchitecturesInstallIn64BitMode=x64 
 AppMutex=Global\6af12c54-643b-4752-87d0-8335503010de
 
 [Languages]
@@ -115,19 +115,19 @@ external 'isxdl_SetOption@files:isxdl.dll stdcall';
 DependenciesDir=MyProgramDependencies
 
 en.depdownload_msg=The following applications are required before setup can continue:%n%n%1%nDownload and install now?
-de.depdownload_msg=Die folgenden Programme werden benˆtigt bevor das Setup fortfahren kann:%n%n%1%nJetzt downloaden und installieren?
+de.depdownload_msg=Die folgenden Programme werden ben√∂tigt bevor das Setup fortfahren kann:%n%n%1%nJetzt downloaden und installieren?
 
 en.depdownload_memo_title=Download dependencies
-de.depdownload_memo_title=Abh‰ngigkeiten downloaden
+de.depdownload_memo_title=Abh√§ngigkeiten downloaden
 
 en.depinstall_memo_title=Install dependencies
-de.depinstall_memo_title=Abh‰ngigkeiten installieren
+de.depinstall_memo_title=Abh√§ngigkeiten installieren
 
 en.depinstall_title=Installing dependencies
-de.depinstall_title=Installiere Abh‰ngigkeiten
+de.depinstall_title=Installiere Abh√§ngigkeiten
 
 en.depinstall_description=Please wait while Setup installs dependencies on your computer.
-de.depinstall_description=Warten Sie bitte w‰hrend Abh‰ngigkeiten auf Ihrem Computer installiert wird.
+de.depinstall_description=Warten Sie bitte w√§hrend Abh√§ngigkeiten auf Ihrem Computer installiert wird.
 
 en.depinstall_status=Installing %1...
 de.depinstall_status=Installiere %1...
@@ -136,7 +136,7 @@ en.depinstall_missing=%1 must be installed before setup can continue. Please ins
 de.depinstall_missing=%1 muss installiert werden bevor das Setup fortfahren kann. Bitte installieren Sie %1 und starten Sie das Setup erneut.
 
 en.depinstall_error=An error occured while installing the dependencies. Please restart the computer and run the setup again or install the following dependencies manually:%n
-de.depinstall_error=Ein Fehler ist w‰hrend der Installation der Abgh‰ngigkeiten aufgetreten. Bitte starten Sie den Computer neu und f¸hren Sie das Setup erneut aus oder installieren Sie die folgenden Abh‰ngigkeiten per Hand:%n
+de.depinstall_error=Ein Fehler ist w√§hrend der Installation der Abgh√§ngigkeiten aufgetreten. Bitte starten Sie den Computer neu und f√ºhren Sie das Setup erneut aus oder installieren Sie die folgenden Abh√§ngigkeiten per Hand:%n
 
 en.isxdl_langfile=
 de.isxdl_langfile=german2.ini
@@ -151,38 +151,46 @@ type
 		File: String;
 		Title: String;
 		Parameters: String;
-		InstallClean : boolean;
-		MustRebootAfter : boolean;
+		InstallClean: Boolean;
+		MustRebootAfter: Boolean;
 	end;
 
 	InstallResult = (InstallSuccessful, InstallRebootRequired, InstallError);
 
 var
-	installMemo, downloadMemo, downloadMessage: string;
+	installMemo, downloadMemo, downloadMessage: String;
 	products: array of TProduct;
-	delayedReboot: boolean;
+	delayedReboot: Boolean;
 	DependencyPage: TOutputProgressWizardPage;
 
 
-procedure AddProduct(FileName, Parameters, Title, Size, URL: string; InstallClean : boolean; MustRebootAfter : boolean);
+procedure AddProduct(
+	FileName, Parameters, Title, Size, URL: String;
+	InstallClean: Boolean;
+	MustRebootAfter: Boolean);
 var
-	path: string;
+	path: String;
 	i: Integer;
 begin
 	installMemo := installMemo + '%1' + Title + #13;
 
-	path := ExpandConstant('{src}{\}') + CustomMessage('DependenciesDir') + '\' + FileName;
-	if not FileExists(path) then begin
+	path := ExpandConstant('{src}{\}') +
+		CustomMessage('DependenciesDir') + '\' + FileName;
+
+	if not FileExists(path) then
+	begin
 		path := ExpandConstant('{tmp}{\}') + FileName;
 
 		isxdl_AddFile(URL, path);
 
 		downloadMemo := downloadMemo + '%1' + Title + #13;
-		downloadMessage := downloadMessage + '	' + Title + ' (' + Size + ')' + #13;
+		downloadMessage :=
+			downloadMessage + '	' + Title + ' (' + Size + ')' + #13;
 	end;
 
 	i := GetArrayLength(products);
 	SetArrayLength(products, i + 1);
+
 	products[i].File := path;
 	products[i].Title := Title;
 	products[i].Parameters := Parameters;
@@ -190,26 +198,63 @@ begin
 	products[i].MustRebootAfter := MustRebootAfter;
 end;
 
-function SmartExec(prod : TProduct; var ResultCode : Integer) : boolean;
+
+function SmartExec(
+	prod: TProduct;
+	var ResultCode: Integer): Boolean;
 begin
-	if (LowerCase(Copy(prod.File,Length(prod.File)-2,3)) = 'exe') then begin
-		Result := Exec(prod.File, prod.Parameters, '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode);
-	end else begin
-		Result := ShellExec('', prod.File, prod.Parameters, '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode);
+	if LowerCase(Copy(prod.File, Length(prod.File) - 2, 3)) = 'exe' then
+	begin
+		Result := Exec(
+			prod.File,
+			prod.Parameters,
+			'',
+			SW_SHOWNORMAL,
+			ewWaitUntilTerminated,
+			ResultCode);
+	end
+	else
+	begin
+		Result := ShellExec(
+			'',
+			prod.File,
+			prod.Parameters,
+			'',
+			SW_SHOWNORMAL,
+			ewWaitUntilTerminated,
+			ResultCode);
 	end;
 end;
 
-function PendingReboot : boolean;
-var	names: String;
+
+function PendingReboot: Boolean;
+var
+	names: String;
 begin
-	if (RegQueryMultiStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager', 'PendingFileRenameOperations', names)) then begin
-		Result := true;
-	end else if ((RegQueryMultiStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager', 'SetupExecute', names)) and (names <> ''))  then begin
-		Result := true;
-	end else begin
-		Result := false;
+	if RegQueryMultiStringValue(
+		HKEY_LOCAL_MACHINE,
+		'SYSTEM\CurrentControlSet\Control\Session Manager',
+		'PendingFileRenameOperations',
+		names) then
+	begin
+		Result := True;
+	end
+	else if
+		RegQueryMultiStringValue(
+			HKEY_LOCAL_MACHINE,
+			'SYSTEM\CurrentControlSet\Control\Session Manager',
+			'SetupExecute',
+			names) and
+		(names <> '') then
+	begin
+		Result := True;
+	end
+	else
+	begin
+		Result := False;
 	end;
 end;
+
 
 function InstallProducts: InstallResult;
 var
@@ -218,152 +263,227 @@ begin
 	Result := InstallSuccessful;
 	productCount := GetArrayLength(products);
 
-	if productCount > 0 then begin
-		DependencyPage := CreateOutputProgressPage(CustomMessage('depinstall_title'), CustomMessage('depinstall_description'));
+	if productCount > 0 then
+	begin
+		DependencyPage := CreateOutputProgressPage(
+			CustomMessage('depinstall_title'),
+			CustomMessage('depinstall_description'));
 		DependencyPage.Show;
 
-		for i := 0 to productCount - 1 do begin
-			if (products[i].InstallClean and (delayedReboot or PendingReboot())) then begin
+		for i := 0 to productCount - 1 do
+		begin
+			if products[i].InstallClean and
+				(delayedReboot or PendingReboot()) then
+			begin
 				Result := InstallRebootRequired;
 				break;
 			end;
 
-			DependencyPage.SetText(FmtMessage(CustomMessage('depinstall_status'), [products[i].Title]), '');
+			DependencyPage.SetText(
+				FmtMessage(
+					CustomMessage('depinstall_status'), [products[i].Title]),
+				'');
 			DependencyPage.SetProgress(i, productCount);
 
-			if SmartExec(products[i], ResultCode) then begin
-				if (products[i].MustRebootAfter) then begin
-					if (i = productCount - 1) then begin
-						delayedReboot := true;
-					end else begin
+			if SmartExec(products[i], ResultCode) then
+			begin
+				if products[i].MustRebootAfter then
+				begin
+					if i = productCount - 1 then
+					begin
+						delayedReboot := True;
+					end
+					else
+					begin
 						Result := InstallRebootRequired;
 					end;
+
 					break;
-				end else if (ResultCode = 0) then begin
+				end
+				else if ResultCode = 0 then
+				begin
 					finishCount := finishCount + 1;
-				end else if (ResultCode = 3010) then begin
-					delayedReboot := true;
+				end
+				else if ResultCode = 3010 then
+				begin
+					delayedReboot := True;
 					finishCount := finishCount + 1;
-				end else begin
+				end
+				else
+				begin
 					Result := InstallSuccessful;
 					break;
 				end;
-			end else begin
+			end
+			else
+			begin
 				Result := InstallSuccessful;
 				break;
 			end;
 		end;
 
-		for i := 0 to productCount - finishCount - 1 do begin
-			products[i] := products[i+finishCount];
+		for i := 0 to productCount - finishCount - 1 do
+		begin
+			products[i] := products[i + finishCount];
 		end;
-		SetArrayLength(products, productCount - finishCount);
 
+		SetArrayLength(products, productCount - finishCount);
 		DependencyPage.Hide;
 	end;
 end;
 
-function PrepareToInstall(var NeedsRestart: boolean): String;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
 	i: Integer;
-	s: string;
+	s: String;
 begin
-	delayedReboot := false;
+	delayedReboot := False;
 
 	case InstallProducts() of
-		InstallError: begin
-			s := CustomMessage('depinstall_error');
+		InstallError:
+			begin
+				s := CustomMessage('depinstall_error');
 
-			for i := 0 to GetArrayLength(products) - 1 do begin
-				s := s + #13 + '	' + products[i].Title;
+				for i := 0 to GetArrayLength(products) - 1 do
+				begin
+					s := s + #13 + '	' + products[i].Title;
+				end;
+
+				Result := s;
 			end;
 
-			Result := s;
-			end;
-		InstallRebootRequired: begin
-			Result := products[0].Title;
-			NeedsRestart := true;
+		InstallRebootRequired:
+			begin
+				Result := products[0].Title;
+				NeedsRestart := True;
 
-			RegWriteStringValue(HKEY_CURRENT_USER, 'SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce', 'InstallBootstrap', ExpandConstant('{srcexe}'));
+				RegWriteStringValue(
+					HKEY_CURRENT_USER,
+					'SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce',
+					'InstallBootstrap',
+					ExpandConstant('{srcexe}'));
 			end;
 	end;
 end;
 
-function NeedRestart : boolean;
+
+function NeedRestart: Boolean;
 begin
-	if (delayedReboot) then
-		Result := true;
+	if delayedReboot then
+		Result := True;
 end;
 
-function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo, MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
+
+function UpdateReadyMemo(
+	Space,
+	NewLine,
+	MemoUserInfoInfo,
+	MemoDirInfo,
+	MemoTypeInfo,
+	MemoComponentsInfo,
+	MemoGroupInfo,
+	MemoTasksInfo: String): String;
 var
-	s: string;
+	s: String;
 begin
 	if downloadMemo <> '' then
-		s := s + CustomMessage('depdownload_memo_title') + ':' + NewLine + FmtMessage(downloadMemo, [Space]) + NewLine;
-	if installMemo <> '' then
-		s := s + CustomMessage('depinstall_memo_title') + ':' + NewLine + FmtMessage(installMemo, [Space]) + NewLine;
+	begin
+		s :=
+			s + CustomMessage('depdownload_memo_title') + ':' +
+			NewLine + FmtMessage(downloadMemo, [Space]) + NewLine;
+	end;
 
-	s := s + MemoDirInfo + NewLine + NewLine + MemoGroupInfo
+	if installMemo <> '' then
+	begin
+		s :=
+			s + CustomMessage('depinstall_memo_title') + ':' +
+			NewLine + FmtMessage(installMemo, [Space]) + NewLine;
+	end;
+
+	s := s + MemoDirInfo + NewLine + NewLine + MemoGroupInfo;
 
 	if MemoTasksInfo <> '' then
 		s := s + NewLine + NewLine + MemoTasksInfo;
 
-	Result := s
+	Result := s;
 end;
 
-function NextButtonClick(CurPageID: Integer): boolean;
-begin
-	Result := true;
 
-	if CurPageID = wpReady then begin
-		if downloadMemo <> '' then begin
-			if (ActiveLanguage() <> 'en') then begin
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+	Result := True;
+
+	if CurPageID = wpReady then
+	begin
+		if downloadMemo <> '' then
+		begin
+			if ActiveLanguage() <> 'en' then
+			begin
 				ExtractTemporaryFile(CustomMessage('isxdl_langfile'));
-				isxdl_SetOption('language', ExpandConstant('{tmp}{\}') + CustomMessage('isxdl_langfile'));
+				isxdl_SetOption(
+					'language',
+					ExpandConstant('{tmp}{\}') +
+						CustomMessage('isxdl_langfile'));
 			end;
 
-			if SuppressibleMsgBox(FmtMessage(CustomMessage('depdownload_msg'), [downloadMessage]), mbConfirmation, MB_YESNO, IDYES) = IDNO then
-				Result := false
-			else if isxdl_DownloadFiles(StrToInt(ExpandConstant('{wizardhwnd}'))) = 0 then
-				Result := false;
+			if SuppressibleMsgBox(
+				FmtMessage(
+					CustomMessage('depdownload_msg'), [downloadMessage]),
+				mbConfirmation,
+				MB_YESNO,
+				IDYES) = IDNO then
+			begin
+				Result := False;
+			end
+			else if
+				isxdl_DownloadFiles(
+					StrToInt(ExpandConstant('{wizardhwnd}'))) = 0 then
+			begin
+				Result := False;
+			end;
 		end;
 	end;
 end;
 
-function IsX86: boolean;
+
+function IsX86: Boolean;
 begin
-	Result := (ProcessorArchitecture = paX86) or (ProcessorArchitecture = paUnknown);
+	Result :=
+		(ProcessorArchitecture = paX86) or
+		(ProcessorArchitecture = paUnknown);
 end;
 
-function IsX64: boolean;
+
+function IsX64: Boolean;
 begin
-	Result := Is64BitInstallMode and (ProcessorArchitecture = paX64);
+	Result :=
+		Is64BitInstallMode and
+		(ProcessorArchitecture = paX64);
 end;
 
-function IsIA64: boolean;
-begin
-	Result := Is64BitInstallMode and (ProcessorArchitecture = paIA64);
-end;
 
-function GetString(x86, x64, ia64: String): String;
+function GetString(x86, x64: String): String;
 begin
-	if IsX64() and (x64 <> '') then begin
+	if IsX64() and (x64 <> '') then
+	begin
 		Result := x64;
-	end else if IsIA64() and (ia64 <> '') then begin
-		Result := ia64;
-	end else begin
+	end
+	else
+	begin
 		Result := x86;
 	end;
 end;
 
-function GetArchitectureString(): String;
+
+function GetArchitectureString: String;
 begin
-	if IsX64() then begin
+	if IsX64() then
+	begin
 		Result := '_x64';
-	end else if IsIA64() then begin
-		Result := '_ia64';
-	end else begin
+	end
+	else
+	begin
 		Result := '';
 	end;
 end;

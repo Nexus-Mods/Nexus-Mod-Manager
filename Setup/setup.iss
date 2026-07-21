@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'NMM'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.91.0'
+#define MyAppVersion '0.91.5'
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'DuskDweller'
 
@@ -17,7 +17,7 @@ AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppSetupName} {#MyAppVersion}
-AppCopyright=Copyright � {#MyPublisher} 2019-2022
+AppCopyright=Copyright � {#MyPublisher} 2019-2026
 VersionInfoVersion={#MyAppVersion}
 VersionInfoCompany={#MyPublisher}
 AppPublisher={#MyPublisher}
@@ -48,10 +48,10 @@ ChangesAssociations=true
 LicenseFile=..\Stage\Release\data\License.rtf
 InfoBeforeFile=..\Stage\Release\data\NewVersionDisclaimer.rtf
 InfoAfterFile=..\Stage\Release\data\releasenotes.rtf
-MinVersion=0,6.0
+MinVersion=0,6.7
 PrivilegesRequired=admin
-ArchitecturesAllowed=x86 x64 ia64
-ArchitecturesInstallIn64BitMode=x64 ia64
+ArchitecturesAllowed=x86 x64 
+ArchitecturesInstallIn64BitMode=x64 
 AppMutex=Global\6af12c54-643b-4752-87d0-8335503010de
 
 [Languages]
