@@ -14,6 +14,9 @@ namespace Nexus.Client.ModManagement.UI
 
 	using DevExpress.LookAndFeel;
 	using DevExpress.Utils;
+	using DevExpress.XtraEditors.Controls;
+	using ButtonEdit = DevExpress.XtraEditors.ButtonEdit;
+	using TextEdit = DevExpress.XtraEditors.TextEdit;
 	using DevExpress.XtraEditors.Repository;
 	using DevExpress.XtraGrid;
 	using DevExpress.XtraGrid.Columns;
@@ -53,10 +56,8 @@ namespace Nexus.Client.ModManagement.UI
 		private Bitmap _inlineEditIcon;
 		private Bitmap _inlineAcceptIcon;
 		private Bitmap _inlineCancelIcon;
-		private Panel _renamePanel;
-		private TextBox _renameTextBox;
-		private Button _renameAcceptButton;
-		private Button _renameCancelButton;
+		private RepositoryItemButtonEdit _renameButtonEdit;
+		private Control _renameActiveEditor;
 		private ToolStripDropDownButton _displayButton;
 		private ToolStripDropDownButton _displayOptionsButton;
 		private ToolStripMenuItem _toggleColouredCategoriesMenuItem;
@@ -70,9 +71,9 @@ namespace Nexus.Client.ModManagement.UI
 		private IMod _renameMod;
 		private string _renameOriginalName;
 		private int _renameRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-		private int _hoveredModNameRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-		private Rectangle _hoveredModNameCellBounds = Rectangle.Empty;
-		private Rectangle _hoveredModNameIconBounds = Rectangle.Empty;
+		private bool _renamingModName;
+		private bool _cancelRenameEdit;
+		private bool _refreshAfterRename;
 		private bool _suppressNextDoubleClick;
 		private bool _updatingGridDisplayControls;
 		private bool _missingArchiveScanQueued;
@@ -191,6 +192,9 @@ namespace Nexus.Client.ModManagement.UI
 		private const int ModStatusIconSize = 20;
 		private const int InlineEditIconSize = 18;
 		private const int GridLayoutSaveDelayMs = 400;
+		private const string RenameButtonActionRename = "Rename";
+		private const string RenameButtonActionAccept = "Accept";
+		private const string RenameButtonActionCancel = "Cancel";
 		private static readonly string[] GridFontChoices = { "Segoe UI", "Corbel", "Calibri", "Tahoma", "Verdana" };
 		private static readonly string[] GridFontSizeChoices = { "8 pt", "9 pt", "10 pt", "11 pt", "12 pt" };
 		private static readonly string[] GridDensityChoices = { "Compact", "Comfortable", "Spacious" };
@@ -1269,9 +1273,10 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.OptionsView.EnableAppearanceEvenRow = true;
 			gridView.OptionsView.EnableAppearanceOddRow = true;
 
-			// Font resources are assigned once by ApplyGridFont().
-			gridView.OptionsBehavior.Editable = false;
-			gridView.OptionsBehavior.ReadOnly = true;
+			// Editing is enabled only so explicit mod renames can use a native cell editor.
+			gridView.OptionsBehavior.Editable = true;
+			gridView.OptionsBehavior.ReadOnly = false;
+			gridView.OptionsBehavior.EditorShowMode = EditorShowMode.Click;
 			gridView.OptionsSelection.MultiSelect = true;
 			gridView.OptionsSelection.MultiSelectMode = GridMultiSelectMode.RowSelect;
 			gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
@@ -1283,6 +1288,7 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.OptionsView.BestFitMaxRowCount = 50;
 			gridView.OptionsView.ColumnAutoWidth = false;
 			gridView.OptionsView.ShowAutoFilterRow = true;
+			gridView.OptionsView.ShowButtonMode = DevExpress.XtraGrid.Views.Base.ShowButtonModeEnum.ShowForFocusedRow;
 
 			gridControl.DataSource = _modList;
 
@@ -1294,6 +1300,9 @@ namespace Nexus.Client.ModManagement.UI
 			_lastFindPanelVisible = gridView.IsFindPanelVisible;
 			gridView.Layout += GridView_Layout;
 			gridView.CustomUnboundColumnData += GridView_CustomUnboundColumnData;
+			gridView.ShowingEditor += GridView_ShowingEditor;
+			gridView.ShownEditor += GridView_ShownEditor;
+			gridView.HiddenEditor += GridView_HiddenEditor;
 			gridView.RowCellStyle += GridView_RowCellStyle;
 			gridView.RowCellClick += GridView_RowCellClick;
 			gridView.DoubleClick += GridView_DoubleClick;
@@ -1308,9 +1317,6 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.GroupRowCollapsed += (s, e) => QueueGridLayoutSave();
 			gridView.ColumnWidthChanged += (s, e) => QueueGridLayoutSave();
 			gridView.EndSorting += GridView_EndSorting;
-			gridControl.MouseMove += GridControl_MouseMove;
-			gridControl.MouseLeave += GridControl_MouseLeave;
-			gridControl.MouseDown += GridControl_MouseDown;
 		}
 
 		private void GridView_Layout(object sender, EventArgs e)
@@ -1384,12 +1390,21 @@ namespace Nexus.Client.ModManagement.UI
 		}
 		private void BuildColumns()
 		{
-			AddCol(ColModStatus, "Status", HorzAlignment.Center, true); AddCol(ColModName, "MOD NAME", HorzAlignment.Default, true); AddCol(ColVersion, "VERSION", HorzAlignment.Center, false); AddCol(ColLastKnown, "LATEST", HorzAlignment.Center, false); AddCol(ColAuthor, "AUTHOR", HorzAlignment.Default, false); AddCol(ColCategory, "CATEGORY", HorzAlignment.Default, false); AddCol(ColInstallDate, "INSTALL DATE", HorzAlignment.Center, false); AddCol(ColDownloadDate, "DOWNLOAD DATE", HorzAlignment.Center, false); AddCol(ColDownloadId, "DOWNLOAD ID", HorzAlignment.Center, false);
+			AddCol(ColModStatus, "Status", HorzAlignment.Center, true); GridColumn modNameCol = AddCol(ColModName, "MOD NAME", HorzAlignment.Default, true); AddCol(ColVersion, "VERSION", HorzAlignment.Center, false); AddCol(ColLastKnown, "LATEST", HorzAlignment.Center, false); AddCol(ColAuthor, "AUTHOR", HorzAlignment.Default, false); AddCol(ColCategory, "CATEGORY", HorzAlignment.Default, false); AddCol(ColInstallDate, "INSTALL DATE", HorzAlignment.Center, false); AddCol(ColDownloadDate, "DOWNLOAD DATE", HorzAlignment.Center, false); AddCol(ColDownloadId, "DOWNLOAD ID", HorzAlignment.Center, false);
+			ConfigureModNameRenameColumn(modNameCol);
 			GridColumn endorsedCol = AddCol(ColEndorsed, "ENDORSED", HorzAlignment.Center, false); RepositoryItemPictureEdit picRepo = new RepositoryItemPictureEdit { ShowMenu = false, SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, NullText = "", }; endorsedCol.ColumnEdit = picRepo; gridControl.RepositoryItems.Add(picRepo);
 		}
 		private GridColumn AddCol(string field, string caption, HorzAlignment align, bool pin)
 		{
 			ColumnSizingDefinition sizing = GetColumnSizingDefinition(field); GridColumn col = new GridColumn { FieldName = field, Caption = caption, Width = sizing.DefaultWidth, Fixed = pin ? FixedStyle.Left : FixedStyle.None, UnboundType = field == ColEndorsed ? DevExpress.Data.UnboundColumnType.Object : DevExpress.Data.UnboundColumnType.String, OptionsColumn = { AllowEdit = false, AllowSort = DefaultBoolean.True, ReadOnly = true, FixedWidth = false }, AppearanceHeader = { TextOptions = { HAlignment = align } }, AppearanceCell = { TextOptions = { HAlignment = align } }, }; ApplyColumnSizingDefinition(col, sizing); if (field == ColInstallDate || field == ColDownloadDate) col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom; ApplyAutoFilterDefaults(col); gridView.Columns.Add(col); col.Visible = true; col.VisibleIndex = gridView.Columns.Count - 1; return col;
+		}
+
+		private void ConfigureModNameRenameColumn(GridColumn column)
+		{
+			if (column == null) return;
+			column.ColumnEdit = _renameButtonEdit;
+			column.OptionsColumn.AllowEdit = true;
+			column.OptionsColumn.ReadOnly = false;
 		}
 		private void ApplyAutoFilterDefaults()
 		{
@@ -1417,6 +1432,12 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void GridView_CustomUnboundColumnData(object sender, DevExpress.XtraGrid.Views.Base.CustomColumnDataEventArgs e)
 		{
+			if (e.IsSetData && e.Column.FieldName == ColModName)
+			{
+				CommitInlineRenameValue(e.ListSourceRowIndex, e.Value);
+				return;
+			}
+
 			if (!e.IsGetData) return;
 			int idx = e.ListSourceRowIndex;
 			if (idx < 0 || idx >= _modList.Count) return;
@@ -2524,40 +2545,40 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void InitializeInlineRenameEditor()
 		{
-			_renamePanel = new Panel
+			_renameButtonEdit = new RepositoryItemButtonEdit
 			{
-				Visible = false,
-				BorderStyle = BorderStyle.FixedSingle,
-				BackColor = SystemColors.Window,
+				AutoHeight = false,
 			};
-			_renameTextBox = new TextBox
-			{
-				BorderStyle = BorderStyle.None,
-				Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
-			};
-			_renameAcceptButton = CreateInlineRenameButton(GetInlineEditIcon(InlineEditGlyph.Accept), CommitInlineRename);
-			_renameCancelButton = CreateInlineRenameButton(GetInlineEditIcon(InlineEditGlyph.Cancel), CancelInlineRename);
-			_renameTextBox.KeyDown += RenameTextBox_KeyDown;
-			_renamePanel.Controls.Add(_renameTextBox);
-			_renamePanel.Controls.Add(_renameAcceptButton);
-			_renamePanel.Controls.Add(_renameCancelButton);
-			gridControl.Controls.Add(_renamePanel);
-			_renamePanel.BringToFront();
+			_renameButtonEdit.ButtonClick += RenameButtonEdit_ButtonClick;
+			ConfigureRenameEditorButtons(false);
+			gridControl.RepositoryItems.Add(_renameButtonEdit);
 		}
 
-		private Button CreateInlineRenameButton(Image image, EventHandler handler)
+		private void ConfigureRenameEditorButtons(bool editing)
 		{
-			var button = new Button
+			if (_renameButtonEdit == null) return;
+
+			_renameButtonEdit.Buttons.Clear();
+			_renameButtonEdit.TextEditStyle = editing ? TextEditStyles.Standard : TextEditStyles.DisableTextEditor;
+			if (editing)
 			{
-				FlatStyle = FlatStyle.Flat,
-				Image = image,
-				TabStop = false,
-				Width = InlineEditIconSize + 4,
-				Height = InlineEditIconSize + 4,
-				BackColor = Color.Transparent,
+				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Accept, RenameButtonActionAccept, "Accept rename"));
+				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Cancel, RenameButtonActionCancel, "Cancel rename"));
+			}
+			else
+			{
+				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Pencil, RenameButtonActionRename, "Rename mod"));
+			}
+		}
+
+		private EditorButton CreateRenameEditorButton(InlineEditGlyph glyph, string action, string toolTip)
+		{
+			var button = new EditorButton(ButtonPredefines.Glyph)
+			{
+				Tag = action,
+				ToolTip = toolTip,
 			};
-			button.FlatAppearance.BorderSize = 0;
-			button.Click += handler;
+			button.ImageOptions.Image = GetInlineEditIcon(glyph);
 			return button;
 		}
 
@@ -2572,177 +2593,218 @@ namespace Nexus.Client.ModManagement.UI
 
 			int sourceRow = gridView.GetDataSourceRowIndex(e.RowHandle);
 			IMod mod = sourceRow >= 0 && sourceRow < _modList.Count ? _modList[sourceRow] : null;
-			bool archiveMissing = IsModArchiveMissing(mod);
-			bool isRenameRow = _renamePanel?.Visible == true && e.RowHandle == _renameRowHandle;
-			bool isHoverRow = e.RowHandle == _hoveredModNameRowHandle;
-			if (!isHoverRow && !isRenameRow && !archiveMissing)
-			{
-				return;
-			}
+			if (!IsModArchiveMissing(mod)) return;
 
 			e.DefaultDraw();
-			if (isRenameRow)
-			{
-				e.Handled = true;
-				return;
-			}
-
-			int right = e.Bounds.Right - 5;
-			if (isHoverRow)
-			{
-				_hoveredModNameCellBounds = e.Bounds;
-				int iconSize = InlineEditIconSize;
-				int x = right - iconSize;
-				int y = e.Bounds.Top + (e.Bounds.Height - iconSize) / 2;
-				_hoveredModNameIconBounds = new Rectangle(x, y, iconSize, iconSize);
-				right = _hoveredModNameIconBounds.Left - 4;
-
-				using (var pen = new Pen(Color.FromArgb(180, 190, 205)))
-				{
-					var border = e.Bounds;
-					border.Width -= 1;
-					border.Height -= 1;
-					e.Graphics.DrawRectangle(pen, border);
-				}
-				e.Graphics.DrawImage(GetInlineEditIcon(InlineEditGlyph.Pencil), _hoveredModNameIconBounds);
-			}
-
-			if (archiveMissing)
-			{
-				Bitmap warningIcon = GetWarningIcon();
-				int x = right - warningIcon.Width;
-				int y = e.Bounds.Top + (e.Bounds.Height - warningIcon.Height) / 2;
-				e.Graphics.DrawImage(warningIcon, x, y, warningIcon.Width, warningIcon.Height);
-			}
-
+			Bitmap warningIcon = GetWarningIcon();
+			int x = e.Bounds.Right - warningIcon.Width - 5;
+			int y = e.Bounds.Top + (e.Bounds.Height - warningIcon.Height) / 2;
+			e.Graphics.DrawImage(warningIcon, x, y, warningIcon.Width, warningIcon.Height);
 			e.Handled = true;
 		}
 
-		private void GridControl_MouseMove(object sender, MouseEventArgs e)
-		{
-			if (_renamePanel?.Visible == true)
-			{
-				return;
-			}
-
-			var hit = gridView.CalcHitInfo(e.Location);
-			int newHover = hit.InRowCell && IsDataRowHandle(hit.RowHandle) && hit.Column?.FieldName == ColModName
-				? hit.RowHandle
-				: DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-			if (newHover != _hoveredModNameRowHandle)
-			{
-				int oldHover = _hoveredModNameRowHandle;
-				_hoveredModNameRowHandle = newHover;
-				_hoveredModNameCellBounds = Rectangle.Empty;
-				_hoveredModNameIconBounds = Rectangle.Empty;
-				if (oldHover >= 0) gridView.InvalidateRow(oldHover);
-				if (newHover >= 0) gridView.InvalidateRow(newHover);
-			}
-			gridControl.Cursor = _hoveredModNameIconBounds.Contains(e.Location) ? Cursors.Hand : Cursors.Default;
-		}
-
-		private void GridControl_MouseLeave(object sender, EventArgs e)
-		{
-			if (_renamePanel?.Visible == true) return;
-			int oldHover = _hoveredModNameRowHandle;
-			_hoveredModNameRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-			_hoveredModNameCellBounds = Rectangle.Empty;
-			_hoveredModNameIconBounds = Rectangle.Empty;
-			gridControl.Cursor = Cursors.Default;
-			if (oldHover >= 0) gridView.InvalidateRow(oldHover);
-		}
-
-		private void GridControl_MouseDown(object sender, MouseEventArgs e)
-		{
-			if (_renamePanel?.Visible == true)
-			{
-				if (!_renamePanel.Bounds.Contains(e.Location))
-				{
-					CommitInlineRename(sender, EventArgs.Empty);
-				}
-				return;
-			}
-
-			var hit = gridView.CalcHitInfo(e.Location);
-			if (hit.InRowCell && IsDataRowHandle(hit.RowHandle) && hit.Column?.FieldName == ColModName && _hoveredModNameIconBounds.Contains(e.Location))
-			{
-				StartInlineRename(hit.RowHandle, _hoveredModNameCellBounds);
-			}
-		}
-
-		private void StartInlineRename(int rowHandle, Rectangle cellBounds)
+		private bool StartInlineRename(int rowHandle)
 		{
 			int src = gridView.GetDataSourceRowIndex(rowHandle);
-			if (_viewModel == null || src < 0 || src >= _modList.Count || cellBounds.IsEmpty) return;
+			if (_viewModel == null || src < 0 || src >= _modList.Count) return false;
+
+			GridColumn column = gridView.Columns[ColModName];
+			if (column == null) return false;
 
 			_renameMod = _modList[src];
 			_renameOriginalName = _renameMod.ModName ?? string.Empty;
 			_renameRowHandle = rowHandle;
+			_renamingModName = true;
+			_cancelRenameEdit = false;
+			_refreshAfterRename = false;
 			_suppressNextDoubleClick = true;
+			gridControl.Cursor = Cursors.Default;
 
-			int panelHeight = Math.Max(24, cellBounds.Height - 2);
-			_renamePanel.Bounds = new Rectangle(cellBounds.Left + 1, cellBounds.Top + 1, Math.Max(150, cellBounds.Width - 2), panelHeight);
-			int buttonSize = Math.Min(panelHeight - 2, InlineEditIconSize + 4);
-			_renameAcceptButton.SetBounds(_renamePanel.Width - buttonSize * 2 - 3, 1, buttonSize, buttonSize);
-			_renameCancelButton.SetBounds(_renamePanel.Width - buttonSize - 2, 1, buttonSize, buttonSize);
-			_renameTextBox.SetBounds(4, Math.Max(2, (panelHeight - _renameTextBox.PreferredHeight) / 2), _renamePanel.Width - buttonSize * 2 - 10, _renameTextBox.PreferredHeight);
-			_renameTextBox.Text = _renameOriginalName;
-			_renamePanel.Visible = true;
-			_renamePanel.BringToFront();
-			gridView.InvalidateRow(rowHandle);
-			_renameTextBox.Focus();
-			_renameTextBox.SelectAll();
+			ConfigureRenameEditorButtons(true);
+			gridView.MakeRowVisible(rowHandle, false);
+			gridView.FocusedRowHandle = rowHandle;
+			gridView.FocusedColumn = column;
+			gridView.ShowEditor();
+			if (gridView.ActiveEditor == null)
+			{
+				EndInlineRename();
+				return false;
+			}
+
+			return true;
 		}
 
-		private void RenameTextBox_KeyDown(object sender, KeyEventArgs e)
+		private void GridView_ShowingEditor(object sender, CancelEventArgs e)
 		{
+			if (gridView.FocusedRowHandle == DevExpress.XtraGrid.GridControl.AutoFilterRowHandle)
+			{
+				e.Cancel = false;
+				return;
+			}
+
+			if (gridView.FocusedColumn == null || gridView.FocusedColumn.FieldName != ColModName || !IsDataRowHandle(gridView.FocusedRowHandle))
+			{
+				e.Cancel = true;
+				return;
+			}
+
+			e.Cancel = _renamingModName && gridView.FocusedRowHandle != _renameRowHandle;
+		}
+
+		private void GridView_ShownEditor(object sender, EventArgs e)
+		{
+			_renameActiveEditor = gridView.ActiveEditor as Control;
+			if (_renameActiveEditor != null)
+				_renameActiveEditor.KeyDown += RenameEditor_KeyDown;
+
+			ButtonEdit buttonEdit = gridView.ActiveEditor as ButtonEdit;
+			if (!_renamingModName)
+			{
+				if (buttonEdit != null)
+					buttonEdit.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
+				return;
+			}
+
+			if (buttonEdit != null)
+			{
+				buttonEdit.Properties.TextEditStyle = TextEditStyles.Standard;
+				buttonEdit.Properties.Buttons.Clear();
+				buttonEdit.Properties.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Accept, RenameButtonActionAccept, "Accept rename"));
+				buttonEdit.Properties.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Cancel, RenameButtonActionCancel, "Cancel rename"));
+			}
+
+			TextEdit textEdit = gridView.ActiveEditor as TextEdit;
+			if (textEdit != null)
+				textEdit.SelectAll();
+		}
+
+		private void GridView_HiddenEditor(object sender, EventArgs e)
+		{
+			if (_renameActiveEditor != null)
+			{
+				_renameActiveEditor.KeyDown -= RenameEditor_KeyDown;
+				_renameActiveEditor = null;
+			}
+
+			if (!_renamingModName) return;
+
+			int rowHandle = _renameRowHandle;
+			bool refresh = _refreshAfterRename;
+			EndInlineRename();
+
+			if (refresh)
+				gridControl.RefreshDataSource();
+			if (rowHandle >= 0)
+				gridView.InvalidateRow(rowHandle);
+		}
+
+		private void RenameEditor_KeyDown(object sender, KeyEventArgs e)
+		{
+			if (!_renamingModName)
+			{
+				if (e.KeyCode == Keys.F2)
+				{
+					int rowHandle = GetKeyboardRenameRowHandle();
+					if (rowHandle >= 0)
+					{
+						e.Handled = true;
+						e.SuppressKeyPress = true;
+						gridView.HideEditor();
+						BeginInvoke((MethodInvoker)(() => StartInlineRename(rowHandle)));
+					}
+				}
+				else if (e.KeyCode == Keys.Escape)
+				{
+					e.Handled = true;
+					e.SuppressKeyPress = true;
+					gridView.HideEditor();
+				}
+				return;
+			}
+
 			if (e.KeyCode == Keys.Enter)
 			{
 				e.Handled = true;
 				e.SuppressKeyPress = true;
-				CommitInlineRename(sender, EventArgs.Empty);
+				CommitActiveInlineRename();
 			}
 			else if (e.KeyCode == Keys.Escape)
 			{
 				e.Handled = true;
 				e.SuppressKeyPress = true;
-				CancelInlineRename(sender, EventArgs.Empty);
+				CancelActiveInlineRename();
 			}
 		}
 
-		private void CommitInlineRename(object sender, EventArgs e)
+		private void RenameButtonEdit_ButtonClick(object sender, ButtonPressedEventArgs e)
 		{
-			if (_renamePanel?.Visible != true) return;
-			string newName = (_renameTextBox.Text ?? string.Empty).Trim();
-			IMod mod = _renameMod;
-			int rowHandle = _renameRowHandle;
-			HideInlineRenameEditor();
+			string action = e.Button.Tag as string;
+			if (String.Equals(action, RenameButtonActionAccept, StringComparison.Ordinal))
+			{
+				CommitActiveInlineRename();
+				return;
+			}
 
+			if (String.Equals(action, RenameButtonActionCancel, StringComparison.Ordinal))
+			{
+				CancelActiveInlineRename();
+				return;
+			}
+
+			if (String.Equals(action, RenameButtonActionRename, StringComparison.Ordinal))
+			{
+				int rowHandle = gridView.FocusedRowHandle;
+				gridView.HideEditor();
+				BeginInvoke((MethodInvoker)(() => StartInlineRename(rowHandle)));
+			}
+		}
+
+		private void CommitActiveInlineRename()
+		{
+			if (!_renamingModName) return;
+			gridView.PostEditor();
+			gridView.CloseEditor();
+		}
+
+		private void CancelActiveInlineRename()
+		{
+			if (!_renamingModName) return;
+			_cancelRenameEdit = true;
+			gridView.HideEditor();
+		}
+
+		private void CommitInlineRenameValue(int listSourceRowIndex, object value)
+		{
+			if (!_renamingModName || _cancelRenameEdit) return;
+
+			IMod mod = _renameMod;
+			if (mod == null && listSourceRowIndex >= 0 && listSourceRowIndex < _modList.Count)
+				mod = _modList[listSourceRowIndex];
+
+			string newName = (value == null ? string.Empty : value.ToString()).Trim();
 			if (mod != null && !string.IsNullOrEmpty(newName) &&
 				!string.Equals(newName, _renameOriginalName, StringComparison.Ordinal))
 			{
 				_viewModel.UpdateModName(mod, newName);
-				gridControl.RefreshDataSource();
+				_refreshAfterRename = true;
 			}
-			if (rowHandle >= 0) gridView.InvalidateRow(rowHandle);
 		}
 
-		private void CancelInlineRename(object sender, EventArgs e)
+		private void EndInlineRename()
 		{
-			int rowHandle = _renameRowHandle;
-			HideInlineRenameEditor();
-			if (rowHandle >= 0) gridView.InvalidateRow(rowHandle);
-		}
+			if (_renameActiveEditor != null)
+			{
+				_renameActiveEditor.KeyDown -= RenameEditor_KeyDown;
+				_renameActiveEditor = null;
+			}
 
-		private void HideInlineRenameEditor()
-		{
-			_renamePanel.Visible = false;
 			_renameMod = null;
 			_renameOriginalName = null;
 			_renameRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-			_hoveredModNameRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-			_hoveredModNameCellBounds = Rectangle.Empty;
-			_hoveredModNameIconBounds = Rectangle.Empty;
+			_renamingModName = false;
+			_cancelRenameEdit = false;
+			_refreshAfterRename = false;
+			ConfigureRenameEditorButtons(false);
 			gridControl.Cursor = Cursors.Default;
 		}
 
@@ -2819,10 +2881,11 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			return bmp;
 		}
+
 		private void GridView_DoubleClick(object sender, EventArgs e)
 		{
 			if (_suppressNextDoubleClick) { _suppressNextDoubleClick = false; return; }
-			if (_renamePanel?.Visible == true) return;
+			if (_renamingModName) return;
 
 			var info = gridView.CalcHitInfo(gridView.GridControl.PointToClient(Control.MousePosition));
 			if (info.HitTest == GridHitTest.ColumnEdge && info.Column != null)
@@ -2837,8 +2900,8 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void GridView_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (_renamePanel?.Visible == true) return;
-			if (e.KeyCode == Keys.F2 && TryStartHoveredModNameRename()) { e.Handled = true; return; }
+			if (_renamingModName) return;
+			if (e.KeyCode == Keys.F2 && TryStartModNameRenameFromKeyboard()) { e.Handled = true; return; }
 			if (e.KeyCode == Keys.Return) { e.Handled = true; ToggleSelectedMod(); return; }
 			if (e.KeyCode == Keys.Delete) { e.Handled = true; DeleteSelectedModsFromKey(); return; }
 			if (e.KeyData == (Keys.Control | Keys.F)) { SetTextBoxFocus?.Invoke(this, e); return; }
@@ -2863,27 +2926,54 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		private bool TryStartModNameRenameFromKeyboard()
+		{
+			int rowHandle = GetKeyboardRenameRowHandle();
+			return rowHandle >= 0 && StartInlineRename(rowHandle);
+		}
+
+		private int GetKeyboardRenameRowHandle()
+		{
+			int rowHandle = GetSelectedModNameRowHandle();
+			return rowHandle >= 0 ? rowHandle : GetHoveredModNameRowHandle();
+		}
+
+		private int GetSelectedModNameRowHandle()
+		{
+			int[] rows = gridView.GetSelectedRows();
+			if (rows == null || rows.Length == 0)
+				return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+
+			int focusedRowHandle = gridView.FocusedRowHandle;
+			foreach (int rowHandle in rows)
+			{
+				if (rowHandle == focusedRowHandle && IsDataRowHandle(rowHandle))
+					return rowHandle;
+			}
+
+			foreach (int rowHandle in rows)
+			{
+				if (IsDataRowHandle(rowHandle))
+					return rowHandle;
+			}
+
+			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+		}
+
 		private bool TryStartHoveredModNameRename()
+		{
+			int rowHandle = GetHoveredModNameRowHandle();
+			return rowHandle >= 0 && StartInlineRename(rowHandle);
+		}
+
+		private int GetHoveredModNameRowHandle()
 		{
 			Point clientPoint = gridControl.PointToClient(Control.MousePosition);
 			var hit = gridView.CalcHitInfo(clientPoint);
 			if (!hit.InRowCell || !IsDataRowHandle(hit.RowHandle) || hit.Column == null || hit.Column.FieldName != ColModName)
-				return false;
+				return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
 
-			Rectangle cellBounds = _hoveredModNameCellBounds;
-			if (cellBounds.IsEmpty || !cellBounds.Contains(clientPoint))
-			{
-				GridViewInfo viewInfo = gridView.GetViewInfo() as GridViewInfo;
-				GridCellInfo cellInfo = viewInfo?.GetGridCellInfo(hit.RowHandle, hit.Column);
-				if (cellInfo != null)
-					cellBounds = cellInfo.Bounds;
-			}
-
-			if (cellBounds.IsEmpty)
-				return false;
-
-			StartInlineRename(hit.RowHandle, cellBounds);
-			return true;
+			return hit.RowHandle;
 		}
 
 		private void DeleteSelectedModsFromKey()
