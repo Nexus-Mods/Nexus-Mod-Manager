@@ -106,16 +106,16 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 
-				var lstCategories = ModRepository.GetCategories(ModRepository.GameDomainName);
+				List<CategoriesInfo> lstCategories = ModRepository.GetCategories(ModRepository.GameDomainName);
 
-				var i = 1;
+				int i = 0;
 
                 if (lstCategories.Count > 0)
 				{
 					foreach(var category in lstCategories)
 					{
-						OverallMessage = "Saving the categories list... " + i + "/" + lstCategories.Count();
-						StepOverallProgress();
+						OverallMessage = "Saving the categories list... " + ++i + "/" + lstCategories.Count();
+						
 
 						var modCategory = CategoryManager.FindCategory(category.Id);
 						if (modCategory != null && modCategory.Id != 0)
@@ -127,6 +127,8 @@ namespace Nexus.Client.ModManagement
                             CategoryManager.AddCategory(new ModCategory(category.Id, category.Name, category.Name));
                         }
                     }
+
+					StepOverallProgress();
 				}
 			}
 			catch (Exception ex)
