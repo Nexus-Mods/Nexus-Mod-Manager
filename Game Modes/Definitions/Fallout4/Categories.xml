@@ -1,6 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <categoryManager fileVersion="0.1.0.0">
   <categoryList>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
     <category path="Ammo" ID="3">
       <name>Ammo</name>
     </category>
@@ -25,9 +28,9 @@
     <category path="Bug Fixes" ID="6">
       <name>Bug Fixes</name>
     </category>
-	<category path="Buildings" ID="7">
-		<name>Buildings</name>
-	</category>
+    <category path="Buildings" ID="7">
+      <name>Buildings</name>
+    </category>
     <category path="Cheats and God items" ID="8">
       <name>Cheats and God items</name>
     </category>
@@ -46,8 +49,8 @@
     <category path="Crafting - Equipment" ID="44">
       <name>Crafting - Equipment</name>
     </category>
-    <category path="Crafting - Home" ID="45">
-      <name>Crafting - Home</name>
+    <category path="Crafting - Home/Settlement" ID="45">
+      <name>Crafting - Home/Settlement</name>
     </category>
     <category path="Crafting - Other" ID="50">
       <name>Crafting - Other</name>
@@ -64,17 +67,17 @@
     <category path="Factions" ID="16">
       <name>Factions</name>
     </category>
-    <category path="Gameplay Effects and Changes" ID="15">
-      <name>Gameplay Effects and Changes</name>
+    <category path="Gameplay" ID="15">
+      <name>Gameplay</name>
     </category>
-    <category path="Hair, Face, and Body" ID="17">
-      <name>Hair, Face, and Body</name>
+    <category path="Body, Face, and Hair" ID="17">
+      <name>Body, Face, and Hair</name>
     </category>
     <category path="Immersion" ID="51">
       <name>Immersion</name>
     </category>
-    <category path="Items - Food/Drinks/Chems/etc" ID="43">
-      <name>Items - Food/Drinks/Chems/etc</name>
+    <category path="Items (Food, Drinks, Chems, etc)" ID="43">
+      <name>Items (Food, Drinks, Chems, etc)</name>
     </category>
     <category path="Locations - New" ID="21">
       <name>Locations - New</name>
@@ -100,28 +103,28 @@
     <category path="NPC - Vendors" ID="23">
       <name>NPC - Vendors</name>
     </category>
-	<category path="Overhauls" ID="24">
-		<name>Overhauls</name>
-	</category>
-	<category path="Patches" ID="25">
-		<name>Patches</name>
-	</category>
+    <category path="Overhauls" ID="24">
+      <name>Overhauls</name>
+    </category>
+    <category path="Patches" ID="25">
+      <name>Patches</name>
+    </category>
     <category path="Performance" ID="26">
       <name>Performance</name>
     </category>
-	<category path="Perks" ID="27">
+    <category path="Perks" ID="27">
       <name>Perks</name>
     </category>
-   <category path="Pip-boy" ID="52">
-      <name>Pip-boy</name>
-   </category>
-	<category path="Player Homes" ID="28">
+    <category path="Pip-Boy" ID="52">
+      <name>Pip-Boy</name>
+    </category>
+    <category path="Player Homes" ID="28">
       <name>Player Homes</name>
     </category>
-	<category path="Player Settlement" ID="48">
-		<name>Player Settlement</name>
-	</category>
-	<category path="Poses" ID="29">
+    <category path="Player Settlement" ID="48">
+      <name>Player Settlement</name>
+    </category>
+    <category path="Poses" ID="29">
       <name>Poses</name>
     </category>
     <category path="Power Armour" ID="53">
@@ -136,8 +139,8 @@
     <category path="ReShade Presets" ID="55">
       <name>ReShade Presets</name>
     </category>
-    <category path="Save Games" ID="32">
-      <name>Save Games</name>
+    <category path="Saved Games" ID="32">
+      <name>Saved Games</name>
     </category>
     <category path="Skills and Leveling" ID="46">
       <name>Skills and Leveling</name>
@@ -163,8 +166,29 @@
     <category path="Weapons and Armour" ID="42">
       <name>Weapons and Armour</name>
     </category>
-    <category path="Weather" ID="56">
-      <name>Weather</name>
+    <category path="Weather and Lighting" ID="56">
+      <name>Weather and Lighting</name>
+    </category>
+    <category path="Fallout 4" ID="1">
+      <name>Fallout 4</name>
+    </category>
+    <category path="Character Presets" ID="58">
+      <name>Character Presets</name>
+    </category>
+    <category path="Videos and Trailers" ID="59">
+      <name>Videos and Trailers</name>
+    </category>
+    <category path="Transfer Settlement Blueprints" ID="61">
+      <name>Transfer Settlement Blueprints</name>
+    </category>
+    <category path="VR" ID="62">
+      <name>VR</name>
+    </category>
+    <category path="Sim Settlements" ID="63">
+      <name>Sim Settlements</name>
+    </category>
+    <category path="Sim Settlements 2" ID="68">
+      <name>Sim Settlements 2</name>
     </category>
   </categoryList>
 </categoryManager>
