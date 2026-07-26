@@ -8,7 +8,7 @@
 
 #define MyAppSetupName 'NMM'
 #define MyExeName 'NexusClient.exe'
-#define MyAppVersion '0.91.6'
+#define MyAppVersion '0.91.7'
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'DuskDweller'
 
@@ -48,7 +48,7 @@ ChangesAssociations=true
 LicenseFile=..\Stage\Release\data\License.rtf
 InfoBeforeFile=..\Stage\Release\data\NewVersionDisclaimer.rtf
 InfoAfterFile=..\Stage\Release\data\releasenotes.rtf
-MinVersion=0,6.7
+MinVersion=0,6.1
 PrivilegesRequired=admin
 ArchitecturesAllowed=x86 x64 
 ArchitecturesInstallIn64BitMode=x64 
