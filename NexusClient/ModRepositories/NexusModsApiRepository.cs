@@ -75,6 +75,30 @@
 
 		private readonly ApiCallManager _apiCallManager;
 
+		private enum ModHashLookupStatus
+		{
+			Match,
+			NoMatch,
+			CannotHash,
+			RequestFailed,
+			RateLimitExceeded
+		}
+
+		private sealed class ModHashLookupOutcome
+		{
+			public ModHashLookupOutcome(
+			 ModHashLookupStatus status,
+			 ModHashResult result = null)
+			{
+				Status = status;
+				Result = result;
+			}
+
+			public ModHashLookupStatus Status { get; }
+
+			public ModHashResult Result { get; }
+		}
+
 		/// <summary>
 		/// Creates a new instance of the <see cref="NexusModsApiRepository"/>.
 		/// </summary>
@@ -135,88 +159,323 @@
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
+		/// <inheritdoc cref="IModRepository"/>
 		public IModInfo GetModInfoForFile(string fileName)
 		{
-            try
-            {
-                var hashResult = GetModHashResultForFile(fileName);
+			try
+			{
+				var hashLookup =
+				 GetModHashLookupForFile(fileName);
 
-                if (hashResult?.Mod == null)
-                {
-                    var parsedModId = ParseModIdFromFilename(fileName);
+				if (hashLookup.Status ==
+				  ModHashLookupStatus.Match &&
+				 hashLookup.Result?.Mod != null)
+				{
+					var hashModInfo =
+					 CreateModInfoFromHashResult(
+					  hashLookup.Result);
 
-                    if (string.IsNullOrEmpty(parsedModId))
-                    {
-                        return null;
-                    }
+					TraceModRecognition(
+					 fileName,
+					 "MD5",
+					 "Match",
+					 hashModInfo);
 
-                    var parsedModInfo = GetModInfo(parsedModId);
-                    var parsedFileInfo = GetFileInfoForFile(fileName);
+					return hashModInfo;
+				}
 
-                    return parsedFileInfo == null ? parsedModInfo : AutoTagger.CombineInfo(parsedModInfo, parsedFileInfo);
-                }
+				/*
+				 * Do not issue additional Nexus API calls after
+				 * the request limit has been exceeded.
+				 */
+				if (hashLookup.Status ==
+				 ModHashLookupStatus.RateLimitExceeded)
+				{
+					TraceModRecognition(
+					 fileName,
+					 "MD5",
+					 "RateLimitExceeded",
+					 null);
 
-                var modInfo = new ModInfo(hashResult.Mod);
+					return null;
+				}
 
-                if (hashResult.File != null)
-                {
-                    modInfo.DownloadId = hashResult.File.FileID.ToString();
-                    modInfo.FileName = hashResult.File.FileName;
+				/*
+				 * These conditions proceed to legacy recognition:
+				 *
+				 * - Nexus returned no MD5 match.
+				 * - The archive does not exist or cannot be read.
+				 * - The MD5 endpoint failed without reporting a
+				 *   rate-limit condition.
+				 */
+				if (string.IsNullOrWhiteSpace(fileName))
+				{
+					TraceModRecognition(
+					 fileName,
+					 "FilenameFallback",
+					 "InvalidFilename",
+					 null);
 
-                    if (!string.IsNullOrWhiteSpace(hashResult.File.ModVersion))
-                    {
-                        modInfo.HumanReadableVersion = hashResult.File.ModVersion;
-                    }
-                }
+					return null;
+				}
 
-                return modInfo;
-            }
-            catch (AggregateException a)
-            {
-                ReactToAggregateException(a);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                TraceUtil.TraceException(ex);
-                return null;
-            }
+				var parsedModId =
+				 ParseModIdFromFilename(fileName);
+
+				if (string.IsNullOrEmpty(parsedModId))
+				{
+					TraceModRecognition(
+					 fileName,
+					 "FilenameFallback",
+					 hashLookup.Status.ToString(),
+					 null);
+
+					return null;
+				}
+
+				var parsedModInfo =
+				 GetModInfo(parsedModId);
+
+				if (parsedModInfo == null)
+				{
+					TraceModRecognition(
+					 fileName,
+					 "FilenameFallback",
+					 "ModNotFound",
+					 null);
+
+					return null;
+				}
+
+				/*
+				 * This helper performs filename matching only.
+				 * It does not calculate or search the MD5 again.
+				 */
+				var parsedFileInfo =
+				 GetFileInfoByFilename(
+				  fileName,
+				  parsedModId);
+
+				var result = parsedFileInfo == null
+				 ? parsedModInfo
+				 : AutoTagger.CombineInfo(
+				  parsedModInfo,
+				  parsedFileInfo);
+
+				TraceModRecognition(
+				 fileName,
+				 "FilenameFallback",
+				 parsedFileInfo == null
+				  ? "ModMatch"
+				  : "ModAndFileMatch",
+				 result);
+
+				return result;
+			}
+			catch (AggregateException a)
+			{
+				ReactToAggregateException(a);
+				return null;
+			}
+			catch (Exception ex)
+			{
+				TraceUtil.TraceException(ex);
+				return null;
+			}
 		}
 
-        /// <inheritdoc cref="IModRepository"/>
-        public IModFileInfo GetModFileInfoForFile(string fileName)
-        {
-            try
-            {
-                var hashResult = GetModHashResultForFile(fileName);
-                return hashResult?.File == null ? null : new ModFileInfo(hashResult.File);
-            }
-            catch (AggregateException a)
-            {
-                ReactToAggregateException(a);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                TraceUtil.TraceException(ex);
-                return null;
-            }
-        }
+		/// <inheritdoc cref="IModRepository"/>
+		public IModFileInfo GetModFileInfoForFile(string fileName)
+		{
+			var hashLookup =
+			 GetModHashLookupForFile(fileName);
 
-        private ModHashResult GetModHashResultForFile(string fileName)
-        {
-            if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
-            {
-                return null;
-            }
+			return hashLookup.Status ==
+			  ModHashLookupStatus.Match &&
+			 hashLookup.Result?.File != null
+			  ? new ModFileInfo(
+			   hashLookup.Result.File)
+			  : null;
+		}
 
-            var hash = Md5.CalculateMd5(fileName);
-            var hashResults = _apiCallManager.Mods?.GetModsByFileHash(GameDomainName, hash)?.Result;
-            return hashResults?.FirstOrDefault(result => result?.Mod != null || result?.File != null);
-        }
+		private ModHashLookupOutcome GetModHashLookupForFile(string fileName)
+		{
+			if (string.IsNullOrWhiteSpace(fileName) ||
+			 !File.Exists(fileName))
+			{
+				return new ModHashLookupOutcome(
+				 ModHashLookupStatus.CannotHash);
+			}
 
-        /// <inheritdoc cref="IModRepository"/>
-        public IModInfo GetModInfo(string modId)
+			string hash;
+
+			try
+			{
+				hash = Md5.CalculateMd5(fileName);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning(
+				 "Could not calculate MD5 for mod " +
+				 "archive \"{0}\".",
+				 GetSafeFileName(fileName));
+
+				TraceUtil.TraceException(ex);
+
+				return new ModHashLookupOutcome(
+				 ModHashLookupStatus.CannotHash);
+			}
+
+			try
+			{
+				var hashResults =
+				 _apiCallManager.Mods?
+				  .GetModsByFileHash(
+				   GameDomainName,
+				   hash)?
+				  .Result;
+
+				var hashResult =
+				 hashResults?
+				  .FirstOrDefault(
+				   result =>
+					result?.Mod != null ||
+					result?.File != null);
+
+				return hashResult == null
+				 ? new ModHashLookupOutcome(
+				  ModHashLookupStatus.NoMatch)
+				 : new ModHashLookupOutcome(
+				  ModHashLookupStatus.Match,
+				  hashResult);
+			}
+			catch (AggregateException a)
+			{
+				TraceUtil.TraceAggregateException(a);
+
+				if (IsRateLimitException(a))
+				{
+					RateLimitExceeded?.Invoke(
+					 this,
+					 new RateLimitExceededArgs(
+					  RateLimit));
+
+					return new ModHashLookupOutcome(
+					 ModHashLookupStatus
+					  .RateLimitExceeded);
+				}
+
+				/*
+				 * This can represent an isolated failure of the
+				 * MD5 endpoint. GetModInfoForFile will continue
+				 * with filename/ID recognition.
+				 */
+				return new ModHashLookupOutcome(
+				 ModHashLookupStatus.RequestFailed);
+			}
+			catch (Exception ex)
+			{
+				TraceUtil.TraceException(ex);
+
+				return new ModHashLookupOutcome(
+				 ModHashLookupStatus.RequestFailed);
+			}
+		}
+
+		private static bool IsRateLimitException(AggregateException exception)
+		{
+			if (exception == null)
+			{
+				return false;
+			}
+
+			return exception
+			 .Flatten()
+			 .InnerExceptions
+			 .Any(
+			  innerException =>
+			  {
+				  if (innerException == null)
+				  {
+					  return false;
+				  }
+
+				  if (innerException.Message.IndexOf(
+		 "Too Many Requests",
+		 StringComparison
+		  .OrdinalIgnoreCase) >= 0)
+				  {
+					  return true;
+				  }
+
+				  var apiException =
+		innerException as
+		 Pathoschild.Http.Client
+		  .ApiException;
+
+				  return apiException != null &&
+		apiException.Status ==
+		 System.Net.HttpStatusCode
+		  .Forbidden &&
+		apiException.Message.IndexOf(
+		 "Mod not available",
+		 StringComparison
+		  .OrdinalIgnoreCase) < 0;
+			  });
+		}
+
+		private static IModInfo CreateModInfoFromHashResult(ModHashResult hashResult)
+		{
+			if (hashResult?.Mod == null)
+			{
+				return null;
+			}
+
+			var modInfo =
+			 new ModInfo(hashResult.Mod);
+
+			var fileInfo = hashResult.File == null
+			 ? null
+			 : new ModFileInfo(hashResult.File);
+
+			/*
+			 * This produces the same combined information the
+			 * previous AutoTagger path produced, without making
+			 * another MD5 request.
+			 */
+			return AutoTagger.CombineInfo(
+			 modInfo,
+			 fileInfo);
+		}
+
+		private static void TraceModRecognition(string fileName, string source, string status, IModInfo modInfo)
+		{
+			Trace.TraceInformation(
+			 "Get Mod Info: filename=\"{0}\", " +
+			 "source={1}, status={2}, " +
+			 "modId={3}, fileId={4}",
+			 GetSafeFileName(fileName),
+			 source ?? "unknown",
+			 status ?? "unknown",
+			 modInfo?.Id ?? "unknown",
+			 modInfo?.DownloadId ?? "unknown");
+		}
+
+		private static string GetSafeFileName(string fileName)
+		{
+			try
+			{
+				return Path.GetFileName(fileName) ??
+				 string.Empty;
+			}
+			catch (Exception)
+			{
+				return string.Empty;
+			}
+		}
+
+		/// <inheritdoc cref="IModRepository"/>
+		public IModInfo GetModInfo(string modId)
 		{
 			try
 			{
@@ -509,43 +768,134 @@
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
+		/// <inheritdoc cref="IModRepository"/>
 		public IModFileInfo GetFileInfoForFile(string fileName)
 		{
 			try
 			{
-				var hashFileInfo = GetModFileInfoForFile(fileName);
+				var hashLookup =
+				 GetModHashLookupForFile(fileName);
 
-                if (hashFileInfo != null)
-                {
-                    return hashFileInfo;
-                }
+				if (hashLookup.Status ==
+				  ModHashLookupStatus.Match &&
+				 hashLookup.Result?.File != null)
+				{
+					return new ModFileInfo(
+					 hashLookup.Result.File);
+				}
 
-				var modId = ParseModIdFromFilename(fileName);
-
-				if (modId == null)
+				if (hashLookup.Status ==
+				  ModHashLookupStatus
+				   .RateLimitExceeded ||
+				 string.IsNullOrWhiteSpace(fileName))
 				{
 					return null;
 				}
 
-				var filename = Path.GetFileName(fileName);
-				var files = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
-                var fileInfo = (((files.Find(x => string.Equals(x.FileName, filename, StringComparison.OrdinalIgnoreCase)) ??
-                               files.Find(x => string.Equals(x.Name, filename, StringComparison.OrdinalIgnoreCase))) ??
-                               files.Find(x => string.Equals(x.Name?.Replace(' ', '_'), filename, StringComparison.OrdinalIgnoreCase))) ??
-                               files.Find(x => string.Equals(x.Name?.Replace(' ', '-'), filename, StringComparison.OrdinalIgnoreCase)));
+				var modId =
+				 ParseModIdFromFilename(fileName);
 
-                return new ModFileInfo(fileInfo);
+				/*
+				 * This call does not calculate the MD5 again.
+				 */
+				return GetFileInfoByFilename(
+				 fileName,
+				 modId);
 			}
 			catch (AggregateException a)
 			{
 				ReactToAggregateException(a);
 				return null;
 			}
-            catch (Exception ex)
-            {
-                TraceUtil.TraceException(ex);
-                return null;
-            }
+			catch (Exception ex)
+			{
+				TraceUtil.TraceException(ex);
+				return null;
+			}
+		}
+
+		private IModFileInfo GetFileInfoByFilename(string fileName, string modId)
+		{
+			if (string.IsNullOrWhiteSpace(fileName) ||
+			 string.IsNullOrWhiteSpace(modId))
+			{
+				return null;
+			}
+
+			var filename =
+			 Path.GetFileName(fileName);
+
+			if (string.IsNullOrWhiteSpace(filename))
+			{
+				return null;
+			}
+
+			/*
+			 * Keep Old and Deleted in the requested categories.
+			 * This allows legacy matching for files that Nexus
+			 * still exposes but no longer lists as active files.
+			 */
+			var modFilesResult =
+			 _apiCallManager.ModFiles?
+			  .GetModFiles(
+			   GameDomainName,
+			   Convert.ToInt32(modId),
+			   FileCategory.Main,
+			   FileCategory.Miscellaneous,
+			   FileCategory.Optional,
+			   FileCategory.Update,
+			   FileCategory.Deleted,
+			   FileCategory.Old)
+			  .Result;
+
+			var files = modFilesResult?.Files;
+
+			if (files == null)
+			{
+				return null;
+			}
+
+			var fileInfo =
+			 files.Find(
+			  file => string.Equals(
+			   file.FileName,
+			   filename,
+			   StringComparison
+				.OrdinalIgnoreCase)) ??
+
+			 files.Find(
+			  file => string.Equals(
+			   file.Name,
+			   filename,
+			   StringComparison
+				.OrdinalIgnoreCase)) ??
+
+			 files.Find(
+			  file => string.Equals(
+			   file.Name?.Replace(
+				' ',
+				'_'),
+			   filename,
+			   StringComparison
+				.OrdinalIgnoreCase)) ??
+
+			 files.Find(
+			  file => string.Equals(
+			   file.Name?.Replace(
+				' ',
+				'-'),
+			   filename,
+			   StringComparison
+				.OrdinalIgnoreCase));
+
+			/*
+			 * The old code returned new ModFileInfo(null),
+			 * which produced a non-null object containing only
+			 * null properties. Return a real null on no match.
+			 */
+			return fileInfo == null
+			 ? null
+			 : new ModFileInfo(fileInfo);
 		}
 
 		/// <summary>
@@ -580,6 +930,12 @@
 				if (infoCandidate != null)
 				{
 					var files = GetModFileInfo(id);
+
+					if (files != null)
+					{
+						continue;
+					}
+
 					var bestFoundWordCount = 0;
 					var validWordCount = 0;
 
