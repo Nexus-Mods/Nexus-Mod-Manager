@@ -107,6 +107,7 @@
     "supportsGameRootInstall": true
   },
   "gamebryo": {
+		"archiveInvalidationProfile": "fallout3",
     "scriptExtenderExecutables": [
       "fose_loader.exe"
     ],

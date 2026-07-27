@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -30,7 +30,15 @@ namespace Nexus.Client.Games.DataDriven
             "nomanssky"
         };
 
-        private static readonly HashSet<string> ValidStores = new HashSet<string>(StringComparer.Ordinal)
+		private static readonly HashSet<string> ValidArchiveInvalidationProfiles = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"none",
+			"fallout3",
+			"falloutnv",
+			"oblivion"
+		};
+
+		private static readonly HashSet<string> ValidStores = new HashSet<string>(StringComparer.Ordinal)
         {
             "Steam",
             "GOG",
@@ -499,62 +507,262 @@ namespace Nexus.Client.Games.DataDriven
             ValidateExtensions(definition, definition.ModInstall.RealFileRequiredExtensions, "modInstall.realFileRequiredExtensions", issues);
         }
 
-        private void ValidateGamebryo(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
-        {
-            if (definition.Gamebryo == null)
-                return;
+		private void ValidateGamebryo(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
+		{
+			if (definition.Gamebryo == null)
+				return;
 
-            bool hasAny = definition.Gamebryo.ScriptExtenderExecutables != null ||
-                          definition.Gamebryo.ScriptExtenderAutoLoadFiles != null ||
-                          definition.Gamebryo.RequiresOptionalFilesCheckOnProfileSwitch.HasValue ||
-                          definition.Gamebryo.OptionalFileNamePrefixes != null ||
-                          !string.IsNullOrWhiteSpace(definition.Gamebryo.PostProfileSwitchToolPath) ||
-                          !string.IsNullOrWhiteSpace(definition.Gamebryo.PostProfileSwitchToolMessage) ||
-                          !string.IsNullOrWhiteSpace(definition.Gamebryo.UserGameDataPath) ||
-                          !string.IsNullOrWhiteSpace(definition.Gamebryo.IniFilePath) ||
-                          !string.IsNullOrWhiteSpace(definition.Gamebryo.RendererFilePath) ||
-                          !string.IsNullOrWhiteSpace(definition.Gamebryo.PluginsFilePath) ||
-                          (definition.Gamebryo.AdditionalSettingsFiles != null && definition.Gamebryo.AdditionalSettingsFiles.Count > 0);
-            if (!hasAny)
-                issues.Add(Error(definition, "gamebryo", "gamebryo must contain at least one setting."));
+			bool hasAny =
+				definition.Gamebryo.ScriptExtenderExecutables != null ||
+				definition.Gamebryo.ScriptExtenderAutoLoadFiles != null ||
+				definition.Gamebryo
+					.RequiresOptionalFilesCheckOnProfileSwitch
+					.HasValue ||
+				definition.Gamebryo.OptionalFileNamePrefixes != null ||
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.PostProfileSwitchToolPath) ||
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.PostProfileSwitchToolMessage) ||
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.UserGameDataPath) ||
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.IniFilePath) ||
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.RendererFilePath) ||
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.PluginsFilePath) ||
+				IsArchiveInvalidationConfigured(
+					definition.Gamebryo.ArchiveInvalidationProfile) ||
+				(definition.Gamebryo.AdditionalSettingsFiles != null &&
+				 definition.Gamebryo.AdditionalSettingsFiles.Count > 0);
 
-            ValidateExecutablePaths(definition, definition.Gamebryo.ScriptExtenderExecutables, "gamebryo.scriptExtenderExecutables", false, issues);
-            ValidateRelativePaths(definition, definition.Gamebryo.ScriptExtenderAutoLoadFiles, "gamebryo.scriptExtenderAutoLoadFiles", issues);
-            ValidateUniqueStrings(definition, definition.Gamebryo.OptionalFileNamePrefixes, "gamebryo.optionalFileNamePrefixes", issues, false);
-            ValidateOptionalPathTemplate(definition, definition.Gamebryo.PostProfileSwitchToolPath, "gamebryo.postProfileSwitchToolPath", issues);
+			if (!hasAny)
+			{
+				issues.Add(
+					Error(
+						definition,
+						"gamebryo",
+						"gamebryo must contain at least one setting."));
+			}
 
-            bool hasPostSwitchPath = !string.IsNullOrWhiteSpace(definition.Gamebryo.PostProfileSwitchToolPath);
-            bool hasPostSwitchMessage = !string.IsNullOrWhiteSpace(definition.Gamebryo.PostProfileSwitchToolMessage);
-            if (hasPostSwitchPath != hasPostSwitchMessage)
-            {
-                issues.Add(Error(
-                    definition,
-                    "gamebryo",
-                    "postProfileSwitchToolPath and postProfileSwitchToolMessage must be declared together."));
-            }
+			ValidateExecutablePaths(
+				definition,
+				definition.Gamebryo.ScriptExtenderExecutables,
+				"gamebryo.scriptExtenderExecutables",
+				false,
+				issues);
 
-            ValidateOptionalPathTemplate(definition, definition.Gamebryo.UserGameDataPath, "gamebryo.userGameDataPath", issues);
-            if (DataDrivenDefinitionRules.ContainsPlaceholder(definition.Gamebryo.UserGameDataPath, "{UserGameData}"))
-                issues.Add(Error(definition, "gamebryo.userGameDataPath", "userGameDataPath cannot reference {UserGameData} recursively."));
-            ValidateOptionalPathTemplate(definition, definition.Gamebryo.IniFilePath, "gamebryo.iniFilePath", issues);
-            ValidateOptionalPathTemplate(definition, definition.Gamebryo.RendererFilePath, "gamebryo.rendererFilePath", issues);
-            ValidateOptionalPathTemplate(definition, definition.Gamebryo.PluginsFilePath, "gamebryo.pluginsFilePath", issues);
+			ValidateRelativePaths(
+				definition,
+				definition.Gamebryo.ScriptExtenderAutoLoadFiles,
+				"gamebryo.scriptExtenderAutoLoadFiles",
+				issues);
 
-            if (definition.Gamebryo.AdditionalSettingsFiles != null)
-            {
-                if (definition.Gamebryo.AdditionalSettingsFiles.Count == 0)
-                    issues.Add(Error(definition, "gamebryo.additionalSettingsFiles", "additionalSettingsFiles cannot be empty when present."));
+			ValidateUniqueStrings(
+				definition,
+				definition.Gamebryo.OptionalFileNamePrefixes,
+				"gamebryo.optionalFileNamePrefixes",
+				issues,
+				false);
 
-                foreach (KeyValuePair<string, string> pair in definition.Gamebryo.AdditionalSettingsFiles)
-                {
-                    if (!DataDrivenDefinitionRules.IsIdentifier(pair.Key))
-                        issues.Add(Error(definition, "gamebryo.additionalSettingsFiles", "Additional settings-file keys must be identifiers: " + pair.Key));
-                    ValidateOptionalPathTemplate(definition, pair.Value, "gamebryo.additionalSettingsFiles." + pair.Key, issues);
-                }
-            }
-        }
+			ValidateOptionalPathTemplate(
+				definition,
+				definition.Gamebryo.PostProfileSwitchToolPath,
+				"gamebryo.postProfileSwitchToolPath",
+				issues);
 
-        private void ValidateExecutablePaths(GameModeDefinition definition, IEnumerable<string> values, string path, bool required, IList<GameModeDefinitionIssue> issues)
+			bool hasPostSwitchPath =
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.PostProfileSwitchToolPath);
+
+			bool hasPostSwitchMessage =
+				!string.IsNullOrWhiteSpace(
+					definition.Gamebryo.PostProfileSwitchToolMessage);
+
+			if (hasPostSwitchPath != hasPostSwitchMessage)
+			{
+				issues.Add(
+					Error(
+						definition,
+						"gamebryo",
+						"postProfileSwitchToolPath and " +
+						"postProfileSwitchToolMessage must be " +
+						"declared together."));
+			}
+
+			ValidateOptionalPathTemplate(
+				definition,
+				definition.Gamebryo.UserGameDataPath,
+				"gamebryo.userGameDataPath",
+				issues);
+
+			if (DataDrivenDefinitionRules.ContainsPlaceholder(
+					definition.Gamebryo.UserGameDataPath,
+					"{UserGameData}"))
+			{
+				issues.Add(
+					Error(
+						definition,
+						"gamebryo.userGameDataPath",
+						"userGameDataPath cannot reference " +
+						"{UserGameData} recursively."));
+			}
+
+			ValidateOptionalPathTemplate(
+				definition,
+				definition.Gamebryo.IniFilePath,
+				"gamebryo.iniFilePath",
+				issues);
+
+			ValidateOptionalPathTemplate(
+				definition,
+				definition.Gamebryo.RendererFilePath,
+				"gamebryo.rendererFilePath",
+				issues);
+
+			ValidateOptionalPathTemplate(
+				definition,
+				definition.Gamebryo.PluginsFilePath,
+				"gamebryo.pluginsFilePath",
+				issues);
+
+			if (definition.Gamebryo.AdditionalSettingsFiles != null)
+			{
+				if (definition.Gamebryo.AdditionalSettingsFiles.Count == 0)
+				{
+					issues.Add(
+						Error(
+							definition,
+							"gamebryo.additionalSettingsFiles",
+							"additionalSettingsFiles cannot be empty " +
+							"when present."));
+				}
+
+				foreach (KeyValuePair<string, string> pair in
+						 definition.Gamebryo.AdditionalSettingsFiles)
+				{
+					if (!DataDrivenDefinitionRules.IsIdentifier(pair.Key))
+					{
+						issues.Add(
+							Error(
+								definition,
+								"gamebryo.additionalSettingsFiles",
+								"Additional settings-file keys must be " +
+								"identifiers: " +
+								pair.Key));
+					}
+
+					ValidateOptionalPathTemplate(
+						definition,
+						pair.Value,
+						"gamebryo.additionalSettingsFiles." + pair.Key,
+						issues);
+				}
+			}
+
+			ValidateArchiveInvalidation(definition, issues);
+		}
+
+		private static bool IsArchiveInvalidationConfigured(string profile)
+		{
+			return !string.IsNullOrWhiteSpace(profile) &&
+				   !string.Equals(
+					   profile.Trim(),
+					   "none",
+					   StringComparison.OrdinalIgnoreCase);
+		}
+
+
+		private void ValidateArchiveInvalidation(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
+		{
+			string profile =
+				definition.Gamebryo.ArchiveInvalidationProfile;
+
+			/*
+			 * The property is optional.
+			 *
+			 * When archiveInvalidationProfile is absent from JSON,
+			 * deserialization leaves it null. Null means "none".
+			 */
+			if (profile == null)
+				return;
+
+			/*
+			 * A supplied value must be one of the supported values.
+			 * The JSON schema should normally catch this first, but the
+			 * C# validator must also reject invalid definitions.
+			 */
+			if (!ValidArchiveInvalidationProfiles.Contains(profile))
+			{
+				issues.Add(Error(
+					definition,
+					"gamebryo.archiveInvalidationProfile",
+					"archiveInvalidationProfile must be one of: " +
+					"none, fallout3, falloutnv, oblivion."));
+
+				return;
+			}
+
+			/*
+			 * Explicit "none" disables the feature entirely.
+			 * No Archive Invalidation-specific fields are validated.
+			 */
+			if (string.Equals(
+					profile,
+					"none",
+					StringComparison.Ordinal))
+			{
+				return;
+			}
+
+			/*
+			 * All three implementations read or write the game's primary
+			 * INI file.
+			 */
+			if (string.IsNullOrWhiteSpace(
+					definition.Gamebryo.IniFilePath))
+			{
+				issues.Add(Error(
+					definition,
+					"gamebryo.iniFilePath",
+					"iniFilePath is required when " +
+					"archiveInvalidationProfile is enabled."));
+			}
+
+			/*
+			 * Only Fallout: New Vegas also writes fallout_default.ini.
+			 */
+			if (!string.Equals(
+					profile,
+					"falloutnv",
+					StringComparison.Ordinal))
+			{
+				return;
+			}
+
+			Dictionary<string, string> additionalSettingsFiles =
+				definition.Gamebryo.AdditionalSettingsFiles;
+
+			string defaultIniPath = null;
+
+			if (additionalSettingsFiles != null)
+			{
+				additionalSettingsFiles.TryGetValue(
+					"FODefaultIniPath",
+					out defaultIniPath);
+			}
+
+			if (string.IsNullOrWhiteSpace(defaultIniPath))
+			{
+				issues.Add(Error(
+					definition,
+					"gamebryo.additionalSettingsFiles.FODefaultIniPath",
+					"The falloutnv Archive Invalidation profile requires " +
+					"additionalSettingsFiles.FODefaultIniPath."));
+			}
+		}
+
+		private void ValidateExecutablePaths(GameModeDefinition definition, IEnumerable<string> values, string path, bool required, IList<GameModeDefinitionIssue> issues)
         {
             if (values == null)
             {

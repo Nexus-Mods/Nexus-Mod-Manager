@@ -113,6 +113,7 @@
     "supportsGameRootInstall": true
   },
   "gamebryo": {
+    "archiveInvalidationProfile": "falloutnv",
     "scriptExtenderExecutables": [
       "nvse_loader.exe"
     ],

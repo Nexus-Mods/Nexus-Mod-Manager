@@ -77,6 +77,10 @@
       <DependentUpon>GameModeSelectionForm.cs</DependentUpon>
     </Compile>
     <Compile Include="GameModeSelector.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGamebryoToolLauncher.cs" />
+    <Compile Include="Games\DataDriven\Tools\AI\Fallout3ArchiveInvalidation.cs" />
+    <Compile Include="Games\DataDriven\Tools\AI\FalloutNVArchiveInvalidation.cs" />
+    <Compile Include="Games\DataDriven\Tools\AI\OblivionArchiveInvalidation.cs" />
     <Compile Include="HeaderlessTextWriterTraceListener.cs" />
     <Compile Include="ModManagement\ProfileManager\WriteProfileTask.cs" />
     <Compile Include="ModManagement\ProfileSwitchSetupTask.cs" />

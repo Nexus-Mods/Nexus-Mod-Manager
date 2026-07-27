@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -107,7 +107,7 @@ namespace Nexus.Client.Games.DataDriven
             : GetDefinition().SupportedFormats.ToList();
 
         public override IGameLauncher GameLauncher => _gameLauncher ?? (_gameLauncher = new DataDrivenGameLauncher(this, EnvironmentInfo, GetDefinition()));
-        public override IToolLauncher GameToolLauncher => _toolLauncher ?? (_toolLauncher = new DataDrivenToolLauncher(this, EnvironmentInfo, GetDefinition()));
+        public override IToolLauncher GameToolLauncher => _toolLauncher ?? (_toolLauncher = new DataDrivenGamebryoToolLauncher(this, GetDefinition()));
         public override ISupportedToolsLauncher SupportedToolsLauncher => _supportedToolsLauncher ?? (_supportedToolsLauncher = new DataDrivenSupportedToolsLauncher(this, EnvironmentInfo, GetDefinition()));
         public override string GameDefaultCategories => _categories ?? (_categories = DataDrivenGameModeHelpers.ReadResourceText(GetDefinition(), GetDefinition().Resources == null ? null : GetDefinition().Resources.CategoriesPath));
         public override string BaseGameFiles => _baseFiles ?? (_baseFiles = DataDrivenGameModeHelpers.ReadResourceText(GetDefinition(), GetDefinition().Resources == null ? null : GetDefinition().Resources.BaseFilesPath));

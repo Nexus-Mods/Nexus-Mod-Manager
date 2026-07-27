@@ -111,6 +111,7 @@
     "supportsGameRootInstall": true
   },
   "gamebryo": {
+    "archiveInvalidationProfile": "oblivion",
     "scriptExtenderExecutables": [
       "obse_loader.exe"
     ],

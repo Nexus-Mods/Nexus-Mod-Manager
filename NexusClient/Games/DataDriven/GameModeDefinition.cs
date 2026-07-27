@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
@@ -293,7 +293,8 @@ namespace Nexus.Client.Games.DataDriven
         public string IniFilePath { get; set; }
         public string RendererFilePath { get; set; }
         public string PluginsFilePath { get; set; }
-        public Dictionary<string, string> AdditionalSettingsFiles { get; set; }
+		public string ArchiveInvalidationProfile { get; set; }
+		public Dictionary<string, string> AdditionalSettingsFiles { get; set; }
     }
 
     public class GameModeModInstallDefinition

@@ -952,6 +952,17 @@
         "pluginsFilePath": {
           "$ref": "#/$defs/pathTemplate"
         },
+        "archiveInvalidationProfile": {
+          "type": "string",
+          "enum": [
+            "none",
+            "fallout3",
+            "falloutnv",
+            "oblivion"
+          ],
+          "default": "none",
+          "description": "Selects a built-in Archive Invalidation implementation. When omitted, Archive Invalidation is disabled."
+        },
         "additionalSettingsFiles": {
           "type": "object",
           "minProperties": 1,
