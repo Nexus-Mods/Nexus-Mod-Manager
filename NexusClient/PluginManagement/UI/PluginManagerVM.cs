@@ -432,6 +432,20 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Activates and/or deactivates the given sets of plugins as a single logical operation.
+		/// </summary>
+		/// <param name="p_lstPluginsToActivate">The plugins to activate, if any.</param>
+		/// <param name="p_lstPluginsToDeactivate">The plugins to deactivate, if any.</param>
+		public void ManagePlugins(List<Plugin> p_lstPluginsToActivate, List<Plugin> p_lstPluginsToDeactivate)
+		{
+			if ((p_lstPluginsToActivate != null) && (p_lstPluginsToActivate.Count > 0))
+				ManagingMultiplePlugins(this, new EventArgs<IBackgroundTask>(PluginManager.ManageMultiplePluginsTask(p_lstPluginsToActivate, true, ConfirmUpdaterAction)));
+
+			if ((p_lstPluginsToDeactivate != null) && (p_lstPluginsToDeactivate.Count > 0))
+				ManagingMultiplePlugins(this, new EventArgs<IBackgroundTask>(PluginManager.ManageMultiplePluginsTask(p_lstPluginsToDeactivate, false, ConfirmUpdaterAction)));
+		}
+
+		/// <summary>
 		/// Deactivates all the enabled plugins.
 		/// </summary>
 		public void PluginsDisableAll()

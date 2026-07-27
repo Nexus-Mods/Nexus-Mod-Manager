@@ -1,4 +1,4 @@
-namespace Nexus.Client.PluginManagement.UI
+﻿namespace Nexus.Client.PluginManagement.UI
 {
     using DevExpress.Utils;
 	using DevExpress.XtraBars;
@@ -351,7 +351,8 @@ namespace Nexus.Client.PluginManagement.UI
             _gridView.FocusedRowChanged += GridViewFocusedRowChanged;
 			_gridView.SelectionChanged += GridViewSelectionChanged;
 			_gridView.CellValueChanging += GridViewCellValueChanging;
-            _gridView.CustomRowCellEdit += GridViewCustomRowCellEdit;
+			_gridView.KeyDown += GridViewKeyDown;
+			_gridView.CustomRowCellEdit += GridViewCustomRowCellEdit;
             _gridView.ShowingEditor += GridViewShowingEditor;            _gridView.CustomColumnDisplayText += GridViewCustomColumnDisplayText;
             _gridView.RowCellStyle += GridViewRowCellStyle;
             _gridControl.AllowDrop = true;
@@ -368,8 +369,8 @@ namespace Nexus.Client.PluginManagement.UI
                 (sender, args) => QueueGridLayoutSave();
 
             AddColumn(ColActive, "Active", 58, true).ColumnEdit = _activeCheckEdit;
-            AddColumn(ColLoadOrder, "Load Order", 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
-            AddColumn(ColIndex, "Index", 58, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
+            AddColumn(ColLoadOrder, "L.O. Index", 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
+            AddColumn(ColIndex, "Progressive", 58, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
             AddColumn(ColPlugin, "Plugin", 260, false);
             AddColumn(ColType, "Type", 110, false);
             AddColumn(ColOwner, "Owner", 220, false);
@@ -1031,7 +1032,66 @@ namespace Nexus.Client.PluginManagement.UI
             }
         }
 
-        private void GridControlMouseDown(object sender, MouseEventArgs e)
+		private void GridViewKeyDown(object sender, KeyEventArgs e)
+		{
+			if (e.KeyCode != Keys.Space)
+				return;
+
+			if (_gridView.ActiveEditor != null)
+				return;
+
+			if (_gridView.IsFilterRow(_gridView.FocusedRowHandle))
+				return;
+
+			e.Handled = true;
+
+			ToggleSelectedPluginsActiveState();
+		}
+
+		private void ToggleSelectedPluginsActiveState()
+		{
+			if (_viewModel == null)
+				return;
+
+			IList<Plugin> selected = GetSelectedPlugins();
+
+			if (selected.Count == 0)
+			{
+				Plugin focused = GetFocusedPlugin();
+
+				if (focused == null)
+					return;
+
+				selected = new List<Plugin> { focused };
+			}
+
+			List<Plugin> toActivate = new List<Plugin>();
+			List<Plugin> toDeactivate = new List<Plugin>();
+
+			foreach (Plugin plugin in selected)
+			{
+				if (IsPluginLocked(plugin))
+					continue;
+
+				bool requestedActive = !_viewModel.ActivePlugins.Contains(plugin);
+
+				// Silent check (no popup per plugin during a bulk toggle).
+				if (!CanApplyRequestedActiveState(plugin, requestedActive, false))
+					continue;
+
+				if (requestedActive)
+					toActivate.Add(plugin);
+				else
+					toDeactivate.Add(plugin);
+			}
+
+			if (toActivate.Count == 0 && toDeactivate.Count == 0)
+				return;
+
+			_viewModel.ManagePlugins(toActivate, toDeactivate);
+		}
+
+		private void GridControlMouseDown(object sender, MouseEventArgs e)
         {
             GridHitInfo hit = _gridView.CalcHitInfo(e.Location);
 
