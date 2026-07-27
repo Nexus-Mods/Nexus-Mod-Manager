@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
@@ -64,7 +64,8 @@ namespace Nexus.Client.ModManagement
         public long RawSize { get; set; }
         public string SizeDisplay { get; set; }
         public string RelativePath { get; set; }
-        public string NormalizedRelativePath { get; set; }
+		public string LinkType { get; set; }
+		public string NormalizedRelativePath { get; set; }
 
         public FileManagerSource Source
         {

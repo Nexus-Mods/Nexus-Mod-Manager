@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement.UI
+﻿namespace Nexus.Client.ModManagement.UI
 {
     using System;
     using System.Collections.Generic;
@@ -651,8 +651,9 @@ namespace Nexus.Client.ModManagement.UI
             size.DisplayFormat.FormatType = FormatType.Custom;
             size.DisplayFormat.Format = new FileSizeFormatter();
             size.AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
-            AddColumn("RelativePath", "Relative Path", 260, false);
-            GridColumn source = AddColumn("Source", "Source", 160, true);
+			AddColumn("RelativePath", "Relative Path", 260, false);
+			AddColumn("LinkType", "Link Type", 70, false);
+			GridColumn source = AddColumn("Source", "Source", 160, true);
             source.OptionsColumn.AllowEdit = true;
 			GridColumn owners = AddColumn(
 				"OwnerCount",

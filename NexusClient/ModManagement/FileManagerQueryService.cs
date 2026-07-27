@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
@@ -7,6 +7,7 @@ namespace Nexus.Client.ModManagement
     using System.Threading;
 
     using Nexus.Client.Games;
+	using Nexus.Client.Util;
 
     public sealed class FileManagerQueryService
     {
@@ -81,6 +82,9 @@ namespace Nexus.Client.ModManagement
 
                 string relativePath = GetRelativePath(rootPrefix, filePath);
                 string normalizedPath = NormalizePath(relativePath);
+
+				string LinkType = FileLinkHelper.GetFileLinkType(filePath).ToString();
+
                 FileManagerRow row = new FileManagerRow
                 {
                     FullPath = filePath,
@@ -89,7 +93,8 @@ namespace Nexus.Client.ModManagement
                     RawSize = length,
                     SizeDisplay = FormatSize(length),
                     RelativePath = relativePath,
-                    NormalizedRelativePath = normalizedPath
+                    NormalizedRelativePath = normalizedPath,
+					LinkType = LinkType
                 };
 
                 perFileWatch.Restart();
@@ -586,7 +591,9 @@ namespace Nexus.Client.ModManagement
                 if (String.IsNullOrWhiteSpace(normalizedPath))
                     return null;
 
-                return new FileManagerRow
+				string LinkType = FileLinkHelper.GetFileLinkType(filePath).ToString();
+
+				return new FileManagerRow
                 {
                     FullPath = filePath,
                     FileName = Path.GetFileName(filePath),
@@ -594,8 +601,9 @@ namespace Nexus.Client.ModManagement
                     RawSize = fileInfo.Length,
                     SizeDisplay = FormatSize(fileInfo.Length),
                     RelativePath = relativePath,
-                    NormalizedRelativePath = normalizedPath
-                };
+                    NormalizedRelativePath = normalizedPath,
+					LinkType = LinkType
+				};
             }
             catch
             {
