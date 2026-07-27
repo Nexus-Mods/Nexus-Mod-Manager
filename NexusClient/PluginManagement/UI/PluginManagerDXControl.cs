@@ -369,8 +369,8 @@
                 (sender, args) => QueueGridLayoutSave();
 
             AddColumn(ColActive, "Active", 58, true).ColumnEdit = _activeCheckEdit;
-            AddColumn(ColLoadOrder, "L.O. Index", 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
-            AddColumn(ColIndex, "Progressive", 58, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
+            AddColumn(ColLoadOrder, "LO Index", 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
+            AddColumn(ColIndex, "Rel. Position", 58, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
             AddColumn(ColPlugin, "Plugin", 260, false);
             AddColumn(ColType, "Type", 110, false);
             AddColumn(ColOwner, "Owner", 220, false);
