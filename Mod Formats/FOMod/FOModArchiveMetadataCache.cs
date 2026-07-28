@@ -1,13 +1,14 @@
-namespace Nexus.Client.Mods.Formats.FOMod
+﻿namespace Nexus.Client.Mods.Formats.FOMod
 {
+	using Nexus.Client.Util;
 	using System;
 	using System.Collections.Generic;
-	using System.Data.SQLite;
 	using System.ComponentModel;
+	using System.Data.SQLite;
 	using System.Diagnostics;
 	using System.IO;
+	using System.Linq;
 	using System.Runtime.InteropServices;
-	using Nexus.Client.Util;
 
 	/// <summary>
 	/// Stores startup metadata that is expensive to rediscover from every archive.
@@ -59,41 +60,75 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					return false;
 				}
 
-				// Keep cache hits off the cold archive path; misses still rebuild from the archive.
 				lock (_database.SyncRoot)
-				using (var command = _database.Connection.CreateCommand())
-				{
-					if (_database.Transaction != null)
+					using (var command = _database.Connection.CreateCommand())
 					{
-						command.Transaction = _database.Transaction;
-					}
-					command.CommandText = @"
+						if (_database.Transaction != null)
+						{
+							command.Transaction = _database.Transaction;
+						}
+
+						command.CommandText = @"
 SELECT prefix_path, install_script_path, install_script_type, nested_archive, info_xml, screenshot_path, archive_write_time_utc
 FROM archive_metadata
 WHERE archive_path = @archive_path;";
-					command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
 
-					using (var reader = command.ExecuteReader())
-					{
-						if (!reader.Read())
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+
+						bool needsRepair;
+
+						using (var reader = command.ExecuteReader())
+						{
+							if (!reader.Read())
+							{
+								return false;
+							}
+
+							metadata = new FOModArchiveMetadata
+							{
+								PrefixPath = reader.IsDBNull(0) ? null : reader.GetString(0),
+								InstallScriptPath = reader.IsDBNull(1) ? null : reader.GetString(1),
+								InstallScriptType = reader.IsDBNull(2) ? null : reader.GetString(2),
+								HasNestedArchive = !reader.IsDBNull(3) && reader.GetBoolean(3),
+								InfoXml = reader.IsDBNull(4) ? null : (byte[])reader[4],
+								ScreenshotPath = reader.IsDBNull(5) ? null : reader.GetString(5),
+								ArchiveWriteTimeUtc = reader.IsDBNull(6)
+									? (DateTime?)null
+									: new DateTime(reader.GetInt64(6), DateTimeKind.Utc)
+							};
+
+							needsRepair = metadata.InfoXml == null || metadata.InfoXml.Length == 0;
+						}
+
+						if (!needsRepair)
+						{
+							return true;
+						}
+
+						if (!TryRestoreLegacyInfoXml(archivePath))
 						{
 							return false;
 						}
 
-						metadata = new FOModArchiveMetadata
-						{
-							PrefixPath = reader.IsDBNull(0) ? null : reader.GetString(0),
-							InstallScriptPath = reader.IsDBNull(1) ? null : reader.GetString(1),
-							InstallScriptType = reader.IsDBNull(2) ? null : reader.GetString(2),
-							HasNestedArchive = !reader.IsDBNull(3) && reader.GetBoolean(3),
-							InfoXml = reader.IsDBNull(4) ? null : (byte[])reader[4],
-							ScreenshotPath = reader.IsDBNull(5) ? null : reader.GetString(5),
-							ArchiveWriteTimeUtc = reader.IsDBNull(6) ? (DateTime?)null : new DateTime(reader.GetInt64(6), DateTimeKind.Utc)
-						};
+						command.Parameters.Clear();
+						command.CommandText = @"
+SELECT info_xml
+FROM archive_metadata
+WHERE archive_path = @archive_path;";
 
-						return metadata.InfoXml != null;
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+
+						using (var repairedReader = command.ExecuteReader())
+						{
+							if (!repairedReader.Read() || repairedReader.IsDBNull(0))
+							{
+								return false;
+							}
+
+							metadata.InfoXml = (byte[])repairedReader[0];
+							return metadata.InfoXml.Length > 0;
+						}
 					}
-				}
 			}
 			catch (Exception e)
 			{
@@ -102,6 +137,103 @@ WHERE archive_path = @archive_path;";
 				metadata = null;
 				return false;
 			}
+		}
+
+		private bool TryRestoreLegacyInfoXml(string archivePath)
+		{
+			var legacyFolder =
+				Path.Combine(
+					Path.GetDirectoryName(_databasePath),
+					Path.GetFileNameWithoutExtension(archivePath));
+
+			if (!Directory.Exists(legacyFolder))
+			{
+				return false;
+			}
+
+			var legacyInfoXml =	FindLegacyInfoXmlWithDataInPath(legacyFolder);
+
+			if (legacyInfoXml == null)
+			{
+				return false;
+			}
+
+			var bytes = File.ReadAllBytes(legacyInfoXml);
+
+			if (bytes.Length == 0)
+			{
+				return false;
+			}
+
+			using (var update = _database.Connection.CreateCommand())
+			{
+				if (_database.Transaction != null)
+				{
+					update.Transaction = _database.Transaction;
+				}
+
+				update.CommandText = @"
+UPDATE archive_metadata
+SET info_xml=@info_xml,
+	updated_utc=@updated
+WHERE archive_path=@archive_path;";
+
+				update.Parameters.AddWithValue("@info_xml", bytes);
+				update.Parameters.AddWithValue("@updated", DateTime.UtcNow.Ticks);
+				update.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+
+				if (update.ExecuteNonQuery() == 0)
+				{
+					return false;
+				}
+
+				_database.PendingWrites++;
+
+				if (_database.PendingWrites >= CommitBatchSize ||
+					(DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
+				{
+					CommitDatabase(_database);
+				}
+
+				return true;
+			}
+		}
+
+		/// <summary>
+		/// Looks for a <c>fomod/info.xml</c> under the given legacy per-archive cache
+		/// folder, where the path down to it passes through a folder named "Data" -
+		/// i.e. the layout the old (pre-SQLite) cache used for plugin-based games.
+		/// </summary>
+		private static string FindLegacyInfoXmlWithDataInPath(string p_strLegacyCacheFolder)
+		{
+			var directPath = Path.Combine(p_strLegacyCacheFolder, "Data", "fomod", "info.xml");
+
+			if (File.Exists(directPath))
+			{
+				return directPath;
+			}
+
+			foreach (var infoXmlPath in Directory.EnumerateFiles(p_strLegacyCacheFolder, "info.xml", SearchOption.AllDirectories))
+			{
+				var fomodDirectory = Path.GetDirectoryName(infoXmlPath);
+
+				if (fomodDirectory == null || !Path.GetFileName(fomodDirectory).Equals("fomod", StringComparison.OrdinalIgnoreCase))
+				{
+					continue;
+				}
+
+				var relativePath = infoXmlPath.Substring(p_strLegacyCacheFolder.Length)
+					.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+				var pathSegments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+				if (pathSegments.Any(segment => segment.Equals("Data", StringComparison.OrdinalIgnoreCase)))
+				{
+					return infoXmlPath;
+				}
+			}
+
+			return null;
 		}
 
 		public void Remove(string archivePath)
@@ -114,17 +246,17 @@ WHERE archive_path = @archive_path;";
 				}
 
 				lock (_database.SyncRoot)
-				using (var command = _database.Connection.CreateCommand())
-				{
-					_database.EnsureTransaction();
-					command.Transaction = _database.Transaction;
-					command.CommandText = "DELETE FROM archive_metadata WHERE archive_path = @archive_path;";
-					command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
-					command.ExecuteNonQuery();
-					_database.RemoveArchiveName(archivePath);
-					_database.PendingWrites++;
-					CommitDatabase(_database);
-				}
+					using (var command = _database.Connection.CreateCommand())
+					{
+						_database.EnsureTransaction();
+						command.Transaction = _database.Transaction;
+						command.CommandText = "DELETE FROM archive_metadata WHERE archive_path = @archive_path;";
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+						command.ExecuteNonQuery();
+						_database.RemoveArchiveName(archivePath);
+						_database.PendingWrites++;
+						CommitDatabase(_database);
+					}
 			}
 			catch (Exception e)
 			{
@@ -179,34 +311,34 @@ WHERE archive_path = @archive_path;";
 				}
 
 				lock (_database.SyncRoot)
-				using (var command = _database.Connection.CreateCommand())
-				{
-					_database.EnsureTransaction();
-					command.Transaction = _database.Transaction;
-					command.CommandText = @"
+					using (var command = _database.Connection.CreateCommand())
+					{
+						_database.EnsureTransaction();
+						command.Transaction = _database.Transaction;
+						command.CommandText = @"
 INSERT OR REPLACE INTO archive_metadata
 	(archive_path, archive_length, archive_write_time_utc, prefix_path, install_script_path, install_script_type, nested_archive, info_xml, screenshot_path, updated_utc)
 VALUES
 	(@archive_path, @archive_length, @archive_write_time_utc, @prefix_path, @install_script_path, @install_script_type, @nested_archive, @info_xml, @screenshot_path, @updated_utc);";
-					command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
-					command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
-					command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
-					command.Parameters.AddWithValue("@prefix_path", (object)metadata.PrefixPath ?? DBNull.Value);
-					command.Parameters.AddWithValue("@install_script_path", (object)metadata.InstallScriptPath ?? DBNull.Value);
-					command.Parameters.AddWithValue("@install_script_type", (object)metadata.InstallScriptType ?? DBNull.Value);
-					command.Parameters.AddWithValue("@nested_archive", metadata.HasNestedArchive);
-					command.Parameters.AddWithValue("@info_xml", metadata.InfoXml);
-					command.Parameters.AddWithValue("@screenshot_path", (object)metadata.ScreenshotPath ?? DBNull.Value);
-					command.Parameters.AddWithValue("@updated_utc", DateTime.UtcNow.Ticks);
-					command.ExecuteNonQuery();
-					_database.AddArchiveName(archivePath);
-					_database.PendingWrites++;
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+						command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
+						command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
+						command.Parameters.AddWithValue("@prefix_path", (object)metadata.PrefixPath ?? DBNull.Value);
+						command.Parameters.AddWithValue("@install_script_path", (object)metadata.InstallScriptPath ?? DBNull.Value);
+						command.Parameters.AddWithValue("@install_script_type", (object)metadata.InstallScriptType ?? DBNull.Value);
+						command.Parameters.AddWithValue("@nested_archive", metadata.HasNestedArchive);
+						command.Parameters.AddWithValue("@info_xml", metadata.InfoXml);
+						command.Parameters.AddWithValue("@screenshot_path", (object)metadata.ScreenshotPath ?? DBNull.Value);
+						command.Parameters.AddWithValue("@updated_utc", DateTime.UtcNow.Ticks);
+						command.ExecuteNonQuery();
+						_database.AddArchiveName(archivePath);
+						_database.PendingWrites++;
 
-					if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
-					{
-						CommitDatabase(_database);
+						if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
+						{
+							CommitDatabase(_database);
+						}
 					}
-				}
 			}
 			catch (Exception e)
 			{
