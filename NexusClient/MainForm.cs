@@ -1,47 +1,52 @@
 ﻿namespace Nexus.Client
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Collections.Specialized;
-    using System.ComponentModel;
-    using System.Data.SQLite;
-    using System.Diagnostics;
-    using System.Drawing;
-    using System.IO;
-    using System.Linq;
-    using System.Text;
-    using System.Windows.Forms;
+	using System;
+	using System.Collections.Generic;
+	using System.Collections.Specialized;
+	using System.ComponentModel;
+	using System.Data.SQLite;
+	using System.Diagnostics;
+	using System.Drawing;
+	using System.IO;
+	using System.Linq;
+	using System.Text;
+	using System.Threading.Tasks;
+	using System.Windows.Forms;
 
-    using Nexus.Client.BackgroundTasks;
-    using Nexus.Client.BackgroundTasks.UI;
-    using Nexus.Client.Commands;
-    using Nexus.Client.DownloadMonitoring.UI;
-    using Nexus.Client.UI.Controls;
-    using Nexus.Client.Games;
-    using Nexus.Client.Games.Settings;
-    using Nexus.Client.Games.Tools;
-    using Nexus.Client.ModActivationMonitoring.UI;
-    using Nexus.Client.ModManagement;
-    using Nexus.Client.ModManagement.UI;
-    using Nexus.Client.ModRepositories;
-    using Nexus.Client.Mods;
-    using Nexus.Client.PluginManagement.UI;
-    using Nexus.Client.Settings.UI;
-    using Nexus.Client.SSO;
-    using Nexus.Client.TipsManagement;
-    using Nexus.Client.UI;
-    using Nexus.Client.Util;
-    using Nexus.Client.Util.Collections;
-    using Nexus.UI.Controls;
+	using DevExpress.XtraSplashScreen;
+
+	using Nexus.Client.BackgroundTasks;
+	using Nexus.Client.BackgroundTasks.UI;
+	using Nexus.Client.Commands;
+	using Nexus.Client.DownloadMonitoring.UI;
+	using Nexus.Client.UI.Controls;
+	using Nexus.Client.Games;
+	using Nexus.Client.Games.Settings;
+	using Nexus.Client.Games.Tools;
+	using Nexus.Client.ModActivationMonitoring.UI;
+	using Nexus.Client.ModManagement;
+	using Nexus.Client.ModManagement.UI;
+	using Nexus.Client.ModRepositories;
+	using Nexus.Client.Mods;
+	using Nexus.Client.Mods.Formats.FOMod;
+	using Nexus.Client.PluginManagement.UI;
+	using Nexus.Client.Settings.UI;
+	using Nexus.Client.SSO;
+	using Nexus.Client.TipsManagement;
+	using Nexus.Client.UI;
+	using Nexus.Client.Util;
+	using Nexus.Client.Util.Collections;
+	using Nexus.UI.Controls;
 
 	using DevExpress.LookAndFeel;
 	using DevExpress.Skins;
 
 	using WeifenLuo.WinFormsUI.Docking;
+	using DevExpress.XtraEditors;
 
-    /// <summary>
-    /// The main form of the mod manager.
-    /// </summary>
+	/// <summary>
+	/// The main form of the mod manager.
+	/// </summary>
 	public partial class MainForm : ManagedFontForm
 	{
 		private MainFormVM _viewModel;
@@ -72,7 +77,7 @@
 		/// <summary>Convenience cast — every IModManagerView implementation is a DockContent.</summary>
 		private WeifenLuo.WinFormsUI.Docking.DockContent ModManagerDock
 			=> (WeifenLuo.WinFormsUI.Docking.DockContent)_modManagerControl;
-		
+
 		#region Properties
 
 		/// <summary>
@@ -83,7 +88,7 @@
 		protected MainFormVM ViewModel
 		{
 			get => _viewModel;
-            set
+			set
 			{
 				_viewModel = value;
 
@@ -107,7 +112,7 @@
 
 				_categoryManagerControl.ViewModel = _viewModel.ModManagerVM;
 
-                if (ViewModel.UsesPlugins)
+				if (ViewModel.UsesPlugins)
 				{
 					_pluginManagerControl.ViewModel = _viewModel.PluginManagerVM;
 					_pluginManagerControl.PluginManager = _viewModel.PluginManager;
@@ -133,15 +138,15 @@
 
 				foreach (HelpInformation.HelpLink hlpLink in _viewModel.HelpInfo.HelpLinks)
 				{
-                    ToolStripMenuItem tmiHelp = new ToolStripMenuItem
-                    {
-                        Tag = hlpLink,
-                        Text = hlpLink.Name,
-                        ToolTipText = hlpLink.Url,
-                        ImageScaling = ToolStripItemImageScaling.None
-                    };
+					ToolStripMenuItem tmiHelp = new ToolStripMenuItem
+					{
+						Tag = hlpLink,
+						Text = hlpLink.Name,
+						ToolTipText = hlpLink.Url,
+						ImageScaling = ToolStripItemImageScaling.None
+					};
 
-                    tmiHelp.Click += tmiHelp_Click;
+					tmiHelp.Click += tmiHelp_Click;
 					spbHelp.DropDownItems.Add(tmiHelp);
 				}
 
@@ -216,7 +221,7 @@
 			_modActivationMonitorControl = new ModActivationMonitorControl();
 			_categoryManagerControl = new CategoryManagerControl();
 			_categoryManagerControl.CollapseAllCategoriesRequested += CategoryManagerControl_CollapseAllCategoriesRequested;
-			_categoryManagerControl.ExpandAllCategoriesRequested   += CategoryManagerControl_ExpandAllCategoriesRequested;
+			_categoryManagerControl.ExpandAllCategoriesRequested += CategoryManagerControl_ExpandAllCategoriesRequested;
 			_fileManagerControl = new FileManagerControl();
 			dockPanel1.ActiveContentChanged += dockPanel1_ActiveContentChanged;
 			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
@@ -230,16 +235,16 @@
 			_modActivationMonitorControl = new ModActivationMonitorControl();
 			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
 			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
-            toolStripButtonRateLimit.Click +=  ToolStripButtonRateLimitOnClick;
-            viewModel.ModRepository.RateLimitExceeded += (sender, args) => Invoke((Action<RateLimitExceededArgs>)OnRateLimitExceeded, args);
+			toolStripButtonRateLimit.Click += ToolStripButtonRateLimitOnClick;
+			viewModel.ModRepository.RateLimitExceeded += (sender, args) => Invoke((Action<RateLimitExceededArgs>)OnRateLimitExceeded, args);
 
-            if (viewModel.GameMode.SupportedToolsLauncher != null)
-            {
-                viewModel.GameMode.SupportedToolsLauncher.ChangedToolPath += SupportedTools_ChangedToolPath;
-            }
+			if (viewModel.GameMode.SupportedToolsLauncher != null)
+			{
+				viewModel.GameMode.SupportedToolsLauncher.ChangedToolPath += SupportedTools_ChangedToolPath;
+			}
 
-            ViewModel = viewModel;
-            ApplyDevExpressDisplaySettingsToSurfaces();
+			ViewModel = viewModel;
+			ApplyDevExpressDisplaySettingsToSurfaces();
 
 			try
 			{
@@ -254,30 +259,30 @@
 			_lastWindowState = WindowState;
 		}
 
-        private void OnRateLimitExceeded(RateLimitExceededArgs args)
-        {
-            MessageBox.Show(this, $"You've reached your daily and hourly limit. Try again in {Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} minutes.", "API Rate Limit exceeded", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
-        }
+		private void OnRateLimitExceeded(RateLimitExceededArgs args)
+		{
+			MessageBox.Show(this, $"You've reached your daily and hourly limit. Try again in {Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} minutes.", "API Rate Limit exceeded", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+		}
 
-        private void ToolStripButtonRateLimitOnClick(object sender, EventArgs e)
-        {
-            if (ViewModel.UserStatus != null)
-            {
-                var rateLimit = ViewModel.ModRepository.RateLimit;
-                var dailyReset = rateLimit.DailyReset - DateTimeOffset.UtcNow;
-                
-                var info =
-                    $"Daily: {rateLimit.DailyRemaining}/{rateLimit.DailyLimit} requests left (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
-                    $"Hourly: {rateLimit.HourlyRemaining}/{rateLimit.HourlyLimit} requests left (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
-                MessageBox.Show(this, info, "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            else
-            {
-                MessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Hand);
-            }
-        }
+		private void ToolStripButtonRateLimitOnClick(object sender, EventArgs e)
+		{
+			if (ViewModel.UserStatus != null)
+			{
+				var rateLimit = ViewModel.ModRepository.RateLimit;
+				var dailyReset = rateLimit.DailyReset - DateTimeOffset.UtcNow;
 
-        #endregion
+				var info =
+					$"Daily: {rateLimit.DailyRemaining}/{rateLimit.DailyLimit} requests left (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
+					$"Hourly: {rateLimit.HourlyRemaining}/{rateLimit.HourlyLimit} requests left (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
+				MessageBox.Show(this, info, "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			else
+			{
+				MessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+			}
+		}
+
+		#endregion
 
 		#region Startup Checks
 
@@ -286,36 +291,36 @@
 		/// </summary>
 		private void ModMigrationCheck()
 		{
-            if (ViewModel.ProfileManager?.CurrentProfile != null)
-            {
-                ViewModel.ModManager.VirtualModActivator.Initialize();
-
-                if (!ViewModel.ModManager.VirtualModActivator.Initialized)
-                {
-                    ViewModel.ModManager.VirtualModActivator.Setup();
-                }
-
-                return;
-            }
-
-            if (ViewModel.RequiresModMigration())
+			if (ViewModel.ProfileManager?.CurrentProfile != null)
 			{
-                var strMigrationWarning = "NMM found an old install-log setup for this game mode." + Environment.NewLine + Environment.NewLine +
-                    "The legacy migration tool used to reinstall or uninstall every active mod automatically. That process is no longer run at startup because it can remove working files without enough user control." + Environment.NewLine + Environment.NewLine +
-                    "Detected active install-log entries: " + ViewModel.ModManager.InstallationLog.ActiveMods.Count + Environment.NewLine +
-                    "Virtual install folder: " + ViewModel.ModManager.VirtualModActivator.VirtualPath + Environment.NewLine + Environment.NewLine +
-                    "NMM will keep the existing files in place. Some profile and virtual-install features may not work correctly until this setup is repaired manually." + Environment.NewLine + Environment.NewLine +
-                    "Recommended recovery path:" + Environment.NewLine +
-                    "1. Back up the game folder, NMM config folder, and mod archives." + Environment.NewLine +
-                    "2. Verify that the Mods folder and Virtual Install folder in Settings point to the correct locations." + Environment.NewLine +
-                    "3. Reinstall or reactivate the affected mods manually once the folders are correct.";
+				ViewModel.ModManager.VirtualModActivator.Initialize();
 
-                ExtendedMessageBox.Show(this, strMigrationWarning, "Legacy install setup detected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				if (!ViewModel.ModManager.VirtualModActivator.Initialized)
+				{
+					ViewModel.ModManager.VirtualModActivator.Setup();
+				}
 
-                if (!ViewModel.ModManager.VirtualModActivator.Initialized)
-                {
-                    ViewModel.ModManager.VirtualModActivator.Setup();
-                }
+				return;
+			}
+
+			if (ViewModel.RequiresModMigration())
+			{
+				var strMigrationWarning = "NMM found an old install-log setup for this game mode." + Environment.NewLine + Environment.NewLine +
+					"The legacy migration tool used to reinstall or uninstall every active mod automatically. That process is no longer run at startup because it can remove working files without enough user control." + Environment.NewLine + Environment.NewLine +
+					"Detected active install-log entries: " + ViewModel.ModManager.InstallationLog.ActiveMods.Count + Environment.NewLine +
+					"Virtual install folder: " + ViewModel.ModManager.VirtualModActivator.VirtualPath + Environment.NewLine + Environment.NewLine +
+					"NMM will keep the existing files in place. Some profile and virtual-install features may not work correctly until this setup is repaired manually." + Environment.NewLine + Environment.NewLine +
+					"Recommended recovery path:" + Environment.NewLine +
+					"1. Back up the game folder, NMM config folder, and mod archives." + Environment.NewLine +
+					"2. Verify that the Mods folder and Virtual Install folder in Settings point to the correct locations." + Environment.NewLine +
+					"3. Reinstall or reactivate the affected mods manually once the folders are correct.";
+
+				ExtendedMessageBox.Show(this, strMigrationWarning, "Legacy install setup detected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+				if (!ViewModel.ModManager.VirtualModActivator.Initialized)
+				{
+					ViewModel.ModManager.VirtualModActivator.Setup();
+				}
 			}
 		}
 
@@ -337,23 +342,23 @@
 
 			var strVirtualConfigFile = ViewModel.VirtualModActivator.RequiresFixing();
 
-            if (!string.IsNullOrEmpty(strVirtualConfigFile))
-            {
-                lstConfigFiles.Add(strVirtualConfigFile);
-            }
+			if (!string.IsNullOrEmpty(strVirtualConfigFile))
+			{
+				lstConfigFiles.Add(strVirtualConfigFile);
+			}
 
-            var strCurrentProfile = ViewModel.VirtualModActivator.RequiresFixing(ViewModel.ProfileManager.GetProfileModListPath(ViewModel.ProfileManager.CurrentProfile));
+			var strCurrentProfile = ViewModel.VirtualModActivator.RequiresFixing(ViewModel.ProfileManager.GetProfileModListPath(ViewModel.ProfileManager.CurrentProfile));
 
-            if (!string.IsNullOrEmpty(strCurrentProfile))
-            {
-                lstConfigFiles.Add(strCurrentProfile);
-            }
+			if (!string.IsNullOrEmpty(strCurrentProfile))
+			{
+				lstConfigFiles.Add(strCurrentProfile);
+			}
 
-            if (lstConfigFiles.Count > 0)
-            {
-                ViewModel.FixConfigFiles(lstConfigFiles, null);
-            }
-        }
+			if (lstConfigFiles.Count > 0)
+			{
+				ViewModel.FixConfigFiles(lstConfigFiles, null);
+			}
+		}
 
 		#endregion
 
@@ -525,41 +530,41 @@
 		/// </remarks>
 		protected void InitializeDocuments()
 		{
-            if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm") && !string.IsNullOrEmpty(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"]))
+			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm") && !string.IsNullOrEmpty(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"]))
 			{
 				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
 				try
 				{
 					if (_defaultActivityManagerAutoHidePortion == 0)
-                    {
-                        _defaultActivityManagerAutoHidePortion = _downloadMonitorControl.AutoHidePortion;
-                    }
-                }
+					{
+						_defaultActivityManagerAutoHidePortion = _downloadMonitorControl.AutoHidePortion;
+					}
+				}
 				catch { }
 
-                if (!ViewModel.UsesPlugins)
-                {
-                    _pluginManagerControl.Hide();
-                }
-            }
+				if (!ViewModel.UsesPlugins)
+				{
+					_pluginManagerControl.Hide();
+				}
+			}
 			else
 			{
 				if (ViewModel.UsesPlugins)
-                {
-                    _pluginManagerControl.DockState = DockState.Unknown;
-                }
+				{
+					_pluginManagerControl.DockState = DockState.Unknown;
+				}
 
-                ModManagerDock.DockState = DockState.Unknown;
+				ModManagerDock.DockState = DockState.Unknown;
 				_downloadMonitorControl.DockState = DockState.Unknown;
 				_downloadMonitorControl.ShowHint = DockState.DockBottomAutoHide;
 				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottomAutoHide);
 
-                if (_defaultActivityManagerAutoHidePortion == 0)
-                {
-                    _defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
-                }
+				if (_defaultActivityManagerAutoHidePortion == 0)
+				{
+					_defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
+				}
 
-                try
+				try
 				{
 					_downloadMonitorControl.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
 				}
@@ -570,11 +575,11 @@
 				_modActivationMonitorControl.Show(dockPanel1, DockState.DockBottom);
 
 				if (_defaultActivationMonitorAutoHidePortion == 0)
-                {
-                    _defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
-                }
+				{
+					_defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
+				}
 
-                try
+				try
 				{
 					_modActivationMonitorControl.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
 				}
@@ -594,9 +599,9 @@
 			var strTab = dockPanel1.ActiveDocument.DockHandler.TabText;
 
 			if (ViewModel.PluginManagerVM != null)
-            {
-                _pluginManagerControl.Show(dockPanel1);
-            }
+			{
+				_pluginManagerControl.Show(dockPanel1);
+			}
 
 			if (ViewModel.UsesPlugins && strTab == "Plugins")
 			{
@@ -611,15 +616,15 @@
 			}
 
 			if (_downloadMonitorControl == null || _downloadMonitorControl.VisibleState == DockState.Unknown || _downloadMonitorControl.VisibleState == DockState.Hidden)
-				{
+			{
 				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottom);
 
-                if (_defaultActivityManagerAutoHidePortion == 0)
-                {
-                    _defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
-                }
+				if (_defaultActivityManagerAutoHidePortion == 0)
+				{
+					_defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
+				}
 
-                try
+				try
 				{
 					_downloadMonitorControl.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
 				}
@@ -630,12 +635,12 @@
 			{
 				_modActivationMonitorControl.Show(dockPanel1, DockState.DockBottom);
 
-                if (_defaultActivationMonitorAutoHidePortion == 0)
-                {
-                    _defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
-                }
+				if (_defaultActivationMonitorAutoHidePortion == 0)
+				{
+					_defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
+				}
 
-                try
+				try
 				{
 					_modActivationMonitorControl.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
 				}
@@ -659,13 +664,13 @@
 					toolStripLabelActivePluginsCounter.ForeColor = Color.Red;
 
 					if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
-                    {
-                        toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
-                    }
-                    else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
-                    {
-                        toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
-                    }
+					{
+						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+					}
+					else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+					{
+						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+					}
 
 					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 					toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!";
@@ -675,14 +680,14 @@
 					toolStripLabelActivePluginsCounter.Image = null;
 					toolStripLabelActivePluginsCounter.ForeColor = Color.Black;
 
-                    if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
-                    {
-                        toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
-                    }
-                    else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
-                    {
-                        toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
-                    }
+					if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+					{
+						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+					}
+					else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
+					{
+						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+					}
 
 					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 				}
@@ -705,11 +710,11 @@
 		public void ShowTips(string p_strVersion)
 		{
 			if (!string.IsNullOrEmpty(p_strVersion))
-            {
-                _balloonManager.SetTipList(p_strVersion);
-            }
+			{
+				_balloonManager.SetTipList(p_strVersion);
+			}
 
-            var strTipSection = string.IsNullOrEmpty(_balloonManager.TipSection) ? "toolStrip1" : _balloonManager.TipSection;
+			var strTipSection = string.IsNullOrEmpty(_balloonManager.TipSection) ? "toolStrip1" : _balloonManager.TipSection;
 			var strTipObject = string.IsNullOrEmpty(_balloonManager.TipObject) ? "tsbTips" : _balloonManager.TipObject;
 			_balloonManager.ShowNextTip(FindControlCoords(strTipSection, strTipObject));
 		}
@@ -717,23 +722,23 @@
 		/// <summary>
 		/// The BalloonManager ShowNextClick event.
 		/// </summary>
-        private void BalloonManagerShowNextClick(object sender, EventArgs e)
-        {
-            if (_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup)
+		private void BalloonManagerShowNextClick(object sender, EventArgs e)
+		{
+			if (_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup)
 			{
 				_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup = false;
 				_viewModel.EnvironmentInfo.Settings.Save();
 			}
 
-            ShowTips(_balloonManager.CurrentTip == null
-                ? _viewModel.EnvironmentInfo.ApplicationVersion.ToString()
-                : string.Empty);
-        }
+			ShowTips(_balloonManager.CurrentTip == null
+				? _viewModel.EnvironmentInfo.ApplicationVersion.ToString()
+				: string.Empty);
+		}
 
 		/// <summary>
 		/// The BalloonManager ShowPreviousClick event.
 		/// </summary>
-        private void BalloonManagerShowPreviousClick(object sender, EventArgs e)
+		private void BalloonManagerShowPreviousClick(object sender, EventArgs e)
 		{
 			ShowTips(string.Empty);
 		}
@@ -741,7 +746,7 @@
 		/// <summary>
 		/// The BalloonManager CloseClick event.
 		/// </summary>
-        private void BalloonManagerCloseClick(object sender, EventArgs e)
+		private void BalloonManagerCloseClick(object sender, EventArgs e)
 		{
 			if (_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup)
 			{
@@ -755,15 +760,15 @@
 		/// </summary>
 		protected void UserStatusFeedback()
 		{
-            toolStripLabelLoginMessage.Visible = true;
+			toolStripLabelLoginMessage.Visible = true;
 
-            if (ViewModel.OfflineMode)
+			if (ViewModel.OfflineMode)
 			{
 				if (toolStripProgressBarDownloadSpeed != null)
-                {
-                    toolStripProgressBarDownloadSpeed.Visible = false;
-                }
-                
+				{
+					toolStripProgressBarDownloadSpeed.Visible = false;
+				}
+
 				toolStripLabelLoginMessage.Text = "You are not logged in.";
 				toolStripLabelLoginMessage.Font = new Font(base.Font, FontStyle.Bold);
 				toolStripButtonGoPremium.Visible = false;
@@ -773,23 +778,23 @@
 			else
 			{
 				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.loggedin_flat, 32, 30);
-				
+
 				// We no longer give a damn about a user's Nexus status
 				//if (ViewModel.UserStatus.IsPremium)
 				//{
-                    toolStripButtonGoPremium.Visible = false;
-                    OptionalPremiumMessage = string.Empty;
-                    toolStripButtonGoPremium.Enabled = false;
+				toolStripButtonGoPremium.Visible = false;
+				OptionalPremiumMessage = string.Empty;
+				toolStripButtonGoPremium.Enabled = false;
 
-                    if (toolStripProgressBarDownloadSpeed != null)
-                    {
-                        toolStripProgressBarDownloadSpeed.Maximum = 100;
-                        toolStripProgressBarDownloadSpeed.Value = 0;
-                        toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Ascending;
-                        toolStripProgressBarDownloadSpeed.ShowOptionalProgress = true;
-                    }
-                    toolStripLabelDownloads.Tag = "Download Progress:";
-                //}
+				if (toolStripProgressBarDownloadSpeed != null)
+				{
+					toolStripProgressBarDownloadSpeed.Maximum = 100;
+					toolStripProgressBarDownloadSpeed.Value = 0;
+					toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Ascending;
+					toolStripProgressBarDownloadSpeed.ShowOptionalProgress = true;
+				}
+				toolStripLabelDownloads.Tag = "Download Progress:";
+				//}
 				//else
 				//{
 				//                toolStripButtonGoPremium.Visible = true;
@@ -808,12 +813,12 @@
 				//                toolStripLabelDownloads.Tag = "Download Speed:";
 				//}
 
-                if (toolStripProgressBarDownloadSpeed != null && _downloadMonitorControl.ViewModel.ActiveTasks.Count > 0)
-                {
-                    toolStripProgressBarDownloadSpeed.Visible = true;
-                }
+				if (toolStripProgressBarDownloadSpeed != null && _downloadMonitorControl.ViewModel.ActiveTasks.Count > 0)
+				{
+					toolStripProgressBarDownloadSpeed.Visible = true;
+				}
 
-                toolStripLabelDownloads.Text = $"{toolStripLabelDownloads.Tag} ({_downloadMonitorControl.ViewModel.ActiveTasks.Count} {(_downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files")}) ";
+				toolStripLabelDownloads.Text = $"{toolStripLabelDownloads.Tag} ({_downloadMonitorControl.ViewModel.ActiveTasks.Count} {(_downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files")}) ";
 			}
 		}
 
@@ -825,11 +830,83 @@
 			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove("mainForm");
 			InitializeDocuments();
 
-            try
+			try
 			{
 				_modManagerControl.ResetColumns();
 			}
 			catch { }
+		}
+
+		/// <summary>
+		/// Repairs the cached FOMOD info.xml (name/version/description) for mods that
+		/// currently show up as uncategorized, by restoring it from each mod's legacy
+		/// loose cache folder when one is still present on disk.
+		/// </summary>
+		protected async void RepairFomodInfoCache()
+		{
+			var targetMods = ViewModel.ModManagerVM.ManagedMods
+				.Where(mod => (mod.CategoryId == 0) && (mod.CustomCategoryId == -1))
+				.ToList();
+
+			if (targetMods.Count == 0)
+			{
+				XtraMessageBox.Show(this, "No uncategorized mods were found - nothing to repair.",
+					"Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return;
+			}
+
+			// Snapshot everything the background thread needs before leaving the UI
+			// thread - ManagedMods is UI-bound and must not be touched off-thread.
+			var cacheDirectory = ViewModel.GameMode.GameModeEnvironmentInfo.ModCacheDirectory;
+			var archivePaths = targetMods.Select(mod => mod.ModArchivePath).ToList();
+
+			SplashScreenManager.ShowDefaultWaitForm("Repair FOMOD Info Cache",
+				string.Format("Checking {0} uncategorized mod(s)...", targetMods.Count));
+
+			FOModCacheRepairTool.RepairResult result;
+			try
+			{
+				result = await Task.Run(() => FOModCacheRepairTool.RepairFromLegacyCache(cacheDirectory, archivePaths));
+			}
+			catch (Exception e)
+			{
+				TraceUtil.TraceException(e);
+				XtraMessageBox.Show(this, "The repair could not be completed: " + e.Message,
+					"Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+			finally
+			{
+				SplashScreenManager.CloseDefaultWaitForm();
+			}
+
+			foreach (var error in result.Errors)
+			{
+				Trace.TraceWarning("RepairFomodInfoCache: " + error);
+			}
+
+			var message = string.Format("Checked {0} uncategorized mod(s).{1}Restored info for {2} mod(s) from the legacy cache. If the mod cache was restored the program will automatically restart.",
+				targetMods.Count, Environment.NewLine, result.FixedCount);
+
+			if (result.Errors.Count > 0)
+			{
+				message += string.Format("{0}{0}{1} issue(s) were logged to the trace log.", Environment.NewLine, result.Errors.Count);
+			}
+
+			XtraMessageBox.Show(this, message, "Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+			if (result.FixedCount > 0)
+			{
+				var reloadGameModeCommand = ViewModel.ChangeGameModeCommands
+					.FirstOrDefault(cmd => ViewModel.GameMode.ModeId.Equals(cmd?.Id, StringComparison.OrdinalIgnoreCase));
+
+				if (reloadGameModeCommand != null)
+				{
+					reloadGameModeCommand.Execute();
+				}
+				else
+					XtraMessageBox.Show(this, "Unable to restart. Please close and restart manually to complete the cache restore process.", "Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
 		}
 
 		/// <summary>
@@ -838,17 +915,17 @@
 		protected void SortPlugins()
 		{
 			if (ViewModel.SupportsPluginAutoSorting && ViewModel.PluginSorterInitialized)
-            {
-                ViewModel.SortPlugins();
-            }
-            else
-            {
-                MessageBox.Show("Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
-                                Environment.NewLine + Environment.NewLine + "This game is not supported or something is wrong with your loadorder.txt or plugins.txt files," +
-                                Environment.NewLine + "or one or more plugins are corrupt/broken.",
-                    "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
+			{
+				ViewModel.SortPlugins();
+			}
+			else
+			{
+				MessageBox.Show("Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
+								Environment.NewLine + Environment.NewLine + "This game is not supported or something is wrong with your loadorder.txt or plugins.txt files," +
+								Environment.NewLine + "or one or more plugins are corrupt/broken.",
+					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+		}
 
 		/// <summary>
 		/// Disable all active mods.
@@ -875,11 +952,11 @@
 			{
 				var drPurgeLooseFiles = ExtendedMessageBox.Show(this, "USE THIS FUNCTION AT YOUR OWN RISK: Would you like to clean your game folder from unmanaged files (not installed by NMM and not official game files)? Legit files may be lost if the mod manager doesn't recognize them as official game files.", "Purge Unmanaged Files", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
-                if (drPurgeLooseFiles == DialogResult.Yes)
-                {
-                    ViewModel.PurgeLooseFiles();
-                }
-            }
+				if (drPurgeLooseFiles == DialogResult.Yes)
+				{
+					ViewModel.PurgeLooseFiles();
+				}
+			}
 		}
 
 		/// <summary>
@@ -887,7 +964,7 @@
 		/// </summary>
 		protected void RestoreBackupProfile()
 		{
-            if (ViewModel.ProfileManager.RestoreBackupProfile(ViewModel.GameMode.ModeId, out var error) == false)
+			if (ViewModel.ProfileManager.RestoreBackupProfile(ViewModel.GameMode.ModeId, out var error) == false)
 			{
 				MessageBox.Show("Nexus Mod Manager was unable to restore your backup profile." +
 					Environment.NewLine + Environment.NewLine + error,
@@ -916,7 +993,7 @@
 		protected void UninstallAllMods(bool forceUninstall, bool silent)
 		{
 			_modManagerControl.DeactivateAllMods(forceUninstall, silent);
- 		}
+		}
 
 		/// <summary>
 		/// This will show the Virtual folders settings.
@@ -932,12 +1009,12 @@
 				{
 					byte[] bteLoadOrder = null;
 
-                    if (ViewModel.GameMode.UsesPlugins)
-                    {
-                        bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-                    }
+					if (ViewModel.GameMode.UsesPlugins)
+					{
+						bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+					}
 
-                    var bteModList = ViewModel.ModManager.InstallationLog.GetXmlModList();
+					var bteModList = ViewModel.ModManager.InstallationLog.GetXmlModList();
 					var bteIniList = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 					var intModCount = ViewModel.ModManager.ActiveMods.Count;
 					AddNewProfile(bteModList, bteIniList, bteLoadOrder, intModCount, true);
@@ -968,16 +1045,16 @@
 			var authenticationFormTask = (AuthenticationFormTask)sender;
 
 			if (authenticationFormTask.OverallMessage != null && authenticationFormTask.OverallMessage.Contains("Logged in"))
-            {
-                toolStripLabelLoginMessage.Text = $"{authenticationFormTask.OverallMessage}{OptionalPremiumMessage}";
-                toolStripButtonOnlineStatus.ToolTipText = "Logout";
-            }
-            else
-            {
-                toolStripLabelLoginMessage.Text = authenticationFormTask.OverallMessage;
-                toolStripButtonOnlineStatus.ToolTipText = "Login";
-            }
-        }
+			{
+				toolStripLabelLoginMessage.Text = $"{authenticationFormTask.OverallMessage}{OptionalPremiumMessage}";
+				toolStripButtonOnlineStatus.ToolTipText = "Logout";
+			}
+			else
+			{
+				toolStripLabelLoginMessage.Text = authenticationFormTask.OverallMessage;
+				toolStripButtonOnlineStatus.ToolTipText = "Login";
+			}
+		}
 
 		/// <summary>
 		/// Opens the selected game folder.
@@ -985,10 +1062,10 @@
 		protected void OpenGameFolder()
 		{
 			if (FileUtil.IsValidPath(ViewModel.GamePath))
-            {
-                Process.Start(ViewModel.GamePath);
-            }
-        }
+			{
+				Process.Start(ViewModel.GamePath);
+			}
+		}
 
 		/// <summary>
 		/// Checks if there are any active downloads before closing the mod manager.
@@ -1004,21 +1081,21 @@
 			{
 				var drFormClose = MessageBox.Show($"There is an ongoing download, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
-                if (drFormClose != DialogResult.Yes)
-                {
-                    e.Cancel = true;
-                }
-            }
+				if (drFormClose != DialogResult.Yes)
+				{
+					e.Cancel = true;
+				}
+			}
 
 			if (ViewModel.IsInstalling)
 			{
 				var drFormClose = MessageBox.Show($"There is an ongoing mod install/uninstall, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
-                if (drFormClose != DialogResult.Yes)
-                {
-                    e.Cancel = true;
-                }
-            }
+				if (drFormClose != DialogResult.Yes)
+				{
+					e.Cancel = true;
+				}
+			}
 		}
 
 		/// <summary>
@@ -1050,18 +1127,18 @@
 				if (_balloonManager.balloonHelp.Visible)
 				{
 					if (_balloonManager.CurrentTip != null)
-                    {
-                        _balloonManager.SetPreviousTip(true);
-                    }
+					{
+						_balloonManager.SetPreviousTip(true);
+					}
 
-                    _balloonManager.balloonHelp.Close();
+					_balloonManager.balloonHelp.Close();
 					_showLastBalloon = true;
 				}
 				else
-                {
-                    _showLastBalloon = false;
-                }
-            }
+				{
+					_showLastBalloon = false;
+				}
+			}
 		}
 
 		/// <summary>
@@ -1127,7 +1204,7 @@
 		private void UpdateModsFeedback()
 		{
 			tlbModsCounter.Text = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Installed mods: " + ViewModel.ModManager.ActiveMods.Count + "   |   Active mods: " + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
- 		}
+		}
 
 		/// <summary>
 		/// Updates the Plugins Counter
@@ -1145,14 +1222,14 @@
 				toolStripLabelActivePluginsCounter.Image = icoIcon.ToBitmap();
 				toolStripLabelActivePluginsCounter.ForeColor = Color.Red;
 
-                if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
-                {
-                    toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
-                }
-                else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
-                {
-                    toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
-                }
+				if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
+				{
+					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+				}
+				else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+				{
+					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+				}
 
 				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 				toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!"; ;
@@ -1161,16 +1238,16 @@
 			{
 				toolStripLabelActivePluginsCounter.Image = null;
 
-                if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
-                {
-                    toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
-                }
-                else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
-                {
-                    toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
-                }
+				if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
+				{
+					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+				}
+				else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
+				{
+					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+				}
 
-                toolStripLabelActivePluginsCounter.ForeColor = Color.Black;
+				toolStripLabelActivePluginsCounter.ForeColor = Color.Black;
 				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 			}
 		}
@@ -1180,12 +1257,12 @@
 		/// </summary>
 		private void pmcPluginManager_PluginMoved(object sender, EventArgs e)
 		{
-            if (ViewModel.ProfileManager.CurrentProfile != null && !ViewModel.IsSwitching)
+			if (ViewModel.ProfileManager.CurrentProfile != null && !ViewModel.IsSwitching)
 			{
-                if (ViewModel.GameMode.UsesPlugins)
+				if (ViewModel.GameMode.UsesPlugins)
 				{
 					var bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-                    ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, null, out var error);
+					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, null, out var error);
 
 					if (!string.IsNullOrEmpty(error))
 					{
@@ -1220,13 +1297,13 @@
 		/// <param name="e">A <see cref="ModEventArgs"/> describing the event arguments.</param>
 		private void ModManagerControlUninstallModFromProfiles(object sender, ModEventArgs e)
 		{
-            var mods = new List<IMod> {e.Mod};
+			var mods = new List<IMod> { e.Mod };
 
-            if (ViewModel.ProfileManager != null && ViewModel.ProfileManager.Initialized)
-            {
-                ViewModel.ProfileManager.PurgeModsFromProfiles(mods);
-            }
-        }
+			if (ViewModel.ProfileManager != null && ViewModel.ProfileManager.Initialized)
+			{
+				ViewModel.ProfileManager.PurgeModsFromProfiles(mods);
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="ModManagerControl.UninstalledAllMods"/> of the opening
@@ -1237,10 +1314,10 @@
 		private void MmgModManagerControlUninstalledAllMods(object sender, EventArgs e)
 		{
 			if (ViewModel.ProfileManager?.CurrentProfile != null)
-            {
-                ViewModel.ProfileManager.PurgeProfileXMLInstalledFile();
-            }
-        }
+			{
+				ViewModel.ProfileManager.PurgeProfileXMLInstalledFile();
+			}
+		}
 
 		/// <summary>
 		/// Set the focus to the Search Textbox.
@@ -1250,8 +1327,8 @@
 			if (ModManagerDock.Visible)
 			{
 				toolStripTextBoxFind.Focus();
-            }
-        }
+			}
+		}
 
 		/// <summary>
 		/// Updates the Bottom Bar Queue Feedback
@@ -1260,13 +1337,13 @@
 		{
 			UpgradeBottomBarFeedbackCounter();
 
-            if (sender != null)
+			if (sender != null)
 			{
 				if (ViewModel.IsInstalling)
 				{
 					var lwiListViewItem = (ModActivationMonitorListViewItem)sender;
 
-                    if (lwiListViewItem.Task != null)
+					if (lwiListViewItem.Task != null)
 					{
 						toolStripButtonLoader.Visible = true;
 						toolStripLabelBottomBarFeedbackCounter.Visible = true;
@@ -1274,18 +1351,18 @@
 						if (!lwiListViewItem.Task.IsQueued)
 						{
 							if (lwiListViewItem.Task.GetType() == typeof(ModInstaller))
-                            {
-                                toolStripLabelBottomBarFeedback.Text = "Mod Activation: Installing ";
-                            }
-                            else if (lwiListViewItem.Task.GetType() == typeof(ModUninstaller))
-                            {
-                                toolStripLabelBottomBarFeedback.Text = "Mod Activation: Uninstalling ";
-                            }
-                            else if (lwiListViewItem.Task.GetType() == typeof(ModUpgrader))
-                            {
-                                toolStripLabelBottomBarFeedback.Text = "Mod Activation: Upgrading ";
-                            }
-                        }
+							{
+								toolStripLabelBottomBarFeedback.Text = "Mod Activation: Installing ";
+							}
+							else if (lwiListViewItem.Task.GetType() == typeof(ModUninstaller))
+							{
+								toolStripLabelBottomBarFeedback.Text = "Mod Activation: Uninstalling ";
+							}
+							else if (lwiListViewItem.Task.GetType() == typeof(ModUpgrader))
+							{
+								toolStripLabelBottomBarFeedback.Text = "Mod Activation: Upgrading ";
+							}
+						}
 					}
 					else
 					{
@@ -1316,10 +1393,10 @@
 				toolStripButtonLoader.Visible = false;
 			}
 			else
-            {
-                toolStripLabelBottomBarFeedbackCounter.Text = $"({intCompletedTasks}/{_modActivationMonitorControl.ViewModel.Tasks.Count})";
-            }
-        }
+			{
+				toolStripLabelBottomBarFeedbackCounter.Text = $"({intCompletedTasks}/{_modActivationMonitorControl.ViewModel.Tasks.Count})";
+			}
+		}
 
 		/// <summary>
 		/// Opens NMM's mods folder for the current game.
@@ -1327,10 +1404,10 @@
 		protected void OpenModsFolder()
 		{
 			if (FileUtil.IsValidPath(ViewModel.ModsPath))
-            {
-                Process.Start(ViewModel.ModsPath);
-            }
-        }
+			{
+				Process.Start(ViewModel.ModsPath);
+			}
+		}
 
 		/// <summary>
 		/// Opens NMM's cache folder for the current game.
@@ -1357,10 +1434,10 @@
 		protected void OpenInstallFolder()
 		{
 			if (FileUtil.IsValidPath(ViewModel.InstallInfoPath))
-            {
-                Process.Start(ViewModel.InstallInfoPath);
-            }
-        }
+			{
+				Process.Start(ViewModel.InstallInfoPath);
+			}
+		}
 
 		/// <summary>
 		/// Opens NMM's config folder.
@@ -1407,13 +1484,13 @@
 		private void LogoutCommand_BeforeExecute(object sender, CancelEventArgs e)
 		{
 			if (!ViewModel.OfflineMode)
-            {
-                if (ExtendedMessageBox.Show(this, "Do you want to logout? This will require you to authorize NMM again the next time you try to log in.", "Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-                {
-                    e.Cancel = true;
-                }
-            }
-        }
+			{
+				if (ExtendedMessageBox.Show(this, "Do you want to logout? This will require you to authorize NMM again the next time you try to log in.", "Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+				{
+					e.Cancel = true;
+				}
+			}
+		}
 
 		#endregion
 
@@ -1435,7 +1512,7 @@
 		#endregion
 
 		#region Tasks
-        
+
 		/// <summary>
 		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
 		/// active mod list.
@@ -1604,10 +1681,10 @@
 			{
 				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
 				if (_downloadMonitorControl.ViewModel.ActiveTasks.Count <= 0)
-                {
-                    UpdateProgressBarSpeed("TotalSpeed", true);
-                }
-            }
+				{
+					UpdateProgressBarSpeed("TotalSpeed", true);
+				}
+			}
 		}
 
 		/// <summary>
@@ -1633,7 +1710,7 @@
 				if (e.OldItems != null && e.OldItems.Count > 0)
 				{
 					foreach (AddModTask Task in e.OldItems)
-						if (!String.IsNullOrEmpty(Task.ErrorCode) && Task.ErrorCode == "666" && !(Task.Status == TaskStatus.Cancelling || Task.Status == TaskStatus.Cancelled || Task.Status == TaskStatus.Complete))
+						if (!String.IsNullOrEmpty(Task.ErrorCode) && Task.ErrorCode == "666" && !(Task.Status == BackgroundTasks.TaskStatus.Cancelling || Task.Status == BackgroundTasks.TaskStatus.Cancelled || Task.Status == BackgroundTasks.TaskStatus.Complete))
 						{
 							MessageBox.Show(String.Format("The NMM web services have currently been disabled by staff of the sites."
 								+ " This is NOT an error with NMM and you DO NOT need to report this error to us."
@@ -1672,49 +1749,49 @@
 		/// <param name="PropertyName">The property name.</param>
 		/// <param name="OverrideSpeed">If true the speed value is overridden with a 0.</param>
 		private void UpdateProgressBarSpeed(string PropertyName, bool OverrideSpeed)
-        {
-            if (toolStripProgressBarDownloadSpeed?.IsValid == true && (PropertyName == "TotalSpeed" || PropertyName == "TotalProgress"))
-            {
-                if (OverrideSpeed)
-                {
-                    toolStripProgressBarDownloadSpeed.Value = 0;
+		{
+			if (toolStripProgressBarDownloadSpeed?.IsValid == true && (PropertyName == "TotalSpeed" || PropertyName == "TotalProgress"))
+			{
+				if (OverrideSpeed)
+				{
+					toolStripProgressBarDownloadSpeed.Value = 0;
 
-                    if (toolStripProgressBarDownloadSpeed.ColorFillMode == ProgressLabel.FillType.Fixed)
-                    {
-                        toolStripProgressBarDownloadSpeed.Maximum = 1;
-                    }
+					if (toolStripProgressBarDownloadSpeed.ColorFillMode == ProgressLabel.FillType.Fixed)
+					{
+						toolStripProgressBarDownloadSpeed.Maximum = 1;
+					}
 
-                    toolStripProgressBarDownloadSpeed.Visible = false;
-                }
-                else switch (toolStripProgressBarDownloadSpeed.ColorFillMode)
-                {
-                    case ProgressLabel.FillType.Fixed:
-                        toolStripProgressBarDownloadSpeed.Visible = true;
-                        toolStripProgressBarDownloadSpeed.Maximum = _downloadMonitorControl.ViewModel.TotalSpeed > 0 ? _downloadMonitorControl.ViewModel.TotalSpeed : 1;
-                        toolStripProgressBarDownloadSpeed.Value = toolStripProgressBarDownloadSpeed.Maximum;
-                        break;
-                    case ProgressLabel.FillType.Ascending:
-                    {
-                        toolStripProgressBarDownloadSpeed.Visible = true;
+					toolStripProgressBarDownloadSpeed.Visible = false;
+				}
+				else switch (toolStripProgressBarDownloadSpeed.ColorFillMode)
+					{
+						case ProgressLabel.FillType.Fixed:
+							toolStripProgressBarDownloadSpeed.Visible = true;
+							toolStripProgressBarDownloadSpeed.Maximum = _downloadMonitorControl.ViewModel.TotalSpeed > 0 ? _downloadMonitorControl.ViewModel.TotalSpeed : 1;
+							toolStripProgressBarDownloadSpeed.Value = toolStripProgressBarDownloadSpeed.Maximum;
+							break;
+						case ProgressLabel.FillType.Ascending:
+							{
+								toolStripProgressBarDownloadSpeed.Visible = true;
 
-                        if (_downloadMonitorControl.ViewModel.TotalMaxProgress > 0)
-                        {
-                            toolStripProgressBarDownloadSpeed.Value = Convert.ToInt32(Convert.ToSingle(_downloadMonitorControl.ViewModel.TotalProgress) / Convert.ToSingle(_downloadMonitorControl.ViewModel.TotalMaxProgress) * 100);
-                            toolStripProgressBarDownloadSpeed.OptionalValue = _downloadMonitorControl.ViewModel.TotalSpeed;
-                        }
+								if (_downloadMonitorControl.ViewModel.TotalMaxProgress > 0)
+								{
+									toolStripProgressBarDownloadSpeed.Value = Convert.ToInt32(Convert.ToSingle(_downloadMonitorControl.ViewModel.TotalProgress) / Convert.ToSingle(_downloadMonitorControl.ViewModel.TotalMaxProgress) * 100);
+									toolStripProgressBarDownloadSpeed.OptionalValue = _downloadMonitorControl.ViewModel.TotalSpeed;
+								}
 
-                        break;
-                    }
-                    case ProgressLabel.FillType.Descending:
-                    {
-                        toolStripProgressBarDownloadSpeed.Visible = true;
-						// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
-						toolStripProgressBarDownloadSpeed.Value = _downloadMonitorControl.ViewModel.TotalSpeed <= 1024 ? _downloadMonitorControl.ViewModel.TotalSpeed : (ViewModel.UserStatus.IsSupporter ? 2048 : 2048);
-                        break;
-                    }
-                }
-            }
-        }
+								break;
+							}
+						case ProgressLabel.FillType.Descending:
+							{
+								toolStripProgressBarDownloadSpeed.Visible = true;
+								// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
+								toolStripProgressBarDownloadSpeed.Value = _downloadMonitorControl.ViewModel.TotalSpeed <= 1024 ? _downloadMonitorControl.ViewModel.TotalSpeed : (ViewModel.UserStatus.IsSupporter ? 2048 : 2048);
+								break;
+							}
+					}
+			}
+		}
 
 		#endregion
 
@@ -1733,7 +1810,7 @@
 		{
 			base.OnClosed(e);
 
-            if (!DesignMode)
+			if (!DesignMode)
 			{
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"] = dockPanel1.SaveAsXml();
 				ViewModel.EnvironmentInfo.Settings.Save();
@@ -1746,40 +1823,40 @@
 		/// <param name="contentId">The id of the component to return to be positioned.</param>
 		/// <returns>The component to return to be positioned.</returns>
 		protected IDockContent LoadDockedContent(string contentId)
-        {
-            if (contentId == typeof(PluginManagerControl).ToString() || contentId == typeof(PluginManagerDXControl).ToString())
-            {
-                return _pluginManagerControl;
-            }
+		{
+			if (contentId == typeof(PluginManagerControl).ToString() || contentId == typeof(PluginManagerDXControl).ToString())
+			{
+				return _pluginManagerControl;
+			}
 
-                if (contentId == typeof(ModManagerControl).ToString()
-                || contentId == typeof(ModManagerDXControl).ToString())
-            {
-                return ModManagerDock;
-            }
+			if (contentId == typeof(ModManagerControl).ToString()
+			|| contentId == typeof(ModManagerDXControl).ToString())
+			{
+				return ModManagerDock;
+			}
 
-            if (contentId == typeof(CategoryManagerControl).ToString())
-            {
-                return _categoryManagerControl;
-            }
+			if (contentId == typeof(CategoryManagerControl).ToString())
+			{
+				return _categoryManagerControl;
+			}
 
-            if (contentId == typeof(FileManagerControl).ToString() && IsFileManagerAvailable())
-            {
-                return _fileManagerControl;
-            }
+			if (contentId == typeof(FileManagerControl).ToString() && IsFileManagerAvailable())
+			{
+				return _fileManagerControl;
+			}
 
-            if (contentId == typeof(DownloadMonitorControl).ToString())
-            {
-                return _downloadMonitorControl;
-            }
+			if (contentId == typeof(DownloadMonitorControl).ToString())
+			{
+				return _downloadMonitorControl;
+			}
 
-            if (contentId == typeof(ModActivationMonitorControl).ToString())
-            {
-                return _modActivationMonitorControl;
-            }
+			if (contentId == typeof(ModActivationMonitorControl).ToString())
+			{
+				return _modActivationMonitorControl;
+			}
 
-            return null;
-        }
+			return null;
+		}
 
 		#endregion
 
@@ -1814,11 +1891,11 @@
 		{
 			var frmSettings = new SettingsForm(ViewModel.SettingsFormVM);
 
-            if (frmSettings.ShowDialog(this) == DialogResult.OK)
+			if (frmSettings.ShowDialog(this) == DialogResult.OK)
 			{
 				_modManagerControl.ForceListRefresh();
 
-                if (ViewModel.SupportedToolsLauncher != null)
+				if (ViewModel.SupportedToolsLauncher != null)
 				{
 					ViewModel.SupportedToolsLauncher.SetupCommands();
 					BindSupportedToolsCommands();
@@ -1836,11 +1913,11 @@
 		private bool ConfirmUpdaterAction(string p_strMessage, string p_strTitle)
 		{
 			if (InvokeRequired)
-            {
-                return (bool)Invoke((ConfirmActionMethod)ConfirmUpdaterAction, p_strMessage, p_strTitle);
-            }
+			{
+				return (bool)Invoke((ConfirmActionMethod)ConfirmUpdaterAction, p_strMessage, p_strTitle);
+			}
 
-            return MessageBox.Show(this, p_strMessage, p_strTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
+			return MessageBox.Show(this, p_strMessage, p_strTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
 		}
 
 		#endregion
@@ -1851,37 +1928,37 @@
 		/// Binds the change game mode commands to the UI.
 		/// </summary>
 		protected void BindChangeModeCommands()
-        {
-            foreach (var changeCommand in ViewModel.ChangeGameModeCommands)
-            {
-                var isReloadCommand = false;
+		{
+			foreach (var changeCommand in ViewModel.ChangeGameModeCommands)
+			{
+				var isReloadCommand = false;
 
-                if (ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase))
-                {
-                    changeCommand.Name = $"Reload {changeCommand.Name}";
-                    changeCommand.Description = $"Reload {changeCommand.Name}";
-                    isReloadCommand = true;
-                }
+				if (ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase))
+				{
+					changeCommand.Name = $"Reload {changeCommand.Name}";
+					changeCommand.Description = $"Reload {changeCommand.Name}";
+					isReloadCommand = true;
+				}
 
-                var toolStripMenuItemChange = new ToolStripMenuItem();
-                changeCommand.Executed += ChangeGameModeCommand_Executed;
-                new ToolStripItemCommandBinding(toolStripMenuItemChange, changeCommand);
+				var toolStripMenuItemChange = new ToolStripMenuItem();
+				changeCommand.Executed += ChangeGameModeCommand_Executed;
+				new ToolStripItemCommandBinding(toolStripMenuItemChange, changeCommand);
 
-                if (isReloadCommand)
-                {
-                    spbChangeMode.DropDownItems.Insert(0, toolStripMenuItemChange);
-                    spbChangeMode.DropDownItems.Insert(1, new ToolStripSeparator());
-                    continue;
-                }
+				if (isReloadCommand)
+				{
+					spbChangeMode.DropDownItems.Insert(0, toolStripMenuItemChange);
+					spbChangeMode.DropDownItems.Insert(1, new ToolStripSeparator());
+					continue;
+				}
 
-                if (changeCommand.Name.Equals("Change Default Game...", StringComparison.OrdinalIgnoreCase))
-                {
-                    spbChangeMode.DropDownItems.Add(new ToolStripSeparator());
-                }
+				if (changeCommand.Name.Equals("Change Default Game...", StringComparison.OrdinalIgnoreCase))
+				{
+					spbChangeMode.DropDownItems.Add(new ToolStripSeparator());
+				}
 
-                spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
-            }
-        }
+				spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the change game mode button.
@@ -1906,23 +1983,28 @@
 		protected void BindToolCommands()
 		{
 			var resetUiCommand = new Command("Reset UI", "Resets the UI to the default layout.", ResetUI);
-            var toolStripMenuItemResetTool = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};
-            new ToolStripItemCommandBinding(toolStripMenuItemResetTool, resetUiCommand);
+			var toolStripMenuItemResetTool = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+			new ToolStripItemCommandBinding(toolStripMenuItemResetTool, resetUiCommand);
 			toolStripSplitButtonTools.DropDownItems.Add(toolStripMenuItemResetTool);
 
+			var cmdRepairFomodInfoCache = new Command("Repair FOMOD Info Cache", "Restores mod info (name, version, description) for uncategorized mods from the legacy FOMOD cache, where available.", RepairFomodInfoCache);
+			var tmiRepairFomodInfoCache = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+			new ToolStripItemCommandBinding(tmiRepairFomodInfoCache, cmdRepairFomodInfoCache);
+			toolStripSplitButtonTools.DropDownItems.Add(tmiRepairFomodInfoCache);
+
 			var cmdDisableAllMods = new Command("Disable all active mods", "Disables all active mods.", DisableAllMods);
-            var tmiDisableAllMods = new ToolStripMenuItem {Image = Properties.Resources.edit_delete};
-            new ToolStripItemCommandBinding(tmiDisableAllMods, cmdDisableAllMods);
+			var tmiDisableAllMods = new ToolStripMenuItem { Image = Properties.Resources.edit_delete };
+			new ToolStripItemCommandBinding(tmiDisableAllMods, cmdDisableAllMods);
 			toolStripSplitButtonTools.DropDownItems.Add(tmiDisableAllMods);
 
 			var cmdUninstallAllMods = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
-            var tmiUninstallAllMods = new ToolStripMenuItem {Image = Properties.Resources.edit_delete_6};
-            new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
+			var tmiUninstallAllMods = new ToolStripMenuItem { Image = Properties.Resources.edit_delete_6 };
+			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
 			toolStripSplitButtonTools.DropDownItems.Add(tmiUninstallAllMods);
 
 			var cmdPurgeLooseFiles = new Command("Purge Unmanaged Files", "Purge Unmanaged Files.", PurgeLooseFiles);
-            var tmiPurgeLooseFiles = new ToolStripMenuItem {Image = Properties.Resources.deleteProfile};
-            new ToolStripItemCommandBinding(tmiPurgeLooseFiles, cmdPurgeLooseFiles);
+			var tmiPurgeLooseFiles = new ToolStripMenuItem { Image = Properties.Resources.deleteProfile };
+			new ToolStripItemCommandBinding(tmiPurgeLooseFiles, cmdPurgeLooseFiles);
 			toolStripSplitButtonTools.DropDownItems.Add(tmiPurgeLooseFiles);
 
 			var cmdCreateBackup = new Command("Create Mod Installation backup.", "Create Mod Installation backup.", CreateBackup);
@@ -1933,44 +2015,45 @@
 			tmiBackup.Text = "Backup and Restore";
 			tmiBackup.Image = Properties.Resources.backup;
 
-            var tmiCreateBackup = new ToolStripMenuItem
-            {
-                Image = Properties.Resources.createBackup
-            };
-            new ToolStripItemCommandBinding(tmiCreateBackup, cmdCreateBackup);
+			var tmiCreateBackup = new ToolStripMenuItem
+			{
+				Image = Properties.Resources.createBackup
+			};
+			new ToolStripItemCommandBinding(tmiCreateBackup, cmdCreateBackup);
 			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiCreateBackup });
 
-            var tmiRestoreBackup = new ToolStripMenuItem {Image = Properties.Resources.restoreBackup};
-            new ToolStripItemCommandBinding(tmiRestoreBackup, cmdRestoreBackup);
+			var tmiRestoreBackup = new ToolStripMenuItem { Image = Properties.Resources.restoreBackup };
+			new ToolStripItemCommandBinding(tmiRestoreBackup, cmdRestoreBackup);
 			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiRestoreBackup });
 
-            var tmiRestoreBackupProfile = new ToolStripMenuItem {Image = Properties.Resources.change_game_mode};
-            new ToolStripItemCommandBinding(tmiRestoreBackupProfile, cmdRestoreBackupProfile);
+			var tmiRestoreBackupProfile = new ToolStripMenuItem { Image = Properties.Resources.change_game_mode };
+			new ToolStripItemCommandBinding(tmiRestoreBackupProfile, cmdRestoreBackupProfile);
 			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiRestoreBackupProfile });
-			
+
 			toolStripSplitButtonTools.DropDownItems.Add(tmiBackup);
-			
+
 			var cmdConfigureVirtualFolders = new Command("Change Virtual folders...", "Virtual folders setup menu.", ChangeVirtualFolders);
-            var tmiConfigureVirtualFolders = new ToolStripMenuItem {Image = Properties.Resources.category_folder};
-            new ToolStripItemCommandBinding(tmiConfigureVirtualFolders, cmdConfigureVirtualFolders);
+			var tmiConfigureVirtualFolders = new ToolStripMenuItem { Image = Properties.Resources.category_folder };
+			new ToolStripItemCommandBinding(tmiConfigureVirtualFolders, cmdConfigureVirtualFolders);
 			toolStripSplitButtonTools.DropDownItems.Add(tmiConfigureVirtualFolders);
 
 			if (ViewModel.UsesPlugins && ViewModel.SupportsPluginAutoSorting)
 			{
 				var cmdSortPlugins = new Command("Automatic Plugin Sorting", "Automatically sorts the plugin list.", SortPlugins);
-                var tmicmdSortPluginsTool = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};
-                new ToolStripItemCommandBinding(tmicmdSortPluginsTool, cmdSortPlugins);
+				var tmicmdSortPluginsTool = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+				new ToolStripItemCommandBinding(tmicmdSortPluginsTool, cmdSortPlugins);
 				toolStripSplitButtonTools.DropDownItems.Add(tmicmdSortPluginsTool);
 			}
 
-            foreach (var tolTool in ViewModel.GameToolLauncher.Tools)
+			foreach (var tolTool in ViewModel.GameToolLauncher.Tools)
 			{
-                var tmiTool = new ToolStripMenuItem
-                {
-                    Tag = tolTool, ImageScaling = ToolStripItemImageScaling.None
-                };
+				var tmiTool = new ToolStripMenuItem
+				{
+					Tag = tolTool,
+					ImageScaling = ToolStripItemImageScaling.None
+				};
 
-                new ToolStripItemCommandBinding(tmiTool, tolTool.LaunchCommand);
+				new ToolStripItemCommandBinding(tmiTool, tolTool.LaunchCommand);
 				tolTool.DisplayToolView += Tool_DisplayToolView;
 				tolTool.CloseToolView += Tool_CloseToolView;
 				toolStripSplitButtonTools.DropDownItems.Add(tmiTool);
@@ -2007,14 +2090,14 @@
 		private void Tool_DisplayToolView(object sender, DisplayToolViewEventArgs e)
 		{
 			if (e.IsModal)
-            {
-                ((Form)e.ToolView).ShowDialog(this);
-            }
-            else
-            {
-                ((Form)e.ToolView).Show(this);
-            }
-        }
+			{
+				((Form)e.ToolView).ShowDialog(this);
+			}
+			else
+			{
+				((Form)e.ToolView).Show(this);
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="ToolStripItem.Click"/> event of the tools button.
@@ -2043,25 +2126,25 @@
 					if (root.TabIndex == 2)
 					{
 						if (root.ContainsFocus)
-                        {
-                            coords.X = root.AccessibilityObject.Bounds.Location.X;
-                        }
-                        else
-                        {
-                            coords.X = root.Width + root.AccessibilityObject.Bounds.Location.X;
-                        }
-                    }
+						{
+							coords.X = root.AccessibilityObject.Bounds.Location.X;
+						}
+						else
+						{
+							coords.X = root.Width + root.AccessibilityObject.Bounds.Location.X;
+						}
+					}
 					else
 					{
 						if (root.ContainsFocus)
-                        {
-                            coords.X = root.AccessibilityObject.Bounds.Location.X + 60;
-                        }
-                        else
-                        {
-                            coords.X = root.Width + root.AccessibilityObject.Bounds.Location.X + 60;
-                        }
-                    }
+						{
+							coords.X = root.AccessibilityObject.Bounds.Location.X + 60;
+						}
+						else
+						{
+							coords.X = root.Width + root.AccessibilityObject.Bounds.Location.X + 60;
+						}
+					}
 
 					coords.Y = root.AccessibilityObject.Bounds.Location.Y - 60;
 
@@ -2078,7 +2161,7 @@
 					root = Controls.Find(section, true)[0];
 					rootItem = ((StatusStrip)root).Items.Find(target, true)[0];
 
-                    if (rootItem.Visible)
+					if (rootItem.Visible)
 					{
 						coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
 						coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 60;
@@ -2115,11 +2198,11 @@
 					}
 
 					if (!_downloadMonitorControl.Visible)
-                    {
-                        _downloadMonitorControl.Show();
-                    }
+					{
+						_downloadMonitorControl.Show();
+					}
 
-                    coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
+					coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
 					coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 40;
 					break;
 
@@ -2127,44 +2210,44 @@
 					coords.X = ModManagerDock.AccessibilityObject.Bounds.Location.X;
 					coords.Y = ModManagerDock.AccessibilityObject.Bounds.Location.Y - 40;
 					break;
-					
-					case "ModActivationMonitorListView":
-						switch (_modActivationMonitorControl.DockState)
-						{
-							case DockState.DockBottomAutoHide:
-								_modActivationMonitorControl.DockState = DockState.DockBottom;
-								break;
-							case DockState.DockLeftAutoHide:
-								_modActivationMonitorControl.DockState = DockState.DockLeft;
-								break;
-							case DockState.DockRightAutoHide:
-								_modActivationMonitorControl.DockState = DockState.DockRight;
-								break;
-							case DockState.DockTopAutoHide:
-								_modActivationMonitorControl.DockState = DockState.DockTop;
-								break;
-						}
 
-						if (!_modActivationMonitorControl.Visible)
-                        {
-                            _modActivationMonitorControl.Show();
-                        }
+				case "ModActivationMonitorListView":
+					switch (_modActivationMonitorControl.DockState)
+					{
+						case DockState.DockBottomAutoHide:
+							_modActivationMonitorControl.DockState = DockState.DockBottom;
+							break;
+						case DockState.DockLeftAutoHide:
+							_modActivationMonitorControl.DockState = DockState.DockLeft;
+							break;
+						case DockState.DockRightAutoHide:
+							_modActivationMonitorControl.DockState = DockState.DockRight;
+							break;
+						case DockState.DockTopAutoHide:
+							_modActivationMonitorControl.DockState = DockState.DockTop;
+							break;
+					}
 
-                        coords.X = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.X + 20;
-						coords.Y = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.Y - 70;
-						break;
+					if (!_modActivationMonitorControl.Visible)
+					{
+						_modActivationMonitorControl.Show();
+					}
 
-					case "ModActivationMonitorControl.toolStrip1":
-						section = "toolStrip1";
-						root = _modActivationMonitorControl.Controls.Find(section, true)[0];
-						rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
+					coords.X = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.X + 20;
+					coords.Y = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.Y - 70;
+					break;
 
-						if (rootItem.Visible)
-						{
-							coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
-							coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 40;
-						}
-						break;
+				case "ModActivationMonitorControl.toolStrip1":
+					section = "toolStrip1";
+					root = _modActivationMonitorControl.Controls.Find(section, true)[0];
+					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
+
+					if (rootItem.Visible)
+					{
+						coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
+						coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 40;
+					}
+					break;
 			}
 
 			return coords;
@@ -2180,13 +2263,13 @@
 		protected void BindFolderCommands()
 		{
 			var cmdGameFolder = new Command("Open Game Folder", "Open the game's root folder in the explorer window.", OpenGameFolder);
-            var tmiGameFolder = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};
-            new ToolStripItemCommandBinding(tmiGameFolder, cmdGameFolder);
+			var tmiGameFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+			new ToolStripItemCommandBinding(tmiGameFolder, cmdGameFolder);
 			spbFolders.DropDownItems.Add(tmiGameFolder);
 
 			var cmdModsFolder = new Command("Open NMM's Mods Folder", "Open NMM's mods folder in the explorer window.", OpenModsFolder);
-            var tmiModsFolder = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};
-            new ToolStripItemCommandBinding(tmiModsFolder, cmdModsFolder);
+			var tmiModsFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+			new ToolStripItemCommandBinding(tmiModsFolder, cmdModsFolder);
 			spbFolders.DropDownItems.Add(tmiModsFolder);
 
 			var cmdCacheFolder = new Command("Open NMM's Cache Folder", "Open NMM's cache folder in the explorer window.", OpenCacheFolder);
@@ -2195,8 +2278,8 @@
 			spbFolders.DropDownItems.Add(tmiCacheFolder);
 
 			var cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
-            var tmiInstallFolder = new ToolStripMenuItem {ImageScaling = ToolStripItemImageScaling.None};
-            new ToolStripItemCommandBinding(tmiInstallFolder, cmdInstallFolder);
+			var tmiInstallFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
+			new ToolStripItemCommandBinding(tmiInstallFolder, cmdInstallFolder);
 			spbFolders.DropDownItems.Add(tmiInstallFolder);
 
 			var cmdConfigFolder = new Command("Open NMM's Config Folder", "Open NMM's config in the explorer window.", OpenConfigFolder);
@@ -2247,12 +2330,12 @@
 		{
 			var helpLink = (HelpInformation.HelpLink)((ToolStripMenuItem)sender).Tag;
 
-            if (helpLink == null)
-            {
-                return;
-            }
+			if (helpLink == null)
+			{
+				return;
+			}
 
-            try
+			try
 			{
 				Process.Start(helpLink.Url);
 			}
@@ -2288,39 +2371,39 @@
 			{
 				var dctLoadOrder = ViewModel.ImportProfileLoadOrder();
 
-                if (dctLoadOrder != null && dctLoadOrder.Count > 0)
-                {
-                    ViewModel.ApplyLoadOrder(dctLoadOrder, false);
-                }
-            }
+				if (dctLoadOrder != null && dctLoadOrder.Count > 0)
+				{
+					ViewModel.ApplyLoadOrder(dctLoadOrder, false);
+				}
+			}
 
 			ViewModel.ModManager.VirtualModActivator.RestoreIniEdits();
 
-            var strOptionalToolPath = ViewModel.GameMode.PostProfileSwitchTool(out var message);
+			var strOptionalToolPath = ViewModel.GameMode.PostProfileSwitchTool(out var message);
 
-            if (!string.IsNullOrEmpty(strOptionalToolPath) && File.Exists(strOptionalToolPath) && ExtendedMessageBox.Show(this, message, "Optional tool detected", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-            {
-                ViewModel.GameMode.SupportedToolsLauncher.LaunchDefaultCommand();
-            }
+			if (!string.IsNullOrEmpty(strOptionalToolPath) && File.Exists(strOptionalToolPath) && ExtendedMessageBox.Show(this, message, "Optional tool detected", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+			{
+				ViewModel.GameMode.SupportedToolsLauncher.LaunchDefaultCommand();
+			}
 
-            ViewModel.IsSwitching = false;
-            ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null, null, out _);
-			ViewModel.ProfileManager.SetDefaultProfile(ViewModel.ProfileManager.CurrentProfile);	
+			ViewModel.IsSwitching = false;
+			ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, null, null, out _);
+			ViewModel.ProfileManager.SetDefaultProfile(ViewModel.ProfileManager.CurrentProfile);
 			ViewModel.ProfileManager.SaveConfig();
 			_modManagerControl.ForceListRefresh();
 			BindProfileCommands();
 			UpdateModsFeedback();
 
-            if (e.Argument?.ReturnValue is bool)
-            {
-                if ((bool)e.Argument.ReturnValue)
-                {
-                    MessageBox.Show("Restore Complete! NMM will restart automatically to apply the changes.", "Restore Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    ViewModel.RequestGameMode(ViewModel.GameMode.ModeId);
-                    ChangeGameModeCommand_Executed(sender, new EventArgs());
-                }
-            }
-        }
+			if (e.Argument?.ReturnValue is bool)
+			{
+				if ((bool)e.Argument.ReturnValue)
+				{
+					MessageBox.Show("Restore Complete! NMM will restart automatically to apply the changes.", "Restore Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					ViewModel.RequestGameMode(ViewModel.GameMode.ModeId);
+					ChangeGameModeCommand_Executed(sender, new EventArgs());
+				}
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="MainFormVM.ProfileDownloading"/> event of the view model.
@@ -2360,14 +2443,14 @@
 			ProgressDialog.ShowDialog(this, e.Argument, true);
 
 			if (e.Argument.ReturnValue != null)
-            {
-                if (e.Argument.ReturnValue.GetType() == typeof(ModProfile))
-                {
-                    IModProfile ModProfile = (IModProfile)e.Argument.ReturnValue;
-                    ViewModel.SwitchProfile(this, ModProfile, false, false);
-                }
-            }
-        }
+			{
+				if (e.Argument.ReturnValue.GetType() == typeof(ModProfile))
+				{
+					IModProfile ModProfile = (IModProfile)e.Argument.ReturnValue;
+					ViewModel.SwitchProfile(this, ModProfile, false, false);
+				}
+			}
+		}
 
 		#region DEPRECATED: Profile Sharing is no longer supported
 
@@ -2393,17 +2476,17 @@
 
 			if (e.Argument.ReturnValue != null)
 			{
-                var error = e.Argument.ReturnValue.ToString();
+				var error = e.Argument.ReturnValue.ToString();
 
-                if (e.Argument.ReturnValue is string)
+				if (e.Argument.ReturnValue is string)
 				{
-                    ExtendedMessageBox.Show(this, error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					ExtendedMessageBox.Show(this, error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
 				}
 
 				missingInfoDictionary = (Dictionary<string, string>)e.Argument.ReturnValue;
 
-                if (!missingInfoDictionary.Any())
+				if (!missingInfoDictionary.Any())
 				{
 					ViewModel.ExecuteProfileSwitch(this);
 					return;
@@ -2418,7 +2501,7 @@
 			var sbMessage = new StringBuilder();
 			var sbDetails = new StringBuilder();
 
-            sbMessage.AppendLine("Some mods required by the profile are missing: ");
+			sbMessage.AppendLine("Some mods required by the profile are missing: ");
 
 			var tslMissingMods = new ThreadSafeObservableList<string>();
 			var intNewVersions = 0;
@@ -2428,7 +2511,7 @@
 			{
 				var value = kvp.Value;
 
-                if (!string.IsNullOrEmpty(value) && value.Contains("@"))
+				if (!string.IsNullOrEmpty(value) && value.Contains("@"))
 				{
 					intNewVersions++;
 					tslMissingMods.Add(value.Substring(1));
@@ -2440,10 +2523,10 @@
 					sbDetails.AppendLine($"MISSING: {kvp.Key}");
 				}
 				else
-                {
-                    tslMissingMods.Add(value);
-                }
-            }
+				{
+					tslMissingMods.Add(value);
+				}
+			}
 
 			var lstMissingMods = new List<string>();
 			var lstIncompleteMods = new List<string>();
@@ -2453,32 +2536,32 @@
 			foreach (var url in tslMissingMods)
 			{
 				if (missingInfoDictionary.ContainsValue(url))
-                {
-                    strKey = missingInfoDictionary.FirstOrDefault(x => x.Value == url).Key;
-                }
+				{
+					strKey = missingInfoDictionary.FirstOrDefault(x => x.Value == url).Key;
+				}
 
-                var booCheck = ViewModel.CheckAlreadyDownloading(url, strKey);
+				var booCheck = ViewModel.CheckAlreadyDownloading(url, strKey);
 
-                if (booCheck == false)
-                {
-                    lstMissingMods.Add(url);
-                }
-                else if (booCheck == null)
-                {
-                    lstIncompleteMods.Add(url);
-                }
-            }
+				if (booCheck == false)
+				{
+					lstMissingMods.Add(url);
+				}
+				else if (booCheck == null)
+				{
+					lstIncompleteMods.Add(url);
+				}
+			}
 
 			if (lstMissingMods.Count <= 0 && lstIncompleteMods.Count <= 0)
 			{
 				ExtendedMessageBox.Show(this, "The mod files required by this profile are still being downloaded, please wait for the downloads to complete before activating this profile.", "Please wait..", null, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                if (ViewModel.ProfileManager.CurrentProfile != null)
-                {
-                    ViewModel.ProfileManager.SetCurrentProfile(ViewModel.ProfileManager.CurrentProfile);
-                }
+				if (ViewModel.ProfileManager.CurrentProfile != null)
+				{
+					ViewModel.ProfileManager.SetCurrentProfile(ViewModel.ProfileManager.CurrentProfile);
+				}
 
-                BindProfileCommands();
+				BindProfileCommands();
 				return;
 			}
 			else if (lstMissingMods.Count <= 0 && lstIncompleteMods.Count > 0)
@@ -2486,14 +2569,14 @@
 				var sbIncomplete = new StringBuilder();
 
 				foreach (var File in lstIncompleteMods)
-                {
-                    sbIncomplete.AppendLine(File);
-                }
+				{
+					sbIncomplete.AppendLine(File);
+				}
 
-                var strIncomplete = sbIncomplete.ToString();
+				var strIncomplete = sbIncomplete.ToString();
 				var drIncomplete = ExtendedMessageBox.Show(this, "Some mods required by this profile were not completely downloaded or the download was paused, Nexus Mod Manager will now try to resume their download.", CommonData.ModManagerName, strIncomplete, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                if (drIncomplete == DialogResult.OK)
+				if (drIncomplete == DialogResult.OK)
 				{
 					ViewModel.ResumeIncompleteDownloads(lstIncompleteMods);
 				}
@@ -2502,16 +2585,16 @@
 			}
 
 			if (intNewVersions > 0)
-            {
-                sbMessage.AppendLine($"- {intNewVersions.ToString()} only got a new version of the file.");
-            }
+			{
+				sbMessage.AppendLine($"- {intNewVersions.ToString()} only got a new version of the file.");
+			}
 
-            if (intMissing > 0)
-            {
-                sbMessage.AppendLine($"- {intMissing.ToString()} are no longer present on the Nexus.");
-            }
+			if (intMissing > 0)
+			{
+				sbMessage.AppendLine($"- {intMissing.ToString()} are no longer present on the Nexus.");
+			}
 
-            sbMessage.AppendLine().AppendLine("This may cause the resulting profile installation to be broken or requiring some tweaks to work.");
+			sbMessage.AppendLine().AppendLine("This may cause the resulting profile installation to be broken or requiring some tweaks to work.");
 			sbMessage.AppendLine("How would you like to proceed?").AppendLine().AppendLine();
 			sbMessage.AppendLine("Click YES if you want to automatically download the mods missing from your PC (you will have to manually switch profile when all the downloads completes).");
 			sbMessage.AppendLine("Click NO if you want to switch to the new profile without these mods, your game will most likely be unable to start without these mods or heavy tweaking.");
@@ -2521,38 +2604,38 @@
 
 			var drResult = ExtendedMessageBox.Show(this, sbMessage.ToString(), CommonData.ModManagerName, details, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
 
-            if (drResult == DialogResult.Yes)
+			if (drResult == DialogResult.Yes)
 			{
 				if (ViewModel.ProfileManager.CurrentProfile != null)
-                {
-                    ViewModel.ProfileManager.SetCurrentProfile(ViewModel.ProfileManager.CurrentProfile);
-                }
+				{
+					ViewModel.ProfileManager.SetCurrentProfile(ViewModel.ProfileManager.CurrentProfile);
+				}
 
-                BindProfileCommands();
+				BindProfileCommands();
 
 				if (lstIncompleteMods.Count > 0)
-                {
-                    ViewModel.ResumeIncompleteDownloads(lstIncompleteMods);
-                }
+				{
+					ViewModel.ResumeIncompleteDownloads(lstIncompleteMods);
+				}
 
-                ViewModel.AutomaticDownload(lstMissingMods, ViewModel.ProfileManager);
+				ViewModel.AutomaticDownload(lstMissingMods, ViewModel.ProfileManager);
 
-                return;
+				return;
 			}
 
-            if (drResult == DialogResult.No)
+			if (drResult == DialogResult.No)
 			{
 				ViewModel.ExecuteProfileSwitch(this);
 			}
 
-            if (drResult == DialogResult.Cancel)
+			if (drResult == DialogResult.Cancel)
 			{
 				if (ViewModel.ProfileManager.CurrentProfile != null)
-                {
-                    ViewModel.ProfileManager.SetCurrentProfile(ViewModel.ProfileManager.CurrentProfile);
-                }
+				{
+					ViewModel.ProfileManager.SetCurrentProfile(ViewModel.ProfileManager.CurrentProfile);
+				}
 
-                BindProfileCommands();
+				BindProfileCommands();
 			}
 
 		}
@@ -2618,7 +2701,7 @@
 				if (bpBackedProfile != null)
 				{
 					ViewModel.ProfileManager.ModBackedProfiles.Remove(bpBackedProfile);
-					ViewModel.ProfileManager.ModBackedProfiles.Add(new ModProfile(((ModProfile)bpBackedProfile).Id, strResult, ViewModel.ModRepository.GameDomainName.ToString(), ((ModProfile)bpBackedProfile).ModCount, false, ((ModProfile)bpBackedProfile).OnlineID, ((ModProfile)bpBackedProfile).Name, System.DateTime.Now.ToShortDateString(), ((ModProfile)bpBackedProfile).IsShared, ((ModProfile)bpBackedProfile).Version.ToString(), ((ModProfile)bpBackedProfile).Author,((ModProfile)bpBackedProfile).WorksWithSaves, false));
+					ViewModel.ProfileManager.ModBackedProfiles.Add(new ModProfile(((ModProfile)bpBackedProfile).Id, strResult, ViewModel.ModRepository.GameDomainName.ToString(), ((ModProfile)bpBackedProfile).ModCount, false, ((ModProfile)bpBackedProfile).OnlineID, ((ModProfile)bpBackedProfile).Name, System.DateTime.Now.ToShortDateString(), ((ModProfile)bpBackedProfile).IsShared, ((ModProfile)bpBackedProfile).Version.ToString(), ((ModProfile)bpBackedProfile).Author, ((ModProfile)bpBackedProfile).WorksWithSaves, false));
 					ViewModel.ProfileManager.SaveOnlineConfig();
 				}
 			}
@@ -2651,10 +2734,10 @@
 				ViewModel.SwitchProfile(this, ViewModel.ProfileManager.CurrentProfile, true, false);
 			}
 			else
-            {
-                BindProfileCommands();
-            }
-        }
+			{
+				BindProfileCommands();
+			}
+		}
 
 		/// <summary>
 		/// Handles the <see cref="VirtualModActivator.ModActivationChanged"/> event of the view model.
@@ -2678,7 +2761,7 @@
 
 				if (ViewModel.ProfileManager.CurrentProfile != null)
 				{
-                    var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXmlIniList();
+					var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 
 					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, bteIniEdits, null, null, out var error);
 
@@ -2728,10 +2811,10 @@
 				MessageBox.Show("Unable to create the backup: " + e.Argument.ReturnValue.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 			else
-            {
-                MessageBox.Show("Backup Complete!", "Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-        }
+			{
+				MessageBox.Show("Backup Complete!", "Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+		}
 
 		private void ViewModel_RestoringBackup(object sender, EventArgs<IBackgroundTask> e)
 		{
@@ -2748,7 +2831,7 @@
 				ViewModel.SwitchProfile(this, modProfile, true, true);
 			}
 			else
-            {
+			{
 				if ((e.Argument.ReturnValue != null) && (e.Argument.ReturnValue is string error))
 				{
 					MessageBox.Show(error);
@@ -2757,8 +2840,8 @@
 				{
 					MessageBox.Show("An error occured during the Restore!");
 				}
-            }
-        }
+			}
+		}
 
 		private void ViewModel_PurgingLooseFiles(object sender, EventArgs<IBackgroundTask> e)
 		{
@@ -2768,13 +2851,13 @@
 				return;
 			}
 
-            ProgressDialog.ShowDialog(this, e.Argument, false);
+			ProgressDialog.ShowDialog(this, e.Argument, false);
 
 			if (e.Argument.ReturnValue != null)
-            {
-                MessageBox.Show("Purge Complete!", "Purge Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-        }
+			{
+				MessageBox.Show("Purge Complete!", "Purge Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+		}
 
 		#endregion
 
@@ -2785,13 +2868,13 @@
 		/// </summary>
 		protected void BindLaunchCommands()
 		{
-            foreach (var cmdLaunch in ViewModel.GameLauncher.LaunchCommands)
+			foreach (var cmdLaunch in ViewModel.GameLauncher.LaunchCommands)
 			{
-                var tmiLaunch = new ToolStripMenuItem {Tag = cmdLaunch};
-                new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
+				var tmiLaunch = new ToolStripMenuItem { Tag = cmdLaunch };
+				new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
 				spbLaunch.DropDownItems.Add(tmiLaunch);
 
-                if (string.Equals(cmdLaunch.Id, _viewModel.SelectedGameLaunchCommandId))
+				if (string.Equals(cmdLaunch.Id, _viewModel.SelectedGameLaunchCommandId))
 				{
 					spbLaunch.DefaultItem = tmiLaunch;
 					spbLaunch.Text = spbLaunch.DefaultItem.Text;
@@ -2819,7 +2902,7 @@
 			ViewModel.GameLauncher.GameLaunched += GameLauncher_GameLaunched;
 		}
 
- 		/// <summary>
+		/// <summary>
 		/// Binds the game profiles commands to the UI.
 		/// </summary>
 		protected void BindProfileCommands()
@@ -2828,28 +2911,28 @@
 			{
 				spbProfiles.DropDownItems.Clear();
 				spbProfiles.DefaultItem = null;
-                var tmiMenuItem = new ToolStripMenuItem {Tag = "New", Text = "New Profile"};
-                spbProfiles.DropDownItems.Add(tmiMenuItem);
-                tmiMenuItem = new ToolStripMenuItem {Tag = "Rename", Text = "Rename Current Profile"};
-                spbProfiles.DropDownItems.Add(tmiMenuItem);
-                tmiMenuItem = new ToolStripMenuItem {Tag = "Remove", Text = "Remove Current Profile"};
-                spbProfiles.DropDownItems.Add(tmiMenuItem);
-                tmiMenuItem = new ToolStripMenuItem {Tag = "Save", Text = "Save Current Profile"};
-                spbProfiles.DropDownItems.Add(tmiMenuItem);
+				var tmiMenuItem = new ToolStripMenuItem { Tag = "New", Text = "New Profile" };
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
+				tmiMenuItem = new ToolStripMenuItem { Tag = "Rename", Text = "Rename Current Profile" };
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
+				tmiMenuItem = new ToolStripMenuItem { Tag = "Remove", Text = "Remove Current Profile" };
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
+				tmiMenuItem = new ToolStripMenuItem { Tag = "Save", Text = "Save Current Profile" };
+				spbProfiles.DropDownItems.Add(tmiMenuItem);
 				tmiMenuItem = new ToolStripMenuItem();
 				spbProfiles.DropDownItems.Add(new ToolStripSeparator());
 
 				if (ViewModel.ProfileManager.CurrentProfile != null)
 				{
-                    var tmiProfile = new ToolStripMenuItem {Tag = ViewModel.ProfileManager.CurrentProfile};
-                    var name = ViewModel.ProfileManager.CurrentProfile.Name;
+					var tmiProfile = new ToolStripMenuItem { Tag = ViewModel.ProfileManager.CurrentProfile };
+					var name = ViewModel.ProfileManager.CurrentProfile.Name;
 
-                    if (name.Length > 64)
-                    {
-                        name = name.Substring(0, 62) + "..";
-                    }
+					if (name.Length > 64)
+					{
+						name = name.Substring(0, 62) + "..";
+					}
 
-                    tmiProfile.Text = $"{name} ({ViewModel.ProfileManager.CurrentProfile.ModCount})";
+					tmiProfile.Text = $"{name} ({ViewModel.ProfileManager.CurrentProfile.ModCount})";
 					spbProfiles.DropDownItems.Add(tmiProfile);
 
 					if (ViewModel.ProfileManager.CurrentProfile.IsDefault)
@@ -2865,42 +2948,49 @@
 				foreach (var impProfile in ViewModel.ProfileManager.ModProfiles.OrderBy(x => x.Name))
 				{
 					if (impProfile == ViewModel.ProfileManager.CurrentProfile)
-                    {
-                        continue;
-                    }
+					{
+						continue;
+					}
 
-                    var strProfileName = impProfile.Name;
+					var strProfileName = impProfile.Name;
 
-                    if (strProfileName.Length > 64)
-                    {
-                        strProfileName = strProfileName.Substring(0, 62) + "..";
-                    }
+					if (strProfileName.Length > 64)
+					{
+						strProfileName = strProfileName.Substring(0, 62) + "..";
+					}
 
-                    var tmiProfile = new ToolStripMenuItem
-                    {
-                        Tag = impProfile, Text = $"{strProfileName} ({impProfile.ModCount})"
-                    };
-                    spbProfiles.DropDownItems.Add(tmiProfile);
+					var tmiProfile = new ToolStripMenuItem
+					{
+						Tag = impProfile,
+						Text = $"{strProfileName} ({impProfile.ModCount})"
+					};
+					spbProfiles.DropDownItems.Add(tmiProfile);
 
-                    var tmiItem = new ToolStripMenuItem
-                    {
-                        Tag = "RenameProfile", Text = "Rename Profile", Name = impProfile.Name
-                    };
-                    tmiProfile.DropDownItems.Add(tmiItem);
+					var tmiItem = new ToolStripMenuItem
+					{
+						Tag = "RenameProfile",
+						Text = "Rename Profile",
+						Name = impProfile.Name
+					};
+					tmiProfile.DropDownItems.Add(tmiItem);
 
-                    tmiItem = new ToolStripMenuItem
-                    {
-                        Tag = "RemoveProfile", Text = "Remove Profile", Name = impProfile.Name
-                    };
-                    tmiProfile.DropDownItems.Add(tmiItem);
+					tmiItem = new ToolStripMenuItem
+					{
+						Tag = "RemoveProfile",
+						Text = "Remove Profile",
+						Name = impProfile.Name
+					};
+					tmiProfile.DropDownItems.Add(tmiItem);
 
 					if (ViewModel.GameMode.UsesPlugins)
 					{
-                        tmiItem = new ToolStripMenuItem
-                        {
-                            Tag = "ImportLoadorder", Text = "Import Profile's Load Order", Name = impProfile.Id
-                        };
-                        tmiProfile.DropDownItems.Add(tmiItem);
+						tmiItem = new ToolStripMenuItem
+						{
+							Tag = "ImportLoadorder",
+							Text = "Import Profile's Load Order",
+							Name = impProfile.Id
+						};
+						tmiProfile.DropDownItems.Add(tmiItem);
 					}
 
 					if (impProfile.IsDefault)
@@ -2926,10 +3016,10 @@
 				spbProfiles.Visible = true;
 			}
 			else
-            {
-                spbProfiles.Visible = false;
-            }
-        }
+			{
+				spbProfiles.Visible = false;
+			}
+		}
 
 		/// <summary>
 		/// Binds the SupportedTools launch commands to the UI.
@@ -2943,14 +3033,14 @@
 			{
 				foreach (var cmdLaunch in ViewModel.SupportedToolsLauncher.LaunchCommands)
 				{
-                    var tmiLaunch = new ToolStripMenuItem {Tag = cmdLaunch};
+					var tmiLaunch = new ToolStripMenuItem { Tag = cmdLaunch };
 
-                    if (tmiLaunch.Image == null)
-                    {
-                        tmiLaunch.Image = ToolStripRenderer.CreateDisabledImage(Properties.Resources.supported_tools_flat);
-                    }
+					if (tmiLaunch.Image == null)
+					{
+						tmiLaunch.Image = ToolStripRenderer.CreateDisabledImage(Properties.Resources.supported_tools_flat);
+					}
 
-                    new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
+					new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
 					tmiLaunch.MouseUp += TmiLaunch_Click;
 					spbSupportedTools.DropDownItems.Add(tmiLaunch);
 				}
@@ -2965,23 +3055,23 @@
 				}
 			}
 			else
-            {
-                spbSupportedTools.Visible = false;
-            }
-        }
+			{
+				spbSupportedTools.Visible = false;
+			}
+		}
 
 		private void TmiLaunch_Click(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.Right)
 			{
-                var tmiClicked = (ToolStripMenuItem) sender;
+				var tmiClicked = (ToolStripMenuItem)sender;
 
-                if (tmiClicked?.Tag != null && tmiClicked.Tag.GetType() == typeof(Command))
-                {
-                    spbSupportedTools.DropDown.Close();
-                    ViewModel.SupportedToolsLauncher.ConfigCommand(((Command)tmiClicked.Tag).Id);
-                }
-            }
+				if (tmiClicked?.Tag != null && tmiClicked.Tag.GetType() == typeof(Command))
+				{
+					spbSupportedTools.DropDown.Close();
+					ViewModel.SupportedToolsLauncher.ConfigCommand(((Command)tmiClicked.Tag).Id);
+				}
+			}
 		}
 
 		/// <summary>
@@ -3033,7 +3123,7 @@
 				var strCommand = e.ClickedItem.Tag.ToString();
 
 				var mopProfile = (ModProfile)sender;
-				
+
 				switch (strCommand)
 				{
 					case "RenameProfile":
@@ -3041,8 +3131,8 @@
 						{
 							var pdDialog = PromptDialog.ShowDialog("Rename Online", this, "Type the new name:", "Rename Local", mopProfile.Name, null, null);
 
-                            if (pdDialog != null)
- 							{
+							if (pdDialog != null)
+							{
 								if (!string.IsNullOrEmpty(pdDialog.EnteredText) && !pdDialog.EnteredText.Equals(mopProfile.Name, StringComparison.InvariantCulture))
 								{
 									if (pdDialog.EnteredText.Length > 64)
@@ -3051,13 +3141,13 @@
 										return;
 									}
 
-                                    if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
+									if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
 									{
 										MessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 										return;
 									}
 
-                                    mopProfile.Name = pdDialog.EnteredText;
+									mopProfile.Name = pdDialog.EnteredText;
 									ViewModel.ProfileManager.RenameProfile(mopProfile, mopProfile.Name);
 									BindProfileCommands();
 								}
@@ -3069,40 +3159,40 @@
 						{
 							var pdDialog = PromptDialog.ShowDialog("Remove Online", this, String.Format("Are you sure you want to remove the current profile: {0}", mopProfile.Name), "Remove Local", null, null, null);
 
-                            if (pdDialog != null)
-                            {
-                                ViewModel.ProfileManager.RemoveProfile(mopProfile);
-                            }
-                        }
+							if (pdDialog != null)
+							{
+								ViewModel.ProfileManager.RemoveProfile(mopProfile);
+							}
+						}
 						break;
 					case "ImportLoadorder":
 						if (!string.IsNullOrEmpty(e.ClickedItem.Name))
 						{
 							var drResult = ExtendedMessageBox.Show(this, $"Are you sure you want to import this profile's loadorder? '{mopProfile.Name}'", "Import Loadorder", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
-                            if (drResult == DialogResult.Yes)
+							if (drResult == DialogResult.Yes)
 							{
 								if (mopProfile.LoadOrder == null)
 								{
-                                    ViewModel.ProfileManager.LoadProfile(mopProfile, out var dicProfile);
+									ViewModel.ProfileManager.LoadProfile(mopProfile, out var dicProfile);
 
-                                    if (dicProfile != null && dicProfile.Count > 0 && dicProfile.ContainsKey("loadorder"))
+									if (dicProfile != null && dicProfile.Count > 0 && dicProfile.ContainsKey("loadorder"))
 									{
 										ViewModel.PluginManagerVM.ImportLoadOrderFromString(dicProfile["loadorder"]);
 									}
 								}
 								else
-                                {
-                                    ViewModel.PluginManagerVM.ImportLoadOrderFromDictionary(mopProfile.LoadOrder);
-                                }
-                            }
+								{
+									ViewModel.PluginManagerVM.ImportLoadOrderFromDictionary(mopProfile.LoadOrder);
+								}
+							}
 						}
 						break;
-                }
+				}
 			}
 		}
 
- 		/// <summary>
+		/// <summary>
 		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the profiles
 		/// split button.
 		/// </summary>
@@ -3119,24 +3209,24 @@
 				{
 					var strCommand = e.ClickedItem.Tag.ToString();
 
-                    switch (strCommand)
+					switch (strCommand)
 					{
 						case "New":
 							byte[] bteLoadOrder = null;
 
-                            if (ViewModel.GameMode.UsesPlugins)
-                            {
-                                bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-                            }
+							if (ViewModel.GameMode.UsesPlugins)
+							{
+								bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+							}
 
-                            AddNewProfile(bteLoadOrder);
+							AddNewProfile(bteLoadOrder);
 							var mopCurrentProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
 
-                            if (mopCurrentProfile != null)
+							if (mopCurrentProfile != null)
 							{
 								var pdDialog = PromptDialog.ShowDialog("", this, "Type the profile name:", "Set the Profile name", mopCurrentProfile.Name, null, null);
 
-                                if (pdDialog != null)
+								if (pdDialog != null)
 								{
 									if (!string.IsNullOrEmpty(pdDialog.EnteredText) && !pdDialog.EnteredText.Equals(mopCurrentProfile.Name, StringComparison.InvariantCulture))
 									{
@@ -3146,14 +3236,14 @@
 											return;
 										}
 
-                                        if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
+										if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
 										{
 											ExtendedMessageBox.Show(this, "Unable to set the profile name!" + Environment.NewLine + Environment.NewLine + "The profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 											return;
 										}
 
-                                        mopCurrentProfile.Name = pdDialog.EnteredText;
-                                        ViewModel.ProfileManager.UpdateProfile(mopCurrentProfile, null, null, null, out var error);
+										mopCurrentProfile.Name = pdDialog.EnteredText;
+										ViewModel.ProfileManager.UpdateProfile(mopCurrentProfile, null, null, null, out var error);
 									}
 								}
 							}
@@ -3161,11 +3251,11 @@
 						case "Rename":
 							var mopCurrent = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
 
-                            if (mopCurrent != null)
+							if (mopCurrent != null)
 							{
 								var pdDialog = PromptDialog.ShowDialog("Rename Online", this, "Type the new name:", "Rename Local", mopCurrent.Name, null, null);
 
-                                if (pdDialog != null)
+								if (pdDialog != null)
 								{
 									if (!string.IsNullOrEmpty(pdDialog.EnteredText) && !pdDialog.EnteredText.Equals(mopCurrent.Name, StringComparison.InvariantCulture))
 									{
@@ -3175,14 +3265,14 @@
 											return;
 										}
 
-                                        if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
+										if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
 										{
 											ExtendedMessageBox.Show(this, "Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 											return;
 										}
 
-                                        mopCurrent.Name = pdDialog.EnteredText;
-                                        ViewModel.ProfileManager.UpdateProfile(mopCurrent, null, null, null, out var error);
+										mopCurrent.Name = pdDialog.EnteredText;
+										ViewModel.ProfileManager.UpdateProfile(mopCurrent, null, null, null, out var error);
 
 										if (!string.IsNullOrEmpty(error))
 										{
@@ -3198,41 +3288,41 @@
 						case "Remove":
 							var mopProfile = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
 
-                            if (mopProfile != null)
+							if (mopProfile != null)
 							{
 								var pdDialog = PromptDialog.ShowDialog("Remove Online", this, $"Are you sure you want to remove the current profile: {mopProfile.Name}", "Remove Local", null, null, null);
 
-                                if (pdDialog != null)
-                                {
-                                    ViewModel.ProfileManager.RemoveProfile(mopProfile);
-                                }
-                            }
+								if (pdDialog != null)
+								{
+									ViewModel.ProfileManager.RemoveProfile(mopProfile);
+								}
+							}
 							break;
 						case "Save":
 							var mopUpdate = (ModProfile)ViewModel.ProfileManager.CurrentProfile;
 
-                            if (mopUpdate != null)
+							if (mopUpdate != null)
 							{
 								byte[] bteNewLoadOrder = null;
 
-                                if (ViewModel.GameMode.UsesPlugins)
-                                {
-                                    bteNewLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-                                }
+								if (ViewModel.GameMode.UsesPlugins)
+								{
+									bteNewLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
+								}
 
-                                var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXmlIniList();
+								var bteIniEdits = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 
 								string[] optionalFiles = null;
 
-                                if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-                                {
-                                    if (ViewModel.PluginManager?.ActivePlugins != null && ViewModel.PluginManager.ActivePlugins.Count > 0)
-                                    {
-                                        optionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
-                                    }
-                                }
+								if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
+								{
+									if (ViewModel.PluginManager?.ActivePlugins != null && ViewModel.PluginManager.ActivePlugins.Count > 0)
+									{
+										optionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+									}
+								}
 
-                                ViewModel.ProfileManager.UpdateProfile(mopUpdate, bteIniEdits, bteNewLoadOrder, optionalFiles, out var error);
+								ViewModel.ProfileManager.UpdateProfile(mopUpdate, bteIniEdits, bteNewLoadOrder, optionalFiles, out var error);
 
 								if (!string.IsNullOrEmpty(error))
 								{
@@ -3243,7 +3333,7 @@
 								BindProfileCommands();
 							}
 							break;
-                    }
+					}
 				}
 				else
 				{
@@ -3267,7 +3357,7 @@
 
 						var strProfilePath = ViewModel.VirtualModActivator.RequiresFixing(ViewModel.ProfileManager.GetProfileModListPath(impProfile));
 
-                        if (!string.IsNullOrEmpty(strProfilePath))
+						if (!string.IsNullOrEmpty(strProfilePath))
 						{
 							lstConfigFiles.Add(strProfilePath);
 							ViewModel.FixConfigFiles(lstConfigFiles, impProfile);
@@ -3312,15 +3402,15 @@
 			string[] optionalFiles = null;
 
 			if (ViewModel.GameMode.RequiresOptionalFilesCheckOnProfileSwitch && ViewModel.PluginManager?.ActivePlugins != null && ViewModel.PluginManager.ActivePlugins.Count > 0)
-            {
-                optionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
-            }
+			{
+				optionalFiles = ViewModel.GameMode.GetOptionalFilesList(ViewModel.PluginManager.ActivePlugins.Select(x => x.Filename).ToArray());
+			}
 
-            if (backup)
-            {
-                ViewModel.ProfileManager.BackupProfile(modList, iniList, loadOrder, ViewModel.GameMode.ModeId, modCount, optionalFiles);
-            }
-            else
+			if (backup)
+			{
+				ViewModel.ProfileManager.BackupProfile(modList, iniList, loadOrder, ViewModel.GameMode.ModeId, modCount, optionalFiles);
+			}
+			else
 			{
 				try
 				{
@@ -3328,7 +3418,7 @@
 				}
 				catch (Exception e)
 				{
-					MessageBox.Show(string.Format("There were issues saving the current profile: " + Environment.NewLine + Environment.NewLine + "{0}" + Environment.NewLine, e.Message), "Warning",  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					MessageBox.Show(string.Format("There were issues saving the current profile: " + Environment.NewLine + Environment.NewLine + "{0}" + Environment.NewLine, e.Message), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				}
 			}
 
@@ -3343,10 +3433,10 @@
 		/// <c>false</c> otherwise.</returns>
 		private bool ConfirmCloseAfterGameLaunch(out bool rememberSelection)
 		{
-            var close = ExtendedMessageBox.Show(this, $"Would you like {CommonData.ModManagerName} to close after launching the game?", "Close", "Details", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out var remember) == DialogResult.Yes;
+			var close = ExtendedMessageBox.Show(this, $"Would you like {CommonData.ModManagerName} to close after launching the game?", "Close", "Details", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out var remember) == DialogResult.Yes;
 			rememberSelection = remember;
 
-            return close;
+			return close;
 		}
 
 		/// <summary>
@@ -3359,14 +3449,14 @@
 		private void GameLauncher_GameLaunched(object sender, GameLaunchEventArgs e)
 		{
 			if (!e.Launched)
-            {
-                MessageBox.Show(this, e.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            else if (ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
-            {
-                Close();
-            }
-        }
+			{
+				MessageBox.Show(this, e.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			else if (ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
+			{
+				Close();
+			}
+		}
 
 		#endregion
 
@@ -3380,7 +3470,7 @@
 
 			var changeMode = new Bitmap(spbChangeMode.Image);
 
-            for (var y = 0; y < changeMode.Height; y++)
+			for (var y = 0; y < changeMode.Height; y++)
 			{
 				for (var x = 0; x < changeMode.Width; x++)
 				{
@@ -3430,14 +3520,14 @@
 			base.OnResize(e);
 
 			if (WindowState != FormWindowState.Minimized)
-            {
-                _lastWindowState = WindowState;
-            }
-            else if (_balloonManager?.balloonHelp != null && _balloonManager.balloonHelp.Visible)
-            {
-                _balloonManager.balloonHelp.Close();
-            }
-        }
+			{
+				_lastWindowState = WindowState;
+			}
+			else if (_balloonManager?.balloonHelp != null && _balloonManager.balloonHelp.Visible)
+			{
+				_balloonManager.balloonHelp.Close();
+			}
+		}
 
 		/// <summary>
 		/// Raises the <see cref="Form.Shown"/> event.
@@ -3452,11 +3542,11 @@
 			ShowStartupMessage();
 			ViewModel.ViewIsShown();
 
-            if (ViewModel.ModRepository.IsOffline)
-            {
-                ViewModel.ModManager.LoginTask.TokenLogin();
-            }
-        }
+			if (ViewModel.ModRepository.IsOffline)
+			{
+				ViewModel.ModManager.LoginTask.TokenLogin();
+			}
+		}
 
 		#endregion
 

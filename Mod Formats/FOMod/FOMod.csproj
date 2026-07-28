@@ -78,6 +78,7 @@
     </Compile>
     <Compile Include="FOMod.cs" />
     <Compile Include="FOModArchiveMetadataCache.cs" />
+    <Compile Include="FomodCacheRepairTool.cs" />
     <Compile Include="FOModFormat.cs" />
     <Compile Include="FOModModCompressor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
