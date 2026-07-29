@@ -1,6 +1,7 @@
 ﻿namespace Nexus.Client.PluginManagement.UI
 {
     using DevExpress.Utils;
+	using DevExpress.Utils.DragDrop;
 	using DevExpress.XtraBars;
 	using DevExpress.XtraEditors;
 	using DevExpress.XtraEditors.Controls;
@@ -10,7 +11,6 @@
     using DevExpress.XtraGrid.Views.Base;
     using DevExpress.XtraGrid.Views.Grid;
     using DevExpress.XtraGrid.Views.Grid.ViewInfo;
-	using Nexus.Client.Games.Gamebryo.ModManagement.Scripting;
     using Nexus.Client.Plugins;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
@@ -80,7 +80,9 @@
         public event EventHandler UpdatePluginsCount;
         public event EventHandler PluginMoved;
 
-        public PluginManagerDXControl()
+		private DevExpress.Utils.Behaviors.BehaviorManager behaviorManager;
+
+		public PluginManagerDXControl()
         {
             Text = "Plugins";
             Name = "PluginManagerDXControl";
@@ -291,10 +293,31 @@
             _gridLayoutSaveTimer.Tick += GridLayoutSaveTimerTick;
 
 			SetupGrid();
-            UpdateCommandState();
+			SetupDragAndDrop();
+			UpdateCommandState();
         }
 
-        internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
+		private void SetupDragAndDrop()
+		{
+			// Ensure the standard OLE drag-drop is disabled to avoid conflicts
+			_gridControl.AllowDrop = false;
+			_gridView.OptionsDragDrop.AllowDataReordering = true;
+
+			// Instantiate the manager (pass components if available for proper disposal)
+			this.behaviorManager = new DevExpress.Utils.Behaviors.BehaviorManager();
+
+			this.behaviorManager.Attach<DragDropBehavior>(_gridView, behavior =>
+			{
+				behavior.Properties.AllowDrop = true;
+				behavior.Properties.InsertIndicatorVisible = true; // Draws a clean line between rows
+				behavior.Properties.PreviewVisible = true;         // Ghost image of dragged plugin
+				
+				behavior.DragOver += Behavior_DragOver;
+				behavior.DragDrop += Behavior_DragDrop;
+			});
+		}
+
+		internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
         {
             if (settings == null) return;
 
@@ -355,11 +378,11 @@
 			_gridView.CustomRowCellEdit += GridViewCustomRowCellEdit;
             _gridView.ShowingEditor += GridViewShowingEditor;            _gridView.CustomColumnDisplayText += GridViewCustomColumnDisplayText;
             _gridView.RowCellStyle += GridViewRowCellStyle;
-            _gridControl.AllowDrop = true;
-            _gridControl.MouseDown += GridControlMouseDown;
-            _gridControl.MouseMove += GridControlMouseMove;
-            _gridControl.DragOver += GridControlDragOver;
-            _gridControl.DragDrop += GridControlDragDrop;
+            _gridControl.AllowDrop = false;
+            //_gridControl.MouseDown += GridControlMouseDown;
+            //_gridControl.MouseMove += GridControlMouseMove;
+            //_gridControl.DragOver += GridControlDragOver;
+            //_gridControl.DragDrop += GridControlDragDrop;
             _gridView.EndSorting += GridViewEndSorting;
             _gridView.ColumnWidthChanged +=
                 (sender, args) => QueueGridLayoutSave();
@@ -1089,6 +1112,117 @@
 				return;
 
 			_viewModel.ManagePlugins(toActivate, toDeactivate);
+		}
+
+		private void Behavior_DragOver(object sender, DragOverEventArgs e)
+		{
+			DragOverGridEventArgs args = DragOverGridEventArgs.GetDragOverGridEventArgs(e);
+			if (args == null) return;
+
+			// DevExpress passes dragged items as an array of row handles
+			int[] draggedHandles = e.GetData<int[]>();
+			if (draggedHandles == null || draggedHandles.Length == 0) return;
+
+			// Prevent dragging if the user grabs a locked plugin
+			PluginManagerDXRow draggedRow = _gridView.GetRow(draggedHandles[0]) as PluginManagerDXRow;
+
+			if (draggedRow == null || IsPluginLocked(draggedRow.Plugin))
+			{
+				e.Action = DragDropActions.None;
+				e.Cursor = System.Windows.Forms.Cursors.No;
+				e.Handled = true; // We want to block DevExpress from processing a locked mod
+				return;
+			}
+
+			// Allow the visual drag to continue
+			e.Action = DragDropActions.Move;
+			e.Cursor = System.Windows.Forms.Cursors.Default;
+
+			// By NOT setting e.Handled here, DevExpress will continue its default background 
+			// processing, which includes firing the edge auto-scroll timer.
+		}
+
+		private void Behavior_DragDrop(object sender, DragDropEventArgs e)
+		{
+			GridView targetView = e.Target as GridView;
+			DragDropGridEventArgs args = DragDropGridEventArgs.GetDragDropGridEventArgs(e);
+
+			if (targetView == null || args == null) return;
+
+			int[] draggedHandles = e.GetData<int[]>();
+			if (draggedHandles == null || draggedHandles.Length == 0) return;
+
+			PluginManagerDXRow draggedRow = targetView.GetRow(draggedHandles[0]) as PluginManagerDXRow;
+
+			// Legacy Early Exit Checks
+			if (draggedRow == null || _pluginManager == null || IsPluginLocked(draggedRow.Plugin))
+			{
+				RebuildRows();
+				e.Handled = true;
+				return;
+			}
+
+			int targetRowHandle = args.HitInfo.RowHandle >= 0
+				? args.HitInfo.RowHandle
+				: targetView.RowCount - 1;
+
+			PluginManagerDXRow targetRow = targetView.GetRow(targetRowHandle) as PluginManagerDXRow;
+
+			if (targetRow == null || targetRow == draggedRow)
+			{
+				e.Handled = true;
+				return;
+			}
+
+			// NMM BACKEND LOGIC
+			List<Plugin> currentOrder = new List<Plugin>(_viewModel.ManagedPlugins);
+			List<Plugin> proposedOrder = new List<Plugin>(currentOrder);
+
+			int sourceIndex = proposedOrder.IndexOf(draggedRow.Plugin);
+			int targetIndex = proposedOrder.IndexOf(targetRow.Plugin);
+
+			proposedOrder.RemoveAt(sourceIndex);
+
+			// UI Adjustment: DevExpress draws an indicator line either BEFORE or AFTER a row.
+			// We must adjust the target index based on where that visual line is drawn so the 
+			// drop matches user expectation.
+			if (args.InsertType == InsertType.After)
+			{
+				targetIndex++;
+			}
+
+			// Legacy adjustment: if we removed a plugin from *above* the drop target, 
+			// the target index shifts up by 1.
+			if (sourceIndex < targetIndex)
+			{
+				targetIndex--;
+			}
+
+			targetIndex = Math.Max(0, Math.Min(targetIndex, proposedOrder.Count));
+
+			proposedOrder.Insert(targetIndex, draggedRow.Plugin);
+
+			// Final safety check for locked mods
+			if (!PreservesLockedPluginPositions(currentOrder, proposedOrder))
+			{
+				RebuildRows();
+				e.Handled = true;
+				return;
+			}
+
+			// Suspend UI drawing while the backend processes the change
+			targetView.BeginUpdate();
+			try
+			{
+				ApplyPluginOrderChange(() => _pluginManager.SetPluginOrder(proposedOrder));
+			}
+			finally
+			{
+				targetView.EndUpdate();
+			}
+
+			// Tell DevExpress we completed the drop manually so it doesn't try to manipulate the UI
+			e.Handled = true;
 		}
 
 		private void GridControlMouseDown(object sender, MouseEventArgs e)
