@@ -48,10 +48,10 @@
   "orderedOfficialPluginNames": [
     "Constellation.esm",
     "OldMars.esm",
-    "ShatteredSpace.esm"
+    "ShatteredSpace.esm",
+    "BlueprintShips-Starfield.esm"
   ],
   "orderedOfficialUnmanagedPluginNames": [
-    "BlueprintShips-Starfield.esm",
     "BlueprintShips-SFBGS050.esm",
     "SFBGS003.esm",
     "SFBGS004.esm",
